@@ -192,56 +192,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/academic-years": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["AcademicYearController_findAll_v1"];
-        put?: never;
-        post: operations["AcademicYearController_create_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/academic-years/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["AcademicYearController_findOne_v1"];
-        put?: never;
-        post?: never;
-        delete: operations["AcademicYearController_remove_v1"];
-        options?: never;
-        head?: never;
-        patch: operations["AcademicYearController_update_v1"];
-        trace?: never;
-    };
-    "/api/v1/academic-years/{id}/stats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Class/student/fee-structure counts attached to this academic year. */
-        get: operations["AcademicYearController_getStats_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/academic-years/{id}/set-current": {
+    "/api/v1/auth/step-up/otp/request": {
         parameters: {
             query?: never;
             header?: never;
@@ -250,70 +201,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Mark this academic year as the tenant's current one, unsetting any other year previously marked current. */
-        post: operations["AcademicYearController_setCurrent_v1"];
+        /** Sends a step-up OTP to an approver by identifier. Always 202 — never reveals whether the identifier resolves to an eligible approver. */
+        post: operations["StepUpController_requestOtp_v1"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/subjects": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List subjects for the current tenant. */
-        get: operations["SubjectController_findAll_v1"];
-        put?: never;
-        /** Create a subject. */
-        post: operations["SubjectController_create_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/subjects/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get a single subject by ID. */
-        get: operations["SubjectController_findOne_v1"];
-        put?: never;
-        post?: never;
-        /** Delete a subject. */
-        delete: operations["SubjectController_remove_v1"];
-        options?: never;
-        head?: never;
-        /** Update a subject. */
-        patch: operations["SubjectController_update_v1"];
-        trace?: never;
-    };
-    "/api/v1/classes/{classId}/subjects": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List a class's subjects for an academic year. */
-        get: operations["ClassSubjectController_findByClass_v1"];
-        put?: never;
-        /** Attach a subject to a class's academic-year offering. */
-        post: operations["ClassSubjectController_attach_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/classes/{classId}/subjects/{subjectId}": {
+    "/api/v1/auth/step-up": {
         parameters: {
             query?: never;
             header?: never;
@@ -322,254 +218,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post?: never;
-        /** Detach a subject from a class's academic-year offering. */
-        delete: operations["ClassSubjectController_detach_v1"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/school-calendar/holidays": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List holidays for the current tenant, paginated. */
-        get: operations["SchoolCalendarController_listHolidays_v1"];
-        put?: never;
-        /** Create a holiday (or exam-day/event calendar entry). */
-        post: operations["SchoolCalendarController_createHoliday_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/school-calendar/holidays/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Soft-delete a holiday. */
-        delete: operations["SchoolCalendarController_removeHoliday_v1"];
-        options?: never;
-        head?: never;
-        /** Update a holiday. */
-        patch: operations["SchoolCalendarController_updateHoliday_v1"];
-        trace?: never;
-    };
-    "/api/v1/school-calendar/working-days": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Every working day in [from, to] for the current tenant — weekly-off days and holidays removed. Bounded to 400 days. */
-        get: operations["SchoolCalendarController_getWorkingDays_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/schools": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List every school (id, name, slug, status, created_at) — #8.7.13's super-admin school picker, extended by #533's platform schools list. An ADMIN doesn't get this route at all; they already know their one school from their own tenant context. */
-        get: operations["SchoolsController_findAll_v1"];
-        put?: never;
-        /** Create a school and its first ADMIN in one atomic, idempotent request. Replaying the same idempotency_key returns the original result (200) instead of creating a second school/user/invitation. */
-        post: operations["ProvisioningController_provision_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/schools/{id}/stats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Five cheap platform metrics for a school (#532) — active users, students, queued/recently-failed communications, and last activity. SUPER_ADMIN only. */
-        get: operations["SchoolsController_getStats_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/schools/{id}/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Suspend or reactivate a school (#530). SUPER_ADMIN only. A mandatory reason is audited (SUSPEND/REACTIVATE), and the tenant status cache is invalidated so the change takes effect on the school's very next request. */
-        patch: operations["SchoolsController_updateStatus_v1"];
-        trace?: never;
-    };
-    "/api/v1/schools/{id}/settings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Read a school's tenant settings. Secret fields (WhatsApp/email/SMS credentials) are masked — configured flag and a short hint, never the plaintext. */
-        get: operations["SchoolsController_getSettings_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Update a school's tenant settings. A secret field omitted from the body is left unchanged; sending it as null clears it. Unknown keys are rejected. */
-        patch: operations["SchoolsController_updateSettings_v1"];
-        trace?: never;
-    };
-    "/api/v1/schools/me/profile": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Read the caller's school profile (name, name_bn, address, phone, email, registration_id, logo_url). Any authenticated staff role. */
-        get: operations["SchoolProfileController_getProfile_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Update the caller school profile (partial). ADMIN only. Every change is audited. */
-        patch: operations["SchoolProfileController_updateProfile_v1"];
-        trace?: never;
-    };
-    "/api/v1/schools/{id}/logo": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Serve the raw logo bytes for a school. Any member of that school (or SUPER_ADMIN). `v` (the uuid from a logo_url or a document issuer_snapshot.logo_key) selects that exact object; omitted, the current logo. 404 if there is nothing to serve. */
-        get: operations["SchoolLogoController_serve_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/schools/me/logo": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Upload the school logo (PNG/JPEG/WebP, <=512KB, <=2048px per side). Re-encoded to a 512x512-max PNG. */
-        post: operations["SchoolLogoController_upload_v1"];
-        /** Remove the school logo. */
-        delete: operations["SchoolLogoController_remove_v1"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/schools/{id}/admins": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List a school's ADMIN memberships and their invitation status. */
-        get: operations["SchoolAdminsController_list_v1"];
-        put?: never;
-        /** Add an ADMIN to a school, reusing the find-or-create-user + membership + invitation logic POST /schools uses. An existing user matched by email/phone is not duplicated. */
-        post: operations["SchoolAdminsController_addAdmin_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/schools/{id}/admins/{userId}/resend-invitation": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Resend an ADMIN's pending invitation. Returns the reissued invitation (its `debug.token` echoed under ACCOUNT_ACCESS_ECHO_SECRETS, same as every other issue-and-send call site) rather than 204 — see SchoolAdminsService.resendInvitation's own comment. */
-        post: operations["SchoolAdminsController_resendInvitation_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/schools/{id}/admins/{userId}/invitation": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Revoke an ADMIN's pending invitation. */
-        delete: operations["SchoolAdminsController_revokeInvitation_v1"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/schools/{id}/sms-credits": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** A school's SMS credit balance and ledger, newest first, for SUPER_ADMIN's cross-school console. Same shape as the tenant-facing GET /communications/sms-credits, but scoped to the :id in the path rather than the caller's own tenant. */
-        get: operations["SchoolSmsCreditsController_getSmsCredits_v1"];
-        put?: never;
-        /** Grant (positive units) or adjust (negative units) a school's SMS credit balance. Audited (School/UPDATE). Idempotent on `idempotency_key` — a repeat is a no-op, still 200 with the current balance. */
-        post: operations["SchoolSmsCreditsController_grantOrAdjust_v1"];
+        /** Verifies an approver by OTP or password and issues a 300s approval token scoped to one gated action. */
+        post: operations["StepUpController_verify_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1341,6 +991,199 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/schools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List every school (id, name, slug, status, created_at) — #8.7.13's super-admin school picker, extended by #533's platform schools list. An ADMIN doesn't get this route at all; they already know their one school from their own tenant context. */
+        get: operations["SchoolsController_findAll_v1"];
+        put?: never;
+        /** Create a school and its first ADMIN in one atomic, idempotent request. Replaying the same idempotency_key returns the original result (200) instead of creating a second school/user/invitation. */
+        post: operations["ProvisioningController_provision_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schools/{id}/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Five cheap platform metrics for a school (#532) — active users, students, queued/recently-failed communications, and last activity. SUPER_ADMIN only. */
+        get: operations["SchoolsController_getStats_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schools/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Suspend or reactivate a school (#530). SUPER_ADMIN only. A mandatory reason is audited (SUSPEND/REACTIVATE), and the tenant status cache is invalidated so the change takes effect on the school's very next request. */
+        patch: operations["SchoolsController_updateStatus_v1"];
+        trace?: never;
+    };
+    "/api/v1/schools/{id}/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a school's tenant settings. Secret fields (WhatsApp/email/SMS credentials) are masked — configured flag and a short hint, never the plaintext. */
+        get: operations["SchoolsController_getSettings_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update a school's tenant settings. A secret field omitted from the body is left unchanged; sending it as null clears it. Unknown keys are rejected. */
+        patch: operations["SchoolsController_updateSettings_v1"];
+        trace?: never;
+    };
+    "/api/v1/schools/me/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the caller's school profile (name, name_bn, address, phone, email, registration_id, logo_url). Any authenticated staff role. */
+        get: operations["SchoolProfileController_getProfile_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update the caller school profile (partial). ADMIN only. Every change is audited. */
+        patch: operations["SchoolProfileController_updateProfile_v1"];
+        trace?: never;
+    };
+    "/api/v1/schools/{id}/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Serve the raw logo bytes for a school. Any member of that school (or SUPER_ADMIN). `v` (the uuid from a logo_url or a document issuer_snapshot.logo_key) selects that exact object; omitted, the current logo. 404 if there is nothing to serve. */
+        get: operations["SchoolLogoController_serve_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schools/me/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload the school logo (PNG/JPEG/WebP, <=512KB, <=2048px per side). Re-encoded to a 512x512-max PNG. */
+        post: operations["SchoolLogoController_upload_v1"];
+        /** Remove the school logo. */
+        delete: operations["SchoolLogoController_remove_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schools/{id}/admins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a school's ADMIN memberships and their invitation status. */
+        get: operations["SchoolAdminsController_list_v1"];
+        put?: never;
+        /** Add an ADMIN to a school, reusing the find-or-create-user + membership + invitation logic POST /schools uses. An existing user matched by email/phone is not duplicated. */
+        post: operations["SchoolAdminsController_addAdmin_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schools/{id}/admins/{userId}/resend-invitation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resend an ADMIN's pending invitation. Returns the reissued invitation (its `debug.token` echoed under ACCOUNT_ACCESS_ECHO_SECRETS, same as every other issue-and-send call site) rather than 204 — see SchoolAdminsService.resendInvitation's own comment. */
+        post: operations["SchoolAdminsController_resendInvitation_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schools/{id}/admins/{userId}/invitation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke an ADMIN's pending invitation. */
+        delete: operations["SchoolAdminsController_revokeInvitation_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schools/{id}/sms-credits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A school's SMS credit balance and ledger, newest first, for SUPER_ADMIN's cross-school console. Same shape as the tenant-facing GET /communications/sms-credits, but scoped to the :id in the path rather than the caller's own tenant. */
+        get: operations["SchoolSmsCreditsController_getSmsCredits_v1"];
+        put?: never;
+        /** Grant (positive units) or adjust (negative units) a school's SMS credit balance. Audited (School/UPDATE). Idempotent on `idempotency_key` — a repeat is a no-op, still 200 with the current balance. */
+        post: operations["SchoolSmsCreditsController_grantOrAdjust_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/communications/sms-credits": {
         parameters: {
             query?: never;
@@ -1350,6 +1193,197 @@ export interface paths {
         };
         /** This tenant's SMS credit balance and ledger, newest first. `metering: 'OFF'` still returns the shape (an always-0/0 balance, an empty ledger) rather than a different one. */
         get: operations["CreditsController_getSmsCredits_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/academic-years": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AcademicYearController_findAll_v1"];
+        put?: never;
+        post: operations["AcademicYearController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/academic-years/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AcademicYearController_findOne_v1"];
+        put?: never;
+        post?: never;
+        delete: operations["AcademicYearController_remove_v1"];
+        options?: never;
+        head?: never;
+        patch: operations["AcademicYearController_update_v1"];
+        trace?: never;
+    };
+    "/api/v1/academic-years/{id}/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Class/student/fee-structure counts attached to this academic year. */
+        get: operations["AcademicYearController_getStats_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/academic-years/{id}/set-current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark this academic year as the tenant's current one, unsetting any other year previously marked current. */
+        post: operations["AcademicYearController_setCurrent_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/subjects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List subjects for the current tenant. */
+        get: operations["SubjectController_findAll_v1"];
+        put?: never;
+        /** Create a subject. */
+        post: operations["SubjectController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/subjects/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a single subject by ID. */
+        get: operations["SubjectController_findOne_v1"];
+        put?: never;
+        post?: never;
+        /** Delete a subject. */
+        delete: operations["SubjectController_remove_v1"];
+        options?: never;
+        head?: never;
+        /** Update a subject. */
+        patch: operations["SubjectController_update_v1"];
+        trace?: never;
+    };
+    "/api/v1/classes/{classId}/subjects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a class's subjects for an academic year. */
+        get: operations["ClassSubjectController_findByClass_v1"];
+        put?: never;
+        /** Attach a subject to a class's academic-year offering. */
+        post: operations["ClassSubjectController_attach_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/classes/{classId}/subjects/{subjectId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Detach a subject from a class's academic-year offering. */
+        delete: operations["ClassSubjectController_detach_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/school-calendar/holidays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List holidays for the current tenant, paginated. */
+        get: operations["SchoolCalendarController_listHolidays_v1"];
+        put?: never;
+        /** Create a holiday (or exam-day/event calendar entry). */
+        post: operations["SchoolCalendarController_createHoliday_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/school-calendar/holidays/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Soft-delete a holiday. */
+        delete: operations["SchoolCalendarController_removeHoliday_v1"];
+        options?: never;
+        head?: never;
+        /** Update a holiday. */
+        patch: operations["SchoolCalendarController_updateHoliday_v1"];
+        trace?: never;
+    };
+    "/api/v1/school-calendar/working-days": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every working day in [from, to] for the current tenant — weekly-off days and holidays removed. Bounded to 400 days. */
+        get: operations["SchoolCalendarController_getWorkingDays_v1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2334,410 +2368,21 @@ export interface components {
             /** @description The new password to store. */
             new_password: string;
         };
-        CreateAcademicYearDto: {
-            name: string;
-            start_date: string;
-            end_date: string;
-            is_current?: boolean;
+        StepUpOtpRequestDto: {
+            /** @description The approver's email or phone. */
+            identifier: string;
         };
-        School: {
-            id: string;
-            name: string;
-            slug: string;
-            domain: string | null;
-            address: string | null;
-            phone: string | null;
-            email: string | null;
-            name_bn: string | null;
-            registration_id: string | null;
-            logo_key: string | null;
-            settings: {
-                [key: string]: unknown;
-            } | null;
+        StepUpVerifyDto: {
+            /** @description The approver's email or phone. */
+            identifier: string;
             /** @enum {string} */
-            status: "ACTIVE" | "SUSPENDED";
-            status_reason: string | null;
-            /** Format: date-time */
-            status_changed_at: string | null;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** Format: date-time */
-            deleted_at: string | null;
-        };
-        AcademicYear: {
-            id: string;
-            name: string;
-            /** Format: date-time */
-            start_date: string;
-            /** Format: date-time */
-            end_date: string;
-            is_current: boolean;
-            tenant: components["schemas"]["School"];
-            tenant_id: string;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** Format: date-time */
-            deleted_at: string | null;
-        };
-        UpdateAcademicYearDto: {
-            name?: string;
-            start_date?: string;
-            end_date?: string;
-            is_current?: boolean;
-        };
-        CreateSubjectDto: {
-            name_en: string;
-            name_bn?: string;
-            code: string;
-            is_active?: boolean;
-        };
-        Subject: {
-            id: string;
-            tenant: components["schemas"]["School"];
-            tenant_id: string;
-            name_en: string;
-            name_bn: string | null;
-            code: string;
-            is_active: boolean;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** Format: date-time */
-            deleted_at: string | null;
-        };
-        UpdateSubjectDto: {
-            name_en?: string;
-            name_bn?: string;
-            code?: string;
-            is_active?: boolean;
-        };
-        ClassSection: {
-            id: string;
-            class: components["schemas"]["Class"];
-            class_id: string;
-            section_name: string;
-            capacity: number | null;
-            tenant: components["schemas"]["School"];
-            tenant_id: string;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** Format: date-time */
-            deleted_at: string | null;
-        };
-        Class: {
-            id: string;
-            name: string;
-            numeric_grade: number | null;
-            academic_year: components["schemas"]["AcademicYear"];
-            academic_year_id: string;
-            tenant: components["schemas"]["School"];
-            tenant_id: string;
-            sections: components["schemas"]["ClassSection"][];
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** Format: date-time */
-            deleted_at: string | null;
-        };
-        ClassSubject: {
-            id: string;
-            tenant: components["schemas"]["School"];
-            tenant_id: string;
-            class: components["schemas"]["Class"];
-            class_id: string;
-            subject: components["schemas"]["Subject"];
-            subject_id: string;
-            academic_year: components["schemas"]["AcademicYear"];
-            academic_year_id: string;
-            is_optional: boolean;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** Format: date-time */
-            deleted_at: string | null;
-        };
-        AttachClassSubjectDto: {
-            /** Format: uuid */
-            subject_id: string;
-            /** Format: uuid */
-            academic_year_id: string;
-            is_optional?: boolean;
-        };
-        CreateHolidayDto: {
-            /** Format: uuid */
-            academic_year_id: string;
-            start_date: string;
-            end_date: string;
-            name: string;
-            counts_as_working_day?: boolean;
-        };
-        SchoolHoliday: {
-            id: string;
-            tenant: components["schemas"]["School"];
-            tenant_id: string;
-            academic_year: components["schemas"]["AcademicYear"];
-            academic_year_id: string;
-            start_date: string;
-            end_date: string;
-            name: string;
-            counts_as_working_day: boolean;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** Format: date-time */
-            deleted_at: string | null;
-        };
-        UpdateHolidayDto: {
-            /** Format: uuid */
-            academic_year_id?: string;
-            start_date?: string;
-            end_date?: string;
-            name?: string;
-            counts_as_working_day?: boolean;
-        };
-        SchoolListItemDto: {
-            id: string;
-            name: string;
-            slug: string;
+            method: "OTP" | "PASSWORD";
+            /** @description 6-digit OTP — required when method is OTP. */
+            otp?: string;
+            /** @description The approver's password — required when method is PASSWORD. */
+            password?: string;
             /** @enum {string} */
-            status: "ACTIVE" | "SUSPENDED";
-            /** Format: date-time */
-            created_at: string;
-        };
-        UpdateSchoolStatusDto: {
-            /** @enum {string} */
-            status: "ACTIVE" | "SUSPENDED";
-            reason: string;
-        };
-        RegionCurrencyDto: {
-            code: string;
-            symbol: string;
-            /** @enum {string} */
-            position: "prefix" | "suffix";
-            decimals: number;
-            /** @enum {string} */
-            grouping: "lakh-crore" | "thousand";
-        };
-        RegionDateDto: {
-            format: string;
-            firstDayOfWeek: number;
-            calendar: string;
-        };
-        RegionPhoneDto: {
-            country: string;
-            pattern: string;
-            example: string;
-            displayFormat: string;
-        };
-        RegionAddressDto: {
-            fields: string[];
-            order: string[];
-        };
-        RegionAcademicYearDto: {
-            startMonth: number;
-        };
-        RegionIdentifiersDto: {
-            national: string;
-            student: string;
-        };
-        RegionSettingsDto: {
-            locale: string;
-            currency: components["schemas"]["RegionCurrencyDto"];
-            /** @enum {string} */
-            numerals: "latin" | "bengali";
-            date: components["schemas"]["RegionDateDto"];
-            phone: components["schemas"]["RegionPhoneDto"];
-            address: components["schemas"]["RegionAddressDto"];
-            academicYear: components["schemas"]["RegionAcademicYearDto"];
-            identifiers: components["schemas"]["RegionIdentifiersDto"];
-            timezone: string;
-        };
-        MaskedSecretResponseDto: {
-            configured: boolean;
-            hint?: string;
-        };
-        MaskedGreenwebSmsResponseDto: {
-            apiKey: components["schemas"]["MaskedSecretResponseDto"];
-            apiUrl?: string;
-        };
-        MaskedMimSmsResponseDto: {
-            apiKey: components["schemas"]["MaskedSecretResponseDto"];
-            senderId: string;
-            apiUrl?: string;
-        };
-        MaskedSmsSettingsResponseDto: {
-            provider: string;
-            greenweb?: components["schemas"]["MaskedGreenwebSmsResponseDto"];
-            mimsms?: components["schemas"]["MaskedMimSmsResponseDto"];
-        };
-        MaskedWhatsAppSettingsResponseDto: {
-            phoneNumberId: string;
-            apiVersion?: string;
-            accessToken: components["schemas"]["MaskedSecretResponseDto"];
-        };
-        MaskedEmailSettingsResponseDto: {
-            host: string;
-            port: number;
-            user: string;
-            from: string;
-            password: components["schemas"]["MaskedSecretResponseDto"];
-        };
-        MaskedMessengerSettingsResponseDto: {
-            pageId: string;
-            accessToken: components["schemas"]["MaskedSecretResponseDto"];
-        };
-        MaskedCommunicationsSettingsResponseDto: {
-            sms?: components["schemas"]["MaskedSmsSettingsResponseDto"];
-            whatsapp?: components["schemas"]["MaskedWhatsAppSettingsResponseDto"];
-            email?: components["schemas"]["MaskedEmailSettingsResponseDto"];
-            messenger?: components["schemas"]["MaskedMessengerSettingsResponseDto"];
-        };
-        TenantSettingsResponseDto: {
-            version: number;
-            region?: components["schemas"]["RegionSettingsDto"];
-            communications?: components["schemas"]["MaskedCommunicationsSettingsResponseDto"];
-        };
-        GreenwebSmsDto: {
-            apiKey?: string | null;
-            apiUrl?: string;
-        };
-        MimSmsDto: {
-            apiKey?: string | null;
-            senderId: string;
-            apiUrl?: string;
-        };
-        SmsSettingsDto: {
-            /** @enum {string} */
-            provider: "greenweb" | "mimsms";
-            greenweb?: components["schemas"]["GreenwebSmsDto"];
-            mimsms?: components["schemas"]["MimSmsDto"];
-            /** @enum {string} */
-            metering?: "OFF" | "PLATFORM";
-        };
-        WhatsAppSettingsDto: {
-            phoneNumberId: string;
-            apiVersion?: string;
-            accessToken?: string | null;
-        };
-        EmailSettingsDto: {
-            host: string;
-            port: number;
-            user: string;
-            from: string;
-            password?: string | null;
-        };
-        MessengerSettingsDto: {
-            pageId: string;
-            accessToken?: string | null;
-        };
-        CommunicationsSettingsDto: {
-            sms?: components["schemas"]["SmsSettingsDto"];
-            whatsapp?: components["schemas"]["WhatsAppSettingsDto"];
-            email?: components["schemas"]["EmailSettingsDto"];
-            messenger?: components["schemas"]["MessengerSettingsDto"];
-        };
-        AutoAbsentNotificationDto: {
-            enabled: boolean;
-            cutoffTime: string;
-        };
-        AttendancePolicyDto: {
-            weeklyOffDays: number[];
-            lateAfter: string;
-            absentAfter: string;
-            correctionWindowDays: number;
-            lowAttendanceThresholdPercent: number;
-            lateCountsAsPresent: boolean;
-            leaveCountsAsWorkingDay: boolean;
-            /** @enum {string} */
-            percentageDenominator: "WORKING_DAYS" | "MARKED_DAYS";
-            allowFutureDates: boolean;
-            autoAbsentNotification: components["schemas"]["AutoAbsentNotificationDto"];
-        };
-        AuthSettingsDto: {
-            otpLoginEnabled: boolean;
-        };
-        BackupSettingsDto: {
-            /** @enum {string} */
-            schedule: "OFF" | "WEEKLY" | "DAILY";
-        };
-        TenantSettingsDto: {
-            /** @enum {number} */
-            version: 1;
-            region?: components["schemas"]["RegionSettingsDto"];
-            communications?: components["schemas"]["CommunicationsSettingsDto"];
-            attendance?: components["schemas"]["AttendancePolicyDto"];
-            auth?: components["schemas"]["AuthSettingsDto"];
-            backup?: components["schemas"]["BackupSettingsDto"];
-        };
-        UpdateSchoolProfileDto: {
-            name?: string;
-            name_bn?: string | null;
-            address?: string | null;
-            phone?: string | null;
-            /** Format: email */
-            email?: string | null;
-            registration_id?: string | null;
-        };
-        ProvisionSchoolAdminDto: {
-            name: string;
-            /** Format: email */
-            email?: string;
-            phone?: string;
-        };
-        ProvisionSchoolDto: {
-            name: string;
-            slug: string;
-            admin: components["schemas"]["ProvisionSchoolAdminDto"];
-            /** Format: uuid */
-            idempotency_key: string;
-        };
-        AddSchoolAdminDto: {
-            name: string;
-            /** Format: email */
-            email?: string;
-            phone?: string;
-        };
-        SmsCreditLedgerItemDto: {
-            id: string;
-            /** @enum {string} */
-            kind: "GRANT" | "RESERVE" | "DEBIT" | "RELEASE" | "ADJUST";
-            units: number;
-            /** @enum {string} */
-            reference_type: "batch" | "log" | "manual";
-            reference_id: string | null;
-            reason: string | null;
-            /** Format: date-time */
-            created_at: string;
-        };
-        SmsCreditLedgerListResponseDto: {
-            data: components["schemas"]["SmsCreditLedgerItemDto"][];
-            total: number;
-            page: number;
-            limit: number;
-            totalPages: number;
-        };
-        SmsCreditsResponseDto: {
-            /** @enum {string} */
-            metering: "OFF" | "PLATFORM";
-            available: number;
-            reserved: number;
-            ledger: components["schemas"]["SmsCreditLedgerListResponseDto"];
-        };
-        GrantSmsCreditsDto: {
-            /** @description Signed credit delta. Positive = grant, negative = adjust. */
-            units: number;
-            reason: string;
-            idempotency_key: string;
+            scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "discount_rules.manage";
         };
         ActivateVerifyDto: {
             /** @description The raw invite token from the ?token= query param. */
@@ -2994,6 +2639,32 @@ export interface components {
             preferred_communication?: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
             guardian_ids?: string[];
         };
+        School: {
+            id: string;
+            name: string;
+            slug: string;
+            domain: string | null;
+            address: string | null;
+            phone: string | null;
+            email: string | null;
+            name_bn: string | null;
+            registration_id: string | null;
+            logo_key: string | null;
+            settings: {
+                [key: string]: unknown;
+            } | null;
+            /** @enum {string} */
+            status: "ACTIVE" | "SUSPENDED";
+            status_reason: string | null;
+            /** Format: date-time */
+            status_changed_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
+        };
         UserTenant: {
             id: string;
             user: components["schemas"]["User"];
@@ -3028,6 +2699,54 @@ export interface components {
             } | null;
             /** Format: date-time */
             last_login_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
+        };
+        AcademicYear: {
+            id: string;
+            name: string;
+            /** Format: date-time */
+            start_date: string;
+            /** Format: date-time */
+            end_date: string;
+            is_current: boolean;
+            tenant: components["schemas"]["School"];
+            tenant_id: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
+        };
+        Class: {
+            id: string;
+            name: string;
+            numeric_grade: number | null;
+            academic_year: components["schemas"]["AcademicYear"];
+            academic_year_id: string;
+            tenant: components["schemas"]["School"];
+            tenant_id: string;
+            sections: components["schemas"]["ClassSection"][];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
+        };
+        ClassSection: {
+            id: string;
+            class: components["schemas"]["Class"];
+            class_id: string;
+            section_name: string;
+            capacity: number | null;
+            tenant: components["schemas"]["School"];
+            tenant_id: string;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -3605,6 +3324,344 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             last_used_at: string | null;
+        };
+        SchoolListItemDto: {
+            id: string;
+            name: string;
+            slug: string;
+            /** @enum {string} */
+            status: "ACTIVE" | "SUSPENDED";
+            /** Format: date-time */
+            created_at: string;
+        };
+        UpdateSchoolStatusDto: {
+            /** @enum {string} */
+            status: "ACTIVE" | "SUSPENDED";
+            reason: string;
+        };
+        RegionCurrencyDto: {
+            code: string;
+            symbol: string;
+            /** @enum {string} */
+            position: "prefix" | "suffix";
+            decimals: number;
+            /** @enum {string} */
+            grouping: "lakh-crore" | "thousand";
+        };
+        RegionDateDto: {
+            format: string;
+            firstDayOfWeek: number;
+            calendar: string;
+        };
+        RegionPhoneDto: {
+            country: string;
+            pattern: string;
+            example: string;
+            displayFormat: string;
+        };
+        RegionAddressDto: {
+            fields: string[];
+            order: string[];
+        };
+        RegionAcademicYearDto: {
+            startMonth: number;
+        };
+        RegionIdentifiersDto: {
+            national: string;
+            student: string;
+        };
+        RegionSettingsDto: {
+            locale: string;
+            currency: components["schemas"]["RegionCurrencyDto"];
+            /** @enum {string} */
+            numerals: "latin" | "bengali";
+            date: components["schemas"]["RegionDateDto"];
+            phone: components["schemas"]["RegionPhoneDto"];
+            address: components["schemas"]["RegionAddressDto"];
+            academicYear: components["schemas"]["RegionAcademicYearDto"];
+            identifiers: components["schemas"]["RegionIdentifiersDto"];
+            timezone: string;
+        };
+        MaskedSecretResponseDto: {
+            configured: boolean;
+            hint?: string;
+        };
+        MaskedGreenwebSmsResponseDto: {
+            apiKey: components["schemas"]["MaskedSecretResponseDto"];
+            apiUrl?: string;
+        };
+        MaskedMimSmsResponseDto: {
+            apiKey: components["schemas"]["MaskedSecretResponseDto"];
+            senderId: string;
+            apiUrl?: string;
+        };
+        MaskedSmsSettingsResponseDto: {
+            provider: string;
+            greenweb?: components["schemas"]["MaskedGreenwebSmsResponseDto"];
+            mimsms?: components["schemas"]["MaskedMimSmsResponseDto"];
+        };
+        MaskedWhatsAppSettingsResponseDto: {
+            phoneNumberId: string;
+            apiVersion?: string;
+            accessToken: components["schemas"]["MaskedSecretResponseDto"];
+        };
+        MaskedEmailSettingsResponseDto: {
+            host: string;
+            port: number;
+            user: string;
+            from: string;
+            password: components["schemas"]["MaskedSecretResponseDto"];
+        };
+        MaskedMessengerSettingsResponseDto: {
+            pageId: string;
+            accessToken: components["schemas"]["MaskedSecretResponseDto"];
+        };
+        MaskedCommunicationsSettingsResponseDto: {
+            sms?: components["schemas"]["MaskedSmsSettingsResponseDto"];
+            whatsapp?: components["schemas"]["MaskedWhatsAppSettingsResponseDto"];
+            email?: components["schemas"]["MaskedEmailSettingsResponseDto"];
+            messenger?: components["schemas"]["MaskedMessengerSettingsResponseDto"];
+        };
+        TenantSettingsResponseDto: {
+            version: number;
+            region?: components["schemas"]["RegionSettingsDto"];
+            communications?: components["schemas"]["MaskedCommunicationsSettingsResponseDto"];
+        };
+        GreenwebSmsDto: {
+            apiKey?: string | null;
+            apiUrl?: string;
+        };
+        MimSmsDto: {
+            apiKey?: string | null;
+            senderId: string;
+            apiUrl?: string;
+        };
+        SmsSettingsDto: {
+            /** @enum {string} */
+            provider: "greenweb" | "mimsms";
+            greenweb?: components["schemas"]["GreenwebSmsDto"];
+            mimsms?: components["schemas"]["MimSmsDto"];
+            /** @enum {string} */
+            metering?: "OFF" | "PLATFORM";
+        };
+        WhatsAppSettingsDto: {
+            phoneNumberId: string;
+            apiVersion?: string;
+            accessToken?: string | null;
+        };
+        EmailSettingsDto: {
+            host: string;
+            port: number;
+            user: string;
+            from: string;
+            password?: string | null;
+        };
+        MessengerSettingsDto: {
+            pageId: string;
+            accessToken?: string | null;
+        };
+        CommunicationsSettingsDto: {
+            sms?: components["schemas"]["SmsSettingsDto"];
+            whatsapp?: components["schemas"]["WhatsAppSettingsDto"];
+            email?: components["schemas"]["EmailSettingsDto"];
+            messenger?: components["schemas"]["MessengerSettingsDto"];
+        };
+        AutoAbsentNotificationDto: {
+            enabled: boolean;
+            cutoffTime: string;
+        };
+        AttendancePolicyDto: {
+            weeklyOffDays: number[];
+            lateAfter: string;
+            absentAfter: string;
+            correctionWindowDays: number;
+            lowAttendanceThresholdPercent: number;
+            lateCountsAsPresent: boolean;
+            leaveCountsAsWorkingDay: boolean;
+            /** @enum {string} */
+            percentageDenominator: "WORKING_DAYS" | "MARKED_DAYS";
+            allowFutureDates: boolean;
+            autoAbsentNotification: components["schemas"]["AutoAbsentNotificationDto"];
+        };
+        AuthSettingsDto: {
+            otpLoginEnabled: boolean;
+        };
+        BackupSettingsDto: {
+            /** @enum {string} */
+            schedule: "OFF" | "WEEKLY" | "DAILY";
+        };
+        FeesSettingsDto: {
+            /** @enum {string} */
+            approvalMode: "OTP" | "OTP_OR_PASSWORD";
+            notifyOnManualGenerationDefault: boolean;
+            notifyOnScheduleDefault: boolean;
+        };
+        TenantSettingsDto: {
+            /** @enum {number} */
+            version: 1;
+            region?: components["schemas"]["RegionSettingsDto"];
+            communications?: components["schemas"]["CommunicationsSettingsDto"];
+            attendance?: components["schemas"]["AttendancePolicyDto"];
+            auth?: components["schemas"]["AuthSettingsDto"];
+            backup?: components["schemas"]["BackupSettingsDto"];
+            fees?: components["schemas"]["FeesSettingsDto"];
+        };
+        UpdateSchoolProfileDto: {
+            name?: string;
+            name_bn?: string | null;
+            address?: string | null;
+            phone?: string | null;
+            /** Format: email */
+            email?: string | null;
+            registration_id?: string | null;
+        };
+        ProvisionSchoolAdminDto: {
+            name: string;
+            /** Format: email */
+            email?: string;
+            phone?: string;
+        };
+        ProvisionSchoolDto: {
+            name: string;
+            slug: string;
+            admin: components["schemas"]["ProvisionSchoolAdminDto"];
+            /** Format: uuid */
+            idempotency_key: string;
+        };
+        AddSchoolAdminDto: {
+            name: string;
+            /** Format: email */
+            email?: string;
+            phone?: string;
+        };
+        SmsCreditLedgerItemDto: {
+            id: string;
+            /** @enum {string} */
+            kind: "GRANT" | "RESERVE" | "DEBIT" | "RELEASE" | "ADJUST";
+            units: number;
+            /** @enum {string} */
+            reference_type: "batch" | "log" | "manual";
+            reference_id: string | null;
+            reason: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        SmsCreditLedgerListResponseDto: {
+            data: components["schemas"]["SmsCreditLedgerItemDto"][];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        SmsCreditsResponseDto: {
+            /** @enum {string} */
+            metering: "OFF" | "PLATFORM";
+            available: number;
+            reserved: number;
+            ledger: components["schemas"]["SmsCreditLedgerListResponseDto"];
+        };
+        GrantSmsCreditsDto: {
+            /** @description Signed credit delta. Positive = grant, negative = adjust. */
+            units: number;
+            reason: string;
+            idempotency_key: string;
+        };
+        CreateAcademicYearDto: {
+            name: string;
+            start_date: string;
+            end_date: string;
+            is_current?: boolean;
+        };
+        UpdateAcademicYearDto: {
+            name?: string;
+            start_date?: string;
+            end_date?: string;
+            is_current?: boolean;
+        };
+        CreateSubjectDto: {
+            name_en: string;
+            name_bn?: string;
+            code: string;
+            is_active?: boolean;
+        };
+        Subject: {
+            id: string;
+            tenant: components["schemas"]["School"];
+            tenant_id: string;
+            name_en: string;
+            name_bn: string | null;
+            code: string;
+            is_active: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
+        };
+        UpdateSubjectDto: {
+            name_en?: string;
+            name_bn?: string;
+            code?: string;
+            is_active?: boolean;
+        };
+        ClassSubject: {
+            id: string;
+            tenant: components["schemas"]["School"];
+            tenant_id: string;
+            class: components["schemas"]["Class"];
+            class_id: string;
+            subject: components["schemas"]["Subject"];
+            subject_id: string;
+            academic_year: components["schemas"]["AcademicYear"];
+            academic_year_id: string;
+            is_optional: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
+        };
+        AttachClassSubjectDto: {
+            /** Format: uuid */
+            subject_id: string;
+            /** Format: uuid */
+            academic_year_id: string;
+            is_optional?: boolean;
+        };
+        CreateHolidayDto: {
+            /** Format: uuid */
+            academic_year_id: string;
+            start_date: string;
+            end_date: string;
+            name: string;
+            counts_as_working_day?: boolean;
+        };
+        SchoolHoliday: {
+            id: string;
+            tenant: components["schemas"]["School"];
+            tenant_id: string;
+            academic_year: components["schemas"]["AcademicYear"];
+            academic_year_id: string;
+            start_date: string;
+            end_date: string;
+            name: string;
+            counts_as_working_day: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
+        };
+        UpdateHolidayDto: {
+            /** Format: uuid */
+            academic_year_id?: string;
+            start_date?: string;
+            end_date?: string;
+            name?: string;
+            counts_as_working_day?: boolean;
         };
         CreateClassDto: {
             name: string;
@@ -4589,39 +4646,7 @@ export interface operations {
             };
         };
     };
-    AcademicYearController_findAll_v1: {
-        parameters: {
-            query?: {
-                page?: number;
-                limit?: number;
-            };
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    AcademicYearController_create_v1: {
+    StepUpController_requestOtp_v1: {
         parameters: {
             query?: never;
             header: {
@@ -4635,145 +4660,11 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateAcademicYearDto"];
+                "application/json": components["schemas"]["StepUpOtpRequestDto"];
             };
         };
         responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AcademicYear"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    AcademicYearController_findOne_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AcademicYear"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    AcademicYearController_remove_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    AcademicYearController_update_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateAcademicYearDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AcademicYear"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    AcademicYearController_getStats_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4790,75 +4681,7 @@ export interface operations {
             };
         };
     };
-    AcademicYearController_setCurrent_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AcademicYear"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SubjectController_findAll_v1: {
-        parameters: {
-            query?: {
-                is_active?: boolean;
-                page?: number;
-                limit?: number;
-            };
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SubjectController_create_v1: {
+    StepUpController_verify_v1: {
         parameters: {
             query?: never;
             header: {
@@ -4872,529 +4695,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateSubjectDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Subject"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SubjectController_findOne_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Subject"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SubjectController_remove_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SubjectController_update_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateSubjectDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Subject"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    ClassSubjectController_findByClass_v1: {
-        parameters: {
-            query: {
-                academic_year_id: string;
-            };
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                classId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ClassSubject"][];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    ClassSubjectController_attach_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                classId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AttachClassSubjectDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ClassSubject"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    ClassSubjectController_detach_v1: {
-        parameters: {
-            query: {
-                academic_year_id: string;
-            };
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                classId: string;
-                subjectId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolCalendarController_listHolidays_v1: {
-        parameters: {
-            query?: {
-                academic_year_id?: string;
-                from?: string;
-                to?: string;
-                page?: number;
-                limit?: number;
-            };
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolCalendarController_createHoliday_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateHolidayDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SchoolHoliday"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolCalendarController_removeHoliday_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SchoolHoliday"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolCalendarController_updateHoliday_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateHolidayDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SchoolHoliday"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolCalendarController_getWorkingDays_v1: {
-        parameters: {
-            query: {
-                from: string;
-                to: string;
-                academic_year_id?: string;
-            };
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolsController_findAll_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SchoolListItemDto"][];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    ProvisioningController_provision_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProvisionSchoolDto"];
-            };
-        };
-        responses: {
-            /** @description Replayed: an identical request with this idempotency_key already succeeded. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description School, admin, and invitation created. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolsController_getStats_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolsController_updateStatus_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateSchoolStatusDto"];
+                "application/json": components["schemas"]["StepUpVerifyDto"];
             };
         };
         responses: {
@@ -5405,465 +4706,6 @@ export interface operations {
                 content: {
                     "application/json": Record<string, never>;
                 };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolsController_getSettings_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TenantSettingsResponseDto"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description An ADMIN attempted to manage a school other than their own; only a SUPER_ADMIN can manage any school. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolsController_updateSettings_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TenantSettingsDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TenantSettingsResponseDto"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description An ADMIN attempted to manage a school other than their own; only a SUPER_ADMIN can manage any school. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolProfileController_getProfile_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolProfileController_updateProfile_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateSchoolProfileDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Only ADMIN (or SUPER_ADMIN) may edit the school profile. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolLogoController_serve_v1: {
-        parameters: {
-            query?: {
-                /** @description Logo version (uuid) to serve. */
-                v?: unknown;
-            };
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolLogoController_upload_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": {
-                    /** Format: binary */
-                    file?: string;
-                };
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolLogoController_remove_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolAdminsController_list_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Array of ADMIN memberships. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolAdminsController_addAdmin_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AddSchoolAdminDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolAdminsController_resendInvitation_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-                userId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolAdminsController_revokeInvitation_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-                userId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolSmsCreditsController_getSmsCredits_v1: {
-        parameters: {
-            query?: {
-                page?: number;
-                limit?: number;
-            };
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SmsCreditsResponseDto"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SchoolSmsCreditsController_grantOrAdjust_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GrantSmsCreditsDto"];
-            };
-        };
-        responses: {
-            /** @description The new balance: { available, reserved }. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -7864,6 +6706,607 @@ export interface operations {
             };
         };
     };
+    SchoolsController_findAll_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolListItemDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ProvisioningController_provision_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProvisionSchoolDto"];
+            };
+        };
+        responses: {
+            /** @description Replayed: an identical request with this idempotency_key already succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description School, admin, and invitation created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolsController_getStats_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolsController_updateStatus_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSchoolStatusDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolsController_getSettings_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantSettingsResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An ADMIN attempted to manage a school other than their own; only a SUPER_ADMIN can manage any school. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolsController_updateSettings_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantSettingsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantSettingsResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An ADMIN attempted to manage a school other than their own; only a SUPER_ADMIN can manage any school. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolProfileController_getProfile_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolProfileController_updateProfile_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSchoolProfileDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Only ADMIN (or SUPER_ADMIN) may edit the school profile. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolLogoController_serve_v1: {
+        parameters: {
+            query?: {
+                /** @description Logo version (uuid) to serve. */
+                v?: unknown;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolLogoController_upload_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file?: string;
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolLogoController_remove_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolAdminsController_list_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Array of ADMIN memberships. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolAdminsController_addAdmin_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddSchoolAdminDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolAdminsController_resendInvitation_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolAdminsController_revokeInvitation_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolSmsCreditsController_getSmsCredits_v1: {
+        parameters: {
+            query?: {
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SmsCreditsResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolSmsCreditsController_grantOrAdjust_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantSmsCreditsDto"];
+            };
+        };
+        responses: {
+            /** @description The new balance: { available, reserved }. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     CreditsController_getSmsCredits_v1: {
         parameters: {
             query?: {
@@ -7888,6 +7331,690 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SmsCreditsResponseDto"];
                 };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcademicYearController_findAll_v1: {
+        parameters: {
+            query?: {
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcademicYearController_create_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAcademicYearDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcademicYear"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcademicYearController_findOne_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcademicYear"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcademicYearController_remove_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcademicYearController_update_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAcademicYearDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcademicYear"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcademicYearController_getStats_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcademicYearController_setCurrent_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcademicYear"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SubjectController_findAll_v1: {
+        parameters: {
+            query?: {
+                is_active?: boolean;
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SubjectController_create_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSubjectDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subject"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SubjectController_findOne_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subject"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SubjectController_remove_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SubjectController_update_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSubjectDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subject"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ClassSubjectController_findByClass_v1: {
+        parameters: {
+            query: {
+                academic_year_id: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                classId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassSubject"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ClassSubjectController_attach_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                classId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttachClassSubjectDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassSubject"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ClassSubjectController_detach_v1: {
+        parameters: {
+            query: {
+                academic_year_id: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                classId: string;
+                subjectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolCalendarController_listHolidays_v1: {
+        parameters: {
+            query?: {
+                academic_year_id?: string;
+                from?: string;
+                to?: string;
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolCalendarController_createHoliday_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateHolidayDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolHoliday"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolCalendarController_removeHoliday_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolHoliday"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolCalendarController_updateHoliday_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateHolidayDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolHoliday"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolCalendarController_getWorkingDays_v1: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                academic_year_id?: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
