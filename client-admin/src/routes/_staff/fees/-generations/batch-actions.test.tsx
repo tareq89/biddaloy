@@ -113,4 +113,188 @@ describe('BatchActions', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(attempt).toBe(2);
   });
+
+  it('does not show the approval notice when nothing has been collected', async () => {
+    const user = userEvent.setup();
+    const { localeReady } = render({ collected_count: 0, generated_count: 30 });
+    await localeReady;
+
+    await openMenu(user);
+    await user.click(screen.getByRole('menuitem', { name: 'Delete batch' }));
+
+    expect(
+      screen.queryByText(/bills already have payments — admin approval will be required/),
+    ).toBeNull();
+  });
+
+  it('shows conflict copy on a 409 delete response', async () => {
+    server.use(
+      http.delete('/api/v1/fees/generations/gen-1', () =>
+        HttpResponse.json(apiErrorBody(409, 'Conflict', '/fees/generations/gen-1'), {
+          status: 409,
+        }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    const { localeReady } = render();
+    await localeReady;
+
+    await openMenu(user);
+    await user.click(screen.getByRole('menuitem', { name: 'Delete batch' }));
+    await user.click(screen.getByRole('button', { name: 'Delete batch' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe('This batch could not be deleted — refresh and try again.');
+  });
+
+  it('shows generic error copy on a non-409 delete error', async () => {
+    server.use(
+      http.delete('/api/v1/fees/generations/gen-1', () =>
+        HttpResponse.json(apiErrorBody(500, 'Internal Server Error', '/fees/generations/gen-1'), {
+          status: 500,
+        }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    const { localeReady } = render();
+    await localeReady;
+
+    await openMenu(user);
+    await user.click(screen.getByRole('menuitem', { name: 'Delete batch' }));
+    await user.click(screen.getByRole('button', { name: 'Delete batch' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe('Could not delete this batch. Try again.');
+  });
+
+  it('opens the edit-period dialog from the kebab menu', async () => {
+    const user = userEvent.setup();
+    const { localeReady } = render();
+    await localeReady;
+
+    await openMenu(user);
+    await user.click(screen.getByRole('menuitem', { name: 'Edit period / due date' }));
+
+    expect(await screen.findByRole('heading', { name: 'Edit period & due date' })).toBeTruthy();
+  });
+
+  it('saving the edit-period dialog closes it', async () => {
+    server.use(
+      http.patch('/api/v1/fees/generations/gen-1', () =>
+        HttpResponse.json({
+          id: 'gen-1',
+          period_start: '2026-10-01T00:00:00.000Z',
+          period_type: 'MONTH',
+          due_date: '2026-10-10T00:00:00.000Z',
+        }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    const { localeReady } = render();
+    await localeReady;
+
+    await openMenu(user);
+    await user.click(screen.getByRole('menuitem', { name: 'Edit period / due date' }));
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('cancelling the edit-period dialog closes it without saving', async () => {
+    const user = userEvent.setup();
+    const { localeReady } = render();
+    await localeReady;
+
+    await openMenu(user);
+    await user.click(screen.getByRole('menuitem', { name: 'Edit period / due date' }));
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('cancelling the remove-uncollected dialog closes it without a request', async () => {
+    let called = false;
+    server.use(
+      http.post('/api/v1/fees/generations/gen-1/remove-uncollected', () => {
+        called = true;
+        return HttpResponse.json({ removed_count: 1 });
+      }),
+    );
+
+    const user = userEvent.setup();
+    const { localeReady } = render();
+    await localeReady;
+
+    await openMenu(user);
+    await user.click(screen.getByRole('menuitem', { name: 'Remove uncollected' }));
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(called).toBe(false);
+  });
+
+  it('cancelling the delete-batch dialog closes it without a request', async () => {
+    let called = false;
+    server.use(
+      http.delete('/api/v1/fees/generations/gen-1', () => {
+        called = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const user = userEvent.setup();
+    const { localeReady } = render();
+    await localeReady;
+
+    await openMenu(user);
+    await user.click(screen.getByRole('menuitem', { name: 'Delete batch' }));
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(called).toBe(false);
+  });
+
+  it('shows an error message when remove-uncollected fails', async () => {
+    server.use(
+      http.post('/api/v1/fees/generations/gen-1/remove-uncollected', () =>
+        HttpResponse.json(
+          apiErrorBody(500, 'Internal Server Error', '/fees/generations/gen-1/remove-uncollected'),
+          { status: 500 },
+        ),
+      ),
+    );
+
+    const user = userEvent.setup();
+    const { localeReady } = render();
+    await localeReady;
+
+    await openMenu(user);
+    await user.click(screen.getByRole('menuitem', { name: 'Remove uncollected' }));
+    await user.click(screen.getByRole('button', { name: 'Remove uncollected' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe('Could not remove uncollected bills. Try again.');
+  });
+
+  it('closes the menu-driven remove-uncollected dialog and reports success', async () => {
+    server.use(
+      http.post('/api/v1/fees/generations/gen-1/remove-uncollected', () =>
+        HttpResponse.json({ removed_count: 7 }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    const { localeReady } = render();
+    await localeReady;
+
+    await openMenu(user);
+    await user.click(screen.getByRole('menuitem', { name: 'Remove uncollected' }));
+    expect(screen.getByRole('heading', { name: 'Remove uncollected bills' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Remove uncollected' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
 });

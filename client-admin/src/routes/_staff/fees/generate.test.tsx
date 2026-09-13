@@ -181,6 +181,130 @@ describe('/fees/generate', () => {
     expect(screen.getByText('Monthly tuition (9)')).toBeTruthy();
   });
 
+  it('forwards every URL filter param to the generations query', async () => {
+    let lastQuery = '';
+    server.use(
+      http.get('/api/v1/fees/generations', ({ request }) => {
+        lastQuery = new URL(request.url).search;
+        return HttpResponse.json({
+          data: [batchFactory()],
+          total: 1,
+          page: 1,
+          limit: 20,
+          totalPages: 1,
+        });
+      }),
+    );
+
+    render('ADMIN', [
+      '/fees/generate?period_from=2026-01-01&period_to=2026-01-31&fee_type=MONTHLY_TUITION&source=MANUAL&generated_by_user_id=user-1&collection_status=PARTIAL',
+    ]);
+
+    await screen.findByRole('heading', { name: 'Generated fees' });
+    await waitFor(() => expect(lastQuery).not.toBe(''));
+
+    const params = new URLSearchParams(lastQuery);
+    expect(params.get('period_from')).toBe('2026-01-01');
+    expect(params.get('period_to')).toBe('2026-01-31');
+    expect(params.get('fee_type')).toBe('MONTHLY_TUITION');
+    expect(params.get('source')).toBe('MANUAL');
+    expect(params.get('generated_by_user_id')).toBe('user-1');
+    expect(params.get('collection_status')).toBe('PARTIAL');
+  });
+
+  it('sends only page/limit when no filters are set', async () => {
+    let lastQuery = '';
+    server.use(
+      http.get('/api/v1/fees/generations', ({ request }) => {
+        lastQuery = new URL(request.url).search;
+        return HttpResponse.json({
+          data: [batchFactory()],
+          total: 1,
+          page: 1,
+          limit: 20,
+          totalPages: 1,
+        });
+      }),
+    );
+
+    render();
+    await screen.findByRole('heading', { name: 'Generated fees' });
+    await waitFor(() => expect(lastQuery).not.toBe(''));
+
+    const params = new URLSearchParams(lastQuery);
+    expect([...params.keys()].sort()).toEqual(['limit', 'page']);
+  });
+
+  it('opening then closing the generate-fees modal refetches the list', async () => {
+    let hits = 0;
+    server.use(
+      http.get('/api/v1/fees/generations', () => {
+        hits += 1;
+        return HttpResponse.json({
+          data: [batchFactory()],
+          total: 1,
+          page: 1,
+          limit: 20,
+          totalPages: 1,
+        });
+      }),
+    );
+
+    const user = userEvent.setup();
+    render();
+    await screen.findByRole('heading', { name: 'Generated fees' });
+    await waitFor(() => expect(hits).toBeGreaterThan(0));
+    const hitsBeforeOpen = hits;
+
+    await user.click(await screen.findByRole('button', { name: 'Generate fees' }));
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => expect(hits).toBeGreaterThan(hitsBeforeOpen));
+  });
+
+  it('closing the bills drawer clears the selected batch', async () => {
+    server.use(
+      http.get('/api/v1/fees/generations', () =>
+        HttpResponse.json({ data: [batchFactory()], total: 1, page: 1, limit: 20, totalPages: 1 }),
+      ),
+      http.get('/api/v1/fees/generations/:id/bills', () =>
+        HttpResponse.json({
+          data: [
+            {
+              id: 'bill-1',
+              student_id: 'student-1',
+              student_full_name: 'Rahim Uddin',
+              student_registration_number: 'REG-1',
+              class_name: 'Class 9',
+              fee_name: 'Monthly tuition',
+              amount: 1000,
+              paid_amount: 0,
+              status: 'PENDING',
+              occurrence: '9/2026',
+            },
+          ],
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+        }),
+      ),
+    );
+
+    render();
+    const periodButton = await screen.findByRole('button', {
+      name: (accessibleName) => accessibleName.includes('২০২৬-০৯-০১'),
+    });
+
+    const user = userEvent.setup();
+    await user.click(periodButton);
+    await screen.findByText('Rahim Uddin');
+
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => expect(screen.queryByText('Rahim Uddin')).toBeNull());
+  });
+
   it('refuses the whole route for a TEACHER, who lacks FEE_GENERATE', async () => {
     server.use(
       http.get('/api/v1/fees/generations', () =>
