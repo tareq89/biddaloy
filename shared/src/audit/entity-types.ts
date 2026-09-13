@@ -16,6 +16,7 @@
 export const AUDIT_ENTITY_TYPES = [
   'AbsenceNoticePreview',
   'AcademicYear',
+  'ApprovalToken',
   'AttendanceDevice',
   'AttendanceRecord',
   'AttendanceSession',

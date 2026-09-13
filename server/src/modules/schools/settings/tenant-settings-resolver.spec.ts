@@ -4,6 +4,7 @@ import {
   DEFAULT_ATTENDANCE_SETTINGS,
   DEFAULT_AUTH_SETTINGS,
   DEFAULT_BACKUP_SETTINGS,
+  DEFAULT_FEES_SETTINGS,
   DEFAULT_REGION_SETTINGS,
 } from './tenant-settings-defaults';
 
@@ -16,6 +17,7 @@ describe('resolveTenantSettings', () => {
     expect(resolved.attendance).toEqual(DEFAULT_ATTENDANCE_SETTINGS);
     expect(resolved.auth).toEqual(DEFAULT_AUTH_SETTINGS);
     expect(resolved.backup).toEqual(DEFAULT_BACKUP_SETTINGS);
+    expect(resolved.fees).toEqual(DEFAULT_FEES_SETTINGS);
     expect(resolved.communications).toBeUndefined();
   });
 
@@ -52,6 +54,41 @@ describe('resolveTenantSettings', () => {
         );
       },
     );
+  });
+
+  describe('fees.approvalMode (16.2.1)', () => {
+    it('stored {} resolves to the default OTP', () => {
+      expect(resolveTenantSettings({}).fees?.approvalMode).toBe('OTP');
+    });
+
+    it('a stored OTP_OR_PASSWORD overrides the default', () => {
+      expect(
+        resolveTenantSettings({ fees: { approvalMode: 'OTP_OR_PASSWORD' } }).fees?.approvalMode,
+      ).toBe('OTP_OR_PASSWORD');
+    });
+
+    it(
+      'a same-typed but invalid stored value falls back to the default — the read-side guard ' +
+        "for a row that bypassed FeesSettingsDto's @IsIn on write",
+      () => {
+        expect(
+          resolveTenantSettings({ fees: { approvalMode: 'NONSENSE' } }).fees?.approvalMode,
+        ).toBe(DEFAULT_FEES_SETTINGS.approvalMode);
+      },
+    );
+
+    it('notifyOnManualGenerationDefault/notifyOnScheduleDefault default false/true and can be overridden', () => {
+      expect(resolveTenantSettings({}).fees?.notifyOnManualGenerationDefault).toBe(false);
+      expect(resolveTenantSettings({}).fees?.notifyOnScheduleDefault).toBe(true);
+      expect(
+        resolveTenantSettings({ fees: { notifyOnManualGenerationDefault: true } }).fees
+          ?.notifyOnManualGenerationDefault,
+      ).toBe(true);
+      expect(
+        resolveTenantSettings({ fees: { notifyOnScheduleDefault: false } }).fees
+          ?.notifyOnScheduleDefault,
+      ).toBe(false);
+    });
   });
 
   it('a school unset returns the default otpLoginEnabled=true, and a stored false overrides it', () => {

@@ -1,0 +1,31 @@
+{
+  "description": "This action needs a second check before it goes through.",
+  "identifierLabel": "Email or phone",
+  "methodLabel": "Verification method",
+  "methodOtp": "One-time code",
+  "methodPassword": "Password",
+  "otp": {
+    "sendCode": "Send code",
+    "sendingCode": "Sending…",
+    "codeLabel": "Verification code",
+    "resend": "Resend code",
+    "resendIn": "Resend in {{count}}s"
+  },
+  "passwordLabel": "Password",
+  "submit": "Verify",
+  "submitting": "Verifying…",
+  "cancel": "Cancel",
+  "scopeFallback": "Approve: {{scope}}",
+  "scopes": {
+    "fees.duplicate_create": "Approve: create a duplicate fee",
+    "fees.waiver_apply": "Approve: apply a fee waiver",
+    "payments.refund_issue": "Approve: issue a refund",
+    "invoices.void": "Approve: void an invoice"
+  },
+  "errors": {
+    "passwordNotAllowed": "Password verification isn't allowed for this action — use a one-time code instead.",
+    "rateLimited": "Too many attempts. Try again in a moment.",
+    "invalidCode": "That code isn't right. Check it and try again.",
+    "generic": "Couldn't verify that. Try again."
+  }
+}

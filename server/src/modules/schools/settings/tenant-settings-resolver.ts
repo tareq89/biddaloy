@@ -3,8 +3,10 @@ import {
   DEFAULT_ATTENDANCE_SETTINGS,
   DEFAULT_AUTH_SETTINGS,
   DEFAULT_BACKUP_SETTINGS,
+  DEFAULT_FEES_SETTINGS,
   DEFAULT_REGION_SETTINGS,
 } from './tenant-settings-defaults';
+import { ApprovalMode } from '@biddaloy/shared';
 import type { TenantSettings } from '@biddaloy/shared';
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -58,6 +60,8 @@ const BACKUP_SCHEDULE_MODES: readonly NonNullable<TenantSettings['backup']>['sch
   'DAILY',
 ];
 
+const FEES_APPROVAL_MODES: readonly ApprovalMode[] = Object.values(ApprovalMode);
+
 /**
  * Resolves a school's raw `settings` jsonb column against defaults, one
  * top-level section at a time — a school that has configured
@@ -90,6 +94,13 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
   const communications = isPlainObject(stored?.communications)
     ? (stored.communications as TenantSettings['communications'])
     : undefined;
+  // Same read-side guard as `backup.schedule` above — `FeesSettingsDto`'s
+  // `@IsIn` rejects a bad `approvalMode` on write; this covers a row that
+  // got there some other way (predates the schema, hand-edited, restored).
+  const overlaidFees = overlayOnDefaults(DEFAULT_FEES_SETTINGS, stored?.fees);
+  const fees = FEES_APPROVAL_MODES.includes(overlaidFees.approvalMode)
+    ? overlaidFees
+    : { ...overlaidFees, approvalMode: DEFAULT_FEES_SETTINGS.approvalMode };
 
   return {
     version: TENANT_SETTINGS_SCHEMA_VERSION,
@@ -97,6 +108,7 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
     attendance,
     auth,
     backup,
+    fees,
     ...(communications ? { communications } : {}),
   };
 }

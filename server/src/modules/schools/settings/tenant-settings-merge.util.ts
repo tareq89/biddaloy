@@ -97,5 +97,9 @@ export function mergeTenantSettings(
     merged.backup = patch.backup;
   }
 
+  if (patch.fees !== undefined) {
+    merged.fees = patch.fees;
+  }
+
   return merged;
 }

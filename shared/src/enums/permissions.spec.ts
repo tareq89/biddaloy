@@ -370,3 +370,62 @@ describe('backup role grants [14.2.1]', () => {
     });
   }
 });
+
+describe('fees rebuild role grants [16.2.1]', () => {
+  it('grants ADMIN all six new fees-rebuild permissions', () => {
+    for (const permission of [
+      Permission.FEE_APPROVE,
+      Permission.FEE_GENERATE,
+      Permission.PAYMENT_REVERSE,
+      Permission.REPORT_COLLECTIONS_READ,
+      Permission.SCHEDULE_MANAGE,
+      Permission.DISCOUNT_RULE_MANAGE,
+    ]) {
+      expect(ROLE_PERMISSIONS[UserRole.ADMIN]).toContain(permission);
+    }
+  });
+
+  // ACCOUNTANT gets the day-to-day fee-ops permissions but not the two
+  // approval-adjacent ones — approving a pending action and reversing a
+  // recorded payment both undo/override money already moved.
+  it('grants ACCOUNTANT the operational fees permissions', () => {
+    for (const permission of [
+      Permission.FEE_GENERATE,
+      Permission.SCHEDULE_MANAGE,
+      Permission.REPORT_COLLECTIONS_READ,
+      Permission.DISCOUNT_RULE_MANAGE,
+    ]) {
+      expect(ROLE_PERMISSIONS[UserRole.ACCOUNTANT]).toContain(permission);
+    }
+  });
+
+  it('withholds FEE_APPROVE and PAYMENT_REVERSE from ACCOUNTANT', () => {
+    expect(ROLE_PERMISSIONS[UserRole.ACCOUNTANT]).not.toContain(Permission.FEE_APPROVE);
+    expect(ROLE_PERMISSIONS[UserRole.ACCOUNTANT]).not.toContain(Permission.PAYMENT_REVERSE);
+  });
+
+  it('grants EXECUTIVE only the read-only REPORT_COLLECTIONS_READ, not the write permissions', () => {
+    expect(ROLE_PERMISSIONS[UserRole.EXECUTIVE]).toContain(Permission.REPORT_COLLECTIONS_READ);
+    for (const permission of [
+      Permission.FEE_APPROVE,
+      Permission.FEE_GENERATE,
+      Permission.PAYMENT_REVERSE,
+      Permission.SCHEDULE_MANAGE,
+      Permission.DISCOUNT_RULE_MANAGE,
+    ]) {
+      expect(ROLE_PERMISSIONS[UserRole.EXECUTIVE]).not.toContain(permission);
+    }
+  });
+
+  it('SUPER_ADMIN holds every new permission via Object.values(Permission)', () => {
+    for (const permission of [
+      Permission.FEE_APPROVE,
+      Permission.PAYMENT_REVERSE,
+      Permission.REPORT_COLLECTIONS_READ,
+      Permission.SCHEDULE_MANAGE,
+      Permission.DISCOUNT_RULE_MANAGE,
+    ]) {
+      expect(ROLE_PERMISSIONS[UserRole.SUPER_ADMIN]).toContain(permission);
+    }
+  });
+});

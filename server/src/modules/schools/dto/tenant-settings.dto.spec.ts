@@ -445,4 +445,57 @@ describe('TenantSettingsDto', () => {
       expect(smsError?.children?.some((e) => e.property === 'metering')).toBe(true);
     });
   });
+
+  // [16.2.1] `settings.fees` — who may approve, and how, is data.
+  describe('fees', () => {
+    it('accepts a valid fees section', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        fees: {
+          approvalMode: 'OTP_OR_PASSWORD',
+          notifyOnManualGenerationDefault: true,
+          notifyOnScheduleDefault: false,
+        },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      expect(errors.find((e) => e.property === 'fees')).toBeUndefined();
+    });
+
+    it('rejects an invalid approvalMode', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        fees: {
+          approvalMode: 'BOGUS',
+          notifyOnManualGenerationDefault: false,
+          notifyOnScheduleDefault: true,
+        },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      const feesError = errors.find((e) => e.property === 'fees');
+      expect(feesError?.children?.some((e) => e.property === 'approvalMode')).toBe(true);
+    });
+
+    it('rejects a non-boolean notifyOnManualGenerationDefault/notifyOnScheduleDefault', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        fees: {
+          approvalMode: 'OTP',
+          notifyOnManualGenerationDefault: 'yes',
+          notifyOnScheduleDefault: 'no',
+        },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      const feesError = errors.find((e) => e.property === 'fees');
+      expect(
+        feesError?.children?.some((e) => e.property === 'notifyOnManualGenerationDefault'),
+      ).toBe(true);
+      expect(feesError?.children?.some((e) => e.property === 'notifyOnScheduleDefault')).toBe(true);
+    });
+  });
 });

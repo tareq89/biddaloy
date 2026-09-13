@@ -111,6 +111,27 @@ const ALLOWLIST: AllowlistEntry[] = [
       "[12.8] Bearer-authenticated but tenant-agnostic, plus SameOriginGuard since it consults the refresh cookie to detect the caller's current session — revokes only a family already proven (by countForFamily) to belong to user.sub, same rationale as /auth/logout-all.",
   },
   {
+    controller: 'StepUpController',
+    method: 'POST',
+    path: '/auth/step-up/otp/request',
+    reason:
+      '[16.2.2] Bearer-authenticated, tenant-scoped (AuthGuard(jwt) + ContextGuard), but ' +
+      'deliberately no RolesGuard/PermissionsGuard: any authenticated member of the tenant ' +
+      "may request that an OTP be sent — the eligibility check is on the identifier's " +
+      "resolved approver (must hold FEE_APPROVE), not the caller's own role, and the route " +
+      'always responds 202 regardless of outcome to avoid identifier enumeration.',
+  },
+  {
+    controller: 'StepUpController',
+    method: 'POST',
+    path: '/auth/step-up',
+    reason:
+      '[16.2.2] Same rationale as /auth/step-up/otp/request — the caller is the actor, not ' +
+      'necessarily the approver, so RolesGuard/PermissionsGuard on the caller would check the ' +
+      'wrong identity. StepUpService resolves the approver fresh from `identifier` and ' +
+      'verifies FEE_APPROVE on THAT user before issuing an approval token.',
+  },
+  {
     controller: 'DeviceIngestController',
     method: 'POST',
     path: '/attendance/device-events',
