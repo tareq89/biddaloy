@@ -573,6 +573,30 @@ describe('useStudentIds', () => {
     expect(enabledResult.current.data?.total).toBe(120);
     expect(enabledResult.current.data?.ids).toHaveLength(120);
   });
+
+  // Regression: `QueryStudentIdsDto` has no `limit`/`page`/`sort` fields
+  // and the global ValidationPipe rejects unknown properties — forwarding
+  // the whole filters object (as the audience picker used to) 400ed.
+  it('sends only the allow-listed filter keys, never limit/page/sort', async () => {
+    let receivedUrl: URL | undefined;
+    server.use(
+      http.get('/api/v1/students/ids', ({ request }) => {
+        receivedUrl = new URL(request.url);
+        return HttpResponse.json({ ids: [], total: 0 });
+      }),
+    );
+
+    const { result } = renderHookWithProviders(
+      () => useStudentIds({ search: 'Rahim', class_id: 'class-9' } as never, { enabled: true }),
+      { tenantId: 'tenant-1' },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(receivedUrl?.searchParams.get('search')).toBe('Rahim');
+    expect(receivedUrl?.searchParams.get('class_id')).toBe('class-9');
+    expect(receivedUrl?.searchParams.has('limit')).toBe(false);
+    expect(receivedUrl?.searchParams.has('page')).toBe(false);
+  });
 });
 
 describe('useStudentSearch', () => {

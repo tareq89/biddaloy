@@ -62,11 +62,22 @@ describe('AudiencePicker', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it('does not add any ids and does not crash when "select all" hits the 5000 cap (413)', async () => {
+  it('does not add any ids, shows an inline error, and allows retry when "select all" hits the 5000 cap (413)', async () => {
+    let requestCount = 0;
     server.use(
-      http.get('/api/v1/students/ids', () =>
-        HttpResponse.json({ message: 'Too many matching students' }, { status: 413 }),
-      ),
+      http.get('/api/v1/students/ids', () => {
+        requestCount += 1;
+        return HttpResponse.json(
+          {
+            statusCode: 413,
+            message: 'Too many matching students',
+            requestId: 'req-1',
+            path: '/students/ids',
+            timestamp: new Date().toISOString(),
+          },
+          { status: 413 },
+        );
+      }),
     );
 
     const user = userEvent.setup();
@@ -81,6 +92,13 @@ describe('AudiencePicker', () => {
       ),
     );
     expect(onSelectedChange).not.toHaveBeenCalled();
+    expect((await screen.findByRole('alert')).textContent).toMatch(/narrow your filters/i);
+    expect(requestCount).toBe(1);
+
+    // A second click (via the retry button in the error message) re-fires
+    // the request instead of the button staying stuck.
+    await user.click(screen.getByRole('button', { name: /Try again/i }));
+    await waitFor(() => expect(requestCount).toBe(2));
   });
 
   it('picking a class filters by class and reveals the section dropdown', async () => {

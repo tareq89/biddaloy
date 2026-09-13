@@ -106,6 +106,7 @@ export {
   type PaginatedStudents,
   type PreferredCommunication,
   type Student,
+  type StudentIdsFilters,
   type StudentIdsResult,
   type StudentListFilters,
   type StudentSortField,

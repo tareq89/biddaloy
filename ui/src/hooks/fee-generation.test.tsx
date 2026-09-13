@@ -26,9 +26,11 @@ function baseScope() {
 
 describe('useGenerateFeesPreview', () => {
   it('posts the scope to /fees/generate/preview and resolves the duplicate report', async () => {
+    let receivedBody: unknown;
     server.use(
-      http.post('/api/v1/fees/generate/preview', () =>
-        HttpResponse.json({
+      http.post('/api/v1/fees/generate/preview', async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json({
           students_evaluated: 1,
           will_generate: 0,
           duplicates: [
@@ -42,8 +44,8 @@ describe('useGenerateFeesPreview', () => {
             },
           ],
           inactive_students: [],
-        }),
-      ),
+        });
+      }),
     );
 
     const { result } = renderHookWithProviders(() => useGenerateFeesPreview(), {
@@ -54,6 +56,9 @@ describe('useGenerateFeesPreview', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.duplicates).toHaveLength(1);
+    // Regression: the handler used to accept any body, so it would pass
+    // even if the hook sent a malformed/empty request.
+    expect(receivedBody).toEqual(baseScope());
   });
 });
 

@@ -155,7 +155,8 @@
     },
     "deleteBatchDialog": {
       "title": "Delete batch",
-      "description": "Delete this batch and all {{count}} of its bills.",
+      "description_one": "Delete this batch and its {{count}} bill.",
+      "description_other": "Delete this batch and all {{count}} of its bills.",
       "approvalNotice": "{{collected}} of {{generated}} bills already have payments — admin approval will be required to delete this batch.",
       "errorConflict": "This batch could not be deleted — refresh and try again.",
       "errorMessage": "Could not delete this batch. Try again.",

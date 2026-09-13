@@ -8,9 +8,10 @@
  * class-matching one, then everything else keeps the server's own order.
  */
 import { Checkbox } from '@biddaloy/ui/components';
-import { useFeeStructures, type FeeStructure } from '@biddaloy/ui/hooks';
+import { feeStructuresQueryOptions, type FeeStructure } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatCurrency } from '@biddaloy/ui/utils';
+import { useQuery } from '@tanstack/react-query';
 
 export interface FeePickerProps {
   academicYearId: string;
@@ -38,9 +39,13 @@ export function FeePicker({
 }: FeePickerProps) {
   const { t } = useTranslation('feeGeneration');
   const config = useRegionConfig();
-  const structuresQuery = useFeeStructures(
-    academicYearId !== '' ? { academic_year_id: academicYearId, limit: 100 } : { limit: 0 },
-  );
+  // `enabled` gates the request instead of a fake `limit: 0` — the server
+  // rejects `limit` below 1 (`@Min(1)` on `QueryFeeStructuresDto`), so the
+  // old placeholder 400ed whenever no academic year was picked yet.
+  const structuresQuery = useQuery({
+    ...feeStructuresQueryOptions({ academic_year_id: academicYearId, limit: 100 }),
+    enabled: academicYearId !== '',
+  });
   const structures = sortStructures(structuresQuery.data?.data ?? [], majorityClassId);
 
   const runningTotal = structures

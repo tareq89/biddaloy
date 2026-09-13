@@ -10,6 +10,7 @@
  * why, since generating a fee for a transferred/graduated student is
  * usually a mistake the accountant should notice before submitting.
  */
+import { ApiError } from '@biddaloy/ui/api';
 import {
   Checkbox,
   Input,
@@ -28,6 +29,7 @@ import {
   useStudentIds,
   useStudentSearch,
   type Student,
+  type StudentIdsFilters,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
@@ -56,22 +58,31 @@ export function AudiencePicker({
   );
   const sectionsQuery = useClassSections(classId !== ALL_VALUE ? classId : undefined);
 
-  const filters = {
+  const idsFilters: StudentIdsFilters = {
     ...(search.trim() !== '' ? { search: search.trim() } : {}),
     ...(classId !== ALL_VALUE ? { class_id: classId } : {}),
     ...(sectionId !== ALL_VALUE ? { section_id: sectionId } : {}),
     ...(includeInactive ? {} : { enrollment_status: 'ACTIVE' }),
-    limit: 50,
   };
+  // `useStudentSearch` (the paginated list) additionally takes `limit` —
+  // `GET /students/ids` does not accept it (see `StudentIdsFilters`).
+  const filters = { ...idsFilters, limit: 50 };
 
   const studentsQuery = useStudentSearch(filters);
   const students = studentsQuery.data?.data ?? [];
 
   const [selectAllRequested, setSelectAllRequested] = React.useState(false);
-  const idsQuery = useStudentIds(filters, { enabled: selectAllRequested });
+  const idsQuery = useStudentIds(idsFilters, { enabled: selectAllRequested });
 
   React.useEffect(() => {
-    if (!selectAllRequested || !idsQuery.isSuccess) return;
+    if (!selectAllRequested) return;
+    if (idsQuery.isError) {
+      // Reset so a second click can retry instead of the button staying
+      // stuck disabled/in-flight forever.
+      setSelectAllRequested(false);
+      return;
+    }
+    if (!idsQuery.isSuccess) return;
     const next = new Map(selected);
     const byId = new Map(students.map((student) => [student.id, student.full_name]));
     for (const id of idsQuery.data.ids) {
@@ -87,7 +98,17 @@ export function AudiencePicker({
     onSelectedChange(next);
     setSelectAllRequested(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fire once per select-all click
-  }, [selectAllRequested, idsQuery.isSuccess, idsQuery.data]);
+  }, [selectAllRequested, idsQuery.isSuccess, idsQuery.isError, idsQuery.data]);
+
+  const selectAllErrorMessage = React.useMemo(() => {
+    if (!idsQuery.error) return null;
+    if (idsQuery.error instanceof ApiError && idsQuery.error.statusCode === 413) {
+      return t('audience.selectAllTooManyMatches');
+    }
+    return idsQuery.error instanceof Error
+      ? idsQuery.error.message
+      : t('audience.selectAllTooManyMatches');
+  }, [idsQuery.error, t]);
 
   // Backfills real names into `selected` as search pages load — covers any
   // id that was set to the "unknown" placeholder by "select all" above, or
@@ -184,16 +205,30 @@ export function AudiencePicker({
         </label>
       </div>
 
-      <button
-        type="button"
-        className="self-start text-sm font-medium text-primary underline-offset-2 hover:underline"
-        onClick={() => setSelectAllRequested(true)}
-        disabled={idsQuery.isFetching}
-      >
-        {t('audience.selectAllMatching', {
-          count: idsQuery.data?.total ?? studentsQuery.data?.total ?? 0,
-        })}
-      </button>
+      <div className="flex flex-col items-start gap-1">
+        <button
+          type="button"
+          className="self-start text-sm font-medium text-primary underline-offset-2 hover:underline"
+          onClick={() => setSelectAllRequested(true)}
+          disabled={idsQuery.isFetching}
+        >
+          {t('audience.selectAllMatching', {
+            count: idsQuery.data?.total ?? studentsQuery.data?.total ?? 0,
+          })}
+        </button>
+        {selectAllErrorMessage && (
+          <div className="flex items-center gap-2 text-sm text-destructive" role="alert">
+            <span>{selectAllErrorMessage}</span>
+            <button
+              type="button"
+              className="font-medium underline-offset-2 hover:underline"
+              onClick={() => setSelectAllRequested(true)}
+            >
+              {t('audience.selectAllRetry')}
+            </button>
+          </div>
+        )}
+      </div>
 
       <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle p-2">
         {studentsQuery.isPending && (

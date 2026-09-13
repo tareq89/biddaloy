@@ -29,7 +29,7 @@ export function useBatchFilterFields(): FilterFieldDescriptor[] {
   // reasonable stand-in, same as `dues.tsx` reaching for `useClasses()`
   // wholesale rather than a scoped lookup. Capped at a page-sized 100 so
   // the select stays usable without adding search-as-you-type here.
-  const usersQuery = useUsers({ sort: 'full_name', order: 'asc' });
+  const usersQuery = useUsers({ sort: 'full_name', order: 'asc', limit: 100 });
 
   return [
     {

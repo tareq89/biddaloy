@@ -2922,6 +2922,10 @@ export interface components {
             created_student_ids: string[];
             errors: components["schemas"]["BulkUploadErrorDto"][];
         };
+        StudentIdsResultDto: {
+            ids: string[];
+            total: number;
+        };
         UpdateStudentDto: {
             full_name?: string;
             /** Format: uuid */
@@ -5693,7 +5697,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["StudentIdsResultDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {

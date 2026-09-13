@@ -317,6 +317,22 @@ export interface StudentIdsResult {
   total: number;
 }
 
+/** [CodeRabbit round 1] The server's `QueryStudentIdsDto` has no
+ * pagination/sort fields and the global `ValidationPipe` forbids unknown
+ * properties — forwarding the whole `StudentListFilters` object (as the
+ * audience picker previously did, including `limit`) 400s every "select
+ * all N matching" click. Only these keys are legal for `GET /students/ids`. */
+export type StudentIdsFilters = Pick<
+  StudentListFilters,
+  | 'search'
+  | 'class_id'
+  | 'section_id'
+  | 'enrollment_status'
+  | 'gender'
+  | 'date_of_birth_from'
+  | 'date_of_birth_to'
+>;
+
 /**
  * [16.3.6] "Select all N matching" in the audience picker — `GET
  * /students/ids`, the same filters `useStudents`/`studentsQueryOptions`
@@ -330,14 +346,34 @@ export interface StudentIdsResult {
  * to fire on mount or on every filter keystroke — it only runs when the
  * accountant actually clicks "Select all N matching".
  */
-export function studentIdsQueryOptions(filters: StudentListFilters = {}) {
+export function studentIdsQueryOptions(filters: StudentIdsFilters = {}) {
+  // Built explicitly rather than spreading `filters` — a caller that still
+  // has `limit`/`page`/`sort` on hand (e.g. a shared filter-bar state
+  // object) must not have those leak through to the request.
+  const allowedKeys: (keyof StudentIdsFilters)[] = [
+    'search',
+    'class_id',
+    'section_id',
+    'enrollment_status',
+    'gender',
+    'date_of_birth_from',
+    'date_of_birth_to',
+  ];
+  const params: StudentIdsFilters = {};
+  for (const key of allowedKeys) {
+    const value = filters[key];
+    if (value !== undefined) {
+      params[key] = value;
+    }
+  }
+
   return queryOptions({
-    queryKey: studentKeys.list({ ...filters, idsOnly: true } as StudentListFilters & {
+    queryKey: studentKeys.list({ ...params, idsOnly: true } as StudentListFilters & {
       idsOnly: boolean;
     }),
     queryFn: async ({ signal }) => {
       const res = await apiClient.get<StudentIdsResult>('/students/ids', {
-        params: filters,
+        params,
         signal,
       });
       return res.data;
@@ -346,7 +382,7 @@ export function studentIdsQueryOptions(filters: StudentListFilters = {}) {
   });
 }
 
-export function useStudentIds(filters: StudentListFilters = {}, { enabled = false } = {}) {
+export function useStudentIds(filters: StudentIdsFilters = {}, { enabled = false } = {}) {
   return useQuery({ ...studentIdsQueryOptions(filters), enabled });
 }
 

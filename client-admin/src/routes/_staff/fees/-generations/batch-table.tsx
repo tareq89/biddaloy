@@ -12,7 +12,7 @@ import { type DataTableColumn, StatusBadge } from '@biddaloy/ui/components';
 import type { FeeGeneration } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, type FilterBarProps } from '@biddaloy/ui/shells';
-import { formatDate, formatServerAmount } from '@biddaloy/ui/utils';
+import { formatDate, formatNumber, formatServerAmount } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 export type { FeeGeneration };
@@ -157,7 +157,9 @@ export function BatchTable({
     {
       id: 'students',
       header: t('generations.columnStudents'),
-      accessorFn: (row) => formatServerAmount(row.student_count, regionConfig),
+      // A headcount, not money — `formatServerAmount` was rendering it
+      // with a currency symbol (e.g. "৳ 40.00").
+      accessorFn: (row) => formatNumber(row.student_count, regionConfig),
       align: 'end',
     },
     {

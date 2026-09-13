@@ -18,7 +18,9 @@
     "loading": "Loading students…",
     "empty": "No students match these filters.",
     "inactiveTooltip": "This student is not currently active — check before generating a fee for them.",
-    "unknownStudentName": "Selected student (name loading…)"
+    "unknownStudentName": "Selected student (name loading…)",
+    "selectAllTooManyMatches": "Too many matches — narrow your filters and try again.",
+    "selectAllRetry": "Try again"
   },
   "fees": {
     "heading": "Fees",

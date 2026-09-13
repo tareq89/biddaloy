@@ -156,4 +156,16 @@ describe('BatchTable', () => {
     await localeReady;
     expect(await screen.findByText(new RegExp(label))).toBeTruthy();
   });
+
+  it('renders the students column as a plain number, not currency', async () => {
+    // Region config in this test setup renders digits in Bengali numerals
+    // regardless of the `locale` prop (that only controls translated text),
+    // so "40" renders as "৪০" — the assertion that matters is that it is
+    // NOT prefixed with the currency symbol `formatServerAmount` would add.
+    const { localeReady } = render();
+    await localeReady;
+    // `findByText` does an exact match by default — this only passes if the
+    // cell's whole text content is the bare digits, not "৳ ৪০" or similar.
+    expect(await screen.findByText('৪০')).toBeTruthy();
+  });
 });
