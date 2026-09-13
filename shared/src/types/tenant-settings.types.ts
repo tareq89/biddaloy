@@ -1,3 +1,5 @@
+import type { ApprovalMode } from '../enums';
+
 /**
  * Shape of the JSON blob stored on `schools.settings`. `version` is a
  * discriminator so a future shape change is migratable rather than a
@@ -164,6 +166,23 @@ export interface BackupSettings {
   schedule: BackupScheduleMode;
 }
 
+/**
+ * `settings.fees` (16.2.1) — who may approve, and how, is data, not code.
+ * `approvalMode` is what `SchoolSettingsReader.feesApprovalMode` (16.2.2's
+ * step-up approval flow) reads to decide whether PASSWORD is an allowed
+ * verification method alongside OTP.
+ */
+export interface FeesSettings {
+  /** Default `'OTP'` — a school opts into password-or-OTP, not out of it. */
+  approvalMode: ApprovalMode;
+  /** Default `false` — a manual fee generation run doesn't notify parents
+   * unless the school turns it on. */
+  notifyOnManualGenerationDefault: boolean;
+  /** Default `true` — a scheduled/recurring generation run does notify
+   * parents unless the school turns it off. */
+  notifyOnScheduleDefault: boolean;
+}
+
 export interface TenantSettings {
   version: typeof TENANT_SETTINGS_SCHEMA_VERSION;
   region?: RegionSettings;
@@ -171,4 +190,5 @@ export interface TenantSettings {
   attendance?: AttendancePolicySettings;
   auth?: AuthSettings;
   backup?: BackupSettings;
+  fees?: FeesSettings;
 }

@@ -1,8 +1,10 @@
 import { TENANT_SETTINGS_SCHEMA_VERSION } from '../dto/tenant-settings.dto';
+import { ApprovalMode } from '@biddaloy/shared';
 import type {
   AttendancePolicySettings,
   AuthSettings,
   BackupSettings,
+  FeesSettings,
   RegionSettings,
   TenantSettings,
 } from '@biddaloy/shared';
@@ -75,10 +77,20 @@ export const DEFAULT_BACKUP_SETTINGS: BackupSettings = {
   schedule: 'WEEKLY',
 };
 
+/** [16.2.1] OTP-only by default — a school opts into password-or-OTP
+ * approval, not out of it. Manual generation runs don't notify by default;
+ * scheduled/recurring runs do. */
+export const DEFAULT_FEES_SETTINGS: FeesSettings = {
+  approvalMode: ApprovalMode.OTP,
+  notifyOnManualGenerationDefault: false,
+  notifyOnScheduleDefault: true,
+};
+
 export const DEFAULT_TENANT_SETTINGS: TenantSettings = {
   version: TENANT_SETTINGS_SCHEMA_VERSION,
   region: DEFAULT_REGION_SETTINGS,
   attendance: DEFAULT_ATTENDANCE_SETTINGS,
   auth: DEFAULT_AUTH_SETTINGS,
   backup: DEFAULT_BACKUP_SETTINGS,
+  fees: DEFAULT_FEES_SETTINGS,
 };

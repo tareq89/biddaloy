@@ -47,6 +47,10 @@ export enum Permission {
   FEE_GENERATE = 'FEE_GENERATE',
   FEE_READ = 'FEE_READ',
   FEE_COLLECT = 'FEE_COLLECT',
+  // [16.2.1] Approve a pending fee action (manual generation, edit-paid,
+  // discount override, ...) gated by the tenant's `settings.fees.approval_mode`.
+  // ADMIN only by default — see ROLE_PERMISSIONS comment below.
+  FEE_APPROVE = 'FEE_APPROVE',
 
   // Invoice
   INVOICE_CREATE = 'INVOICE_CREATE',
@@ -66,6 +70,9 @@ export enum Permission {
   // not on the ledger permission.
   PAYMENT_READ = 'PAYMENT_READ',
   PAYMENT_REFUND = 'PAYMENT_REFUND',
+  // [16.2.1] Reverse a recorded payment (16.x money flow) — ADMIN only by
+  // default, same reasoning as FEE_APPROVE: it undoes money already moved.
+  PAYMENT_REVERSE = 'PAYMENT_REVERSE',
 
   // Communication
   COMMUNICATION_SEND = 'COMMUNICATION_SEND',
@@ -80,6 +87,10 @@ export enum Permission {
   // Reports
   REPORTS_VIEW = 'REPORTS_VIEW',
   REPORTS_EXPORT = 'REPORTS_EXPORT',
+  // [16.2.1] The fees/payments collections report (16.x) — distinct from the
+  // general REPORTS_VIEW so a role can see collections without the whole
+  // reports surface, and vice versa.
+  REPORT_COLLECTIONS_READ = 'REPORT_COLLECTIONS_READ',
 
   // Dashboard
   DASHBOARD_VIEW = 'DASHBOARD_VIEW',
@@ -104,6 +115,11 @@ export enum Permission {
 
   // Settings
   SETTINGS_MANAGE = 'SETTINGS_MANAGE',
+  // [16.2.1] Manage a recurring fee-generation `RecurringSchedule` (16.x).
+  SCHEDULE_MANAGE = 'SCHEDULE_MANAGE',
+  // [16.2.1] Manage a `DiscountRule` (16.x) — who qualifies for what
+  // discount, applied automatically at generation time.
+  DISCOUNT_RULE_MANAGE = 'DISCOUNT_RULE_MANAGE',
 
   // Attendance
   ATTENDANCE_READ = 'ATTENDANCE_READ',
@@ -151,6 +167,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.FEE_GENERATE,
     Permission.FEE_READ,
     Permission.FEE_COLLECT,
+    // [16.2.1] Approving fee actions is ADMIN-only by default — the
+    // tenant's `settings.fees.approval_mode` gates *how* (OTP vs
+    // OTP-or-password), not *who*.
+    Permission.FEE_APPROVE,
     Permission.INVOICE_CREATE,
     Permission.INVOICE_READ,
     Permission.INVOICE_PRINT,
@@ -162,6 +182,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // [10.4] G17 — reserved for the refunds endpoint (#291); no route
     // consumes it yet.
     Permission.PAYMENT_REFUND,
+    // [16.2.1] Reversing a payment undoes money already moved — ADMIN only.
+    Permission.PAYMENT_REVERSE,
     Permission.COMMUNICATION_SEND,
     Permission.COMMUNICATION_BULK_SEND,
     Permission.COMMUNICATION_LOG_READ,
@@ -169,6 +191,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.COMMUNICATION_CREDIT_READ,
     Permission.REPORTS_VIEW,
     Permission.REPORTS_EXPORT,
+    // [16.2.1] Fees/payments collections report.
+    Permission.REPORT_COLLECTIONS_READ,
     Permission.DASHBOARD_VIEW,
     Permission.DASHBOARD_ADMIN,
     Permission.ACADEMIC_YEAR_MANAGE,
@@ -179,6 +203,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // [10.4] G6 — per-entity Activity tab; see enum comment.
     Permission.AUDIT_ENTITY_HISTORY_READ,
     Permission.SETTINGS_MANAGE,
+    // [16.2.1] Recurring fee-generation schedules and discount rules.
+    Permission.SCHEDULE_MANAGE,
+    Permission.DISCOUNT_RULE_MANAGE,
     Permission.ATTENDANCE_READ,
     Permission.ATTENDANCE_MARK,
     Permission.ATTENDANCE_CORRECT,
@@ -225,11 +252,17 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.COMMUNICATION_CREDIT_READ,
     Permission.REPORTS_VIEW,
     Permission.REPORTS_EXPORT,
+    // [16.2.1] Fees/payments collections report.
+    Permission.REPORT_COLLECTIONS_READ,
     Permission.DASHBOARD_VIEW,
     // [10.4] G4 — reference-data read; see enum comment.
     Permission.ACADEMIC_STRUCTURE_READ,
     // [10.4] G6 — per-entity Activity tab; see enum comment.
     Permission.AUDIT_ENTITY_HISTORY_READ,
+    // [16.2.1] Deliberately no FEE_APPROVE, no PAYMENT_REVERSE — those stay
+    // ADMIN-only regardless of the tenant's approval_mode.
+    Permission.SCHEDULE_MANAGE,
+    Permission.DISCOUNT_RULE_MANAGE,
     Permission.ATTENDANCE_READ,
   ],
 
@@ -296,6 +329,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // a product decision, not a mapping fix.
     Permission.FEE_READ,
     Permission.REPORTS_VIEW,
+    // [16.2.1] Read-only subset — the collections report, not FEE_APPROVE/
+    // FEE_GENERATE/PAYMENT_REVERSE/SCHEDULE_MANAGE/DISCOUNT_RULE_MANAGE.
+    Permission.REPORT_COLLECTIONS_READ,
     Permission.DASHBOARD_VIEW,
     // [10.4] G4 — reference-data read; see enum comment.
     Permission.ACADEMIC_STRUCTURE_READ,

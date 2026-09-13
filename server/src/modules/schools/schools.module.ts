@@ -7,6 +7,7 @@ import { SchoolsController } from './schools.controller';
 import { EncryptionService } from './settings/encryption.service';
 import { buildEncryptionKey, buildPreviousEncryptionKeys } from './settings/encryption-key';
 import { TenantSettingsCache } from './settings/tenant-settings-cache.service';
+import { SchoolSettingsReader } from './settings/school-settings-reader.service';
 import { TenantStatusModule } from './tenant-status.module';
 import { AuditModule } from '../audit/audit.module';
 import { SchoolProfileController } from './profile/profile.controller';
@@ -88,6 +89,7 @@ export function encryptionServiceFactory(config: ConfigService): EncryptionServi
     ProvisioningService,
     SchoolAdminsService,
     SmsCreditsService,
+    SchoolSettingsReader,
     {
       provide: EncryptionService,
       inject: [ConfigService],
@@ -116,6 +118,9 @@ export function encryptionServiceFactory(config: ConfigService): EncryptionServi
   // TenantStatusService (SchoolsService's own dependency, injected via
   // `TenantStatusModule`'s `@Global()` export — see that module's file
   // comment) is not re-declared or re-exported here.
-  exports: [SchoolsService, EncryptionService, TenantSettingsCache],
+  // SchoolSettingsReader is exported so 16.2.2's auth/step-up module can
+  // read `settings.fees.approvalMode` without depending on the rest of
+  // SchoolsService's surface.
+  exports: [SchoolsService, EncryptionService, TenantSettingsCache, SchoolSettingsReader],
 })
 export class SchoolsModule {}

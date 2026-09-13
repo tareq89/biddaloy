@@ -82,6 +82,35 @@ describe('mergeTenantSettings', () => {
     expect(merged.backup).toEqual({ schedule: 'DAILY' });
   });
 
+  it('replaces fees wholesale when present, and leaves it untouched when the patch omits it (16.2.1)', () => {
+    const existing = {
+      version: 1,
+      fees: {
+        approvalMode: 'OTP',
+        notifyOnManualGenerationDefault: false,
+        notifyOnScheduleDefault: true,
+      },
+    };
+
+    const untouched = mergeTenantSettings(existing, toPatch({ version: 1 }));
+    expect(untouched.fees).toEqual(existing.fees);
+
+    const patch = toPatch({
+      version: 1,
+      fees: {
+        approvalMode: 'OTP_OR_PASSWORD',
+        notifyOnManualGenerationDefault: true,
+        notifyOnScheduleDefault: false,
+      },
+    });
+    const merged = mergeTenantSettings(existing, patch);
+    expect(merged.fees).toEqual({
+      approvalMode: 'OTP_OR_PASSWORD',
+      notifyOnManualGenerationDefault: true,
+      notifyOnScheduleDefault: false,
+    });
+  });
+
   describe('field-level merge within a medium — #8.7.9 PATCH contract', () => {
     it('omitting a secret field from the patch leaves the stored value unchanged', () => {
       const existing = {

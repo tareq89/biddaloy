@@ -17,6 +17,7 @@ import { NestedSettings } from '../settings/nested-settings.decorator';
 import { OptionalSetting } from '../settings/optional-setting.decorator';
 import { IsRegexSourceConstraint } from '../settings/regex-source.validator';
 import { SmsProviderIsConfiguredConstraint } from '../settings/sms-provider-config.validator';
+import { ApprovalMode } from '@biddaloy/shared';
 import type {
   NumeralSystem,
   CurrencyGrouping,
@@ -338,6 +339,23 @@ export class BackupSettingsDto {
   schedule: BackupScheduleMode;
 }
 
+/**
+ * `settings.fees` (16.2.1) — who may approve, and how, is data. `approvalMode`
+ * is what `SchoolSettingsReader.feesApprovalMode` (16.2.2's step-up approval
+ * flow) reads to decide whether PASSWORD is an allowed verification method
+ * alongside OTP.
+ */
+export class FeesSettingsDto {
+  @IsIn(Object.values(ApprovalMode))
+  approvalMode: ApprovalMode;
+
+  @IsBoolean()
+  notifyOnManualGenerationDefault: boolean;
+
+  @IsBoolean()
+  notifyOnScheduleDefault: boolean;
+}
+
 export class TenantSettingsDto {
   @IsIn([TENANT_SETTINGS_SCHEMA_VERSION])
   version: typeof TENANT_SETTINGS_SCHEMA_VERSION;
@@ -361,4 +379,8 @@ export class TenantSettingsDto {
   @OptionalSetting()
   @NestedSettings(() => BackupSettingsDto)
   backup?: BackupSettingsDto;
+
+  @OptionalSetting()
+  @NestedSettings(() => FeesSettingsDto)
+  fees?: FeesSettingsDto;
 }
