@@ -43,7 +43,9 @@ import {
   CreatePaymentDto,
   QueryPaymentDto,
   RecordPaymentWithAllocationDto,
-  GenerateStudentFeesDto,
+  GenerateFeesPreviewDto,
+  GenerateFeesDto,
+  GenerateFeesPreviewResultDto,
   GenerateFeesResultDto,
   QueryFeeDuesDto,
   QueryFlaggedDuesDto,
@@ -154,20 +156,50 @@ export class FeeController {
     return this.feeDuesService.getFlaggedDues(query, tenant.id);
   }
 
-  // --- Fee Generation endpoint ---
+  // --- Fee Generation endpoints [16.3.1] ---
+
+  @Post('fees/generate/preview')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.FEE_GENERATE)
+  @ApiOperation({
+    summary:
+      'Read-only dry run of a fee-generation request: reports inactive students, existing ' +
+      'duplicate bills, and how many bills would actually be created. Writes nothing.',
+  })
+  previewGenerateFees(
+    @Body() dto: GenerateFeesPreviewDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ): Promise<GenerateFeesPreviewResultDto> {
+    return this.feeGenerationService.preview(dto, tenant.id);
+  }
 
   @Post('fees/generate')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.FEE_GENERATE)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({
-    summary: 'Generate StudentFee rows for the matching fee structures over a given month/scope.',
+    summary:
+      'Generate exactly the picked students x fee structures x period as StudentFee bills, ' +
+      'applying the chosen duplicate strategy. REMOVE_OLDER over a paid bill and ' +
+      'CREATE_ANYWAY both require a fresh X-Approval-Token for scope "fees.duplicate_override" ' +
+      '— missing/invalid returns 403 APPROVAL_REQUIRED and writes nothing.',
   })
   generateFees(
-    @Body() dto: GenerateStudentFeesDto,
+    @Body() dto: GenerateFeesDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ): Promise<GenerateFeesResultDto> {
-    return this.feeGenerationService.generate(dto, tenant.id);
+    return this.feeGenerationService.generate(
+      dto,
+      tenant.id,
+      user.sub,
+      request as unknown as {
+        headers: Record<string, string | string[] | undefined>;
+        currentTenant?: { id: string };
+        user?: { sub: string };
+      },
+    );
   }
 
   // --- Fee Structure endpoints ---

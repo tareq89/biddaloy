@@ -12,6 +12,7 @@ import {
   IsBoolean,
   IsDateString,
   ArrayMinSize,
+  ArrayMaxSize,
   ValidateNested,
   MaxLength,
 } from 'class-validator';
@@ -23,6 +24,7 @@ import {
   PaymentAllocationType,
   FeeStatus,
   PeriodType,
+  DuplicateStrategy,
 } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import { Payment } from '../entities/payment.entity';
@@ -250,33 +252,90 @@ export class QueryPaymentDto {
   limit?: number = 10;
 }
 
-export class GenerateStudentFeesDto {
+/**
+ * [16.3.1] Explicit student × fee-structure × period generation — the
+ * read-only half. Preview never writes and never notifies, so it carries
+ * no `due_date`/`notify_families`/`duplicate_strategy`: those only matter
+ * once bills are actually created.
+ */
+export class GenerateFeesPreviewDto {
   @IsUUID()
   academic_year_id: string;
 
-  @IsInt()
-  @Min(1)
-  @Max(12)
-  month: number;
+  @IsDateString()
+  period_start: string;
 
-  @IsInt()
-  @Min(2000)
-  @Max(2100)
-  year: number;
+  @IsEnum(PeriodType)
+  period_type: PeriodType;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(5000)
+  @IsUUID('4', { each: true })
+  student_ids: string[];
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(20)
+  @IsUUID('4', { each: true })
+  fee_structure_ids: string[];
 
   @IsOptional()
-  @IsUUID()
-  class_id?: string;
+  @IsBoolean()
+  include_inactive?: boolean = false;
+}
+
+/** [16.3.1] Same targeting as the preview, plus what generation actually
+ * needs to write bills and (optionally) notify families. */
+export class GenerateFeesDto extends GenerateFeesPreviewDto {
+  /** Defaults to `period_start` + 9 days when omitted (service-computed,
+   * not defaulted here, since it depends on `period_start`). */
+  @IsOptional()
+  @IsDateString()
+  due_date?: string;
 
   @IsOptional()
-  @IsUUID()
-  section_id?: string;
+  @IsEnum(DuplicateStrategy)
+  duplicate_strategy?: DuplicateStrategy = DuplicateStrategy.SKIP;
+
+  /** Omitted → the tenant's `settings.fees.notifyOnManualGenerationDefault`
+   * decides (service-resolved, not defaulted here). */
+  @IsOptional()
+  @IsBoolean()
+  notify_families?: boolean;
+}
+
+/** A skipped-for-being-inactive student, named for the UI's review step. */
+export class InactiveStudentDto {
+  id: string;
+  full_name: string;
+}
+
+/** One (student, fee structure) pair that already has a bill for this
+ * period — what "duplicate" means for this generation request. */
+export class DuplicateBillDto {
+  student_id: string;
+  fee_structure_id: string;
+  existing_bill_id: string;
+  paid_amount: number;
+}
+
+export class GenerateFeesPreviewResultDto {
+  students_total: number;
+  inactive: InactiveStudentDto[];
+  duplicates: DuplicateBillDto[];
+  /** How many bills a `POST /fees/generate` with the same selection and
+   * `duplicate_strategy: SKIP` would actually create. */
+  would_generate: number;
 }
 
 export class GenerateFeesResultDto {
-  generated: number;
-  skipped: number;
-  students_evaluated: number;
+  fee_generation_id: string;
+  student_count: number;
+  generated_count: number;
+  skipped_count: number;
+  removed_count: number;
+  inactive_skipped: InactiveStudentDto[];
 }
 
 export class QueryFeeDuesDto {
