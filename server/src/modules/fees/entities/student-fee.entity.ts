@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
   Unique,
@@ -159,4 +160,7 @@ export class StudentFee {
 
   @UpdateDateColumn({ type: 'timestamptz' })
   updated_at: Date;
+
+  @DeleteDateColumn({ type: 'timestamptz' })
+  deleted_at: Date | null;
 }
