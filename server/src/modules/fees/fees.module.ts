@@ -5,6 +5,7 @@ import { FeeStructureStudent } from './entities/fee-structure-student.entity';
 import { Payment } from './entities/payment.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { StudentFee } from './entities/student-fee.entity';
+import { FeeGeneration } from './entities/fee-generation.entity';
 import { Student } from '../students/entities/student.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
@@ -17,7 +18,9 @@ import { FeeStructureService, PaymentService } from './fees.service';
 import { FeeGenerationService } from './fee-generation.service';
 import { PaymentAllocationService } from './payment-allocation.service';
 import { FeeDuesService } from './fee-dues.service';
+import { FeeGenerationsService } from './fee-generations.service';
 import { FeeController } from './fees.controller';
+import { FeeGenerationsController } from './fee-generations.controller';
 
 @Module({
   imports: [
@@ -27,6 +30,7 @@ import { FeeController } from './fees.controller';
       Payment,
       PaymentAllocation,
       StudentFee,
+      FeeGeneration,
       Student,
       Class,
       ClassSection,
@@ -43,14 +47,16 @@ import { FeeController } from './fees.controller';
     FeeGenerationService,
     PaymentAllocationService,
     FeeDuesService,
+    FeeGenerationsService,
   ],
-  controllers: [FeeController],
+  controllers: [FeeController, FeeGenerationsController],
   exports: [
     FeeStructureService,
     PaymentService,
     FeeGenerationService,
     PaymentAllocationService,
     FeeDuesService,
+    FeeGenerationsService,
   ],
 })
 export class FeeModule {}
