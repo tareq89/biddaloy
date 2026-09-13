@@ -42,7 +42,6 @@
     "errorNameRequired": "Name is required",
     "errorAmountRequired": "Amount must be greater than zero",
     "errorAcademicYearRequired": "Academic year is required",
-    "errorClassRequired": "Class is required",
     "errorMessage": "Failed to save fee structure",
     "save": "Save",
     "saving": "Saving…"

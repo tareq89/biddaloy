@@ -42,6 +42,10 @@ import * as React from 'react';
 /** Radix `Select.Item` rejects an empty-string `value`, so "no section"
  * needs a real sentinel — `section_id` is never this string. */
 const NO_SECTION = '__none__';
+/** Same sentinel trick for "no class" — a school-wide structure has a
+ * null `class_id`, which Radix's `Select.Item` also can't represent
+ * directly. */
+const NO_CLASS = '__none__';
 
 export interface StructureFormDialogProps {
   open: boolean;
@@ -112,10 +116,6 @@ export function StructureFormDialog({
     }
     if (mode === 'create' && academicYearId === '') {
       setValidationError(t('form.errorAcademicYearRequired'));
-      return;
-    }
-    if (mode === 'create' && classId === '') {
-      setValidationError(t('form.errorClassRequired'));
       return;
     }
     setValidationError(null);
@@ -217,9 +217,9 @@ export function StructureFormDialog({
           <div className="flex flex-col gap-1.5">
             <span className="text-sm font-medium">{t('form.classLabel')}</span>
             <Select
-              value={classId}
+              value={classId === '' ? NO_CLASS : classId}
               onValueChange={(value) => {
-                setClassId(value);
+                setClassId(value === NO_CLASS ? '' : value);
                 setSectionId('');
               }}
             >
@@ -227,6 +227,7 @@ export function StructureFormDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value={NO_CLASS}>{t('list.wholeSchool')}</SelectItem>
                 {classesQuery.data?.data.map((klass) => (
                   <SelectItem key={klass.id} value={klass.id}>
                     {klass.name}

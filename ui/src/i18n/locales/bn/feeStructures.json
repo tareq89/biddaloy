@@ -42,7 +42,6 @@
     "errorNameRequired": "নাম আবশ্যক",
     "errorAmountRequired": "পরিমাণ শূন্যের চেয়ে বড় হতে হবে",
     "errorAcademicYearRequired": "শিক্ষাবর্ষ আবশ্যক",
-    "errorClassRequired": "শ্রেণি আবশ্যক",
     "errorMessage": "ফি কাঠামো সংরক্ষণ করতে ব্যর্থ হয়েছে",
     "save": "সংরক্ষণ",
     "saving": "সংরক্ষণ করা হচ্ছে…"
