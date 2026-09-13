@@ -51,6 +51,8 @@ import { Guardian } from './modules/students/entities/guardian.entity';
 import { FeeStructure } from './modules/fees/entities/fee-structure.entity';
 import { FeeStructureStudent } from './modules/fees/entities/fee-structure-student.entity';
 import { StudentFee } from './modules/fees/entities/student-fee.entity';
+import { StudentWallet } from './modules/fees/entities/student-wallet.entity';
+import { WalletTransaction } from './modules/fees/entities/wallet-transaction.entity';
 import { Payment } from './modules/fees/entities/payment.entity';
 import { PaymentAllocation } from './modules/fees/entities/payment-allocation.entity';
 import { Invoice } from './modules/invoices/entities/invoice.entity';
@@ -115,6 +117,8 @@ import { WorkbookJob } from './modules/workbook/jobs/workbook-job.entity';
             FeeStructure,
             FeeStructureStudent,
             StudentFee,
+            StudentWallet,
+            WalletTransaction,
             Payment,
             PaymentAllocation,
             Invoice,
