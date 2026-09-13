@@ -1,4 +1,4 @@
-import { IsOptional, IsUUID, IsEnum, IsInt, Min, IsDateString } from 'class-validator';
+import { IsOptional, IsUUID, IsEnum, IsInt, Min, Max, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { FeeType, FeeGenerationSource } from '@biddaloy/shared';
 
@@ -39,6 +39,7 @@ export class QueryFeeGenerationsDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(100)
   limit?: number = 20;
 }
 
@@ -53,6 +54,7 @@ export class QueryFeeGenerationBillsDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(100)
   limit?: number = 20;
 }
 

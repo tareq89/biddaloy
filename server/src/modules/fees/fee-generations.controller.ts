@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
@@ -42,7 +42,10 @@ export class FeeGenerationsController {
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({ summary: 'One fee-generation batch.' })
-  findOne(@Param('id') id: string, @CurrentTenant() tenant: { id: string; role: string }) {
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
     return this.service.findOne(id, tenant.id);
   }
 
@@ -51,7 +54,7 @@ export class FeeGenerationsController {
   @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({ summary: 'Paged bills this batch created, with student/fee detail.' })
   findBills(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Query() query: QueryFeeGenerationBillsDto,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {

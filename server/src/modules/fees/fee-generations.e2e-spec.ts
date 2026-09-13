@@ -247,7 +247,7 @@ describe('Fee Generations E2E', () => {
 
       const res = await supertest(app.getHttpServer())
         .get('/api/v1/fees/generations')
-        .query({ limit: 200 })
+        .query({ limit: 100 })
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
@@ -260,7 +260,7 @@ describe('Fee Generations E2E', () => {
 
       const partialOnly = await supertest(app.getHttpServer())
         .get('/api/v1/fees/generations')
-        .query({ collection_status: 'PARTIAL', limit: 200 })
+        .query({ collection_status: 'PARTIAL', limit: 100 })
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
