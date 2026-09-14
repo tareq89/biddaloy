@@ -174,7 +174,7 @@
     {
       "path": "/payments/record",
       "role": "accountant",
-      "archetype": "wizard"
+      "archetype": "redirect"
     },
     {
       "path": "/communications/send",
