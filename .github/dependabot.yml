@@ -12,10 +12,18 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    # Majors are left ungrouped so each gets its own PR and a real review —
-    # see server/package.json for prior examples of majors needing care
-    # (nodemailer ^6 -> ^9 in PR #59 needed usage verification, not just a
-    # version bump).
+      # NestJS majors must move together: @nestjs/platform-express 12 imports
+      # `@nestjs/common/internal`, which only exists in common 12, so a lone
+      # bump (PR #575) cannot build. One grouped PR = one deliberate upgrade.
+      nestjs-major:
+        patterns:
+          - "@nestjs/*"
+        update-types:
+          - "major"
+    # Other majors are left ungrouped so each gets its own PR and a real
+    # review — see server/package.json for prior examples of majors needing
+    # care (nodemailer ^6 -> ^9 in PR #59 needed usage verification, not just
+    # a version bump).
 
   - package-ecosystem: "docker"
     directory: "/"

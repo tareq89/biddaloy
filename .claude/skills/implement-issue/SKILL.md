@@ -52,6 +52,12 @@ carve-out: the published plan comment, code, tests, and stories stay normal.
 Subagents are separate contexts — they don't inherit your mode unless you say
 so in the dispatch prompt.
 
+Batch independent tool calls into one message wherever the loop allows it
+(e.g. Step 0's resolve + Step 1's state-file write, or checking the plan
+comment and `git status` together on resume). Each subagent dispatch already
+pays a fixed context floor on top of the session's own — don't add a second
+one by splitting a single phase's tool calls across turns.
+
 ## Model routing
 
 **You cannot switch your own model.** `/model` and `/effort` are user-side CLI
@@ -65,7 +71,8 @@ on whatever the user set before invoking this skill.
 
 | Phase | Runs on | How |
 |---|---|---|
-| Research + plan (steps 2–3) — **plan-grade** issue | Sonnet | `issue-preflight` subagent (`.claude/agents/issue-preflight.md`, `model: sonnet`) |
+| Research + plan (steps 2–3) — **plan-grade, standard tier** | Sonnet | folded into `issue-implementer` (`mode: self-preflight`) — no separate agent |
+| Research + plan (steps 2–3) — **plan-grade, money tier** | Sonnet | `issue-preflight` subagent (`.claude/agents/issue-preflight.md`, `model: sonnet`) |
 | Research + plan (steps 2–3) — everything else | Opus | `issue-planner` subagent (`.claude/agents/issue-planner.md`, `model: opus`) |
 | Implement, tests, stories (steps 4–6) | Sonnet | `issue-implementer` subagent (`.claude/agents/issue-implementer.md`, `model: sonnet`) |
 | Code review (step 7) — **money tier** | Opus | `issue-reviewer` subagent (`.claude/agents/issue-reviewer.md`, `model: opus`) |
@@ -73,10 +80,13 @@ on whatever the user set before invoking this skill.
 | Commit, push, PR (steps 8–9) | the session's model | in this session |
 
 **Plan-grade** = the issue body already has `## Files`, `## Tests`,
-`## Acceptance` and `## Steps` or `## Contract` (Epic 14/15/16 sub-issues). **Review tier** (money / standard) is
-defined once in `implement-epic` → "Model routing" and recorded by
-`issue-preflight` on the `## Plan` comment; for a non-plan-grade issue, apply
-the same path rule yourself.
+`## Acceptance` and `## Steps` or `## Contract` (Epic 14/15/16 sub-issues).
+**Review tier** (money / standard) is defined once in `implement-epic` →
+"Model routing". **You compute it** from the body's `## Files` before
+dispatching anything, pass it to every agent you dispatch for the issue, and
+the plan agent records it on the `## Plan` comment. It decides two things:
+whether pre-flight is a separate agent (money) or folded into the implementer
+(standard), and who reviews.
 
 Planning is delegated rather than done in-session for the same reason
 implementation is: it pins the phase to the right model regardless of what the
@@ -185,25 +195,30 @@ implementation before issue N's PR is open.
   onto `main` and retarget the open PRs rather than leaving them stacked on a
   merged branch.
 
-### 2–3. Research and plan — delegated (Sonnet pre-flight or Opus planner)
+### 2–3. Research and plan — delegated (or folded into the implementer)
 
-If the issue body is **plan-grade** (`## Files`, `## Steps`, `## Tests`,
-`## Acceptance` all present), dispatch `issue-preflight` (Sonnet) with the
-issue ID and base branch. It verifies the body against the code, publishes a
-short `## Plan — <id>` comment that points at the body, and records the review
-tier. Only if it returns `needs-planner` do you fall through to the next
-paragraph; if it returns `blocked-on: #<n>`, stop and tell the user which
-ticket must land first.
+Read the body once (`gh issue view <n> --json body,comments`), compute the
+review tier from `## Files`, and branch on what you find:
 
-Otherwise dispatch the `issue-planner` subagent (Opus) with the issue ID and
-the base branch. It owns graphify research, verification against the current
+- **Plan-grade, standard tier** → skip this step. Step 4 dispatches
+  `issue-implementer` with `mode: self-preflight`; it verifies the body,
+  publishes the `## Plan — <id>` pointer comment, and implements in one
+  context. If it returns `needs-planner`, fall through to the planner below;
+  if `blocked-on: #<n>`, stop and tell the user which ticket must land first.
+- **Plan-grade, money tier** → dispatch `issue-preflight` (Sonnet) with the
+  issue ID, base branch and tier. It verifies the body against the code and
+  publishes the pointer comment. Only if it returns `needs-planner` do you
+  fall through to the planner; `blocked-on` is handled as above.
+- **Not plan-grade** → dispatch the `issue-planner` subagent (Opus) with the
+  issue ID and the base branch. It owns graphify research, verification against the current
 code, the written plan, and publishing that plan to the GitHub issue as a
 comment. Its definition carries the full contract.
 
-**Check for an existing plan first.** Run `gh issue view <n> --json comments`
-and look for a comment headed `## Plan — <issue id>`. If a current one is
-already there — because a `plan`-only invocation produced it earlier, or a
-previous session got this far — **do not re-plan.** Skip to step 4. This is what
+**Check for an existing plan first.** In the same `gh issue view` above, look
+for a comment headed `## Plan — <issue id>`. If a current one is already
+there — because a `plan`-only invocation produced it earlier, or a previous
+session got this far — **do not re-plan.** Skip to step 4 (without
+`self-preflight`). This is what
 makes the two-invocation effort split work, and it's what stops a resumed
 session from burning the expensive phase twice.
 
@@ -224,9 +239,12 @@ artifact; the state file tracks position and points at it.
 
 ### 4–6. Implement, UI, tests and stories — delegated to Sonnet
 
-The plan is published, so handing this phase off costs nothing. Dispatch the
-`issue-implementer` subagent (Sonnet) with the issue ID; it reads the plan from
-the issue's comments itself. Let it do the code, the backend work, the UI, the
+Dispatch the `issue-implementer` subagent (Sonnet) with the issue ID, base
+branch and review tier — plus `mode: self-preflight` when steps 2–3 were
+skipped for a standard-tier plan-grade issue. It reads the plan from the
+issue's comments itself (or, in self-preflight mode, verifies the body and
+publishes the pointer comment first). Confirm it returned a comment URL before
+moving to review. Let it do the code, the backend work, the UI, the
 tests, and the stories. Its definition carries the full contract — design
 system, test and story coverage, scope discipline, no committing.
 
@@ -346,8 +364,12 @@ already planned.
 ## Rules that hold throughout
 
 - Strictly sequential — one issue in flight at a time.
-- Never skip the plan.
-- Never plan inside the implementer subagent; never let it commit.
+- Never skip the plan. (Self-pre-flight is not skipping it: the body *is* the
+  plan, and the implementer verifies and publishes it before writing code.)
+- Never let the implementer *invent* a plan; never let it commit. Its
+  self-pre-flight mode verifies an existing plan-grade body — it stops with
+  `needs-planner` rather than improvising.
+- Never self-pre-flight a money-tier ticket.
 - Never start implementation before the plan is published to the GitHub issue.
 - Never re-plan an issue that already has a current plan comment.
 - Never claim a model switch happened that you didn't make by delegation, and

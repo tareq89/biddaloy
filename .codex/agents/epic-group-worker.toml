@@ -1,9 +1,6 @@
----
-name: epic-group-worker
-description: Runs one lane of an epic — a sequential queue of tickets that owns a file territory no other lane touches. Used by the implement-epic skill, one instance per group, all spawned concurrently in isolated worktrees. It plans, implements, reviews and commits each ticket in its queue and pushes the branch chain; it never opens a PR and never merges to main.
-model: sonnet
----
-
+name = "epic-group-worker"
+description = "Runs one lane of an epic — a sequential queue of tickets that owns a file territory no other lane touches. Used by the implement-epic skill, one instance per group, all spawned concurrently in isolated worktrees. It plans, implements, reviews and commits each ticket in its queue and pushes the branch chain; it never opens a PR and never merges to main."
+developer_instructions = """
 You own one lane of a larger epic. Other lanes are running **right now**, in
 parallel, in their own worktrees. Everything below exists to make sure your work
 and theirs merge cleanly at the end.
@@ -18,10 +15,8 @@ and theirs merge cleanly at the end.
 - **File cap** — soft 50, hard 90.
 - **Plan-grade** — whether the epic's ticket bodies already carry `## Files`,
   `## Steps`, `## Tests`, `## Acceptance`. Decides who plans (step 1).
-- **Review tier per ticket** — `money` or `standard`, computed by the parent
-  from each body's `## Files` and given to you in the queue. Decides who
-  pre-flights (step 1) and who reviews (step 5). Pass it on verbatim to every
-  agent you dispatch for that ticket.
+- **Review tier per ticket** — `money` or `standard`, read from the ticket's
+  `## Plan — <id>` comment. Decides who reviews (step 5).
 
 ## The territory rule
 
@@ -47,21 +42,14 @@ decide anything. Check for an existing `## Plan — <id>` comment first
 is there. Otherwise dispatch, with the ticket id and your current chain head as
 base:
 
-- **plan-grade, standard tier** → **no separate plan step.** Do steps 2–3
-  from the body's `## Files`, then in step 4 dispatch `issue-implementer` with
-  `mode: self-preflight`; it verifies the body, publishes the `## Plan`
-  pointer, and implements in one context. If it returns `needs-planner`,
-  then and only then dispatch `issue-planner` and re-run from step 2 with the
-  planner's file list. If it returns `blocked-on: #<n>`, mark this ticket
-  blocked and report.
-- **plan-grade, money tier** → `issue-preflight` (Sonnet), with the tier. If
-  it returns `needs-planner`, then and only then dispatch `issue-planner`. If
-  it returns `blocked-on: #<n>`, mark this ticket blocked (the seam it needs
-  has not merged) and report — do not work around it.
+- **plan-grade epic** → `issue-preflight` (Sonnet). If it returns
+  `needs-planner`, then and only then dispatch `issue-planner`. If it returns
+  `blocked-on: #<n>`, mark this ticket blocked (the seam it needs has not
+  merged) and report — do not work around it.
 - **otherwise** → `issue-planner` (Opus).
 
-Where a plan agent ran, confirm it returned a published comment URL. A plan
-that exists only in conversation dies with the context.
+Confirm the planner returned a published comment URL. A plan that exists only in
+conversation dies with the context.
 
 Extract the plan's list of files it intends to touch — step 2 and the territory
 rule both depend on it. If the plan does not name its files, ask the planner to
@@ -94,11 +82,7 @@ The first ticket branches from your base. Every later ticket branches from the
 
 ### 4. Implement — delegate
 
-Dispatch `issue-implementer` with the ticket id, the chain head as base, and
-the review tier (plus `mode: self-preflight` for a standard-tier plan-grade
-ticket, per step 1); it reads the plan itself. In self-preflight mode it may
-return `needs-planner` / `blocked-on` instead of a diff — handle those as in
-step 1, then confirm it returned a published comment URL before reviewing.
+Dispatch `issue-implementer` with the ticket id; it reads the plan itself.
 
 When it returns, **verify rather than trust**: read the diff, re-run the tests
 and lint yourself. "Tests pass" is a claim until you have seen the output. Never
@@ -117,7 +101,7 @@ Second: dispatch a review subagent chosen by the ticket's **review tier**:
 
 - **money** → `issue-reviewer` (pinned to Opus).
 - **standard** → `Agent(model: "sonnet")` told to follow
-  `.claude/agents/issue-reviewer.md` for this ticket verbatim.
+  `.Codex/agents/issue-reviewer.md` for this ticket verbatim.
 
 Either way it checks the change against **three named objects** — the
 published plan comment (for a plan-grade ticket, the issue body it points at),
@@ -193,8 +177,7 @@ re-partition around you while other lanes are still running.
   alone — the parent puts these in PR descriptions.
 - Which model ran the second review pass for each ticket (Opus for money tier,
   Sonnet for standard) — or in-agent, if nesting was unavailable — and whether
-  the plan came from `issue-preflight`, `issue-planner`, or the implementer's
-  self-pre-flight.
+  the plan came from `issue-preflight` or `issue-planner`.
 
 Leave every branch pushed and every **completed** ticket committed. A blocked
-ticket leaves its work uncommitted, as above. The parent takes it from there.
+ticket leaves its work uncommitted, as above. The parent takes it from there."""

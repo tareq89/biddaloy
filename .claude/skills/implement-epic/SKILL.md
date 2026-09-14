@@ -54,6 +54,12 @@ in `/caveman ultra` for their own narration, with the same carve-out —
 published plans, code, tests, stories, and commit/PR text stay normal.
 Subagents are separate contexts and don't inherit your mode unless told.
 
+Batch independent tool calls into one message — dispatch all of a wave's
+group agents in a single turn, and fetch every sub-issue body in one batched
+call at Step 0 rather than one `gh issue view` per turn. Every group agent
+pays its own fixed context floor; the orchestrator's job is to keep its own
+turn count low so that floor isn't re-read more than necessary.
+
 ## Architecture
 
 ```mermaid
@@ -83,7 +89,8 @@ Delegation to a pinned subagent is the only switch available.
 | Phase | Runs on | How |
 |---|---|---|
 | Grouping, integration, PRs, merges | the session's model | here |
-| Per-ticket plan — **plan-grade** ticket | Sonnet | `issue-preflight` subagent (verifies the body, publishes a `## Plan` pointer) |
+| Per-ticket plan — **plan-grade, standard tier** | Sonnet | folded into `issue-implementer` (`mode: self-preflight`); no separate agent |
+| Per-ticket plan — **plan-grade, money tier** | Sonnet | `issue-preflight` subagent (verifies the body, publishes a `## Plan` pointer) |
 | Per-ticket plan — everything else | Opus | `issue-planner` subagent |
 | Per-ticket implementation | Sonnet | `issue-implementer` subagent |
 | Per-ticket review — **money tier** | Opus | `issue-reviewer` subagent, from the group agent |
@@ -113,8 +120,15 @@ that nulled cross-tenant foreign keys) — it should have been money-tier on
 behavior, not on path.
 
 Everything else — UI, docs, hooks, wave-close glue — is **standard**. An epic
-body may override with an explicit list; `issue-preflight` records the tier on
-its `## Plan` comment and the group agent reads it from there.
+body may override with an explicit list.
+
+**You compute the tier**, once per ticket, from its `## Files` at step 2 —
+it's a path match on text you've already fetched, not a job for an agent.
+Record it in the state file, hand it to each group worker with its queue, and
+the worker passes it to every agent it dispatches. The plan agent (pre-flight,
+planner, or the implementer's self-pre-flight) writes it on the `## Plan`
+comment so the reviewer has it too. The tier decides two things: whether a
+standard ticket skips the separate pre-flight agent, and who reviews.
 
 **Effort** is session-wide and cannot be set per agent (see `implement-issue`,
 "Effort cannot be routed per phase"). Run the orchestrating session at
@@ -220,17 +234,22 @@ Before dispatching any planner, read one sub-issue body. If it carries
 `## Files`, `## Tests`, `## Acceptance` and `## Steps` or `## Contract`, the
 epic is **plan-grade** (Epics 14, 15 and 16 are). Then:
 
-- Dispatch `issue-preflight` (Sonnet) per ticket instead of `issue-planner`.
-  It verifies the body against the base branch, publishes a short
-  `## Plan — <id>` comment that *points at the body*, and records the review
-  tier. The implementer and reviewer read that comment exactly as they would a
-  planner's.
-- `issue-preflight` returns `needs-planner` when the body is not actually
-  plan-grade or needs structural correction — only then dispatch
-  `issue-planner` for that ticket. It returns `blocked-on: #<n>` when a seam
-  it depends on has not merged yet; that ticket waits for its wave.
-- The file lists for step 3 come from `## Files` (with pre-flight corrections
-  applied), not from a fresh plan.
+- **Dispatch no plan agent at discovery.** Fetch every open sub-issue body in
+  one paginated `gh api` call, take the file list straight from `## Files`,
+  and compute each ticket's review tier from it. That is all step 3 needs.
+  Verifying a wave-5 body against wave-0 `main` would only report seams that
+  haven't merged yet, so verification belongs at the moment of implementation,
+  not here.
+- Pre-flight happens **inside the group worker, per ticket, against the
+  chain head**: standard tier → `issue-implementer` in `self-preflight` mode
+  (verify, publish the `## Plan` pointer, implement — one agent); money tier →
+  `issue-preflight` first, then the implementer. Either returns
+  `needs-planner` when the body is not actually plan-grade or needs structural
+  correction — only then does the worker dispatch `issue-planner` for that
+  ticket — and `blocked-on: #<n>` when a seam it depends on has not merged.
+- If a pre-flight correction changes a ticket's `## Files` in a way that
+  crosses a lane's territory, the worker reports it and you re-partition; the
+  discovery-time file list was an estimate, as the file cap already assumes.
 - Waves are **declared**: each body says `Wave N` and the epic body carries a
   wave table. Use them. Still verify file-disjointness inside a wave from the
   `## Files` lists — a declared wave is a claim, and step 3 checks it.
@@ -303,11 +322,13 @@ human gate before the work starts.
 
 ## GATE 1 — user approves the plan
 
-Every plan is published by now, so this gate reviews a partition built on real
+Every plan is published by now (or, for a plan-grade epic, every body's
+`## Files` has been read), so this gate reviews a partition built on real
 file lists rather than a guess. Before spawning any implementation worker,
 print and stop for approval:
 
-- waves and groups, with each group's ticket queue and territory line
+- waves and groups, with each group's ticket queue, tier per ticket, and
+  territory line
 - the serialized hot-path lane, if any
 - how many agents will run and roughly what that costs
 
@@ -338,11 +359,11 @@ Base: main   Groups: 3   Started: 2026-08-29T11:02Z
 ## Wave 1
 ### w1-g1 — ui/ shell components
 Branch chain: epic/8.14/w1-g1-01-sidebar → epic/8.14/w1-g1-02-header
-- 365 sidebar        status: done      plan: <url>  files: 12
-- 366 header         status: in-progress — implementing
-- 367 mobile nav     status: pending
+- 365 sidebar        tier: standard  status: done      plan: <url>  files: 12
+- 366 header         tier: standard  status: in-progress — implementing
+- 367 mobile nav     tier: standard  status: pending
 ### w1-g2 — router + query layer
-- 369 transitions    status: blocked — plan wrong, re-planning
+- 369 transitions    tier: money     status: blocked — plan wrong, re-planning
 
 ## Integration
 Branch: epic/8.14/integration   status: not started
@@ -365,10 +386,12 @@ will `git checkout` over each other within seconds.
 
 Give each agent: its ticket queue in order, its base branch, its branch-name
 prefix, its territory line, the file cap, whether the epic is **plan-grade**,
-and each ticket's **review tier** (from the `## Plan` comment). Every ticket
-already has a published plan from step 2, so the worker's planning step is a
-lookup, not a fresh plan — it only re-dispatches the planner (or pre-flight)
-when implementation proves a plan wrong. Its definition
+and each ticket's **review tier** (computed at step 2, in the state file).
+For a non-plan-grade epic every ticket already has a published plan from
+step 2, so the worker's planning step is a lookup. For a plan-grade epic the
+worker pre-flights each ticket at implementation time against its chain head
+(standard tier inside the implementer, money tier as a separate agent) and
+only escalates to the planner on `needs-planner`. Its definition
 (`.claude/agents/epic-group-worker.md`) carries the rest of the contract.
 
 ### What group agents do NOT do — and why
@@ -568,7 +591,10 @@ session model and report it. Never re-plan a ticket that already has a current
   extend it by its own conventions if something is genuinely missing.
 - Never re-plan a ticket that already has a current plan comment.
 - Never dispatch `issue-planner` for a plan-grade ticket unless
-  `issue-preflight` returned `needs-planner`.
+  `issue-preflight` or the implementer's self-pre-flight returned
+  `needs-planner`.
+- Never dispatch `issue-preflight` for a standard-tier ticket, and never
+  self-pre-flight a money-tier one.
 - Never run the Opus reviewer on a standard-tier ticket, and never run the
   Sonnet reviewer on a money-tier one — the tier is on the `## Plan` comment.
 - Update the state file after every ticket and every state change.
