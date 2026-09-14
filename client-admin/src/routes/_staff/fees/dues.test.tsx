@@ -8,11 +8,40 @@ import { routeTree } from '../../../routeTree.gen';
 
 /** [8.10.4]'s dues queue — real route tree, not a hand-built double, so
  * `ListShell`/`DataTable` and the Flagged toggle actually wire up. Same
- * reasoning `students/index.test.tsx` documents for itself. */
+ * reasoning `students/index.test.tsx` documents for itself. `handlers.ts`'s
+ * shared `feeDefaultHandlers` already registers a zero-balance
+ * `GET students/:id/wallet` default — [16.4.5]'s `WalletChip` mounts one
+ * per visible row, so every pre-existing test here needs that default
+ * (or its own override) to avoid tripping `onUnhandledRequest: 'error'`. */
 describe('/fees/dues', () => {
   afterEach(async () => {
     await cleanupTestState();
   });
+
+  function feeDue(overrides: Record<string, unknown> = {}) {
+    return {
+      student_fee_id: 'fee-1',
+      fee_structure_id: 'structure-1',
+      fee_name: 'Tuition',
+      fee_type: 'MONTHLY_TUITION',
+      month: 3,
+      year: 2026,
+      period_start: '2026-03-01T00:00:00.000Z',
+      period_type: 'MONTH',
+      occurrence: 1,
+      is_late_fee: false,
+      total_amount: 500,
+      paid_amount: 0,
+      discount_amount: 0,
+      standing_discount_amount: 0,
+      one_off_discount_amount: 0,
+      balance: 500,
+      status: 'PENDING',
+      due_date: null,
+      reminder_threshold_date: null,
+      ...overrides,
+    };
+  }
 
   function duesRow(overrides: Record<string, unknown> = {}) {
     return {
@@ -24,20 +53,7 @@ describe('/fees/dues', () => {
       section_name: 'A',
       total_due: 500,
       months_overdue: 0,
-      dues: [
-        {
-          student_fee_id: 'fee-1',
-          month: 3,
-          year: 2026,
-          total_amount: 500,
-          paid_amount: 0,
-          discount_amount: 0,
-          balance: 500,
-          status: 'PENDING',
-          due_date: null,
-          reminder_threshold_date: null,
-        },
-      ],
+      dues: [feeDue()],
       ...overrides,
     };
   }
@@ -365,5 +381,104 @@ describe('/fees/dues', () => {
 
     await waitFor(() => expect(router.state.location.search).toMatchObject({ search: 'Karim' }));
     await waitFor(() => expect(lastSearch).toBe('Karim'));
+  });
+
+  // [16.4.5]'s Tests contract: "one row per student with two fees; expand
+  // shows both."
+  it('renders one row per student with two fees, and expanding shows both per-fee lines', async () => {
+    server.use(
+      http.get('/api/v1/fees/dues', () =>
+        HttpResponse.json({
+          data: [
+            duesRow({
+              total_due: 800,
+              dues: [
+                feeDue({ student_fee_id: 'fee-1', fee_name: 'Tuition', balance: 500 }),
+                feeDue({
+                  student_fee_id: 'fee-2',
+                  fee_name: 'Exam fee',
+                  balance: 300,
+                  is_late_fee: true,
+                  occurrence: 2,
+                }),
+              ],
+            }),
+          ],
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+        }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/fees/dues'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    // Still one row for the student, not one per fee.
+    await screen.findByText(/Karim Rahman/);
+    expect(screen.getAllByText(/Karim Rahman/)).toHaveLength(1);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /2 fees for Karim Rahman/ }));
+
+    expect(await screen.findByText('Tuition')).toBeTruthy();
+    expect(screen.getByText('Exam fee')).toBeTruthy();
+    expect(screen.getByText('Late fee')).toBeTruthy();
+  });
+
+  it('filters by fee type', async () => {
+    let lastFeeType: string | null = null;
+    server.use(
+      http.get('/api/v1/fees/dues', ({ request }) => {
+        lastFeeType = new URL(request.url).searchParams.get('fee_type');
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 0 });
+      }),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/fees/dues'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await screen.findByRole('region', { name: 'Dues queue' });
+    await user.click(screen.getByRole('combobox', { name: 'Fee type' }));
+    await user.click(await screen.findByRole('option', { name: 'Exam fee' }));
+
+    await waitFor(() =>
+      expect(router.state.location.search).toMatchObject({ fee_type: 'EXAM_FEE' }),
+    );
+    await waitFor(() => expect(lastFeeType).toBe('EXAM_FEE'));
+  });
+
+  it('shows a wallet balance chip on the row', async () => {
+    server.use(
+      http.get('/api/v1/fees/dues', () =>
+        HttpResponse.json({ data: [duesRow()], total: 1, page: 1, limit: 10, totalPages: 1 }),
+      ),
+      http.get('/api/v1/students/:id/wallet', () =>
+        HttpResponse.json({ balance: 250, transactions: [] }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/fees/dues'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    await screen.findByText(/Karim Rahman/);
+    // Default region fixture (`handlers/schools.ts`'s `DEFAULT_REGION`) is
+    // Bengali numerals — same digit rendering `dues.test.tsx`'s
+    // rows-per-page test asserts ('২০' for 20).
+    expect(await screen.findByText('Wallet: ৳২৫০.০০')).toBeTruthy();
   });
 });

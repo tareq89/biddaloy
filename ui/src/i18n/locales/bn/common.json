@@ -78,6 +78,13 @@
       "ACTIVATED": "সক্রিয় করা হয়েছে"
     }
   },
+  "walletTransactionKind": {
+    "CREDIT_OVERPAYMENT": "অতিরিক্ত অর্থ প্রদানের ক্রেডিট",
+    "CREDIT_CHANGE": "ফেরত অর্থের ক্রেডিট",
+    "DEBIT_CHECKOUT": "পেমেন্টে ব্যবহৃত",
+    "DEBIT_GENERATION": "ফি তৈরির সমন্বয়",
+    "REVERSAL": "বিপরীতকরণ"
+  },
   "errors": {
     "permissionDenied": "এই কাজটি করার অনুমতি আপনার নেই।"
   },
