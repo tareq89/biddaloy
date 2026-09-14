@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -417,6 +417,66 @@ describe('FeeGenerationService (integration)', () => {
       const bills = await studentFeeRepo.find();
       expect(bills).toHaveLength(1);
       expect(bills[0].id).not.toBe(oldBillId);
+    });
+
+    it('REMOVE_OLDER rolls back with a conflict when a concurrent request removed the bill first', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const structure = await structureRepo.save(makeStructure());
+
+      await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-06-01',
+          period_type: PeriodType.MONTH,
+          student_ids: [student.id],
+          fee_structure_ids: [structure.id],
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+      const oldBill = (await studentFeeRepo.find())[0];
+
+      // Simulate the race: another request soft-deletes the same live bill
+      // after this request's `findDuplicates` read it but before its own
+      // soft delete runs. `studentFeeRepo` is outside the transaction, so
+      // the removal is committed and visible to the in-flight one.
+      type Privates = { findDuplicates: (...args: unknown[]) => Promise<unknown> };
+      const original = (service as unknown as Privates).findDuplicates.bind(service);
+      const findDuplicates = vi
+        .spyOn(service as unknown as Privates, 'findDuplicates')
+        .mockImplementationOnce(async (...args: unknown[]) => {
+          const duplicates = await original(...args);
+          await studentFeeRepo.softDelete(oldBill.id);
+          return duplicates;
+        });
+
+      await expect(
+        service.generate(
+          {
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            period_start: '2026-06-01',
+            period_type: PeriodType.MONTH,
+            student_ids: [student.id],
+            fee_structure_ids: [structure.id],
+            duplicate_strategy: DuplicateStrategy.REMOVE_OLDER,
+          },
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(),
+        ),
+      ).rejects.toThrow(ConflictException);
+      findDuplicates.mockRestore();
+
+      // The losing request wrote nothing: no second batch, no replacement
+      // bill, and the only bill is the one the "other" request removed.
+      const batches = await feeGenerationRepo.find();
+      expect(batches).toHaveLength(1);
+      const liveBills = await studentFeeRepo.find();
+      expect(liveBills).toHaveLength(0);
+      const allBills = await studentFeeRepo.find({ withDeleted: true });
+      expect(allBills).toHaveLength(1);
+      expect(allBills[0].id).toBe(oldBill.id);
     });
 
     it('REMOVE_OLDER on a paid bill without an approval token throws APPROVAL_REQUIRED and writes nothing', async () => {

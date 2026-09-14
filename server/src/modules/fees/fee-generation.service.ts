@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EventEmitter } from 'node:events';
 import { Repository, IsNull, In, EntityManager } from 'typeorm';
@@ -306,7 +311,26 @@ export class FeeGenerationService {
         // The unique index on (student_id, fee_structure_id, period_start,
         // occurrence) is partial (`WHERE deleted_at IS NULL`), so a
         // soft-deleted row doesn't block a same-key row being reinserted.
-        await manager.getRepository(StudentFee).softDelete({ id: In(bulkExistingIds) });
+        //
+        // Conditional on `deleted_at IS NULL` and checked against the planned
+        // count: two concurrent REMOVE_OLDER requests can both read the same
+        // live bill in `findDuplicates` above, but only one of them can be
+        // the one that actually removes it. The loser would otherwise commit
+        // `removed_count = 1` for a bill it never touched, alongside a
+        // `generated_count = 0` (its replacement insert is swallowed by
+        // `.orIgnore()` below). Failing here rolls the whole batch back.
+        const removal = await manager
+          .getRepository(StudentFee)
+          .createQueryBuilder()
+          .softDelete()
+          .where('id IN (:...ids)', { ids: bulkExistingIds })
+          .andWhere('deleted_at IS NULL')
+          .execute();
+        if (removal.affected !== bulkExistingIds.length) {
+          throw new ConflictException(
+            'One or more existing bills were changed by a concurrent request; retry the generation',
+          );
+        }
         removedCount = bulkExistingIds.length;
       }
 
