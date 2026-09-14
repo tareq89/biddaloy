@@ -10,19 +10,16 @@ flowchart LR
         LS[ListShell]
         DS[DetailShell]
         FS[FormShell]
-        WS[WizardShell]
     end
     subgraph e2e ["e2e/pages"]
         LSP[ListShellPage]
         DSP[DetailShellPage]
         FSP[FormShellPage]
-        RPW[RecordPaymentWizardPage]
         ASP[AppShellPage]
     end
     LSP --> LS
     DSP --> DS
     FSP --> FS
-    RPW --> WS
     ASP --> AS[AppShell chrome]
 ```
 

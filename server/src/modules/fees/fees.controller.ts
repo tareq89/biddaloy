@@ -19,7 +19,6 @@ import {
   ApiExtraModels,
   ApiOkResponse,
   ApiOperation,
-  ApiResponse,
   ApiTags,
   getSchemaPath,
 } from '@nestjs/swagger';
@@ -32,17 +31,15 @@ import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { FeeStructureService, PaymentService } from './fees.service';
+import { PaymentsQueryService } from './payments-query.service';
 import { FeeGenerationService } from './fee-generation.service';
-import { PaymentAllocationService } from './payment-allocation.service';
 import { FeeDuesService } from './fee-dues.service';
 import { FamilyAccessService } from '../students/family-access.service';
 import {
   CreateFeeStructureDto,
   UpdateFeeStructureDto,
   QueryFeeStructureDto,
-  CreatePaymentDto,
   QueryPaymentDto,
-  RecordPaymentWithAllocationDto,
   GenerateFeesPreviewDto,
   GenerateFeesDto,
   GenerateFeesPreviewResultDto,
@@ -57,10 +54,10 @@ import {
   FamilyPaymentDto,
   FamilyStudentDueDto,
   StaffStudentDueDto,
+  PaymentDetailDto,
 } from './dto/fees.dto';
 import { FeeStructure } from './entities/fee-structure.entity';
 import { Payment } from './entities/payment.entity';
-import { IssuerSnapshot } from '../schools/profile/issuer-snapshot';
 import { Permission, UserRole, isGuardianRole } from '@biddaloy/shared';
 import { JwtPayload } from '@biddaloy/shared';
 import { requestContext } from '../../common/request-context.util';
@@ -90,9 +87,8 @@ export class FeeController {
   constructor(
     @Inject(FeeStructureService) private readonly feeStructureService: FeeStructureService,
     @Inject(PaymentService) private readonly paymentService: PaymentService,
+    @Inject(PaymentsQueryService) private readonly paymentsQueryService: PaymentsQueryService,
     @Inject(FeeGenerationService) private readonly feeGenerationService: FeeGenerationService,
-    @Inject(PaymentAllocationService)
-    private readonly paymentAllocationService: PaymentAllocationService,
     @Inject(FeeDuesService) private readonly feeDuesService: FeeDuesService,
     @Inject(FamilyAccessService) private readonly familyAccess: FamilyAccessService,
   ) {}
@@ -314,61 +310,36 @@ export class FeeController {
   }
 
   // --- Payment endpoints ---
-
-  @Post('payments')
-  // [10.4] G1 — E tightened off: lacks PAYMENT_RECORD.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
-  @RequirePermissions(Permission.PAYMENT_RECORD)
-  createPayment(
-    @Body() dto: CreatePaymentDto,
-    @CurrentTenant() tenant: { id: string; role: string },
-    @CurrentUser() user: JwtPayload,
-  ) {
-    return this.paymentService.create(dto, tenant.id, user.sub);
-  }
-
-  @Post('payments/record-with-allocation')
-  // [10.4] G1 — E tightened off.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
-  @RequirePermissions(Permission.PAYMENT_RECORD)
-  @ApiOperation({
-    summary:
-      "Record a payment and allocate it across the student's outstanding fees in FIFO order, generating an invoice when a fee is paid in full.",
-  })
-  // [15.5.5] The response is `Payment` (already `issuer_snapshot`-typed via
-  // its own `@ApiProperty`) plus the just-resolved `issuer` — undeclared
-  // otherwise, since it's not a column on the entity. `allOf`, not a
-  // subclass of `Payment`: the entity is `@Entity`-decorated, and a plain
-  // response DTO extending it would drag TypeORM metadata into Swagger for
-  // no benefit.
-  @ApiExtraModels(Payment, IssuerSnapshot)
-  // `@ApiResponse({ status: 201, ... })`, not `@ApiOkResponse` (which
-  // documents 200) — this route has no `@HttpCode`, so Nest's actual
-  // default for a POST handler is 201.
-  @ApiResponse({
-    status: 201,
-    description: 'The recorded payment, with the issuer identity frozen onto it at record time.',
-    schema: {
-      allOf: [
-        { $ref: getSchemaPath(Payment) },
-        { type: 'object', properties: { issuer: { $ref: getSchemaPath(IssuerSnapshot) } } },
-      ],
-    },
-  })
-  recordPaymentWithAllocation(
-    @Body() dto: RecordPaymentWithAllocationDto,
-    @CurrentTenant() tenant: { id: string; role: string },
-    @CurrentUser() user: JwtPayload,
-  ) {
-    return this.paymentAllocationService.recordWithAllocation(dto, tenant.id, user.sub);
-  }
+  //
+  // [16.4.2] `POST /payments` and `POST /payments/record-with-allocation`
+  // are removed here — both are superseded by `POST /payments/checkout`
+  // (`CheckoutController`/`CheckoutService`), which is the one write path
+  // for recording a payment from here on.
 
   @Get('payments')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.PAYMENT_READ)
-  @ApiOperation({ summary: 'Search payments (receipts) by transaction reference or student name.' })
+  @ApiOperation({
+    summary:
+      'Search/filter payments (receipts) — transaction reference or student name/registration number, plus student, payment method, receiving staff, date range, and reversal filters.',
+  })
   findAll(@Query() query: QueryPaymentDto, @CurrentTenant() tenant: { id: string; role: string }) {
-    return this.paymentService.findAll(query, tenant.id);
+    return this.paymentsQueryService.findAll(query, tenant.id);
+  }
+
+  @Get('payments/:id')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.PAYMENT_READ)
+  @ApiOperation({
+    summary:
+      'One payment with its allocations (enriched with fee_name/period_start), invoice, and receiving/approving staff.',
+  })
+  @ApiOkResponse({ type: PaymentDetailDto })
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.paymentsQueryService.findOne(id, tenant.id);
   }
 
   @Get('payments/student/:studentId')

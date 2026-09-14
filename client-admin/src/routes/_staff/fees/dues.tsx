@@ -1,9 +1,15 @@
-import { FeeStatus, Permission } from '@biddaloy/shared';
+import { FeeStatus, FeeType, Permission } from '@biddaloy/shared';
 import {
   Button,
   RoutePending,
   StatusBadge,
   statusLabelKey,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
@@ -14,18 +20,21 @@ import {
   useFeeDues,
   useHasPermission,
   useLastReminders,
+  useStudentWallet,
+  type FeeDueEntry,
   type FeeDueRow,
   type FeeDuesSortBy,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
-import { downloadCsv, formatDate, formatServerAmount } from '@biddaloy/ui/utils';
+import { downloadCsv, formatDate, formatServerAmount, parseServerDate } from '@biddaloy/ui/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
+import { RecordPaymentModal } from '../payments/-record/record-payment-modal';
 import { SendReminderDialog } from '../students/-send-reminder-dialog';
 
 import { GenerateInvoiceDialog } from './-generate-invoice-dialog';
@@ -47,6 +56,7 @@ interface DuesFilters {
   month?: string | undefined;
   year?: string | undefined;
   status?: string | undefined;
+  fee_type?: FeeType | undefined;
   flagged?: string | undefined;
 }
 
@@ -61,6 +71,7 @@ const duesSearchSchema = z.object({
   month: z.string().optional().catch(undefined),
   year: z.string().optional().catch(undefined),
   status: z.string().optional().catch(undefined),
+  fee_type: z.enum(FeeType).optional().catch(undefined),
   flagged: z.string().optional().catch(undefined),
   // Reserved key `use-list-shell-state.ts` stores the row selection under
   // — must be declared here or TanStack Router's `validateSearch` strips
@@ -85,6 +96,7 @@ function toFeeDuesFilters(
     ...(filters.status !== undefined
       ? { status: filters.status as FeeStatus.PENDING | FeeStatus.PARTIALLY_PAID }
       : {}),
+    ...(filters.fee_type !== undefined ? { fee_type: filters.fee_type } : {}),
     ...(sortField !== undefined ? { sort_by: sortField } : {}),
   };
 }
@@ -102,6 +114,7 @@ export const Route = createFileRoute('/_staff/fees/dues')({
     month: search.month,
     year: search.year,
     status: search.status,
+    feeType: search.fee_type,
     flagged: search.flagged === 'true',
   }),
   loader: ({ context: { queryClient }, deps }) =>
@@ -122,6 +135,7 @@ export const Route = createFileRoute('/_staff/fees/dues')({
                   month: deps.month,
                   year: deps.year,
                   status: deps.status,
+                  fee_type: deps.feeType,
                 },
                 deps.sort,
                 deps.flagged,
@@ -134,7 +148,7 @@ export const Route = createFileRoute('/_staff/fees/dues')({
           ),
         )
         .catch(swallowUnlessOffline),
-      loadRouteNamespaces('fees'),
+      loadRouteNamespaces('fees', 'feeStructures'),
     ]),
   pendingComponent: DuesQueuePending,
   component: DuesQueuePage,
@@ -151,6 +165,137 @@ function deriveRowStatus(row: FeeDueRow): FeeStatus {
   return row.dues.some((due) => due.status === FeeStatus.PARTIALLY_PAID)
     ? FeeStatus.PARTIALLY_PAID
     : FeeStatus.PENDING;
+}
+
+/** [16.4.5] wallet balance chip — no batched wallet-balance endpoint
+ * exists (unlike `useLastReminders(visibleStudentIds)` below, which the
+ * server does support in bulk), so this is a small standalone component
+ * with its own `useStudentWallet` call per visible row rather than a
+ * `toReminderLabel`-style lookup built from one shared query. React Query
+ * dedupes/caches per `student_id` on its own, and only currently-visible
+ * rows mount one of these. */
+function WalletChip({ studentId }: { studentId: string }) {
+  const { t } = useTranslation('fees');
+  const regionConfig = useRegionConfig();
+  const walletQuery = useStudentWallet(studentId);
+
+  if (walletQuery.isLoading) {
+    return <span className="text-xs text-muted-foreground">{t('dues.walletLoading')}</span>;
+  }
+  if (walletQuery.isError || walletQuery.data === undefined) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+  return (
+    <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-foreground tabular-nums">
+      {t('dues.walletChip', { amount: formatServerAmount(walletQuery.data.balance, regionConfig) })}
+    </span>
+  );
+}
+
+/**
+ * [16.4.5] wires the "Record payment" action to the real modal from
+ * #661. The modal (`RecordPaymentModalProps`) only accepts a
+ * `studentId`/`guardianId` pre-selection, not specific fee lines, so
+ * `opts.feeIds` is accepted for forward-compatibility but currently
+ * unused — recording still opens the cart for the whole student, same
+ * as every other "Record payment" entry point in the app.
+ */
+function useRecordPaymentSeam() {
+  const [studentId, setStudentId] = React.useState<string | undefined>(undefined);
+  const [isOpen, setIsOpen] = React.useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- forward-compat: kept until the modal supports pre-selecting fee lines
+  const open = React.useCallback((id: string, _opts?: { feeIds?: string[] }) => {
+    setStudentId(id);
+    setIsOpen(true);
+  }, []);
+  return { studentId, isOpen, onOpenChange: setIsOpen, open };
+}
+
+/** [16.4.5] the expanded row's per-fee-line breakdown — one line per
+ * `FeeDueEntry`, matching `fee-dues.service.ts`'s bill-shaped `DueEntry`
+ * one-for-one. `fees-tab.tsx`'s "Open bills" section renders the same
+ * shape; this isn't shared into a common file since the two aren't in
+ * this ticket's file territory together with a natural home for one
+ * (dues.tsx and fees-tab.tsx are two independently-owned files here),
+ * and the table is a handful of lines either way. */
+function DuesFeeLines({
+  dues,
+  onRecordPayment,
+}: {
+  dues: FeeDueEntry[];
+  onRecordPayment?: ((feeId: string) => void) | undefined;
+}) {
+  const { t } = useTranslation('fees');
+  const regionConfig = useRegionConfig();
+
+  function periodLabel(due: FeeDueEntry): string {
+    const date = formatDate(parseServerDate(due.period_start), regionConfig);
+    return due.occurrence > 1 ? `${date} (${due.occurrence})` : date;
+  }
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>{t('dues.expanded.columnFee')}</TableHead>
+          <TableHead>{t('dues.expanded.columnPeriod')}</TableHead>
+          <TableHead>{t('dues.expanded.columnDueDate')}</TableHead>
+          <TableHead>{t('dues.expanded.columnAmount')}</TableHead>
+          <TableHead>{t('dues.expanded.columnDiscount')}</TableHead>
+          <TableHead>{t('dues.expanded.columnPaid')}</TableHead>
+          <TableHead>{t('dues.expanded.columnBalance')}</TableHead>
+          {onRecordPayment && <TableHead>{t('dues.expanded.columnActions')}</TableHead>}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {dues.map((due) => (
+          <TableRow key={due.student_fee_id}>
+            <TableCell>
+              <span className="flex items-center gap-2">
+                {due.fee_name}
+                {due.is_late_fee && (
+                  <span className="inline-flex items-center rounded-full bg-status-overdue-bg px-2 py-0.5 text-xs font-medium text-status-overdue-fg">
+                    {t('dues.expanded.lateFeeBadge')}
+                  </span>
+                )}
+              </span>
+            </TableCell>
+            <TableCell>{periodLabel(due)}</TableCell>
+            <TableCell>
+              {due.due_date ? formatDate(parseServerDate(due.due_date), regionConfig) : '—'}
+            </TableCell>
+            <TableCell className="tabular-nums">
+              {formatServerAmount(due.total_amount, regionConfig)}
+            </TableCell>
+            <TableCell className="tabular-nums">
+              {formatServerAmount(
+                due.standing_discount_amount + due.one_off_discount_amount,
+                regionConfig,
+              )}
+            </TableCell>
+            <TableCell className="tabular-nums">
+              {formatServerAmount(due.paid_amount, regionConfig)}
+            </TableCell>
+            <TableCell className="tabular-nums">
+              {formatServerAmount(due.balance, regionConfig)}
+            </TableCell>
+            {onRecordPayment && (
+              <TableCell>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onRecordPayment(due.student_fee_id)}
+                >
+                  {t('dues.expanded.recordPayment')}
+                </Button>
+              </TableCell>
+            )}
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
 }
 
 function DuesQueuePage() {
@@ -201,6 +346,8 @@ function DuesQueuePage() {
   const canCollectFees = useHasPermission(Permission.FEE_COLLECT);
   const canSendReminder = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
   const canGenerateInvoice = useHasPermission(Permission.INVOICE_CREATE);
+  const recordPayment = useRecordPaymentSeam();
+  const onRecordPayment = recordPayment.open;
 
   const [reminderDialogOpen, setReminderDialogOpen] = React.useState(false);
   const [invoiceDialogOpen, setInvoiceDialogOpen] = React.useState(false);
@@ -332,6 +479,14 @@ function DuesQueuePage() {
       card: 'badge',
     },
     {
+      // [16.4.5] one wallet lookup per visible row — see `WalletChip`'s
+      // own comment for why this can't be a batched hook like
+      // `lastReminders` below.
+      id: 'wallet',
+      header: t('dues.columnWallet'),
+      accessorFn: (row) => <WalletChip studentId={row.student_id} />,
+    },
+    {
       id: 'lastReminder',
       header: t('dues.columnLastReminder'),
       accessorFn: (row) => toReminderLabel(row.student_id),
@@ -430,6 +585,21 @@ function DuesQueuePage() {
           ],
     },
     {
+      kind: 'select',
+      key: 'fee_type',
+      label: t('dues.feeTypeLabel'),
+      allLabel: t('dues.allFeeTypes'),
+      // [16.4.5] same "empty until flagged is off" treatment as
+      // month/year/status above — `QueryFlaggedDuesDto` doesn't accept
+      // `fee_type` either.
+      options: flagged
+        ? []
+        : Object.values(FeeType).map((feeType) => ({
+            value: feeType,
+            label: t(`feeTypes.${feeType}`, { ns: 'feeStructures' }),
+          })),
+    },
+    {
       kind: 'checkbox',
       key: 'flagged',
       label: t('dues.flaggedToggleLabel'),
@@ -446,6 +616,19 @@ function DuesQueuePage() {
         columns={columns}
         data={rows}
         getRowId={(row) => row.student_id}
+        expandRowLabel={(row) =>
+          t('dues.expandLabel', { name: row.full_name, count: row.dues.length })
+        }
+        renderExpandedRow={(row) => (
+          <DuesFeeLines
+            dues={row.dues}
+            onRecordPayment={
+              canCollectFees
+                ? (feeId) => onRecordPayment(row.student_id, { feeIds: [feeId] })
+                : undefined
+            }
+          />
+        )}
         sorting={flagged ? null : state.sorting}
         onSortingChange={actions.setSorting}
         page={state.page}
@@ -517,6 +700,13 @@ function DuesQueuePage() {
           void queryClient.invalidateQueries({ queryKey: feeDuesKeys.all });
         }}
       />
+      {recordPayment.studentId !== undefined && (
+        <RecordPaymentModal
+          open={recordPayment.isOpen}
+          onOpenChange={recordPayment.onOpenChange}
+          studentId={recordPayment.studentId}
+        />
+      )}
     </>
   );
 }

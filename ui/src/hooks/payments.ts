@@ -1,32 +1,26 @@
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ApprovalScope, type PaymentMethod } from '@biddaloy/shared';
+import { keepPreviousData, queryOptions, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
-import type { components, operations } from '../api/schema';
+import type { components } from '../api/schema';
+import type { RegionConfig } from '../i18n';
+import { minorUnitsToDecimalString } from '../utils';
 
+import { type ApprovedMutationResult, useApprovedMutation } from './approval';
+import { feeDuesKeys } from './fee-dues';
+import { invoiceKeys } from './invoices';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
-import { studentKeys } from './students';
+import { walletKeys } from './wallet';
 
 export type Payment = components['schemas']['Payment'];
 export type IssuerSnapshot = components['schemas']['IssuerSnapshot'];
-/** [15.5.5]/[15.5.7] `Payment` itself carries `issuer_snapshot` (the
- * document's own frozen identity). `issuer` — the read-side fallback to
- * the live profile for a legacy row with a null snapshot ([15.5.5]'s
- * `resolveIssuer`) — is only ever added by `record-with-allocation`'s own
- * response, pulled straight from its generated operation type rather than
- * hand-typed here; a payment read back later has no `issuer` field. */
-export type PaymentWithIssuer =
-  operations['FeeController_recordPaymentWithAllocation_v1']['responses'][201]['content']['application/json'];
 /** What a PARENT/STUDENT actually gets back from
  * `GET /payments/student/:studentId` — a reduced row with no `student`,
  * `received_by` or `remarks` (`schema.d.ts`'s `FamilyPaymentDto`, and the
  * published response contract on that operation). */
 export type FamilyPayment = components['schemas']['FamilyPaymentDto'];
-export type CreatePaymentInput = components['schemas']['CreatePaymentDto'];
 export type StudentFee = components['schemas']['StudentFee'];
-export type PaymentAllocationInput = components['schemas']['PaymentAllocationInputDto'];
-export type RecordPaymentWithAllocationInput =
-  components['schemas']['RecordPaymentWithAllocationDto'];
 
 /** `FeesController.getInvoiceSummary`'s untyped 200 body — same
  * documentation gap as `students.ts`'s `PaginatedStudents`, hand-typed
@@ -50,36 +44,201 @@ export const paymentKeys = createEntityKeys<{
   search?: string;
 }>('payments');
 
+// ---- interim types: #658 GET /payments/cart ----
+// #658/#659 (the cart and checkout endpoints) are being built in a sibling
+// wave-4 lane and are not on `main` yet — `ui/src/api/schema.d.ts` has no
+// `components['schemas']` entry for either. These are hand-written against
+// the contract documented on those tickets (same pattern as
+// `fee-generation.ts`'s `GenerateFees*` types and `students.ts`'s
+// `StudentIdsResult`). **Reconciliation seam**: once w4-g1 lands and
+// `schema.d.ts` regenerates, replace every type in this block with the
+// generated `components['schemas']` equivalent.
+export interface CartBill {
+  student_fee_id: string;
+  fee_name: string;
+  fee_type: string;
+  period_start: string;
+  period_type: string;
+  occurrence: number;
+  total_amount: number;
+  standing_discount_amount: number;
+  one_off_discount_amount: number;
+  paid_amount: number;
+  balance: number;
+  due_date: string | null;
+  is_late_fee: boolean;
+  is_overdue: boolean;
+  suggested_allocation: number;
+}
+export interface CartStudent {
+  id: string;
+  full_name: string;
+  registration_number: string;
+  class_name: string;
+  section_name: string;
+  wallet_balance: number;
+  bills: CartBill[];
+}
+export interface CartSuggestion {
+  allocations: { student_fee_id: string; amount: number }[];
+  wallet_used: number;
+  remaining: number;
+  to_wallet: number;
+}
+export interface CartResult {
+  students: CartStudent[];
+  total_balance: number;
+  suggested: CartSuggestion;
+}
+
+// ---- interim types: #659 POST /payments/checkout ----
+export interface CheckoutLine {
+  student_fee_id: string;
+  amount: number;
+  one_off_discount: number;
+}
+export type ChangeHandling = 'RETURN' | 'TO_WALLET';
+export interface CheckoutInput {
+  idempotency_key: string;
+  lines: CheckoutLine[];
+  payment_method: PaymentMethod;
+  transaction_reference?: string;
+  remarks?: string;
+  tendered_amount?: number;
+  wallet_use?: number;
+  change_handling?: ChangeHandling;
+  payment_date?: string;
+}
+export interface CheckoutResult {
+  payment: Payment;
+  invoice_id: string;
+  invoice_number: string;
+  change_amount: number;
+  wallet_balance_after: number;
+}
+
+/** [16.4.4] Cart query keys — sorted student ids so key identity doesn't
+ * depend on selection order (adding then removing a sibling, or the
+ * reverse, must land on the same cache entry). There is no separate
+ * wallet-balance query: `wallet_balance` rides on each `CartStudent` in
+ * this response, so invalidating `cartKeys.all` is the wallet
+ * invalidation too — see `useCheckout`'s `onSuccess` comment. */
+export const cartKeys = {
+  all: ['payments', 'cart'] as const,
+  query: (studentIds: string[], amountMinorUnits?: number) =>
+    ['payments', 'cart', [...studentIds].sort().join(','), amountMinorUnits ?? null] as const,
+};
+
 /**
- * The reference **non-optimistic** financial mutation — [8.4.4]'s counter
- * example to `students.ts`'s `useUpdateStudentPreferredCommunication`.
- * Deliberately has no `onMutate`: a payment is exactly the case an
- * optimistic update must never touch. Showing "৳4,500 received" before the
- * server confirms it means the UI told a parent standing at the counter
- * that their payment succeeded when it might not have — the guarded
- * `no-optimistic-financial-mutation` ESLint rule (see `../eslint-rules/
- * financial-mutation.mjs`) fails the build if `onMutate` is ever added
- * here. The UI's only signal during the request is `isPending`; there is
- * no cache write, optimistic or otherwise, until `onSuccess` actually
- * runs — see `ui/README.md`'s "Optimistic updates" section for the full
- * pattern this hook is the reference for.
+ * [16.4.4] `GET /payments/cart` — every open bill for one or more
+ * students, wallet balance, and an oldest-first allocation suggestion for
+ * `amount`. `enabled: studentIds.length > 0` — nothing to fetch with no
+ * student selected yet. `placeholderData: keepPreviousData` so retyping
+ * the amount-received box doesn't blank the cart table between requests.
+ *
+ * `amountMinorUnits` is accepted (and cached) in minor units — same as
+ * every other amount this hook module deals in — but the `amount` query
+ * param the endpoint actually reads is documented major-unit decimal
+ * (#658's contract example: `amount=5000` against `wallet_balance:50`,
+ * `total_balance:5750`, matching `bill.balance`/`suggested_allocation` in
+ * the same response, which are also major-unit). F1: this used to send
+ * the raw minor-unit number, so `amount` was 100x every other field in
+ * the same request/response pair.
  */
-export function useCreatePayment() {
+export function useCart({
+  studentIds,
+  amount: amountMinorUnits,
+  config,
+  enabled = true,
+}: {
+  studentIds: string[];
+  amount?: number;
+  /** Needed to turn `amount` (minor units, like every other amount this
+   * hook module deals in) into the major-unit decimal string the `amount`
+   * query param actually expects — see the header comment above. */
+  config: RegionConfig;
+  enabled?: boolean;
+}) {
+  return useQuery(
+    queryOptions({
+      queryKey: cartKeys.query(studentIds, amountMinorUnits),
+      queryFn: async ({ signal }) => {
+        const params = new URLSearchParams({ student_ids: [...studentIds].sort().join(',') });
+        if (amountMinorUnits !== undefined) {
+          params.set('amount', minorUnitsToDecimalString(amountMinorUnits, config));
+        }
+        const res = await apiClient.get<CartResult>(`/payments/cart?${params.toString()}`, {
+          signal,
+        });
+        return res.data;
+      },
+      enabled: enabled && studentIds.length > 0,
+      placeholderData: keepPreviousData,
+      retry: shouldRetryQuery,
+    }),
+  );
+}
+
+/**
+ * `POST /payments/checkout` — the plain request function, exported so
+ * `useApprovedMutation`'s retry-with-token path can call it a second time
+ * with the same shape (variables, `{ headers }`) it called the first
+ * time. Not itself a hook — `useCheckout` below is the hook callers
+ * actually use.
+ */
+async function checkoutRequest(
+  input: CheckoutInput,
+  options: { headers?: Record<string, string> } = {},
+): Promise<CheckoutResult> {
+  const res = await apiClient.post<CheckoutResult>(
+    '/payments/checkout',
+    input,
+    options.headers ? { headers: options.headers } : undefined,
+  );
+  return res.data;
+}
+
+/**
+ * [16.4.4] `POST /payments/checkout`, wrapped in `useApprovedMutation` per
+ * the published plan's correction: the option key is `approvalScope`, not
+ * `scope` (`ui/src/hooks/approval.tsx:96-109` reserves `scope` for
+ * TanStack Query's own mutation-concurrency option). Any line with
+ * `one_off_discount > 0` makes the whole checkout require
+ * `ApprovalScope.FEES_DISCOUNT` — render `checkout.modal` once, anywhere
+ * in the calling component's tree, or the approval prompt never appears.
+ *
+ * Deliberately has **no `onMutate`** — same non-optimistic reasoning as
+ * the wizard's old `useRecordPaymentWithAllocation`. F11: this hook is
+ * NOT protected by lint here — `ui/eslint-rules/financial-mutation.mjs`
+ * matches literally on `callee.name === 'useMutation'`, not by path, so
+ * wrapping in `useApprovedMutation` (as this hook does) bypasses the rule
+ * entirely. The guarantee is only that this hook, as written today,
+ * happens not to use `onMutate` — nothing enforces that staying true.
+ */
+export function useCheckout(): ApprovedMutationResult<CheckoutInput, CheckoutResult> {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: CreatePaymentInput) => {
-      const res = await apiClient.post<Payment>('/payments', input);
-      return res.data;
-    },
-    retry: shouldRetryQuery,
-    onSuccess: (payment) => {
-      // The whole `lists()` branch, not just `list({ studentId })` — the
-      // same reasoning as `students.ts`'s `useCreateStudent`: a new
-      // payment can affect an unfiltered list or one filtered a
-      // different way too, and scoping this to a single filter variant
-      // would leave those other cached views stale.
-      void queryClient.invalidateQueries({ queryKey: paymentKeys.lists() });
-      void queryClient.invalidateQueries({ queryKey: studentKeys.detail(payment.student.id) });
+  return useApprovedMutation(checkoutRequest, {
+    approvalScope: ApprovalScope.FEES_DISCOUNT,
+    retry: false,
+    onSuccess: () => {
+      // `cartKeys.all`, not a narrower key — a checkout changes every open
+      // bill's balance and the wallet_balance carried on the cart
+      // response. `walletKeys.all` is invalidated separately below: a
+      // checkout can also change the wallet via `wallet_use` or a
+      // `TO_WALLET` change-handling credit, and `useStudentWallet` caches
+      // that balance/history under its own `walletKeys` prefix, not
+      // under the cart's. `paymentKeys.all` (a plain `['payments']`
+      // prefix from `createEntityKeys`) also covers `useStudentFeeSummary`'s
+      // `[...paymentKeys.all, 'fee-summary', studentId]` cache entries — no
+      // separate per-student invalidation is needed for those. The modal
+      // itself additionally invalidates `studentKeys.detail(id)` for every
+      // selected student, since `CheckoutLine` doesn't carry a student id
+      // this hook could loop over.
+      void queryClient.invalidateQueries({ queryKey: cartKeys.all });
+      void queryClient.invalidateQueries({ queryKey: paymentKeys.all });
+      void queryClient.invalidateQueries({ queryKey: feeDuesKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
+      void queryClient.invalidateQueries({ queryKey: walletKeys.all });
     },
   });
 }
@@ -142,9 +301,8 @@ export function useStudentFeeSummary(studentId: string | undefined) {
       // Not `paymentKeys.list(...)` — that shape is a `Payment[]`, and this
       // is a `StudentFeeSummary` object; sharing the key would let this
       // query's cache entry collide with `usePaymentsByStudent`'s. `??
-      // studentId` for a defined caller (every caller before [8.10.5])
-      // doesn't change the key at all — the fallback only matters once
-      // `studentId` is `undefined`.
+      // studentId` for a defined caller doesn't change the key at all —
+      // the fallback only matters once `studentId` is `undefined`.
       queryKey: [...paymentKeys.all, 'fee-summary', studentId ?? null] as const,
       queryFn: async ({ signal }) => {
         const res = await apiClient.get<StudentFeeSummary>(
@@ -153,49 +311,8 @@ export function useStudentFeeSummary(studentId: string | undefined) {
         );
         return res.data;
       },
-      // [8.10.5]'s Record Payment wizard doesn't know the student yet on
-      // its first step — `enabled: false` until it does, rather than
-      // every caller having to pass a placeholder id just to satisfy this
-      // hook's old `string`-only signature.
       enabled: studentId !== undefined,
       retry: shouldRetryQuery,
     }),
   );
-}
-
-/**
- * [8.10.5]'s Record Payment wizard. Same non-optimistic shape as
- * `useCreatePayment` — this is the endpoint the "money is never
- * optimistic" rule most directly protects, since a counter payment that
- * looked successful and then rolled back is exactly the failure mode the
- * issue calls out.
- *
- * `record-with-allocation`'s response never asks for the `student`
- * relation (`payment-allocation.service.ts`'s final `findOneOrFail` only
- * loads `allocations`, `allocations.student_fee`, `invoice`) — the
- * generated `Payment` type still claims `student` is present because it's
- * shared across every endpoint that returns a `Payment`, not because this
- * one populates it. Using `payment.student_id` (a plain column, always
- * present) instead of `payment.student.id` avoids reading through
- * `undefined`.
- */
-export function useRecordPaymentWithAllocation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: RecordPaymentWithAllocationInput) => {
-      const res = await apiClient.post<PaymentWithIssuer>(
-        '/payments/record-with-allocation',
-        input,
-      );
-      return res.data;
-    },
-    retry: shouldRetryQuery,
-    onSuccess: (payment) => {
-      void queryClient.invalidateQueries({ queryKey: paymentKeys.lists() });
-      void queryClient.invalidateQueries({ queryKey: studentKeys.detail(payment.student_id) });
-      void queryClient.invalidateQueries({
-        queryKey: [...paymentKeys.all, 'fee-summary', payment.student_id],
-      });
-    },
-  });
 }

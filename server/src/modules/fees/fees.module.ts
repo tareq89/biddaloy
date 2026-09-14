@@ -15,7 +15,9 @@ import { Invoice } from '../invoices/entities/invoice.entity';
 import { School } from '../schools/entities/school.entity';
 import { AuditModule } from '../audit/audit.module';
 import { StudentModule } from '../students/students.module';
+import { InvoicesModule } from '../invoices/invoices.module';
 import { FeeStructureService, PaymentService } from './fees.service';
+import { PaymentsQueryService } from './payments-query.service';
 import { FeeGenerationService, NoopDiscountResolver } from './fee-generation.service';
 import { PaymentAllocationService } from './payment-allocation.service';
 import { FeeDuesService } from './fee-dues.service';
@@ -25,6 +27,9 @@ import { FeeController } from './fees.controller';
 import { FeeGenerationsController } from './fee-generations.controller';
 import { WalletService } from './wallet.service';
 import { WalletController } from './wallet.controller';
+import { CheckoutCartService } from './checkout-cart.service';
+import { CheckoutService } from './checkout.service';
+import { CheckoutController } from './checkout.controller';
 
 @Module({
   imports: [
@@ -45,10 +50,12 @@ import { WalletController } from './wallet.controller';
     ]),
     AuditModule,
     StudentModule,
+    InvoicesModule,
   ],
   providers: [
     FeeStructureService,
     PaymentService,
+    PaymentsQueryService,
     FeeGenerationService,
     PaymentAllocationService,
     FeeDuesService,
@@ -56,17 +63,28 @@ import { WalletController } from './wallet.controller';
     FeeGenerationBatchService,
     WalletService,
     NoopDiscountResolver,
+    CheckoutCartService,
+    CheckoutService,
   ],
-  controllers: [FeeController, FeeGenerationsController, WalletController],
+  // CheckoutController is registered before FeeController: both declare
+  // routes under `payments/*`, and Nest/Express match routes in
+  // registration order. `CheckoutController`'s `payments/cart` and
+  // `payments/checkout` are literal segments that `FeeController`'s
+  // `payments/:id` (GET, 16.4.3) would otherwise shadow (`:id` matches any
+  // single segment, including "cart"/"checkout") if FeeController's routes
+  // registered first.
+  controllers: [CheckoutController, FeeController, FeeGenerationsController, WalletController],
   exports: [
     FeeStructureService,
     PaymentService,
+    PaymentsQueryService,
     FeeGenerationService,
     PaymentAllocationService,
     FeeDuesService,
     FeeGenerationsService,
     FeeGenerationBatchService,
     WalletService,
+    CheckoutCartService,
   ],
 })
 export class FeeModule {}

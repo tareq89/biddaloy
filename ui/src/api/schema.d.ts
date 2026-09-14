@@ -717,6 +717,40 @@ export interface paths {
         patch: operations["StudentController_updateGuardian_v1"];
         trace?: never;
     };
+    "/api/v1/payments/cart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Open bills, wallet balance and (with `amount`) a suggested allocation for one or more students. Staff may request any of their tenant's students; a PARENT/STUDENT must be linked to every student_id requested. */
+        get: operations["CheckoutController_getCart_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payments/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record a payment across one or more students' bills — wallet credit, one-off discounts (behind the fees.discount approval), tendered cash and change, all in one idempotent, locked transaction. A repeat with an already-used idempotency_key returns 200 with the original payment instead of 201. */
+        post: operations["CheckoutController_checkout_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/fees/dues": {
         parameters: {
             query?: never;
@@ -826,27 +860,27 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Search payments (receipts) by transaction reference or student name. */
+        /** Search/filter payments (receipts) — transaction reference or student name/registration number, plus student, payment method, receiving staff, date range, and reversal filters. */
         get: operations["FeeController_findAll_v1"];
         put?: never;
-        post: operations["FeeController_createPayment_v1"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/payments/record-with-allocation": {
+    "/api/v1/payments/{id}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** One payment with its allocations (enriched with fee_name/period_start), invoice, and receiving/approving staff. */
+        get: operations["FeeController_findOne_v1"];
         put?: never;
-        /** Record a payment and allocate it across the student's outstanding fees in FIFO order, generating an invoice when a fee is paid in full. */
-        post: operations["FeeController_recordPaymentWithAllocation_v1"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1000,6 +1034,57 @@ export interface paths {
         };
         /** A student's wallet balance and transaction history. A PARENT or STUDENT must additionally be linked to this student, and gets a reduced transaction shape without staff-only fields. */
         get: operations["WalletController_getWallet_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List invoices. Staff see the tenant's invoices; a PARENT or STUDENT sees only their linked students', even if `student_id` names someone else. */
+        get: operations["InvoicesController_findAll_v1"];
+        put?: never;
+        post: operations["InvoicesController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one invoice. A PARENT or STUDENT must additionally be linked to the invoice's student. */
+        get: operations["InvoicesController_findOne_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{id}/print": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a printable HTML rendering of the invoice. A PARENT or STUDENT must additionally be linked to its student. */
+        get: operations["InvoicesController_print_v1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1829,57 +1914,6 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["UserController_updateTeacher_v1"];
-        trace?: never;
-    };
-    "/api/v1/invoices": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List invoices. Staff see the tenant's invoices; a PARENT or STUDENT sees only their linked students', even if `student_id` names someone else. */
-        get: operations["InvoicesController_findAll_v1"];
-        put?: never;
-        post: operations["InvoicesController_create_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/invoices/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get one invoice. A PARENT or STUDENT must additionally be linked to the invoice's student. */
-        get: operations["InvoicesController_findOne_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/invoices/{id}/print": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get a printable HTML rendering of the invoice. A PARENT or STUDENT must additionally be linked to its student. */
-        get: operations["InvoicesController_print_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/api/v1/attendance/my-sections": {
@@ -2976,6 +3010,85 @@ export interface components {
             notifications_enabled?: boolean;
             student_ids?: string[];
         };
+        CartBillDto: {
+            student_fee_id: string;
+            fee_name: string;
+            /** @enum {string} */
+            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
+            /** Format: date-time */
+            period_start: string;
+            /** @enum {string} */
+            period_type: "MONTH" | "WEEK";
+            occurrence: number;
+            total_amount: number;
+            standing_discount_amount: number;
+            one_off_discount_amount: number;
+            paid_amount: number;
+            balance: number;
+            /** Format: date-time */
+            due_date: string | null;
+            is_late_fee: boolean;
+            is_overdue: boolean;
+            suggested_allocation: number;
+        };
+        CartStudentDto: {
+            id: string;
+            full_name: string;
+            registration_number: string;
+            class_name: string | null;
+            section_name: string | null;
+            wallet_balance: number;
+            bills: components["schemas"]["CartBillDto"][];
+        };
+        SuggestedAllocationEntryDto: {
+            student_fee_id: string;
+            amount: number;
+        };
+        SuggestedAllocationDto: {
+            allocations: components["schemas"]["SuggestedAllocationEntryDto"][];
+            wallet_used: number;
+            remaining: number;
+            to_wallet: number;
+        };
+        CartResultDto: {
+            students: components["schemas"]["CartStudentDto"][];
+            total_balance: number;
+            suggested: components["schemas"]["SuggestedAllocationDto"] | null;
+        };
+        CheckoutLineDto: {
+            /** Format: uuid */
+            student_fee_id: string;
+            amount: number;
+            /** @default 0 */
+            one_off_discount: number;
+        };
+        CheckoutDto: {
+            /** Format: uuid */
+            idempotency_key: string;
+            lines: components["schemas"]["CheckoutLineDto"][];
+            /** @enum {string} */
+            payment_method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "CARD" | "BKASH" | "NAGAD" | "ROCKET";
+            transaction_reference?: string;
+            remarks?: string;
+            tendered_amount?: number;
+            wallet_use?: number;
+            /**
+             * @default RETURN
+             * @enum {string}
+             */
+            change_handling: "RETURN" | "TO_WALLET";
+            payment_date?: string;
+        };
+        IssuerSnapshot: {
+            name: string;
+            name_bn: string | null;
+            address: string | null;
+            phone: string | null;
+            email: string | null;
+            registration_id: string | null;
+            logo_key: string | null;
+            captured_at: string;
+        };
         FeeStructure: {
             id: string;
             /** @enum {string} */
@@ -2996,26 +3109,6 @@ export interface components {
             updated_at: string;
             /** Format: date-time */
             deleted_at: string | null;
-        };
-        FamilyFeeStructureDto: {
-            id: string;
-            /** @enum {string} */
-            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
-            name: string;
-            amount: number;
-            class_id: string | null;
-            section_id: string | null;
-            academic_year_id: string;
-        };
-        IssuerSnapshot: {
-            name: string;
-            name_bn: string | null;
-            address: string | null;
-            phone: string | null;
-            email: string | null;
-            registration_id: string | null;
-            logo_key: string | null;
-            captured_at: string;
         };
         StudentFee: {
             id: string;
@@ -3082,6 +3175,20 @@ export interface components {
             /** Format: date-time */
             deleted_at: string | null;
         };
+        PaymentAllocation: {
+            id: string;
+            payment: components["schemas"]["Payment"];
+            payment_id: string;
+            student_fee: components["schemas"]["StudentFee"];
+            student_fee_id: string;
+            allocated_amount: number;
+            /** @enum {string} */
+            allocation_type: "DUE" | "CURRENT" | "ADVANCE";
+            discount_amount: number;
+            notes: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
         Payment: {
             issuer_snapshot: components["schemas"]["IssuerSnapshot"] | null;
             id: string;
@@ -3122,19 +3229,22 @@ export interface components {
             /** Format: date-time */
             deleted_at: string | null;
         };
-        PaymentAllocation: {
-            id: string;
+        CheckoutResultDto: {
             payment: components["schemas"]["Payment"];
-            payment_id: string;
-            student_fee: components["schemas"]["StudentFee"];
-            student_fee_id: string;
-            allocated_amount: number;
+            invoice_id: string;
+            invoice_number: string;
+            change_amount: number;
+            wallet_balance_after: number;
+        };
+        FamilyFeeStructureDto: {
+            id: string;
             /** @enum {string} */
-            allocation_type: "DUE" | "CURRENT" | "ADVANCE";
-            discount_amount: number;
-            notes: string | null;
-            /** Format: date-time */
-            created_at: string;
+            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
+            name: string;
+            amount: number;
+            class_id: string | null;
+            section_id: string | null;
+            academic_year_id: string;
         };
         FamilyPaymentAllocationDto: {
             id: string;
@@ -3142,6 +3252,9 @@ export interface components {
             allocated_amount: number;
             /** @enum {string} */
             allocation_type: "DUE" | "CURRENT" | "ADVANCE";
+            fee_name: string | null;
+            /** Format: date-time */
+            period_start: string | null;
         };
         FamilyPaymentDto: {
             id: string;
@@ -3305,36 +3418,50 @@ export interface components {
             /** Format: uuid */
             section_id?: string | null;
         };
-        CreatePaymentDto: {
-            /** Format: uuid */
-            student_id: string;
-            total_amount: number;
-            /** @enum {string} */
-            payment_method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "CARD" | "BKASH" | "NAGAD" | "ROCKET";
-            /** @enum {string} */
-            payment_status?: "SUCCESS" | "PENDING" | "FAILED" | "REFUNDED";
-            transaction_reference?: string;
-            remarks?: string;
-            payment_date?: string;
+        PaymentDetailInvoiceDto: {
+            id: string;
+            invoice_number: string;
+            status: string;
         };
-        PaymentAllocationInputDto: {
-            /** Format: uuid */
+        PaymentDetailUserDto: {
+            id: string;
+            full_name: string;
+        };
+        PaymentDetailAllocationDto: {
+            id: string;
             student_fee_id: string;
             allocated_amount: number;
             /** @enum {string} */
             allocation_type: "DUE" | "CURRENT" | "ADVANCE";
+            discount_amount: number;
+            fee_name: string | null;
+            /** Format: date-time */
+            period_start: string | null;
         };
-        RecordPaymentWithAllocationDto: {
-            /** Format: uuid */
+        PaymentDetailDto: {
+            id: string;
             student_id: string;
+            student: {
+                id: string;
+                full_name: string;
+            };
             total_amount: number;
             /** @enum {string} */
             payment_method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "CARD" | "BKASH" | "NAGAD" | "ROCKET";
-            allocations: components["schemas"]["PaymentAllocationInputDto"][];
-            transaction_reference?: string;
-            remarks?: string;
-            generate_invoice?: boolean;
-            idempotency_key?: string;
+            /** @enum {string} */
+            payment_status: "SUCCESS" | "PENDING" | "FAILED" | "REFUNDED";
+            transaction_reference: string | null;
+            /** Format: date-time */
+            payment_date: string;
+            remarks: string | null;
+            invoice: components["schemas"]["PaymentDetailInvoiceDto"] | null;
+            received_by: components["schemas"]["PaymentDetailUserDto"] | null;
+            approved_by: components["schemas"]["PaymentDetailUserDto"] | null;
+            reversal_of_payment_id: string | null;
+            reversed_by_payment_id: string | null;
+            allocations: components["schemas"]["PaymentDetailAllocationDto"][];
+            /** Format: date-time */
+            created_at: string;
         };
         FeeGenerationStructureSnapshot: {
             id: string;
@@ -3426,6 +3553,130 @@ export interface components {
         FamilyStudentWalletResponseDto: {
             balance: number;
             transactions: components["schemas"]["FamilyWalletTransactionDto"][];
+        };
+        UserResponseDto: {
+            id: string;
+            email: string | null;
+            phone: string | null;
+            /** Format: date-time */
+            email_verified_at: string | null;
+            /** Format: date-time */
+            phone_verified_at: string | null;
+            /** @enum {string} */
+            status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
+            full_name: string;
+            /** @enum {string|null} */
+            role: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE" | null;
+            /** Format: date-time */
+            member_since: string | null;
+            profile_picture_url: string | null;
+            preferences: {
+                [key: string]: unknown;
+            } | null;
+            /** Format: date-time */
+            last_login_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** @enum {string} */
+            invitation_status: "NONE" | "PENDING" | "EXPIRED" | "REVOKED" | "ACTIVATED";
+        };
+        StaffInvoiceDto: {
+            id: string;
+            invoice_number: string;
+            student: components["schemas"]["Student"];
+            student_id: string;
+            student_fee: components["schemas"]["StudentFee"] | null;
+            student_fee_id: string | null;
+            total_amount: number;
+            tax_amount: number;
+            discount_amount: number;
+            /** @enum {string} */
+            status: "DRAFT" | "ISSUED" | "PAID" | "CANCELLED" | "OVERDUE";
+            /** Format: date-time */
+            issued_date: string;
+            /** Format: date-time */
+            due_date: string;
+            line_items: Record<string, never>;
+            issued_by: components["schemas"]["UserResponseDto"] | null;
+            issued_by_user_id: string | null;
+            notes: string | null;
+            issuer_snapshot: components["schemas"]["IssuerSnapshot"] | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
+            issuer?: components["schemas"]["IssuerSnapshot"];
+        };
+        FamilyInvoiceStudentDto: {
+            id: string;
+            full_name: string;
+            registration_number: string;
+        };
+        FamilyStudentFeeDto: {
+            id: string;
+            student_id: string;
+            academic_year_id: string;
+            fee_name: string;
+            /** @enum {string} */
+            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
+            month: number;
+            year: number;
+            /** Format: date-time */
+            period_start: string;
+            /** @enum {string} */
+            period_type: "MONTH" | "WEEK";
+            total_amount: number;
+            paid_amount: number;
+            discount_amount: number;
+            /** @enum {string} */
+            status: "PENDING" | "PARTIALLY_PAID" | "PAID" | "OVERDUE" | "WAIVED" | "ADVANCE";
+            /** Format: date-time */
+            due_date: string | null;
+        };
+        FamilyInvoiceDto: {
+            /** @description Always `null` for a family caller; the staff variant carries the issuing user. */
+            issued_by: Record<string, never> | null;
+            id: string;
+            invoice_number: string;
+            student_id: string;
+            student: components["schemas"]["FamilyInvoiceStudentDto"] | null;
+            student_fee_id: string | null;
+            student_fee: components["schemas"]["FamilyStudentFeeDto"] | null;
+            total_amount: number;
+            tax_amount: number;
+            discount_amount: number;
+            /** @enum {string} */
+            status: "DRAFT" | "ISSUED" | "PAID" | "CANCELLED" | "OVERDUE";
+            /** Format: date-time */
+            issued_date: string;
+            /** Format: date-time */
+            due_date: string;
+            line_items: Record<string, never>;
+            notes: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            issuer?: components["schemas"]["IssuerSnapshot"];
+        };
+        LineItemDto: {
+            description: string;
+            amount: number;
+            /** @default 1 */
+            quantity: number;
+        };
+        CreateInvoiceDto: {
+            /** Format: uuid */
+            student_id: string;
+            /** Format: uuid */
+            student_fee_id?: string;
+            due_date?: string;
+            notes?: string;
+            line_items?: components["schemas"]["LineItemDto"][];
         };
         PushPublicKeyResponseDto: {
             enabled: boolean;
@@ -3889,34 +4140,6 @@ export interface components {
             failed: number;
             queued: number;
         };
-        UserResponseDto: {
-            id: string;
-            email: string | null;
-            phone: string | null;
-            /** Format: date-time */
-            email_verified_at: string | null;
-            /** Format: date-time */
-            phone_verified_at: string | null;
-            /** @enum {string} */
-            status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
-            full_name: string;
-            /** @enum {string|null} */
-            role: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE" | null;
-            /** Format: date-time */
-            member_since: string | null;
-            profile_picture_url: string | null;
-            preferences: {
-                [key: string]: unknown;
-            } | null;
-            /** Format: date-time */
-            last_login_at: string | null;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** @enum {string} */
-            invitation_status: "NONE" | "PENDING" | "EXPIRED" | "REVOKED" | "ACTIVATED";
-        };
         UpdateOwnProfileDto: {
             full_name?: string;
             profile_picture_url?: string;
@@ -3988,102 +4211,6 @@ export interface components {
             subject_specialization?: string | null;
             joining_date?: string | null;
             assigned_section_ids?: string[];
-        };
-        StaffInvoiceDto: {
-            id: string;
-            invoice_number: string;
-            student: components["schemas"]["Student"];
-            student_id: string;
-            student_fee: components["schemas"]["StudentFee"] | null;
-            student_fee_id: string | null;
-            total_amount: number;
-            tax_amount: number;
-            discount_amount: number;
-            /** @enum {string} */
-            status: "DRAFT" | "ISSUED" | "PAID" | "CANCELLED" | "OVERDUE";
-            /** Format: date-time */
-            issued_date: string;
-            /** Format: date-time */
-            due_date: string;
-            line_items: Record<string, never>;
-            issued_by: components["schemas"]["UserResponseDto"] | null;
-            issued_by_user_id: string | null;
-            notes: string | null;
-            issuer_snapshot: components["schemas"]["IssuerSnapshot"] | null;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** Format: date-time */
-            deleted_at: string | null;
-            issuer?: components["schemas"]["IssuerSnapshot"];
-        };
-        FamilyInvoiceStudentDto: {
-            id: string;
-            full_name: string;
-            registration_number: string;
-        };
-        FamilyStudentFeeDto: {
-            id: string;
-            student_id: string;
-            academic_year_id: string;
-            fee_name: string;
-            /** @enum {string} */
-            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
-            month: number;
-            year: number;
-            /** Format: date-time */
-            period_start: string;
-            /** @enum {string} */
-            period_type: "MONTH" | "WEEK";
-            total_amount: number;
-            paid_amount: number;
-            discount_amount: number;
-            /** @enum {string} */
-            status: "PENDING" | "PARTIALLY_PAID" | "PAID" | "OVERDUE" | "WAIVED" | "ADVANCE";
-            /** Format: date-time */
-            due_date: string | null;
-        };
-        FamilyInvoiceDto: {
-            /** @description Always `null` for a family caller; the staff variant carries the issuing user. */
-            issued_by: Record<string, never> | null;
-            id: string;
-            invoice_number: string;
-            student_id: string;
-            student: components["schemas"]["FamilyInvoiceStudentDto"] | null;
-            student_fee_id: string | null;
-            student_fee: components["schemas"]["FamilyStudentFeeDto"] | null;
-            total_amount: number;
-            tax_amount: number;
-            discount_amount: number;
-            /** @enum {string} */
-            status: "DRAFT" | "ISSUED" | "PAID" | "CANCELLED" | "OVERDUE";
-            /** Format: date-time */
-            issued_date: string;
-            /** Format: date-time */
-            due_date: string;
-            line_items: Record<string, never>;
-            notes: string | null;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            issuer?: components["schemas"]["IssuerSnapshot"];
-        };
-        LineItemDto: {
-            description: string;
-            amount: number;
-            /** @default 1 */
-            quantity: number;
-        };
-        CreateInvoiceDto: {
-            /** Format: uuid */
-            student_id: string;
-            /** Format: uuid */
-            student_fee_id?: string;
-            due_date?: string;
-            notes?: string;
-            line_items?: components["schemas"]["LineItemDto"][];
         };
         MySectionTodayDto: {
             /** @enum {string} */
@@ -6051,6 +6178,85 @@ export interface operations {
             };
         };
     };
+    CheckoutController_getCart_v1: {
+        parameters: {
+            query: {
+                student_ids: string[];
+                amount?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CartResultDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CheckoutController_checkout_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckoutDto"];
+            };
+        };
+        responses: {
+            /** @description Idempotent replay: an already-recorded payment for this idempotency_key. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckoutResultDto"];
+                };
+            };
+            /** @description Payment recorded. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckoutResultDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     FeeController_getDues_v1: {
         parameters: {
             query?: {
@@ -6403,6 +6609,14 @@ export interface operations {
         parameters: {
             query?: {
                 search?: string;
+                student_id?: string;
+                payment_method?: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "CARD" | "BKASH" | "NAGAD" | "ROCKET";
+                received_by_user_id?: string;
+                date_from?: string;
+                date_to?: string;
+                is_reversal?: boolean;
+                include_reversed?: boolean;
+                sort_order?: "ASC" | "DESC";
                 page?: number;
                 limit?: number;
             };
@@ -6421,41 +6635,8 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    FeeController_createPayment_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreatePaymentDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
                 content: {
-                    "application/json": components["schemas"]["Payment"];
+                    "application/json": Record<string, never>;
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -6467,7 +6648,7 @@ export interface operations {
             };
         };
     };
-    FeeController_recordPaymentWithAllocation_v1: {
+    FeeController_findOne_v1: {
         parameters: {
             query?: never;
             header: {
@@ -6476,24 +6657,19 @@ export interface operations {
                 /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
                 "X-Role"?: string;
             };
-            path?: never;
+            path: {
+                id: string;
+            };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RecordPaymentWithAllocationDto"];
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description The recorded payment, with the issuer identity frozen onto it at record time. */
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Payment"] & {
-                        issuer?: components["schemas"]["IssuerSnapshot"];
-                    };
+                    "application/json": components["schemas"]["PaymentDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -6866,6 +7042,162 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StudentWalletResponseDto"] | components["schemas"]["FamilyStudentWalletResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InvoicesController_findAll_v1: {
+        parameters: {
+            query?: {
+                search?: string;
+                student_id?: string;
+                status?: "DRAFT" | "ISSUED" | "PAID" | "CANCELLED" | "OVERDUE";
+                from_date?: string;
+                to_date?: string;
+                min_amount?: number;
+                max_amount?: number;
+                sort?: "status" | "total_amount" | "due_date" | "invoice_number" | "issued_date";
+                order?: "asc" | "desc";
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of invoices: `Invoice` rows for staff, allow-listed `FamilyInvoiceDto` rows for a PARENT/STUDENT. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: (components["schemas"]["Invoice"] | components["schemas"]["FamilyInvoiceDto"])[];
+                        /** @description Total rows matching the query, across all pages. */
+                        total: number;
+                        /** @description 1-based index of the page returned. */
+                        page: number;
+                        /** @description Maximum rows per page. */
+                        limit: number;
+                        /** @description Number of pages at this `limit`. */
+                        totalPages: number;
+                    };
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InvoicesController_create_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInvoiceDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InvoicesController_findOne_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A `StaffInvoiceDto` (the full invoice, with `issued_by` reduced to `UserResponseDto`) for staff; an allow-listed `FamilyInvoiceDto` for a PARENT/STUDENT. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffInvoiceDto"] | components["schemas"]["FamilyInvoiceDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InvoicesController_print_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -9439,162 +9771,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TeacherResponseDto"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    InvoicesController_findAll_v1: {
-        parameters: {
-            query?: {
-                search?: string;
-                student_id?: string;
-                status?: "DRAFT" | "ISSUED" | "PAID" | "CANCELLED" | "OVERDUE";
-                from_date?: string;
-                to_date?: string;
-                min_amount?: number;
-                max_amount?: number;
-                sort?: "status" | "total_amount" | "due_date" | "invoice_number" | "issued_date";
-                order?: "asc" | "desc";
-                page?: number;
-                limit?: number;
-            };
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description A page of invoices: `Invoice` rows for staff, allow-listed `FamilyInvoiceDto` rows for a PARENT/STUDENT. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        data: (components["schemas"]["Invoice"] | components["schemas"]["FamilyInvoiceDto"])[];
-                        /** @description Total rows matching the query, across all pages. */
-                        total: number;
-                        /** @description 1-based index of the page returned. */
-                        page: number;
-                        /** @description Maximum rows per page. */
-                        limit: number;
-                        /** @description Number of pages at this `limit`. */
-                        totalPages: number;
-                    };
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    InvoicesController_create_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateInvoiceDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    InvoicesController_findOne_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description A `StaffInvoiceDto` (the full invoice, with `issued_by` reduced to `UserResponseDto`) for staff; an allow-listed `FamilyInvoiceDto` for a PARENT/STUDENT. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StaffInvoiceDto"] | components["schemas"]["FamilyInvoiceDto"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    InvoicesController_print_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": string;
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

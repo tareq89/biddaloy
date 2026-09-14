@@ -1,7 +1,9 @@
+import type { Page } from '@playwright/test';
+
 import { expect, guest, loggedIn, test } from '../fixtures/test';
 import { expectNoHorizontalScroll, expectNoInnerHorizontalScroll } from '../pages/assertions';
 import type { SeedRole } from '../seed-contract';
-import { resolvePath, routes } from './routes';
+import { resolvePath, routes, type ManifestRoute } from './routes';
 
 /**
  * [8.5.6] WCAG 1.4.10 reflow, operationalized as viewport width
@@ -15,6 +17,23 @@ import { resolvePath, routes } from './routes';
 const SCROLL_WIDTHS = [320, 640] as const;
 const SMOKE_WIDTHS = [768, 1280, 1920] as const;
 
+/**
+ * Most routes render their own `<h1>`. A `redirect` archetype route may
+ * land somewhere that opens a modal by default instead (e.g.
+ * `/payments/record` → `/payments?record=1`, auto-opening the Record
+ * Payment modal to preserve the deep link) — Radix's `Dialog` correctly
+ * `aria-hide`s the rest of the page while open, so the underlying page's
+ * `<h1>` is legitimately absent from the accessibility tree in that case.
+ * The dialog's own title (required by Radix's a11y contract on every
+ * `DialogContent`) is the equivalent "the page rendered something
+ * meaningful" signal for that case.
+ */
+function pageOrDialogHeading(page: Page, route: ManifestRoute) {
+  const heading = page.getByRole('heading', { level: 1 }).first();
+  if (route.archetype !== 'redirect') return heading;
+  return heading.or(page.getByRole('dialog').first());
+}
+
 for (const route of routes) {
   test.describe(route.path, () => {
     if (route.role === 'guest') test.use(guest);
@@ -27,7 +46,7 @@ for (const route of routes) {
         await page.setViewportSize({ width, height: 900 });
         const path = await resolvePath(request, route);
         await page.goto(path);
-        await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+        await expect(pageOrDialogHeading(page, route)).toBeVisible();
         await expectNoHorizontalScroll(page);
         // [8.14.7] `DataTable`'s card mode ([8.14.7]) exists precisely so a
         // 320/640px page no longer needs its own inner scroll region —
@@ -41,7 +60,7 @@ for (const route of routes) {
         await page.setViewportSize({ width, height: 900 });
         const path = await resolvePath(request, route);
         await page.goto(path);
-        await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+        await expect(pageOrDialogHeading(page, route)).toBeVisible();
       });
     }
   });

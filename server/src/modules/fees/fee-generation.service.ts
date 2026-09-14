@@ -388,6 +388,26 @@ export class FeeGenerationService {
         where: { fee_generation_id: feeGenerationId },
       });
       generatedCount = createdBills.length;
+      // Postgres gives no ordering guarantee for a plain `find()` — row
+      // order can (and does, intermittently) differ from insertion order.
+      // The wallet auto-apply loop below relies on `createdBills` being in
+      // the same order as `rowsToInsert` (student/structure iteration
+      // order, its own documented "oldest first" semantics), so restore
+      // that order explicitly here rather than trusting the DB's return
+      // order — a client-generated id isn't available to sort by directly
+      // (the DB assigns it), but (student_id, fee_structure_id, occurrence)
+      // is the same uniqueness key the insert itself relies on.
+      const insertOrder = new Map(
+        rowsToInsert.map((row, i) => [
+          `${row.student_id}|${row.fee_structure_id}|${row.occurrence}`,
+          i,
+        ]),
+      );
+      createdBills.sort(
+        (a, b) =>
+          insertOrder.get(`${a.student_id}|${a.fee_structure_id}|${a.occurrence}`)! -
+          insertOrder.get(`${b.student_id}|${b.fee_structure_id}|${b.occurrence}`)!,
+      );
       // Under SKIP, any row we intended to insert but that lost a
       // concurrent race counts as skipped too, not silently dropped.
       if (duplicateStrategy === DuplicateStrategy.SKIP) {
@@ -533,7 +553,7 @@ export class FeeGenerationService {
 
     const { periodStart, periodEnd } = this.assertPeriodWithinAcademicYear(dto, academicYear);
 
-    const structures = await manager.getRepository(FeeStructure).find({
+    const fetchedStructures = await manager.getRepository(FeeStructure).find({
       where: {
         id: In(dto.fee_structure_ids),
         tenant_id: tenantId,
@@ -541,13 +561,26 @@ export class FeeGenerationService {
         deleted_at: IsNull(),
       },
     });
-    if (structures.length !== new Set(dto.fee_structure_ids).size) {
-      const foundIds = new Set(structures.map((s) => s.id));
+    if (fetchedStructures.length !== new Set(dto.fee_structure_ids).size) {
+      const foundIds = new Set(fetchedStructures.map((s) => s.id));
       const missing = dto.fee_structure_ids.filter((id) => !foundIds.has(id));
       throw new NotFoundException(
         `Fee structure(s) not found for this tenant/academic year: ${missing.join(', ')}`,
       );
     }
+    // `find({ where: { id: In(...) } })` gives no ordering guarantee —
+    // `generate()`'s pair-building loop iterates `context.structures`
+    // directly, and that order is what `rowsToInsert`, then
+    // `createdBills` (restored to match it after the bulk insert, see
+    // `generate()`'s own comment), ultimately feeds into wallet
+    // auto-apply's "oldest/first structure first" semantics. Re-order to
+    // the caller's own `dto.fee_structure_ids` sequence here so the whole
+    // chain is deterministic from a real business key, not an
+    // accidental one.
+    const structureById = new Map(fetchedStructures.map((s) => [s.id, s]));
+    const structures = dto.fee_structure_ids
+      .map((id) => structureById.get(id))
+      .filter((s): s is FeeStructure => s !== undefined);
 
     const students = await manager.getRepository(Student).find({
       where: { id: In(dto.student_ids), tenant_id: tenantId, deleted_at: IsNull() },

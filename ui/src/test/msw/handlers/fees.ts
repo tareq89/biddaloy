@@ -1,4 +1,4 @@
-import { FeeStatus } from '@biddaloy/shared';
+import { FeeStatus, FeeType, PeriodType } from '@biddaloy/shared';
 import { http, HttpResponse } from 'msw';
 
 import type { FeeDueEntry, FeeDueRow } from '../../../hooks/fee-dues';
@@ -50,11 +50,20 @@ function dueEntryFixture(overrides: Partial<FeeDueEntry> = {}): FeeDueEntry {
   const discountAmount = overrides.discount_amount ?? 0;
   return {
     student_fee_id: faker.string.uuid(),
+    fee_structure_id: faker.string.uuid(),
+    fee_name: 'Tuition',
+    fee_type: FeeType.MONTHLY_TUITION,
     month: faker.number.int({ min: 1, max: 12 }),
     year: 2026,
+    period_start: FACTORY_REFERENCE_DATE.toISOString(),
+    period_type: PeriodType.MONTH,
+    occurrence: 1,
+    is_late_fee: false,
     total_amount: totalAmount,
     paid_amount: paidAmount,
     discount_amount: discountAmount,
+    standing_discount_amount: 0,
+    one_off_discount_amount: discountAmount,
     balance: totalAmount - paidAmount - discountAmount,
     status: FeeStatus.PENDING,
     due_date: faker.date.soon({ refDate: FACTORY_REFERENCE_DATE }).toISOString(),
@@ -123,6 +132,15 @@ export const feeStructureDefaultHandlers = [
   removeStructure,
 ];
 
-export const feeHandlers = { dues, duesEmpty, flaggedDues, generate, generateAllSkipped };
+/** [16.4.5]'s wallet balance chip (dues.tsx) and Wallet section
+ * (fees-tab.tsx) both mount a `useStudentWallet` per visible row/tab —
+ * a zero-balance, no-transactions default here keeps every test that
+ * renders either from tripping `onUnhandledRequest: 'error'`
+ * (`ui/src/test/setup.ts`) without having to stub this endpoint itself. */
+const wallet = http.get('/api/v1/students/:id/wallet', () =>
+  HttpResponse.json({ balance: 0, transactions: [] }),
+);
 
-export const feeDefaultHandlers = [dues, flaggedDues, generate];
+export const feeHandlers = { dues, duesEmpty, flaggedDues, generate, generateAllSkipped, wallet };
+
+export const feeDefaultHandlers = [dues, flaggedDues, generate, wallet];

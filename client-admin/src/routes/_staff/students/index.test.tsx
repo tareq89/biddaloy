@@ -77,8 +77,10 @@ describe('/students', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('link', { name: 'Collect fees' }));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe('/payments/record'));
-    expect(router.state.location.search).toEqual({ student_id: 'student-1' });
+    // [16.4.4]: `/payments/record` now redirects to `/payments?record=1`,
+    // preserving `student_id` so the modal opens with that student pre-selected.
+    await waitFor(() => expect(router.state.location.pathname).toBe('/payments'));
+    expect(router.state.location.search).toEqual({ record: '1', student_id: 'student-1' });
   });
 
   it('gates Collect fees by permission — a TEACHER sees View but not Collect fees', async () => {

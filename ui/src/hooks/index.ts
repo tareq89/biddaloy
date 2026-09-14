@@ -8,6 +8,7 @@
  * should mirror `students.ts`'s shape rather than reinvent it — see
  * `ui/README.md`'s "Hooks" section for the full pattern write-up.
  */
+export { ApprovalCancelledError } from './approval';
 export { createEntityKeys, type EntityKeys } from './query-keys';
 export { shouldRetryQuery } from './retry';
 export { useOnline } from './use-online';
@@ -132,18 +133,23 @@ export {
   type UpdateOwnGuardianInput,
 } from './guardians';
 export {
+  cartKeys,
   paymentKeys,
-  useCreatePayment,
+  useCart,
+  useCheckout,
   usePaymentsByGuardian,
   usePaymentsByStudent,
   useStudentFeeSummary,
-  useRecordPaymentWithAllocation,
-  type CreatePaymentInput,
+  type CartBill,
+  type CartResult,
+  type CartStudent,
+  type CartSuggestion,
+  type ChangeHandling,
+  type CheckoutInput,
+  type CheckoutLine,
+  type CheckoutResult,
   type FamilyPayment,
   type Payment,
-  type PaymentWithIssuer,
-  type PaymentAllocationInput,
-  type RecordPaymentWithAllocationInput,
   type StudentFee,
   type StudentFeeSummary,
 } from './payments';
@@ -430,6 +436,14 @@ export {
   type PaginatedFeeDues,
   type SortOrder,
 } from './fee-dues';
+export {
+  useStudentWallet,
+  walletKeys,
+  type FamilyStudentWallet,
+  type FamilyWalletTransaction,
+  type StudentWallet,
+  type WalletTransaction,
+} from './wallet';
 export {
   feeGenerationBillsQueryOptions,
   feeGenerationQueryOptions,

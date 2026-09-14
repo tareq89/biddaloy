@@ -78,6 +78,13 @@
       "ACTIVATED": "Activated"
     }
   },
+  "walletTransactionKind": {
+    "CREDIT_OVERPAYMENT": "Overpayment credit",
+    "CREDIT_CHANGE": "Change credit",
+    "DEBIT_CHECKOUT": "Applied to payment",
+    "DEBIT_GENERATION": "Fee generation adjustment",
+    "REVERSAL": "Reversal"
+  },
   "errors": {
     "permissionDenied": "You don't have permission to do that."
   },

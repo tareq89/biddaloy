@@ -41,7 +41,7 @@ export const Route = createFileRoute('/_staff/guardians/$guardianId')({
       queryClient
         .ensureQueryData(guardianQueryOptions(params.guardianId))
         .catch(swallowUnlessOffline),
-      loadRouteNamespaces('guardians', 'common'),
+      loadRouteNamespaces('guardians', 'common', 'payments'),
     ]),
   pendingComponent: GuardianDetailPending,
   component: GuardianDetailPage,

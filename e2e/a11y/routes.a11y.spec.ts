@@ -4,8 +4,21 @@ import type { APIRequestContext, Page } from '@playwright/test';
 import { adminApiSession, createStudentWithDues } from '../api';
 import { expect, guest, loggedIn, test } from '../fixtures/test';
 import type { SeedRole } from '../seed-contract';
-import { resolvePath, routes } from '../responsive/routes';
+import { resolvePath, routes, type ManifestRoute } from '../responsive/routes';
 import { overlayOpeners } from './overlay-openers';
+
+/**
+ * Same reasoning as `responsive/reflow.spec.ts`'s identical helper: a
+ * `redirect` archetype route may land somewhere that opens a modal by
+ * default (`/payments/record` → `/payments?record=1`), which correctly
+ * `aria-hide`s the underlying page's `<h1>` while open — the dialog's own
+ * required title is the equivalent "rendered something meaningful" signal.
+ */
+function pageOrDialogHeading(page: Page, route: ManifestRoute) {
+  const heading = page.getByRole('heading', { level: 1 }).first();
+  if (route.archetype !== 'redirect') return heading;
+  return heading.or(page.getByRole('dialog').first());
+}
 
 /**
  * [8.5.5] Route-level axe suite — BLOCKING. Scans every manifest route
@@ -90,7 +103,7 @@ for (const { locale, theme } of VARIANTS) {
           }
           const path = await resolvePath(request, route);
           await page.goto(path);
-          await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+          await expect(pageOrDialogHeading(page, route)).toBeVisible();
           if (theme === 'dark') {
             expect(
               await page.evaluate(() => document.documentElement.getAttribute('data-theme')),

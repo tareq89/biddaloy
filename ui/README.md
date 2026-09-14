@@ -621,21 +621,25 @@ CI failure, not a review comment, for the same reason the
 `@biddaloy/ui` import boundary is: review catches this sometimes, lint
 catches it every time.
 
-`src/hooks/payments.ts`'s `useCreatePayment` is the reference **non-**
+`src/hooks/payments.ts`'s `useCheckout` is the reference **non-**
 optimistic mutation — no `onMutate`, only `isPending`/`isSuccess`/`isError`
 to drive the UI:
 
 ```ts
-export function useCreatePayment() {
+export function useCheckout() {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (input: CreatePaymentInput) => apiClient.post<Payment>('/payments', input),
-    retry: shouldRetryQuery,
-    onSuccess: (payment) => {
-      // The whole `lists()` branch — a new payment can affect an
-      // unfiltered list or one filtered a different way too.
-      void queryClient.invalidateQueries({ queryKey: paymentKeys.lists() });
-      void queryClient.invalidateQueries({ queryKey: studentKeys.detail(payment.student.id) });
+  return useApprovedMutation(checkoutRequest, {
+    approvalScope: ApprovalScope.FEES_DISCOUNT,
+    retry: false,
+    onSuccess: () => {
+      // A checkout changes every open bill's balance, the fee-dues list,
+      // the wallet balance, and can mint an invoice — so all five caches
+      // are invalidated broadly rather than for one narrow filter variant.
+      void queryClient.invalidateQueries({ queryKey: cartKeys.all });
+      void queryClient.invalidateQueries({ queryKey: paymentKeys.all });
+      void queryClient.invalidateQueries({ queryKey: feeDuesKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
+      void queryClient.invalidateQueries({ queryKey: walletKeys.all });
     },
   });
 }
