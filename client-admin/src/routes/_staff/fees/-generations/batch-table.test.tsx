@@ -115,7 +115,7 @@ describe('BatchTable', () => {
     const { localeReady } = render({
       data: [
         generationFactory({
-          structures: [{ id: 'fs-1', name: 'Monthly Tuition' } as never],
+          structures: [{ id: 'fs-1', name: 'Monthly Tuition', fee_type: 'TUITION', amount: 4200 }],
         }),
       ],
     });
