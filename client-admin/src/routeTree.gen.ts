@@ -50,6 +50,7 @@ import { Route as StaffGuardiansIndexRouteImport } from './routes/_staff/guardia
 import { Route as StaffGuardiansGuardianIdRouteImport } from './routes/_staff/guardians/$guardianId'
 import { Route as StaffInvoicesIndexRouteImport } from './routes/_staff/invoices/index'
 import { Route as StaffInvoicesInvoiceIdRouteImport } from './routes/_staff/invoices/$invoiceId'
+import { Route as StaffPaymentsIndexRouteImport } from './routes/_staff/payments/index'
 import { Route as StaffPaymentsRecordRouteImport } from './routes/_staff/payments/record'
 import { Route as StaffStaffIndexRouteImport } from './routes/_staff/staff/index'
 import { Route as StaffStaffUserIdRouteImport } from './routes/_staff/staff/$userId'
@@ -268,6 +269,11 @@ const StaffInvoicesInvoiceIdRoute = StaffInvoicesInvoiceIdRouteImport.update({
   path: '/invoices/$invoiceId',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffPaymentsIndexRoute = StaffPaymentsIndexRouteImport.update({
+  id: '/payments/',
+  path: '/payments/',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffPaymentsRecordRoute = StaffPaymentsRecordRouteImport.update({
   id: '/payments/record',
   path: '/payments/record',
@@ -367,6 +373,7 @@ export interface FileRoutesByFullPath {
   '/fees/': typeof StaffFeesIndexRoute
   '/guardians/': typeof StaffGuardiansIndexRoute
   '/invoices/': typeof StaffInvoicesIndexRoute
+  '/payments/': typeof StaffPaymentsIndexRoute
   '/staff/': typeof StaffStaffIndexRoute
   '/students/': typeof StaffStudentsIndexRoute
   '/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
@@ -416,6 +423,7 @@ export interface FileRoutesByTo {
   '/fees': typeof StaffFeesIndexRoute
   '/guardians': typeof StaffGuardiansIndexRoute
   '/invoices': typeof StaffInvoicesIndexRoute
+  '/payments': typeof StaffPaymentsIndexRoute
   '/staff': typeof StaffStaffIndexRoute
   '/students': typeof StaffStudentsIndexRoute
   '/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
@@ -470,6 +478,7 @@ export interface FileRoutesById {
   '/_staff/fees/': typeof StaffFeesIndexRoute
   '/_staff/guardians/': typeof StaffGuardiansIndexRoute
   '/_staff/invoices/': typeof StaffInvoicesIndexRoute
+  '/_staff/payments/': typeof StaffPaymentsIndexRoute
   '/_staff/staff/': typeof StaffStaffIndexRoute
   '/_staff/students/': typeof StaffStudentsIndexRoute
   '/_staff/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
@@ -523,6 +532,7 @@ export interface FileRouteTypes {
     | '/fees/'
     | '/guardians/'
     | '/invoices/'
+    | '/payments/'
     | '/staff/'
     | '/students/'
     | '/communications/batches/$batchId'
@@ -572,6 +582,7 @@ export interface FileRouteTypes {
     | '/fees'
     | '/guardians'
     | '/invoices'
+    | '/payments'
     | '/staff'
     | '/students'
     | '/communications/batches/$batchId'
@@ -625,6 +636,7 @@ export interface FileRouteTypes {
     | '/_staff/fees/'
     | '/_staff/guardians/'
     | '/_staff/invoices/'
+    | '/_staff/payments/'
     | '/_staff/staff/'
     | '/_staff/students/'
     | '/_staff/communications/batches/$batchId'
@@ -934,6 +946,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffInvoicesInvoiceIdRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/payments/': {
+      id: '/_staff/payments/'
+      path: '/payments'
+      fullPath: '/payments/'
+      preLoaderRoute: typeof StaffPaymentsIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/payments/record': {
       id: '/_staff/payments/record'
       path: '/payments/record'
@@ -1066,6 +1085,7 @@ interface StaffRouteChildren {
   StaffFeeStructuresIndexRoute: typeof StaffFeeStructuresIndexRoute
   StaffGuardiansIndexRoute: typeof StaffGuardiansIndexRoute
   StaffInvoicesIndexRoute: typeof StaffInvoicesIndexRoute
+  StaffPaymentsIndexRoute: typeof StaffPaymentsIndexRoute
   StaffStaffIndexRoute: typeof StaffStaffIndexRoute
   StaffStudentsIndexRoute: typeof StaffStudentsIndexRoute
   StaffCommunicationsBatchesBatchIdRoute: typeof StaffCommunicationsBatchesBatchIdRoute
@@ -1100,6 +1120,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffFeeStructuresIndexRoute: StaffFeeStructuresIndexRoute,
   StaffGuardiansIndexRoute: StaffGuardiansIndexRoute,
   StaffInvoicesIndexRoute: StaffInvoicesIndexRoute,
+  StaffPaymentsIndexRoute: StaffPaymentsIndexRoute,
   StaffStaffIndexRoute: StaffStaffIndexRoute,
   StaffStudentsIndexRoute: StaffStudentsIndexRoute,
   StaffCommunicationsBatchesBatchIdRoute:
