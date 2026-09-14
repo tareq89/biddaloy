@@ -25,6 +25,8 @@ import { FeeController } from './fees.controller';
 import { FeeGenerationsController } from './fee-generations.controller';
 import { WalletService } from './wallet.service';
 import { WalletController } from './wallet.controller';
+import { CheckoutCartService } from './checkout-cart.service';
+import { CheckoutController } from './checkout.controller';
 
 @Module({
   imports: [
@@ -56,8 +58,9 @@ import { WalletController } from './wallet.controller';
     FeeGenerationBatchService,
     WalletService,
     NoopDiscountResolver,
+    CheckoutCartService,
   ],
-  controllers: [FeeController, FeeGenerationsController, WalletController],
+  controllers: [FeeController, FeeGenerationsController, WalletController, CheckoutController],
   exports: [
     FeeStructureService,
     PaymentService,
@@ -67,6 +70,7 @@ import { WalletController } from './wallet.controller';
     FeeGenerationsService,
     FeeGenerationBatchService,
     WalletService,
+    CheckoutCartService,
   ],
 })
 export class FeeModule {}
