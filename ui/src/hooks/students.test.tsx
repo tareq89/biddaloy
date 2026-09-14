@@ -587,7 +587,7 @@ describe('useStudentIds', () => {
     );
 
     const { result } = renderHookWithProviders(
-      () => useStudentIds({ search: 'Rahim', class_id: 'class-9' } as never, { enabled: true }),
+      () => useStudentIds({ search: 'Rahim', class_id: 'class-9' }, { enabled: true }),
       { tenantId: 'tenant-1' },
     );
 
