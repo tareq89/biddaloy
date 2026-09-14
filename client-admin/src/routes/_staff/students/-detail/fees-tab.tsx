@@ -20,7 +20,7 @@ import {
   type StudentFee,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatDate, formatServerAmount, isPastDueDate } from '@biddaloy/ui/utils';
+import { formatDate, formatServerAmount, isPastDueDate, parseServerDate } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 import { RecordPaymentModal } from '../../payments/-record/record-payment-modal';
@@ -103,7 +103,7 @@ function FeeLinesTable({
   }
 
   function periodLabel(fee: StudentFee): string {
-    const date = formatDate(new Date(fee.period_start), regionConfig);
+    const date = formatDate(parseServerDate(fee.period_start), regionConfig);
     return fee.occurrence > 1 ? `${date} (${fee.occurrence})` : date;
   }
 
@@ -137,7 +137,7 @@ function FeeLinesTable({
             </TableCell>
             <TableCell>{periodLabel(fee)}</TableCell>
             <TableCell>
-              {fee.due_date ? formatDate(new Date(fee.due_date), regionConfig) : '—'}
+              {fee.due_date ? formatDate(parseServerDate(fee.due_date), regionConfig) : '—'}
             </TableCell>
             <TableCell className="tabular-nums">
               {formatServerAmount(fee.total_amount, regionConfig)}

@@ -119,10 +119,16 @@ export function CartTable({
                           aria-label={t('record.cart.columnPay')}
                           config={config}
                           value={line.payMinorUnits}
+                          aria-invalid={lineValidity.get(bill.student_fee_id) === false}
                           onValueChange={(next) =>
                             onLineChange(bill.student_fee_id, { payMinorUnits: next ?? 0 })
                           }
                         />
+                        {lineValidity.get(bill.student_fee_id) === false && (
+                          <p className="text-xs text-destructive">
+                            {t('record.discount.exceedsBalance')}
+                          </p>
+                        )}
                       </TableCell>
                       <TableCell>
                         <DiscountCell

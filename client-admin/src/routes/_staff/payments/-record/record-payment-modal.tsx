@@ -446,18 +446,20 @@ export function RecordPaymentModal({
                   className="flex items-center gap-1 rounded-full border border-border bg-accent px-3 py-1 text-sm"
                 >
                   {student.full_name || student.id}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    iconOnly
-                    aria-label={t('record.students.removeStudent', {
-                      name: student.full_name || student.id,
-                    })}
-                    onClick={() => removeStudent(student.id)}
-                  >
-                    <X aria-hidden="true" />
-                  </Button>
+                  {studentId === undefined && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      iconOnly
+                      aria-label={t('record.students.removeStudent', {
+                        name: student.full_name || student.id,
+                      })}
+                      onClick={() => removeStudent(student.id)}
+                    >
+                      <X aria-hidden="true" />
+                    </Button>
+                  )}
                 </span>
               ))}
             </div>
@@ -547,6 +549,8 @@ export function RecordPaymentModal({
             </div>
           ) : cart.isError ? (
             <ErrorState message={t('record.cart.error')} onRetry={() => void cart.refetch()} />
+          ) : selectedStudentIds.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('record.students.label')}</p>
           ) : (
             <CartTable
               students={cart.data?.students ?? []}

@@ -30,7 +30,7 @@ describe('/payments', () => {
     const { localeReady } = render(['/payments']);
     await localeReady;
 
-    await screen.findByText(/A payments list with filters and detail/);
+    await screen.findByText(/Record a payment from this page/);
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 

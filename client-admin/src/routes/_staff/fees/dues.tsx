@@ -27,7 +27,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
-import { downloadCsv, formatDate, formatServerAmount } from '@biddaloy/ui/utils';
+import { downloadCsv, formatDate, formatServerAmount, parseServerDate } from '@biddaloy/ui/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
@@ -56,7 +56,7 @@ interface DuesFilters {
   month?: string | undefined;
   year?: string | undefined;
   status?: string | undefined;
-  fee_type?: string | undefined;
+  fee_type?: FeeType | undefined;
   flagged?: string | undefined;
 }
 
@@ -71,7 +71,7 @@ const duesSearchSchema = z.object({
   month: z.string().optional().catch(undefined),
   year: z.string().optional().catch(undefined),
   status: z.string().optional().catch(undefined),
-  fee_type: z.string().optional().catch(undefined),
+  fee_type: z.enum(FeeType).optional().catch(undefined),
   flagged: z.string().optional().catch(undefined),
   // Reserved key `use-list-shell-state.ts` stores the row selection under
   // — must be declared here or TanStack Router's `validateSearch` strips
@@ -96,7 +96,7 @@ function toFeeDuesFilters(
     ...(filters.status !== undefined
       ? { status: filters.status as FeeStatus.PENDING | FeeStatus.PARTIALLY_PAID }
       : {}),
-    ...(filters.fee_type !== undefined ? { fee_type: filters.fee_type as FeeType } : {}),
+    ...(filters.fee_type !== undefined ? { fee_type: filters.fee_type } : {}),
     ...(sortField !== undefined ? { sort_by: sortField } : {}),
   };
 }
@@ -229,7 +229,7 @@ function DuesFeeLines({
   const regionConfig = useRegionConfig();
 
   function periodLabel(due: FeeDueEntry): string {
-    const date = formatDate(new Date(due.period_start), regionConfig);
+    const date = formatDate(parseServerDate(due.period_start), regionConfig);
     return due.occurrence > 1 ? `${date} (${due.occurrence})` : date;
   }
 
@@ -262,7 +262,7 @@ function DuesFeeLines({
             </TableCell>
             <TableCell>{periodLabel(due)}</TableCell>
             <TableCell>
-              {due.due_date ? formatDate(new Date(due.due_date), regionConfig) : '—'}
+              {due.due_date ? formatDate(parseServerDate(due.due_date), regionConfig) : '—'}
             </TableCell>
             <TableCell className="tabular-nums">
               {formatServerAmount(due.total_amount, regionConfig)}

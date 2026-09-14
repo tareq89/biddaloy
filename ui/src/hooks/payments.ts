@@ -11,6 +11,7 @@ import { feeDuesKeys } from './fee-dues';
 import { invoiceKeys } from './invoices';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
+import { walletKeys } from './wallet';
 
 export type Payment = components['schemas']['Payment'];
 export type IssuerSnapshot = components['schemas']['IssuerSnapshot'];
@@ -222,9 +223,11 @@ export function useCheckout(): ApprovedMutationResult<CheckoutInput, CheckoutRes
     onSuccess: () => {
       // `cartKeys.all`, not a narrower key — a checkout changes every open
       // bill's balance and the wallet_balance carried on the cart
-      // response, and there is no separate wallet query to invalidate:
-      // `wallet_balance` rides on `CartStudent`, so invalidating the cart
-      // is the wallet invalidation. `paymentKeys.all` (a plain `['payments']`
+      // response. `walletKeys.all` is invalidated separately below: a
+      // checkout can also change the wallet via `wallet_use` or a
+      // `TO_WALLET` change-handling credit, and `useStudentWallet` caches
+      // that balance/history under its own `walletKeys` prefix, not
+      // under the cart's. `paymentKeys.all` (a plain `['payments']`
       // prefix from `createEntityKeys`) also covers `useStudentFeeSummary`'s
       // `[...paymentKeys.all, 'fee-summary', studentId]` cache entries — no
       // separate per-student invalidation is needed for those. The modal
@@ -235,6 +238,7 @@ export function useCheckout(): ApprovedMutationResult<CheckoutInput, CheckoutRes
       void queryClient.invalidateQueries({ queryKey: paymentKeys.all });
       void queryClient.invalidateQueries({ queryKey: feeDuesKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
+      void queryClient.invalidateQueries({ queryKey: walletKeys.all });
     },
   });
 }

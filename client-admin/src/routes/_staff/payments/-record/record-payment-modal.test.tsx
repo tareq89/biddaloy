@@ -218,7 +218,14 @@ describe('RecordPaymentModal', () => {
   });
 
   it('[16.4.4] Enter inside the reference field does not submit the form', async () => {
-    server.use(http.get('/api/v1/payments/cart', () => HttpResponse.json(cartResponse())));
+    let checkoutCalls = 0;
+    server.use(
+      http.get('/api/v1/payments/cart', () => HttpResponse.json(cartResponse())),
+      http.post('/api/v1/payments/checkout', () => {
+        checkoutCalls += 1;
+        return HttpResponse.json({}, { status: 201 });
+      }),
+    );
 
     const user = userEvent.setup();
     await renderModal({ studentId: 'student-1' });
@@ -228,7 +235,9 @@ describe('RecordPaymentModal', () => {
     const referenceField = await screen.findByLabelText('Transaction reference');
     await user.type(referenceField, 'REF-1{Enter}');
 
-    // No success toast / navigation fired from the stray Enter.
-    expect(screen.queryByTestId('result')).toBeNull();
+    // The stray Enter must not have reached `/payments/checkout` — give
+    // any (wrongly) in-flight request a tick to land before asserting.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(checkoutCalls).toBe(0);
   });
 });

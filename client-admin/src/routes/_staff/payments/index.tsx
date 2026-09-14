@@ -49,7 +49,15 @@ function PaymentsPage() {
 
   function setModalOpen(open: boolean) {
     void navigate({
-      search: (prev) => ({ ...prev, record: open ? '1' : undefined }),
+      search: (prev) =>
+        open
+          ? { ...prev, record: '1' }
+          : {
+              ...prev,
+              record: undefined,
+              student_id: undefined,
+              guardian_id: undefined,
+            },
     });
   }
 
