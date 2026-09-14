@@ -107,7 +107,14 @@ describe('FeeNotificationsListener (integration)', () => {
       { add: async (name: string, data: any) => queuedJobs.push({ name, data }) } as any,
       feeGenerationsService,
       {
-        getResolvedSettings: async () => ({ communications: {}, region: { locale: 'en-US' } }),
+        // A `whatsapp` block is required for the fallback to ever pick
+        // WhatsApp — see `resolveFeeNotificationChannel`'s `whatsappAvailable`
+        // gate — so the below-`beforeEach`-independent tests exercising the
+        // WHATSAPP path need one configured here.
+        getResolvedSettings: async () => ({
+          communications: { whatsapp: { phoneNumberId: 'wa-phone-id' } },
+          region: { locale: 'en-US' },
+        }),
       } as any,
       smsCreditService,
     );

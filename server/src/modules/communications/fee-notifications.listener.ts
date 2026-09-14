@@ -72,8 +72,17 @@ export interface ResolvedFeeNotificationChannel {
 export function resolveFeeNotificationChannel(
   guardian: Guardian,
   smsAvailable: boolean,
+  whatsappAvailable: boolean,
 ): ResolvedFeeNotificationChannel | null {
-  const whatsappAddress = addressForMedium(guardian, CommunicationMedium.WHATSAPP);
+  // `addressForMedium` returns the guardian's phone for both WHATSAPP and
+  // SMS (there's no separate "WhatsApp number" field), so a phone alone
+  // can't tell the two media apart — only whether the tenant has a
+  // WhatsApp provider configured at all can, same as `smsAvailable` below.
+  // Without this check every guardian with a phone always got WHATSAPP and
+  // the SMS branch was unreachable.
+  const whatsappAddress = whatsappAvailable
+    ? addressForMedium(guardian, CommunicationMedium.WHATSAPP)
+    : null;
   if (whatsappAddress) {
     return { medium: CommunicationMedium.WHATSAPP, address: whatsappAddress };
   }
@@ -156,6 +165,7 @@ export class FeeNotificationsListener implements OnModuleInit {
     // `isMetered` only tells us whether credit is charged for it, not
     // whether it's turned on, so both checks are needed.
     const smsAvailable = !!settings.communications?.sms?.provider;
+    const whatsappAvailable = !!settings.communications?.whatsapp?.phoneNumberId;
     const metered = await this.smsCreditService.isMetered(tenantId);
 
     // Group by GUARDIAN, not student: the Tests/Acceptance contract keys
@@ -215,7 +225,7 @@ export class FeeNotificationsListener implements OnModuleInit {
       const lines = linesByGuardian.get(guardianId) ?? [];
       const message = buildFeeNotificationMessage(locale, lines, batch.due_date);
 
-      const channel = resolveFeeNotificationChannel(guardian, smsAvailable);
+      const channel = resolveFeeNotificationChannel(guardian, smsAvailable, whatsappAvailable);
       if (!channel) {
         skippedNoSms.push({
           guardianId,

@@ -19,14 +19,11 @@ import { feesEvents } from '../fees/fee-generation.service';
  * Note on reachability: `addressForMedium` (`reminder-recipients.util.ts`)
  * resolves both WHATSAPP and SMS to the same `phone`/`alternate_phone`
  * field — there is no separate "is this number WhatsApp-registered" flag
- * on `Guardian`. So in practice the SMS branch below only fires for a
- * guardian with no phone number at all (email-only), which also means it
- * has no SMS address either — same conclusion the "no phone" test reaches.
- * A guardian who *does* have a phone always resolves to WhatsApp first,
- * per D13's stated order. Flagged for product/ticket follow-up: reaching a
- * guardian's phone by SMS specifically (not WhatsApp) would need either a
- * WhatsApp-capability flag on `Guardian` or a worker-level "retry on the
- * next medium after a provider failure" — neither exists today.
+ * on `Guardian`. So the tenant-level `whatsappAvailable` flag (mirroring
+ * `smsAvailable`, both sourced from `settings.communications`) is what
+ * actually gates WhatsApp — without it, a guardian with a phone always
+ * resolved to WhatsApp first regardless of whether the tenant even had a
+ * WhatsApp provider configured, and the SMS branch was unreachable.
  */
 
 function guardian(overrides: Partial<Guardian>): Guardian {
@@ -41,8 +38,8 @@ function guardian(overrides: Partial<Guardian>): Guardian {
 }
 
 describe('resolveFeeNotificationChannel', () => {
-  it('picks WhatsApp when the guardian has a phone number', () => {
-    const result = resolveFeeNotificationChannel(guardian({ phone: '+8801700000000' }), true);
+  it('picks WhatsApp when the guardian has a phone number and WhatsApp is available', () => {
+    const result = resolveFeeNotificationChannel(guardian({ phone: '+8801700000000' }), true, true);
     expect(result).toEqual({ medium: CommunicationMedium.WHATSAPP, address: '+8801700000000' });
   });
 
@@ -50,18 +47,33 @@ describe('resolveFeeNotificationChannel', () => {
     const result = resolveFeeNotificationChannel(
       guardian({ phone: null, alternate_phone: '+8801800000000' }),
       true,
+      true,
     );
     expect(result).toEqual({ medium: CommunicationMedium.WHATSAPP, address: '+8801800000000' });
   });
 
-  it('picks WhatsApp over SMS even when SMS is disabled — a phone always resolves to WhatsApp first', () => {
-    const result = resolveFeeNotificationChannel(guardian({ phone: '+8801700000000' }), false);
-    expect(result?.medium).toBe(CommunicationMedium.WHATSAPP);
+  it('falls back to SMS when WhatsApp is unavailable but SMS is', () => {
+    const result = resolveFeeNotificationChannel(
+      guardian({ phone: '+8801700000000' }),
+      true,
+      false,
+    );
+    expect(result).toEqual({ medium: CommunicationMedium.SMS, address: '+8801700000000' });
+  });
+
+  it('skips (null) a guardian with a phone when neither WhatsApp nor SMS is available', () => {
+    const result = resolveFeeNotificationChannel(
+      guardian({ phone: '+8801700000000' }),
+      false,
+      false,
+    );
+    expect(result).toBeNull();
   });
 
   it('skips (null) an email-only guardian when SMS is enabled — no phone means no SMS address either', () => {
     const result = resolveFeeNotificationChannel(
       guardian({ phone: null, email: 'g@example.com' }),
+      true,
       true,
     );
     expect(result).toBeNull();
@@ -71,12 +83,13 @@ describe('resolveFeeNotificationChannel', () => {
     const result = resolveFeeNotificationChannel(
       guardian({ phone: null, email: 'g@example.com' }),
       false,
+      false,
     );
     expect(result).toBeNull();
   });
 
   it('skips (null) a guardian with no contact information at all', () => {
-    const result = resolveFeeNotificationChannel(guardian({}), true);
+    const result = resolveFeeNotificationChannel(guardian({}), true, true);
     expect(result).toBeNull();
   });
 });
