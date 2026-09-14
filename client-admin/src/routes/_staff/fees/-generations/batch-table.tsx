@@ -137,11 +137,8 @@ export function BatchTable({
     {
       id: 'fees',
       header: t('generations.columnFees'),
-      // `FeeGenerationListItemDto` (the endpoint this reads) doesn't select
-      // `structures` today — see `fee-generations.ts`'s own comment on
-      // `FeeGeneration.structures`. Renders nothing until that's widened.
       accessorFn: (row) =>
-        row.structures && row.structures.length > 0 ? (
+        row.structures.length > 0 ? (
           <div className="flex flex-wrap gap-1">
             {row.structures.map((structure) => (
               <span

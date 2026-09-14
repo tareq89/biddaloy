@@ -134,6 +134,7 @@ export class FeeGenerationsService {
       .addSelect('fg.generated_count', 'generated_count')
       .addSelect('fg.skipped_count', 'skipped_count')
       .addSelect('fg.removed_count', 'removed_count')
+      .addSelect('fg.structures', 'structures')
       .addSelect('fg.created_at', 'created_at')
       .addSelect('u.id', 'generated_by_id')
       .addSelect('u.full_name', 'generated_by_full_name')
@@ -226,6 +227,7 @@ export class FeeGenerationsService {
         generated_count: Number(r.generated_count),
         skipped_count: Number(r.skipped_count),
         removed_count: Number(r.removed_count),
+        structures: r.structures,
         created_at: r.created_at,
         billed_amount: Number(r.billed_amount),
         collected_amount: Number(r.collected_amount),

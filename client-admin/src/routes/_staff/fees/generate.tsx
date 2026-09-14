@@ -29,10 +29,9 @@ import { BatchTable, type BatchTableProps } from './-generations/batch-table';
  * filterable, with a drill-down into the bills each one created and a
  * "Generate fees" button that opens the modal.
  *
- * `structures`/`discount` gaps: see `ui/src/hooks/fee-generations.ts`'s
- * own comments on `FeeGeneration.structures` and `FeeGenerationBill` —
- * two fields the issue's column spec names that the current endpoints
- * don't select yet.
+ * `discount` gap: see `ui/src/hooks/fee-generations.ts`'s own comment on
+ * `FeeGenerationBill` — a field the issue's column spec names that the
+ * bills endpoint doesn't select yet.
  */
 interface GeneratedFeesFilters {
   period_from?: string | undefined;

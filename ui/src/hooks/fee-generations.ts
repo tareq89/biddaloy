@@ -41,16 +41,9 @@ export interface FeeGeneration {
   collected_amount: number;
   collection_status: 'NONE' | 'PARTIAL' | 'FULL';
   generated_by: { id: string; full_name: string } | null;
-  /** Not part of `FeeGenerationListItemDto` — the list endpoint's `qb`
-   * never selects `fg.structures`, only the join it drives (`fee_type`
-   * filtering via a jsonb containment check). `batch-table.tsx`'s fee
-   * chips therefore have nothing to render for a list row today; this is
-   * flagged in the PR body as an endpoint-shape gap against the issue's
-   * "fees (chips from `structures` snapshot)" column spec. Kept optional
-   * here (rather than omitted) so a future widening of
-   * `FeeGenerationListItemDto` to include it is a additive, non-breaking
-   * change for this type. */
-  structures?: FeeGenerationStructureSnapshot[];
+  /** The fee structures this batch charged, snapshotted at generation
+   * time — `batch-table.tsx` renders these as fee chips. */
+  structures: FeeGenerationStructureSnapshot[];
 }
 
 export interface PaginatedFeeGenerations {
@@ -118,8 +111,7 @@ export function useFeeGeneration(id: string | undefined) {
  * isn't part of that DTO (`FeeGenerationsService.findBills`'s `qb` never
  * selects a discount column off `student_fees`), unlike the issue body's
  * "student, class, fee, amount, discount, paid, status" column list —
- * flagged in the PR body as the same kind of endpoint-shape gap as
- * `FeeGeneration.structures` above. */
+ * flagged in the PR body as an endpoint-shape gap. */
 export interface FeeGenerationBill {
   id: string;
   student_id: string;

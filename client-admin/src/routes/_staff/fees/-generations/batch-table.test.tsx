@@ -27,6 +27,7 @@ function generationFactory(overrides: Partial<FeeGeneration> = {}): FeeGeneratio
     generated_count: 38,
     skipped_count: 2,
     removed_count: 0,
+    structures: [],
     created_at: '2026-09-01T08:00:00.000Z',
     billed_amount: 38000,
     collected_amount: 12000,

@@ -1,6 +1,7 @@
 import { IsOptional, IsUUID, IsEnum, IsInt, Min, Max, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { FeeType, FeeGenerationSource, PeriodType } from '@biddaloy/shared';
+import { FeeGenerationStructureSnapshot } from '../entities/fee-generation.entity';
 
 export type CollectionStatus = 'NONE' | 'PARTIAL' | 'FULL';
 
@@ -72,6 +73,9 @@ export class FeeGenerationListItemDto {
   generated_count: number;
   skipped_count: number;
   removed_count: number;
+  /** The fee structures this batch charged, snapshotted at generation
+   * time — what the list page renders as fee chips. */
+  structures: FeeGenerationStructureSnapshot[];
   created_at: string;
   /** Sum of every bill's `total_amount` this batch created. */
   billed_amount: number;
