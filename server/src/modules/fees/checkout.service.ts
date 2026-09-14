@@ -538,15 +538,24 @@ export class CheckoutService {
    *
    * Two requests can reach this for the same orphaned payment at nearly
    * the same time (e.g. two rapid retries of the same idempotency key
-   * after the first invoice-creation attempt failed) — `pg_try_advisory_lock`
-   * scoped to the payment id keeps only one of them actually calling
-   * `InvoicesService.create`, so a race never mints two invoices for one
-   * payment. The lock key is a plain string hashed by Postgres itself
-   * (`hashtext`), not a `bigint` id, so no separate keyspace bookkeeping
-   * is needed. A caller that loses the race simply re-reads the payment
-   * once the winner has released the lock, rather than blocking on it —
-   * if the winner also failed, the next repair attempt (the next retry
-   * from the client) tries again.
+   * after the first invoice-creation attempt failed) — a session-level
+   * `pg_advisory_lock` scoped to the payment id serializes them, so a
+   * race never mints two invoices for one payment. The lock key is a
+   * plain string hashed by Postgres itself (`hashtext`), not a `bigint`
+   * id, so no separate keyspace bookkeeping is needed.
+   *
+   * Session-level advisory locks are tied to the *connection*, not the
+   * transaction, so acquiring and releasing them through the default
+   * `EntityManager` (which can pull a different pooled connection per
+   * call) would silently no-op the unlock and leak the lock on whichever
+   * connection actually held it. A dedicated `QueryRunner` pins both
+   * calls — and the repair work in between — to one connection.
+   *
+   * The lock is the *blocking* variant, not `pg_try_advisory_lock`: a
+   * caller that loses the race waits for the winner to finish rather
+   * than racing ahead with a stale "no invoice yet" read, so two
+   * concurrent replays of the same orphaned payment both come back with
+   * the repaired invoice, not just one of them.
    */
   private async ensureInvoiceLinked(
     paymentId: string,
@@ -565,54 +574,50 @@ export class CheckoutService {
     if (loaded.invoice_id) return loaded;
 
     const lockKey = `checkout-invoice-repair:${paymentId}`;
-    const [{ locked }]: [{ locked: boolean }] = await this.paymentRepo.manager.query(
-      `SELECT pg_try_advisory_lock(hashtext($1)) AS locked`,
-      [lockKey],
-    );
-    if (!locked) {
-      // Someone else is already repairing this payment — don't queue
-      // behind them, just hand back the current (possibly still
-      // invoice-less) state; the next retry tries again.
-      return loaded;
-    }
-
+    const queryRunner = this.paymentRepo.manager.connection.createQueryRunner();
+    await queryRunner.connect();
     try {
-      // Re-read under the lock: the concurrent repairer may have just
-      // finished between the check above and acquiring the lock.
-      const fresh = await this.paymentRepo.findOneOrFail({
-        where: { id: paymentId },
-        relations: [
-          'allocations',
-          'allocations.student_fee',
-          'allocations.student_fee.fee_structure',
-          'invoice',
-        ],
-      });
-      if (fresh.invoice_id) return fresh;
+      await queryRunner.query(`SELECT pg_advisory_lock(hashtext($1))`, [lockKey]);
+      try {
+        // Re-read under the lock: the concurrent repairer may have just
+        // finished between the check above and acquiring the lock.
+        const fresh = await queryRunner.manager.findOneOrFail(Payment, {
+          where: { id: paymentId },
+          relations: [
+            'allocations',
+            'allocations.student_fee',
+            'allocations.student_fee.fee_structure',
+            'invoice',
+          ],
+        });
+        if (fresh.invoice_id) return fresh;
 
-      const lineItems = fresh.allocations.map((a) => ({
-        // Same fallback as the main flow: `fee_structure` can be null
-        // when it was soft-deleted after this bill was created.
-        description: `Fee for ${a.student_fee.fee_structure?.name ?? 'Fee'} (${a.student_fee.month}/${a.student_fee.year})`,
-        amount: Number(a.allocated_amount),
-        quantity: 1,
-      }));
+        const lineItems = fresh.allocations.map((a) => ({
+          // Same fallback as the main flow: `fee_structure` can be null
+          // when it was soft-deleted after this bill was created.
+          description: `Fee for ${a.student_fee.fee_structure?.name ?? 'Fee'} (${a.student_fee.month}/${a.student_fee.year})`,
+          amount: Number(a.allocated_amount),
+          quantity: 1,
+        }));
 
-      const invoice = await this.invoicesService.create(
-        {
-          student_id: fresh.student_id,
-          due_date: fresh.payment_date.toISOString().slice(0, 10),
-          line_items: lineItems,
-        },
-        tenantId,
-        userId,
-      );
-      await this.paymentRepo.update(fresh.id, { invoice_id: invoice.id });
-      fresh.invoice_id = invoice.id;
-      fresh.invoice = invoice;
-      return fresh;
+        const invoice = await this.invoicesService.create(
+          {
+            student_id: fresh.student_id,
+            due_date: fresh.payment_date.toISOString().slice(0, 10),
+            line_items: lineItems,
+          },
+          tenantId,
+          userId,
+        );
+        await queryRunner.manager.update(Payment, fresh.id, { invoice_id: invoice.id });
+        fresh.invoice_id = invoice.id;
+        fresh.invoice = invoice;
+        return fresh;
+      } finally {
+        await queryRunner.query(`SELECT pg_advisory_unlock(hashtext($1))`, [lockKey]);
+      }
     } finally {
-      await this.paymentRepo.manager.query(`SELECT pg_advisory_unlock(hashtext($1))`, [lockKey]);
+      await queryRunner.release();
     }
   }
 

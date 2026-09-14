@@ -681,10 +681,17 @@ describe('CheckoutService (integration)', () => {
       ).rejects.toThrow('simulated invoice-service outage');
       createSpy.mockRestore();
 
-      await Promise.all([
+      const [resultA, resultB] = await Promise.all([
         service.checkout(dto, TENANT_ID, ACTOR_USER_ID, requestWithToken()),
         service.checkout(dto, TENANT_ID, ACTOR_USER_ID, requestWithToken()),
       ]);
+
+      // The repair lock is blocking, not try-and-give-up — both replays
+      // wait for whichever of them actually repairs the payment, so
+      // neither ever sees an empty invoice_id.
+      expect(resultA.invoice_id).toBeTruthy();
+      expect(resultB.invoice_id).toBeTruthy();
+      expect(resultA.invoice_id).toBe(resultB.invoice_id);
 
       const payments = await paymentRepo.find({ where: { idempotency_key: key } });
       expect(payments).toHaveLength(1);
