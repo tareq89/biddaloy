@@ -261,21 +261,26 @@ export class FeeNotificationsListener implements OnModuleInit {
     }
     const existing = await this.logRepo.find({
       where: allKeys.map((reference_key) => ({ tenant_id: tenantId, reference_key })),
-      select: ['reference_key', 'status', 'metadata'],
+      select: ['id', 'reference_key', 'status', 'metadata'],
     });
     // A row that failed to enqueue (ENQUEUE_FAILED) never reached the
-    // worker, so it must not block a replayed event from retrying it.
-    const alreadyLogged = new Set(
-      existing
-        .filter(
-          (row) =>
-            !(
-              row.status === CommunicationStatus.FAILED &&
-              (row.metadata as { reason?: string } | null)?.reason === ENQUEUE_FAILED
-            ),
-        )
-        .map((row) => row.reference_key),
-    );
+    // worker, so it must not block a replayed event from retrying it. Such
+    // a row is re-claimed in place by `writeLog` rather than inserted
+    // again — the (tenant_id, reference_key) unique index would reject a
+    // second row for the same key.
+    const alreadyLogged = new Set<string>();
+    const replayable = new Map<string, string>();
+    for (const row of existing) {
+      if (row.reference_key === null) continue;
+      const enqueueFailed =
+        row.status === CommunicationStatus.FAILED &&
+        (row.metadata as { reason?: string } | null)?.reason === ENQUEUE_FAILED;
+      if (enqueueFailed) {
+        replayable.set(row.reference_key, row.id);
+      } else {
+        alreadyLogged.add(row.reference_key);
+      }
+    }
 
     const toSend = planned.filter((p) => !alreadyLogged.has(p.referenceKey));
     const toSkip = skippedNoSms.filter((s) => !alreadyLogged.has(s.referenceKey));
@@ -313,30 +318,27 @@ export class FeeNotificationsListener implements OnModuleInit {
         continue;
       }
 
-      const log = await this.logRepo.save(
-        this.logRepo.create({
-          tenant_id: tenantId,
-          medium: item.medium,
-          recipient_address: item.recipientAddress,
-          recipient_name: item.recipientName,
-          message_body: item.message,
-          // No single `student_id` fits — a guardian's message can name
-          // several billed children. `metadata.student_ids` (below)
-          // carries the full list, same fallback
-          // `AbsenceNoticeService.queueRecipients` uses for its own
-          // several-students-one-log case.
-          student_id: null,
-          guardian_id: item.guardianId,
-          sent_by_user_id: null,
-          status: CommunicationStatus.QUEUED,
-          trigger: CommunicationTrigger.AUTOMATED,
-          reference_key: item.referenceKey,
-          metadata: {
-            fee_generation_id: feeGenerationId,
-            student_ids: studentIdsByGuardian.get(item.guardianId) ?? [],
-          },
-        }),
-      );
+      const log = await this.writeLog(tenantId, replayable, item.referenceKey, {
+        medium: item.medium,
+        recipient_address: item.recipientAddress,
+        recipient_name: item.recipientName,
+        message_body: item.message,
+        // No single `student_id` fits — a guardian's message can name
+        // several billed children. `metadata.student_ids` (below)
+        // carries the full list, same fallback
+        // `AbsenceNoticeService.queueRecipients` uses for its own
+        // several-students-one-log case.
+        student_id: null,
+        guardian_id: item.guardianId,
+        sent_by_user_id: null,
+        status: CommunicationStatus.QUEUED,
+        trigger: CommunicationTrigger.AUTOMATED,
+        metadata: {
+          fee_generation_id: feeGenerationId,
+          student_ids: studentIdsByGuardian.get(item.guardianId) ?? [],
+        },
+      });
+      if (log === null) continue;
 
       try {
         await this.queue.add('send', {
@@ -360,27 +362,59 @@ export class FeeNotificationsListener implements OnModuleInit {
     }
 
     for (const item of toSkip) {
-      await this.logRepo.save(
-        this.logRepo.create({
-          tenant_id: tenantId,
-          medium: CommunicationMedium.SMS,
-          recipient_address: item.recipientAddress,
-          recipient_name: item.recipientName,
-          message_body: '',
-          student_id: null,
-          guardian_id: item.guardianId,
-          sent_by_user_id: null,
-          status: CommunicationStatus.FAILED,
-          trigger: CommunicationTrigger.AUTOMATED,
-          reference_key: item.referenceKey,
-          metadata: {
-            fee_generation_id: feeGenerationId,
-            reason: SKIPPED_NO_SMS,
-            student_ids: studentIdsByGuardian.get(item.guardianId) ?? [],
-          },
-        }),
+      await this.writeLog(tenantId, replayable, item.referenceKey, {
+        medium: CommunicationMedium.SMS,
+        recipient_address: item.recipientAddress,
+        recipient_name: item.recipientName,
+        message_body: '',
+        student_id: null,
+        guardian_id: item.guardianId,
+        sent_by_user_id: null,
+        status: CommunicationStatus.FAILED,
+        trigger: CommunicationTrigger.AUTOMATED,
+        metadata: {
+          fee_generation_id: feeGenerationId,
+          reason: SKIPPED_NO_SMS,
+          student_ids: studentIdsByGuardian.get(item.guardianId) ?? [],
+        },
+      });
+    }
+  }
+
+  /**
+   * Writes the one log row for `referenceKey`. When a prior delivery left
+   * an ENQUEUE_FAILED row for that key (`replayable`), the row is claimed
+   * in place with a conditional UPDATE instead of inserting a second one:
+   * two concurrent deliveries of the same replayed event can both pass the
+   * read in `handleFeesGenerated`, but only one of them matches the
+   * `status = FAILED AND reason = ENQUEUE_FAILED` predicate. The loser gets
+   * `null` and must skip the key entirely.
+   */
+  private async writeLog(
+    tenantId: string,
+    replayable: Map<string, string>,
+    referenceKey: string,
+    values: Omit<Partial<CommunicationLog>, 'id' | 'tenant_id' | 'reference_key'>,
+  ): Promise<CommunicationLog | null> {
+    const failedId = replayable.get(referenceKey);
+    if (failedId === undefined) {
+      return this.logRepo.save(
+        this.logRepo.create({ ...values, tenant_id: tenantId, reference_key: referenceKey }),
       );
     }
+    const claim = await this.logRepo
+      .createQueryBuilder()
+      .update(CommunicationLog)
+      .set(values)
+      .where('id = :id', { id: failedId })
+      .andWhere('tenant_id = :tenantId', { tenantId })
+      .andWhere('status = :status', { status: CommunicationStatus.FAILED })
+      .andWhere(`metadata->>'reason' = :reason`, { reason: ENQUEUE_FAILED })
+      .execute();
+    if (!claim.affected) {
+      return null;
+    }
+    return this.logRepo.findOneByOrFail({ id: failedId, tenant_id: tenantId });
   }
 
   /** Loads this batch's bills grouped by student, joined with the fee

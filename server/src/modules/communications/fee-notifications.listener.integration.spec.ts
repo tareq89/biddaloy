@@ -22,6 +22,7 @@ import { FeeNotificationsListener } from './fee-notifications.listener';
 import {
   CommunicationMedium,
   CommunicationStatus,
+  CommunicationTrigger,
   DuplicateStrategy,
   FeeGenerationSource,
   FeeType,
@@ -291,6 +292,45 @@ describe('FeeNotificationsListener (integration)', () => {
     const countAfterReplay = await logRepo.count({ where: { guardian_id: guardianId } });
     expect(countAfterReplay).toBe(1);
     expect(queuedJobs.length).toBe(jobsAfterFirst);
+  });
+
+  it('re-emitting after an ENQUEUE_FAILED row re-queues that same row instead of inserting a second one', async () => {
+    const batch = await createBatch();
+    const { studentId, guardianId } = await createStudentWithGuardian({ tenantId: TENANT_ID });
+    await createBill({
+      studentId,
+      feeGenerationId: batch.id,
+      feeStructureId: feeStructureMonthlyId,
+      amount: 4200,
+    });
+    // What a prior delivery leaves behind when `queue.add` throws.
+    const failed = await logRepo.save(
+      logRepo.create({
+        tenant_id: TENANT_ID,
+        medium: CommunicationMedium.WHATSAPP,
+        recipient_address: '+8801700000000',
+        recipient_name: 'Guardian',
+        message_body: 'stale',
+        student_id: null,
+        guardian_id: guardianId,
+        sent_by_user_id: null,
+        status: CommunicationStatus.FAILED,
+        trigger: CommunicationTrigger.AUTOMATED,
+        reference_key: `fee-notify:${batch.id}:${guardianId}`,
+        metadata: { fee_generation_id: batch.id, reason: 'ENQUEUE_FAILED' },
+      }),
+    );
+    const jobsBefore = queuedJobs.length;
+
+    await listener.handleFeesGenerated({ tenantId: TENANT_ID, feeGenerationId: batch.id });
+
+    const logs = await logRepo.find({ where: { guardian_id: guardianId } });
+    expect(logs).toHaveLength(1);
+    expect(logs[0].id).toBe(failed.id);
+    expect(logs[0].status).toBe(CommunicationStatus.QUEUED);
+    expect(logs[0].message_body).toContain('Monthly Fee 4,200');
+    expect((logs[0].metadata as { reason?: string }).reason).toBeUndefined();
+    expect(queuedJobs.slice(jobsBefore).map((j) => j.data.logId)).toEqual([failed.id]);
   });
 
   it('never resolves a guardian belonging to another tenant', async () => {
