@@ -46,6 +46,11 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/fee-structures/': Permission.FEE_STRUCTURE_READ,
   '/_staff/invoices/': Permission.INVOICE_READ,
   '/_staff/invoices/$invoiceId': Permission.INVOICE_READ,
+  // [16.4.4] the placeholder payments list — today its only capability is
+  // opening the Record Payment modal, so it takes the same permission the
+  // modal itself needs, matching this file's own "blanket refusal matching
+  // nav visibility" rule. Revisit once the real list lands over #660.
+  '/_staff/payments/': Permission.PAYMENT_RECORD,
   '/_staff/payments/record': Permission.PAYMENT_RECORD,
   '/_staff/communications/send': Permission.COMMUNICATION_SEND,
   '/_staff/communications/reminders': Permission.COMMUNICATION_BULK_SEND,
