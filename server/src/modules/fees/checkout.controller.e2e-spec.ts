@@ -6,7 +6,8 @@ import { DataSource } from 'typeorm';
 import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
-import { UserRole } from '@biddaloy/shared';
+import { PaymentMethod, UserRole } from '@biddaloy/shared';
+import { randomUUID } from 'crypto';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
@@ -235,5 +236,178 @@ describe('GET /payments/cart (16.4.1)', () => {
       .set('X-Tenant-ID', SEED_TENANT_ID)
       .set('X-Role', UserRole.ADMIN)
       .expect(400);
+  });
+});
+
+describe('POST /payments/checkout (16.4.2)', () => {
+  let app: INestApplication;
+  let dataSource: DataSource;
+
+  let adminToken: string;
+  let parentToken: string;
+  let accountantToken: string;
+
+  let structureId: string;
+  let studentSeq = 0;
+
+  async function login(email: string): Promise<string> {
+    const res = await supertest(app.getHttpServer())
+      .post(`${API}/auth/login`)
+      .send({ email, password: SEED_ADMIN_PASSWORD })
+      .expect(200);
+    return res.body.access_token;
+  }
+
+  async function createStudent(): Promise<string> {
+    studentSeq += 1;
+    const res = await dataSource.query(
+      `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, date_of_birth, preferred_communication, enrollment_status, created_at, updated_at)
+       VALUES (DEFAULT, $1, $2, $3, $4, $5, '2010-01-01', 'SMS', 'ACTIVE', NOW(), NOW())
+       RETURNING id`,
+      [
+        `Checkout POST E2E Student ${studentSeq}`,
+        `REG-CHK-POST-E2E-${String(studentSeq).padStart(4, '0')}`,
+        2000 + studentSeq,
+        SEED_SECTION_1_ID,
+        SEED_TENANT_ID,
+      ],
+    );
+    return res[0].id;
+  }
+
+  async function createFee(studentId: string, totalAmount = 1000): Promise<string> {
+    const res = await dataSource.query(
+      `INSERT INTO student_fees (id, student_id, academic_year_id, fee_structure_id, period_start, due_date, total_amount, paid_amount, discount_amount, status, created_at, updated_at)
+       VALUES (DEFAULT, $1, $2, $3, $4::date, $5::date, $6, 0, 0, 'PENDING', NOW(), NOW())
+       RETURNING id`,
+      [
+        studentId,
+        (
+          await dataSource.query(`SELECT id FROM academic_years WHERE tenant_id = $1 LIMIT 1`, [
+            SEED_TENANT_ID,
+          ])
+        )[0].id,
+        structureId,
+        periodStart(1, 2026),
+        '2026-01-10',
+        totalAmount,
+      ],
+    );
+    return res[0].id;
+  }
+
+  beforeAll(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+    configureApiVersioning(app);
+    app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
+    await app.init();
+
+    dataSource = app.get(DataSource);
+
+    const PARENT_EMAIL = 'checkout-post-parent@e2e.example';
+    const PARENT_USER_ID = '00000000-0000-4000-8000-0000006d0020';
+    await dataSource.query(
+      `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
+       VALUES ($1, $2, $3, 'Checkout POST E2E Parent', 'ACTIVE', NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [PARENT_USER_ID, PARENT_EMAIL, SEED_ADMIN_PASSWORD_HASH],
+    );
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+      [PARENT_USER_ID, SEED_TENANT_ID, UserRole.PARENT],
+    );
+
+    const ACCOUNTANT_EMAIL = 'checkout-post-accountant@e2e.example';
+    const ACCOUNTANT_USER_ID = '00000000-0000-4000-8000-0000006d0021';
+    await dataSource.query(
+      `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
+       VALUES ($1, $2, $3, 'Checkout POST E2E Accountant', 'ACTIVE', NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [ACCOUNTANT_USER_ID, ACCOUNTANT_EMAIL, SEED_ADMIN_PASSWORD_HASH],
+    );
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+      [ACCOUNTANT_USER_ID, SEED_TENANT_ID, UserRole.ACCOUNTANT],
+    );
+
+    adminToken = await login(SEED_ADMIN_EMAIL);
+    parentToken = await login(PARENT_EMAIL);
+    accountantToken = await login(ACCOUNTANT_EMAIL);
+  }, 120000);
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(async () => {
+    structureId = await ensureFeeStructure(dataSource);
+  });
+
+  it('records a BKASH payment with a transaction reference (happy path)', async () => {
+    const student = await createStudent();
+    const bill = await createFee(student, 1000);
+
+    const res = await supertest(app.getHttpServer())
+      .post(`${API}/payments/checkout`)
+      .send({
+        idempotency_key: randomUUID(),
+        lines: [{ student_fee_id: bill, amount: 1000, one_off_discount: 0 }],
+        payment_method: PaymentMethod.BKASH,
+        transaction_reference: 'BKASH-REF-001',
+      })
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .set('X-Role', UserRole.ADMIN)
+      .expect(201);
+
+    expect(res.body.payment.total_amount).toBe('1000.00');
+    expect(res.body.invoice_id).toBeTruthy();
+  });
+
+  it('allows an ACCOUNTANT to record a checkout (201)', async () => {
+    const student = await createStudent();
+    const bill = await createFee(student, 750);
+
+    const res = await supertest(app.getHttpServer())
+      .post(`${API}/payments/checkout`)
+      .send({
+        idempotency_key: randomUUID(),
+        lines: [{ student_fee_id: bill, amount: 750, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+      })
+      .set('Authorization', `Bearer ${accountantToken}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .set('X-Role', UserRole.ACCOUNTANT)
+      .expect(201);
+
+    expect(res.body.payment.total_amount).toBe('750.00');
+  });
+
+  // RolesGuard (not PermissionsGuard) is what rejects PARENT here — this
+  // route's @Roles() is ADMIN/ACCOUNTANT only, so a PARENT never reaches
+  // the PAYMENT_RECORD check. RolesGuard throws `UnauthorizedException`
+  // (401), matching every other role-gated route in this codebase — see
+  // `context.guard.ts`'s `RolesGuard`.
+  it('denies a PARENT (not ADMIN/ACCOUNTANT) from recording a checkout (401)', async () => {
+    const student = await createStudent();
+    const bill = await createFee(student, 500);
+
+    await supertest(app.getHttpServer())
+      .post(`${API}/payments/checkout`)
+      .send({
+        idempotency_key: randomUUID(),
+        lines: [{ student_fee_id: bill, amount: 500, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+      })
+      .set('Authorization', `Bearer ${parentToken}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .set('X-Role', UserRole.PARENT)
+      .expect(401);
   });
 });

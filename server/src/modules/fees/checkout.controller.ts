@@ -1,6 +1,20 @@
-import { Controller, ForbiddenException, Get, Inject, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Inject,
+  Post,
+  Query,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Request, Response } from 'express';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -10,7 +24,8 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { FamilyAccessService } from '../students/family-access.service';
 import { CheckoutCartService } from './checkout-cart.service';
-import { QueryCheckoutCartDto } from './dto/checkout.dto';
+import { CheckoutService } from './checkout.service';
+import { CheckoutDto, QueryCheckoutCartDto } from './dto/checkout.dto';
 import { JwtPayload, Permission, UserRole, isGuardianRole } from '@biddaloy/shared';
 
 /**
@@ -33,6 +48,7 @@ export class CheckoutController {
   constructor(
     @Inject(CheckoutCartService) private readonly checkoutCartService: CheckoutCartService,
     @Inject(FamilyAccessService) private readonly familyAccess: FamilyAccessService,
+    @Inject(CheckoutService) private readonly checkoutService: CheckoutService,
   ) {}
 
   @Get('payments/cart')
@@ -70,5 +86,38 @@ export class CheckoutController {
     }
 
     return this.checkoutCartService.getCart(query.student_ids, tenant.id, query.amount);
+  }
+
+  @Post('payments/checkout')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.PAYMENT_RECORD)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary:
+      "Record a payment across one or more students' bills — wallet credit, one-off discounts (behind the fees.discount approval), tendered cash and change, all in one idempotent, locked transaction. A repeat with an already-used idempotency_key returns 200 with the original payment instead of 201.",
+  })
+  async checkout(
+    @Body() dto: CheckoutDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const meta = { replayed: false };
+    const result = await this.checkoutService.checkout(
+      dto,
+      tenant.id,
+      user.sub,
+      request as unknown as {
+        headers: Record<string, string | string[] | undefined>;
+        currentTenant?: { id: string };
+        user?: { sub: string };
+      },
+      meta,
+    );
+    if (meta.replayed) {
+      response.status(HttpStatus.OK);
+    }
+    return result;
   }
 }

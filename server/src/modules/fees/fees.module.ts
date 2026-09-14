@@ -15,6 +15,7 @@ import { Invoice } from '../invoices/entities/invoice.entity';
 import { School } from '../schools/entities/school.entity';
 import { AuditModule } from '../audit/audit.module';
 import { StudentModule } from '../students/students.module';
+import { InvoicesModule } from '../invoices/invoices.module';
 import { FeeStructureService, PaymentService } from './fees.service';
 import { FeeGenerationService, NoopDiscountResolver } from './fee-generation.service';
 import { PaymentAllocationService } from './payment-allocation.service';
@@ -26,6 +27,7 @@ import { FeeGenerationsController } from './fee-generations.controller';
 import { WalletService } from './wallet.service';
 import { WalletController } from './wallet.controller';
 import { CheckoutCartService } from './checkout-cart.service';
+import { CheckoutService } from './checkout.service';
 import { CheckoutController } from './checkout.controller';
 
 @Module({
@@ -47,6 +49,7 @@ import { CheckoutController } from './checkout.controller';
     ]),
     AuditModule,
     StudentModule,
+    InvoicesModule,
   ],
   providers: [
     FeeStructureService,
@@ -59,6 +62,7 @@ import { CheckoutController } from './checkout.controller';
     WalletService,
     NoopDiscountResolver,
     CheckoutCartService,
+    CheckoutService,
   ],
   controllers: [FeeController, FeeGenerationsController, WalletController, CheckoutController],
   exports: [
