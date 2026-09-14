@@ -17,6 +17,7 @@ import { AuditModule } from '../audit/audit.module';
 import { StudentModule } from '../students/students.module';
 import { InvoicesModule } from '../invoices/invoices.module';
 import { FeeStructureService, PaymentService } from './fees.service';
+import { PaymentsQueryService } from './payments-query.service';
 import { FeeGenerationService, NoopDiscountResolver } from './fee-generation.service';
 import { PaymentAllocationService } from './payment-allocation.service';
 import { FeeDuesService } from './fee-dues.service';
@@ -54,6 +55,7 @@ import { CheckoutController } from './checkout.controller';
   providers: [
     FeeStructureService,
     PaymentService,
+    PaymentsQueryService,
     FeeGenerationService,
     PaymentAllocationService,
     FeeDuesService,
@@ -64,10 +66,18 @@ import { CheckoutController } from './checkout.controller';
     CheckoutCartService,
     CheckoutService,
   ],
-  controllers: [FeeController, FeeGenerationsController, WalletController, CheckoutController],
+  // CheckoutController is registered before FeeController: both declare
+  // routes under `payments/*`, and Nest/Express match routes in
+  // registration order. `CheckoutController`'s `payments/cart` and
+  // `payments/checkout` are literal segments that `FeeController`'s
+  // `payments/:id` (GET, 16.4.3) would otherwise shadow (`:id` matches any
+  // single segment, including "cart"/"checkout") if FeeController's routes
+  // registered first.
+  controllers: [CheckoutController, FeeController, FeeGenerationsController, WalletController],
   exports: [
     FeeStructureService,
     PaymentService,
+    PaymentsQueryService,
     FeeGenerationService,
     PaymentAllocationService,
     FeeDuesService,

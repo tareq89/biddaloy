@@ -251,9 +251,7 @@ export class FeeStructureService {
       // against the effective (possibly unchanged) value, or a tenant could
       // PATCH in another tenant's class/section id and read it back through
       // the `relations: ['class', 'section']` join.
-      const effectiveClassId = changedKeys.includes('class_id')
-        ? dto.class_id
-        : existing.class_id;
+      const effectiveClassId = changedKeys.includes('class_id') ? dto.class_id : existing.class_id;
       const effectiveSectionId = changedKeys.includes('section_id')
         ? dto.section_id
         : existing.section_id;
@@ -363,6 +361,10 @@ export class PaymentService {
     return this.repo.save(entity);
   }
 
+  // [16.4.3] Superseded by `PaymentsQueryService.findAll` — `GET /payments`
+  // is wired to that service now. Kept only because
+  // `fees.service.integration.spec.ts` still exercises this method
+  // directly; not wired to any route.
   async findAll(query: QueryPaymentDto, tenantId: string) {
     const page = query.page || 1;
     const limit = query.limit || 10;
@@ -401,7 +403,15 @@ export class PaymentService {
 
     return this.repo.find({
       where: { student_id: studentId, tenant_id: tenantId, deleted_at: IsNull() },
-      relations: ['allocations'],
+      // `allocations.student_fee.fee_structure` is what lets
+      // `toFamilyPayment()` (called on this result for PARENT/STUDENT
+      // callers) fill in `fee_name`/`period_start` — without it those
+      // fields are always null even when the underlying data exists.
+      relations: [
+        'allocations',
+        'allocations.student_fee',
+        'allocations.student_fee.fee_structure',
+      ],
       order: { payment_date: 'DESC' },
     });
   }
@@ -451,9 +461,16 @@ export class PaymentService {
     const totalPaid = fees.reduce((sum, f) => sum + Number(f.paid_amount), 0);
     const totalDiscount = fees.reduce((sum, f) => sum + Number(f.discount_amount), 0);
 
-    // Get payments for this student
+    // Get payments for this student — same `allocations.student_fee.fee_structure`
+    // join as `findByStudent` above, needed for `toFamilyPayment()`'s
+    // fee_name/period_start on the family-facing `getInvoiceSummary` response.
     const payments = await this.repo.find({
       where: { student_id: studentId, tenant_id: tenantId, deleted_at: IsNull() },
+      relations: [
+        'allocations',
+        'allocations.student_fee',
+        'allocations.student_fee.fee_structure',
+      ],
       order: { payment_date: 'DESC' },
     });
 

@@ -235,9 +235,58 @@ export class RecordPaymentWithAllocationDto {
 }
 
 export class QueryPaymentDto {
+  /** Matches transaction reference or student name/registration number
+   * (ILIKE, escaped — see `normalizeSearchTerm`). */
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   search?: string;
+
+  @IsOptional()
+  @IsUUID()
+  student_id?: string;
+
+  @IsOptional()
+  @IsEnum(PaymentMethod)
+  payment_method?: PaymentMethod;
+
+  @IsOptional()
+  @IsUUID()
+  received_by_user_id?: string;
+
+  @IsOptional()
+  @IsDateString()
+  date_from?: string;
+
+  @IsOptional()
+  @IsDateString()
+  date_to?: string;
+
+  /** Only reversal payments (`reversal_of_payment_id IS NOT NULL`). */
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
+  @IsBoolean()
+  is_reversal?: boolean;
+
+  /** Reversed payments are excluded by default (a reversed payment and its
+   * reversal both stay in the ledger, but showing both by default would
+   * double-count on the list view). Pass `true` to include them. */
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
+  @IsBoolean()
+  include_reversed?: boolean = false;
+
+  @IsOptional()
+  @IsIn(['ASC', 'DESC'])
+  sort_order?: SortOrder = 'DESC';
 
   @IsOptional()
   @Type(() => Number)
@@ -249,7 +298,56 @@ export class QueryPaymentDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(100)
   limit?: number = 10;
+}
+
+/**
+ * `GET /payments/:id` response — one payment with allocations enriched by
+ * `fee_name`/`period_start` (joined from `student_fee` → `fee_structure` at
+ * query time; `PaymentAllocation` itself carries neither column) plus the
+ * student/invoice/staff context a list row doesn't need.
+ */
+export class PaymentDetailAllocationDto {
+  id: string;
+  student_fee_id: string;
+  allocated_amount: number;
+  allocation_type: PaymentAllocationType;
+  discount_amount: number;
+  /** Null when the `student_fee`/`fee_structure` behind this allocation was
+   * soft-deleted after the payment was recorded. */
+  fee_name: string | null;
+  period_start: Date | null;
+}
+
+export class PaymentDetailInvoiceDto {
+  id: string;
+  invoice_number: string;
+  status: string;
+}
+
+export class PaymentDetailUserDto {
+  id: string;
+  full_name: string;
+}
+
+export class PaymentDetailDto {
+  id: string;
+  student_id: string;
+  student: { id: string; full_name: string } | null;
+  total_amount: number;
+  payment_method: PaymentMethod;
+  payment_status: PaymentStatus;
+  transaction_reference: string | null;
+  payment_date: Date;
+  remarks: string | null;
+  invoice: PaymentDetailInvoiceDto | null;
+  received_by: PaymentDetailUserDto | null;
+  approved_by: PaymentDetailUserDto | null;
+  reversal_of_payment_id: string | null;
+  reversed_by_payment_id: string | null;
+  allocations: PaymentDetailAllocationDto[];
+  created_at: Date;
 }
 
 /**
@@ -437,6 +535,12 @@ export class FamilyPaymentAllocationDto {
   student_fee_id: string;
   allocated_amount: number;
   allocation_type: PaymentAllocationType;
+  /** [16.4.3] Joined from `student_fee.fee_structure.name` /
+   * `student_fee.period_start` at read time — `PaymentAllocation` itself
+   * carries neither column. Null when that relation is missing (e.g. the
+   * fee structure was soft-deleted) or wasn't loaded by the caller. */
+  fee_name: string | null;
+  period_start: Date | null;
 }
 
 /**
@@ -486,6 +590,12 @@ export function toFamilyPayment(payment: Payment): FamilyPaymentDto {
             student_fee_id: a.student_fee_id,
             allocated_amount: a.allocated_amount,
             allocation_type: a.allocation_type,
+            // `student_fee`/`fee_structure` are only present when the
+            // caller eager-loaded them; a caller that didn't (or whose
+            // student_fee/fee_structure was soft-deleted) gets null here
+            // rather than a crash.
+            fee_name: a.student_fee?.fee_structure?.name ?? null,
+            period_start: a.student_fee?.period_start ?? null,
           })),
         }
       : {}),

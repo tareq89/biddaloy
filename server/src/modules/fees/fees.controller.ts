@@ -31,6 +31,7 @@ import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { FeeStructureService, PaymentService } from './fees.service';
+import { PaymentsQueryService } from './payments-query.service';
 import { FeeGenerationService } from './fee-generation.service';
 import { FeeDuesService } from './fee-dues.service';
 import { FamilyAccessService } from '../students/family-access.service';
@@ -53,6 +54,7 @@ import {
   FamilyPaymentDto,
   FamilyStudentDueDto,
   StaffStudentDueDto,
+  PaymentDetailDto,
 } from './dto/fees.dto';
 import { FeeStructure } from './entities/fee-structure.entity';
 import { Payment } from './entities/payment.entity';
@@ -85,6 +87,7 @@ export class FeeController {
   constructor(
     @Inject(FeeStructureService) private readonly feeStructureService: FeeStructureService,
     @Inject(PaymentService) private readonly paymentService: PaymentService,
+    @Inject(PaymentsQueryService) private readonly paymentsQueryService: PaymentsQueryService,
     @Inject(FeeGenerationService) private readonly feeGenerationService: FeeGenerationService,
     @Inject(FeeDuesService) private readonly feeDuesService: FeeDuesService,
     @Inject(FamilyAccessService) private readonly familyAccess: FamilyAccessService,
@@ -316,9 +319,27 @@ export class FeeController {
   @Get('payments')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.PAYMENT_READ)
-  @ApiOperation({ summary: 'Search payments (receipts) by transaction reference or student name.' })
+  @ApiOperation({
+    summary:
+      'Search/filter payments (receipts) — transaction reference or student name/registration number, plus student, payment method, receiving staff, date range, and reversal filters.',
+  })
   findAll(@Query() query: QueryPaymentDto, @CurrentTenant() tenant: { id: string; role: string }) {
-    return this.paymentService.findAll(query, tenant.id);
+    return this.paymentsQueryService.findAll(query, tenant.id);
+  }
+
+  @Get('payments/:id')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.PAYMENT_READ)
+  @ApiOperation({
+    summary:
+      'One payment with its allocations (enriched with fee_name/period_start), invoice, and receiving/approving staff.',
+  })
+  @ApiOkResponse({ type: PaymentDetailDto })
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.paymentsQueryService.findOne(id, tenant.id);
   }
 
   @Get('payments/student/:studentId')
