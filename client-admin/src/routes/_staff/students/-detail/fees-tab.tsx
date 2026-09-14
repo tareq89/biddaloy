@@ -12,7 +12,6 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-  toast,
 } from '@biddaloy/ui/components';
 import {
   useHasPermission,
@@ -24,6 +23,8 @@ import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDate, formatServerAmount, isPastDueDate } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
+import { RecordPaymentModal } from '../../payments/-record/record-payment-modal';
+
 import { TabQueryState } from './tab-query-state';
 
 export interface FeesTabProps {
@@ -34,28 +35,18 @@ const OPEN_STATUSES: string[] = [FeeStatus.PENDING, FeeStatus.PARTIALLY_PAID, Fe
 const HISTORY_PAGE_SIZE = 10;
 
 /**
- * [16.4.5] cross-lane integration seam — same placeholder `dues.tsx`
- * defines for its own "Record payment" action, kept local to this file
- * rather than shared, since the two owned routes in this ticket don't
- * otherwise share a file. The real flow (pre-selecting a fee line in
- * #661's modal) lands once that ticket merges.
- *
- * TODO(w4-g2/#661 integration seam): wire to the real record-payment
- * modal once #661 lands.
+ * [16.4.5] wires "Record payment" to the real modal from #661. The
+ * modal only accepts a `studentId` pre-selection, not specific fee
+ * lines, so `opts.feeIds` is accepted for forward-compatibility but
+ * currently unused.
  */
 function useRecordPaymentSeam() {
-  const { t } = useTranslation('students');
-  return React.useCallback(
-    (studentId: string, opts?: { feeIds?: string[] }) => {
-      toast.info(
-        t('detail.fees.recordPaymentSeamToast', {
-          studentId,
-          feeCount: opts?.feeIds?.length ?? 0,
-        }),
-      );
-    },
-    [t],
-  );
+  const [open, setOpen] = React.useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- forward-compat: kept until the modal supports pre-selecting fee lines
+  const openModal = React.useCallback((_studentId: string, _opts?: { feeIds?: string[] }) => {
+    setOpen(true);
+  }, []);
+  return { open, setOpen, openModal };
 }
 
 /** `StudentFee`'s money columns are Postgres `decimal` — the pg driver
@@ -313,7 +304,8 @@ export function FeesTab({ studentId }: FeesTabProps) {
   const { t } = useTranslation('students');
   const regionConfig = useRegionConfig();
   const query = useStudentFeeSummary(studentId);
-  const onRecordPayment = useRecordPaymentSeam();
+  const recordPayment = useRecordPaymentSeam();
+  const onRecordPayment = recordPayment.openModal;
   const canCollectFees = useHasPermission(Permission.FEE_COLLECT);
 
   function money(amount: number | string): string {
@@ -321,73 +313,80 @@ export function FeesTab({ studentId }: FeesTabProps) {
   }
 
   return (
-    <TabQueryState
-      query={query}
-      forbiddenMessage={t('detail.forbidden')}
-      errorMessage={t('detail.fees.errorMessage')}
-    >
-      {(feeSummary) => {
-        const openBills = feeSummary.fee_breakdown.filter((fee) =>
-          OPEN_STATUSES.includes(fee.status),
-        );
-        return (
-          <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="rounded-lg border border-border-subtle p-4">
-                <p className="text-sm text-muted-foreground">{t('detail.fees.totalBilled')}</p>
-                <p className="text-lg font-semibold tabular-nums">
-                  {money(feeSummary.summary.total_due)}
-                </p>
+    <>
+      <TabQueryState
+        query={query}
+        forbiddenMessage={t('detail.forbidden')}
+        errorMessage={t('detail.fees.errorMessage')}
+      >
+        {(feeSummary) => {
+          const openBills = feeSummary.fee_breakdown.filter((fee) =>
+            OPEN_STATUSES.includes(fee.status),
+          );
+          return (
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="rounded-lg border border-border-subtle p-4">
+                  <p className="text-sm text-muted-foreground">{t('detail.fees.totalBilled')}</p>
+                  <p className="text-lg font-semibold tabular-nums">
+                    {money(feeSummary.summary.total_due)}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border-subtle p-4">
+                  <p className="text-sm text-muted-foreground">{t('detail.fees.totalPaid')}</p>
+                  <p className="text-lg font-semibold tabular-nums">
+                    {money(feeSummary.summary.total_paid)}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border-subtle p-4">
+                  <p className="text-sm text-muted-foreground">{t('detail.fees.outstanding')}</p>
+                  <p className="text-lg font-semibold tabular-nums">
+                    {money(feeSummary.summary.balance)}
+                  </p>
+                </div>
               </div>
-              <div className="rounded-lg border border-border-subtle p-4">
-                <p className="text-sm text-muted-foreground">{t('detail.fees.totalPaid')}</p>
-                <p className="text-lg font-semibold tabular-nums">
-                  {money(feeSummary.summary.total_paid)}
-                </p>
-              </div>
-              <div className="rounded-lg border border-border-subtle p-4">
-                <p className="text-sm text-muted-foreground">{t('detail.fees.outstanding')}</p>
-                <p className="text-lg font-semibold tabular-nums">
-                  {money(feeSummary.summary.balance)}
-                </p>
-              </div>
+              <Tabs defaultValue="open-bills">
+                <TabsList>
+                  <TabsTrigger value="open-bills">{t('detail.fees.openBillsTab')}</TabsTrigger>
+                  <TabsTrigger value="wallet">{t('detail.fees.walletTab')}</TabsTrigger>
+                  <TabsTrigger value="history">{t('detail.fees.historyTab')}</TabsTrigger>
+                  {/* [16.7.5]: disabled placeholder — not implemented yet. */}
+                  <TabsTrigger value="recurring-fees" disabled>
+                    {t('detail.fees.recurringFeesTab')}
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="open-bills">
+                  <FeeLinesTable
+                    fees={openBills}
+                    emptyMessage={t('detail.fees.emptyMessage')}
+                    onRecordPayment={
+                      canCollectFees
+                        ? (feeId) => onRecordPayment(studentId, { feeIds: [feeId] })
+                        : undefined
+                    }
+                  />
+                </TabsContent>
+                <TabsContent value="wallet">
+                  <WalletSection studentId={studentId} />
+                </TabsContent>
+                <TabsContent value="history">
+                  <HistorySection fees={feeSummary.fee_breakdown} />
+                </TabsContent>
+                <TabsContent value="recurring-fees">
+                  <p className="text-sm text-muted-foreground">
+                    {t('detail.fees.recurringFeesPlaceholder')}
+                  </p>
+                </TabsContent>
+              </Tabs>
             </div>
-            <Tabs defaultValue="open-bills">
-              <TabsList>
-                <TabsTrigger value="open-bills">{t('detail.fees.openBillsTab')}</TabsTrigger>
-                <TabsTrigger value="wallet">{t('detail.fees.walletTab')}</TabsTrigger>
-                <TabsTrigger value="history">{t('detail.fees.historyTab')}</TabsTrigger>
-                {/* [16.7.5]: disabled placeholder — not implemented yet. */}
-                <TabsTrigger value="recurring-fees" disabled>
-                  {t('detail.fees.recurringFeesTab')}
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="open-bills">
-                <FeeLinesTable
-                  fees={openBills}
-                  emptyMessage={t('detail.fees.emptyMessage')}
-                  onRecordPayment={
-                    canCollectFees
-                      ? (feeId) => onRecordPayment(studentId, { feeIds: [feeId] })
-                      : undefined
-                  }
-                />
-              </TabsContent>
-              <TabsContent value="wallet">
-                <WalletSection studentId={studentId} />
-              </TabsContent>
-              <TabsContent value="history">
-                <HistorySection fees={feeSummary.fee_breakdown} />
-              </TabsContent>
-              <TabsContent value="recurring-fees">
-                <p className="text-sm text-muted-foreground">
-                  {t('detail.fees.recurringFeesPlaceholder')}
-                </p>
-              </TabsContent>
-            </Tabs>
-          </div>
-        );
-      }}
-    </TabQueryState>
+          );
+        }}
+      </TabQueryState>
+      <RecordPaymentModal
+        open={recordPayment.open}
+        onOpenChange={recordPayment.setOpen}
+        studentId={studentId}
+      />
+    </>
   );
 }

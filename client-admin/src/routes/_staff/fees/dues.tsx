@@ -10,7 +10,6 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  toast,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
@@ -35,6 +34,7 @@ import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
+import { RecordPaymentModal } from '../payments/-record/record-payment-modal';
 import { SendReminderDialog } from '../students/-send-reminder-dialog';
 
 import { GenerateInvoiceDialog } from './-generate-invoice-dialog';
@@ -193,29 +193,22 @@ function WalletChip({ studentId }: { studentId: string }) {
 }
 
 /**
- * [16.4.5] cross-lane integration seam — the real "Record payment" flow
- * pre-selecting specific fee lines belongs to #661 (16.4.4's modal
- * rewrite), which is running concurrently on its own branch and isn't
- * merged yet. This hook is a placeholder standing in for that modal:
- * swapping it for the real trigger later is a one-line change at the two
- * call sites below (both just call `onRecordPayment(studentId, opts)`).
- *
- * TODO(w4-g2/#661 integration seam): wire to the real record-payment
- * modal once #661 lands.
+ * [16.4.5] wires the "Record payment" action to the real modal from
+ * #661. The modal (`RecordPaymentModalProps`) only accepts a
+ * `studentId`/`guardianId` pre-selection, not specific fee lines, so
+ * `opts.feeIds` is accepted for forward-compatibility but currently
+ * unused — recording still opens the cart for the whole student, same
+ * as every other "Record payment" entry point in the app.
  */
 function useRecordPaymentSeam() {
-  const { t } = useTranslation('fees');
-  return React.useCallback(
-    (studentId: string, opts?: { feeIds?: string[] }) => {
-      toast.info(
-        t('dues.recordPaymentSeamToast', {
-          studentId,
-          feeCount: opts?.feeIds?.length ?? 0,
-        }),
-      );
-    },
-    [t],
-  );
+  const [studentId, setStudentId] = React.useState<string | undefined>(undefined);
+  const [isOpen, setIsOpen] = React.useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- forward-compat: kept until the modal supports pre-selecting fee lines
+  const open = React.useCallback((id: string, _opts?: { feeIds?: string[] }) => {
+    setStudentId(id);
+    setIsOpen(true);
+  }, []);
+  return { studentId, isOpen, onOpenChange: setIsOpen, open };
 }
 
 /** [16.4.5] the expanded row's per-fee-line breakdown — one line per
@@ -353,7 +346,8 @@ function DuesQueuePage() {
   const canCollectFees = useHasPermission(Permission.FEE_COLLECT);
   const canSendReminder = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
   const canGenerateInvoice = useHasPermission(Permission.INVOICE_CREATE);
-  const onRecordPayment = useRecordPaymentSeam();
+  const recordPayment = useRecordPaymentSeam();
+  const onRecordPayment = recordPayment.open;
 
   const [reminderDialogOpen, setReminderDialogOpen] = React.useState(false);
   const [invoiceDialogOpen, setInvoiceDialogOpen] = React.useState(false);
@@ -706,6 +700,13 @@ function DuesQueuePage() {
           void queryClient.invalidateQueries({ queryKey: feeDuesKeys.all });
         }}
       />
+      {recordPayment.studentId !== undefined && (
+        <RecordPaymentModal
+          open={recordPayment.isOpen}
+          onOpenChange={recordPayment.onOpenChange}
+          studentId={recordPayment.studentId}
+        />
+      )}
     </>
   );
 }
