@@ -111,7 +111,6 @@ describe('/portal/fees', () => {
       discount_amount: input.discount ?? 0,
       status: input.status,
       due_date: input.dueInDays === null ? null : serverDate(input.dueInDays),
-      is_advance_payment: false,
     };
   }
 

@@ -1,6 +1,7 @@
 import { IsOptional, IsUUID, IsEnum, IsInt, Min, Max, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
-import { FeeType, FeeGenerationSource } from '@biddaloy/shared';
+import { FeeType, FeeGenerationSource, PeriodType } from '@biddaloy/shared';
+import { FeeGenerationStructureSnapshot } from '../entities/fee-generation.entity';
 
 export type CollectionStatus = 'NONE' | 'PARTIAL' | 'FULL';
 
@@ -72,6 +73,9 @@ export class FeeGenerationListItemDto {
   generated_count: number;
   skipped_count: number;
   removed_count: number;
+  /** The fee structures this batch charged, snapshotted at generation
+   * time — what the list page renders as fee chips. */
+  structures: FeeGenerationStructureSnapshot[];
   created_at: string;
   /** Sum of every bill's `total_amount` this batch created. */
   billed_amount: number;
@@ -79,6 +83,31 @@ export class FeeGenerationListItemDto {
   collected_amount: number;
   collection_status: CollectionStatus;
   generated_by: { id: string; full_name: string } | null;
+}
+
+/**
+ * [16.3.2] `PATCH /fees/generations/:id` body — change the batch's period
+ * and re-stamp every one of its (non-removed) bills to match. All fields
+ * optional: only what's sent changes, matching `ui/src/hooks/fee-generations.ts`'s
+ * `PatchFeeGenerationInput`.
+ */
+export class PatchFeeGenerationDto {
+  @IsOptional()
+  @IsDateString()
+  period_start?: string;
+
+  @IsOptional()
+  @IsEnum(PeriodType)
+  period_type?: PeriodType;
+
+  @IsOptional()
+  @IsDateString()
+  due_date?: string;
+}
+
+/** `POST /fees/generations/:id/remove-uncollected` response. */
+export class RemoveUncollectedResultDto {
+  removed_count: number;
 }
 
 /** Detail row returned by `GET /fees/generations/:id/bills`. */

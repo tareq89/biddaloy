@@ -1,122 +1,64 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { FeeGenerationService } from './fee-generation.service';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import Redis from 'ioredis';
+import { FeeGenerationService, NoopDiscountResolver } from './fee-generation.service';
+import { FeeGenerationsService } from './fee-generations.service';
+import { WalletService } from './wallet.service';
+import { AuditService } from '../audit/audit.service';
+import { ApprovalService } from '../auth/guards/approval.guard';
+import { ApprovalRequiredException } from '../../common/errors/approval-required.exception';
+import { PaymentAllocationService } from './payment-allocation.service';
+import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { FeeStructure } from './entities/fee-structure.entity';
 import { StudentFee } from './entities/student-fee.entity';
+import { FeeGeneration } from './entities/fee-generation.entity';
 import { Student } from '../students/entities/student.entity';
+import { User } from '../users/entities/user.entity';
+import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
-import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { School } from '../schools/entities/school.entity';
+import { StudentWallet } from './entities/student-wallet.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
+import { SEED_TENANT_ID, SEED_ACADEMIC_YEAR_ID } from '@test/constants';
 import {
-  SEED_TENANT_ID,
-  SEED_CLASS_1_ID,
-  SEED_SECTION_1_ID,
-  SEED_ACADEMIC_YEAR_ID,
-} from '@test/constants';
-import { EnrollmentStatus, FeeType, CommunicationMedium } from '@biddaloy/shared';
+  EnrollmentStatus,
+  FeeType,
+  FeeStatus,
+  CommunicationMedium,
+  PeriodType,
+  DuplicateStrategy,
+  ApprovalScope,
+  PaymentMethod,
+  PaymentAllocationType,
+} from '@biddaloy/shared';
 
-/**
- * Integration tests for FeeGenerationService.
- *
- * Runs against a real PostgreSQL database and verifies the recurring/one-time
- * month-matching rule, ALL/SELECTED applicability, class/section filtering,
- * inactive-student exclusion, idempotent re-runs, and tenant isolation.
- */
-
-const OTHER_TENANT_ID = '00000000-0000-4000-8000-000000000099';
-const SEED_CLASS_2_ID = '00000000-0000-4000-8000-000000000031';
-const SEED_SECTION_2_ID = '00000000-0000-4000-8000-000000000041';
-const SEED_CLASS_2_SECTION_ID = '00000000-0000-4000-8000-000000000042';
+const JWT_SECRET = 'test-fee-generation-secret';
+const OTHER_TENANT_ID = '00000000-0000-4000-8000-000000000098';
+const ACTOR_USER_ID = '00000000-0000-4000-8000-000000000010';
+const CLASS_ID = '00000000-0000-4000-8000-000000006501';
+const SECTION_ID = '00000000-0000-4000-8000-000000006502';
+const OTHER_CLASS_ID = '00000000-0000-4000-8000-000000006503';
+const OTHER_SECTION_ID = '00000000-0000-4000-8000-000000006504';
 
 let studentSeq = 0;
-
-async function seedReferenceData(ds: DataSource): Promise<void> {
-  await ds.query('DELETE FROM payment_allocations');
-  await ds.query('DELETE FROM student_fees');
-  await ds.query('DELETE FROM fee_structures');
-  await ds.query('DELETE FROM payments');
-  await ds.query('DELETE FROM student_guardians');
-  await ds.query('DELETE FROM students');
-  await ds.query('DELETE FROM class_sections');
-  await ds.query('DELETE FROM classes');
-  await ds.query('DELETE FROM academic_years');
-  await ds.query('DELETE FROM schools');
-
-  const schoolRepo = ds.getRepository(School);
-  const classRepo = ds.getRepository(Class);
-  const sectionRepo = ds.getRepository(ClassSection);
-  const ayRepo = ds.getRepository(AcademicYear);
-
-  await schoolRepo.save(
-    schoolRepo.create({ id: SEED_TENANT_ID, name: 'Test School', slug: 'test-school' }),
-  );
-  await ayRepo.save(
-    ayRepo.create({
-      id: SEED_ACADEMIC_YEAR_ID,
-      name: '2026-2027',
-      start_date: new Date('2026-01-01'),
-      end_date: new Date('2026-12-31'),
-      is_current: true,
-      tenant_id: SEED_TENANT_ID,
-    }),
-  );
-  await classRepo.save(
-    classRepo.create({
-      id: SEED_CLASS_1_ID,
-      name: 'Class One',
-      academic_year_id: SEED_ACADEMIC_YEAR_ID,
-      tenant_id: SEED_TENANT_ID,
-    }),
-  );
-  await classRepo.save(
-    classRepo.create({
-      id: SEED_CLASS_2_ID,
-      name: 'Class Two',
-      academic_year_id: SEED_ACADEMIC_YEAR_ID,
-      tenant_id: SEED_TENANT_ID,
-    }),
-  );
-  await sectionRepo.save(
-    sectionRepo.create({
-      id: SEED_SECTION_1_ID,
-      section_name: 'Section A',
-      class_id: SEED_CLASS_1_ID,
-      tenant_id: SEED_TENANT_ID,
-    }),
-  );
-  await sectionRepo.save(
-    sectionRepo.create({
-      id: SEED_SECTION_2_ID,
-      section_name: 'Section B',
-      class_id: SEED_CLASS_1_ID,
-      tenant_id: SEED_TENANT_ID,
-    }),
-  );
-  await sectionRepo.save(
-    sectionRepo.create({
-      id: SEED_CLASS_2_SECTION_ID,
-      section_name: 'Class Two Section',
-      class_id: SEED_CLASS_2_ID,
-      tenant_id: SEED_TENANT_ID,
-    }),
-  );
-
-  await schoolRepo.save(
-    schoolRepo.create({ id: OTHER_TENANT_ID, name: 'Other School', slug: 'other-school' }),
-  );
-}
+let structureSeq = 0;
 
 describe('FeeGenerationService (integration)', () => {
   let service: FeeGenerationService;
   let structureRepo: Repository<FeeStructure>;
   let studentFeeRepo: Repository<StudentFee>;
+  let feeGenerationRepo: Repository<FeeGeneration>;
   let studentRepo: Repository<Student>;
+  let walletRepo: Repository<StudentWallet>;
+  let paymentAllocationService: PaymentAllocationService;
   let dataSource: DataSource;
+  let redis: Redis;
 
   const TENANT_ID = SEED_TENANT_ID;
 
@@ -124,9 +66,9 @@ describe('FeeGenerationService (integration)', () => {
     studentSeq += 1;
     return studentRepo.create({
       full_name: `Student ${studentSeq}`,
-      registration_number: `REG-GEN-${String(studentSeq).padStart(4, '0')}`,
+      registration_number: `REG-GENV2-${String(studentSeq).padStart(4, '0')}`,
       roll_number: studentSeq,
-      class_section_id: SEED_SECTION_1_ID,
+      class_section_id: SECTION_ID,
       tenant_id: TENANT_ID,
       date_of_birth: new Date('2010-01-01'),
       preferred_communication: CommunicationMedium.SMS,
@@ -136,252 +78,753 @@ describe('FeeGenerationService (integration)', () => {
   }
 
   function makeStructure(overrides: Partial<FeeStructure> = {}) {
+    structureSeq += 1;
     return structureRepo.create({
       fee_type: FeeType.MONTHLY_TUITION,
-      name: 'Tuition',
+      name: `Tuition ${structureSeq}`,
       amount: 1000,
-      class_id: SEED_CLASS_1_ID,
       academic_year_id: SEED_ACADEMIC_YEAR_ID,
       tenant_id: TENANT_ID,
       ...overrides,
     });
   }
 
+  async function issueApprovalToken(jti: string): Promise<string> {
+    await redis.set(`approval:${jti}`, '1', 'EX', 300);
+    const jwtService = new JwtService({ secret: JWT_SECRET });
+    return jwtService.signAsync(
+      {
+        typ: 'approval',
+        sub: ACTOR_USER_ID,
+        act: ACTOR_USER_ID,
+        tid: TENANT_ID,
+        scope: ApprovalScope.FEES_DUPLICATE_OVERRIDE,
+        jti,
+      },
+      { expiresIn: 300 },
+    );
+  }
+
+  function requestWithToken(token?: string) {
+    return {
+      headers: token ? { 'x-approval-token': token } : {},
+      currentTenant: { id: TENANT_ID },
+      user: { sub: ACTOR_USER_ID },
+    };
+  }
+
   beforeAll(async () => {
-    const module = await createTestModule(ALL_ENTITIES, [FeeGenerationService], [], {
-      synchronize: true,
-      dropSchema: true,
-    });
+    redis = new Redis(process.env.REDIS_URL ?? 'redis://127.0.0.1:6379');
+
+    const module = await createTestModule(
+      ALL_ENTITIES,
+      [
+        FeeGenerationService,
+        FeeGenerationsService,
+        WalletService,
+        AuditService,
+        NoopDiscountResolver,
+        ApprovalService,
+        PaymentAllocationService,
+        JwtService,
+        { provide: 'APPROVAL_REDIS', useValue: redis },
+        {
+          provide: ConfigService,
+          useValue: { get: (key: string) => (key === 'JWT_SECRET' ? JWT_SECRET : undefined) },
+        },
+      ],
+      [],
+      { synchronize: true, dropSchema: true },
+    );
 
     service = module.get<FeeGenerationService>(FeeGenerationService);
     structureRepo = module.get<Repository<FeeStructure>>(getRepositoryToken(FeeStructure));
     studentFeeRepo = module.get<Repository<StudentFee>>(getRepositoryToken(StudentFee));
+    feeGenerationRepo = module.get<Repository<FeeGeneration>>(getRepositoryToken(FeeGeneration));
     studentRepo = module.get<Repository<Student>>(getRepositoryToken(Student));
+    walletRepo = module.get<Repository<StudentWallet>>(getRepositoryToken(StudentWallet));
+    paymentAllocationService = module.get<PaymentAllocationService>(PaymentAllocationService);
     dataSource = module.get(DataSource);
 
-    await seedReferenceData(dataSource);
+    await dataSource.getRepository(School).save(
+      dataSource.getRepository(School).create({
+        id: TENANT_ID,
+        name: 'Fee Generation V2 Test School',
+        slug: 'fee-generation-v2-test-school',
+      }),
+    );
+    await dataSource.getRepository(School).save(
+      dataSource.getRepository(School).create({
+        id: OTHER_TENANT_ID,
+        name: 'Other School',
+        slug: 'fee-generation-v2-other-school',
+      }),
+    );
+    await dataSource.getRepository(AcademicYear).save(
+      dataSource.getRepository(AcademicYear).create({
+        id: SEED_ACADEMIC_YEAR_ID,
+        name: '2026-2027',
+        start_date: new Date('2026-01-01'),
+        end_date: new Date('2026-12-31'),
+        is_current: true,
+        tenant_id: TENANT_ID,
+      }),
+    );
+    await dataSource.getRepository(User).save(
+      dataSource.getRepository(User).create({
+        id: ACTOR_USER_ID,
+        email: 'fee-generation-v2-actor@test.school',
+        password_hash: 'x',
+        full_name: 'Test Actor',
+      }),
+    );
+    await dataSource.getRepository(Class).save(
+      dataSource.getRepository(Class).create({
+        id: CLASS_ID,
+        name: 'Class One',
+        academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        tenant_id: TENANT_ID,
+      }),
+    );
+    await dataSource.getRepository(ClassSection).save(
+      dataSource.getRepository(ClassSection).create({
+        id: SECTION_ID,
+        section_name: 'Section A',
+        class_id: CLASS_ID,
+        tenant_id: TENANT_ID,
+      }),
+    );
+    await dataSource.getRepository(Class).save(
+      dataSource.getRepository(Class).create({
+        id: OTHER_CLASS_ID,
+        name: 'Other Class',
+        academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        tenant_id: OTHER_TENANT_ID,
+      }),
+    );
+    await dataSource.getRepository(ClassSection).save(
+      dataSource.getRepository(ClassSection).create({
+        id: OTHER_SECTION_ID,
+        section_name: 'Other Section',
+        class_id: OTHER_CLASS_ID,
+        tenant_id: OTHER_TENANT_ID,
+      }),
+    );
   }, 60000);
 
   afterAll(async () => {
+    redis.disconnect();
     if (dataSource) {
       await dataSource.destroy();
     }
   });
 
   beforeEach(async () => {
-    if (dataSource) {
-      await dataSource.query('DELETE FROM payment_allocations');
-      await dataSource.query('DELETE FROM student_fees');
-      await dataSource.query('DELETE FROM fee_structures');
-      await dataSource.query('DELETE FROM students');
-    }
+    await redis.flushdb();
+    await dataSource.query('DELETE FROM wallet_transactions');
+    await dataSource.query('DELETE FROM student_wallets');
+    await dataSource.query('DELETE FROM payment_allocations');
+    await dataSource.query('DELETE FROM invoices');
+    await dataSource.query('DELETE FROM payments');
+    await dataSource.query('DELETE FROM student_fees');
+    await dataSource.query('DELETE FROM fee_generations');
+    await dataSource.query('DELETE FROM fee_structures');
+    await dataSource.query('DELETE FROM students');
   });
 
-  it('generates a StudentFee for an active student under an applicable structure', async () => {
-    await studentRepo.save(makeStudent());
-    await structureRepo.save(makeStructure());
-
-    const result = await service.generate(
-      { academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 1, year: 2026 },
-      TENANT_ID,
-    );
-
-    expect(result).toEqual({ generated: 1, skipped: 0, students_evaluated: 1 });
-    const fees = await studentFeeRepo.find();
-    expect(fees).toHaveLength(1);
-    expect(Number(fees[0].total_amount)).toBe(1000);
-  });
-
-  it('applies a structure in any requested month (16.1.2 removed effective-from)', async () => {
-    // A FeeStructure is a price tag now: it carries no `month` and no
-    // `is_recurring`, so it applies to whatever period is generated. The
-    // four tests this replaces asserted the deleted effective-from /
-    // one-time month matching.
-    await studentRepo.save(makeStudent());
-    await structureRepo.save(makeStructure());
-
-    const march = await service.generate(
-      { academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 3, year: 2026 },
-      TENANT_ID,
-    );
-    expect(march.generated).toBe(1);
-
-    const september = await service.generate(
-      { academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 9, year: 2026 },
-      TENANT_ID,
-    );
-    expect(september.generated).toBe(1);
-  });
-
-  it('applies a school-wide structure (null class_id) to every student', async () => {
-    await studentRepo.save(makeStudent({ class_section_id: SEED_SECTION_1_ID }));
-    await studentRepo.save(makeStudent({ class_section_id: SEED_CLASS_2_SECTION_ID }));
-    await structureRepo.save(makeStructure({ class_id: null as unknown as string }));
-
-    const result = await service.generate(
-      { academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 1, year: 2026 },
-      TENANT_ID,
-    );
-
-    expect(result.generated).toBe(2);
-  });
-
-  it('bills each applicable structure as its own StudentFee row (16.1.3)', async () => {
-    // Before 16.1.3, `student_fees` was one row per student × month that
-    // summed every applicable structure together. It's now one bill per
-    // student × fee structure × period, so two structures produce two
-    // rows, each carrying its own `fee_structure_id`/`total_amount` — not
-    // one row with a combined total.
-    await studentRepo.save(makeStudent());
-    const tuition = await structureRepo.save(makeStructure({ name: 'Tuition', amount: 1000 }));
-    const library = await structureRepo.save(
-      makeStructure({ name: 'Library', amount: 200, fee_type: FeeType.LIBRARY_FEE }),
-    );
-
-    await service.generate(
-      { academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 1, year: 2026 },
-      TENANT_ID,
-    );
-
-    const fees = await studentFeeRepo.find();
-    expect(fees).toHaveLength(2);
-    const byStructure = new Map(fees.map((f) => [f.fee_structure_id, Number(f.total_amount)]));
-    expect(byStructure.get(tuition.id)).toBe(1000);
-    expect(byStructure.get(library.id)).toBe(200);
-  });
-
-  it('skips a student with no applicable structures (total would be zero)', async () => {
-    await studentRepo.save(makeStudent());
-    // No fee structures at all for this academic year/month.
-
-    const result = await service.generate(
-      { academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 1, year: 2026 },
-      TENANT_ID,
-    );
-
-    expect(result).toEqual({ generated: 0, skipped: 0, students_evaluated: 1 });
-  });
-
-  it('excludes inactive students', async () => {
-    await studentRepo.save(makeStudent({ enrollment_status: EnrollmentStatus.INACTIVE }));
-    await structureRepo.save(makeStructure());
-
-    const result = await service.generate(
-      { academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 1, year: 2026 },
-      TENANT_ID,
-    );
-
-    expect(result.students_evaluated).toBe(0);
-    expect(result.generated).toBe(0);
-  });
-
-  it('filters by class_id', async () => {
-    await studentRepo.save(makeStudent({ class_section_id: SEED_SECTION_1_ID }));
-    await studentRepo.save(makeStudent({ class_section_id: SEED_CLASS_2_SECTION_ID }));
-    await structureRepo.save(makeStructure({ class_id: SEED_CLASS_1_ID }));
-
-    const result = await service.generate(
-      { academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 1, year: 2026, class_id: SEED_CLASS_1_ID },
-      TENANT_ID,
-    );
-
-    expect(result.students_evaluated).toBe(1);
-    expect(result.generated).toBe(1);
-  });
-
-  it('filters by section_id', async () => {
-    await studentRepo.save(makeStudent({ class_section_id: SEED_SECTION_1_ID }));
-    await studentRepo.save(makeStudent({ class_section_id: SEED_SECTION_2_ID }));
-    await structureRepo.save(makeStructure());
+  it('generates 3 students x 2 fee structures = 6 bills, one batch, correct counters', async () => {
+    const students = await studentRepo.save([makeStudent(), makeStudent(), makeStudent()]);
+    const structures = await structureRepo.save([makeStructure(), makeStructure()]);
 
     const result = await service.generate(
       {
         academic_year_id: SEED_ACADEMIC_YEAR_ID,
-        month: 1,
-        year: 2026,
-        section_id: SEED_SECTION_1_ID,
+        period_start: '2026-03-01',
+        period_type: PeriodType.MONTH,
+        student_ids: students.map((s) => s.id),
+        fee_structure_ids: structures.map((s) => s.id),
       },
       TENANT_ID,
+      ACTOR_USER_ID,
+      requestWithToken(),
     );
 
-    expect(result.students_evaluated).toBe(1);
+    expect(result.generated_count).toBe(6);
+    expect(result.skipped_count).toBe(0);
+    expect(result.removed_count).toBe(0);
+    expect(result.student_count).toBe(3);
+
+    const bills = await studentFeeRepo.find();
+    expect(bills).toHaveLength(6);
+
+    const batch = await feeGenerationRepo.findOneOrFail({
+      where: { id: result.fee_generation_id },
+    });
+    expect(batch.generated_count).toBe(6);
+    expect(batch.student_count).toBe(3);
   });
 
-  it('a section-scoped structure does not apply to a different section in the same class', async () => {
-    await studentRepo.save(makeStudent({ class_section_id: SEED_SECTION_2_ID }));
-    await structureRepo.save(makeStructure({ section_id: SEED_SECTION_1_ID }));
+  describe('period normalisation', () => {
+    it('rejects a MONTH period_start that is not the 1st of a month', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const structure = await structureRepo.save(makeStructure());
 
-    const result = await service.generate(
-      { academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 1, year: 2026 },
-      TENANT_ID,
-    );
+      await expect(
+        service.generate(
+          {
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            period_start: '2026-03-15',
+            period_type: PeriodType.MONTH,
+            student_ids: [student.id],
+            fee_structure_ids: [structure.id],
+          },
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(),
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
 
-    expect(result.generated).toBe(0);
-  });
+    it('rejects a WEEK period_start that is not a Monday', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const structure = await structureRepo.save(makeStructure());
 
-  it('is idempotent: re-running the same generation produces no new rows', async () => {
-    await studentRepo.save(makeStudent());
-    await structureRepo.save(makeStructure());
+      await expect(
+        service.generate(
+          {
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            period_start: '2026-03-04', // a Wednesday
+            period_type: PeriodType.WEEK,
+            student_ids: [student.id],
+            fee_structure_ids: [structure.id],
+          },
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(),
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
 
-    const first = await service.generate(
-      { academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 1, year: 2026 },
-      TENANT_ID,
-    );
-    expect(first.generated).toBe(1);
+    it('accepts a correctly-aligned MONTH and WEEK period_start', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const structure = await structureRepo.save(makeStructure());
 
-    const second = await service.generate(
-      { academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 1, year: 2026 },
-      TENANT_ID,
-    );
-    expect(second).toEqual({ generated: 0, skipped: 1, students_evaluated: 1 });
-
-    const fees = await studentFeeRepo.find();
-    expect(fees).toHaveLength(1);
-  });
-
-  it('throws BadRequestException when year falls outside the academic year range', async () => {
-    // Seeded academic year covers 2026-01-01 through 2026-12-31 only.
-    await expect(
-      service.generate(
-        { academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 1, year: 2027 },
+      const monthResult = await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-04-01',
+          period_type: PeriodType.MONTH,
+          student_ids: [student.id],
+          fee_structure_ids: [structure.id],
+        },
         TENANT_ID,
-      ),
-    ).rejects.toThrow(BadRequestException);
-  });
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+      expect(monthResult.generated_count).toBe(1);
 
-  it('throws NotFoundException when academic year does not belong to tenant', async () => {
-    await expect(
-      service.generate(
-        { academic_year_id: '00000000-0000-4000-8000-000000000000', month: 1, year: 2026 },
+      // 2026-03-02 is a Monday.
+      const weekResult = await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-03-02',
+          period_type: PeriodType.WEEK,
+          student_ids: [student.id],
+          fee_structure_ids: [structure.id],
+        },
         TENANT_ID,
-      ),
-    ).rejects.toThrow(NotFoundException);
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+      expect(weekResult.generated_count).toBe(1);
+    });
   });
 
-  it('throws NotFoundException when class_id does not belong to tenant', async () => {
+  describe('duplicate strategies', () => {
+    it('SKIP counts existing pairs as skipped and does not touch them', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const structure = await structureRepo.save(makeStructure());
+
+      const first = await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-05-01',
+          period_type: PeriodType.MONTH,
+          student_ids: [student.id],
+          fee_structure_ids: [structure.id],
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+      expect(first.generated_count).toBe(1);
+
+      const second = await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-05-01',
+          period_type: PeriodType.MONTH,
+          student_ids: [student.id],
+          fee_structure_ids: [structure.id],
+          duplicate_strategy: DuplicateStrategy.SKIP,
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+      expect(second.generated_count).toBe(0);
+      expect(second.skipped_count).toBe(1);
+
+      const bills = await studentFeeRepo.find();
+      expect(bills).toHaveLength(1);
+    });
+
+    it('REMOVE_OLDER on an unpaid bill needs no approval: old removed, new inserted', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const structure = await structureRepo.save(makeStructure());
+
+      const first = await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-06-01',
+          period_type: PeriodType.MONTH,
+          student_ids: [student.id],
+          fee_structure_ids: [structure.id],
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+      const oldBillId = (await studentFeeRepo.find())[0].id;
+      expect(first.generated_count).toBe(1);
+
+      const second = await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-06-01',
+          period_type: PeriodType.MONTH,
+          student_ids: [student.id],
+          fee_structure_ids: [structure.id],
+          duplicate_strategy: DuplicateStrategy.REMOVE_OLDER,
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(), // no token supplied — must not be needed
+      );
+      expect(second.generated_count).toBe(1);
+      expect(second.removed_count).toBe(1);
+
+      const bills = await studentFeeRepo.find();
+      expect(bills).toHaveLength(1);
+      expect(bills[0].id).not.toBe(oldBillId);
+    });
+
+    it('REMOVE_OLDER rolls back with a conflict when a concurrent request removed the bill first', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const structure = await structureRepo.save(makeStructure());
+
+      await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-06-01',
+          period_type: PeriodType.MONTH,
+          student_ids: [student.id],
+          fee_structure_ids: [structure.id],
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+      const oldBill = (await studentFeeRepo.find())[0];
+
+      // Simulate the race: another request soft-deletes the same live bill
+      // after this request's `findDuplicates` read it but before its own
+      // soft delete runs. `studentFeeRepo` is outside the transaction, so
+      // the removal is committed and visible to the in-flight one.
+      type Privates = { findDuplicates: (...args: unknown[]) => Promise<unknown> };
+      const original = (service as unknown as Privates).findDuplicates.bind(service);
+      const findDuplicates = vi
+        .spyOn(service as unknown as Privates, 'findDuplicates')
+        .mockImplementationOnce(async (...args: unknown[]) => {
+          const duplicates = await original(...args);
+          await studentFeeRepo.softDelete(oldBill.id);
+          return duplicates;
+        });
+
+      await expect(
+        service.generate(
+          {
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            period_start: '2026-06-01',
+            period_type: PeriodType.MONTH,
+            student_ids: [student.id],
+            fee_structure_ids: [structure.id],
+            duplicate_strategy: DuplicateStrategy.REMOVE_OLDER,
+          },
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(),
+        ),
+      ).rejects.toThrow(ConflictException);
+      findDuplicates.mockRestore();
+
+      // The losing request wrote nothing: no second batch, no replacement
+      // bill, and the only bill is the one the "other" request removed.
+      const batches = await feeGenerationRepo.find();
+      expect(batches).toHaveLength(1);
+      const liveBills = await studentFeeRepo.find();
+      expect(liveBills).toHaveLength(0);
+      const allBills = await studentFeeRepo.find({ withDeleted: true });
+      expect(allBills).toHaveLength(1);
+      expect(allBills[0].id).toBe(oldBill.id);
+    });
+
+    it('REMOVE_OLDER on a paid bill without an approval token throws APPROVAL_REQUIRED and writes nothing', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const structure = await structureRepo.save(makeStructure());
+
+      await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-07-01',
+          period_type: PeriodType.MONTH,
+          student_ids: [student.id],
+          fee_structure_ids: [structure.id],
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+      const bill = (await studentFeeRepo.find())[0];
+      await studentFeeRepo.update(bill.id, { paid_amount: 500, status: FeeStatus.PARTIALLY_PAID });
+
+      await expect(
+        service.generate(
+          {
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            period_start: '2026-07-01',
+            period_type: PeriodType.MONTH,
+            student_ids: [student.id],
+            fee_structure_ids: [structure.id],
+            duplicate_strategy: DuplicateStrategy.REMOVE_OLDER,
+          },
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(), // no token
+        ),
+      ).rejects.toThrow(ApprovalRequiredException);
+
+      // Nothing was written: still exactly the one original (paid) bill,
+      // and no second batch was created.
+      const bills = await studentFeeRepo.find();
+      expect(bills).toHaveLength(1);
+      expect(bills[0].id).toBe(bill.id);
+      expect(Number(bills[0].paid_amount)).toBe(500);
+      const batches = await feeGenerationRepo.find();
+      expect(batches).toHaveLength(1);
+    });
+
+    it('REMOVE_OLDER on a bill with a real payment allocation soft-deletes it and creates a new one, keeping the allocation intact', async () => {
+      // Regression for the money-tier review finding: student_fees now has
+      // a soft-delete column (#651) and the unique index on
+      // (student_id, fee_structure_id, period_start, occurrence) is
+      // partial (`WHERE deleted_at IS NULL`), so REMOVE_OLDER over an
+      // allocated bill no longer needs a hard-delete pre-check — it
+      // soft-deletes the old bill (consuming the REMOVE_OLDER_PAID
+      // approval), the allocation keeps pointing at the now-deleted row for
+      // history, and a fresh bill is created at occurrence 1.
+      const student = await studentRepo.save(makeStudent());
+      const structure = await structureRepo.save(makeStructure());
+
+      await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-08-01',
+          period_type: PeriodType.MONTH,
+          student_ids: [student.id],
+          fee_structure_ids: [structure.id],
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+      const bill = (await studentFeeRepo.find())[0];
+
+      // Record a real payment against this bill via the same service
+      // families/staff use, so the allocation row exists exactly as it
+      // would in production.
+      const payment = await paymentAllocationService.recordWithAllocation(
+        {
+          student_id: student.id,
+          total_amount: Number(bill.total_amount),
+          payment_method: PaymentMethod.CASH,
+          allocations: [
+            {
+              student_fee_id: bill.id,
+              allocated_amount: Number(bill.total_amount),
+              allocation_type: PaymentAllocationType.DUE,
+            },
+          ],
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+      );
+
+      const token = await issueApprovalToken('jti-remove-older-allocated');
+      const result = await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-08-01',
+          period_type: PeriodType.MONTH,
+          student_ids: [student.id],
+          fee_structure_ids: [structure.id],
+          duplicate_strategy: DuplicateStrategy.REMOVE_OLDER,
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(token),
+      );
+      expect(result.generated_count).toBe(1);
+      expect(result.removed_count).toBe(1);
+
+      const oldBill = await studentFeeRepo.findOne({ where: { id: bill.id }, withDeleted: true });
+      expect(oldBill).not.toBeNull();
+      expect(oldBill!.deleted_at).not.toBeNull();
+
+      const allocation = await dataSource.getRepository(PaymentAllocation).findOne({
+        where: { payment_id: payment.id, student_fee_id: bill.id },
+      });
+      expect(allocation).not.toBeNull();
+
+      const bills = await studentFeeRepo.find();
+      expect(bills).toHaveLength(1);
+      expect(bills[0].id).not.toBe(bill.id);
+      expect(bills[0].occurrence).toBe(1);
+    });
+
+    it('recreates a soft-deleted bill under SKIP once the old one is removed (partial unique index)', async () => {
+      // Proves the partial unique index actually lets a same-key row
+      // through once the old one is soft-deleted — with a plain (non
+      // partial) unique constraint this insert would silently no-op via
+      // `.orIgnore()` and generated_count would stay 0.
+      const student = await studentRepo.save(makeStudent());
+      const structure = await structureRepo.save(makeStructure());
+
+      await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-09-01',
+          period_type: PeriodType.MONTH,
+          student_ids: [student.id],
+          fee_structure_ids: [structure.id],
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+      const bill = (await studentFeeRepo.find())[0];
+      await studentFeeRepo.softDelete(bill.id);
+
+      const result = await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-09-01',
+          period_type: PeriodType.MONTH,
+          student_ids: [student.id],
+          fee_structure_ids: [structure.id],
+          duplicate_strategy: DuplicateStrategy.SKIP,
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+
+      expect(result.generated_count).toBe(1);
+      const bills = await studentFeeRepo.find();
+      expect(bills).toHaveLength(1);
+      expect(bills[0].id).not.toBe(bill.id);
+      expect(bills[0].occurrence).toBe(1);
+    });
+
+    it('CREATE_ANYWAY with a valid approval token sets occurrence = 2', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const structure = await structureRepo.save(makeStructure());
+
+      await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-08-01',
+          period_type: PeriodType.MONTH,
+          student_ids: [student.id],
+          fee_structure_ids: [structure.id],
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+
+      const token = await issueApprovalToken('jti-create-anyway');
+      const result = await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-08-01',
+          period_type: PeriodType.MONTH,
+          student_ids: [student.id],
+          fee_structure_ids: [structure.id],
+          duplicate_strategy: DuplicateStrategy.CREATE_ANYWAY,
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(token),
+      );
+      expect(result.generated_count).toBe(1);
+
+      const bills = await studentFeeRepo.find({ order: { occurrence: 'ASC' } });
+      expect(bills).toHaveLength(2);
+      expect(bills[0].occurrence).toBe(1);
+      expect(bills[1].occurrence).toBe(2);
+    });
+
+    it('CREATE_ANYWAY without a token throws APPROVAL_REQUIRED and writes nothing', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const structure = await structureRepo.save(makeStructure());
+
+      await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-09-01',
+          period_type: PeriodType.MONTH,
+          student_ids: [student.id],
+          fee_structure_ids: [structure.id],
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+
+      await expect(
+        service.generate(
+          {
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            period_start: '2026-09-01',
+            period_type: PeriodType.MONTH,
+            student_ids: [student.id],
+            fee_structure_ids: [structure.id],
+            duplicate_strategy: DuplicateStrategy.CREATE_ANYWAY,
+          },
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(),
+        ),
+      ).rejects.toThrow(ApprovalRequiredException);
+
+      const bills = await studentFeeRepo.find();
+      expect(bills).toHaveLength(1);
+    });
+  });
+
+  it('wallet auto-apply: 500 balance fully pays a 300 bill and partially pays a 400 bill', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const structures = await structureRepo.save([
+      makeStructure({ name: 'Tuition', amount: 300 }),
+      makeStructure({ name: 'Library', amount: 400, fee_type: FeeType.LIBRARY_FEE }),
+    ]);
+    await walletRepo.save(
+      walletRepo.create({ student_id: student.id, tenant_id: TENANT_ID, balance: 500 }),
+    );
+
+    await service.generate(
+      {
+        academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        period_start: '2026-10-01',
+        period_type: PeriodType.MONTH,
+        student_ids: [student.id],
+        fee_structure_ids: structures.map((s) => s.id),
+      },
+      TENANT_ID,
+      ACTOR_USER_ID,
+      requestWithToken(),
+    );
+
+    const bills = await studentFeeRepo.find({ order: { total_amount: 'ASC' } });
+    expect(bills).toHaveLength(2);
+    const [smaller, larger] = bills;
+    expect(Number(smaller.total_amount)).toBe(300);
+    expect(Number(smaller.paid_amount)).toBe(300);
+    expect(smaller.status).toBe(FeeStatus.PAID);
+    expect(Number(larger.total_amount)).toBe(400);
+    expect(Number(larger.paid_amount)).toBe(200);
+    expect(larger.status).toBe(FeeStatus.PARTIALLY_PAID);
+
+    const wallet = await walletRepo.findOne({ where: { student_id: student.id } });
+    expect(Number(wallet!.balance)).toBe(0);
+  });
+
+  describe('inactive students', () => {
+    it('are skipped from generation and listed, unless include_inactive is true', async () => {
+      const active = await studentRepo.save(makeStudent());
+      const inactive = await studentRepo.save(
+        makeStudent({ enrollment_status: EnrollmentStatus.INACTIVE }),
+      );
+      const structure = await structureRepo.save(makeStructure());
+
+      const result = await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-11-01',
+          period_type: PeriodType.MONTH,
+          student_ids: [active.id, inactive.id],
+          fee_structure_ids: [structure.id],
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+      expect(result.generated_count).toBe(1);
+      expect(result.inactive_skipped.map((s) => s.id)).toEqual([inactive.id]);
+
+      const withInactive = await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-12-01',
+          period_type: PeriodType.MONTH,
+          student_ids: [active.id, inactive.id],
+          fee_structure_ids: [structure.id],
+          include_inactive: true,
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+      expect(withInactive.generated_count).toBe(2);
+    });
+  });
+
+  it('a student_id belonging to another tenant is a 404, and nothing is written', async () => {
+    const validStudent = await studentRepo.save(makeStudent());
+    const otherTenantStudent = await studentRepo.save(
+      makeStudent({ tenant_id: OTHER_TENANT_ID, class_section_id: OTHER_SECTION_ID }),
+    );
+    const structure = await structureRepo.save(makeStructure());
+
     await expect(
       service.generate(
         {
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
-          month: 1,
-          year: 2026,
-          class_id: '00000000-0000-4000-8000-000000000000',
+          period_start: '2026-03-01',
+          period_type: PeriodType.MONTH,
+          student_ids: [validStudent.id, otherTenantStudent.id],
+          fee_structure_ids: [structure.id],
         },
         TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
       ),
     ).rejects.toThrow(NotFoundException);
-  });
 
-  it('rejects generation for a tenant that does not own the academic year', async () => {
-    await studentRepo.save(makeStudent());
-    await structureRepo.save(makeStructure());
-
-    // SEED_ACADEMIC_YEAR_ID belongs to TENANT_ID, not OTHER_TENANT_ID.
-    await expect(
-      service.generate(
-        { academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 1, year: 2026 },
-        OTHER_TENANT_ID,
-      ),
-    ).rejects.toThrow(NotFoundException);
+    const bills = await studentFeeRepo.find();
+    expect(bills).toHaveLength(0);
+    const batches = await feeGenerationRepo.find();
+    expect(batches).toHaveLength(0);
   });
 });

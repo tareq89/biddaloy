@@ -15,7 +15,9 @@ import {
   useDeleteStudent,
   useMyStudents,
   useStudent,
+  useStudentIds,
   useStudents,
+  useStudentSearch,
   useUpdateStudentEnrollmentStatus,
   useUpdateStudentPreferredCommunication,
   type PreferredCommunication,
@@ -541,5 +543,69 @@ describe('[5.2] useMyStudents', () => {
     const { result } = renderHookWithProviders(() => useMyStudents(), { tenantId: 'tenant-1' });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+});
+
+describe('useStudentIds', () => {
+  it('stays disabled until asked, then resolves the full matching id set', async () => {
+    server.use(
+      http.get('/api/v1/students/ids', () =>
+        HttpResponse.json({
+          ids: Array.from({ length: 120 }, (_, i) => `student-${i}`),
+          total: 120,
+        }),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => useStudentIds({ class_id: 'class-9' }), {
+      tenantId: 'tenant-1',
+    });
+
+    expect(result.current.isPending).toBe(true);
+    expect(result.current.fetchStatus).toBe('idle');
+
+    const { result: enabledResult } = renderHookWithProviders(
+      () => useStudentIds({ class_id: 'class-9' }, { enabled: true }),
+      { tenantId: 'tenant-1' },
+    );
+
+    await waitFor(() => expect(enabledResult.current.isSuccess).toBe(true));
+    expect(enabledResult.current.data?.total).toBe(120);
+    expect(enabledResult.current.data?.ids).toHaveLength(120);
+  });
+
+  // Regression: `QueryStudentIdsDto` has no `limit`/`page`/`sort` fields
+  // and the global ValidationPipe rejects unknown properties — forwarding
+  // the whole filters object (as the audience picker used to) 400ed.
+  it('sends only the allow-listed filter keys, never limit/page/sort', async () => {
+    let receivedUrl: URL | undefined;
+    server.use(
+      http.get('/api/v1/students/ids', ({ request }) => {
+        receivedUrl = new URL(request.url);
+        return HttpResponse.json({ ids: [], total: 0 });
+      }),
+    );
+
+    const { result } = renderHookWithProviders(
+      () => useStudentIds({ search: 'Rahim', class_id: 'class-9' }, { enabled: true }),
+      { tenantId: 'tenant-1' },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(receivedUrl?.searchParams.get('search')).toBe('Rahim');
+    expect(receivedUrl?.searchParams.get('class_id')).toBe('class-9');
+    expect(receivedUrl?.searchParams.has('limit')).toBe(false);
+    expect(receivedUrl?.searchParams.has('page')).toBe(false);
+  });
+});
+
+describe('useStudentSearch', () => {
+  it('is a thin wrapper over useStudents — same params, same response shape', async () => {
+    const { result } = renderHookWithProviders(() => useStudentSearch({ search: 'Rahim' }), {
+      tenantId: 'tenant-1',
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.data).toBeInstanceOf(Array);
   });
 });

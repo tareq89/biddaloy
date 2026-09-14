@@ -18,30 +18,32 @@ import {
 } from '@test/constants';
 
 /**
- * E2E tests for the fee generation endpoint.
- *
- * Tests RBAC (ADMIN/ACCOUNTANT allowed, others denied), tenant isolation,
- * and the end-to-end shape of a generation run.
+ * [16.3.1] E2E tests for the explicit-selection fee generation endpoints —
+ * `POST /fees/generate/preview` (read-only) and `POST /fees/generate`
+ * (writes). Service-level behavior (duplicate strategies, approval,
+ * wallet auto-apply, period normalisation) is covered by
+ * `fee-generation.service.integration.spec.ts`; this file only checks the
+ * HTTP-layer contract: preview never writes, the happy path works end to
+ * end, and RBAC is enforced.
  */
-
-const OTHER_TENANT_ID = '00000000-0000-4000-8000-000000000099';
-
 describe('Fee Generation E2E', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let token: string;
 
   const TENANT_ID = SEED_TENANT_ID;
+  let studentSeq = 0;
 
-  async function createStudent(registrationNumber: string) {
+  async function createStudent(): Promise<string> {
+    studentSeq += 1;
     const res = await dataSource.query(
       `INSERT INTO students (id, full_name, registration_number, roll_number, class_section_id, tenant_id, date_of_birth, preferred_communication, enrollment_status, created_at, updated_at)
        VALUES (DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
        RETURNING id`,
       [
         'Gen Student',
-        registrationNumber,
-        1,
+        `REG-GENV2-E2E-${String(studentSeq).padStart(4, '0')}`,
+        studentSeq,
         SEED_SECTION_1_ID,
         TENANT_ID,
         '2010-01-01',
@@ -50,6 +52,23 @@ describe('Fee Generation E2E', () => {
       ],
     );
     return res[0].id;
+  }
+
+  async function createFeeStructure(): Promise<string> {
+    const res = await supertest(app.getHttpServer())
+      .post('/api/v1/fee-structures')
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Tenant-ID', TENANT_ID)
+      .set('X-Role', UserRole.ADMIN)
+      .send({
+        fee_type: FeeType.MONTHLY_TUITION,
+        name: `E2E Tuition ${Date.now()}-${Math.random()}`,
+        amount: 1000,
+        class_id: SEED_CLASS_1_ID,
+        academic_year_id: SEED_ACADEMIC_YEAR_ID,
+      })
+      .expect(201);
+    return res.body.id;
   }
 
   beforeAll(async () => {
@@ -70,10 +89,9 @@ describe('Fee Generation E2E', () => {
 
     dataSource = app.get(DataSource);
 
-    // Grant the seed admin ACCOUNTANT and STUDENT memberships on TENANT_ID too,
-    // so a single login/token carries multiple roles (selected per-request via
-    // X-Role) for the RBAC matrix below — same pattern used in
-    // fee-structures.e2e-spec.ts.
+    // Seed admin also gets ACCOUNTANT and STUDENT memberships on this
+    // tenant, so a single login/token carries multiple roles (selected
+    // per-request via X-Role) for the RBAC checks below.
     await dataSource.query(
       `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
        VALUES ($1, $2, $3, NOW(), NOW())
@@ -98,142 +116,108 @@ describe('Fee Generation E2E', () => {
     await app.close();
   });
 
-  describe('POST /fees/generate', () => {
-    it('should generate StudentFee records for ADMIN role', async () => {
-      const studentId = await createStudent('REG-GEN-E2E-0001');
-      await supertest(app.getHttpServer())
-        .post('/api/v1/fee-structures')
+  describe('POST /fees/generate/preview', () => {
+    it('is read-only: no new bills or batches exist afterward', async () => {
+      const studentId = await createStudent();
+      const structureId = await createFeeStructure();
+
+      const before = await dataSource.query(
+        `SELECT COUNT(*)::int AS count FROM student_fees WHERE student_id = $1`,
+        [studentId],
+      );
+      const batchesBefore = await dataSource.query(
+        `SELECT COUNT(*)::int AS count FROM fee_generations`,
+      );
+
+      const res = await supertest(app.getHttpServer())
+        .post('/api/v1/fees/generate/preview')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
         .send({
-          fee_type: FeeType.MONTHLY_TUITION,
-          name: 'E2E Tuition',
-          amount: 1000,
-          class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-04-01',
+          period_type: 'MONTH',
+          student_ids: [studentId],
+          fee_structure_ids: [structureId],
         })
         .expect(201);
+
+      expect(res.body.would_generate).toBe(1);
+      expect(res.body.students_total).toBe(1);
+
+      const after = await dataSource.query(
+        `SELECT COUNT(*)::int AS count FROM student_fees WHERE student_id = $1`,
+        [studentId],
+      );
+      const batchesAfter = await dataSource.query(
+        `SELECT COUNT(*)::int AS count FROM fee_generations`,
+      );
+      expect(after[0].count).toBe(before[0].count);
+      expect(batchesAfter[0].count).toBe(batchesBefore[0].count);
+    });
+  });
+
+  describe('POST /fees/generate', () => {
+    it('happy path: creates a batch and bills for the picked students/structures', async () => {
+      const studentId = await createStudent();
+      const structureId = await createFeeStructure();
 
       const res = await supertest(app.getHttpServer())
         .post('/api/v1/fees/generate')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
-        .send({ academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 1, year: 2026 })
+        .send({
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-05-01',
+          period_type: 'MONTH',
+          student_ids: [studentId],
+          fee_structure_ids: [structureId],
+        })
         .expect(201);
 
-      expect(res.body.generated).toBeGreaterThanOrEqual(1);
-      expect(res.body.students_evaluated).toBeGreaterThanOrEqual(1);
+      expect(res.body).toMatchObject({
+        generated_count: 1,
+        skipped_count: 0,
+        removed_count: 0,
+        student_count: 1,
+      });
+      expect(res.body.fee_generation_id).toBeTruthy();
 
-      const fee = await dataSource.query(
-        `SELECT * FROM student_fees WHERE student_id = $1 AND month = 1 AND year = 2026`,
-        [studentId],
+      const bills = await dataSource.query(
+        `SELECT * FROM student_fees WHERE student_id = $1 AND fee_generation_id = $2`,
+        [studentId, res.body.fee_generation_id],
       );
-      expect(fee).toHaveLength(1);
-      expect(Number(fee[0].total_amount)).toBe(1000);
+      expect(bills).toHaveLength(1);
+      expect(Number(bills[0].total_amount)).toBe(1000);
+
+      const batch = await dataSource.query(`SELECT * FROM fee_generations WHERE id = $1`, [
+        res.body.fee_generation_id,
+      ]);
+      expect(batch).toHaveLength(1);
+      expect(batch[0].generated_count).toBe(1);
     });
 
-    it('should allow ACCOUNTANT role', async () => {
-      await supertest(app.getHttpServer())
-        .post('/api/v1/fees/generate')
-        .set('Authorization', `Bearer ${token}`)
-        .set('X-Tenant-ID', TENANT_ID)
-        .set('X-Role', UserRole.ACCOUNTANT)
-        .send({ academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 2, year: 2026 })
-        .expect(201);
-    });
+    it("denies a role without FEE_GENERATE (STUDENT isn't in the route's @Roles list)", async () => {
+      const studentId = await createStudent();
+      const structureId = await createFeeStructure();
 
-    it('should return 401 for STUDENT role', async () => {
       const res = await supertest(app.getHttpServer())
         .post('/api/v1/fees/generate')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
-        .send({ academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 1, year: 2026 })
+        .send({
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-06-01',
+          period_type: 'MONTH',
+          student_ids: [studentId],
+          fee_structure_ids: [structureId],
+        })
         .expect(401);
 
       expect(res.body.message).toContain('Requires one of roles');
-    });
-
-    it('should be idempotent when called twice for the same month', async () => {
-      await supertest(app.getHttpServer())
-        .post('/api/v1/fee-structures')
-        .set('Authorization', `Bearer ${token}`)
-        .set('X-Tenant-ID', TENANT_ID)
-        .set('X-Role', UserRole.ADMIN)
-        .send({
-          fee_type: FeeType.MONTHLY_TUITION,
-          name: 'Idempotency Fee',
-          amount: 750,
-          class_id: SEED_CLASS_1_ID,
-          academic_year_id: SEED_ACADEMIC_YEAR_ID,
-        })
-        .expect(201);
-
-      const first = await supertest(app.getHttpServer())
-        .post('/api/v1/fees/generate')
-        .set('Authorization', `Bearer ${token}`)
-        .set('X-Tenant-ID', TENANT_ID)
-        .set('X-Role', UserRole.ADMIN)
-        .send({ academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 3, year: 2026 })
-        .expect(201);
-
-      const second = await supertest(app.getHttpServer())
-        .post('/api/v1/fees/generate')
-        .set('Authorization', `Bearer ${token}`)
-        .set('X-Tenant-ID', TENANT_ID)
-        .set('X-Role', UserRole.ADMIN)
-        .send({ academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 3, year: 2026 })
-        .expect(201);
-
-      expect(second.body.generated).toBe(0);
-      expect(second.body.skipped).toBe(first.body.generated);
-    });
-
-    it('should return 400 for invalid DTO (missing required fields)', async () => {
-      await supertest(app.getHttpServer())
-        .post('/api/v1/fees/generate')
-        .set('Authorization', `Bearer ${token}`)
-        .set('X-Tenant-ID', TENANT_ID)
-        .set('X-Role', UserRole.ADMIN)
-        .send({})
-        .expect(400);
-    });
-
-    it('should return 400 when the year falls outside the academic year range', async () => {
-      // Seeded academic year covers 2026-01-01 through 2026-12-31 only.
-      await supertest(app.getHttpServer())
-        .post('/api/v1/fees/generate')
-        .set('Authorization', `Bearer ${token}`)
-        .set('X-Tenant-ID', TENANT_ID)
-        .set('X-Role', UserRole.ADMIN)
-        .send({ academic_year_id: SEED_ACADEMIC_YEAR_ID, month: 1, year: 2027 })
-        .expect(400);
-    });
-
-    it('should return 404 when academic year belongs to another tenant', async () => {
-      await dataSource.query(
-        `INSERT INTO schools (id, name, slug, created_at, updated_at)
-         VALUES ($1, $2, $3, NOW(), NOW())
-         ON CONFLICT DO NOTHING`,
-        [OTHER_TENANT_ID, 'Other School', 'other-school-fee-generation'],
-      );
-      const otherAcademicYearId = '00000000-0000-4000-8000-000000000923';
-      await dataSource.query(
-        `INSERT INTO academic_years (id, name, start_date, end_date, is_current, tenant_id, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
-         ON CONFLICT DO NOTHING`,
-        [otherAcademicYearId, 'Other AY', '2026-01-01', '2026-12-31', false, OTHER_TENANT_ID],
-      );
-
-      await supertest(app.getHttpServer())
-        .post('/api/v1/fees/generate')
-        .set('Authorization', `Bearer ${token}`)
-        .set('X-Tenant-ID', TENANT_ID)
-        .set('X-Role', UserRole.ADMIN)
-        .send({ academic_year_id: otherAcademicYearId, month: 1, year: 2026 })
-        .expect(404);
     });
   });
 });

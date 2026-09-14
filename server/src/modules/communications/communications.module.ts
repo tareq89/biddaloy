@@ -26,6 +26,7 @@ import { ConnectionTestService } from './testing/connection-test.service';
 import { ProviderConnectionTestController } from './testing/provider-connection-test.controller';
 import { COMMUNICATIONS_QUEUE } from './communications.constants';
 import { CreditsModule } from './credits/credits.module';
+import { FeeNotificationsListener } from './fee-notifications.listener';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { CreditsModule } from './credits/credits.module';
     SmtpEmailProvider,
     MessengerProvider,
     ConnectionTestService,
+    FeeNotificationsListener,
   ],
   controllers: [CommunicationsController, ProviderConnectionTestController],
   exports: [

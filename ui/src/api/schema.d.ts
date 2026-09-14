@@ -633,6 +633,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/students/ids": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** All student IDs matching the given filters, unpaginated — backs the audience picker's "select all matching" action. Capped; returns 413 when the match count exceeds the cap. */
+        get: operations["StudentController_findAllStudentIds_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/students/{id}": {
         parameters: {
             query?: never;
@@ -734,6 +751,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/fees/generate/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read-only dry run of a fee-generation request: reports inactive students, existing duplicate bills, and how many bills would actually be created. Writes nothing. */
+        post: operations["FeeController_previewGenerateFees_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/fees/generate": {
         parameters: {
             query?: never;
@@ -743,7 +777,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Generate StudentFee rows for the matching fee structures over a given month/scope. */
+        /** Generate exactly the picked students x fee structures x period as StudentFee bills, applying the chosen duplicate strategy. REMOVE_OLDER over a paid bill and CREATE_ANYWAY both require a fresh X-Approval-Token for scope "fees.duplicate_override" — missing/invalid returns 403 APPROVAL_REQUIRED and writes nothing. */
         post: operations["FeeController_generateFees_v1"];
         delete?: never;
         options?: never;
@@ -898,10 +932,12 @@ export interface paths {
         get: operations["FeeGenerationsController_findOne_v1"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Soft-delete the whole batch and all its bills. Needs a fresh X-Approval-Token for scope "fees.edit_paid" when any bill has money against it; any wallet auto-apply on a removed bill is reversed back to the wallet. */
+        delete: operations["FeeGenerationsController_deleteBatch_v1"];
         options?: never;
         head?: never;
-        patch?: never;
+        /** Change a batch's period_start/period_type/due_date and re-stamp every one of its bills to match. 409 (with the colliding students) if the new period_start collides with an existing bill. Needs a fresh X-Approval-Token for scope "fees.edit_paid" when any bill in scope already has money against it. */
+        patch: operations["FeeGenerationsController_patch_v1"];
         trace?: never;
     };
     "/api/v1/fees/generations/{id}/bills": {
@@ -915,6 +951,40 @@ export interface paths {
         get: operations["FeeGenerationsController_findBills_v1"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fees/generations/{id}/students/{studentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Soft-delete just this student's bills from the batch. Same approval/wallet-reversal rules as deleting the whole batch. */
+        delete: operations["FeeGenerationsController_removeStudent_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fees/generations/{id}/remove-uncollected": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Soft-delete only the bills in this batch with no money against them (paid_amount = 0, no allocation). No approval needed. Returns how many were removed. */
+        post: operations["FeeGenerationsController_removeUncollected_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2852,6 +2922,10 @@ export interface components {
             created_student_ids: string[];
             errors: components["schemas"]["BulkUploadErrorDto"][];
         };
+        StudentIdsResultDto: {
+            ids: string[];
+            total: number;
+        };
         UpdateStudentDto: {
             full_name?: string;
             /** Format: uuid */
@@ -2977,6 +3051,8 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
         };
         Invoice: {
             issuer_snapshot: components["schemas"]["IssuerSnapshot"] | null;
@@ -3154,20 +3230,58 @@ export interface components {
             dues: components["schemas"]["FamilyDueEntryDto"][];
         };
         Object: Record<string, never>;
-        GenerateStudentFeesDto: {
+        GenerateFeesPreviewDto: {
             /** Format: uuid */
             academic_year_id: string;
-            month: number;
-            year: number;
+            period_start: string;
+            /** @enum {string} */
+            period_type: "MONTH" | "WEEK";
+            student_ids: string[];
+            fee_structure_ids: string[];
+            /** @default false */
+            include_inactive: boolean;
+        };
+        InactiveStudentDto: {
+            id: string;
+            full_name: string;
+        };
+        DuplicateBillDto: {
+            student_id: string;
+            fee_structure_id: string;
+            existing_bill_id: string;
+            paid_amount: number;
+        };
+        GenerateFeesPreviewResultDto: {
+            students_total: number;
+            inactive: components["schemas"]["InactiveStudentDto"][];
+            duplicates: components["schemas"]["DuplicateBillDto"][];
+            would_generate: number;
+        };
+        GenerateFeesDto: {
             /** Format: uuid */
-            class_id?: string;
-            /** Format: uuid */
-            section_id?: string;
+            academic_year_id: string;
+            period_start: string;
+            /** @enum {string} */
+            period_type: "MONTH" | "WEEK";
+            student_ids: string[];
+            fee_structure_ids: string[];
+            /** @default false */
+            include_inactive: boolean;
+            due_date?: string;
+            /**
+             * @default SKIP
+             * @enum {string}
+             */
+            duplicate_strategy: "SKIP" | "REMOVE_OLDER" | "CREATE_ANYWAY";
+            notify_families?: boolean;
         };
         GenerateFeesResultDto: {
-            generated: number;
-            skipped: number;
-            students_evaluated: number;
+            fee_generation_id: string;
+            student_count: number;
+            generated_count: number;
+            skipped_count: number;
+            removed_count: number;
+            inactive_skipped: components["schemas"]["InactiveStudentDto"][];
         };
         CreateFeeStructureDto: {
             /** @enum {string} */
@@ -3259,6 +3373,15 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             deleted_at: string | null;
+        };
+        PatchFeeGenerationDto: {
+            period_start?: string;
+            /** @enum {string} */
+            period_type?: "MONTH" | "WEEK";
+            due_date?: string;
+        };
+        RemoveUncollectedResultDto: {
+            removed_count: number;
         };
         StudentWallet: {
             id: string;
@@ -5548,6 +5671,45 @@ export interface operations {
             };
         };
     };
+    StudentController_findAllStudentIds_v1: {
+        parameters: {
+            query?: {
+                search?: string;
+                class_id?: string;
+                section_id?: string;
+                enrollment_status?: "ACTIVE" | "INACTIVE" | "TRANSFERRED" | "GRADUATED";
+                gender?: string;
+                date_of_birth_from?: string;
+                date_of_birth_to?: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentIdsResultDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     StudentController_findOneStudent_v1: {
         parameters: {
             query?: never;
@@ -5977,6 +6139,41 @@ export interface operations {
             };
         };
     };
+    FeeController_previewGenerateFees_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateFeesPreviewDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerateFeesPreviewResultDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     FeeController_generateFees_v1: {
         parameters: {
             query?: never;
@@ -5991,7 +6188,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["GenerateStudentFeesDto"];
+                "application/json": components["schemas"]["GenerateFeesDto"];
             };
         };
         responses: {
@@ -6479,6 +6676,72 @@ export interface operations {
             };
         };
     };
+    FeeGenerationsController_deleteBatch_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FeeGenerationsController_patch_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchFeeGenerationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     FeeGenerationsController_findBills_v1: {
         parameters: {
             query?: {
@@ -6503,6 +6766,71 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FeeGenerationsController_removeStudent_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+                studentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FeeGenerationsController_removeUncollected_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemoveUncollectedResultDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {

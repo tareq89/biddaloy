@@ -4,9 +4,9 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
-  Unique,
   Check,
   Index,
 } from 'typeorm';
@@ -42,7 +42,10 @@ import { FeeStatus, PeriodType } from '@biddaloy/shared';
  *   fee bill links back to the original bill it was charged against
  */
 @Entity('student_fees')
-@Unique(['student_id', 'fee_structure_id', 'period_start', 'occurrence'])
+@Index(['student_id', 'fee_structure_id', 'period_start', 'occurrence'], {
+  unique: true,
+  where: '"deleted_at" IS NULL',
+})
 @Check('"month" BETWEEN 1 AND 12')
 @Check('"year" > 0')
 @Check('total_amount > 0')
@@ -159,4 +162,7 @@ export class StudentFee {
 
   @UpdateDateColumn({ type: 'timestamptz' })
   updated_at: Date;
+
+  @DeleteDateColumn({ type: 'timestamptz' })
+  deleted_at: Date | null;
 }

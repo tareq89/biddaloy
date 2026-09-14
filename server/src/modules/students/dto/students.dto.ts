@@ -15,6 +15,7 @@ import {
   MaxLength,
   ValidateIf,
 } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 import { Type, Transform } from 'class-transformer';
 import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
@@ -176,6 +177,52 @@ export class QueryStudentDto {
   @IsInt()
   @Min(1)
   limit?: number = 10;
+}
+
+/**
+ * [16.3.3] Filters for `GET /students/ids` — the audience picker's
+ * "select all matching" action. Same filter set as `QueryStudentDto` minus
+ * pagination/sort, which don't apply to an unpaginated id list.
+ */
+export class QueryStudentIdsDto {
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @IsUUID()
+  class_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  section_id?: string;
+
+  @IsOptional()
+  @IsEnum(EnrollmentStatus)
+  enrollment_status?: EnrollmentStatus;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  gender?: string;
+
+  @IsOptional()
+  @IsDateString()
+  date_of_birth_from?: string;
+
+  @IsOptional()
+  @IsDateString()
+  date_of_birth_to?: string;
+}
+
+/** [CodeRabbit round 1] response shape for `GET /students/ids` — without
+ * this the generated OpenAPI doc had `content?: never` for that route. */
+export class StudentIdsResultDto {
+  @ApiProperty({ type: [String] })
+  ids: string[];
+
+  @ApiProperty()
+  total: number;
 }
 
 export class CreateGuardianDto {

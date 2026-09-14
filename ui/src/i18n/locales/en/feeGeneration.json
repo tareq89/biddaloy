@@ -1,5 +1,50 @@
 {
-  "title": "Generate a month's fees",
+  "title": "Generate fees",
+  "modal": {
+    "description": "Pick a period, the students to bill, and the fees to apply.",
+    "cancel": "Cancel"
+  },
+  "audience": {
+    "heading": "Students",
+    "selectedCount": "{{count}} selected",
+    "searchLabel": "Search students",
+    "searchPlaceholder": "Search by name or roll number",
+    "classLabel": "Class",
+    "allClasses": "All classes",
+    "sectionLabel": "Section",
+    "allSections": "All sections",
+    "includeInactiveLabel": "Include inactive students",
+    "selectAllMatching": "Select all {{count}} matching",
+    "loading": "Loading students…",
+    "empty": "No students match these filters.",
+    "inactiveTooltip": "This student is not currently active — check before generating a fee for them.",
+    "unknownStudentName": "Selected student (name loading…)",
+    "selectAllTooManyMatches": "Too many matches — narrow your filters and try again.",
+    "selectAllRetry": "Try again"
+  },
+  "fees": {
+    "heading": "Fees",
+    "loading": "Loading fee structures…",
+    "empty": "No fee structures exist for this academic year yet.",
+    "runningTotal": "{{amount}} per student × {{count}} students selected"
+  },
+  "notify": {
+    "label": "Notify families when fees are generated"
+  },
+  "summary": {
+    "line": "{{students}} students × {{fees}} fees = {{bills}} bills"
+  },
+  "duplicates": {
+    "heading": "Some fees already exist for this period",
+    "row": "{{student}} already has {{fee}}",
+    "inactiveCount": "{{count}} of the selected students are not active.",
+    "skipLabel": "Skip duplicates",
+    "skipHint": "Only students without an existing fee for this period get a new one.",
+    "removeOlderLabel": "Remove the older fee first",
+    "removeOlderHint": "The existing fee record is deleted before the new one is created.",
+    "createAnywayLabel": "Create anyway",
+    "createAnywayHint": "Creates a second fee record for the same period. Needs admin approval."
+  },
   "steps": {
     "year": "Academic year",
     "scope": "Class and section",
@@ -20,8 +65,13 @@
     "hint": "Leave both on \"All\" to run the whole school for this academic year."
   },
   "period": {
+    "typeLabel": "Period type",
+    "month": "Month",
+    "week": "Week",
     "monthLabel": "Month",
     "yearLabel": "Year",
+    "weekStartLabel": "Week starting",
+    "dueDateLabel": "Due date",
     "outsideYear": "{{month}} {{year}} is outside {{name}} ({{start}} to {{end}}). Choose a month inside the academic year, or go back and choose a different year."
   },
   "review": {
@@ -70,7 +120,7 @@
     "12": "December"
   },
   "notifications": {
-    "generated": "{{generated}} fee records generated, {{skipped}} skipped.",
+    "generated": "Generated {{generated}} bills for {{students}} students ({{skipped}} skipped).",
     "failed": "Generating fees failed."
   }
 }

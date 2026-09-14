@@ -16,10 +16,11 @@ import { School } from '../schools/entities/school.entity';
 import { AuditModule } from '../audit/audit.module';
 import { StudentModule } from '../students/students.module';
 import { FeeStructureService, PaymentService } from './fees.service';
-import { FeeGenerationService } from './fee-generation.service';
+import { FeeGenerationService, NoopDiscountResolver } from './fee-generation.service';
 import { PaymentAllocationService } from './payment-allocation.service';
 import { FeeDuesService } from './fee-dues.service';
 import { FeeGenerationsService } from './fee-generations.service';
+import { FeeGenerationBatchService } from './fee-generation-batch.service';
 import { FeeController } from './fees.controller';
 import { FeeGenerationsController } from './fee-generations.controller';
 import { WalletService } from './wallet.service';
@@ -52,7 +53,9 @@ import { WalletController } from './wallet.controller';
     PaymentAllocationService,
     FeeDuesService,
     FeeGenerationsService,
+    FeeGenerationBatchService,
     WalletService,
+    NoopDiscountResolver,
   ],
   controllers: [FeeController, FeeGenerationsController, WalletController],
   exports: [
@@ -62,6 +65,7 @@ import { WalletController } from './wallet.controller';
     PaymentAllocationService,
     FeeDuesService,
     FeeGenerationsService,
+    FeeGenerationBatchService,
     WalletService,
   ],
 })

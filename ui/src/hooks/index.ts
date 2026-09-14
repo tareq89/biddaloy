@@ -87,6 +87,7 @@ export {
 } from './teachers';
 export {
   myStudentsQueryOptions,
+  studentIdsQueryOptions,
   studentKeys,
   studentQueryOptions,
   studentsQueryOptions,
@@ -94,7 +95,9 @@ export {
   useDeleteStudent,
   useMyStudents,
   useStudent,
+  useStudentIds,
   useStudents,
+  useStudentSearch,
   useUpdateStudent,
   useUpdateStudentEnrollmentStatus,
   useUpdateStudentPreferredCommunication,
@@ -103,6 +106,8 @@ export {
   type PaginatedStudents,
   type PreferredCommunication,
   type Student,
+  type StudentIdsFilters,
+  type StudentIdsResult,
   type StudentListFilters,
   type StudentSortField,
   type UpdateStudentInput,
@@ -339,7 +344,20 @@ export {
   type PaginatedFeeStructures,
   type UpdateFeeStructureInput,
 } from './fee-structures';
-export { useGenerateFees, type GenerateFeesInput, type GenerateFeesResult } from './fee-generation';
+export {
+  useGenerateFees,
+  useGenerateFeesPreview,
+  type DuplicateAction,
+  type GenerateFeesDuplicate,
+  type GenerateFeesInactiveStudent,
+  type GenerateFeesInput,
+  type GenerateFeesPreviewInput,
+  type GenerateFeesPreviewResult,
+  type GenerateFeesRequest,
+  type GenerateFeesResult,
+  type GenerateFeesScope,
+  type PeriodType,
+} from './fee-generation';
 export {
   useValidateStudentUpload,
   useCommitStudentUpload,
@@ -412,6 +430,30 @@ export {
   type PaginatedFeeDues,
   type SortOrder,
 } from './fee-dues';
+export {
+  feeGenerationBillsQueryOptions,
+  feeGenerationQueryOptions,
+  feeGenerationsKeys,
+  feeGenerationsQueryOptions,
+  useDeleteFeeGeneration,
+  useFeeGeneration,
+  useFeeGenerationBills,
+  useFeeGenerations,
+  usePatchFeeGeneration,
+  useRemoveBatchStudent,
+  useRemoveUncollected,
+  type FeeGeneration,
+  type FeeGenerationBill,
+  type FeeGenerationBillsFilters,
+  type FeeGenerationsFilters,
+  type FeeGenerationStructureSnapshot,
+  type PaginatedFeeGenerationBills,
+  type PaginatedFeeGenerations,
+  type PatchFeeGenerationConflict,
+  type PatchFeeGenerationInput,
+  type RemoveBatchStudentInput,
+  type RemoveUncollectedResult,
+} from './fee-generations';
 export {
   useGlobalSearch,
   type GlobalSearchEntityResult,

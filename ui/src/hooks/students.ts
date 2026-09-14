@@ -295,6 +295,97 @@ export function useUpdateStudentEnrollmentStatus(id: string) {
   });
 }
 
+/**
+ * [16.3.6] The Generate Fees modal's audience picker — a thin,
+ * intention-revealing wrapper over `useStudents` rather than a new query
+ * shape. Split out from `useStudents` because the picker's callers reason
+ * about it as "search students for the audience list", not as a generic
+ * paginated list.
+ */
+export function useStudentSearch(
+  filters: StudentListFilters = {},
+  options: { enabled?: boolean } = {},
+) {
+  return useStudents(filters, options);
+}
+
+/** `GET /students/ids`'s 200 body — see this file's own `PaginatedStudents`
+ * comment on `schema.d.ts` gaps; this endpoint is new as of #652 and isn't
+ * in the generated schema yet either. */
+export interface StudentIdsResult {
+  ids: string[];
+  total: number;
+}
+
+/** [CodeRabbit round 1] The server's `QueryStudentIdsDto` has no
+ * pagination/sort fields and the global `ValidationPipe` forbids unknown
+ * properties — forwarding the whole `StudentListFilters` object (as the
+ * audience picker previously did, including `limit`) 400s every "select
+ * all N matching" click. Only these keys are legal for `GET /students/ids`. */
+export type StudentIdsFilters = Pick<
+  StudentListFilters,
+  | 'search'
+  | 'class_id'
+  | 'section_id'
+  | 'enrollment_status'
+  | 'gender'
+  | 'date_of_birth_from'
+  | 'date_of_birth_to'
+>;
+
+/**
+ * [16.3.6] "Select all N matching" in the audience picker — `GET
+ * /students/ids`, the same filters `useStudents`/`studentsQueryOptions`
+ * accept, but returning every matching id instead of one page of rows.
+ * Owned by #652 (parallel, still open at the time this hook was written);
+ * built against #652's documented contract rather than its code, since
+ * none has merged yet. The server 413s beyond 5000 matches — surfaced to
+ * the caller as a normal `ApiError`, same as any other 4xx.
+ *
+ * `enabled` defaults to `false`: unlike a list query, nobody wants this
+ * to fire on mount or on every filter keystroke — it only runs when the
+ * accountant actually clicks "Select all N matching".
+ */
+export function studentIdsQueryOptions(filters: StudentIdsFilters = {}) {
+  // Built explicitly rather than spreading `filters` — a caller that still
+  // has `limit`/`page`/`sort` on hand (e.g. a shared filter-bar state
+  // object) must not have those leak through to the request.
+  const allowedKeys: (keyof StudentIdsFilters)[] = [
+    'search',
+    'class_id',
+    'section_id',
+    'enrollment_status',
+    'gender',
+    'date_of_birth_from',
+    'date_of_birth_to',
+  ];
+  const params: StudentIdsFilters = {};
+  for (const key of allowedKeys) {
+    const value = filters[key];
+    if (value !== undefined) {
+      params[key] = value;
+    }
+  }
+
+  return queryOptions({
+    queryKey: studentKeys.list({ ...params, idsOnly: true } as StudentListFilters & {
+      idsOnly: boolean;
+    }),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<StudentIdsResult>('/students/ids', {
+        params,
+        signal,
+      });
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useStudentIds(filters: StudentIdsFilters = {}, { enabled = false } = {}) {
+  return useQuery({ ...studentIdsQueryOptions(filters), enabled });
+}
+
 /** [8.10.2]'s Delete action — `Student.deleted_at` soft delete
  * (`students.service.ts`'s `remove`), same reasoning as
  * `useCreateStudent`: a removed student can affect any cached list
