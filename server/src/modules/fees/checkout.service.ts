@@ -123,7 +123,8 @@ export class CheckoutService {
     if (existing) {
       this.assertIdempotentReplayMatches(existing, dto);
       if (meta) meta.replayed = true;
-      return this.toResult(existing, tenantId);
+      const repaired = await this.ensureInvoiceLinked(existing.id, tenantId, userId);
+      return this.toResult(repaired, tenantId);
     }
 
     const lineFeeIds = dto.lines.map((l) => l.student_fee_id);
@@ -419,11 +420,8 @@ export class CheckoutService {
       // result. Falling through to invoice creation below would mint a
       // second invoice for the same payment.
       if (meta) meta.replayed = true;
-      const winner = await this.paymentRepo.findOneOrFail({
-        where: { id: winnerId },
-        relations: ['allocations', 'allocations.student_fee', 'invoice'],
-      });
-      return this.toResult(winner, tenantId);
+      const repaired = await this.ensureInvoiceLinked(winnerId, tenantId, userId);
+      return this.toResult(repaired, tenantId);
     }
 
     let finalPaymentId = paymentId;
@@ -435,7 +433,8 @@ export class CheckoutService {
           `idempotency_key "${duplicateKey}" conflicted with an existing payment that could not be re-read`,
         );
       }
-      return this.toResult(winner, tenantId);
+      const repaired = await this.ensureInvoiceLinked(winner.id, tenantId, userId);
+      return this.toResult(repaired, tenantId);
     }
 
     // Invoice creation is deliberately outside the transaction above:
@@ -447,35 +446,12 @@ export class CheckoutService {
     // failure here leaves a valid payment without an invoice rather than
     // rolling back money already recorded, which is the safer failure mode
     // for a cashier who has already handed over a receipt confirmation.
-    const payment = await this.paymentRepo.findOneOrFail({
-      where: { id: finalPaymentId! },
-      relations: [
-        'allocations',
-        'allocations.student_fee',
-        'allocations.student_fee.fee_structure',
-      ],
-    });
-
-    const lineItems = payment.allocations.map((a) => ({
-      // `fee_structure` can be null when it was soft-deleted after this
-      // bill was created — this runs AFTER the payment transaction
-      // commits, so a crash here would leave an invoice-less payment.
-      // Fall back to a generic label instead of throwing post-commit.
-      description: `Fee for ${a.student_fee.fee_structure?.name ?? 'Fee'} (${a.student_fee.month}/${a.student_fee.year})`,
-      amount: Number(a.allocated_amount),
-      quantity: 1,
-    }));
-
-    const invoice = await this.invoicesService.create(
-      {
-        student_id: payment.student_id,
-        due_date: payment.payment_date.toISOString().slice(0, 10),
-        line_items: lineItems,
-      },
-      tenantId,
-      userId,
-    );
-    await this.paymentRepo.update(payment.id, { invoice_id: invoice.id });
+    // `ensureInvoiceLinked` is what makes that recoverable: every replay
+    // of this idempotency key (including one that hits this exact code
+    // path again, since `finalPaymentId` is already committed) retries
+    // the missing invoice rather than returning an incomplete result
+    // forever — see its own doc comment.
+    const payment = await this.ensureInvoiceLinked(finalPaymentId!, tenantId, userId);
 
     const walletBalanceAfter = await this.walletService.balance(payment.student_id, tenantId);
 
@@ -487,8 +463,8 @@ export class CheckoutService {
 
     return {
       payment,
-      invoice_id: invoice.id,
-      invoice_number: invoice.invoice_number,
+      invoice_id: payment.invoice_id ?? '',
+      invoice_number: payment.invoice?.invoice_number ?? '',
       change_amount: Number(payment.change_amount),
       wallet_balance_after: walletBalanceAfter,
     };
@@ -549,6 +525,95 @@ export class CheckoutService {
       where: { tenant_id: tenantId, idempotency_key: key },
       relations: ['allocations', 'allocations.student_fee', 'invoice'],
     });
+  }
+
+  /**
+   * Makes the documented "payment committed, invoice creation failed"
+   * gap (see the comment above the main flow's call site) recoverable
+   * instead of permanent: every return path — the main flow, a fresh
+   * idempotency replay, and both concurrent-transaction race outcomes —
+   * routes through here first. A payment that already has an invoice is
+   * returned untouched; one that doesn't gets exactly one repair attempt
+   * per call.
+   *
+   * Two requests can reach this for the same orphaned payment at nearly
+   * the same time (e.g. two rapid retries of the same idempotency key
+   * after the first invoice-creation attempt failed) — `pg_try_advisory_lock`
+   * scoped to the payment id keeps only one of them actually calling
+   * `InvoicesService.create`, so a race never mints two invoices for one
+   * payment. The lock key is a plain string hashed by Postgres itself
+   * (`hashtext`), not a `bigint` id, so no separate keyspace bookkeeping
+   * is needed. A caller that loses the race simply re-reads the payment
+   * once the winner has released the lock, rather than blocking on it —
+   * if the winner also failed, the next repair attempt (the next retry
+   * from the client) tries again.
+   */
+  private async ensureInvoiceLinked(
+    paymentId: string,
+    tenantId: string,
+    userId: string,
+  ): Promise<Payment> {
+    const loaded = await this.paymentRepo.findOneOrFail({
+      where: { id: paymentId },
+      relations: [
+        'allocations',
+        'allocations.student_fee',
+        'allocations.student_fee.fee_structure',
+        'invoice',
+      ],
+    });
+    if (loaded.invoice_id) return loaded;
+
+    const lockKey = `checkout-invoice-repair:${paymentId}`;
+    const [{ locked }]: [{ locked: boolean }] = await this.paymentRepo.manager.query(
+      `SELECT pg_try_advisory_lock(hashtext($1)) AS locked`,
+      [lockKey],
+    );
+    if (!locked) {
+      // Someone else is already repairing this payment — don't queue
+      // behind them, just hand back the current (possibly still
+      // invoice-less) state; the next retry tries again.
+      return loaded;
+    }
+
+    try {
+      // Re-read under the lock: the concurrent repairer may have just
+      // finished between the check above and acquiring the lock.
+      const fresh = await this.paymentRepo.findOneOrFail({
+        where: { id: paymentId },
+        relations: [
+          'allocations',
+          'allocations.student_fee',
+          'allocations.student_fee.fee_structure',
+          'invoice',
+        ],
+      });
+      if (fresh.invoice_id) return fresh;
+
+      const lineItems = fresh.allocations.map((a) => ({
+        // Same fallback as the main flow: `fee_structure` can be null
+        // when it was soft-deleted after this bill was created.
+        description: `Fee for ${a.student_fee.fee_structure?.name ?? 'Fee'} (${a.student_fee.month}/${a.student_fee.year})`,
+        amount: Number(a.allocated_amount),
+        quantity: 1,
+      }));
+
+      const invoice = await this.invoicesService.create(
+        {
+          student_id: fresh.student_id,
+          due_date: fresh.payment_date.toISOString().slice(0, 10),
+          line_items: lineItems,
+        },
+        tenantId,
+        userId,
+      );
+      await this.paymentRepo.update(fresh.id, { invoice_id: invoice.id });
+      fresh.invoice_id = invoice.id;
+      fresh.invoice = invoice;
+      return fresh;
+    } finally {
+      await this.paymentRepo.manager.query(`SELECT pg_advisory_unlock(hashtext($1))`, [lockKey]);
+    }
   }
 
   private async toResult(payment: Payment, tenantId: string): Promise<CheckoutResultDto> {

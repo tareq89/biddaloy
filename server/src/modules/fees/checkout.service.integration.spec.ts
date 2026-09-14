@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -61,6 +61,7 @@ function daysFromToday(days: number): Date {
 describe('CheckoutService (integration)', () => {
   let service: CheckoutService;
   let walletService: WalletService;
+  let invoicesService: InvoicesService;
   let redis: Redis;
   let studentRepo: Repository<Student>;
   let studentFeeRepo: Repository<StudentFee>;
@@ -151,6 +152,7 @@ describe('CheckoutService (integration)', () => {
 
     service = module.get<CheckoutService>(CheckoutService);
     walletService = module.get<WalletService>(WalletService);
+    invoicesService = module.get<InvoicesService>(InvoicesService);
     studentRepo = module.get<Repository<Student>>(getRepositoryToken(Student));
     studentFeeRepo = module.get<Repository<StudentFee>>(getRepositoryToken(StudentFee));
     paymentRepo = module.get<Repository<Payment>>(getRepositoryToken(Payment));
@@ -603,6 +605,91 @@ describe('CheckoutService (integration)', () => {
       expect(a.payment.id).toBe(b.payment.id);
       const payments = await paymentRepo.find({ where: { idempotency_key: key } });
       expect(payments).toHaveLength(1);
+      const invoices = await dataSource.getRepository(Invoice).find({
+        where: { student_id: student.id },
+      });
+      expect(invoices).toHaveLength(1);
+    });
+
+    it('recovers an orphaned payment (invoice creation failed post-commit) on the next idempotent replay', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 500 }));
+      const key = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
+      const dto = {
+        idempotency_key: key,
+        lines: [{ student_fee_id: bill.id, amount: 500, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+      };
+
+      const createSpy = vi
+        .spyOn(invoicesService, 'create')
+        .mockRejectedValueOnce(new Error('simulated invoice-service outage'));
+
+      await expect(
+        service.checkout(dto, TENANT_ID, ACTOR_USER_ID, requestWithToken()),
+      ).rejects.toThrow('simulated invoice-service outage');
+
+      // The payment itself is durably committed even though the request
+      // as a whole threw — this is the documented trade-off `checkout()`
+      // makes deliberately (see its comment). Without the fix under test,
+      // this row would be permanently invoice-less.
+      const orphaned = await paymentRepo.findOneOrFail({ where: { idempotency_key: key } });
+      expect(orphaned.invoice_id).toBeNull();
+
+      createSpy.mockRestore();
+
+      // The client retries with the same idempotency key, exactly as a
+      // real caller would after a 500. This must now repair the orphan
+      // instead of returning the same incomplete result forever.
+      const retryMeta: { replayed?: boolean } = {};
+      const retried = await service.checkout(
+        dto,
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+        retryMeta,
+      );
+
+      expect(retryMeta.replayed).toBe(true);
+      expect(retried.payment.id).toBe(orphaned.id);
+      expect(retried.invoice_id).toBeTruthy();
+
+      const repaired = await paymentRepo.findOneOrFail({ where: { id: orphaned.id } });
+      expect(repaired.invoice_id).toBeTruthy();
+
+      const invoices = await dataSource.getRepository(Invoice).find({
+        where: { student_id: student.id },
+      });
+      expect(invoices).toHaveLength(1);
+    });
+
+    it('does not mint two invoices when two replays race to repair the same orphaned payment', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const bill = await studentFeeRepo.save(makeBill(student.id, { total_amount: 500 }));
+      const key = '99999999-9999-4999-8999-999999999999';
+      const dto = {
+        idempotency_key: key,
+        lines: [{ student_fee_id: bill.id, amount: 500, one_off_discount: 0 }],
+        payment_method: PaymentMethod.CASH,
+      };
+
+      const createSpy = vi
+        .spyOn(invoicesService, 'create')
+        .mockRejectedValueOnce(new Error('simulated invoice-service outage'));
+      await expect(
+        service.checkout(dto, TENANT_ID, ACTOR_USER_ID, requestWithToken()),
+      ).rejects.toThrow('simulated invoice-service outage');
+      createSpy.mockRestore();
+
+      await Promise.all([
+        service.checkout(dto, TENANT_ID, ACTOR_USER_ID, requestWithToken()),
+        service.checkout(dto, TENANT_ID, ACTOR_USER_ID, requestWithToken()),
+      ]);
+
+      const payments = await paymentRepo.find({ where: { idempotency_key: key } });
+      expect(payments).toHaveLength(1);
+      expect(payments[0].invoice_id).toBeTruthy();
+
       const invoices = await dataSource.getRepository(Invoice).find({
         where: { student_id: student.id },
       });
