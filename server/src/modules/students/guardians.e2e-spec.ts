@@ -6,7 +6,8 @@ import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { DataSource } from 'typeorm';
-import { UserRole } from '@biddaloy/shared';
+import { PaymentMethod, UserRole } from '@biddaloy/shared';
+import { randomUUID } from 'crypto';
 import {
   SEED_TENANT_ID,
   SEED_ADMIN_EMAIL,
@@ -14,6 +15,7 @@ import {
   SEED_ADMIN_PASSWORD,
   SEED_SECTION_1_ID,
 } from '@test/constants';
+import { ensureFeeStructure, periodStart } from '@test/helpers/fee-fixture.helper';
 
 /**
  * E2E tests for Guardian endpoints.
@@ -272,14 +274,33 @@ describe('Guardians E2E', () => {
         })
         .expect(201);
 
+      const structureId = await ensureFeeStructure(dataSource);
+      const academicYear = await dataSource.query(
+        `SELECT id FROM academic_years WHERE tenant_id = $1 LIMIT 1`,
+        [TENANT_ID],
+      );
+      const feeRes = await dataSource.query(
+        `INSERT INTO student_fees (id, student_id, academic_year_id, fee_structure_id, period_start, due_date, total_amount, paid_amount, discount_amount, status, created_at, updated_at)
+         VALUES (DEFAULT, $1, $2, $3, $4::date, $5::date, $6, 0, 0, 'PENDING', NOW(), NOW())
+         RETURNING id`,
+        [
+          studentRes.body.id,
+          academicYear[0].id,
+          structureId,
+          periodStart(1, 2026),
+          '2026-01-10',
+          1500,
+        ],
+      );
+
       await supertest(app.getHttpServer())
-        .post('/api/v1/payments')
+        .post('/api/v1/payments/checkout')
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({
-          student_id: studentRes.body.id,
-          total_amount: 1500,
-          payment_method: 'CASH',
+          idempotency_key: randomUUID(),
+          lines: [{ student_fee_id: feeRes[0].id, amount: 1500, one_off_discount: 0 }],
+          payment_method: PaymentMethod.CASH,
         })
         .expect(201);
 
