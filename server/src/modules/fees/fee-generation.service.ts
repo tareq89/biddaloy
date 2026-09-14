@@ -388,6 +388,26 @@ export class FeeGenerationService {
         where: { fee_generation_id: feeGenerationId },
       });
       generatedCount = createdBills.length;
+      // Postgres gives no ordering guarantee for a plain `find()` — row
+      // order can (and does, intermittently) differ from insertion order.
+      // The wallet auto-apply loop below relies on `createdBills` being in
+      // the same order as `rowsToInsert` (student/structure iteration
+      // order, its own documented "oldest first" semantics), so restore
+      // that order explicitly here rather than trusting the DB's return
+      // order — a client-generated id isn't available to sort by directly
+      // (the DB assigns it), but (student_id, fee_structure_id, occurrence)
+      // is the same uniqueness key the insert itself relies on.
+      const insertOrder = new Map(
+        rowsToInsert.map((row, i) => [
+          `${row.student_id}|${row.fee_structure_id}|${row.occurrence}`,
+          i,
+        ]),
+      );
+      createdBills.sort(
+        (a, b) =>
+          insertOrder.get(`${a.student_id}|${a.fee_structure_id}|${a.occurrence}`)! -
+          insertOrder.get(`${b.student_id}|${b.fee_structure_id}|${b.occurrence}`)!,
+      );
       // Under SKIP, any row we intended to insert but that lost a
       // concurrent race counts as skipped too, not silently dropped.
       if (duplicateStrategy === DuplicateStrategy.SKIP) {
