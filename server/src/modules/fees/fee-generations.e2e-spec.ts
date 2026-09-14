@@ -446,7 +446,7 @@ describe('Fee Generations E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
         .expect(403);
-      expect(res.body.code ?? res.body.details?.code).toBeTruthy();
+      expect(res.body.code ?? res.body.details?.code).toBe('APPROVAL_REQUIRED');
     });
   });
 
