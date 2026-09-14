@@ -553,7 +553,7 @@ export class FeeGenerationService {
 
     const { periodStart, periodEnd } = this.assertPeriodWithinAcademicYear(dto, academicYear);
 
-    const structures = await manager.getRepository(FeeStructure).find({
+    const fetchedStructures = await manager.getRepository(FeeStructure).find({
       where: {
         id: In(dto.fee_structure_ids),
         tenant_id: tenantId,
@@ -561,13 +561,26 @@ export class FeeGenerationService {
         deleted_at: IsNull(),
       },
     });
-    if (structures.length !== new Set(dto.fee_structure_ids).size) {
-      const foundIds = new Set(structures.map((s) => s.id));
+    if (fetchedStructures.length !== new Set(dto.fee_structure_ids).size) {
+      const foundIds = new Set(fetchedStructures.map((s) => s.id));
       const missing = dto.fee_structure_ids.filter((id) => !foundIds.has(id));
       throw new NotFoundException(
         `Fee structure(s) not found for this tenant/academic year: ${missing.join(', ')}`,
       );
     }
+    // `find({ where: { id: In(...) } })` gives no ordering guarantee —
+    // `generate()`'s pair-building loop iterates `context.structures`
+    // directly, and that order is what `rowsToInsert`, then
+    // `createdBills` (restored to match it after the bulk insert, see
+    // `generate()`'s own comment), ultimately feeds into wallet
+    // auto-apply's "oldest/first structure first" semantics. Re-order to
+    // the caller's own `dto.fee_structure_ids` sequence here so the whole
+    // chain is deterministic from a real business key, not an
+    // accidental one.
+    const structureById = new Map(fetchedStructures.map((s) => [s.id, s]));
+    const structures = dto.fee_structure_ids
+      .map((id) => structureById.get(id))
+      .filter((s): s is FeeStructure => s !== undefined);
 
     const students = await manager.getRepository(Student).find({
       where: { id: In(dto.student_ids), tenant_id: tenantId, deleted_at: IsNull() },
