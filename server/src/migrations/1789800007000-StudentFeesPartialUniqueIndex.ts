@@ -29,10 +29,44 @@ export class StudentFeesPartialUniqueIndex1789800007000 implements MigrationInte
     );
   }
 
+  /**
+   * Rollback must first reconcile rows the partial index allowed but the
+   * plain constraint will not: a live bill and one or more soft-deleted
+   * bills sharing the same (student, structure, period, occurrence) key
+   * (REMOVE_OLDER leaves exactly that shape behind). Soft-deleted rows are
+   * tombstones — nothing live reads their `occurrence` — so they are
+   * renumbered past the group's current maximum rather than hard-deleted,
+   * which would break FKs from payment allocations and invoices.
+   */
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
       `DROP INDEX "public"."IDX_student_fees_active_student_structure_period_occurrence"`,
     );
+    await queryRunner.query(`
+      WITH colliding_groups AS (
+        SELECT "student_id", "fee_structure_id", "period_start", MAX("occurrence") AS max_occurrence
+        FROM "student_fees"
+        GROUP BY "student_id", "fee_structure_id", "period_start"
+        HAVING COUNT(*) > 1
+      ),
+      renumbered AS (
+        SELECT sf."id",
+               cg.max_occurrence + ROW_NUMBER() OVER (
+                 PARTITION BY sf."student_id", sf."fee_structure_id", sf."period_start"
+                 ORDER BY sf."deleted_at", sf."id"
+               ) AS new_occurrence
+        FROM "student_fees" sf
+        JOIN colliding_groups cg
+          ON cg."student_id" = sf."student_id"
+         AND cg."fee_structure_id" = sf."fee_structure_id"
+         AND cg."period_start" = sf."period_start"
+        WHERE sf."deleted_at" IS NOT NULL
+      )
+      UPDATE "student_fees" sf
+      SET "occurrence" = r.new_occurrence
+      FROM renumbered r
+      WHERE sf."id" = r."id"
+    `);
     await queryRunner.query(
       `ALTER TABLE "student_fees" ADD CONSTRAINT "UQ_student_fees_student_structure_period_occurrence" UNIQUE ("student_id", "fee_structure_id", "period_start", "occurrence")`,
     );
