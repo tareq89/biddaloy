@@ -431,6 +431,14 @@ export {
   type SortOrder,
 } from './fee-dues';
 export {
+  useStudentWallet,
+  walletKeys,
+  type FamilyStudentWallet,
+  type FamilyWalletTransaction,
+  type StudentWallet,
+  type WalletTransaction,
+} from './wallet';
+export {
   feeGenerationBillsQueryOptions,
   feeGenerationQueryOptions,
   feeGenerationsKeys,

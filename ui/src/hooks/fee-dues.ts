@@ -1,4 +1,4 @@
-import type { FeeStatus } from '@biddaloy/shared';
+import type { FeeStatus, FeeType, PeriodType } from '@biddaloy/shared';
 import { keepPreviousData, queryOptions, useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
@@ -8,17 +8,37 @@ import { shouldRetryQuery } from './retry';
 
 /** `FeeController.getDues`/`getFlaggedDues`'s untyped 200 body — same
  * documentation gap `payments.ts`'s `StudentFeeSummary`, hand-typed
- * against `fee-dues.service.ts`'s actual return shape. `guardians` is
- * only present on the flagged response (it feeds the bulk-reminder flow's
- * recipient preview there) — optional here rather than a second parallel
- * type, since nothing in [8.10.4]'s dues queue reads it. */
+ * against `fee-dues.service.ts`'s `DueEntry` (lines 12-30 there), which
+ * [16.4.5] widened to the bill-shaped per-fee-line data this ticket's UI
+ * needs — `fee_name`/`fee_type`/`period_start`/`period_type`/`occurrence`/
+ * `is_late_fee`/`standing_discount_amount`/`one_off_discount_amount` are
+ * new here; `discount_amount` stays (server keeps it as the sum of the
+ * two split-out fields, for callers that don't care about the split).
+ * `guardians` is only present on the flagged response (it feeds the
+ * bulk-reminder flow's recipient preview there) — optional here rather
+ * than a second parallel type, since nothing in [8.10.4]'s dues queue
+ * reads it. */
 export interface FeeDueEntry {
   student_fee_id: string;
+  fee_structure_id: string;
+  fee_name: string;
+  fee_type: FeeType;
   month: number;
   year: number;
+  period_start: string;
+  period_type: PeriodType;
+  /** Which bill this is within its recurring series — the "(2)" suffix
+   * next to a fee name when the same fee has more than one open
+   * occurrence. */
+  occurrence: number;
+  /** This bill IS a late fee (`late_fee_for_student_fee_id IS NOT NULL`
+   * server-side) — drives the late-fee badge on its row. */
+  is_late_fee: boolean;
   total_amount: number;
   paid_amount: number;
   discount_amount: number;
+  standing_discount_amount: number;
+  one_off_discount_amount: number;
   balance: number;
   status: FeeStatus;
   due_date: string | null;
@@ -68,6 +88,11 @@ export interface FeeDuesFilters {
   month?: number;
   year?: number;
   status?: FeeStatus.PENDING | FeeStatus.PARTIALLY_PAID;
+  /** Narrows to students with at least one open bill against a fee
+   * structure of this type — `QueryFeeDuesDto.fee_type`'s own comment.
+   * Not accepted by `GET /fees/dues/flagged` — `FLAGGED_FIELDS` below
+   * strips it before that request goes out, same as `search`. */
+  fee_type?: FeeType;
   /** Matches student full_name, registration_number, or roll_number — see
    * `QueryFeeDuesDto.search`'s own comment. Not accepted by `GET
    * /fees/dues/flagged`, same as every field below `class_id`/`section_id`
