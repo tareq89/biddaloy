@@ -56,7 +56,7 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
       // this comment — check-i18n-keys.mjs's namespace-resolution regex
       // isn't a real parser and would match that text as this file's own
       // useTranslation call, misrouting every t() call below.)
-      loadRouteNamespaces('students', 'common', 'portal'),
+      loadRouteNamespaces('students', 'common', 'portal', 'payments'),
     ]),
   pendingComponent: StudentDetailPending,
   component: StudentDetailPage,

@@ -1,49 +1,55 @@
 {
+  "title": "Payments",
+  "explanation": "A payments list with filters and detail is a later ticket over #660's endpoints. For now, record a payment straight from here or from a student/guardian's Payments tab.",
+  "recordAction": "Record payment",
   "record": {
     "title": "Record a payment",
-    "steps": {
-      "findStudent": "Find student",
-      "outstandingFees": "Outstanding fees",
-      "allocate": "Allocate",
-      "method": "Method & reference",
-      "confirm": "Confirm"
-    },
-    "findStudent": {
+    "description": "Search or pick a student, allocate the amount received across their open bills, then take tender.",
+    "submitAction": "Record payment",
+    "cancel": "Cancel",
+    "students": {
+      "label": "Students",
       "searchLabel": "Search for a student",
       "searchPlaceholder": "Search by name or roll number",
       "noResults": "No students match that search.",
-      "rollAndClass": "Roll {{roll}} · {{className}} {{sectionName}}"
+      "rollAndClass": "Roll {{roll}} · {{className}} {{sectionName}}",
+      "addSibling": "+ add sibling",
+      "removeStudent": "Remove {{name}}",
+      "maxReached": "Up to 10 students can be paid for in one checkout."
     },
-    "outstandingFees": {
-      "forStudent": "Outstanding fees for {{name}}",
-      "forbidden": "You don't have permission to view this student's fees.",
-      "errorMessage": "Couldn't load outstanding fees. Try again.",
-      "noBalance": "This student has no outstanding balance.",
-      "totalDue": "Total billed",
-      "totalPaid": "Total paid",
-      "balance": "Outstanding balance",
-      "amountReceivedLabel": "Amount received"
+    "amountReceived": {
+      "label": "Amount received",
+      "hint": "Distributed oldest-due-date first across the open bills below."
     },
-    "allocate": {
+    "cart": {
+      "columnFee": "Fee",
       "columnPeriod": "Period",
-      "columnType": "Type",
-      "columnRemaining": "Remaining",
-      "columnAllocated": "Allocated",
-      "typeDue": "Due",
-      "typeCurrent": "Current",
-      "typeAdvance": "Advance",
-      "lineAmountLabel": "Amount allocated to {{month}}/{{year}}",
-      "lineLocked": "An earlier fee isn't fully paid yet, so this line can't be allocated.",
-      "runningTotal": "Allocated {{allocated}} of {{total}} — {{unallocated}} unallocated",
-      "overAllocated": "The allocated amount is {{over}} more than the amount received. Reduce a line before continuing."
+      "columnDueDate": "Due date",
+      "columnBalance": "Balance",
+      "columnPay": "Pay",
+      "columnDiscount": "Discount",
+      "columnTotal": "Total",
+      "overdue": "Overdue",
+      "lateFee": "Late fee",
+      "empty": "This student has no open bills.",
+      "loading": "Loading open bills…",
+      "error": "Couldn't load open bills.",
+      "subtotal": "Subtotal",
+      "walletCredit": "Use wallet credit ({{amount}} available)",
+      "walletAvailable": "{{amount}} available",
+      "amountDue": "Amount due"
+    },
+    "discount": {
+      "label": "Discount",
+      "unlock": "Unlock to edit discount",
+      "discountTheRest": "Discount the rest",
+      "needsApproval": "This discount needs admin approval to submit.",
+      "exceedsBalance": "Pay plus discount can't exceed the balance."
     },
     "method": {
-      "methodLabel": "Payment method",
+      "label": "Payment method",
       "referenceLabel": "Transaction reference",
       "remarksLabel": "Remarks",
-      "generateInvoiceLabel": "Generate invoice on full payment",
-      "generateInvoiceExplanationFull": "Every fee this payment touches will be fully paid — an invoice will be generated.",
-      "generateInvoiceExplanationPartial": "This payment won't fully pay off every fee it touches, so no invoice will be generated regardless of this setting.",
       "methods": {
         "CASH": "Cash",
         "CHEQUE": "Cheque",
@@ -54,21 +60,18 @@
         "ROCKET": "Rocket"
       }
     },
-    "confirm": {
-      "summary": "Recording a payment of {{amount}} for {{name}}.",
-      "line": "{{month}}/{{year}}: {{amount}}",
-      "invoiceWillGenerate": "An invoice will be generated for this payment.",
-      "submitAction": "Record payment"
+    "tender": {
+      "tenderedLabel": "Tendered",
+      "changeLabel": "Change",
+      "changeReturn": "Return change",
+      "changeToWallet": "Credit change to wallet",
+      "tenderTooLow": "Tendered amount plus wallet credit doesn't cover the amount due."
     },
-    "receipt": {
-      "success": "{{amount}} received from {{name}}.",
-      "invoiceGenerated": "Invoice {{number}} generated.",
-      "printAction": "Print receipt",
-      "printError": "Couldn't open the print window. Check your browser's popup blocker and try again."
+    "notifications": {
+      "recorded": "{{amount}} recorded.",
+      "recordedWithChange": "{{amount}} recorded, {{change}} change.",
+      "failed": "Recording payment failed.",
+      "approvalCancelled": "Approval was cancelled."
     }
-  },
-  "notifications": {
-    "recorded": "Payment recorded for {{student}}.",
-    "failed": "Recording payment for {{student}} failed."
   }
 }

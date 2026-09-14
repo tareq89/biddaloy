@@ -1,4 +1,6 @@
+import { Permission } from '@biddaloy/shared';
 import {
+  Button,
   Table,
   TableBody,
   TableCell,
@@ -6,10 +8,13 @@ import {
   TableHeader,
   TableRow,
 } from '@biddaloy/ui/components';
-import { usePaymentsByGuardian } from '@biddaloy/ui/hooks';
+import { useHasPermission, usePaymentsByGuardian } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatCurrency, formatDate, parseCurrency, parseServerDate } from '@biddaloy/ui/utils';
 import { Link } from '@tanstack/react-router';
+import * as React from 'react';
+
+import { RecordPaymentModal } from '../../payments/-record/record-payment-modal';
 
 import { TabQueryState } from './tab-query-state';
 
@@ -24,58 +29,75 @@ export interface PaymentsTabProps {
  * Payments tab). */
 export function PaymentsTab({ guardianId }: PaymentsTabProps) {
   const { t } = useTranslation('guardians');
+  const { t: tPayments } = useTranslation('payments');
   const regionConfig = useRegionConfig();
   const query = usePaymentsByGuardian(guardianId);
+  const canRecord = useHasPermission(Permission.PAYMENT_RECORD);
+  const [recordOpen, setRecordOpen] = React.useState(false);
 
   return (
-    <TabQueryState
-      query={query}
-      forbiddenMessage={t('detail.forbidden')}
-      errorMessage={t('detail.payments.errorMessage')}
-    >
-      {(payments) =>
-        payments.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('detail.payments.emptyMessage')}</p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('detail.payments.columnDate')}</TableHead>
-                <TableHead>{t('detail.payments.columnStudent')}</TableHead>
-                <TableHead>{t('detail.payments.columnAmount')}</TableHead>
-                <TableHead>{t('detail.payments.columnMethod')}</TableHead>
-                <TableHead>{t('detail.payments.columnReference')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {payments.map((payment) => (
-                <TableRow key={payment.id}>
-                  <TableCell>
-                    {formatDate(parseServerDate(payment.payment_date), regionConfig)}
-                  </TableCell>
-                  <TableCell>
-                    <Link
-                      to="/students/$studentId"
-                      params={{ studentId: payment.student.id }}
-                      className="text-primary underline"
-                    >
-                      {payment.student.full_name}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    {formatCurrency(
-                      parseCurrency(String(payment.total_amount), regionConfig),
-                      regionConfig,
-                    )}
-                  </TableCell>
-                  <TableCell>{payment.payment_method}</TableCell>
-                  <TableCell>{payment.transaction_reference ?? t('list.emptyValue')}</TableCell>
+    <div className="flex flex-col gap-3">
+      {canRecord && (
+        <div>
+          <Button type="button" size="sm" onClick={() => setRecordOpen(true)}>
+            {tPayments('recordAction')}
+          </Button>
+          <RecordPaymentModal
+            open={recordOpen}
+            onOpenChange={setRecordOpen}
+            guardianId={guardianId}
+          />
+        </div>
+      )}
+      <TabQueryState
+        query={query}
+        forbiddenMessage={t('detail.forbidden')}
+        errorMessage={t('detail.payments.errorMessage')}
+      >
+        {(payments) =>
+          payments.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('detail.payments.emptyMessage')}</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('detail.payments.columnDate')}</TableHead>
+                  <TableHead>{t('detail.payments.columnStudent')}</TableHead>
+                  <TableHead>{t('detail.payments.columnAmount')}</TableHead>
+                  <TableHead>{t('detail.payments.columnMethod')}</TableHead>
+                  <TableHead>{t('detail.payments.columnReference')}</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )
-      }
-    </TabQueryState>
+              </TableHeader>
+              <TableBody>
+                {payments.map((payment) => (
+                  <TableRow key={payment.id}>
+                    <TableCell>
+                      {formatDate(parseServerDate(payment.payment_date), regionConfig)}
+                    </TableCell>
+                    <TableCell>
+                      <Link
+                        to="/students/$studentId"
+                        params={{ studentId: payment.student.id }}
+                        className="text-primary underline"
+                      >
+                        {payment.student.full_name}
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      {formatCurrency(
+                        parseCurrency(String(payment.total_amount), regionConfig),
+                        regionConfig,
+                      )}
+                    </TableCell>
+                    <TableCell>{payment.payment_method}</TableCell>
+                    <TableCell>{payment.transaction_reference ?? t('list.emptyValue')}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )
+        }
+      </TabQueryState>
+    </div>
   );
 }
