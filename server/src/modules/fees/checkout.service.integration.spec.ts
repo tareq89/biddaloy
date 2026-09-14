@@ -505,6 +505,35 @@ describe('CheckoutService (integration)', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+  it('rejects a WAIVED bill even when its computed balance is non-zero (404, no write)', async () => {
+    const student = await studentRepo.save(makeStudent());
+    const bill = await studentFeeRepo.save(
+      makeBill(student.id, {
+        total_amount: 1000,
+        paid_amount: 0,
+        discount_amount: 0,
+        status: FeeStatus.WAIVED,
+      }),
+    );
+
+    await expect(
+      service.checkout(
+        {
+          idempotency_key: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          lines: [{ student_fee_id: bill.id, amount: 500, one_off_discount: 0 }],
+          payment_method: PaymentMethod.CASH,
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      ),
+    ).rejects.toThrow(NotFoundException);
+
+    const unchanged = await studentFeeRepo.findOneByOrFail({ id: bill.id });
+    expect(unchanged.status).toBe(FeeStatus.WAIVED);
+    expect(Number(unchanged.paid_amount)).toBe(0);
+  });
+
   describe('concurrency', () => {
     it('two concurrent checkouts against the same bill never overshoot its balance — one succeeds, the other gets a clean validation error', async () => {
       // 700 balance, two concurrent requests for 500 each (1000 total) —

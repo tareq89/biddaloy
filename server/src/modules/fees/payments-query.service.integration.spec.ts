@@ -294,23 +294,20 @@ describe('PaymentsQueryService (integration)', () => {
       expect(result.data.map((p) => p.id)).toContain(lateInDay.id);
     });
 
-    // Known caveat (F2, not fixed here — see the comment in
-    // payments-query.service.ts): `date_from` is compared at midnight UTC,
-    // not the tenant's local midnight. A payment recorded 00:00-06:00 Dhaka
-    // time (UTC+6) on the start day is *before* midnight UTC of that day and
-    // is excluded even though it happened "on" that Dhaka calendar day.
-    it('documents the date_from caveat: an early-UTC payment on the start day is excluded', async () => {
+    it('date_from is compared against the school calendar day (Asia/Dhaka), not midnight UTC', async () => {
       const student = await makeStudent();
-      // 02:00 UTC on 2026-05-01 is 08:00 in Asia/Dhaka (UTC+6) on the same
-      // calendar day, but midnight UTC on 2026-05-01 has already passed —
-      // so this payment is *included* by the current UTC-only comparison.
-      // The caveat bites the other direction: a payment at, say, 20:00 UTC
-      // on 2026-04-30 (02:00 Dhaka time on 2026-05-01) would be wrongly
-      // excluded from a `date_from: '2026-05-01'` query. That case isn't
-      // exercised here since fixing it is out of this fix's scope — this
-      // test only pins today's actual (UTC midnight) behavior.
-      const payment = await makePayment(student.id, SEED_TENANT_ID, {
-        payment_date: new Date('2026-05-01T02:00:00Z'),
+      // 20:00 UTC on 2026-04-30 is 02:00 in Asia/Dhaka (UTC+6) on
+      // 2026-05-01 — already "May 1st" on the school calendar, even though
+      // midnight UTC on 2026-05-01 hasn't happened yet. A `date_from:
+      // '2026-05-01'` query must include it.
+      const justAfterSchoolMidnight = await makePayment(student.id, SEED_TENANT_ID, {
+        payment_date: new Date('2026-04-30T20:00:00Z'),
+      });
+      // 17:00 UTC on 2026-04-30 is 23:00 Dhaka time on 2026-04-30 — still
+      // "April 30th" on the school calendar, so a `date_from: '2026-05-01'`
+      // query must exclude it.
+      const stillPreviousSchoolDay = await makePayment(student.id, SEED_TENANT_ID, {
+        payment_date: new Date('2026-04-30T17:00:00Z'),
       });
 
       const result = await service.findAll(
@@ -318,7 +315,9 @@ describe('PaymentsQueryService (integration)', () => {
         SEED_TENANT_ID,
       );
 
-      expect(result.data.map((p) => p.id)).toContain(payment.id);
+      const ids = result.data.map((p) => p.id);
+      expect(ids).toContain(justAfterSchoolMidnight.id);
+      expect(ids).not.toContain(stillPreviousSchoolDay.id);
     });
 
     it('excludes soft-deleted payments and keeps tenants isolated', async () => {
@@ -431,6 +430,20 @@ describe('PaymentsQueryService (integration)', () => {
       expect(detail.total_amount).toBe(1234.56);
       expect(typeof detail.allocations[0].allocated_amount).toBe('number');
       expect(typeof detail.allocations[0].discount_amount).toBe('number');
+    });
+
+    it('findAll also returns total_amount as a number, not a string, matching findOne', async () => {
+      const student = await makeStudent();
+      await makePayment(student.id, SEED_TENANT_ID, { total_amount: 1234.56 });
+
+      const result = await service.findAll(
+        { student_id: student.id, page: 1, limit: 10 } as any,
+        SEED_TENANT_ID,
+      );
+
+      expect(result.data).toHaveLength(1);
+      expect(typeof result.data[0].total_amount).toBe('number');
+      expect(result.data[0].total_amount).toBe(1234.56);
     });
 
     it('returns null student when the student behind the payment is soft-deleted', async () => {

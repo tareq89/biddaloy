@@ -150,6 +150,9 @@ export class CheckoutService {
           .createQueryBuilder('sf')
           .where('sf.id IN (:...ids)', { ids: lineFeeIds })
           .andWhere('sf.deleted_at IS NULL')
+          .andWhere('sf.status IN (:...statuses)', {
+            statuses: [FeeStatus.PENDING, FeeStatus.PARTIALLY_PAID, FeeStatus.OVERDUE],
+          })
           .orderBy('sf.id', 'ASC')
           .setLock('pessimistic_write')
           .getMany();
