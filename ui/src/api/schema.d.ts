@@ -3010,6 +3010,51 @@ export interface components {
             notifications_enabled?: boolean;
             student_ids?: string[];
         };
+        CartBillDto: {
+            student_fee_id: string;
+            fee_name: string;
+            /** @enum {string} */
+            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
+            /** Format: date-time */
+            period_start: string;
+            /** @enum {string} */
+            period_type: "MONTH" | "WEEK";
+            occurrence: number;
+            total_amount: number;
+            standing_discount_amount: number;
+            one_off_discount_amount: number;
+            paid_amount: number;
+            balance: number;
+            /** Format: date-time */
+            due_date: string | null;
+            is_late_fee: boolean;
+            is_overdue: boolean;
+            suggested_allocation: number;
+        };
+        CartStudentDto: {
+            id: string;
+            full_name: string;
+            registration_number: string;
+            class_name: string | null;
+            section_name: string | null;
+            wallet_balance: number;
+            bills: components["schemas"]["CartBillDto"][];
+        };
+        SuggestedAllocationEntryDto: {
+            student_fee_id: string;
+            amount: number;
+        };
+        SuggestedAllocationDto: {
+            allocations: components["schemas"]["SuggestedAllocationEntryDto"][];
+            wallet_used: number;
+            remaining: number;
+            to_wallet: number;
+        };
+        CartResultDto: {
+            students: components["schemas"]["CartStudentDto"][];
+            total_balance: number;
+            suggested: components["schemas"]["SuggestedAllocationDto"] | null;
+        };
         CheckoutLineDto: {
             /** Format: uuid */
             student_fee_id: string;
@@ -6155,7 +6200,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["CartResultDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -6185,6 +6230,16 @@ export interface operations {
             };
         };
         responses: {
+            /** @description Idempotent replay: an already-recorded payment for this idempotency_key. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckoutResultDto"];
+                };
+            };
+            /** @description Payment recorded. */
             201: {
                 headers: {
                     [name: string]: unknown;

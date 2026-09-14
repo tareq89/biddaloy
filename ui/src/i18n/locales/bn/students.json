@@ -130,7 +130,7 @@
       "historyEmptyMessage": "এখনো কোনো পরিশোধিত বিল নেই।",
       "previousPage": "পূর্ববর্তী",
       "nextPage": "পরবর্তী",
-      "pageOf": "পৃষ্ঠা {{page}} এর মধ্যে {{totalPages}}"
+      "pageOf": "মোট {{totalPages}} পৃষ্ঠার মধ্যে {{page}} নম্বর পৃষ্ঠা"
     },
     "payments": {
       "columnDate": "তারিখ",

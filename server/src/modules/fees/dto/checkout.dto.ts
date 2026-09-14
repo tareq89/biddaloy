@@ -14,7 +14,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { PaymentMethod } from '@biddaloy/shared';
+import { FeeType, PaymentMethod, PeriodType } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import { MAX_CART_STUDENTS } from '../checkout-cart.service';
 import { Payment } from '../entities/payment.entity';
@@ -130,4 +130,63 @@ export class CheckoutResultDto {
   invoice_number: string;
   change_amount: number;
   wallet_balance_after: number;
+}
+
+/** One bill within `GET /payments/cart`'s response — mirrors
+ * `checkout-cart.service.ts`'s `CartBill` interface. A plain class (rather
+ * than importing that interface) so the `@nestjs/swagger` CLI plugin can
+ * generate a real OpenAPI schema for it: the plugin only introspects
+ * classes, not interfaces. */
+export class CartBillDto {
+  student_fee_id: string;
+  fee_name: string;
+  fee_type: FeeType;
+  period_start: Date;
+  period_type: PeriodType;
+  occurrence: number;
+  total_amount: number;
+  standing_discount_amount: number;
+  one_off_discount_amount: number;
+  paid_amount: number;
+  balance: number;
+  due_date: Date | null;
+  is_late_fee: boolean;
+  is_overdue: boolean;
+  suggested_allocation: number;
+}
+
+/** One student within `GET /payments/cart`'s response — mirrors
+ * `checkout-cart.service.ts`'s `CartStudent` interface. */
+export class CartStudentDto {
+  id: string;
+  full_name: string;
+  registration_number: string;
+  class_name: string | null;
+  section_name: string | null;
+  wallet_balance: number;
+  bills: CartBillDto[];
+}
+
+/** One entry of `GET /payments/cart`'s `suggested.allocations` — mirrors
+ * `checkout-cart.service.ts`'s `SuggestedAllocationEntry` interface. */
+export class SuggestedAllocationEntryDto {
+  student_fee_id: string;
+  amount: number;
+}
+
+/** `GET /payments/cart`'s `suggested` block — mirrors
+ * `checkout-cart.service.ts`'s `SuggestedAllocation` interface. */
+export class SuggestedAllocationDto {
+  allocations: SuggestedAllocationEntryDto[];
+  wallet_used: number;
+  remaining: number;
+  to_wallet: number;
+}
+
+/** Response shape for `GET /payments/cart` — mirrors
+ * `checkout-cart.service.ts`'s `CheckoutCartResult` interface. */
+export class CartResultDto {
+  students: CartStudentDto[];
+  total_balance: number;
+  suggested: SuggestedAllocationDto | null;
 }

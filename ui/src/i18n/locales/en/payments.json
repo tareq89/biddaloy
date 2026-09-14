@@ -1,6 +1,6 @@
 {
   "title": "Payments",
-  "explanation": "A payments list with filters and detail is a later ticket over #660's endpoints. For now, record a payment straight from here or from a student/guardian's Payments tab.",
+  "explanation": "Record a payment from this page or from a student's or guardian's Payments tab.",
   "recordAction": "Record payment",
   "record": {
     "title": "Record a payment",

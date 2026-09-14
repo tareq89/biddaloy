@@ -632,11 +632,14 @@ export function useCheckout() {
     approvalScope: ApprovalScope.FEES_DISCOUNT,
     retry: false,
     onSuccess: () => {
-      // A checkout changes every open bill's balance and the wallet
-      // balance, so the cart and payments caches are invalidated broadly
-      // rather than for one narrow filter variant.
+      // A checkout changes every open bill's balance, the fee-dues list,
+      // the wallet balance, and can mint an invoice — so all five caches
+      // are invalidated broadly rather than for one narrow filter variant.
       void queryClient.invalidateQueries({ queryKey: cartKeys.all });
       void queryClient.invalidateQueries({ queryKey: paymentKeys.all });
+      void queryClient.invalidateQueries({ queryKey: feeDuesKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
+      void queryClient.invalidateQueries({ queryKey: walletKeys.all });
     },
   });
 }

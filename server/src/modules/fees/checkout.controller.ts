@@ -13,7 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -25,7 +25,12 @@ import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator
 import { FamilyAccessService } from '../students/family-access.service';
 import { CheckoutCartService } from './checkout-cart.service';
 import { CheckoutService } from './checkout.service';
-import { CheckoutDto, QueryCheckoutCartDto } from './dto/checkout.dto';
+import {
+  CartResultDto,
+  CheckoutDto,
+  CheckoutResultDto,
+  QueryCheckoutCartDto,
+} from './dto/checkout.dto';
 import { JwtPayload, Permission, UserRole, isGuardianRole } from '@biddaloy/shared';
 
 /**
@@ -65,6 +70,7 @@ export class CheckoutController {
     summary:
       "Open bills, wallet balance and (with `amount`) a suggested allocation for one or more students. Staff may request any of their tenant's students; a PARENT/STUDENT must be linked to every student_id requested.",
   })
+  @ApiOkResponse({ type: CartResultDto })
   async getCart(
     @Query() query: QueryCheckoutCartDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -95,6 +101,11 @@ export class CheckoutController {
   @ApiOperation({
     summary:
       "Record a payment across one or more students' bills — wallet credit, one-off discounts (behind the fees.discount approval), tendered cash and change, all in one idempotent, locked transaction. A repeat with an already-used idempotency_key returns 200 with the original payment instead of 201.",
+  })
+  @ApiCreatedResponse({ description: 'Payment recorded.', type: CheckoutResultDto })
+  @ApiOkResponse({
+    description: 'Idempotent replay: an already-recorded payment for this idempotency_key.',
+    type: CheckoutResultDto,
   })
   async checkout(
     @Body() dto: CheckoutDto,
