@@ -49,6 +49,7 @@ import {
   useStudentSearch,
   type CartBill,
   type ChangeHandling,
+  type CheckoutResult,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import {
@@ -63,6 +64,7 @@ import { X } from 'lucide-react';
 import * as React from 'react';
 
 import { CartTable, type CartLineState } from './cart-table';
+import { CheckoutSuccess } from './checkout-success';
 import { TenderSection } from './tender-section';
 
 const PAYMENT_METHODS = Object.values(PaymentMethod);
@@ -119,6 +121,9 @@ export function RecordPaymentModal({
   const [tenderedMinorUnits, setTenderedMinorUnits] = React.useState<number | undefined>(undefined);
   const [changeHandling, setChangeHandling] = React.useState<ChangeHandling>('RETURN');
   const [idempotencyKey, setIdempotencyKey] = React.useState(() => crypto.randomUUID());
+  // [16.5.5]: `null` renders the checkout form; a `CheckoutResult` renders
+  // `CheckoutSuccess` instead, in the same `DialogContent`.
+  const [success, setSuccess] = React.useState<CheckoutResult | null>(null);
 
   const selectedStudentIds = React.useMemo(() => selected.map((s) => s.id), [selected]);
 
@@ -323,9 +328,14 @@ export function RecordPaymentModal({
     [allBills, lines],
   );
 
-  function resetAndClose() {
+  /** Everything `resetAndClose()` used to do, minus closing the dialog —
+   * [16.5.5] needs this split so "Record another" (from the success view)
+   * can clear the form for a new checkout without also closing the
+   * `Dialog`. */
+  function resetForm() {
     setSelected([]);
     setSearch('');
+    setNeedsSeed(Boolean(studentId));
     setAmountReceivedMinorUnits(undefined);
     setLines(new Map());
     setLinesTouched(false);
@@ -336,6 +346,11 @@ export function RecordPaymentModal({
     setTenderedMinorUnits(undefined);
     setChangeHandling('RETURN');
     setIdempotencyKey(crypto.randomUUID());
+  }
+
+  function resetAndClose() {
+    resetForm();
+    setSuccess(null);
     onOpenChange(false);
   }
 
@@ -392,10 +407,7 @@ export function RecordPaymentModal({
           for (const id of selectedStudentIds) {
             void queryClient.invalidateQueries({ queryKey: studentKeys.detail(id) });
           }
-          resetAndClose();
-          // Stopgap for [16.5.5] — the real success view is a follow-up
-          // ticket; land on the generated invoice for now.
-          void navigate({ to: '/invoices/$invoiceId', params: { invoiceId: result.invoice_id } });
+          setSuccess(result);
         },
         onError: (error) => {
           if (error instanceof ApprovalCancelledError) return;
@@ -431,226 +443,254 @@ export function RecordPaymentModal({
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : resetAndClose())}>
       <DialogContent className="max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>{t('record.title')}</DialogTitle>
-          <DialogDescription>{t('record.description')}</DialogDescription>
-        </DialogHeader>
+        {success !== null ? (
+          <CheckoutSuccess
+            result={success}
+            onRecordAnother={() => {
+              resetForm();
+              setSuccess(null);
+            }}
+            onViewInvoice={() => {
+              onOpenChange(false);
+              void navigate({
+                to: '/invoices/$invoiceId',
+                params: { invoiceId: success.invoice_id },
+              });
+            }}
+          />
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle>{t('record.title')}</DialogTitle>
+              <DialogDescription>{t('record.description')}</DialogDescription>
+            </DialogHeader>
 
-        <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium">{t('record.students.label')}</span>
-            <div className="flex flex-wrap gap-2">
-              {selected.map((student) => (
-                <span
-                  key={student.id}
-                  className="flex items-center gap-1 rounded-full border border-border bg-accent px-3 py-1 text-sm"
-                >
-                  {student.full_name || student.id}
-                  {studentId === undefined && (
+            <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
+              <div className="flex flex-col gap-2">
+                <span className="text-sm font-medium">{t('record.students.label')}</span>
+                <div className="flex flex-wrap gap-2">
+                  {selected.map((student) => (
+                    <span
+                      key={student.id}
+                      className="flex items-center gap-1 rounded-full border border-border bg-accent px-3 py-1 text-sm"
+                    >
+                      {student.full_name || student.id}
+                      {studentId === undefined && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          iconOnly
+                          aria-label={t('record.students.removeStudent', {
+                            name: student.full_name || student.id,
+                          })}
+                          onClick={() => removeStudent(student.id)}
+                        >
+                          <X aria-hidden="true" />
+                        </Button>
+                      )}
+                    </span>
+                  ))}
+                </div>
+
+                {studentId === undefined && (
+                  <div className="flex flex-col gap-1">
+                    <Input
+                      aria-label={t('record.students.searchLabel')}
+                      placeholder={t('record.students.searchPlaceholder')}
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      disabled={selected.length >= MAX_STUDENTS}
+                    />
+                    {debouncedSearch.trim() !== '' && (
+                      <ul
+                        className="flex max-h-40 flex-col gap-1 overflow-y-auto"
+                        aria-live="polite"
+                      >
+                        {searchQuery.isSuccess && searchQuery.data.data.length === 0 && (
+                          <li className="text-sm text-muted-foreground">
+                            {t('record.students.noResults')}
+                          </li>
+                        )}
+                        {searchQuery.data?.data.map((result) => (
+                          <li key={result.id}>
+                            <button
+                              type="button"
+                              className="flex w-full items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-start text-sm hover:bg-accent"
+                              onClick={() =>
+                                addStudent({ id: result.id, full_name: result.full_name })
+                              }
+                            >
+                              <span>{result.full_name}</span>
+                              <span className="text-muted-foreground">
+                                {t('record.students.rollAndClass', {
+                                  roll: result.roll_number,
+                                  className: result.class_section.class.name,
+                                  sectionName: result.class_section.section_name,
+                                })}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+
+                {guardianId !== undefined &&
+                  guardianQuery.data !== undefined &&
+                  guardianQuery.data.students.some(
+                    (student) => !selectedStudentIds.includes(student.id),
+                  ) && (
                     <Button
                       type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      iconOnly
-                      aria-label={t('record.students.removeStudent', {
-                        name: student.full_name || student.id,
-                      })}
-                      onClick={() => removeStudent(student.id)}
+                      variant="outline"
+                      size="sm"
+                      disabled={selected.length >= MAX_STUDENTS}
+                      title={
+                        selected.length >= MAX_STUDENTS
+                          ? t('record.students.maxReached')
+                          : undefined
+                      }
+                      onClick={() => {
+                        const next = guardianQuery.data?.students.find(
+                          (student) => !selectedStudentIds.includes(student.id),
+                        );
+                        if (next) addStudent({ id: next.id, full_name: next.full_name });
+                      }}
                     >
-                      <X aria-hidden="true" />
+                      {t('record.students.addSibling')}
                     </Button>
                   )}
-                </span>
-              ))}
-            </div>
-
-            {studentId === undefined && (
-              <div className="flex flex-col gap-1">
-                <Input
-                  aria-label={t('record.students.searchLabel')}
-                  placeholder={t('record.students.searchPlaceholder')}
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  disabled={selected.length >= MAX_STUDENTS}
-                />
-                {debouncedSearch.trim() !== '' && (
-                  <ul className="flex max-h-40 flex-col gap-1 overflow-y-auto" aria-live="polite">
-                    {searchQuery.isSuccess && searchQuery.data.data.length === 0 && (
-                      <li className="text-sm text-muted-foreground">
-                        {t('record.students.noResults')}
-                      </li>
-                    )}
-                    {searchQuery.data?.data.map((result) => (
-                      <li key={result.id}>
-                        <button
-                          type="button"
-                          className="flex w-full items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-start text-sm hover:bg-accent"
-                          onClick={() => addStudent({ id: result.id, full_name: result.full_name })}
-                        >
-                          <span>{result.full_name}</span>
-                          <span className="text-muted-foreground">
-                            {t('record.students.rollAndClass', {
-                              roll: result.roll_number,
-                              className: result.class_section.class.name,
-                              sectionName: result.class_section.section_name,
-                            })}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
               </div>
-            )}
 
-            {guardianId !== undefined &&
-              guardianQuery.data !== undefined &&
-              guardianQuery.data.students.some(
-                (student) => !selectedStudentIds.includes(student.id),
-              ) && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={selected.length >= MAX_STUDENTS}
-                  title={
-                    selected.length >= MAX_STUDENTS ? t('record.students.maxReached') : undefined
-                  }
-                  onClick={() => {
-                    const next = guardianQuery.data?.students.find(
-                      (student) => !selectedStudentIds.includes(student.id),
-                    );
-                    if (next) addStudent({ id: next.id, full_name: next.full_name });
-                  }}
-                >
-                  {t('record.students.addSibling')}
-                </Button>
-              )}
-          </div>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-sm font-medium">{t('record.amountReceived.label')}</span>
+                <MoneyInput
+                  aria-label={t('record.amountReceived.label')}
+                  config={config}
+                  value={amountReceivedMinorUnits}
+                  onValueChange={setAmountReceivedMinorUnits}
+                />
+                <p className="text-xs text-muted-foreground">{t('record.amountReceived.hint')}</p>
+              </div>
 
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('record.amountReceived.label')}</span>
-            <MoneyInput
-              aria-label={t('record.amountReceived.label')}
-              config={config}
-              value={amountReceivedMinorUnits}
-              onValueChange={setAmountReceivedMinorUnits}
-            />
-            <p className="text-xs text-muted-foreground">{t('record.amountReceived.hint')}</p>
-          </div>
-
-          {/* F7: a failed or still-loading `/payments/cart` fetch used to be
+              {/* F7: a failed or still-loading `/payments/cart` fetch used to be
               indistinguishable from "no open bills" — surface both states
               explicitly instead of silently rendering an empty cart. */}
-          {selectedStudentIds.length > 0 && cart.isPending ? (
-            <div className="flex flex-col gap-2" aria-live="polite">
-              <span className="text-sm text-muted-foreground">{t('record.cart.loading')}</span>
-              <Skeleton className="h-32 w-full" />
-            </div>
-          ) : cart.isError ? (
-            <ErrorState message={t('record.cart.error')} onRetry={() => void cart.refetch()} />
-          ) : selectedStudentIds.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t('record.students.label')}</p>
-          ) : (
-            <CartTable
-              students={cart.data?.students ?? []}
-              lines={lines}
-              onLineChange={handleLineChange}
-              lineValidity={lineValidity}
-              config={config}
-              subtotalMinorUnits={subtotalMinorUnits}
-              walletBalanceMinorUnits={walletBalanceMinorUnits}
-              walletUseMinorUnits={cappedWalletUseMinorUnits}
-              onWalletUseChange={setWalletUseMinorUnits}
-              amountDueMinorUnits={amountDueMinorUnits}
-            />
-          )}
+              {selectedStudentIds.length > 0 && cart.isPending ? (
+                <div className="flex flex-col gap-2" aria-live="polite">
+                  <span className="text-sm text-muted-foreground">{t('record.cart.loading')}</span>
+                  <Skeleton className="h-32 w-full" />
+                </div>
+              ) : cart.isError ? (
+                <ErrorState message={t('record.cart.error')} onRetry={() => void cart.refetch()} />
+              ) : selectedStudentIds.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t('record.students.label')}</p>
+              ) : (
+                <CartTable
+                  students={cart.data?.students ?? []}
+                  lines={lines}
+                  onLineChange={handleLineChange}
+                  lineValidity={lineValidity}
+                  config={config}
+                  subtotalMinorUnits={subtotalMinorUnits}
+                  walletBalanceMinorUnits={walletBalanceMinorUnits}
+                  walletUseMinorUnits={cappedWalletUseMinorUnits}
+                  onWalletUseChange={setWalletUseMinorUnits}
+                  amountDueMinorUnits={amountDueMinorUnits}
+                />
+              )}
 
-          <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium">{t('record.method.label')}</span>
-            <RadioGroup
-              value={paymentMethod}
-              onValueChange={(value) => setPaymentMethod(value as PaymentMethod)}
-              className="grid grid-cols-4 gap-2 sm:grid-cols-7"
-            >
-              {PAYMENT_METHODS.map((method) => (
-                <label
-                  key={method}
-                  className="flex flex-col items-center gap-1 rounded-md border border-border p-2 text-xs has-[[data-state=checked]]:border-primary"
+              <div className="flex flex-col gap-2">
+                <span className="text-sm font-medium">{t('record.method.label')}</span>
+                <RadioGroup
+                  value={paymentMethod}
+                  onValueChange={(value) => setPaymentMethod(value as PaymentMethod)}
+                  className="grid grid-cols-4 gap-2 sm:grid-cols-7"
                 >
-                  <RadioGroupItem value={method} />
-                  {t(`record.method.methods.${method}`)}
-                </label>
-              ))}
-            </RadioGroup>
+                  {PAYMENT_METHODS.map((method) => (
+                    <label
+                      key={method}
+                      className="flex flex-col items-center gap-1 rounded-md border border-border p-2 text-xs has-[[data-state=checked]]:border-primary"
+                    >
+                      <RadioGroupItem value={method} />
+                      {t(`record.method.methods.${method}`)}
+                    </label>
+                  ))}
+                </RadioGroup>
 
-            {paymentMethod !== PaymentMethod.CASH && (
-              <Input
-                aria-label={t('record.method.referenceLabel')}
-                placeholder={t('record.method.referenceLabel')}
-                value={transactionReference}
-                onChange={(event) => setTransactionReference(event.target.value)}
-                onKeyDown={(event) => {
-                  // D17 — a barcode scanner's trailing Enter must never
-                  // submit the form.
-                  if (event.key === 'Enter') event.preventDefault();
-                }}
-              />
-            )}
+                {paymentMethod !== PaymentMethod.CASH && (
+                  <Input
+                    aria-label={t('record.method.referenceLabel')}
+                    placeholder={t('record.method.referenceLabel')}
+                    value={transactionReference}
+                    onChange={(event) => setTransactionReference(event.target.value)}
+                    onKeyDown={(event) => {
+                      // D17 — a barcode scanner's trailing Enter must never
+                      // submit the form.
+                      if (event.key === 'Enter') event.preventDefault();
+                    }}
+                  />
+                )}
 
-            <Textarea
-              aria-label={t('record.method.remarksLabel')}
-              placeholder={t('record.method.remarksLabel')}
-              value={remarks}
-              onChange={(event) => setRemarks(event.target.value)}
-            />
-          </div>
+                <Textarea
+                  aria-label={t('record.method.remarksLabel')}
+                  placeholder={t('record.method.remarksLabel')}
+                  value={remarks}
+                  onChange={(event) => setRemarks(event.target.value)}
+                />
+              </div>
 
-          {paymentMethod === PaymentMethod.CASH && (
-            <TenderSection
-              config={config}
-              tenderedMinorUnits={tenderedMinorUnits}
-              onTenderedChange={setTenderedMinorUnits}
-              walletUseMinorUnits={cappedWalletUseMinorUnits}
-              subtotalMinorUnits={subtotalMinorUnits}
-              changeHandling={changeHandling}
-              onChangeHandlingChange={setChangeHandling}
-            />
-          )}
+              {paymentMethod === PaymentMethod.CASH && (
+                <TenderSection
+                  config={config}
+                  tenderedMinorUnits={tenderedMinorUnits}
+                  onTenderedChange={setTenderedMinorUnits}
+                  walletUseMinorUnits={cappedWalletUseMinorUnits}
+                  subtotalMinorUnits={subtotalMinorUnits}
+                  changeHandling={changeHandling}
+                  onChangeHandlingChange={setChangeHandling}
+                />
+              )}
 
-          {requiresApproval && (
-            <p className="text-sm text-muted-foreground">{t('record.discount.needsApproval')}</p>
-          )}
+              {requiresApproval && (
+                <p className="text-sm text-muted-foreground">
+                  {t('record.discount.needsApproval')}
+                </p>
+              )}
 
-          {/* F6: cancelling the approval step-up is a deliberate no-op, not
+              {/* F6: cancelling the approval step-up is a deliberate no-op, not
               a failure — `onError` above already swallows it for the
               toast, but this inline alert used to unconditionally render
               `describeSubmitError` regardless of error type, showing a red
               "Recording payment failed" for a cancel. F18 wires up the
               `approvalCancelled` copy that was sitting unused for exactly
               this case. */}
-          {checkout.error instanceof ApprovalCancelledError ? (
-            <p className="text-sm text-muted-foreground">
-              {t('record.notifications.approvalCancelled')}
-            </p>
-          ) : (
-            checkout.error !== null &&
-            checkout.error !== undefined && (
-              <p role="alert" className="text-sm text-destructive">
-                {describeSubmitError(checkout.error, t)}
-              </p>
-            )
-          )}
+              {checkout.error instanceof ApprovalCancelledError ? (
+                <p className="text-sm text-muted-foreground">
+                  {t('record.notifications.approvalCancelled')}
+                </p>
+              ) : (
+                checkout.error !== null &&
+                checkout.error !== undefined && (
+                  <p role="alert" className="text-sm text-destructive">
+                    {describeSubmitError(checkout.error, t)}
+                  </p>
+                )
+              )}
 
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={resetAndClose}>
-              {t('record.cancel')}
-            </Button>
-            <Button type="submit" disabled={!canSubmit} loading={checkout.isPending}>
-              {t('record.submitAction')}
-            </Button>
-          </DialogFooter>
-        </form>
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={resetAndClose}>
+                  {t('record.cancel')}
+                </Button>
+                <Button type="submit" disabled={!canSubmit} loading={checkout.isPending}>
+                  {t('record.submitAction')}
+                </Button>
+              </DialogFooter>
+            </form>
+          </>
+        )}
 
         {checkout.modal}
       </DialogContent>

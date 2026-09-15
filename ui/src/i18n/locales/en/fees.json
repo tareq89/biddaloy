@@ -12,7 +12,41 @@
     "discountAmount": "Discount",
     "totalAmount": "Total",
     "print": "Print",
-    "printError": "Couldn't open the printable invoice. Try again."
+    "printError": "Couldn't open the printable invoice. Try again.",
+    "printFormat": {
+      "label": "Print format",
+      "a4": "A4",
+      "pos80": "POS 80mm",
+      "pos58": "POS 58mm"
+    },
+    "share": {
+      "create": "Create share link",
+      "copyLink": "Copy link",
+      "copied": "Link copied.",
+      "copyFailed": "Couldn't copy the link. You can select and copy it below.",
+      "revoke": "Revoke",
+      "cancel": "Cancel",
+      "revokeConfirmTitle": "Revoke this share link?",
+      "revokeConfirmExplanation": "Anyone holding this link will no longer be able to open the receipt.",
+      "revoked": "Share link revoked."
+    },
+    "send": {
+      "whatsapp": "Send via WhatsApp",
+      "sms": "Send via SMS",
+      "sent": "Receipt sent.",
+      "failed": "Couldn't send the receipt.",
+      "smsNoCredit": "This school is out of SMS credit.",
+      "noGuardians": "This student has no guardian to send a receipt to.",
+      "pickGuardian": "Choose a guardian"
+    },
+    "creditNoteBadge": "Credit note",
+    "publicReceipt": {
+      "loading": "Loading receipt…",
+      "notFoundTitle": "This link isn't valid",
+      "notFoundExplanation": "The receipt may have been revoked, or the link may be mistyped.",
+      "creditNote": "Credit note",
+      "saveAsPdf": "Save as PDF"
+    }
   },
   "invoices": {
     "title": "Invoices",
