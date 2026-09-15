@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsUUID,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   Min,
@@ -25,6 +26,17 @@ import { IssuerSnapshot } from '../../schools/profile/issuer-snapshot';
 export class CreateInvoiceDto {
   @IsUUID()
   payment_id: string;
+}
+
+/** [16.5.2] `GET /invoices/:id/print?format=`. `@IsIn` (not `@IsEnum`)
+ * since there's no shared enum for this — it's a route-shape detail, not
+ * a domain concept. Optional: an absent `format` defaults to `a4` in the
+ * controller, but a *present, invalid* value (e.g. `?format=pdf`) fails
+ * validation and 400s rather than silently falling back. */
+export class PrintFormatQueryDto {
+  @IsOptional()
+  @IsIn(['a4', 'pos58', 'pos80'])
+  format?: 'a4' | 'pos58' | 'pos80';
 }
 
 export class QueryInvoiceDto {

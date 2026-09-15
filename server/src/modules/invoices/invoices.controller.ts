@@ -34,6 +34,7 @@ import {
   toFamilyInvoice,
   FamilyInvoiceDto,
   StaffInvoiceDto,
+  PrintFormatQueryDto,
 } from './dto/invoices.dto';
 import { Invoice } from './entities/invoice.entity';
 import { paginatedSchema } from '../../common/swagger/paginated-schema.util';
@@ -211,10 +212,11 @@ export class InvoicesController {
   @Header('Content-Type', 'text/html; charset=utf-8')
   @ApiOperation({
     summary:
-      'Get a printable HTML rendering of the invoice. A PARENT or STUDENT must additionally be linked to its student.',
+      'Get a printable HTML rendering of the invoice, in a4 (default), pos58, or pos80 format. A PARENT or STUDENT must additionally be linked to its student, and only sees their own linked student(s) in the output.',
   })
   async print(
     @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: PrintFormatQueryDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ) {
@@ -224,19 +226,34 @@ export class InvoicesController {
     // classified as "unlinked". Gated on the role because `assertLinked`
     // no-ops for staff, and `getPrintableHtml` re-fetches the invoice with
     // its own joins — staff should not pay for a check that cannot fail.
+    let linkedStudentIds: string[] | undefined;
     if (isGuardianRole(tenant.role)) {
       const invoice = await this.invoicesService.findOne(id, tenant.id);
       // [664 fix] Same multi-student gap as `findOne` above — check the
       // caller against every student on the invoice, not just the primary
-      // one. The rendered HTML still shows every sibling's lines (tracked
-      // as a follow-up, not fixed here); this at minimum stops an
-      // unlinked guardian from reaching the print view at all.
+      // one.
       const allStudentIds = [
         invoice.student_id,
         ...(invoice.snapshot?.students?.map((s) => s.id) ?? []),
       ];
-      await this.familyAccess.assertLinkedToAny(tenant.role, user.sub, allStudentIds, tenant.id);
+      // [665] The subset the caller is actually linked to — passed through
+      // so `getPrintableHtml`/the templates filter `snapshot.students[]`
+      // down to it, the same privacy boundary `findOne`'s JSON response
+      // already enforces. A guardian linked to only one of two siblings on
+      // a shared invoice must not see the other child's name/registration
+      // number/fee lines in the printed HTML either.
+      linkedStudentIds = await this.familyAccess.assertLinkedToAny(
+        tenant.role,
+        user.sub,
+        allStudentIds,
+        tenant.id,
+      );
     }
-    return this.invoicesService.getPrintableHtml(id, tenant.id);
+    return this.invoicesService.getPrintableHtml(
+      id,
+      tenant.id,
+      query.format ?? 'a4',
+      linkedStudentIds,
+    );
   }
 }

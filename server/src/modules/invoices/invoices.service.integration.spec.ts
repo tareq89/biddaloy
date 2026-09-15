@@ -786,7 +786,8 @@ describe('InvoicesService (integration)', () => {
       expect(html).toContain('<!DOCTYPE html>');
       expect(html).toContain(invoice.invoice_number);
       expect(html).toContain('Printable Student');
-      expect(html).toContain('750.00');
+      // [16.5.2] amounts render in Bengali digits by default (750.00 -> ৭৫০.০০).
+      expect(html).toContain('৭৫০.০০');
     });
 
     it('[15.5.7] renders the frozen issuer name/address/EIIN, not a later profile edit', async () => {
@@ -827,6 +828,65 @@ describe('InvoicesService (integration)', () => {
       await expect(service.getPrintableHtml(invoice.id, OTHER_TENANT_ID)).rejects.toThrow(
         NotFoundException,
       );
+    });
+
+    it('[16.5.2] renders pos58/pos80 with the @page rule for that width', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id, { total_amount: 500 }));
+      const payment = await makePayment(student.id, [[fee, 500]]);
+      const invoice = await createInvoice(payment.id);
+
+      const html58 = await service.getPrintableHtml(invoice.id, TENANT_ID, 'pos58');
+      expect(html58).toContain('@page { size: 58mm auto; margin: 2mm }');
+      expect(html58).toContain(invoice.invoice_number);
+
+      const html80 = await service.getPrintableHtml(invoice.id, TENANT_ID, 'pos80');
+      expect(html80).toContain('@page { size: 80mm auto; margin: 2mm }');
+    });
+
+    it('[16.5.2] a4 defaults when format is omitted', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id, { total_amount: 500 }));
+      const payment = await makePayment(student.id, [[fee, 500]]);
+      const invoice = await createInvoice(payment.id);
+
+      const html = await service.getPrintableHtml(invoice.id, TENANT_ID);
+      expect(html).toContain('<!DOCTYPE html>');
+      expect(html).not.toContain('@page');
+    });
+
+    it('[16.5.2] renders the credit-note variant with negated amounts, in all three formats', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id, { total_amount: 1000 }));
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+      await createInvoice(payment.id);
+      const creditNote = await dataSource.manager.transaction((manager) =>
+        service.createCreditNote(payment.id, 'Refund requested', manager),
+      );
+
+      const a4 = await service.getPrintableHtml(creditNote.id, TENANT_ID, 'a4');
+      expect(a4).toContain('Credit Note');
+      expect(a4).toContain('-১,০০০.০০');
+
+      const pos58 = await service.getPrintableHtml(creditNote.id, TENANT_ID, 'pos58');
+      expect(pos58).toContain('CREDIT NOTE');
+      expect(pos58).toContain('-১,০০০.০০');
+    });
+
+    it('[664 follow-up, 665] filters snapshot.students down to the linked subset when given', async () => {
+      const studentA = await studentRepo.save(makeStudent({ full_name: 'Linked Sibling' }));
+      const studentB = await studentRepo.save(makeStudent({ full_name: 'Unlinked Sibling' }));
+      const feeA = await studentFeeRepo.save(makeFee(studentA.id, { total_amount: 500 }));
+      const feeB = await studentFeeRepo.save(makeFee(studentB.id, { total_amount: 500 }));
+      const payment = await makePayment(studentA.id, [
+        [feeA, 500],
+        [feeB, 500],
+      ]);
+      const invoice = await createInvoice(payment.id);
+
+      const html = await service.getPrintableHtml(invoice.id, TENANT_ID, 'a4', [studentA.id]);
+      expect(html).toContain('Linked Sibling');
+      expect(html).not.toContain('Unlinked Sibling');
     });
   });
 });
