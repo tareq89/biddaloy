@@ -24,6 +24,7 @@ import { Route as StaffFeesRouteImport } from './routes/_staff/fees'
 import { Route as StaffNotificationsRouteImport } from './routes/_staff/notifications'
 import { Route as StaffSecurityRouteImport } from './routes/_staff/security'
 import { Route as StaffSettingsRouteImport } from './routes/_staff/settings'
+import { Route as ITokenRouteImport } from './routes/i/$token'
 import { Route as PortalIndexRouteImport } from './routes/portal/index'
 import { Route as PortalAccountRouteImport } from './routes/portal/account'
 import { Route as PortalAttendanceRouteImport } from './routes/portal/attendance'
@@ -134,6 +135,11 @@ const StaffSettingsRoute = StaffSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => StaffRoute,
+} as any)
+const ITokenRoute = ITokenRouteImport.update({
+  id: '/i/$token',
+  path: '/i/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const PortalIndexRoute = PortalIndexRouteImport.update({
   id: '/',
@@ -342,6 +348,7 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof StaffNotificationsRoute
   '/security': typeof StaffSecurityRoute
   '/settings': typeof StaffSettingsRoute
+  '/i/$token': typeof ITokenRoute
   '/portal/account': typeof PortalAccountRoute
   '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/fees': typeof PortalFeesRoute
@@ -392,6 +399,7 @@ export interface FileRoutesByTo {
   '/notifications': typeof StaffNotificationsRoute
   '/security': typeof StaffSecurityRoute
   '/settings': typeof StaffSettingsRoute
+  '/i/$token': typeof ITokenRoute
   '/portal/account': typeof PortalAccountRoute
   '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/fees': typeof PortalFeesRoute
@@ -447,6 +455,7 @@ export interface FileRoutesById {
   '/_staff/notifications': typeof StaffNotificationsRoute
   '/_staff/security': typeof StaffSecurityRoute
   '/_staff/settings': typeof StaffSettingsRoute
+  '/i/$token': typeof ITokenRoute
   '/portal/account': typeof PortalAccountRoute
   '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/fees': typeof PortalFeesRoute
@@ -501,6 +510,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/security'
     | '/settings'
+    | '/i/$token'
     | '/portal/account'
     | '/portal/attendance'
     | '/portal/fees'
@@ -551,6 +561,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/security'
     | '/settings'
+    | '/i/$token'
     | '/portal/account'
     | '/portal/attendance'
     | '/portal/fees'
@@ -605,6 +616,7 @@ export interface FileRouteTypes {
     | '/_staff/notifications'
     | '/_staff/security'
     | '/_staff/settings'
+    | '/i/$token'
     | '/portal/account'
     | '/portal/attendance'
     | '/portal/fees'
@@ -655,6 +667,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SelectSchoolRoute: typeof SelectSchoolRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
+  ITokenRoute: typeof ITokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -763,6 +776,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings'
       preLoaderRoute: typeof StaffSettingsRouteImport
       parentRoute: typeof StaffRoute
+    }
+    '/i/$token': {
+      id: '/i/$token'
+      path: '/i/$token'
+      fullPath: '/i/$token'
+      preLoaderRoute: typeof ITokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/portal/': {
       id: '/portal/'
@@ -1159,6 +1179,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SelectSchoolRoute: SelectSchoolRoute,
   VerifyEmailRoute: VerifyEmailRoute,
+  ITokenRoute: ITokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
