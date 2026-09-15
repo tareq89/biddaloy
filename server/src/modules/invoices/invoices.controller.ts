@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Body,
   Param,
   ParseUUIDPipe,
@@ -27,7 +28,10 @@ import { RequirePermissions } from '../auth/decorators/require-permissions.decor
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
+import { ConfigService } from '@nestjs/config';
 import { InvoicesService } from './invoices.service';
+import { InvoiceShareService } from './invoice-share.service';
+import { resolvePublicAppUrl } from './public-app-url.util';
 import {
   CreateInvoiceDto,
   QueryInvoiceDto,
@@ -78,6 +82,8 @@ export class InvoicesController {
   constructor(
     @Inject(InvoicesService) private readonly invoicesService: InvoicesService,
     @Inject(FamilyAccessService) private readonly familyAccess: FamilyAccessService,
+    private readonly shareService: InvoiceShareService,
+    private readonly config: ConfigService,
   ) {}
 
   @Post()
@@ -255,5 +261,54 @@ export class InvoicesController {
       query.format ?? 'a4',
       linkedStudentIds,
     );
+  }
+
+  @Post(':id/share')
+  // Staff only: sharing a receipt link outward is a step above merely
+  // reading it in-app, but the ticket names `INVOICE_READ` explicitly and
+  // there's no separate share-scoped permission in this codebase yet.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.INVOICE_READ)
+  @ApiOperation({
+    summary:
+      'Mints a public share link for this invoice ({ url, token_id }). See InvoiceShareService.createToken for why this always mints a new token rather than literally reusing an old one.',
+  })
+  async createShareLink(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ): Promise<{ url: string; token_id: string }> {
+    const { rawToken, tokenId } = await this.shareService.createToken(id, tenant.id, user.sub);
+    const baseUrl = resolvePublicAppUrl(this.config);
+    return { url: `${baseUrl}/i/${rawToken}`, token_id: tokenId };
+  }
+
+  @Get(':id/share')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.INVOICE_READ)
+  @ApiOperation({ summary: "Lists this invoice's share tokens (never exposes token_hash)." })
+  async listShareLinks(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.shareService.listTokens(id, tenant.id);
+  }
+
+  @Delete(':id/share/:tokenId')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.INVOICE_READ)
+  @ApiOperation({ summary: 'Revokes a share token — permanent, no un-revoke.' })
+  async revokeShareLink(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('tokenId', ParseUUIDPipe) tokenId: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ): Promise<void> {
+    // `id` is validated as a UUID (route-shape/404 consistency with the
+    // other :id routes) but `revokeToken` itself scopes strictly by
+    // `tokenId` + `tenant.id` — a mismatched `id` here can't revoke a
+    // token belonging to a different invoice, since `tokenId` alone
+    // already uniquely identifies the row.
+    await this.shareService.revokeToken(tokenId, tenant.id, user.sub);
   }
 }

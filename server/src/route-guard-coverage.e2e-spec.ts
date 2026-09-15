@@ -214,6 +214,13 @@ const ALLOWLIST: AllowlistEntry[] = [
     reason:
       '12.7 — the link is clicked from an inbox, possibly logged out; nothing to authenticate against yet, same rationale as /auth/activate.',
   },
+  {
+    controller: 'PublicInvoiceController',
+    method: 'GET',
+    path: '/public/invoices/:token',
+    reason:
+      '[#666] the share token itself is the credential and carries its own tenant scope (InvoiceShareService.validatePublicToken) — there is no JWT, no user, and no X-Tenant-ID on this path at all, same no-guards rationale as /auth/activate*. Throttled instead via PUBLIC_INVOICE_RATE_LIMIT.',
+  },
 ];
 
 function findAllowlistEntry(

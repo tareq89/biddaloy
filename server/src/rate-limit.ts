@@ -59,3 +59,13 @@ export const PROVIDER_TEST_RATE_LIMIT: RateLimitTierOptions = { limit: 3, ttl: 6
  * room for a normal setup session.
  */
 export const SETTINGS_RATE_LIMIT: RateLimitTierOptions = { limit: 20, ttl: 60_000 };
+
+/**
+ * Applied to `GET /public/invoices/:token` (#666) — the one route in this
+ * codebase reachable with no auth header and no `X-Tenant-ID` at all. A
+ * guardian re-opening a receipt link a few times is normal; 30/min per IP
+ * is generous for that while still bounding a brute-force scan across
+ * random 32-byte tokens (which is astronomically infeasible regardless,
+ * but the tier still caps how hard a caller can hammer the DB lookup).
+ */
+export const PUBLIC_INVOICE_RATE_LIMIT: RateLimitTierOptions = { limit: 30, ttl: 60_000 };

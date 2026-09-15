@@ -25,6 +25,7 @@ import { FeeGeneration } from '../src/modules/fees/entities/fee-generation.entit
 import { StudentWallet } from '../src/modules/fees/entities/student-wallet.entity';
 import { WalletTransaction } from '../src/modules/fees/entities/wallet-transaction.entity';
 import { Invoice } from '../src/modules/invoices/entities/invoice.entity';
+import { InvoiceShareToken } from '../src/modules/invoices/entities/invoice-share-token.entity';
 import { School } from '../src/modules/schools/entities/school.entity';
 import { Student } from '../src/modules/students/entities/student.entity';
 import { Guardian } from '../src/modules/students/entities/guardian.entity';
@@ -61,6 +62,7 @@ export const ALL_ENTITIES = [
   StudentWallet,
   WalletTransaction,
   Invoice,
+  InvoiceShareToken,
   School,
   Student,
   Guardian,
