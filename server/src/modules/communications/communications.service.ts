@@ -39,10 +39,20 @@ export class CommunicationsService {
     private readonly guardianService: GuardianService,
   ) {}
 
+  /**
+   * [16.5.4] Optional SMS-credit reservation reference for a caller (e.g.
+   * `InvoicesController.sendInvoice`) that reserved credit for this one
+   * send with `SmsCreditService.reserve` before calling `enqueue` — mirrors
+   * `FeeNotificationsListener`'s batch job data so
+   * `CommunicationsProcessor` can find and settle (`settlePart`) the
+   * reservation once the send resolves. Omitted entirely for an
+   * unmetered tenant or a non-SMS medium, same as the batch listener.
+   */
   async enqueue(
     dto: SendCommunicationDto,
     tenantId: string,
     userId: string,
+    smsCreditReservation?: { batchId: string; segments: number },
   ): Promise<CommunicationResponseDto> {
     if (dto.student_id) {
       await this.studentService.findOne(dto.student_id, tenantId);
@@ -75,7 +85,12 @@ export class CommunicationsService {
     );
 
     try {
-      await this.queue.add('send', { logId: log.id });
+      await this.queue.add('send', {
+        logId: log.id,
+        ...(smsCreditReservation
+          ? { batchId: smsCreditReservation.batchId, segments: smsCreditReservation.segments }
+          : {}),
+      });
     } catch (err) {
       // The row would otherwise be stuck QUEUED forever with no job to
       // deliver it — surface the failure instead of a false "queued" success.

@@ -27,6 +27,8 @@ import { ProviderConnectionTestController } from './testing/provider-connection-
 import { COMMUNICATIONS_QUEUE } from './communications.constants';
 import { CreditsModule } from './credits/credits.module';
 import { FeeNotificationsListener } from './fee-notifications.listener';
+import { InvoiceNotificationsListener } from './invoice-notifications.listener';
+import { InvoicesModule } from '../invoices/invoices.module';
 
 @Module({
   imports: [
@@ -46,6 +48,12 @@ import { FeeNotificationsListener } from './fee-notifications.listener';
     // that triangle; without it, `SchoolsModule` resolves to `undefined` at
     // require-time depending on which module Nest happens to load first.
     forwardRef(() => SchoolsModule),
+    // [16.5.4] `InvoiceNotificationsListener` needs `InvoiceShareService` to
+    // mint the receipt link, and `InvoicesController`'s new
+    // `POST /invoices/:id/send` needs `CommunicationsService` — the two
+    // modules depend on each other, so both sides use `forwardRef` (same
+    // shape as the `SchoolsModule` edge above).
+    forwardRef(() => InvoicesModule),
     CreditsModule,
     BullModule.registerQueue({
       name: COMMUNICATIONS_QUEUE,
@@ -70,6 +78,7 @@ import { FeeNotificationsListener } from './fee-notifications.listener';
     MessengerProvider,
     ConnectionTestService,
     FeeNotificationsListener,
+    InvoiceNotificationsListener,
   ],
   controllers: [CommunicationsController, ProviderConnectionTestController],
   exports: [
