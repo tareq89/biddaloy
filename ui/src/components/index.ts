@@ -283,3 +283,9 @@ export {
   type ChangePasswordFormValues,
 } from './change-password-form';
 export { IssuerHeader, type IssuerHeaderProps, type IssuerSnapshot } from './print/issuer-header';
+export {
+  InvoiceReceipt,
+  type InvoiceReceiptData,
+  type InvoiceReceiptProps,
+  type InvoiceReceiptStudent,
+} from './print/invoice-receipt';

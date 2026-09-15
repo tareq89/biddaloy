@@ -6,8 +6,11 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 
-import { apiClient } from '../api/client';
+import { apiClient, getPublicInvoice as apiGetPublicInvoice } from '../api/client';
 import type { components } from '../api/schema';
+import { toast } from '../components/toast';
+import { useTranslation } from '../i18n';
+import type { InvoicePrintFormat } from '../utils/invoice-print-format';
 
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
@@ -15,6 +18,47 @@ import { shouldRetryQuery } from './retry';
 export type Invoice = components['schemas']['Invoice'];
 export type CreateInvoiceInput = components['schemas']['CreateInvoiceDto'];
 export type InvoiceStatus = Invoice['status'];
+
+// ---- interim types: #664–#667 invoice snapshot / share / send ----
+// Hand-rolled: `schema.d.ts` isn't regenerated for the w5-g1 lane's server
+// contract yet (#664–#667 unmerged). Delete this banner's contents the
+// next time `schema.d.ts` is regenerated and replace every reference with
+// the generated type — same reconciliation seam `payments.ts`'s own
+// `// ---- interim types: #659 ----` banner documents.
+export type InvoiceKind = 'INVOICE' | 'CREDIT_NOTE';
+
+/** #666's snapshot fields, layered on top of the generated `Invoice` —
+ * every field optional so a pre-#664 response (no `kind`/`snapshot`) still
+ * type-checks and renders unchanged. */
+export type InvoiceWithSnapshot = Invoice & {
+  kind?: InvoiceKind;
+  related_invoice_id?: string | null;
+};
+
+export interface InvoiceShareToken {
+  id: string;
+  revoked_at: string | null;
+  last_viewed_at?: string | null;
+  view_count?: number;
+  url?: string;
+}
+
+export interface CreateInvoiceShareResult {
+  url: string;
+  token_id: string;
+}
+
+export type SendInvoiceMedium = 'WHATSAPP' | 'SMS';
+
+export interface SendInvoiceInput {
+  medium: SendInvoiceMedium;
+  guardian_id?: string;
+}
+
+/** Re-exported from `ui/src/api/client.ts` — that file owns the canonical
+ * shape (it's where `getPublicInvoice`'s response is typed) so this and
+ * the request function can never drift out of sync with each other. */
+export type { PublicInvoiceReceipt } from '../api/client';
 
 /** `search` lives in the filter shape (not a separate key namespace) so
  * [8.9.9]'s global-search palette and [8.10.6]'s invoices list page share
@@ -139,8 +183,23 @@ export function useCreateInvoice() {
  * itself always return `null` (the new window is deliberately
  * unreachable), which would make every call look like a blocked popup
  * and also drop the reference this needs to navigate later.
+ *
+ * [16.5.5] extended with `format` (`?format=<a4|pos58|pos80>`, #665) and
+ * auto-print: `printWindow.onload` fires `print()` itself so a counter
+ * clerk printing dozens of POS receipts a day doesn't need to reach for
+ * Ctrl/Cmd+P every time. `onload` is set *before* `location.href` so it
+ * can't race a load that finishes first. Best-effort only — `print()` can
+ * throw in a browser that blocks it, and the user can still fall back to
+ * Ctrl/Cmd+P by hand, so failures here are swallowed rather than routed
+ * through `onError`. Does **not** shorten the 60s `revokeObjectURL`
+ * timeout above: revoking the blob URL before the print dialog has read
+ * it produces a blank page.
  */
-export async function openPrintableInvoice(invoiceId: string, onError: () => void): Promise<void> {
+export async function openPrintableInvoice(
+  invoiceId: string,
+  onError: () => void,
+  format: InvoicePrintFormat = 'a4',
+): Promise<void> {
   const printWindow = window.open('', '_blank');
   if (!printWindow) {
     onError();
@@ -149,14 +208,125 @@ export async function openPrintableInvoice(invoiceId: string, onError: () => voi
   printWindow.opener = null;
 
   try {
-    const res = await apiClient.get<string>(`/invoices/${invoiceId}/print`, {
+    const res = await apiClient.get<string>(`/invoices/${invoiceId}/print?format=${format}`, {
       responseType: 'text',
     });
     const url = URL.createObjectURL(new Blob([res.data], { type: 'text/html' }));
+    printWindow.onload = () => {
+      try {
+        printWindow.print();
+      } catch {
+        // Best-effort — the user can still print by hand (Ctrl/Cmd+P).
+      }
+    };
     printWindow.location.href = url;
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   } catch {
     printWindow.close();
     onError();
   }
+}
+
+/**
+ * Thin wrapper the two [16.5.5] call sites (invoice detail, checkout
+ * success) share, so neither duplicates the `toast.error` handler around
+ * `openPrintableInvoice`. Replaces the ticket body's `usePrintUrl` —
+ * see this file's own `openPrintableInvoice` comment for why a plain
+ * URL/`<a href>` hook can't work here (no `Authorization` header).
+ */
+export function usePrintInvoice() {
+  const { t } = useTranslation('fees');
+  return (invoiceId: string, format: InvoicePrintFormat = 'a4') =>
+    void openPrintableInvoice(invoiceId, () => toast.error(t('invoiceDetail.printError')), format);
+}
+
+/** #666 `POST /invoices/:id/share` — mints a new public share link.
+ * Invalidates both the invoice detail (share-token count/state may be
+ * reflected there) and this invoice's share-list key so "Copy link"
+ * appears immediately without a manual refetch. */
+export function useShareInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (invoiceId: string) => {
+      const res = await apiClient.post<CreateInvoiceShareResult>(`/invoices/${invoiceId}/share`);
+      return { invoiceId, result: res.data };
+    },
+    onSuccess: ({ invoiceId }) => {
+      void queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(invoiceId) });
+      void queryClient.invalidateQueries({
+        queryKey: [...invoiceKeys.detail(invoiceId), 'shares'],
+      });
+    },
+  });
+}
+
+/** #666 `GET /invoices/:id/share` — every share token minted for this
+ * invoice, live and revoked. "Copy link"/"Revoke" only render once a live
+ * (non-revoked) token exists — see `$invoiceId.tsx`'s use of this. */
+export function invoiceSharesQueryOptions(id: string) {
+  return queryOptions({
+    queryKey: [...invoiceKeys.detail(id), 'shares'] as const,
+    queryFn: async ({ signal }: { signal: AbortSignal }) => {
+      const res = await apiClient.get<InvoiceShareToken[] | { data: InvoiceShareToken[] }>(
+        `/invoices/${id}/share`,
+        { signal },
+      );
+      // #666's response envelope wasn't nailed down at plan time — accept
+      // either a bare array or `{ data: [...] }` so this doesn't need a
+      // follow-up edit once the server lane lands; re-check against the
+      // real contract when #666 merges.
+      return Array.isArray(res.data) ? res.data : res.data.data;
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useInvoiceShares(id: string) {
+  return useQuery(invoiceSharesQueryOptions(id));
+}
+
+/** #666 `DELETE /invoices/:id/share/:tokenId` — revokes a live share
+ * link; the public page then 404s/410s for anyone still holding the URL. */
+export function useRevokeShare(invoiceId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (tokenId: string) => {
+      await apiClient.delete(`/invoices/${invoiceId}/share/${tokenId}`);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(invoiceId) });
+      void queryClient.invalidateQueries({
+        queryKey: [...invoiceKeys.detail(invoiceId), 'shares'],
+      });
+    },
+  });
+}
+
+/** #667 `POST /invoices/:id/send` — dispatches the receipt to a guardian
+ * over WhatsApp or SMS. A distinct `SMS_NO_CREDIT` `ApiError.message` is
+ * the server's way of saying the tenant is out of SMS credit — callers
+ * check `error.message` / `error.details` to show that distinctly from a
+ * generic failure toast, same pattern as every other `ApiError` consumer
+ * in this codebase (there's no machine-readable error code field beyond
+ * `message`, see `api/errors.ts`'s own header comment). */
+export function useSendInvoice(invoiceId: string) {
+  return useMutation({
+    mutationFn: async (input: SendInvoiceInput) => {
+      await apiClient.post(`/invoices/${invoiceId}/send`, input);
+    },
+  });
+}
+
+/** [16.5.5] `GET /public/invoices/:token` — the chrome-free receipt page a
+ * guardian opens from a shared link, with no session at all. Deliberately
+ * **not** under `invoiceKeys`: this is a different audience reading a
+ * different endpoint that staff-side mutations never need to invalidate,
+ * so a literal key keeps it out of `invoiceKeys.all`'s blast radius. */
+export function usePublicInvoice(token: string) {
+  return useQuery({
+    queryKey: ['public-invoice', token] as const,
+    queryFn: ({ signal }) => apiGetPublicInvoice(token, signal),
+    retry: shouldRetryQuery,
+    staleTime: 5 * 60 * 1000,
+  });
 }

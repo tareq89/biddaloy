@@ -19,6 +19,12 @@ export {
   formatAcademicYear,
 } from './date';
 export { renderDigits, toLatinDigits } from './digits';
+export {
+  clearPersistedPrintFormat,
+  getPersistedPrintFormat,
+  persistPrintFormat,
+  type InvoicePrintFormat,
+} from './invoice-print-format';
 export { groupDigits } from './grouping';
 export { csvCell, downloadCsv, toCsvContent } from './csv';
 export { detectLoginIdentifier, type LoginIdentifier } from './login-identifier';

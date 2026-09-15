@@ -154,6 +154,14 @@
       "archetype": "detail"
     },
     {
+      "path": "/i/$token",
+      "params": {
+        "token": "seeded"
+      },
+      "role": "guest",
+      "archetype": "bespoke"
+    },
+    {
       "path": "/invoices",
       "role": "accountant",
       "archetype": "list"
