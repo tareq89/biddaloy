@@ -14,6 +14,8 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { School } from '../schools/entities/school.entity';
 import { User } from '../users/entities/user.entity';
 import { Invoice } from '../invoices/entities/invoice.entity';
+import { InvoicesService } from '../invoices/invoices.service';
+import { StorageModule } from '../storage/storage.module';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { AuditService } from '../audit/audit.service';
 import { createTestModule } from '@test/helpers/module.helper';
@@ -170,8 +172,8 @@ describe('PaymentAllocationService (integration)', () => {
   beforeAll(async () => {
     const module = await createTestModule(
       ALL_ENTITIES,
-      [PaymentAllocationService, AuditService],
-      [],
+      [PaymentAllocationService, AuditService, InvoicesService],
+      [StorageModule],
       { synchronize: true, dropSchema: true },
     );
 

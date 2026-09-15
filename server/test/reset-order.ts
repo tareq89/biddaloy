@@ -33,8 +33,8 @@ export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'wallet_transactions',
   'student_wallets',
   'payment_allocations',
-  'payments',
   'invoices',
+  'payments',
   'student_fees',
   'fee_generations',
   'fee_structures',
@@ -84,9 +84,17 @@ const WRITE_ONLY_TABLES = new Set<string>(['audit_logs', 'wallet_transactions'])
  * rejects `DELETE` outright (see `WRITE_ONLY_TABLES` above).
  */
 export function buildResetSql(): string {
-  return TRANSACTIONAL_TABLES_CHILD_FIRST.map((t) =>
+  const deletes = TRANSACTIONAL_TABLES_CHILD_FIRST.map((t) =>
     WRITE_ONLY_TABLES.has(t) ? `TRUNCATE TABLE "${t}"` : `DELETE FROM "${t}"`,
-  ).join('; ');
+  );
+  // `payments.invoice_id` and `invoices.payment_id` are a genuine FK
+  // cycle (16.5.1's B6 unique index made the latter `ON DELETE RESTRICT`,
+  // same as `related_invoice_id` — see the migration's doc comment): no
+  // child-first table order can satisfy both directions at once. Nulling
+  // `payments.invoice_id` first breaks the cycle without touching
+  // production's `RESTRICT` semantics — this only runs against the test
+  // database's transactional-table reset.
+  return [`UPDATE "payments" SET "invoice_id" = NULL`, ...deletes].join('; ');
 }
 
 /** Child-first delete order for the six reference tables below. */

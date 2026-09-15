@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { InvoiceStatus } from '@biddaloy/shared';
+import { InvoiceKind, InvoiceStatus } from '@biddaloy/shared';
 import { Invoice } from '../../../invoices/entities/invoice.entity';
 import { invoicesTab, type InvoiceRow } from './invoices.tab';
 import type { ExportContext, ImportContext } from '../../codec/tab-spec';
@@ -16,15 +16,15 @@ function cellsFor(row: InvoiceRow): Record<string, string> {
   return {
     id: row.id,
     invoice_number: row.invoice_number,
+    kind: row.kind,
     student: row.student_key,
-    student_fee: row.student_fee_key ?? '',
     total_amount: row.total_amount,
     tax_amount: row.tax_amount,
     discount_amount: row.discount_amount,
     status: row.status,
     issued_date: row.issued_date,
     due_date: row.due_date,
-    line_items: JSON.stringify(row.line_items ?? []),
+    snapshot: JSON.stringify(row.snapshot ?? {}),
     issued_by: row.issued_by_key ?? '',
     notes: row.notes ?? '',
   };
@@ -35,24 +35,22 @@ describe('invoicesTab', () => {
     const row: InvoiceRow = {
       id: '00000000-0000-4000-8000-000000000001',
       invoice_number: 'INV-2026-00001',
+      kind: InvoiceKind.INVOICE,
       student_id: 'student-1',
       student_key: 'REG-001',
-      student_fee_id: 'fee-1',
-      student_fee_key: 'REG-001|2026-2027|1|2026',
       total_amount: '1500.00',
       tax_amount: '0.00',
       discount_amount: '0.00',
       status: InvoiceStatus.ISSUED,
       issued_date: '2026-01-05',
       due_date: '2026-01-15',
-      line_items: [{ description: 'Tuition', amount: 1500, quantity: 1, total: 1500 }],
+      snapshot: { totals: { billed: 1500 } },
       issued_by_id: 'user-1',
       issued_by_key: 'admin@example.com',
       notes: 'First invoice',
     };
     const ctx = fakeImportCtx({
       students: { 'REG-001': 'student-1' },
-      student_fees: { 'REG-001|2026-2027|1|2026': 'fee-1' },
       users: { 'admin@example.com': 'user-1' },
     });
     const result = invoicesTab.fromRow(cellsFor(row), 2, ctx);
@@ -64,17 +62,16 @@ describe('invoicesTab', () => {
     const row: InvoiceRow = {
       id: '00000000-0000-4000-8000-000000000001',
       invoice_number: 'INV-2026-00001',
+      kind: InvoiceKind.INVOICE,
       student_id: '',
       student_key: 'REG-999',
-      student_fee_id: null,
-      student_fee_key: null,
       total_amount: '1500.00',
       tax_amount: '0.00',
       discount_amount: '0.00',
       status: InvoiceStatus.ISSUED,
       issued_date: '2026-01-05',
       due_date: '2026-01-15',
-      line_items: null,
+      snapshot: null,
       issued_by_id: null,
       issued_by_key: null,
       notes: null,
@@ -91,30 +88,28 @@ describe('invoicesTab', () => {
     expect(invoicesTab.keyOf(row)).toBe('INV-2026-00001');
   });
 
-  it('never exports a raw uuid for student/student_fee/issued_by', () => {
+  it('never exports a raw uuid for student/issued_by', () => {
     const entity = {
       id: 'inv-1',
       invoice_number: 'INV-2026-00001',
+      kind: InvoiceKind.INVOICE,
       student_id: 'student-1',
-      student_fee_id: 'fee-1',
       total_amount: '1500.00',
       tax_amount: '0.00',
       discount_amount: '0.00',
       status: InvoiceStatus.ISSUED,
       issued_date: '2026-01-05',
       due_date: '2026-01-15',
-      line_items: null,
+      snapshot: null,
       issued_by_user_id: 'user-1',
       notes: null,
     } as any;
     const ctx = fakeExportCtx({
       students: { 'student-1': 'REG-001' },
-      student_fees: { 'fee-1': 'REG-001|2026-2027|1|2026' },
       users: { 'user-1': 'admin@example.com' },
     });
     const out = invoicesTab.toRow(entity, ctx);
     expect(out.student).toBe('REG-001');
-    expect(out.student_fee).toBe('REG-001|2026-2027|1|2026');
     expect(out.issued_by).toBe('admin@example.com');
     expect(Object.values(out)).not.toContain('student-1');
     expect(Object.values(out)).not.toContain('user-1');
@@ -126,30 +121,30 @@ describe('invoicesTab', () => {
     // matches, so every invoice showed as modified in a restore preview.
     const entity = Object.assign(new Invoice(), {
       invoice_number: 'INV-2026-00042',
+      kind: InvoiceKind.INVOICE,
       student_id: 'student-1',
-      student_fee_id: null,
       total_amount: '1500.00',
       tax_amount: '0.00',
       discount_amount: '0.00',
       status: InvoiceStatus.ISSUED,
       issued_date: new Date(2026, 0, 3),
       due_date: new Date(2026, 0, 10),
-      line_items: null,
+      snapshot: null,
       issued_by_user_id: null,
       notes: null,
     }) as Invoice;
 
     const row = {
       invoice_number: 'INV-2026-00042',
+      kind: InvoiceKind.INVOICE,
       student_id: 'student-1',
-      student_fee_id: null,
       total_amount: '1500.00',
       tax_amount: '0.00',
       discount_amount: '0.00',
       status: InvoiceStatus.ISSUED,
       issued_date: '2026-01-03',
       due_date: '2026-01-10',
-      line_items: null,
+      snapshot: null,
       issued_by_id: null,
       notes: null,
     } as unknown as InvoiceRow;
@@ -157,7 +152,7 @@ describe('invoicesTab', () => {
     expect(invoicesTab.diffFields(row, entity)).toEqual([]);
   });
 
-  it("keeps an existing invoice's issuer_snapshot on a same-school restore", async () => {
+  it("keeps an existing DRAFT invoice's issuer_snapshot on a same-school restore", async () => {
     // The snapshot is the issuer identity frozen at issue time. Nulling it
     // on update would silently repoint every reprinted receipt at the
     // school's *current* profile — and because `issuer_snapshot` is in
@@ -165,6 +160,7 @@ describe('invoicesTab', () => {
     const frozen = { school_name: 'Old Name' } as unknown as Invoice['issuer_snapshot'];
     const existing = Object.assign(new Invoice(), {
       id: 'inv-1',
+      status: InvoiceStatus.DRAFT,
       issuer_snapshot: frozen,
     }) as Invoice;
 
@@ -179,15 +175,15 @@ describe('invoicesTab', () => {
     const row = {
       id: 'inv-1',
       invoice_number: 'INV-2026-00042',
+      kind: InvoiceKind.INVOICE,
       student_id: 'student-1',
-      student_fee_id: null,
       total_amount: '1500.00',
       tax_amount: '0.00',
       discount_amount: '0.00',
-      status: InvoiceStatus.ISSUED,
+      status: InvoiceStatus.DRAFT,
       issued_date: '2026-01-03',
       due_date: '2026-01-10',
-      line_items: null,
+      snapshot: null,
       issued_by_id: null,
       notes: null,
     } as unknown as InvoiceRow;
@@ -198,5 +194,101 @@ describe('invoicesTab', () => {
     // A brand-new invoice still gets a null snapshot (D9 of #508).
     await invoicesTab.upsert(row, null, 'tenant-1', manager as never);
     expect(saved[1].issuer_snapshot).toBeNull();
+  });
+
+  it('only touches status/updated_at/deleted_at once an invoice has left DRAFT', async () => {
+    // [16.5.1] D21 immutability trigger: any other column change on an
+    // ISSUED (or later) row is rejected by the DB. A restore must not even
+    // attempt a full-column write on one of these.
+    const existing = Object.assign(new Invoice(), {
+      id: 'inv-1',
+      invoice_number: 'INV-2026-00042',
+      kind: InvoiceKind.INVOICE,
+      student_id: 'student-1',
+      total_amount: '1500.00',
+      status: InvoiceStatus.ISSUED,
+      snapshot: { totals: { billed: 1500 } },
+      issuer_snapshot: { school_name: 'Original' } as unknown as Invoice['issuer_snapshot'],
+    }) as Invoice;
+
+    const saved: Invoice[] = [];
+    const manager = {
+      save: (_e: unknown, v: Invoice) => {
+        saved.push(v);
+        return Promise.resolve(v);
+      },
+    };
+
+    // The row claims a different student/amount/snapshot than what's on
+    // disk (e.g. a stale export re-imported) — none of that may land.
+    const row = {
+      id: 'inv-1',
+      invoice_number: 'INV-2026-00042',
+      kind: InvoiceKind.CREDIT_NOTE,
+      student_id: 'student-2',
+      total_amount: '9999.00',
+      tax_amount: '0.00',
+      discount_amount: '0.00',
+      status: InvoiceStatus.CANCELLED,
+      issued_date: '2026-01-03',
+      due_date: '2026-01-10',
+      snapshot: { totals: { billed: 9999 } },
+      issued_by_id: null,
+      notes: 'tampered',
+    } as unknown as InvoiceRow;
+
+    await invoicesTab.upsert(row, existing, 'tenant-1', manager as never);
+
+    expect(saved).toHaveLength(1);
+    expect(saved[0].status).toBe(InvoiceStatus.CANCELLED);
+    expect(saved[0].student_id).toBe('student-1');
+    expect(saved[0].total_amount).toBe('1500.00');
+    expect(saved[0].snapshot).toEqual({ totals: { billed: 1500 } });
+    expect(saved[0].kind).toBe(InvoiceKind.INVOICE);
+  });
+
+  it('rejects a restore row that tries to re-enter DRAFT on an already-issued invoice', async () => {
+    // [16.5.1 fix] The trigger lets `status` change freely once a row has
+    // left DRAFT — it does not stop status from going *back* to DRAFT. A
+    // stale export re-imported over an already-ISSUED invoice must not be
+    // allowed to resurrect it as a draft.
+    const existing = Object.assign(new Invoice(), {
+      id: 'inv-1',
+      invoice_number: 'INV-2026-00042',
+      kind: InvoiceKind.INVOICE,
+      student_id: 'student-1',
+      total_amount: '1500.00',
+      status: InvoiceStatus.ISSUED,
+      snapshot: { totals: { billed: 1500 } },
+    }) as Invoice;
+
+    const saved: Invoice[] = [];
+    const manager = {
+      save: (_e: unknown, v: Invoice) => {
+        saved.push(v);
+        return Promise.resolve(v);
+      },
+    };
+
+    const row = {
+      id: 'inv-1',
+      invoice_number: 'INV-2026-00042',
+      kind: InvoiceKind.INVOICE,
+      student_id: 'student-1',
+      total_amount: '1500.00',
+      tax_amount: '0.00',
+      discount_amount: '0.00',
+      status: InvoiceStatus.DRAFT,
+      issued_date: '2026-01-03',
+      due_date: '2026-01-10',
+      snapshot: { totals: { billed: 1500 } },
+      issued_by_id: null,
+      notes: null,
+    } as unknown as InvoiceRow;
+
+    await expect(invoicesTab.upsert(row, existing, 'tenant-1', manager as never)).rejects.toThrow(
+      /already ISSUED/,
+    );
+    expect(saved).toHaveLength(0);
   });
 });

@@ -18,10 +18,15 @@ import {
 import { ensureFeeStructure, periodStart } from '@test/helpers/fee-fixture.helper';
 
 /**
- * E2E tests for the Invoice Generation & Printing API (issue #14).
+ * E2E tests for the Invoice Generation & Printing API [16.5.1].
  *
  * Tests RBAC, tenant isolation, and the end-to-end shape of
  * POST /invoices, GET /invoices, GET /invoices/:id, GET /invoices/:id/print.
+ *
+ * `POST /invoices` no longer accepts free-form line items — an invoice is
+ * always built from an already-recorded payment's committed allocations
+ * (`{ payment_id }`), so every fixture here records a payment (and marks
+ * its fee PAID) before asking the endpoint to generate the invoice.
  */
 
 describe('Invoices E2E', () => {
@@ -71,6 +76,30 @@ describe('Invoices E2E', () => {
     return res[0].id;
   }
 
+  /** [16.5.1] Records a payment fully allocated against `feeId` and marks
+   * the fee PAID — the state `InvoicesService.create` expects to build a
+   * snapshot from. Mirrors what checkout/payment-allocation do before
+   * ever calling the invoices endpoint. */
+  async function createPayment(studentId: string, feeId: string, amount: number): Promise<string> {
+    const paymentRes = await dataSource.query(
+      `INSERT INTO payments (id, student_id, total_amount, payment_method, payment_status, received_by_user_id, payment_date, tenant_id, created_at, updated_at)
+       VALUES (DEFAULT, $1, $2, 'CASH', 'SUCCESS', $3, NOW(), $4, NOW(), NOW())
+       RETURNING id`,
+      [studentId, amount, SEED_ADMIN_USER_ID, TENANT_ID],
+    );
+    const paymentId = paymentRes[0].id;
+    await dataSource.query(
+      `INSERT INTO payment_allocations (id, payment_id, student_fee_id, allocated_amount, allocation_type, created_at)
+       VALUES (DEFAULT, $1, $2, $3, 'CURRENT', NOW())`,
+      [paymentId, feeId, amount],
+    );
+    await dataSource.query(
+      `UPDATE student_fees SET paid_amount = $1, status = 'PAID' WHERE id = $2`,
+      [amount, feeId],
+    );
+    return paymentId;
+  }
+
   beforeAll(async () => {
     if (!process.env.DATABASE_URL) {
       throw new Error('DATABASE_URL must be set to run e2e tests');
@@ -115,74 +144,56 @@ describe('Invoices E2E', () => {
   });
 
   describe('POST /invoices', () => {
-    it('creates an invoice for ACCOUNTANT role from a student_fee_id', async () => {
+    it('creates an invoice for ACCOUNTANT role from a payment_id', async () => {
       const studentId = await createStudent();
       const feeId = await createFee(studentId, 1200);
+      const paymentId = await createPayment(studentId, feeId, 1200);
 
       const res = await supertest(app.getHttpServer())
         .post('/api/v1/invoices')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ACCOUNTANT)
-        .send({ student_id: studentId, student_fee_id: feeId })
+        .send({ payment_id: paymentId })
         .expect(201);
 
       expect(res.body.invoice_number).toMatch(/^INV-\d{4}-\d{5}$/);
       expect(Number(res.body.total_amount)).toBe(1200);
       expect(res.body.status).toBe('ISSUED');
+      expect(res.body.kind).toBe('INVOICE');
+      expect(res.body.snapshot.students[0].id).toBe(studentId);
       // issued_by embeds the full User relation server-side — must never
       // carry password_hash into the response.
       expect(res.body.issued_by).not.toHaveProperty('password_hash');
     });
 
-    it('neutralises a script payload in notes (issue #33)', async () => {
-      const studentId = await createStudent();
-      const feeId = await createFee(studentId, 500);
-
-      const res = await supertest(app.getHttpServer())
-        .post('/api/v1/invoices')
-        .set('Authorization', `Bearer ${token}`)
-        .set('X-Tenant-ID', TENANT_ID)
-        .set('X-Role', UserRole.ACCOUNTANT)
-        .send({
-          student_id: studentId,
-          student_fee_id: feeId,
-          notes: '<script>alert(1)</script>Please pay by the 5th',
-        })
-        .expect(201);
-
-      expect(res.body.notes).toBe('Please pay by the 5th');
-    });
-
     it('returns 401 for STUDENT role', async () => {
       const studentId = await createStudent();
       const feeId = await createFee(studentId);
+      const paymentId = await createPayment(studentId, feeId, 1000);
 
       const res = await supertest(app.getHttpServer())
         .post('/api/v1/invoices')
         .set('Authorization', `Bearer ${studentRoleToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
-        .send({ student_id: studentId, student_fee_id: feeId })
+        .send({ payment_id: paymentId })
         .expect(401);
 
       expect(res.body.message).toContain('Requires one of roles');
     });
 
-    it('returns 404 when student does not exist', async () => {
+    it('returns 404 when payment does not exist', async () => {
       await supertest(app.getHttpServer())
         .post('/api/v1/invoices')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ADMIN)
-        .send({
-          student_id: '00000000-0000-4000-8000-000000000000',
-          line_items: [{ description: 'Fee', amount: 100 }],
-        })
+        .send({ payment_id: '00000000-0000-4000-8000-000000000000' })
         .expect(404);
     });
 
-    it('returns 400 for invalid DTO (missing student_id)', async () => {
+    it('returns 400 for invalid DTO (missing payment_id)', async () => {
       await supertest(app.getHttpServer())
         .post('/api/v1/invoices')
         .set('Authorization', `Bearer ${token}`)
@@ -197,13 +208,14 @@ describe('Invoices E2E', () => {
     it('fetches invoice detail and printable HTML', async () => {
       const studentId = await createStudent();
       const feeId = await createFee(studentId, 900);
+      const paymentId = await createPayment(studentId, feeId, 900);
 
       const createRes = await supertest(app.getHttpServer())
         .post('/api/v1/invoices')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ACCOUNTANT)
-        .send({ student_id: studentId, student_fee_id: feeId })
+        .send({ payment_id: paymentId })
         .expect(201);
 
       const detailRes = await supertest(app.getHttpServer())
@@ -255,12 +267,13 @@ describe('Invoices E2E', () => {
     it('lists invoices filtered by student_id', async () => {
       const studentId = await createStudent();
       const feeId = await createFee(studentId);
+      const paymentId = await createPayment(studentId, feeId, 1000);
       await supertest(app.getHttpServer())
         .post('/api/v1/invoices')
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ACCOUNTANT)
-        .send({ student_id: studentId, student_fee_id: feeId })
+        .send({ payment_id: paymentId })
         .expect(201);
 
       const res = await supertest(app.getHttpServer())

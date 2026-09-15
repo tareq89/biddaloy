@@ -89,9 +89,12 @@ export class InvoicesController {
   async create(
     @Body() dto: CreateInvoiceDto,
     @CurrentTenant() tenant: { id: string; role: string },
-    @CurrentUser() user: JwtPayload,
   ) {
-    const invoice = await this.invoicesService.create(dto, tenant.id, user.sub);
+    // [16.5.1] `create()` no longer takes a free-form DTO — it builds the
+    // invoice from an already-recorded payment's committed allocations.
+    // `createFromPayment` tenant-checks `dto.payment_id` and opens the
+    // transaction `create()` itself no longer owns.
+    const invoice = await this.invoicesService.createFromPayment(dto.payment_id, tenant.id);
     return toSafeInvoice(invoice);
   }
 
@@ -126,7 +129,23 @@ export class InvoicesController {
       tenant.id,
     );
     const page = await this.invoicesService.findAll(query, tenant.id, linkedStudentIds);
-    return { ...page, data: page.data.map(toFamilyInvoice) };
+    // [H1 fix] Same multi-student privacy gap as `findOne` above: a row
+    // matched by `student_id` can still carry other siblings' data in its
+    // `snapshot.students[]`. Filter each row down to just the students the
+    // caller is already known (via `linkedStudentIds` above) to be linked
+    // to, so an unlinked sibling's name/registration number/fee lines
+    // never leave the server through the list endpoint either.
+    const linked = new Set(linkedStudentIds);
+    return {
+      ...page,
+      data: page.data.map(toFamilyInvoice).map((familyInvoice) => ({
+        ...familyInvoice,
+        snapshot: {
+          ...familyInvoice.snapshot,
+          students: familyInvoice.snapshot.students.filter((s) => linked.has(s.id)),
+        },
+      })),
+    };
   }
 
   @Get(':id')
@@ -150,8 +169,37 @@ export class InvoicesController {
     @CurrentUser() user: JwtPayload,
   ) {
     const invoice = await this.invoicesService.findOne(id, tenant.id);
-    await this.familyAccess.assertLinked(tenant.role, user.sub, invoice.student_id, tenant.id);
-    return isGuardianRole(tenant.role) ? toFamilyInvoice(invoice) : toSafeInvoice(invoice);
+    // [664 fix] A [16.5.1] invoice can cover more than one student — a
+    // sibling/multi-student checkout groups every covered child's lines
+    // into one `snapshot.students[]`. Checking only `invoice.student_id`
+    // (the primary/first student) let a guardian linked to just one sibling
+    // see every other sibling's name/registration number/fee lines through
+    // this endpoint. `assertLinkedToAny` checks the caller against the
+    // *whole* student set and returns which of them are actually linked;
+    // the family response is then filtered down to that subset so an
+    // unlinked sibling's data never leaves the server.
+    const allStudentIds = [
+      invoice.student_id,
+      ...(invoice.snapshot?.students?.map((s) => s.id) ?? []),
+    ];
+    const linkedStudentIds = await this.familyAccess.assertLinkedToAny(
+      tenant.role,
+      user.sub,
+      allStudentIds,
+      tenant.id,
+    );
+    if (!isGuardianRole(tenant.role)) {
+      return toSafeInvoice(invoice);
+    }
+    const linked = new Set(linkedStudentIds);
+    const familyInvoice = toFamilyInvoice(invoice);
+    return {
+      ...familyInvoice,
+      snapshot: {
+        ...familyInvoice.snapshot,
+        students: familyInvoice.snapshot.students.filter((s) => linked.has(s.id)),
+      },
+    };
   }
 
   @Get(':id/print')
@@ -178,7 +226,16 @@ export class InvoicesController {
     // its own joins — staff should not pay for a check that cannot fail.
     if (isGuardianRole(tenant.role)) {
       const invoice = await this.invoicesService.findOne(id, tenant.id);
-      await this.familyAccess.assertLinked(tenant.role, user.sub, invoice.student_id, tenant.id);
+      // [664 fix] Same multi-student gap as `findOne` above — check the
+      // caller against every student on the invoice, not just the primary
+      // one. The rendered HTML still shows every sibling's lines (tracked
+      // as a follow-up, not fixed here); this at minimum stops an
+      // unlinked guardian from reaching the print view at all.
+      const allStudentIds = [
+        invoice.student_id,
+        ...(invoice.snapshot?.students?.map((s) => s.id) ?? []),
+      ];
+      await this.familyAccess.assertLinkedToAny(tenant.role, user.sub, allStudentIds, tenant.id);
     }
     return this.invoicesService.getPrintableHtml(id, tenant.id);
   }

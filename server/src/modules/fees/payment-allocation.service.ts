@@ -5,18 +5,11 @@ import { Payment } from './entities/payment.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { StudentFee } from './entities/student-fee.entity';
 import { Student } from '../students/entities/student.entity';
-import { Invoice } from '../invoices/entities/invoice.entity';
 import { School } from '../schools/entities/school.entity';
 import { AuditService } from '../audit/audit.service';
-import {
-  FeeStatus,
-  InvoiceStatus,
-  PaymentAllocationType,
-  PaymentStatus,
-  AuditAction,
-} from '@biddaloy/shared';
+import { InvoicesService } from '../invoices/invoices.service';
+import { FeeStatus, PaymentAllocationType, PaymentStatus, AuditAction } from '@biddaloy/shared';
 import { RecordPaymentWithAllocationDto } from './dto/fees.dto';
-import { generateInvoiceNumber } from '../invoices/invoice-numbering.util';
 import {
   buildIssuerSnapshot,
   lockSchoolForSnapshot,
@@ -113,6 +106,7 @@ export class PaymentAllocationService {
     @InjectRepository(School)
     private readonly schoolRepo: Repository<School>,
     private readonly auditService: AuditService,
+    private readonly invoicesService: InvoicesService,
   ) {}
 
   async recordWithAllocation(
@@ -163,7 +157,6 @@ export class PaymentAllocationService {
         const studentFeeRepo = manager.getRepository(StudentFee);
         const paymentRepo = manager.getRepository(Payment);
         const allocationRepo = manager.getRepository(PaymentAllocation);
-        const invoiceRepo = manager.getRepository(Invoice);
 
         // Lock every outstanding fee for this student so two concurrent
         // payments can't both allocate against the same balance.
@@ -342,30 +335,12 @@ export class PaymentAllocationService {
         const isFullPayment =
           feeUpdates.length > 0 && feeUpdates.every((u) => u.newStatus === FeeStatus.PAID);
         if (isFullPayment && dto.generate_invoice !== false) {
-          const invoiceNumber = await generateInvoiceNumber(invoiceRepo);
-          const lineItems = feeUpdates.map((u) => ({
-            description: `Fee for ${u.fee.month}/${u.fee.year}`,
-            amount: u.allocatedAmount,
-            quantity: 1,
-            total: u.allocatedAmount,
-          }));
-
-          const invoice = await invoiceRepo.save(
-            invoiceRepo.create({
-              invoice_number: invoiceNumber,
-              student_id: dto.student_id,
-              student_fee_id: feeUpdates.length === 1 ? feeUpdates[0].fee.id : null,
-              total_amount: dto.total_amount,
-              tax_amount: 0,
-              discount_amount: 0,
-              status: InvoiceStatus.ISSUED,
-              issued_date: now,
-              due_date: now,
-              line_items: lineItems,
-              issued_by_user_id: userId,
-              issuer_snapshot: issuerSnapshot,
-            }),
-          );
+          // [16.5.1] Routed through `InvoicesService.create` (same
+          // manager, same transaction) instead of building the row
+          // in-line — it builds the snapshot from `savedPayment`'s
+          // allocations itself, so every invoice-creation path shares one
+          // immutability-safe implementation.
+          const invoice = await this.invoicesService.create(savedPayment.id, manager);
           await paymentRepo.update(savedPayment.id, { invoice_id: invoice.id });
 
           await this.auditService.record(
@@ -376,7 +351,7 @@ export class PaymentAllocationService {
               tenant_id: tenantId,
               performed_by_user_id: userId,
               new_values: {
-                invoice_number: invoiceNumber,
+                invoice_number: invoice.invoice_number,
                 payment_id: savedPayment.id,
                 total_amount: dto.total_amount,
               },

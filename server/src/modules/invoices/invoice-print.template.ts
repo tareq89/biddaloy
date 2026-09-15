@@ -71,16 +71,24 @@ export function renderInvoiceHtml(
 ): string {
   const student = invoice.student;
   const classSection = student.class_section;
+  const snapshotStudents = invoice.snapshot.students;
 
-  const lineItemRows = (invoice.line_items ?? [])
-    .map(
-      (item) => `
+  // [16.5.1] `snapshot.students` groups lines by student (a multi-student
+  // checkout, e.g. siblings, snapshots more than one) — flatten into rows
+  // with a student column so the table still reads naturally for the
+  // common single-student case.
+  const lineItemRows = snapshotStudents
+    .flatMap((s) =>
+      s.lines.map(
+        (line) => `
         <tr>
-          <td>${escapeHtml(item.description)}</td>
-          <td class="num">${item.quantity}</td>
-          <td class="num">${formatAmount(item.amount)}</td>
-          <td class="num">${formatAmount(item.total)}</td>
+          <td>${escapeHtml(s.full_name)}</td>
+          <td>${escapeHtml(line.fee_name)} (${escapeHtml(line.period_label)})</td>
+          <td class="num">${formatAmount(line.amount)}</td>
+          <td class="num">${formatAmount(line.discount)}</td>
+          <td class="num">${formatAmount(line.paid_this_time)}</td>
         </tr>`,
+      ),
     )
     .join('');
 
@@ -98,7 +106,7 @@ export function renderInvoiceHtml(
         .join('')
     : '<tr><td colspan="4" class="empty">No payments recorded yet</td></tr>';
 
-  const subtotal = (invoice.line_items ?? []).reduce((sum, item) => sum + Number(item.total), 0);
+  const subtotal = invoice.snapshot.totals.billed;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -163,17 +171,16 @@ export function renderInvoiceHtml(
     <h2>Fee Breakdown</h2>
     <table>
       <thead>
-        <tr><th>Description</th><th class="num">Qty</th><th class="num">Amount</th><th class="num">Total</th></tr>
+        <tr><th>Student</th><th>Fee</th><th class="num">Amount</th><th class="num">Discount</th><th class="num">Paid</th></tr>
       </thead>
       <tbody>
-        ${lineItemRows || '<tr><td colspan="4" class="empty">No line items</td></tr>'}
+        ${lineItemRows || '<tr><td colspan="5" class="empty">No line items</td></tr>'}
       </tbody>
     </table>
     <div class="totals">
-      <div><span>Subtotal</span><span>${formatAmount(subtotal)}</span></div>
-      <div><span>Tax</span><span>${formatAmount(invoice.tax_amount)}</span></div>
-      <div><span>Discount</span><span>-${formatAmount(invoice.discount_amount)}</span></div>
-      <div class="grand-total"><span>Total</span><span>${formatAmount(invoice.total_amount)}</span></div>
+      <div><span>Billed</span><span>${formatAmount(subtotal)}</span></div>
+      <div><span>Discount</span><span>-${formatAmount(invoice.snapshot.totals.discount)}</span></div>
+      <div class="grand-total"><span>Paid</span><span>${formatAmount(invoice.snapshot.totals.paid)}</span></div>
     </div>
   </div>
 

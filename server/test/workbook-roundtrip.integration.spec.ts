@@ -5,6 +5,7 @@ import JSZip from 'jszip';
 import {
   FeeType,
   FeeStatus,
+  InvoiceKind,
   InvoiceStatus,
   PaymentMethod,
   PaymentStatus,
@@ -490,23 +491,10 @@ describe('workbook round trip (integration)', () => {
       }),
     );
 
-    const invoice = await dataSource.getRepository(Invoice).save(
-      dataSource.getRepository(Invoice).create({
-        invoice_number: `INV-2026-${TENANT_A.slice(0, 8)}`,
-        student_id: student.id,
-        student_fee_id: studentFee.id,
-        total_amount: 1500,
-        tax_amount: 0,
-        discount_amount: 0,
-        status: InvoiceStatus.PAID,
-        issued_date: '2026-01-05',
-        due_date: '2026-01-10',
-        line_items: [{ description: 'Tuition - January', amount: 1500, quantity: 1, total: 1500 }],
-        issued_by_user_id: USER_ID,
-        notes: null,
-      }),
-    );
-
+    // [16.5.1] Payment created before the invoice it backs: `Invoice`
+    // now carries `payment_id`, and once an invoice's status leaves DRAFT
+    // the D21 trigger blocks any later UPDATE to that column, so it must
+    // be set at INSERT time.
     const payment = await dataSource.getRepository(Payment).save(
       dataSource.getRepository(Payment).create({
         student_id: student.id,
@@ -516,11 +504,68 @@ describe('workbook round trip (integration)', () => {
         transaction_reference: null,
         remarks: null,
         received_by_user_id: USER_ID,
-        invoice_id: invoice.id,
+        invoice_id: null,
         payment_date: new Date('2026-01-05T00:00:00.000Z'),
         tenant_id: TENANT_A,
       }),
     );
+
+    // [16.5.1] `Invoice.snapshot` replaces `line_items`.
+    const invoice = await dataSource.getRepository(Invoice).save(
+      dataSource.getRepository(Invoice).create({
+        invoice_number: `INV-2026-${TENANT_A.slice(0, 8)}`,
+        kind: InvoiceKind.INVOICE,
+        student_id: student.id,
+        payment_id: payment.id,
+        total_amount: 1500,
+        tax_amount: 0,
+        discount_amount: 0,
+        status: InvoiceStatus.PAID,
+        issued_date: '2026-01-05',
+        due_date: '2026-01-10',
+        snapshot: {
+          issuer: {},
+          students: [
+            {
+              id: student.id,
+              full_name: 'Fixture Student',
+              registration_number: 'REG-FIXTURE',
+              class_name: null,
+              lines: [
+                {
+                  fee_name: 'Tuition - January',
+                  period_label: '2026-01',
+                  amount: 1500,
+                  discount: 0,
+                  paid_this_time: 1500,
+                  balance_after: 0,
+                },
+              ],
+            },
+          ],
+          totals: {
+            billed: 1500,
+            discount: 0,
+            paid: 1500,
+            change: 0,
+            wallet_used: 0,
+            wallet_added: 0,
+          },
+          payment: {
+            method: PaymentMethod.CASH,
+            reference: null,
+            received_by_name: null,
+            payment_date: '2026-01-05',
+          },
+        },
+        issued_by_user_id: USER_ID,
+        notes: null,
+      }),
+    );
+
+    // Back-link the payment to the invoice it produced. `Payment` carries
+    // no immutability trigger, so a plain UPDATE is fine here.
+    await dataSource.getRepository(Payment).update({ id: payment.id }, { invoice_id: invoice.id });
 
     await dataSource.getRepository(PaymentAllocation).save(
       dataSource.getRepository(PaymentAllocation).create({
