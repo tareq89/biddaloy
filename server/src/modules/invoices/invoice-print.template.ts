@@ -1,32 +1,14 @@
 import { Invoice } from './entities/invoice.entity';
 import { Payment } from '../fees/entities/payment.entity';
 import { IssuerSnapshot } from '../schools/profile/issuer-snapshot';
-
-function escapeHtml(value: unknown): string {
-  return String(value ?? '').replace(/[&<>"']/g, (c) => {
-    switch (c) {
-      case '&':
-        return '&amp;';
-      case '<':
-        return '&lt;';
-      case '>':
-        return '&gt;';
-      case '"':
-        return '&quot;';
-      default:
-        return '&#39;';
-    }
-  });
-}
-
-function formatDate(value: Date | string): string {
-  const d = new Date(value);
-  return d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: '2-digit' });
-}
-
-function formatAmount(value: number | string): string {
-  return Number(value).toFixed(2);
-}
+import {
+  escapeHtml,
+  formatAmount,
+  formatDate,
+  filterSnapshotForLinkedStudents,
+  isCreditNote,
+  signedAmount,
+} from './invoice-print-format.util';
 
 /** [15.5.7] Same header block `IssuerHeader` (`ui/src/components/print/
  * issuer-header.tsx`) renders client-side, built as a raw HTML string
@@ -62,16 +44,34 @@ function renderIssuerHeader(issuer: IssuerSnapshot, logoDataUrl: string | null):
 /** `logoDataUrl` — a `data:` URL for `issuer.logo_key`'s bytes, or `null`
  * (no logo, or the object is gone) — resolved by the caller via
  * `readLogoDataUrl` before render, since this file has no `StorageService`
- * access. */
+ * access.
+ *
+ * `linkedStudentIds` — [664 follow-up, 665] when the caller is a
+ * PARENT/STUDENT, the ids they're actually linked to (from
+ * `FamilyAccessService.assertLinkedToAny`); `undefined` for staff/admin,
+ * who see every student on the invoice. Filters `snapshot.students[]`
+ * down the same way the JSON response already does, so a guardian linked
+ * to only one of two siblings on a shared invoice never sees the other
+ * child's name/registration number/fee lines in the printed HTML either. */
 export function renderInvoiceHtml(
   invoice: Invoice,
   payments: Payment[],
   issuer: IssuerSnapshot,
   logoDataUrl: string | null,
+  linkedStudentIds?: string[],
 ): string {
   const student = invoice.student;
   const classSection = student.class_section;
-  const snapshotStudents = invoice.snapshot.students;
+  const creditNote = isCreditNote(invoice);
+  const snapshot = filterSnapshotForLinkedStudents(invoice.snapshot, linkedStudentIds);
+  const snapshotStudents = snapshot.students;
+  // [665] `invoice.student`/payment history are whole-payment/primary-student
+  // concepts that don't narrow when `filterSnapshotForLinkedStudents` drops
+  // an unlinked sibling — a guardian linked only to the non-primary student
+  // must not see either block, since both can reveal the unlinked sibling's
+  // identity or the full multi-student payment amount.
+  const isPartialView =
+    linkedStudentIds !== undefined && snapshotStudents.length < invoice.snapshot.students.length;
 
   // [16.5.1] `snapshot.students` groups lines by student (a multi-student
   // checkout, e.g. siblings, snapshots more than one) — flatten into rows
@@ -84,9 +84,9 @@ export function renderInvoiceHtml(
         <tr>
           <td>${escapeHtml(s.full_name)}</td>
           <td>${escapeHtml(line.fee_name)} (${escapeHtml(line.period_label)})</td>
-          <td class="num">${formatAmount(line.amount)}</td>
-          <td class="num">${formatAmount(line.discount)}</td>
-          <td class="num">${formatAmount(line.paid_this_time)}</td>
+          <td class="num">${formatAmount(signedAmount(line.amount, invoice))}</td>
+          <td class="num">${formatAmount(signedAmount(line.discount, invoice))}</td>
+          <td class="num">${formatAmount(signedAmount(line.paid_this_time, invoice))}</td>
         </tr>`,
       ),
     )
@@ -100,19 +100,20 @@ export function renderInvoiceHtml(
           <td>${formatDate(p.payment_date)}</td>
           <td>${escapeHtml(p.payment_method)}</td>
           <td>${escapeHtml(p.transaction_reference ?? '-')}</td>
-          <td class="num">${formatAmount(p.total_amount)}</td>
+          <td class="num">${formatAmount(signedAmount(p.total_amount, invoice))}</td>
         </tr>`,
         )
         .join('')
     : '<tr><td colspan="4" class="empty">No payments recorded yet</td></tr>';
 
-  const subtotal = invoice.snapshot.totals.billed;
+  const subtotal = signedAmount(snapshot.totals.billed, invoice);
+  const documentLabel = creditNote ? 'Credit Note' : 'Invoice';
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Invoice ${escapeHtml(invoice.invoice_number)}</title>
+<title>${documentLabel} ${escapeHtml(invoice.invoice_number)}</title>
 <style>
   * { box-sizing: border-box; }
   body { font-family: Arial, Helvetica, sans-serif; color: #1a1a1a; margin: 0; padding: 32px; }
@@ -126,6 +127,7 @@ export function renderInvoiceHtml(
   .issuer-name-secondary { font-size: 14px; color: #555; }
   .issuer-detail { font-size: 12px; color: #555; }
   .status { display: inline-block; padding: 2px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; text-transform: uppercase; background: #eee; margin-top: 4px; }
+  .credit-note-badge { display: inline-block; padding: 2px 10px; border-radius: 4px; font-size: 13px; font-weight: bold; text-transform: uppercase; background: #fdecea; color: #c0392b; margin-top: 4px; letter-spacing: 0.05em; }
   .section { margin-bottom: 24px; }
   .section h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; color: #555; margin-bottom: 8px; }
   .student-details { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; font-size: 14px; }
@@ -138,6 +140,7 @@ export function renderInvoiceHtml(
   .totals div { display: flex; justify-content: space-between; padding: 4px 0; }
   .totals .grand-total { font-weight: bold; font-size: 16px; border-top: 2px solid #1a1a1a; margin-top: 4px; padding-top: 8px; }
   .notes { font-size: 13px; color: #555; margin-top: 24px; }
+  ${creditNote ? '.credit-note-color { color: #c0392b; }' : ''}
   @media print {
     body { padding: 0; }
   }
@@ -147,17 +150,24 @@ export function renderInvoiceHtml(
   <div class="header">
     <div>
       ${renderIssuerHeader(issuer, logoDataUrl)}
-      <div class="school">Invoice</div>
+      <div class="school">${documentLabel}</div>
     </div>
     <div class="meta">
       <div class="invoice-number">${escapeHtml(invoice.invoice_number)}</div>
       <div>Issued: ${formatDate(invoice.issued_date)}</div>
       <div>Due: ${formatDate(invoice.due_date)}</div>
-      <div class="status">${escapeHtml(invoice.status)}</div>
+      ${
+        creditNote
+          ? '<div class="credit-note-badge">Credit Note</div>'
+          : `<div class="status">${escapeHtml(invoice.status)}</div>`
+      }
     </div>
   </div>
 
-  <div class="section">
+  ${
+    isPartialView
+      ? ''
+      : `<div class="section">
     <h2>Student</h2>
     <div class="student-details">
       <div><strong>Name:</strong> ${escapeHtml(student.full_name)}</div>
@@ -165,7 +175,8 @@ export function renderInvoiceHtml(
       <div><strong>Class:</strong> ${escapeHtml(classSection?.class?.name ?? '-')}</div>
       <div><strong>Section:</strong> ${escapeHtml(classSection?.section_name ?? '-')} (Roll ${escapeHtml(student.roll_number)})</div>
     </div>
-  </div>
+  </div>`
+  }
 
   <div class="section">
     <h2>Fee Breakdown</h2>
@@ -177,14 +188,17 @@ export function renderInvoiceHtml(
         ${lineItemRows || '<tr><td colspan="5" class="empty">No line items</td></tr>'}
       </tbody>
     </table>
-    <div class="totals">
+    <div class="totals${creditNote ? ' credit-note-color' : ''}">
       <div><span>Billed</span><span>${formatAmount(subtotal)}</span></div>
-      <div><span>Discount</span><span>-${formatAmount(invoice.snapshot.totals.discount)}</span></div>
-      <div class="grand-total"><span>Paid</span><span>${formatAmount(invoice.snapshot.totals.paid)}</span></div>
+      <div><span>Discount</span><span>${formatAmount(-Math.abs(snapshot.totals.discount))}</span></div>
+      <div class="grand-total"><span>Paid</span><span>${formatAmount(signedAmount(snapshot.totals.paid, invoice))}</span></div>
     </div>
   </div>
 
-  <div class="section">
+  ${
+    isPartialView
+      ? ''
+      : `<div class="section">
     <h2>Payment History</h2>
     <table>
       <thead>
@@ -194,7 +208,8 @@ export function renderInvoiceHtml(
         ${paymentRows}
       </tbody>
     </table>
-  </div>
+  </div>`
+  }
 
   ${invoice.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(invoice.notes)}</div>` : ''}
 </body>

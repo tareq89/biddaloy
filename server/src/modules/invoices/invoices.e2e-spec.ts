@@ -237,6 +237,43 @@ describe('Invoices E2E', () => {
       expect(printRes.text).toContain(createRes.body.invoice_number);
     });
 
+    it('[16.5.2] renders pos58/pos80 when asked, and 400s on an unknown format', async () => {
+      const studentId = await createStudent();
+      const feeId = await createFee(studentId, 500);
+      const paymentId = await createPayment(studentId, feeId, 500);
+
+      const createRes = await supertest(app.getHttpServer())
+        .post('/api/v1/invoices')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ACCOUNTANT)
+        .send({ payment_id: paymentId })
+        .expect(201);
+
+      const pos58Res = await supertest(app.getHttpServer())
+        .get(`/api/v1/invoices/${createRes.body.id}/print?format=pos58`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(200);
+      expect(pos58Res.text).toContain('@page { size: 58mm auto; margin: 2mm }');
+
+      const pos80Res = await supertest(app.getHttpServer())
+        .get(`/api/v1/invoices/${createRes.body.id}/print?format=pos80`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(200);
+      expect(pos80Res.text).toContain('@page { size: 80mm auto; margin: 2mm }');
+
+      await supertest(app.getHttpServer())
+        .get(`/api/v1/invoices/${createRes.body.id}/print?format=pdf`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(400);
+    });
+
     it('returns 404 for an invoice that does not exist', async () => {
       await supertest(app.getHttpServer())
         .get('/api/v1/invoices/00000000-0000-4000-8000-000000000000')

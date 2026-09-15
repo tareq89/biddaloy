@@ -9,6 +9,7 @@ import { InvoiceStatus, InvoiceKind } from '@biddaloy/shared';
 import { QueryInvoiceDto } from './dto/invoices.dto';
 import { generateInvoiceNumber, generateCreditNoteNumber } from './invoice-numbering.util';
 import { renderInvoiceHtml } from './invoice-print.template';
+import { renderInvoicePosHtml, PosPrintWidth } from './invoice-print-pos.template';
 import { StorageService } from '../storage/storage.service';
 import { readLogoDataUrl } from '../schools/profile/logo-data-url';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
@@ -18,6 +19,10 @@ import {
   resolveIssuer,
   IssuerSnapshot,
 } from '../schools/profile/issuer-snapshot';
+
+/** [16.5.2] `GET /invoices/:id/print?format=` values — `a4` is the
+ * default when the query param is absent. */
+export type InvoicePrintFormat = 'a4' | PosPrintWidth;
 
 const MONTH_NAMES = [
   'January',
@@ -366,7 +371,24 @@ export class InvoicesService {
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  async getPrintableHtml(id: string, tenantId: string): Promise<string> {
+  /**
+   * `format` — `a4` (default), `pos58`, or `pos80`; validated at the
+   * controller ([16.5.2]).
+   *
+   * `linkedStudentIds` — [664 follow-up, 665] when set (a PARENT/STUDENT
+   * caller), both templates filter `snapshot.students[]` down to this
+   * subset before rendering, so a guardian linked to only one of two
+   * siblings on a shared invoice never sees the other child's name,
+   * registration number, or fee lines in the printed HTML — the same
+   * privacy boundary the JSON response (`findOne`/`findAll`) already
+   * enforces. `undefined` (staff/admin) renders every student, unfiltered.
+   */
+  async getPrintableHtml(
+    id: string,
+    tenantId: string,
+    format: InvoicePrintFormat = 'a4',
+    linkedStudentIds?: string[],
+  ): Promise<string> {
     const invoice = await this.repo.findOne({
       where: { id, deleted_at: IsNull() },
       relations: [
@@ -380,13 +402,6 @@ export class InvoicesService {
       throw new NotFoundException(`Invoice with ID "${id}" not found`);
     }
 
-    const payments = invoice.payment_id
-      ? await this.paymentRepo.find({
-          where: { id: invoice.payment_id, deleted_at: IsNull() },
-          order: { payment_date: 'DESC' },
-        })
-      : [];
-
     // [15.5.7] `student.tenant` is already loaded above (the template
     // needed the live school name regardless) — reused here as
     // `resolveIssuer`'s live-profile fallback rather than a second query.
@@ -395,7 +410,22 @@ export class InvoicesService {
     // `blob:` document, where a relative `<img src>` neither resolves nor
     // carries the bearer token `GET /schools/:id/logo` needs.
     const logoDataUrl = await readLogoDataUrl(this.storage, issuer.logo_key);
-    return renderInvoiceHtml(invoice, payments, issuer, logoDataUrl);
+
+    if (format === 'pos58' || format === 'pos80') {
+      // [16.5.2] POS renders from the snapshot's own `payment` block, not
+      // the live `payments` table — a thermal receipt shows the one
+      // payment this document was issued for, not the full history the
+      // A4 format's "Payment History" table lists.
+      return renderInvoicePosHtml(invoice, issuer, logoDataUrl, format, linkedStudentIds, null);
+    }
+
+    const payments = invoice.payment_id
+      ? await this.paymentRepo.find({
+          where: { id: invoice.payment_id, deleted_at: IsNull() },
+          order: { payment_date: 'DESC' },
+        })
+      : [];
+    return renderInvoiceHtml(invoice, payments, issuer, logoDataUrl, linkedStudentIds);
   }
 }
 
