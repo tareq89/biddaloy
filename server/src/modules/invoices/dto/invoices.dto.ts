@@ -12,7 +12,7 @@ import {
   IsDateString,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { InvoiceStatus, InvoiceKind } from '@biddaloy/shared';
+import { InvoiceStatus, InvoiceKind, CommunicationMedium } from '@biddaloy/shared';
 import { Invoice, InvoiceSnapshot } from '../entities/invoice.entity';
 import { Student } from '../../students/entities/student.entity';
 import { UserResponseDto } from '../../users/dto/user-response.dto';
@@ -33,6 +33,20 @@ export class CreateInvoiceDto {
  * a domain concept. Optional: an absent `format` defaults to `a4` in the
  * controller, but a *present, invalid* value (e.g. `?format=pdf`) fails
  * validation and 400s rather than silently falling back. */
+/** [16.5.4] `POST /invoices/:id/send` — only WHATSAPP and SMS are
+ * supported (no push/email path for a one-off manual share send).
+ * `guardian_id`, when given, must be linked to the invoice's student(s);
+ * omitted, the controller falls back to the primary reminder guardian
+ * (`resolveReminderAudience`). */
+export class SendInvoiceDto {
+  @IsIn([CommunicationMedium.WHATSAPP, CommunicationMedium.SMS])
+  medium: CommunicationMedium.WHATSAPP | CommunicationMedium.SMS;
+
+  @IsOptional()
+  @IsUUID()
+  guardian_id?: string;
+}
+
 export class PrintFormatQueryDto {
   @IsOptional()
   @IsIn(['a4', 'pos58', 'pos80'])
