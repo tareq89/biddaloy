@@ -241,6 +241,25 @@ interface RoleNarrowing {
 
 export const ROLE_NARROWINGS: RoleNarrowing[] = [
   {
+    controller: 'InvoicesController',
+    method: 'POST',
+    path: '/invoices/:id/share',
+    reason:
+      '[#666] minting/listing/revoking a public share link is staff-only, although every role (incl. SUPER_ADMIN/PARENT/STUDENT) holds INVOICE_READ — a guardian who can read their own invoice has no business publishing an unauthenticated link to it',
+  },
+  {
+    controller: 'InvoicesController',
+    method: 'GET',
+    path: '/invoices/:id/share',
+    reason: '[#666] same narrowing as POST /invoices/:id/share',
+  },
+  {
+    controller: 'InvoicesController',
+    method: 'DELETE',
+    path: '/invoices/:id/share/:tokenId',
+    reason: '[#666] same narrowing as POST /invoices/:id/share',
+  },
+  {
     controller: 'StudentController',
     method: 'GET',
     path: '/students',

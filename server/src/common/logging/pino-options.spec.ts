@@ -13,6 +13,19 @@ describe('buildPinoOptions', () => {
     expect(serialized.url).toContain('[REDACTED_PHONE]');
   });
 
+  it('[666] masks the token path segment on the public invoice receipt route', () => {
+    const options = buildPinoOptions('production');
+    const fakeReq = {
+      method: 'GET',
+      url: '/api/v1/public/invoices/WUbOO2kZjr0vHJE7Hpi8HGmhPo01oMNgOcDAgFvDgLA',
+    } as any;
+
+    const serialized = options?.serializers?.req?.(fakeReq);
+
+    expect(serialized.url).not.toContain('WUbOO2kZjr0vHJE7Hpi8HGmhPo01oMNgOcDAgFvDgLA');
+    expect(serialized.url).toBe('/api/v1/public/invoices/[REDACTED]');
+  });
+
   it('keeps only statusCode on the serialized response', () => {
     const options = buildPinoOptions('production');
     const fakeRes = { statusCode: 200, headers: { 'x-secret': 'nope' } } as any;
