@@ -260,6 +260,13 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
     reason: '[#666] same narrowing as POST /invoices/:id/share',
   },
   {
+    controller: 'InvoicesController',
+    method: 'POST',
+    path: '/invoices/:id/send',
+    reason:
+      '[16.5.4] sending the receipt out (WhatsApp/SMS, spends SMS credit) is staff-only, although every role (incl. SUPER_ADMIN/PARENT/STUDENT) holds INVOICE_READ — a guardian who can read their own invoice has no business sending it to another guardian, same narrowing as POST /invoices/:id/share',
+  },
+  {
     controller: 'StudentController',
     method: 'GET',
     path: '/students',
