@@ -36,6 +36,7 @@ import { BulkImportModule } from './modules/bulk-import/bulk-import.module';
 import { RestoreModule } from './modules/workbook/restore/restore.module';
 import { ImportModule } from './modules/workbook/import/import.module';
 import { TemplateModule } from './modules/workbook/template/template.module';
+import { ReportsModule } from './modules/reports/reports.module';
 import { validate } from './config/env.validation';
 
 // Entities for auto-loading
@@ -210,6 +211,7 @@ import { WorkbookJob } from './modules/workbook/jobs/workbook-job.entity';
     ImportModule,
     RestoreModule,
     TemplateModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
