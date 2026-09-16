@@ -2,6 +2,8 @@
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "composite": true,
+    "incremental": true,
+    "tsBuildInfoFile": "./.tsout/shared.tsbuildinfo",
     "module": "CommonJS",
     "moduleResolution": "node",
     "ignoreDeprecations": "6.0",

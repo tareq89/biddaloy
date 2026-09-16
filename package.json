@@ -23,6 +23,8 @@
     "e2e:serve:client": "yarn build:client-admin && yarn workspace @biddaloy/client-admin preview --port 5174 --strictPort",
     "api:types": "yarn workspace @biddaloy/server docs:generate && yarn workspace @biddaloy/ui api:types",
     "lint": "yarn workspace @biddaloy/server lint",
+    "typecheck": "tsc -b",
+    "typecheck:clean": "tsc -b --clean",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "knip": "knip",
