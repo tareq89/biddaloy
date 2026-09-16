@@ -155,7 +155,9 @@ if [ "$RUN_E2E" = 1 ]; then
   # to the dev database — that mismatch fails login against the freshly
   # seeded biddaloy_ci_local. If dev servers hold ports 3000/5174,
   # Playwright now fails fast with a clear port-in-use message instead.
-  CI=1 yarn e2e
+  # Mirrors ci.yml's "e2e" job (18.2.3): chromium project plus the PWA
+  # suite, no sharding.
+  CI=1 yarn e2e --project=chromium && CI=1 yarn e2e:pwa
   section_done "e2e"
 fi
 
