@@ -81,5 +81,38 @@
       "recordAnother": "আরেকটি রেকর্ড করুন",
       "viewInvoice": "চালান দেখুন"
     }
+  },
+  "detail": {
+    "back": "পেমেন্টে ফিরে যান",
+    "loadError": "এই পেমেন্ট লোড করা যায়নি।",
+    "retry": "আবার চেষ্টা করুন",
+    "amount": "পরিমাণ",
+    "method": "পদ্ধতি",
+    "date": "তারিখ",
+    "collector": "সংগ্রহকারী",
+    "invoice": "চালান",
+    "noInvoice": "কোনো চালান নেই",
+    "unknown": "অজানা",
+    "reversalOf": "#{{id}} এর বিপরীত",
+    "reversedBanner": "এই পেমেন্টটি বাতিল (reverse) করা হয়েছে।",
+    "reverseAction": "পেমেন্ট বাতিল করুন",
+    "allocations": {
+      "title": "বরাদ্দ",
+      "columnFee": "ফি",
+      "columnPeriod": "সময়কাল",
+      "columnAmount": "পরিমাণ",
+      "columnDiscount": "ছাড়"
+    },
+    "reverseDialog": {
+      "title": "এই পেমেন্টটি বাতিল করবেন?",
+      "description": "এটি সম্পূর্ণ পেমেন্ট বাতিল করবে। নিশ্চিত করার আগে একটি কারণ দিন।",
+      "consequenceWallet": "এই পেমেন্ট থেকে তৈরি হওয়া যেকোনো ওয়ালেট ক্রেডিট ফেরত নেওয়া হবে।",
+      "consequenceCreditNote": "সংযুক্ত চালানের বিপরীতে একটি ক্রেডিট নোট ইস্যু করা হবে।",
+      "consequenceIrreversible": "নিশ্চিত করার পর এটি ফেরানো যাবে না।",
+      "reasonLabel": "কারণ",
+      "confirm": "পেমেন্ট বাতিল করুন",
+      "errorMessage": "পেমেন্ট বাতিল করা যায়নি।",
+      "errorLaterPayments": "পরবর্তী পেমেন্টগুলো আগে বাতিল করতে হবে:"
+    }
   }
 }
