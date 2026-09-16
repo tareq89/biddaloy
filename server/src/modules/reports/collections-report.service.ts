@@ -102,7 +102,9 @@ export class CollectionsReportService {
 
   /** Shared WHERE-clause fragment + params every section filters payments
    * by: tenant, date range (in Dhaka calendar days), optional collector,
-   * optional method. `deleted_at IS NULL` excludes soft-deleted payments. */
+   * optional method. `deleted_at IS NULL` excludes soft-deleted payments.
+   * `payment_status = 'SUCCESS'` excludes PENDING/FAILED rows — those are
+   * not money collected and must never appear in a collections report. */
   private buildFilter(
     tenantId: string,
     query: CollectionsReportQueryDto,
@@ -110,7 +112,7 @@ export class CollectionsReportService {
   ): { clause: string; params: unknown[] } {
     const { from, to } = this.buildRange(query);
     const params: unknown[] = [tenantId, from, to];
-    let clause = `${alias}.tenant_id = $1 AND ${alias}.deleted_at IS NULL AND ${alias}.payment_date BETWEEN $2 AND $3`;
+    let clause = `${alias}.tenant_id = $1 AND ${alias}.deleted_at IS NULL AND ${alias}.payment_date BETWEEN $2 AND $3 AND ${alias}.payment_status = 'SUCCESS'`;
     if (query.received_by_user_id) {
       params.push(query.received_by_user_id);
       clause += ` AND ${alias}.received_by_user_id = $${params.length}`;
@@ -126,10 +128,9 @@ export class CollectionsReportService {
     tenantId: string,
     query: CollectionsReportQueryDto,
   ): Promise<CollectionsReportDto> {
-    const { from, to } = this.buildRange(query);
     const { clause, params } = this.buildFilter(tenantId, query, 'p');
 
-    const totalsRow = await this.paymentRepo.manager.query<PaymentTotalsRow[]>(
+    const totalsRowP = this.paymentRepo.manager.query<PaymentTotalsRow[]>(
       `SELECT
          COALESCE(SUM(CASE WHEN p.reversal_of_payment_id IS NULL THEN p.total_amount ELSE 0 END), 0) AS collected,
          COALESCE(SUM(CASE WHEN p.reversal_of_payment_id IS NOT NULL THEN p.total_amount ELSE 0 END), 0) AS reversed,
@@ -142,18 +143,22 @@ export class CollectionsReportService {
       params,
     );
 
-    const discountRow = await this.paymentRepo.manager.query<DiscountTotalsRow[]>(
+    // Excludes reversal-linked payments' allocations: a reversal writes its
+    // own payment_allocations row(s) mirroring the original, and without
+    // this filter its discount would be double-counted on top of the
+    // original payment's, inflating standing_discount/one_off_discount.
+    const discountRowP = this.paymentRepo.manager.query<DiscountTotalsRow[]>(
       `SELECT
          COALESCE(SUM(sf.standing_discount_amount * (pa.allocated_amount / NULLIF(sf.total_amount, 0))), 0) AS standing_discount,
          COALESCE(SUM(pa.discount_amount), 0) AS one_off_discount
        FROM payment_allocations pa
        JOIN payments p ON p.id = pa.payment_id
-       JOIN student_fees sf ON sf.id = pa.student_fee_id
-       WHERE ${clause}`,
+       JOIN student_fees sf ON sf.id = pa.student_fee_id AND sf.deleted_at IS NULL
+       WHERE ${clause} AND p.reversal_of_payment_id IS NULL`,
       params,
     );
 
-    const byMethod = await this.paymentRepo.manager.query<
+    const byMethodP = this.paymentRepo.manager.query<
       Array<{
         payment_method: PaymentMethod;
         count: string;
@@ -175,7 +180,7 @@ export class CollectionsReportService {
       params,
     );
 
-    const byCollector = await this.paymentRepo.manager.query<
+    const byCollectorP = this.paymentRepo.manager.query<
       Array<{
         user_id: string | null;
         full_name: string | null;
@@ -200,28 +205,30 @@ export class CollectionsReportService {
       params,
     );
 
-    const byFeeType = await this.paymentRepo.manager.query<
+    const byFeeTypeP = this.paymentRepo.manager.query<
       Array<{ fee_type: string; collected: string; discount: string }>
     >(
       `SELECT
          fs.fee_type AS fee_type,
          COALESCE(SUM(pa.allocated_amount), 0) AS collected,
-         COALESCE(
-           SUM(pa.discount_amount)
-             + SUM(sf.standing_discount_amount * (pa.allocated_amount / NULLIF(sf.total_amount, 0))),
-           0
-         ) AS discount
+         -- Each SUM is COALESCEd separately: a fee_type group where every
+         -- row has sf.total_amount = 0 (fully waived) would otherwise make
+         -- the standing_discount SUM NULL, and NULL + real_discount = NULL
+         -- silently zeroes out the group's genuine one_off_discount too.
+         COALESCE(SUM(pa.discount_amount), 0)
+           + COALESCE(SUM(sf.standing_discount_amount * (pa.allocated_amount / NULLIF(sf.total_amount, 0))), 0)
+           AS discount
        FROM payment_allocations pa
        JOIN payments p ON p.id = pa.payment_id
-       JOIN student_fees sf ON sf.id = pa.student_fee_id
+       JOIN student_fees sf ON sf.id = pa.student_fee_id AND sf.deleted_at IS NULL
        JOIN fee_structures fs ON fs.id = sf.fee_structure_id
-       WHERE ${clause}
+       WHERE ${clause} AND p.reversal_of_payment_id IS NULL
        GROUP BY fs.fee_type
        ORDER BY fs.fee_type`,
       params,
     );
 
-    const byDay = await this.paymentRepo.manager.query<
+    const byDayP = this.paymentRepo.manager.query<
       Array<{ date: string; collected: string; reversed: string; net: string }>
     >(
       `SELECT
@@ -235,6 +242,17 @@ export class CollectionsReportService {
        ORDER BY 1`,
       params,
     );
+
+    // Six independent aggregates over the same WHERE clause — run
+    // concurrently rather than six round trips in series.
+    const [totalsRow, discountRow, byMethod, byCollector, byFeeType, byDay] = await Promise.all([
+      totalsRowP,
+      discountRowP,
+      byMethodP,
+      byCollectorP,
+      byFeeTypeP,
+      byDayP,
+    ]);
 
     return {
       range: { from: query.from, to: query.to },
@@ -303,7 +321,11 @@ export class CollectionsReportService {
       }>
     >(
       `SELECT
-         p.payment_date AS date,
+         -- Dhaka-local, not UTC: a payment at 2026-03-16 02:00 Dhaka is
+         -- stored as 2026-03-15T20:00:00Z — new Date(...).toISOString()
+         -- in JS would stamp it with the wrong calendar day. by_day above
+         -- already converts the same way; this keeps the CSV consistent.
+         to_char(p.payment_date AT TIME ZONE '${SCHOOL_TIMEZONE}', 'YYYY-MM-DD"T"HH24:MI:SS') AS date,
          i.invoice_number AS invoice_number,
          s.full_name AS student_name,
          p.payment_method AS payment_method,
@@ -327,7 +349,7 @@ export class CollectionsReportService {
     );
 
     return rows.map((r) => ({
-      date: new Date(r.date).toISOString(),
+      date: r.date,
       invoice_number: r.invoice_number ?? '',
       student_name: r.student_name ?? '',
       payment_method: r.payment_method,

@@ -1,4 +1,4 @@
-import { IsDateString, IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { IsEnum, IsOptional, IsUUID, Matches } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaymentMethod } from '@biddaloy/shared';
 
@@ -11,12 +11,16 @@ import { PaymentMethod } from '@biddaloy/shared';
  * instants.
  */
 export class CollectionsReportQueryDto {
+  // `@IsDateString()` accepts a full ISO timestamp (e.g. `2026-03-01T00:00Z`),
+  // which `endOfDayInSchoolTimezone` then mishandles (`new Date(`${v}T00:00:00Z`)`
+  // becomes an invalid instant) and throws a RangeError -> 500 instead of a
+  // clean 400. Require a bare `YYYY-MM-DD` calendar day instead.
   @ApiProperty({ example: '2026-03-01' })
-  @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'from must be a YYYY-MM-DD calendar date' })
   from: string;
 
   @ApiProperty({ example: '2026-03-31' })
-  @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'to must be a YYYY-MM-DD calendar date' })
   to: string;
 
   @ApiPropertyOptional()

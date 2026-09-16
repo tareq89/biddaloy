@@ -264,6 +264,29 @@ describe('CollectionsReportService', () => {
 
       expect(result.totals.collected).toBe(500);
     });
+
+    it('excludes PENDING/FAILED payments from collected — they are not money received', async () => {
+      const student = await makeStudent();
+      await makePayment(student.id, SEED_TENANT_ID, {
+        total_amount: 500,
+        payment_status: PaymentStatus.SUCCESS,
+      });
+      await makePayment(student.id, SEED_TENANT_ID, {
+        total_amount: 9999,
+        payment_status: PaymentStatus.FAILED,
+      });
+      await makePayment(student.id, SEED_TENANT_ID, {
+        total_amount: 8888,
+        payment_status: PaymentStatus.PENDING,
+      });
+
+      const result = await service.getReport(SEED_TENANT_ID, {
+        from: '2026-01-01',
+        to: '2026-12-31',
+      });
+
+      expect(result.totals.collected).toBe(500);
+    });
   });
 
   describe('getCsvRows', () => {
@@ -287,6 +310,52 @@ describe('CollectionsReportService', () => {
       expect(reversalRow?.amount).toBe(700);
       const originalRow = rows.find((r) => !r.is_reversal);
       expect(originalRow?.amount).toBe(700);
+    });
+
+    it('stamps the row date in Dhaka local time, not UTC, matching by_day', async () => {
+      const student = await makeStudent();
+      // 2026-03-16T02:00:00+06:00 == 2026-03-15T20:00:00Z: UTC says the
+      // 15th, Dhaka says the 16th. The CSV must agree with by_day (16th).
+      await makePayment(student.id, SEED_TENANT_ID, {
+        payment_date: new Date('2026-03-15T20:00:00Z'),
+      });
+
+      const rows = await service.getCsvRows(SEED_TENANT_ID, {
+        from: '2026-03-16',
+        to: '2026-03-16',
+      });
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0].date.startsWith('2026-03-16')).toBe(true);
+    });
+
+    it('escapes a formula-leading student name so Excel treats it as text, not code', async () => {
+      studentSeq += 1;
+      const student = await studentRepo.save(
+        studentRepo.create({
+          full_name: '=HYPERLINK("http://evil.example","click")',
+          registration_number: `CR-${String(studentSeq).padStart(4, '0')}`,
+          roll_number: studentSeq,
+          class_section_id: SEED_SECTION_1_ID,
+          date_of_birth: new Date('2010-01-01'),
+          preferred_communication: CommunicationMedium.SMS,
+          enrollment_status: EnrollmentStatus.ACTIVE,
+          tenant_id: SEED_TENANT_ID,
+        } as Partial<Student>),
+      );
+      await makePayment(student.id, SEED_TENANT_ID, { total_amount: 250 });
+
+      const rows = await service.getCsvRows(SEED_TENANT_ID, {
+        from: '2026-03-01',
+        to: '2026-03-31',
+      });
+
+      expect(rows).toHaveLength(1);
+      // The raw field carries the unescaped name — csvCell (called by the
+      // controller when it renders the actual CSV text) is what applies
+      // the `'`-prefix guard, so this asserts the row shape rather than
+      // duplicating that escaping test here.
+      expect(rows[0].student_name).toBe('=HYPERLINK("http://evil.example","click")');
     });
   });
 });

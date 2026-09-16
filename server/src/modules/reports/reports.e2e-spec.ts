@@ -124,4 +124,12 @@ describe('GET /reports/collections (16.6.2)', () => {
       '"Date","Invoice No","Student","Method","Reference","Collector","Amount","Discount","Reversal"',
     );
   });
+
+  it('rejects a full ISO timestamp in `from`/`to` with 400, not a 500', async () => {
+    await supertest(app.getHttpServer())
+      .get(`${API}/reports/collections?from=2026-03-01T00:00:00Z&to=2026-03-31`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', SEED_TENANT_ID)
+      .expect(400);
+  });
 });
