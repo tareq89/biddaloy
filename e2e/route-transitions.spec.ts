@@ -19,6 +19,23 @@ import { expect, loggedIn, test } from './fixtures/test';
  */
 test.describe('route transitions', () => {
   test.use(loggedIn('admin'));
+  // [18.2.4] Only the production build (`e2e:serve:client`, what CI now
+  // runs since [18.1.2]) registers a service worker at all — the dev
+  // server this suite ran against before has `devOptions: { enabled:
+  // false }` (`client-admin/vite.config.ts`), so this SW/route-mock
+  // interaction never surfaced locally. Once the SW is active and
+  // answers a request from its own cache, Playwright's `page.route()`
+  // mock below never sees that request at all — a Service Worker's fetch
+  // handler runs in its own execution context, outside the page's
+  // network stack `route()` patches — so the artificial 800ms delay this
+  // suite relies on to prove "a slow route shows the progress bar"
+  // silently never applies and the assertion fails on a request that
+  // resolved in ~0ms. That is exactly what the PWA suite
+  // (`e2e/pwa/*.spec.ts`, `playwright.pwa.config.ts`) exists to exercise
+  // — this suite is about route-transition UI, not caching, so it opts
+  // out of the SW entirely rather than pin every mocked route to also
+  // outrun a cache it isn't testing.
+  test.use({ serviceWorkers: 'block' });
 
   test('navigating between two staff routes never blanks #main-content and never moves the header or sidebar', async ({
     page,
