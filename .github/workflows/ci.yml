@@ -518,7 +518,7 @@ jobs:
           if-no-files-found: ignore
 
   e2e:
-    name: E2E (${{ matrix.browser }} ${{ matrix.shard }}/3)
+    name: E2E smoke (${{ matrix.browser }})
     runs-on: ubuntu-latest
     needs: changes
     if: github.event_name == 'push' || needs.changes.outputs.frontend == 'true'
@@ -533,26 +533,15 @@ jobs:
       # The cache key, install step, --project flag and artifact names
       # below are already per-browser.
       #
-      # Within-browser sharding (#440): the suite now exceeds the ~5 min
-      # threshold from #307's out-of-scope notes, so each browser entry
-      # is split 3 ways here.
-      #
-      # Changing the shard count means editing SIX places in this job, and
-      # nothing enforces it — if they drift, tests silently vanish (a
-      # --shard=1/3 run against a [1,2,3,4] matrix throws, but a [1,2]
-      # matrix against /3 just drops the third shard's tests and stays
-      # green). The six:
-      #   1. `name:` above                    — "… ${{ matrix.shard }}/3"
-      #   2. this `matrix.shard` list         — [1, 2, 3]
-      #   3. the "E2E tests" step `name:`     — "… ${{ matrix.shard }}/3"
-      #   4. its `--shard=${{ … }}/3` flag
-      #   5-6. the three `matrix.shard == 3` pins on the PWA step and its
-      #        two artifact uploads (the "last shard" pin — see there).
-      # nightly-e2e.yml mirrors 1-4 and must move with them.
+      # [18.2.3] Sharding removed: 18.2.1/18.2.2 (path-based smoke split,
+      # production-mode webServer) brought each browser leg back under the
+      # ~5 min threshold that motivated #440's 3-way split, so one job per
+      # browser (journeys + smoke, PWA folded in on chromium) replaces the
+      # three-shard matrix and its "last shard" pin. nightly-e2e.yml still
+      # runs the full (unsharded) suite per browser and is unaffected.
       fail-fast: false
       matrix:
         browser: ${{ fromJSON(vars.E2E_BROWSERS_JSON || '["chromium"]') }}
-        shard: [1, 2, 3]
     services:
       postgres:
         image: postgres:16-alpine
@@ -666,9 +655,8 @@ jobs:
       # version so a dependabot bump invalidates it automatically. On a
       # cache hit the browser binary is already there, so only the OS-level
       # shared libraries (apt) need reinstalling — skips the ~1min download.
-      # All 3 shards of a browser share this key; on a cold cache the first
-      # to finish wins and the other two get a benign "already exists" 409
-      # from actions/cache — expected, not a bug to "fix".
+      # Keyed per browser, one job per browser now (18.2.3 removed
+      # sharding) — no contention on this key within a run.
       #
       # Deliberately no `restore-keys:` (#440's plan proposed one; review
       # found it net-negative). Playwright installs into version-stamped
@@ -699,10 +687,10 @@ jobs:
       - name: Seed database
         run: yarn workspace @biddaloy/server seed
 
-      - name: E2E tests (${{ matrix.browser }} ${{ matrix.shard }}/3)
+      - name: E2E tests (${{ matrix.browser }})
         env:
-          CI_TIMINGS_OUT: ci-timings/raw-e2e-${{ matrix.browser }}-${{ matrix.shard }}.json
-        run: yarn e2e --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/3
+          CI_TIMINGS_OUT: ci-timings/raw-e2e-${{ matrix.browser }}.json
+        run: yarn e2e --project=${{ matrix.browser }}
 
       # [8.12.6]: the PWA/offline suite runs here rather than as its own
       # job so it reuses this job's postgres, redis, migrations, seed and
@@ -714,54 +702,40 @@ jobs:
       # #184 found. Chromium only; offline emulation reaching service
       # workers is verified on Chromium's CDP path.
       #
-      # Runs once per browser, arbitrarily pinned to the LAST shard. Not
-      # shard 1 by preference: when measured on 2026-08-30 shard 3 was the
-      # lightest leg (~256s of ~939s total work), so stacking the ~55s PWA
-      # suite there kept the three shards finishing close together.
-      #
-      # That is a snapshot, not an invariant. Playwright's filterForShard
-      # slices by TEST COUNT, not duration, so adding or removing a single
-      # test case anywhere shifts the boundaries and shard 3 may stop being
-      # the lightest. The cost of being wrong is bounded and visible (the
-      # critical shard grows by roughly the PWA suite's ~55s, showing up
-      # directly in CI timings) — so re-measure before moving this, rather
-      # than shuffling it on the assumption the old comment still holds.
-      #
-      # If the shard count changes, this `== 3` and the two identical pins
-      # on the PWA artifact uploads below must change with it, or the whole
-      # PWA/offline suite silently stops running while CI stays green.
+      # [18.2.3] Runs once per browser leg on chromium only — the shard
+      # pin this comment used to explain (see git history for #440's
+      # "lightest shard" reasoning) no longer applies now that sharding
+      # is gone: each browser is a single job, so this just picks chromium
+      # for the reason above (offline emulation reaching service workers
+      # is only verified on Chromium's CDP path).
       - name: PWA and offline E2E tests
-        if: matrix.browser == 'chromium' && matrix.shard == 3
+        if: matrix.browser == 'chromium'
         env:
           CI_TIMINGS_OUT: ci-timings/raw-e2e-pwa.json
         run: yarn e2e:pwa
 
       # [15.1]: the main record always exists (this step is `if: always()`);
-      # the PWA one only does on the one matrix leg that ran it (chromium,
-      # last shard). Rather than a 4th `matrix.shard == 3` pin duplicating
-      # the invariant the comment above already tracks, this checks for the
-      # raw PWA file directly — the file's presence *is* the signal that the
-      # PWA step ran, so this stays correct even if the "lightest shard"
-      # this suite is pinned to ever moves.
+      # the PWA one only does on the leg that ran it (chromium). Checking
+      # for the raw PWA file directly — its presence *is* the signal that
+      # the PWA step ran — stays correct without a separate browser pin.
       - name: Collect E2E timings
         if: always()
         run: |
-          node scripts/ci-timings.mjs collect --runner playwright --suite e2e-${{ matrix.browser }}-${{ matrix.shard }} --job "E2E (${{ matrix.browser }} ${{ matrix.shard }}/3)" --in ci-timings/raw-e2e-${{ matrix.browser }}-${{ matrix.shard }}.json --out ci-timings/e2e-${{ matrix.browser }}-${{ matrix.shard }}.json
+          node scripts/ci-timings.mjs collect --runner playwright --suite e2e-${{ matrix.browser }} --job "E2E smoke (${{ matrix.browser }})" --in ci-timings/raw-e2e-${{ matrix.browser }}.json --out ci-timings/e2e-${{ matrix.browser }}.json
           if [ -f ci-timings/raw-e2e-pwa.json ]; then
-            node scripts/ci-timings.mjs collect --runner playwright --suite e2e-pwa --job "E2E (${{ matrix.browser }} ${{ matrix.shard }}/3)" --in ci-timings/raw-e2e-pwa.json --out ci-timings/e2e-pwa.json
+            node scripts/ci-timings.mjs collect --runner playwright --suite e2e-pwa --job "E2E smoke (${{ matrix.browser }})" --in ci-timings/raw-e2e-pwa.json --out ci-timings/e2e-pwa.json
           fi
 
-      # Artifact name includes both browser and shard — REQUIRED, not
-      # cosmetic: this job is a 3-way (browser x shard) matrix, and
-      # `actions/upload-artifact@v7` errors on two legs uploading the same
-      # artifact name within one run.
+      # Artifact name includes the browser — REQUIRED, not cosmetic: this
+      # job is a per-browser matrix, and `actions/upload-artifact@v7`
+      # errors on two legs uploading the same artifact name within one run.
       - name: Upload E2E timings
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: ci-timings-e2e-${{ matrix.browser }}-${{ matrix.shard }}
+          name: ci-timings-e2e-${{ matrix.browser }}
           path: |
-            ci-timings/e2e-${{ matrix.browser }}-${{ matrix.shard }}.json
+            ci-timings/e2e-${{ matrix.browser }}.json
             ci-timings/e2e-pwa.json
           if-no-files-found: ignore
 
@@ -769,12 +743,12 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report-${{ matrix.browser }}-${{ matrix.shard }}
+          name: playwright-report-${{ matrix.browser }}
           path: playwright-report/
           if-no-files-found: ignore
 
       - name: Upload PWA Playwright report
-        if: failure() && matrix.browser == 'chromium' && matrix.shard == 3
+        if: failure() && matrix.browser == 'chromium'
         uses: actions/upload-artifact@v7
         with:
           name: playwright-report-pwa
@@ -782,7 +756,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload PWA traces, screenshots and videos
-        if: failure() && matrix.browser == 'chromium' && matrix.shard == 3
+        if: failure() && matrix.browser == 'chromium'
         uses: actions/upload-artifact@v7
         with:
           name: test-results-pwa
@@ -793,7 +767,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: test-results-${{ matrix.browser }}-${{ matrix.shard }}
+          name: test-results-${{ matrix.browser }}
           path: test-results/
           if-no-files-found: ignore
 
