@@ -152,7 +152,11 @@ export const waitForTextContentConfig = Object.freeze({
 
 export const biddaloyReactConfig = tseslint.config(
   {
-    ignores: ['dist/**', 'coverage/**', 'node_modules/**', 'storybook-static/**'],
+    // [18.3.1] `.tsout/**`: `tsc -b`'s composite-project build output
+    // (declarations + .tsbuildinfo) — every package's `lint` script now
+    // runs `tsc -b` before `eslint .`, so without this, eslint would lint
+    // its own generated `.d.ts` files right after they're written.
+    ignores: ['dist/**', 'coverage/**', 'node_modules/**', 'storybook-static/**', '.tsout/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
