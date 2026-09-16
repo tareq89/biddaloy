@@ -88,10 +88,10 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
     {
-      command: 'yarn dev:server',
+      command: CI ? 'yarn e2e:serve:server' : 'yarn dev:server',
       url: 'http://localhost:3000/api/health',
       reuseExistingServer: !CI,
-      timeout: 120_000,
+      timeout: 300_000,
       env: { NODE_ENV: 'test' },
     },
     {
