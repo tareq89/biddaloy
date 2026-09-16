@@ -1,7 +1,11 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "composite": true,
+    "incremental": true,
+    "tsBuildInfoFile": "./.tsout/server-lint.tsbuildinfo",
+    "outDir": "./.tsout"
   },
   "include": ["src"],
   "exclude": [
@@ -11,5 +15,6 @@
     "src/**/*.spec.ts",
     "src/**/*.integration.spec.ts",
     "src/**/*.e2e-spec.ts"
-  ]
+  ],
+  "references": [{ "path": "../shared" }]
 }

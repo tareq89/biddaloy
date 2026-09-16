@@ -5,8 +5,12 @@
     "baseUrl": ".",
     "jsx": "react-jsx",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "noEmit": true,
-    "declaration": false,
+    "composite": true,
+    "incremental": true,
+    "tsBuildInfoFile": "./.tsout/ui.tsbuildinfo",
+    "emitDeclarationOnly": true,
+    "outDir": "./.tsout",
+    "declaration": true,
     "declarationMap": false,
     "sourceMap": false,
     "types": ["vite/client", "node"],
@@ -15,5 +19,13 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "tailwind.preset.ts", "scripts"]
+  "include": [
+    "src",
+    "src/**/*.json",
+    "tailwind.preset.ts",
+    "scripts",
+    ".storybook/**/*.ts",
+    ".storybook/**/*.tsx"
+  ],
+  "references": [{ "path": "../shared" }]
 }

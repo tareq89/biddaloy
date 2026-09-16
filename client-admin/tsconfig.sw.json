@@ -16,10 +16,14 @@
   "compilerOptions": {
     "lib": ["ES2022", "WebWorker"],
     "types": ["vite/client"],
-    "noEmit": true,
+    "composite": true,
+    "incremental": true,
+    "tsBuildInfoFile": "./.tsout/client-admin-sw.tsbuildinfo",
+    "emitDeclarationOnly": true,
+    "outDir": "./.tsout/sw",
     "moduleResolution": "bundler",
     "module": "ESNext",
     "target": "ES2022"
   },
-  "include": ["src/sw.ts", "src/pwa/cache-policy.ts"]
+  "include": ["src/sw.ts", "src/sw-push.ts", "src/pwa/cache-policy.ts"]
 }
