@@ -55,7 +55,17 @@ test('paging keeps rows, scroll position and table height stable while busy', as
   await list.expectResultCount(PAGE_SIZE);
   await list.expectBusy(false);
 
-  const table = page.locator('table');
+  // [18.3.2] Scoped to exclude `ui/src/components/route-pending.tsx`'s
+  // `SkeletonTable` — built from the same `<Table>` primitive as the real
+  // DataTable, so a bare `page.locator('table')` matches both once one
+  // is mounted. TanStack Router legitimately re-shows the route-level
+  // pending fallback (inside `role="status"`) when a loader re-run — even
+  // a same-route, search-param-only one, like this pagination click —
+  // takes longer than its pending threshold; under the production build
+  // (18.2.2), that threshold is crossed often enough to make this
+  // intermittent rather than nonexistent. Excluding the `role="status"`
+  // ancestor keeps this test locked onto the one real table.
+  const table = page.locator('table:not([role="status"] table)');
   const before = await table.boundingBox();
   const scrollYBefore = await page.evaluate(() => window.scrollY);
   const firstRowBefore = await list.dataRows().first().innerText();
