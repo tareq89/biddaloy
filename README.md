@@ -523,6 +523,37 @@ including the opt-in `--storybook` section (mirrors the PR-blocking
 "Storybook build" job, ~100s, so it's off by default rather than paid on
 every green `ci:local`).
 
+### Merging to main
+
+`main` is protected by a repository ruleset (`main-gate`, applied by
+`scripts/apply-main-ruleset.sh` — see that script's header for the exact
+checks/merge-queue settings). Direct pushes to `main` are rejected; every
+change lands through a pull request that passes four required checks
+(`Build, lint, unit tests`, `Frontend tests`, `Integration & e2e tests`,
+`E2E smoke (chromium)` — a check a PR's path filters skip counts as
+passing, not missing) and then goes through GitHub's merge queue:
+
+```mermaid
+flowchart LR
+    PR["PR: pull_request event\n(ci.yml required checks)"] -- "green + queued" --> MQ["Merge queue entry:\nmerge_group event"]
+    MQ -- "ci.yml full set\n+ sweeps + quality" --> Main["squashed onto main"]
+```
+
+A queued entry re-runs the full `ci.yml` job set (`merge_group` forces
+every path-filter area to `true` — see the `changes` job) **plus** two
+jobs that only exist for the queue: `sweeps` (the nightly-only
+`chromium-sweeps` Playwright project — a11y/reflow/target-size, normally
+nightly-e2e.yml's job) and `quality` (calls `nightly-quality.yml`'s
+Lighthouse job via `workflow_call`). Both are gated on
+`github.event_name == 'merge_group'`, so a PR run never pays for them —
+they only run once, on the queue entry that is about to become `main`.
+
+To apply or update the ruleset after editing `main-gate`'s settings:
+
+```bash
+scripts/apply-main-ruleset.sh
+```
+
 ### Test timings & budgets
 
 Every `ci.yml` run ends with a **"Test timings & budgets"** job summary —
