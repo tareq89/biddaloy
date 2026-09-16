@@ -18,6 +18,19 @@ import { expect, loggedIn, test } from './fixtures/test';
 test.describe('focus management, skip link, route announcements', () => {
   test.use(loggedIn('admin'));
 
+  // [18.2.2] Only the production build registers a service worker
+  // (`devOptions.enabled: false` in `client-admin/vite.config.ts`), so this
+  // SW/route-mock interaction never surfaced before Playwright started
+  // running against the production build. Once the SW is active and answers
+  // a request from its own cache, Playwright's `page.route()` mock below
+  // never sees that request — a Service Worker's fetch handler runs outside
+  // the page's network stack `route()` patches — so the artificial delay
+  // this suite relies on to prove "the pending skeleton stays up while
+  // slow" silently never applies. Same fix and reasoning as
+  // route-transitions.spec.ts: this suite is about focus/announcement
+  // behavior, not caching, so it opts out of the SW entirely.
+  test.use({ serviceWorkers: 'block' });
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'ড্যাশবোর্ড' })).toBeVisible();

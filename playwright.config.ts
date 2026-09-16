@@ -113,19 +113,20 @@ export default defineConfig({
       },
     ]),
   ],
+  workers: CI ? 4 : undefined,
   webServer: [
     {
-      command: 'yarn dev:server',
+      command: CI ? 'yarn e2e:serve:server' : 'yarn dev:server',
       url: 'http://localhost:3000/api/health',
       reuseExistingServer: !CI,
-      timeout: 120_000,
+      timeout: 300_000,
       env: { NODE_ENV: 'test' },
     },
     {
-      command: 'yarn dev:client-admin',
+      command: CI ? 'yarn e2e:serve:client' : 'yarn dev:client-admin',
       url: 'http://localhost:5174/',
       reuseExistingServer: !CI,
-      timeout: 60_000,
+      timeout: 300_000,
     },
   ],
 });
