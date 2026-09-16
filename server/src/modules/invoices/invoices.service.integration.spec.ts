@@ -443,7 +443,7 @@ describe('InvoicesService (integration)', () => {
   });
 
   describe('createCreditNote', () => {
-    it('mints an ISSUED credit note with negated amounts, linked back to the original invoice (now CANCELLED), in its own CN series', async () => {
+    it('mints an ISSUED credit note with the original amounts (positive, `kind` is the discriminator), linked back to the original invoice (now CANCELLED), in its own CN series', async () => {
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id, { total_amount: 1000 }));
       const payment = await makePayment(student.id, [[fee, 1000]]);
@@ -456,10 +456,13 @@ describe('InvoicesService (integration)', () => {
       expect(creditNote.invoice_number).toMatch(/^CN-\d{4}-\d{6}$/);
       expect(creditNote.kind).toBe(InvoiceKind.CREDIT_NOTE);
       expect(creditNote.related_invoice_id).toBe(invoice.id);
-      // credit note nets the original invoice to zero
-      expect(Number(creditNote.total_amount)).toBeCloseTo(-Number(invoice.total_amount));
-      expect(Number(creditNote.tax_amount)).toBeCloseTo(-Number(invoice.tax_amount));
-      expect(Number(creditNote.discount_amount)).toBeCloseTo(-Number(invoice.discount_amount));
+      // Amounts mirror the original invoice as positive numbers — `kind`
+      // (checked above) is what marks this as a credit note, not the
+      // sign. Storing a negative would violate the real
+      // `CHK_inv_total_amount CHECK (total_amount > 0)` DB constraint.
+      expect(Number(creditNote.total_amount)).toBeCloseTo(Number(invoice.total_amount));
+      expect(Number(creditNote.tax_amount)).toBeCloseTo(Number(invoice.tax_amount));
+      expect(Number(creditNote.discount_amount)).toBeCloseTo(Number(invoice.discount_amount));
       // the credit note itself is a real, final document — not cancelled
       expect(creditNote.status).toBe(InvoiceStatus.ISSUED);
       expect(creditNote.notes).toBe('Refund requested');

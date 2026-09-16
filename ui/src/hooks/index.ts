@@ -137,8 +137,10 @@ export {
   paymentKeys,
   useCart,
   useCheckout,
+  usePayment,
   usePaymentsByGuardian,
   usePaymentsByStudent,
+  useReversePayment,
   useStudentFeeSummary,
   type CartBill,
   type CartResult,
@@ -150,6 +152,10 @@ export {
   type CheckoutResult,
   type FamilyPayment,
   type Payment,
+  type PaymentDetail,
+  type ReverseLaterPaymentsFirstDetails,
+  type ReversePaymentInput,
+  type ReversePaymentResult,
   type StudentFee,
   type StudentFeeSummary,
 } from './payments';
@@ -282,6 +288,19 @@ export {
   type StudentSummaryRow,
   type SubmitRegisterResult,
 } from './attendance';
+export {
+  collectionsReportKeys,
+  collectionsReportQueryOptions,
+  downloadCollectionsReportCsv,
+  useCollectionsReport,
+  type CollectionsByCollector,
+  type CollectionsByDay,
+  type CollectionsByFeeType,
+  type CollectionsByMethod,
+  type CollectionsReportFilters,
+  type CollectionsReportResponse,
+  type CollectionsReportTotals,
+} from './reports';
 export {
   collectFailedStudentIds,
   REMINDER_BATCH_POLL_MS,

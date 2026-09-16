@@ -458,13 +458,13 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   Permission.ATTENDANCE_CORRECT,
   Permission.FEE_COLLECT,
   // [16.2.1] Plumbing landed ahead of the routes that will require them:
-  // FEE_APPROVE/PAYMENT_REVERSE gate approval/reversal endpoints (16.2.x,
-  // not yet built); REPORT_COLLECTIONS_READ, SCHEDULE_MANAGE and
-  // DISCOUNT_RULE_MANAGE gate the collections report and the recurring
-  // schedule / discount rule management endpoints (16.3.x/16.4.x).
+  // FEE_APPROVE gates the approval endpoint (16.2.x, not yet built);
+  // PAYMENT_REVERSE now gates `POST /payments/:id/reverse` (16.6.1) and
+  // REPORT_COLLECTIONS_READ now gates `GET /reports/collections` and
+  // `.../collections.csv` (16.6.2), so both are no longer UI-only —
+  // removed from this list. SCHEDULE_MANAGE and DISCOUNT_RULE_MANAGE gate
+  // the recurring schedule / discount rule management endpoints (16.4.x).
   Permission.FEE_APPROVE,
-  Permission.PAYMENT_REVERSE,
-  Permission.REPORT_COLLECTIONS_READ,
   Permission.SCHEDULE_MANAGE,
   Permission.DISCOUNT_RULE_MANAGE,
 ];

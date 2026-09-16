@@ -15,6 +15,12 @@ import { walletKeys } from './wallet';
 
 export type Payment = components['schemas']['Payment'];
 export type IssuerSnapshot = components['schemas']['IssuerSnapshot'];
+/** [16.6.2] `GET /payments/:id` — full staff-only detail row (allocations,
+ * invoice link, collector/approver, reversal linkage). Already a published
+ * schema type (`fees.controller.ts:330`/`payments-query.service.ts:150`
+ * shipped ahead of this ticket) — no hand-typing needed here, unlike the
+ * reverse-mutation types below. */
+export type PaymentDetail = components['schemas']['PaymentDetailDto'];
 /** What a PARENT/STUDENT actually gets back from
  * `GET /payments/student/:studentId` — a reduced row with no `student`,
  * `received_by` or `remarks` (`schema.d.ts`'s `FamilyPaymentDto`, and the
@@ -315,4 +321,69 @@ export function useStudentFeeSummary(studentId: string | undefined) {
       retry: shouldRetryQuery,
     }),
   );
+}
+
+/** [16.6.2] `GET /payments/:id` — the staff-only detail page's row. Not a
+ * `queryOptions()` export like `invoiceQueryOptions` (no route `loader`
+ * needs it as a standalone object — the detail route only reads it inside
+ * the component). */
+export function usePayment(id: string) {
+  return useQuery(
+    queryOptions({
+      queryKey: paymentKeys.detail(id),
+      queryFn: async ({ signal }) => {
+        const res = await apiClient.get<PaymentDetail>(`/payments/${id}`, { signal });
+        return res.data;
+      },
+      retry: shouldRetryQuery,
+    }),
+  );
+}
+
+// ---- #670 POST /payments/:id/reverse ----
+export interface ReversePaymentInput {
+  paymentId: string;
+  reason: string;
+}
+export type ReversePaymentResult = Payment;
+/** D9's approval-required shape (`403 { code: 'APPROVAL_REQUIRED', scope }`)
+ * is handled generically by `useApprovedMutation`. D10's in-order rule
+ * surfaces as this 409 instead — the dialog reads `error.details` for it. */
+export interface ReverseLaterPaymentsFirstDetails {
+  code: 'REVERSE_LATER_PAYMENTS_FIRST';
+  payment_ids: string[];
+}
+
+async function reversePaymentRequest(
+  { paymentId, reason }: ReversePaymentInput,
+  options: { headers?: Record<string, string> } = {},
+): Promise<ReversePaymentResult> {
+  const res = await apiClient.post<ReversePaymentResult>(
+    `/payments/${paymentId}/reverse`,
+    { reason },
+    options.headers ? { headers: options.headers } : undefined,
+  );
+  return res.data;
+}
+
+/** [16.6.2] `POST /payments/:id/reverse`, wrapped in `useApprovedMutation`
+ * per D9 — same shape `useCheckout` above uses, `ApprovalScope.PAYMENTS_REVERSE`
+ * in place of `FEES_DISCOUNT`. Invalidates both the reversed payment's own
+ * detail (`reversed_by_payment_id` now set) and the list/fee-summary caches,
+ * same reasoning `useCheckout`'s own `onSuccess` comment gives. */
+export function useReversePayment(): ApprovedMutationResult<
+  ReversePaymentInput,
+  ReversePaymentResult
+> {
+  const queryClient = useQueryClient();
+  return useApprovedMutation(reversePaymentRequest, {
+    approvalScope: ApprovalScope.PAYMENTS_REVERSE,
+    retry: false,
+    onSuccess: (_result, variables) => {
+      void queryClient.invalidateQueries({ queryKey: paymentKeys.detail(variables.paymentId) });
+      void queryClient.invalidateQueries({ queryKey: paymentKeys.all });
+      void queryClient.invalidateQueries({ queryKey: invoiceKeys.all });
+      void queryClient.invalidateQueries({ queryKey: walletKeys.all });
+    },
+  });
 }

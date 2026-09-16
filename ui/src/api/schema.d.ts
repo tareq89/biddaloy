@@ -751,6 +751,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/payments/{id}/reverse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reverse a recorded payment in full (16.6.1): unwinds any wallet credit it added or spent, restores the bills it paid toward, cancels its invoice via a credit note, and marks the original payment as reversed. Requires a fresh payments.reverse approval token. */
+        post: operations["CheckoutController_reversePayment_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/fees/dues": {
         parameters: {
             query?: never;
@@ -2461,6 +2478,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/collections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Collections report: totals, by method/collector/fee-type/day. */
+        get: operations["ReportsController_getCollections_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/collections.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Collections report as a per-payment CSV export. */
+        get: operations["ReportsController_getCollectionsCsv_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3344,6 +3395,9 @@ export interface components {
             invoice_number: string;
             change_amount: number;
             wallet_balance_after: number;
+        };
+        ReversePaymentDto: {
+            reason: string;
         };
         FamilyFeeStructureDto: {
             id: string;
@@ -4712,6 +4766,55 @@ export interface components {
         RequestRestoreResponseDto: {
             job_id: string;
             snapshot_job_id: string;
+        };
+        CollectionsReportRange: {
+            from: string;
+            to: string;
+        };
+        CollectionsReportTotals: {
+            collected: number;
+            reversed: number;
+            net: number;
+            standing_discount: number;
+            one_off_discount: number;
+            wallet_used: number;
+            wallet_added: number;
+            change_returned: number;
+        };
+        CollectionsByMethod: {
+            /** @enum {string} */
+            payment_method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "CARD" | "BKASH" | "NAGAD" | "ROCKET";
+            count: number;
+            collected: number;
+            reversed: number;
+            net: number;
+        };
+        CollectionsByCollector: {
+            user_id: string | null;
+            full_name: string | null;
+            count: number;
+            collected: number;
+            reversed: number;
+            net: number;
+        };
+        CollectionsByFeeType: {
+            fee_type: string;
+            collected: number;
+            discount: number;
+        };
+        CollectionsByDay: {
+            date: string;
+            collected: number;
+            reversed: number;
+            net: number;
+        };
+        CollectionsReportDto: {
+            range: components["schemas"]["CollectionsReportRange"];
+            totals: components["schemas"]["CollectionsReportTotals"];
+            by_method: components["schemas"]["CollectionsByMethod"][];
+            by_collector: components["schemas"]["CollectionsByCollector"][];
+            by_fee_type: components["schemas"]["CollectionsByFeeType"][];
+            by_day: components["schemas"]["CollectionsByDay"][];
         };
     };
     responses: never;
@@ -6371,6 +6474,55 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    CheckoutController_reversePayment_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+                /** @description Single-use JWT proving a fresh admin approval for scope "payments.reverse" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReversePaymentDto"];
+            };
+        };
+        responses: {
+            /** @description Payment reversed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payment"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
             };
         };
     };
@@ -11069,6 +11221,76 @@ export interface operations {
                 content: {
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
                 };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReportsController_getCollections_v1: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                received_by_user_id?: string;
+                payment_method?: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "CARD" | "BKASH" | "NAGAD" | "ROCKET";
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectionsReportDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReportsController_getCollectionsCsv_v1: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                received_by_user_id?: string;
+                payment_method?: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "CARD" | "BKASH" | "NAGAD" | "ROCKET";
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {

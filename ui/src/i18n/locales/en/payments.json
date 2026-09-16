@@ -81,5 +81,38 @@
       "recordAnother": "Record another",
       "viewInvoice": "View invoice"
     }
+  },
+  "detail": {
+    "back": "Back to payments",
+    "loadError": "Couldn't load this payment.",
+    "retry": "Retry",
+    "amount": "Amount",
+    "method": "Method",
+    "date": "Date",
+    "collector": "Collected by",
+    "invoice": "Invoice",
+    "noInvoice": "No invoice",
+    "unknown": "Unknown",
+    "reversalOf": "Reversal of #{{id}}",
+    "reversedBanner": "This payment has been reversed.",
+    "reverseAction": "Reverse payment",
+    "allocations": {
+      "title": "Allocations",
+      "columnFee": "Fee",
+      "columnPeriod": "Period",
+      "columnAmount": "Amount",
+      "columnDiscount": "Discount"
+    },
+    "reverseDialog": {
+      "title": "Reverse this payment?",
+      "description": "This reverses the full payment. Give a reason before confirming.",
+      "consequenceWallet": "Any wallet credit this payment created will be unwound.",
+      "consequenceCreditNote": "A credit note is issued against the linked invoice.",
+      "consequenceIrreversible": "This cannot be undone once confirmed.",
+      "reasonLabel": "Reason",
+      "confirm": "Reverse payment",
+      "errorMessage": "Reversing this payment failed.",
+      "errorLaterPayments": "Later payments must be reversed first:"
+    }
   }
 }

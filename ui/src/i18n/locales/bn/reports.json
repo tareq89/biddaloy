@@ -1,0 +1,60 @@
+{
+  "title": "সংগ্রহ প্রতিবেদন",
+  "errorMessage": "সংগ্রহ প্রতিবেদন লোড করা যায়নি।",
+  "actions": {
+    "downloadCsv": "সিএসভি ডাউনলোড করুন",
+    "csvDownloadError": "সিএসভি ডাউনলোড করা যায়নি। আবার চেষ্টা করুন।"
+  },
+  "filters": {
+    "presetLabel": "তারিখের পরিসর",
+    "presetToday": "আজ",
+    "presetYesterday": "গতকাল",
+    "presetWeek": "এই সপ্তাহ",
+    "presetMonth": "এই মাস",
+    "presetCustom": "কাস্টম",
+    "customRangeLabel": "কাস্টম পরিসর",
+    "fromLabel": "থেকে",
+    "toLabel": "পর্যন্ত",
+    "methodLabel": "পদ্ধতি",
+    "allMethods": "সকল পদ্ধতি",
+    "method": {
+      "CASH": "নগদ",
+      "CHEQUE": "চেক",
+      "BANK_TRANSFER": "ব্যাংক ট্রান্সফার",
+      "CARD": "কার্ড",
+      "BKASH": "বিকাশ",
+      "NAGAD": "নগদ (Nagad)",
+      "ROCKET": "রকেট"
+    },
+    "collectorLabel": "সংগ্রহকারী",
+    "allCollectors": "সকল সংগ্রহকারী"
+  },
+  "totals": {
+    "collected": "সংগৃহীত",
+    "reversed": "বিপরীত",
+    "net": "নিট",
+    "standingDiscount": "স্থায়ী ছাড়",
+    "oneOffDiscount": "একবারের ছাড়",
+    "walletUsed": "ওয়ালেট ব্যবহৃত",
+    "walletAdded": "ওয়ালেট যোগ",
+    "changeReturned": "ফেরত দেওয়া ভাংতি"
+  },
+  "print": {
+    "range": "পরিসর: {{from}} – {{to}}"
+  },
+  "chart": {
+    "title": "দৈনিক সংগ্রহ",
+    "empty": "এই পরিসরে কোনো সংগ্রহ নেই।"
+  },
+  "tables": {
+    "method": "পদ্ধতি",
+    "collector": "সংগ্রহকারী",
+    "feeType": "ফি এর ধরন",
+    "amount": "পরিমাণ",
+    "count": "সংখ্যা",
+    "byMethodCaption": "পদ্ধতি অনুযায়ী সংগ্রহ",
+    "byCollectorCaption": "সংগ্রহকারী অনুযায়ী সংগ্রহ",
+    "byFeeTypeCaption": "ফি এর ধরন অনুযায়ী সংগ্রহ",
+    "emptyMessage": "এই পরিসরে কোনো সারি নেই।"
+  }
+}

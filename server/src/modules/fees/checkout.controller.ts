@@ -6,6 +6,9 @@ import {
   HttpCode,
   HttpStatus,
   Inject,
+  InternalServerErrorException,
+  Param,
+  ParseUUIDPipe,
   Post,
   Query,
   Req,
@@ -13,25 +16,48 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiProperty,
+  ApiTags,
+} from '@nestjs/swagger';
+import { IsString, MaxLength, MinLength } from 'class-validator';
 import type { Request, Response } from 'express';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { ApprovalGuard, ApprovalContext } from '../auth/guards/approval.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
+import { RequireApproval } from '../auth/decorators/require-approval.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { FamilyAccessService } from '../students/family-access.service';
 import { CheckoutCartService } from './checkout-cart.service';
 import { CheckoutService } from './checkout.service';
+import { PaymentReversalService } from './payment-reversal.service';
 import {
   CartResultDto,
   CheckoutDto,
   CheckoutResultDto,
   QueryCheckoutCartDto,
 } from './dto/checkout.dto';
-import { JwtPayload, Permission, UserRole, isGuardianRole } from '@biddaloy/shared';
+import { Payment } from './entities/payment.entity';
+import { ApprovalScope, JwtPayload, Permission, UserRole, isGuardianRole } from '@biddaloy/shared';
+
+/** `POST /payments/:id/reverse` (16.6.1) body — just the audit-trail
+ * reason, everything else about the reversal is derived server-side from
+ * the payment itself. Declared inline rather than in `dto/checkout.dto.ts`
+ * — this ticket's file territory doesn't include that file. */
+class ReversePaymentDto {
+  @ApiProperty({ minLength: 3, maxLength: 500 })
+  @IsString()
+  @MinLength(3)
+  @MaxLength(500)
+  reason: string;
+}
 
 /**
  * `GET /payments/cart` (16.4.1) — the read side the Record Payment modal is
@@ -48,12 +74,14 @@ import { JwtPayload, Permission, UserRole, isGuardianRole } from '@biddaloy/shar
 @ApiTags('fees')
 @ApiTenantAuth()
 @Controller()
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard, ApprovalGuard)
 export class CheckoutController {
   constructor(
     @Inject(CheckoutCartService) private readonly checkoutCartService: CheckoutCartService,
     @Inject(FamilyAccessService) private readonly familyAccess: FamilyAccessService,
     @Inject(CheckoutService) private readonly checkoutService: CheckoutService,
+    @Inject(PaymentReversalService)
+    private readonly paymentReversalService: PaymentReversalService,
   ) {}
 
   @Get('payments/cart')
@@ -130,5 +158,43 @@ export class CheckoutController {
       response.status(HttpStatus.OK);
     }
     return result;
+  }
+
+  @Post('payments/:id/reverse')
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.PAYMENT_REVERSE)
+  @RequireApproval(ApprovalScope.PAYMENTS_REVERSE)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Reverse a recorded payment in full (16.6.1): unwinds any wallet credit it added or spent, restores the bills it paid toward, cancels its invoice via a credit note, and marks the original payment as reversed. Requires a fresh payments.reverse approval token.',
+  })
+  @ApiOkResponse({ description: 'Payment reversed.', type: Payment })
+  async reversePayment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReversePaymentDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ): Promise<Payment> {
+    // Stamped onto the request by `ApprovalGuard` after it consumes the
+    // `X-Approval-Token` for `ApprovalScope.PAYMENTS_REVERSE` — guaranteed
+    // present here since `@RequireApproval` makes the guard mandatory for
+    // this route. Guarded explicitly (rather than trusting the cast alone)
+    // so a future guard-ordering regression fails with a clear 500 message
+    // instead of a bare `undefined.approverId` TypeError.
+    const approval = (request as unknown as { approval?: ApprovalContext }).approval;
+    if (!approval) {
+      throw new InternalServerErrorException(
+        'ApprovalGuard did not run before reversePayment — @RequireApproval guard misconfigured',
+      );
+    }
+    return this.paymentReversalService.reverse(
+      id,
+      tenant.id,
+      user.sub,
+      approval.approverId,
+      dto.reason,
+    );
   }
 }

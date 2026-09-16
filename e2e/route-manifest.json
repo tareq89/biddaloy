@@ -180,6 +180,14 @@
       "archetype": "list"
     },
     {
+      "path": "/payments/$id",
+      "params": {
+        "id": "seeded"
+      },
+      "role": "accountant",
+      "archetype": "detail"
+    },
+    {
       "path": "/payments/record",
       "role": "accountant",
       "archetype": "redirect"
@@ -282,6 +290,11 @@
     {
       "path": "/attendance/register",
       "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/reports/collections",
+      "role": "accountant",
       "archetype": "list"
     }
   ]

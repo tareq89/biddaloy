@@ -80,6 +80,53 @@ const listInvoicesByStudent = http.get(
   },
 );
 
+/** [16.6.2] `GET /payments/:id` — the detail route's fixture. Built off
+ * `paymentFactory()` rather than a separate `paymentDetailFactory` since
+ * `PaymentDetailDto` (`server/src/modules/fees/payments-query.service.ts`'s
+ * `toDetailDto`) is just a narrower projection of the same `Payment` row
+ * plus an `allocations` array the list/checkout factory doesn't need. */
+function paymentDetailFactory(overrides: Partial<Payment> = {}) {
+  const payment = paymentFactory(overrides);
+  return {
+    id: payment.id,
+    student_id: payment.student_id,
+    student: { id: payment.student.id, full_name: payment.student.full_name },
+    total_amount: payment.total_amount,
+    payment_method: payment.payment_method,
+    payment_status: payment.payment_status,
+    transaction_reference: payment.transaction_reference,
+    payment_date: payment.payment_date,
+    remarks: payment.remarks,
+    invoice: payment.invoice
+      ? {
+          id: payment.invoice.id,
+          invoice_number: payment.invoice.invoice_number,
+          status: payment.invoice.status,
+        }
+      : null,
+    received_by: payment.received_by
+      ? { id: payment.received_by.id, full_name: payment.received_by.full_name }
+      : null,
+    approved_by: payment.approved_by
+      ? { id: payment.approved_by.id, full_name: payment.approved_by.full_name }
+      : null,
+    reversal_of_payment_id: payment.reversal_of_payment_id,
+    reversed_by_payment_id: payment.reversed_by_payment_id,
+    allocations: [],
+    created_at: payment.created_at,
+  };
+}
+
+const detail = http.get('/api/v1/payments/:id', ({ params }) =>
+  HttpResponse.json(paymentDetailFactory({ id: params.id as string })),
+);
+
+/** [16.6.2] `POST /payments/:id/reverse` — default success fixture; the
+ * dialog's own tests override per-scenario (success, 409, approval). */
+const reverse = http.post('/api/v1/payments/:id/reverse', () =>
+  HttpResponse.json(paymentFactory()),
+);
+
 export const paymentHandlers = {
   list,
   listEmpty,
@@ -90,6 +137,8 @@ export const paymentHandlers = {
   listByGuardian,
   listByGuardianEmpty,
   listInvoicesByStudent,
+  detail,
+  reverse,
 };
 
 export const paymentDefaultHandlers = [
@@ -99,4 +148,6 @@ export const paymentDefaultHandlers = [
   listByStudent,
   listByGuardian,
   listInvoicesByStudent,
+  detail,
+  reverse,
 ];

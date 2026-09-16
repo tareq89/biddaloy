@@ -52,6 +52,10 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // nav visibility" rule. Revisit once the real list lands over #660.
   '/_staff/payments/': Permission.PAYMENT_RECORD,
   '/_staff/payments/record': Permission.PAYMENT_RECORD,
+  // [16.6.2] the payment detail page — gated on the read permission, not
+  // `PAYMENT_RECORD`, since viewing a past payment's allocations/reversal
+  // state is a distinct capability from recording a new one.
+  '/_staff/payments/$id': Permission.PAYMENT_READ,
   '/_staff/communications/send': Permission.COMMUNICATION_SEND,
   '/_staff/communications/reminders': Permission.COMMUNICATION_BULK_SEND,
   '/_staff/communications/batches/': Permission.COMMUNICATION_BULK_SEND,
@@ -78,4 +82,8 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // reasoning as the two entries above, not a new permission.
   '/_staff/attendance/reports': Permission.ATTENDANCE_READ,
   '/_staff/attendance/register': Permission.ATTENDANCE_READ,
+  // [16.6.4] Cash-close sheet — matches `GET /reports/collections`'s own
+  // `REPORT_COLLECTIONS_READ` gate (ADMIN/ACCOUNTANT/EXECUTIVE in
+  // `ROLE_PERMISSIONS`), not the broader `REPORTS_VIEW`.
+  '/_staff/reports/collections': Permission.REPORT_COLLECTIONS_READ,
 };
