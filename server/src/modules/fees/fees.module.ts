@@ -5,6 +5,9 @@ import { Payment } from './entities/payment.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { StudentFee } from './entities/student-fee.entity';
 import { FeeGeneration } from './entities/fee-generation.entity';
+import { RecurringSchedule } from './entities/recurring-schedule.entity';
+import { RecurringScheduleStructure } from './entities/recurring-schedule-structure.entity';
+import { RecurringScheduleExclusion } from './entities/recurring-schedule-exclusion.entity';
 import { StudentWallet } from './entities/student-wallet.entity';
 import { WalletTransaction } from './entities/wallet-transaction.entity';
 import { Student } from '../students/entities/student.entity';
@@ -23,8 +26,10 @@ import { PaymentAllocationService } from './payment-allocation.service';
 import { FeeDuesService } from './fee-dues.service';
 import { FeeGenerationsService } from './fee-generations.service';
 import { FeeGenerationBatchService } from './fee-generation-batch.service';
+import { RecurringSchedulesService } from './recurring-schedules.service';
 import { FeeController } from './fees.controller';
 import { FeeGenerationsController } from './fee-generations.controller';
+import { RecurringSchedulesController } from './recurring-schedules.controller';
 import { WalletService } from './wallet.service';
 import { WalletController } from './wallet.controller';
 import { CheckoutCartService } from './checkout-cart.service';
@@ -40,6 +45,9 @@ import { PaymentReversalService } from './payment-reversal.service';
       PaymentAllocation,
       StudentFee,
       FeeGeneration,
+      RecurringSchedule,
+      RecurringScheduleStructure,
+      RecurringScheduleExclusion,
       StudentWallet,
       WalletTransaction,
       Student,
@@ -62,6 +70,7 @@ import { PaymentReversalService } from './payment-reversal.service';
     FeeDuesService,
     FeeGenerationsService,
     FeeGenerationBatchService,
+    RecurringSchedulesService,
     WalletService,
     NoopDiscountResolver,
     CheckoutCartService,
@@ -75,7 +84,13 @@ import { PaymentReversalService } from './payment-reversal.service';
   // `payments/:id` (GET, 16.4.3) would otherwise shadow (`:id` matches any
   // single segment, including "cart"/"checkout") if FeeController's routes
   // registered first.
-  controllers: [CheckoutController, FeeController, FeeGenerationsController, WalletController],
+  controllers: [
+    CheckoutController,
+    FeeController,
+    FeeGenerationsController,
+    RecurringSchedulesController,
+    WalletController,
+  ],
   exports: [
     FeeStructureService,
     PaymentService,
@@ -85,6 +100,7 @@ import { PaymentReversalService } from './payment-reversal.service';
     FeeDuesService,
     FeeGenerationsService,
     FeeGenerationBatchService,
+    RecurringSchedulesService,
     WalletService,
     CheckoutCartService,
   ],
