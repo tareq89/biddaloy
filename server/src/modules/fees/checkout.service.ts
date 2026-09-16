@@ -123,7 +123,7 @@ export class CheckoutService {
     if (existing) {
       this.assertIdempotentReplayMatches(existing, dto);
       if (meta) meta.replayed = true;
-      const repaired = await this.ensureInvoiceLinked(existing.id, tenantId, userId);
+      const repaired = await this.ensureInvoiceLinked(existing.id);
       return this.toResult(repaired, tenantId);
     }
 
@@ -420,7 +420,7 @@ export class CheckoutService {
       // result. Falling through to invoice creation below would mint a
       // second invoice for the same payment.
       if (meta) meta.replayed = true;
-      const repaired = await this.ensureInvoiceLinked(winnerId, tenantId, userId);
+      const repaired = await this.ensureInvoiceLinked(winnerId);
       return this.toResult(repaired, tenantId);
     }
 
@@ -433,7 +433,7 @@ export class CheckoutService {
           `idempotency_key "${duplicateKey}" conflicted with an existing payment that could not be re-read`,
         );
       }
-      const repaired = await this.ensureInvoiceLinked(winner.id, tenantId, userId);
+      const repaired = await this.ensureInvoiceLinked(winner.id);
       return this.toResult(repaired, tenantId);
     }
 
@@ -451,7 +451,7 @@ export class CheckoutService {
     // path again, since `finalPaymentId` is already committed) retries
     // the missing invoice rather than returning an incomplete result
     // forever — see its own doc comment.
-    const payment = await this.ensureInvoiceLinked(finalPaymentId!, tenantId, userId);
+    const payment = await this.ensureInvoiceLinked(finalPaymentId!);
 
     const walletBalanceAfter = await this.walletService.balance(payment.student_id, tenantId);
 
@@ -557,11 +557,7 @@ export class CheckoutService {
    * concurrent replays of the same orphaned payment both come back with
    * the repaired invoice, not just one of them.
    */
-  private async ensureInvoiceLinked(
-    paymentId: string,
-    tenantId: string,
-    userId: string,
-  ): Promise<Payment> {
+  private async ensureInvoiceLinked(paymentId: string): Promise<Payment> {
     const loaded = await this.paymentRepo.findOneOrFail({
       where: { id: paymentId },
       relations: [
@@ -577,42 +573,49 @@ export class CheckoutService {
     const queryRunner = this.paymentRepo.manager.connection.createQueryRunner();
     await queryRunner.connect();
     try {
+      // The advisory lock itself is connection-scoped, not
+      // transaction-scoped, so it's acquired/released outside the
+      // transaction below. But `InvoicesService.create` →
+      // `lockSchoolForSnapshot` takes a pessimistic row lock
+      // (`SELECT ... FOR UPDATE`/`FOR SHARE`), which TypeORM refuses to
+      // run without an open transaction on the manager — so the repair
+      // work itself must happen inside a started/committed/rolled-back
+      // transaction on this same queryRunner.
       await queryRunner.query(`SELECT pg_advisory_lock(hashtext($1))`, [lockKey]);
       try {
-        // Re-read under the lock: the concurrent repairer may have just
-        // finished between the check above and acquiring the lock.
-        const fresh = await queryRunner.manager.findOneOrFail(Payment, {
-          where: { id: paymentId },
-          relations: [
-            'allocations',
-            'allocations.student_fee',
-            'allocations.student_fee.fee_structure',
-            'invoice',
-          ],
-        });
-        if (fresh.invoice_id) return fresh;
+        await queryRunner.startTransaction();
+        try {
+          // Re-read under the lock: the concurrent repairer may have just
+          // finished between the check above and acquiring the lock.
+          const fresh = await queryRunner.manager.findOneOrFail(Payment, {
+            where: { id: paymentId },
+            relations: [
+              'allocations',
+              'allocations.student_fee',
+              'allocations.student_fee.fee_structure',
+              'invoice',
+            ],
+          });
+          if (fresh.invoice_id) {
+            await queryRunner.commitTransaction();
+            return fresh;
+          }
 
-        const lineItems = fresh.allocations.map((a) => ({
-          // Same fallback as the main flow: `fee_structure` can be null
-          // when it was soft-deleted after this bill was created.
-          description: `Fee for ${a.student_fee.fee_structure?.name ?? 'Fee'} (${a.student_fee.month}/${a.student_fee.year})`,
-          amount: Number(a.allocated_amount),
-          quantity: 1,
-        }));
-
-        const invoice = await this.invoicesService.create(
-          {
-            student_id: fresh.student_id,
-            due_date: fresh.payment_date.toISOString().slice(0, 10),
-            line_items: lineItems,
-          },
-          tenantId,
-          userId,
-        );
-        await queryRunner.manager.update(Payment, fresh.id, { invoice_id: invoice.id });
-        fresh.invoice_id = invoice.id;
-        fresh.invoice = invoice;
-        return fresh;
+          // [16.5.1] `InvoicesService.create` now builds the snapshot itself
+          // from the payment's already-committed allocations — it just
+          // needs the paymentId and the manager already open here (this
+          // repair runs inside its own advisory-locked queryRunner
+          // transaction, same as before).
+          const invoice = await this.invoicesService.create(fresh.id, queryRunner.manager);
+          await queryRunner.manager.update(Payment, fresh.id, { invoice_id: invoice.id });
+          fresh.invoice_id = invoice.id;
+          fresh.invoice = invoice;
+          await queryRunner.commitTransaction();
+          return fresh;
+        } catch (err) {
+          await queryRunner.rollbackTransaction();
+          throw err;
+        }
       } finally {
         await queryRunner.query(`SELECT pg_advisory_unlock(hashtext($1))`, [lockKey]);
       }

@@ -47,7 +47,15 @@ export function buildPinoOptions(nodeEnv: string | undefined): Params['pinoHttp'
     serializers: {
       req: (req: IncomingMessage & { url?: string; route?: { path?: string } }) => ({
         method: req.method,
-        url: req.url ? redactPii(req.url) : req.url,
+        // [666] `/public/invoices/:token`'s path segment IS a bearer-
+        // equivalent secret (it grants unauthenticated access to a
+        // school's invoice data) — `redactPii`'s `SENSITIVE_QUERY_PATTERN`
+        // only masks query-string params named e.g. `token`, not path
+        // segments, so mask this one explicitly before the general
+        // redaction pass runs on whatever's left.
+        url: req.url
+          ? redactPii(req.url.replace(/(\/public\/invoices\/)[^/?]+/, '$1[REDACTED]'))
+          : req.url,
         route: req.route?.path ?? null,
       }),
       res: (res: ServerResponse) => ({ statusCode: res.statusCode }),

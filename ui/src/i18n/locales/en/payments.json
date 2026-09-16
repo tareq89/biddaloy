@@ -72,6 +72,14 @@
       "recordedWithChange": "{{amount}} recorded, {{change}} change.",
       "failed": "Recording payment failed.",
       "approvalCancelled": "Approval was cancelled."
+    },
+    "success": {
+      "title": "Payment recorded",
+      "amountPaid": "Amount paid",
+      "changeDue": "Change due",
+      "invoiceNumber": "Invoice",
+      "recordAnother": "Record another",
+      "viewInvoice": "View invoice"
     }
   }
 }

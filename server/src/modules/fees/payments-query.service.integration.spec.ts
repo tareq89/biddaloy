@@ -361,6 +361,41 @@ describe('PaymentsQueryService (integration)', () => {
           status: 'PAID' as any,
           issued_date: new Date('2026-01-15'),
           due_date: new Date('2026-01-25'),
+          snapshot: {
+            issuer: { name: 'Test School' },
+            students: [
+              {
+                id: student.id,
+                full_name: 'Test Student',
+                registration_number: 'REG-1',
+                class_name: null,
+                lines: [
+                  {
+                    fee_name: 'Tuition',
+                    period_label: 'January 2026',
+                    amount: 1000,
+                    discount: 0,
+                    paid_this_time: 1000,
+                    balance_after: 0,
+                  },
+                ],
+              },
+            ],
+            totals: {
+              billed: 1000,
+              discount: 0,
+              paid: 1000,
+              change: 0,
+              wallet_used: 0,
+              wallet_added: 0,
+            },
+            payment: {
+              method: 'CASH' as any,
+              reference: null,
+              received_by_name: 'Admin',
+              payment_date: '2026-01-15',
+            },
+          },
         } as Partial<Invoice>),
       );
       const fee = await makeStudentFee(student.id, TUITION_STRUCTURE_ID, {

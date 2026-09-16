@@ -14,6 +14,7 @@ import { i18n } from '../i18n/i18n';
 import { I18nProvider } from '../i18n/locale-provider';
 import { DEFAULT_LOCALE, clearPersistedLocale, type Locale } from '../i18n/locale-storage';
 import { clearPersistedTheme } from '../theme/theme-storage';
+import { clearPersistedPrintFormat } from '../utils/invoice-print-format';
 
 /** A seeded value for `queryClient.setQueryData` — same key/value shape
  * `useQuery({ queryKey })` reads back, so a test can pre-populate the cache
@@ -195,6 +196,7 @@ export async function cleanupTestState(): Promise<void> {
   await i18n.changeLanguage(DEFAULT_LOCALE);
   clearPersistedLocale();
   clearPersistedTheme();
+  clearPersistedPrintFormat();
   // `theme-provider.tsx` holds no module-level cache to reset (it
   // recomputes from `getPersistedTheme()`/`prefers-color-scheme` on every
   // read), but the DOM attribute it wrote is real, mutable document state

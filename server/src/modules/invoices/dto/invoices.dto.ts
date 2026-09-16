@@ -1,69 +1,56 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   IsString,
-  IsNumber,
   IsOptional,
   IsUUID,
   IsEnum,
+  IsIn,
   IsInt,
+  IsNumber,
   Min,
   Max,
   IsDateString,
-  IsArray,
-  ArrayMinSize,
-  ValidateNested,
-  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { InvoiceStatus } from '@biddaloy/shared';
-import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
-import { Invoice } from '../entities/invoice.entity';
+import { InvoiceStatus, InvoiceKind, CommunicationMedium } from '@biddaloy/shared';
+import { Invoice, InvoiceSnapshot } from '../entities/invoice.entity';
 import { Student } from '../../students/entities/student.entity';
-import { StudentFee } from '../../fees/entities/student-fee.entity';
 import { UserResponseDto } from '../../users/dto/user-response.dto';
-import { FamilyStudentFeeDto, toFamilyStudentFee } from '../../fees/dto/fees.dto';
 import { IssuerSnapshot } from '../../schools/profile/issuer-snapshot';
 
-export class LineItemDto {
-  @IsString()
-  @MaxLength(255)
-  @SanitizeText()
-  description: string;
-
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  amount: number;
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  quantity?: number = 1;
-}
-
+/** [16.5.1] Manual invoice generation — staff-triggered backfill for a
+ * payment that (for whatever reason) doesn't already have one. There is
+ * no free-form line-item invoicing anymore: every invoice is built from
+ * an existing payment's committed allocations via
+ * `InvoicesService.create`. */
 export class CreateInvoiceDto {
   @IsUUID()
-  student_id: string;
+  payment_id: string;
+}
+
+/** [16.5.2] `GET /invoices/:id/print?format=`. `@IsIn` (not `@IsEnum`)
+ * since there's no shared enum for this — it's a route-shape detail, not
+ * a domain concept. Optional: an absent `format` defaults to `a4` in the
+ * controller, but a *present, invalid* value (e.g. `?format=pdf`) fails
+ * validation and 400s rather than silently falling back. */
+/** [16.5.4] `POST /invoices/:id/send` — only WHATSAPP and SMS are
+ * supported (no push/email path for a one-off manual share send).
+ * `guardian_id`, when given, must be linked to the invoice's student(s);
+ * omitted, the controller falls back to the primary reminder guardian
+ * (`resolveReminderAudience`). */
+export class SendInvoiceDto {
+  @IsIn([CommunicationMedium.WHATSAPP, CommunicationMedium.SMS])
+  medium: CommunicationMedium.WHATSAPP | CommunicationMedium.SMS;
 
   @IsOptional()
   @IsUUID()
-  student_fee_id?: string;
+  guardian_id?: string;
+}
 
+export class PrintFormatQueryDto {
   @IsOptional()
-  @IsDateString()
-  due_date?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(1000)
-  @SanitizeText()
-  notes?: string;
-
-  @IsOptional()
-  @IsArray()
-  @ArrayMinSize(1)
-  @ValidateNested({ each: true })
-  @Type(() => LineItemDto)
-  line_items?: LineItemDto[];
+  @IsIn(['a4', 'pos58', 'pos80'])
+  format?: 'a4' | 'pos58' | 'pos80';
 }
 
 export class QueryInvoiceDto {
@@ -122,47 +109,38 @@ export class QueryInvoiceDto {
 }
 
 /**
- * Family-facing view of an invoice [5.1].
+ * Family-facing view of an invoice [5.1], updated for [16.5.1]'s
+ * snapshot-based document.
  *
- * Allow-list, matching the discipline used for payments and fees. Two things
- * are withheld:
+ * Allow-list, matching the discipline used for payments and fees. One
+ * thing is withheld:
  *
  * - `issued_by` / `issued_by_user_id` — which staff member generated the
- *   invoice. `findOne` loads that relation as a full `User` (name, email and
- *   `password_hash` on the entity); the bare id is internal too.
- * - the raw `student_fee` relation — `findOne` and `findAll` both join it,
- *   and `StudentFee` carries `reminder_threshold_date`, the internal
- *   reminder plumbing this ticket strips everywhere else. It is re-shaped
- *   through `FamilyStudentFeeDto` rather than dropped, since the portal
- *   needs to say which month an invoice covers.
+ *   invoice. `findOne` loads that relation as a full `User` (name, email
+ *   and `password_hash` on the entity); the bare id is internal too.
+ *
+ * `snapshot` itself is safe to pass through unchanged — it's an
+ * allow-listed shape by construction (`InvoiceSnapshot`), built once at
+ * issue time from data the student's own family is already entitled to
+ * see (their fees, their payment).
  *
  * `issued_by: null` is emitted rather than omitted so the response keeps a
  * stable shape against the staff variant that `toSafeInvoice` produces.
  */
-export class FamilyInvoiceStudentDto {
-  id: string;
-  full_name: string;
-  registration_number: string;
-}
-
 export class FamilyInvoiceDto {
   id: string;
   invoice_number: string;
+  kind: InvoiceKind;
   student_id: string;
-  // Always the caller's own child — `findAll` is restricted to their linked
-  // students and `findOne` runs `assertLinked` first. Still allow-listed to
-  // the three fields an invoice header renders, rather than passing the
-  // whole `Student` (date_of_birth, home_address, user_id, …) through.
-  student: FamilyInvoiceStudentDto | null;
-  student_fee_id: string | null;
-  student_fee: FamilyStudentFeeDto | null;
+  payment_id: string | null;
+  related_invoice_id: string | null;
   total_amount: number;
   tax_amount: number;
   discount_amount: number;
   status: InvoiceStatus;
   issued_date: Date;
   due_date: Date;
-  line_items: Invoice['line_items'];
+  snapshot: InvoiceSnapshot;
   notes: string | null;
   // Explicitly described rather than inferred: the plugin cannot build a
   // schema from the literal type `null` and reports it as a circular
@@ -185,32 +163,61 @@ export class FamilyInvoiceDto {
   issuer?: IssuerSnapshot;
 }
 
+/** Redacts an `IssuerSnapshot` down to what a family caller is entitled to
+ * see: the school's public identity, not its contact/registration
+ * internals. */
+function redactIssuer(issuer: IssuerSnapshot): IssuerSnapshot {
+  return {
+    name: issuer.name,
+    name_bn: issuer.name_bn,
+    address: issuer.address,
+    logo_key: issuer.logo_key,
+    // Withheld from family callers: `phone`, `email`, `registration_id`,
+    // `captured_at` — internal/contact details, not needed to read a
+    // receipt.
+    phone: null,
+    email: null,
+    registration_id: null,
+    captured_at: issuer.captured_at,
+  };
+}
+
+/** Redacts `invoice.snapshot` for a family caller: `payment.received_by_name`
+ * names the staff member who took the payment — internal, not the family's
+ * business — and `issuer` is cut down to public identity fields. Everything
+ * else (lines, totals, method/reference/payment_date) is what a family is
+ * already entitled to see (their own fees and payment). */
+function redactSnapshot(snapshot: InvoiceSnapshot): InvoiceSnapshot {
+  return {
+    ...snapshot,
+    issuer: redactIssuer(snapshot.issuer),
+    payment: {
+      ...snapshot.payment,
+      received_by_name: null,
+    },
+  };
+}
+
 export function toFamilyInvoice(invoice: Invoice & { issuer?: IssuerSnapshot }): FamilyInvoiceDto {
   return {
     id: invoice.id,
     invoice_number: invoice.invoice_number,
+    kind: invoice.kind,
     student_id: invoice.student_id,
-    student: invoice.student
-      ? {
-          id: invoice.student.id,
-          full_name: invoice.student.full_name,
-          registration_number: invoice.student.registration_number,
-        }
-      : null,
-    student_fee_id: invoice.student_fee_id,
-    student_fee: invoice.student_fee ? toFamilyStudentFee(invoice.student_fee) : null,
+    payment_id: invoice.payment_id,
+    related_invoice_id: invoice.related_invoice_id,
     total_amount: invoice.total_amount,
     tax_amount: invoice.tax_amount,
     discount_amount: invoice.discount_amount,
     status: invoice.status,
     issued_date: invoice.issued_date,
     due_date: invoice.due_date,
-    line_items: invoice.line_items,
+    snapshot: redactSnapshot(invoice.snapshot),
     notes: invoice.notes,
     issued_by: null,
     created_at: invoice.created_at,
     updated_at: invoice.updated_at,
-    issuer: invoice.issuer,
+    issuer: invoice.issuer ? redactIssuer(invoice.issuer) : invoice.issuer,
   };
 }
 
@@ -233,17 +240,20 @@ export function toFamilyInvoice(invoice: Invoice & { issuer?: IssuerSnapshot }):
 export class StaffInvoiceDto implements Omit<Invoice, 'issued_by'> {
   id: string;
   invoice_number: string;
+  kind: InvoiceKind;
   student: Student;
   student_id: string;
-  student_fee: StudentFee | null;
-  student_fee_id: string | null;
+  payment: Invoice['payment'];
+  payment_id: string | null;
+  related_invoice: Invoice['related_invoice'];
+  related_invoice_id: string | null;
   total_amount: number;
   tax_amount: number;
   discount_amount: number;
   status: InvoiceStatus;
   issued_date: Date;
   due_date: Date;
-  line_items: Invoice['line_items'];
+  snapshot: InvoiceSnapshot;
   issued_by: UserResponseDto | null;
   issued_by_user_id: string | null;
   notes: string | null;

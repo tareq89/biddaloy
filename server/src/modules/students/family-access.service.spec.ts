@@ -164,6 +164,42 @@ describe('FamilyAccessService', () => {
     });
   });
 
+  describe('assertLinkedToAny', () => {
+    const SIBLING_ID = 'student-2';
+
+    it('is a no-op for staff and returns every id unfiltered', async () => {
+      await build({ count: 0 });
+      await expect(
+        service.assertLinkedToAny(UserRole.ADMIN, USER_ID, [STUDENT_ID, SIBLING_ID], TENANT_ID),
+      ).resolves.toEqual([STUDENT_ID, SIBLING_ID]);
+      expect(repo.createQueryBuilder).not.toHaveBeenCalled();
+    });
+
+    it('throws when the caller is linked to none of the students (multi-student invoice, no linkage)', async () => {
+      await build({ raw: [] });
+      await expect(
+        service.assertLinkedToAny(UserRole.PARENT, USER_ID, [STUDENT_ID, SIBLING_ID], TENANT_ID),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it('returns only the linked subset when the caller is linked to one of two siblings', async () => {
+      // Regression for #664: a guardian linked to only STUDENT_ID must not
+      // see SIBLING_ID's data — the caller is authorized (linked to at
+      // least one student), but the returned subset excludes SIBLING_ID.
+      await build({ raw: [{ id: STUDENT_ID }] });
+      await expect(
+        service.assertLinkedToAny(UserRole.PARENT, USER_ID, [STUDENT_ID, SIBLING_ID], TENANT_ID),
+      ).resolves.toEqual([STUDENT_ID]);
+    });
+
+    it('throws for an empty student id list rather than querying', async () => {
+      await build({ raw: [{ id: STUDENT_ID }] });
+      await expect(
+        service.assertLinkedToAny(UserRole.PARENT, USER_ID, [], TENANT_ID),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+  });
+
   describe('getLinkedStudents', () => {
     it('returns the matched students for a PARENT', async () => {
       const student = { id: STUDENT_ID } as Student;

@@ -1,5 +1,12 @@
-import { cleanupTestState, invoiceFactory, renderWithRouter, server } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import {
+  cleanupTestState,
+  guardianFactory,
+  invoiceFactory,
+  renderWithRouter,
+  server,
+  studentFactory,
+} from '@biddaloy/ui/test';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -126,5 +133,183 @@ describe('/invoices/$invoiceId', () => {
 
     await screen.findByText(invoice.invoice_number);
     await expect(container).toHaveNoViolations();
+  });
+
+  it('shows a credit-note badge for a credit-note invoice', async () => {
+    const invoice = { ...invoiceFactory({ id: 'invoice-1' }), kind: 'CREDIT_NOTE' };
+    server.use(http.get('/api/v1/invoices/:id', () => HttpResponse.json(invoice)));
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/invoices/invoice-1'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    expect(await screen.findByText('Credit note')).toBeTruthy();
+  });
+
+  it('remembers the last chosen print format across a remount', async () => {
+    const invoice = invoiceFactory({ id: 'invoice-1' });
+    server.use(
+      http.get('/api/v1/invoices/:id', () => HttpResponse.json(invoice)),
+      http.get('/api/v1/invoices/:id/share', () => HttpResponse.json([])),
+    );
+
+    const first = renderWithRouter(routeTree, {
+      initialEntries: ['/invoices/invoice-1'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await screen.findByText(invoice.invoice_number);
+    await user.click(screen.getByRole('radio', { name: 'POS 58mm' }));
+    first.unmount();
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/invoices/invoice-1'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    const radio = await screen.findByRole('radio', { name: 'POS 58mm' });
+    expect(radio.getAttribute('data-state')).toBe('checked');
+  });
+
+  it('sends immediately (omitting guardian_id) when the student has exactly one reachable guardian', async () => {
+    const guardian = guardianFactory({ id: 'guardian-1', notifications_enabled: true });
+    const student = studentFactory({ guardians: [guardian] });
+    const invoice = invoiceFactory({ id: 'invoice-1', student, student_id: student.id });
+    let sentBody: unknown;
+    server.use(
+      http.get('/api/v1/invoices/:id', () => HttpResponse.json(invoice)),
+      http.get('/api/v1/students/:id', () => HttpResponse.json(student)),
+      http.post('/api/v1/invoices/:id/send', async ({ request }) => {
+        sentBody = await request.json();
+        return HttpResponse.json({});
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/invoices/invoice-1'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Send via WhatsApp' }));
+
+    await waitFor(() => expect(sentBody).toEqual({ medium: 'WHATSAPP' }));
+    expect(screen.queryByText('Pick a guardian')).toBeNull();
+  });
+
+  it('opens a guardian picker and sends with the chosen guardian_id when there are 2+ reachable guardians', async () => {
+    const guardianA = guardianFactory({
+      id: 'guardian-a',
+      full_name: 'Guardian A',
+      notifications_enabled: true,
+      is_primary_contact: false,
+    });
+    const guardianB = guardianFactory({
+      id: 'guardian-b',
+      full_name: 'Guardian B',
+      notifications_enabled: true,
+      is_primary_contact: false,
+    });
+    const student = studentFactory({ guardians: [guardianA, guardianB] });
+    const invoice = invoiceFactory({ id: 'invoice-1', student, student_id: student.id });
+    let sentBody: unknown;
+    server.use(
+      http.get('/api/v1/invoices/:id', () => HttpResponse.json(invoice)),
+      http.get('/api/v1/students/:id', () => HttpResponse.json(student)),
+      http.post('/api/v1/invoices/:id/send', async ({ request }) => {
+        sentBody = await request.json();
+        return HttpResponse.json({});
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/invoices/invoice-1'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Send via SMS' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Choose a guardian' });
+    await user.click(within(dialog).getByRole('button', { name: 'Guardian B' }));
+
+    await waitFor(() => expect(sentBody).toEqual({ medium: 'SMS', guardian_id: 'guardian-b' }));
+  });
+
+  it('excludes guardians who opted out of notifications from send candidates', async () => {
+    const optedOut = guardianFactory({
+      id: 'guardian-opted-out',
+      notifications_enabled: false,
+    });
+    const student = studentFactory({ guardians: [optedOut] });
+    const invoice = invoiceFactory({ id: 'invoice-1', student, student_id: student.id });
+    server.use(
+      http.get('/api/v1/invoices/:id', () => HttpResponse.json(invoice)),
+      http.get('/api/v1/students/:id', () => HttpResponse.json(student)),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/invoices/invoice-1'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    const button = await screen.findByRole('button', { name: 'Send via WhatsApp' });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('walks the share create → copy → revoke flow', async () => {
+    const invoice = invoiceFactory({ id: 'invoice-1' });
+    let shares: Array<{ id: string; url: string; revoked_at: string | null }> = [];
+    server.use(
+      http.get('/api/v1/invoices/:id', () => HttpResponse.json(invoice)),
+      http.get('/api/v1/invoices/:id/share', () => HttpResponse.json(shares)),
+      http.post('/api/v1/invoices/:id/share', () => {
+        shares = [{ id: 'share-1', url: 'https://example.test/i/tok', revoked_at: null }];
+        return HttpResponse.json({ id: 'share-1', url: 'https://example.test/i/tok' });
+      }),
+      http.delete('/api/v1/invoices/:id/share/:tokenId', () => {
+        shares = shares.map((share) => ({ ...share, revoked_at: new Date().toISOString() }));
+        return HttpResponse.json({});
+      }),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/invoices/invoice-1'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Create share link' }));
+
+    // "Copy link" appearing (rather than "Create share link") confirms the
+    // live share token round-tripped through the query cache after create.
+    const copyButton = await screen.findByRole('button', { name: 'Copy link' });
+    expect(copyButton).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Revoke' }));
+    await user.click(
+      within(await screen.findByRole('dialog', { name: 'Revoke this share link?' })).getByRole(
+        'button',
+        { name: 'Revoke' },
+      ),
+    );
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Copy link' })).toBeNull());
+    expect(await screen.findByRole('button', { name: 'Create share link' })).toBeTruthy();
   });
 });
