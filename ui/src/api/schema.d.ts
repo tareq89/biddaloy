@@ -3396,7 +3396,9 @@ export interface components {
             change_amount: number;
             wallet_balance_after: number;
         };
-        ReversePaymentDto: Record<string, never>;
+        ReversePaymentDto: {
+            reason: string;
+        };
         FamilyFeeStructureDto: {
             id: string;
             /** @enum {string} */
@@ -4765,13 +4767,54 @@ export interface components {
             job_id: string;
             snapshot_job_id: string;
         };
+        CollectionsReportRange: {
+            from: string;
+            to: string;
+        };
+        CollectionsReportTotals: {
+            collected: number;
+            reversed: number;
+            net: number;
+            standing_discount: number;
+            one_off_discount: number;
+            wallet_used: number;
+            wallet_added: number;
+            change_returned: number;
+        };
+        CollectionsByMethod: {
+            /** @enum {string} */
+            payment_method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "CARD" | "BKASH" | "NAGAD" | "ROCKET";
+            count: number;
+            collected: number;
+            reversed: number;
+            net: number;
+        };
+        CollectionsByCollector: {
+            user_id: string | null;
+            full_name: string | null;
+            count: number;
+            collected: number;
+            reversed: number;
+            net: number;
+        };
+        CollectionsByFeeType: {
+            fee_type: string;
+            collected: number;
+            discount: number;
+        };
+        CollectionsByDay: {
+            date: string;
+            collected: number;
+            reversed: number;
+            net: number;
+        };
         CollectionsReportDto: {
-            range: Record<string, never>;
-            totals: Record<string, never>;
-            by_method: Record<string, never>[][];
-            by_collector: Record<string, never>[][];
-            by_fee_type: Record<string, never>[][];
-            by_day: Record<string, never>[][];
+            range: components["schemas"]["CollectionsReportRange"];
+            totals: components["schemas"]["CollectionsReportTotals"];
+            by_method: components["schemas"]["CollectionsByMethod"][];
+            by_collector: components["schemas"]["CollectionsByCollector"][];
+            by_fee_type: components["schemas"]["CollectionsByFeeType"][];
+            by_day: components["schemas"]["CollectionsByDay"][];
         };
     };
     responses: never;
