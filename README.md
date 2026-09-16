@@ -506,6 +506,22 @@ with no local equivalent to run.
 below still reproduces the same job locally, it just no longer has a `ci.yml`
 counterpart to mirror.
 
+**[18.4.3] `--only <job,job,...>` replays a single CI job**, instead of the
+default set: `verify`, `frontend`, `storybook`, `integration`, `e2e`, `audit`,
+`lighthouse`. For example `scripts/ci-local.sh --only e2e` runs only the e2e
+section (still self-provisioning `db`/`redis`). An unknown job name is a
+usage error listing the valid ones.
+
+**`--affected` skips a section whose area has no changes** against
+`origin/main`, mirroring `ci.yml`'s own `changes` job path filters (kept in
+sync by hand in `scripts/ci-local.sh`'s `CI_PATHS_FRONTEND` /
+`CI_PATHS_SERVER` / `CI_PATHS_UI` arrays — `verify` and `audit` are never
+gated, same as in `ci.yml`). It also passes `--changed origin/main` to the
+frontend section's `vitest` run. Combine both flags to replay only what a
+branch actually touches: `scripts/ci-local.sh --only frontend --affected`
+runs frontend's vitest in `--changed` mode, and does nothing at all if the
+branch has no `ui/`/`client-admin/`/`shared/`/`e2e/` changes.
+
 ```mermaid
 flowchart LR
     CI["yarn ci:local"] --> node["check:node"] --> verify --> frontend --> audit
