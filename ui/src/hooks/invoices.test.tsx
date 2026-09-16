@@ -159,7 +159,7 @@ describe('useInvoiceSendCandidates', () => {
     expect(result.current.sendCandidates.map((g) => g.id)).toEqual(['guardian-not-primary']);
   });
 
-  it('is pending with no candidates for an empty student list, and never queries', async () => {
+  it('is pending with no candidates for an empty student list, and never queries', () => {
     const { result } = renderHookWithProviders(() => useInvoiceSendCandidates([]), {
       tenantId: 'tenant-1',
     });
