@@ -96,7 +96,42 @@ error callback) and `POST /admin/anything` used to return **200 + HTML**.
 
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`) runs, per the root README's
-"CI" section: build, lint, unit tests, an integration/e2e job against a
-real Postgres, a dependency audit, and a non-blocking dead-code check
-(`knip`). See `ui/CONTRIBUTING.md` for the PR checklist tied to these gates.
+GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and push to
+`main`. As of [18.2.3] the job set is:
+
+```mermaid
+flowchart LR
+    changes["changes\n(path filters)"] --> verify["verify\nbuild · lint · unit tests"]
+    changes --> frontend["frontend\nvitest (ui + client-admin)"]
+    changes --> integration["integration\nPostgres + Redis services"]
+    changes --> e2e["E2E smoke (chromium)\nprod build, journeys + smoke, PWA folded in"]
+    changes --> storybook["storybook\nbuild only"]
+    changes --> audit["audit\nyarn audit, high/critical only"]
+    changes --> bundledelta["bundle-delta\nPR-comment only"]
+    verify --> timings["timings\nwall/work/budgets summary"]
+    frontend --> timings
+    integration --> timings
+    e2e --> timings
+    storybook --> timings
+    audit --> timings
+    bundledelta --> timings
+```
+
+Two scheduled workflows run the checks `ci.yml` doesn't gate on every PR:
+`nightly-quality.yml` (Lighthouse, moved off `ci.yml` in [18.1.1]) and
+`nightly-e2e.yml` (the full Playwright suite — journeys + sweeps — across
+chromium, firefox and webkit, each 3-way sharded). Both — plus `nightly-frontend-flakes.yml` — file or
+update one sticky issue on failure, carrying a workflow-specific label
+(`nightly-quality-red`, `nightly-e2e-red`, `flake-hunt`) and the shared
+`nightly-red` label; see the root README's "Nightly failure visibility"
+section for the full mechanism.
+
+Concretely, the `E2E smoke (chromium)` job: starts Postgres/Redis service
+containers → installs deps → builds `shared` →
+resolves and caches the Playwright browser → runs migrations → seeds the
+database → builds and starts the production client-admin + server → runs
+the chromium journeys, smoke and PWA/offline specs against that build →
+collects and uploads E2E timings.
+
+See the root README's "CI" section for the full per-job description and
+`ui/CONTRIBUTING.md` for the PR checklist tied to these gates.
