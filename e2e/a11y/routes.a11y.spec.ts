@@ -1,4 +1,3 @@
-import AxeBuilder from '@axe-core/playwright';
 import type { APIRequestContext, Page } from '@playwright/test';
 
 import { adminApiSession, createStudentWithDues } from '../api';
@@ -6,6 +5,7 @@ import { expect, guest, loggedIn, test } from '../fixtures/test';
 import type { SeedRole } from '../seed-contract';
 import { resolvePath, routes, type ManifestRoute } from '../responsive/routes';
 import { overlayOpeners } from './overlay-openers';
+import { expectNoAxeViolations } from './assert';
 
 /**
  * Same reasoning as `responsive/reflow.spec.ts`'s identical helper: a
@@ -30,7 +30,6 @@ function pageOrDialogHeading(page: Page, route: ManifestRoute) {
  * effect.
  */
 
-const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 const LOCALES = ['bn', 'en'] as const;
 
 /**
@@ -51,32 +50,13 @@ const VARIANTS: Variant[] = [
   { locale: 'bn', theme: 'dark' },
 ];
 
-function formatViolations(violations: Awaited<ReturnType<AxeBuilder['analyze']>>['violations']) {
-  return violations
-    .map(
-      (v) =>
-        `${v.id} (${v.impact ?? 'n/a'}): ${v.help}\n` +
-        v.nodes.map((n) => `    ${n.target.join(' ')}`).join('\n'),
-    )
-    .join('\n');
-}
-
-async function expectNoViolations(page: Page, include?: string): Promise<void> {
-  let builder = new AxeBuilder({ page }).withTags(TAGS);
-  if (include) builder = builder.include(include);
-  const results = await builder.analyze();
-  expect(results.violations, `axe violations:\n${formatViolations(results.violations)}`).toEqual(
-    [],
-  );
-}
-
 async function ensureDuesRow(request: APIRequestContext): Promise<void> {
   const session = await adminApiSession(request);
   await createStudentWithDues(request, session, `A11y Dues ${Date.now()}`);
 }
 
 for (const { locale, theme } of VARIANTS) {
-  test.describe(`a11y · ${locale}${theme === 'dark' ? ' · dark' : ''}`, () => {
+  test.describe(`a11y · ${locale}${theme === 'dark' ? ' · dark' : ''} @sweep`, () => {
     for (const route of routes) {
       test.describe(route.path, () => {
         if (route.role === 'guest') {
@@ -109,14 +89,14 @@ for (const { locale, theme } of VARIANTS) {
               await page.evaluate(() => document.documentElement.getAttribute('data-theme')),
             ).toBe('dark');
           }
-          await expectNoViolations(page);
+          await expectNoAxeViolations(page);
 
           for (const overlay of route.overlays ?? []) {
             await test.step(`overlay ${overlay} open`, async () => {
               const opener = overlayOpeners[`${route.path}::${overlay}`];
               if (!opener) throw new Error(`no opener for ${route.path}::${overlay}`);
               await opener(page, locale);
-              await expectNoViolations(page, '[role="dialog"]');
+              await expectNoAxeViolations(page, '[role="dialog"]');
               await page.keyboard.press('Escape');
             });
           }
