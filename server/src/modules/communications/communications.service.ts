@@ -1,4 +1,9 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -8,6 +13,7 @@ import { StudentService, GuardianService } from '../students/students.service';
 import { SendCommunicationDto, CommunicationResponseDto } from './dto/communications.dto';
 import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
 import { COMMUNICATIONS_QUEUE } from './communications.constants';
+import { SmsCreditService } from './credits/sms-credit.service';
 
 function toResponseDto(log: CommunicationLog): CommunicationResponseDto {
   return {
@@ -30,6 +36,8 @@ function toResponseDto(log: CommunicationLog): CommunicationResponseDto {
  */
 @Injectable()
 export class CommunicationsService {
+  private readonly logger = new Logger(CommunicationsService.name);
+
   constructor(
     @InjectRepository(CommunicationLog)
     private readonly repo: Repository<CommunicationLog>,
@@ -37,6 +45,7 @@ export class CommunicationsService {
     private readonly queue: Queue,
     private readonly studentService: StudentService,
     private readonly guardianService: GuardianService,
+    private readonly smsCreditService: SmsCreditService,
   ) {}
 
   /**
@@ -97,6 +106,32 @@ export class CommunicationsService {
       log.status = CommunicationStatus.FAILED;
       log.metadata = { ...log.metadata, error: 'Failed to enqueue for delivery' };
       await this.repo.save(log);
+
+      // The job that would have settled `smsCreditReservation` was never
+      // created, so nothing else will ever release it — do it here
+      // instead of leaving units reserved forever, same pattern as
+      // `RemindersService`'s identical enqueue-failure handling. A
+      // failure here must not mask the original enqueue error: it's
+      // logged and the reservation stays stranded pending reconciliation.
+      if (smsCreditReservation) {
+        try {
+          await this.smsCreditService.settlePart(
+            tenantId,
+            smsCreditReservation.batchId,
+            `log:${log.id}`,
+            smsCreditReservation.segments,
+            'RELEASE',
+          );
+        } catch (releaseErr) {
+          this.logger.error({
+            msg: 'sms credit release on enqueue failure failed — reservation left stranded',
+            communication_log_id: log.id,
+            tenant_id: tenantId,
+            error: releaseErr instanceof Error ? releaseErr.message : String(releaseErr),
+          });
+        }
+      }
+
       throw new InternalServerErrorException('Failed to queue communication for delivery');
     }
 

@@ -16,39 +16,83 @@ import { InvoiceStatus, InvoiceKind, PaymentMethod } from '@biddaloy/shared';
 import { IssuerSnapshot } from '../../schools/profile/issuer-snapshot';
 
 /** [16.5.1] One line item on one student's bill, as it stood the moment
- * the invoice was issued. */
-export interface InvoiceSnapshotLine {
+ * the invoice was issued.
+ *
+ * A class, not an interface — same reason as `IssuerSnapshot`'s own doc
+ * comment: the `@nestjs/swagger` CLI plugin only introspects a
+ * *referenced* class's own properties, so a plain interface nested inside
+ * `Invoice.snapshot` produced an empty (`Record<string, never>`) schema
+ * without these `@ApiProperty()` decorators. */
+export class InvoiceSnapshotLine {
+  @ApiProperty()
   fee_name: string;
+
+  @ApiProperty()
   period_label: string;
+
+  @ApiProperty()
   amount: number;
+
+  @ApiProperty()
   discount: number;
+
+  @ApiProperty()
   paid_this_time: number;
+
+  @ApiProperty()
   balance_after: number;
 }
 
 /** [16.5.1] One student's slice of a (possibly multi-student, e.g.
  * siblings paid in one checkout) invoice. */
-export interface InvoiceSnapshotStudent {
+export class InvoiceSnapshotStudent {
+  @ApiProperty()
   id: string;
+
+  @ApiProperty()
   full_name: string;
+
+  @ApiProperty()
   registration_number: string;
+
+  @ApiProperty({ nullable: true, type: 'string' })
   class_name: string | null;
+
+  @ApiProperty({ type: () => [InvoiceSnapshotLine] })
   lines: InvoiceSnapshotLine[];
 }
 
-export interface InvoiceSnapshotTotals {
+export class InvoiceSnapshotTotals {
+  @ApiProperty()
   billed: number;
+
+  @ApiProperty()
   discount: number;
+
+  @ApiProperty()
   paid: number;
+
+  @ApiProperty()
   change: number;
+
+  @ApiProperty()
   wallet_used: number;
+
+  @ApiProperty()
   wallet_added: number;
 }
 
-export interface InvoiceSnapshotPayment {
+export class InvoiceSnapshotPayment {
+  @ApiProperty({ enum: PaymentMethod })
   method: PaymentMethod;
+
+  @ApiProperty({ nullable: true, type: 'string' })
   reference: string | null;
+
+  @ApiProperty({ nullable: true, type: 'string' })
   received_by_name: string | null;
+
+  @ApiProperty()
   payment_date: string;
 }
 
@@ -58,10 +102,17 @@ export interface InvoiceSnapshotPayment {
  * the money was received — so later edits to the underlying fee/payment
  * rows (or even the student's name) never change what an already-issued
  * invoice shows. */
-export interface InvoiceSnapshot {
+export class InvoiceSnapshot {
+  @ApiProperty({ type: () => IssuerSnapshot })
   issuer: IssuerSnapshot;
+
+  @ApiProperty({ type: () => [InvoiceSnapshotStudent] })
   students: InvoiceSnapshotStudent[];
+
+  @ApiProperty({ type: () => InvoiceSnapshotTotals })
   totals: InvoiceSnapshotTotals;
+
+  @ApiProperty({ type: () => InvoiceSnapshotPayment })
   payment: InvoiceSnapshotPayment;
 }
 
@@ -143,7 +194,7 @@ export class Invoice {
   /** [16.5.1] The whole frozen document — see `InvoiceSnapshot`. Replaces
    * the old flat `line_items` column; every student/line/total this
    * invoice shows lives here instead. */
-  @ApiProperty({ type: 'object', additionalProperties: true })
+  @ApiProperty({ type: () => InvoiceSnapshot })
   @Column({ type: 'jsonb' })
   snapshot: InvoiceSnapshot;
 

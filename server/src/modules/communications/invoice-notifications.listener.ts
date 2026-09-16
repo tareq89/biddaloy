@@ -35,6 +35,11 @@ const PAYMENT_NOTIFICATION_EVENT = 'payment-notify';
  * created without a queued job because no channel was deliverable. */
 const SKIPPED_NO_CHANNEL = 'SKIPPED_NO_SMS';
 
+/** A log created without a queued job because the tenant had no SMS
+ * credit left to reserve — distinct from `SKIPPED_NO_CHANNEL` so log
+ * readers can tell "no reachable channel" from "no SMS credit" apart. */
+const SKIPPED_NO_CREDIT = 'SKIPPED_NO_CREDIT';
+
 /** A log whose row saved but whose `queue.add` failed — replayable, see
  * `fee-notifications.listener.ts`'s identical constant. */
 const ENQUEUE_FAILED = 'ENQUEUE_FAILED';
@@ -248,7 +253,7 @@ export class InvoiceNotificationsListener implements OnModuleInit {
 
       if (!smsReserved) {
         await this.writeLog(tenantId, replayable, item.referenceKey, {
-          medium: CommunicationMedium.SMS,
+          medium: item.channel.medium,
           recipient_address: item.recipientAddress,
           recipient_name: item.recipientName,
           message_body: '',
@@ -257,7 +262,7 @@ export class InvoiceNotificationsListener implements OnModuleInit {
           sent_by_user_id: null,
           status: CommunicationStatus.FAILED,
           trigger: CommunicationTrigger.AUTOMATED,
-          metadata: { payment_id: paymentId, reason: SKIPPED_NO_CHANNEL },
+          metadata: { payment_id: paymentId, reason: SKIPPED_NO_CREDIT },
         });
         continue;
       }

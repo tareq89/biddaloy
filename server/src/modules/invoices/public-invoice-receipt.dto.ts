@@ -1,33 +1,80 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { Invoice, InvoiceSnapshotLine } from './entities/invoice.entity';
 import { IssuerSnapshot } from '../schools/profile/issuer-snapshot';
+import { signedAmount } from './invoice-print-format.util';
 
-export interface PublicReceiptStudentDto {
+/** Classes, not interfaces — same `@nestjs/swagger` CLI plugin reason as
+ * `InvoiceSnapshot`'s own doc comment: this DTO is the route's return
+ * type, but its nested shapes still need their own `@ApiProperty()` to
+ * avoid an empty (`Record<string, never>`) response schema. */
+export class PublicReceiptSchoolDto {
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty({ nullable: true, type: 'string' })
+  address: string | null;
+
+  @ApiProperty({ nullable: true, type: 'string' })
+  logo_url: string | null;
+}
+
+export class PublicReceiptStudentDto {
+  @ApiProperty()
   full_name: string;
+
+  @ApiProperty({ nullable: true, type: 'string' })
   class_name: string | null;
+
+  @ApiProperty({ type: () => [InvoiceSnapshotLine] })
   lines: InvoiceSnapshotLine[];
 }
 
-export interface PublicReceiptDto {
+export class PublicReceiptTotalsDto {
+  @ApiProperty()
+  billed: number;
+
+  @ApiProperty()
+  discount: number;
+
+  @ApiProperty()
+  paid: number;
+
+  @ApiProperty()
+  change: number;
+}
+
+export class PublicReceiptPaymentDto {
+  @ApiProperty()
+  method: string;
+
+  @ApiProperty({ nullable: true, type: 'string' })
+  reference_last4: string | null;
+
+  @ApiProperty()
+  payment_date: string;
+}
+
+export class PublicReceiptDto {
+  @ApiProperty()
   invoice_number: string;
+
+  @ApiProperty()
   kind: string;
+
+  @ApiProperty()
   issued_date: string;
-  school: {
-    name: string;
-    address: string | null;
-    logo_url: string | null;
-  };
+
+  @ApiProperty({ type: () => PublicReceiptSchoolDto })
+  school: PublicReceiptSchoolDto;
+
+  @ApiProperty({ type: () => [PublicReceiptStudentDto] })
   students: PublicReceiptStudentDto[];
-  totals: {
-    billed: number;
-    discount: number;
-    paid: number;
-    change: number;
-  };
-  payment: {
-    method: string;
-    reference_last4: string | null;
-    payment_date: string;
-  };
+
+  @ApiProperty({ type: () => PublicReceiptTotalsDto })
+  totals: PublicReceiptTotalsDto;
+
+  @ApiProperty({ type: () => PublicReceiptPaymentDto })
+  payment: PublicReceiptPaymentDto;
 }
 
 /** Redacts everything but the last 4 characters of a payment reference —
@@ -70,16 +117,27 @@ export function buildPublicReceiptDto(
       address: issuer.address,
       logo_url: logoUrl,
     },
+    // A credit note's snapshot is copied verbatim from the invoice it
+    // reverses and stays positive (see `InvoicesService.createCreditNote`);
+    // sign every money field for display the same way the print templates
+    // do (`invoice-print.template.ts`, `invoice-print-pos.template.ts`) —
+    // `signedAmount` flips amount/discount/paid_this_time/totals for a
+    // credit note, `totals.discount` is always shown as a deduction.
     students: snapshot.students.map((s) => ({
       full_name: s.full_name,
       class_name: s.class_name,
-      lines: s.lines,
+      lines: s.lines.map((line) => ({
+        ...line,
+        amount: signedAmount(line.amount, invoice),
+        discount: signedAmount(line.discount, invoice),
+        paid_this_time: signedAmount(line.paid_this_time, invoice),
+      })),
     })),
     totals: {
-      billed: snapshot.totals.billed,
-      discount: snapshot.totals.discount,
-      paid: snapshot.totals.paid,
-      change: snapshot.totals.change,
+      billed: signedAmount(snapshot.totals.billed, invoice),
+      discount: -Math.abs(snapshot.totals.discount),
+      paid: signedAmount(snapshot.totals.paid, invoice),
+      change: signedAmount(snapshot.totals.change, invoice),
     },
     payment: {
       method: snapshot.payment.method,

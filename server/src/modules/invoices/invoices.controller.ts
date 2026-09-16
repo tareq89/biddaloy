@@ -42,6 +42,7 @@ import {
   FamilyInvoiceDto,
   StaffInvoiceDto,
   PrintFormatQueryDto,
+  ShareLinkResponseDto,
 } from './dto/invoices.dto';
 import { Invoice } from './entities/invoice.entity';
 import { paginatedSchema } from '../../common/swagger/paginated-schema.util';
@@ -299,11 +300,12 @@ export class InvoicesController {
     summary:
       'Mints a public share link for this invoice ({ url, token_id }). See InvoiceShareService.createToken for why this always mints a new token rather than literally reusing an old one.',
   })
+  @ApiOkResponse({ type: ShareLinkResponseDto })
   async createShareLink(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
-  ): Promise<{ url: string; token_id: string }> {
+  ): Promise<ShareLinkResponseDto> {
     const { rawToken, tokenId } = await this.shareService.createToken(id, tenant.id, user.sub);
     const baseUrl = resolvePublicAppUrl(this.config);
     return { url: `${baseUrl}/i/${rawToken}`, token_id: tokenId };

@@ -2,7 +2,7 @@ import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Throttle } from '@nestjs/throttler';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { InvoiceShareService } from './invoice-share.service';
 import { StorageService } from '../storage/storage.service';
 import { School } from '../schools/entities/school.entity';
@@ -46,6 +46,7 @@ export class PublicInvoiceController {
     summary:
       'Public, receipt-only view of an invoice via a share token. No auth, no tenant header — 404 for an unknown or revoked token. HTML (?format=a4|pos80) variant not yet implemented — see code comment.',
   })
+  @ApiOkResponse({ type: PublicReceiptDto })
   async getByToken(@Param('token') token: string): Promise<PublicReceiptDto> {
     const result = await this.shareService.validatePublicToken(token);
     if (!result) {

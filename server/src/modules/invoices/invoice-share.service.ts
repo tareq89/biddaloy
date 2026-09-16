@@ -59,7 +59,7 @@ export class InvoiceShareService {
       where: { id: invoiceId, deleted_at: IsNull() },
       relations: ['student'],
     });
-    if (!invoice || invoice.student.tenant_id !== tenantId) {
+    if (!invoice || !invoice.student || invoice.student.tenant_id !== tenantId) {
       throw new NotFoundException(`Invoice with ID "${invoiceId}" not found`);
     }
 

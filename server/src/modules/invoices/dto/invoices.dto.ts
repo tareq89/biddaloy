@@ -265,3 +265,13 @@ export class StaffInvoiceDto implements Omit<Invoice, 'issued_by'> {
   // `FamilyInvoiceDto.issuer` for when this is/isn't populated.
   issuer?: IssuerSnapshot;
 }
+
+/** Response of `POST /invoices/:id/share` — see
+ * `InvoicesController.createShareLink`. */
+export class ShareLinkResponseDto {
+  @ApiProperty()
+  url: string;
+
+  @ApiProperty()
+  token_id: string;
+}

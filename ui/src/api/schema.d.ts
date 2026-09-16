@@ -3158,10 +3158,44 @@ export interface components {
             logo_key: string | null;
             captured_at: string;
         };
+        InvoiceSnapshotLine: {
+            fee_name: string;
+            period_label: string;
+            amount: number;
+            discount: number;
+            paid_this_time: number;
+            balance_after: number;
+        };
+        InvoiceSnapshotStudent: {
+            id: string;
+            full_name: string;
+            registration_number: string;
+            class_name: string | null;
+            lines: components["schemas"]["InvoiceSnapshotLine"][];
+        };
+        InvoiceSnapshotTotals: {
+            billed: number;
+            discount: number;
+            paid: number;
+            change: number;
+            wallet_used: number;
+            wallet_added: number;
+        };
+        InvoiceSnapshotPayment: {
+            /** @enum {string} */
+            method: "CASH" | "CHEQUE" | "BANK_TRANSFER" | "CARD" | "BKASH" | "NAGAD" | "ROCKET";
+            reference: string | null;
+            received_by_name: string | null;
+            payment_date: string;
+        };
+        InvoiceSnapshot: {
+            issuer: components["schemas"]["IssuerSnapshot"];
+            students: components["schemas"]["InvoiceSnapshotStudent"][];
+            totals: components["schemas"]["InvoiceSnapshotTotals"];
+            payment: components["schemas"]["InvoiceSnapshotPayment"];
+        };
         Invoice: {
-            snapshot: {
-                [key: string]: unknown;
-            };
+            snapshot: components["schemas"]["InvoiceSnapshot"];
             issuer_snapshot: components["schemas"]["IssuerSnapshot"] | null;
             id: string;
             invoice_number: string;
@@ -3677,7 +3711,7 @@ export interface components {
             issued_date: string;
             /** Format: date-time */
             due_date: string;
-            snapshot: Record<string, never>;
+            snapshot: components["schemas"]["InvoiceSnapshot"];
             issued_by: components["schemas"]["UserResponseDto"] | null;
             issued_by_user_id: string | null;
             notes: string | null;
@@ -3709,7 +3743,7 @@ export interface components {
             issued_date: string;
             /** Format: date-time */
             due_date: string;
-            snapshot: Record<string, never>;
+            snapshot: components["schemas"]["InvoiceSnapshot"];
             notes: string | null;
             /** Format: date-time */
             created_at: string;
@@ -3721,11 +3755,45 @@ export interface components {
             /** Format: uuid */
             payment_id: string;
         };
+        ShareLinkResponseDto: {
+            url: string;
+            token_id: string;
+        };
         SendInvoiceDto: {
             /** @enum {string} */
             medium: "WHATSAPP" | "SMS";
             /** Format: uuid */
             guardian_id?: string;
+        };
+        PublicReceiptSchoolDto: {
+            name: string;
+            address: string | null;
+            logo_url: string | null;
+        };
+        PublicReceiptStudentDto: {
+            full_name: string;
+            class_name: string | null;
+            lines: components["schemas"]["InvoiceSnapshotLine"][];
+        };
+        PublicReceiptTotalsDto: {
+            billed: number;
+            discount: number;
+            paid: number;
+            change: number;
+        };
+        PublicReceiptPaymentDto: {
+            method: string;
+            reference_last4: string | null;
+            payment_date: string;
+        };
+        PublicReceiptDto: {
+            invoice_number: string;
+            kind: string;
+            issued_date: string;
+            school: components["schemas"]["PublicReceiptSchoolDto"];
+            students: components["schemas"]["PublicReceiptStudentDto"][];
+            totals: components["schemas"]["PublicReceiptTotalsDto"];
+            payment: components["schemas"]["PublicReceiptPaymentDto"];
         };
         PushPublicKeyResponseDto: {
             enabled: boolean;
@@ -7309,11 +7377,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ShareLinkResponseDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -7409,7 +7479,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["PublicReceiptDto"];
                 };
             };
         };
