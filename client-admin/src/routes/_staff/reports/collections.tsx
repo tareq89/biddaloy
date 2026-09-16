@@ -241,7 +241,11 @@ function CollectionsReportPage() {
   ];
 
   const collectorColumns: DataTableColumn<CollectionsByCollector>[] = [
-    { id: 'collector_name', header: t('tables.collector'), accessorFn: (row) => row.collector_name },
+    {
+      id: 'collector_name',
+      header: t('tables.collector'),
+      accessorFn: (row) => row.collector_name,
+    },
     {
       id: 'amount',
       header: t('tables.amount'),
@@ -302,13 +306,13 @@ function CollectionsReportPage() {
       <div className="print:hidden">
         <FilterBar
           fields={filterFields}
-          values={{ preset, ...filters }}
+          values={state.filters}
           onChange={(patch) => actions.setFilters(patch)}
         />
       </div>
 
       {reportQuery.isError ? (
-        <p className="text-sm text-status-critical" role="alert">
+        <p className="text-status-critical text-sm" role="alert">
           {t('errorMessage')}
         </p>
       ) : null}

@@ -30,6 +30,7 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 import { Link } from '@tanstack/react-router';
 import * as React from 'react';
 
+const REASON_MIN_LENGTH = 3;
 const REASON_MAX_LENGTH = 500;
 
 export interface ReversePaymentDialogProps {
@@ -38,11 +39,7 @@ export interface ReversePaymentDialogProps {
   paymentId: string;
 }
 
-export function ReversePaymentDialog({
-  open,
-  onOpenChange,
-  paymentId,
-}: ReversePaymentDialogProps) {
+export function ReversePaymentDialog({ open, onOpenChange, paymentId }: ReversePaymentDialogProps) {
   const { t } = useTranslation('payments');
   const reversePayment = useReversePayment();
   const [reason, setReason] = React.useState('');
@@ -56,12 +53,12 @@ export function ReversePaymentDialog({
   }, [open]);
 
   const trimmedReason = reason.trim();
-  const reasonInvalid = trimmedReason.length === 0 || reason.length > REASON_MAX_LENGTH;
+  const reasonInvalid =
+    trimmedReason.length < REASON_MIN_LENGTH || reason.length > REASON_MAX_LENGTH;
 
   const blockingPaymentIds =
     reversePayment.error instanceof ApiError && reversePayment.error.statusCode === 409
-      ? (reversePayment.error.details as ReverseLaterPaymentsFirstDetails | undefined)
-          ?.payment_ids
+      ? (reversePayment.error.details as ReverseLaterPaymentsFirstDetails | undefined)?.payment_ids
       : undefined;
 
   function handleConfirm() {

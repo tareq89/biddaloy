@@ -98,7 +98,9 @@ function PaymentDetailPage() {
                 {formatServerAmount(payment.total_amount, regionConfig)}
               </span>
             </Field>
-            <Field label={t('detail.method')}>{t(`record.method.methods.${payment.payment_method}`)}</Field>
+            <Field label={t('detail.method')}>
+              {t(`record.method.methods.${payment.payment_method}`)}
+            </Field>
             <Field label={t('detail.date')}>
               {formatDate(parseServerDate(payment.payment_date), regionConfig)}
             </Field>
@@ -160,16 +162,19 @@ function PaymentDetailPage() {
             </p>
           )}
 
-          {canReverse && !alreadyReversed && !isReversal && (
-            <Button
-              type="button"
-              variant="destructive"
-              className="self-start"
-              onClick={() => setReverseOpen(true)}
-            >
-              {t('detail.reverseAction')}
-            </Button>
-          )}
+          {canReverse &&
+            !alreadyReversed &&
+            !isReversal &&
+            payment.payment_status === PaymentStatus.SUCCESS && (
+              <Button
+                type="button"
+                variant="destructive"
+                className="self-start"
+                onClick={() => setReverseOpen(true)}
+              >
+                {t('detail.reverseAction')}
+              </Button>
+            )}
 
           {reverseOpen && (
             <ReversePaymentDialog
