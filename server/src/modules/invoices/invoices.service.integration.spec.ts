@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, IsNull } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { InvoicesService } from './invoices.service';
 import { Invoice } from './entities/invoice.entity';
@@ -265,6 +265,15 @@ describe('InvoicesService (integration)', () => {
     await dataSource.query(
       `CREATE TRIGGER "trg_enforce_invoice_immutability" BEFORE UPDATE ON "invoices" FOR EACH ROW EXECUTE FUNCTION "public"."enforce_invoice_immutability"()`,
     );
+
+    // [B6] Same reason as the trigger above: `synchronize: true` never
+    // runs the migration that creates this partial unique index, but
+    // `createFromPayment`'s concurrent-conflict recovery depends on the
+    // real constraint violation to detect a race — recreate it directly.
+    await dataSource.query(`DROP INDEX IF EXISTS "IDX_invoices_payment_id_kind_invoice"`);
+    await dataSource.query(
+      `CREATE UNIQUE INDEX "IDX_invoices_payment_id_kind_invoice" ON "invoices" ("payment_id") WHERE "kind" = 'INVOICE' AND "deleted_at" IS NULL`,
+    );
   }, 60000);
 
   afterAll(async () => {
@@ -396,6 +405,40 @@ describe('InvoicesService (integration)', () => {
       await expect(createInvoice('00000000-0000-4000-8000-000000000001')).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  describe('createFromPayment', () => {
+    it('two sequential calls for the same payment return the same invoice id, and only one live invoice exists', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id, { total_amount: 1000 }));
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+
+      const first = await service.createFromPayment(payment.id, TENANT_ID);
+      const second = await service.createFromPayment(payment.id, TENANT_ID);
+
+      expect(second.id).toBe(first.id);
+      const live = await invoiceRepo.find({
+        where: { payment_id: payment.id, kind: InvoiceKind.INVOICE, deleted_at: IsNull() },
+      });
+      expect(live).toHaveLength(1);
+    });
+
+    it('a concurrent create that loses the unique-index race recovers the winner’s invoice instead of throwing', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id, { total_amount: 1000 }));
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+
+      const [first, second] = await Promise.all([
+        service.createFromPayment(payment.id, TENANT_ID),
+        service.createFromPayment(payment.id, TENANT_ID),
+      ]);
+
+      expect(second.id).toBe(first.id);
+      const live = await invoiceRepo.find({
+        where: { payment_id: payment.id, kind: InvoiceKind.INVOICE, deleted_at: IsNull() },
+      });
+      expect(live).toHaveLength(1);
     });
   });
 

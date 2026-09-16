@@ -206,37 +206,40 @@ export class InvoicesService {
     if (!payment) {
       throw new NotFoundException(`Payment with ID "${paymentId}" not found`);
     }
-    const invoiceId = await this.repo.manager.transaction(async (manager) => {
-      const invoiceRepo = manager.getRepository(Invoice);
-      // Check-then-create inside the transaction: a payment that already
-      // has a live INVOICE-kind document is returned idempotently rather
-      // than minting a second one.
-      const existing = await invoiceRepo.findOne({
-        where: { payment_id: paymentId, kind: InvoiceKind.INVOICE, deleted_at: IsNull() },
-      });
-      if (existing) return existing.id;
+    let invoiceId: string;
+    try {
+      invoiceId = await this.repo.manager.transaction(async (manager) => {
+        const invoiceRepo = manager.getRepository(Invoice);
+        // Check-then-create inside the transaction: a payment that already
+        // has a live INVOICE-kind document is returned idempotently rather
+        // than minting a second one.
+        const existing = await invoiceRepo.findOne({
+          where: { payment_id: paymentId, kind: InvoiceKind.INVOICE, deleted_at: IsNull() },
+        });
+        if (existing) return existing.id;
 
-      try {
         const invoice = await this.create(paymentId, manager);
         // [B6] Written back inside the same transaction as the invoice
         // insert, not as a follow-up write after commit — a crash between
         // the two would otherwise leave a payment pointing at nothing.
         await manager.update(Payment, paymentId, { invoice_id: invoice.id });
         return invoice.id;
-      } catch (err) {
-        // A concurrent call raced us and won — `IDX_invoices_payment_id_
-        // kind_invoice` (B6) rejects the second INVOICE-kind row for this
-        // payment_id. Re-read and return the winner's invoice instead of
-        // surfacing the constraint violation to the caller.
-        if (isInvoicePaymentUniqueViolation(err)) {
-          const winner = await invoiceRepo.findOne({
-            where: { payment_id: paymentId, kind: InvoiceKind.INVOICE, deleted_at: IsNull() },
-          });
-          if (winner) return winner.id;
-        }
-        throw err;
-      }
-    });
+      });
+    } catch (err) {
+      // A concurrent call raced us and won — `IDX_invoices_payment_id_
+      // kind_invoice` (B6) rejects the second INVOICE-kind row for this
+      // payment_id. Postgres aborts the whole transaction on that
+      // violation, so re-reading with the same (now-aborted) `manager`
+      // would itself fail with "current transaction is aborted" — the
+      // re-read has to happen outside the transaction, after it has
+      // rolled back, on `this.repo` rather than `invoiceRepo`.
+      if (!isInvoicePaymentUniqueViolation(err)) throw err;
+      const winner = await this.repo.findOne({
+        where: { payment_id: paymentId, kind: InvoiceKind.INVOICE, deleted_at: IsNull() },
+      });
+      if (!winner) throw err;
+      invoiceId = winner.id;
+    }
     return this.findOne(invoiceId, tenantId);
   }
 
