@@ -75,6 +75,28 @@ const PROJECT_TEST_TIMEOUT = 20_000;
 // `workers/threads.js`).
 const PROJECT_POOL = 'threads' as const;
 
+// [18.3.2] CI's frontend job runs on a 4 vCPU runner. Left unset, Vitest
+// computes `maxWorkers` from `os.availableParallelism()` (falling back to
+// `os.cpus().length`) **per project** — each of the six top-level
+// `projects` entries below independently sizes its own pool off the same
+// 4-core host. Pinning it to 4 here does NOT cap the total worker count
+// across the whole run (six projects × 4 worker threads each is still up
+// to 24 worker threads queued onto 4 cores — Vitest's `projects`
+// mode has no shared, cross-project worker budget to pin instead). What
+// this *does* fix: it removes the ambiguity of an unset default that can
+// silently size differently under `--coverage` (Vitest 4 has been
+// observed to compute pool size differently there) or on a
+// differently-sized runner, so every project gets the same explicit,
+// intentional number instead of an environment-dependent guess. The
+// deeper cross-project oversubscription problem this ticket set out to
+// explain (604s work / 434s wall, 1.4x parallelism) is a `projects`-mode
+// architecture limit, not something `maxWorkers` here resolves — flagged
+// as a residual for 18.5.1's sharding call. Not measured against a real
+// CI push — this worktree has no push access to trigger one (see
+// README's "Runner settings" table) — so this is the locally-reasoned
+// half of [18.3.2]'s options, not a measured ≥5% win.
+const PROJECT_MAX_WORKERS = 4;
+
 // [15.3] `isolate: false` runs every test file in a project inside the same
 // worker/module registry instead of a fresh one each time — real speedup
 // (measured ~2.9s wall / ~26.4 CPU-s off the four `:node` projects
@@ -123,6 +145,7 @@ function frontendPackage(
         testTimeout: PROJECT_TEST_TIMEOUT,
         isolate: NODE_PROJECT_ISOLATE,
         pool: PROJECT_POOL,
+        maxWorkers: PROJECT_MAX_WORKERS,
       },
     }),
     mergeConfig(base, {
@@ -135,6 +158,7 @@ function frontendPackage(
         setupFiles: [testSetupFile],
         testTimeout: PROJECT_TEST_TIMEOUT,
         pool: PROJECT_POOL,
+        maxWorkers: PROJECT_MAX_WORKERS,
       },
     }),
   ];
@@ -267,6 +291,7 @@ export default defineConfig({
           testTimeout: PROJECT_TEST_TIMEOUT,
           isolate: NODE_PROJECT_ISOLATE,
           pool: PROJECT_POOL,
+          maxWorkers: PROJECT_MAX_WORKERS,
         },
       },
       // [15.1] Root `scripts/` had no Vitest project before this — the
@@ -290,6 +315,7 @@ export default defineConfig({
           // safety argument as `NODE_PROJECT_ISOLATE`'s comment above.
           isolate: NODE_PROJECT_ISOLATE,
           pool: PROJECT_POOL,
+          maxWorkers: PROJECT_MAX_WORKERS,
         },
       },
     ],
