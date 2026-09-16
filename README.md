@@ -740,6 +740,35 @@ flowchart TD
   already formatted as a `test` value ready to paste into
   `quarantine.json`.
 
+### Nightly failure visibility (sticky issues)
+
+A nightly workflow going red used to fail silently — nobody watches the
+Actions tab at 3am, so a broken nightly could stay red for weeks before
+anyone noticed. `scripts/nightly-sticky-issue.sh` fixes that: it's a shared
+create-or-update-or-close step, called by a final `report` job (`if:
+always()`, `needs:` every other job) in each of the three nightly
+workflows:
+
+| Workflow                                 | Workflow-specific label |
+| ----------------------------------------- | ------------------- |
+| `.github/workflows/nightly-e2e.yml`       | `nightly-e2e-red`   |
+| `.github/workflows/nightly-quality.yml`   | `nightly-quality-red` |
+| `.github/workflows/nightly-frontend-flakes.yml` | `flake-hunt`   |
+
+Every sticky issue also carries the shared `nightly-red` label, alongside
+its workflow-specific one — so `gh issue list --label nightly-red --state
+open` shows every currently-red nightly in one query, and the
+workflow-specific label narrows it to one.
+
+On failure it files (or edits, if one's already open) the one issue open
+under that workflow's label, with the failed job names and a link to the
+run. On the next green run it closes that issue automatically with a link
+to the green run — so an open sticky issue always means "still red," and a
+closed one means "no news." Both labels are auto-created
+(`gh label create --force`) if missing, so a fresh clone of this repo
+doesn't need any manual GitHub setup. The script never exits non-zero — a
+broken reporting step must never be why a nightly run goes red.
+
 ### Dead-code detection (`knip`)
 
 `yarn knip` finds unused files, exports and dependencies across `shared`,

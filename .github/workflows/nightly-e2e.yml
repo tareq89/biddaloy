@@ -174,3 +174,57 @@ jobs:
           name: nightly-test-results-${{ matrix.browser }}-${{ matrix.shard }}
           path: test-results/
           if-no-files-found: ignore
+
+  # [#759] Sticky-issue failure visibility, one per nightly workflow — see
+  # scripts/nightly-sticky-issue.sh's header. `needs: [e2e]` rolls the whole
+  # matrix up to one result: continue-on-error on the job means the
+  # firefox/webkit legs report success to `needs.*.result` even when their
+  # steps fail, so only a real chromium (or a non-continue-on-error) failure
+  # turns this red — matches the "known unproven engines" comment above.
+  report:
+    name: Report nightly status
+    needs: [e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Determine status
+        id: status
+        run: |
+          if [ "${{ needs.e2e.result }}" = "success" ]; then
+            echo "status=success" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=failure" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Write report body
+        if: steps.status.outputs.status == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "Nightly cross-browser E2E failed."
+            echo
+            echo "Run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            echo "Failed jobs:"
+            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs" \
+              --jq '.jobs[] | select(.conclusion=="failure") | "- " + .name' \
+              || echo "- (unable to list failed jobs — see run link above)"
+          } > nightly-report.md
+
+      - name: Report status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          scripts/nightly-sticky-issue.sh \
+            nightly-e2e-red \
+            "Nightly cross-browser E2E is red" \
+            nightly-report.md \
+            "${{ steps.status.outputs.status }}"
