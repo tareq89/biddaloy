@@ -11,9 +11,6 @@ on:
     - cron: "0 21 * * *"
   workflow_dispatch:
 
-env:
-  NODE_VERSION: "24"
-
 concurrency:
   group: nightly-e2e
   cancel-in-progress: false
@@ -100,13 +97,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: yarn
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
+      - uses: ./.github/actions/setup
 
       - name: Build shared package
         # webServer boots the real server/clients (yarn dev:*), which resolve

@@ -157,6 +157,14 @@ if [ "$RUN_E2E" = 1 ]; then
   # Playwright now fails fast with a clear port-in-use message instead.
   # Mirrors ci.yml's "e2e" job (18.2.3): chromium project plus the PWA
   # suite, no sharding.
+  #
+  # #766: deliberately NOT setting E2E_SKIP_BUILD here, unlike ci.yml's e2e
+  # job. That job skips its build because it downloads verify's build-dist
+  # artifact; there's no equivalent artifact-download step locally, and
+  # e2e:serve:client's build is the only thing that ever produces
+  # client-admin/dist in this script (check:route-chunks above builds into
+  # its own temp dir, not client-admin/dist). Setting it here would silently
+  # serve a stale or missing dist instead of failing loudly.
   CI=1 yarn e2e --project=chromium && CI=1 yarn e2e:pwa
   section_done "e2e"
 fi

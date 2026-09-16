@@ -90,21 +90,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: yarn
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
-
-      # [15.6] Config-consistency check — the runtime half is a tautology
-      # here (setup-node just installed the pinned version above), but the
-      # drift-between-.nvmrc/ci.yml/the-nightly-workflow half is exactly
-      # what CI should be enforcing, so a future edit to any one of them
-      # fails loudly instead of silently drifting.
-      - name: Node version parity
-        run: node scripts/check-node-version.mjs --no-runtime-check
+      - uses: ./.github/actions/setup
 
       - name: Build shared package
         run: yarn build:shared
@@ -187,6 +173,20 @@ jobs:
           name: route-chunks-report
           path: client-admin/dist/route-chunks-report.json
 
+      # #766: build once (shared, server, client-admin all finish by this
+      # point in the job) and let every downstream job that only needs the
+      # build output — not a rebuild — download it instead. 1-day retention:
+      # nothing outside this run's own jobs ever needs it.
+      - name: Upload build output
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-dist
+          path: |
+            shared/dist
+            server/dist
+            client-admin/dist
+          retention-days: 1
+
       - name: UI export map check
         run: yarn workspace @biddaloy/ui check:exports
 
@@ -229,13 +229,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: yarn
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
+      - uses: ./.github/actions/setup
 
       # The root vitest.config.ts aliases @biddaloy/shared to shared/src
       # for most of the suite, but shared:node's own specs resolve the
@@ -409,13 +403,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: yarn
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
+      - uses: ./.github/actions/setup
 
       # Not a `services:` entry — same reason as `restore-drill.yml`'s own
       # MinIO step: the image needs a custom command (`server /data`),
@@ -520,7 +508,10 @@ jobs:
   e2e:
     name: E2E smoke (${{ matrix.browser }})
     runs-on: ubuntu-latest
-    needs: changes
+    # #766: also needs `verify`'s build-dist artifact (shared/server/client-admin
+    # dist), so this job's webServer starts already-built output instead of
+    # rebuilding it a second time — see the "Download build output" step below.
+    needs: [changes, verify]
     if: github.event_name == 'push' || needs.changes.outputs.frontend == 'true'
     timeout-minutes: 20
     permissions:
@@ -578,6 +569,10 @@ jobs:
       # Keeps playwright.config.ts's projects list consistent with the
       # --project flag this matrix entry passes.
       E2E_BROWSERS: ${{ matrix.browser }}
+      # #766: `e2e:serve:server`/`e2e:serve:client` (package.json) skip their
+      # own `yarn build:*` when this is set — the "Download build output"
+      # step below already unpacks `verify`'s build-dist artifact in place.
+      E2E_SKIP_BUILD: '1'
       # [15.5] See the "integration" job's identical block — `yarn ...
       # server seed` below boots `AppModule`, which needs `StorageModule`
       # env to construct. Since [14.11.4] these also have to point at a
@@ -596,13 +591,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: yarn
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
+      - uses: ./.github/actions/setup
 
       # Not a `services:` entry — same reason as the integration job's
       # identical step: the image needs a custom command (`server /data`),
@@ -636,11 +625,17 @@ jobs:
           AWS_DEFAULT_REGION="$S3_REGION" \
             aws s3 mb --endpoint-url "$S3_ENDPOINT" "s3://$S3_BUCKET"
 
-      - name: Build shared package
-        # webServer boots the real server/clients (yarn dev:*), which resolve
-        # @biddaloy/shared through its package.json "main" (dist/index.js,
-        # not src) — same reason the other jobs build this first.
-        run: yarn build:shared
+      # #766: `verify` already built shared/server/client-admin once — this
+      # job's `webServer` (playwright.config.ts) starts that output directly
+      # via `E2E_SKIP_BUILD=1` rather than paying for `yarn build:*` again.
+      # `shared/dist` matters here for the same reason it used to be built
+      # in-job: `webServer` boots the real server/client (`yarn e2e:serve:*`),
+      # which resolve `@biddaloy/shared` through its package.json "main"
+      # (`dist/index.js`, not `src`).
+      - name: Download build output
+        uses: actions/download-artifact@v7
+        with:
+          name: build-dist
 
       # Playwright's package version, used below so the browser cache key
       # actually matches its own comment (it previously keyed on
@@ -774,7 +769,10 @@ jobs:
   bundle-delta:
     name: Bundle size delta
     runs-on: ubuntu-latest
-    needs: changes
+    # #766: `verify`'s `check:route-chunks` step already produced this PR's
+    # report — reuse it via build-dist instead of rebuilding client-admin a
+    # second time just to regenerate the same file.
+    needs: [changes, verify]
     if: github.event_name == 'pull_request' && needs.changes.outputs.frontend == 'true'
     permissions:
       contents: read
@@ -783,19 +781,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v7
+      - uses: ./.github/actions/setup
+
+      - name: Download build output
+        uses: actions/download-artifact@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: yarn
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
-
-      - name: Build shared package
-        run: yarn build:shared
-
-      - name: Build report (PR)
-        run: yarn workspace @biddaloy/client-admin check:route-chunks
+          name: build-dist
 
       # Baseline = the latest successful main run's artifact — one build
       # instead of two (~1.5 min saved). The delta reads "current main vs
@@ -828,13 +819,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: yarn
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
+      - uses: ./.github/actions/setup
 
       # Storybook resolves @biddaloy/shared through the ui vite config's
       # alias; if the build errors on shared imports, add `yarn build:shared`
@@ -855,13 +840,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: yarn
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
+      - uses: ./.github/actions/setup
 
       - name: yarn audit (fails on new high/critical, ignores allowlisted advisories)
         run: node scripts/ci-audit.js
