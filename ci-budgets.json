@@ -22,17 +22,9 @@
       "budgetSeconds": 500,
       "$comment": "Baseline: p90 433s."
     },
-    "E2E (chromium 1/3)": {
-      "budgetSeconds": 450,
-      "$comment": "No per-shard baseline yet — #440's within-browser sharding landed after #436's measurement window, which only has a number for the old unsharded 'E2E (chromium)' job (p90 671s). Inferred from ci.yml's own e2e-job comment ('measured on 2026-08-30, shard 3 was the lightest leg at ~256s of ~939s total work' — so shards 1-2 average ~342s). Re-tighten once three real shard baselines exist."
-    },
-    "E2E (chromium 2/3)": {
-      "budgetSeconds": 450,
-      "$comment": "See 'E2E (chromium 1/3)' — same inferred-shard caveat."
-    },
-    "E2E (chromium 3/3)": {
-      "budgetSeconds": 500,
-      "$comment": "Carries the PWA/offline suite (~55s) on top of the lightest base shard (~256s) — same inferred-shard caveat as shards 1-2."
+    "E2E smoke (chromium)": {
+      "budgetSeconds": 300,
+      "$comment": "provisional — re-baselined in 18.5.2"
     },
     "Bundle size delta": {
       "budgetSeconds": 115,
