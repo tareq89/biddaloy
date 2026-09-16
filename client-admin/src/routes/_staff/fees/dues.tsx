@@ -13,7 +13,6 @@ import {
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
-  feeDuesKeys,
   feeDuesQueryOptions,
   useClasses,
   useClassSections,
@@ -28,7 +27,6 @@ import {
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
 import { downloadCsv, formatDate, formatServerAmount, parseServerDate } from '@biddaloy/ui/utils';
-import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
@@ -36,8 +34,6 @@ import { z } from 'zod';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 import { RecordPaymentModal } from '../payments/-record/record-payment-modal';
 import { SendReminderDialog } from '../students/-send-reminder-dialog';
-
-import { GenerateInvoiceDialog } from './-generate-invoice-dialog';
 
 /** `DataTableSort.id` values that map onto a server-sortable field —
  * `QueryFeeDuesDto.sort_by`'s own allowlist, keyed by this page's column
@@ -301,7 +297,6 @@ function DuesFeeLines({
 function DuesQueuePage() {
   const { t } = useTranslation('fees');
   const regionConfig = useRegionConfig();
-  const queryClient = useQueryClient();
   const [state, actions] = useListShellState({ limit: 10 });
   const filters = state.filters as DuesFilters;
   const flagged = filters.flagged === 'true';
@@ -345,12 +340,10 @@ function DuesQueuePage() {
 
   const canCollectFees = useHasPermission(Permission.FEE_COLLECT);
   const canSendReminder = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
-  const canGenerateInvoice = useHasPermission(Permission.INVOICE_CREATE);
   const recordPayment = useRecordPaymentSeam();
   const onRecordPayment = recordPayment.open;
 
   const [reminderDialogOpen, setReminderDialogOpen] = React.useState(false);
-  const [invoiceDialogOpen, setInvoiceDialogOpen] = React.useState(false);
 
   // Plain zero-padded numbers, not localized month names — no shared
   // month-name formatter exists in `@biddaloy/ui/utils`/`i18n` yet
@@ -655,16 +648,6 @@ function DuesQueuePage() {
                 {t('dues.sendReminder')}
               </Button>
             )}
-            {canGenerateInvoice && (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => setInvoiceDialogOpen(true)}
-              >
-                {t('dues.generateInvoice')}
-              </Button>
-            )}
             <Button type="button" size="sm" variant="outline" onClick={exportSelectedToCsv}>
               {t('dues.exportCsv')}
             </Button>
@@ -684,21 +667,6 @@ function DuesQueuePage() {
         onOpenChange={setReminderDialogOpen}
         studentIds={Array.from(state.selectedIds)}
         onSent={() => actions.setSelectedIds(new Set())}
-      />
-      <GenerateInvoiceDialog
-        open={invoiceDialogOpen}
-        onOpenChange={setInvoiceDialogOpen}
-        rows={selectedRows}
-        onGenerated={() => {
-          actions.setSelectedIds(new Set());
-          void queryClient.invalidateQueries({ queryKey: feeDuesKeys.all });
-        }}
-        onPartialGenerate={(succeededStudentIds) => {
-          const next = new Set(state.selectedIds);
-          for (const id of succeededStudentIds) next.delete(id);
-          actions.setSelectedIds(next);
-          void queryClient.invalidateQueries({ queryKey: feeDuesKeys.all });
-        }}
       />
       {recordPayment.studentId !== undefined && (
         <RecordPaymentModal

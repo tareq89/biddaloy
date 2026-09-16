@@ -103,7 +103,6 @@
     "columnActions": "Actions",
     "collect": "Collect",
     "sendReminder": "Send reminder",
-    "generateInvoice": "Generate invoice",
     "exportCsv": "Export CSV",
     "clearSelection": "Clear",
     "emptyMessage": "No outstanding dues found",
@@ -130,17 +129,6 @@
       "columnActions": "Actions",
       "lateFeeBadge": "Late fee",
       "recordPayment": "Record payment"
-    },
-    "generateInvoiceDialog": {
-      "title": "Generate invoices",
-      "description_one": "This creates one invoice for the {{count}} selected account's outstanding dues.",
-      "description_other": "This creates one invoice per selected account, covering {{count}} accounts' outstanding dues.",
-      "confirm": "Generate",
-      "generating": "Generating…",
-      "successMessage_one": "Generated {{count}} invoice.",
-      "successMessage_other": "Generated {{count}} invoices.",
-      "partialMessage": "Generated {{succeeded}} invoice(s); {{failed}} failed — try those again.",
-      "errorMessage": "Couldn't generate invoices. Nothing was created — try again."
     }
   },
   "generations": {

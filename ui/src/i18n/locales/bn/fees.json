@@ -103,7 +103,6 @@
     "columnActions": "কার্যক্রম",
     "collect": "আদায়",
     "sendReminder": "অনুস্মারক পাঠান",
-    "generateInvoice": "চালান তৈরি করুন",
     "exportCsv": "সিএসভি রপ্তানি",
     "clearSelection": "মুছুন",
     "emptyMessage": "কোনো বকেয়া হিসাব পাওয়া যায়নি",
@@ -130,17 +129,6 @@
       "columnActions": "কার্যক্রম",
       "lateFeeBadge": "বিলম্ব ফি",
       "recordPayment": "পেমেন্ট রেকর্ড করুন"
-    },
-    "generateInvoiceDialog": {
-      "title": "চালান তৈরি করুন",
-      "description_one": "এটি নির্বাচিত {{count}}টি হিসাবের বকেয়ার জন্য একটি চালান তৈরি করবে।",
-      "description_other": "এটি প্রতিটি নির্বাচিত হিসাবের জন্য একটি করে চালান তৈরি করবে, মোট {{count}}টি হিসাবের বকেয়া কভার করবে।",
-      "confirm": "তৈরি করুন",
-      "generating": "তৈরি হচ্ছে…",
-      "successMessage_one": "{{count}}টি চালান তৈরি হয়েছে।",
-      "successMessage_other": "{{count}}টি চালান তৈরি হয়েছে।",
-      "partialMessage": "{{succeeded}}টি চালান তৈরি হয়েছে; {{failed}}টি ব্যর্থ হয়েছে — আবার চেষ্টা করুন।",
-      "errorMessage": "চালান তৈরি করা যায়নি। কিছুই তৈরি হয়নি — আবার চেষ্টা করুন।"
     }
   },
   "generations": {
