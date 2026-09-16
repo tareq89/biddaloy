@@ -42,13 +42,28 @@ export class InvoiceImmutableSnapshot1789800008000 implements MigrationInterface
 
     await queryRunner.query(`ALTER TABLE "invoices" ADD "snapshot" jsonb`);
     // Backfill: every existing row becomes a single-student snapshot built
-    // from its own `line_items` + `issuer_snapshot` (or an empty issuer
-    // object, for the handful of rows that predate 15.5.5) so the column
-    // can go `NOT NULL` without losing any pre-existing invoice's content.
+    // from its own `line_items` + `issuer_snapshot`, or (for the handful
+    // of rows that predate 15.5.5) the tenant's current profile — never an
+    // empty object, since `InvoiceSnapshot['issuer']` has required fields.
+    // `payment.method` has no historical record pre-16.5, so it defaults
+    // to `CASH` rather than an invalid `NULL`; this only affects invoices
+    // issued before this migration.
     await queryRunner.query(`
       UPDATE "invoices" inv
       SET "snapshot" = jsonb_build_object(
-        'issuer', COALESCE(inv."issuer_snapshot", '{}'::jsonb),
+        'issuer', COALESCE(
+          inv."issuer_snapshot",
+          jsonb_build_object(
+            'name', COALESCE(sch."name", 'Unknown school'),
+            'name_bn', sch."name_bn",
+            'address', sch."address",
+            'phone', sch."phone",
+            'email', sch."email",
+            'registration_id', sch."registration_id",
+            'logo_key', sch."logo_key",
+            'captured_at', inv."issued_date"
+          )
+        ),
         'students', jsonb_build_array(
           jsonb_build_object(
             'id', s."id",
@@ -82,13 +97,14 @@ export class InvoiceImmutableSnapshot1789800008000 implements MigrationInterface
           'wallet_added', 0
         ),
         'payment', jsonb_build_object(
-          'method', NULL,
+          'method', 'CASH',
           'reference', NULL,
           'received_by_name', NULL,
           'payment_date', inv."issued_date"
         )
       )
       FROM "students" s
+      LEFT JOIN "schools" sch ON sch."id" = s."tenant_id"
       WHERE s."id" = inv."student_id"
     `);
     await queryRunner.query(`ALTER TABLE "invoices" ALTER COLUMN "snapshot" SET NOT NULL`);
@@ -106,7 +122,9 @@ export class InvoiceImmutableSnapshot1789800008000 implements MigrationInterface
     await queryRunner.query(`
       CREATE OR REPLACE FUNCTION "public"."enforce_invoice_immutability"() RETURNS TRIGGER AS $$
       BEGIN
-        IF OLD."status" <> 'DRAFT' AND (
+        IF OLD."status" <> 'DRAFT' AND NEW."status" = 'DRAFT' THEN
+          RAISE EXCEPTION 'invoice cannot return to DRAFT once issued (id=%)', OLD."id";
+        ELSIF OLD."status" <> 'DRAFT' AND (
           NEW."invoice_number" IS DISTINCT FROM OLD."invoice_number" OR
           NEW."kind" IS DISTINCT FROM OLD."kind" OR
           NEW."student_id" IS DISTINCT FROM OLD."student_id" OR

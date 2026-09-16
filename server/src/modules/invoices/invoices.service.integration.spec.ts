@@ -234,7 +234,9 @@ describe('InvoicesService (integration)', () => {
     await dataSource.query(`
       CREATE OR REPLACE FUNCTION "public"."enforce_invoice_immutability"() RETURNS TRIGGER AS $$
       BEGIN
-        IF OLD."status" <> 'DRAFT' AND (
+        IF OLD."status" <> 'DRAFT' AND NEW."status" = 'DRAFT' THEN
+          RAISE EXCEPTION 'invoice cannot return to DRAFT once issued (id=%)', OLD."id";
+        ELSIF OLD."status" <> 'DRAFT' AND (
           NEW."invoice_number" IS DISTINCT FROM OLD."invoice_number" OR
           NEW."kind" IS DISTINCT FROM OLD."kind" OR
           NEW."student_id" IS DISTINCT FROM OLD."student_id" OR
@@ -472,6 +474,20 @@ describe('InvoicesService (integration)', () => {
       const reloaded = await invoiceRepo.findOneOrFail({ where: { id: invoice.id } });
       expect(reloaded.status).toBe(InvoiceStatus.PAID);
     });
+
+    it('rejects reverting status back to DRAFT once issued', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id));
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+      const invoice = await createInvoice(payment.id);
+
+      await expect(
+        dataSource.query('UPDATE invoices SET status = $1 WHERE id = $2', [
+          InvoiceStatus.DRAFT,
+          invoice.id,
+        ]),
+      ).rejects.toThrow(/cannot return to DRAFT/i);
+    });
   });
 
   describe('[15.5.5] issuer snapshot', () => {
@@ -510,13 +526,21 @@ describe('InvoicesService (integration)', () => {
       // (`session_replication_role = 'replica'`, same trick Postgres
       // itself uses for logical-replication apply) purely to fabricate
       // the legacy fixture; it is not something application code does.
-      await dataSource.query("SET session_replication_role = 'replica'");
+      // `dataSource.query` grabs (and releases) a connection from the pool
+      // per call, so the `SET`/`UPDATE`/`SET` sequence must share one
+      // `QueryRunner` — otherwise the `SET` can land on a different
+      // pooled connection than the `UPDATE`, leaving the session-local
+      // flag unset for it.
+      const queryRunner = dataSource.createQueryRunner();
+      await queryRunner.connect();
       try {
-        await dataSource.query('UPDATE invoices SET issuer_snapshot = NULL WHERE id = $1', [
+        await queryRunner.query("SET session_replication_role = 'replica'");
+        await queryRunner.query('UPDATE invoices SET issuer_snapshot = NULL WHERE id = $1', [
           created.id,
         ]);
       } finally {
-        await dataSource.query("SET session_replication_role = 'origin'");
+        await queryRunner.query("SET session_replication_role = 'origin'");
+        await queryRunner.release();
       }
       await schoolRepo.update(TENANT_ID, { name: 'Legacy Fallback Name' });
 
