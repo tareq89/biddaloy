@@ -165,7 +165,7 @@ function PaymentDetailPage() {
           {canReverse &&
             !alreadyReversed &&
             !isReversal &&
-            payment.payment_status === PaymentStatus.SUCCESS && (
+            (payment.payment_status as PaymentStatus) === PaymentStatus.SUCCESS && (
               <Button
                 type="button"
                 variant="destructive"
