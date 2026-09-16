@@ -134,4 +134,43 @@ export class FamilyAccessService {
       throw new UnauthorizedException("You do not have access to this student's information");
     }
   }
+
+  /**
+   * Multi-student variant of `assertLinked`, for a document that can cover
+   * more than one student in one shot — a [16.5.1] sibling/multi-student
+   * checkout invoice being the motivating case. Throws unless the caller is
+   * linked to *at least one* of `studentIds` (siblings grouped onto one
+   * invoice is the point of that grouping — a guardian linked to any covered
+   * child should see it), then returns the *subset* the caller is actually
+   * linked to so the response can be filtered down to just those students'
+   * data rather than handing back an unlinked sibling's name/registration
+   * number/fee lines alongside it.
+   *
+   * No-op (returns all ids unfiltered) for staff roles, matching
+   * `assertLinked`.
+   */
+  async assertLinkedToAny(
+    role: string,
+    userId: string,
+    studentIds: string[],
+    tenantId: string,
+  ): Promise<string[]> {
+    const qb = this.linkedStudentsQuery(role, userId, tenantId);
+    if (!qb) return studentIds;
+
+    const ids = [...new Set(studentIds)];
+    if (ids.length === 0) {
+      throw new UnauthorizedException("You do not have access to this student's information");
+    }
+
+    const rows = await qb
+      .andWhere('student.id IN (:...ids)', { ids })
+      .select('DISTINCT student.id', 'id')
+      .getRawMany<{ id: string }>();
+    const linkedIds = rows.map((r) => r.id);
+    if (linkedIds.length === 0) {
+      throw new UnauthorizedException("You do not have access to this student's information");
+    }
+    return linkedIds;
+  }
 }

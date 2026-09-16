@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Body,
   Param,
   ParseUUIDPipe,
@@ -10,6 +11,8 @@ import {
   UseInterceptors,
   Header,
   Inject,
+  ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
@@ -27,17 +30,30 @@ import { RequirePermissions } from '../auth/decorators/require-permissions.decor
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
+import { ConfigService } from '@nestjs/config';
 import { InvoicesService } from './invoices.service';
+import { InvoiceShareService } from './invoice-share.service';
+import { resolvePublicAppUrl } from './public-app-url.util';
 import {
   CreateInvoiceDto,
   QueryInvoiceDto,
+  SendInvoiceDto,
   toFamilyInvoice,
   FamilyInvoiceDto,
   StaffInvoiceDto,
+  PrintFormatQueryDto,
+  ShareLinkResponseDto,
 } from './dto/invoices.dto';
 import { Invoice } from './entities/invoice.entity';
 import { paginatedSchema } from '../../common/swagger/paginated-schema.util';
-import { UserRole, AuditAction, isGuardianRole, Permission } from '@biddaloy/shared';
+import {
+  UserRole,
+  AuditAction,
+  isGuardianRole,
+  Permission,
+  CommunicationMedium,
+  countSmsSegments,
+} from '@biddaloy/shared';
 import { JwtPayload } from '@biddaloy/shared';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
 import { User } from '../users/entities/user.entity';
@@ -45,6 +61,17 @@ import { UserResponseDto } from '../users/dto/user-response.dto';
 import { Audited } from '../audit/decorators/audited.decorator';
 import { AuditInterceptor } from '../audit/audit.interceptor';
 import { FamilyAccessService } from '../students/family-access.service';
+import { StudentService, GuardianService } from '../students/students.service';
+import {
+  addressForMedium,
+  resolveReminderAudience,
+} from '../communications/reminder-recipients.util';
+import { buildInvoiceReceiptMessage } from '../communications/invoice-template.util';
+import { resolveFeeNotificationLocale } from '../communications/fee-notification-template.util';
+import { CommunicationsService } from '../communications/communications.service';
+import { SmsCreditService } from '../communications/credits/sms-credit.service';
+import { INSUFFICIENT_SMS_CREDIT } from '../communications/credits/insufficient-sms-credit.constants';
+import { SchoolsService } from '../schools/schools.service';
 
 // findOne (and create, which returns findOne's result) load the issued_by
 // User relation in full — strip its password_hash before it reaches a
@@ -77,6 +104,13 @@ export class InvoicesController {
   constructor(
     @Inject(InvoicesService) private readonly invoicesService: InvoicesService,
     @Inject(FamilyAccessService) private readonly familyAccess: FamilyAccessService,
+    private readonly shareService: InvoiceShareService,
+    private readonly config: ConfigService,
+    private readonly studentService: StudentService,
+    private readonly guardianService: GuardianService,
+    private readonly communicationsService: CommunicationsService,
+    private readonly smsCreditService: SmsCreditService,
+    private readonly schoolsService: SchoolsService,
   ) {}
 
   @Post()
@@ -89,9 +123,12 @@ export class InvoicesController {
   async create(
     @Body() dto: CreateInvoiceDto,
     @CurrentTenant() tenant: { id: string; role: string },
-    @CurrentUser() user: JwtPayload,
   ) {
-    const invoice = await this.invoicesService.create(dto, tenant.id, user.sub);
+    // [16.5.1] `create()` no longer takes a free-form DTO — it builds the
+    // invoice from an already-recorded payment's committed allocations.
+    // `createFromPayment` tenant-checks `dto.payment_id` and opens the
+    // transaction `create()` itself no longer owns.
+    const invoice = await this.invoicesService.createFromPayment(dto.payment_id, tenant.id);
     return toSafeInvoice(invoice);
   }
 
@@ -126,7 +163,23 @@ export class InvoicesController {
       tenant.id,
     );
     const page = await this.invoicesService.findAll(query, tenant.id, linkedStudentIds);
-    return { ...page, data: page.data.map(toFamilyInvoice) };
+    // [H1 fix] Same multi-student privacy gap as `findOne` above: a row
+    // matched by `student_id` can still carry other siblings' data in its
+    // `snapshot.students[]`. Filter each row down to just the students the
+    // caller is already known (via `linkedStudentIds` above) to be linked
+    // to, so an unlinked sibling's name/registration number/fee lines
+    // never leave the server through the list endpoint either.
+    const linked = new Set(linkedStudentIds);
+    return {
+      ...page,
+      data: page.data.map(toFamilyInvoice).map((familyInvoice) => ({
+        ...familyInvoice,
+        snapshot: {
+          ...familyInvoice.snapshot,
+          students: familyInvoice.snapshot.students.filter((s) => linked.has(s.id)),
+        },
+      })),
+    };
   }
 
   @Get(':id')
@@ -150,8 +203,37 @@ export class InvoicesController {
     @CurrentUser() user: JwtPayload,
   ) {
     const invoice = await this.invoicesService.findOne(id, tenant.id);
-    await this.familyAccess.assertLinked(tenant.role, user.sub, invoice.student_id, tenant.id);
-    return isGuardianRole(tenant.role) ? toFamilyInvoice(invoice) : toSafeInvoice(invoice);
+    // [664 fix] A [16.5.1] invoice can cover more than one student — a
+    // sibling/multi-student checkout groups every covered child's lines
+    // into one `snapshot.students[]`. Checking only `invoice.student_id`
+    // (the primary/first student) let a guardian linked to just one sibling
+    // see every other sibling's name/registration number/fee lines through
+    // this endpoint. `assertLinkedToAny` checks the caller against the
+    // *whole* student set and returns which of them are actually linked;
+    // the family response is then filtered down to that subset so an
+    // unlinked sibling's data never leaves the server.
+    const allStudentIds = [
+      invoice.student_id,
+      ...(invoice.snapshot?.students?.map((s) => s.id) ?? []),
+    ];
+    const linkedStudentIds = await this.familyAccess.assertLinkedToAny(
+      tenant.role,
+      user.sub,
+      allStudentIds,
+      tenant.id,
+    );
+    if (!isGuardianRole(tenant.role)) {
+      return toSafeInvoice(invoice);
+    }
+    const linked = new Set(linkedStudentIds);
+    const familyInvoice = toFamilyInvoice(invoice);
+    return {
+      ...familyInvoice,
+      snapshot: {
+        ...familyInvoice.snapshot,
+        students: familyInvoice.snapshot.students.filter((s) => linked.has(s.id)),
+      },
+    };
   }
 
   @Get(':id/print')
@@ -163,10 +245,11 @@ export class InvoicesController {
   @Header('Content-Type', 'text/html; charset=utf-8')
   @ApiOperation({
     summary:
-      'Get a printable HTML rendering of the invoice. A PARENT or STUDENT must additionally be linked to its student.',
+      'Get a printable HTML rendering of the invoice, in a4 (default), pos58, or pos80 format. A PARENT or STUDENT must additionally be linked to its student, and only sees their own linked student(s) in the output.',
   })
   async print(
     @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: PrintFormatQueryDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ) {
@@ -176,10 +259,203 @@ export class InvoicesController {
     // classified as "unlinked". Gated on the role because `assertLinked`
     // no-ops for staff, and `getPrintableHtml` re-fetches the invoice with
     // its own joins — staff should not pay for a check that cannot fail.
+    let linkedStudentIds: string[] | undefined;
     if (isGuardianRole(tenant.role)) {
       const invoice = await this.invoicesService.findOne(id, tenant.id);
-      await this.familyAccess.assertLinked(tenant.role, user.sub, invoice.student_id, tenant.id);
+      // [664 fix] Same multi-student gap as `findOne` above — check the
+      // caller against every student on the invoice, not just the primary
+      // one.
+      const allStudentIds = [
+        invoice.student_id,
+        ...(invoice.snapshot?.students?.map((s) => s.id) ?? []),
+      ];
+      // [665] The subset the caller is actually linked to — passed through
+      // so `getPrintableHtml`/the templates filter `snapshot.students[]`
+      // down to it, the same privacy boundary `findOne`'s JSON response
+      // already enforces. A guardian linked to only one of two siblings on
+      // a shared invoice must not see the other child's name/registration
+      // number/fee lines in the printed HTML either.
+      linkedStudentIds = await this.familyAccess.assertLinkedToAny(
+        tenant.role,
+        user.sub,
+        allStudentIds,
+        tenant.id,
+      );
     }
-    return this.invoicesService.getPrintableHtml(id, tenant.id);
+    return this.invoicesService.getPrintableHtml(
+      id,
+      tenant.id,
+      query.format ?? 'a4',
+      linkedStudentIds,
+    );
+  }
+
+  @Post(':id/share')
+  // Staff only: sharing a receipt link outward is a step above merely
+  // reading it in-app, but the ticket names `INVOICE_READ` explicitly and
+  // there's no separate share-scoped permission in this codebase yet.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.INVOICE_READ)
+  @ApiOperation({
+    summary:
+      'Mints a public share link for this invoice ({ url, token_id }). See InvoiceShareService.createToken for why this always mints a new token rather than literally reusing an old one.',
+  })
+  @ApiOkResponse({ type: ShareLinkResponseDto })
+  async createShareLink(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ShareLinkResponseDto> {
+    const { rawToken, tokenId } = await this.shareService.createToken(id, tenant.id, user.sub);
+    const baseUrl = resolvePublicAppUrl(this.config);
+    return { url: `${baseUrl}/i/${rawToken}`, token_id: tokenId };
+  }
+
+  @Post(':id/send')
+  // [16.5.4] Ticket names `INVOICE_READ` explicitly (same rationale as
+  // `createShareLink` above — no separate share/send-scoped permission
+  // exists yet).
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.INVOICE_READ)
+  @ApiOperation({
+    summary:
+      'Sends the invoice receipt to a guardian over WhatsApp or SMS: mints a fresh share link ' +
+      '(see InvoiceShareService.createToken) and enqueues the message via CommunicationsService. ' +
+      'SMS is metered — insufficient credit 409s with details.code = INSUFFICIENT_SMS_CREDIT.',
+  })
+  async sendInvoice(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SendInvoiceDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const invoice = await this.invoicesService.findOne(id, tenant.id);
+
+    const guardian = dto.guardian_id
+      ? await this.resolveExplicitGuardian(invoice, dto.guardian_id, tenant.id)
+      : await this.resolvePrimaryReminderGuardian(invoice.student_id, tenant.id);
+
+    const address = addressForMedium(guardian, dto.medium);
+    if (!address) {
+      throw new BadRequestException(
+        `Guardian "${guardian.id}" has no address on file for ${dto.medium}.`,
+      );
+    }
+
+    const { rawToken } = await this.shareService.createToken(id, tenant.id, user.sub);
+    const baseUrl = resolvePublicAppUrl(this.config);
+    const shareUrl = `${baseUrl}/i/${rawToken}`;
+
+    const settings = await this.schoolsService.getResolvedSettings(tenant.id);
+    const locale = resolveFeeNotificationLocale(settings.region?.locale);
+    const message = buildInvoiceReceiptMessage(
+      locale,
+      invoice.invoice_number,
+      Number(invoice.snapshot.totals.paid),
+      shareUrl,
+    );
+
+    let smsCreditReservation: { batchId: string; segments: number } | undefined;
+    if (dto.medium === CommunicationMedium.SMS) {
+      const metered = await this.smsCreditService.isMetered(tenant.id);
+      if (metered) {
+        const segments = countSmsSegments(message).segments;
+        const reservationKey = `invoice-send:${id}:${guardian.id}`;
+        const reservation = await this.smsCreditService.reserve(
+          tenant.id,
+          segments,
+          reservationKey,
+          { type: 'manual', id },
+        );
+        if (!reservation.ok) {
+          throw new ConflictException({
+            message: 'Insufficient SMS credit to send this invoice.',
+            details: {
+              code: INSUFFICIENT_SMS_CREDIT,
+              required: segments,
+              available: reservation.available,
+            },
+          });
+        }
+        smsCreditReservation = { batchId: reservationKey, segments };
+      }
+    }
+
+    return this.communicationsService.enqueue(
+      {
+        medium: dto.medium,
+        recipient_address: address,
+        recipient_name: guardian.full_name,
+        message_body: message,
+        guardian_id: guardian.id,
+      },
+      tenant.id,
+      user.sub,
+      smsCreditReservation,
+    );
+  }
+
+  /** `dto.guardian_id`, validated against both the tenant
+   * (`GuardianService.findOne` 404s on mismatch) and this invoice's
+   * student(s) — otherwise a caller could message an unrelated guardian
+   * elsewhere in the same school by supplying an arbitrary id. Mirrors
+   * `SingleReminderService.resolveExplicitGuardians`. */
+  private async resolveExplicitGuardian(invoice: Invoice, guardianId: string, tenantId: string) {
+    const guardian = await this.guardianService.findOne(guardianId, tenantId);
+    const student = await this.studentService.findOne(invoice.student_id, tenantId);
+    const linkedIds = new Set((student.guardians ?? []).map((g) => g.id));
+    if (!linkedIds.has(guardian.id)) {
+      throw new BadRequestException(
+        `Guardian "${guardianId}" is not linked to student "${invoice.student_id}".`,
+      );
+    }
+    return guardian;
+  }
+
+  /** No explicit `guardian_id`: falls back to the student's primary
+   * reminder guardian (`resolveReminderAudience`), same default the
+   * automated fee/payment notifications use. */
+  private async resolvePrimaryReminderGuardian(studentId: string, tenantId: string) {
+    const student = await this.studentService.findOne(studentId, tenantId);
+    const linked = student.guardians ?? [];
+    if (linked.length === 0) {
+      throw new BadRequestException(`Student "${studentId}" has no guardians on file`);
+    }
+    const { guardians } = resolveReminderAudience(linked);
+    if (guardians.length === 0) {
+      throw new BadRequestException(
+        `Student "${studentId}" has no reachable guardian to send this invoice to.`,
+      );
+    }
+    return guardians[0];
+  }
+
+  @Get(':id/share')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.INVOICE_READ)
+  @ApiOperation({ summary: "Lists this invoice's share tokens (never exposes token_hash)." })
+  async listShareLinks(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.shareService.listTokens(id, tenant.id);
+  }
+
+  @Delete(':id/share/:tokenId')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @RequirePermissions(Permission.INVOICE_READ)
+  @ApiOperation({ summary: 'Revokes a share token — permanent, no un-revoke.' })
+  async revokeShareLink(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('tokenId', ParseUUIDPipe) tokenId: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+  ): Promise<void> {
+    // `id` is validated as a UUID (route-shape/404 consistency with the
+    // other :id routes) but `revokeToken` itself scopes strictly by
+    // `tokenId` + `tenant.id` — a mismatched `id` here can't revoke a
+    // token belonging to a different invoice, since `tokenId` alone
+    // already uniquely identifies the row.
+    await this.shareService.revokeToken(tokenId, tenant.id, user.sub);
   }
 }

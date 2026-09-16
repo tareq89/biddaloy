@@ -56,6 +56,7 @@ import { WalletTransaction } from './modules/fees/entities/wallet-transaction.en
 import { Payment } from './modules/fees/entities/payment.entity';
 import { PaymentAllocation } from './modules/fees/entities/payment-allocation.entity';
 import { Invoice } from './modules/invoices/entities/invoice.entity';
+import { InvoiceShareToken } from './modules/invoices/entities/invoice-share-token.entity';
 import { CommunicationLog } from './modules/communications/entities/communication-log.entity';
 import { ReminderBatch } from './modules/communications/entities/reminder-batch.entity';
 import { AuditLog } from './modules/audit/entities/audit-log.entity';
@@ -122,6 +123,7 @@ import { WorkbookJob } from './modules/workbook/jobs/workbook-job.entity';
             Payment,
             PaymentAllocation,
             Invoice,
+            InvoiceShareToken,
             CommunicationLog,
             ReminderBatch,
             AuditLog,

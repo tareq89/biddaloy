@@ -1,16 +1,15 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
-import { Invoice } from './entities/invoice.entity';
+import { Repository, IsNull, EntityManager, In } from 'typeorm';
+import { Invoice, InvoiceSnapshot, InvoiceSnapshotStudent } from './entities/invoice.entity';
 import { Student } from '../students/entities/student.entity';
-import { StudentFee } from '../fees/entities/student-fee.entity';
 import { Payment } from '../fees/entities/payment.entity';
-import { PaymentAllocation } from '../fees/entities/payment-allocation.entity';
 import { School } from '../schools/entities/school.entity';
-import { InvoiceStatus } from '@biddaloy/shared';
-import { CreateInvoiceDto, QueryInvoiceDto } from './dto/invoices.dto';
-import { generateInvoiceNumber } from './invoice-numbering.util';
+import { InvoiceStatus, InvoiceKind } from '@biddaloy/shared';
+import { QueryInvoiceDto } from './dto/invoices.dto';
+import { generateInvoiceNumber, generateCreditNoteNumber } from './invoice-numbering.util';
 import { renderInvoiceHtml } from './invoice-print.template';
+import { renderInvoicePosHtml, PosPrintWidth } from './invoice-print-pos.template';
 import { StorageService } from '../storage/storage.service';
 import { readLogoDataUrl } from '../schools/profile/logo-data-url';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
@@ -21,18 +20,30 @@ import {
   IssuerSnapshot,
 } from '../schools/profile/issuer-snapshot';
 
-const AMOUNT_EPSILON = 0.01;
-const DEFAULT_DUE_DAYS = 7;
+/** [16.5.2] `GET /invoices/:id/print?format=` values — `a4` is the
+ * default when the query param is absent. */
+export type InvoicePrintFormat = 'a4' | PosPrintWidth;
+
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
 
 @Injectable()
 export class InvoicesService {
   constructor(
     @InjectRepository(Invoice)
     private readonly repo: Repository<Invoice>,
-    @InjectRepository(Student)
-    private readonly studentRepo: Repository<Student>,
-    @InjectRepository(StudentFee)
-    private readonly studentFeeRepo: Repository<StudentFee>,
     @InjectRepository(Payment)
     private readonly paymentRepo: Repository<Payment>,
     @InjectRepository(School)
@@ -40,108 +51,249 @@ export class InvoicesService {
     private readonly storage: StorageService,
   ) {}
 
-  private async findStudentForTenant(studentId: string, tenantId: string): Promise<Student> {
-    const student = await this.studentRepo.findOne({
-      where: { id: studentId, tenant_id: tenantId, deleted_at: IsNull() },
+  /** [16.5.1] Groups `payment.allocations` by the (possibly different, for
+   * a multi-student/sibling checkout) student each fee belongs to, and
+   * freezes everything an invoice needs to render into an
+   * `InvoiceSnapshot`. Call once, inside the same transaction the payment
+   * (and its allocations' `StudentFee.paid_amount` updates) was
+   * committed in — `balance_after` reads `StudentFee.paid_amount` as it
+   * stands at that moment. */
+  private async buildSnapshot(
+    manager: EntityManager,
+    payment: Payment,
+    issuerSnapshot: IssuerSnapshot,
+  ): Promise<InvoiceSnapshot> {
+    const allocations = payment.allocations ?? [];
+    const studentIds = [...new Set(allocations.map((a) => a.student_fee.student_id))];
+    // [664 fix] Defense-in-depth: scope to `payment.tenant_id` even though
+    // every current caller already passes tenant-scoped allocations. A
+    // future caller that forgets to pre-scope its allocations to one
+    // tenant would otherwise let a cross-tenant student id slip into the
+    // invoice snapshot.
+    const students = await manager.getRepository(Student).find({
+      where: {
+        id: In(studentIds.length ? studentIds : [payment.student_id]),
+        tenant_id: payment.tenant_id,
+      },
+      relations: ['class_section', 'class_section.class'],
     });
-    if (!student) {
-      throw new NotFoundException(`Student with ID "${studentId}" not found`);
+    const studentById = new Map(students.map((s) => [s.id, s]));
+
+    const byStudent = new Map<string, InvoiceSnapshotStudent>();
+    for (const allocation of allocations) {
+      const fee = allocation.student_fee;
+      const student = studentById.get(fee.student_id);
+      if (!student) {
+        throw new NotFoundException(`Student with ID "${fee.student_id}" not found`);
+      }
+      let entry = byStudent.get(student.id);
+      if (!entry) {
+        entry = {
+          id: student.id,
+          full_name: student.full_name,
+          registration_number: student.registration_number,
+          class_name: student.class_section?.class?.name ?? null,
+          lines: [],
+        };
+        byStudent.set(student.id, entry);
+      }
+      entry.lines.push({
+        fee_name: fee.fee_structure?.name ?? 'Fee',
+        period_label: `${MONTH_NAMES[fee.month - 1]} ${fee.year}`,
+        amount: Number(fee.total_amount),
+        discount: Number(fee.discount_amount),
+        paid_this_time: Number(allocation.allocated_amount),
+        balance_after:
+          Number(fee.total_amount) - Number(fee.discount_amount) - Number(fee.paid_amount),
+      });
     }
-    return student;
+
+    const lineTotals = [...byStudent.values()].flatMap((s) => s.lines);
+    return {
+      issuer: issuerSnapshot,
+      students: [...byStudent.values()],
+      totals: {
+        billed: lineTotals.reduce((sum, l) => sum + l.amount, 0),
+        discount: lineTotals.reduce((sum, l) => sum + l.discount, 0),
+        paid: Number(payment.total_amount),
+        change: Number(payment.change_amount),
+        wallet_used: Number(payment.wallet_credit_used),
+        wallet_added: Number(payment.wallet_credit_added),
+      },
+      payment: {
+        method: payment.payment_method,
+        reference: payment.transaction_reference,
+        received_by_name: payment.received_by?.full_name ?? null,
+        payment_date: payment.payment_date.toISOString(),
+      },
+    };
   }
 
-  async create(
-    dto: CreateInvoiceDto,
-    tenantId: string,
-    userId: string,
-  ): Promise<Invoice & { issuer: IssuerSnapshot }> {
-    const student = await this.findStudentForTenant(dto.student_id, tenantId);
-
-    let studentFee: StudentFee | null = null;
-    if (dto.student_fee_id) {
-      studentFee = await this.studentFeeRepo.findOne({
-        where: { id: dto.student_fee_id, student_id: dto.student_id },
-      });
-      if (!studentFee) {
-        throw new NotFoundException(
-          `Student fee "${dto.student_fee_id}" not found for this student`,
-        );
-      }
-    }
-
-    const lineItems = dto.line_items
-      ? dto.line_items.map((item) => ({
-          description: item.description,
-          amount: item.amount,
-          quantity: item.quantity ?? 1,
-          total: item.amount * (item.quantity ?? 1),
-        }))
-      : studentFee
-        ? [
-            {
-              description: `Fee for ${studentFee.month}/${studentFee.year}`,
-              amount: Number(studentFee.total_amount),
-              quantity: 1,
-              total: Number(studentFee.total_amount),
-            },
-          ]
-        : null;
-
-    if (!lineItems || lineItems.length === 0) {
-      throw new BadRequestException('Either student_fee_id or line_items must be provided');
-    }
-
-    const totalAmount = lineItems.reduce((sum, item) => sum + item.total, 0);
-    if (totalAmount <= AMOUNT_EPSILON) {
-      throw new BadRequestException('Invoice total must be greater than zero');
-    }
-
-    const now = new Date();
-    const dueDate = dto.due_date
-      ? new Date(dto.due_date)
-      : new Date(now.getTime() + DEFAULT_DUE_DAYS * 86400000);
-
-    const invoiceId = await this.repo.manager.transaction(async (manager) => {
-      // [15.5.5] Frozen at the moment of issue. Read *inside* the
-      // transaction under a share lock (`FOR SHARE`): a concurrent
-      // `SchoolProfileService.updateProfile` takes `FOR UPDATE` on the same
-      // row, so either it commits first and this read sees the new
-      // identity, or it waits for this insert to commit — the snapshot can
-      // never be a profile that was already replaced when the invoice was
-      // written.
-      const school = await lockSchoolForSnapshot(manager, tenantId);
-      const issuerSnapshot = buildIssuerSnapshot(school);
-
-      const invoiceRepo = manager.getRepository(Invoice);
-      const invoiceNumber = await generateInvoiceNumber(invoiceRepo);
-
-      const invoice = await invoiceRepo.save(
-        invoiceRepo.create({
-          invoice_number: invoiceNumber,
-          student_id: student.id,
-          student_fee_id: studentFee?.id ?? null,
-          total_amount: totalAmount,
-          tax_amount: 0,
-          discount_amount: 0,
-          status: InvoiceStatus.ISSUED,
-          issued_date: now,
-          due_date: dueDate,
-          line_items: lineItems,
-          issued_by_user_id: userId,
-          notes: dto.notes ?? null,
-          issuer_snapshot: issuerSnapshot,
-        }),
-      );
-      return invoice.id;
+  /** [16.5.1] Issues the one, immutable invoice for `paymentId` — built
+   * from the payment's already-committed allocations (`StudentFee` lines,
+   * possibly across several students in one checkout) plus the issuer's
+   * identity, locked and frozen inside the *caller's* transaction via
+   * `manager`. Status is `ISSUED` immediately; there is no DRAFT checkout
+   * invoice. Callers own their own transaction/lock strategy — this
+   * method never opens one of its own. */
+  async create(paymentId: string, manager: EntityManager): Promise<Invoice> {
+    const payment = await manager.getRepository(Payment).findOne({
+      where: { id: paymentId },
+      relations: [
+        'allocations',
+        'allocations.student_fee',
+        'allocations.student_fee.fee_structure',
+        'received_by',
+      ],
     });
+    if (!payment) {
+      throw new NotFoundException(`Payment with ID "${paymentId}" not found`);
+    }
+    if (!payment.allocations || payment.allocations.length === 0) {
+      throw new BadRequestException(
+        `Payment "${paymentId}" has no allocations to build an invoice from`,
+      );
+    }
 
+    // [15.5.5] Frozen at the moment of issue — same reasoning as
+    // `CheckoutService.checkout`'s own lock: a concurrent
+    // `SchoolProfileService.updateProfile` takes `FOR UPDATE` on the same
+    // row, so the two serialize instead of racing.
+    const school = await lockSchoolForSnapshot(manager, payment.tenant_id);
+    const issuerSnapshot = buildIssuerSnapshot(school);
+    const snapshot = await this.buildSnapshot(manager, payment, issuerSnapshot);
+
+    const invoiceRepo = manager.getRepository(Invoice);
+    const invoiceNumber = await generateInvoiceNumber(invoiceRepo);
+
+    const invoice = await invoiceRepo.save(
+      invoiceRepo.create({
+        invoice_number: invoiceNumber,
+        kind: InvoiceKind.INVOICE,
+        student_id: payment.student_id,
+        payment_id: payment.id,
+        related_invoice_id: null,
+        total_amount: snapshot.totals.paid,
+        tax_amount: 0,
+        discount_amount: snapshot.totals.discount,
+        status: InvoiceStatus.ISSUED,
+        issued_date: payment.payment_date,
+        due_date: payment.payment_date,
+        snapshot,
+        issued_by_user_id: payment.received_by_user_id,
+        notes: null,
+        issuer_snapshot: issuerSnapshot,
+      }),
+    );
+    return invoice;
+  }
+
+  /** [16.5.1] Staff-triggered manual entry point (`POST /invoices`) —
+   * opens its own transaction around `create()` and returns the fully
+   * resolved invoice, tenant-checked. */
+  async createFromPayment(
+    paymentId: string,
+    tenantId: string,
+  ): Promise<Invoice & { issuer: IssuerSnapshot }> {
+    // Tenant check happens here, *before* `create()` runs — `create()`
+    // itself trusts `paymentId` (its other two callers, checkout and
+    // payment-allocation, already resolved the payment within the caller's
+    // own tenant), so a manual cross-tenant id must be rejected up front
+    // rather than after an invoice has already been minted.
+    const payment = await this.paymentRepo.findOne({
+      where: { id: paymentId, tenant_id: tenantId },
+    });
+    if (!payment) {
+      throw new NotFoundException(`Payment with ID "${paymentId}" not found`);
+    }
+    let invoiceId: string;
+    try {
+      invoiceId = await this.repo.manager.transaction(async (manager) => {
+        const invoiceRepo = manager.getRepository(Invoice);
+        // Check-then-create inside the transaction: a payment that already
+        // has a live INVOICE-kind document is returned idempotently rather
+        // than minting a second one.
+        const existing = await invoiceRepo.findOne({
+          where: { payment_id: paymentId, kind: InvoiceKind.INVOICE, deleted_at: IsNull() },
+        });
+        if (existing) return existing.id;
+
+        const invoice = await this.create(paymentId, manager);
+        // [B6] Written back inside the same transaction as the invoice
+        // insert, not as a follow-up write after commit — a crash between
+        // the two would otherwise leave a payment pointing at nothing.
+        await manager.update(Payment, paymentId, { invoice_id: invoice.id });
+        return invoice.id;
+      });
+    } catch (err) {
+      // A concurrent call raced us and won — `IDX_invoices_payment_id_
+      // kind_invoice` (B6) rejects the second INVOICE-kind row for this
+      // payment_id. Postgres aborts the whole transaction on that
+      // violation, so re-reading with the same (now-aborted) `manager`
+      // would itself fail with "current transaction is aborted" — the
+      // re-read has to happen outside the transaction, after it has
+      // rolled back, on `this.repo` rather than `invoiceRepo`.
+      if (!isInvoicePaymentUniqueViolation(err)) throw err;
+      const winner = await this.repo.findOne({
+        where: { payment_id: paymentId, kind: InvoiceKind.INVOICE, deleted_at: IsNull() },
+      });
+      if (!winner) throw err;
+      invoiceId = winner.id;
+    }
     return this.findOne(invoiceId, tenantId);
+  }
+
+  /** [16.5.1] Skeleton for 16.6.1's refund flow: mints a credit note
+   * reversing the invoice already issued for `paymentId`. Kept minimal —
+   * 16.6.1 owns the actual refund/reversal business logic (partial
+   * amounts, which lines are credited, etc.); this only establishes the
+   * document shape (`kind = CREDIT_NOTE`, linked back via
+   * `related_invoice_id`, negative `total_amount`/`tax_amount`/
+   * `discount_amount` so it nets the original invoice to zero, and its
+   * own `status = ISSUED`) and its own numbering series. The original
+   * invoice's `status` is set to `CANCELLED` in the same operation. */
+  async createCreditNote(
+    paymentId: string,
+    reason: string,
+    manager: EntityManager,
+  ): Promise<Invoice> {
+    const invoiceRepo = manager.getRepository(Invoice);
+    const original = await invoiceRepo.findOne({
+      where: { payment_id: paymentId, kind: InvoiceKind.INVOICE, deleted_at: IsNull() },
+    });
+    if (!original) {
+      throw new NotFoundException(`No invoice found for payment "${paymentId}" to reverse`);
+    }
+
+    const creditNoteNumber = await generateCreditNoteNumber(invoiceRepo);
+    const creditNote = await invoiceRepo.save(
+      invoiceRepo.create({
+        invoice_number: creditNoteNumber,
+        kind: InvoiceKind.CREDIT_NOTE,
+        student_id: original.student_id,
+        payment_id: original.payment_id,
+        related_invoice_id: original.id,
+        total_amount: -original.total_amount,
+        tax_amount: -original.tax_amount,
+        discount_amount: -original.discount_amount,
+        status: InvoiceStatus.ISSUED,
+        issued_date: new Date(),
+        due_date: new Date(),
+        snapshot: original.snapshot,
+        issued_by_user_id: original.issued_by_user_id,
+        notes: reason,
+        issuer_snapshot: original.issuer_snapshot,
+      }),
+    );
+    original.status = InvoiceStatus.CANCELLED;
+    await invoiceRepo.save(original);
+    return creditNote;
   }
 
   async findOne(id: string, tenantId: string): Promise<Invoice & { issuer: IssuerSnapshot }> {
     const invoice = await this.repo.findOne({
       where: { id, deleted_at: IsNull() },
-      relations: ['student', 'student_fee', 'student_fee.fee_structure', 'issued_by'],
+      relations: ['student', 'issued_by'],
     });
     if (!invoice || invoice.student.tenant_id !== tenantId) {
       throw new NotFoundException(`Invoice with ID "${id}" not found`);
@@ -170,8 +322,6 @@ export class InvoicesService {
     const qb = this.repo
       .createQueryBuilder('invoice')
       .leftJoinAndSelect('invoice.student', 'student')
-      .leftJoinAndSelect('invoice.student_fee', 'student_fee')
-      .leftJoinAndSelect('student_fee.fee_structure', 'fee_structure')
       .where('student.tenant_id = :tenantId', { tenantId })
       .andWhere('invoice.deleted_at IS NULL');
 
@@ -224,7 +374,24 @@ export class InvoicesService {
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  async getPrintableHtml(id: string, tenantId: string): Promise<string> {
+  /**
+   * `format` — `a4` (default), `pos58`, or `pos80`; validated at the
+   * controller ([16.5.2]).
+   *
+   * `linkedStudentIds` — [664 follow-up, 665] when set (a PARENT/STUDENT
+   * caller), both templates filter `snapshot.students[]` down to this
+   * subset before rendering, so a guardian linked to only one of two
+   * siblings on a shared invoice never sees the other child's name,
+   * registration number, or fee lines in the printed HTML — the same
+   * privacy boundary the JSON response (`findOne`/`findAll`) already
+   * enforces. `undefined` (staff/admin) renders every student, unfiltered.
+   */
+  async getPrintableHtml(
+    id: string,
+    tenantId: string,
+    format: InvoicePrintFormat = 'a4',
+    linkedStudentIds?: string[],
+  ): Promise<string> {
     const invoice = await this.repo.findOne({
       where: { id, deleted_at: IsNull() },
       relations: [
@@ -232,27 +399,11 @@ export class InvoicesService {
         'student.tenant',
         'student.class_section',
         'student.class_section.class',
-        'student_fee',
-        'student_fee.fee_structure',
       ],
     });
     if (!invoice || invoice.student.tenant_id !== tenantId) {
       throw new NotFoundException(`Invoice with ID "${id}" not found`);
     }
-
-    const payments = invoice.student_fee_id
-      ? await this.paymentRepo
-          .createQueryBuilder('payment')
-          .innerJoin(PaymentAllocation, 'allocation', 'allocation.payment_id = payment.id')
-          .where('allocation.student_fee_id = :studentFeeId', {
-            studentFeeId: invoice.student_fee_id,
-          })
-          .orderBy('payment.payment_date', 'DESC')
-          .getMany()
-      : await this.paymentRepo.find({
-          where: { invoice_id: invoice.id, deleted_at: IsNull() },
-          order: { payment_date: 'DESC' },
-        });
 
     // [15.5.7] `student.tenant` is already loaded above (the template
     // needed the live school name regardless) — reused here as
@@ -262,6 +413,33 @@ export class InvoicesService {
     // `blob:` document, where a relative `<img src>` neither resolves nor
     // carries the bearer token `GET /schools/:id/logo` needs.
     const logoDataUrl = await readLogoDataUrl(this.storage, issuer.logo_key);
-    return renderInvoiceHtml(invoice, payments, issuer, logoDataUrl);
+
+    if (format === 'pos58' || format === 'pos80') {
+      // [16.5.2] POS renders from the snapshot's own `payment` block, not
+      // the live `payments` table — a thermal receipt shows the one
+      // payment this document was issued for, not the full history the
+      // A4 format's "Payment History" table lists.
+      return renderInvoicePosHtml(invoice, issuer, logoDataUrl, format, linkedStudentIds, null);
+    }
+
+    const payments = invoice.payment_id
+      ? await this.paymentRepo.find({
+          where: { id: invoice.payment_id, deleted_at: IsNull() },
+          order: { payment_date: 'DESC' },
+        })
+      : [];
+    return renderInvoiceHtml(invoice, payments, issuer, logoDataUrl, linkedStudentIds);
   }
+}
+
+/** [B6] True when `err` is specifically a unique-violation (SQLSTATE
+ * 23505) on `IDX_invoices_payment_id_kind_invoice` — not just any
+ * unique-constraint failure on `invoices`, so a future unrelated unique
+ * constraint can't be misread as this race. Works however the error
+ * reached us — a raw driver error or TypeORM's `QueryFailedError`
+ * wrapper, both of which surface the driver's `code` and `constraint`. */
+function isInvoicePaymentUniqueViolation(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false;
+  const e = err as { code?: unknown; constraint?: unknown };
+  return e.code === '23505' && e.constraint === 'IDX_invoices_payment_id_kind_invoice';
 }

@@ -315,9 +315,10 @@ describe('[5.1] Family-facing read API', () => {
       return rows[0].id as string;
     };
 
-    // Kept, because childOne's invoice attaches to it — `Invoice.student_fee`
-    // is the relation that drags `reminder_threshold_date` into a response.
-    const childOneFeeId = await makeFee(childOneId);
+    // childOne's fee — invoices no longer FK to a `StudentFee` row
+    // ([16.5.1] dropped `student_fee_id`), but other assertions in this
+    // file still exercise `GET /fees/*` against it.
+    await makeFee(childOneId);
     await makeFee(childTwoId);
     await makeFee(unlinkedChildId);
     await makeFee(selfStudentId);
@@ -353,23 +354,54 @@ describe('[5.1] Family-facing read API', () => {
     await makePayment(childInBId, TENANT_B);
 
     // --- Invoices ---
-    const makeInvoice = async (
-      studentId: string,
-      studentFeeId: string | null = null,
-    ): Promise<string> => {
+    const makeInvoice = async (studentId: string): Promise<string> => {
+      const snapshot = {
+        issuer: { name: 'Test School', address: null, phone: null, logo_key: null },
+        students: [
+          {
+            id: studentId,
+            full_name: 'Test Student',
+            registration_number: 'REG-1',
+            class_name: null,
+            lines: [
+              {
+                fee_name: 'Tuition',
+                period_label: 'January 2026',
+                amount: 1000,
+                discount: 0,
+                paid_this_time: 1000,
+                balance_after: 0,
+              },
+            ],
+          },
+        ],
+        totals: {
+          billed: 1000,
+          discount: 0,
+          paid: 1000,
+          change: 0,
+          wallet_used: 0,
+          wallet_added: 0,
+        },
+        payment: {
+          method: 'CASH',
+          reference: null,
+          received_by_name: 'Admin',
+          payment_date: '2026-01-01',
+        },
+      };
       const rows = await dataSource.query(
         `INSERT INTO invoices
-           (invoice_number, student_id, student_fee_id, total_amount, tax_amount,
-            discount_amount, status, issued_date, due_date, line_items, issued_by_user_id,
+           (invoice_number, student_id, payment_id, total_amount, tax_amount,
+            discount_amount, status, kind, issued_date, due_date, snapshot, issued_by_user_id,
             notes, created_at, updated_at)
-         VALUES ($1, $2, $3, 1000, 0, 0, 'ISSUED', '2026-01-01', '2026-01-31', $4, $5,
+         VALUES ($1, $2, NULL, 1000, 0, 0, 'ISSUED', 'INVOICE', '2026-01-01', '2026-01-31', $3, $4,
                  'Thank you', NOW(), NOW())
          RETURNING id`,
         [
           `INV-${Math.random().toString(36).slice(2, 12).toUpperCase()}`,
           studentId,
-          studentFeeId,
-          JSON.stringify([{ description: 'Tuition', amount: 1000, quantity: 1, total: 1000 }]),
+          JSON.stringify(snapshot),
           SEED_ADMIN_USER_ID,
         ],
       );
@@ -387,7 +419,7 @@ describe('[5.1] Family-facing read API', () => {
     );
     catalogFeeStructureId = feeStructureRows[0].id as string;
 
-    childOneInvoiceId = await makeInvoice(childOneId, childOneFeeId);
+    childOneInvoiceId = await makeInvoice(childOneId);
     unlinkedChildInvoiceId = await makeInvoice(unlinkedChildId);
     childInBInvoiceId = await makeInvoice(childInBId);
 
@@ -914,7 +946,7 @@ describe('[5.1] Family-facing read API', () => {
       expect(JSON.stringify(res.body)).not.toContain('password_hash');
       expect(JSON.stringify(res.body)).not.toContain(SEED_ADMIN_EMAIL);
       expect(res.body).toHaveProperty('invoice_number');
-      expect(res.body).toHaveProperty('line_items');
+      expect(res.body).toHaveProperty('snapshot');
     });
 
     it('drops issued_by_user_id from every row of a family invoice list', async () => {
@@ -931,20 +963,21 @@ describe('[5.1] Family-facing read API', () => {
       expect(JSON.stringify(res.body)).not.toContain('password_hash');
     });
 
-    // `findOne` and `findAll` both join `invoice.student_fee`, which carries
-    // `reminder_threshold_date` — the same internal field stripped from the
-    // dues and invoice-summary routes. Consistency matters more than the one
-    // field: the family invoice goes through an allow-list DTO.
-    it('strips reminder_threshold_date from the family invoice’s student_fee', async () => {
+    // [16.5.1] rebuilt `Invoice` as a frozen `snapshot`-based document — it
+    // no longer joins `student_fee` (that FK was dropped along with
+    // `line_items`), so `reminder_threshold_date` was never reachable
+    // through this route to begin with. `snapshot.students[].lines` only
+    // ever carries the allow-listed fields `InvoiceSnapshotLine` declares,
+    // built once at issue time — there is no live `student_fee` relation
+    // left to leak the internal dunning field through.
+    it('never carries reminder_threshold_date on the family invoice', async () => {
       const detail = await http()
         .get(`${API}/invoices/${childOneInvoiceId}`)
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .expect(200);
 
-      expect(detail.body.student_fee).not.toBeNull();
-      expect(detail.body.student_fee).not.toHaveProperty('reminder_threshold_date');
-      expect(detail.body.student_fee).toHaveProperty('month');
+      expect(detail.body).not.toHaveProperty('student_fee');
       expect(JSON.stringify(detail.body)).not.toContain('reminder_threshold_date');
 
       const list = await http()
@@ -956,29 +989,22 @@ describe('[5.1] Family-facing read API', () => {
       expect(JSON.stringify(list.body)).not.toContain('reminder_threshold_date');
     });
 
-    // The family invoice carries the child's name for the header, but not
-    // their date of birth or home address.
-    it('allow-lists the student relation on a family invoice', async () => {
+    // The family invoice's `snapshot.students[]` carries the child's name
+    // for the header, but never their date of birth or home address —
+    // `InvoiceSnapshotStudent` only declares `id`, `full_name`,
+    // `registration_number`, `class_name`, `lines`.
+    it('allow-lists the student fields inside a family invoice snapshot', async () => {
       const res = await http()
         .get(`${API}/invoices/${childOneInvoiceId}`)
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .expect(200);
 
-      expect(res.body.student).toMatchObject({ id: childOneId, full_name: 'Child One' });
-      expect(res.body.student).not.toHaveProperty('date_of_birth');
-      expect(res.body.student).not.toHaveProperty('home_address');
-      expect(res.body.student).not.toHaveProperty('user_id');
-    });
-
-    it('keeps reminder_threshold_date on the staff invoice', async () => {
-      const res = await http()
-        .get(`${API}/invoices/${childOneInvoiceId}`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .set('X-Tenant-ID', SEED_TENANT_ID)
-        .expect(200);
-
-      expect(res.body.student_fee).toHaveProperty('reminder_threshold_date');
+      const student = res.body.snapshot.students.find((s: { id: string }) => s.id === childOneId);
+      expect(student).toMatchObject({ id: childOneId, full_name: 'Test Student' });
+      expect(student).not.toHaveProperty('date_of_birth');
+      expect(student).not.toHaveProperty('home_address');
+      expect(student).not.toHaveProperty('user_id');
     });
 
     it('keeps the staff invoice response carrying issued_by, minus password_hash', async () => {
@@ -1154,10 +1180,7 @@ describe('[5.1] Family-facing read API', () => {
         .post(`${API}/invoices`)
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
-        .send({
-          student_id: childOneId,
-          line_items: [{ description: 'Self-issued', amount: 1, quantity: 1 }],
-        })
+        .send({ payment_id: NONEXISTENT_UUID })
         .expect(401);
     });
 

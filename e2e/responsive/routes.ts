@@ -5,6 +5,7 @@ import {
   createClassSection,
   createGuardian,
   createInvoice,
+  createInvoiceShareToken,
   createReminderBatch,
   createStaffUser,
   createStudentWithDues,
@@ -74,6 +75,13 @@ export async function resolvePath(
     const { studentId } = await createStudentWithDues(request, session, `Reflow Invoicee ${stamp}`);
     const invoice = await createInvoice(request, session, studentId);
     return route.path.replace('$invoiceId', invoice.id);
+  }
+  if (route.path.includes('$token')) {
+    // [16.5.3] `/i/$token` — the unauthenticated public receipt route.
+    const { studentId } = await createStudentWithDues(request, session, `Reflow Receipt ${stamp}`);
+    const invoice = await createInvoice(request, session, studentId);
+    const token = await createInvoiceShareToken(request, session, invoice.id);
+    return route.path.replace('$token', token);
   }
   if (route.path.includes('$academicYearId') || route.path.includes('$classId')) {
     const chain = await createClassSection(request, session);

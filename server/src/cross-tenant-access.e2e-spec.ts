@@ -17,6 +17,7 @@ import {
   SEED_CLASS_1_ID,
   SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
+import { periodStart } from '@test/helpers/fee-fixture.helper';
 
 /**
  * Cross-tenant regression coverage (#31), item 2. The existing per-module
@@ -174,14 +175,40 @@ describe('Cross-tenant access (regression)', () => {
     const feeStructureId = feeStructureRes.body.id;
     createdFeeStructureId = feeStructureId;
 
+    // [16.5.1] `POST /invoices` no longer accepts free-form line items —
+    // an invoice is built from an already-recorded, fully-allocated
+    // payment's `{ payment_id }`, so a real fee + payment is recorded
+    // first (mirroring what checkout/payment-allocation do).
+    const feeRows = await dataSource.query(
+      `INSERT INTO student_fees (id, student_id, academic_year_id, fee_structure_id, period_start, total_amount, paid_amount, discount_amount, status, created_at, updated_at)
+       VALUES (DEFAULT, $1, $2, $3, $4::date, 500, 0, 0, 'PENDING', NOW(), NOW())
+       RETURNING id`,
+      [studentId, SEED_ACADEMIC_YEAR_ID, feeStructureId, periodStart(5, 2026)],
+    );
+    const feeId = feeRows[0].id as string;
+
+    const paymentRows = await dataSource.query(
+      `INSERT INTO payments (id, student_id, total_amount, payment_method, payment_status, received_by_user_id, payment_date, tenant_id, created_at, updated_at)
+       VALUES (DEFAULT, $1, 500, 'CASH', 'SUCCESS', $2, NOW(), $3, NOW(), NOW())
+       RETURNING id`,
+      [studentId, SEED_ADMIN_USER_ID, TENANT_A],
+    );
+    const paymentId = paymentRows[0].id as string;
+    await dataSource.query(
+      `INSERT INTO payment_allocations (id, payment_id, student_fee_id, allocated_amount, allocation_type, created_at)
+       VALUES (DEFAULT, $1, $2, 500, 'CURRENT', NOW())`,
+      [paymentId, feeId],
+    );
+    await dataSource.query(
+      `UPDATE student_fees SET paid_amount = 500, status = 'PAID' WHERE id = $1`,
+      [feeId],
+    );
+
     const invoiceRes = await supertest(app.getHttpServer())
       .post('/api/v1/invoices')
       .set('Authorization', `Bearer ${token}`)
       .set('X-Tenant-ID', TENANT_A)
-      .send({
-        student_id: studentId,
-        line_items: [{ description: 'Cross tenant invoice line', amount: 500, quantity: 1 }],
-      })
+      .send({ payment_id: paymentId })
       .expect(201);
     const invoiceId = invoiceRes.body.id;
     createdInvoiceId = invoiceId;

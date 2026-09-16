@@ -446,6 +446,75 @@ export async function postAuthVerifyEmail(token: string): Promise<VerifyEmailRes
   }
 }
 
+/** #666's `GET /public/invoices/:token` response shape — mirrors
+ * `PublicReceiptDto` (`server/src/modules/invoices/
+ * public-invoice-receipt.dto.ts`), not a schema-generated type: this
+ * route's response isn't regenerated into `schema.d.ts` from this client
+ * (public, unauthenticated route, hit with bare `axios` below). `ui/src/
+ * hooks/invoices.ts` re-exports this as `PublicInvoiceReceipt`, so this
+ * stays the single source of truth for the shape and both files describe
+ * the same object. */
+export interface PublicInvoiceReceipt {
+  invoice_number: string;
+  kind: 'INVOICE' | 'CREDIT_NOTE';
+  issued_date: string;
+  school: {
+    name: string;
+    address: string | null;
+    logo_url: string | null;
+  };
+  students: {
+    full_name: string;
+    class_name: string | null;
+    lines: {
+      fee_name: string;
+      period_label: string;
+      amount: number;
+      discount: number;
+      paid_this_time: number;
+      balance_after: number;
+    }[];
+  }[];
+  totals: {
+    billed: number;
+    discount: number;
+    paid: number;
+    change: number;
+  };
+  payment: {
+    method: string;
+    reference_last4: string | null;
+    payment_date: string;
+  };
+}
+
+/** `GET /public/invoices/:token` (#666) — the share-link a guardian opens
+ * from a WhatsApp/SMS message, with no session at all. Bare `axios`, same
+ * reason every other function in this file bypasses `apiClient`: the
+ * request interceptor throws `NoActiveTenantError` when no tenant is
+ * active (`apiClient.ts:56-66` above), and a phone reading this link cold
+ * never has one. The server resolves the tenant itself from the token, so
+ * no `X-Tenant-ID` is ever sent — and none is needed.
+ *
+ * Throttled 30/min per IP server-side; `shouldRetryQuery` (`hooks/
+ * retry.ts`) already refuses to retry the 429 that produces (it's a 4xx),
+ * same as every other 4xx this function can surface (404 unknown/expired
+ * token, 410 revoked). */
+export async function getPublicInvoice(
+  token: string,
+  signal?: AbortSignal,
+): Promise<PublicInvoiceReceipt> {
+  try {
+    const response = await axios.get<PublicInvoiceReceipt>(
+      `${API_BASE_URL}/public/invoices/${token}`,
+      signal !== undefined ? { signal } : {},
+    );
+    return response.data;
+  } catch (error) {
+    throw toApiError(error);
+  }
+}
+
 /** Single-flight refresh: the first 401 creates this promise; every
  * concurrent 401 that arrives before it settles awaits the same one instead
  * of issuing its own POST /auth/refresh. The server treats a second refresh

@@ -72,6 +72,14 @@
       "recordedWithChange": "{{amount}} রেকর্ড করা হয়েছে, {{change}} ফেরত।",
       "failed": "পেমেন্ট রেকর্ড করা ব্যর্থ হয়েছে।",
       "approvalCancelled": "অনুমোদন বাতিল করা হয়েছে।"
+    },
+    "success": {
+      "title": "পেমেন্ট রেকর্ড হয়েছে",
+      "amountPaid": "প্রদত্ত পরিমাণ",
+      "changeDue": "ফেরত টাকা",
+      "invoiceNumber": "চালান",
+      "recordAnother": "আরেকটি রেকর্ড করুন",
+      "viewInvoice": "চালান দেখুন"
     }
   }
 }

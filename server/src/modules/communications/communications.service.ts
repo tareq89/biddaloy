@@ -1,4 +1,9 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -8,6 +13,7 @@ import { StudentService, GuardianService } from '../students/students.service';
 import { SendCommunicationDto, CommunicationResponseDto } from './dto/communications.dto';
 import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '@biddaloy/shared';
 import { COMMUNICATIONS_QUEUE } from './communications.constants';
+import { SmsCreditService } from './credits/sms-credit.service';
 
 function toResponseDto(log: CommunicationLog): CommunicationResponseDto {
   return {
@@ -30,6 +36,8 @@ function toResponseDto(log: CommunicationLog): CommunicationResponseDto {
  */
 @Injectable()
 export class CommunicationsService {
+  private readonly logger = new Logger(CommunicationsService.name);
+
   constructor(
     @InjectRepository(CommunicationLog)
     private readonly repo: Repository<CommunicationLog>,
@@ -37,12 +45,23 @@ export class CommunicationsService {
     private readonly queue: Queue,
     private readonly studentService: StudentService,
     private readonly guardianService: GuardianService,
+    private readonly smsCreditService: SmsCreditService,
   ) {}
 
+  /**
+   * [16.5.4] Optional SMS-credit reservation reference for a caller (e.g.
+   * `InvoicesController.sendInvoice`) that reserved credit for this one
+   * send with `SmsCreditService.reserve` before calling `enqueue` — mirrors
+   * `FeeNotificationsListener`'s batch job data so
+   * `CommunicationsProcessor` can find and settle (`settlePart`) the
+   * reservation once the send resolves. Omitted entirely for an
+   * unmetered tenant or a non-SMS medium, same as the batch listener.
+   */
   async enqueue(
     dto: SendCommunicationDto,
     tenantId: string,
     userId: string,
+    smsCreditReservation?: { batchId: string; segments: number },
   ): Promise<CommunicationResponseDto> {
     if (dto.student_id) {
       await this.studentService.findOne(dto.student_id, tenantId);
@@ -75,13 +94,44 @@ export class CommunicationsService {
     );
 
     try {
-      await this.queue.add('send', { logId: log.id });
+      await this.queue.add('send', {
+        logId: log.id,
+        ...(smsCreditReservation
+          ? { batchId: smsCreditReservation.batchId, segments: smsCreditReservation.segments }
+          : {}),
+      });
     } catch (err) {
       // The row would otherwise be stuck QUEUED forever with no job to
       // deliver it — surface the failure instead of a false "queued" success.
       log.status = CommunicationStatus.FAILED;
       log.metadata = { ...log.metadata, error: 'Failed to enqueue for delivery' };
       await this.repo.save(log);
+
+      // The job that would have settled `smsCreditReservation` was never
+      // created, so nothing else will ever release it — do it here
+      // instead of leaving units reserved forever, same pattern as
+      // `RemindersService`'s identical enqueue-failure handling. A
+      // failure here must not mask the original enqueue error: it's
+      // logged and the reservation stays stranded pending reconciliation.
+      if (smsCreditReservation) {
+        try {
+          await this.smsCreditService.settlePart(
+            tenantId,
+            smsCreditReservation.batchId,
+            `log:${log.id}`,
+            smsCreditReservation.segments,
+            'RELEASE',
+          );
+        } catch (releaseErr) {
+          this.logger.error({
+            msg: 'sms credit release on enqueue failure failed — reservation left stranded',
+            communication_log_id: log.id,
+            tenant_id: tenantId,
+            error: releaseErr instanceof Error ? releaseErr.message : String(releaseErr),
+          });
+        }
+      }
+
       throw new InternalServerErrorException('Failed to queue communication for delivery');
     }
 

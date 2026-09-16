@@ -114,7 +114,7 @@
       "path": "/fees/dues",
       "role": "accountant",
       "archetype": "list",
-      "overlays": ["send-reminder", "generate-invoices"]
+      "overlays": ["send-reminder"]
     },
     {
       "path": "/fees/generate",
@@ -152,6 +152,14 @@
       },
       "role": "admin",
       "archetype": "detail"
+    },
+    {
+      "path": "/i/$token",
+      "params": {
+        "token": "seeded"
+      },
+      "role": "guest",
+      "archetype": "bespoke"
     },
     {
       "path": "/invoices",

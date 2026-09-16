@@ -8,37 +8,95 @@ import type {
   RowError,
   TabSpec,
 } from '../../codec/tab-spec';
-import { InvoiceStatus } from '@biddaloy/shared';
+import { InvoiceKind, InvoiceStatus, PaymentMethod } from '@biddaloy/shared';
+
+/** [outside-diff fix] The `json` column type only checks JSON *syntax*
+ * (`cell-format.ts`'s `fromCell`) — it has no idea `snapshot` must be an
+ * `InvoiceSnapshot`. Without this, a malformed or empty (`{}`) snapshot
+ * passes import and throws a `TypeError` later, in family DTO conversion
+ * or print rendering, once something dereferences a missing field. */
+function isValidInvoiceSnapshot(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const issuer = v.issuer as Record<string, unknown> | undefined;
+  if (typeof issuer !== 'object' || issuer === null) return false;
+  if (typeof issuer.name !== 'string' || typeof issuer.captured_at !== 'string') return false;
+  if (!Array.isArray(v.students)) return false;
+  const totals = v.totals as Record<string, unknown> | undefined;
+  if (typeof totals !== 'object' || totals === null) return false;
+  if (
+    typeof totals.billed !== 'number' ||
+    typeof totals.discount !== 'number' ||
+    typeof totals.paid !== 'number'
+  ) {
+    return false;
+  }
+  const payment = v.payment as Record<string, unknown> | undefined;
+  if (typeof payment !== 'object' || payment === null) return false;
+  if (!Object.values(PaymentMethod).includes(payment.method as PaymentMethod)) return false;
+  return true;
+}
 
 /**
- * The `invoices` tab: the official invoice document issued for a student's
- * fee payment.
+ * `invoices` tab: official invoice document (or credit note) issued for
+ * a student's fee payment.
  *
- * `student` is a `ref` against the `students` tab and `issued_by` a `ref`
+ * `student` is a `ref` against `students` tab and `issued_by` a `ref`
  * against `users`; both live in `tabs/people/` and both are listed in
- * `dependsOn`, so the registry applies them before this tab.
+ * `dependsOn`, so registry applies them before this tab.
  *
- * `issuer_snapshot` is in `excluded`: a restore never carries the frozen
- * issuer identity forward. `upsert` always sets it to `null`, and reads of
- * a `null` snapshot fall back to the live school profile (D9 of #508) — so a
- * restored invoice is never stuck showing a stale, unreadable snapshot from
- * the source tenant.
+ * `issuer_snapshot` in `excluded`: restore never carries frozen
+ * issuer identity forward. `upsert` always sets it `null` on insert,
+ * reads of `null` snapshot fall back to live school profile (D9 of #508)
+ * — so a restored invoice never gets stuck showing a stale, unreadable
+ * snapshot from the source tenant.
+ *
+ * [16.5.1] `payment_id` / `related_invoice_id` are in `excluded`: both are
+ * `ref`-shaped FKs, but their target tabs (`payments`, and `invoices`
+ * itself for the credit-note case) sit at or after this tab's own
+ * position in `EXPECTED_TABS` — `payments` strictly after, so a `ref`
+ * column pointing at it would resolve against a `KeyIndex` that doesn't
+ * exist yet at import time (the registry's own ref-ordering check would
+ * reject it). Rather than reorder the whole fees group around a
+ * backup/restore concern, these two ids are treated as opaque and dropped
+ * on restore — same tradeoff already made for `payments.tab.ts`'s
+ * checkout/reversal columns.
+ *
+ * Cost of dropping them (flagged in PR review, kept as a known gap rather
+ * than fixed here): a restored invoice's `payment_id`/`related_invoice_id`
+ * are always `null`, so `createFromPayment`'s payment→invoice idempotency
+ * check, the credit-note→original-invoice link, and any print/read path
+ * that joins through those columns stop working for a restored invoice —
+ * the frozen `snapshot` (kept, see `issuer_snapshot` above) still renders
+ * correctly on its own. Fixing this needs a genuine second import pass —
+ * one that runs after every tab in `EXPECTED_TABS` has loaded and its
+ * `KeyIndex` is populated, then resolves `payment`/`related_invoice`
+ * `ref`s and `UPDATE`s the two columns directly — which no tab in this
+ * registry does today (`ALL_TABS` is a single ordered pass). Tracked as a
+ * follow-up rather than built here: #773.
+ *
+ * [16.5.1] Once an invoice's `status` leaves `DRAFT`, the DB trigger from
+ * `1789800008000-InvoiceImmutableSnapshot` only allows `status`,
+ * `updated_at`, `deleted_at` to change on that row (see class doc on
+ * `Invoice`). `create()` always issues `status = ISSUED` immediately, so
+ * in practice every restored row is already non-DRAFT; `upsert` below
+ * only ever full-column-writes a still-DRAFT existing row (or inserts a
+ * brand-new one), and for anything else only touches `status`.
  */
 
 export interface InvoiceRow {
   id: string;
   invoice_number: string;
+  kind: InvoiceKind;
   student_id: string;
   student_key: string;
-  student_fee_id: string | null;
-  student_fee_key: string | null;
   total_amount: string;
   tax_amount: string;
   discount_amount: string;
   status: InvoiceStatus;
   issued_date: string;
   due_date: string;
-  line_items: unknown;
+  snapshot: unknown;
   issued_by_id: string | null;
   issued_by_key: string | null;
   notes: string | null;
@@ -53,17 +111,18 @@ const columns: readonly ColumnSpec[] = [
     label: { en: 'Invoice number', bn: 'চালান নম্বর' },
   },
   {
+    key: 'kind',
+    type: 'enum',
+    required: true,
+    enumValues: Object.values(InvoiceKind),
+    label: { en: 'Kind', bn: 'ধরন' },
+  },
+  {
     key: 'student',
     type: 'ref',
     ref: 'students',
     required: true,
     label: { en: 'Student', bn: 'শিক্ষার্থী' },
-  },
-  {
-    key: 'student_fee',
-    type: 'ref',
-    ref: 'student_fees',
-    label: { en: 'Student fee', bn: 'শিক্ষার্থীর ফি' },
   },
   {
     key: 'total_amount',
@@ -92,7 +151,7 @@ const columns: readonly ColumnSpec[] = [
     label: { en: 'Issued date', bn: 'ইস্যুর তারিখ' },
   },
   { key: 'due_date', type: 'date', required: true, label: { en: 'Due date', bn: 'শেষ তারিখ' } },
-  { key: 'line_items', type: 'json', label: { en: 'Line items', bn: 'লাইন আইটেম' } },
+  { key: 'snapshot', type: 'json', required: true, label: { en: 'Snapshot', bn: 'স্ন্যাপশট' } },
   {
     key: 'issued_by',
     type: 'ref',
@@ -103,12 +162,15 @@ const columns: readonly ColumnSpec[] = [
 ];
 
 const excluded: readonly string[] = [
-  'student_id', // exported instead as the `student` ref column
-  'student_fee_id', // exported instead as the `student_fee` ref column
-  'issued_by_user_id', // exported instead as the `issued_by` ref column
-  // Frozen issuer identity at issue time. A restore never carries this
-  // forward: upsert sets it to null, and a null snapshot falls back to the
-  // live school profile on read (D9 of #508).
+  'student_id', // exported instead as `student` ref column
+  'issued_by_user_id', // exported instead as `issued_by` ref column
+  // [16.5.1] Opaque FKs whose target tab would need to be applied before
+  // this one for a `ref` column to resolve — see file doc comment above.
+  'payment_id',
+  'related_invoice_id',
+  // Frozen issuer identity at issue time. A restore never carries it
+  // forward; null snapshot falls back to the live school profile (D9 of
+  // #508).
   'issuer_snapshot',
 ];
 
@@ -116,7 +178,7 @@ export const invoicesTab: TabSpec<Invoice, InvoiceRow> = {
   name: 'invoices',
   entity: Invoice,
   excluded,
-  dependsOn: ['students', 'student_fees', 'users'],
+  dependsOn: ['students', 'users'],
   columns,
   naturalKey: ['invoice_number'],
   deleteByAbsence: true,
@@ -124,9 +186,6 @@ export const invoicesTab: TabSpec<Invoice, InvoiceRow> = {
   load(tenantId: string, m: EntityManager): Promise<Invoice[]> {
     // `Invoice` carries no `tenant_id` of its own — tenancy is filtered
     // through `student`, same as `InvoicesService.findAll`.
-    // `toRow` only ever reads `*_id` foreign keys (through `ctx.keyOf`), not
-    // the `student_fee`/`issued_by` relations themselves, so only `student`
-    // is loaded eagerly — it's the one needed to filter by tenant.
     return m.find(Invoice, {
       where: { student: { tenant_id: tenantId } },
       relations: ['student'],
@@ -137,15 +196,15 @@ export const invoicesTab: TabSpec<Invoice, InvoiceRow> = {
     return {
       id: entity.id,
       invoice_number: entity.invoice_number,
+      kind: entity.kind,
       student: ctx.keyOf('students', entity.student_id),
-      student_fee: entity.student_fee_id ? ctx.keyOf('student_fees', entity.student_fee_id) : null,
       total_amount: entity.total_amount,
       tax_amount: entity.tax_amount,
       discount_amount: entity.discount_amount,
       status: entity.status,
       issued_date: entity.issued_date,
       due_date: entity.due_date,
-      line_items: entity.line_items,
+      snapshot: entity.snapshot,
       issued_by: entity.issued_by_user_id ? ctx.keyOf('users', entity.issued_by_user_id) : null,
       notes: entity.notes,
     };
@@ -171,6 +230,18 @@ export const invoicesTab: TabSpec<Invoice, InvoiceRow> = {
 
     if (errors.length > 0) return { errors };
 
+    if (!isValidInvoiceSnapshot(values.snapshot)) {
+      errors.push({
+        tab: 'invoices',
+        row: rowNo,
+        column: 'snapshot',
+        message:
+          'Column "snapshot": does not match the required InvoiceSnapshot shape (issuer, students, totals, payment).',
+        severity: 'error',
+        value: cells.snapshot,
+      });
+    }
+
     let studentId: string | undefined;
     const studentKey = values.student as string;
     if (studentKey) {
@@ -180,33 +251,15 @@ export const invoicesTab: TabSpec<Invoice, InvoiceRow> = {
           tab: 'invoices',
           row: rowNo,
           column: 'student',
-          message: `Column "student": no student with registration number "${studentKey}" was found.`,
+          message: `Column "student": no student with registration number "${studentKey}" found.`,
           severity: 'error',
           value: studentKey,
         });
       }
     }
 
-    let studentFeeId: string | null = null;
-    const studentFeeKey = (values.student_fee as string | null) ?? null;
-    if (studentFeeKey) {
-      const resolved = ctx.ref('student_fees', studentFeeKey);
-      if (!resolved) {
-        errors.push({
-          tab: 'invoices',
-          row: rowNo,
-          column: 'student_fee',
-          message: `Column "student_fee": no student fee "${studentFeeKey}" was found.`,
-          severity: 'error',
-          value: studentFeeKey,
-        });
-      } else {
-        studentFeeId = resolved;
-      }
-    }
-
-    let issuedById: string | null = null;
-    const issuedByKey = (values.issued_by as string | null) ?? null;
+    let issuedById: string | undefined;
+    const issuedByKey = (values.issued_by as string) || undefined;
     if (issuedByKey) {
       const resolved = ctx.ref('users', issuedByKey);
       if (!resolved) {
@@ -214,7 +267,7 @@ export const invoicesTab: TabSpec<Invoice, InvoiceRow> = {
           tab: 'invoices',
           row: rowNo,
           column: 'issued_by',
-          message: `Column "issued_by": no user "${issuedByKey}" was found.`,
+          message: `Column "issued_by": no user "${issuedByKey}" found.`,
           severity: 'error',
           value: issuedByKey,
         });
@@ -229,19 +282,18 @@ export const invoicesTab: TabSpec<Invoice, InvoiceRow> = {
       row: {
         id: values.id as string,
         invoice_number: values.invoice_number as string,
+        kind: values.kind as InvoiceKind,
         student_id: studentId as string,
         student_key: studentKey,
-        student_fee_id: studentFeeId,
-        student_fee_key: studentFeeKey,
         total_amount: values.total_amount as string,
         tax_amount: values.tax_amount as string,
         discount_amount: values.discount_amount as string,
         status: values.status as InvoiceStatus,
         issued_date: values.issued_date as string,
         due_date: values.due_date as string,
-        line_items: values.line_items ?? null,
-        issued_by_id: issuedById,
-        issued_by_key: issuedByKey,
+        snapshot: values.snapshot ?? null,
+        issued_by_id: issuedById ?? null,
+        issued_by_key: issuedByKey ?? null,
         notes: (values.notes as string | null) ?? null,
       },
     };
@@ -253,51 +305,66 @@ export const invoicesTab: TabSpec<Invoice, InvoiceRow> = {
 
   diffFields(row: InvoiceRow, existing: Invoice): string[] {
     const changed: string[] = [];
+    if (row.kind !== existing.kind) changed.push('kind');
     if (row.student_id !== existing.student_id) changed.push('student');
-    if (row.student_fee_id !== existing.student_fee_id) changed.push('student_fee');
     if (String(row.total_amount) !== String(existing.total_amount)) changed.push('total_amount');
     if (String(row.tax_amount) !== String(existing.tax_amount)) changed.push('tax_amount');
     if (String(row.discount_amount) !== String(existing.discount_amount)) {
       changed.push('discount_amount');
     }
     if (row.status !== existing.status) changed.push('status');
-    // Both are `date` columns: `YYYY-MM-DD` on the row, a `Date` on the
-    // entity. `String(Date)` never equals that, so an unguarded compare
-    // reports both fields changed on every row of every restore.
+    // Both `date` columns: `YYYY-MM-DD` on the row, `Date` on the entity.
     if (row.issued_date !== formatDateOnly(existing.issued_date)) changed.push('issued_date');
     if (row.due_date !== formatDateOnly(existing.due_date)) changed.push('due_date');
-    if (JSON.stringify(row.line_items) !== JSON.stringify(existing.line_items)) {
-      changed.push('line_items');
+    if (JSON.stringify(row.snapshot) !== JSON.stringify(existing.snapshot)) {
+      changed.push('snapshot');
     }
     if (row.issued_by_id !== existing.issued_by_user_id) changed.push('issued_by');
     if (row.notes !== existing.notes) changed.push('notes');
     return changed;
   },
 
-  async upsert(
-    row: InvoiceRow,
-    existing: Invoice | null,
-    _tenantId: string,
-    m: EntityManager,
-  ): Promise<Invoice> {
+  async upsert(row: InvoiceRow, existing: Invoice | null, tenantId: string, m: EntityManager) {
+    // [16.5.1] D21 immutability trigger: once an existing row's status has
+    // left DRAFT, the DB only permits status/updated_at/deleted_at to
+    // change — a full-column UPDATE on an already-ISSUED (or later)
+    // invoice would be rejected by the trigger. So for those rows, only
+    // carry the status forward; every other field (student, amounts,
+    // snapshot, ...) is left untouched, matching what's already on disk.
+    if (existing !== null && existing.status !== InvoiceStatus.DRAFT) {
+      // [16.5.1 fix] The trigger only blocks non-status columns once a row
+      // has left DRAFT — it does not stop `status` itself from being set
+      // back to DRAFT. A restore row that tries to re-enter DRAFT on an
+      // already-issued invoice would silently resurrect a "draft" that has
+      // a frozen snapshot and (usually) a real payment behind it. Reject
+      // that transition instead of applying it.
+      if (row.status === InvoiceStatus.DRAFT) {
+        throw new Error(
+          `Cannot restore invoice ${row.invoice_number} to DRAFT: it is already ${existing.status}.`,
+        );
+      }
+      existing.status = row.status;
+      return m.save(Invoice, existing);
+    }
+
     const invoice = existing ?? new Invoice();
     invoice.invoice_number = row.invoice_number;
+    invoice.kind = row.kind;
     invoice.student_id = row.student_id;
-    invoice.student_fee_id = row.student_fee_id;
     invoice.total_amount = row.total_amount as unknown as number;
     invoice.tax_amount = row.tax_amount as unknown as number;
     invoice.discount_amount = row.discount_amount as unknown as number;
     invoice.status = row.status;
     invoice.issued_date = row.issued_date as unknown as Date;
     invoice.due_date = row.due_date as unknown as Date;
-    invoice.line_items = row.line_items as Invoice['line_items'];
+    invoice.snapshot = row.snapshot as Invoice['snapshot'];
     invoice.issued_by_user_id = row.issued_by_id;
     invoice.notes = row.notes;
-    // Never carried forward from the source tenant's snapshot; a null
+    // Never carried forward from the source tenant's snapshot; null
     // snapshot falls back to the live school profile on read (D9 of #508).
-    // Only on insert: an existing invoice's snapshot is the issuer identity
-    // frozen at issue time, and nulling it on a same-school restore would
-    // silently repoint every reprinted receipt at the current profile.
+    // Only on insert: an existing invoice's `issuer_snapshot` is issuer
+    // identity frozen at issue time, nulling it on a same-school restore
+    // would silently repoint every reprinted receipt at the current profile.
     if (existing === null) invoice.issuer_snapshot = null;
 
     return m.save(Invoice, invoice);

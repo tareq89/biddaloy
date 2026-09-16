@@ -47,6 +47,20 @@ const PUBLIC_PATHS = new Set([
   '/verify-email',
 ]);
 
+/**
+ * [16.5.5] Prefix match, not exact — `PUBLIC_PATHS` above is a `Set` of
+ * whole pathnames because every entry there is a single fixed route.
+ * `/i/<token>` is a family of routes, one per share token, so an
+ * exact-match `Set` entry can never cover it. Checked *before*
+ * `ensureSessionLoaded()` runs in `beforeLoad` below, not just before the
+ * redirect: a guardian opening this link cold has no session at all, and
+ * the AC explicitly says "no auth calls" — `ensureSessionLoaded()` would
+ * still fire a cold-boot `POST /auth/refresh`
+ * (`ui/src/api/session.ts:196-200`) for nothing before this guard ever
+ * got to redirect-or-not.
+ */
+const PUBLIC_PATH_PREFIXES = ['/i/'];
+
 export const Route = createRootRouteWithContext<RouterContext>()({
   // Protected-route guard, runs before every route in the tree including
   // `/login` itself — `pathname !== '/login'` below stops that case from
@@ -58,6 +72,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   // `/login`'s `redirect` search param has no absolute-URL open-redirect
   // surface.
   beforeLoad: async ({ location }) => {
+    if (PUBLIC_PATH_PREFIXES.some((prefix) => location.pathname.startsWith(prefix))) return;
     const authenticated = await ensureSessionLoaded();
     if (!authenticated && !PUBLIC_PATHS.has(location.pathname)) {
       // TanStack Router's own documented pattern: `redirect()` returns a

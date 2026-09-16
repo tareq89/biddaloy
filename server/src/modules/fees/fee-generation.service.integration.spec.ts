@@ -13,6 +13,8 @@ import { ApprovalService } from '../auth/guards/approval.guard';
 import { ApprovalRequiredException } from '../../common/errors/approval-required.exception';
 import { PaymentAllocationService } from './payment-allocation.service';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
+import { InvoicesService } from '../invoices/invoices.service';
+import { StorageModule } from '../storage/storage.module';
 import { FeeStructure } from './entities/fee-structure.entity';
 import { StudentFee } from './entities/student-fee.entity';
 import { FeeGeneration } from './entities/fee-generation.entity';
@@ -126,6 +128,7 @@ describe('FeeGenerationService (integration)', () => {
         NoopDiscountResolver,
         ApprovalService,
         PaymentAllocationService,
+        InvoicesService,
         JwtService,
         { provide: 'APPROVAL_REDIS', useValue: redis },
         {
@@ -133,7 +136,7 @@ describe('FeeGenerationService (integration)', () => {
           useValue: { get: (key: string) => (key === 'JWT_SECRET' ? JWT_SECRET : undefined) },
         },
       ],
-      [],
+      [StorageModule],
       { synchronize: true, dropSchema: true },
     );
 

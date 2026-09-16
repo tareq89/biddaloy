@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, IsNull } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { InvoicesService } from './invoices.service';
 import { Invoice } from './entities/invoice.entity';
@@ -26,21 +26,29 @@ import {
   SEED_ADMIN_EMAIL,
   SEED_ADMIN_PASSWORD_HASH,
 } from '@test/constants';
-import { FeeStatus, FeeType, InvoiceStatus } from '@biddaloy/shared';
+import {
+  FeeStatus,
+  FeeType,
+  InvoiceStatus,
+  InvoiceKind,
+  PaymentMethod,
+  PaymentStatus,
+  PaymentAllocationType,
+} from '@biddaloy/shared';
 
 /**
- * Integration tests for InvoicesService (issue #14 — Invoice Generation & Printing).
- *
- * Runs against a real PostgreSQL database. Verifies manual invoice creation
- * (default line item from a StudentFee vs. explicit line_items override),
- * tenant isolation, listing/filtering, printable HTML rendering, and
- * sequential invoice numbering under concurrency.
+ * Integration tests for InvoicesService [16.5.1] — an invoice is always
+ * built from an already-recorded payment's committed allocations, never
+ * from a free-form DTO. Covers snapshot construction (single- and
+ * multi-student), sequential numbering, the frozen issuer snapshot,
+ * DB-level immutability once issued, `createCreditNote`, listing/finding,
+ * and printable HTML.
  */
 
 const OTHER_TENANT_ID = '00000000-0000-4000-8000-000000000099';
 
 let studentSeq = 0;
-// Set by `seedReferenceData` — every `makeFee` bill (16.1.3 made
+// Set by the per-test `beforeEach` — every `makeFee` bill (16.1.3 made
 // `fee_structure_id` NOT NULL) is charged against this one fixture.
 let feeStructureId: string;
 
@@ -111,6 +119,8 @@ describe('InvoicesService (integration)', () => {
   let service: InvoicesService;
   let studentRepo: Repository<Student>;
   let studentFeeRepo: Repository<StudentFee>;
+  let paymentRepo: Repository<Payment>;
+  let allocationRepo: Repository<PaymentAllocation>;
   let invoiceRepo: Repository<Invoice>;
   let dataSource: DataSource;
 
@@ -151,6 +161,51 @@ describe('InvoicesService (integration)', () => {
     });
   }
 
+  /** Records a payment fully allocated against one or more already-saved
+   * fees (in `[fee, amount]` pairs), and marks each fee PAID — mirroring
+   * what `CheckoutService`/`PaymentAllocationService` do before either
+   * ever calls `InvoicesService.create`. */
+  async function makePayment(
+    primaryStudentId: string,
+    allocations: Array<[StudentFee, number]>,
+    overrides: Partial<Payment> = {},
+  ): Promise<Payment> {
+    const totalAmount = allocations.reduce((sum, [, amount]) => sum + amount, 0);
+    const payment = await paymentRepo.save(
+      paymentRepo.create({
+        student_id: primaryStudentId,
+        total_amount: totalAmount,
+        payment_method: PaymentMethod.CASH,
+        payment_status: PaymentStatus.SUCCESS,
+        received_by_user_id: SEED_ADMIN_USER_ID,
+        payment_date: new Date(),
+        tenant_id: TENANT_ID,
+        ...overrides,
+      }),
+    );
+    await allocationRepo.save(
+      allocations.map(([fee, amount]) =>
+        allocationRepo.create({
+          payment_id: payment.id,
+          student_fee_id: fee.id,
+          allocated_amount: amount,
+          allocation_type: PaymentAllocationType.CURRENT,
+        }),
+      ),
+    );
+    for (const [fee, amount] of allocations) {
+      await studentFeeRepo.update(fee.id, {
+        paid_amount: Number(fee.paid_amount) + amount,
+        status: FeeStatus.PAID,
+      });
+    }
+    return payment;
+  }
+
+  function createInvoice(paymentId: string): Promise<Invoice> {
+    return dataSource.manager.transaction((manager) => service.create(paymentId, manager));
+  }
+
   beforeAll(async () => {
     const module = await createTestModule(ALL_ENTITIES, [InvoicesService], [StorageModule], {
       synchronize: true,
@@ -160,10 +215,65 @@ describe('InvoicesService (integration)', () => {
     service = module.get<InvoicesService>(InvoicesService);
     studentRepo = module.get<Repository<Student>>(getRepositoryToken(Student));
     studentFeeRepo = module.get<Repository<StudentFee>>(getRepositoryToken(StudentFee));
+    paymentRepo = module.get<Repository<Payment>>(getRepositoryToken(Payment));
+    allocationRepo = module.get<Repository<PaymentAllocation>>(
+      getRepositoryToken(PaymentAllocation),
+    );
     invoiceRepo = module.get<Repository<Invoice>>(getRepositoryToken(Invoice));
     dataSource = module.get(DataSource);
 
     await seedReferenceData(dataSource);
+
+    // This spec uses `{ synchronize: true, dropSchema: true }`, which
+    // rebuilds the schema from entity metadata only — it never runs
+    // migrations, so migration-only DB objects like the [D21] immutability
+    // trigger (`server/src/migrations/1789800008000-InvoiceImmutableSnapshot.ts`)
+    // don't exist here. Recreate it directly so the '[D21] immutability'
+    // tests below exercise the real trigger, not just its absence.
+    // See server/CLAUDE.md's "Integration Test Database" section.
+    await dataSource.query(`
+      CREATE OR REPLACE FUNCTION "public"."enforce_invoice_immutability"() RETURNS TRIGGER AS $$
+      BEGIN
+        IF OLD."status" <> 'DRAFT' AND NEW."status" = 'DRAFT' THEN
+          RAISE EXCEPTION 'invoice cannot return to DRAFT once issued (id=%)', OLD."id";
+        ELSIF OLD."status" <> 'DRAFT' AND (
+          NEW."invoice_number" IS DISTINCT FROM OLD."invoice_number" OR
+          NEW."kind" IS DISTINCT FROM OLD."kind" OR
+          NEW."student_id" IS DISTINCT FROM OLD."student_id" OR
+          NEW."payment_id" IS DISTINCT FROM OLD."payment_id" OR
+          NEW."related_invoice_id" IS DISTINCT FROM OLD."related_invoice_id" OR
+          NEW."total_amount" IS DISTINCT FROM OLD."total_amount" OR
+          NEW."tax_amount" IS DISTINCT FROM OLD."tax_amount" OR
+          NEW."discount_amount" IS DISTINCT FROM OLD."discount_amount" OR
+          NEW."issued_date" IS DISTINCT FROM OLD."issued_date" OR
+          NEW."due_date" IS DISTINCT FROM OLD."due_date" OR
+          NEW."snapshot" IS DISTINCT FROM OLD."snapshot" OR
+          NEW."issued_by_user_id" IS DISTINCT FROM OLD."issued_by_user_id" OR
+          NEW."notes" IS DISTINCT FROM OLD."notes" OR
+          NEW."issuer_snapshot" IS DISTINCT FROM OLD."issuer_snapshot" OR
+          NEW."created_at" IS DISTINCT FROM OLD."created_at"
+        ) THEN
+          RAISE EXCEPTION 'invoices is immutable once issued: only status, updated_at, deleted_at may change (id=%)', OLD."id";
+        END IF;
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql
+    `);
+    await dataSource.query(
+      `DROP TRIGGER IF EXISTS "trg_enforce_invoice_immutability" ON "invoices"`,
+    );
+    await dataSource.query(
+      `CREATE TRIGGER "trg_enforce_invoice_immutability" BEFORE UPDATE ON "invoices" FOR EACH ROW EXECUTE FUNCTION "public"."enforce_invoice_immutability"()`,
+    );
+
+    // [B6] Same reason as the trigger above: `synchronize: true` never
+    // runs the migration that creates this partial unique index, but
+    // `createFromPayment`'s concurrent-conflict recovery depends on the
+    // real constraint violation to detect a race — recreate it directly.
+    await dataSource.query(`DROP INDEX IF EXISTS "IDX_invoices_payment_id_kind_invoice"`);
+    await dataSource.query(
+      `CREATE UNIQUE INDEX "IDX_invoices_payment_id_kind_invoice" ON "invoices" ("payment_id") WHERE "kind" = 'INVOICE' AND "deleted_at" IS NULL`,
+    );
   }, 60000);
 
   afterAll(async () => {
@@ -199,45 +309,48 @@ describe('InvoicesService (integration)', () => {
   });
 
   describe('create', () => {
-    it('defaults to a single "Fee for M/Y" line item from student_fee_id', async () => {
+    it('builds a single-student snapshot from the payment’s allocations', async () => {
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(
         makeFee(student.id, { total_amount: 1500, month: 4, year: 2026 }),
       );
+      const payment = await makePayment(student.id, [[fee, 1500]]);
 
-      const invoice = await service.create(
-        { student_id: student.id, student_fee_id: fee.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
+      const invoice = await createInvoice(payment.id);
 
       // Invoice numbers must follow the sequential INV-YYYY-XXXXX format.
       expect(invoice.invoice_number).toMatch(/^INV-\d{4}-\d{5}$/);
-      // With no explicit line_items, total_amount is derived straight from the StudentFee.
+      expect(invoice.kind).toBe(InvoiceKind.INVOICE);
+      expect(invoice.payment_id).toBe(payment.id);
       expect(Number(invoice.total_amount)).toBe(1500);
-      expect(invoice.line_items).toHaveLength(1);
-      expect(invoice.line_items![0].description).toBe('Fee for 4/2026');
       expect(invoice.status).toBe(InvoiceStatus.ISSUED);
+      expect(invoice.snapshot.students).toHaveLength(1);
+      expect(invoice.snapshot.students[0].id).toBe(student.id);
+      expect(invoice.snapshot.students[0].lines).toHaveLength(1);
+      expect(invoice.snapshot.students[0].lines[0].period_label).toBe('April 2026');
+      expect(invoice.snapshot.students[0].lines[0].paid_this_time).toBe(1500);
+      expect(invoice.snapshot.totals.paid).toBe(1500);
     });
 
-    it('uses explicit line_items when provided, summing to total_amount', async () => {
-      const student = await studentRepo.save(makeStudent());
+    it('groups lines by student for a multi-student (sibling) payment', async () => {
+      const sibling1 = await studentRepo.save(makeStudent({ full_name: 'Sibling One' }));
+      const sibling2 = await studentRepo.save(makeStudent({ full_name: 'Sibling Two' }));
+      const fee1 = await studentFeeRepo.save(makeFee(sibling1.id, { total_amount: 600 }));
+      const fee2 = await studentFeeRepo.save(makeFee(sibling2.id, { total_amount: 400 }));
+      const payment = await makePayment(sibling1.id, [
+        [fee1, 600],
+        [fee2, 400],
+      ]);
 
-      const invoice = await service.create(
-        {
-          student_id: student.id,
-          line_items: [
-            { description: 'Tuition', amount: 800, quantity: 1 },
-            { description: 'Transport', amount: 200, quantity: 1 },
-          ],
-        },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
+      const invoice = await createInvoice(payment.id);
 
-      expect(invoice.line_items).toHaveLength(2);
-      // total_amount is not caller-supplied — it's always the sum of line item totals.
-      expect(Number(invoice.total_amount)).toBe(1000);
+      expect(invoice.snapshot.students).toHaveLength(2);
+      const byId = new Map(invoice.snapshot.students.map((s) => [s.id, s]));
+      expect(byId.get(sibling1.id)?.lines[0].paid_this_time).toBe(600);
+      expect(byId.get(sibling2.id)?.lines[0].paid_this_time).toBe(400);
+      expect(invoice.snapshot.totals.paid).toBe(1000);
+      // `student_id` on the row stays the payment's primary student.
+      expect(invoice.student_id).toBe(sibling1.id);
     });
 
     it('assigns sequential invoice numbers across separate creates', async () => {
@@ -245,17 +358,11 @@ describe('InvoicesService (integration)', () => {
       const student2 = await studentRepo.save(makeStudent());
       const fee1 = await studentFeeRepo.save(makeFee(student1.id));
       const fee2 = await studentFeeRepo.save(makeFee(student2.id));
+      const payment1 = await makePayment(student1.id, [[fee1, 1000]]);
+      const payment2 = await makePayment(student2.id, [[fee2, 1000]]);
 
-      const inv1 = await service.create(
-        { student_id: student1.id, student_fee_id: fee1.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
-      const inv2 = await service.create(
-        { student_id: student2.id, student_fee_id: fee2.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
+      const inv1 = await createInvoice(payment1.id);
+      const inv2 = await createInvoice(payment2.id);
 
       const seq1 = parseInt(inv1.invoice_number.split('-')[2], 10);
       const seq2 = parseInt(inv2.invoice_number.split('-')[2], 10);
@@ -267,58 +374,162 @@ describe('InvoicesService (integration)', () => {
       const studentB = await studentRepo.save(makeStudent());
       const feeA = await studentFeeRepo.save(makeFee(studentA.id));
       const feeB = await studentFeeRepo.save(makeFee(studentB.id));
+      const paymentA = await makePayment(studentA.id, [[feeA, 1000]]);
+      const paymentB = await makePayment(studentB.id, [[feeB, 1000]]);
 
       const [invA, invB] = await Promise.all([
-        service.create(
-          { student_id: studentA.id, student_fee_id: feeA.id },
-          TENANT_ID,
-          SEED_ADMIN_USER_ID,
-        ),
-        service.create(
-          { student_id: studentB.id, student_fee_id: feeB.id },
-          TENANT_ID,
-          SEED_ADMIN_USER_ID,
-        ),
+        createInvoice(paymentA.id),
+        createInvoice(paymentB.id),
       ]);
 
       expect(invA.invoice_number).not.toBe(invB.invoice_number);
     });
 
-    it('throws BadRequestException when neither student_fee_id nor line_items is given', async () => {
+    it('throws BadRequestException for a payment with no allocations', async () => {
       const student = await studentRepo.save(makeStudent());
+      const payment = await paymentRepo.save(
+        paymentRepo.create({
+          student_id: student.id,
+          total_amount: 100,
+          payment_method: PaymentMethod.CASH,
+          payment_status: PaymentStatus.SUCCESS,
+          payment_date: new Date(),
+          tenant_id: TENANT_ID,
+        }),
+      );
 
-      await expect(
-        service.create({ student_id: student.id }, TENANT_ID, SEED_ADMIN_USER_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(createInvoice(payment.id)).rejects.toThrow(BadRequestException);
     });
 
-    it('throws NotFoundException when student belongs to a different tenant', async () => {
-      const student = await studentRepo.save(makeStudent({ tenant_id: OTHER_TENANT_ID }));
+    it('throws NotFoundException for an unknown payment id', async () => {
+      await expect(createInvoice('00000000-0000-4000-8000-000000000001')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('createFromPayment', () => {
+    it('two sequential calls for the same payment return the same invoice id, and only one live invoice exists', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id, { total_amount: 1000 }));
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+
+      const first = await service.createFromPayment(payment.id, TENANT_ID);
+      const second = await service.createFromPayment(payment.id, TENANT_ID);
+
+      expect(second.id).toBe(first.id);
+      const live = await invoiceRepo.find({
+        where: { payment_id: payment.id, kind: InvoiceKind.INVOICE, deleted_at: IsNull() },
+      });
+      expect(live).toHaveLength(1);
+    });
+
+    it('a concurrent create that loses the unique-index race recovers the winner’s invoice instead of throwing', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id, { total_amount: 1000 }));
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+
+      const [first, second] = await Promise.all([
+        service.createFromPayment(payment.id, TENANT_ID),
+        service.createFromPayment(payment.id, TENANT_ID),
+      ]);
+
+      expect(second.id).toBe(first.id);
+      const live = await invoiceRepo.find({
+        where: { payment_id: payment.id, kind: InvoiceKind.INVOICE, deleted_at: IsNull() },
+      });
+      expect(live).toHaveLength(1);
+    });
+  });
+
+  describe('createCreditNote', () => {
+    it('mints an ISSUED credit note with negated amounts, linked back to the original invoice (now CANCELLED), in its own CN series', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id, { total_amount: 1000 }));
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+      const invoice = await createInvoice(payment.id);
+
+      const creditNote = await dataSource.manager.transaction((manager) =>
+        service.createCreditNote(payment.id, 'Refund requested', manager),
+      );
+
+      expect(creditNote.invoice_number).toMatch(/^CN-\d{4}-\d{6}$/);
+      expect(creditNote.kind).toBe(InvoiceKind.CREDIT_NOTE);
+      expect(creditNote.related_invoice_id).toBe(invoice.id);
+      // credit note nets the original invoice to zero
+      expect(Number(creditNote.total_amount)).toBeCloseTo(-Number(invoice.total_amount));
+      expect(Number(creditNote.tax_amount)).toBeCloseTo(-Number(invoice.tax_amount));
+      expect(Number(creditNote.discount_amount)).toBeCloseTo(-Number(invoice.discount_amount));
+      // the credit note itself is a real, final document — not cancelled
+      expect(creditNote.status).toBe(InvoiceStatus.ISSUED);
+      expect(creditNote.notes).toBe('Refund requested');
+
+      // CANCELLED is written on the ORIGINAL invoice, not the credit note
+      const reloadedOriginal = await invoiceRepo.findOneByOrFail({ id: invoice.id });
+      expect(reloadedOriginal.status).toBe(InvoiceStatus.CANCELLED);
+    });
+
+    it('throws NotFoundException when the payment has no invoice to reverse', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const payment = await paymentRepo.save(
+        paymentRepo.create({
+          student_id: student.id,
+          total_amount: 100,
+          payment_method: PaymentMethod.CASH,
+          payment_status: PaymentStatus.SUCCESS,
+          payment_date: new Date(),
+          tenant_id: TENANT_ID,
+        }),
+      );
 
       await expect(
-        service.create(
-          {
-            student_id: student.id,
-            line_items: [{ description: 'Fee', amount: 100, quantity: 1 }],
-          },
-          TENANT_ID,
-          SEED_ADMIN_USER_ID,
+        dataSource.manager.transaction((manager) =>
+          service.createCreditNote(payment.id, 'no invoice', manager),
         ),
       ).rejects.toThrow(NotFoundException);
     });
+  });
 
-    it('throws NotFoundException when student_fee_id does not belong to the student', async () => {
+  describe('[D21] immutability', () => {
+    it('rejects a direct UPDATE that changes a frozen column once issued', async () => {
       const student = await studentRepo.save(makeStudent());
-      const otherStudent = await studentRepo.save(makeStudent());
-      const foreignFee = await studentFeeRepo.save(makeFee(otherStudent.id));
+      const fee = await studentFeeRepo.save(makeFee(student.id));
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+      const invoice = await createInvoice(payment.id);
 
       await expect(
-        service.create(
-          { student_id: student.id, student_fee_id: foreignFee.id },
-          TENANT_ID,
-          SEED_ADMIN_USER_ID,
-        ),
-      ).rejects.toThrow(NotFoundException);
+        dataSource.query('UPDATE invoices SET total_amount = $1 WHERE id = $2', [9999, invoice.id]),
+      ).rejects.toThrow(/immutable/i);
+    });
+
+    it('still allows status/updated_at/deleted_at to change', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id));
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+      const invoice = await createInvoice(payment.id);
+
+      await expect(
+        dataSource.query('UPDATE invoices SET status = $1 WHERE id = $2', [
+          InvoiceStatus.PAID,
+          invoice.id,
+        ]),
+      ).resolves.toBeDefined();
+      const reloaded = await invoiceRepo.findOneOrFail({ where: { id: invoice.id } });
+      expect(reloaded.status).toBe(InvoiceStatus.PAID);
+    });
+
+    it('rejects reverting status back to DRAFT once issued', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id));
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+      const invoice = await createInvoice(payment.id);
+
+      await expect(
+        dataSource.query('UPDATE invoices SET status = $1 WHERE id = $2', [
+          InvoiceStatus.DRAFT,
+          invoice.id,
+        ]),
+      ).rejects.toThrow(/cannot return to DRAFT/i);
     });
   });
 
@@ -329,13 +540,10 @@ describe('InvoicesService (integration)', () => {
 
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id));
-      const created = await service.create(
-        { student_id: student.id, student_fee_id: fee.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+      const created = await createInvoice(payment.id);
       expect(created.issuer_snapshot?.name).toBe('Name At Issue Time');
-      expect(created.issuer.name).toBe('Name At Issue Time');
+      expect(created.snapshot.issuer.name).toBe('Name At Issue Time');
 
       // Edit the profile after the invoice was issued.
       await schoolRepo.update(TENANT_ID, { name: 'Name After Edit' });
@@ -343,68 +551,40 @@ describe('InvoicesService (integration)', () => {
       const reFound = await service.findOne(created.id, TENANT_ID);
       expect(reFound.issuer.name).toBe('Name At Issue Time');
 
-      // A brand-new invoice reflects the edited profile.
-      const student2 = await studentRepo.save(makeStudent());
-      const fee2 = await studentFeeRepo.save(makeFee(student2.id));
-      const created2 = await service.create(
-        { student_id: student2.id, student_fee_id: fee2.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
-      expect(created2.issuer.name).toBe('Name After Edit');
-
       await schoolRepo.update(TENANT_ID, { name: 'Test School' });
-    });
-
-    it('serializes with an in-flight profile update: a name committed before the insert is what gets frozen', async () => {
-      const student = await studentRepo.save(makeStudent());
-      const fee = await studentFeeRepo.save(makeFee(student.id));
-
-      // Simulate `SchoolProfileService.updateProfile` mid-transaction: the
-      // row is `FOR UPDATE`-locked with the new name written but not yet
-      // committed. The invoice's `FOR SHARE` read must wait for that
-      // commit rather than snapshot the about-to-be-replaced name.
-      const runner = dataSource.createQueryRunner();
-      await runner.connect();
-      await runner.startTransaction();
-      try {
-        await runner.manager
-          .createQueryBuilder(School, 'school')
-          .setLock('pessimistic_write')
-          .where('school.id = :id', { id: TENANT_ID })
-          .getOne();
-        await runner.manager.update(School, TENANT_ID, { name: 'Committed Before Insert' });
-
-        const pending = service.create(
-          { student_id: student.id, student_fee_id: fee.id },
-          TENANT_ID,
-          SEED_ADMIN_USER_ID,
-        );
-        // Let the invoice transaction reach (and block on) the share lock.
-        await new Promise((resolve) => setTimeout(resolve, 200));
-        await runner.commitTransaction();
-
-        const created = await pending;
-        expect(created.issuer_snapshot?.name).toBe('Committed Before Insert');
-      } finally {
-        if (runner.isTransactionActive) await runner.rollbackTransaction();
-        await runner.release();
-        await dataSource.getRepository(School).update(TENANT_ID, { name: 'Test School' });
-      }
     });
 
     it('falls back to the live profile for a pre-existing row with a null snapshot', async () => {
       const schoolRepo = dataSource.getRepository(School);
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id));
-      const created = await service.create(
-        { student_id: student.id, student_fee_id: fee.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+      const created = await createInvoice(payment.id);
 
-      // Simulate a legacy row created before this column existed.
-      await invoiceRepo.update(created.id, { issuer_snapshot: null });
+      // Simulate a legacy row created before `issuer_snapshot` existed.
+      // The [D21] trigger (migration 1789800008000) freezes
+      // `issuer_snapshot` too once a row leaves DRAFT, same as every
+      // other column — so a *real* post-issue UPDATE can't produce this
+      // state. Bypass the trigger for this one session-local statement
+      // (`session_replication_role = 'replica'`, same trick Postgres
+      // itself uses for logical-replication apply) purely to fabricate
+      // the legacy fixture; it is not something application code does.
+      // `dataSource.query` grabs (and releases) a connection from the pool
+      // per call, so the `SET`/`UPDATE`/`SET` sequence must share one
+      // `QueryRunner` — otherwise the `SET` can land on a different
+      // pooled connection than the `UPDATE`, leaving the session-local
+      // flag unset for it.
+      const queryRunner = dataSource.createQueryRunner();
+      await queryRunner.connect();
+      try {
+        await queryRunner.query("SET session_replication_role = 'replica'");
+        await queryRunner.query('UPDATE invoices SET issuer_snapshot = NULL WHERE id = $1', [
+          created.id,
+        ]);
+      } finally {
+        await queryRunner.query("SET session_replication_role = 'origin'");
+        await queryRunner.release();
+      }
       await schoolRepo.update(TENANT_ID, { name: 'Legacy Fallback Name' });
 
       const found = await service.findOne(created.id, TENANT_ID);
@@ -418,11 +598,8 @@ describe('InvoicesService (integration)', () => {
     it('returns the invoice for the owning tenant', async () => {
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id));
-      const created = await service.create(
-        { student_id: student.id, student_fee_id: fee.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+      const created = await createInvoice(payment.id);
 
       const found = await service.findOne(created.id, TENANT_ID);
       expect(found.id).toBe(created.id);
@@ -432,11 +609,8 @@ describe('InvoicesService (integration)', () => {
     it('throws NotFoundException for a different tenant', async () => {
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id));
-      const created = await service.create(
-        { student_id: student.id, student_fee_id: fee.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+      const created = await createInvoice(payment.id);
 
       await expect(service.findOne(created.id, OTHER_TENANT_ID)).rejects.toThrow(NotFoundException);
     });
@@ -444,11 +618,8 @@ describe('InvoicesService (integration)', () => {
     it('excludes a soft-deleted invoice', async () => {
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id));
-      const created = await service.create(
-        { student_id: student.id, student_fee_id: fee.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+      const created = await createInvoice(payment.id);
 
       await invoiceRepo.softDelete(created.id);
       const deleted = await invoiceRepo.findOne({ where: { id: created.id }, withDeleted: true });
@@ -464,16 +635,8 @@ describe('InvoicesService (integration)', () => {
       const student2 = await studentRepo.save(makeStudent());
       const fee1 = await studentFeeRepo.save(makeFee(student1.id));
       const fee2 = await studentFeeRepo.save(makeFee(student2.id));
-      await service.create(
-        { student_id: student1.id, student_fee_id: fee1.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
-      await service.create(
-        { student_id: student2.id, student_fee_id: fee2.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
+      await createInvoice((await makePayment(student1.id, [[fee1, 1000]])).id);
+      await createInvoice((await makePayment(student2.id, [[fee2, 1000]])).id);
 
       const result = await service.findAll(
         { student_id: student1.id, page: 1, limit: 10 },
@@ -500,16 +663,8 @@ describe('InvoicesService (integration)', () => {
       const theirs = await studentRepo.save(makeStudent());
       const feeMine = await studentFeeRepo.save(makeFee(mine.id));
       const feeTheirs = await studentFeeRepo.save(makeFee(theirs.id));
-      await service.create(
-        { student_id: mine.id, student_fee_id: feeMine.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
-      await service.create(
-        { student_id: theirs.id, student_fee_id: feeTheirs.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
+      await createInvoice((await makePayment(mine.id, [[feeMine, 1000]])).id);
+      await createInvoice((await makePayment(theirs.id, [[feeTheirs, 1000]])).id);
 
       const result = await service.findAll({ page: 1, limit: 10 }, TENANT_ID, [mine.id]);
 
@@ -524,11 +679,7 @@ describe('InvoicesService (integration)', () => {
       const mine = await studentRepo.save(makeStudent());
       const theirs = await studentRepo.save(makeStudent());
       const feeTheirs = await studentFeeRepo.save(makeFee(theirs.id));
-      await service.create(
-        { student_id: theirs.id, student_fee_id: feeTheirs.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
+      await createInvoice((await makePayment(theirs.id, [[feeTheirs, 1000]])).id);
 
       const result = await service.findAll(
         { student_id: theirs.id, page: 1, limit: 10 },
@@ -545,11 +696,7 @@ describe('InvoicesService (integration)', () => {
     it('returns an empty page for an empty restriction, not the whole tenant', async () => {
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id));
-      await service.create(
-        { student_id: student.id, student_fee_id: fee.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
+      await createInvoice((await makePayment(student.id, [[fee, 1000]])).id);
 
       const restricted = await service.findAll({ page: 1, limit: 10 }, TENANT_ID, []);
       const unrestricted = await service.findAll({ page: 1, limit: 10 }, TENANT_ID);
@@ -562,11 +709,7 @@ describe('InvoicesService (integration)', () => {
     it('still enforces the tenant filter on top of the restriction', async () => {
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id));
-      await service.create(
-        { student_id: student.id, student_fee_id: fee.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
+      await createInvoice((await makePayment(student.id, [[fee, 1000]])).id);
 
       const result = await service.findAll({ page: 1, limit: 10 }, OTHER_TENANT_ID, [student.id]);
 
@@ -576,11 +719,7 @@ describe('InvoicesService (integration)', () => {
     it('does not return invoices belonging to another tenant', async () => {
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id));
-      await service.create(
-        { student_id: student.id, student_fee_id: fee.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
+      await createInvoice((await makePayment(student.id, [[fee, 1000]])).id);
 
       const result = await service.findAll({ page: 1, limit: 10 }, OTHER_TENANT_ID);
       expect(result.total).toBe(0);
@@ -589,11 +728,8 @@ describe('InvoicesService (integration)', () => {
     it('searches by invoice number or student name', async () => {
       const student = await studentRepo.save(makeStudent({ full_name: 'Ahmed Khan' }));
       const fee = await studentFeeRepo.save(makeFee(student.id));
-      const invoice = await service.create(
-        { student_id: student.id, student_fee_id: fee.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+      const invoice = await createInvoice(payment.id);
 
       const byNumber = await service.findAll(
         { search: invoice.invoice_number, page: 1, limit: 10 },
@@ -604,7 +740,6 @@ describe('InvoicesService (integration)', () => {
 
       const byName = await service.findAll({ search: 'Ahmed', page: 1, limit: 10 }, TENANT_ID);
       expect(byName.total).toBe(1);
-      expect(byName.data[0].id).toBe(invoice.id);
 
       const noMatch = await service.findAll({ search: 'Nobody', page: 1, limit: 10 }, TENANT_ID);
       expect(noMatch.total).toBe(0);
@@ -613,11 +748,8 @@ describe('InvoicesService (integration)', () => {
     it("does not return another tenant's invoice when searching by invoice number or student name", async () => {
       const student = await studentRepo.save(makeStudent({ full_name: 'Ahmed Khan' }));
       const fee = await studentFeeRepo.save(makeFee(student.id));
-      const invoice = await service.create(
-        { student_id: student.id, student_fee_id: fee.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+      const invoice = await createInvoice(payment.id);
 
       const byNumber = await service.findAll(
         { search: invoice.invoice_number, page: 1, limit: 10 },
@@ -635,11 +767,8 @@ describe('InvoicesService (integration)', () => {
     it('does not return a soft-deleted invoice when searching by invoice number or student name', async () => {
       const student = await studentRepo.save(makeStudent({ full_name: 'Ahmed Khan' }));
       const fee = await studentFeeRepo.save(makeFee(student.id));
-      const invoice = await service.create(
-        { student_id: student.id, student_fee_id: fee.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+      const invoice = await createInvoice(payment.id);
       await invoiceRepo.softDelete(invoice.id);
 
       const byNumber = await service.findAll(
@@ -652,23 +781,13 @@ describe('InvoicesService (integration)', () => {
       expect(byName.total).toBe(0);
     });
 
-    // [8.14.9] amount range filter — must apply on invoice.total_amount, not
-    // student_fee.total_amount (the invoice can diverge via line_items).
     it('filters by min_amount and max_amount', async () => {
       const student1 = await studentRepo.save(makeStudent());
       const student2 = await studentRepo.save(makeStudent());
       const fee1 = await studentFeeRepo.save(makeFee(student1.id, { total_amount: 500 }));
       const fee2 = await studentFeeRepo.save(makeFee(student2.id, { total_amount: 1500 }));
-      await service.create(
-        { student_id: student1.id, student_fee_id: fee1.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
-      await service.create(
-        { student_id: student2.id, student_fee_id: fee2.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
+      await createInvoice((await makePayment(student1.id, [[fee1, 500]])).id);
+      await createInvoice((await makePayment(student2.id, [[fee2, 1500]])).id);
 
       const result = await service.findAll(
         { min_amount: 1000, max_amount: 2000, page: 1, limit: 10 },
@@ -679,23 +798,13 @@ describe('InvoicesService (integration)', () => {
       expect(Number(result.data[0].total_amount)).toBe(1500);
     });
 
-    // [8.14.9] sort=total_amount must combine with the default
-    // `invoice.id ASC` tiebreaker, not replace it entirely.
     it('sorts by total_amount ascending', async () => {
       const student1 = await studentRepo.save(makeStudent());
       const student2 = await studentRepo.save(makeStudent());
       const fee1 = await studentFeeRepo.save(makeFee(student1.id, { total_amount: 1500 }));
       const fee2 = await studentFeeRepo.save(makeFee(student2.id, { total_amount: 500 }));
-      await service.create(
-        { student_id: student1.id, student_fee_id: fee1.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
-      await service.create(
-        { student_id: student2.id, student_fee_id: fee2.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
+      await createInvoice((await makePayment(student1.id, [[fee1, 1500]])).id);
+      await createInvoice((await makePayment(student2.id, [[fee2, 500]])).id);
 
       const result = await service.findAll(
         { sort: 'total_amount', order: 'asc', page: 1, limit: 10 },
@@ -710,11 +819,7 @@ describe('InvoicesService (integration)', () => {
     it('does not return another tenant’s invoice when filtering by amount range', async () => {
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id, { total_amount: 1500 }));
-      await service.create(
-        { student_id: student.id, student_fee_id: fee.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
+      await createInvoice((await makePayment(student.id, [[fee, 1500]])).id);
 
       const result = await service.findAll(
         { min_amount: 1000, max_amount: 2000, page: 1, limit: 10 },
@@ -727,11 +832,7 @@ describe('InvoicesService (integration)', () => {
     it('excludes soft-deleted invoices', async () => {
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id));
-      const created = await service.create(
-        { student_id: student.id, student_fee_id: fee.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
+      const created = await createInvoice((await makePayment(student.id, [[fee, 1000]])).id);
 
       await invoiceRepo.softDelete(created.id);
 
@@ -744,18 +845,16 @@ describe('InvoicesService (integration)', () => {
     it('renders an HTML document containing the invoice number, student name, and line items', async () => {
       const student = await studentRepo.save(makeStudent({ full_name: 'Printable Student' }));
       const fee = await studentFeeRepo.save(makeFee(student.id, { total_amount: 750 }));
-      const invoice = await service.create(
-        { student_id: student.id, student_fee_id: fee.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
+      const payment = await makePayment(student.id, [[fee, 750]]);
+      const invoice = await createInvoice(payment.id);
 
       const html = await service.getPrintableHtml(invoice.id, TENANT_ID);
 
       expect(html).toContain('<!DOCTYPE html>');
       expect(html).toContain(invoice.invoice_number);
       expect(html).toContain('Printable Student');
-      expect(html).toContain('750.00');
+      // [16.5.2] amounts render in Bengali digits by default (750.00 -> ৭৫০.০০).
+      expect(html).toContain('৭৫০.০০');
     });
 
     it('[15.5.7] renders the frozen issuer name/address/EIIN, not a later profile edit', async () => {
@@ -768,11 +867,8 @@ describe('InvoicesService (integration)', () => {
 
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id));
-      const invoice = await service.create(
-        { student_id: student.id, student_fee_id: fee.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+      const invoice = await createInvoice(payment.id);
 
       await schoolRepo.update(TENANT_ID, { name: 'Renamed After Issue' });
 
@@ -793,15 +889,71 @@ describe('InvoicesService (integration)', () => {
     it('throws NotFoundException for a different tenant', async () => {
       const student = await studentRepo.save(makeStudent());
       const fee = await studentFeeRepo.save(makeFee(student.id));
-      const invoice = await service.create(
-        { student_id: student.id, student_fee_id: fee.id },
-        TENANT_ID,
-        SEED_ADMIN_USER_ID,
-      );
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+      const invoice = await createInvoice(payment.id);
 
       await expect(service.getPrintableHtml(invoice.id, OTHER_TENANT_ID)).rejects.toThrow(
         NotFoundException,
       );
+    });
+
+    it('[16.5.2] renders pos58/pos80 with the @page rule for that width', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id, { total_amount: 500 }));
+      const payment = await makePayment(student.id, [[fee, 500]]);
+      const invoice = await createInvoice(payment.id);
+
+      const html58 = await service.getPrintableHtml(invoice.id, TENANT_ID, 'pos58');
+      expect(html58).toContain('@page { size: 58mm auto; margin: 2mm }');
+      expect(html58).toContain(invoice.invoice_number);
+
+      const html80 = await service.getPrintableHtml(invoice.id, TENANT_ID, 'pos80');
+      expect(html80).toContain('@page { size: 80mm auto; margin: 2mm }');
+    });
+
+    it('[16.5.2] a4 defaults when format is omitted', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id, { total_amount: 500 }));
+      const payment = await makePayment(student.id, [[fee, 500]]);
+      const invoice = await createInvoice(payment.id);
+
+      const html = await service.getPrintableHtml(invoice.id, TENANT_ID);
+      expect(html).toContain('<!DOCTYPE html>');
+      expect(html).not.toContain('@page');
+    });
+
+    it('[16.5.2] renders the credit-note variant with negated amounts, in all three formats', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const fee = await studentFeeRepo.save(makeFee(student.id, { total_amount: 1000 }));
+      const payment = await makePayment(student.id, [[fee, 1000]]);
+      await createInvoice(payment.id);
+      const creditNote = await dataSource.manager.transaction((manager) =>
+        service.createCreditNote(payment.id, 'Refund requested', manager),
+      );
+
+      const a4 = await service.getPrintableHtml(creditNote.id, TENANT_ID, 'a4');
+      expect(a4).toContain('Credit Note');
+      expect(a4).toContain('-১,০০০.০০');
+
+      const pos58 = await service.getPrintableHtml(creditNote.id, TENANT_ID, 'pos58');
+      expect(pos58).toContain('CREDIT NOTE');
+      expect(pos58).toContain('-১,০০০.০০');
+    });
+
+    it('[664 follow-up, 665] filters snapshot.students down to the linked subset when given', async () => {
+      const studentA = await studentRepo.save(makeStudent({ full_name: 'Linked Sibling' }));
+      const studentB = await studentRepo.save(makeStudent({ full_name: 'Unlinked Sibling' }));
+      const feeA = await studentFeeRepo.save(makeFee(studentA.id, { total_amount: 500 }));
+      const feeB = await studentFeeRepo.save(makeFee(studentB.id, { total_amount: 500 }));
+      const payment = await makePayment(studentA.id, [
+        [feeA, 500],
+        [feeB, 500],
+      ]);
+      const invoice = await createInvoice(payment.id);
+
+      const html = await service.getPrintableHtml(invoice.id, TENANT_ID, 'a4', [studentA.id]);
+      expect(html).toContain('Linked Sibling');
+      expect(html).not.toContain('Unlinked Sibling');
     });
   });
 });

@@ -117,12 +117,21 @@ describe('reset-order (integration)', () => {
       [tableList],
     );
 
+    // [16.5.1] `payments.invoice_id` → `invoices` and `invoices.payment_id`
+    // → `payments` (B6, `ON DELETE RESTRICT`) form a genuine FK cycle — no
+    // table order can satisfy both directions. `buildResetSql()` breaks it
+    // with an explicit `UPDATE "payments" SET "invoice_id" = NULL` before
+    // any delete runs, so this one direction is a known, handled exemption
+    // rather than a real ordering bug.
+    const KNOWN_CYCLE_EXEMPTIONS = new Set(['payments->invoices']);
+
     const violations = edges.filter(({ child, parent }) => {
       // A self-referential FK (e.g. a parent_id pointing at the same table) is
       // always fine: `DELETE FROM t` removes every row in one statement and
       // the constraint is only checked at statement end. It can never be
       // "ordered before itself", so don't report it as a violation.
       if (child === parent) return false;
+      if (KNOWN_CYCLE_EXEMPTIONS.has(`${child}->${parent}`)) return false;
 
       const childIndex = indexOf.get(child);
       const parentIndex = indexOf.get(parent);

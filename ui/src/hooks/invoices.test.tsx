@@ -2,7 +2,7 @@ import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
-import { invoiceFactory } from '../test/factories';
+import { guardianFactory, invoiceFactory, studentFactory } from '../test/factories';
 import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 
@@ -11,6 +11,7 @@ import {
   invoiceQueryOptions,
   useCreateInvoice,
   useInvoice,
+  useInvoiceSendCandidates,
   useInvoices,
 } from './invoices';
 
@@ -105,12 +106,65 @@ describe('useCreateInvoice', () => {
       tenantId: 'tenant-1',
     });
 
-    result.current.mutate({
-      student_id: 'student-1',
-      line_items: [{ description: 'Fee for 3/2026', amount: 500, quantity: 1 }],
-    });
+    result.current.mutate({ payment_id: 'payment-1' });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.invoice_number).toBe('INV-2026-00002');
+  });
+});
+
+describe('useInvoiceSendCandidates', () => {
+  it('dedupes a guardian shared by two students on a multi-student invoice', async () => {
+    const sharedGuardian = guardianFactory({ id: 'guardian-shared', notifications_enabled: true });
+    const studentA = studentFactory({ id: 'student-a', guardians: [sharedGuardian] });
+    const studentB = studentFactory({
+      id: 'student-b',
+      guardians: [
+        sharedGuardian,
+        guardianFactory({ id: 'guardian-b-only', notifications_enabled: true }),
+      ],
+    });
+    server.use(
+      http.get('/api/v1/students/:id', ({ params }) =>
+        HttpResponse.json(params.id === studentA.id ? studentA : studentB),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(
+      () => useInvoiceSendCandidates([studentA.id, studentB.id]),
+      { tenantId: 'tenant-1' },
+    );
+
+    await waitFor(() => expect(result.current.isPending).toBe(false));
+    expect(result.current.sendCandidates.map((g) => g.id).sort()).toEqual([
+      'guardian-b-only',
+      'guardian-shared',
+    ]);
+  });
+
+  it('falls back to every reachable guardian when none is primary', async () => {
+    const notPrimary = guardianFactory({
+      id: 'guardian-not-primary',
+      is_primary_contact: false,
+      notifications_enabled: true,
+    });
+    const student = studentFactory({ id: 'student-c', guardians: [notPrimary] });
+    server.use(http.get('/api/v1/students/:id', () => HttpResponse.json(student)));
+
+    const { result } = renderHookWithProviders(() => useInvoiceSendCandidates([student.id]), {
+      tenantId: 'tenant-1',
+    });
+
+    await waitFor(() => expect(result.current.isPending).toBe(false));
+    expect(result.current.sendCandidates.map((g) => g.id)).toEqual(['guardian-not-primary']);
+  });
+
+  it('is pending with no candidates for an empty student list, and never queries', () => {
+    const { result } = renderHookWithProviders(() => useInvoiceSendCandidates([]), {
+      tenantId: 'tenant-1',
+    });
+
+    expect(result.current.isPending).toBe(false);
+    expect(result.current.sendCandidates).toEqual([]);
   });
 });

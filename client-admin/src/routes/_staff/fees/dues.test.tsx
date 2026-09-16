@@ -182,7 +182,7 @@ describe('/fees/dues', () => {
     expect(router.state.location.search).toEqual({ record: '1', student_id: 'student-1' });
   });
 
-  it('bulk-selecting a row reveals Send reminder, Generate invoice and Export CSV', async () => {
+  it('bulk-selecting a row reveals Send reminder and Export CSV', async () => {
     server.use(
       http.get('/api/v1/fees/dues', () =>
         HttpResponse.json({ data: [duesRow()], total: 1, page: 1, limit: 10, totalPages: 1 }),
@@ -200,42 +200,11 @@ describe('/fees/dues', () => {
     await user.click(await screen.findByRole('checkbox', { name: 'Select row 1' }));
 
     expect(await screen.findByRole('button', { name: 'Send reminder' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Generate invoice' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Export CSV' })).toBeTruthy();
-  });
-
-  it('Generate invoice posts one invoice per selected row and clears the selection', async () => {
-    let receivedBody: { student_id?: string; line_items?: unknown } | undefined;
-    server.use(
-      http.get('/api/v1/fees/dues', () =>
-        HttpResponse.json({ data: [duesRow()], total: 1, page: 1, limit: 10, totalPages: 1 }),
-      ),
-      http.post('/api/v1/invoices', async ({ request }) => {
-        receivedBody = (await request.json()) as { student_id?: string; line_items?: unknown };
-        return HttpResponse.json(
-          { id: 'invoice-1', invoice_number: 'INV-2026-00001' },
-          { status: 201 },
-        );
-      }),
-    );
-
-    renderWithRouter(routeTree, {
-      initialEntries: ['/fees/dues'],
-      tenantId: 'tenant-1',
-      role: 'ACCOUNTANT',
-      locale: 'en',
-    });
-
-    const user = userEvent.setup();
-    await user.click(await screen.findByRole('checkbox', { name: 'Select row 1' }));
-    await user.click(screen.getByRole('button', { name: 'Generate invoice' }));
-
-    const dialog = within(await screen.findByRole('dialog'));
-    await user.click(dialog.getByRole('button', { name: 'Generate' }));
-
-    await waitFor(() => expect(receivedBody?.student_id).toBe('student-1'));
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Send reminder' })).toBeNull());
+    // [16.5.1] Bulk "Generate invoice" was removed — invoices can only be
+    // created from a real payment now, there's no more arbitrary
+    // line-item invoice for outstanding dues.
+    expect(screen.queryByRole('button', { name: 'Generate invoice' })).toBeNull();
   });
 
   it('exports the selected row to CSV with derived status and formula-leading values neutralized', async () => {

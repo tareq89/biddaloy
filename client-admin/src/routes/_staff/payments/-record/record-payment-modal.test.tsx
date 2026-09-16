@@ -13,9 +13,16 @@ import { RecordPaymentModal } from './record-payment-modal';
 // no-op rather than exercised: the router itself isn't this ticket's
 // concern, and the real navigation target is already asserted for
 // `/payments/record` elsewhere (`route-permissions.test.ts`'s siblings).
+//
+// `navigateMock` is hoisted out of the factory (rather than a fresh
+// `vi.fn()` per call, which no test could assert against) so a test can
+// verify the success view stays put — `onOpenChange(false)` alone doesn't
+// prove that, since a component could stop calling it for unrelated
+// reasons while still navigating away.
+const navigateMock = vi.fn();
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@tanstack/react-router')>();
-  return { ...actual, useNavigate: () => vi.fn() };
+  return { ...actual, useNavigate: () => navigateMock };
 });
 
 function bill(overrides: Partial<Record<string, unknown>> = {}) {
@@ -89,6 +96,7 @@ async function renderModal(props: { studentId?: string; guardianId?: string } = 
 
 describe('RecordPaymentModal', () => {
   afterEach(async () => {
+    navigateMock.mockClear();
     await cleanupTestState();
   });
 
@@ -179,7 +187,11 @@ describe('RecordPaymentModal', () => {
         approvalTokenSeen = request.headers.get('X-Approval-Token');
         return HttpResponse.json(
           {
-            payment: { id: 'payment-1' },
+            payment: {
+              id: 'payment-1',
+              student: { id: 'student-1', full_name: 'Rahim' },
+              total_amount: 1000,
+            },
             invoice_id: 'invoice-1',
             invoice_number: 'INV-1',
             change_amount: 0,
@@ -239,5 +251,85 @@ describe('RecordPaymentModal', () => {
     // any (wrongly) in-flight request a tick to land before asserting.
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(checkoutCalls).toBe(0);
+  });
+
+  it('[16.5.5] a successful checkout shows the success view, not a navigate-away', async () => {
+    server.use(
+      http.get('/api/v1/payments/cart', () => HttpResponse.json(cartResponse())),
+      http.post('/api/v1/payments/checkout', () =>
+        HttpResponse.json(
+          {
+            payment: {
+              id: 'payment-1',
+              student: { id: 'student-1', full_name: 'Rahim' },
+              total_amount: 5000,
+            },
+            invoice_id: 'invoice-1',
+            invoice_number: 'INV-2026-000123',
+            change_amount: 0,
+            wallet_balance_after: 0,
+          },
+          { status: 201 },
+        ),
+      ),
+    );
+
+    const user = userEvent.setup();
+    const { onOpenChange } = await renderModal({ studentId: 'student-1' });
+    await screen.findByText('Tuition — March');
+
+    const submitButton = await screen.findByRole<HTMLButtonElement>('button', {
+      name: 'Record payment',
+    });
+    await waitFor(() => expect(submitButton.disabled).toBe(false));
+    await user.click(submitButton);
+
+    await waitFor(() => expect(screen.getByText('INV-2026-000123')).toBeTruthy());
+    // The dialog stays open on the success view — `resetAndClose()` (which
+    // calls `onOpenChange(false)`) is no longer reached from `onSuccess`.
+    // Asserting `onOpenChange` alone wouldn't catch `onSuccess` navigating
+    // away instead: the success view (`INV-2026-000123`) is still visible
+    // above, and navigation must not have fired either.
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it('[16.5.5] "Record another" returns to an empty form', async () => {
+    server.use(
+      http.get('/api/v1/payments/cart', () => HttpResponse.json(cartResponse())),
+      http.post('/api/v1/payments/checkout', () =>
+        HttpResponse.json(
+          {
+            payment: {
+              id: 'payment-1',
+              student: { id: 'student-1', full_name: 'Rahim' },
+              total_amount: 5000,
+            },
+            invoice_id: 'invoice-1',
+            invoice_number: 'INV-2026-000123',
+            change_amount: 0,
+            wallet_balance_after: 0,
+          },
+          { status: 201 },
+        ),
+      ),
+    );
+
+    const user = userEvent.setup();
+    await renderModal({ studentId: 'student-1' });
+    await screen.findByText('Tuition — March');
+
+    const submitButton = await screen.findByRole<HTMLButtonElement>('button', {
+      name: 'Record payment',
+    });
+    await waitFor(() => expect(submitButton.disabled).toBe(false));
+    await user.click(submitButton);
+
+    await waitFor(() => expect(screen.getByText('INV-2026-000123')).toBeTruthy());
+    await user.click(screen.getByRole('button', { name: 'Record another' }));
+
+    // Back on the form, with the amount-received field cleared.
+    expect(screen.getByText('Record a payment')).toBeTruthy();
+    expect(screen.getByLabelText<HTMLInputElement>('Amount received').value).toBe('');
   });
 });
