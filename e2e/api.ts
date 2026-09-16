@@ -319,15 +319,52 @@ export async function createReminderBatch(
   });
 }
 
+/** [16.5.1] `POST /invoices` no longer takes an arbitrary line-item body —
+ * an invoice is always minted from a real payment's allocations
+ * (D2/D18). This pays off `studentId`'s outstanding bill in full through
+ * the real checkout flow, which mints (or repairs) the invoice as part of
+ * the same request. Caller must have called `createStudentWithDues` (or
+ * similar) first so there's an open bill to pay. */
 export async function createInvoice(
   request: APIRequestContext,
   session: ApiSession,
   studentId: string,
 ): Promise<{ id: string }> {
-  return post<{ id: string }>(request, session, '/invoices', {
-    student_id: studentId,
-    line_items: [{ description: 'E2E line item', amount: 100 }],
+  // `GET /fees/dues` has no `student_id` filter — it narrows students by
+  // class/section/search/status, not by id — so the student's own
+  // `full_name` (unique enough within this call's freshly-created chain)
+  // stands in for `search`.
+  const student = await get<{ full_name: string }>(request, session, `/students/${studentId}`);
+  const dues = await get<{
+    data: { student_id: string; dues: { student_fee_id: string; balance: number }[] }[];
+  }>(request, session, `/fees/dues?search=${encodeURIComponent(student.full_name)}`);
+  const due = dues.data.find((row) => row.student_id === studentId)?.dues[0];
+  if (!due) {
+    throw new Error(`createInvoice: no outstanding due found for student "${studentId}"`);
+  }
+  const result = await post<{ invoice_id: string }>(request, session, '/payments/checkout', {
+    idempotency_key: crypto.randomUUID(),
+    lines: [{ student_fee_id: due.student_fee_id, amount: due.balance }],
+    payment_method: 'CASH',
   });
+  return { id: result.invoice_id };
+}
+
+/** [16.5.3] Mints a public share token for `invoiceId` and returns just
+ * the token — the opaque path segment `/i/$token` (the unauthenticated
+ * receipt route) resolves against, not the full share URL. */
+export async function createInvoiceShareToken(
+  request: APIRequestContext,
+  session: ApiSession,
+  invoiceId: string,
+): Promise<string> {
+  const { url } = await post<{ url: string; token_id: string }>(
+    request,
+    session,
+    `/invoices/${invoiceId}/share`,
+    {},
+  );
+  return url.split('/i/').pop()!;
 }
 
 /** A student with an outstanding fee: builds the class chain, a fee
