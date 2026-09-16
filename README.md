@@ -479,11 +479,16 @@ wrong in a way that leaves a green test proving nothing:
 ## Local loop
 
 [18.4.2] Three commands cover the local dev loop, all wired to match what
-CI runs so a green `yarn check` means a green CI:
+CI runs so a green `yarn run check` means a green CI. Note the explicit
+`run`: `yarn check` (no `run`) is Yarn classic's own builtin
+dependency-integrity command and shadows this script entirely — typing
+`yarn check` silently runs Yarn's builtin instead of `scripts/check.mjs`,
+with a confusingly similar-looking but unrelated error if your `yarn.lock`
+has drifted.
 
 ```bash
 # Typecheck + lint + affected tests, concurrently
-yarn check
+yarn run check
 
 # Full server suite (unit + integration + e2e) against real Postgres,
 # Redis and MinIO — only Docker required
@@ -498,7 +503,7 @@ yarn e2e:changed
 First-time setup: `cp server/.env.test.example server/.env.test` (values
 match `docker-compose.test.yml`'s ports, no edits needed).
 
-`.husky/pre-push` runs `yarn check --affected` automatically, budgeted at
+`.husky/pre-push` runs `yarn run check --affected` automatically, budgeted at
 **60s warm** on a one-file change. It's a no-op on `main`, and can be
 skipped for one push with:
 
