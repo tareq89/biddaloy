@@ -148,3 +148,55 @@ jobs:
           name: lighthouse-reports
           path: .lighthouseci/
           if-no-files-found: ignore
+
+  # [#759] Sticky-issue failure visibility — see
+  # scripts/nightly-sticky-issue.sh's header. This workflow declares
+  # `workflow_call` (nothing calls it that way yet, but the trigger makes
+  # it reusable in future); `report` only reacts to `needs.lighthouse.result`,
+  # so it stays correct whatever triggers the run.
+  report:
+    name: Report nightly status
+    needs: [lighthouse]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Determine status
+        id: status
+        run: |
+          if [ "${{ needs.lighthouse.result }}" = "success" ]; then
+            echo "status=success" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=failure" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Write report body
+        if: steps.status.outputs.status == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "Nightly quality (Lighthouse) failed."
+            echo
+            echo "Run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            echo "Failed jobs:"
+            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs" \
+              --jq '.jobs[] | select(.conclusion=="failure") | "- " + .name'
+          } > nightly-report.md
+
+      - name: Report status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          scripts/nightly-sticky-issue.sh \
+            nightly-quality-red \
+            "Nightly quality (Lighthouse) is red" \
+            nightly-report.md \
+            "${{ steps.status.outputs.status }}"

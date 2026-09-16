@@ -67,24 +67,14 @@ jobs:
             yarn test:frontend --run --reporter=default --reporter=json --outputFile.json=flake-runs/pass-$i.json || true
           done
 
-      # A stray existing label from a prior manual run must not fail this
-      # with "label not found" — `--force` creates it if absent and
-      # no-ops (does not fail) if it's already there.
-      - name: Ensure the flake-hunt label exists
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh label create flake-hunt --repo "${{ github.repository }}" \
-            --color BFD4F2 \
-            --description "Nightly frontend flake hunt tracking issue (#437)" \
-            --force
-
-      # [#437] One sticky issue, edited in place — not a new issue every
-      # night, which would just be 365 near-duplicate reads nobody wants.
-      # `flake-report.mjs` only produces the markdown body; the
-      # find-or-create logic lives here so the script itself stays a pure,
-      # easily-tested function of "N pass JSONs in, markdown out".
+      # [#759] `flake-report.mjs` still only produces the markdown body —
+      # it stays a pure, easily-tested function of "N pass JSONs in,
+      # markdown out". The find-or-create/close-on-green sticky-issue
+      # logic (label auto-create included) now lives in the shared
+      # scripts/nightly-sticky-issue.sh, the same script the other two
+      # nightly workflows use; this step just derives create/edit vs
+      # close and calls it. Behavior is otherwise unchanged: same
+      # `flake-hunt` label, same report body.
       #
       # `if: always()` — a report about which tests failed must still run
       # when the "three consecutive runs" step above returned non-zero
@@ -105,17 +95,13 @@ jobs:
             echo "::warning title=Flake hunt::no usable pass reports; leaving the tracking issue untouched"
             exit 0
           fi
-          # `// empty` is load-bearing: on an empty list `.[0].number` yields
-          # JSON null, which `--jq -r` prints as the literal string "null" —
-          # non-empty, so the `-z` test below would be false, the create
-          # branch would be unreachable, and every night would run
-          # `gh issue edit null` and fail the step under `bash -e`.
-          ISSUE_NUMBER=$(gh issue list --repo "${{ github.repository }}" --label flake-hunt --state open --json number --jq '.[0].number // empty')
-          if [ -z "$ISSUE_NUMBER" ]; then
-            gh issue create --repo "${{ github.repository }}" \
-              --title "Nightly frontend flake hunt" \
-              --label flake-hunt \
-              --body-file flake-report.md
+          if grep -q "All green across" flake-report.md; then
+            status=success
           else
-            gh issue edit "$ISSUE_NUMBER" --repo "${{ github.repository }}" --body-file flake-report.md
+            status=failure
           fi
+          scripts/nightly-sticky-issue.sh \
+            flake-hunt \
+            "Nightly frontend flake hunt" \
+            flake-report.md \
+            "$status"
