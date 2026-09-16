@@ -508,10 +508,16 @@ jobs:
   e2e:
     name: E2E smoke (${{ matrix.browser }})
     runs-on: ubuntu-latest
-    # #766: also needs `verify`'s build-dist artifact (shared/server/client-admin
-    # dist), so this job's webServer starts already-built output instead of
-    # rebuilding it a second time — see the "Download build output" step below.
-    needs: [changes, verify]
+    # #766 originally made this job reuse `verify`'s build-dist artifact via
+    # `E2E_SKIP_BUILD=1` instead of rebuilding shared/server/client-admin —
+    # reverted (18.3.3 follow-up): reproduced twice in CI as a silent
+    # `webServer` boot hang (both the server and client processes produced
+    # zero output and never became ready, timing out at 300s each), while
+    # every piece worked correctly in isolation locally. Root cause not
+    # found before Wave 3 needed to land; this job goes back to building its
+    # own dist in-job (Wave 2's original, proven behavior) until a follow-up
+    # ticket debugs the artifact-reuse path with real CI iteration.
+    needs: [changes]
     if: github.event_name == 'push' || needs.changes.outputs.frontend == 'true'
     timeout-minutes: 20
     permissions:
@@ -569,10 +575,6 @@ jobs:
       # Keeps playwright.config.ts's projects list consistent with the
       # --project flag this matrix entry passes.
       E2E_BROWSERS: ${{ matrix.browser }}
-      # #766: `e2e:serve:server`/`e2e:serve:client` (package.json) skip their
-      # own `yarn build:*` when this is set — the "Download build output"
-      # step below already unpacks `verify`'s build-dist artifact in place.
-      E2E_SKIP_BUILD: '1'
       # [15.5] See the "integration" job's identical block — `yarn ...
       # server seed` below boots `AppModule`, which needs `StorageModule`
       # env to construct. Since [14.11.4] these also have to point at a
@@ -625,17 +627,12 @@ jobs:
           AWS_DEFAULT_REGION="$S3_REGION" \
             aws s3 mb --endpoint-url "$S3_ENDPOINT" "s3://$S3_BUCKET"
 
-      # #766: `verify` already built shared/server/client-admin once — this
-      # job's `webServer` (playwright.config.ts) starts that output directly
-      # via `E2E_SKIP_BUILD=1` rather than paying for `yarn build:*` again.
-      # `shared/dist` matters here for the same reason it used to be built
-      # in-job: `webServer` boots the real server/client (`yarn e2e:serve:*`),
-      # which resolve `@biddaloy/shared` through its package.json "main"
-      # (`dist/index.js`, not `src`).
-      - name: Download build output
-        uses: actions/download-artifact@v7
-        with:
-          name: build-dist
+      - name: Build shared package
+        # webServer boots the real server/clients (yarn e2e:serve:*), which
+        # resolve @biddaloy/shared through its package.json "main"
+        # (dist/index.js, not src) — same reason the other jobs build this
+        # first.
+        run: yarn build:shared
 
       # Playwright's package version, used below so the browser cache key
       # actually matches its own comment (it previously keyed on
