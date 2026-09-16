@@ -2,19 +2,34 @@
 name: pr-fix
 description: >
   Checks out an existing GitHub PR, rebases it on the base branch, reads
-  every unresolved review comment, fixes the code, adds tests if needed,
-  replies to each addressed comment, and pauses for confirmation before
-  pushing. Trigger on: "fix PR #<n>", "address reviews on PR #<n>",
-  "resolve feedback on <pr url>", or "/pr-fix <n>". Do not use for opening
-  a brand-new PR, or for reviewing a PR without fixing it (use the
+  every unresolved review comment AND every failing CI check, fixes both in
+  one batched pass, adds tests if needed, replies to each addressed comment,
+  and pauses for confirmation before a single push. Trigger on: "fix PR
+  #<n>", "address reviews on PR #<n>", "fix CI on PR #<n>", "resolve
+  feedback on <pr url>", or "/pr-fix <n>". Do not use for opening a
+  brand-new PR, or for reviewing a PR without fixing it (use the
   code-review skill for that).
 ---
 
 # PR Fix
 
-Fixes review feedback on an existing PR end-to-end. Two hard pause points
-(rebase conflicts, and before push) — never skip them, even if this skill
-has run cleanly before.
+Fixes review feedback AND failing CI on an existing PR end-to-end, in one
+batched pass ending in a single push. Two hard pause points (rebase
+conflicts, and before push) — never skip them, even if this skill has run
+cleanly before.
+
+**Batch, don't drip-feed.** Diagnose everything first — every unresolved
+review thread and every failing CI check — before fixing anything. Fix it
+all. Run the affected test suite(s) once. Push once. The failure mode this
+guards against: fixing one thing, running the full suite, pushing, waiting
+7-15 minutes for CI, finding the next thing, and repeating — which multiplies
+the CI/test round-trip cost by however many separate issues there were,
+instead of paying it once. The one exception is a fix you're genuinely
+unsure about (touches locking, concurrency, money-tier correctness, or
+anything a reviewer flagged as subtle) — give that one its own commit, and if
+it's truly risky, its own isolated verification run, rather than burying it
+in a batch of mechanical fixes where a regression is hard to attribute back
+to the right change.
 
 ## 0. Setup
 
@@ -89,12 +104,37 @@ Filter to `isResolved: false`. Also pull top-level review summary comments
 gh pr view <n> --json reviews -q '.reviews[] | select(.body != "") | {author: .author.login, body: .body}'
 ```
 
-If there is nothing unresolved: tell the user and stop here — don't
-manufacture work.
+## 3b. Fetch CI status
 
-Build a short plan before touching code: one line per unresolved thread,
-file/line, and what change it implies. Show this to the user as you start,
-so they can redirect early if you've misread a comment.
+```bash
+gh pr checks <n>
+```
+
+For every failing check, pull its actual log rather than guessing from the
+job name:
+
+```bash
+gh run view <run-id> --log-failed
+```
+
+For each failure, before writing any fix, determine whether it's caused by
+this PR's own changes or is a pre-existing flake unrelated to them. When
+unsure, reproduce it in isolation a few times (re-run just that failing
+test/job) — a failure that reproduces consistently and touches files this PR
+changed is real; one that passes on a clean re-run, or fails on files this PR
+never touched, is a flake. Root-cause and fix a real pre-existing flake too
+when it's cheap to do (a "flaky" test is often a real, if minor, bug — e.g.
+code relying on an unordered SQL read for a required order — not pure bad
+luck); if it's expensive or ambiguous, say explicitly that it's pre-existing
+and leave it alone rather than silently re-running until it happens to pass.
+
+If there is nothing unresolved and CI is green: tell the user and stop
+here — don't manufacture work.
+
+Build a short combined plan before touching code: one line per unresolved
+review thread and one per real CI failure, file/line, and what change it
+implies. Show this to the user as you start, so they can redirect early if
+you've misread a comment or a failure.
 
 ## 4. Rebase on the base branch
 
@@ -105,14 +145,20 @@ git rebase origin/<base>
 
 **Pause point — conflicts.** If the rebase reports conflicts:
 **stop immediately.** List the conflicting files, do not guess a
-resolution (not even for "trivial-looking" conflicts like a lockfile).
-Tell the user and wait for their instruction — either they resolve it
-themselves and tell you to continue, or they tell you how to resolve each
-one.
+resolution (not even for "trivial-looking" conflicts like a lockfile) —
+this repo has a documented history of exactly that going wrong (blind
+`--ours` on a spec file once silently reintroduced a broken duplicate
+`describe` block). Tell the user and wait for their instruction — either
+they resolve it themselves and tell you to continue, or they tell you how
+to resolve each one. Once conflicts are resolved, continue in the same
+run — resolving a conflict doesn't reset the "one batched pass, one push"
+goal, it's just the one step here that needs a human call before the batch
+can be assembled.
 
-If the rebase is clean, continue.
+If the rebase is clean, continue straight into fixing review threads and
+CI failures together.
 
-## 5. Address each unresolved thread
+## 5. Address every review thread and every real CI failure
 
 Explore via the graph first, not raw grep: `graphify query "<question>"`
 for a flagged file/symbol, `graphify path "<A>" "<B>"` for how two things
@@ -120,10 +166,12 @@ connect, `graphify explain "<concept>"` for one concept. Fall back to
 `Read`/`Grep` only when the graph doesn't surface enough — see project
 `CLAUDE.md`'s graphify rules.
 
-For each thread from your step-3 plan: make the code change. Prefer one
-commit per logically-related fix rather than one giant commit — it makes
-the eventual review replies concrete ("fixed in `<sha>`") and makes the
-diff easier for the human reviewer to re-review.
+Work through your combined plan from steps 3 and 3b in one pass — do not
+run tests or push between individual fixes. Prefer one commit per
+logically-related fix rather than one giant commit — it makes the eventual
+review replies concrete ("fixed in `<sha>`") and makes the diff easier for
+the human reviewer to re-review, and it keeps a risky fix (see the batching
+note above) attributable on its own if it turns out to be wrong.
 
 After code changes, run `graphify update .` so the graph stays current for
 later exploration. Do not stage its output: the generated files under
@@ -134,9 +182,10 @@ stay tracked, and `graphify update .` does not touch them.)
 Never amend the PR's existing commits — everything here is new commits on
 top.
 
-## 6. Tests
+## 6. Tests — run once, after every fix is made
 
-Run the affected suite(s). In this repo:
+Run the affected suite(s) **once**, after all fixes from step 5 are done —
+not once per individual fix. In this repo:
 
 ```bash
 rtk yarn test              # server
@@ -179,6 +228,8 @@ Before pushing, show the user:
 - Test results (green).
 - Which threads were addressed and replied to, and which (if any) were
   skipped with an explanation.
+- Which CI failures were fixed, and which (if any) were root-caused as
+  pre-existing flakes and left alone, with why.
 
 **Wait for explicit confirmation.** Do not push automatically just because
 everything above succeeded.
@@ -231,20 +282,23 @@ gh api repos/$OWNER/$REPO/events -q '.[] | select(.type=="PushEvent") | {actor: 
 
 ## 11. Re-checking after a push (only if asked)
 
-CodeRabbit (or another bot reviewer) typically re-reviews automatically
-once new commits land, which can produce fresh unresolved threads within
-minutes of your push — including ones re-litigating a thread you already
-replied to, if it ran before your push actually landed. This skill does
-not loop on its own; if the user asks to check for or address further
-review feedback after a push, repeat from step 3 (re-fetch threads — a
-stale review-bot comment that ran against a pre-push commit is worth a
-short reply pointing at the now-pushed SHA, not a code change) through
-step 9, including a fresh pause-before-push confirmation.
+CI re-runs and CodeRabbit (or another bot reviewer) typically re-reviews
+automatically once new commits land, which can produce fresh failures or
+unresolved threads within minutes of your push — including ones
+re-litigating a thread you already replied to, if the bot ran before your
+push actually landed. This skill does not loop on its own; if the user asks
+to check for or address further feedback after a push, wait for CI to
+actually finish (don't diagnose a still-running job as failed), then repeat
+from step 3/3b (re-fetch threads and checks together — a stale review-bot
+comment that ran against a pre-push commit is worth a short reply pointing
+at the now-pushed SHA, not a code change) through step 9, batching whatever
+is newly found the same way as the first pass, including a fresh
+pause-before-push confirmation.
 
 ## Scope notes
 
 - This skill is generic (not Biddaloy-specific) — safe to copy to
   `~/.claude/skills/` if useful in other repos too.
-- It fixes what reviewers already flagged. It does not go looking for
-  additional unrelated changes to make while it's in there — stay scoped
-  to the PR's actual feedback.
+- It fixes what reviewers already flagged and what CI already failed on.
+  It does not go looking for additional unrelated changes to make while
+  it's in there — stay scoped to the PR's actual feedback and failures.

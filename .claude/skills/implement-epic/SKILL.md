@@ -543,10 +543,25 @@ If a close task alone exceeds 100, split it into "regenerated artifacts" and
 
 ## Step 8 — CodeRabbit and CI
 
-Use the `pr-fix` skill's semantics rather than restating them. **Cap: 3 rounds
-per PR.** Each round reads unresolved review comments and failing checks, fixes,
-pushes, and waits for re-review. After the third, stop and report that PR to
-the user — an uncapped loop can burn a whole session on one stubborn PR.
+Use the `pr-fix` skill's semantics rather than restating them — including its
+**batch-then-verify** discipline (see that skill's Tests step): diagnose every
+CI failure and every actionable CodeRabbit finding you currently know about
+*before* fixing anything, apply all the fixes, run the full affected suite
+**once**, then push once. **Cap: 3 rounds per PR.** A round is exactly one
+diagnose-all → fix-all → verify-once → push cycle, not one push per
+individual fix — pushing after each fix re-triggers the entire CI matrix (14+
+jobs) and a fresh CodeRabbit pass for a single line change, which is the
+single largest avoidable cost in this step. After the third round, stop and
+report that PR to the user — an uncapped loop can burn a whole session on one
+stubborn PR.
+
+The exception: a fix you're genuinely unsure about (touches locking,
+concurrency, money-tier correctness, or anything CodeRabbit itself flagged as
+subtle) is worth its own isolated commit and, if truly risky, its own
+verification pass — bundling a risky fix in with four mechanical ones makes
+it harder to attribute a regression to the right change, and gives it a
+shallower review pass on the bundled diff. Batch the safe, obviously-correct
+fixes; keep the one risky fix legible on its own.
 
 Route the rounds by cost: **rounds 1 and 2 run on a Sonnet subagent**
 (`Agent(model: "sonnet")` doing the `pr-fix` work — CI failures here are
@@ -556,8 +571,14 @@ standard-tier PR that is still red after two Sonnet rounds stops and is
 reported, because a third cheap attempt on a UI flake is rarely the fix.
 
 If CI fails on something the epic didn't cause (a pre-existing flake — this
-repo runs ~28% CI failure), say so explicitly instead of "fixing" unrelated
-code to get green.
+repo runs ~28% CI failure), diagnose the actual root cause rather than
+re-running until it happens to pass: reproduce it in isolation a few times to
+confirm it's genuinely pre-existing and unrelated to this PR's files, and fix
+the root cause if it's cheap to do so (a genuine flake is often a real, if
+minor, bug — e.g. code relying on an unordered SQL read for a required order —
+not pure bad luck). Say explicitly which it was (root-caused and fixed, or
+confirmed pre-existing and left alone) instead of silently "fixing" unrelated
+code to get green, and never silently re-run a red job without saying so.
 
 ## GATE 3 — merge
 
