@@ -45,7 +45,13 @@
       "notFoundTitle": "This link isn't valid",
       "notFoundExplanation": "The receipt may have been revoked, or the link may be mistyped.",
       "creditNote": "Credit note",
-      "saveAsPdf": "Save as PDF"
+      "saveAsPdf": "Save as PDF",
+      "billed": "Billed",
+      "paid": "Paid",
+      "change": "Change",
+      "paymentMethod": "Payment method",
+      "paymentDate": "Payment date",
+      "pageTitle": "Invoice receipt"
     }
   },
   "invoices": {

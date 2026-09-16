@@ -7,23 +7,22 @@ import { routeTree } from '../../routeTree.gen';
 
 const RECEIPT = {
   invoice_number: 'INV-2026-000123',
+  kind: 'INVOICE',
   issued_date: '2026-09-01',
-  due_date: '2026-09-15',
-  total_amount: 5000,
-  tax_amount: 0,
-  discount_amount: 500,
-  notes: null,
-  student: { full_name: 'Rahim Ahmed' },
-  issuer: {
+  school: {
     name: 'Ananta High School',
-    name_bn: null,
     address: null,
-    phone: null,
-    email: null,
-    registration_id: null,
-    logo_key: null,
+    logo_url: null,
   },
-  logo_url: null,
+  students: [
+    {
+      full_name: 'Rahim Ahmed',
+      class_name: null,
+      lines: [],
+    },
+  ],
+  totals: { billed: 5000, discount: 500, paid: 4500, change: 0 },
+  payment: { method: 'CASH', reference_last4: null, payment_date: '2026-09-01' },
 };
 
 /** [16.5.5] — a chrome-free public route reachable with no session, so

@@ -45,7 +45,13 @@
       "notFoundTitle": "এই লিংকটি সঠিক নয়",
       "notFoundExplanation": "রসিদটি বাতিল হয়ে থাকতে পারে, অথবা লিংকে ভুল থাকতে পারে।",
       "creditNote": "ক্রেডিট নোট",
-      "saveAsPdf": "পিডিএফ হিসেবে সংরক্ষণ করুন"
+      "saveAsPdf": "পিডিএফ হিসেবে সংরক্ষণ করুন",
+      "billed": "বিলকৃত",
+      "paid": "পরিশোধিত",
+      "change": "ফেরত",
+      "paymentMethod": "পরিশোধের মাধ্যম",
+      "paymentDate": "পরিশোধের তারিখ",
+      "pageTitle": "চালান রসিদ"
     }
   },
   "invoices": {

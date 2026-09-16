@@ -446,34 +446,46 @@ export async function postAuthVerifyEmail(token: string): Promise<VerifyEmailRes
   }
 }
 
-/** #666's `GET /public/invoices/:token` response shape — hand-rolled the
- * same way `VerifyEmailResponse` above is: `schema.d.ts` isn't regenerated
- * for the w5-g1 lane's server contract yet (unmerged #664–#667), so this
- * mirrors the DTO the server ticket describes rather than importing a
- * generated type. `ui/src/hooks/invoices.ts` re-exports this as
- * `PublicInvoiceReceipt` alongside its own `// ---- interim types:
- * #664–#667 ----` banner, so this stays the single source of truth for the
- * shape and both files describe the same object. */
+/** #666's `GET /public/invoices/:token` response shape — mirrors
+ * `PublicReceiptDto` (`server/src/modules/invoices/
+ * public-invoice-receipt.dto.ts`), not a schema-generated type: this
+ * route's response isn't regenerated into `schema.d.ts` from this client
+ * (public, unauthenticated route, hit with bare `axios` below). `ui/src/
+ * hooks/invoices.ts` re-exports this as `PublicInvoiceReceipt`, so this
+ * stays the single source of truth for the shape and both files describe
+ * the same object. */
 export interface PublicInvoiceReceipt {
   invoice_number: string;
-  kind?: 'INVOICE' | 'CREDIT_NOTE';
+  kind: 'INVOICE' | 'CREDIT_NOTE';
   issued_date: string;
-  due_date: string;
-  total_amount: number;
-  tax_amount: number;
-  discount_amount: number;
-  notes: string | null;
-  student: { full_name: string };
-  issuer: {
+  school: {
     name: string;
-    name_bn: string | null;
     address: string | null;
-    phone: string | null;
-    email: string | null;
-    registration_id: string | null;
-    logo_key: string | null;
+    logo_url: string | null;
   };
-  logo_url: string | null;
+  students: {
+    full_name: string;
+    class_name: string | null;
+    lines: {
+      fee_name: string;
+      period_label: string;
+      amount: number;
+      discount: number;
+      paid_this_time: number;
+      balance_after: number;
+    }[];
+  }[];
+  totals: {
+    billed: number;
+    discount: number;
+    paid: number;
+    change: number;
+  };
+  payment: {
+    method: string;
+    reference_last4: string | null;
+    payment_date: string;
+  };
 }
 
 /** `GET /public/invoices/:token` (#666) — the share-link a guardian opens

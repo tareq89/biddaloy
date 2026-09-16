@@ -54,6 +54,7 @@ function PublicReceiptPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center gap-4 bg-background p-4 sm:p-6">
+      <h1 className="sr-only">{t('invoiceDetail.publicReceipt.pageTitle')}</h1>
       <div className="w-full max-w-[420px] sm:max-w-[640px]">
         {receiptQuery.isPending ? (
           <div
@@ -73,9 +74,9 @@ function PublicReceiptPage() {
             <div aria-hidden="true" className="text-muted-foreground">
               <ReceiptIcon />
             </div>
-            <h1 className="text-lg font-semibold">
+            <h2 className="text-lg font-semibold">
               {t('invoiceDetail.publicReceipt.notFoundTitle')}
-            </h1>
+            </h2>
             <p className="text-sm text-muted-foreground">
               {t('invoiceDetail.publicReceipt.notFoundExplanation')}
             </p>
@@ -85,15 +86,16 @@ function PublicReceiptPage() {
             <InvoiceReceipt
               receipt={receiptQuery.data}
               width="a4"
-              logoUrl={receiptQuery.data.logo_url}
               config={REGION_BD_EN}
               labels={{
                 creditNote: t('invoiceDetail.publicReceipt.creditNote'),
                 issuedDate: t('invoiceDetail.issuedDate'),
-                dueDate: t('invoiceDetail.dueDate'),
-                tax: t('invoiceDetail.taxAmount'),
+                billed: t('invoiceDetail.publicReceipt.billed'),
                 discount: t('invoiceDetail.discountAmount'),
-                total: t('invoiceDetail.totalAmount'),
+                paid: t('invoiceDetail.publicReceipt.paid'),
+                change: t('invoiceDetail.publicReceipt.change'),
+                paymentMethod: t('invoiceDetail.publicReceipt.paymentMethod'),
+                paymentDate: t('invoiceDetail.publicReceipt.paymentDate'),
               }}
             />
             <button
