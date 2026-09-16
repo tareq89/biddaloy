@@ -8,7 +8,34 @@ import type {
   RowError,
   TabSpec,
 } from '../../codec/tab-spec';
-import { InvoiceKind, InvoiceStatus } from '@biddaloy/shared';
+import { InvoiceKind, InvoiceStatus, PaymentMethod } from '@biddaloy/shared';
+
+/** [outside-diff fix] The `json` column type only checks JSON *syntax*
+ * (`cell-format.ts`'s `fromCell`) — it has no idea `snapshot` must be an
+ * `InvoiceSnapshot`. Without this, a malformed or empty (`{}`) snapshot
+ * passes import and throws a `TypeError` later, in family DTO conversion
+ * or print rendering, once something dereferences a missing field. */
+function isValidInvoiceSnapshot(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const issuer = v.issuer as Record<string, unknown> | undefined;
+  if (typeof issuer !== 'object' || issuer === null) return false;
+  if (typeof issuer.name !== 'string' || typeof issuer.captured_at !== 'string') return false;
+  if (!Array.isArray(v.students)) return false;
+  const totals = v.totals as Record<string, unknown> | undefined;
+  if (typeof totals !== 'object' || totals === null) return false;
+  if (
+    typeof totals.billed !== 'number' ||
+    typeof totals.discount !== 'number' ||
+    typeof totals.paid !== 'number'
+  ) {
+    return false;
+  }
+  const payment = v.payment as Record<string, unknown> | undefined;
+  if (typeof payment !== 'object' || payment === null) return false;
+  if (!Object.values(PaymentMethod).includes(payment.method as PaymentMethod)) return false;
+  return true;
+}
 
 /**
  * `invoices` tab: official invoice document (or credit note) issued for
@@ -189,6 +216,18 @@ export const invoicesTab: TabSpec<Invoice, InvoiceRow> = {
     }
 
     if (errors.length > 0) return { errors };
+
+    if (!isValidInvoiceSnapshot(values.snapshot)) {
+      errors.push({
+        tab: 'invoices',
+        row: rowNo,
+        column: 'snapshot',
+        message:
+          'Column "snapshot": does not match the required InvoiceSnapshot shape (issuer, students, totals, payment).',
+        severity: 'error',
+        value: cells.snapshot,
+      });
+    }
 
     let studentId: string | undefined;
     const studentKey = values.student as string;

@@ -4,6 +4,18 @@ import { Invoice } from '../../../invoices/entities/invoice.entity';
 import { invoicesTab, type InvoiceRow } from './invoices.tab';
 import type { ExportContext, ImportContext } from '../../codec/tab-spec';
 
+const VALID_SNAPSHOT = {
+  issuer: { name: 'Test School', captured_at: '2026-01-05T00:00:00.000Z' },
+  students: [],
+  totals: { billed: 1500, discount: 0, paid: 1500, change: 0, wallet_used: 0, wallet_added: 0 },
+  payment: {
+    method: 'CASH',
+    reference: null,
+    received_by_name: null,
+    payment_date: '2026-01-05',
+  },
+};
+
 function fakeImportCtx(refs: Record<string, Record<string, string>>): ImportContext {
   return { tenantId: 'tenant-1', ref: (tab, key) => refs[tab]?.[key], warn: () => undefined };
 }
@@ -44,7 +56,7 @@ describe('invoicesTab', () => {
       status: InvoiceStatus.ISSUED,
       issued_date: '2026-01-05',
       due_date: '2026-01-15',
-      snapshot: { totals: { billed: 1500 } },
+      snapshot: VALID_SNAPSHOT,
       issued_by_id: 'user-1',
       issued_by_key: 'admin@example.com',
       notes: 'First invoice',
@@ -71,7 +83,7 @@ describe('invoicesTab', () => {
       status: InvoiceStatus.ISSUED,
       issued_date: '2026-01-05',
       due_date: '2026-01-15',
-      snapshot: null,
+      snapshot: VALID_SNAPSHOT,
       issued_by_id: null,
       issued_by_key: null,
       notes: null,
