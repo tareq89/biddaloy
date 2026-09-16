@@ -62,6 +62,19 @@ function isValidInvoiceSnapshot(value: unknown): boolean {
  * on restore — same tradeoff already made for `payments.tab.ts`'s
  * checkout/reversal columns.
  *
+ * Cost of dropping them (flagged in PR review, kept as a known gap rather
+ * than fixed here): a restored invoice's `payment_id`/`related_invoice_id`
+ * are always `null`, so `createFromPayment`'s payment→invoice idempotency
+ * check, the credit-note→original-invoice link, and any print/read path
+ * that joins through those columns stop working for a restored invoice —
+ * the frozen `snapshot` (kept, see `issuer_snapshot` above) still renders
+ * correctly on its own. Fixing this needs a genuine second import pass —
+ * one that runs after every tab in `EXPECTED_TABS` has loaded and its
+ * `KeyIndex` is populated, then resolves `payment`/`related_invoice`
+ * `ref`s and `UPDATE`s the two columns directly — which no tab in this
+ * registry does today (`ALL_TABS` is a single ordered pass). Tracked as a
+ * follow-up rather than built here: #773.
+ *
  * [16.5.1] Once an invoice's `status` leaves `DRAFT`, the DB trigger from
  * `1789800008000-InvoiceImmutableSnapshot` only allows `status`,
  * `updated_at`, `deleted_at` to change on that row (see class doc on
