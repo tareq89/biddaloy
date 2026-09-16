@@ -45,10 +45,10 @@ yarn test
 # Unit tests only
 yarn test:unit
 
-# Integration tests (real database, runs sequentially)
+# Integration tests (real database, 4 workers on per-worker databases)
 yarn test:integration
 
-# E2E tests (full HTTP stack, runs sequentially)
+# E2E tests (full HTTP stack, 4 workers on per-worker databases)
 yarn test:e2e
 
 # Coverage report
@@ -68,6 +68,6 @@ The test database must exist before running tests.
 
 - Run `yarn test:cov` before any PR to ensure coverage thresholds are met.
 - If coverage drops, either add more tests or justify the drop in code review.
-- Integration and E2E tests must run sequentially (one file at a time) to avoid database conflicts — Vitest's `--runInBand` equivalent is `--no-file-parallelism` (or `test.fileParallelism: false` in config, which `server/vitest.config.ts` already sets). Vitest's docs note that `fileParallelism: false` also forces `maxWorkers` to `1`, so no worker-count option is needed alongside it. Vitest 4 removed `test.poolOptions`, so the old `poolOptions.threads.singleThread` setting no longer exists.
+- [18.2.1] Integration and E2E tests run in parallel across 4 workers (`server/vitest.config.ts`'s `maxWorkers`), each on its own Postgres database (cloned from a migrated template — `biddaloy_test_w1`..`w4`, see `server/test/global-setup.ts`) and its own Redis db index (`server/test/setup.ts`). A file never needs to avoid another file's data — they're on different databases — but tests within one file still share that worker's database, so don't rely on cross-file isolation within a single spec.
 - Migrations and baseline seed data run once per `vitest run` invocation (`server/test/global-setup.ts`), not once per spec file. Each run drops the test database, re-migrates, and seeds; the teardown drops it again at the end, so no schema survives between runs and you never need a manual reset after editing a migration.
 - Spec files that build their own TypeORM connection with `{ synchronize: true, dropSchema: true }` rebuild the schema from entity metadata, which silently destroys migration-only objects (the `refresh_tokens` table, the `audit_logs` append-only trigger, `typeorm_migrations`). `server/test/setup.ts`'s `repairSchemaIfDamaged()` detects this and re-migrates so the next file is unaffected. Prefer not to add new specs that use `dropSchema` — they make the suite slower and the isolation harder to reason about.

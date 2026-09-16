@@ -52,6 +52,33 @@ All commands run via `yarn workspace @biddaloy/server <command>` from the monore
 | `lint` | Type-check without emitting (`tsc --noEmit`) |
 | `test` | Run tests in watch mode (`vitest`) |
 | `test:run` | Run tests once (CI mode) |
+| `test:unit` | Unit tests only, mocked repositories, no database |
+| `test:integration` | Integration specs, real Postgres/Redis |
+| `test:e2e` | End-to-end specs, real Postgres/Redis |
+
+### Test databases (parallel workers)
+
+Integration and e2e specs run across up to 4 vitest pool workers at once.
+Each worker gets its own Postgres database and Redis db index instead of
+sharing one, so they never race each other's `DELETE`s:
+
+```mermaid
+flowchart LR
+  T["biddaloy_test (template)\nmigrated + seeded once"] -->|CREATE DATABASE ... TEMPLATE| W1[biddaloy_test_w1]
+  T -->|CREATE DATABASE ... TEMPLATE| W2[biddaloy_test_w2]
+  T -->|CREATE DATABASE ... TEMPLATE| W3[biddaloy_test_w3]
+  T -->|CREATE DATABASE ... TEMPLATE| W4[biddaloy_test_w4]
+```
+
+- `test/global-setup.ts` migrates and seeds `biddaloy_test` — the value of
+  `DATABASE_URL` in `server/.env.test` — once per run, then clones it into
+  `biddaloy_test_w1` … `biddaloy_test_w4`.
+- `test/setup.ts` reads vitest's own `VITEST_POOL_ID` env var (which worker
+  this spec file is running on) and rewrites `DATABASE_URL`/`REDIS_URL` for
+  that process to point at `biddaloy_test_w${VITEST_POOL_ID}` and Redis db
+  index `${VITEST_POOL_ID}` before any spec file's code runs.
+- Nothing to configure by hand — `.env.test` still only needs to name the
+  template (`biddaloy_test`), never a worker database directly.
 
 ### Database Migrations
 
