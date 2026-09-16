@@ -5,12 +5,7 @@
  */
 import { setActiveRole, setActiveTenant } from '@biddaloy/ui/api';
 import { I18nProvider, i18n } from '@biddaloy/ui/i18n';
-import {
-  apiErrorBody,
-  cleanupTestState,
-  createTestQueryClient,
-  server,
-} from '@biddaloy/ui/test';
+import { apiErrorBody, cleanupTestState, createTestQueryClient, server } from '@biddaloy/ui/test';
 import { QueryClientProvider } from '@tanstack/react-query';
 import {
   createMemoryHistory,
@@ -41,12 +36,7 @@ async function renderDialog(overrides: Partial<ReversePaymentDialogProps> = {}) 
   const onOpenChange = vi.fn();
   function Root() {
     return (
-      <ReversePaymentDialog
-        open
-        onOpenChange={onOpenChange}
-        paymentId="payment-1"
-        {...overrides}
-      />
+      <ReversePaymentDialog open onOpenChange={onOpenChange} paymentId="payment-1" {...overrides} />
     );
   }
   const rootRoute = createRootRoute({ component: Root });
@@ -82,7 +72,7 @@ describe('ReversePaymentDialog', () => {
     server.use(
       http.post('/api/v1/payments/:id/reverse', async ({ request }) => {
         capturedBody = await request.json();
-        return HttpResponse.json({ payment: {}, credit_note_id: 'cn-1' });
+        return HttpResponse.json({});
       }),
     );
 
@@ -152,7 +142,7 @@ describe('ReversePaymentDialog', () => {
             { status: 403 },
           );
         }
-        return HttpResponse.json({ payment: {}, credit_note_id: 'cn-1' });
+        return HttpResponse.json({});
       }),
       http.post('/api/v1/auth/step-up/otp/request', () => HttpResponse.json({}, { status: 202 })),
       http.post('/api/v1/auth/step-up', () =>

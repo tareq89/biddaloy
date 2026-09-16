@@ -121,11 +121,10 @@ const detail = http.get('/api/v1/payments/:id', ({ params }) =>
   HttpResponse.json(paymentDetailFactory({ id: params.id as string })),
 );
 
-/** [16.6.2] `POST /payments/:id/reverse` — #670's endpoint hasn't shipped
- * yet (see the plan comment on #672), so this is a hand-typed fixture the
+/** [16.6.2] `POST /payments/:id/reverse` — default success fixture; the
  * dialog's own tests override per-scenario (success, 409, approval). */
 const reverse = http.post('/api/v1/payments/:id/reverse', () =>
-  HttpResponse.json({ payment: paymentFactory(), credit_note_id: null }),
+  HttpResponse.json(paymentFactory()),
 );
 
 export const paymentHandlers = {

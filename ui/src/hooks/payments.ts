@@ -1,10 +1,5 @@
 import { ApprovalScope, type PaymentMethod } from '@biddaloy/shared';
-import {
-  keepPreviousData,
-  queryOptions,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { keepPreviousData, queryOptions, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
@@ -345,21 +340,12 @@ export function usePayment(id: string) {
   );
 }
 
-// ---- interim types: #670 POST /payments/:id/reverse ----
-// #670 ("[16.6.1] server — Reverse a payment in full") hasn't merged yet —
-// `schema.d.ts` has no operation for this route. Hand-typed here per the
-// D9/D10 contract in #637's epic body; delete this block (and switch
-// `reversePaymentRequest` to a generated schema type) once #670 lands and
-// `schema.d.ts` regenerates. Same "interim types" convention `CheckoutInput`
-// above used ahead of #659.
+// ---- #670 POST /payments/:id/reverse ----
 export interface ReversePaymentInput {
   paymentId: string;
   reason: string;
 }
-export interface ReversePaymentResult {
-  payment: Payment;
-  credit_note_id: string | null;
-}
+export type ReversePaymentResult = Payment;
 /** D9's approval-required shape (`403 { code: 'APPROVAL_REQUIRED', scope }`)
  * is handled generically by `useApprovedMutation`. D10's in-order rule
  * surfaces as this 409 instead — the dialog reads `error.details` for it. */
