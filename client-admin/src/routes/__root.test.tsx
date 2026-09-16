@@ -65,18 +65,19 @@ describe('root beforeLoad: protected-route redirect', () => {
   });
 
   it('[16.5.5] visiting /i/<token> while unauthenticated does not redirect to /login', async () => {
-    server.use(authHandlers.refreshFailure);
-
+    // Deliberately no `authHandlers.refreshFailure` here — `/i/` is in
+    // `__root.tsx`'s `PUBLIC_PATH_PREFIXES`, checked *before*
+    // `ensureSessionLoaded()` runs, so this route must never attempt
+    // `POST /auth/refresh` at all. Registering a (handled) refreshFailure
+    // response would let that call through unnoticed; leaving no handler
+    // means a regression here fails via `onUnhandledRequest: 'error'`
+    // (`ui/src/test/setup.ts`), a real assertion instead of an assumed one.
     const { router } = renderWithRouter(routeTree, {
       initialEntries: ['/i/some-token'],
       locale: 'en',
     });
 
-    // Never redirected — stays on the public receipt route, and no
-    // `POST /auth/refresh` call was ever made (msw would have rejected it
-    // via `authHandlers.refreshFailure`, but this asserts the *route*
-    // outcome, not the network call itself: `onUnhandledRequest: 'error'`
-    // in `ui/src/test/setup.ts` already fails the test on any stray call).
+    // Never redirected — stays on the public receipt route.
     await waitFor(() => expect(router.state.location.pathname).toBe('/i/some-token'));
   });
 

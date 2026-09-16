@@ -23,12 +23,12 @@ import {
   invoiceQueryOptions,
   useHasPermission,
   useInvoice,
+  useInvoiceSendCandidates,
   useInvoiceShares,
   usePrintInvoice,
   useRevokeShare,
   useSendInvoice,
   useShareInvoice,
-  useStudent,
   type InvoiceWithSnapshot,
   type SendInvoiceMedium,
 } from '@biddaloy/ui/hooks';
@@ -97,15 +97,15 @@ function InvoiceDetailPage() {
   const liveShare = sharesQuery.data?.find((share) => share.revoked_at === null);
 
   const invoice = invoiceQuery.data as InvoiceWithSnapshot | undefined;
-  const studentQuery = useStudent(invoice?.student.id);
   const sendInvoice = useSendInvoice(invoiceId);
   const [pendingMedium, setPendingMedium] = React.useState<SendInvoiceMedium | null>(null);
 
-  const reachableGuardians = (studentQuery.data?.guardians ?? []).filter(
-    (guardian) => guardian.notifications_enabled,
+  // [#664 review] Every student on the invoice, not just `invoice.student`
+  // — a multi-student (sibling) invoice's guardians linked only to a
+  // non-primary student were previously missed entirely.
+  const { sendCandidates } = useInvoiceSendCandidates(
+    invoice?.snapshot.students.map((s) => s.id) ?? [],
   );
-  const primaryGuardians = reachableGuardians.filter((guardian) => guardian.is_primary_contact);
-  const sendCandidates = primaryGuardians.length > 0 ? primaryGuardians : reachableGuardians;
 
   function handleFormatChange(next: InvoicePrintFormat) {
     setFormat(next);

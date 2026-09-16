@@ -2,6 +2,7 @@ import {
   keepPreviousData,
   queryOptions,
   useMutation,
+  useQueries,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
@@ -12,8 +13,10 @@ import { toast } from '../components/toast';
 import { useTranslation } from '../i18n';
 import type { InvoicePrintFormat } from '../utils/invoice-print-format';
 
+import type { Guardian } from './guardians';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
+import { studentQueryOptions } from './students';
 
 export type Invoice = components['schemas']['Invoice'];
 export type CreateInvoiceInput = components['schemas']['CreateInvoiceDto'];
@@ -315,6 +318,39 @@ export function useSendInvoice(invoiceId: string) {
       await apiClient.post(`/invoices/${invoiceId}/send`, input);
     },
   });
+}
+
+/** [#664 review] Guardians who could receive an invoice's send/receipt —
+ * every student on a (possibly multi-student, siblings-in-one-checkout)
+ * invoice, not just the one `invoice.student`/`payment.student` column
+ * happens to point at. `$invoiceId.tsx` and `checkout-success.tsx` both
+ * used to derive this from a single `useStudent(...)` call each, missing
+ * guardians linked only to a non-primary sibling on the invoice.
+ *
+ * Reachable = `notifications_enabled`; preferred = reachable *and*
+ * `is_primary_contact`, falling back to every reachable guardian when
+ * none is primary — same two-step filter both call sites already used,
+ * just applied per student and then deduped by guardian id (a guardian
+ * shared across siblings, e.g. one parent for two children on the same
+ * invoice, must appear once, not once per student). */
+export function useInvoiceSendCandidates(studentIds: string[]) {
+  const queries = useQueries({
+    queries: studentIds.map((id) => studentQueryOptions(id)),
+  });
+
+  const isPending = queries.some((q) => q.isPending);
+  const guardiansById = new Map<string, Guardian>();
+  for (const query of queries) {
+    for (const guardian of query.data?.guardians ?? []) {
+      guardiansById.set(guardian.id, guardian);
+    }
+  }
+  const allGuardians = [...guardiansById.values()];
+  const reachableGuardians = allGuardians.filter((guardian) => guardian.notifications_enabled);
+  const primaryGuardians = reachableGuardians.filter((guardian) => guardian.is_primary_contact);
+  const sendCandidates = primaryGuardians.length > 0 ? primaryGuardians : reachableGuardians;
+
+  return { isPending, sendCandidates };
 }
 
 /** [16.5.5] `GET /public/invoices/:token` — the chrome-free receipt page a

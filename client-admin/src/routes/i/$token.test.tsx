@@ -1,4 +1,4 @@
-import { authHandlers, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -26,20 +26,21 @@ const RECEIPT = {
 };
 
 /** [16.5.5] — a chrome-free public route reachable with no session, so
- * every test here deliberately leaves `authHandlers.refreshFailure` in
- * place: if this route ever accidentally calls `apiClient`/
- * `ensureSessionLoaded`, msw's `onUnhandledRequest: 'error'`
- * (`ui/src/test/setup.ts`) fails the test rather than silently passing. */
+ * neither test below registers an `/api/v1/auth/refresh` handler at all
+ * (deliberately, not an oversight): if this route ever accidentally
+ * calls `apiClient`/`ensureSessionLoaded`, that request has nowhere to
+ * land and msw's `onUnhandledRequest: 'error'` (`ui/src/test/setup.ts`)
+ * fails the test rather than silently passing. Registering
+ * `authHandlers.refreshFailure` here would defeat that — a *handled*
+ * 401 response is not an unhandled request, so the assertion "no auth
+ * call made" would stop being enforced. */
 describe('/i/$token public receipt page', () => {
   afterEach(async () => {
     await cleanupTestState();
   });
 
   it('renders the receipt for a live token, with no auth call made', async () => {
-    server.use(
-      authHandlers.refreshFailure,
-      http.get('/api/v1/public/invoices/:token', () => HttpResponse.json(RECEIPT)),
-    );
+    server.use(http.get('/api/v1/public/invoices/:token', () => HttpResponse.json(RECEIPT)));
 
     renderWithRouter(routeTree, { initialEntries: ['/i/live-token'], locale: 'en' });
 
@@ -49,7 +50,6 @@ describe('/i/$token public receipt page', () => {
 
   it('shows a not-found state for an unknown or revoked token, without retrying', async () => {
     server.use(
-      authHandlers.refreshFailure,
       http.get(
         '/api/v1/public/invoices/:token',
         () =>

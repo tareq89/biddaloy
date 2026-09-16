@@ -24,9 +24,9 @@ import {
 } from '@biddaloy/ui/components';
 import {
   useHasPermission,
+  useInvoiceSendCandidates,
   usePrintInvoice,
   useSendInvoice,
-  useStudent,
   type CheckoutResult,
   type SendInvoiceMedium,
 } from '@biddaloy/ui/hooks';
@@ -41,6 +41,13 @@ import * as React from 'react';
 
 export interface CheckoutSuccessProps {
   result: CheckoutResult;
+  /** Every student this checkout paid for — `CheckoutResult` only carries
+   * `payment.student` (the payment row's single "primary" student
+   * column), so a multi-student (sibling) checkout's other students'
+   * guardians would otherwise be missed when resolving who can receive
+   * the receipt. The caller (`record-payment-modal.tsx`) already has this
+   * as `selectedStudentIds` at checkout time. */
+  studentIds: string[];
   onRecordAnother: () => void;
   /** Router-agnostic on purpose — this component has no route/link
    * dependency of its own, so it stays trivially testable/storyable.
@@ -50,7 +57,12 @@ export interface CheckoutSuccessProps {
   onViewInvoice: () => void;
 }
 
-export function CheckoutSuccess({ result, onRecordAnother, onViewInvoice }: CheckoutSuccessProps) {
+export function CheckoutSuccess({
+  result,
+  studentIds,
+  onRecordAnother,
+  onViewInvoice,
+}: CheckoutSuccessProps) {
   const { t } = useTranslation('payments');
   const { t: tFees } = useTranslation('fees');
   const regionConfig = useRegionConfig();
@@ -62,15 +74,10 @@ export function CheckoutSuccess({ result, onRecordAnother, onViewInvoice }: Chec
   const canPrint = useHasPermission(Permission.INVOICE_PRINT);
   const canSend = useHasPermission(Permission.INVOICE_READ);
 
-  const studentQuery = useStudent(result.payment.student.id);
   const sendInvoice = useSendInvoice(result.invoice_id);
   const [pendingMedium, setPendingMedium] = React.useState<SendInvoiceMedium | null>(null);
 
-  const reachableGuardians = (studentQuery.data?.guardians ?? []).filter(
-    (guardian) => guardian.notifications_enabled,
-  );
-  const primaryGuardians = reachableGuardians.filter((guardian) => guardian.is_primary_contact);
-  const sendCandidates = primaryGuardians.length > 0 ? primaryGuardians : reachableGuardians;
+  const { sendCandidates } = useInvoiceSendCandidates(studentIds);
 
   function handleFormatChange(next: InvoicePrintFormat) {
     setFormat(next);

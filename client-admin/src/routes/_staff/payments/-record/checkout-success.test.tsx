@@ -30,7 +30,12 @@ describe('CheckoutSuccess', () => {
 
   it('shows amount paid and invoice number', async () => {
     const { localeReady } = renderWithProviders(
-      <CheckoutSuccess result={RESULT} onRecordAnother={vi.fn()} onViewInvoice={vi.fn()} />,
+      <CheckoutSuccess
+        result={RESULT}
+        studentIds={['student-1']}
+        onRecordAnother={vi.fn()}
+        onViewInvoice={vi.fn()}
+      />,
       { locale: 'en' },
     );
     await localeReady;
@@ -41,6 +46,7 @@ describe('CheckoutSuccess', () => {
     const { localeReady } = renderWithProviders(
       <CheckoutSuccess
         result={{ ...RESULT, change_amount: 500 }}
+        studentIds={['student-1']}
         onRecordAnother={vi.fn()}
         onViewInvoice={vi.fn()}
       />,
@@ -52,7 +58,12 @@ describe('CheckoutSuccess', () => {
 
   it('does not show change due when change_amount is 0', async () => {
     const { localeReady } = renderWithProviders(
-      <CheckoutSuccess result={RESULT} onRecordAnother={vi.fn()} onViewInvoice={vi.fn()} />,
+      <CheckoutSuccess
+        result={RESULT}
+        studentIds={['student-1']}
+        onRecordAnother={vi.fn()}
+        onViewInvoice={vi.fn()}
+      />,
       { locale: 'en' },
     );
     await localeReady;
@@ -64,7 +75,12 @@ describe('CheckoutSuccess', () => {
     const user = userEvent.setup();
     const onRecordAnother = vi.fn();
     const { localeReady } = renderWithProviders(
-      <CheckoutSuccess result={RESULT} onRecordAnother={onRecordAnother} onViewInvoice={vi.fn()} />,
+      <CheckoutSuccess
+        result={RESULT}
+        studentIds={['student-1']}
+        onRecordAnother={onRecordAnother}
+        onViewInvoice={vi.fn()}
+      />,
       { locale: 'en' },
     );
     await localeReady;

@@ -419,6 +419,7 @@ export {
   openPrintableInvoice,
   useCreateInvoice,
   useInvoice,
+  useInvoiceSendCandidates,
   useInvoiceShares,
   useInvoices,
   usePrintInvoice,

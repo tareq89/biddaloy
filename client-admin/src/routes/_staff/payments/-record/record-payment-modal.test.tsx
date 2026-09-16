@@ -13,9 +13,16 @@ import { RecordPaymentModal } from './record-payment-modal';
 // no-op rather than exercised: the router itself isn't this ticket's
 // concern, and the real navigation target is already asserted for
 // `/payments/record` elsewhere (`route-permissions.test.ts`'s siblings).
+//
+// `navigateMock` is hoisted out of the factory (rather than a fresh
+// `vi.fn()` per call, which no test could assert against) so a test can
+// verify the success view stays put — `onOpenChange(false)` alone doesn't
+// prove that, since a component could stop calling it for unrelated
+// reasons while still navigating away.
+const navigateMock = vi.fn();
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@tanstack/react-router')>();
-  return { ...actual, useNavigate: () => vi.fn() };
+  return { ...actual, useNavigate: () => navigateMock };
 });
 
 function bill(overrides: Partial<Record<string, unknown>> = {}) {
@@ -89,6 +96,7 @@ async function renderModal(props: { studentId?: string; guardianId?: string } = 
 
 describe('RecordPaymentModal', () => {
   afterEach(async () => {
+    navigateMock.mockClear();
     await cleanupTestState();
   });
 
@@ -279,7 +287,11 @@ describe('RecordPaymentModal', () => {
     await waitFor(() => expect(screen.getByText('INV-2026-000123')).toBeTruthy());
     // The dialog stays open on the success view — `resetAndClose()` (which
     // calls `onOpenChange(false)`) is no longer reached from `onSuccess`.
+    // Asserting `onOpenChange` alone wouldn't catch `onSuccess` navigating
+    // away instead: the success view (`INV-2026-000123`) is still visible
+    // above, and navigation must not have fired either.
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 
   it('[16.5.5] "Record another" returns to an empty form', async () => {

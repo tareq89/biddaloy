@@ -20,6 +20,7 @@
  * `getActiveTenant`, `apiClient`) — a single stray call throws
  * `NoActiveTenantError` and blanks this page for every visitor.
  */
+import { ApiError } from '@biddaloy/ui/api';
 import { InvoiceReceipt, Skeleton } from '@biddaloy/ui/components';
 import { usePublicInvoice } from '@biddaloy/ui/hooks';
 import { REGION_BD_EN, useTranslation } from '@biddaloy/ui/i18n';
@@ -47,6 +48,14 @@ function ReceiptIcon() {
   );
 }
 
+/** A 404 (unknown token) or 410 (revoked token) is the server's explicit
+ * "this link will never work" answer — anything else (a dropped
+ * connection, a 5xx, a timeout) is a transient failure a guardian
+ * should be able to retry, not told their receipt link is invalid. */
+function isUnknownOrRevokedToken(error: unknown): boolean {
+  return error instanceof ApiError && (error.statusCode === 404 || error.statusCode === 410);
+}
+
 function PublicReceiptPage() {
   const { t } = useTranslation('fees');
   const { token } = Route.useParams();
@@ -65,7 +74,7 @@ function PublicReceiptPage() {
             <Skeleton className="h-24 w-full" />
             <Skeleton className="h-40 w-full" />
           </div>
-        ) : receiptQuery.isError ? (
+        ) : receiptQuery.isError && isUnknownOrRevokedToken(receiptQuery.error) ? (
           <div
             role="status"
             data-slot="route-status-state"
@@ -80,6 +89,27 @@ function PublicReceiptPage() {
             <p className="text-sm text-muted-foreground">
               {t('invoiceDetail.publicReceipt.notFoundExplanation')}
             </p>
+          </div>
+        ) : receiptQuery.isError ? (
+          <div
+            role="status"
+            data-slot="route-status-state"
+            className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border-subtle bg-card p-8 text-center"
+          >
+            <div aria-hidden="true" className="text-muted-foreground">
+              <ReceiptIcon />
+            </div>
+            <h2 className="text-lg font-semibold">{t('invoiceDetail.publicReceipt.errorTitle')}</h2>
+            <p className="text-sm text-muted-foreground">
+              {t('invoiceDetail.publicReceipt.errorExplanation')}
+            </p>
+            <button
+              type="button"
+              onClick={() => void receiptQuery.refetch()}
+              className="mt-2 text-sm font-medium text-primary underline underline-offset-4"
+            >
+              {t('invoiceDetail.publicReceipt.errorRetry')}
+            </button>
           </div>
         ) : (
           <>

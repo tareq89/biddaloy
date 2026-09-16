@@ -15,7 +15,16 @@ export type Invoice = components['schemas']['Invoice'];
 // shape-complete default is enough for tests that don't override it.
 function defaultSnapshot(student: components['schemas']['Student'], amount: number) {
   return {
-    issuer: { name: 'Test School', captured_at: FACTORY_REFERENCE_DATE.toISOString() },
+    issuer: {
+      name: 'Test School',
+      name_bn: null,
+      address: null,
+      phone: null,
+      email: null,
+      registration_id: null,
+      logo_key: null,
+      captured_at: FACTORY_REFERENCE_DATE.toISOString(),
+    },
     students: [
       {
         id: student.id,
@@ -47,7 +56,7 @@ function defaultSnapshot(student: components['schemas']['Student'], amount: numb
 export function invoiceFactory(overrides: Partial<Invoice> = {}, script?: Script): Invoice {
   const student = overrides.student ?? studentFactory({}, script);
   const issuedDate = faker.date.recent({ refDate: FACTORY_REFERENCE_DATE });
-  const totalAmount = moneyAmount(4);
+  const totalAmount = overrides.total_amount ?? moneyAmount(4);
   return {
     id: faker.string.uuid(),
     invoice_number: `INV-${faker.string.numeric(8)}`,

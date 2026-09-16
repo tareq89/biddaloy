@@ -446,6 +446,7 @@ export function RecordPaymentModal({
         {success !== null ? (
           <CheckoutSuccess
             result={success}
+            studentIds={selectedStudentIds}
             onRecordAnother={() => {
               resetForm();
               setSuccess(null);
