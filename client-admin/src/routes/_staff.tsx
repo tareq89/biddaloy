@@ -17,6 +17,7 @@ import { RequirePermission, RequireRole } from '@biddaloy/ui/routes';
 import { createFileRoute, Outlet, useMatches, useNavigate } from '@tanstack/react-router';
 import {
   BanknoteIcon,
+  BarChart3Icon,
   BellRingIcon,
   BriefcaseIcon,
   CalendarCheck2Icon,
@@ -258,6 +259,15 @@ function StaffLayout() {
           label: t('items.invoices'),
           permission: Permission.INVOICE_READ,
           icon: <ReceiptIcon aria-hidden="true" />,
+        },
+        // [16.6.4] — matches `/reports/collections`'s own
+        // `REPORT_COLLECTIONS_READ` gate (route-permissions.ts), not the
+        // broader REPORTS_VIEW every role in that group also holds.
+        {
+          to: '/reports/collections',
+          label: t('items.collectionsReport'),
+          permission: Permission.REPORT_COLLECTIONS_READ,
+          icon: <BarChart3Icon aria-hidden="true" />,
         },
       ],
     },

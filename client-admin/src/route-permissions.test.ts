@@ -96,6 +96,7 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/classes': '/_staff/classes/',
   '/audit-logs': '/_staff/audit-logs/',
   '/settings': '/_staff/settings',
+  '/reports/collections': '/_staff/reports/collections',
 };
 
 /** Matches each nav item object's `to`/`permission` pair, in either

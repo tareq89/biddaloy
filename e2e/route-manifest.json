@@ -283,6 +283,11 @@
       "path": "/attendance/register",
       "role": "admin",
       "archetype": "list"
+    },
+    {
+      "path": "/reports/collections",
+      "role": "accountant",
+      "archetype": "list"
     }
   ]
 }

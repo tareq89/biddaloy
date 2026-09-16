@@ -283,6 +283,19 @@ export {
   type SubmitRegisterResult,
 } from './attendance';
 export {
+  collectionsReportKeys,
+  collectionsReportQueryOptions,
+  downloadCollectionsReportCsv,
+  useCollectionsReport,
+  type CollectionsByCollector,
+  type CollectionsByDay,
+  type CollectionsByFeeType,
+  type CollectionsByMethod,
+  type CollectionsReportFilters,
+  type CollectionsReportResponse,
+  type CollectionsReportTotals,
+} from './reports';
+export {
   collectFailedStudentIds,
   REMINDER_BATCH_POLL_MS,
   reminderBatchKeys,

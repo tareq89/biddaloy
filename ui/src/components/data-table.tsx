@@ -856,7 +856,7 @@ export function DataTable<TData extends RowData>({
           ? resolvedLoadingMessage
           : !error && resolvedAnnounceResults(rows.length, totalCount)}
       </div>
-      <div className="mt-2 flex items-center justify-between text-sm">
+      <div className="mt-2 flex items-center justify-between text-sm print:hidden">
         <div className="flex items-center gap-3">
           <span className="text-muted-foreground">
             {t('table.pageOf', {

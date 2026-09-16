@@ -1,0 +1,60 @@
+{
+  "title": "Collections Report",
+  "errorMessage": "Could not load the collections report.",
+  "actions": {
+    "downloadCsv": "Download CSV",
+    "csvDownloadError": "Could not download the CSV. Please try again."
+  },
+  "filters": {
+    "presetLabel": "Date range",
+    "presetToday": "Today",
+    "presetYesterday": "Yesterday",
+    "presetWeek": "This week",
+    "presetMonth": "This month",
+    "presetCustom": "Custom",
+    "customRangeLabel": "Custom range",
+    "fromLabel": "From",
+    "toLabel": "To",
+    "methodLabel": "Method",
+    "allMethods": "All methods",
+    "method": {
+      "CASH": "Cash",
+      "CHEQUE": "Cheque",
+      "BANK_TRANSFER": "Bank transfer",
+      "CARD": "Card",
+      "BKASH": "bKash",
+      "NAGAD": "Nagad",
+      "ROCKET": "Rocket"
+    },
+    "collectorLabel": "Collector",
+    "allCollectors": "All collectors"
+  },
+  "totals": {
+    "collected": "Collected",
+    "reversed": "Reversed",
+    "net": "Net",
+    "standingDiscount": "Standing discount",
+    "oneOffDiscount": "One-off discount",
+    "walletUsed": "Wallet used",
+    "walletAdded": "Wallet added",
+    "changeReturned": "Change returned"
+  },
+  "print": {
+    "range": "Range: {{from}} – {{to}}"
+  },
+  "chart": {
+    "title": "Collections by day",
+    "empty": "No collections in this range."
+  },
+  "tables": {
+    "method": "Method",
+    "collector": "Collector",
+    "feeType": "Fee type",
+    "amount": "Amount",
+    "count": "Count",
+    "byMethodCaption": "Collections by method",
+    "byCollectorCaption": "Collections by collector",
+    "byFeeTypeCaption": "Collections by fee type",
+    "emptyMessage": "No rows for this range."
+  }
+}
