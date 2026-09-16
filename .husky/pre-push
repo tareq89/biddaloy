@@ -1,0 +1,5 @@
+branch=$(git rev-parse --abbrev-ref HEAD)
+[ "$branch" = "main" ] && exit 0
+[ -n "$SKIP_CHECK" ] && exit 0
+
+yarn check --affected
