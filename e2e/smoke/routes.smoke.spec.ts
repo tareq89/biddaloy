@@ -19,9 +19,13 @@ import { resolvePath, routes, type ManifestRoute } from '../responsive/routes';
  */
 const SMOKE_WIDTHS = [320, 1280] as const;
 
-const SMOKE_ROUTES = routes.filter((r): r is ManifestRoute =>
-  ['/login', '/fees/dues', '/portal'].includes(r.path),
-);
+const SMOKE_PATHS = ['/login', '/fees/dues', '/portal'] as const;
+
+const SMOKE_ROUTES: ManifestRoute[] = SMOKE_PATHS.map((path) => {
+  const route = routes.find((candidate) => candidate.path === path);
+  if (!route) throw new Error(`Missing required smoke route: ${path}`);
+  return route;
+});
 
 for (const route of SMOKE_ROUTES) {
   test.describe(route.path, () => {
