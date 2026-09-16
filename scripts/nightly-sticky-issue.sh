@@ -120,6 +120,7 @@ fi
 
 if [ -n "$issue_number" ]; then
   run_gh issue edit "$issue_number" --repo "$GITHUB_REPOSITORY" --body-file "$body_file" \
+    --add-label nightly-red \
     || fail_soft "gh issue edit failed for #$issue_number"
 else
   run_gh issue create --repo "$GITHUB_REPOSITORY" \

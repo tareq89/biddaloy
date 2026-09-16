@@ -215,7 +215,8 @@ jobs:
             echo
             echo "Failed jobs:"
             gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs" \
-              --jq '.jobs[] | select(.conclusion=="failure") | "- " + .name'
+              --jq '.jobs[] | select(.conclusion=="failure") | "- " + .name' \
+              || echo "- (unable to list failed jobs — see run link above)"
           } > nightly-report.md
 
       - name: Report status
