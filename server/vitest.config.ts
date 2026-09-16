@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config';
 import { resolve } from 'path';
 import swc from 'unplugin-swc';
+import { WORKERS } from './test/global-setup';
 
 // [15.1] Set only by ci.yml's per-job collect step. Unset (every local run)
 // means zero behaviour change. NOTE: `test:integration` and `test:e2e` in
@@ -71,18 +72,17 @@ export default defineConfig({
       },
     },
 
-    // Integration and E2E tests run sequentially — one file at a time — so
-    // `clearTransactionalTables`'s DELETEs never race against each other on
-    // the one shared Postgres test database, which produced real deadlocks
-    // and "relation does not exist" failures otherwise.
-    //
-    // `fileParallelism: false` is the whole mechanism: Vitest's own docs say
-    // it "will override `maxWorkers` option to `1`", so an explicit
-    // `maxWorkers` here would be redundant. This previously also set
-    // `poolOptions.threads.singleThread`, which Vitest 4 removed — it was a
-    // no-op that only printed a DEPRECATED warning.
+    // [18.2.1] Integration and e2e specs used to run sequentially — one file
+    // at a time (`fileParallelism: false`) — so `clearTransactionalTables`'s
+    // DELETEs never raced each other on the one shared Postgres test
+    // database. Each vitest pool worker now gets its own database (cloned
+    // from a migrated template in test/global-setup.ts) and its own Redis
+    // db index (test/setup.ts), so up to WORKERS files can run at once with
+    // nothing left to race. maxWorkers is imported from test/global-setup.ts's
+    // WORKERS constant so the two can never drift out of sync.
     pool: 'threads',
-    fileParallelism: false,
+    maxWorkers: WORKERS,
+    minWorkers: 1,
   },
   resolve: {
     alias: {

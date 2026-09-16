@@ -26,8 +26,20 @@ export default defineConfig({
     // class-transformer's `@Type()` calls `Reflect.getMetadata` at module
     // evaluation time, so any spec importing a DTO crashes on collection
     // unless the shim is loaded first. `vitest.config.ts` gets this via
-    // `test/setup.ts`; unit tests have no setup file of their own.
-    setupFiles: ['reflect-metadata'],
+    // `test/setup.ts`.
+    //
+    // [18.2.1] `./test/unit-setup.ts` resets mocks/timers/globals/env/module
+    // registry after every test — required now that `isolate: false` below
+    // shares that registry across files. See that file's header comment.
+    setupFiles: ['reflect-metadata', './test/unit-setup.ts'],
+
+    // [18.2.1] No database/Redis dependency to isolate unit tests against,
+    // so share one worker-thread module registry across files instead of
+    // spinning up a fresh one per file — `./test/unit-setup.ts` resets the
+    // leakable state that sharing exposes. `poolOptions.threads.isolate` was
+    // removed in Vitest 4 — `isolate` is now top-level (same as `pool`).
+    pool: 'threads',
+    isolate: false,
 
     // Coverage
     coverage: {
