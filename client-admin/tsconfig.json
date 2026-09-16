@@ -3,8 +3,11 @@
   "compilerOptions": {
     "jsx": "react-jsx",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "outDir": "./dist",
-    "noEmit": true,
+    "composite": true,
+    "incremental": true,
+    "tsBuildInfoFile": "./.tsout/client-admin.tsbuildinfo",
+    "emitDeclarationOnly": true,
+    "outDir": "./.tsout",
     "rootDir": "..",
     // Without an explicit list here, TypeScript 6's automatic @types/*
     // discovery silently fails to pick up @types/node in this project
@@ -31,8 +34,9 @@
       "@biddaloy/ui/tailwind": ["../ui/tailwind.preset.ts"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "../e2e/route-manifest.json", "../ui/src/i18n/locales/**/*.json"],
   // Checked separately, against the `WebWorker` lib — see
   // `tsconfig.sw.json` for why it cannot share this program.
-  "exclude": ["src/sw.ts"]
+  "exclude": ["src/sw.ts"],
+  "references": [{ "path": "../ui" }, { "path": "../shared" }]
 }

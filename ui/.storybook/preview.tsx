@@ -91,7 +91,7 @@ const preview: Preview = {
     // by default — the same "happy path" baseline the Vitest suite uses —
     // so a story author only needs `parameters.msw.handlers` to override
     // the specific endpoint their story cares about.
-    msw: { handlers },
+    msw: { handlers: [...handlers] },
     a11y: {
       // Violations fail the story's a11y panel entry but not the Storybook
       // build itself — 'todo' logs to the panel and the test-runner without

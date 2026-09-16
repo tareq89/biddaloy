@@ -1,0 +1,11 @@
+{
+  "files": [],
+  "references": [
+    { "path": "shared" },
+    { "path": "ui" },
+    { "path": "client-admin" },
+    { "path": "client-admin/tsconfig.sw.json" },
+    { "path": "server/tsconfig.lint.json" },
+    { "path": "e2e" }
+  ]
+}
