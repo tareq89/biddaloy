@@ -11,6 +11,7 @@ import {
   UseGuards,
   Inject,
   ParseUUIDPipe,
+  HttpCode,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
@@ -34,6 +35,7 @@ import { FeeStructureService, PaymentService } from './fees.service';
 import { PaymentsQueryService } from './payments-query.service';
 import { FeeGenerationService } from './fee-generation.service';
 import { FeeDuesService } from './fee-dues.service';
+import { FeesDailyScheduler } from './fees-daily.scheduler';
 import { FamilyAccessService } from '../students/family-access.service';
 import {
   CreateFeeStructureDto,
@@ -91,6 +93,7 @@ export class FeeController {
     @Inject(FeeGenerationService) private readonly feeGenerationService: FeeGenerationService,
     @Inject(FeeDuesService) private readonly feeDuesService: FeeDuesService,
     @Inject(FamilyAccessService) private readonly familyAccess: FamilyAccessService,
+    @Inject(FeesDailyScheduler) private readonly feesDailyScheduler: FeesDailyScheduler,
   ) {}
 
   // --- Fee Dues endpoints ---
@@ -197,6 +200,26 @@ export class FeeController {
         user?: { sub: string };
       },
     );
+  }
+
+  // [16.7.2] Manual trigger for ops/testing — runs today's fees-daily sweep
+  // (due schedules + late fees) for the caller's own tenant only.
+  @Post('fees/schedules/run-now')
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @RequirePermissions(Permission.SCHEDULE_MANAGE)
+  @Throttle({ default: STRICT_RATE_LIMIT })
+  @HttpCode(202)
+  @ApiOperation({
+    summary:
+      "Enqueue today's fees-daily sweep (due recurring schedules + late fees) for the " +
+      "caller's own tenant. Same idempotency as the nightly cron: already-run periods are " +
+      'a no-op.',
+  })
+  async runSchedulesNow(
+    @CurrentTenant() tenant: { id: string; role: string },
+  ): Promise<{ accepted: true }> {
+    await this.feesDailyScheduler.runNow(tenant.id);
+    return { accepted: true };
   }
 
   // --- Fee Structure endpoints ---

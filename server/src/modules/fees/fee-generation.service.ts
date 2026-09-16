@@ -174,7 +174,14 @@ export class FeeGenerationService {
     tenantId: string,
     userId: string | null,
     request: RequestLike,
+    // [16.7.2] Optional — the daily scheduler (`fees-daily.scheduler.ts`)
+    // is the only caller that ever sets these; every manual `POST
+    // /fees/generate` call keeps the pre-existing MANUAL/no-schedule
+    // behavior by omitting `options`.
+    options?: { source?: FeeGenerationSource; recurringScheduleId?: string },
   ): Promise<GenerateFeesResultDto> {
+    const source = options?.source ?? FeeGenerationSource.MANUAL;
+    const recurringScheduleId = options?.recurringScheduleId ?? null;
     const duplicateStrategy = dto.duplicate_strategy ?? DuplicateStrategy.SKIP;
     const notifyFamilies = await this.resolveNotifyFamilies(dto, tenantId);
 
@@ -283,7 +290,8 @@ export class FeeGenerationService {
           period_start: context.periodStart,
           period_type: dto.period_type,
           due_date: dueDate,
-          source: FeeGenerationSource.MANUAL,
+          source,
+          recurring_schedule_id: recurringScheduleId,
           generated_by_user_id: userId,
           approved_by_user_id: approvedBy,
           duplicate_strategy: duplicateStrategy,
