@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsUUID, Matches } from 'class-validator';
+import { IsDateString, IsEnum, IsOptional, IsUUID, Matches } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaymentMethod } from '@biddaloy/shared';
 
@@ -16,10 +16,12 @@ export class CollectionsReportQueryDto {
   // becomes an invalid instant) and throws a RangeError -> 500 instead of a
   // clean 400. Require a bare `YYYY-MM-DD` calendar day instead.
   @ApiProperty({ example: '2026-03-01' })
+  @IsDateString({ strict: true })
   @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'from must be a YYYY-MM-DD calendar date' })
   from: string;
 
   @ApiProperty({ example: '2026-03-31' })
+  @IsDateString({ strict: true })
   @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'to must be a YYYY-MM-DD calendar date' })
   to: string;
 
@@ -34,69 +36,119 @@ export class CollectionsReportQueryDto {
   payment_method?: PaymentMethod;
 }
 
-export interface CollectionsReportRange {
+export class CollectionsReportRange {
+  @ApiProperty()
   from: string;
+
+  @ApiProperty()
   to: string;
 }
 
-export interface CollectionsReportTotals {
+export class CollectionsReportTotals {
+  @ApiProperty()
   collected: number;
+
+  @ApiProperty()
   reversed: number;
+
+  @ApiProperty()
   net: number;
+
+  @ApiProperty()
   standing_discount: number;
+
+  @ApiProperty()
   one_off_discount: number;
+
+  @ApiProperty()
   wallet_used: number;
+
+  @ApiProperty()
   wallet_added: number;
+
+  @ApiProperty()
   change_returned: number;
 }
 
-export interface CollectionsByMethod {
+export class CollectionsByMethod {
+  @ApiProperty({ enum: PaymentMethod })
   payment_method: PaymentMethod;
+
+  @ApiProperty()
   count: number;
+
+  @ApiProperty()
   collected: number;
+
+  @ApiProperty()
   reversed: number;
+
+  @ApiProperty()
   net: number;
 }
 
-export interface CollectionsByCollector {
+export class CollectionsByCollector {
+  @ApiProperty({ nullable: true, type: String })
   user_id: string | null;
+
+  @ApiProperty({ nullable: true, type: String })
   full_name: string | null;
+
+  @ApiProperty()
   count: number;
+
+  @ApiProperty()
   collected: number;
+
+  @ApiProperty()
   reversed: number;
+
+  @ApiProperty()
   net: number;
 }
 
-export interface CollectionsByFeeType {
+export class CollectionsByFeeType {
+  @ApiProperty()
   fee_type: string;
+
+  @ApiProperty()
   collected: number;
+
+  @ApiProperty()
   discount: number;
 }
 
-export interface CollectionsByDay {
+export class CollectionsByDay {
+  @ApiProperty()
   date: string;
+
+  @ApiProperty()
   collected: number;
+
+  @ApiProperty()
   reversed: number;
+
+  @ApiProperty()
   net: number;
 }
 
 export class CollectionsReportDto {
-  @ApiProperty()
+  @ApiProperty({ type: CollectionsReportRange })
   range: CollectionsReportRange;
 
-  @ApiProperty()
+  @ApiProperty({ type: CollectionsReportTotals })
   totals: CollectionsReportTotals;
 
-  @ApiProperty({ isArray: true })
+  @ApiProperty({ type: CollectionsByMethod, isArray: true })
   by_method: CollectionsByMethod[];
 
-  @ApiProperty({ isArray: true })
+  @ApiProperty({ type: CollectionsByCollector, isArray: true })
   by_collector: CollectionsByCollector[];
 
-  @ApiProperty({ isArray: true })
+  @ApiProperty({ type: CollectionsByFeeType, isArray: true })
   by_fee_type: CollectionsByFeeType[];
 
-  @ApiProperty({ isArray: true })
+  @ApiProperty({ type: CollectionsByDay, isArray: true })
   by_day: CollectionsByDay[];
 }
 

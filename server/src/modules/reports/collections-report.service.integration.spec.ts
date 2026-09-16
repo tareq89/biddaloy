@@ -233,14 +233,16 @@ describe('CollectionsReportService', () => {
 
     it('applies the Dhaka day boundary at the edges of the range, not UTC midnight', async () => {
       const student = await makeStudent();
-      // 2026-03-01T00:30:00Z is still 2026-02-28 in Dhaka (UTC+6) — should
-      // fall OUTSIDE a `from: 2026-03-01` filter.
+      // One second before March 1 starts in Dhaka (UTC+6) — should fall
+      // OUTSIDE a `from: 2026-03-01` filter.
       await makePayment(student.id, SEED_TENANT_ID, {
-        payment_date: new Date('2026-03-01T00:30:00Z'),
+        payment_date: new Date('2026-02-28T17:59:59Z'),
+        total_amount: 111,
       });
-      // 2026-03-01T18:00:00Z is 2026-03-02 00:00 Dhaka — should be INSIDE.
+      // March 1 midnight in Dhaka — should be INSIDE.
       const inside = await makePayment(student.id, SEED_TENANT_ID, {
-        payment_date: new Date('2026-03-01T18:00:00Z'),
+        payment_date: new Date('2026-02-28T18:00:00Z'),
+        total_amount: 222,
       });
 
       const result = await service.getReport(SEED_TENANT_ID, {

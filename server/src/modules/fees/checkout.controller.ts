@@ -16,7 +16,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiProperty,
+  ApiTags,
+} from '@nestjs/swagger';
 import { IsString, MaxLength, MinLength } from 'class-validator';
 import type { Request, Response } from 'express';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
@@ -46,6 +52,7 @@ import { ApprovalScope, JwtPayload, Permission, UserRole, isGuardianRole } from 
  * the payment itself. Declared inline rather than in `dto/checkout.dto.ts`
  * — this ticket's file territory doesn't include that file. */
 class ReversePaymentDto {
+  @ApiProperty({ minLength: 3, maxLength: 500 })
   @IsString()
   @MinLength(3)
   @MaxLength(500)
