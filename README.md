@@ -581,53 +581,66 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and on push to
 - **verify** — install, `yarn build:shared`, `yarn build:server`, `yarn lint`,
   `yarn test:unit`. No infrastructure required. `yarn test:unit:changed`
   runs only the unit tests affected by files changed since `origin/main`.
+  Also runs `yarn knip` (dead-code detection) as a **non-blocking** step —
+  see below.
+- **frontend** — installs, builds `shared`, then runs the `ui` and
+  `client-admin` vitest suites with coverage. No infrastructure required.
 - **integration** — spins up its own Postgres 16 and Redis 7 service
   containers, then runs `yarn test:integration` and `yarn test:e2e`.
-- **e2e** — Chromium only, with its own Postgres/Redis service containers,
-  migrated and seeded before Playwright starts the server and both clients.
-  See "End-to-end Testing" above.
+- **e2e** — `E2E smoke (chromium)` job: Postgres/Redis service containers,
+  migrated and seeded, Playwright against a **production build**
+  (`vite build` + `vite preview`, `node dist/main.js`) of both clients and
+  the server. **[18.2.3]** folded the PWA/offline suite into this job and
+  removed the 3-way shard — journeys, smoke and PWA all run in one chromium
+  job now. See "End-to-end Testing" above.
+- **storybook** — `yarn build:storybook`, PR-blocking build-only check
+  (no visual regression yet).
 - **audit** — `node scripts/ci-audit.js`, which gates only on high/critical
   `yarn audit` findings (yarn classic's `--level` flag doesn't affect its exit
   code, so this re-implements the filter correctly). Allowlisted advisories
   are declared inline in the script with a reason and a re-check date.
-- **verify** also runs `yarn knip` (dead-code detection) as a **non-blocking**
-  step — see below.
+- **bundle-delta** — PR-comment-only, diffs the built `client-admin` against
+  the latest `main` build; not required to pass.
+- **timings** — the "Test timings & budgets" job summary described below;
+  always runs, never fails the pipeline (budgets warn-only today).
 
 ### E2E browser policy & sharding
 
 ```mermaid
 flowchart LR
-    PR["PR / push to main\n(ci.yml e2e job)"] --> C["chromium only\n3 shards"]
+    PR["PR / push to main\n(ci.yml e2e job)"] --> C["E2E smoke (chromium)\none job, no shards\njourneys + smoke + PWA"]
     N["Nightly, 21:00 UTC\n(nightly-e2e.yml)"] --> CH["chromium\n3 shards"]
     N --> FF["firefox\n3 shards (advisory)"]
     N --> WK["webkit\n3 shards (advisory)"]
 ```
 
-- **PRs and pushes to `main`** run chromium only, split into 3 shards
-  (`ci.yml`'s `e2e` job, matrix `browser × shard`). This is the fast path
-  everyone waits on.
+- **PRs and pushes to `main`** run chromium only, in one unsharded
+  `E2E smoke (chromium)` job (`ci.yml`'s `e2e` job). **[18.2.1]/[18.2.2]**
+  (path-based smoke split, production-mode `webServer`) brought this leg
+  back under the ~5 min threshold that originally motivated the 3-way
+  shard, so **[18.2.3]** removed the shard and folded the PWA/offline suite
+  in too — one job per browser now covers journeys, smoke and PWA.
 - **Nightly** (`.github/workflows/nightly-e2e.yml`, `workflow_dispatch`-able)
-  runs all three engines — chromium, firefox, webkit — each split into the
-  same 3 shards, on a schedule instead of blocking PRs. The `firefox` and
-  `webkit` legs are **advisory**: they carry job-level
-  `continue-on-error`, so a red engine shows as a failed job (with its
-  report and traces uploaded as `nightly-playwright-report-<browser>-<shard>`)
-  while the workflow run itself stays green. They're unproven at repo
-  scale — only smoke-tested during #440's planning — and stay advisory
-  until a follow-up issue triages and greens them.
+  still runs all three engines — chromium, firefox, webkit — each split
+  into 3 shards, on a schedule instead of blocking PRs; it runs the full,
+  unsharded-by-browser suite (`<browser>` + `<browser>-sweeps` projects),
+  unaffected by the PR-path change above. The `firefox` and `webkit` legs
+  are **advisory**: they carry job-level `continue-on-error`, so a red
+  engine shows as a failed job (with its report and traces uploaded as
+  `nightly-playwright-report-<browser>-<shard>`) while the workflow run
+  itself stays green. They're unproven at repo scale — only smoke-tested
+  during #440's planning — and stay advisory until a follow-up issue
+  triages and greens them.
 - To widen the PR/push path itself to all three engines, set the repo
   Actions variable `E2E_BROWSERS_JSON` to `["chromium","firefox","webkit"]`
   — no workflow edit needed, this has been the contract since #148.
-- The shard count (`3`) is **not** defined in one place. It is repeated
-  across the job `name:`, the `matrix.shard` list, the "E2E tests" step
-  name and its `--shard=${{ matrix.shard }}/3` flag, and — in `ci.yml`
-  only — three `matrix.shard == 3` pins that keep the PWA/offline suite
-  running exactly once. Changing the count means editing all of them in
-  both workflows; the comment above `matrix.shard` in `ci.yml` lists
-  them. Get it wrong and CI stays green while tests quietly stop
-  running: a `[1, 2]` matrix against `--shard=N/3` just drops the third
-  shard's tests, and a stale `== 3` pin silently disables the whole PWA
-  suite.
+- The shard count (`3`) in `nightly-e2e.yml` is **not** defined in one
+  place — it's repeated across the job `name:`, the `matrix.shard` list,
+  the "E2E tests" step name and its `--shard=${{ matrix.shard }}/3` flag.
+  Changing it means editing all of them; the comment above `matrix.shard`
+  lists them. Get it wrong and the workflow stays green while tests
+  quietly stop running: a `[1, 2]` matrix against `--shard=N/3` just drops
+  the third shard's tests.
 - `yarn e2e` run locally is unsharded and unaffected by any of this.
 
 All specs authenticate via `storageState` fixtures
