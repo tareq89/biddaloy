@@ -76,11 +76,12 @@ const PROJECT_TEST_TIMEOUT = 20_000;
 const PROJECT_POOL = 'threads' as const;
 
 // [18.3.2] CI's frontend job runs on a 4 vCPU runner. Left unset, Vitest
-// computes `maxWorkers` from `os.cpus().length` **per project** — each of
-// the six top-level `projects` entries below independently sizes its own
-// pool off the same 4-core host. Pinning it to 4 here does NOT cap the
-// total worker count across the whole run (six projects × 4 workers each
-// is still up to 24 processes queued onto 4 cores — Vitest's `projects`
+// computes `maxWorkers` from `os.availableParallelism()` (falling back to
+// `os.cpus().length`) **per project** — each of the six top-level
+// `projects` entries below independently sizes its own pool off the same
+// 4-core host. Pinning it to 4 here does NOT cap the total worker count
+// across the whole run (six projects × 4 worker threads each is still up
+// to 24 worker threads queued onto 4 cores — Vitest's `projects`
 // mode has no shared, cross-project worker budget to pin instead). What
 // this *does* fix: it removes the ambiguity of an unset default that can
 // silently size differently under `--coverage` (Vitest 4 has been
