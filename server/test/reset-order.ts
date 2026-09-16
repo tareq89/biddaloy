@@ -33,6 +33,7 @@ export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'wallet_transactions',
   'student_wallets',
   'payment_allocations',
+  'invoice_share_tokens',
   'invoices',
   'payments',
   'student_fees',

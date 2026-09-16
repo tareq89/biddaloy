@@ -29,10 +29,16 @@ import { PublicInvoiceController } from './public-invoice.controller';
     forwardRef(() => CommunicationsModule),
     CreditsModule,
     // [16.5.4] `sendInvoice` needs the tenant's resolved locale for the
-    // receipt message. Part of the same cycle as `CommunicationsModule`
-    // above (`SchoolsModule` -> `AccountAccessModule` -> `CommunicationsModule`
-    // -> `InvoicesModule`), already broken by that edge's `forwardRef`.
-    SchoolsModule,
+    // receipt message. `SchoolsModule` -> `AccountAccessModule` ->
+    // `CommunicationsModule` -> `FeeModule` -> `InvoicesModule` is a real
+    // cycle of its own (the `forwardRef` above only breaks the
+    // `CommunicationsModule` <-> `InvoicesModule` edge), so `SchoolsModule`
+    // itself needs `forwardRef` here too — without it, Nest resolves this
+    // import to `undefined` whenever `SchoolsModule` is still being scanned
+    // higher up that chain ("Nest cannot create the InvoicesModule
+    // instance. The module at index [6] of the imports array is
+    // undefined").
+    forwardRef(() => SchoolsModule),
   ],
   providers: [InvoicesService, InvoiceShareService],
   controllers: [InvoicesController, PublicInvoiceController],

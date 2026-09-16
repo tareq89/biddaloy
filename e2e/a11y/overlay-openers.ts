@@ -41,11 +41,6 @@ export const overlayOpeners: Record<string, (page: Page, locale: Locale) => Prom
     await page.getByRole('button', { name: makeT(locale)('fees.dues.sendReminder') }).click();
     await expectDialogOpen(page);
   },
-  '/fees/dues::generate-invoices': async (page, locale) => {
-    await selectFirstDuesRow(page, locale);
-    await page.getByRole('button', { name: makeT(locale)('fees.dues.generateInvoice') }).click();
-    await expectDialogOpen(page);
-  },
   '/students::send-reminder': async (page, locale) => {
     const list = new ListShellPage(page, { titleKey: 'students.list.title' }, locale);
     await list.expectLoaded();

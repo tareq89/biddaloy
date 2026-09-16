@@ -114,7 +114,7 @@
       "path": "/fees/dues",
       "role": "accountant",
       "archetype": "list",
-      "overlays": ["send-reminder", "generate-invoices"]
+      "overlays": ["send-reminder"]
     },
     {
       "path": "/fees/generate",

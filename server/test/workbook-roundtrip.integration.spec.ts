@@ -524,7 +524,7 @@ describe('workbook round trip (integration)', () => {
         issued_date: '2026-01-05',
         due_date: '2026-01-10',
         snapshot: {
-          issuer: {},
+          issuer: { name: 'Fixture School', captured_at: '2026-01-05T00:00:00.000Z' },
           students: [
             {
               id: student.id,
