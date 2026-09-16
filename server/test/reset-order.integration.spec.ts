@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { DataSource } from 'typeorm';
+import Redis from 'ioredis';
 import { TRANSACTIONAL_TABLES_CHILD_FIRST, REFERENCE_TABLES_CHILD_FIRST } from './reset-order';
+import { workerDbName } from './global-setup';
 
 /**
  * Guards `reset-order.ts`'s delete order and coverage against the live schema.
@@ -154,5 +156,30 @@ describe('reset-order (integration)', () => {
         )
         .join('\n'),
     ).toHaveLength(0);
+  });
+
+  // [18.2.1] Guards the per-worker DB/Redis split in test/global-setup.ts +
+  // test/setup.ts: each vitest pool worker must land on its own database and
+  // its own Redis db index, keyed by VITEST_POOL_ID, not share one with
+  // every other worker.
+  it('worker runs on its own database', async () => {
+    const worker = process.env.VITEST_POOL_ID ?? '1';
+    const rows = await dataSource.query('SELECT current_database()');
+    expect(rows[0].current_database).toBe(workerDbName('biddaloy_test', worker));
+  });
+
+  it('worker redis db index', async () => {
+    const worker = process.env.VITEST_POOL_ID ?? '1';
+    const redis = new Redis(process.env.REDIS_URL ?? `redis://127.0.0.1:6379/${worker}`);
+    try {
+      // `CLIENT INFO`'s reply is a single string of space-separated
+      // `key=value` fields, one of which is `db=<index>` — the db the
+      // connection actually selected, confirming REDIS_URL's path segment
+      // took effect rather than silently defaulting to db 0.
+      const clientInfo = (await redis.call('CLIENT', 'INFO')) as string;
+      expect(clientInfo).toMatch(new RegExp(`(^| )db=${worker}( |$)`));
+    } finally {
+      redis.disconnect();
+    }
   });
 });

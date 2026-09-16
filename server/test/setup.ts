@@ -12,6 +12,12 @@
  * `reflect-metadata` is loaded first because class-transformer's `@Type()`
  * decorator calls `Reflect.getMetadata` while a DTO module is being
  * evaluated — before any test body runs.
+ *
+ * [18.2.1] `DATABASE_URL` and `REDIS_URL` are rewritten below to point each
+ * vitest pool worker at its own worker database (`biddaloy_test_w{N}`,
+ * cloned from the template in `test/global-setup.ts`) and its own Redis db
+ * index, keyed by `VITEST_POOL_ID`. That's what lets `vitest.config.ts` run
+ * spec files across multiple workers instead of one at a time — see D19.
  */
 import 'reflect-metadata';
 import 'ts-node/register/transpile-only';
@@ -19,6 +25,7 @@ import { join } from 'path';
 import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
 import { buildResetSql, buildReferenceResetSql } from './reset-order';
+import { workerDbName } from './global-setup';
 
 // Must run at module top level, not deferred inside a beforeAll-only function:
 // e2e specs import AppModule (which reads process.env via ConfigModule) at file
@@ -32,6 +39,29 @@ process.env.DB_SYNCHRONIZE = 'false';
 // dev-shaped DATABASE_URL in the ambient shell silently wins, and every test
 // run fails assertTestDatabaseUrl() below with a confusing refusal.
 config({ path: join(__dirname, '..', '.env.test'), override: true });
+
+// [18.2.1] Vitest sets VITEST_POOL_ID to a 1-based worker index (unset —
+// e.g. running a single file directly — means "worker 1", same DB the old
+// single-worker setup used). Point this worker's DATABASE_URL at its own
+// clone of the template (test/global-setup.ts) and its own Redis db index,
+// so `fileParallelism: true` (vitest.config.ts) no longer lets workers race
+// each other's DELETEs against one shared database/Redis instance.
+const worker = process.env.VITEST_POOL_ID ?? '1';
+
+if (process.env.DATABASE_URL) {
+  const baseUrl = new URL(process.env.DATABASE_URL);
+  const baseDbName = baseUrl.pathname.replace(/^\//, '');
+  baseUrl.pathname = `/${workerDbName(baseDbName, worker)}`;
+  process.env.DATABASE_URL = baseUrl.toString();
+}
+
+if (process.env.REDIS_URL) {
+  const baseRedisUrl = new URL(process.env.REDIS_URL);
+  baseRedisUrl.pathname = `/${worker}`;
+  process.env.REDIS_URL = baseRedisUrl.toString();
+} else {
+  process.env.REDIS_URL = `redis://127.0.0.1:6379/${worker}`;
+}
 
 /** @type {import('typeorm').DataSource|null} */
 let dataSource = null;
