@@ -243,15 +243,18 @@ export class InvoicesService {
     return this.findOne(invoiceId, tenantId);
   }
 
-  /** [16.5.1] Skeleton for 16.6.1's refund flow: mints a credit note
-   * reversing the invoice already issued for `paymentId`. Kept minimal —
-   * 16.6.1 owns the actual refund/reversal business logic (partial
-   * amounts, which lines are credited, etc.); this only establishes the
-   * document shape (`kind = CREDIT_NOTE`, linked back via
-   * `related_invoice_id`, negative `total_amount`/`tax_amount`/
-   * `discount_amount` so it nets the original invoice to zero, and its
-   * own `status = ISSUED`) and its own numbering series. The original
-   * invoice's `status` is set to `CANCELLED` in the same operation. */
+  /** [16.5.1, amounts fixed by 16.6.1] Mints a credit note reversing the
+   * invoice already issued for `paymentId` (`kind = CREDIT_NOTE`, linked
+   * back via `related_invoice_id`, its own `status = ISSUED`, its own
+   * numbering series). `total_amount`/`tax_amount`/`discount_amount`
+   * mirror the original invoice's amounts as positive numbers — `kind`
+   * is the discriminator that marks a row as a credit note, not the
+   * sign. Storing a negative here would violate the real DB check
+   * constraints (`CHK_inv_total_amount CHECK (total_amount > 0)`, etc.
+   * from the initial migration); the sibling fix in
+   * `PaymentReversalService` uses the same convention for reversal
+   * `Payment` rows. Display code that wants a signed amount (e.g. the
+   * print template) negates at render time via `signedAmount()`. */
   async createCreditNote(
     paymentId: string,
     reason: string,
@@ -273,9 +276,9 @@ export class InvoicesService {
         student_id: original.student_id,
         payment_id: original.payment_id,
         related_invoice_id: original.id,
-        total_amount: -original.total_amount,
-        tax_amount: -original.tax_amount,
-        discount_amount: -original.discount_amount,
+        total_amount: Math.abs(Number(original.total_amount)),
+        tax_amount: Math.abs(Number(original.tax_amount)),
+        discount_amount: Math.abs(Number(original.discount_amount)),
         status: InvoiceStatus.ISSUED,
         issued_date: new Date(),
         due_date: new Date(),

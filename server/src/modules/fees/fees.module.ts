@@ -30,6 +30,7 @@ import { WalletController } from './wallet.controller';
 import { CheckoutCartService } from './checkout-cart.service';
 import { CheckoutService } from './checkout.service';
 import { CheckoutController } from './checkout.controller';
+import { PaymentReversalService } from './payment-reversal.service';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { CheckoutController } from './checkout.controller';
     NoopDiscountResolver,
     CheckoutCartService,
     CheckoutService,
+    PaymentReversalService,
   ],
   // CheckoutController is registered before FeeController: both declare
   // routes under `payments/*`, and Nest/Express match routes in
