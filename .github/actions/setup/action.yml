@@ -1,0 +1,42 @@
+name: Setup Node + install
+description: >
+  Composite setup used by every CI/nightly job (#766). Installs Node,
+  caches node_modules across runs (in addition to setup-node's own yarn
+  download cache), and only runs `yarn install` on a cache miss — a job
+  landing on a warm node_modules cache skips the install entirely instead
+  of re-hoisting the whole tree every time.
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v7
+      with:
+        node-version: "24"
+        cache: yarn
+
+    # Keyed on the lockfile only — no `restore-keys:`. Yarn v1's hoisting
+    # means a partial/stale node_modules is worse than none: a
+    # near-but-not-exact match would still need `yarn install` to reconcile
+    # it, and that reconciliation is slower than installing into an empty
+    # tree. An exact-key miss below runs a clean `yarn install` instead.
+    - uses: actions/cache@v6
+      id: node-modules-cache
+      with:
+        path: |
+          node_modules
+          */node_modules
+        key: node-modules-${{ runner.os }}-${{ runner.arch }}-24-${{ hashFiles('yarn.lock') }}
+
+    - name: Install dependencies
+      if: steps.node-modules-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: yarn install --frozen-lockfile
+
+    # [15.6] Config-consistency check, same as before this composite
+    # existed — the runtime half is a tautology here (setup-node just
+    # installed the pinned version above), but the
+    # drift-between-.nvmrc/ci.yml/the-nightly-workflows half is exactly
+    # what CI should enforce. `--no-runtime-check` for the same reason.
+    - name: Node version parity
+      shell: bash
+      run: node scripts/check-node-version.mjs --no-runtime-check
