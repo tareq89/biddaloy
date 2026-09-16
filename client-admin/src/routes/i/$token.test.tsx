@@ -1,5 +1,6 @@
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -70,4 +71,63 @@ describe('/i/$token public receipt page', () => {
 
     await waitFor(() => expect(screen.getByRole('status')).toBeTruthy());
   });
+
+  it('shows the same not-found state for a 410 (explicitly revoked) token', async () => {
+    server.use(
+      http.get(
+        '/api/v1/public/invoices/:token',
+        () =>
+          new HttpResponse(
+            JSON.stringify({
+              statusCode: 410,
+              message: 'Gone',
+              timestamp: new Date().toISOString(),
+              path: '/api/v1/public/invoices/gone-token',
+              requestId: 'req-3',
+            }),
+            { status: 410, headers: { 'Content-Type': 'application/json' } },
+          ),
+      ),
+    );
+
+    renderWithRouter(routeTree, { initialEntries: ['/i/gone-token'], locale: 'en' });
+
+    await waitFor(() => expect(screen.getByText("This link isn't valid")).toBeTruthy());
+  });
+
+  it('shows a retryable error state (not "link invalid") for a server failure, and retries on click', async () => {
+    // `usePublicInvoice` retries a 5xx twice (`shouldRetryQuery`) before
+    // settling into `isError` — three failing responses, then a fourth
+    // (triggered by the "Try again" click) succeeds.
+    let callCount = 0;
+    server.use(
+      http.get('/api/v1/public/invoices/:token', () => {
+        callCount += 1;
+        return callCount <= 3
+          ? new HttpResponse(
+              JSON.stringify({
+                statusCode: 500,
+                message: 'boom',
+                timestamp: new Date().toISOString(),
+                path: '/api/v1/public/invoices/flaky-token',
+                requestId: 'req-2',
+              }),
+              { status: 500, headers: { 'Content-Type': 'application/json' } },
+            )
+          : HttpResponse.json(RECEIPT);
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithRouter(routeTree, { initialEntries: ['/i/flaky-token'], locale: 'en' });
+
+    await waitFor(() => expect(screen.getByText("Couldn't load this receipt")).toBeTruthy(), {
+      timeout: 10_000,
+    });
+    expect(screen.queryByText("This link isn't valid")).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+
+    await waitFor(() => expect(screen.getByText('INV-2026-000123')).toBeTruthy());
+  }, 15_000);
 });

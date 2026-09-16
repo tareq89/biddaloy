@@ -1,6 +1,6 @@
 import type { CheckoutResult } from '@biddaloy/ui/hooks';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -87,5 +87,88 @@ describe('CheckoutSuccess', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Record another' }));
     expect(onRecordAnother).toHaveBeenCalledOnce();
+  });
+
+  it('sends immediately when there is exactly one send candidate', async () => {
+    server.use(
+      http.get('/api/v1/students/:id', () =>
+        HttpResponse.json({
+          guardians: [
+            {
+              id: 'guardian-1',
+              full_name: 'Fatima Begum',
+              is_primary_contact: true,
+              notifications_enabled: true,
+            },
+          ],
+        }),
+      ),
+      http.post('/api/v1/invoices/:id/send', () => new HttpResponse(null, { status: 201 })),
+    );
+
+    const user = userEvent.setup();
+    const { localeReady } = renderWithProviders(
+      <CheckoutSuccess
+        result={RESULT}
+        studentIds={['student-with-one-guardian']}
+        onRecordAnother={vi.fn()}
+        onViewInvoice={vi.fn()}
+      />,
+      { locale: 'en', role: 'ACCOUNTANT', tenantId: 'tenant-1' },
+    );
+    await localeReady;
+
+    const sendButton = await screen.findByRole<HTMLButtonElement>('button', {
+      name: 'Send via WhatsApp',
+    });
+    await waitFor(() => expect(sendButton.disabled).toBe(false));
+    await user.click(sendButton);
+    expect(screen.queryByText('Choose a guardian')).toBeNull();
+  });
+
+  it('opens a guardian picker when there is more than one send candidate', async () => {
+    server.use(
+      http.get('/api/v1/students/:id', () =>
+        HttpResponse.json({
+          guardians: [
+            {
+              id: 'guardian-1',
+              full_name: 'Fatima Begum',
+              is_primary_contact: true,
+              notifications_enabled: true,
+            },
+            {
+              id: 'guardian-2',
+              full_name: 'Karim Uddin',
+              is_primary_contact: true,
+              notifications_enabled: true,
+            },
+          ],
+        }),
+      ),
+      http.post('/api/v1/invoices/:id/send', () => new HttpResponse(null, { status: 201 })),
+    );
+
+    const user = userEvent.setup();
+    const { localeReady } = renderWithProviders(
+      <CheckoutSuccess
+        result={RESULT}
+        studentIds={['student-with-two-guardians']}
+        onRecordAnother={vi.fn()}
+        onViewInvoice={vi.fn()}
+      />,
+      { locale: 'en', role: 'ACCOUNTANT', tenantId: 'tenant-1' },
+    );
+    await localeReady;
+
+    const sendButton = await screen.findByRole<HTMLButtonElement>('button', {
+      name: 'Send via WhatsApp',
+    });
+    await waitFor(() => expect(sendButton.disabled).toBe(false));
+    await user.click(sendButton);
+    expect(await screen.findByText('Choose a guardian')).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Karim Uddin' }));
+    await waitFor(() => expect(screen.queryByText('Choose a guardian')).toBeNull());
   });
 });
