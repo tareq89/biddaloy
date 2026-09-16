@@ -60,8 +60,6 @@ export function renderInvoiceHtml(
   logoDataUrl: string | null,
   linkedStudentIds?: string[],
 ): string {
-  const student = invoice.student;
-  const classSection = student.class_section;
   const creditNote = isCreditNote(invoice);
   const snapshot = filterSnapshotForLinkedStudents(invoice.snapshot, linkedStudentIds);
   const snapshotStudents = snapshot.students;
@@ -167,15 +165,24 @@ export function renderInvoiceHtml(
   ${
     isPartialView
       ? ''
-      : `<div class="section">
+      : snapshotStudents
+          .map(
+            // [outside-diff fix] Student identity comes from the frozen
+            // `snapshot`, not the live `student`/`classSection` relations —
+            // a later name/class change must never alter an already-issued
+            // document. Roll number/section aren't captured on
+            // `InvoiceSnapshotStudent`, so they're omitted here rather than
+            // falling back to the live (non-frozen) value.
+            (s) => `<div class="section">
     <h2>Student</h2>
     <div class="student-details">
-      <div><strong>Name:</strong> ${escapeHtml(student.full_name)}</div>
-      <div><strong>Registration No.:</strong> ${escapeHtml(student.registration_number)}</div>
-      <div><strong>Class:</strong> ${escapeHtml(classSection?.class?.name ?? '-')}</div>
-      <div><strong>Section:</strong> ${escapeHtml(classSection?.section_name ?? '-')} (Roll ${escapeHtml(student.roll_number)})</div>
+      <div><strong>Name:</strong> ${escapeHtml(s.full_name)}</div>
+      <div><strong>Registration No.:</strong> ${escapeHtml(s.registration_number)}</div>
+      <div><strong>Class:</strong> ${escapeHtml(s.class_name ?? '-')}</div>
     </div>
-  </div>`
+  </div>`,
+          )
+          .join('')
   }
 
   <div class="section">
