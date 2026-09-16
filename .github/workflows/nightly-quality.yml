@@ -21,6 +21,9 @@ on:
 env:
   NODE_VERSION: "24"
 
+permissions:
+  contents: read
+
 concurrency:
   group: nightly-quality
   cancel-in-progress: false
@@ -73,6 +76,8 @@ jobs:
       S3_FORCE_PATH_STYLE: 'true'
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v7
         with:

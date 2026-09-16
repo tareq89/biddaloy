@@ -289,9 +289,9 @@ jobs:
         if: always()
         continue-on-error: true
         run: |
-          files=$(node scripts/quarantine-files.mjs)
-          if [ -n "$files" ]; then
-            QUARANTINE_MODE=only yarn test:frontend --run $files
+          mapfile -t files < <(node scripts/quarantine-files.mjs)
+          if [ "${#files[@]}" -gt 0 ]; then
+            QUARANTINE_MODE=only yarn test:frontend --run -- "${files[@]}"
           else
             echo "quarantine.json has no entries, skipping"
           fi
