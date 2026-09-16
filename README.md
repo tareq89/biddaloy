@@ -476,6 +476,36 @@ wrong in a way that leaves a green test proving nothing:
   service worker, so a routed "offline" spec passes while the worker quietly
   serves everything from cache.
 
+## Local loop
+
+[18.4.2] Three commands cover the local dev loop, all wired to match what
+CI runs so a green `yarn check` means a green CI:
+
+```bash
+# Typecheck + lint + affected tests, concurrently
+yarn check
+
+# Full server suite (unit + integration + e2e) against real Postgres,
+# Redis and MinIO — only Docker required
+yarn db:test:up      # start postgres/redis/minio via docker-compose.test.yml
+yarn test:server      # runs db:test:up itself, then unit/integration/e2e
+yarn db:test:down    # tear the stack down when done
+
+# Only the e2e specs affected by files changed since origin/main
+yarn e2e:changed
+```
+
+First-time setup: `cp server/.env.test.example server/.env.test` (values
+match `docker-compose.test.yml`'s ports, no edits needed).
+
+`.husky/pre-push` runs `yarn check --affected` automatically, budgeted at
+**60s warm** on a one-file change. It's a no-op on `main`, and can be
+skipped for one push with:
+
+```bash
+SKIP_CHECK=1 git push
+```
+
 ## CI
 
 Bundle budgets live in `client-admin/scripts/check-route-chunks.mjs` — the
