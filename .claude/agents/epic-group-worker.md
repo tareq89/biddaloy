@@ -100,9 +100,11 @@ ticket, per step 1); it reads the plan itself. In self-preflight mode it may
 return `needs-planner` / `blocked-on` instead of a diff — handle those as in
 step 1, then confirm it returned a published comment URL before reviewing.
 
-When it returns, **verify rather than trust**: read the diff, re-run the tests
-and lint yourself. "Tests pass" is a claim until you have seen the output. Never
-proceed on red.
+When it returns, **verify rather than trust**: read the diff, re-run the
+tests touched, created, or modified for this ticket, and lint yourself.
+"Tests pass" is a claim until you have seen the output. Never proceed on red.
+The full suite runs once, at integration (step 6), after every lane finishes —
+not per ticket here.
 
 If it reports the plan is *wrong* rather than incomplete, re-dispatch
 `issue-planner` to revise and republish, then implement again. Do not improvise

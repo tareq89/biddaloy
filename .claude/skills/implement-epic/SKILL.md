@@ -467,7 +467,11 @@ git checkout -b epic/<slug>/integration main
 yarn ci:local
 ```
 
-Red integration is fixed **now**, before PRs exist — never at merge time.
+This is the first full-suite run — per-ticket work only ran the tests
+touched by that ticket, so this is where cross-lane breakage first surfaces.
+Red integration is fixed **now**, before PRs exist — never at merge time: for
+each failure, plan the fix (what broke and why, which chain owns it), then
+apply it.
 
 ### Everything fixed here must reach the PR heads
 

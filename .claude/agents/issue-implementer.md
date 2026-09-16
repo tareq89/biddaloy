@@ -101,7 +101,9 @@ or `issue-planner`; it does not know or care who wrote it.
 4. Every added or changed behavior gets test coverage. Every UI change gets
    Storybook stories covering the meaningful states (loading, empty, error,
    populated), rendered against the design system rather than raw markup.
-5. Run the test suite and lint. Don't hand back red.
+5. Run the tests touched, created, or modified for this ticket, and lint.
+   Don't hand back red. (The full suite runs once, at epic integration, after
+   every lane finishes — not per ticket here.)
 6. Keep the change scoped to the issue. Unrelated cleanups you notice get
    reported to the parent as a note, not committed into the diff.
 
