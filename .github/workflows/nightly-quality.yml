@@ -1,0 +1,145 @@
+name: Nightly quality
+
+# [18.1.1] Lighthouse moved off the PR/push path (ci.yml) and onto this
+# nightly schedule. It was never PR-blocking to begin with (#149's
+# `if: github.event_name == 'push' || ...'` already deferred it to
+# push-to-main), but it had gone red on every main run since 2026-08-24
+# (see ci-budgets.json's note) without anyone reliably noticing — a
+# dedicated nightly run with its own workflow surfaces that directly,
+# instead of being one job in a much bigger, mostly-unrelated run.
+#
+# `workflow_call` (no inputs) lets another workflow invoke this job
+# on demand without duplicating it — mirrors the `workflow_dispatch`
+# affordance ci.yml's lighthouse job used to have, but as a proper reusable
+# job instead of a trigger on the big CI workflow.
+on:
+  schedule:
+    - cron: "0 22 * * *"
+  workflow_dispatch:
+  workflow_call:
+
+env:
+  NODE_VERSION: "24"
+
+concurrency:
+  group: nightly-quality
+  cancel-in-progress: false
+
+jobs:
+  # Not PR-blocking (#149): full stack boot + 3 routes x 3 runs would
+  # become the wall and break #307's <4-min PR target. A perf regression
+  # is caught here instead; revisit if that proves too late.
+  lighthouse:
+    name: Lighthouse (3G budgets)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: biddaloy_lighthouse
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/biddaloy_lighthouse
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-lighthouse-jwt-secret-do-not-use-in-production-1234567890
+      NODE_ENV: test
+      SEED_ADMIN_PASSWORD: ci-lighthouse-seed-password-123
+      SETTINGS_ENCRYPTION_KEY: YmSqNpwxzusjAF12JSD+JNe+3LXrbNJiQza2yTnQyR0=
+      # [15.5] See ci.yml's "integration" job's identical block.
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: biddaloy-ci
+      S3_ACCESS_KEY_ID: ci-access-key
+      S3_SECRET_ACCESS_KEY: ci-secret-key
+      S3_ALLOW_INSECURE_HTTP: 'true'
+      S3_FORCE_PATH_STYLE: 'true'
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build shared package
+        run: yarn build:shared
+
+      - name: Run migrations
+        run: yarn workspace @biddaloy/server migration:run
+
+      - name: Seed database
+        run: yarn workspace @biddaloy/server seed
+
+      # Production builds on both sides — never the dev servers.
+      - name: Build and start server
+        run: |
+          yarn build:server
+          node server/dist/main.js &
+
+      - name: Build and start client preview
+        run: |
+          yarn build:client-admin
+          yarn workspace @biddaloy/client-admin preview --port 5174 &
+
+      - name: Wait for server and client
+        run: npx wait-on tcp:3000 tcp:5174 --timeout 120000
+
+      - name: Resolve seeded student detail URL
+        id: student
+        # Assigned on its own line, never inside the `echo` (#356): command
+        # substitution discards the resolver's exit status, so the old
+        # one-liner *succeeded* while writing an empty `url=`, and lhci then
+        # died on `--collect.url=` with `TypeError: Invalid URL`. Worse, the
+        # same shape meant a URL could silently drop out of the measured set
+        # while this job stayed green. `set -euo pipefail` + an explicit
+        # non-empty check make both failures loud.
+        run: |
+          set -euo pipefail
+          url="$(node scripts/lighthouse-student-url.mjs)"
+          if [ -z "${url//[[:space:]]/}" ]; then
+            echo "::error::lighthouse-student-url.mjs produced no URL" >&2
+            exit 1
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      # These flags override lighthouserc.cjs's own url list entirely, so a URL
+      # added there is a no-op in CI unless it is added here too. /portal comes
+      # last on purpose: it is the only guardian-authenticated URL, and
+      # lighthouse-auth.cjs re-logs-in whenever the required identity changes,
+      # so measuring it last costs exactly one extra login.
+      - name: Lighthouse
+        run: >
+          npx lhci autorun
+          --collect.url=http://localhost:5174/login
+          --collect.url=http://localhost:5174/fees/dues
+          --collect.url=${{ steps.student.outputs.url }}
+          --collect.url=http://localhost:5174/portal
+
+      - name: Upload Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lighthouse-reports
+          path: .lighthouseci/
+          if-no-files-found: ignore

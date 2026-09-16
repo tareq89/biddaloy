@@ -42,10 +42,6 @@
       "budgetSeconds": 120,
       "$comment": "Baseline: p90 105s."
     },
-    "Lighthouse (3G budgets)": {
-      "budgetSeconds": 380,
-      "$comment": "Baseline: p90 321s. Note: this job has been red on every main run since 2026-08-24 (Lighthouse assertion failures, unrelated to timing) — see #436's plan corrections."
-    },
     "Dependency vulnerability scan": {
       "budgetSeconds": 130,
       "$comment": "Baseline: p90 93s, generous headroom for registry-lookup variance."

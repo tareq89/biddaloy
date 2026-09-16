@@ -6,7 +6,6 @@ on:
   pull_request:
   push:
     branches: [main]
-  # For running the lighthouse job on demand from a feature branch.
   workflow_dispatch:
 
 env:
@@ -33,12 +32,22 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       server: ${{ steps.filter.outputs.server }}
       api-surface: ${{ steps.filter.outputs.api-surface }}
+      ui: ${{ steps.filter.outputs.ui }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
+            # [18.1.1] Narrower than `frontend` below on purpose: Storybook
+            # only builds `ui/`'s own stories, so a `client-admin`- or
+            # `server`-only PR gets nothing from paying for it. `yarn.lock`
+            # and `package.json` are still included — a dependency bump can
+            # change what Storybook builds without touching `ui/**` itself.
+            ui:
+              - 'ui/**'
+              - 'yarn.lock'
+              - 'package.json'
             frontend:
               - 'ui/**'
               - 'client-admin/**'
@@ -267,21 +276,24 @@ jobs:
       # step above failed, since a real failure there shouldn't hide
       # whether the quarantined tests are still misbehaving too.
       #
-      # Guarded on the list being non-empty: with `tests: []`, QUARANTINE_MODE=only
-      # skips every test, but Vitest still transforms, imports and sets up all
-      # ~200 files first — a second near-full frontend run, on every PR, for
-      # zero information. On the job [15.1] exists to speed up, that is not a
-      # cost worth paying for an empty list.
+      # [18.1.1] Guarded on the list being non-empty, AND scoped to only the
+      # quarantined files' own paths — passing no file args made
+      # QUARANTINE_MODE=only skip every test, but Vitest still transformed,
+      # imported and set up all ~200 files first: a second near-full
+      # frontend run, on every PR, for zero information. Passing the exact
+      # files (via `scripts/quarantine-files.mjs`, which mirrors
+      # `ui/src/test/quarantine.ts`'s key format) keeps this step to the
+      # handful of files actually quarantined, so it's back to the <30s
+      # this step is meant to cost.
       - name: Quarantined frontend tests (non-blocking)
         if: always()
         continue-on-error: true
-        env:
-          QUARANTINE_MODE: only
         run: |
-          if [ "$(jq '.tests | length' quarantine.json)" -gt 0 ]; then
-            yarn test:frontend --run
+          files=$(node scripts/quarantine-files.mjs)
+          if [ -n "$files" ]; then
+            QUARANTINE_MODE=only yarn test:frontend --run $files
           else
-            echo "quarantine.json is empty — nothing quarantined, nothing to run."
+            echo "quarantine.json has no entries, skipping"
           fi
 
       # [15.1]: see the "verify" job's "Collect unit test timings" comment —
@@ -835,7 +847,10 @@ jobs:
     name: Storybook build
     runs-on: ubuntu-latest
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.frontend == 'true'
+    # [18.1.1] Path-filtered on the narrower `ui` output, not `frontend` —
+    # a `server/**`-only PR touches none of `ui/`'s stories, so this job
+    # has nothing to build.
+    if: github.event_name == 'push' || needs.changes.outputs.ui == 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -859,125 +874,6 @@ jobs:
           name: storybook-static
           path: ui/storybook-static/
           retention-days: 14
-
-  # Not PR-blocking (#149): full stack boot + 3 routes x 3 runs would
-  # become the wall and break #307's <4-min PR target. A perf regression
-  # is caught at merge instead; revisit if that proves too late.
-  lighthouse:
-    name: Lighthouse (3G budgets)
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    timeout-minutes: 25
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: biddaloy_lighthouse
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/biddaloy_lighthouse
-      REDIS_URL: redis://localhost:6379
-      JWT_SECRET: ci-lighthouse-jwt-secret-do-not-use-in-production-1234567890
-      NODE_ENV: test
-      SEED_ADMIN_PASSWORD: ci-lighthouse-seed-password-123
-      SETTINGS_ENCRYPTION_KEY: YmSqNpwxzusjAF12JSD+JNe+3LXrbNJiQza2yTnQyR0=
-      # [15.5] See the "integration" job's identical block.
-      S3_ENDPOINT: http://localhost:9000
-      S3_REGION: us-east-1
-      S3_BUCKET: biddaloy-ci
-      S3_ACCESS_KEY_ID: ci-access-key
-      S3_SECRET_ACCESS_KEY: ci-secret-key
-      S3_ALLOW_INSECURE_HTTP: 'true'
-      S3_FORCE_PATH_STYLE: 'true'
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: yarn
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
-
-      - name: Build shared package
-        run: yarn build:shared
-
-      - name: Run migrations
-        run: yarn workspace @biddaloy/server migration:run
-
-      - name: Seed database
-        run: yarn workspace @biddaloy/server seed
-
-      # Production builds on both sides — never the dev servers.
-      - name: Build and start server
-        run: |
-          yarn build:server
-          node server/dist/main.js &
-
-      - name: Build and start client preview
-        run: |
-          yarn build:client-admin
-          yarn workspace @biddaloy/client-admin preview --port 5174 &
-
-      - name: Wait for server and client
-        run: npx wait-on tcp:3000 tcp:5174 --timeout 120000
-
-      - name: Resolve seeded student detail URL
-        id: student
-        # Assigned on its own line, never inside the `echo` (#356): command
-        # substitution discards the resolver's exit status, so the old
-        # one-liner *succeeded* while writing an empty `url=`, and lhci then
-        # died on `--collect.url=` with `TypeError: Invalid URL`. Worse, the
-        # same shape meant a URL could silently drop out of the measured set
-        # while this job stayed green. `set -euo pipefail` + an explicit
-        # non-empty check make both failures loud.
-        run: |
-          set -euo pipefail
-          url="$(node scripts/lighthouse-student-url.mjs)"
-          if [ -z "${url//[[:space:]]/}" ]; then
-            echo "::error::lighthouse-student-url.mjs produced no URL" >&2
-            exit 1
-          fi
-          echo "url=$url" >> "$GITHUB_OUTPUT"
-
-      # These flags override lighthouserc.cjs's own url list entirely, so a URL
-      # added there is a no-op in CI unless it is added here too. /portal comes
-      # last on purpose: it is the only guardian-authenticated URL, and
-      # lighthouse-auth.cjs re-logs-in whenever the required identity changes,
-      # so measuring it last costs exactly one extra login.
-      - name: Lighthouse
-        run: >
-          npx lhci autorun
-          --collect.url=http://localhost:5174/login
-          --collect.url=http://localhost:5174/fees/dues
-          --collect.url=${{ steps.student.outputs.url }}
-          --collect.url=http://localhost:5174/portal
-
-      - name: Upload Lighthouse reports
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: lighthouse-reports
-          path: .lighthouseci/
-          if-no-files-found: ignore
 
   audit:
     name: Dependency vulnerability scan
@@ -1012,7 +908,7 @@ jobs:
     name: Test timings & budgets
     runs-on: ubuntu-latest
     if: always()
-    needs: [changes, verify, frontend, integration, e2e, bundle-delta, storybook, lighthouse, audit]
+    needs: [changes, verify, frontend, integration, e2e, bundle-delta, storybook, audit]
     permissions:
       contents: read
       actions: read

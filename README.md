@@ -482,6 +482,12 @@ PR-comment-only and just diffs two already-built reports (`check:route-chunks`
 above covers the real check), and `codeql` is GitHub-hosted static analysis
 with no local equivalent to run.
 
+**Lighthouse moved off `ci.yml` in [18.1.1].** It runs nightly instead, via
+`.github/workflows/nightly-quality.yml` (`schedule: "0 22 * * *"`, plus
+`workflow_dispatch` and `workflow_call`), not on every PR/push — `--lighthouse`
+below still reproduces the same job locally, it just no longer has a `ci.yml`
+counterpart to mirror.
+
 ```mermaid
 flowchart LR
     CI["yarn ci:local"] --> node["check:node"] --> verify --> frontend --> audit
