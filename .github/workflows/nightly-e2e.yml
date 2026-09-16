@@ -157,7 +157,7 @@ jobs:
       # exactly the situation where the report matters most.
       - name: E2E tests (${{ matrix.browser }} ${{ matrix.shard }}/3)
         timeout-minutes: 30
-        run: yarn e2e --project=${{ matrix.browser }} --shard=${{ matrix.shard }}/3
+        run: yarn e2e --project=${{ matrix.browser }} --project=${{ matrix.browser }}-sweeps --shard=${{ matrix.shard }}/3
 
       - name: Upload Playwright report
         if: failure()

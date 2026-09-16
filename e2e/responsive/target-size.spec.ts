@@ -130,7 +130,7 @@ async function undersizedTargets(page: Page, minimum: number): Promise<string[]>
 }
 
 for (const route of routes) {
-  test.describe(route.path, () => {
+  test.describe(`${route.path} @sweep`, () => {
     if (route.role === 'guest') test.use(guest);
     else if (route.path === '/select-school')
       test.use(loggedIn(route.role as SeedRole, { tenant: 'none' }));
@@ -172,7 +172,7 @@ const COMFORTABLE_ROUTES = [
 ] as const;
 
 for (const route of COMFORTABLE_ROUTES) {
-  test.describe(`${route.path} (comfortable density)`, () => {
+  test.describe(`${route.path} (comfortable density) @sweep`, () => {
     test.use({ ...route.auth, viewport: { width: 360, height: 640 } });
 
     test('all interactive targets are at least 44x44 CSS px', async ({ page }) => {

@@ -88,13 +88,30 @@ export default defineConfig({
   // `setup` logs in every seed role once per shard and writes storageState
   // files ([8.5.2], e2e/fixtures/auth.setup.ts); every browser project
   // depends on it so specs can `test.use(loggedIn(role))`.
+  // [18.1.2] Each browser now emits two projects instead of one: the
+  // route-sweep specs (a11y, reflow, target-size — 79% of E2E runtime) are
+  // tagged ` @sweep` on their top-level `test.describe` titles, so
+  // `grepInvert`/`grep` splits a browser's full suite into a small
+  // PR-facing project and a sweep-only project nightly-e2e.yml runs across
+  // every browser (`--project=${browser}-sweeps`). PRs/ci.yml keep passing
+  // `--project=${browser}`, which now resolves to the non-sweep project —
+  // smoke coverage (`e2e/smoke/`) plus everything else untagged.
   projects: [
     { name: 'setup', testMatch: /fixtures\/auth\.setup\.ts/ },
-    ...browsers.map((name) => ({
-      name,
-      use: { ...BROWSER_DEVICES[name] },
-      dependencies: ['setup'],
-    })),
+    ...browsers.flatMap((name) => [
+      {
+        name,
+        use: { ...BROWSER_DEVICES[name] },
+        dependencies: ['setup'],
+        grepInvert: /@sweep/,
+      },
+      {
+        name: `${name}-sweeps`,
+        use: { ...BROWSER_DEVICES[name] },
+        dependencies: ['setup'],
+        grep: /@sweep/,
+      },
+    ]),
   ],
   webServer: [
     {
