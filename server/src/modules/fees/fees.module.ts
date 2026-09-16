@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { BullModule } from '@nestjs/bullmq';
 import { FeeStructure } from './entities/fee-structure.entity';
 import { Payment } from './entities/payment.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
@@ -16,6 +17,7 @@ import { School } from '../schools/entities/school.entity';
 import { AuditModule } from '../audit/audit.module';
 import { StudentModule } from '../students/students.module';
 import { InvoicesModule } from '../invoices/invoices.module';
+import { SchoolsModule } from '../schools/schools.module';
 import { FeeStructureService, PaymentService } from './fees.service';
 import { PaymentsQueryService } from './payments-query.service';
 import { FeeGenerationService, NoopDiscountResolver } from './fee-generation.service';
@@ -31,6 +33,8 @@ import { CheckoutCartService } from './checkout-cart.service';
 import { CheckoutService } from './checkout.service';
 import { CheckoutController } from './checkout.controller';
 import { PaymentReversalService } from './payment-reversal.service';
+import { FeesDailyScheduler } from './fees-daily.scheduler';
+import { FEES_DAILY_QUEUE } from './fees.constants';
 
 @Module({
   imports: [
@@ -49,9 +53,11 @@ import { PaymentReversalService } from './payment-reversal.service';
       Invoice,
       School,
     ]),
+    BullModule.registerQueue({ name: FEES_DAILY_QUEUE }),
     AuditModule,
     StudentModule,
     InvoicesModule,
+    SchoolsModule,
   ],
   providers: [
     FeeStructureService,
@@ -67,6 +73,7 @@ import { PaymentReversalService } from './payment-reversal.service';
     CheckoutCartService,
     CheckoutService,
     PaymentReversalService,
+    FeesDailyScheduler,
   ],
   // CheckoutController is registered before FeeController: both declare
   // routes under `payments/*`, and Nest/Express match routes in
