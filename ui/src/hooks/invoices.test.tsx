@@ -105,10 +105,7 @@ describe('useCreateInvoice', () => {
       tenantId: 'tenant-1',
     });
 
-    result.current.mutate({
-      student_id: 'student-1',
-      line_items: [{ description: 'Fee for 3/2026', amount: 500, quantity: 1 }],
-    });
+    result.current.mutate({ payment_id: 'payment-1' });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.invoice_number).toBe('INV-2026-00002');
