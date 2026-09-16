@@ -23,7 +23,7 @@
     "./eslint-config": "./eslint-config.mjs"
   },
   "scripts": {
-    "lint": "tsc --noEmit && eslint .",
+    "lint": "tsc -b tsconfig.json && eslint .",
     "check:exports": "node scripts/check-exports.mjs",
     "check:contrast": "node --experimental-strip-types scripts/check-contrast.mjs",
     "check:raw-palette": "node scripts/check-raw-palette.mjs",

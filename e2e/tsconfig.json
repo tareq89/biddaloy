@@ -2,7 +2,12 @@
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "types": ["node"],
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "composite": true,
+    "incremental": true,
+    "tsBuildInfoFile": "./.tsout/e2e.tsbuildinfo",
+    "emitDeclarationOnly": true,
+    "outDir": "./.tsout"
   },
   "include": ["**/*.ts", "**/*.json"]
 }
