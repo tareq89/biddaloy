@@ -339,6 +339,12 @@ jobs:
           name: vitest-shard-${{ matrix.shard }}
           path: .vitest-reports/
           if-no-files-found: error
+          # `.vitest-reports/` is a dot-directory — upload-artifact treats
+          # its contents as hidden and silently uploads nothing unless
+          # told otherwise (confirmed on real CI: the blob file existed,
+          # `if-no-files-found: error` never fired the glob just matched
+          # zero files).
+          include-hidden-files: true
 
   # [18.5.1] Merges the three shards' blob reports and coverage back into
   # one, so downstream (thresholds, PR delta comment) sees the whole suite
@@ -367,6 +373,13 @@ jobs:
         with:
           pattern: vitest-shard-*
           merge-multiple: true
+          # The upload step took `.vitest-reports/` as its root, so each
+          # artifact's own files have no directory prefix (just
+          # `blob-N-3.json`) — without `path:` here they'd land in the
+          # workspace root, not where bare `--merge-reports`'s default
+          # (`.vitest-reports`, confirmed against the installed Vitest
+          # 4.1.11's CLI transform) looks for them.
+          path: .vitest-reports/
 
       # Same coverage reporter narrowing as the old single job (see [15.3]
       # in git history): `text` for the console summary on failure,
