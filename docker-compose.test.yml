@@ -52,8 +52,11 @@ services:
       retries: 10
 
   # One-shot: creates the bucket integration tests expect (biddaloy-ci,
-  # same name as ci.yml's `S3_BUCKET`), then exits. `db:test:up` waits on
-  # this via --wait, so callers don't have to create the bucket by hand.
+  # same name as ci.yml's `S3_BUCKET`), then exits. `db:test:up` runs this
+  # via `docker compose run --rm` (not `up --wait`, which doesn't reliably
+  # track a one-shot container's completion/exit code) after the
+  # long-running services are healthy, so callers don't have to create the
+  # bucket by hand.
   minio-init:
     image: minio/mc:latest
     depends_on:
