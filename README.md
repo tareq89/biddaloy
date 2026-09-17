@@ -314,7 +314,13 @@ falling back to sharding ([18.5.1]). This worktree has no push access to
 land an incremental commit per option and read `ci.yml`'s real wall time
 (the ticket's own workflow) — the table below is reasoned against the
 options' documented semantics and this repo's current code, not a
-measured CI delta. Any real CI number stays pending a future PR run.
+measured CI delta.
+
+**[18.3.4] real number, from the first `main` run after W3 landed**
+(run `35160717052`): `Frontend tests` wall = 464s (7m44s), down from W2's
+541s but still over the 240s (4 min) threshold — so [18.5.1]'s 3-way shard
+goes ahead. See the epic's `## Measured` section for the full per-job W2→W3
+table.
 
 | option | kept? | reasoning |
 |---|---|---|
