@@ -88,9 +88,21 @@ function majorityClassId(studentNames: Map<string, string>): string | undefined 
 export interface GenerateFeesModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** [16.7.5]: the student-detail "Recurring fees" tab's "Bill one-off"
+   * action opens this modal pre-selected to one student — a schedule's
+   * audience genuinely doesn't match them (wrong academic year, wrong
+   * class), so a one-off bill through this existing flow is the
+   * fallback rather than a second bespoke billing UI. Seeded into
+   * `selectedStudents` on open; the picker itself still lets staff add
+   * or remove students from there. */
+  preselectedStudent?: { id: string; name: string } | null;
 }
 
-export function GenerateFeesModal({ open, onOpenChange }: GenerateFeesModalProps) {
+export function GenerateFeesModal({
+  open,
+  onOpenChange,
+  preselectedStudent,
+}: GenerateFeesModalProps) {
   const { t } = useTranslation('feeGeneration');
 
   const yearsQuery = useAcademicYears();
@@ -149,6 +161,11 @@ export function GenerateFeesModal({ open, onOpenChange }: GenerateFeesModalProps
     setDueDate(toDateInputValue(addDays(periodStart, 9)));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- default only, not a controlled sync
   }, [periodStart]);
+
+  React.useEffect(() => {
+    if (!open || !preselectedStudent) return;
+    setSelectedStudents(new Map([[preselectedStudent.id, preselectedStudent.name]]));
+  }, [open, preselectedStudent]);
 
   const generate = useGenerateFees();
   const previewMutation = useGenerateFeesPreview();
