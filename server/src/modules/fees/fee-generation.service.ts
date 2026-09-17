@@ -49,6 +49,11 @@ export interface DiscountResolver {
     studentId: string;
     feeStructureId: string;
     baseAmount: number;
+    // [Opus review, B5] The billing period this bill is *for*, not the
+    // date generation runs — a rule's starts_on/ends_on expiry must be
+    // checked against this, so back-generating a January bill in March
+    // evaluates January's rules, not March's. 'YYYY-MM-DD'.
+    periodStart: string;
   }): Promise<{ amount: number }>;
 }
 
@@ -61,6 +66,7 @@ export class NoopDiscountResolver implements DiscountResolver {
     studentId: string;
     feeStructureId: string;
     baseAmount: number;
+    periodStart: string;
   }): Promise<{ amount: number }> {
     return Promise.resolve({ amount: 0 });
   }
@@ -351,6 +357,10 @@ export class FeeGenerationService {
           studentId: pair.student.id,
           feeStructureId: pair.structure.id,
           baseAmount,
+          // [Opus review, B5] the period this bill is *for* — a back-dated
+          // generation must evaluate discount-rule expiry against that
+          // period, not today's date.
+          periodStart: context.periodStart.toISOString().slice(0, 10),
         });
         rowsToInsert.push({
           student_id: pair.student.id,

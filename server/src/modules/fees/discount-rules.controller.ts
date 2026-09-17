@@ -4,17 +4,20 @@ import {
   Delete,
   ForbiddenException,
   Get,
+  InternalServerErrorException,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { ApprovalGuard } from '../auth/guards/approval.guard';
+import { ApprovalGuard, ApprovalContext } from '../auth/guards/approval.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { RequireApproval } from '../auth/decorators/require-approval.decorator';
@@ -22,13 +25,21 @@ import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { FamilyAccessService } from '../students/family-access.service';
+import { AuditService } from '../audit/audit.service';
 import { DiscountRulesService } from './discount-rules.service';
 import {
   CreateDiscountRuleDto,
   UpdateDiscountRuleDto,
   toDiscountRuleDto,
 } from './dto/discount-rules.dto';
-import { ApprovalScope, JwtPayload, Permission, UserRole, isGuardianRole } from '@biddaloy/shared';
+import {
+  ApprovalScope,
+  AuditAction,
+  JwtPayload,
+  Permission,
+  UserRole,
+  isGuardianRole,
+} from '@biddaloy/shared';
 
 /**
  * [16.7.3] `DiscountRule` CRUD. Writes require `DISCOUNT_RULE_MANAGE` +
@@ -36,6 +47,12 @@ import { ApprovalScope, JwtPayload, Permission, UserRole, isGuardianRole } from 
  * (`ApprovalGuard`, consumed unconditionally — same shape as
  * `PaymentReversalService`'s route). Read is shared with family callers,
  * narrowed to their own linked students.
+ *
+ * [Opus review, B4] Every write also calls `AuditService.recordApproved` —
+ * this money-affecting action needs the same proof-of-approval audit row
+ * every other `@RequireApproval` route in this module writes
+ * (`PaymentReversalService`, `CheckoutService`, `FeeGenerationBatchService`);
+ * consuming the token alone left no durable trail of who approved what.
  */
 @ApiTags('discount-rules')
 @ApiTenantAuth()
@@ -45,6 +62,7 @@ export class DiscountRulesController {
   constructor(
     private readonly discountRulesService: DiscountRulesService,
     private readonly familyAccess: FamilyAccessService,
+    private readonly auditService: AuditService,
   ) {}
 
   @Get('students/:id/discount-rules')
@@ -81,6 +99,20 @@ export class DiscountRulesController {
     return rules.map(toDiscountRuleDto);
   }
 
+  /** Every write handler needs the same `request.approval` guarantee —
+   * `ApprovalGuard` stamps it after consuming the token; `@RequireApproval`
+   * makes the guard mandatory on this route, so its absence means a guard
+   * misconfiguration, not a client error. */
+  private requireApproval(request: Request): ApprovalContext {
+    const approval = (request as unknown as { approval?: ApprovalContext }).approval;
+    if (!approval) {
+      throw new InternalServerErrorException(
+        'ApprovalGuard did not run before a discount-rules write — @RequireApproval guard misconfigured',
+      );
+    }
+    return approval;
+  }
+
   @Post('discount-rules')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.DISCOUNT_RULE_MANAGE)
@@ -93,8 +125,25 @@ export class DiscountRulesController {
     @Body() dto: CreateDiscountRuleDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    const rule = await this.discountRulesService.create(tenant.id, user.sub, dto);
+    const approval = this.requireApproval(request);
+    const rule = await this.discountRulesService.create(
+      tenant.id,
+      user.sub,
+      approval.approverId,
+      dto,
+    );
+    await this.auditService.recordApproved({
+      action: AuditAction.CREATE,
+      entity_type: 'DiscountRule',
+      entity_id: rule.id,
+      tenant_id: tenant.id,
+      performed_by_user_id: user.sub,
+      approved_by_user_id: approval.approverId,
+      approval_scope: ApprovalScope.DISCOUNT_RULES_MANAGE,
+      new_values: toDiscountRuleDto(rule) as unknown as Record<string, unknown>,
+    });
     return toDiscountRuleDto(rule);
   }
 
@@ -110,8 +159,21 @@ export class DiscountRulesController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateDiscountRuleDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    const rule = await this.discountRulesService.update(tenant.id, id, dto);
+    const approval = this.requireApproval(request);
+    const rule = await this.discountRulesService.update(tenant.id, id, approval.approverId, dto);
+    await this.auditService.recordApproved({
+      action: AuditAction.UPDATE,
+      entity_type: 'DiscountRule',
+      entity_id: rule.id,
+      tenant_id: tenant.id,
+      performed_by_user_id: user.sub,
+      approved_by_user_id: approval.approverId,
+      approval_scope: ApprovalScope.DISCOUNT_RULES_MANAGE,
+      new_values: toDiscountRuleDto(rule) as unknown as Record<string, unknown>,
+    });
     return toDiscountRuleDto(rule);
   }
 
@@ -126,8 +188,20 @@ export class DiscountRulesController {
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ): Promise<{ deleted: true }> {
+    const approval = this.requireApproval(request);
     await this.discountRulesService.remove(tenant.id, id);
+    await this.auditService.recordApproved({
+      action: AuditAction.DELETE,
+      entity_type: 'DiscountRule',
+      entity_id: id,
+      tenant_id: tenant.id,
+      performed_by_user_id: user.sub,
+      approved_by_user_id: approval.approverId,
+      approval_scope: ApprovalScope.DISCOUNT_RULES_MANAGE,
+    });
     return { deleted: true };
   }
 }

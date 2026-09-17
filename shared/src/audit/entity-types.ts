@@ -22,6 +22,7 @@ export const AUDIT_ENTITY_TYPES = [
   'AttendanceSession',
   'Class',
   'ClassSection',
+  'DiscountRule',
   'Enrollment',
   'FeeGeneration',
   'FeeStructure',

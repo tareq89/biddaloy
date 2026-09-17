@@ -67,6 +67,20 @@ export class DiscountRule {
   @Column({ type: 'uuid' })
   created_by_user_id: string;
 
+  /** [Opus review, B3] Deactivation without deletion — a rule needs to
+   * come back into force later (a paused sibling discount, say) without
+   * losing its history the way a soft delete would. `resolve()` only
+   * considers `is_active: true` rules. Defaults `true` so every existing
+   * row (created before this column existed) stays in force. */
+  @Column({ type: 'boolean', default: true })
+  is_active: boolean;
+
+  /** [Opus review, B3] The approver who spent the `X-Approval-Token` that
+   * authorized this write — `DiscountRulesController` reads this off
+   * `ApprovalGuard`'s `request.approval` and passes it through. */
+  @Column({ type: 'uuid' })
+  approved_by_user_id: string;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 
