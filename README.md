@@ -476,6 +476,41 @@ wrong in a way that leaves a green test proving nothing:
   service worker, so a routed "offline" spec passes while the worker quietly
   serves everything from cache.
 
+## Local loop
+
+[18.4.2] Three commands cover the local dev loop, all wired to match what
+CI runs so a green `yarn run check` means a green CI. Note the explicit
+`run`: `yarn check` (no `run`) is Yarn classic's own builtin
+dependency-integrity command and shadows this script entirely — typing
+`yarn check` silently runs Yarn's builtin instead of `scripts/check.mjs`,
+with a confusingly similar-looking but unrelated error if your `yarn.lock`
+has drifted.
+
+```bash
+# Typecheck + lint + affected tests, concurrently
+yarn run check
+
+# Full server suite (unit + integration + e2e) against real Postgres,
+# Redis and MinIO — only Docker required
+yarn db:test:up      # start postgres/redis/minio via docker-compose.test.yml
+yarn test:server      # runs db:test:up itself, then unit/integration/e2e
+yarn db:test:down    # tear the stack down when done
+
+# Only the e2e specs affected by files changed since origin/main
+yarn e2e:changed
+```
+
+First-time setup: `cp server/.env.test.example server/.env.test` (values
+match `docker-compose.test.yml`'s ports, no edits needed).
+
+`.husky/pre-push` runs `yarn run check --affected` automatically, budgeted at
+**60s warm** on a one-file change. It's a no-op on `main`, and can be
+skipped for one push with:
+
+```bash
+SKIP_CHECK=1 git push
+```
+
 ## CI
 
 Bundle budgets live in `client-admin/scripts/check-route-chunks.mjs` — the
@@ -506,6 +541,22 @@ with no local equivalent to run.
 below still reproduces the same job locally, it just no longer has a `ci.yml`
 counterpart to mirror.
 
+**[18.4.3] `--only <job,job,...>` replays a single CI job**, instead of the
+default set: `verify`, `frontend`, `storybook`, `integration`, `e2e`, `audit`,
+`lighthouse`. For example `scripts/ci-local.sh --only e2e` runs only the e2e
+section (still self-provisioning `db`/`redis`). An unknown job name is a
+usage error listing the valid ones.
+
+**`--affected` skips a section whose area has no changes** against
+`origin/main`, mirroring `ci.yml`'s own `changes` job path filters (kept in
+sync by hand in `scripts/ci-local.sh`'s `CI_PATHS_FRONTEND` /
+`CI_PATHS_SERVER` / `CI_PATHS_UI` arrays — `verify` and `audit` are never
+gated, same as in `ci.yml`). It also passes `--changed origin/main` to the
+frontend section's `vitest` run. Combine both flags to replay only what a
+branch actually touches: `scripts/ci-local.sh --only frontend --affected`
+runs frontend's vitest in `--changed` mode, and does nothing at all if the
+branch has no `ui/`/`client-admin/`/`shared/`/`e2e/` changes.
+
 ```mermaid
 flowchart LR
     CI["yarn ci:local"] --> node["check:node"] --> verify --> frontend --> audit
@@ -522,6 +573,37 @@ measured ~1.5 min on a warm checkout; `--full` runs everything (~8–10 min),
 including the opt-in `--storybook` section (mirrors the PR-blocking
 "Storybook build" job, ~100s, so it's off by default rather than paid on
 every green `ci:local`).
+
+### Merging to main
+
+`main` is protected by a repository ruleset (`main-gate`, applied by
+`scripts/apply-main-ruleset.sh` — see that script's header for the exact
+checks/merge-queue settings). Direct pushes to `main` are rejected; every
+change lands through a pull request that passes four required checks
+(`Build, lint, unit tests`, `Frontend tests`, `Integration & e2e tests`,
+`E2E smoke (chromium)` — a check a PR's path filters skip counts as
+passing, not missing) and then goes through GitHub's merge queue:
+
+```mermaid
+flowchart LR
+    PR["PR: pull_request event\n(ci.yml required checks)"] -- "green + queued" --> MQ["Merge queue entry:\nmerge_group event"]
+    MQ -- "ci.yml full set\n+ sweeps + quality" --> Main["squashed onto main"]
+```
+
+A queued entry re-runs the full `ci.yml` job set (`merge_group` forces
+every path-filter area to `true` — see the `changes` job) **plus** two
+jobs that only exist for the queue: `sweeps` (the nightly-only
+`chromium-sweeps` Playwright project — a11y/reflow/target-size, normally
+nightly-e2e.yml's job) and `quality` (calls `nightly-quality.yml`'s
+Lighthouse job via `workflow_call`). Both are gated on
+`github.event_name == 'merge_group'`, so a PR run never pays for them —
+they only run once, on the queue entry that is about to become `main`.
+
+To apply or update the ruleset after editing `main-gate`'s settings:
+
+```bash
+scripts/apply-main-ruleset.sh
+```
 
 ### Test timings & budgets
 

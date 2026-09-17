@@ -18,6 +18,16 @@
 # --no-coverage:  frontend section runs yarn test:frontend --run instead of
 #                 the coverage variant — faster, but NOT CI-equivalent (CI
 #                 always collects coverage in the frontend job)
+# --only a,b:     [18.4.3] run only the named section(s) — one of verify,
+#                 frontend, storybook, integration, e2e, audit, lighthouse —
+#                 instead of the default set / the flags above. Lets one CI
+#                 job be replayed on its own.
+# --affected:     [18.4.3] skip a section whose area (per the globs below,
+#                 kept in sync with ci.yml's "changes" job) has no changes
+#                 against origin/main — same job/area gating ci.yml itself
+#                 uses (verify and audit are never gated, ci.yml runs them
+#                 unconditionally too). Also passes --changed origin/main to
+#                 the frontend section's vitest run.
 #
 # Deliberately NOT mirrored here — see #441's PR description for why:
 #   - bundle-delta (ci.yml's "bundle-delta" job): PR-comment-only, reads two
@@ -37,7 +47,21 @@ RUN_E2E=0
 RUN_LIGHTHOUSE=0
 RUN_STORYBOOK=0
 COVERAGE=1
-for arg in "$@"; do
+ONLY_SET=0
+ONLY_LIST=()
+AFFECTED=0
+
+usage() {
+  echo "usage: $(basename "$0") [--integration] [--e2e] [--lighthouse] [--storybook] [--full] [--no-coverage] [--only <job,job,...>] [--affected]" >&2
+  echo "  --only accepts: verify, frontend, storybook, integration, e2e, audit, lighthouse" >&2
+}
+
+VALID_JOBS="verify frontend storybook integration e2e audit lighthouse"
+
+args=("$@")
+i=0
+while [ $i -lt ${#args[@]} ]; do
+  arg="${args[$i]}"
   case "$arg" in
     --integration) RUN_INTEGRATION=1 ;;
     --e2e) RUN_E2E=1 ;;
@@ -45,9 +69,190 @@ for arg in "$@"; do
     --storybook) RUN_STORYBOOK=1 ;;
     --full) RUN_INTEGRATION=1; RUN_E2E=1; RUN_LIGHTHOUSE=1; RUN_STORYBOOK=1 ;;
     --no-coverage) COVERAGE=0 ;;
-    *) echo "unknown flag: $arg" >&2; exit 2 ;;
+    --affected) AFFECTED=1 ;;
+    --only)
+      i=$((i + 1))
+      if [ $i -ge ${#args[@]} ]; then
+        echo "--only requires a value" >&2
+        usage
+        exit 2
+      fi
+      ONLY_SET=1
+      ONLY_LIST=()
+      IFS=',' read -r -a ONLY_LIST <<< "${args[$i]}"
+      for job in "${ONLY_LIST[@]}"; do
+        case " $VALID_JOBS " in
+          *" $job "*) : ;;
+          *)
+            echo "unknown --only job: $job" >&2
+            usage
+            exit 2
+            ;;
+        esac
+      done
+      ;;
+    --only=*)
+      ONLY_SET=1
+      IFS=',' read -r -a ONLY_LIST <<< "${arg#--only=}"
+      for job in "${ONLY_LIST[@]}"; do
+        case " $VALID_JOBS " in
+          *" $job "*) : ;;
+          *)
+            echo "unknown --only job: $job" >&2
+            usage
+            exit 2
+            ;;
+        esac
+      done
+      ;;
+    *) echo "unknown flag: $arg" >&2; usage; exit 2 ;;
   esac
+  i=$((i + 1))
 done
+
+# [18.4.3] Mirror of ci.yml's "changes" job path-filter globs — keep in
+# sync by hand; see .github/workflows/ci.yml's `changes` job (#152 note
+# above applies to this whole file).
+CI_PATHS_FRONTEND=(
+  'ui/**'
+  'client-admin/**'
+  'shared/**'
+  'e2e/**'
+  'scripts/coverage-offenders.mjs'
+  'scripts/coverage-delta.mjs'
+  'scripts/bundle-delta.mjs'
+  'scripts/ci-timings.mjs'
+  'scripts/ci-timings.spec.mjs'
+  'scripts/ci-timings-trend.mjs'
+  'scripts/ci-timings-trend.spec.mjs'
+  'scripts/flake-report.mjs'
+  'scripts/flake-report.spec.mjs'
+  'ci-budgets.json'
+  'quarantine.json'
+  'package.json'
+  'yarn.lock'
+  'vitest.config.ts'
+  'playwright.config.ts'
+  '.github/workflows/ci.yml'
+)
+CI_PATHS_SERVER=(
+  'server/**'
+  'shared/**'
+  'scripts/ci-timings.mjs'
+  'scripts/ci-timings.spec.mjs'
+  'scripts/ci-timings-trend.mjs'
+  'scripts/ci-timings-trend.spec.mjs'
+  'ci-budgets.json'
+  'package.json'
+  'yarn.lock'
+  '.github/workflows/ci.yml'
+)
+# Mirror of ci.yml's `changes` job "api-surface" filter — keep in sync.
+CI_PATHS_API_SURFACE=(
+  'server/src/**'
+  'ui/src/api/**'
+)
+CI_PATHS_UI=(
+  'ui/**'
+  'yarn.lock'
+  'package.json'
+)
+
+CHANGED_FILES=()
+if [ "$AFFECTED" = 1 ]; then
+  # Committed diff against origin/main, PLUS working-tree changes (staged
+  # and unstaged) and untracked files — a plain `origin/main...HEAD` diff
+  # only sees commits, so uncommitted local work (the normal state while
+  # actually iterating) would be silently invisible to --affected.
+  while IFS= read -r line; do
+    [ -n "$line" ] && CHANGED_FILES+=("$line")
+  done < <(
+    {
+      git diff --name-only origin/main...HEAD
+      git diff --name-only HEAD
+      git ls-files --others --exclude-standard
+    } | sort -u
+  )
+fi
+
+# path_matches(file, pattern) — dorny/paths-filter-style glob: a
+# 'dir/**' pattern is a prefix match, anything else is an exact match.
+path_matches() {
+  local file="$1" pattern="$2" prefix
+  case "$pattern" in
+    *"/**")
+      prefix="${pattern%/**}/"
+      [[ "$file" == "$prefix"* ]]
+      ;;
+    *)
+      [ "$file" = "$pattern" ]
+      ;;
+  esac
+}
+
+# area_touched(area) — true if any changed file matches that area's globs.
+area_touched() {
+  local area="$1" f p
+  local -a patterns
+  case "$area" in
+    frontend) patterns=("${CI_PATHS_FRONTEND[@]}") ;;
+    server) patterns=("${CI_PATHS_SERVER[@]}") ;;
+    ui) patterns=("${CI_PATHS_UI[@]}") ;;
+    api-surface) patterns=("${CI_PATHS_API_SURFACE[@]}") ;;
+  esac
+  # `set -u` treats an empty array's "${arr[@]}" as unbound on this
+  # bash — guard the loop on the count instead of the expansion.
+  [ ${#CHANGED_FILES[@]} -eq 0 ] && return 1
+  for f in "${CHANGED_FILES[@]}"; do
+    for p in "${patterns[@]}"; do
+      path_matches "$f" "$p" && return 0
+    done
+  done
+  return 1
+}
+
+# should_run(section) — decides whether a named section runs, folding in
+# --only, the default/flag selection, and --affected area gating. Mirrors
+# ci.yml's per-job `if: needs.changes.outputs...` conditions (verify and
+# audit are unconditional there too).
+should_run() {
+  local name="$1"
+  if [ "$ONLY_SET" = 1 ]; then
+    local found=0 j
+    for j in "${ONLY_LIST[@]}"; do
+      [ "$j" = "$name" ] && found=1
+    done
+    [ "$found" = 1 ] || return 1
+  else
+    case "$name" in
+      verify | frontend | audit) : ;;
+      storybook) [ "$RUN_STORYBOOK" = 1 ] || return 1 ;;
+      integration) [ "$RUN_INTEGRATION" = 1 ] || return 1 ;;
+      e2e) [ "$RUN_E2E" = 1 ] || return 1 ;;
+      lighthouse) [ "$RUN_LIGHTHOUSE" = 1 ] || return 1 ;;
+    esac
+  fi
+  if [ "$AFFECTED" = 1 ]; then
+    case "$name" in
+      # ci.yml's "frontend" and "e2e" jobs both gate on the `frontend` area
+      # (see ci.yml's line-519 comment on the e2e job).
+      frontend | e2e)
+        area_touched frontend || return 1
+        ;;
+      # Mirrors ci.yml's "integration" job, which gates on `server ||
+      # api-surface` — a `ui/src/api/**`-only change (no other server/**
+      # file touched) still needs integration locally, same as in CI.
+      integration)
+        area_touched server || area_touched api-surface || return 1
+        ;;
+      storybook)
+        area_touched ui || return 1
+        ;;
+      # verify, audit, lighthouse: no ci.yml area gating to mirror.
+    esac
+  fi
+  return 0
+}
 
 SUMMARY=()
 SECTION_START=0
@@ -99,43 +304,58 @@ provision_stack() {
   export S3_ALLOW_INSECURE_HTTP=true
 }
 
-section "verify"
-yarn install --frozen-lockfile
-yarn build:shared
-yarn build:server
-yarn lint
-yarn test:unit
-yarn workspace @biddaloy/ui lint
-yarn workspace @biddaloy/client-admin lint
-npx tsc -p e2e/tsconfig.json --noEmit
-yarn workspace @biddaloy/client-admin check:route-chunks
-yarn workspace @biddaloy/ui check:exports
-yarn workspace @biddaloy/ui check:contrast
-yarn workspace @biddaloy/ui check:raw-palette
-yarn workspace @biddaloy/ui check:i18n
-yarn knip || echo "knip: non-blocking, exactly as in CI"
-section_done "verify"
-
-section "frontend"
-# [#437] ci.yml also runs the quarantined tests non-blockingly here
-# (`QUARANTINE_MODE=only`, guarded on quarantine.json being non-empty) —
-# deliberately not mirrored locally: on an empty list it would still spend
-# a second near-full frontend run transforming/importing ~200 files for
-# zero information, the same cost ci.yml's own comment on that step flags.
-if [ "$COVERAGE" = 1 ]; then
-  yarn test:frontend:coverage
-else
-  yarn test:frontend --run
+if should_run "verify"; then
+  section "verify"
+  yarn install --frozen-lockfile
+  yarn build:shared
+  yarn build:server
+  # [18.4.3] mirrors 18.4.1's typecheck change: one `yarn typecheck` (root
+  # `tsc -b`, which already references shared/ui/client-admin/
+  # client-admin's sw project/server's lint project/e2e — see root
+  # tsconfig.json) instead of the four separate tsc calls `yarn lint`,
+  # `yarn workspace @biddaloy/ui lint`, `yarn workspace @biddaloy/client-admin
+  # lint` (two tsc passes) and `npx tsc -p e2e/tsconfig.json` used to run
+  # one at a time. eslint isn't part of `tsc -b`, so it still runs on its
+  # own for the two workspaces that lint it.
+  yarn typecheck
+  yarn workspace @biddaloy/ui eslint .
+  yarn workspace @biddaloy/client-admin eslint .
+  yarn test:unit
+  yarn workspace @biddaloy/client-admin check:route-chunks
+  yarn workspace @biddaloy/ui check:exports
+  yarn workspace @biddaloy/ui check:contrast
+  yarn workspace @biddaloy/ui check:raw-palette
+  yarn workspace @biddaloy/ui check:i18n
+  yarn knip || echo "knip: non-blocking, exactly as in CI"
+  section_done "verify"
 fi
-section_done "frontend"
 
-if [ "$RUN_STORYBOOK" = 1 ]; then
+if should_run "frontend"; then
+  section "frontend"
+  # [#437] ci.yml also runs the quarantined tests non-blockingly here
+  # (`QUARANTINE_MODE=only`, guarded on quarantine.json being non-empty) —
+  # deliberately not mirrored locally: on an empty list it would still spend
+  # a second near-full frontend run transforming/importing ~200 files for
+  # zero information, the same cost ci.yml's own comment on that step flags.
+  FRONTEND_EXTRA_ARGS=()
+  if [ "$AFFECTED" = 1 ]; then
+    FRONTEND_EXTRA_ARGS=(--changed origin/main)
+  fi
+  if [ "$COVERAGE" = 1 ]; then
+    yarn test:frontend:coverage "${FRONTEND_EXTRA_ARGS[@]}"
+  else
+    yarn test:frontend --run "${FRONTEND_EXTRA_ARGS[@]}"
+  fi
+  section_done "frontend"
+fi
+
+if should_run "storybook"; then
   section "storybook"
   yarn workspace @biddaloy/ui build-storybook
   section_done "storybook"
 fi
 
-if [ "$RUN_INTEGRATION" = 1 ]; then
+if should_run "integration"; then
   section "integration"
   provision_stack
   yarn workspace @biddaloy/server docs:generate
@@ -145,7 +365,7 @@ if [ "$RUN_INTEGRATION" = 1 ]; then
   section_done "integration"
 fi
 
-if [ "$RUN_E2E" = 1 ]; then
+if should_run "e2e"; then
   section "e2e"
   provision_stack
   yarn workspace @biddaloy/server migration:run
@@ -169,7 +389,7 @@ if [ "$RUN_E2E" = 1 ]; then
   section_done "e2e"
 fi
 
-if [ "$RUN_LIGHTHOUSE" = 1 ]; then
+if should_run "lighthouse"; then
   section "lighthouse"
   provision_stack
   yarn workspace @biddaloy/server migration:run
@@ -200,10 +420,16 @@ if [ "$RUN_LIGHTHOUSE" = 1 ]; then
   section_done "lighthouse"
 fi
 
-section "audit"
-node scripts/ci-audit.js
-section_done "audit"
+if should_run "audit"; then
+  section "audit"
+  node scripts/ci-audit.js
+  section_done "audit"
+fi
 
 echo ""
 echo "=== summary ==="
-for line in "${SUMMARY[@]}"; do echo "  $line"; done
+if [ ${#SUMMARY[@]} -gt 0 ]; then
+  for line in "${SUMMARY[@]}"; do echo "  $line"; done
+else
+  echo "  (no sections ran — check --only/--affected)"
+fi

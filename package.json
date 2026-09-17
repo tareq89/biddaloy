@@ -46,7 +46,12 @@
     "e2e": "playwright test",
     "e2e:pwa": "playwright test -c playwright.pwa.config.ts",
     "ci:local": "bash scripts/ci-local.sh",
-    "prepare": "husky"
+    "prepare": "husky",
+    "check": "node scripts/check.mjs",
+    "test:server": "yarn db:test:up && yarn test:unit && yarn test:integration && yarn test:e2e",
+    "db:test:up": "docker compose -f docker-compose.test.yml up -d --wait postgres redis minio && docker compose -f docker-compose.test.yml run --rm minio-init",
+    "db:test:down": "docker compose -f docker-compose.test.yml down",
+    "e2e:changed": "playwright test --only-changed=origin/main"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10",

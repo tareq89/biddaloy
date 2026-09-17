@@ -6,6 +6,11 @@ on:
   pull_request:
   push:
     branches: [main]
+  # [18.4.1] Merge queue entries run the full gate plus the checks that are
+  # otherwise nightly-only (route sweeps, PWA, Lighthouse) — a queue entry
+  # is the last check before main, so it is the one place that can afford
+  # (and should pay for) that cost. See the "sweeps"/"quality" jobs below.
+  merge_group:
   workflow_dispatch:
 
 env:
@@ -22,6 +27,12 @@ jobs:
   # Push to main always runs everything — it's the merge gate, and
   # dorny diffs against the previous push there, which under-reports
   # on force-pushes.
+  #
+  # [18.4.1] `merge_group` runs everything too, unconditionally — a merge
+  # queue entry has no single meaningful "previous ref" for dorny to diff
+  # against (it's a synthetic merge commit against a moving queue base), so
+  # rather than trust a possibly-wrong diff, `merge-queue` short-circuits
+  # straight to "every area changed" and `filter` is skipped entirely.
   changes:
     name: Detect changed areas
     runs-on: ubuntu-latest
@@ -29,13 +40,14 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      frontend: ${{ steps.filter.outputs.frontend }}
-      server: ${{ steps.filter.outputs.server }}
-      api-surface: ${{ steps.filter.outputs.api-surface }}
-      ui: ${{ steps.filter.outputs.ui }}
+      frontend: ${{ github.event_name == 'merge_group' && 'true' || steps.filter.outputs.frontend }}
+      server: ${{ github.event_name == 'merge_group' && 'true' || steps.filter.outputs.server }}
+      api-surface: ${{ github.event_name == 'merge_group' && 'true' || steps.filter.outputs.api-surface }}
+      ui: ${{ github.event_name == 'merge_group' && 'true' || steps.filter.outputs.ui }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
+        if: github.event_name != 'merge_group'
         id: filter
         with:
           filters: |
@@ -221,7 +233,7 @@ jobs:
     name: Frontend tests
     runs-on: ubuntu-latest
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.frontend == 'true'
+    if: github.event_name == 'push' || github.event_name == 'merge_group' || needs.changes.outputs.frontend == 'true'
     permissions:
       contents: read
       pull-requests: write
@@ -351,7 +363,7 @@ jobs:
     name: Integration & e2e tests
     runs-on: ubuntu-latest
     needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.server == 'true' || needs.changes.outputs.api-surface == 'true'
+    if: github.event_name == 'push' || github.event_name == 'merge_group' || needs.changes.outputs.server == 'true' || needs.changes.outputs.api-surface == 'true'
     services:
       postgres:
         image: postgres:16-alpine
@@ -518,7 +530,7 @@ jobs:
     # own dist in-job (Wave 2's original, proven behavior) until a follow-up
     # ticket debugs the artifact-reuse path with real CI iteration.
     needs: [changes]
-    if: github.event_name == 'push' || needs.changes.outputs.frontend == 'true'
+    if: github.event_name == 'push' || github.event_name == 'merge_group' || needs.changes.outputs.frontend == 'true'
     timeout-minutes: 20
     permissions:
       contents: read
@@ -763,6 +775,134 @@ jobs:
           path: test-results/
           if-no-files-found: ignore
 
+  # [18.4.1] Route sweeps (a11y/reflow/target-size — nightly-e2e.yml's
+  # `chromium-sweeps` project, 79% of full E2E runtime, see
+  # playwright.config.ts's [18.1.2] comment) only ran nightly before this.
+  # A merge queue entry is the last check before `main`, so it's the one
+  # place that can afford them without slowing every PR down — chromium
+  # only, same engine restriction as the PR-facing `e2e` job above.
+  sweeps:
+    name: Route sweeps (chromium-sweeps)
+    runs-on: ubuntu-latest
+    needs: changes
+    if: github.event_name == 'merge_group'
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: betonboi_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/betonboi_e2e
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-e2e-jwt-secret-do-not-use-in-production-1234567890
+      NODE_ENV: test
+      SEED_ADMIN_PASSWORD: ci-e2e-seed-password-123
+      # [15.5] See the "integration"/"e2e" jobs above.
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: biddaloy-ci
+      S3_ACCESS_KEY_ID: ci-access-key
+      S3_SECRET_ACCESS_KEY: ci-secret-key
+      S3_ALLOW_INSECURE_HTTP: 'true'
+      S3_FORCE_PATH_STYLE: 'true'
+      E2E_BROWSERS: chromium
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+
+      - name: Build shared package
+        run: yarn build:shared
+
+      - name: Resolve Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-chromium-${{ steps.pw.outputs.version }}
+
+      - name: Install Playwright browser (chromium)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright OS dependencies (cache hit)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Run migrations
+        run: yarn workspace @biddaloy/server migration:run
+
+      - name: Seed database
+        run: yarn workspace @biddaloy/server seed
+
+      - name: Route sweeps (chromium-sweeps)
+        run: yarn e2e --project=chromium-sweeps
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-chromium-sweeps
+          path: playwright-report/
+          if-no-files-found: ignore
+
+      - name: Upload traces, screenshots and videos
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-chromium-sweeps
+          path: test-results/
+          if-no-files-found: ignore
+
+  # [18.4.1] Same "last gate before main" reasoning as `sweeps` above —
+  # Lighthouse moved off ci.yml onto a nightly schedule in [18.1.1], but a
+  # merge queue entry calls it back in via `workflow_call` (no inputs
+  # needed — nightly-quality.yml's `lighthouse` job self-provisions
+  # services/env exactly like it does on its own schedule).
+  quality:
+    name: Nightly quality (merge queue)
+    needs: changes
+    if: github.event_name == 'merge_group'
+    uses: ./.github/workflows/nightly-quality.yml
+    secrets: inherit
+    # A reusable workflow call cannot escalate to a permission the caller
+    # doesn't grant — nightly-quality.yml's own `report` job requests
+    # `issues: write`, and neither this job nor ci.yml's top level declared
+    # any `permissions:`, so GitHub rejected the ENTIRE run at parse time
+    # (a whole-run `startup_failure`, no jobs listed at all — not a single
+    # job failing). Reproduced and bisected: removing just this job let the
+    # run start normally; adding this block back fixed it.
+    permissions:
+      contents: read
+      issues: write
+
   bundle-delta:
     name: Bundle size delta
     runs-on: ubuntu-latest
@@ -812,7 +952,7 @@ jobs:
     # [18.1.1] Path-filtered on the narrower `ui` output, not `frontend` —
     # a `server/**`-only PR touches none of `ui/`'s stories, so this job
     # has nothing to build.
-    if: github.event_name == 'push' || needs.changes.outputs.ui == 'true'
+    if: github.event_name == 'push' || github.event_name == 'merge_group' || needs.changes.outputs.ui == 'true'
     steps:
       - uses: actions/checkout@v7
 

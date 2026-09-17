@@ -1,0 +1,9 @@
+branch=$(git rev-parse --abbrev-ref HEAD)
+[ "$branch" = "main" ] && exit 0
+[ -n "$SKIP_CHECK" ] && exit 0
+
+# `yarn check` (no `run`) is Yarn classic's own builtin dependency-integrity
+# command — it shadows a package.json script named "check" entirely, so
+# this must go through `yarn run` explicitly or it silently runs Yarn's
+# builtin instead of scripts/check.mjs.
+yarn run check --affected
