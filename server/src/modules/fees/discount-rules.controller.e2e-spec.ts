@@ -39,6 +39,7 @@ process.env.ACCOUNT_ACCESS_ECHO_SECRETS = 'true';
 const APPROVER_IDENTITIES: [string, string][] = [
   ['00000000-0000-4000-8000-0000006e0031', 'discount-rules-approver-1@e2e.example'],
   ['00000000-0000-4000-8000-0000006e0032', 'discount-rules-approver-2@e2e.example'],
+  ['00000000-0000-4000-8000-0000006e0033', 'discount-rules-approver-3@e2e.example'],
 ];
 
 describe('Discount Rules E2E (16.7.3)', () => {
@@ -197,6 +198,26 @@ describe('Discount Rules E2E (16.7.3)', () => {
         .set('X-Approval-Token', approvalToken)
         .send({ student_id: studentId, kind: 'FLAT', value: 20, reason: 'Second, reusing token' })
         .expect(403);
+    });
+
+    it('[CodeRabbit review, PR #801] rejects a negative FLAT value with a 400, not a raw DB error', async () => {
+      const studentId = await createStudent();
+      const approvalToken = await issueApprovalToken(
+        'discount_rules.manage',
+        APPROVER_IDENTITIES[2][1],
+      );
+
+      // Previously @ValidateIf(kind === PERCENT) gated every validator on
+      // `value`, including the unconditional @IsNumber()/@Min(0) — a
+      // negative FLAT value reached the service (and, absent a DB check
+      // constraint for FLAT, would have saved).
+      await supertest(app.getHttpServer())
+        .post(`${API}/discount-rules`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .set('X-Approval-Token', approvalToken)
+        .send({ student_id: studentId, kind: 'FLAT', value: -50, reason: 'Negative FLAT' })
+        .expect(400);
     });
   });
 

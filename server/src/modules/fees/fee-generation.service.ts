@@ -18,6 +18,7 @@ import { resolveTenantSettings } from '../schools/settings/tenant-settings-resol
 import {
   EnrollmentStatus,
   FeeStatus,
+  FeeType,
   PeriodType,
   DuplicateStrategy,
   FeeGenerationSource,
@@ -54,7 +55,29 @@ export interface DiscountResolver {
     // checked against this, so back-generating a January bill in March
     // evaluates January's rules, not March's. 'YYYY-MM-DD'.
     periodStart: string;
+    // [CodeRabbit review, PR #801] Optional — the caller already has the
+    // fee structure loaded (every `generate()` pair does, via
+    // `loadContext()`), so passing its `fee_type` here lets a resolver
+    // skip its own per-pair `FeeStructure` lookup. A resolver that
+    // ignores this and queries anyway (`NoopDiscountResolver`) stays
+    // correct, just unoptimized.
+    feeType?: FeeType;
   }): Promise<{ amount: number }>;
+
+  /**
+   * [CodeRabbit review, PR #801] Optional: a resolver backed by a real
+   * rules table can implement this to load every active rule for a whole
+   * batch of students in ONE query and cache it internally (keyed by
+   * tenantId + studentId), instead of `generate()` calling `resolve()`
+   * once per (student, fee-structure) pair — each of which previously ran
+   * its own `FeeStructure` lookup plus its own `DiscountRule` query.
+   * `GenerateFeesDto` legally allows up to 5,000 students × 20 fee
+   * structures; without batching, one request could perform up to
+   * ~200,000 sequential DB reads before a single bill was inserted.
+   * `generate()` calls this once (if present) before its per-pair loop;
+   * the subsequent `resolve()` calls in that same batch hit the cache.
+   */
+  preloadRulesForStudents?(tenantId: string, studentIds: string[]): Promise<void>;
 }
 
 /** Default `DiscountResolver`: no discounts apply. Real rules land in
@@ -67,8 +90,18 @@ export class NoopDiscountResolver implements DiscountResolver {
     feeStructureId: string;
     baseAmount: number;
     periodStart: string;
+    feeType?: FeeType;
   }): Promise<{ amount: number }> {
     return Promise.resolve({ amount: 0 });
+  }
+
+  // No rules table to preload from — matches DiscountResolver's optional
+  // hook so this class's shape still satisfies the type the DI token
+  // (`NoopDiscountResolver`, kept as the constructor param's type so Nest
+  // has a real runtime token — `DiscountRulesService` is wired in via
+  // `useExisting` in fees.module.ts) is declared with.
+  preloadRulesForStudents(_tenantId: string, _studentIds: string[]): Promise<void> {
+    return Promise.resolve();
   }
 }
 
@@ -369,6 +402,17 @@ export class FeeGenerationService {
 
       const studentFeeRepo = manager.getRepository(StudentFee);
       const rowsToInsert: Partial<StudentFee>[] = [];
+      // [CodeRabbit review, PR #801] One batched load of every active
+      // discount rule for every student in this generation, instead of
+      // `resolve()` querying per (student, fee-structure) pair below —
+      // a resolver that doesn't implement this optional hook (e.g.
+      // NoopDiscountResolver) just no-ops here and resolve() falls back
+      // to its own per-pair queries, so this stays correct either way.
+      await this.discountResolver.preloadRulesForStudents?.(
+        tenantId,
+        Array.from(new Set(pairsToInsert.map((p) => p.student.id))),
+      );
+
       for (const pair of pairsToInsert) {
         const baseAmount = Number(pair.structure.amount);
         const discount = await this.discountResolver.resolve({
@@ -380,6 +424,9 @@ export class FeeGenerationService {
           // generation must evaluate discount-rule expiry against that
           // period, not today's date.
           periodStart: context.periodStart.toISOString().slice(0, 10),
+          // [CodeRabbit review, PR #801] already loaded via loadContext()
+          // — lets the resolver skip its own FeeStructure lookup.
+          feeType: pair.structure.fee_type,
         });
         rowsToInsert.push({
           student_id: pair.student.id,

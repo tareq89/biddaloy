@@ -9,13 +9,38 @@ import {
   IsBoolean,
   MaxLength,
   Min,
-  Max,
   MinLength,
-  ValidateIf,
+  Validate,
+  ValidationArguments,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
 } from 'class-validator';
 import { DiscountKind, FeeType } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import { DiscountRule } from '../entities/discount-rule.entity';
+
+/**
+ * [CodeRabbit review, PR #801] `@ValidateIf` on a property gates *every*
+ * validator declared on that property, not just the one below it — so the
+ * previous `@ValidateIf(kind === PERCENT) @Max(100)` also silently
+ * disabled the unconditional `@IsNumber()`/`@Min(0)` above it for a FLAT
+ * rule, letting a negative or non-numeric FLAT value reach
+ * `DiscountRulesService.create()`. A standalone kind-aware constraint
+ * keeps the PERCENT-only upper bound without touching the other
+ * (unconditional) validators on `value`.
+ */
+@ValidatorConstraint({ name: 'percentValueAtMost100', async: false })
+class PercentValueAtMost100Constraint implements ValidatorConstraintInterface {
+  validate(value: unknown, args: ValidationArguments): boolean {
+    const obj = args.object as { kind?: DiscountKind };
+    if (obj.kind !== DiscountKind.PERCENT) return true;
+    return typeof value === 'number' && value <= 100;
+  }
+
+  defaultMessage(): string {
+    return 'value must be at most 100 for a PERCENT discount rule';
+  }
+}
 
 export class CreateDiscountRuleDto {
   @IsUUID()
@@ -29,9 +54,9 @@ export class CreateDiscountRuleDto {
   // A PERCENT rule over 100 is nonsensical; matches the DB-level
   // CHK_discount_rules_percent_range check — checked here too so a bad
   // PERCENT value 400s with a field error instead of a raw 500 from the
-  // DB constraint.
-  @ValidateIf((o: CreateDiscountRuleDto) => o.kind === DiscountKind.PERCENT)
-  @Max(100)
+  // DB constraint. Unconditional Validate(), not ValidateIf() + Max():
+  // see PercentValueAtMost100Constraint's doc comment above.
+  @Validate(PercentValueAtMost100Constraint)
   value: number;
 
   /** Omit or `null` for "applies to every fee type" (never LATE_FEE). */
@@ -63,12 +88,13 @@ export class UpdateDiscountRuleDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
-  // Only checked when `kind` is also in this same patch (o.kind ===
-  // PERCENT) — a value-only PATCH against an existing PERCENT rule falls
-  // back to the DB's CHK_discount_rules_percent_range constraint, same as
-  // before this fix.
-  @ValidateIf((o: UpdateDiscountRuleDto) => o.kind === DiscountKind.PERCENT)
-  @Max(100)
+  // Only actually enforces the <=100 bound when `kind` is also in this
+  // same patch and PERCENT — a value-only PATCH against an existing
+  // PERCENT rule falls back to the DB's CHK_discount_rules_percent_range
+  // constraint, same as before this fix. Unconditional Validate(), not
+  // ValidateIf() + Max(): see PercentValueAtMost100Constraint's doc
+  // comment above CreateDiscountRuleDto.
+  @Validate(PercentValueAtMost100Constraint)
   value?: number;
 
   @IsOptional()

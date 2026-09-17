@@ -25,21 +25,13 @@ import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { FamilyAccessService } from '../students/family-access.service';
-import { AuditService } from '../audit/audit.service';
 import { DiscountRulesService } from './discount-rules.service';
 import {
   CreateDiscountRuleDto,
   UpdateDiscountRuleDto,
   toDiscountRuleDto,
 } from './dto/discount-rules.dto';
-import {
-  ApprovalScope,
-  AuditAction,
-  JwtPayload,
-  Permission,
-  UserRole,
-  isGuardianRole,
-} from '@biddaloy/shared';
+import { ApprovalScope, JwtPayload, Permission, UserRole, isGuardianRole } from '@biddaloy/shared';
 
 /**
  * [16.7.3] `DiscountRule` CRUD. Writes require `DISCOUNT_RULE_MANAGE` +
@@ -48,11 +40,12 @@ import {
  * `PaymentReversalService`'s route). Read is shared with family callers,
  * narrowed to their own linked students.
  *
- * [Opus review, B4] Every write also calls `AuditService.recordApproved` —
- * this money-affecting action needs the same proof-of-approval audit row
- * every other `@RequireApproval` route in this module writes
- * (`PaymentReversalService`, `CheckoutService`, `FeeGenerationBatchService`);
- * consuming the token alone left no durable trail of who approved what.
+ * [Opus review, B4 / CodeRabbit review PR #801] The write itself and its
+ * `AuditService.recordApproved` proof-of-approval row are committed in one
+ * transaction inside `DiscountRulesService` — this controller no longer
+ * calls `recordApproved` separately (a prior version did, which meant a
+ * failed audit write could leave the mutation committed with no durable
+ * trail of who approved it).
  */
 @ApiTags('discount-rules')
 @ApiTenantAuth()
@@ -62,7 +55,6 @@ export class DiscountRulesController {
   constructor(
     private readonly discountRulesService: DiscountRulesService,
     private readonly familyAccess: FamilyAccessService,
-    private readonly auditService: AuditService,
   ) {}
 
   @Get('students/:id/discount-rules')
@@ -134,16 +126,6 @@ export class DiscountRulesController {
       approval.approverId,
       dto,
     );
-    await this.auditService.recordApproved({
-      action: AuditAction.CREATE,
-      entity_type: 'DiscountRule',
-      entity_id: rule.id,
-      tenant_id: tenant.id,
-      performed_by_user_id: user.sub,
-      approved_by_user_id: approval.approverId,
-      approval_scope: ApprovalScope.DISCOUNT_RULES_MANAGE,
-      new_values: toDiscountRuleDto(rule) as unknown as Record<string, unknown>,
-    });
     return toDiscountRuleDto(rule);
   }
 
@@ -163,17 +145,13 @@ export class DiscountRulesController {
     @Req() request: Request,
   ) {
     const approval = this.requireApproval(request);
-    const rule = await this.discountRulesService.update(tenant.id, id, approval.approverId, dto);
-    await this.auditService.recordApproved({
-      action: AuditAction.UPDATE,
-      entity_type: 'DiscountRule',
-      entity_id: rule.id,
-      tenant_id: tenant.id,
-      performed_by_user_id: user.sub,
-      approved_by_user_id: approval.approverId,
-      approval_scope: ApprovalScope.DISCOUNT_RULES_MANAGE,
-      new_values: toDiscountRuleDto(rule) as unknown as Record<string, unknown>,
-    });
+    const rule = await this.discountRulesService.update(
+      tenant.id,
+      id,
+      user.sub,
+      approval.approverId,
+      dto,
+    );
     return toDiscountRuleDto(rule);
   }
 
@@ -192,16 +170,7 @@ export class DiscountRulesController {
     @Req() request: Request,
   ): Promise<{ deleted: true }> {
     const approval = this.requireApproval(request);
-    await this.discountRulesService.remove(tenant.id, id);
-    await this.auditService.recordApproved({
-      action: AuditAction.DELETE,
-      entity_type: 'DiscountRule',
-      entity_id: id,
-      tenant_id: tenant.id,
-      performed_by_user_id: user.sub,
-      approved_by_user_id: approval.approverId,
-      approval_scope: ApprovalScope.DISCOUNT_RULES_MANAGE,
-    });
+    await this.discountRulesService.remove(tenant.id, id, user.sub, approval.approverId);
     return { deleted: true };
   }
 }

@@ -1,12 +1,17 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { DiscountKind, FeeType } from '@biddaloy/shared';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, In, Repository } from 'typeorm';
+import { ApprovalScope, AuditAction, DiscountKind, FeeType } from '@biddaloy/shared';
 import { DiscountRule } from './entities/discount-rule.entity';
 import { FeeStructure } from './entities/fee-structure.entity';
 import { Student } from '../students/entities/student.entity';
-import { CreateDiscountRuleDto, UpdateDiscountRuleDto } from './dto/discount-rules.dto';
+import {
+  CreateDiscountRuleDto,
+  UpdateDiscountRuleDto,
+  toDiscountRuleDto,
+} from './dto/discount-rules.dto';
 import { DiscountResolver } from './fee-generation.service';
+import { AuditService } from '../audit/audit.service';
 
 /**
  * [CodeRabbit review, PR #801] `value * 100` on a binary float can land
@@ -49,6 +54,9 @@ export class DiscountRulesService implements DiscountResolver {
     private readonly feeStructureRepo: Repository<FeeStructure>,
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
+    private readonly auditService: AuditService,
   ) {}
 
   /** [CodeRabbit review, PR #801] `tenant_id` and `student_id` are
@@ -78,6 +86,33 @@ export class DiscountRulesService implements DiscountResolver {
     }
   }
 
+  // [CodeRabbit review, PR #801] Populated by preloadRulesForStudents()
+  // for the lifetime of one FeeGenerationService.generate() batch —
+  // keyed by `${tenantId}:${studentId}`. resolve() checks this first and
+  // only falls back to its own per-call query when the key is absent, so
+  // a caller that never preloads (or a student outside the preloaded set)
+  // still gets a correct answer, just via the unbatched path.
+  private preloadedRulesByStudent = new Map<string, DiscountRule[]>();
+
+  /** [CodeRabbit review, PR #801] One query for every active rule across
+   * a whole batch of students, instead of `resolve()` querying per
+   * (student, fee-structure) pair. See the doc comment on
+   * `DiscountResolver.preloadRulesForStudents` in
+   * fee-generation.service.ts for why this exists. */
+  async preloadRulesForStudents(tenantId: string, studentIds: string[]): Promise<void> {
+    this.preloadedRulesByStudent.clear();
+    if (studentIds.length === 0) return;
+    const rules = await this.discountRuleRepo.find({
+      where: { tenant_id: tenantId, student_id: In(studentIds), is_active: true },
+    });
+    for (const rule of rules) {
+      const key = `${tenantId}:${rule.student_id}`;
+      const existing = this.preloadedRulesByStudent.get(key);
+      if (existing) existing.push(rule);
+      else this.preloadedRulesByStudent.set(key, [rule]);
+    }
+  }
+
   async resolve(context: {
     tenantId: string;
     studentId: string;
@@ -88,27 +123,38 @@ export class DiscountRulesService implements DiscountResolver {
     // a back-dated generation run evaluates the rules that were live for
     // that period, not whatever's live when generation happens to run.
     periodStart: string;
+    // [CodeRabbit review, PR #801] Already-loaded fee_type — skips the
+    // FeeStructure lookup below when supplied.
+    feeType?: FeeType;
   }): Promise<{ amount: number }> {
-    const structure = await this.feeStructureRepo.findOne({
-      where: { id: context.feeStructureId, tenant_id: context.tenantId },
-    });
+    let feeType = context.feeType;
+    if (!feeType) {
+      const structure = await this.feeStructureRepo.findOne({
+        where: { id: context.feeStructureId, tenant_id: context.tenantId },
+      });
+      if (!structure) return { amount: 0 };
+      feeType = structure.fee_type;
+    }
     // A late fee is never discounted — checked before touching any rule.
-    if (!structure || structure.fee_type === FeeType.LATE_FEE) {
+    if (feeType === FeeType.LATE_FEE) {
       return { amount: 0 };
     }
 
-    const rules = await this.discountRuleRepo.find({
-      // [Opus review, B3] an inactive rule (paused, not deleted) must not
-      // resolve — same as an expired one.
-      where: { tenant_id: context.tenantId, student_id: context.studentId, is_active: true },
-    });
+    const preloadKey = `${context.tenantId}:${context.studentId}`;
+    const rules = this.preloadedRulesByStudent.has(preloadKey)
+      ? this.preloadedRulesByStudent.get(preloadKey)!
+      : await this.discountRuleRepo.find({
+          // [Opus review, B3] an inactive rule (paused, not deleted) must
+          // not resolve — same as an expired one.
+          where: { tenant_id: context.tenantId, student_id: context.studentId, is_active: true },
+        });
 
     const period = context.periodStart;
     let best = 0;
     for (const rule of rules) {
       if (rule.starts_on && rule.starts_on > period) continue;
       if (rule.ends_on && rule.ends_on < period) continue;
-      if (rule.fee_types && !rule.fee_types.includes(structure.fee_type)) continue;
+      if (rule.fee_types && !rule.fee_types.includes(feeType)) continue;
 
       const amount =
         rule.kind === DiscountKind.FLAT
@@ -125,13 +171,28 @@ export class DiscountRulesService implements DiscountResolver {
     return { amount: round2(Math.min(best, context.baseAmount)) };
   }
 
+  // [CodeRabbit review, PR #801] The controller documents this as "active
+  // discount rules"; without is_active: true a deactivated rule (see
+  // update()'s is_active toggle) still showed up here even though
+  // resolve() already excludes it.
   async listForStudent(tenantId: string, studentId: string): Promise<DiscountRule[]> {
     return this.discountRuleRepo.find({
-      where: { tenant_id: tenantId, student_id: studentId },
+      where: { tenant_id: tenantId, student_id: studentId, is_active: true },
       order: { created_at: 'DESC' },
     });
   }
 
+  /**
+   * [CodeRabbit review, PR #801] Every mutation below runs in the same
+   * DB transaction as its `AuditService.recordApproved` call — previously
+   * the controller called this service, then made a *separate*
+   * `recordApproved` call after it returned. If that second, separate
+   * call failed, the mutation itself had already committed with no audit
+   * row proving anyone approved it, for a route whose entire point is
+   * that proof. `recordApproved` already accepts a manager and propagates
+   * failures, so folding it into one transaction with the write means
+   * either both commit or neither does.
+   */
   async create(
     tenantId: string,
     userId: string,
@@ -140,52 +201,107 @@ export class DiscountRulesService implements DiscountResolver {
   ): Promise<DiscountRule> {
     await this.assertStudentInTenant(tenantId, dto.student_id);
     this.assertWindowNotReversed(dto.starts_on ?? null, dto.ends_on ?? null);
-    const rule = this.discountRuleRepo.create({
-      tenant_id: tenantId,
-      student_id: dto.student_id,
-      kind: dto.kind,
-      value: dto.value,
-      fee_types: dto.fee_types ?? null,
-      starts_on: dto.starts_on ?? null,
-      ends_on: dto.ends_on ?? null,
-      reason: dto.reason,
-      created_by_user_id: userId,
-      approved_by_user_id: approverUserId,
+    return this.dataSource.transaction(async (manager) => {
+      const repo = manager.getRepository(DiscountRule);
+      const rule = repo.create({
+        tenant_id: tenantId,
+        student_id: dto.student_id,
+        kind: dto.kind,
+        value: dto.value,
+        fee_types: dto.fee_types ?? null,
+        starts_on: dto.starts_on ?? null,
+        ends_on: dto.ends_on ?? null,
+        reason: dto.reason,
+        created_by_user_id: userId,
+        approved_by_user_id: approverUserId,
+      });
+      const saved = await repo.save(rule);
+      await this.auditService.recordApproved(
+        {
+          action: AuditAction.CREATE,
+          entity_type: 'DiscountRule',
+          entity_id: saved.id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          approved_by_user_id: approverUserId,
+          approval_scope: ApprovalScope.DISCOUNT_RULES_MANAGE,
+          new_values: toDiscountRuleDto(saved) as unknown as Record<string, unknown>,
+        },
+        manager,
+      );
+      return saved;
     });
-    return this.discountRuleRepo.save(rule);
   }
 
   async update(
     tenantId: string,
     id: string,
+    userId: string,
     approverUserId: string,
     dto: UpdateDiscountRuleDto,
   ): Promise<DiscountRule> {
-    const rule = await this.discountRuleRepo.findOne({ where: { id, tenant_id: tenantId } });
-    if (!rule) throw new NotFoundException('Discount rule not found');
-    Object.assign(rule, {
-      ...(dto.kind !== undefined && { kind: dto.kind }),
-      ...(dto.value !== undefined && { value: dto.value }),
-      ...(dto.fee_types !== undefined && { fee_types: dto.fee_types }),
-      ...(dto.starts_on !== undefined && { starts_on: dto.starts_on }),
-      ...(dto.ends_on !== undefined && { ends_on: dto.ends_on }),
-      ...(dto.reason !== undefined && { reason: dto.reason }),
-      ...(dto.is_active !== undefined && { is_active: dto.is_active }),
-      // [Opus review, B3/B4] every write — including a deactivate-only
-      // PATCH — is approval-gated, so the approver of record always moves
-      // to whoever most recently spent a valid token for this row.
-      approved_by_user_id: approverUserId,
+    return this.dataSource.transaction(async (manager) => {
+      const repo = manager.getRepository(DiscountRule);
+      const rule = await repo.findOne({ where: { id, tenant_id: tenantId } });
+      if (!rule) throw new NotFoundException('Discount rule not found');
+      Object.assign(rule, {
+        ...(dto.kind !== undefined && { kind: dto.kind }),
+        ...(dto.value !== undefined && { value: dto.value }),
+        ...(dto.fee_types !== undefined && { fee_types: dto.fee_types }),
+        ...(dto.starts_on !== undefined && { starts_on: dto.starts_on }),
+        ...(dto.ends_on !== undefined && { ends_on: dto.ends_on }),
+        ...(dto.reason !== undefined && { reason: dto.reason }),
+        ...(dto.is_active !== undefined && { is_active: dto.is_active }),
+        // [Opus review, B3/B4] every write — including a deactivate-only
+        // PATCH — is approval-gated, so the approver of record always moves
+        // to whoever most recently spent a valid token for this row.
+        approved_by_user_id: approverUserId,
+      });
+      // Checked against the *merged* entity, not just the patched fields —
+      // a PATCH that only sends `ends_on` can still reverse an existing
+      // valid window against an unrelated `starts_on` already on the row.
+      this.assertWindowNotReversed(rule.starts_on, rule.ends_on);
+      const saved = await repo.save(rule);
+      await this.auditService.recordApproved(
+        {
+          action: AuditAction.UPDATE,
+          entity_type: 'DiscountRule',
+          entity_id: saved.id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          approved_by_user_id: approverUserId,
+          approval_scope: ApprovalScope.DISCOUNT_RULES_MANAGE,
+          new_values: toDiscountRuleDto(saved) as unknown as Record<string, unknown>,
+        },
+        manager,
+      );
+      return saved;
     });
-    // Checked against the *merged* entity, not just the patched fields — a
-    // PATCH that only sends `ends_on` can still reverse an existing valid
-    // window against an unrelated `starts_on` already on the row.
-    this.assertWindowNotReversed(rule.starts_on, rule.ends_on);
-    return this.discountRuleRepo.save(rule);
   }
 
-  async remove(tenantId: string, id: string): Promise<void> {
-    const rule = await this.discountRuleRepo.findOne({ where: { id, tenant_id: tenantId } });
-    if (!rule) throw new NotFoundException('Discount rule not found');
-    await this.discountRuleRepo.softDelete({ id, tenant_id: tenantId });
+  async remove(
+    tenantId: string,
+    id: string,
+    userId: string,
+    approverUserId: string,
+  ): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      const repo = manager.getRepository(DiscountRule);
+      const rule = await repo.findOne({ where: { id, tenant_id: tenantId } });
+      if (!rule) throw new NotFoundException('Discount rule not found');
+      await repo.softDelete({ id, tenant_id: tenantId });
+      await this.auditService.recordApproved(
+        {
+          action: AuditAction.DELETE,
+          entity_type: 'DiscountRule',
+          entity_id: id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          approved_by_user_id: approverUserId,
+          approval_scope: ApprovalScope.DISCOUNT_RULES_MANAGE,
+        },
+        manager,
+      );
+    });
   }
 }

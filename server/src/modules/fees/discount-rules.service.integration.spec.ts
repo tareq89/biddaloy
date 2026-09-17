@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { Repository, DataSource } from 'typeorm';
 import { DiscountRulesService } from './discount-rules.service';
+import { AuditService } from '../audit/audit.service';
 import { DiscountRule } from './entities/discount-rule.entity';
 import { FeeStructure } from './entities/fee-structure.entity';
 import { Student } from '../students/entities/student.entity';
@@ -29,6 +30,8 @@ const STUDENT_ID = '00000000-0000-4000-8000-000000000501';
 const OTHER_STUDENT_ID = '00000000-0000-4000-8000-000000000502';
 const TUITION_STRUCTURE_ID = '00000000-0000-4000-8000-000000000551';
 const LATE_FEE_STRUCTURE_ID = '00000000-0000-4000-8000-000000000552';
+const OTHER_TENANT_STRUCTURE_ID = '00000000-0000-4000-8000-000000000553';
+const OTHER_ACADEMIC_YEAR_ID = '00000000-0000-4000-8000-000000000198';
 const APPROVER_ID = '00000000-0000-4000-8000-000000000999';
 const TODAY_PERIOD = '2026-03-01';
 
@@ -39,7 +42,7 @@ describe('DiscountRulesService (integration)', () => {
   let studentRepo: Repository<Student>;
 
   beforeAll(async () => {
-    const module = await createTestModule(ALL_ENTITIES, [DiscountRulesService]);
+    const module = await createTestModule(ALL_ENTITIES, [DiscountRulesService, AuditService]);
     ds = module.get(DataSource);
     service = module.get(DiscountRulesService);
     ruleRepo = ds.getRepository(DiscountRule);
@@ -63,6 +66,15 @@ describe('DiscountRulesService (integration)', () => {
         start_date: new Date('2026-01-01'),
         end_date: new Date('2026-12-31'),
         tenant_id: SEED_TENANT_ID,
+      }),
+    );
+    await ayRepo.save(
+      ayRepo.create({
+        id: OTHER_ACADEMIC_YEAR_ID,
+        name: '2026-2027',
+        start_date: new Date('2026-01-01'),
+        end_date: new Date('2026-12-31'),
+        tenant_id: OTHER_TENANT_ID,
       }),
     );
     await classRepo.save(
@@ -127,6 +139,23 @@ describe('DiscountRulesService (integration)', () => {
         tenant_id: SEED_TENANT_ID,
       }),
     );
+    // [CodeRabbit review, PR #801] a valid, non-late fee structure that
+    // genuinely belongs to OTHER_TENANT_ID — the tenant-isolation test
+    // below resolves against this instead of TUITION_STRUCTURE_ID (which
+    // belongs to SEED_TENANT_ID), so the tenant-scoped structure lookup
+    // succeeds and the test actually exercises the discount-rule query's
+    // own tenant_id filter, instead of returning 0 early via "structure
+    // not found in this tenant".
+    await feeStructureRepo.save(
+      feeStructureRepo.create({
+        id: OTHER_TENANT_STRUCTURE_ID,
+        fee_type: FeeType.MONTHLY_TUITION,
+        name: 'Other Tenant Tuition Fee',
+        amount: 1000,
+        academic_year_id: OTHER_ACADEMIC_YEAR_ID,
+        tenant_id: OTHER_TENANT_ID,
+      }),
+    );
 
     await studentRepo.save(
       studentRepo.create({
@@ -164,10 +193,12 @@ describe('DiscountRulesService (integration)', () => {
       expect(created.approved_by_user_id).toBe(APPROVER_ID);
       expect(created.is_active).toBe(true);
 
-      const updated = await service.update(SEED_TENANT_ID, created.id, APPROVER_ID, { value: 25 });
+      const updated = await service.update(SEED_TENANT_ID, created.id, APPROVER_ID, APPROVER_ID, {
+        value: 25,
+      });
       expect(Number(updated.value)).toBe(25);
 
-      await service.remove(SEED_TENANT_ID, created.id);
+      await service.remove(SEED_TENANT_ID, created.id, APPROVER_ID, APPROVER_ID);
       const found = await ruleRepo.findOne({ where: { id: created.id } });
       expect(found).toBeNull(); // soft-deleted, excluded by default find
     });
@@ -223,7 +254,9 @@ describe('DiscountRulesService (integration)', () => {
       // Only ends_on is patched, but the merged state (starts_on from the
       // existing row) is now reversed.
       await expect(
-        service.update(SEED_TENANT_ID, created.id, APPROVER_ID, { ends_on: '2025-01-01' }),
+        service.update(SEED_TENANT_ID, created.id, APPROVER_ID, APPROVER_ID, {
+          ends_on: '2025-01-01',
+        }),
       ).rejects.toThrow('starts_on must not be after ends_on');
     });
 
@@ -234,7 +267,9 @@ describe('DiscountRulesService (integration)', () => {
         value: 100,
         reason: 'Test',
       });
-      await service.update(SEED_TENANT_ID, created.id, APPROVER_ID, { is_active: false });
+      await service.update(SEED_TENANT_ID, created.id, APPROVER_ID, APPROVER_ID, {
+        is_active: false,
+      });
 
       const result = await service.resolve({
         tenantId: SEED_TENANT_ID,
@@ -434,20 +469,78 @@ describe('DiscountRulesService (integration)', () => {
     });
 
     it("never resolves against another tenant's student", async () => {
+      // A real rule exists for STUDENT_ID under SEED_TENANT_ID.
       await service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, {
         student_id: STUDENT_ID,
         kind: DiscountKind.FLAT,
         value: 999,
         reason: 'Should not leak',
       });
+      // Resolving with tenantId: OTHER_TENANT_ID but the *same* STUDENT_ID
+      // and a fee structure that genuinely belongs to OTHER_TENANT_ID: the
+      // structure lookup succeeds (so this doesn't short-circuit via
+      // "structure not found"), which means the only thing that can stop
+      // the 999 rule above from leaking through is the discount-rule
+      // query's own tenant_id filter.
       const result = await service.resolve({
         tenantId: OTHER_TENANT_ID,
-        studentId: OTHER_STUDENT_ID,
-        feeStructureId: TUITION_STRUCTURE_ID,
+        studentId: STUDENT_ID,
+        feeStructureId: OTHER_TENANT_STRUCTURE_ID,
         baseAmount: 1000,
         periodStart: TODAY_PERIOD,
       });
       expect(result.amount).toBe(0);
+    });
+  });
+
+  describe('[CodeRabbit review, PR #801] batched resolution', () => {
+    it('preloadRulesForStudents() lets resolve() skip its own per-call query for a preloaded student', async () => {
+      await service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, {
+        student_id: STUDENT_ID,
+        kind: DiscountKind.FLAT,
+        value: 100,
+        reason: 'Batched',
+      });
+
+      await service.preloadRulesForStudents(SEED_TENANT_ID, [STUDENT_ID]);
+
+      const findSpy = vi.spyOn(ruleRepo, 'find');
+      const result = await service.resolve({
+        tenantId: SEED_TENANT_ID,
+        studentId: STUDENT_ID,
+        feeStructureId: TUITION_STRUCTURE_ID,
+        baseAmount: 1000,
+        periodStart: TODAY_PERIOD,
+        feeType: FeeType.MONTHLY_TUITION,
+      });
+
+      expect(result.amount).toBe(100);
+      // The preload already ran the one query for this student — resolve()
+      // must not query the rules table again.
+      expect(findSpy).not.toHaveBeenCalled();
+      findSpy.mockRestore();
+    });
+
+    it('a student outside the preloaded set still resolves correctly via the unbatched fallback', async () => {
+      await service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, {
+        student_id: STUDENT_ID,
+        kind: DiscountKind.FLAT,
+        value: 100,
+        reason: 'Not preloaded',
+      });
+
+      // Preload for a *different* student only.
+      await service.preloadRulesForStudents(SEED_TENANT_ID, [OTHER_STUDENT_ID]);
+
+      const result = await service.resolve({
+        tenantId: SEED_TENANT_ID,
+        studentId: STUDENT_ID,
+        feeStructureId: TUITION_STRUCTURE_ID,
+        baseAmount: 1000,
+        periodStart: TODAY_PERIOD,
+      });
+
+      expect(result.amount).toBe(100);
     });
   });
 });
