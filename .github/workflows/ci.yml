@@ -921,7 +921,7 @@ jobs:
       - uses: ./.github/actions/setup
 
       - name: Download build output
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: build-dist
 
