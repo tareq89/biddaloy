@@ -115,6 +115,11 @@ export function RegionalSection({ schoolId, region }: RegionalSectionProps) {
   function handleSave(values: RegionalFormValues) {
     const regionConfig: RegionConfig = {
       ...values,
+      // [17.1.3] `country` and `calendar` aren't editable in this form yet
+      // (D11/D19 UI lands in a later Epic 17 task) — pass the existing
+      // values through unchanged so a save here can't drop them.
+      country: region.country,
+      ...(region.calendar ? { calendar: region.calendar } : {}),
       currency: { ...values.currency, decimals: Number(values.currency.decimals) },
       date: { ...values.date, firstDayOfWeek: Number(values.date.firstDayOfWeek) },
       address: { fields: splitList(values.address.fields), order: splitList(values.address.order) },

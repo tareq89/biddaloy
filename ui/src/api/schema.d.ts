@@ -4023,8 +4023,13 @@ export interface components {
             national: string;
             student: string;
         };
+        RegionCalendarDto: {
+            /** @enum {string} */
+            termLabel: "TERM" | "SEMESTER" | "TRIMESTER";
+        };
         RegionSettingsDto: {
             locale: string;
+            country: string;
             currency: components["schemas"]["RegionCurrencyDto"];
             /** @enum {string} */
             numerals: "latin" | "bengali";
@@ -4034,6 +4039,7 @@ export interface components {
             academicYear: components["schemas"]["RegionAcademicYearDto"];
             identifiers: components["schemas"]["RegionIdentifiersDto"];
             timezone: string;
+            calendar?: components["schemas"]["RegionCalendarDto"];
         };
         MaskedSecretResponseDto: {
             configured: boolean;
@@ -4302,22 +4308,45 @@ export interface components {
             name: string;
             counts_as_working_day?: boolean;
         };
-        SchoolHoliday: {
+        CalendarEvent: {
             id: string;
             tenant: components["schemas"]["School"];
             tenant_id: string;
             academic_year: components["schemas"]["AcademicYear"];
             academic_year_id: string;
+            /** @enum {string} */
+            type: "HOLIDAY" | "EXAM" | "EVENT" | "MEETING" | "DEADLINE";
             start_date: string;
             end_date: string;
+            start_time: string | null;
+            end_time: string | null;
             name: string;
+            description: string | null;
             counts_as_working_day: boolean;
+            /** @enum {string} */
+            audience: "ALL" | "STAFF";
+            /** Format: date-time */
+            published_at: string | null;
+            external_refs: {
+                [key: string]: unknown;
+            };
+            created_by_user_id: string | null;
+            updated_by_user_id: string | null;
+            classes: components["schemas"]["CalendarEventClass"][];
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
             updated_at: string;
             /** Format: date-time */
             deleted_at: string | null;
+        };
+        CalendarEventClass: {
+            event: components["schemas"]["CalendarEvent"];
+            event_id: string;
+            class: components["schemas"]["Class"];
+            class_id: string;
+            tenant: components["schemas"]["School"];
+            tenant_id: string;
         };
         UpdateHolidayDto: {
             /** Format: uuid */
@@ -9314,7 +9343,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SchoolHoliday"];
+                    "application/json": components["schemas"]["CalendarEvent"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -9347,7 +9376,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SchoolHoliday"];
+                    "application/json": components["schemas"]["CalendarEvent"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -9384,7 +9413,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SchoolHoliday"];
+                    "application/json": components["schemas"]["CalendarEvent"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
