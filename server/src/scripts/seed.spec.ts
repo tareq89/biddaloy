@@ -11,6 +11,10 @@ import type { Student } from '../modules/students/entities/student.entity';
 import type { Guardian } from '../modules/students/entities/guardian.entity';
 import type { Subject } from '../modules/academics/entities/subject.entity';
 import type { CalendarEvent } from '../modules/calendar/entities/calendar-event.entity';
+import type { CalendarEventClass } from '../modules/calendar/entities/calendar-event-class.entity';
+import type { AcademicTerm } from '../modules/calendar/entities/academic-term.entity';
+import type { PublicHolidaySet } from '../modules/calendar/entities/public-holiday-set.entity';
+import type { PublicHolidayEntry } from '../modules/calendar/entities/public-holiday-entry.entity';
 import type { Teacher } from '../modules/academics/entities/teacher.entity';
 import type { TeacherClassSection } from '../modules/academics/entities/teacher-class-section.entity';
 import type { AttendanceSession } from '../modules/attendance/entities/attendance-session.entity';
@@ -126,6 +130,22 @@ function makeRepos() {
       clock,
       'holiday',
     ).asRepository() as unknown as Repository<CalendarEvent>,
+    academicTermRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'term',
+    ).asRepository() as unknown as Repository<AcademicTerm>,
+    calendarEventClassRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'event-class',
+    ).asRepository() as unknown as Repository<CalendarEventClass>,
+    publicHolidaySetRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'holiday-set',
+    ).asRepository() as unknown as Repository<PublicHolidaySet>,
+    publicHolidayEntryRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'holiday-entry',
+    ).asRepository() as unknown as Repository<PublicHolidayEntry>,
     teacherRepository: new FakeRepo<Record<string, unknown>>(
       clock,
       'teacher',

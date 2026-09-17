@@ -11,6 +11,10 @@ import { Student } from '../modules/students/entities/student.entity';
 import { Guardian } from '../modules/students/entities/guardian.entity';
 import { Subject } from '../modules/academics/entities/subject.entity';
 import { CalendarEvent } from '../modules/calendar/entities/calendar-event.entity';
+import { CalendarEventClass } from '../modules/calendar/entities/calendar-event-class.entity';
+import { AcademicTerm } from '../modules/calendar/entities/academic-term.entity';
+import { PublicHolidaySet } from '../modules/calendar/entities/public-holiday-set.entity';
+import { PublicHolidayEntry } from '../modules/calendar/entities/public-holiday-entry.entity';
 import { Teacher } from '../modules/academics/entities/teacher.entity';
 import { TeacherClassSection } from '../modules/academics/entities/teacher-class-section.entity';
 import { AttendanceSession } from '../modules/attendance/entities/attendance-session.entity';
@@ -19,10 +23,13 @@ import { AttendanceDevice } from '../modules/attendance/entities/attendance-devi
 import {
   DEMO_ACADEMIC_YEAR,
   ensureAttendanceSeed,
+  ensureCalendarDemoSeed,
   ensureDemoStudents,
+  ensurePublicHolidaySet,
   ensureRoleTestUsers,
   ensureSecondSchoolMembership,
 } from './seed.util';
+import { BD_PUBLIC_HOLIDAYS_2026, BD_PUBLIC_HOLIDAYS_2027 } from './seed-data/public-holidays-bd';
 
 /**
  * The account/membership/roster half of the seed, deliberately kept in its
@@ -54,6 +61,10 @@ export interface SeedAccountRepositories {
   guardianRepository: Repository<Guardian>;
   subjectRepository: Repository<Subject>;
   schoolHolidayRepository: Repository<CalendarEvent>;
+  academicTermRepository: Repository<AcademicTerm>;
+  calendarEventClassRepository: Repository<CalendarEventClass>;
+  publicHolidaySetRepository: Repository<PublicHolidaySet>;
+  publicHolidayEntryRepository: Repository<PublicHolidayEntry>;
   teacherRepository: Repository<Teacher>;
   teacherClassSectionRepository: Repository<TeacherClassSection>;
   attendanceSessionRepository: Repository<AttendanceSession>;
@@ -179,6 +190,55 @@ export async function seedAccounts(
     school.id,
     parentTestUser?.id ?? null,
   );
+
+  // [17.2.6]: platform-wide BD public-holiday sets, published immediately —
+  // no `tenant_id` involved (see `PublicHolidaySet`'s own D10 docstring), so
+  // this only ever needs to run once regardless of how many schools exist.
+  await ensurePublicHolidaySet(
+    {
+      publicHolidaySetRepository: repos.publicHolidaySetRepository,
+      publicHolidayEntryRepository: repos.publicHolidayEntryRepository,
+    },
+    'BD',
+    2026,
+    BD_PUBLIC_HOLIDAYS_2026,
+  );
+  await ensurePublicHolidaySet(
+    {
+      publicHolidaySetRepository: repos.publicHolidaySetRepository,
+      publicHolidayEntryRepository: repos.publicHolidayEntryRepository,
+    },
+    'BD',
+    2027,
+    BD_PUBLIC_HOLIDAYS_2027,
+  );
+
+  // [17.2.6]: three terms + one event of each remaining `CalendarEventType`
+  // for the default school's `DEMO_ACADEMIC_YEAR`, scoping the EXAM event to
+  // "Class 6" and "Class 7" — both created by `ensureDemoStudents` above.
+  const calendarYear = await repos.academicYearRepository.findOne({
+    where: { name: DEMO_ACADEMIC_YEAR.name, tenant_id: school.id },
+  });
+  const examClass6 = await repos.classRepository.findOne({
+    where: { name: 'Class 6', tenant_id: school.id, academic_year_id: calendarYear?.id },
+  });
+  const examClass7 = await repos.classRepository.findOne({
+    where: { name: 'Class 7', tenant_id: school.id, academic_year_id: calendarYear?.id },
+  });
+  if (calendarYear && examClass6 && examClass7) {
+    await ensureCalendarDemoSeed(
+      {
+        academicTermRepository: repos.academicTermRepository,
+        calendarEventRepository: repos.schoolHolidayRepository,
+        calendarEventClassRepository: repos.calendarEventClassRepository,
+      },
+      {
+        schoolId: school.id,
+        academicYearId: calendarYear.id,
+        examClassIds: [examClass6.id, examClass7.id],
+      },
+    );
+  }
 
   // [9.11]: deterministic attendance ground truth — subjects, holidays, a
   // teacher/section mapping, marks for every working day, and two devices — on top of

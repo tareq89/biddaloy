@@ -11,6 +11,10 @@ import type { Student } from '../modules/students/entities/student.entity';
 import type { Guardian } from '../modules/students/entities/guardian.entity';
 import type { Subject } from '../modules/academics/entities/subject.entity';
 import type { CalendarEvent } from '../modules/calendar/entities/calendar-event.entity';
+import type { CalendarEventClass } from '../modules/calendar/entities/calendar-event-class.entity';
+import type { AcademicTerm } from '../modules/calendar/entities/academic-term.entity';
+import type { PublicHolidaySet } from '../modules/calendar/entities/public-holiday-set.entity';
+import type { PublicHolidayEntry } from '../modules/calendar/entities/public-holiday-entry.entity';
 import type { Teacher } from '../modules/academics/entities/teacher.entity';
 import type { TeacherClassSection } from '../modules/academics/entities/teacher-class-section.entity';
 import type { AttendanceSession } from '../modules/attendance/entities/attendance-session.entity';
@@ -22,7 +26,9 @@ import {
   DEMO_CLASSES,
   DEMO_STUDENTS_PER_SECTION,
   ensureAttendanceSeed,
+  ensureCalendarDemoSeed,
   ensureDemoStudents,
+  ensurePublicHolidaySet,
   ensureRoleTestUsers,
   ensureSecondSchoolMembership,
   ROLE_TEST_USERS,
@@ -30,10 +36,15 @@ import {
 } from './seed.util';
 import {
   ATTENDANCE_SEED_ABSENT_DATE as E2E_ATTENDANCE_SEED_ABSENT_DATE,
+  SEED_ACADEMIC_TERM_NAMES,
+  SEED_CALENDAR_EVENT_NAMES,
   SEED_DEVICE_KEY as E2E_SEED_DEVICE_KEY,
   SEED_PASSWORD_ENV,
+  SEED_PUBLIC_HOLIDAY_SAMPLE_NAME,
+  SEED_PUBLIC_HOLIDAY_SETS,
   SEED_ROLE_EMAILS,
 } from '../../../e2e/seed-contract';
+import { BD_PUBLIC_HOLIDAYS_2026 } from './seed-data/public-holidays-bd';
 
 let nextId = 0;
 
@@ -44,6 +55,7 @@ let nextId = 0;
 function mockRepo<T extends { id?: string }>(): Repository<T> {
   return {
     findOne: vi.fn(),
+    find: vi.fn().mockResolvedValue([]),
     create: vi.fn((data: Partial<T>) => data as T),
     save: vi.fn((entity: T) => {
       entity.id ??= `generated-id-${(nextId += 1)}`;
@@ -810,5 +822,171 @@ describe('ensureAttendanceSeed', () => {
     const first = await runOnce();
     const second = await runOnce();
     expect(second).toEqual(first);
+  });
+});
+
+describe('ensurePublicHolidaySet', () => {
+  const entries = [
+    { date: '2026-03-26', end_date: '2026-03-26', name: 'Independence Day', name_bn: 'X' },
+    { date: '2026-12-16', end_date: '2026-12-16', name: 'Victory Day', name_bn: 'Y' },
+  ];
+
+  it('creates a new set as already-published (MANUAL source) when none exists', async () => {
+    const setRepository = mockRepo<PublicHolidaySet>();
+    const entryRepository = mockRepo<PublicHolidayEntry>();
+    vi.mocked(setRepository.findOne).mockResolvedValue(null);
+
+    const set = await ensurePublicHolidaySet(
+      { publicHolidaySetRepository: setRepository, publicHolidayEntryRepository: entryRepository },
+      'BD',
+      2026,
+      entries,
+    );
+
+    expect(set.published_at).not.toBeNull();
+    expect(set.source).toBe('MANUAL');
+    expect(vi.mocked(entryRepository.create).mock.calls).toHaveLength(2);
+  });
+
+  it('publishes an existing draft set instead of creating a duplicate', async () => {
+    const setRepository = mockRepo<PublicHolidaySet>();
+    const entryRepository = mockRepo<PublicHolidayEntry>();
+    const existingSet = {
+      id: 'set-1',
+      country: 'BD',
+      year: 2026,
+      published_at: null,
+    } as Partial<PublicHolidaySet> as PublicHolidaySet;
+    vi.mocked(setRepository.findOne).mockResolvedValue(existingSet);
+    vi.mocked(entryRepository.find).mockResolvedValue([]);
+
+    const set = await ensurePublicHolidaySet(
+      { publicHolidaySetRepository: setRepository, publicHolidayEntryRepository: entryRepository },
+      'BD',
+      2026,
+      entries,
+    );
+
+    expect(set.published_at).not.toBeNull();
+    expect(vi.mocked(setRepository.create)).not.toHaveBeenCalled();
+  });
+
+  it('only inserts entries whose date is not already present (idempotent re-run)', async () => {
+    const setRepository = mockRepo<PublicHolidaySet>();
+    const entryRepository = mockRepo<PublicHolidayEntry>();
+    const existingSet = {
+      id: 'set-1',
+      country: 'BD',
+      year: 2026,
+      published_at: new Date(),
+    } as PublicHolidaySet;
+    vi.mocked(setRepository.findOne).mockResolvedValue(existingSet);
+    vi.mocked(entryRepository.find).mockResolvedValue([
+      { set_id: 'set-1', date: '2026-03-26' } as PublicHolidayEntry,
+    ]);
+
+    await ensurePublicHolidaySet(
+      { publicHolidaySetRepository: setRepository, publicHolidayEntryRepository: entryRepository },
+      'BD',
+      2026,
+      entries,
+    );
+
+    expect(vi.mocked(entryRepository.create).mock.calls).toHaveLength(1);
+    expect((vi.mocked(entryRepository.create).mock.calls[0][0] as PublicHolidayEntry).date).toBe(
+      '2026-12-16',
+    );
+  });
+
+  it('matches the e2e contract: country/year pairs and one sample holiday name', () => {
+    expect(SEED_PUBLIC_HOLIDAY_SETS).toEqual([
+      { country: 'BD', year: 2026 },
+      { country: 'BD', year: 2027 },
+    ]);
+    expect(BD_PUBLIC_HOLIDAYS_2026.some((h) => h.name === SEED_PUBLIC_HOLIDAY_SAMPLE_NAME)).toBe(
+      true,
+    );
+  });
+});
+
+describe('ensureCalendarDemoSeed', () => {
+  function calendarRepos() {
+    return {
+      academicTermRepository: mockRepo<AcademicTerm>(),
+      calendarEventRepository: mockRepo<CalendarEvent>(),
+      calendarEventClassRepository: mockRepo<CalendarEventClass>(),
+    };
+  }
+
+  const PARAMS = {
+    schoolId: 'school-1',
+    academicYearId: 'year-1',
+    examClassIds: ['class-6', 'class-7'] as [string, string],
+  };
+
+  it('creates three terms and one event of each remaining CalendarEventType on an empty database', async () => {
+    const repos = calendarRepos();
+    vi.mocked(repos.academicTermRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.calendarEventRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.calendarEventClassRepository.findOne).mockResolvedValue(null);
+
+    const result = await ensureCalendarDemoSeed(repos, PARAMS);
+
+    expect(result.terms).toBe(3);
+    expect(result.events).toBe(4);
+
+    const eventPayloads = vi
+      .mocked(repos.calendarEventRepository.create)
+      .mock.calls.map(([payload]) => payload as Partial<CalendarEvent>);
+    expect(eventPayloads.map((e) => e.type).sort()).toEqual(
+      ['DEADLINE', 'EVENT', 'EXAM', 'MEETING'].sort(),
+    );
+    const draft = eventPayloads.find((e) => e.type === 'EVENT');
+    expect(draft?.published_at).toBeNull();
+    const meeting = eventPayloads.find((e) => e.type === 'MEETING');
+    expect(meeting?.audience).toBe('STAFF');
+
+    // EXAM scoped to exactly the two class ids given.
+    const classLinks = vi
+      .mocked(repos.calendarEventClassRepository.create)
+      .mock.calls.map(([payload]) => payload as Partial<CalendarEventClass>);
+    expect(classLinks.map((l) => l.class_id).sort()).toEqual(['class-6', 'class-7'].sort());
+  });
+
+  it('is idempotent: a second run against an already-seeded database creates nothing new', async () => {
+    const repos = calendarRepos();
+    const existingTerm = { id: 'term-1', deleted_at: null } as AcademicTerm;
+    vi.mocked(repos.academicTermRepository.findOne).mockResolvedValue(existingTerm);
+    const existingEvent = { id: 'event-1', deleted_at: null } as CalendarEvent;
+    vi.mocked(repos.calendarEventRepository.findOne).mockResolvedValue(existingEvent);
+    const existingLink = {} as CalendarEventClass;
+    vi.mocked(repos.calendarEventClassRepository.findOne).mockResolvedValue(existingLink);
+
+    const result = await ensureCalendarDemoSeed(repos, PARAMS);
+
+    expect(result.terms).toBe(0);
+    expect(result.events).toBe(0);
+    expect(vi.mocked(repos.academicTermRepository.create)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.calendarEventRepository.create)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.calendarEventClassRepository.create)).not.toHaveBeenCalled();
+  });
+
+  it('matches the e2e contract: term and event names', async () => {
+    const repos = calendarRepos();
+    vi.mocked(repos.academicTermRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.calendarEventRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.calendarEventClassRepository.findOne).mockResolvedValue(null);
+
+    await ensureCalendarDemoSeed(repos, PARAMS);
+
+    const termNames = vi
+      .mocked(repos.academicTermRepository.create)
+      .mock.calls.map(([payload]) => (payload as Partial<AcademicTerm>).name);
+    expect(termNames).toEqual([...SEED_ACADEMIC_TERM_NAMES]);
+
+    const eventNames = vi
+      .mocked(repos.calendarEventRepository.create)
+      .mock.calls.map(([payload]) => (payload as Partial<CalendarEvent>).name);
+    expect(eventNames).toEqual(expect.arrayContaining(Object.values(SEED_CALENDAR_EVENT_NAMES)));
   });
 });

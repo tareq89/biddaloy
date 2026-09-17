@@ -38,3 +38,39 @@ export const SEED_DEVICE_KEY = 'bd_dev_seed_0000000000000000000000000000';
  * `seed.util.ts`'s `ATTENDANCE_SEED_ABSENT_DATE`; `seed.util.spec.ts`
  * asserts the two stay equal. */
 export const ATTENDANCE_SEED_ABSENT_DATE = '2026-03-09';
+
+/** [17.2.6] The platform-wide BD public-holiday sets `yarn seed` publishes
+ * immediately (`ensurePublicHolidaySet` in `seed.util.ts`) — MANUAL source,
+ * not fetched. Duplicated here rather than imported: this file is the
+ * server's own dependency in the other direction (`seed.util.spec.ts`
+ * imports *this* file, never the reverse), so importing
+ * `server/src/scripts/seed-data/public-holidays-bd.ts` from here would be
+ * circular. `seed.util.spec.ts` asserts these two names stay equal. */
+export const SEED_PUBLIC_HOLIDAY_SETS = [
+  { country: 'BD', year: 2026 },
+  { country: 'BD', year: 2027 },
+] as const;
+
+/** One fixed holiday name from the 2026 BD set, for an e2e spec that just
+ * needs to assert the calendar UI renders *a* published public holiday
+ * without hard-coding the whole list. */
+export const SEED_PUBLIC_HOLIDAY_SAMPLE_NAME = 'Independence Day';
+
+/** [17.2.6] The default school's three demo `AcademicTerm`s, seeded by
+ * `ensureCalendarDemoSeed` into `DEMO_ACADEMIC_YEAR` ("2026-2027"). Names
+ * only — `seq`/date ranges are an implementation detail an e2e spec
+ * shouldn't need to assert on. */
+export const SEED_ACADEMIC_TERM_NAMES = ['First Term', 'Second Term', 'Third Term'] as const;
+
+/** [17.2.6] The default school's four demo `CalendarEvent`s beyond the
+ * pre-existing `HOLIDAY` seed (`ATTENDANCE_SEED_HOLIDAYS` in
+ * `seed.util.ts`) — one of each remaining `CalendarEventType`. The EXAM is
+ * scoped to "Class 6" and "Class 7"; the EVENT is a draft
+ * (`published_at IS NULL`) on purpose, so an e2e spec asserting on
+ * calendar visibility has a real unpublished row to check against. */
+export const SEED_CALENDAR_EVENT_NAMES = {
+  exam: 'Half-Yearly Examination',
+  meeting: 'Staff Planning Meeting',
+  deadline: 'Annual Report Submission Deadline',
+  draftEvent: 'Winter Fair (Draft)',
+} as const;
