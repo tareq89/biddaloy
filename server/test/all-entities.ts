@@ -23,6 +23,9 @@ import { Payment } from '../src/modules/fees/entities/payment.entity';
 import { PaymentAllocation } from '../src/modules/fees/entities/payment-allocation.entity';
 import { StudentFee } from '../src/modules/fees/entities/student-fee.entity';
 import { FeeGeneration } from '../src/modules/fees/entities/fee-generation.entity';
+import { RecurringSchedule } from '../src/modules/fees/entities/recurring-schedule.entity';
+import { RecurringScheduleStructure } from '../src/modules/fees/entities/recurring-schedule-structure.entity';
+import { RecurringScheduleExclusion } from '../src/modules/fees/entities/recurring-schedule-exclusion.entity';
 import { StudentWallet } from '../src/modules/fees/entities/student-wallet.entity';
 import { WalletTransaction } from '../src/modules/fees/entities/wallet-transaction.entity';
 import { Invoice } from '../src/modules/invoices/entities/invoice.entity';
@@ -61,6 +64,9 @@ export const ALL_ENTITIES = [
   PaymentAllocation,
   StudentFee,
   FeeGeneration,
+  RecurringSchedule,
+  RecurringScheduleStructure,
+  RecurringScheduleExclusion,
   StudentWallet,
   WalletTransaction,
   Invoice,

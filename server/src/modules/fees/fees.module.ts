@@ -6,6 +6,9 @@ import { Payment } from './entities/payment.entity';
 import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { StudentFee } from './entities/student-fee.entity';
 import { FeeGeneration } from './entities/fee-generation.entity';
+import { RecurringSchedule } from './entities/recurring-schedule.entity';
+import { RecurringScheduleStructure } from './entities/recurring-schedule-structure.entity';
+import { RecurringScheduleExclusion } from './entities/recurring-schedule-exclusion.entity';
 import { StudentWallet } from './entities/student-wallet.entity';
 import { WalletTransaction } from './entities/wallet-transaction.entity';
 import { Student } from '../students/entities/student.entity';
@@ -25,8 +28,10 @@ import { PaymentAllocationService } from './payment-allocation.service';
 import { FeeDuesService } from './fee-dues.service';
 import { FeeGenerationsService } from './fee-generations.service';
 import { FeeGenerationBatchService } from './fee-generation-batch.service';
+import { RecurringSchedulesService } from './recurring-schedules.service';
 import { FeeController } from './fees.controller';
 import { FeeGenerationsController } from './fee-generations.controller';
+import { RecurringSchedulesController } from './recurring-schedules.controller';
 import { WalletService } from './wallet.service';
 import { WalletController } from './wallet.controller';
 import { CheckoutCartService } from './checkout-cart.service';
@@ -48,6 +53,9 @@ import { LateFeeService } from './late-fee.service';
       PaymentAllocation,
       StudentFee,
       FeeGeneration,
+      RecurringSchedule,
+      RecurringScheduleStructure,
+      RecurringScheduleExclusion,
       StudentWallet,
       WalletTransaction,
       Student,
@@ -81,6 +89,7 @@ import { LateFeeService } from './late-fee.service';
     FeeDuesService,
     FeeGenerationsService,
     FeeGenerationBatchService,
+    RecurringSchedulesService,
     WalletService,
     // [16.7.3] `DiscountRulesService` implements the `DiscountResolver`
     // interface `NoopDiscountResolver` stubbed out — same DI token, real
@@ -109,6 +118,7 @@ import { LateFeeService } from './late-fee.service';
     CheckoutController,
     FeeController,
     FeeGenerationsController,
+    RecurringSchedulesController,
     WalletController,
     DiscountRulesController,
   ],
@@ -121,6 +131,7 @@ import { LateFeeService } from './late-fee.service';
     FeeDuesService,
     FeeGenerationsService,
     FeeGenerationBatchService,
+    RecurringSchedulesService,
     WalletService,
     CheckoutCartService,
   ],

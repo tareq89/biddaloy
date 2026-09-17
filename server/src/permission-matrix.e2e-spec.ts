@@ -241,6 +241,32 @@ interface RoleNarrowing {
 
 export const ROLE_NARROWINGS: RoleNarrowing[] = [
   {
+    controller: 'RecurringSchedulesController',
+    method: 'GET',
+    path: '/fees/schedules',
+    reason:
+      '[16.7.1] recurring schedule definitions are staff-only, although every role (incl. PARENT/STUDENT) holds FEE_READ — a guardian who can read their own fees has no business seeing the billing-automation config',
+  },
+  {
+    controller: 'RecurringSchedulesController',
+    method: 'GET',
+    path: '/fees/schedules/:id',
+    reason: '[16.7.1] same narrowing as GET /fees/schedules',
+  },
+  {
+    controller: 'RecurringSchedulesController',
+    method: 'GET',
+    path: '/fees/schedules/:id/preview',
+    reason: '[16.7.1] same narrowing as GET /fees/schedules',
+  },
+  {
+    controller: 'RecurringSchedulesController',
+    method: 'GET',
+    path: '/students/:id/schedules',
+    reason:
+      '[16.7.1] same narrowing as GET /fees/schedules — a guardian should not see the schedule config behind their own fees, only the fees themselves',
+  },
+  {
     controller: 'InvoicesController',
     method: 'POST',
     path: '/invoices/:id/share',
@@ -469,8 +495,9 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // PAYMENT_REVERSE now gates `POST /payments/:id/reverse` (16.6.1) and
   // REPORT_COLLECTIONS_READ now gates `GET /reports/collections` and
   // `.../collections.csv` (16.6.2), so both are no longer UI-only —
-  // removed from this list. [16.7.2]/[16.7.3] SCHEDULE_MANAGE now gates
-  // `POST /fees/schedules/run-now` and DISCOUNT_RULE_MANAGE now gates the
+  // removed from this list. [16.7.1]/[16.7.2]/[16.7.3] SCHEDULE_MANAGE now
+  // gates the recurring-schedule management endpoints and
+  // `POST /fees/schedules/run-now`; DISCOUNT_RULE_MANAGE now gates the
   // discount-rule CRUD endpoints — also removed from this list.
   Permission.FEE_APPROVE,
 ];
