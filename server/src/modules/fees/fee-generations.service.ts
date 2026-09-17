@@ -161,6 +161,11 @@ export class FeeGenerationsService {
         generatedBy: query.generated_by_user_id,
       });
     }
+    if (query.recurring_schedule_id) {
+      qb.andWhere('fg.recurring_schedule_id = :recurringScheduleId', {
+        recurringScheduleId: query.recurring_schedule_id,
+      });
+    }
     if (query.fee_type) {
       // `structures` is a jsonb snapshot array — filter batches that
       // included at least one structure of this fee_type.

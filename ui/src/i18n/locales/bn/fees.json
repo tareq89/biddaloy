@@ -327,8 +327,7 @@
       "studentSearchPlaceholder": "নাম বা আইডি দিয়ে খুঁজুন",
       "studentSearchNoResults": "কোনো শিক্ষার্থী পাওয়া যায়নি",
       "runHistoryTitle": "রান ইতিহাস",
-      "runHistoryEmptyMessage": "এই সময়সূচী এখনো কোনো ফি তৈরি করেনি",
-      "runHistoryScopeNotice": "প্রতিটি সময়সূচী থেকে তৈরি সব ব্যাচ দেখানো হচ্ছে — এখনো শুধু এই সময়সূচীতে সীমাবদ্ধ নয় (সার্ভার-সাইড ফিল্টার প্রয়োজন)।"
+      "runHistoryEmptyMessage": "এই সময়সূচী এখনো কোনো ফি তৈরি করেনি"
     }
   },
   "recurringFeesTab": {

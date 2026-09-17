@@ -327,8 +327,7 @@
       "studentSearchPlaceholder": "Search by name or ID",
       "studentSearchNoResults": "No students found",
       "runHistoryTitle": "Run history",
-      "runHistoryEmptyMessage": "This schedule hasn't generated any fees yet",
-      "runHistoryScopeNotice": "Showing every schedule-generated batch — not yet scoped to this schedule alone (needs a server-side filter)."
+      "runHistoryEmptyMessage": "This schedule hasn't generated any fees yet"
     }
   },
   "recurringFeesTab": {

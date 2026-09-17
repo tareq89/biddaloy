@@ -26,6 +26,13 @@ export class QueryFeeGenerationsDto {
   @IsUUID()
   generated_by_user_id?: string;
 
+  // [16.7.5]/#822 CodeRabbit — this was the missing half of run-history
+  // scoping on a schedule's detail page: without it every schedule in a
+  // tenant showed the same combined `source: 'SCHEDULE'` history.
+  @IsOptional()
+  @IsUUID()
+  recurring_schedule_id?: string;
+
   @IsOptional()
   @IsEnum(['NONE', 'PARTIAL', 'FULL'])
   collection_status?: CollectionStatus;

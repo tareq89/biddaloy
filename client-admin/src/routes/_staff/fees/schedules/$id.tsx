@@ -37,27 +37,15 @@ export const Route = createFileRoute('/_staff/fees/schedules/$id')({
 });
 
 /**
- * Run-history table. `GET /fees/generations` has no `recurring_schedule_id`
- * filter in the real, already-shipped `FeeGenerationListItemDto` (checked
- * against `server/src/modules/fees/dto/fee-generations.dto.ts` — this is
- * client-only territory, so that DTO isn't ours to extend here). Sending
- * an unrecognized filter param risks either being silently stripped
- * (showing every schedule's batches) or rejected outright by the
- * server's whitelist validation, so this scopes by the one filter that
- * *is* real and supported — `source: 'SCHEDULE'` — and says so in the
- * caption, rather than either lying about being scoped to just this
- * schedule or leaving the section unimplemented. Once a server ticket
- * adds `recurring_schedule_id` to `QueryFeeGenerationsDto`, swap the
- * filter here for a real one.
+ * Run-history table, scoped to this schedule via `recurring_schedule_id`
+ * (added to `QueryFeeGenerationsDto` alongside this fix — #822 review).
  */
 function ScheduleRunHistory({ scheduleId }: { scheduleId: string }) {
-  // Not sent to the server — see this function's own doc comment on why
-  // `recurring_schedule_id` can't be used as a real filter param yet.
-  void scheduleId;
   const { t } = useTranslation('fees');
   const [state, actions] = useListShellState({ limit: 10 });
   const generationsQuery = useFeeGenerations({
     source: 'SCHEDULE',
+    recurring_schedule_id: scheduleId,
     page: state.page,
     limit: state.limit,
   });
@@ -65,7 +53,6 @@ function ScheduleRunHistory({ scheduleId }: { scheduleId: string }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-xs text-muted-foreground">{t('schedules.detail.runHistoryScopeNotice')}</p>
       <BatchTable
         title={t('schedules.detail.runHistoryTitle')}
         filters={{ fields: [], values: state.filters, onChange: actions.setFilters }}

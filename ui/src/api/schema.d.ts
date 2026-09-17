@@ -7421,6 +7421,7 @@ export interface operations {
                 fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
                 source?: "MANUAL" | "SCHEDULE";
                 generated_by_user_id?: string;
+                recurring_schedule_id?: string;
                 collection_status?: "NONE" | "PARTIAL" | "FULL";
                 page?: number;
                 limit?: number;

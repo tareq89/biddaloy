@@ -62,6 +62,7 @@ export interface FeeGenerationsFilters {
   fee_type?: string;
   source?: 'MANUAL' | 'SCHEDULE';
   generated_by_user_id?: string;
+  recurring_schedule_id?: string;
   collection_status?: 'NONE' | 'PARTIAL' | 'FULL';
   page?: number;
   limit?: number;
