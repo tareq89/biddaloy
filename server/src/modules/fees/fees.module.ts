@@ -38,6 +38,7 @@ import { FEES_DAILY_QUEUE } from './fees.constants';
 import { DiscountRule } from './entities/discount-rule.entity';
 import { DiscountRulesService } from './discount-rules.service';
 import { DiscountRulesController } from './discount-rules.controller';
+import { LateFeeService } from './late-fee.service';
 
 @Module({
   imports: [
@@ -82,6 +83,11 @@ import { DiscountRulesController } from './discount-rules.controller';
     CheckoutCartService,
     CheckoutService,
     PaymentReversalService,
+    // [16.7.4] Registering this provider is what fills the `@Optional()
+    // lateFeeService?` seam `fees-daily.scheduler.ts` ([16.7.2]/#676) left
+    // for this ticket — Nest resolves it into that constructor parameter
+    // automatically once it's a real provider in this module.
+    LateFeeService,
     FeesDailyScheduler,
   ],
   // CheckoutController is registered before FeeController: both declare

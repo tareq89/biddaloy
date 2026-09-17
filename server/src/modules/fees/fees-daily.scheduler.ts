@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional, OnModuleInit } from '@nestjs/common';
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { Queue } from 'bullmq';
@@ -10,6 +10,7 @@ import { FeeGenerationService } from './fee-generation.service';
 import { Student } from '../students/entities/student.entity';
 import { SCHOOL_TZ, todayInSchoolTz } from '../../common/time';
 import { FEES_DAILY_CRON, FEES_DAILY_JOB_ID, FEES_DAILY_QUEUE } from './fees.constants';
+import { LateFeeService } from './late-fee.service';
 
 /**
  * `RecurrenceRule` per #676's documented contract (`rule jsonb` on
@@ -105,11 +106,15 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly schoolsService: SchoolsService,
     private readonly feeGenerationService: FeeGenerationService,
-    // [16.7.4] #678 registers the real `LateFeeService` provider later in
-    // this same chain; left `@Optional()` here so this ticket (#676)
-    // compiles and runs correctly on its own with the seam unfilled.
+    // [16.7.4] #678 registers the real `LateFeeService` provider in
+    // `fees.module.ts` — `@Optional()` + explicit `@Inject` (rather than
+    // relying on the constructor parameter's own type, which Nest can only
+    // resolve into a DI token for a concrete class) means this scheduler
+    // compiles and runs correctly even before that provider exists, and
+    // picks it up automatically once it does.
     @Optional()
-    private readonly lateFeeService?: { applyDue(tenantId: string, today: string): Promise<void> },
+    @Inject(LateFeeService)
+    private readonly lateFeeService?: LateFeeService,
   ) {
     super();
   }
