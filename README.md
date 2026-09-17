@@ -669,12 +669,14 @@ subcommand.
 
 A **weekly trend** (`.github/workflows/ci-timings-trend.yml`, Mondays
 06:00 UTC) walks the trailing 60 `ci.yml` runs and publishes per-job
-median/p90, wall median/p90, and failure rate to the orphan `ci-timings`
-git branch (`history/ci-timings.md` / `.json` — generated data with its
-own history, not source, so it never touches `main`). It deliberately does
-**not** filter runs by `status=success` — failure rate is one of the
-tracked series precisely so a red window still shows a real number instead
-of a stale one.
+median/p90, wall median/p90, and pass rate (`[18.5.2]`, the complement of
+failure rate — same cancelled-excluded denominator, reported next to wall
+time because that's the headline number) to the orphan `ci-timings` git
+branch (`history/ci-timings.md` / `.json` — generated data with its own
+history, not source, so it never touches `main`). It deliberately does
+**not** filter runs by `status=success` — pass/failure rate is tracked
+precisely so a red window still shows a real number instead of a stale
+one.
 
 **Baseline** (60-run window ending 2026-08-29, see issue #436 for the full
 table): median wall 8 min 17s, p90 wall 11 min 54s, failure rate 65%
