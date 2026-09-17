@@ -26,6 +26,7 @@ at hand instead of loading the whole set.
 | [12-operations.md](12-operations.md) | On call, debugging a production incident, or need alert thresholds / runbooks for 5xx spikes, readiness failures, or failed communication jobs |
 | [13-backup-restore.md](13-backup-restore.md) | Working on backups, restores, disaster recovery, object storage retention, or the `backup`/`minio` docker-compose services |
 | [14-school-workbook.md](14-school-workbook.md) | Working on per-school workbook export/import, the `/backup/*` routes, the tab registry, or restore/retention semantics for one tenant's data |
+| [15-ux-principles.md](15-ux-principles.md) | Planning or building any screen: where it lives in the nav tree, the `Ctrl+K` palette and its action registry, breadcrumbs, keyboard/a11y gates, the "no silent gaps" registry guards, and the three sections every epic must carry |
 
 For practical "how do I run/develop/test this" instructions, see the root
 [`README.md`](../../README.md) — these docs cover the *why* behind the

@@ -101,6 +101,23 @@ Invoke the `grilling` skill on the input. Constraints on top of it:
 - A round ends when every question is answered or deferred to **Open
   questions**. The phase ends when a round produces no new decision.
 
+### The UX round (mandatory, last round of Phase 1)
+
+Before Phase 1 ends, run one round on UX using
+`docs/architecture/15-ux-principles.md` (read it in Phase 0 whenever the epic
+has a screen). Ask, with a recommendation each:
+
+1. **Placement** — where does each screen live in the nav tree (§3), and which
+   detail tabs / sub-items does it add? Nothing new is top-level without a job.
+2. **Keyboard path** — the primary task, mouse-free, from nav to done.
+3. **Palette actions** — which operations register in the `Ctrl+K` Action
+   registry (kind: modal / navigate / inline; context prefill).
+4. **Breadcrumb shape** and `document.title` for each route.
+5. **Empty, loading, error states** and the phone layout of each list/detail.
+
+Write the answers into `## UX requirements` (see Phase 5). Skip the round only
+for epics with no UI, and say so in the epic body.
+
 ## Phase 2 — Design recap
 
 One message, plain language, for review here rather than in code:
@@ -150,6 +167,9 @@ sub-issues cite them by number and never restate them.
 ## Decisions                                 ← D1–Dn, final, one line each
 ## Invariants
 ## Screens                                   ← only if UI; which shell / pattern each screen reuses
+## UX requirements       ← per screen: tree path, keyboard path, palette actions, breadcrumb, empty/error states, phone layout (15-ux-principles §8)
+## Backup & restore coverage ← entities added → workbook tab + round-trip test + seed rows, and the ticket that does it
+## No-silent-gaps checklist ← route manifest · nav tree · action registry · i18n en+bn · workbook tab · seed — each with its ticket
 ## Review tier overrides                     ← optional explicit money-tier list; otherwise implement-epic's path rule applies
 ## Out of scope
 ```
@@ -230,6 +250,10 @@ which is on GitHub.
 - Never write a sub-issue without all five sections; never let two tickets in
   a wave share a file; never let two tickets touch `shared/`.
 - Never create issues before Phase 4 is done — editing forty bodies after a
+- Never write an epic with a screen without the UX round and the three UX/coverage
+  sections; never add a route, entity or action without the registry guard that
+  would catch it missing (`15-ux-principles.md` §2). A new screen may be wrong; it
+  can never be unchecked.
   late decision costs more than the whole grill.
 - Batch tool calls: all of Phase 0 in one message; all body files written in
   one message; one script run to create.
