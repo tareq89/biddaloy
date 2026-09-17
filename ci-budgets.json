@@ -1,5 +1,5 @@
 {
-  "$comment": "Per-job CI timing budgets — read by scripts/ci-timings.mjs's `summarize` command. See README.md's CI section for the raise protocol (mirrors client-admin/scripts/check-route-chunks.mjs's bundle-budget rule: every raise happens in a PR that says why, citing the measured number and the ticket). Job names must match ci.yml's rendered `name:` exactly, including matrix-interpolated shard numbers — the Jobs API returns the interpolated name, not the template. A job with no entry here always reports `budget: —` and never fails, so an unlisted job (a new job, or a renamed one) degrades to 'unmeasured', not 'silently blocking'.",
+  "$comment": "Per-job CI timing budgets — read by scripts/ci-timings.mjs's `summarize` command. See README.md's CI section for the raise protocol (mirrors client-admin/scripts/check-route-chunks.mjs's bundle-budget rule: every raise happens in a PR that says why, citing the measured number and the ticket). Job names must match ci.yml's rendered `name:` exactly, including matrix-interpolated shard numbers — the Jobs API returns the interpolated name, not the template. A job with no entry here always reports `budget: —` and never fails, so an unlisted job (a new job, or a renamed one) degrades to 'unmeasured', not 'silently blocking'. [18.5.2] Re-baselined against real `gh run list`/Jobs API data (see below); `sweeps`/`quality` (Lighthouse) are deliberately NOT added here — zero real completed `merge_group` runs exist in the trailing-60-run window to baseline them against (every sample so far is `skipped`, since nothing has actually gone through the merge queue yet). Add them once a real `merge_group` run completes.",
   "schemaVersion": 1,
   "burnIn": {
     "enforce": false,
@@ -7,48 +7,48 @@
   },
   "jobs": {
     "Detect changed areas": {
-      "budgetSeconds": 30,
-      "$comment": "Baseline (60-run window ending 2026-08-29, see #436): p90 17s."
+      "budgetSeconds": 10,
+      "$comment": "[18.5.2] Re-baselined: p90 8s over 17 green push/merge_group runs (`gh run list --workflow ci.yml --status success --limit 150`, filtered to event push|merge_group, 2026-09-16/17). budgetSeconds = ceil(8 × 1.15)."
     },
     "Build, lint, unit tests": {
-      "budgetSeconds": 220,
-      "$comment": "Baseline: p90 184s."
+      "budgetSeconds": 251,
+      "$comment": "[18.5.2] Re-baselined: p90 218s over the same 17-run green push/merge_group window. budgetSeconds = ceil(218 × 1.15)."
     },
     "Frontend tests (1/3)": {
-      "budgetSeconds": 180,
-      "$comment": "[18.5.1] Provisional — 3-way shard replaces the single 450s-budget job; re-baselined once real CI numbers exist (18.5.2)."
+      "budgetSeconds": 212,
+      "$comment": "[18.5.2] The 3-way shard (#808) has zero green push/merge_group runs yet — main only just picked it up. Baselined instead on the 3 real pull_request runs that exist in the trailing-60-run window: p90 184s. budgetSeconds = ceil(184 × 1.15). n=3 — re-tighten once ~20 push/merge_group runs accumulate."
     },
     "Frontend tests (2/3)": {
-      "budgetSeconds": 180,
-      "$comment": "[18.5.1] Provisional, see (1/3)."
+      "budgetSeconds": 202,
+      "$comment": "[18.5.2] Same window as (1/3), n=3: p90 175s. budgetSeconds = ceil(175 × 1.15)."
     },
     "Frontend tests (3/3)": {
-      "budgetSeconds": 180,
-      "$comment": "[18.5.1] Provisional, see (1/3)."
+      "budgetSeconds": 239,
+      "$comment": "[18.5.2] Same window as (1/3), n=3: p90 207s. budgetSeconds = ceil(207 × 1.15). PR #808 itself measured one shard+merge wall of 248s, over its own provisional 210s target — this shard's budget alone doesn't need to cover that (it's a per-job, not combined, ceiling), but it's the reason this row isn't tightened further despite the small sample."
     },
     "Frontend coverage merge": {
-      "budgetSeconds": 90,
-      "$comment": "[18.5.1] Provisional — merge-reports + coverage merge, no test execution. Re-baselined once real CI numbers exist (18.5.2)."
+      "budgetSeconds": 60,
+      "$comment": "[18.5.2] Same trailing-60-run window, n=4 real runs: p90 52s. budgetSeconds = ceil(52 × 1.15)."
     },
     "Integration & e2e tests": {
-      "budgetSeconds": 500,
-      "$comment": "Baseline: p90 433s."
+      "budgetSeconds": 535,
+      "$comment": "[18.5.2] Re-baselined: p90 465s over 17 green push/merge_group runs. budgetSeconds = ceil(465 × 1.15)."
     },
     "E2E smoke (chromium)": {
-      "budgetSeconds": 300,
-      "$comment": "provisional — re-baselined in 18.5.2"
+      "budgetSeconds": 411,
+      "$comment": "[18.5.2] Re-baselined: p90 357s over 10 green push/merge_group runs (this job is newer — folded in PWA/offline in [18.2.3] — hence fewer green samples than the others). budgetSeconds = ceil(357 × 1.15)."
     },
     "Bundle size delta": {
-      "budgetSeconds": 115,
-      "$comment": "Baseline: p90 99s."
+      "budgetSeconds": 83,
+      "$comment": "[18.5.2] This job only runs on `pull_request` (PR-comment only), so the push/merge_group-only window has zero samples for it. Baselined on all 55 completed runs in the trailing-60-run window instead: p90 72s. budgetSeconds = ceil(72 × 1.15)."
     },
     "Storybook build": {
-      "budgetSeconds": 120,
-      "$comment": "Baseline: p90 105s."
+      "budgetSeconds": 86,
+      "$comment": "[18.5.2] Re-baselined: p90 74s over 17 green push/merge_group runs. budgetSeconds = ceil(74 × 1.15)."
     },
     "Dependency vulnerability scan": {
-      "budgetSeconds": 130,
-      "$comment": "Baseline: p90 93s, generous headroom for registry-lookup variance."
+      "budgetSeconds": 106,
+      "$comment": "[18.5.2] Re-baselined: p90 92s over 17 green push/merge_group runs. budgetSeconds = ceil(92 × 1.15)."
     }
   }
 }
