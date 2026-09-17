@@ -13,7 +13,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PeriodType } from '@biddaloy/shared';
 
 export class RecurringScheduleAudienceDto {
@@ -36,7 +36,18 @@ export class RecurringScheduleRuleDto {
   @IsIn(['MONTHLY', 'WEEKLY'])
   kind: 'MONTHLY' | 'WEEKLY';
 
-  // MONTHLY only: 1..28, or the literal 'LAST'.
+  // MONTHLY only: 1..28, or the literal 'LAST'. `@IsOptional()` alone
+  // leaves swagger's introspection with no runtime type to infer (TS
+  // erases the `number | 'LAST'` union), which generated an empty
+  // `Record<string, never>` schema — reject both valid shapes for a
+  // typed client. `oneOf` spells out the real contract explicitly.
+  @ApiPropertyOptional({
+    oneOf: [
+      { type: 'number', minimum: 1, maximum: 28 },
+      { type: 'string', enum: ['LAST'] },
+    ],
+    example: 5,
+  })
   @IsOptional()
   day_of_month?: number | 'LAST';
 

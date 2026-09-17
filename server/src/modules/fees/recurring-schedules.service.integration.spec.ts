@@ -240,6 +240,64 @@ describe('RecurringSchedulesService (integration)', () => {
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
+
+    it('rejects a starts_on before the academic year start date with 400 on create', async () => {
+      const structureId = await createFeeStructure({ name: `Tuition ${Date.now()}` });
+      const [{ start_date }] = await dataSource.query(
+        `SELECT start_date FROM academic_years WHERE id = $1`,
+        [SEED_ACADEMIC_YEAR_ID],
+      );
+      const beforeYearStart = new Date(start_date);
+      beforeYearStart.setUTCDate(beforeYearStart.getUTCDate() - 1);
+
+      await expect(
+        service.create(
+          {
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            name: 'Pre-year-start schedule',
+            audience: { enrollment_status: 'ACTIVE' },
+            rule: { kind: 'MONTHLY', day_of_month: 1 },
+            fee_structure_ids: [structureId],
+            starts_on: beforeYearStart.toISOString().slice(0, 10),
+          } as any,
+          SEED_TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects a starts_on before the academic year start date with 400 on update', async () => {
+      const structureId = await createFeeStructure({ name: `Tuition ${Date.now()}` });
+      const [{ start_date }] = await dataSource.query(
+        `SELECT start_date FROM academic_years WHERE id = $1`,
+        [SEED_ACADEMIC_YEAR_ID],
+      );
+      const beforeYearStart = new Date(start_date);
+      beforeYearStart.setUTCDate(beforeYearStart.getUTCDate() - 1);
+
+      const created = await service.create(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          name: 'Schedule to push before year start',
+          audience: { enrollment_status: 'ACTIVE' },
+          rule: { kind: 'MONTHLY', day_of_month: 1 },
+          fee_structure_ids: [structureId],
+          starts_on: new Date(start_date).toISOString().slice(0, 10),
+          ends_on: '2026-12-31',
+        } as any,
+        SEED_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      await expect(
+        service.update(
+          created.id,
+          { starts_on: beforeYearStart.toISOString().slice(0, 10) } as any,
+          SEED_TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
   });
 
   describe('clone', () => {
@@ -484,8 +542,7 @@ describe('RecurringSchedulesService (integration)', () => {
           audience: { section_id: SEED_SECTION_1_ID, enrollment_status: 'ACTIVE' },
           rule: { kind: 'MONTHLY', day_of_month: 5 },
           fee_structure_ids: [structureId],
-          starts_on: '2020-01-01',
-          ends_on: '2026-12-31',
+          starts_on: '2026-01-01',
         } as any,
         SEED_TENANT_ID,
         SEED_ADMIN_USER_ID,
@@ -517,8 +574,8 @@ describe('RecurringSchedulesService (integration)', () => {
           audience: { section_id: SEED_SECTION_1_ID, enrollment_status: 'ACTIVE' },
           rule: { kind: 'MONTHLY', day_of_month: 5 },
           fee_structure_ids: [structureId],
-          starts_on: '2020-01-01',
-          ends_on: '2020-12-31',
+          starts_on: '2026-01-01',
+          ends_on: '2026-03-01',
         } as any,
         SEED_TENANT_ID,
         SEED_ADMIN_USER_ID,

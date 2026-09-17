@@ -3873,9 +3873,10 @@ export interface components {
             enrollment_status: "ACTIVE";
         };
         RecurringScheduleRuleDto: {
+            /** @example 5 */
+            day_of_month?: number | "LAST";
             /** @enum {string} */
             kind: "MONTHLY" | "WEEKLY";
-            day_of_month?: Record<string, never>;
             weekdays?: number[];
         };
         RecurringScheduleResponseDto: {

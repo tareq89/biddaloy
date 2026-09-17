@@ -273,6 +273,24 @@ export class RecurringSchedulesService {
     }
   }
 
+  /**
+   * `resolveEndsOn` already caps `ends_on` to the academic year's own
+   * `end_date`, but `starts_on` was never checked against its
+   * `start_date` — a schedule could be saved with `starts_on` before the
+   * academic year begins. The daily scheduler (`fees-daily.scheduler.ts`)
+   * only checks `starts_on <= today <= ends_on`, not the academic year's
+   * own bounds, so a schedule like that would start generating fees
+   * against `academic_year_id` before that year has actually begun.
+   */
+  private validateStartsOnWithinAcademicYear(startsOn: string, academicYear: AcademicYear): void {
+    const yearStart = String(academicYear.start_date);
+    if (new Date(startsOn).getTime() < new Date(yearStart).getTime()) {
+      throw new BadRequestException(
+        `starts_on (${startsOn}) may not be before the academic year's start date (${yearStart})`,
+      );
+    }
+  }
+
   async create(
     dto: CreateRecurringScheduleDto,
     tenantId: string,
@@ -284,6 +302,7 @@ export class RecurringSchedulesService {
     await this.validateFeeStructureIds(dto.fee_structure_ids, dto.academic_year_id, tenantId);
     const endsOn = this.resolveEndsOn(dto.ends_on, academicYear);
     this.validateStartsOnBeforeEndsOn(dto.starts_on, endsOn);
+    this.validateStartsOnWithinAcademicYear(dto.starts_on, academicYear);
 
     const saved = await this.repo.manager.transaction(async (manager) => {
       const scheduleRepo = manager.getRepository(RecurringSchedule);
@@ -403,10 +422,9 @@ export class RecurringSchedulesService {
     }
     const endsOn =
       dto.ends_on !== undefined ? this.resolveEndsOn(dto.ends_on, academicYear) : undefined;
-    this.validateStartsOnBeforeEndsOn(
-      dto.starts_on ?? String(schedule.starts_on),
-      endsOn ?? String(schedule.ends_on),
-    );
+    const effectiveStartsOn = dto.starts_on ?? String(schedule.starts_on);
+    this.validateStartsOnBeforeEndsOn(effectiveStartsOn, endsOn ?? String(schedule.ends_on));
+    this.validateStartsOnWithinAcademicYear(effectiveStartsOn, academicYear);
 
     await this.repo.manager.transaction(async (manager) => {
       const scheduleRepo = manager.getRepository(RecurringSchedule);
