@@ -27,6 +27,20 @@ import {
 const API = '/api/v1';
 process.env.ACCOUNT_ACCESS_ECHO_SECRETS = 'true';
 
+// [CI failure, PR #801] OtpService's per-identifier request cooldown/rate
+// limit is shared across every e2e spec file in the same CI worker
+// (never flushed between files) — reusing SEED_ADMIN_EMAIL as the
+// step-up identifier here collided with other files' own step-up calls
+// against that same identifier and produced a 429. Same fix
+// checkout.controller.e2e-spec.ts's APPROVER_IDENTITIES already uses:
+// one dedicated, real, seeded-user identifier per issueApprovalToken()
+// call in this file (step-up requires identifier to resolve to a real
+// tenant user, so a bare unseeded string 400s).
+const APPROVER_IDENTITIES: [string, string][] = [
+  ['00000000-0000-4000-8000-0000006e0031', 'discount-rules-approver-1@e2e.example'],
+  ['00000000-0000-4000-8000-0000006e0032', 'discount-rules-approver-2@e2e.example'],
+];
+
 describe('Discount Rules E2E (16.7.3)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
@@ -103,6 +117,20 @@ describe('Discount Rules E2E (16.7.3)', () => {
       [PARENT_USER_ID, SEED_TENANT_ID, UserRole.PARENT],
     );
 
+    for (const [id, email] of APPROVER_IDENTITIES) {
+      await dataSource.query(
+        `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
+         VALUES ($1, $2, $3, 'Discount Rules E2E Approver', 'ACTIVE', NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+        [id, email, SEED_ADMIN_PASSWORD_HASH],
+      );
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+        [id, SEED_TENANT_ID, UserRole.ADMIN],
+      );
+    }
+
     adminToken = await login(SEED_ADMIN_EMAIL);
     parentToken = await login(PARENT_EMAIL);
   }, 120000);
@@ -124,7 +152,10 @@ describe('Discount Rules E2E (16.7.3)', () => {
 
     it('POST /discount-rules with a valid approval token creates the rule, then GET returns it', async () => {
       const studentId = await createStudent();
-      const approvalToken = await issueApprovalToken('discount_rules.manage', SEED_ADMIN_EMAIL);
+      const approvalToken = await issueApprovalToken(
+        'discount_rules.manage',
+        APPROVER_IDENTITIES[0][1],
+      );
 
       const createRes = await supertest(app.getHttpServer())
         .post(`${API}/discount-rules`)
@@ -146,7 +177,10 @@ describe('Discount Rules E2E (16.7.3)', () => {
 
     it('a spent approval token cannot be reused for a second write', async () => {
       const studentId = await createStudent();
-      const approvalToken = await issueApprovalToken('discount_rules.manage', SEED_ADMIN_EMAIL);
+      const approvalToken = await issueApprovalToken(
+        'discount_rules.manage',
+        APPROVER_IDENTITIES[1][1],
+      );
 
       await supertest(app.getHttpServer())
         .post(`${API}/discount-rules`)
