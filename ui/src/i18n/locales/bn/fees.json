@@ -302,7 +302,7 @@
       "feesRequired": "অন্তত একটি ফি নির্বাচন করুন",
       "weekdaysRequired": "অন্তত একটি দিন নির্বাচন করুন"
     },
-    "clone": {
+    "cloneDialog": {
       "title": "সময়সূচী ক্লোন করুন",
       "description": "এই সময়সূচীর একটি কপি অন্য শিক্ষাবর্ষের জন্য তৈরি করে।",
       "academicYearLabel": "শিক্ষাবর্ষ",

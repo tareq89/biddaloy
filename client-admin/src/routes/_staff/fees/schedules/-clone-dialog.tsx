@@ -76,18 +76,18 @@ export function CloneScheduleDialog({
       <DialogContent>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>{t('schedules.clone.title')}</DialogTitle>
-            <DialogDescription>{t('schedules.clone.description')}</DialogDescription>
+            <DialogTitle>{t('schedules.cloneDialog.title')}</DialogTitle>
+            <DialogDescription>{t('schedules.cloneDialog.description')}</DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-1.5">
             <label htmlFor="clone-schedule-year" className="text-sm font-medium">
-              {t('schedules.clone.academicYearLabel')}
+              {t('schedules.cloneDialog.academicYearLabel')}
             </label>
             <Select value={academicYearId} onValueChange={setAcademicYearId}>
               <SelectTrigger
                 id="clone-schedule-year"
-                aria-label={t('schedules.clone.academicYearLabel')}
+                aria-label={t('schedules.cloneDialog.academicYearLabel')}
               >
                 <SelectValue />
               </SelectTrigger>
@@ -105,7 +105,7 @@ export function CloneScheduleDialog({
 
           <div className="flex flex-col gap-1.5">
             <label htmlFor="clone-schedule-name" className="text-sm font-medium">
-              {t('schedules.clone.nameLabel')}
+              {t('schedules.cloneDialog.nameLabel')}
             </label>
             <Input
               id="clone-schedule-name"
@@ -116,7 +116,7 @@ export function CloneScheduleDialog({
 
           {cloneSchedule.isError && (
             <p role="alert" className="text-sm text-destructive">
-              {t('schedules.clone.errorMessage')}
+              {t('schedules.cloneDialog.errorMessage')}
             </p>
           )}
 
@@ -132,8 +132,8 @@ export function CloneScheduleDialog({
               loading={cloneSchedule.isPending}
             >
               {cloneSchedule.isPending
-                ? t('schedules.clone.cloning')
-                : t('schedules.clone.confirm')}
+                ? t('schedules.cloneDialog.cloning')
+                : t('schedules.cloneDialog.confirm')}
             </Button>
           </DialogFooter>
         </form>

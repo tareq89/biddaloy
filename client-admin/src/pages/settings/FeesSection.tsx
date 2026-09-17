@@ -51,7 +51,12 @@ const lateFeeSchema = z
     enabled: z.boolean(),
     graceDays: boundedNumericString(0, 60),
     kind: z.enum(['PERCENT', 'FLAT']),
-    value: boundedNumericString(0, 100_000_000),
+    // No server-side cap exists on a FLAT late fee (same as fee-structure
+    // `amount`, itself unbounded) — `boundedNumericString` requires a max,
+    // so use an effectively-unbounded sentinel here rather than inventing
+    // a client-only ceiling the server would happily accept past. The
+    // real, meaningful bound (0-100) is PERCENT-only, enforced below.
+    value: boundedNumericString(0, Number.MAX_SAFE_INTEGER),
   })
   .refine((row) => row.kind !== 'PERCENT' || Number(row.value) <= 100, {
     message: 'Percent late fees must be between 0 and 100.',

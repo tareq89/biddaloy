@@ -302,7 +302,7 @@
       "feesRequired": "Select at least one fee",
       "weekdaysRequired": "Select at least one day"
     },
-    "clone": {
+    "cloneDialog": {
       "title": "Clone schedule",
       "description": "Creates a copy of this schedule for another academic year.",
       "academicYearLabel": "Academic year",
