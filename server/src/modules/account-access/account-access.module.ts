@@ -37,7 +37,13 @@ import { AccountAccessController } from './account-access.controller';
       Guardian,
       AuditLog,
     ]),
-    CommunicationsModule,
+    // [CodeRabbit review, PR #801] Fees<->Schools cycle: FeeModule ->
+    // SchoolsModule -> AccountAccessModule -> CommunicationsModule ->
+    // FeeModule. Both edges out of this module (to CommunicationsModule
+    // and to SchoolsModule) are part of that cycle, so both need
+    // forwardRef — a direct import can read a partially-initialized
+    // module depending on which module Nest happens to construct first.
+    forwardRef(() => CommunicationsModule),
     // #529's ProvisioningService (SchoolsModule) reuses
     // AccountAccessDeliveryService, so SchoolsModule imports this module
     // back — forwardRef breaks that cycle.
