@@ -184,12 +184,31 @@ export class FeeGenerationService {
     // is the only caller that ever sets these; every manual `POST
     // /fees/generate` call keeps the pre-existing MANUAL/no-schedule
     // behavior by omitting `options`.
-    options?: { source?: FeeGenerationSource; recurringScheduleId?: string },
+    //
+    // [CodeRabbit review, PR #801] `manager`: lets a caller that already
+    // owns an outer transaction (`FeesDailyScheduler.runSchedule`) fold
+    // this write into that same transaction instead of `generate()`
+    // opening its own independent one — without it, a failure between
+    // `generate()`'s commit and the caller's own follow-up write (e.g.
+    // `recurring_schedules.last_run_period`) leaves the generation
+    // committed but the schedule still "due", re-triggerable by the next
+    // sweep. `duplicate_strategy: SKIP` makes a re-run's *bills* a no-op,
+    // but it does not stop a second `FeeGeneration` batch row or a second
+    // `fees.generated` notification event from firing. When `manager` is
+    // supplied, this method does not emit that event itself — the caller
+    // owns commit timing for its own outer transaction and must emit
+    // after that transaction actually commits (see `runSchedule`).
+    options?: {
+      source?: FeeGenerationSource;
+      recurringScheduleId?: string;
+      manager?: EntityManager;
+    },
   ): Promise<GenerateFeesResultDto> {
     const source = options?.source ?? FeeGenerationSource.MANUAL;
     const recurringScheduleId = options?.recurringScheduleId ?? null;
     const duplicateStrategy = dto.duplicate_strategy ?? DuplicateStrategy.SKIP;
     const notifyFamilies = await this.resolveNotifyFamilies(dto, tenantId);
+    const externalManager = options?.manager;
 
     let feeGenerationId = '';
     let generatedCount = 0;
@@ -198,7 +217,7 @@ export class FeeGenerationService {
     let inactiveSkipped: InactiveStudentDto[] = [];
     let studentCount = 0;
 
-    await this.studentFeeRepo.manager.transaction(async (manager) => {
+    const runBody = async (manager: EntityManager): Promise<void> => {
       const context = await this.loadContext(dto, tenantId, manager);
       inactiveSkipped = context.inactiveStudents.map(toInactiveDto);
       const targetStudents = dto.include_inactive
@@ -523,15 +542,25 @@ export class FeeGenerationService {
         },
         manager,
       );
-    });
+    };
 
-    // Fires only after the transaction above has committed — everything
-    // that could fail and roll the batch back already has, by this point.
-    if (notifyFamilies) {
-      feesEvents.emit(FEES_GENERATED_EVENT, {
-        tenantId,
-        feeGenerationId,
-      } satisfies FeesGeneratedEventPayload);
+    if (externalManager) {
+      // Caller already owns a transaction (and its commit) — run the body
+      // against that same manager rather than opening a second,
+      // independent one. Emitting the notify event here would be wrong:
+      // this method returns before the caller's outer transaction has
+      // actually committed, so the caller emits it themselves afterward.
+      await runBody(externalManager);
+    } else {
+      await this.studentFeeRepo.manager.transaction(runBody);
+      // Fires only after the transaction above has committed — everything
+      // that could fail and roll the batch back already has, by this point.
+      if (notifyFamilies) {
+        feesEvents.emit(FEES_GENERATED_EVENT, {
+          tenantId,
+          feeGenerationId,
+        } satisfies FeesGeneratedEventPayload);
+      }
     }
 
     return {

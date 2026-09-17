@@ -1,12 +1,17 @@
 import { Inject, Injectable, Logger, Optional, OnModuleInit } from '@nestjs/common';
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { Queue } from 'bullmq';
+import { Job, Queue } from 'bullmq';
 import { DataSource } from 'typeorm';
 import * as Sentry from '@sentry/node';
 import { DuplicateStrategy, FeeGenerationSource, PeriodType } from '@biddaloy/shared';
 import { SchoolsService } from '../schools/schools.service';
-import { FeeGenerationService } from './fee-generation.service';
+import {
+  FeeGenerationService,
+  feesEvents,
+  FEES_GENERATED_EVENT,
+  FeesGeneratedEventPayload,
+} from './fee-generation.service';
 import { Student } from '../students/entities/student.entity';
 import { SCHOOL_TZ, todayInSchoolTz } from '../../common/time';
 import { FEES_DAILY_CRON, FEES_DAILY_JOB_ID, FEES_DAILY_QUEUE } from './fees.constants';
@@ -119,9 +124,19 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     super();
   }
 
-  /** Runs today's sweep for a single tenant on demand (manual trigger). */
+  /**
+   * [CodeRabbit review, PR #801] `POST /fees/schedules/run-now` is
+   * documented (and returns `202`) as an enqueue operation, not a
+   * synchronous one — the original implementation instead awaited the
+   * whole tenant sweep inline before responding, so the request stayed
+   * open for the full workload (every due schedule's `generate()` call
+   * plus the late-fee sweep) with no bound on how long that takes for a
+   * large tenant. This now only enqueues a tenant-scoped job and returns;
+   * `process()` below does the actual work asynchronously, the same as
+   * every other job on this queue.
+   */
   async runNow(tenantId: string): Promise<void> {
-    await this.runTenant(tenantId, todayInSchoolTz());
+    await this.queue.add('run-now', { tenantId });
   }
 
   async onModuleInit(): Promise<void> {
@@ -138,8 +153,21 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     this.logger.log(`Scheduled fees-daily run at "${FEES_DAILY_CRON}" (${SCHOOL_TZ})`);
   }
 
-  async process(): Promise<void> {
+  /**
+   * Two job shapes on this one queue: the nightly repeatable job
+   * (`onModuleInit`, no `job.data`) sweeps every active tenant; a manual
+   * `run-now` job (`runNow` above, `job.data.tenantId` set) sweeps only
+   * the caller's own tenant — same per-tenant `runTenant` either way.
+   */
+  async process(job?: Job<{ tenantId?: string } | undefined>): Promise<void> {
     const today = todayInSchoolTz();
+    const requestedTenantId = job?.data?.tenantId;
+
+    if (requestedTenantId) {
+      await this.runTenant(requestedTenantId, today);
+      return;
+    }
+
     const tenants = await this.schoolsService.findAll();
     const activeTenants = tenants.filter((tenant) => tenant.status === 'ACTIVE');
     for (const tenant of activeTenants) {
@@ -220,6 +248,13 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     const period = periodFor(today, schedule.rule);
     if (schedule.last_run_period === period) return; // already ran this period
 
+    // [CodeRabbit review, PR #801] Set only if `generate()` actually ran
+    // inside this transaction — emitted *after* the transaction below
+    // commits, not from inside it (same "only after commit" rule
+    // `FeeGenerationService.generate` itself normally follows for its own
+    // non-scheduler callers).
+    let notifyPayload: FeesGeneratedEventPayload | null = null;
+
     await this.dataSource.transaction(async (manager) => {
       // Re-read + re-check under the transaction: a concurrent run for the
       // same schedule must not both pass this check and both generate.
@@ -262,7 +297,7 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
         return;
       }
 
-      await this.feeGenerationService.generate(
+      const result = await this.feeGenerationService.generate(
         {
           academic_year_id: schedule.academic_year_id,
           period_start: period,
@@ -277,22 +312,39 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
         schedule.tenant_id,
         null,
         { headers: {} },
-        { source: FeeGenerationSource.SCHEDULE, recurringScheduleId: schedule.id },
+        {
+          source: FeeGenerationSource.SCHEDULE,
+          recurringScheduleId: schedule.id,
+          // [CodeRabbit review, PR #801] Reuse this transaction's own
+          // manager rather than letting `generate()` open an independent
+          // one — the bills it writes and the `last_run_period` update
+          // below now commit or roll back together. `generate()` skips
+          // its own notify-event emit when a manager is supplied (see its
+          // doc comment); this scheduler emits it itself, below, only
+          // after this whole transaction has actually committed.
+          manager,
+        },
       );
 
-      // NOTE: `generate()` commits its own internal transaction, so this
-      // UPDATE is not atomic with the fee rows it just wrote — if this
-      // query fails after `generate()` succeeded, `last_run_period` stays
-      // stale and the next sweep re-runs `generate()` for the same period.
-      // That's safe, not silently duplicating bills, only because
-      // `duplicate_strategy: SKIP` above makes re-generation a no-op for
-      // already-generated (student_id, period) pairs. If `generate()` is
-      // ever refactored to accept a caller-supplied transaction manager,
-      // fold this UPDATE into that same transaction instead.
+      // Same transaction as the bills `generate()` just wrote — a failure
+      // here now rolls back the generation too, instead of leaving it
+      // committed with the schedule still "due" for the next sweep to
+      // re-trigger (a second `FeeGeneration` batch row / notify event,
+      // even though `duplicate_strategy: SKIP` already made the *bills*
+      // themselves idempotent).
       await manager.query(`UPDATE recurring_schedules SET last_run_period = $1 WHERE id = $2`, [
         period,
         schedule.id,
       ]);
+
+      if (schedule.notify_families) {
+        notifyPayload = { tenantId: schedule.tenant_id, feeGenerationId: result.fee_generation_id };
+      }
     });
+
+    // Fires only after the transaction above has actually committed.
+    if (notifyPayload) {
+      feesEvents.emit(FEES_GENERATED_EVENT, notifyPayload);
+    }
   }
 }

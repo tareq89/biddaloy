@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { FeesDailyScheduler, periodFor, isDue } from './fees-daily.scheduler';
 import { DuplicateStrategy, FeeGenerationSource, PeriodType } from '@biddaloy/shared';
 import { FEES_DAILY_CRON, FEES_DAILY_JOB_ID, FEES_DAILY_QUEUE } from './fees.constants';
-import { SCHOOL_TZ } from '../../common/time';
+import { SCHOOL_TZ, todayInSchoolTz } from '../../common/time';
 
 const TENANT = 'tenant-1';
 
@@ -62,7 +62,7 @@ describe('FeesDailyScheduler', () => {
   let scheduler: FeesDailyScheduler;
 
   beforeEach(() => {
-    queue = { upsertJobScheduler: vi.fn(async () => undefined) };
+    queue = { upsertJobScheduler: vi.fn(async () => undefined), add: vi.fn(async () => undefined) };
     schoolsService = {
       findAll: vi.fn(async () => [{ id: TENANT, name: 'Green Valley School', status: 'ACTIVE' }]),
     };
@@ -120,10 +120,14 @@ describe('FeesDailyScheduler', () => {
     const [dto, tenantId, userId, , options] = feeGenerationService.generate.mock.calls[0];
     expect(tenantId).toBe(TENANT);
     expect(userId).toBeNull();
-    expect(options).toEqual({
+    expect(options).toMatchObject({
       source: FeeGenerationSource.SCHEDULE,
       recurringScheduleId: 'sched-1',
     });
+    // [CodeRabbit review, PR #801] the transaction's own manager is
+    // passed through so generate()'s writes and the schedule's
+    // last_run_period update share one transaction.
+    expect(options.manager).toBe(manager);
     expect(dto.duplicate_strategy).toBe(DuplicateStrategy.SKIP);
     expect(dto.period_type).toBe(PeriodType.WEEK);
     expect(dto.student_ids).toEqual(['student-1', 'student-2']);
@@ -132,14 +136,12 @@ describe('FeesDailyScheduler', () => {
 
   it('is idempotent: outer check skips before opening a transaction when last_run_period already matches this week', async () => {
     // periodFor(today, WEEKLY) is always the Monday of the current week —
-    // compute it the same way `periodFor` does, so this test is
-    // deterministic regardless of when the suite runs.
-    const now = new Date();
-    const day = now.getUTCDay();
-    const diffToMonday = day === 0 ? 6 : day - 1;
-    const monday = new Date(now);
-    monday.setUTCDate(monday.getUTCDate() - diffToMonday);
-    const thisWeekStart = monday.toISOString().slice(0, 10);
+    // computed via the same todayInSchoolTz()/periodFor() the scheduler
+    // itself uses (not a raw `new Date()`/UTC calculation), so this test
+    // agrees with process() even in the window between Sunday 18:00 UTC
+    // and Monday 00:00 UTC, where the Asia/Dhaka calendar date is already
+    // Monday but the UTC calendar date is still Sunday.
+    const thisWeekStart = periodFor(todayInSchoolTz(), { kind: 'WEEKLY' });
     dataSource.query = vi.fn(async () => [scheduleRow({ last_run_period: thisWeekStart })]);
 
     await scheduler.process();
@@ -220,5 +222,41 @@ describe('FeesDailyScheduler', () => {
       expect.stringContaining('UPDATE recurring_schedules SET last_run_period'),
       expect.any(Array),
     );
+  });
+
+  describe('[CodeRabbit review, PR #801] run-now enqueues instead of running inline', () => {
+    it('runNow only enqueues a tenant-scoped job — it does not run the sweep itself', async () => {
+      await scheduler.runNow(TENANT);
+
+      expect(queue.add).toHaveBeenCalledTimes(1);
+      expect(queue.add).toHaveBeenCalledWith('run-now', { tenantId: TENANT });
+      // The point of enqueueing: runNow itself never touches the DB/queries
+      // a due schedule — that only happens once a worker picks the job up
+      // and calls process().
+      expect(dataSource.query).not.toHaveBeenCalled();
+      expect(feeGenerationService.generate).not.toHaveBeenCalled();
+    });
+
+    it('process(job) with job.data.tenantId sweeps only that tenant, not every active tenant', async () => {
+      schoolsService.findAll = vi.fn(async () => [
+        { id: TENANT, name: 'Green Valley School', status: 'ACTIVE' },
+        { id: 'tenant-other', name: 'Other School', status: 'ACTIVE' },
+      ]);
+
+      await scheduler.process({ data: { tenantId: TENANT } } as any);
+
+      // findAll (the full-sweep tenant list) is never even consulted on
+      // the tenant-scoped path.
+      expect(schoolsService.findAll).not.toHaveBeenCalled();
+      expect(feeGenerationService.generate).toHaveBeenCalledTimes(1);
+      const [, tenantId] = feeGenerationService.generate.mock.calls[0];
+      expect(tenantId).toBe(TENANT);
+    });
+
+    it('process() with no job (the nightly repeatable job) still sweeps every active tenant', async () => {
+      await scheduler.process();
+
+      expect(schoolsService.findAll).toHaveBeenCalledTimes(1);
+    });
   });
 });
