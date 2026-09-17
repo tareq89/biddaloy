@@ -15,10 +15,12 @@ import { Button, CachedDataNotice, DataTableColumn, RoutePending } from '@biddal
 import {
   recurringSchedulesQueryOptions,
   useActiveRole,
+  useClasses,
   useHasPermission,
   useRecurringSchedules,
   useRunRecurringScheduleNow,
   useUpdateRecurringSchedule,
+  type Class,
   type MonthlyRuleDay,
   type RecurringSchedule,
   type Weekday,
@@ -53,11 +55,31 @@ function ruleSummary(schedule: RecurringSchedule, t: TFunction<'fees', undefined
   return t('schedules.ruleWeekly', { days: (schedule.rule.weekdays ?? []).join(', ') });
 }
 
-function audienceSummary(schedule: RecurringSchedule, t: TFunction<'fees', undefined>): string {
+/** `classesById`/`sectionsById` resolve `audience.class_id`/`section_id`
+ * into real names — without them, a class-scoped schedule with
+ * `active_only: false` produced an empty `parts` and fell through to the
+ * "whole school" default, wrongly labeling a scoped billing audience as
+ * unscoped. */
+function audienceSummary(
+  schedule: RecurringSchedule,
+  t: TFunction<'fees', undefined>,
+  classesById: Map<string, string>,
+  sectionsById: Map<string, string>,
+): string {
   const parts: string[] = [];
-  if (!schedule.audience.class_id) parts.push(t('schedules.wholeSchool'));
+  const { class_id, section_id } = schedule.audience;
+  if (class_id) {
+    const className = classesById.get(class_id) ?? t('schedules.unknownClass');
+    parts.push(
+      section_id
+        ? `${className} — ${sectionsById.get(section_id) ?? t('schedules.unknownSection')}`
+        : className,
+    );
+  } else {
+    parts.push(t('schedules.wholeSchool'));
+  }
   if (schedule.audience.active_only) parts.push(t('schedules.activeOnly'));
-  return parts.length > 0 ? parts.join(' · ') : t('schedules.wholeSchool');
+  return parts.join(' · ');
 }
 
 const DHAKA_OFFSET_MS = 6 * 60 * 60_000;
@@ -209,6 +231,21 @@ function SchedulesListPage() {
   const [state, actions] = useListShellState({ limit: 20 });
 
   const schedulesQuery = useRecurringSchedules({ page: state.page, limit: state.limit });
+  // Resolves audience.class_id/section_id to real names for
+  // audienceSummary() below — one school-wide fetch, `Class.sections` is
+  // already embedded so this needs no per-class follow-up request.
+  const classesQuery = useClasses({});
+  const { classesById, sectionsById } = React.useMemo(() => {
+    const classes = new Map<string, string>();
+    const sections = new Map<string, string>();
+    for (const klass of classesQuery.data?.data ?? []) {
+      classes.set(klass.id, klass.name);
+      for (const section of (klass as Class).sections ?? []) {
+        sections.set(section.id, section.section_name);
+      }
+    }
+    return { classesById: classes, sectionsById: sections };
+  }, [classesQuery.data]);
   const canManage = useHasPermission(Permission.SCHEDULE_MANAGE);
   // Ticket #679: "run now" is ADMIN-only, narrower than SCHEDULE_MANAGE
   // (ADMIN + ACCOUNTANT) which the rest of this page's actions use.
@@ -237,7 +274,7 @@ function SchedulesListPage() {
     {
       id: 'audience',
       header: t('schedules.columnAudience'),
-      accessorFn: (row) => audienceSummary(row, t),
+      accessorFn: (row) => audienceSummary(row, t, classesById, sectionsById),
     },
     {
       id: 'rule',
@@ -260,7 +297,12 @@ function SchedulesListPage() {
     {
       id: 'active',
       header: t('schedules.columnActive'),
-      accessorFn: (row) => (row.is_active ? t('schedules.activate') : t('schedules.deactivate')),
+      // `t('schedules.activate')`/`deactivate` are the *action* labels
+      // (what clicking the toggle button below does), not state labels —
+      // using them here showed "Activate" for an already-active schedule
+      // and vice versa, backwards from what this column claims to show.
+      accessorFn: (row) =>
+        row.is_active ? t('schedules.statusActive') : t('schedules.statusInactive'),
     },
     {
       id: 'actions',

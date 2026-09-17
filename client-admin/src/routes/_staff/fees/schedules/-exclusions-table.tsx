@@ -48,57 +48,71 @@ export function ExclusionsTable({ scheduleId, exclusions, canManage }: Exclusion
 
   function handleAdd(studentId: string) {
     const reason = reasonByStudent[studentId]?.trim();
-    addExclusion.mutate(
-      { student_id: studentId, ...(reason ? { reason } : {}) },
-      { onSuccess: () => setSearch('') },
-    );
+    // AddExclusionDto requires `reason` (@IsNotEmpty) — the "Add" button
+    // is already disabled while this is blank, but guard here too rather
+    // than trust only the disabled state to keep this call out of sync.
+    if (!reason) return;
+    addExclusion.mutate({ student_id: studentId, reason }, { onSuccess: () => setSearch('') });
   }
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <span className="text-sm font-medium">{t('schedules.detail.addExclusion')}</span>
-        <Input
-          aria-label={t('schedules.detail.studentSearchLabel')}
-          placeholder={t('schedules.detail.studentSearchPlaceholder')}
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-        {debouncedSearch.trim() !== '' && (
-          <ul className="flex max-h-48 flex-col gap-1 overflow-y-auto" aria-live="polite">
-            {searchQuery.isSuccess && searchQuery.data.data.length === 0 && (
-              <li className="text-sm text-muted-foreground">
-                {t('schedules.detail.studentSearchNoResults')}
-              </li>
-            )}
-            {searchQuery.data?.data
-              .filter((student) => !excludedIds.has(student.id))
-              .map((student) => (
-                <li key={student.id} className="flex items-center gap-2">
-                  <span className="flex-1 text-sm">{student.full_name}</span>
-                  <Input
-                    aria-label={t('schedules.detail.exclusionReasonLabel')}
-                    placeholder={t('schedules.detail.exclusionReasonPlaceholder')}
-                    value={reasonByStudent[student.id] ?? ''}
-                    onChange={(event) =>
-                      setReasonByStudent((prev) => ({ ...prev, [student.id]: event.target.value }))
-                    }
-                    className="max-w-48"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={addExclusion.isPending}
-                    onClick={() => handleAdd(student.id)}
-                  >
-                    {t('schedules.detail.addExclusion')}
-                  </Button>
+      {canManage && (
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-medium">{t('schedules.detail.addExclusion')}</span>
+          <Input
+            aria-label={t('schedules.detail.studentSearchLabel')}
+            placeholder={t('schedules.detail.studentSearchPlaceholder')}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+          {debouncedSearch.trim() !== '' && (
+            <ul className="flex max-h-48 flex-col gap-1 overflow-y-auto" aria-live="polite">
+              {searchQuery.isSuccess && searchQuery.data.data.length === 0 && (
+                <li className="text-sm text-muted-foreground">
+                  {t('schedules.detail.studentSearchNoResults')}
                 </li>
-              ))}
-          </ul>
-        )}
-      </div>
+              )}
+              {searchQuery.data?.data
+                .filter((student) => !excludedIds.has(student.id))
+                .map((student) => {
+                  // Server's AddExclusionDto requires `reason` (@IsNotEmpty) —
+                  // an empty submit would 400 after the round trip instead of
+                  // failing fast client-side.
+                  const reason = reasonByStudent[student.id] ?? '';
+                  const reasonMissing = reason.trim() === '';
+                  return (
+                    <li key={student.id} className="flex items-center gap-2">
+                      <span className="flex-1 text-sm">{student.full_name}</span>
+                      <Input
+                        required
+                        aria-label={t('schedules.detail.exclusionReasonLabel')}
+                        placeholder={t('schedules.detail.exclusionReasonPlaceholder')}
+                        value={reason}
+                        onChange={(event) =>
+                          setReasonByStudent((prev) => ({
+                            ...prev,
+                            [student.id]: event.target.value,
+                          }))
+                        }
+                        className="max-w-48"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={addExclusion.isPending || reasonMissing}
+                        onClick={() => handleAdd(student.id)}
+                      >
+                        {t('schedules.detail.addExclusion')}
+                      </Button>
+                    </li>
+                  );
+                })}
+            </ul>
+          )}
+        </div>
+      )}
 
       {exclusions.length === 0 ? (
         <p className="text-sm text-muted-foreground">

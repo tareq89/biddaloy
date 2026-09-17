@@ -61,10 +61,18 @@ export interface ScheduleFormDialogProps {
 }
 
 function toDateInput(date: Date): string {
-  // `Date`'s own ISO string carries a time component the DTO's `starts_on`/
-  // `ends_on` (plain `YYYY-MM-DD`) doesn't want — slice to the date part
-  // only, same convention `academic-years` dialogs use for date fields.
-  return date.toISOString().slice(0, 10);
+  // `DatePicker` builds this `Date` from local calendar fields (year/month/
+  // day the user actually picked). `toISOString()` converts through UTC
+  // first — in Asia/Dhaka (UTC+6), local midnight is 18:00 UTC the
+  // *previous* day, so slicing its ISO string silently submits a date one
+  // day earlier than what's shown in the picker. Read the local fields
+  // back out directly instead, same as `reports/collections.tsx`'s
+  // `dhakaNow`/`startOfUtcDay` convention for never letting a date-only
+  // value round-trip through a timezone conversion.
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export function ScheduleFormDialog({
