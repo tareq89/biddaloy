@@ -350,10 +350,6 @@ export function FeesTab({ studentId }: FeesTabProps) {
                   <TabsTrigger value="open-bills">{t('detail.fees.openBillsTab')}</TabsTrigger>
                   <TabsTrigger value="wallet">{t('detail.fees.walletTab')}</TabsTrigger>
                   <TabsTrigger value="history">{t('detail.fees.historyTab')}</TabsTrigger>
-                  {/* [16.7.5]: disabled placeholder — not implemented yet. */}
-                  <TabsTrigger value="recurring-fees" disabled>
-                    {t('detail.fees.recurringFeesTab')}
-                  </TabsTrigger>
                 </TabsList>
                 <TabsContent value="open-bills">
                   <FeeLinesTable
@@ -371,11 +367,6 @@ export function FeesTab({ studentId }: FeesTabProps) {
                 </TabsContent>
                 <TabsContent value="history">
                   <HistorySection fees={feeSummary.fee_breakdown} />
-                </TabsContent>
-                <TabsContent value="recurring-fees">
-                  <p className="text-sm text-muted-foreground">
-                    {t('detail.fees.recurringFeesPlaceholder')}
-                  </p>
                 </TabsContent>
               </Tabs>
             </div>

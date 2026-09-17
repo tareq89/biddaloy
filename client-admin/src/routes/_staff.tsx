@@ -24,6 +24,7 @@ import {
   CalendarDaysIcon,
   ClipboardListIcon,
   FilePlus2Icon,
+  RepeatIcon,
   GraduationCapIcon,
   HandCoinsIcon,
   HistoryIcon,
@@ -253,6 +254,14 @@ function StaffLayout() {
           label: t('items.generateFees'),
           permission: Permission.FEE_GENERATE,
           icon: <FilePlus2Icon aria-hidden="true" />,
+        },
+        // [16.7.5] recurring schedules — same FEE_GENERATE gate as
+        // "Generate fees" above, its recurring sibling.
+        {
+          to: '/fees/schedules',
+          label: t('items.recurringSchedules'),
+          permission: Permission.FEE_GENERATE,
+          icon: <RepeatIcon aria-hidden="true" />,
         },
         {
           to: '/invoices',
