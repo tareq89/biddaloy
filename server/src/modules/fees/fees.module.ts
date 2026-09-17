@@ -35,6 +35,9 @@ import { CheckoutController } from './checkout.controller';
 import { PaymentReversalService } from './payment-reversal.service';
 import { FeesDailyScheduler } from './fees-daily.scheduler';
 import { FEES_DAILY_QUEUE } from './fees.constants';
+import { DiscountRule } from './entities/discount-rule.entity';
+import { DiscountRulesService } from './discount-rules.service';
+import { DiscountRulesController } from './discount-rules.controller';
 
 @Module({
   imports: [
@@ -52,6 +55,7 @@ import { FEES_DAILY_QUEUE } from './fees.constants';
       AcademicYear,
       Invoice,
       School,
+      DiscountRule,
     ]),
     BullModule.registerQueue({ name: FEES_DAILY_QUEUE }),
     AuditModule,
@@ -69,7 +73,12 @@ import { FEES_DAILY_QUEUE } from './fees.constants';
     FeeGenerationsService,
     FeeGenerationBatchService,
     WalletService,
-    NoopDiscountResolver,
+    // [16.7.3] `DiscountRulesService` implements the `DiscountResolver`
+    // interface `NoopDiscountResolver` stubbed out — same DI token, real
+    // class, so `FeeGenerationService`'s constructor (typed
+    // `NoopDiscountResolver`) resolves the real thing without changing.
+    DiscountRulesService,
+    { provide: NoopDiscountResolver, useExisting: DiscountRulesService },
     CheckoutCartService,
     CheckoutService,
     PaymentReversalService,
@@ -82,7 +91,13 @@ import { FEES_DAILY_QUEUE } from './fees.constants';
   // `payments/:id` (GET, 16.4.3) would otherwise shadow (`:id` matches any
   // single segment, including "cart"/"checkout") if FeeController's routes
   // registered first.
-  controllers: [CheckoutController, FeeController, FeeGenerationsController, WalletController],
+  controllers: [
+    CheckoutController,
+    FeeController,
+    FeeGenerationsController,
+    WalletController,
+    DiscountRulesController,
+  ],
   exports: [
     FeeStructureService,
     PaymentService,
