@@ -25,6 +25,7 @@ import * as React from 'react';
 
 import { RecordPaymentModal } from '../../payments/-record/record-payment-modal';
 
+import { DiscountsSection } from './discounts-section';
 import { TabQueryState } from './tab-query-state';
 
 export interface FeesTabProps {
@@ -350,6 +351,7 @@ export function FeesTab({ studentId }: FeesTabProps) {
                   <TabsTrigger value="open-bills">{t('detail.fees.openBillsTab')}</TabsTrigger>
                   <TabsTrigger value="wallet">{t('detail.fees.walletTab')}</TabsTrigger>
                   <TabsTrigger value="history">{t('detail.fees.historyTab')}</TabsTrigger>
+                  <TabsTrigger value="discounts">{t('detail.fees.discountsTab')}</TabsTrigger>
                 </TabsList>
                 <TabsContent value="open-bills">
                   <FeeLinesTable
@@ -367,6 +369,9 @@ export function FeesTab({ studentId }: FeesTabProps) {
                 </TabsContent>
                 <TabsContent value="history">
                   <HistorySection fees={feeSummary.fee_breakdown} />
+                </TabsContent>
+                <TabsContent value="discounts">
+                  <DiscountsSection studentId={studentId} />
                 </TabsContent>
               </Tabs>
             </div>
