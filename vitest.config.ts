@@ -247,7 +247,12 @@ const coverage = {
 export default defineConfig({
   test: {
     coverage,
-    ...(timingsOut ? { reporters: ['default', ['json', { outputFile: timingsOut }]] } : {}),
+    // [18.5.1] `blob` is CI's per-shard reporter (ci.yml's `frontend` job
+    // passes `--reporter=blob` on the CLI so `frontend-merge` can replay
+    // all three shards with `--merge-reports`) — kept in this array too so
+    // it survives alongside the `json` timings reporter instead of the
+    // CLI flag silently replacing the whole reporters list.
+    ...(timingsOut ? { reporters: ['default', 'blob', ['json', { outputFile: timingsOut }]] } : {}),
     projects: [
       ...frontendPackage('ui', 'ui', uiAlias, {
         // eslint-rules specs are ESLint RuleTester fixtures, and

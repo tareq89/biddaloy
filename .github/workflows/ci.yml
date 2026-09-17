@@ -229,14 +229,23 @@ jobs:
         run: yarn knip
         continue-on-error: true
 
+  # [18.5.1] 464s measured on real CI (#767/#805) put the unsharded job
+  # over the 240s/4-min budget, so this splits the suite 3-way and merges
+  # coverage back in `frontend-merge` below (vitest's blob reporter +
+  # `--merge-reports` is built for exactly this — each shard writes a
+  # `.vitest-reports/blob-<n>.json`, the merge job replays them into one
+  # report so coverage thresholds and the PR delta comment still see the
+  # whole suite, not just a third of it).
   frontend:
-    name: Frontend tests
+    name: Frontend tests (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
     needs: changes
     if: github.event_name == 'push' || github.event_name == 'merge_group' || needs.changes.outputs.frontend == 'true'
+    strategy:
+      matrix:
+        shard: [1, 2, 3]
     permissions:
       contents: read
-      pull-requests: write
       actions: read
     steps:
       - uses: actions/checkout@v7
@@ -251,28 +260,22 @@ jobs:
       - name: Build shared package
         run: yarn build:shared
 
-      # Coverage on every run (#153 amends #307's PR/no-coverage split):
-      # the PR delta comment below needs PR coverage, and since this job is
-      # parallel the instrumentation cost sits off the critical path either
-      # way. [15.3] re-measured this from scratch rather than trust the old
-      # "~105s instrumentation penalty" note here — it didn't survive
-      # re-measurement: coverage on vs. off was ~4.7s wall / ~58 CPU-s
-      # locally (10 cores), a few seconds on a 4-vCPU runner, not 105s.
-      # `--coverage.reporter` narrowed to `text` (the console summary a
-      # human reads on a failed run) and `lcovonly` (the machine-readable
-      # `lcov.info` `coverage-offenders.mjs`/`coverage-delta.mjs` below both
-      # read — deliberately `lcovonly`, not `lcov`: istanbul's plain `lcov`
-      # reporter writes an `lcov-report/` html tree alongside `lcov.info`,
-      # `lcovonly` writes just the file). Dropping `html` costs nothing
-      # downstream (nothing in CI opens it) and shrinks the
-      # `frontend-coverage` artifact every PR run re-downloads for its
-      # baseline diff (see "Upload frontend coverage" below). `yarn
-      # coverage` (local) is untouched — its `vitest.config.ts` reporter
-      # list still includes `html` for the local report.
-      - name: Frontend tests with coverage
+      # Blob output comes from `vitest.config.ts`'s `reporters` array, NOT
+      # a `--reporter=blob` CLI flag — Vitest's CLI `--reporter` REPLACES
+      # `test.reporters` wholesale rather than merging with it, so passing
+      # it here would silently drop the `default` console reporter and the
+      # `json` timings reporter that array also carries (that's the whole
+      # reason 18.5.1 added `'blob'` to the config array under the
+      # `CI_TIMINGS_OUT` guard instead of just adding a CLI flag). Blob
+      # writes `.vitest-reports/blob-<shard>.json` — `frontend-merge` below
+      # replays all three via `--merge-reports`. Coverage stays on every
+      # shard (`--coverage.reporter=json`, vitest's own merge input
+      # format) — merged back to `text`/`lcovonly` in the merge job, same
+      # reporters the old single job produced.
+      - name: Frontend tests with coverage (shard ${{ matrix.shard }}/3)
         env:
-          CI_TIMINGS_OUT: ci-timings/raw-frontend.json
-        run: yarn test:frontend:coverage --coverage.reporter=text --coverage.reporter=lcovonly
+          CI_TIMINGS_OUT: ci-timings/raw-frontend-${{ matrix.shard }}.json
+        run: yarn test:frontend --run --shard=${{ matrix.shard }}/3 --coverage --coverage.reporter=json
 
       # [#437] Quarantined tests still run, just don't gate the pipeline —
       # otherwise "quarantine" would mean "deleted" and nobody ever learns
@@ -291,8 +294,12 @@ jobs:
       # `ui/src/test/quarantine.ts`'s key format) keeps this step to the
       # handful of files actually quarantined, so it's back to the <30s
       # this step is meant to cost.
+      #
+      # [18.5.1] Runs once, on shard 1 only — the file list is small and
+      # fixed, sharding it three ways would just triple the fixed cost for
+      # zero extra signal.
       - name: Quarantined frontend tests (non-blocking)
-        if: always()
+        if: always() && matrix.shard == 1
         continue-on-error: true
         run: |
           mapfile -t files < <(node scripts/quarantine-files.mjs)
@@ -306,15 +313,67 @@ jobs:
       # same `if: always()` reasoning applies here.
       - name: Collect frontend test timings
         if: always()
-        run: node scripts/ci-timings.mjs collect --runner vitest --suite frontend --job "Frontend tests" --in ci-timings/raw-frontend.json --out ci-timings/frontend.json
+        run: node scripts/ci-timings.mjs collect --runner vitest --suite frontend-${{ matrix.shard }} --job "Frontend tests (${{ matrix.shard }}/3)" --in ci-timings/raw-frontend-${{ matrix.shard }}.json --out ci-timings/frontend-${{ matrix.shard }}.json
 
       - name: Upload frontend test timings
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: ci-timings-frontend
-          path: ci-timings/frontend.json
+          name: ci-timings-frontend-${{ matrix.shard }}
+          path: ci-timings/frontend-${{ matrix.shard }}.json
           if-no-files-found: ignore
+
+      # Only `.vitest-reports/` is uploaded — vitest embeds each shard's
+      # coverage inside its own blob report (confirmed against vitest
+      # 4.1.11's `mergeReports`, which reads `blob.coverage`, never disk),
+      # so `frontend-merge`'s `--merge-reports` rebuilds `coverage/`
+      # itself from the blobs and never reads this shard's own `coverage/`
+      # output — uploading it too would just cost CI upload/download time
+      # in a ticket about cutting CI time. Named per-shard —
+      # `actions/upload-artifact@v7` errors on two legs uploading the same
+      # artifact name in one run.
+      - name: Upload shard report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: vitest-shard-${{ matrix.shard }}
+          path: .vitest-reports/
+          if-no-files-found: error
+
+  # [18.5.1] Merges the three shards' blob reports and coverage back into
+  # one, so downstream (thresholds, PR delta comment) sees the whole suite
+  # exactly as the old unsharded job did. `needs: frontend` waits on all
+  # three matrix legs; `if: always()` still runs it when a shard fails, so
+  # the coverage/threshold signal for the shards that DID pass isn't lost.
+  frontend-merge:
+    name: Frontend coverage merge
+    runs-on: ubuntu-latest
+    needs: [changes, frontend]
+    if: always() && (github.event_name == 'push' || github.event_name == 'merge_group' || needs.changes.outputs.frontend == 'true')
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup
+
+      - name: Build shared package
+        run: yarn build:shared
+
+      - name: Download shard reports and coverage
+        uses: actions/download-artifact@v7
+        with:
+          pattern: vitest-shard-*
+          merge-multiple: true
+
+      # Same coverage reporter narrowing as the old single job (see [15.3]
+      # in git history): `text` for the console summary on failure,
+      # `lcovonly` for the machine-readable file `coverage-offenders.mjs`/
+      # `coverage-delta.mjs` below both read.
+      - name: Merge shard reports and coverage
+        run: yarn test:frontend --run --merge-reports --coverage --coverage.reporter=text --coverage.reporter=lcovonly
 
       # `if: failure()` also fires on non-coverage failures; the script
       # prints nothing when nothing is under threshold, which is the
@@ -998,7 +1057,7 @@ jobs:
     name: Test timings & budgets
     runs-on: ubuntu-latest
     if: always()
-    needs: [changes, verify, frontend, integration, e2e, bundle-delta, storybook, audit]
+    needs: [changes, verify, frontend-merge, integration, e2e, bundle-delta, storybook, audit]
     permissions:
       contents: read
       actions: read

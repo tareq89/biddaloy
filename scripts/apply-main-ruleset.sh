@@ -50,7 +50,7 @@ desired_body="$(
         "strict_required_status_checks_policy": false,
         "required_status_checks": [
           { "context": "Build, lint, unit tests" },
-          { "context": "Frontend tests" },
+          { "context": "Frontend coverage merge" },
           { "context": "Integration & e2e tests" },
           { "context": "E2E smoke (chromium)" },
           { "context": "Route sweeps (chromium-sweeps)" },

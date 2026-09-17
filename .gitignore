@@ -23,6 +23,9 @@ drafts
 coverage
 *.lcov
 
+# [18.5.1] vitest --reporter=blob per-shard output, merged by frontend-merge
+.vitest-reports
+
 # nyc test coverage
 .nyc_output
 
