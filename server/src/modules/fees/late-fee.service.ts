@@ -28,6 +28,7 @@ interface CandidateBillRow {
   student_id: string;
   academic_year_id: string;
   period_start: string;
+  period_type: PeriodType;
   total_amount: string;
   discount_amount: string;
   paid_amount: string;
@@ -85,7 +86,7 @@ export class LateFeeService {
   ): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
       const candidates = (await manager.query(
-        `SELECT sf.id, sf.student_id, sf.academic_year_id, sf.period_start,
+        `SELECT sf.id, sf.student_id, sf.academic_year_id, sf.period_start, sf.period_type,
                 sf.total_amount, sf.discount_amount, sf.paid_amount
            FROM student_fees sf
            JOIN fee_structures fs ON fs.id = sf.fee_structure_id
@@ -105,27 +106,63 @@ export class LateFeeService {
 
       if (candidates.length === 0) return;
 
-      const lateFeeStructureId = await this.ensureLateFeeStructure(
-        manager,
-        tenantId,
-        candidates[0].academic_year_id,
-      );
+      // [Opus review, B1 — non-blocking follow-up] One `LATE_FEE`
+      // structure per (tenant, academic year) — derived per bill, not
+      // from `candidates[0]`, so a sweep that spans an academic-year
+      // boundary (a bill from last year still overdue) doesn't wrongly
+      // attach every late fee in the batch to one year's structure.
+      const lateFeeStructureIdByYear = new Map<string, string>();
 
       for (const bill of candidates) {
         const outstanding =
           Number(bill.total_amount) - Number(bill.discount_amount) - Number(bill.paid_amount);
+        // [Opus review, non-blocking] round2 on both branches — FLAT was
+        // previously inserted unrounded (an operator-entered value like
+        // 99.999 would otherwise reach the DB as-is).
         const amount =
           rule.kind === DiscountKind.FLAT
-            ? Number(rule.value)
+            ? round2(Number(rule.value))
             : round2((Number(rule.value) / 100) * outstanding);
         if (amount <= 0) continue;
+
+        let lateFeeStructureId = lateFeeStructureIdByYear.get(bill.academic_year_id);
+        if (!lateFeeStructureId) {
+          lateFeeStructureId = await this.ensureLateFeeStructure(
+            manager,
+            tenantId,
+            bill.academic_year_id,
+          );
+          lateFeeStructureIdByYear.set(bill.academic_year_id, lateFeeStructureId);
+        }
+
+        // [Opus review, B1 — blocking] Every late-fee bill in one sweep
+        // shares the same `fee_structure_id` (the one placeholder LATE_FEE
+        // structure) — two *different* original bills overdue for the
+        // same `period_start` (e.g. a TUITION and a TRANSPORT bill both
+        // due 2026-01-01) would otherwise both insert `occurrence: 1`
+        // (the column default) and collide on
+        // `UQ_student_fees_student_structure_period_occurrence`
+        // (`student_id`, `fee_structure_id`, `period_start`, `occurrence`)
+        // — which rolled back the *entire* fee-type transaction with only
+        // a log line, silently losing every late fee in that batch.
+        // Computed fresh (not cached) so it also accounts for late-fee
+        // rows this same loop has already queued this transaction.
+        const [{ next_occurrence: occurrence }] = (await manager.query(
+          `SELECT COALESCE(MAX(occurrence), 0) + 1 AS next_occurrence
+             FROM student_fees
+            WHERE student_id = $1 AND fee_structure_id = $2 AND period_start = $3`,
+          [bill.student_id, lateFeeStructureId, bill.period_start],
+        )) as { next_occurrence: number }[];
 
         await manager.getRepository(StudentFee).insert({
           student_id: bill.student_id,
           academic_year_id: bill.academic_year_id,
           fee_structure_id: lateFeeStructureId,
           period_start: bill.period_start,
-          period_type: PeriodType.MONTH,
+          // [Opus review, non-blocking] the original bill's own
+          // period_type — was hardcoded to MONTH, losing a WEEK original.
+          period_type: bill.period_type,
+          occurrence,
           total_amount: amount,
           paid_amount: 0,
           discount_amount: 0,

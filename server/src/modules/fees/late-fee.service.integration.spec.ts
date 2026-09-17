@@ -22,6 +22,7 @@ import { DiscountKind, EnrollmentStatus, FeeStatus, FeeType, PeriodType } from '
  * Integration tests for `LateFeeService.applyDue` (#678/16.7.4).
  */
 const TUITION_STRUCTURE_ID = '00000000-0000-4000-8000-000000000651';
+const TRANSPORT_STRUCTURE_ID = '00000000-0000-4000-8000-000000000652';
 const STUDENT_ID = '00000000-0000-4000-8000-000000000601';
 const TODAY = '2026-03-15';
 
@@ -111,6 +112,17 @@ describe('LateFeeService (integration)', () => {
         fee_type: FeeType.MONTHLY_TUITION,
         name: 'Tuition Fee',
         amount: 1000,
+        class_id: SEED_CLASS_1_ID,
+        academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        tenant_id: SEED_TENANT_ID,
+      }),
+    );
+    await ds.getRepository(FeeStructure).save(
+      ds.getRepository(FeeStructure).create({
+        id: TRANSPORT_STRUCTURE_ID,
+        fee_type: FeeType.TRANSPORT_FEE,
+        name: 'Transport Fee',
+        amount: 500,
         class_id: SEED_CLASS_1_ID,
         academic_year_id: SEED_ACADEMIC_YEAR_ID,
         tenant_id: SEED_TENANT_ID,
@@ -230,5 +242,65 @@ describe('LateFeeService (integration)', () => {
     });
     const lateFee = bills.find((b) => b.fee_structure.fee_type === FeeType.LATE_FEE);
     expect(Number(lateFee?.total_amount)).toBe(70);
+  });
+
+  it('[Opus review B1] two overdue bills (different fee types) sharing a period both get a late fee, no unique-constraint collision', async () => {
+    await setSettings({
+      MONTHLY_TUITION: { enabled: true, grace_days: 0, kind: DiscountKind.FLAT, value: 100 },
+      TRANSPORT_FEE: { enabled: true, grace_days: 0, kind: DiscountKind.FLAT, value: 50 },
+    });
+    // Both bills share the same period_start (2026-02-01) and due_date —
+    // before the fix, both late-fee inserts would try `occurrence: 1`
+    // (the column default) against the *same* shared LATE_FEE structure
+    // and the *same* period_start, colliding on
+    // UQ_student_fees_student_structure_period_occurrence and rolling
+    // back the whole fee-type transaction silently.
+    await seedBill('2026-03-01', { fee_structure_id: TUITION_STRUCTURE_ID });
+    await seedBill('2026-03-01', {
+      fee_structure_id: TRANSPORT_STRUCTURE_ID,
+      total_amount: 500,
+    });
+
+    await service.applyDue(SEED_TENANT_ID, TODAY);
+
+    const bills = await ds.getRepository(StudentFee).find({
+      where: { student_id: STUDENT_ID },
+      relations: { fee_structure: true },
+    });
+    const lateFeeBills = bills.filter((b) => b.fee_structure.fee_type === FeeType.LATE_FEE);
+    expect(lateFeeBills).toHaveLength(2);
+    expect(new Set(lateFeeBills.map((b) => b.occurrence)).size).toBe(2); // distinct occurrences
+    const totals = lateFeeBills.map((b) => Number(b.total_amount)).sort((a, b) => a - b);
+    expect(totals).toEqual([50, 100]);
+  });
+
+  it("[Opus review B1 — non-blocking] two overdue bills spanning two academic years both attach to their own year's LATE_FEE structure", async () => {
+    const priorYearId = '00000000-0000-4000-8000-000000000602';
+    await ds.getRepository(AcademicYear).save(
+      ds.getRepository(AcademicYear).create({
+        id: priorYearId,
+        name: '2025-2026',
+        start_date: new Date('2025-01-01'),
+        end_date: new Date('2025-12-31'),
+        tenant_id: SEED_TENANT_ID,
+      }),
+    );
+    await setSettings({
+      MONTHLY_TUITION: { enabled: true, grace_days: 0, kind: DiscountKind.FLAT, value: 100 },
+    });
+    await seedBill('2026-01-01', {
+      academic_year_id: priorYearId,
+      period_start: new Date('2025-12-01'),
+    });
+    await seedBill('2026-03-01');
+
+    await service.applyDue(SEED_TENANT_ID, TODAY);
+
+    const lateFeeStructures = await ds.getRepository(FeeStructure).find({
+      where: { tenant_id: SEED_TENANT_ID, fee_type: FeeType.LATE_FEE },
+    });
+    expect(lateFeeStructures).toHaveLength(2); // one per academic year
+    const yearIds = new Set(lateFeeStructures.map((s) => s.academic_year_id));
+    expect(yearIds).toEqual(new Set([priorYearId, SEED_ACADEMIC_YEAR_ID]));
   });
 });
