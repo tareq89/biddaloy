@@ -242,8 +242,11 @@ export function useAddScheduleExclusion(scheduleId: string) {
       );
       return res.data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, input) => {
       void queryClient.invalidateQueries({ queryKey: recurringScheduleKeys.detail(scheduleId) });
+      void queryClient.invalidateQueries({
+        queryKey: studentScheduleCoverageKeys.detail(input.student_id),
+      });
     },
   });
 }
@@ -299,30 +302,3 @@ export function useStudentScheduleCoverage(studentId: string | undefined) {
  * comment. Aliased under this name at call sites in the student tab for
  * readability; not a second implementation. */
 export const useIncludeStudentInSchedule = useRemoveScheduleExclusion;
-
-/** Student-tab "Add to schedule" — an active schedule whose audience
- * *does* already match this student (same academic year/class/section/
- * active-only rule an unrelated matching student would already be
- * covered by), added explicitly rather than waiting for the schedule's
- * own audience query to pick them up next run. Documented contract
- * (#679's own table) only lists exclusions add/remove; this mirrors
- * that same shape as the addition #679's Step 4 needs — flagged for
- * confirmation against #675's real server contract once it merges. */
-export function useAddScheduleInclusion(scheduleId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (studentId: string) => {
-      const res = await apiClient.post<{ student_id: string }>(
-        `/fees/schedules/${scheduleId}/inclusions`,
-        { student_id: studentId },
-      );
-      return res.data;
-    },
-    onSuccess: (_data, studentId) => {
-      void queryClient.invalidateQueries({ queryKey: recurringScheduleKeys.detail(scheduleId) });
-      void queryClient.invalidateQueries({
-        queryKey: studentScheduleCoverageKeys.detail(studentId),
-      });
-    },
-  });
-}

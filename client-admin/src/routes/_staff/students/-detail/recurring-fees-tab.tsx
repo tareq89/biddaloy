@@ -2,16 +2,20 @@
  * [16.7.5] Student detail's "Recurring fees" top-level tab — registered
  * in `$studentId.tsx` next to "Fees" per issue #679's Step 4. Shows
  * which schedules currently cover this student, which they're excluded
- * from, lets staff toggle either direction, an "Add to schedule" picker
- * for active schedules not currently covering them, and a "Bill
- * one-off" fallback (pre-selected to this student) for when a
- * schedule's audience genuinely doesn't match.
+ * from, and lets staff toggle either direction. For an active schedule
+ * not currently covering the student, the only action offered is
+ * "Bill one-off" (pre-selected to this student) — there is no server
+ * concept of explicitly adding a student to a schedule's audience
+ * (`RecurringSchedule.audience` is a rule, not an enumerable list; a
+ * matching student is already covered automatically by the schedule's
+ * next scheduled run). A prior interim contract posted to a
+ * `/fees/schedules/:id/inclusions` route the server never implemented —
+ * removed rather than left calling a 404.
  */
 import { Permission } from '@biddaloy/shared';
 import { Button, Input } from '@biddaloy/ui/components';
 import {
   useAddScheduleExclusion,
-  useAddScheduleInclusion,
   useHasPermission,
   useIncludeStudentInSchedule,
   useRecurringSchedules,
@@ -119,43 +123,28 @@ function audienceMatchesStudent(
 
 function AddToScheduleRow({
   schedule,
-  studentId,
   matchesAudience,
   onBillOneOff,
 }: {
   schedule: RecurringSchedule;
-  studentId: string;
   matchesAudience: boolean;
   onBillOneOff: () => void;
 }) {
   const { t } = useTranslation('fees');
-  const addInclusion = useAddScheduleInclusion(schedule.id);
 
   return (
     <li className="flex flex-col gap-2 rounded-lg border border-border-subtle p-3">
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm">{schedule.name}</span>
-        {matchesAudience ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={addInclusion.isPending}
-            onClick={() => addInclusion.mutate(studentId)}
-          >
-            {t('recurringFeesTab.addScheduleAction')}
-          </Button>
-        ) : (
-          <Button type="button" size="sm" variant="outline" onClick={onBillOneOff}>
-            {t('recurringFeesTab.billOneOffAction')}
-          </Button>
-        )}
+        <Button type="button" size="sm" variant="outline" onClick={onBillOneOff}>
+          {t('recurringFeesTab.billOneOffAction')}
+        </Button>
       </div>
-      {!matchesAudience && (
-        <p className="text-xs text-muted-foreground">
-          {t('recurringFeesTab.noAudienceMatchNotice')}
-        </p>
-      )}
+      <p className="text-xs text-muted-foreground">
+        {matchesAudience
+          ? t('recurringFeesTab.alreadyCoveredNotice')
+          : t('recurringFeesTab.noAudienceMatchNotice')}
+      </p>
     </li>
   );
 }
@@ -220,14 +209,23 @@ export function RecurringFeesTab({ studentId }: RecurringFeesTabProps) {
                   </p>
                 ) : (
                   <ul className="flex flex-col gap-2">
-                    {coverage.excluded.map((schedule) => (
-                      <IncludeAgainRow
-                        key={schedule.id}
-                        scheduleId={schedule.id}
-                        studentId={studentId}
-                        name={schedule.name}
-                      />
-                    ))}
+                    {coverage.excluded.map((schedule) =>
+                      canManage ? (
+                        <IncludeAgainRow
+                          key={schedule.id}
+                          scheduleId={schedule.id}
+                          studentId={studentId}
+                          name={schedule.name}
+                        />
+                      ) : (
+                        <li
+                          key={schedule.id}
+                          className="flex items-center justify-between rounded-lg border border-border-subtle p-3"
+                        >
+                          <span className="text-sm">{schedule.name}</span>
+                        </li>
+                      ),
+                    )}
                   </ul>
                 )}
               </section>
@@ -247,7 +245,6 @@ export function RecurringFeesTab({ studentId }: RecurringFeesTabProps) {
                         <AddToScheduleRow
                           key={schedule.id}
                           schedule={schedule}
-                          studentId={studentId}
                           matchesAudience={audienceMatchesStudent(schedule, {
                             classId: student.class_section.class_id,
                             sectionId: student.class_section_id,

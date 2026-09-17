@@ -338,13 +338,13 @@
     "excludeAction": "সময়সূচী বাদ দিন",
     "excludeReasonLabel": "কারণ",
     "includeAction": "আবার অন্তর্ভুক্ত করুন",
-    "addScheduleAction": "সময়সূচী যোগ করুন",
     "billOneOffAction": "একবারের জন্য বিল করুন",
+    "alreadyCoveredNotice": "ইতিমধ্যে এই সময়সূচী দ্বারা স্বয়ংক্রিয়ভাবে কভার করা হয়েছে।",
     "noAudienceMatchNotice": "এই শিক্ষার্থী এই সময়সূচীর শ্রোতার সাথে মেলে না — পরিবর্তে \"একবারের জন্য বিল করুন\" ব্যবহার করুন।",
     "includedEmptyMessage": "কোনো পুনরাবৃত্ত সময়সূচীর আওতায় নেই",
     "excludedEmptyMessage": "কোনো বাদ দেওয়া সময়সূচী নেই",
-    "addToScheduleTitle": "সময়সূচীতে যোগ করুন",
-    "addToScheduleEmptyMessage": "এই শিক্ষার্থীকে যোগ করার মতো আর কোনো সক্রিয় সময়সূচী নেই",
+    "addToScheduleTitle": "অন্যান্য সক্রিয় সময়সূচী",
+    "addToScheduleEmptyMessage": "অন্য কোনো সক্রিয় সময়সূচী নেই",
     "errorMessage": "এই শিক্ষার্থীর জন্য পুনরাবৃত্ত-ফি কভারেজ লোড করা যায়নি"
   }
 }

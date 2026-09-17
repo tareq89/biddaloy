@@ -154,7 +154,11 @@ describe('students/-detail/recurring-fees-tab', () => {
     await waitFor(() => expect(removeCalled).toBe(true));
   });
 
-  it('"Add schedule" is offered when the schedule audience matches the student', async () => {
+  it('shows an "already covered" notice, not an inclusion action, when the schedule audience matches the student', async () => {
+    // There is no server concept of explicitly adding a student to a
+    // schedule's audience -- a matching student is already covered
+    // automatically by the schedule's next scheduled run. "Bill one-off"
+    // is the only action offered either way.
     renderRecurringFeesTab({
       student: studentFactory({
         id: 'student-1',
@@ -173,8 +177,9 @@ describe('students/-detail/recurring-fees-tab', () => {
     });
 
     await screen.findByText('Matching schedule');
-    expect(screen.getByRole('button', { name: 'Add schedule' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Bill one-off' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add schedule' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Bill one-off' })).toBeTruthy();
+    expect(screen.getByText('Already covered automatically by this schedule.')).toBeTruthy();
   });
 
   it('offers "Bill one-off" instead of "Add schedule" when the audience does not match', async () => {
@@ -245,11 +250,18 @@ describe('students/-detail/recurring-fees-tab', () => {
       role: 'TEACHER',
       coverage: {
         included: [scheduleFixture({ id: 'included-1', name: 'Included schedule' })],
-        excluded: [],
+        excluded: [
+          {
+            ...scheduleFixture({ id: 'excluded-1', name: 'Excluded schedule' }),
+            exclusion_reason: 'Sibling discount',
+          },
+        ],
       },
     });
 
     await screen.findByText('Included schedule');
     expect(screen.queryByRole('button', { name: 'Exclude schedule' })).toBeNull();
+    await screen.findByText('Excluded schedule');
+    expect(screen.queryByRole('button', { name: 'Include again' })).toBeNull();
   });
 });

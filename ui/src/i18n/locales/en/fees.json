@@ -338,13 +338,13 @@
     "excludeAction": "Exclude schedule",
     "excludeReasonLabel": "Reason",
     "includeAction": "Include again",
-    "addScheduleAction": "Add schedule",
     "billOneOffAction": "Bill one-off",
+    "alreadyCoveredNotice": "Already covered automatically by this schedule.",
     "noAudienceMatchNotice": "This student doesn't match this schedule's audience — use \"Bill one-off\" instead.",
     "includedEmptyMessage": "Not covered by any recurring schedule",
     "excludedEmptyMessage": "No excluded schedules",
-    "addToScheduleTitle": "Add to schedule",
-    "addToScheduleEmptyMessage": "No other active schedules to add this student to",
+    "addToScheduleTitle": "Other active schedules",
+    "addToScheduleEmptyMessage": "No other active schedules",
     "errorMessage": "Failed to load recurring-fee coverage for this student"
   }
 }

@@ -539,7 +539,6 @@ export {
   useRemoveScheduleExclusion,
   useStudentScheduleCoverage,
   useIncludeStudentInSchedule,
-  useAddScheduleInclusion,
   type RecurringSchedule,
   type RecurringScheduleRule,
   type RecurringScheduleRuleMode,
