@@ -8,6 +8,7 @@ import {
 import { render, type RenderOptions, type RenderResult } from '@testing-library/react';
 
 import { setAccessToken, setActiveRole, setActiveTenant } from '../api/auth-state';
+import { ApprovalModalHostProvider } from '../hooks/approval';
 import { i18n } from '../i18n/i18n';
 import { I18nProvider } from '../i18n/locale-provider';
 
@@ -98,7 +99,9 @@ export function renderWithRouter<TRouteTree extends AnyRoute>(
   const view = render(
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
-        <RouterProvider router={router} />
+        <ApprovalModalHostProvider>
+          <RouterProvider router={router} />
+        </ApprovalModalHostProvider>
       </I18nProvider>
     </QueryClientProvider>,
     renderOptions,

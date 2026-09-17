@@ -8,7 +8,7 @@
  * should mirror `students.ts`'s shape rather than reinvent it — see
  * `ui/README.md`'s "Hooks" section for the full pattern write-up.
  */
-export { ApprovalCancelledError } from './approval';
+export { ApprovalCancelledError, ApprovalModalHostProvider } from './approval';
 export { createEntityKeys, type EntityKeys } from './query-keys';
 export { shouldRetryQuery } from './retry';
 export { useOnline } from './use-online';

@@ -9,12 +9,11 @@
  * once any of them do. `useApprovedMutation` is what makes "only prompt
  * when the server actually needs it" true — see `ui/src/hooks/approval.tsx`.
  *
- * **Mount this only while `open` is true** (e.g. `{open && <RemoveStudentDialog
- * ... />}`), same reasoning `batch-actions.tsx`'s own doc comment gives for
- * its three dialogs — `useApprovedMutation`'s single approval-modal host
- * goes to whichever instance mounts first and never lets go while mounted,
- * so an always-mounted instance here would starve `batch-actions.tsx`'s
- * kebab-menu mutations (or vice versa) of ever showing the modal.
+ * Mount this only while `open` is true (e.g. `{open && <RemoveStudentDialog
+ * ... />}`) so its state resets between openings — see `batch-actions.tsx`'s
+ * own doc comment. That used to be required to avoid starving another
+ * `useApprovedMutation` of the single approval-modal host; the modal is now
+ * owned by one app-level `<ApprovalModalHostProvider>`, so it isn't.
  */
 import { ApiError } from '@biddaloy/ui/api';
 import {
@@ -118,7 +117,6 @@ export function RemoveStudentDialog({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {removeBatchStudent.modal}
     </>
   );
 }

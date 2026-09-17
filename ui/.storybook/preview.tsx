@@ -4,6 +4,7 @@ import { setupWorker } from 'msw/browser';
 import { mswLoader } from 'msw-storybook-addon/csf3';
 import { useEffect } from 'react';
 
+import { ApprovalModalHostProvider } from '../src/hooks/approval';
 import { i18n, I18nProvider, type Locale } from '../src/i18n';
 import { handlers } from '../src/test/msw/handlers';
 import '../src/styles/globals.css';
@@ -201,9 +202,15 @@ const preview: Preview = {
       return (
         <QueryClientProvider client={queryClient}>
           <I18nProvider>
-            <div dir={dir} lang={locale} data-density={densityAttribute}>
-              <Story />
-            </div>
+            {/* One approval-modal host for every story, mirroring the app
+                shell (`client-admin/src/routes/_staff.tsx`) — a story that
+                renders a component using `useApprovedMutation` would
+                otherwise have no host to show the step-up prompt. */}
+            <ApprovalModalHostProvider>
+              <div dir={dir} lang={locale} data-density={densityAttribute}>
+                <Story />
+              </div>
+            </ApprovalModalHostProvider>
           </I18nProvider>
         </QueryClientProvider>
       );

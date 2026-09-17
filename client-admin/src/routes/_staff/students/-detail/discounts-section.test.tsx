@@ -71,20 +71,17 @@ describe('students/-detail/discounts-section', () => {
     return within(await screen.findByRole('tabpanel', { name: 'Discounts' }));
   }
 
-  // These two are mounted standalone (`renderWithProviders`, not the full
-  // route tree) and run *before* any `renderDiscountsTab` test below.
-  // `useApprovedMutation`'s modal-host slot is a module-level singleton
-  // (`approval.tsx`'s `hostClaimed`) with no test-scoped reset, and the
-  // Fees tab always renders `RecordPaymentModal`, which unconditionally
-  // calls `useCheckout()` (`record-payment-modal.tsx:244`) and so claims
-  // that slot for the rest of the file once any full-page test has run.
-  // Running standalone first avoids fighting that pre-existing
-  // contention rather than papering over it — same standalone-mount
-  // reasoning `FeesSection.test.tsx` uses for its own approval-gated
-  // section. Do not reorder these below the `renderDiscountsTab` tests.
+  // Deliberately mounted through the FULL route tree, not standalone: the
+  // Fees tab also renders `RecordPaymentModal`, which unconditionally calls
+  // `useCheckout()` — another `useApprovedMutation`. This test used to have
+  // to run standalone, and first in the file, because the approval modal was
+  // owned by whichever hook instance mounted first, so the checkout hook
+  // permanently starved this one. The modal now lives in one
+  // `<ApprovalModalHostProvider>` at the app shell, so mount order no longer
+  // decides anything and these tests can run in any order.
   it('adding a rule that gets a 403 APPROVAL_REQUIRED opens the approval flow, not a generic error', async () => {
+    renderDiscountsTab([]);
     server.use(
-      http.get('/api/v1/students/:studentId/discount-rules', () => HttpResponse.json([])),
       http.post('/api/v1/discount-rules', () =>
         HttpResponse.json(
           {
@@ -95,14 +92,10 @@ describe('students/-detail/discounts-section', () => {
         ),
       ),
     );
-    renderWithProviders(<DiscountsSection studentId="student-1" />, {
-      locale: 'en',
-      role: 'ADMIN',
-      tenantId: 'tenant-1',
-    });
+    const panel = await openDiscountsTab();
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Add discount rule' }));
+    await user.click(await panel.findByRole('button', { name: 'Add discount rule' }));
 
     await user.type(await screen.findByLabelText('Value'), '15');
     await user.type(screen.getByLabelText('Reason'), 'New sibling discount');

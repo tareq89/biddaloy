@@ -4,6 +4,7 @@
  * and generic-error fallback.
  */
 import { setActiveRole, setActiveTenant } from '@biddaloy/ui/api';
+import { ApprovalModalHostProvider } from '@biddaloy/ui/hooks';
 import { I18nProvider, i18n } from '@biddaloy/ui/i18n';
 import { apiErrorBody, cleanupTestState, createTestQueryClient, server } from '@biddaloy/ui/test';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -48,7 +49,12 @@ async function renderDialog(overrides: Partial<ReversePaymentDialogProps> = {}) 
   const view = render(
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
-        <RouterProvider router={router} />
+        {/* The approval prompt lives in one app-level host (mounted at
+            `routes/_staff.tsx` in the real app), so this hand-rolled
+            provider stack has to include it too. */}
+        <ApprovalModalHostProvider>
+          <RouterProvider router={router} />
+        </ApprovalModalHostProvider>
       </I18nProvider>
     </QueryClientProvider>,
   );

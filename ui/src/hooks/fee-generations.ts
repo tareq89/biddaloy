@@ -190,9 +190,8 @@ export function useFeeGenerationBills(
  * (see that file's own doc comment) so the step-up approval modal only
  * appears when the server actually answers `403 APPROVAL_REQUIRED` — per
  * #651's plan, that happens whenever a bill in scope already has money
- * against it (`paid_amount > 0` or an allocation). Callers render
- * `.modal` once, anywhere, same as every other `useApprovedMutation`
- * caller.
+ * against it (`paid_amount > 0` or an allocation). Callers render nothing
+ * for it: the app-level `<ApprovalModalHostProvider>` owns the modal.
  */
 
 /** #651's `PatchFeeGenerationDto` — all fields optional, only sent fields
