@@ -147,6 +147,11 @@ CI_PATHS_SERVER=(
   'yarn.lock'
   '.github/workflows/ci.yml'
 )
+# Mirror of ci.yml's `changes` job "api-surface" filter — keep in sync.
+CI_PATHS_API_SURFACE=(
+  'server/src/**'
+  'ui/src/api/**'
+)
 CI_PATHS_UI=(
   'ui/**'
   'yarn.lock'
@@ -155,9 +160,19 @@ CI_PATHS_UI=(
 
 CHANGED_FILES=()
 if [ "$AFFECTED" = 1 ]; then
+  # Committed diff against origin/main, PLUS working-tree changes (staged
+  # and unstaged) and untracked files — a plain `origin/main...HEAD` diff
+  # only sees commits, so uncommitted local work (the normal state while
+  # actually iterating) would be silently invisible to --affected.
   while IFS= read -r line; do
     [ -n "$line" ] && CHANGED_FILES+=("$line")
-  done < <(git diff --name-only origin/main...HEAD)
+  done < <(
+    {
+      git diff --name-only origin/main...HEAD
+      git diff --name-only HEAD
+      git ls-files --others --exclude-standard
+    } | sort -u
+  )
 fi
 
 # path_matches(file, pattern) — dorny/paths-filter-style glob: a
@@ -183,6 +198,7 @@ area_touched() {
     frontend) patterns=("${CI_PATHS_FRONTEND[@]}") ;;
     server) patterns=("${CI_PATHS_SERVER[@]}") ;;
     ui) patterns=("${CI_PATHS_UI[@]}") ;;
+    api-surface) patterns=("${CI_PATHS_API_SURFACE[@]}") ;;
   esac
   # `set -u` treats an empty array's "${arr[@]}" as unbound on this
   # bash — guard the loop on the count instead of the expansion.
@@ -223,16 +239,11 @@ should_run() {
       frontend | e2e)
         area_touched frontend || return 1
         ;;
-      # ci.yml's "integration" job gates on `server || api-surface`. There's
-      # no CI_PATHS_API_SURFACE array here — `api-surface` is `server/src/**`
-      # (already inside CI_PATHS_SERVER) plus `ui/src/api/**` (a small slice
-      # of CI_PATHS_FRONTEND's much wider `ui/**`). Gating on the full
-      # `frontend` area here would over-run integration on client-admin/e2e/
-      # shared-only branches ci.yml's real job would skip — so this checks
-      # `server` only, which slightly under-approximates the `ui/src/api/**`
-      # sliver of api-surface but never over-runs relative to ci.yml.
+      # Mirrors ci.yml's "integration" job, which gates on `server ||
+      # api-surface` — a `ui/src/api/**`-only change (no other server/**
+      # file touched) still needs integration locally, same as in CI.
       integration)
-        area_touched server || return 1
+        area_touched server || area_touched api-surface || return 1
         ;;
       storybook)
         area_touched ui || return 1
