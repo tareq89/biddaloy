@@ -892,6 +892,16 @@ jobs:
     if: github.event_name == 'merge_group'
     uses: ./.github/workflows/nightly-quality.yml
     secrets: inherit
+    # A reusable workflow call cannot escalate to a permission the caller
+    # doesn't grant — nightly-quality.yml's own `report` job requests
+    # `issues: write`, and neither this job nor ci.yml's top level declared
+    # any `permissions:`, so GitHub rejected the ENTIRE run at parse time
+    # (a whole-run `startup_failure`, no jobs listed at all — not a single
+    # job failing). Reproduced and bisected: removing just this job let the
+    # run start normally; adding this block back fixed it.
+    permissions:
+      contents: read
+      issues: write
 
   bundle-delta:
     name: Bundle size delta
