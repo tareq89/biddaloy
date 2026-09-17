@@ -194,6 +194,52 @@ describe('RecurringSchedulesService (integration)', () => {
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
+
+    it('rejects a starts_on after ends_on with 400 on create', async () => {
+      const structureId = await createFeeStructure({ name: `Tuition ${Date.now()}` });
+
+      await expect(
+        service.create(
+          {
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            name: 'Backwards date range schedule',
+            audience: { enrollment_status: 'ACTIVE' },
+            rule: { kind: 'MONTHLY', day_of_month: 1 },
+            fee_structure_ids: [structureId],
+            starts_on: '2026-06-01',
+            ends_on: '2026-01-01',
+          } as any,
+          SEED_TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects a starts_on after ends_on with 400 on update', async () => {
+      const structureId = await createFeeStructure({ name: `Tuition ${Date.now()}` });
+      const created = await service.create(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          name: 'Schedule to push backwards',
+          audience: { enrollment_status: 'ACTIVE' },
+          rule: { kind: 'MONTHLY', day_of_month: 1 },
+          fee_structure_ids: [structureId],
+          starts_on: '2026-01-01',
+          ends_on: '2026-06-01',
+        } as any,
+        SEED_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      await expect(
+        service.update(
+          created.id,
+          { starts_on: '2026-12-01' } as any,
+          SEED_TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
   });
 
   describe('clone', () => {
