@@ -737,7 +737,15 @@ export class RecurringSchedulesService {
       .andWhere('rs.starts_on <= :today', { today })
       .andWhere('rs.ends_on >= :today', { today })
       .getMany();
-    const exclusions = await this.exclusionRepo.find({ where: { student_id: studentId } });
+    // `recurring_schedule_exclusions` carries no tenant_id of its own — scope
+    // it via the already tenant-filtered `schedules` list rather than a bare
+    // student_id lookup, so a cross-tenant schedule_id can never leak in.
+    const scheduleIds = schedules.map((s) => s.id);
+    const exclusions = scheduleIds.length
+      ? await this.exclusionRepo.find({
+          where: { student_id: studentId, schedule_id: In(scheduleIds) },
+        })
+      : [];
     const excludedScheduleIds = new Set(exclusions.map((e) => e.schedule_id));
 
     const results: StudentScheduleItemDto[] = [];
