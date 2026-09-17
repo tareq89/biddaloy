@@ -260,6 +260,19 @@ export class RecurringSchedulesService {
     return requested;
   }
 
+  /**
+   * `isDue()` (recurrence.util.ts) only fires `starts_on <= today <= ends_on`
+   * — a schedule saved with `starts_on` after `ends_on` never becomes due,
+   * so it silently never bills anyone rather than failing loudly at create
+   * time. Reject that combination up front instead of letting it land as a
+   * dead schedule an admin thinks is active.
+   */
+  private validateStartsOnBeforeEndsOn(startsOn: string, endsOn: string): void {
+    if (new Date(startsOn).getTime() > new Date(endsOn).getTime()) {
+      throw new BadRequestException(`starts_on (${startsOn}) may not be after ends_on (${endsOn})`);
+    }
+  }
+
   async create(
     dto: CreateRecurringScheduleDto,
     tenantId: string,
@@ -270,6 +283,7 @@ export class RecurringSchedulesService {
     await this.validateAudience(dto.audience, dto.academic_year_id, tenantId);
     await this.validateFeeStructureIds(dto.fee_structure_ids, dto.academic_year_id, tenantId);
     const endsOn = this.resolveEndsOn(dto.ends_on, academicYear);
+    this.validateStartsOnBeforeEndsOn(dto.starts_on, endsOn);
 
     const saved = await this.repo.manager.transaction(async (manager) => {
       const scheduleRepo = manager.getRepository(RecurringSchedule);
@@ -389,6 +403,10 @@ export class RecurringSchedulesService {
     }
     const endsOn =
       dto.ends_on !== undefined ? this.resolveEndsOn(dto.ends_on, academicYear) : undefined;
+    this.validateStartsOnBeforeEndsOn(
+      dto.starts_on ?? String(schedule.starts_on),
+      endsOn ?? String(schedule.ends_on),
+    );
 
     await this.repo.manager.transaction(async (manager) => {
       const scheduleRepo = manager.getRepository(RecurringSchedule);
@@ -644,7 +662,13 @@ export class RecurringSchedulesService {
           starts_on: String(targetYear.start_date),
           ends_on: String(targetYear.end_date),
           notify_families: source.notify_families,
-          is_active: source.is_active,
+          // If the audience couldn't be remapped into the target year
+          // (unmatchedAudienceLabel set), the clone would otherwise fall
+          // back to a school-wide audience — silently billing every
+          // student instead of the source's narrow class/section. Land
+          // it inactive so it can't bill anyone until a human fixes the
+          // audience and flips it on.
+          is_active: unmatchedAudienceLabel !== null ? false : source.is_active,
           created_by_user_id: userId,
         }),
       );

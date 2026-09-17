@@ -360,6 +360,11 @@ describe('RecurringSchedulesService (integration)', () => {
 
       expect(result.unmatched_audience_label).not.toBeNull();
       expect(result.schedule.audience).toEqual({ enrollment_status: 'ACTIVE' });
+      // A failed remap must not silently widen to a school-wide, active
+      // schedule — that would bill every student instead of the source's
+      // narrow section. Land it inactive; unmatched_audience_label tells
+      // the caller/UI why, so a human can fix the audience and flip it on.
+      expect(result.schedule.is_active).toBe(false);
     });
 
     it('remaps a class/section audience by name when a same-named class exists in the target year', async () => {
