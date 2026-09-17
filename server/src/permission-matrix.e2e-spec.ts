@@ -180,6 +180,45 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
       '14.12.3/#617 — platform route (SUPER_ADMIN cross-school backup health), same rationale as GET /schools.',
   },
   {
+    controller: 'PublicHolidaysController',
+    method: 'GET',
+    path: '/platform/holiday-sets',
+    reason:
+      '17.2.4 — platform route (SUPER_ADMIN curates public-holiday sets), no tenant involved.',
+  },
+  {
+    controller: 'PublicHolidaysController',
+    method: 'GET',
+    path: '/platform/holiday-sets/:id',
+    reason:
+      '17.2.4 — platform route (SUPER_ADMIN curates public-holiday sets), no tenant involved.',
+  },
+  {
+    controller: 'PublicHolidaysController',
+    method: 'POST',
+    path: '/platform/holiday-sets/fetch',
+    reason:
+      '17.2.4 — platform route (SUPER_ADMIN fetches a country/year set from an external source).',
+  },
+  {
+    controller: 'PublicHolidaysController',
+    method: 'PUT',
+    path: '/platform/holiday-sets/:id/entries',
+    reason: '17.2.4 — platform route (SUPER_ADMIN edits set entries).',
+  },
+  {
+    controller: 'PublicHolidaysController',
+    method: 'POST',
+    path: '/platform/holiday-sets/:id/publish',
+    reason: '17.2.4 — platform route (SUPER_ADMIN publishes a set for tenants to import from).',
+  },
+  {
+    controller: 'PublicHolidaysController',
+    method: 'POST',
+    path: '/platform/holiday-sets/:id/unpublish',
+    reason: '17.2.4 — platform route (SUPER_ADMIN unpublishes a set).',
+  },
+  {
     controller: 'PushSubscriptionsController',
     method: 'GET',
     path: '/me/push/public-key',
@@ -473,11 +512,11 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // `POST /fees/schedules/run-now` and DISCOUNT_RULE_MANAGE now gates the
   // discount-rule CRUD endpoints — also removed from this list.
   Permission.FEE_APPROVE,
-  // [17.1] CALENDAR_MANAGE exists for the academic calendar feature
-  // (17.x), but no server route gates on it yet — mutations still land
-  // via `PATCH /schools/:id/settings` (SETTINGS_MANAGE). CALENDAR_READ
-  // moved off this list in [17.2.3]: `GET /calendar-settings` gates on it.
-  Permission.CALENDAR_MANAGE,
+  // [17.1] CALENDAR_MANAGE moved off this list: `POST /calendar/events`
+  // (and its sibling mutation routes) gate on it as of [17.2.x], and
+  // `POST /calendar/public-holidays/add` gates on it too as of [17.2.4].
+  // CALENDAR_READ moved off this list in [17.2.3]: `GET /calendar-settings`
+  // gates on it.
 ];
 
 describe('Permission matrix (regression)', () => {
