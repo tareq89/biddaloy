@@ -9,6 +9,7 @@ import { ClassSection } from '../../../academics/entities/class-section.entity';
 import { Subject } from '../../../academics/entities/subject.entity';
 import { ClassSubject } from '../../../academics/entities/class-subject.entity';
 import { CalendarEvent } from '../../../calendar/entities/calendar-event.entity';
+import { CalendarEventType, CalendarAudience } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { academicYearsTab, type AcademicYearRow } from './academic-years.tab';
@@ -16,7 +17,7 @@ import { classesTab, type ClassRow } from './classes.tab';
 import { sectionsTab, type ClassSectionRow } from './sections.tab';
 import { subjectsTab, type SubjectRow } from './subjects.tab';
 import { classSubjectsTab, type ClassSubjectRow } from './class-subjects.tab';
-import { holidaysTab, type HolidayRow } from './holidays.tab';
+import { calendarEventsTab, type CalendarEventRow } from './calendar-events.tab';
 
 /**
  * Integration tests for the academics lane's three tabs against a real
@@ -573,7 +574,7 @@ describe('academics tabs (integration)', () => {
     });
   });
 
-  describe('holidays', () => {
+  describe('calendar_events', () => {
     async function seedYear(tenantId: string, id: string): Promise<AcademicYear> {
       return academicYearsTab.upsert(
         {
@@ -589,15 +590,26 @@ describe('academics tabs (integration)', () => {
       );
     }
 
-    function rowFor(academicYearId: string, overrides: Partial<HolidayRow> = {}): HolidayRow {
+    function rowFor(
+      academicYearId: string,
+      overrides: Partial<CalendarEventRow> = {},
+    ): CalendarEventRow {
       return {
         id: '00000000-0000-4000-8000-000000000080',
         academic_year_id: academicYearId,
+        type: CalendarEventType.HOLIDAY,
         name: 'Winter break',
+        description: null,
         start_date: '2026-12-20',
         end_date: '2026-12-31',
+        start_time: null,
+        end_time: null,
         counts_as_working_day: false,
+        audience: CalendarAudience.ALL,
+        published: true,
+        class_ids: [],
         academic_year_key: 'unused-in-upsert',
+        class_keys: [],
         ...overrides,
       };
     }
@@ -605,7 +617,12 @@ describe('academics tabs (integration)', () => {
     it('upsert creates a new row', async () => {
       const year = await seedYear(TENANT_A, '00000000-0000-4000-8000-000000000090');
 
-      const created = await holidaysTab.upsert(rowFor(year.id), null, TENANT_A, dataSource.manager);
+      const created = await calendarEventsTab.upsert(
+        rowFor(year.id),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
 
       const saved = await holidayRepo.findOneByOrFail({ id: created.id });
       expect(saved.name).toBe('Winter break');
@@ -615,14 +632,14 @@ describe('academics tabs (integration)', () => {
 
     it('upsert with one changed field updates only that field', async () => {
       const year = await seedYear(TENANT_A, '00000000-0000-4000-8000-000000000091');
-      const existing = await holidaysTab.upsert(
+      const existing = await calendarEventsTab.upsert(
         rowFor(year.id),
         null,
         TENANT_A,
         dataSource.manager,
       );
 
-      await holidaysTab.upsert(
+      await calendarEventsTab.upsert(
         rowFor(year.id, { id: existing.id, counts_as_working_day: true }),
         existing,
         TENANT_A,
@@ -636,14 +653,14 @@ describe('academics tabs (integration)', () => {
 
     it('remove soft-deletes the holiday', async () => {
       const year = await seedYear(TENANT_A, '00000000-0000-4000-8000-000000000092');
-      const existing = await holidaysTab.upsert(
+      const existing = await calendarEventsTab.upsert(
         rowFor(year.id),
         null,
         TENANT_A,
         dataSource.manager,
       );
 
-      await holidaysTab.remove(existing, dataSource.manager);
+      await calendarEventsTab.remove(existing, dataSource.manager);
 
       expect(await holidayRepo.findOneBy({ id: existing.id })).toBeNull();
       const withDeleted = await holidayRepo.findOne({
@@ -656,15 +673,15 @@ describe('academics tabs (integration)', () => {
     it("load never returns another tenant's rows", async () => {
       const yearA = await seedYear(TENANT_A, '00000000-0000-4000-8000-000000000093');
       const yearB = await seedYear(TENANT_B, '00000000-0000-4000-8000-000000000094');
-      await holidaysTab.upsert(rowFor(yearA.id), null, TENANT_A, dataSource.manager);
-      await holidaysTab.upsert(
+      await calendarEventsTab.upsert(rowFor(yearA.id), null, TENANT_A, dataSource.manager);
+      await calendarEventsTab.upsert(
         rowFor(yearB.id, { id: '00000000-0000-4000-8000-000000000095' }),
         null,
         TENANT_B,
         dataSource.manager,
       );
 
-      const loaded = await holidaysTab.load(TENANT_A, dataSource.manager);
+      const loaded = await calendarEventsTab.load(TENANT_A, dataSource.manager);
 
       expect(loaded).toHaveLength(1);
       expect(loaded[0].tenant_id).toBe(TENANT_A);
