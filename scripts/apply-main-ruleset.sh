@@ -52,7 +52,9 @@ desired_body="$(
           { "context": "Build, lint, unit tests" },
           { "context": "Frontend tests" },
           { "context": "Integration & e2e tests" },
-          { "context": "E2E smoke (chromium)" }
+          { "context": "E2E smoke (chromium)" },
+          { "context": "Route sweeps (chromium-sweeps)" },
+          { "context": "Nightly quality (merge queue) / Lighthouse (3G budgets)" }
         ]
       }
     },
