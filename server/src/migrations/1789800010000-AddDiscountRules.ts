@@ -30,6 +30,8 @@ export class AddDiscountRules1789800010000 implements MigrationInterface {
         "ends_on" date,
         "reason" character varying(200) NOT NULL,
         "created_by_user_id" uuid NOT NULL,
+        "is_active" boolean NOT NULL DEFAULT true,
+        "approved_by_user_id" uuid NOT NULL,
         "created_at" timestamptz NOT NULL DEFAULT now(),
         "updated_at" timestamptz NOT NULL DEFAULT now(),
         "deleted_at" timestamptz,
@@ -49,6 +51,9 @@ export class AddDiscountRules1789800010000 implements MigrationInterface {
     );
     await queryRunner.query(
       `ALTER TABLE "discount_rules" ADD CONSTRAINT "FK_discount_rules_student" FOREIGN KEY ("student_id") REFERENCES "students"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "discount_rules" ADD CONSTRAINT "FK_discount_rules_approved_by_user_id" FOREIGN KEY ("approved_by_user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE NO ACTION`,
     );
   }
 

@@ -8,6 +8,7 @@ import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { School } from '../schools/entities/school.entity';
+import { User } from '../users/entities/user.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import {
@@ -16,7 +17,7 @@ import {
   SEED_SECTION_1_ID,
   SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
-import { DiscountKind, EnrollmentStatus, FeeType } from '@biddaloy/shared';
+import { DiscountKind, EnrollmentStatus, FeeType, UserStatus } from '@biddaloy/shared';
 
 /**
  * Integration tests for `DiscountRulesService` (#677/16.7.3) — the
@@ -28,6 +29,8 @@ const STUDENT_ID = '00000000-0000-4000-8000-000000000501';
 const OTHER_STUDENT_ID = '00000000-0000-4000-8000-000000000502';
 const TUITION_STRUCTURE_ID = '00000000-0000-4000-8000-000000000551';
 const LATE_FEE_STRUCTURE_ID = '00000000-0000-4000-8000-000000000552';
+const APPROVER_ID = '00000000-0000-4000-8000-000000000999';
+const TODAY_PERIOD = '2026-03-01';
 
 describe('DiscountRulesService (integration)', () => {
   let ds: DataSource;
@@ -91,6 +94,17 @@ describe('DiscountRulesService (integration)', () => {
   // in `beforeAll` (same convention `fee-dues.service.integration.spec.ts`
   // documents for `fee_structures`).
   beforeEach(async () => {
+    // `discount_rules.approved_by_user_id` has a real FK to `users` — the
+    // approver on every `service.create`/`update` call below must exist.
+    // `users` is truncated per-test too, so reseed here, not `beforeAll`.
+    await ds.getRepository(User).save(
+      ds.getRepository(User).create({
+        id: APPROVER_ID,
+        full_name: 'Test Approver',
+        status: UserStatus.ACTIVE,
+      }),
+    );
+
     const feeStructureRepo = ds.getRepository(FeeStructure);
     await feeStructureRepo.save(
       feeStructureRepo.create({
@@ -140,15 +154,17 @@ describe('DiscountRulesService (integration)', () => {
 
   describe('CRUD', () => {
     it('creates, updates, and soft-deletes a rule', async () => {
-      const created = await service.create(SEED_TENANT_ID, '00000000-0000-4000-8000-000000000999', {
+      const created = await service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, {
         student_id: STUDENT_ID,
         kind: DiscountKind.PERCENT,
         value: 20,
         reason: 'Sibling discount',
       });
       expect(created.id).toBeDefined();
+      expect(created.approved_by_user_id).toBe(APPROVER_ID);
+      expect(created.is_active).toBe(true);
 
-      const updated = await service.update(SEED_TENANT_ID, created.id, { value: 25 });
+      const updated = await service.update(SEED_TENANT_ID, created.id, APPROVER_ID, { value: 25 });
       expect(Number(updated.value)).toBe(25);
 
       await service.remove(SEED_TENANT_ID, created.id);
@@ -157,7 +173,7 @@ describe('DiscountRulesService (integration)', () => {
     });
 
     it('tenant-isolated: a rule for one tenant is invisible to another', async () => {
-      await service.create(SEED_TENANT_ID, '00000000-0000-4000-8000-000000000999', {
+      await service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, {
         student_id: STUDENT_ID,
         kind: DiscountKind.FLAT,
         value: 100,
@@ -166,11 +182,30 @@ describe('DiscountRulesService (integration)', () => {
       const otherTenantRules = await service.listForStudent(OTHER_TENANT_ID, STUDENT_ID);
       expect(otherTenantRules).toHaveLength(0);
     });
+
+    it('[Opus review B3] a deactivated rule (is_active: false) no longer resolves', async () => {
+      const created = await service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, {
+        student_id: STUDENT_ID,
+        kind: DiscountKind.FLAT,
+        value: 100,
+        reason: 'Test',
+      });
+      await service.update(SEED_TENANT_ID, created.id, APPROVER_ID, { is_active: false });
+
+      const result = await service.resolve({
+        tenantId: SEED_TENANT_ID,
+        studentId: STUDENT_ID,
+        feeStructureId: TUITION_STRUCTURE_ID,
+        baseAmount: 1000,
+        periodStart: TODAY_PERIOD,
+      });
+      expect(result.amount).toBe(0);
+    });
   });
 
   describe('resolve (DiscountResolver)', () => {
     it('PERCENT rounds half-up to 2 decimals', async () => {
-      await service.create(SEED_TENANT_ID, '00000000-0000-4000-8000-000000000999', {
+      await service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, {
         student_id: STUDENT_ID,
         kind: DiscountKind.PERCENT,
         value: 12.35,
@@ -181,19 +216,20 @@ describe('DiscountRulesService (integration)', () => {
         studentId: STUDENT_ID,
         feeStructureId: TUITION_STRUCTURE_ID,
         baseAmount: 333,
+        periodStart: TODAY_PERIOD,
       });
       // 12.35% of 333 = 41.1255 -> half-up to 41.13
       expect(result.amount).toBe(41.13);
     });
 
     it('largest discount wins when FLAT and PERCENT both apply', async () => {
-      await service.create(SEED_TENANT_ID, '00000000-0000-4000-8000-000000000999', {
+      await service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, {
         student_id: STUDENT_ID,
         kind: DiscountKind.FLAT,
         value: 50,
         reason: 'Flat',
       });
-      await service.create(SEED_TENANT_ID, '00000000-0000-4000-8000-000000000999', {
+      await service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, {
         student_id: STUDENT_ID,
         kind: DiscountKind.PERCENT,
         value: 10,
@@ -205,12 +241,13 @@ describe('DiscountRulesService (integration)', () => {
         studentId: STUDENT_ID,
         feeStructureId: TUITION_STRUCTURE_ID,
         baseAmount: 1000,
+        periodStart: TODAY_PERIOD,
       });
       expect(result.amount).toBe(100);
     });
 
     it('fee_types null matches every fee type', async () => {
-      await service.create(SEED_TENANT_ID, '00000000-0000-4000-8000-000000000999', {
+      await service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, {
         student_id: STUDENT_ID,
         kind: DiscountKind.FLAT,
         value: 30,
@@ -221,12 +258,13 @@ describe('DiscountRulesService (integration)', () => {
         studentId: STUDENT_ID,
         feeStructureId: TUITION_STRUCTURE_ID,
         baseAmount: 1000,
+        periodStart: TODAY_PERIOD,
       });
       expect(result.amount).toBe(30);
     });
 
     it('fee_types scoping: a rule for a different fee type does not apply', async () => {
-      await service.create(SEED_TENANT_ID, '00000000-0000-4000-8000-000000000999', {
+      await service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, {
         student_id: STUDENT_ID,
         kind: DiscountKind.FLAT,
         value: 30,
@@ -238,12 +276,13 @@ describe('DiscountRulesService (integration)', () => {
         studentId: STUDENT_ID,
         feeStructureId: TUITION_STRUCTURE_ID, // MONTHLY_TUITION
         baseAmount: 1000,
+        periodStart: TODAY_PERIOD,
       });
       expect(result.amount).toBe(0);
     });
 
     it('never discounts a LATE_FEE-type bill, even with a fee_types:null rule', async () => {
-      await service.create(SEED_TENANT_ID, '00000000-0000-4000-8000-000000000999', {
+      await service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, {
         student_id: STUDENT_ID,
         kind: DiscountKind.PERCENT,
         value: 100,
@@ -254,17 +293,18 @@ describe('DiscountRulesService (integration)', () => {
         studentId: STUDENT_ID,
         feeStructureId: LATE_FEE_STRUCTURE_ID,
         baseAmount: 500,
+        periodStart: TODAY_PERIOD,
       });
       expect(result.amount).toBe(0);
     });
 
-    it('respects starts_on/ends_on expiry', async () => {
-      await service.create(SEED_TENANT_ID, '00000000-0000-4000-8000-000000000999', {
+    it('respects starts_on/ends_on expiry against periodStart, not today', async () => {
+      await service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, {
         student_id: STUDENT_ID,
         kind: DiscountKind.FLAT,
         value: 40,
         starts_on: '2000-01-01',
-        ends_on: '2000-12-31', // long expired
+        ends_on: '2000-12-31', // long expired relative to *today*
         reason: 'Expired',
       });
       const result = await service.resolve({
@@ -272,12 +312,64 @@ describe('DiscountRulesService (integration)', () => {
         studentId: STUDENT_ID,
         feeStructureId: TUITION_STRUCTURE_ID,
         baseAmount: 1000,
+        periodStart: TODAY_PERIOD, // 2026, well after the rule's window too
       });
       expect(result.amount).toBe(0);
     });
 
+    it('[Opus review B5] a back-dated generation evaluates the rule live for periodStart, not for today', async () => {
+      // Rule was only ever live for January 2026.
+      await service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, {
+        student_id: STUDENT_ID,
+        kind: DiscountKind.FLAT,
+        value: 40,
+        starts_on: '2026-01-01',
+        ends_on: '2026-01-31',
+        reason: 'January-only discount',
+      });
+
+      // Generating January's bill (even though "today" is March) must
+      // still see the rule as live.
+      const januaryResult = await service.resolve({
+        tenantId: SEED_TENANT_ID,
+        studentId: STUDENT_ID,
+        feeStructureId: TUITION_STRUCTURE_ID,
+        baseAmount: 1000,
+        periodStart: '2026-01-15',
+      });
+      expect(januaryResult.amount).toBe(40);
+
+      // Generating March's bill must NOT see the (already-expired-for-
+      // that-period) rule.
+      const marchResult = await service.resolve({
+        tenantId: SEED_TENANT_ID,
+        studentId: STUDENT_ID,
+        feeStructureId: TUITION_STRUCTURE_ID,
+        baseAmount: 1000,
+        periodStart: '2026-03-15',
+      });
+      expect(marchResult.amount).toBe(0);
+    });
+
+    it('[Opus review B2] a FLAT discount larger than the bill is capped at the bill amount', async () => {
+      await service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, {
+        student_id: STUDENT_ID,
+        kind: DiscountKind.FLAT,
+        value: 5000, // way over the 1000 bill
+        reason: 'Oversized FLAT rule',
+      });
+      const result = await service.resolve({
+        tenantId: SEED_TENANT_ID,
+        studentId: STUDENT_ID,
+        feeStructureId: TUITION_STRUCTURE_ID,
+        baseAmount: 1000,
+        periodStart: TODAY_PERIOD,
+      });
+      expect(result.amount).toBe(1000); // capped, never negative-billed
+    });
+
     it("never resolves against another tenant's student", async () => {
-      await service.create(SEED_TENANT_ID, '00000000-0000-4000-8000-000000000999', {
+      await service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, {
         student_id: STUDENT_ID,
         kind: DiscountKind.FLAT,
         value: 999,
@@ -288,6 +380,7 @@ describe('DiscountRulesService (integration)', () => {
         studentId: OTHER_STUDENT_ID,
         feeStructureId: TUITION_STRUCTURE_ID,
         baseAmount: 1000,
+        periodStart: TODAY_PERIOD,
       });
       expect(result.amount).toBe(0);
     });

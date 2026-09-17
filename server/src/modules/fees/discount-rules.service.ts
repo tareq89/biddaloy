@@ -11,10 +11,6 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 /**
  * [16.7.3] `DiscountRule` CRUD (approval-gated at the controller boundary,
  * `ApprovalScope.DISCOUNT_RULES_MANAGE`) plus the `DiscountResolver` this
@@ -47,6 +43,11 @@ export class DiscountRulesService implements DiscountResolver {
     studentId: string;
     feeStructureId: string;
     baseAmount: number;
+    // [Opus review, B5] the period this bill is *for* ('YYYY-MM-DD') —
+    // expiry (starts_on/ends_on) is checked against this, not "today", so
+    // a back-dated generation run evaluates the rules that were live for
+    // that period, not whatever's live when generation happens to run.
+    periodStart: string;
   }): Promise<{ amount: number }> {
     const structure = await this.feeStructureRepo.findOne({
       where: { id: context.feeStructureId, tenant_id: context.tenantId },
@@ -57,14 +58,16 @@ export class DiscountRulesService implements DiscountResolver {
     }
 
     const rules = await this.discountRuleRepo.find({
-      where: { tenant_id: context.tenantId, student_id: context.studentId },
+      // [Opus review, B3] an inactive rule (paused, not deleted) must not
+      // resolve — same as an expired one.
+      where: { tenant_id: context.tenantId, student_id: context.studentId, is_active: true },
     });
 
-    const today = todayIso();
+    const period = context.periodStart;
     let best = 0;
     for (const rule of rules) {
-      if (rule.starts_on && rule.starts_on > today) continue;
-      if (rule.ends_on && rule.ends_on < today) continue;
+      if (rule.starts_on && rule.starts_on > period) continue;
+      if (rule.ends_on && rule.ends_on < period) continue;
       if (rule.fee_types && !rule.fee_types.includes(structure.fee_type)) continue;
 
       const amount =
@@ -74,7 +77,12 @@ export class DiscountRulesService implements DiscountResolver {
       if (amount > best) best = amount;
     }
 
-    return { amount: round2(best) };
+    // [Opus review, B2] A discount can never exceed the bill it's applied
+    // to — a FLAT rule's `value` is operator-entered with no upper bound
+    // at write time (unlike PERCENT, capped 0-100 in the DTO), so an
+    // oversized FLAT rule must be capped here rather than trusted to
+    // never overshoot `baseAmount`.
+    return { amount: round2(Math.min(best, context.baseAmount)) };
   }
 
   async listForStudent(tenantId: string, studentId: string): Promise<DiscountRule[]> {
@@ -87,6 +95,7 @@ export class DiscountRulesService implements DiscountResolver {
   async create(
     tenantId: string,
     userId: string,
+    approverUserId: string,
     dto: CreateDiscountRuleDto,
   ): Promise<DiscountRule> {
     const rule = this.discountRuleRepo.create({
@@ -99,11 +108,17 @@ export class DiscountRulesService implements DiscountResolver {
       ends_on: dto.ends_on ?? null,
       reason: dto.reason,
       created_by_user_id: userId,
+      approved_by_user_id: approverUserId,
     });
     return this.discountRuleRepo.save(rule);
   }
 
-  async update(tenantId: string, id: string, dto: UpdateDiscountRuleDto): Promise<DiscountRule> {
+  async update(
+    tenantId: string,
+    id: string,
+    approverUserId: string,
+    dto: UpdateDiscountRuleDto,
+  ): Promise<DiscountRule> {
     const rule = await this.discountRuleRepo.findOne({ where: { id, tenant_id: tenantId } });
     if (!rule) throw new NotFoundException('Discount rule not found');
     Object.assign(rule, {
@@ -113,6 +128,11 @@ export class DiscountRulesService implements DiscountResolver {
       ...(dto.starts_on !== undefined && { starts_on: dto.starts_on }),
       ...(dto.ends_on !== undefined && { ends_on: dto.ends_on }),
       ...(dto.reason !== undefined && { reason: dto.reason }),
+      ...(dto.is_active !== undefined && { is_active: dto.is_active }),
+      // [Opus review, B3/B4] every write — including a deactivate-only
+      // PATCH — is approval-gated, so the approver of record always moves
+      // to whoever most recently spent a valid token for this row.
+      approved_by_user_id: approverUserId,
     });
     return this.discountRuleRepo.save(rule);
   }
