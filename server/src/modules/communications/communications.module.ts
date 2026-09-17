@@ -34,7 +34,12 @@ import { InvoicesModule } from '../invoices/invoices.module';
   imports: [
     TypeOrmModule.forFeature([CommunicationLog, ReminderBatch, Guardian]),
     StudentModule,
-    FeeModule,
+    // [CodeRabbit review, PR #801] The last of the four edges in the
+    // Fees<->Schools cycle (FeeModule -> SchoolsModule ->
+    // AccountAccessModule -> CommunicationsModule -> FeeModule) to switch
+    // to forwardRef — the other three (in fees.module.ts and
+    // account-access.module.ts) already do.
+    forwardRef(() => FeeModule),
     AuditModule,
     // #555: the automated dispatcher (CommunicationsProcessor) needs a
     // guardian's linked user id to try push before falling back to the

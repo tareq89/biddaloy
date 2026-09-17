@@ -11,13 +11,16 @@ import {
   Min,
   Max,
   Validate,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
 } from 'class-validator';
+import { ApiExtraModels, ApiProperty, ApiPropertyOptional, getSchemaPath } from '@nestjs/swagger';
 import { Secret } from '../settings/secret-field.decorator';
 import { NestedSettings } from '../settings/nested-settings.decorator';
 import { OptionalSetting } from '../settings/optional-setting.decorator';
 import { IsRegexSourceConstraint } from '../settings/regex-source.validator';
 import { SmsProviderIsConfiguredConstraint } from '../settings/sms-provider-config.validator';
-import { ApprovalMode } from '@biddaloy/shared';
+import { ApprovalMode, DiscountKind, FeeType } from '@biddaloy/shared';
 import type {
   NumeralSystem,
   CurrencyGrouping,
@@ -340,20 +343,124 @@ export class BackupSettingsDto {
 }
 
 /**
+ * One fee type's late-fee rule, `settings.fees.lateFees[feeType]` (16.7.4).
+ * `LateFeeService.applyDue` reads this per fee type — `enabled: false` (or
+ * the fee type simply absent from the map) means that fee type never gets
+ * a late-fee bill.
+ */
+export class LateFeeRuleDto {
+  @ApiProperty()
+  @IsBoolean()
+  enabled: boolean;
+
+  @ApiProperty({ minimum: 0, maximum: 60 })
+  @IsInt()
+  @Min(0)
+  @Max(60)
+  grace_days: number;
+
+  @ApiProperty({ enum: DiscountKind })
+  @IsIn(Object.values(DiscountKind))
+  kind: DiscountKind;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  value: number;
+}
+
+/**
+ * `lateFees`'s keys are `FeeType` values — validated by hand rather than
+ * `@ValidateNested()` (which needs a fixed property list, not an
+ * arbitrary-key map) against each value's `LateFeeRuleDto` shape.
+ */
+@ValidatorConstraint({ name: 'isLateFeesMap', async: false })
+export class LateFeesMapConstraint implements ValidatorConstraintInterface {
+  private lastError = '';
+
+  validate(value: unknown): boolean {
+    if (value === undefined || value === null) return true;
+    if (typeof value !== 'object' || Array.isArray(value)) {
+      this.lastError = 'lateFees must be an object keyed by fee type';
+      return false;
+    }
+    for (const [feeType, rule] of Object.entries(value as Record<string, unknown>)) {
+      if (!Object.values(FeeType).includes(feeType as FeeType)) {
+        this.lastError = `"${feeType}" is not a known fee type`;
+        return false;
+      }
+      if (typeof rule !== 'object' || rule === null) {
+        this.lastError = `lateFees.${feeType} must be an object`;
+        return false;
+      }
+      const r = rule as Record<string, unknown>;
+      if (typeof r.enabled !== 'boolean') {
+        this.lastError = `lateFees.${feeType}.enabled must be a boolean`;
+        return false;
+      }
+      if (
+        !Number.isInteger(r.grace_days) ||
+        (r.grace_days as number) < 0 ||
+        (r.grace_days as number) > 60
+      ) {
+        this.lastError = `lateFees.${feeType}.grace_days must be an integer 0-60`;
+        return false;
+      }
+      if (!Object.values(DiscountKind).includes(r.kind as DiscountKind)) {
+        this.lastError = `lateFees.${feeType}.kind must be PERCENT or FLAT`;
+        return false;
+      }
+      if (typeof r.value !== 'number' || r.value < 0) {
+        this.lastError = `lateFees.${feeType}.value must be a non-negative number`;
+        return false;
+      }
+    }
+    return true;
+  }
+
+  defaultMessage(): string {
+    return this.lastError || 'lateFees is invalid';
+  }
+}
+
+/**
  * `settings.fees` (16.2.1) — who may approve, and how, is data. `approvalMode`
  * is what `SchoolSettingsReader.feesApprovalMode` (16.2.2's step-up approval
  * flow) reads to decide whether PASSWORD is an allowed verification method
  * alongside OTP.
  */
+@ApiExtraModels(LateFeeRuleDto)
 export class FeesSettingsDto {
+  @ApiProperty({ enum: ApprovalMode })
   @IsIn(Object.values(ApprovalMode))
   approvalMode: ApprovalMode;
 
+  @ApiProperty()
   @IsBoolean()
   notifyOnManualGenerationDefault: boolean;
 
+  @ApiProperty()
   @IsBoolean()
   notifyOnScheduleDefault: boolean;
+
+  /** [16.7.4] Per-fee-type late-fee rule. Omitted/absent fee type = no
+   * late fee ever applies to that fee type.
+   *
+   * [CodeRabbit review, PR #801] `@ApiPropertyOptional` here is load-bearing,
+   * not decorative: nestjs/swagger's CLI-plugin reflection can describe a
+   * plain class property automatically, but not a mapped type like
+   * `Partial<Record<FeeType, LateFeeRuleDto>>` — without this, the
+   * generated OpenAPI (and therefore ui/src/api/schema.d.ts) described
+   * `lateFees` as `Record<string, never>`, which rejected every real
+   * field (`enabled`, `grace_days`, `kind`, `value`) at the UI's type
+   * level even though the server accepted and validated them correctly. */
+  @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: { $ref: getSchemaPath(LateFeeRuleDto) },
+    description: 'Keyed by FeeType. Omitted key = that fee type never gets a late fee.',
+  })
+  @IsOptional()
+  @Validate(LateFeesMapConstraint)
+  lateFees?: Partial<Record<FeeType, LateFeeRuleDto>>;
 }
 
 export class TenantSettingsDto {

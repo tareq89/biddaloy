@@ -274,6 +274,13 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
       'the roster is staff-only, although every role (incl. PARENT/STUDENT) holds STUDENT_READ',
   },
   {
+    controller: 'FeeController',
+    method: 'POST',
+    path: '/fees/schedules/run-now',
+    reason:
+      '[16.7.2] the manual/ops trigger for the fees-daily sweep is deliberately narrower than SCHEDULE_MANAGE (also held by ACCOUNTANT) — running it is an ops action, not routine fee-collection work',
+  },
+  {
     controller: 'StudentController',
     method: 'GET',
     path: '/students/ids',
@@ -462,11 +469,10 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // PAYMENT_REVERSE now gates `POST /payments/:id/reverse` (16.6.1) and
   // REPORT_COLLECTIONS_READ now gates `GET /reports/collections` and
   // `.../collections.csv` (16.6.2), so both are no longer UI-only —
-  // removed from this list. SCHEDULE_MANAGE and DISCOUNT_RULE_MANAGE gate
-  // the recurring schedule / discount rule management endpoints (16.4.x).
+  // removed from this list. [16.7.2]/[16.7.3] SCHEDULE_MANAGE now gates
+  // `POST /fees/schedules/run-now` and DISCOUNT_RULE_MANAGE now gates the
+  // discount-rule CRUD endpoints — also removed from this list.
   Permission.FEE_APPROVE,
-  Permission.SCHEDULE_MANAGE,
-  Permission.DISCOUNT_RULE_MANAGE,
 ];
 
 describe('Permission matrix (regression)', () => {

@@ -18,6 +18,7 @@ import { resolveTenantSettings } from '../schools/settings/tenant-settings-resol
 import {
   EnrollmentStatus,
   FeeStatus,
+  FeeType,
   PeriodType,
   DuplicateStrategy,
   FeeGenerationSource,
@@ -49,7 +50,45 @@ export interface DiscountResolver {
     studentId: string;
     feeStructureId: string;
     baseAmount: number;
+    // [Opus review, B5] The billing period this bill is *for*, not the
+    // date generation runs — a rule's starts_on/ends_on expiry must be
+    // checked against this, so back-generating a January bill in March
+    // evaluates January's rules, not March's. 'YYYY-MM-DD'.
+    periodStart: string;
+    // [CodeRabbit review, PR #801] Optional — the caller already has the
+    // fee structure loaded (every `generate()` pair does, via
+    // `loadContext()`), so passing its `fee_type` here lets a resolver
+    // skip its own per-pair `FeeStructure` lookup. A resolver that
+    // ignores this and queries anyway (`NoopDiscountResolver`) stays
+    // correct, just unoptimized.
+    feeType?: FeeType;
+    // [CodeRabbit review, PR #801] This student's slice of the map
+    // `preloadRulesForStudents` returned, if the caller preloaded one —
+    // deliberately passed in per-call rather than cached on the resolver
+    // instance: `DiscountRulesService` is a singleton, and instance state
+    // shared across concurrent `POST /fees/generate` requests let one
+    // request's preload clear/overwrite the map mid-flight for another,
+    // occasionally letting a resolved rule mismatch the student it was
+    // actually resolved for.
+    preloadedRules?: unknown[];
   }): Promise<{ amount: number }>;
+
+  /**
+   * [CodeRabbit review, PR #801] Optional: a resolver backed by a real
+   * rules table can implement this to load every active rule for a whole
+   * batch of students in ONE query, instead of `generate()` calling
+   * `resolve()` once per (student, fee-structure) pair — each of which
+   * previously ran its own `FeeStructure` lookup plus its own
+   * `DiscountRule` query. `GenerateFeesDto` legally allows up to 5,000
+   * students × 20 fee structures; without batching, one request could
+   * perform up to ~200,000 sequential DB reads before a single bill was
+   * inserted. `generate()` calls this once (if present) before its
+   * per-pair loop and passes each student's own slice into the
+   * `resolve()` calls that follow, via `preloadedRules` above — the
+   * returned map is local to that one `generate()` call, never stored on
+   * the resolver itself.
+   */
+  preloadRulesForStudents?(tenantId: string, studentIds: string[]): Promise<Map<string, unknown[]>>;
 }
 
 /** Default `DiscountResolver`: no discounts apply. Real rules land in
@@ -61,8 +100,23 @@ export class NoopDiscountResolver implements DiscountResolver {
     studentId: string;
     feeStructureId: string;
     baseAmount: number;
+    periodStart: string;
+    feeType?: FeeType;
+    preloadedRules?: unknown[];
   }): Promise<{ amount: number }> {
     return Promise.resolve({ amount: 0 });
+  }
+
+  // No rules table to preload from — matches DiscountResolver's optional
+  // hook so this class's shape still satisfies the type the DI token
+  // (`NoopDiscountResolver`, kept as the constructor param's type so Nest
+  // has a real runtime token — `DiscountRulesService` is wired in via
+  // `useExisting` in fees.module.ts) is declared with.
+  preloadRulesForStudents(
+    _tenantId: string,
+    _studentIds: string[],
+  ): Promise<Map<string, unknown[]>> {
+    return Promise.resolve(new Map());
   }
 }
 
@@ -174,9 +228,35 @@ export class FeeGenerationService {
     tenantId: string,
     userId: string | null,
     request: RequestLike,
+    // [16.7.2] Optional — the daily scheduler (`fees-daily.scheduler.ts`)
+    // is the only caller that ever sets these; every manual `POST
+    // /fees/generate` call keeps the pre-existing MANUAL/no-schedule
+    // behavior by omitting `options`.
+    //
+    // [CodeRabbit review, PR #801] `manager`: lets a caller that already
+    // owns an outer transaction (`FeesDailyScheduler.runSchedule`) fold
+    // this write into that same transaction instead of `generate()`
+    // opening its own independent one — without it, a failure between
+    // `generate()`'s commit and the caller's own follow-up write (e.g.
+    // `recurring_schedules.last_run_period`) leaves the generation
+    // committed but the schedule still "due", re-triggerable by the next
+    // sweep. `duplicate_strategy: SKIP` makes a re-run's *bills* a no-op,
+    // but it does not stop a second `FeeGeneration` batch row or a second
+    // `fees.generated` notification event from firing. When `manager` is
+    // supplied, this method does not emit that event itself — the caller
+    // owns commit timing for its own outer transaction and must emit
+    // after that transaction actually commits (see `runSchedule`).
+    options?: {
+      source?: FeeGenerationSource;
+      recurringScheduleId?: string;
+      manager?: EntityManager;
+    },
   ): Promise<GenerateFeesResultDto> {
+    const source = options?.source ?? FeeGenerationSource.MANUAL;
+    const recurringScheduleId = options?.recurringScheduleId ?? null;
     const duplicateStrategy = dto.duplicate_strategy ?? DuplicateStrategy.SKIP;
     const notifyFamilies = await this.resolveNotifyFamilies(dto, tenantId);
+    const externalManager = options?.manager;
 
     let feeGenerationId = '';
     let generatedCount = 0;
@@ -185,7 +265,7 @@ export class FeeGenerationService {
     let inactiveSkipped: InactiveStudentDto[] = [];
     let studentCount = 0;
 
-    await this.studentFeeRepo.manager.transaction(async (manager) => {
+    const runBody = async (manager: EntityManager): Promise<void> => {
       const context = await this.loadContext(dto, tenantId, manager);
       inactiveSkipped = context.inactiveStudents.map(toInactiveDto);
       const targetStudents = dto.include_inactive
@@ -283,7 +363,8 @@ export class FeeGenerationService {
           period_start: context.periodStart,
           period_type: dto.period_type,
           due_date: dueDate,
-          source: FeeGenerationSource.MANUAL,
+          source,
+          recurring_schedule_id: recurringScheduleId,
           generated_by_user_id: userId,
           approved_by_user_id: approvedBy,
           duplicate_strategy: duplicateStrategy,
@@ -336,6 +417,20 @@ export class FeeGenerationService {
 
       const studentFeeRepo = manager.getRepository(StudentFee);
       const rowsToInsert: Partial<StudentFee>[] = [];
+      // [CodeRabbit review, PR #801] One batched load of every active
+      // discount rule for every student in this generation, instead of
+      // `resolve()` querying per (student, fee-structure) pair below —
+      // a resolver that doesn't implement this optional hook (e.g.
+      // NoopDiscountResolver) just returns an empty map and resolve()
+      // falls back to its own per-pair queries, so this stays correct
+      // either way. The map is local to this one generate() call — never
+      // stored on the resolver itself, so two concurrent generate() calls
+      // can't clobber each other's preload.
+      const preloadedRulesByStudent = await this.discountResolver.preloadRulesForStudents?.(
+        tenantId,
+        Array.from(new Set(pairsToInsert.map((p) => p.student.id))),
+      );
+
       for (const pair of pairsToInsert) {
         const baseAmount = Number(pair.structure.amount);
         const discount = await this.discountResolver.resolve({
@@ -343,6 +438,14 @@ export class FeeGenerationService {
           studentId: pair.student.id,
           feeStructureId: pair.structure.id,
           baseAmount,
+          // [Opus review, B5] the period this bill is *for* — a back-dated
+          // generation must evaluate discount-rule expiry against that
+          // period, not today's date.
+          periodStart: context.periodStart.toISOString().slice(0, 10),
+          // [CodeRabbit review, PR #801] already loaded via loadContext()
+          // — lets the resolver skip its own FeeStructure lookup.
+          feeType: pair.structure.fee_type,
+          preloadedRules: preloadedRulesByStudent?.get(pair.student.id),
         });
         rowsToInsert.push({
           student_id: pair.student.id,
@@ -505,15 +608,25 @@ export class FeeGenerationService {
         },
         manager,
       );
-    });
+    };
 
-    // Fires only after the transaction above has committed — everything
-    // that could fail and roll the batch back already has, by this point.
-    if (notifyFamilies) {
-      feesEvents.emit(FEES_GENERATED_EVENT, {
-        tenantId,
-        feeGenerationId,
-      } satisfies FeesGeneratedEventPayload);
+    if (externalManager) {
+      // Caller already owns a transaction (and its commit) — run the body
+      // against that same manager rather than opening a second,
+      // independent one. Emitting the notify event here would be wrong:
+      // this method returns before the caller's outer transaction has
+      // actually committed, so the caller emits it themselves afterward.
+      await runBody(externalManager);
+    } else {
+      await this.studentFeeRepo.manager.transaction(runBody);
+      // Fires only after the transaction above has committed — everything
+      // that could fail and roll the batch back already has, by this point.
+      if (notifyFamilies) {
+        feesEvents.emit(FEES_GENERATED_EVENT, {
+          tenantId,
+          feeGenerationId,
+        } satisfies FeesGeneratedEventPayload);
+      }
     }
 
     return {
