@@ -1,14 +1,25 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { DiscountKind, FeeType } from '@biddaloy/shared';
 import { DiscountRule } from './entities/discount-rule.entity';
 import { FeeStructure } from './entities/fee-structure.entity';
+import { Student } from '../students/entities/student.entity';
 import { CreateDiscountRuleDto, UpdateDiscountRuleDto } from './dto/discount-rules.dto';
 import { DiscountResolver } from './fee-generation.service';
 
+/**
+ * [CodeRabbit review, PR #801] `value * 100` on a binary float can land
+ * just under the true decimal value — `1.005 * 100` is `100.49999999999999`
+ * in IEEE 754, so the old `Math.round(value * 100) / 100` rounded
+ * `round2(1.005)` down to `1` instead of the documented half-up `1.01`.
+ * Routing through the decimal *string* first (`${value}e2`) instead of
+ * doing the multiplication in floating point sidesteps that: JS's
+ * string-to-number parser rounds the decimal literal correctly to the
+ * nearest double, so `Number('1.005e2')` is exactly `100.5`.
+ */
 function round2(value: number): number {
-  return Math.round(value * 100) / 100;
+  return Number(`${Math.round(Number(`${value}e2`))}e-2`);
 }
 
 /**
@@ -36,7 +47,36 @@ export class DiscountRulesService implements DiscountResolver {
     private readonly discountRuleRepo: Repository<DiscountRule>,
     @InjectRepository(FeeStructure)
     private readonly feeStructureRepo: Repository<FeeStructure>,
+    @InjectRepository(Student)
+    private readonly studentRepo: Repository<Student>,
   ) {}
+
+  /** [CodeRabbit review, PR #801] `tenant_id` and `student_id` are
+   * independent columns on `discount_rules` — nothing before this stopped
+   * a caller from creating a rule against a real student who belongs to a
+   * *different* tenant. Checked explicitly rather than via a composite FK
+   * (students has no natural `(id, tenant_id)` unique key to reference,
+   * and every other tenant-scoped write in this module — e.g.
+   * `FeeGenerationService` — validates the same way, in the service, not
+   * the schema). */
+  private async assertStudentInTenant(tenantId: string, studentId: string): Promise<void> {
+    const student = await this.studentRepo.findOne({
+      where: { id: studentId, tenant_id: tenantId },
+    });
+    if (!student) {
+      throw new BadRequestException('Student not found in this tenant');
+    }
+  }
+
+  /** [CodeRabbit review, PR #801] A reversed window (`starts_on` after
+   * `ends_on`) isn't rejected by any single-field DTO validator — checked
+   * here against the *merged* post-update state, since a PATCH can create
+   * a reversed window by only touching one of the two fields. */
+  private assertWindowNotReversed(startsOn: string | null, endsOn: string | null): void {
+    if (startsOn && endsOn && startsOn > endsOn) {
+      throw new BadRequestException('starts_on must not be after ends_on');
+    }
+  }
 
   async resolve(context: {
     tenantId: string;
@@ -98,6 +138,8 @@ export class DiscountRulesService implements DiscountResolver {
     approverUserId: string,
     dto: CreateDiscountRuleDto,
   ): Promise<DiscountRule> {
+    await this.assertStudentInTenant(tenantId, dto.student_id);
+    this.assertWindowNotReversed(dto.starts_on ?? null, dto.ends_on ?? null);
     const rule = this.discountRuleRepo.create({
       tenant_id: tenantId,
       student_id: dto.student_id,
@@ -134,6 +176,10 @@ export class DiscountRulesService implements DiscountResolver {
       // to whoever most recently spent a valid token for this row.
       approved_by_user_id: approverUserId,
     });
+    // Checked against the *merged* entity, not just the patched fields — a
+    // PATCH that only sends `ends_on` can still reverse an existing valid
+    // window against an unrelated `starts_on` already on the row.
+    this.assertWindowNotReversed(rule.starts_on, rule.ends_on);
     return this.discountRuleRepo.save(rule);
   }
 

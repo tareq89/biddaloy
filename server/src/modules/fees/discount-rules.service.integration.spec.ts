@@ -183,6 +183,50 @@ describe('DiscountRulesService (integration)', () => {
       expect(otherTenantRules).toHaveLength(0);
     });
 
+    it('[CodeRabbit review, PR #801] refuses to create a rule against a student from a different tenant', async () => {
+      // OTHER_STUDENT_ID genuinely exists, just under OTHER_TENANT_ID —
+      // this is the "valid student, wrong tenant" case the review flagged,
+      // not a not-found id.
+      await expect(
+        service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, {
+          student_id: OTHER_STUDENT_ID,
+          kind: DiscountKind.FLAT,
+          value: 50,
+          reason: 'Should be refused',
+        }),
+      ).rejects.toThrow('Student not found in this tenant');
+    });
+
+    it('[CodeRabbit review, PR #801] refuses a reversed active window on create', async () => {
+      await expect(
+        service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, {
+          student_id: STUDENT_ID,
+          kind: DiscountKind.FLAT,
+          value: 50,
+          starts_on: '2026-06-01',
+          ends_on: '2026-01-01', // before starts_on
+          reason: 'Reversed window',
+        }),
+      ).rejects.toThrow('starts_on must not be after ends_on');
+    });
+
+    it('[CodeRabbit review, PR #801] refuses a PATCH that reverses an existing valid window', async () => {
+      const created = await service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, {
+        student_id: STUDENT_ID,
+        kind: DiscountKind.FLAT,
+        value: 50,
+        starts_on: '2026-01-01',
+        ends_on: '2026-06-01',
+        reason: 'Valid window',
+      });
+
+      // Only ends_on is patched, but the merged state (starts_on from the
+      // existing row) is now reversed.
+      await expect(
+        service.update(SEED_TENANT_ID, created.id, APPROVER_ID, { ends_on: '2025-01-01' }),
+      ).rejects.toThrow('starts_on must not be after ends_on');
+    });
+
     it('[Opus review B3] a deactivated rule (is_active: false) no longer resolves', async () => {
       const created = await service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, {
         student_id: STUDENT_ID,
@@ -220,6 +264,27 @@ describe('DiscountRulesService (integration)', () => {
       });
       // 12.35% of 333 = 41.1255 -> half-up to 41.13
       expect(result.amount).toBe(41.13);
+    });
+
+    it('[CodeRabbit review, PR #801] rounds a half-cent value correctly despite binary-float representation error', async () => {
+      // 1% of 100.5 = 1.005 exactly, in decimal. In IEEE 754 binary
+      // floating point, `1.005 * 100` is actually `100.49999999999999`, so
+      // a naive `Math.round(value * 100) / 100` rounds this DOWN to 1
+      // instead of the documented half-up result 1.01.
+      await service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, {
+        student_id: STUDENT_ID,
+        kind: DiscountKind.PERCENT,
+        value: 1,
+        reason: 'Half-cent precision test',
+      });
+      const result = await service.resolve({
+        tenantId: SEED_TENANT_ID,
+        studentId: STUDENT_ID,
+        feeStructureId: TUITION_STRUCTURE_ID,
+        baseAmount: 100.5,
+        periodStart: TODAY_PERIOD,
+      });
+      expect(result.amount).toBe(1.01);
     });
 
     it('largest discount wins when FLAT and PERCENT both apply', async () => {
