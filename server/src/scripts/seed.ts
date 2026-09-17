@@ -11,7 +11,7 @@ import { ClassSection } from '../modules/academics/entities/class-section.entity
 import { Student } from '../modules/students/entities/student.entity';
 import { Guardian } from '../modules/students/entities/guardian.entity';
 import { Subject } from '../modules/academics/entities/subject.entity';
-import { SchoolHoliday } from '../modules/academics/entities/school-holiday.entity';
+import { CalendarEvent } from '../modules/calendar/entities/calendar-event.entity';
 import { Teacher } from '../modules/academics/entities/teacher.entity';
 import { TeacherClassSection } from '../modules/academics/entities/teacher-class-section.entity';
 import { AttendanceSession } from '../modules/attendance/entities/attendance-session.entity';
@@ -100,7 +100,7 @@ export async function seed() {
       studentRepository: dataSource.getRepository(Student),
       guardianRepository: dataSource.getRepository(Guardian),
       subjectRepository: dataSource.getRepository(Subject),
-      schoolHolidayRepository: dataSource.getRepository(SchoolHoliday),
+      schoolHolidayRepository: dataSource.getRepository(CalendarEvent),
       teacherRepository: dataSource.getRepository(Teacher),
       teacherClassSectionRepository: dataSource.getRepository(TeacherClassSection),
       attendanceSessionRepository: dataSource.getRepository(AttendanceSession),

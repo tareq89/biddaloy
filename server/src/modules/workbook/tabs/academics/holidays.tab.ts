@@ -1,5 +1,5 @@
 import type { EntityManager } from 'typeorm';
-import { SchoolHoliday } from '../../../academics/entities/school-holiday.entity';
+import { CalendarEvent } from '../../../calendar/entities/calendar-event.entity';
 import { fromCell, formatDateOnly } from '../../codec/cell-format';
 import type {
   ColumnSpec,
@@ -10,7 +10,7 @@ import type {
 } from '../../codec/tab-spec';
 
 /**
- * The `holidays` tab: `SchoolHoliday` calendar entries (holidays, exams,
+ * The `holidays` tab: `CalendarEvent` calendar entries (holidays, exams,
  * events) that [9.4]'s working-day math reads.
  *
  * `academic_year` is the only `ref` column: the cell holds the referenced
@@ -58,37 +58,50 @@ const columns: readonly ColumnSpec[] = [
 
 /**
  * Entity columns deliberately left out of the workbook. The completeness
- * gate (`registry.completeness.spec.ts`) fails if a new `SchoolHoliday`
+ * gate (`registry.completeness.spec.ts`) fails if a new `CalendarEvent`
  * column appears in neither `columns` nor here.
  */
 const excluded: readonly string[] = [
   'academic_year_id', // exported instead as the `academic_year` ref column, keyed by the referenced tab's natural key
+  // [17.1.2] columns added when `school_holidays` became `calendar_events`.
+  // This tab still only exports the holiday-shaped subset; a later Epic 17
+  // task widens it (or adds a dedicated `calendar_events` tab) to cover the
+  // rest of the calendar-event surface.
+  'type',
+  'start_time',
+  'end_time',
+  'description',
+  'audience',
+  'published_at',
+  'external_refs',
+  'created_by_user_id',
+  'updated_by_user_id',
 ];
 
 const MAX_LENGTHS: Record<string, number> = {
   name: 120,
 };
 
-export const holidaysTab: TabSpec<SchoolHoliday, HolidayRow> = {
+export const holidaysTab: TabSpec<CalendarEvent, HolidayRow> = {
   name: 'holidays',
-  entity: SchoolHoliday,
+  entity: CalendarEvent,
   excluded,
   dependsOn: ['academic_years'],
   columns,
   naturalKey: ['academic_year', 'name', 'start_date'],
   deleteByAbsence: true,
 
-  load(tenantId: string, m: EntityManager): Promise<SchoolHoliday[]> {
+  load(tenantId: string, m: EntityManager): Promise<CalendarEvent[]> {
     // `academic_year` is loaded eagerly: `keyOf` needs the year's own name
     // (its natural key), never its uuid, since a natural key must stay
     // portable across tenants.
-    return m.find(SchoolHoliday, {
+    return m.find(CalendarEvent, {
       where: { tenant_id: tenantId },
       relations: ['academic_year'],
     });
   },
 
-  toRow(entity: SchoolHoliday, ctx: ExportContext): Record<string, unknown> {
+  toRow(entity: CalendarEvent, ctx: ExportContext): Record<string, unknown> {
     return {
       id: entity.id,
       academic_year: ctx.keyOf('academic_years', entity.academic_year_id),
@@ -178,16 +191,16 @@ export const holidaysTab: TabSpec<SchoolHoliday, HolidayRow> = {
     };
   },
 
-  keyOf(x: HolidayRow | SchoolHoliday): string {
+  keyOf(x: HolidayRow | CalendarEvent): string {
     // A natural key is never a uuid (see key-index.ts): a row carries the
     // year's key text directly, an entity must read it off the (eagerly
     // loaded) `academic_year` relation.
     const yearKey =
-      x instanceof SchoolHoliday ? (x.academic_year?.name ?? '') : x.academic_year_key;
+      x instanceof CalendarEvent ? (x.academic_year?.name ?? '') : x.academic_year_key;
     return `${yearKey}|${x.name}|${formatDateOnly(x.start_date)}`;
   },
 
-  diffFields(row: HolidayRow, existing: SchoolHoliday): string[] {
+  diffFields(row: HolidayRow, existing: CalendarEvent): string[] {
     const changed: string[] = [];
     if (row.academic_year_id !== existing.academic_year_id) changed.push('academic_year');
     if (row.name !== existing.name) changed.push('name');
@@ -201,22 +214,29 @@ export const holidaysTab: TabSpec<SchoolHoliday, HolidayRow> = {
 
   async upsert(
     row: HolidayRow,
-    existing: SchoolHoliday | null,
+    existing: CalendarEvent | null,
     tenantId: string,
     m: EntityManager,
-  ): Promise<SchoolHoliday> {
-    const holiday = existing ?? new SchoolHoliday();
+  ): Promise<CalendarEvent> {
+    const holiday = existing ?? new CalendarEvent();
     holiday.tenant_id = tenantId;
     holiday.academic_year_id = row.academic_year_id;
     holiday.name = row.name;
     holiday.start_date = row.start_date;
     holiday.end_date = row.end_date;
     holiday.counts_as_working_day = row.counts_as_working_day;
+    // [17.1.2] D9 — a draft (published_at IS NULL) holiday never affects
+    // working days. Workbook-imported holidays are published immediately
+    // (no draft workflow exists for this legacy bulk-import surface), same
+    // as school-calendar.service.ts's createHoliday().
+    if (!holiday.published_at) {
+      holiday.published_at = new Date();
+    }
 
-    return m.save(SchoolHoliday, holiday);
+    return m.save(CalendarEvent, holiday);
   },
 
-  async remove(entity: SchoolHoliday, m: EntityManager): Promise<void> {
-    await m.softRemove(SchoolHoliday, entity);
+  async remove(entity: CalendarEvent, m: EntityManager): Promise<void> {
+    await m.softRemove(CalendarEvent, entity);
   },
 };

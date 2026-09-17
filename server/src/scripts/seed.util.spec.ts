@@ -10,7 +10,7 @@ import type { ClassSection } from '../modules/academics/entities/class-section.e
 import type { Student } from '../modules/students/entities/student.entity';
 import type { Guardian } from '../modules/students/entities/guardian.entity';
 import type { Subject } from '../modules/academics/entities/subject.entity';
-import type { SchoolHoliday } from '../modules/academics/entities/school-holiday.entity';
+import type { CalendarEvent } from '../modules/calendar/entities/calendar-event.entity';
 import type { Teacher } from '../modules/academics/entities/teacher.entity';
 import type { TeacherClassSection } from '../modules/academics/entities/teacher-class-section.entity';
 import type { AttendanceSession } from '../modules/attendance/entities/attendance-session.entity';
@@ -639,7 +639,7 @@ describe('ensureAttendanceSeed', () => {
   function attendanceRepos() {
     return {
       subjectRepository: mockRepo<Subject>(),
-      schoolHolidayRepository: mockRepo<SchoolHoliday>(),
+      schoolHolidayRepository: mockRepo<CalendarEvent>(),
       teacherRepository: mockRepo<Teacher>(),
       teacherClassSectionRepository: mockRepo<TeacherClassSection>(),
       attendanceSessionRepository: mockRepo<AttendanceSession>(),
@@ -684,7 +684,7 @@ describe('ensureAttendanceSeed', () => {
     vi.mocked(repos.subjectRepository.findOne).mockResolvedValue({ deleted_at: null } as Subject);
     vi.mocked(repos.schoolHolidayRepository.findOne).mockResolvedValue({
       deleted_at: null,
-    } as SchoolHoliday);
+    } as CalendarEvent);
     vi.mocked(repos.teacherRepository.findOne).mockResolvedValue({
       id: 'teacher-1',
       deleted_at: null,

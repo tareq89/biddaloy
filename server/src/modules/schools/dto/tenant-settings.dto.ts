@@ -20,7 +20,7 @@ import { NestedSettings } from '../settings/nested-settings.decorator';
 import { OptionalSetting } from '../settings/optional-setting.decorator';
 import { IsRegexSourceConstraint } from '../settings/regex-source.validator';
 import { SmsProviderIsConfiguredConstraint } from '../settings/sms-provider-config.validator';
-import { ApprovalMode, DiscountKind, FeeType } from '@biddaloy/shared';
+import { ApprovalMode, DiscountKind, FeeType, TermLabel } from '@biddaloy/shared';
 import type {
   NumeralSystem,
   CurrencyGrouping,
@@ -122,9 +122,25 @@ export class RegionIdentifiersDto {
   student: string;
 }
 
+/**
+ * `region.calendar` (17.1.1/17.1.2) — what a tenant calls a grading period
+ * on its academic calendar. Optional: a tenant with no calendar settings
+ * yet resolves to `TermLabel.TERM` via `DEFAULT_REGION_SETTINGS`.
+ */
+export class RegionCalendarDto {
+  @IsIn(Object.values(TermLabel))
+  termLabel: TermLabel;
+}
+
 export class RegionSettingsDto {
   @IsString()
   locale: string;
+
+  // ISO 3166-1 alpha-2, e.g. 'BD' (D11) — picks the default public-holiday
+  // source for a tenant's calendar (Epic 17).
+  @IsString()
+  @Matches(/^[A-Z]{2}$/, { message: 'country must be an ISO 3166-1 alpha-2 code, e.g. BD' })
+  country: string;
 
   @NestedSettings(() => RegionCurrencyDto)
   currency: RegionCurrencyDto;
@@ -149,6 +165,10 @@ export class RegionSettingsDto {
 
   @IsString()
   timezone: string;
+
+  @OptionalSetting()
+  @NestedSettings(() => RegionCalendarDto)
+  calendar?: RegionCalendarDto;
 }
 
 export class GreenwebSmsDto {

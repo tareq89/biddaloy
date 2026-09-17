@@ -8,7 +8,7 @@ import { School } from '../schools/entities/school.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
-import { SchoolHoliday } from '../academics/entities/school-holiday.entity';
+import { CalendarEvent } from '../calendar/entities/calendar-event.entity';
 import { Student } from '../students/entities/student.entity';
 import { AttendanceDevice } from './entities/attendance-device.entity';
 import { AttendanceSession } from './entities/attendance-session.entity';
@@ -25,7 +25,7 @@ import {
  * Integration tests for the [9.2] attendance entities — run against the
  * real, migrated test database (not `{ synchronize: true, dropSchema: true }`
  * — see `server/CLAUDE.md`'s note on why: the migration's raw-SQL
- * `COALESCE` unique index and the `school_holidays` check constraint are
+ * `COALESCE` unique index and the `calendar_events` check constraint are
  * migration-only objects that TypeORM's entity-driven schema sync cannot
  * express, so a `dropSchema` connection would silently rebuild the schema
  * without them and this suite would pass for the wrong reason).
@@ -105,7 +105,7 @@ describe('attendance entities (integration)', () => {
     await dataSource.query('DELETE FROM attendance_records');
     await dataSource.query('DELETE FROM attendance_sessions');
     await dataSource.query('DELETE FROM attendance_devices');
-    await dataSource.query('DELETE FROM school_holidays');
+    await dataSource.query('DELETE FROM calendar_events');
     await dataSource.query('DELETE FROM students');
     await dataSource.query('DELETE FROM class_sections');
     await dataSource.query('DELETE FROM classes');
@@ -124,10 +124,10 @@ describe('attendance entities (integration)', () => {
     otherStudentId = other.studentId;
   });
 
-  describe('SchoolHoliday', () => {
-    let repo: Repository<SchoolHoliday>;
+  describe('CalendarEvent', () => {
+    let repo: Repository<CalendarEvent>;
     beforeEach(() => {
-      repo = dataSource.getRepository(SchoolHoliday);
+      repo = dataSource.getRepository(CalendarEvent);
     });
 
     it('inserts and reads a holiday', async () => {

@@ -21,7 +21,7 @@ import { AttendanceSession } from './entities/attendance-session.entity';
 import { AttendanceRecord } from './entities/attendance-record.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
-import { SchoolCalendarService } from '../academics/school-calendar.service';
+import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import { AttendanceAccessService } from './attendance-access.service';
 import { AuditService, RecordAuditEntryInput } from '../audit/audit.service';
 import { QueryAuditLogDto } from '../audit/dto/audit-log.dto';

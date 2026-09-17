@@ -18,6 +18,7 @@ import { FailOpenThrottlerStorage } from './common/rate-limit/fail-open-throttle
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AcademicYearModule } from './modules/academics/academic-year.module';
+import { CalendarModule } from './modules/calendar/calendar.module';
 import { ClassModule } from './modules/classes/classes.module';
 import { EnrollmentModule } from './modules/enrollments/enrollments.module';
 import { UserModule } from './modules/users/users.module';
@@ -66,7 +67,12 @@ import { Enrollment } from './modules/students/entities/enrollment.entity';
 import { TeacherClassSection } from './modules/academics/entities/teacher-class-section.entity';
 import { Subject } from './modules/academics/entities/subject.entity';
 import { ClassSubject } from './modules/academics/entities/class-subject.entity';
-import { SchoolHoliday } from './modules/academics/entities/school-holiday.entity';
+import { CalendarEvent } from './modules/calendar/entities/calendar-event.entity';
+import { CalendarEventClass } from './modules/calendar/entities/calendar-event-class.entity';
+import { AcademicTerm } from './modules/calendar/entities/academic-term.entity';
+import { PublicHolidaySet } from './modules/calendar/entities/public-holiday-set.entity';
+import { PublicHolidayEntry } from './modules/calendar/entities/public-holiday-entry.entity';
+import { CalendarFeedToken } from './modules/calendar/entities/calendar-feed-token.entity';
 import { RefreshToken } from './modules/auth/entities/refresh-token.entity';
 import { AttendanceSession } from './modules/attendance/entities/attendance-session.entity';
 import { AttendanceRecord } from './modules/attendance/entities/attendance-record.entity';
@@ -134,7 +140,12 @@ import { WorkbookJob } from './modules/workbook/jobs/workbook-job.entity';
             TeacherClassSection,
             Subject,
             ClassSubject,
-            SchoolHoliday,
+            CalendarEvent,
+            CalendarEventClass,
+            AcademicTerm,
+            PublicHolidaySet,
+            PublicHolidayEntry,
+            CalendarFeedToken,
             RefreshToken,
             AttendanceSession,
             AttendanceRecord,
@@ -196,6 +207,7 @@ import { WorkbookJob } from './modules/workbook/jobs/workbook-job.entity';
     AuditModule,
     AuthModule,
     AcademicYearModule,
+    CalendarModule,
     ClassModule,
     EnrollmentModule,
     UserModule,

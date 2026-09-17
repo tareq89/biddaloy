@@ -8,7 +8,7 @@ import { Class } from '../../../academics/entities/class.entity';
 import { ClassSection } from '../../../academics/entities/class-section.entity';
 import { Subject } from '../../../academics/entities/subject.entity';
 import { ClassSubject } from '../../../academics/entities/class-subject.entity';
-import { SchoolHoliday } from '../../../academics/entities/school-holiday.entity';
+import { CalendarEvent } from '../../../calendar/entities/calendar-event.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { academicYearsTab, type AcademicYearRow } from './academic-years.tab';
@@ -38,7 +38,7 @@ describe('academics tabs (integration)', () => {
   let sectionRepo: Repository<ClassSection>;
   let subjectRepo: Repository<Subject>;
   let classSubjectRepo: Repository<ClassSubject>;
-  let holidayRepo: Repository<SchoolHoliday>;
+  let holidayRepo: Repository<CalendarEvent>;
 
   const TENANT_A = '11111111-1111-4111-8111-111111111111';
   const TENANT_B = '22222222-2222-4222-8222-222222222222';
@@ -52,7 +52,7 @@ describe('academics tabs (integration)', () => {
     sectionRepo = module.get<Repository<ClassSection>>(getRepositoryToken(ClassSection));
     subjectRepo = module.get<Repository<Subject>>(getRepositoryToken(Subject));
     classSubjectRepo = module.get<Repository<ClassSubject>>(getRepositoryToken(ClassSubject));
-    holidayRepo = module.get<Repository<SchoolHoliday>>(getRepositoryToken(SchoolHoliday));
+    holidayRepo = module.get<Repository<CalendarEvent>>(getRepositoryToken(CalendarEvent));
   });
 
   afterAll(async () => {

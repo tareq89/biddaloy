@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AcademicYear } from '../../../academics/entities/academic-year.entity';
-import { SchoolHoliday } from '../../../academics/entities/school-holiday.entity';
+import { CalendarEvent } from '../../../calendar/entities/calendar-event.entity';
 import { cellText, toCell } from '../../codec/cell-format';
 import { assertRegistryValid } from '../../codec/registry';
 import type { ExportContext, ImportContext } from '../../codec/tab-spec';
@@ -25,8 +25,8 @@ function makeImportCtx(overrides: Partial<ImportContext> = {}): ImportContext {
   };
 }
 
-function makeHoliday(overrides: Partial<SchoolHoliday> = {}): SchoolHoliday {
-  return Object.assign(new SchoolHoliday(), {
+function makeHoliday(overrides: Partial<CalendarEvent> = {}): CalendarEvent {
+  return Object.assign(new CalendarEvent(), {
     id: HOLIDAY_ID,
     academic_year_id: YEAR_ID,
     academic_year: Object.assign(new AcademicYear(), { id: YEAR_ID, name: '2026-2027' }),
@@ -36,10 +36,10 @@ function makeHoliday(overrides: Partial<SchoolHoliday> = {}): SchoolHoliday {
     counts_as_working_day: false,
     tenant_id: TENANT_ID,
     ...overrides,
-  } satisfies Partial<SchoolHoliday>);
+  } satisfies Partial<CalendarEvent>);
 }
 
-function toCells(holiday: SchoolHoliday): Record<string, string> {
+function toCells(holiday: CalendarEvent): Record<string, string> {
   const row = holidaysTab.toRow(holiday, exportCtx);
   const cells: Record<string, string> = {};
   for (const column of holidaysTab.columns) {

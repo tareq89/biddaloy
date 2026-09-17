@@ -10,7 +10,7 @@ import { ClassSection } from '../modules/academics/entities/class-section.entity
 import { Student } from '../modules/students/entities/student.entity';
 import { Guardian } from '../modules/students/entities/guardian.entity';
 import { Subject } from '../modules/academics/entities/subject.entity';
-import { SchoolHoliday } from '../modules/academics/entities/school-holiday.entity';
+import { CalendarEvent } from '../modules/calendar/entities/calendar-event.entity';
 import { Teacher } from '../modules/academics/entities/teacher.entity';
 import { TeacherClassSection } from '../modules/academics/entities/teacher-class-section.entity';
 import { AttendanceSession } from '../modules/attendance/entities/attendance-session.entity';
@@ -53,7 +53,7 @@ export interface SeedAccountRepositories {
   studentRepository: Repository<Student>;
   guardianRepository: Repository<Guardian>;
   subjectRepository: Repository<Subject>;
-  schoolHolidayRepository: Repository<SchoolHoliday>;
+  schoolHolidayRepository: Repository<CalendarEvent>;
   teacherRepository: Repository<Teacher>;
   teacherClassSectionRepository: Repository<TeacherClassSection>;
   attendanceSessionRepository: Repository<AttendanceSession>;

@@ -14,7 +14,7 @@ import { CommunicationLog } from '../communications/entities/communication-log.e
 import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
 import { AuditModule } from '../audit/audit.module';
 import { SchoolsModule } from '../schools/schools.module';
-import { AcademicYearModule } from '../academics/academic-year.module';
+import { CalendarModule } from '../calendar/calendar.module';
 import { StudentModule } from '../students/students.module';
 import { AttendanceController } from './attendance.controller';
 import { AttendanceService } from './attendance.service';
@@ -33,17 +33,18 @@ import { DeviceIngestController } from './devices/device-ingest.controller';
 /**
  * [9.2] was entity-only. [9.3] fills `providers`/`controllers` in. [9.4]
  * adds `AttendanceSummaryService`/`AttendanceSummaryController` and imports
- * `AcademicYearModule` for `SchoolCalendarService` (working-day math) and
- * `StudentModule` for `FamilyAccessService` (PARENT/STUDENT scoping on the
- * summary routes).
+ * `AcademicYearModule` (now `CalendarModule`, see [17.1.2]) for
+ * `SchoolCalendarService` (working-day math) and `StudentModule` for
+ * `FamilyAccessService` (PARENT/STUDENT scoping on the summary routes).
  *
  * `Student`/`ClassSection`/`TeacherClassSection` are registered here
  * (rather than importing StudentModule for entities too) so this module's
  * services can query against them without a cross-module DI cycle, same
- * reasoning as `classes.module.ts`'s own comment. `SchoolHoliday` moved to
- * `AcademicYearModule` in [9.4] — this module no longer queries it
- * directly, going through `SchoolCalendarService` instead (see
- * `attendance.service.ts`'s old `isHoliday` docstring, now removed).
+ * reasoning as `classes.module.ts`'s own comment. The holiday calendar
+ * entity (`CalendarEvent`, formerly `SchoolHoliday`) lives in
+ * `CalendarModule` — this module no longer queries it directly, going
+ * through `SchoolCalendarService` instead (see `attendance.service.ts`'s
+ * old `isHoliday` docstring, now removed).
  *
  * `AttendanceService`/`AttendanceAccessService` are exported — [9.4], [9.5]
  * and [9.8] inject them directly rather than re-deriving the same
@@ -70,7 +71,7 @@ import { DeviceIngestController } from './devices/device-ingest.controller';
     ]),
     AuditModule,
     SchoolsModule,
-    AcademicYearModule,
+    CalendarModule,
     StudentModule,
     // Registered here (not exported from CommunicationsModule) so
     // AbsenceNoticeService can enqueue onto the exact same Redis-backed

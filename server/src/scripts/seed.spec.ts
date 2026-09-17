@@ -10,7 +10,7 @@ import type { ClassSection } from '../modules/academics/entities/class-section.e
 import type { Student } from '../modules/students/entities/student.entity';
 import type { Guardian } from '../modules/students/entities/guardian.entity';
 import type { Subject } from '../modules/academics/entities/subject.entity';
-import type { SchoolHoliday } from '../modules/academics/entities/school-holiday.entity';
+import type { CalendarEvent } from '../modules/calendar/entities/calendar-event.entity';
 import type { Teacher } from '../modules/academics/entities/teacher.entity';
 import type { TeacherClassSection } from '../modules/academics/entities/teacher-class-section.entity';
 import type { AttendanceSession } from '../modules/attendance/entities/attendance-session.entity';
@@ -125,7 +125,7 @@ function makeRepos() {
     schoolHolidayRepository: new FakeRepo<Record<string, unknown>>(
       clock,
       'holiday',
-    ).asRepository() as unknown as Repository<SchoolHoliday>,
+    ).asRepository() as unknown as Repository<CalendarEvent>,
     teacherRepository: new FakeRepo<Record<string, unknown>>(
       clock,
       'teacher',

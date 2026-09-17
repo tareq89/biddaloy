@@ -1,5 +1,5 @@
 import { TENANT_SETTINGS_SCHEMA_VERSION } from '../dto/tenant-settings.dto';
-import { ApprovalMode } from '@biddaloy/shared';
+import { ApprovalMode, TermLabel } from '@biddaloy/shared';
 import type {
   AttendancePolicySettings,
   AuthSettings,
@@ -16,6 +16,9 @@ import type {
  */
 export const DEFAULT_REGION_SETTINGS: RegionSettings = {
   locale: 'bn-BD',
+  // [17.1.2] ISO 3166-1 alpha-2 — picks the default public-holiday source
+  // for a tenant's calendar (Epic 17, D11).
+  country: 'BD',
   currency: {
     code: 'BDT',
     symbol: '৳',
@@ -47,6 +50,10 @@ export const DEFAULT_REGION_SETTINGS: RegionSettings = {
     student: '',
   },
   timezone: 'Asia/Dhaka',
+  // [17.1.2] a school opts into a different label, not out of one.
+  calendar: {
+    termLabel: TermLabel.TERM,
+  },
 };
 
 /**

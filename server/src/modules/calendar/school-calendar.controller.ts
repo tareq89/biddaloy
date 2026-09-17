@@ -25,12 +25,13 @@ import {
   QueryHolidayDto,
   QueryWorkingDaysDto,
   UpdateHolidayDto,
-} from './dto/school-calendar.dto';
+} from './dto/working-days.dto';
 import { Permission } from '@biddaloy/shared';
 
 /**
- * Holiday CRUD and the working-day read [9.3]'s write path and [9.4]'s
- * `AttendanceSummaryService` both depend on. Reads admit
+ * Holiday CRUD and the working-day read that [9.3]'s write path and [9.4]'s
+ * `AttendanceSummaryService` both depend on. Moved verbatim from
+ * `academics/school-calendar.controller.ts` in [17.1.2]. Reads admit
  * ADMIN/EXECUTIVE/ACCOUNTANT/TEACHER — every staff role that already reads
  * attendance needs to see the calendar behind it. Mutations are ADMIN/
  * EXECUTIVE only, matching `academic-year.controller.ts`'s own mutation
