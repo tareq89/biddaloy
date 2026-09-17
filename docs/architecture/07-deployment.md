@@ -96,97 +96,42 @@ error callback) and `POST /admin/anything` used to return **200 + HTML**.
 
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`) runs on every PR, on push to
-`main`, and on every merge-queue entry (`merge_group`). As of [18.5.2] the
-three triggers don't all run the same jobs — a merge-queue entry is the
-last check before `main`, so it pays for two nightly-only checks
-(`sweeps`, `quality`/Lighthouse) that a PR skips to stay fast:
+GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and push to
+`main`. As of [18.2.3] the job set is:
 
 ```mermaid
-flowchart TB
-    subgraph PR["Pull request / push to main"]
-        direction LR
-        changes1["changes\n(path filters)"] --> verify1["verify"]
-        changes1 --> frontend1["frontend\n3-way shard"]
-        frontend1 --> merge1["frontend-merge\ncoverage merge"]
-        changes1 --> integration1["integration"]
-        changes1 --> e2e1["e2e\nE2E smoke (chromium)"]
-        changes1 --> storybook1["storybook"]
-        changes1 --> audit1["audit"]
-        changes1 --> bundledelta1["bundle-delta\nPR-comment only"]
-    end
-    subgraph MQ["merge_group (merge queue)"]
-        direction LR
-        changes2["changes\n(short-circuits to\n'everything changed')"] --> verify2["verify"]
-        changes2 --> frontend2["frontend + frontend-merge"]
-        changes2 --> integration2["integration + e2e"]
-        changes2 --> storybook2["storybook"]
-        changes2 --> audit2["audit"]
-        changes2 --> sweeps["sweeps\nRoute sweeps (chromium-sweeps)"]
-        changes2 --> quality["quality\nNightly quality (Lighthouse)"]
-    end
-    PR --> timings["timings\nwall/work/budgets summary\n(ci-budgets.json)"]
-    MQ --> timings
-    timings -.->|Mondays 06:00 UTC| trend["ci-timings-trend.yml\nweekly median/p90/pass-rate\n→ orphan ci-timings branch"]
+flowchart LR
+    changes["changes\n(path filters)"] --> verify["verify\nbuild · lint · unit tests"]
+    changes --> frontend["frontend\nvitest (ui + client-admin)"]
+    changes --> integration["integration\nPostgres + Redis services"]
+    changes --> e2e["E2E smoke (chromium)\nprod build, journeys + smoke, PWA folded in"]
+    changes --> storybook["storybook\nbuild only"]
+    changes --> audit["audit\nyarn audit, high/critical only"]
+    changes --> bundledelta["bundle-delta\nPR-comment only"]
+    verify --> timings["timings\nwall/work/budgets summary"]
+    frontend --> timings
+    integration --> timings
+    e2e --> timings
+    storybook --> timings
+    audit --> timings
+    bundledelta --> timings
 ```
 
-Two further scheduled workflows run checks that neither a PR nor a
-merge-queue entry gates on: `nightly-e2e.yml` (the full Playwright suite —
-journeys + sweeps — across chromium, firefox and webkit, each 3-way
-sharded) and `nightly-frontend-flakes.yml`. All three of
-`nightly-quality.yml`, `nightly-e2e.yml` and `nightly-frontend-flakes.yml`
-file or update one sticky issue on failure, carrying a workflow-specific
-label (`nightly-quality-red`, `nightly-e2e-red`, `flake-hunt`) and the
-shared `nightly-red` label; see the root README's "Nightly failure
-visibility" section for the full mechanism.
+Two scheduled workflows run the checks `ci.yml` doesn't gate on every PR:
+`nightly-quality.yml` (Lighthouse, moved off `ci.yml` in [18.1.1]) and
+`nightly-e2e.yml` (the full Playwright suite — journeys + sweeps — across
+chromium, firefox and webkit, each 3-way sharded). Both — plus `nightly-frontend-flakes.yml` — file or
+update one sticky issue on failure, carrying a workflow-specific label
+(`nightly-quality-red`, `nightly-e2e-red`, `flake-hunt`) and the shared
+`nightly-red` label; see the root README's "Nightly failure visibility"
+section for the full mechanism.
 
-Concretely, the `e2e` (`E2E smoke (chromium)`) job: starts Postgres/Redis
-service containers → installs deps → builds `shared` → resolves and
-caches the Playwright browser → runs migrations → seeds the database →
-builds and starts the production client-admin + server → runs the
-chromium journeys, smoke and PWA/offline specs against that build →
+Concretely, the `E2E smoke (chromium)` job: starts Postgres/Redis service
+containers → installs deps → builds `shared` →
+resolves and caches the Playwright browser → runs migrations → seeds the
+database → builds and starts the production client-admin + server → runs
+the chromium journeys, smoke and PWA/offline specs against that build →
 collects and uploads E2E timings.
-
-Every job above reports its wall time into `timings`, which checks it
-against a hand-tuned ceiling in `ci-budgets.json`
-(`budgetSeconds = ceil(p90 × 1.15)` over its own trailing green-run
-window) and fails the run — with a named job and both numbers in the
-annotation — the first time a job actually regresses, instead of a human
-noticing CI "feels slower" weeks later. `ci-timings-trend.yml` is the
-other half: it doesn't gate anything, it just makes the trend a graph
-Monday morning instead of a feeling.
 
 See the root README's "CI" section for the full per-job description and
 `ui/CONTRIBUTING.md` for the PR checklist tied to these gates.
-
-### Local loop
-
-Catching a regression in CI (7-15 minutes) is strictly worse than catching
-it before the push. Three layers, cheapest first:
-
-1. **While editing** — `yarn check` (`scripts/check.mjs`) runs typecheck +
-   lint + affected unit tests. Example: after touching one file in
-   `server/src/students/`, `yarn check --affected` runs only the tests
-   that import it, not the whole suite. `yarn test:server` goes one step
-   further — it spins up the test Postgres/Redis containers and runs the
-   full unit + integration + e2e chain server-side, the same steps
-   `ci.yml`'s `verify`/`integration`/`e2e` jobs run, without waiting on a
-   push.
-2. **Before commit/push** — `.husky/pre-push` runs `yarn check --affected`
-   automatically, so a regression is caught on your machine, not in CI.
-3. **Reproducing a specific CI job** — `yarn ci:local` (`scripts/ci-local.sh`)
-   runs the same commands `ci.yml` runs, job-for-job, so "works on my
-   machine" stays true. `--only` picks one job instead of the whole
-   pipeline, and `--affected` further restricts it to what your branch
-   actually touched. Example:
-
-   ```bash
-   scripts/ci-local.sh --only frontend --affected
-   # → runs just the ui/client-admin vitest suites, scoped to changed files —
-   #   the same shard-vs-single-run split ci.yml uses, without waiting on GitHub.
-   ```
-
-See the root README's "Local loop" and "CI" sections for the full command
-reference (`yarn test:server`, `yarn ci:local --only <job>`, and the
-`CI_PATHS_*` path-filter lists `ci-local.sh` and `ci.yml`'s `changes` job
-must be kept in sync by hand).

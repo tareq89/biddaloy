@@ -54,13 +54,7 @@ export function buildTrend({ runs, jobsByRunId }) {
   const completed = runs.filter((r) => r.status === 'completed');
   const considered = completed.filter((r) => r.conclusion !== 'cancelled');
   const failed = considered.filter((r) => r.conclusion !== 'success');
-  const passed = considered.length - failed.length;
   const failureRate = considered.length > 0 ? failed.length / considered.length : null;
-  // [18.5.2] Same denominator as failureRate (cancelled excluded) — the
-  // complement, not a second computation, so the two numbers can never
-  // drift apart. Reported separately because "pass rate next to wall
-  // time" reads as the headline; failure rate stays for the drill-down.
-  const passRate = considered.length > 0 ? passed / considered.length : null;
 
   const wallValues = [];
   const jobDurationsByName = new Map();
@@ -102,7 +96,6 @@ export function buildTrend({ runs, jobsByRunId }) {
     generatedAt: new Date().toISOString(),
     window: { requestedRuns: runs.length, consideredRuns: considered.length },
     failureRate,
-    passRate,
     wall,
     jobs,
   };
@@ -120,13 +113,9 @@ export function buildTrend({ runs, jobsByRunId }) {
   lines.push('');
   lines.push('### Wall time');
   lines.push('');
-  lines.push('| n | Median | p90 | Pass rate |');
-  lines.push('|---:|---:|---:|---:|');
-  lines.push(
-    `| ${wall.n} | ${fmtSeconds(wall.medianMs)} | ${fmtSeconds(wall.p90Ms)} | ${
-      passRate === null ? 'n/a' : `${(passRate * 100).toFixed(0)}%`
-    } |`,
-  );
+  lines.push('| n | Median | p90 |');
+  lines.push('|---:|---:|---:|');
+  lines.push(`| ${wall.n} | ${fmtSeconds(wall.medianMs)} | ${fmtSeconds(wall.p90Ms)} |`);
   lines.push('');
   lines.push('### Per-job');
   lines.push('');

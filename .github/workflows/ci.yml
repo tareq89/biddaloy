@@ -272,12 +272,6 @@ jobs:
       # shard (`--coverage.reporter=json`, vitest's own merge input
       # format) — merged back to `text`/`lcovonly` in the merge job, same
       # reporters the old single job produced.
-      # [18.5.2] THROWAWAY — budget-gate probe, reverted before this ticket's
-      # commit lands. Proves ci-budgets.json's ceiling actually fires.
-      - name: THROWAWAY budget-gate probe (18.5.2)
-        if: matrix.shard == 1
-        run: sleep 90
-
       - name: Frontend tests with coverage (shard ${{ matrix.shard }}/3)
         env:
           CI_TIMINGS_OUT: ci-timings/raw-frontend-${{ matrix.shard }}.json
