@@ -70,7 +70,15 @@ function ExcludeAction({ scheduleId, studentId }: { scheduleId: string; studentI
   );
 }
 
-function IncludeAgainRow({ scheduleId, name }: { scheduleId: string; name: string }) {
+function IncludeAgainRow({
+  scheduleId,
+  studentId,
+  name,
+}: {
+  scheduleId: string;
+  studentId: string;
+  name: string;
+}) {
   const { t } = useTranslation('fees');
   const includeMutation = useIncludeStudentInSchedule(scheduleId);
   return (
@@ -81,7 +89,7 @@ function IncludeAgainRow({ scheduleId, name }: { scheduleId: string; name: strin
         size="sm"
         variant="outline"
         disabled={includeMutation.isPending}
-        onClick={() => includeMutation.mutate(scheduleId)}
+        onClick={() => includeMutation.mutate(studentId)}
       >
         {t('recurringFeesTab.includeAction')}
       </Button>
@@ -216,6 +224,7 @@ export function RecurringFeesTab({ studentId }: RecurringFeesTabProps) {
                       <IncludeAgainRow
                         key={schedule.id}
                         scheduleId={schedule.id}
+                        studentId={studentId}
                         name={schedule.name}
                       />
                     ))}

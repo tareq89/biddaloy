@@ -67,6 +67,7 @@ const TAB_IDS = [
   'overview',
   'enrollment',
   'fees',
+  'recurring-fees',
   'payments',
   'invoices',
   'guardians',
