@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { FeeStructure } from './entities/fee-structure.entity';
@@ -62,7 +62,15 @@ import { LateFeeService } from './late-fee.service';
     AuditModule,
     StudentModule,
     InvoicesModule,
-    SchoolsModule,
+    // [CI failure, PR #801] FeeModule -> SchoolsModule -> AccountAccessModule
+    // -> CommunicationsModule -> FeeModule is a cycle — CommunicationsModule
+    // already forwardRef()s its own edge to SchoolsModule for exactly this
+    // triangle (see the comment on that import in
+    // communications.module.ts). This edge was a plain import until
+    // FeesDailyScheduler needed SchoolsService ([16.7.2]) — without
+    // forwardRef here, SchoolsModule resolves to undefined depending on
+    // which module Nest happens to construct first.
+    forwardRef(() => SchoolsModule),
   ],
   providers: [
     FeeStructureService,
