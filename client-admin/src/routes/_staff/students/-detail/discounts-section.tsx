@@ -340,7 +340,7 @@ function DeleteRuleAction({
 
 export function DiscountsSection({ studentId }: DiscountsSectionProps) {
   const { t } = useTranslation('students');
-  const canManage = useHasPermission(Permission.FEE_COLLECT);
+  const canManage = useHasPermission(Permission.DISCOUNT_RULE_MANAGE);
   const rulesQuery = useDiscountRules(studentId);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editingRule, setEditingRule] = React.useState<DiscountRule | null>(null);

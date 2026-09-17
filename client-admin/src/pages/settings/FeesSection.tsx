@@ -214,92 +214,96 @@ export function FeesSection({ schoolId, fees }: FeesSectionProps) {
         <FormSection legend={t('fees.lateFeeLegend')}>
           <p className="text-sm text-muted-foreground">{t('fees.lateFeeAppliesFromTomorrow')}</p>
           <div className="flex flex-col gap-4">
-            {LATE_FEE_TYPES.map((type) => (
-              <div key={type} className="grid grid-cols-[1fr_auto_auto_auto] items-end gap-3">
-                <FormField
-                  control={form.control}
-                  name={`lateFees.${type}.enabled`}
-                  render={({ field }) => (
-                    <FormItem className="flex items-center gap-2">
-                      <FormControl>
-                        <Checkbox
-                          id={`fees-lateFee-${type}-enabled`}
-                          checked={field.value}
-                          onCheckedChange={(checked) => field.onChange(checked === true)}
-                        />
-                      </FormControl>
-                      <FormLabel htmlFor={`fees-lateFee-${type}-enabled`}>
-                        {t(`feeType.${type}`, { ns: 'common', defaultValue: type })}
-                      </FormLabel>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={`lateFees.${type}.graceDays`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel htmlFor={`fees-lateFee-${type}-graceDays`}>
-                        {t('fees.lateFeeGraceDays')}
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          id={`fees-lateFee-${type}-graceDays`}
-                          type="number"
-                          min={0}
-                          max={60}
-                          className="w-20"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={`lateFees.${type}.kind`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel htmlFor={`fees-lateFee-${type}-kind`}>
-                        {t('fees.lateFeeKind')}
-                      </FormLabel>
-                      <FormControl>
-                        <select
-                          id={`fees-lateFee-${type}-kind`}
-                          className="h-8 rounded-md border border-input bg-card px-2.5 text-sm"
-                          {...field}
-                        >
-                          <option value="PERCENT">{t('fees.lateFeeKindPercent')}</option>
-                          <option value="FLAT">{t('fees.lateFeeKindFlat')}</option>
-                        </select>
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={`lateFees.${type}.value`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel htmlFor={`fees-lateFee-${type}-value`}>
-                        {t('fees.lateFeeValue')}
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          id={`fees-lateFee-${type}-value`}
-                          type="number"
-                          min={0}
-                          className="w-24"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            ))}
+            {LATE_FEE_TYPES.map((type) => {
+              const kind = form.watch(`lateFees.${type}.kind`);
+              return (
+                <div key={type} className="grid grid-cols-[1fr_auto_auto_auto] items-end gap-3">
+                  <FormField
+                    control={form.control}
+                    name={`lateFees.${type}.enabled`}
+                    render={({ field }) => (
+                      <FormItem className="flex items-center gap-2">
+                        <FormControl>
+                          <Checkbox
+                            id={`fees-lateFee-${type}-enabled`}
+                            checked={field.value}
+                            onCheckedChange={(checked) => field.onChange(checked === true)}
+                          />
+                        </FormControl>
+                        <FormLabel htmlFor={`fees-lateFee-${type}-enabled`}>
+                          {t(`feeType.${type}`, { ns: 'common', defaultValue: type })}
+                        </FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name={`lateFees.${type}.graceDays`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel htmlFor={`fees-lateFee-${type}-graceDays`}>
+                          {t('fees.lateFeeGraceDays')}
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            id={`fees-lateFee-${type}-graceDays`}
+                            type="number"
+                            min={0}
+                            max={60}
+                            className="w-20"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name={`lateFees.${type}.kind`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel htmlFor={`fees-lateFee-${type}-kind`}>
+                          {t('fees.lateFeeKind')}
+                        </FormLabel>
+                        <FormControl>
+                          <select
+                            id={`fees-lateFee-${type}-kind`}
+                            className="h-8 rounded-md border border-input bg-card px-2.5 text-sm"
+                            {...field}
+                          >
+                            <option value="PERCENT">{t('fees.lateFeeKindPercent')}</option>
+                            <option value="FLAT">{t('fees.lateFeeKindFlat')}</option>
+                          </select>
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name={`lateFees.${type}.value`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel htmlFor={`fees-lateFee-${type}-value`}>
+                          {t('fees.lateFeeValue')}
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            id={`fees-lateFee-${type}-value`}
+                            type="number"
+                            min={0}
+                            max={kind === 'PERCENT' ? 100 : undefined}
+                            className="w-24"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              );
+            })}
           </div>
         </FormSection>
 
