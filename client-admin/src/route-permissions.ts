@@ -43,11 +43,11 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/fees/': Permission.FEE_STRUCTURE_READ,
   '/_staff/fees/dues': Permission.FEE_COLLECT,
   '/_staff/fees/generate': Permission.FEE_GENERATE,
-  // [16.7.5] recurring schedules — same FEE_GENERATE gate as
-  // `/fees/generate` (schedules are the "set it once" sibling of a
-  // one-off generate run, same ADMIN/ACCOUNTANT audience).
-  '/_staff/fees/schedules/': Permission.FEE_GENERATE,
-  '/_staff/fees/schedules/$id': Permission.FEE_GENERATE,
+  // [16.7.5] recurring schedules — `SCHEDULE_MANAGE` (ADMIN/ACCOUNTANT),
+  // the permission `@biddaloy/shared` already defines specifically for
+  // managing `RecurringSchedule`, not `FEE_GENERATE`.
+  '/_staff/fees/schedules/': Permission.SCHEDULE_MANAGE,
+  '/_staff/fees/schedules/$id': Permission.SCHEDULE_MANAGE,
   '/_staff/fee-structures/': Permission.FEE_STRUCTURE_READ,
   '/_staff/invoices/': Permission.INVOICE_READ,
   '/_staff/invoices/$invoiceId': Permission.INVOICE_READ,

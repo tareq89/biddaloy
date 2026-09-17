@@ -248,6 +248,11 @@ export function useAddScheduleExclusion(scheduleId: string) {
   });
 }
 
+/** Removing an exclusion (schedule-detail's `-exclusions-table.tsx`) and
+ * "include again"/"add to schedule" (the student-tab's own context) are
+ * both just `DELETE .../exclusions/:studentId` — one mutation, invalidating
+ * both the schedule detail and this student's own coverage query so
+ * neither view goes stale, regardless of which screen fired it. */
 export function useRemoveScheduleExclusion(scheduleId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -255,15 +260,22 @@ export function useRemoveScheduleExclusion(scheduleId: string) {
       await apiClient.delete(`/fees/schedules/${scheduleId}/exclusions/${studentId}`);
     },
     retry: shouldRetryQuery,
-    onSuccess: () => {
+    onSuccess: (_data, studentId) => {
       void queryClient.invalidateQueries({ queryKey: recurringScheduleKeys.detail(scheduleId) });
+      void queryClient.invalidateQueries({
+        queryKey: studentScheduleCoverageKeys.detail(studentId),
+      });
     },
   });
 }
 
+export const studentScheduleCoverageKeys = createEntityKeys<never, string>(
+  'student-schedule-coverage',
+);
+
 export function studentScheduleCoverageQueryOptions(studentId: string) {
   return queryOptions({
-    queryKey: ['students', 'detail', studentId, 'schedules'] as const,
+    queryKey: studentScheduleCoverageKeys.detail(studentId),
     queryFn: async ({ signal }) => {
       const res = await apiClient.get<StudentScheduleCoverage>(`/students/${studentId}/schedules`, {
         signal,
@@ -281,21 +293,35 @@ export function useStudentScheduleCoverage(studentId: string | undefined) {
   });
 }
 
-/** Student-tab "Include again"/one-off inclusion path — an inclusion is
- * just removing a per-student exclusion the student never had, so it's
- * really a targeted `POST .../exclusions` reversal. Modelled as its own
- * hook for readability at the call site even though it wraps the same
- * remove-exclusion request `useRemoveScheduleExclusion` does. */
-export function useIncludeStudentInSchedule(scheduleId: string) {
+/** Student-tab "Include again" (a schedule the student is currently
+ * excluded from) is the same request as `-exclusions-table.tsx`'s own
+ * "remove exclusion" row action — see `useRemoveScheduleExclusion`'s own
+ * comment. Aliased under this name at call sites in the student tab for
+ * readability; not a second implementation. */
+export const useIncludeStudentInSchedule = useRemoveScheduleExclusion;
+
+/** Student-tab "Add to schedule" — an active schedule whose audience
+ * *does* already match this student (same academic year/class/section/
+ * active-only rule an unrelated matching student would already be
+ * covered by), added explicitly rather than waiting for the schedule's
+ * own audience query to pick them up next run. Documented contract
+ * (#679's own table) only lists exclusions add/remove; this mirrors
+ * that same shape as the addition #679's Step 4 needs — flagged for
+ * confirmation against #675's real server contract once it merges. */
+export function useAddScheduleInclusion(scheduleId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (studentId: string) => {
-      await apiClient.delete(`/fees/schedules/${scheduleId}/exclusions/${studentId}`);
+      const res = await apiClient.post<{ student_id: string }>(
+        `/fees/schedules/${scheduleId}/inclusions`,
+        { student_id: studentId },
+      );
+      return res.data;
     },
     onSuccess: (_data, studentId) => {
       void queryClient.invalidateQueries({ queryKey: recurringScheduleKeys.detail(scheduleId) });
       void queryClient.invalidateQueries({
-        queryKey: ['students', 'detail', studentId, 'schedules'],
+        queryKey: studentScheduleCoverageKeys.detail(studentId),
       });
     },
   });

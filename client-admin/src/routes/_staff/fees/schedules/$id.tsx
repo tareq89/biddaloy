@@ -1,21 +1,25 @@
 /**
  * `/fees/schedules/$id` — [16.7.5] detail page: exclusions management
  * (`-exclusions-table.tsx`) plus a run-history section reusing
- * `fee-generations`' batch list, filtered to this schedule's batches —
- * same data `fees/generate.tsx`'s log shows, scoped by
- * `recurring_schedule_id` per issue #679's contract table, rather than
- * a second bespoke history view.
+ * `fee-generations`' own `BatchTable`/`BatchBillsDrawer` (wave 3, #654/
+ * #655) rather than a bespoke history view.
  */
 import { Permission } from '@biddaloy/shared';
 import { RoutePending } from '@biddaloy/ui/components';
 import {
   recurringScheduleQueryOptions,
+  useFeeGenerations,
   useHasPermission,
   useRecurringSchedule,
+  type FeeGeneration,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { useListShellState } from '@biddaloy/ui/shells';
 import { createFileRoute, Link } from '@tanstack/react-router';
+import * as React from 'react';
 
+import { BatchBillsDrawer } from '../-generations/batch-bills-drawer';
+import { BatchTable } from '../-generations/batch-table';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../../route-loaders';
 
 import { ExclusionsTable } from './-exclusions-table';
@@ -32,10 +36,64 @@ export const Route = createFileRoute('/_staff/fees/schedules/$id')({
   component: ScheduleDetailPage,
 });
 
+/**
+ * Run-history table. `GET /fees/generations` has no `recurring_schedule_id`
+ * filter in the real, already-shipped `FeeGenerationListItemDto` (checked
+ * against `server/src/modules/fees/dto/fee-generations.dto.ts` — this is
+ * client-only territory, so that DTO isn't ours to extend here). Sending
+ * an unrecognized filter param risks either being silently stripped
+ * (showing every schedule's batches) or rejected outright by the
+ * server's whitelist validation, so this scopes by the one filter that
+ * *is* real and supported — `source: 'SCHEDULE'` — and says so in the
+ * caption, rather than either lying about being scoped to just this
+ * schedule or leaving the section unimplemented. Once a server ticket
+ * adds `recurring_schedule_id` to `QueryFeeGenerationsDto`, swap the
+ * filter here for a real one.
+ */
+function ScheduleRunHistory({ scheduleId }: { scheduleId: string }) {
+  // Not sent to the server — see this function's own doc comment on why
+  // `recurring_schedule_id` can't be used as a real filter param yet.
+  void scheduleId;
+  const { t } = useTranslation('fees');
+  const [state, actions] = useListShellState({ limit: 10 });
+  const generationsQuery = useFeeGenerations({
+    source: 'SCHEDULE',
+    page: state.page,
+    limit: state.limit,
+  });
+  const [selectedBatch, setSelectedBatch] = React.useState<FeeGeneration | null>(null);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-xs text-muted-foreground">{t('schedules.detail.runHistoryScopeNotice')}</p>
+      <BatchTable
+        title={t('schedules.detail.runHistoryTitle')}
+        filters={{ fields: [], values: state.filters, onChange: actions.setFilters }}
+        data={generationsQuery.data?.data ?? []}
+        loading={generationsQuery.isLoading}
+        isFetching={generationsQuery.isFetching}
+        {...(generationsQuery.isError ? { error: t('schedules.errorMessage') } : {})}
+        emptyMessage={t('schedules.detail.runHistoryEmptyMessage')}
+        page={state.page}
+        pageSize={state.limit}
+        totalCount={generationsQuery.data?.total ?? 0}
+        onPageChange={actions.setPage}
+        onPageSizeChange={actions.setLimit}
+        pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
+        onRowClick={setSelectedBatch}
+      />
+      <BatchBillsDrawer
+        batch={selectedBatch}
+        onOpenChange={(open) => !open && setSelectedBatch(null)}
+      />
+    </div>
+  );
+}
+
 function ScheduleDetailPage() {
   const { id } = Route.useParams();
   const { t } = useTranslation('fees');
-  const canManage = useHasPermission(Permission.FEE_GENERATE);
+  const canManage = useHasPermission(Permission.SCHEDULE_MANAGE);
 
   const scheduleQuery = useRecurringSchedule(id);
   const exclusions = scheduleQuery.data?.exclusions ?? [];
@@ -65,16 +123,7 @@ function ScheduleDetailPage() {
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-base font-medium">{t('schedules.detail.runHistoryTitle')}</h2>
-        {/* [16.7.5]: `GET /fee-generations` has no `recurring_schedule_id`
-         * filter in this interim contract yet — #675/#654's batch log
-         * would need that param added server-side to scope a real list
-         * here. Left as an explicit gap rather than a client-side filter
-         * over the unscoped list (which would silently show every
-         * school's batches, not just this schedule's). */}
-        <p className="text-sm text-muted-foreground">
-          {t('schedules.detail.runHistoryEmptyMessage')}
-        </p>
+        <ScheduleRunHistory scheduleId={id} />
       </section>
     </div>
   );

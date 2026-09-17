@@ -323,7 +323,8 @@
       "studentSearchPlaceholder": "Search by name or ID",
       "studentSearchNoResults": "No students found",
       "runHistoryTitle": "Run history",
-      "runHistoryEmptyMessage": "This schedule hasn't generated any fees yet"
+      "runHistoryEmptyMessage": "This schedule hasn't generated any fees yet",
+      "runHistoryScopeNotice": "Showing every schedule-generated batch — not yet scoped to this schedule alone (needs a server-side filter)."
     }
   },
   "recurringFeesTab": {
@@ -338,6 +339,8 @@
     "noAudienceMatchNotice": "This student doesn't match this schedule's audience — use \"Bill one-off\" instead.",
     "includedEmptyMessage": "Not covered by any recurring schedule",
     "excludedEmptyMessage": "No excluded schedules",
+    "addToScheduleTitle": "Add to schedule",
+    "addToScheduleEmptyMessage": "No other active schedules to add this student to",
     "errorMessage": "Failed to load recurring-fee coverage for this student"
   }
 }
