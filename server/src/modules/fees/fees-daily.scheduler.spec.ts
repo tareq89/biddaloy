@@ -77,8 +77,15 @@ describe('FeesDailyScheduler', () => {
       })),
     };
     manager = {
+      // [CodeRabbit review, PR #801] runSchedule now re-reads the FULL
+      // schedule row FOR UPDATE (not just last_run_period), then a
+      // separate query for its fee_structure_ids — matched here so the
+      // "fresh" row this mock returns exercises the same shape the real
+      // query returns.
       query: vi.fn(async (sql: string) => {
-        if (sql.includes('FOR UPDATE')) return [{ last_run_period: null }];
+        if (sql.includes('FOR UPDATE'))
+          return [{ ...scheduleRow(), is_active: true, deleted_at: null }];
+        if (sql.includes('recurring_schedule_structures')) return [{ fee_structure_id: 'fs-1' }];
         if (sql.includes('recurring_schedule_exclusions')) return [];
         return [];
       }),
@@ -154,7 +161,11 @@ describe('FeesDailyScheduler', () => {
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: SCHOOL_TZ }).format(new Date());
     const currentPeriod = periodFor(today, { kind: 'WEEKLY' } as any);
     manager.query = vi.fn(async (sql: string) => {
-      if (sql.includes('FOR UPDATE')) return [{ last_run_period: currentPeriod }];
+      if (sql.includes('FOR UPDATE')) {
+        return [
+          { ...scheduleRow(), last_run_period: currentPeriod, is_active: true, deleted_at: null },
+        ];
+      }
       return [];
     });
 
@@ -257,6 +268,39 @@ describe('FeesDailyScheduler', () => {
       await scheduler.process();
 
       expect(schoolsService.findAll).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('[CodeRabbit review, PR #801] resilience fixes', () => {
+    it('a malformed recurrence rule (isDue throws) is skipped, not left to crash findDueSchedules for the whole tenant', async () => {
+      // A second, well-formed schedule must still run even though the
+      // first row's rule is malformed (WEEKLY with no weekdays array).
+      dataSource.query = vi.fn(async () => [
+        scheduleRow({ id: 'sched-malformed', rule: { kind: 'WEEKLY' } as any }),
+        scheduleRow({ id: 'sched-ok' }),
+      ]);
+
+      // Only the well-formed row ('sched-ok') should ever reach
+      // runSchedule/generate() — the malformed one is filtered out inside
+      // findDueSchedules itself, before either schedule's transaction
+      // opens.
+      await expect(scheduler.process()).resolves.not.toThrow();
+      expect(feeGenerationService.generate).toHaveBeenCalledTimes(1);
+    });
+
+    it('re-reads the full schedule row under the lock — a schedule deactivated between the outer read and the lock is not run', async () => {
+      manager.query = vi.fn(async (sql: string) => {
+        // The FOR UPDATE re-read returns is_active: false — simulating an
+        // admin disabling the schedule in the gap between findDueSchedules'
+        // outer snapshot and this transaction acquiring the row lock.
+        if (sql.includes('FOR UPDATE'))
+          return [{ ...scheduleRow(), is_active: false, deleted_at: null }];
+        return [];
+      });
+
+      await scheduler.process();
+
+      expect(feeGenerationService.generate).not.toHaveBeenCalled();
     });
   });
 });

@@ -241,7 +241,27 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
       [tenantId, today],
     )) as RecurringScheduleRow[];
 
-    return rows.filter((row) => isDue(row.rule, today));
+    // [CodeRabbit review, PR #801] isDue() throws on a malformed rule
+    // (e.g. a persisted WEEKLY row with no weekdays) — this runs before
+    // runTenant's per-schedule try/catch, so one bad row here would
+    // otherwise abort findDueSchedules entirely and skip every other
+    // schedule (and the tenant's late-fee sweep) for this tenant, not
+    // just the malformed one.
+    return rows.filter((row) => {
+      try {
+        return isDue(row.rule, today);
+      } catch (error) {
+        this.logger.error(
+          `fees-daily: schedule ${row.id} has a malformed recurrence rule, skipping: ${String(error)}`,
+        );
+        Sentry.withScope((scope) => {
+          scope.setTag('job', 'fees-daily');
+          scope.setContext('fees_daily', { tenant_id: tenantId, schedule_id: row.id });
+          Sentry.captureException(error instanceof Error ? error : new Error(String(error)));
+        });
+        return false;
+      }
+    });
   }
 
   private async runSchedule(schedule: RecurringScheduleRow, today: string): Promise<void> {
@@ -256,17 +276,41 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     let notifyPayload: FeesGeneratedEventPayload | null = null;
 
     await this.dataSource.transaction(async (manager) => {
-      // Re-read + re-check under the transaction: a concurrent run for the
-      // same schedule must not both pass this check and both generate.
+      // [CodeRabbit review, PR #801] Re-read the FULL schedule row under
+      // the lock, not just last_run_period — the outer `schedule` snapshot
+      // was read before this transaction opened, so if an admin disabled,
+      // rescheduled, or re-targeted the audience of this schedule in that
+      // gap, the old code would still generate against the stale
+      // audience/rule/date-window it read minutes (or longer) earlier.
       const [fresh] = (await manager.query(
-        `SELECT last_run_period FROM recurring_schedules WHERE id = $1 FOR UPDATE`,
+        `SELECT id, tenant_id, academic_year_id, audience, rule, period_type,
+                due_days_after_period_start, starts_on, ends_on, notify_families,
+                last_run_period, is_active, deleted_at
+           FROM recurring_schedules
+          WHERE id = $1
+          FOR UPDATE`,
         [schedule.id],
-      )) as { last_run_period: string | null }[];
-      if (fresh?.last_run_period === period) return;
+      )) as (Omit<RecurringScheduleRow, 'fee_structure_ids'> & {
+        is_active: boolean;
+        deleted_at: string | null;
+      })[];
+
+      if (!fresh || !fresh.is_active || fresh.deleted_at) return;
+      if (fresh.starts_on > today || fresh.ends_on < today) return;
+      if (!isDue(fresh.rule, today)) return;
+
+      const freshPeriod = periodFor(today, fresh.rule);
+      if (fresh.last_run_period === freshPeriod) return;
+
+      const feeStructureRows = (await manager.query(
+        `SELECT fee_structure_id FROM recurring_schedule_structures WHERE schedule_id = $1`,
+        [fresh.id],
+      )) as { fee_structure_id: string }[];
+      const feeStructureIds = feeStructureRows.map((r) => r.fee_structure_id);
 
       const excludedRows = (await manager.query(
         `SELECT student_id FROM recurring_schedule_exclusions WHERE schedule_id = $1`,
-        [schedule.id],
+        [fresh.id],
       )) as { student_id: string }[];
       const excluded = new Set(excludedRows.map((r) => r.student_id));
 
@@ -274,47 +318,47 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
         .getRepository(Student)
         .createQueryBuilder('s')
         .innerJoin('s.class_section', 'cs')
-        .where('s.tenant_id = :tenantId', { tenantId: schedule.tenant_id })
+        .where('s.tenant_id = :tenantId', { tenantId: fresh.tenant_id })
         .andWhere('s.deleted_at IS NULL');
-      if (schedule.audience.section_id) {
-        qb.andWhere('s.class_section_id = :sectionId', { sectionId: schedule.audience.section_id });
-      } else if (schedule.audience.class_id) {
-        qb.andWhere('cs.class_id = :classId', { classId: schedule.audience.class_id });
+      if (fresh.audience.section_id) {
+        qb.andWhere('s.class_section_id = :sectionId', { sectionId: fresh.audience.section_id });
+      } else if (fresh.audience.class_id) {
+        qb.andWhere('cs.class_id = :classId', { classId: fresh.audience.class_id });
       }
-      if (schedule.audience.enrollment_status) {
+      if (fresh.audience.enrollment_status) {
         qb.andWhere('s.enrollment_status = :status', {
-          status: schedule.audience.enrollment_status,
+          status: fresh.audience.enrollment_status,
         });
       }
       const students = await qb.getMany();
       const studentIds = students.map((s) => s.id).filter((id) => !excluded.has(id));
 
-      if (studentIds.length === 0 || schedule.fee_structure_ids.length === 0) {
+      if (studentIds.length === 0 || feeStructureIds.length === 0) {
         await manager.query(`UPDATE recurring_schedules SET last_run_period = $1 WHERE id = $2`, [
-          period,
-          schedule.id,
+          freshPeriod,
+          fresh.id,
         ]);
         return;
       }
 
       const result = await this.feeGenerationService.generate(
         {
-          academic_year_id: schedule.academic_year_id,
-          period_start: period,
-          period_type: schedule.period_type === 'MONTH' ? PeriodType.MONTH : PeriodType.WEEK,
+          academic_year_id: fresh.academic_year_id,
+          period_start: freshPeriod,
+          period_type: fresh.period_type === 'MONTH' ? PeriodType.MONTH : PeriodType.WEEK,
           student_ids: studentIds,
-          fee_structure_ids: schedule.fee_structure_ids,
+          fee_structure_ids: feeStructureIds,
           include_inactive: false,
-          due_date: addDays(period, schedule.due_days_after_period_start),
+          due_date: addDays(freshPeriod, fresh.due_days_after_period_start),
           duplicate_strategy: DuplicateStrategy.SKIP,
-          notify_families: schedule.notify_families,
+          notify_families: fresh.notify_families,
         },
-        schedule.tenant_id,
+        fresh.tenant_id,
         null,
         { headers: {} },
         {
           source: FeeGenerationSource.SCHEDULE,
-          recurringScheduleId: schedule.id,
+          recurringScheduleId: fresh.id,
           // [CodeRabbit review, PR #801] Reuse this transaction's own
           // manager rather than letting `generate()` open an independent
           // one — the bills it writes and the `last_run_period` update
@@ -333,12 +377,12 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
       // even though `duplicate_strategy: SKIP` already made the *bills*
       // themselves idempotent).
       await manager.query(`UPDATE recurring_schedules SET last_run_period = $1 WHERE id = $2`, [
-        period,
-        schedule.id,
+        freshPeriod,
+        fresh.id,
       ]);
 
-      if (schedule.notify_families) {
-        notifyPayload = { tenantId: schedule.tenant_id, feeGenerationId: result.fee_generation_id };
+      if (fresh.notify_families) {
+        notifyPayload = { tenantId: fresh.tenant_id, feeGenerationId: result.fee_generation_id };
       }
     });
 
