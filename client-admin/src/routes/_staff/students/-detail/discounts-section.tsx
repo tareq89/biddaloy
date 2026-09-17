@@ -2,8 +2,8 @@
  * [16.7.6] "Discounts" section of the student's Fees tab — one student's
  * standing discount rules (D8), add/edit/delete through the approval-gated
  * mutation shape `-reverse-payment-dialog.tsx` (16.6.2, wave 6) already
- * established: `useApprovedMutation` renders its own `modal` anywhere in
- * this component's tree, so a plain 403 becomes a step-up prompt with no
+ * established: `useApprovedMutation` turns a plain 403 into a step-up
+ * prompt shown by the app-level `<ApprovalModalHostProvider>`, with no
  * extra plumbing here.
  *
  * Kept as its own file (rather than folded into `fees-tab.tsx`) per the
@@ -107,11 +107,10 @@ function validate(form: RuleFormState, t: (key: string) => string): string | und
  * ...}`, keyed by `editingRule?.id ?? 'add'`) whenever it changes, so
  * calling exactly one of `useCreateDiscountRule`/`useUpdateDiscountRule`
  * based on it doesn't break rules-of-hooks. Mounted only while `open` is
- * true, same reasoning `-reverse-payment-dialog.tsx`'s own comment gives:
- * `useApprovedMutation`'s single modal host goes to whichever instance
- * mounts first and keeps it forever, so an always-mounted dialog here
- * would starve the delete action's own approval modal (see
- * `DeleteRuleAction` below).
+ * true — purely so the form resets between openings. (It is no longer
+ * load-bearing for approval: the modal is owned by one app-level
+ * `<ApprovalModalHostProvider>`, so several mounted `useApprovedMutation`
+ * callers can no longer starve each other.)
  */
 function RuleFormDialog({
   open,
@@ -303,18 +302,20 @@ function RuleFormDialog({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {mutation.modal}
     </>
   );
 }
 
 /**
- * Mounted only while a delete is in flight — same "one approved-mutation
- * host at a time" reasoning `RuleFormDialog` and `-reverse-payment-
- * dialog.tsx` both document. Fires its mutation once on mount rather than
- * exposing an imperative handle, so the parent never needs to hold a
- * `useDeleteDiscountRule()` of its own (which would otherwise stay mounted
- * for the whole section and starve the add/edit dialog's modal).
+ * Mounted only while a delete is in flight. Fires its mutation once on
+ * mount rather than exposing an imperative handle, so the parent never
+ * needs to hold a `useDeleteDiscountRule()` of its own.
+ *
+ * (It used to exist partly to avoid two `useApprovedMutation` instances
+ * being mounted at once — that no longer matters: the approval modal is
+ * owned by one app-level `<ApprovalModalHostProvider>`, so any number of
+ * wrapped mutations can coexist. Keeping the component only for the
+ * fire-once-on-mount ergonomics above.)
  */
 function DeleteRuleAction({
   rule,
@@ -335,7 +336,9 @@ function DeleteRuleAction({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fire exactly once per mount
   }, []);
 
-  return deleteRule.modal;
+  // Renders nothing: the step-up approval prompt, if the delete needs one,
+  // comes from the app-level `<ApprovalModalHostProvider>`.
+  return null;
 }
 
 export function DiscountsSection({ studentId }: DiscountsSectionProps) {

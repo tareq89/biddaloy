@@ -421,8 +421,6 @@ export function GenerateFeesModal({
             </div>
           </DialogFooter>
         </form>
-
-        {generate.modal}
       </DialogContent>
     </Dialog>
   );

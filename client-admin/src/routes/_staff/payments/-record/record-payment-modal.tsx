@@ -7,9 +7,9 @@
  * `useApprovedMutation(checkoutRequest, { approvalScope: ... })` — not
  * `{ scope }` — per the published plan's correction
  * (`ui/src/hooks/approval.tsx:96-109` reserves `scope` for TanStack
- * Query's own mutation-concurrency option). `checkout.modal` is rendered
- * as the last child of `DialogContent`, or the approval prompt never
- * appears.
+ * Query's own mutation-concurrency option). The approval prompt itself is
+ * rendered by the app-level `<ApprovalModalHostProvider>` in
+ * `routes/_staff.tsx` — this component renders nothing for it.
  *
  * `useCart`/`useCheckout` are backed by hand-written interim types in
  * `ui/src/hooks/payments.ts` — #658/#659's cart and checkout endpoints
@@ -692,8 +692,6 @@ export function RecordPaymentModal({
             </form>
           </>
         )}
-
-        {checkout.modal}
       </DialogContent>
     </Dialog>
   );

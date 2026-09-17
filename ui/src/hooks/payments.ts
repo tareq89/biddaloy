@@ -210,8 +210,8 @@ async function checkoutRequest(
  * `scope` (`ui/src/hooks/approval.tsx:96-109` reserves `scope` for
  * TanStack Query's own mutation-concurrency option). Any line with
  * `one_off_discount > 0` makes the whole checkout require
- * `ApprovalScope.FEES_DISCOUNT` — render `checkout.modal` once, anywhere
- * in the calling component's tree, or the approval prompt never appears.
+ * `ApprovalScope.FEES_DISCOUNT`; the prompt itself is rendered by the
+ * app-level `<ApprovalModalHostProvider>`, so callers render nothing.
  *
  * Deliberately has **no `onMutate`** — same non-optimistic reasoning as
  * the wizard's old `useRecordPaymentWithAllocation`. F11: this hook is

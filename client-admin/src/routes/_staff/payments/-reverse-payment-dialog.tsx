@@ -3,15 +3,14 @@
  * `POST /payments/:id/reverse` is hand-typed (`useReversePayment` in
  * `ui/src/hooks/payments.ts`) ahead of #670's server work — see the plan
  * comment on #672. D9's step-up approval (`ApprovalScope.PAYMENTS_REVERSE`)
- * is handled by `useApprovedMutation` itself; this component only needs to
- * render its `modal` output, same as `remove-student-dialog.tsx`.
+ * is handled by `useApprovedMutation` itself; the prompt is rendered by
+ * the app-level `<ApprovalModalHostProvider>` in `routes/_staff.tsx`, so
+ * this component renders nothing for it.
  *
- * **Mount only while `open` is true** (`{reverseOpen && <ReversePaymentDialog
- * ... />}`, as `$id.tsx` already does) — same reasoning `remove-student-
- * dialog.tsx`'s own comment gives: `useApprovedMutation`'s single modal
- * host goes to whichever instance mounts first and keeps it forever, so an
- * always-mounted instance here would starve any other approved mutation on
- * the page.
+ * Mounted only while `open` is true (`{reverseOpen && <ReversePaymentDialog
+ * ... />}`, as `$id.tsx` already does) so its form state resets between
+ * openings. That used to also be required to avoid squatting the single
+ * approval-modal host; it isn't anymore.
  */
 import { ApiError } from '@biddaloy/ui/api';
 import {
@@ -139,7 +138,6 @@ export function ReversePaymentDialog({ open, onOpenChange, paymentId }: ReverseP
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {reversePayment.modal}
     </>
   );
 }
