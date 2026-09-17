@@ -14,6 +14,7 @@ import {
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from 'class-validator';
+import { ApiExtraModels, ApiProperty, ApiPropertyOptional, getSchemaPath } from '@nestjs/swagger';
 import { Secret } from '../settings/secret-field.decorator';
 import { NestedSettings } from '../settings/nested-settings.decorator';
 import { OptionalSetting } from '../settings/optional-setting.decorator';
@@ -348,17 +349,21 @@ export class BackupSettingsDto {
  * a late-fee bill.
  */
 export class LateFeeRuleDto {
+  @ApiProperty()
   @IsBoolean()
   enabled: boolean;
 
+  @ApiProperty({ minimum: 0, maximum: 60 })
   @IsInt()
   @Min(0)
   @Max(60)
   grace_days: number;
 
+  @ApiProperty({ enum: DiscountKind })
   @IsIn(Object.values(DiscountKind))
   kind: DiscountKind;
 
+  @ApiProperty()
   @IsNotEmpty()
   value: number;
 }
@@ -419,18 +424,36 @@ export class LateFeesMapConstraint implements ValidatorConstraintInterface {
  * flow) reads to decide whether PASSWORD is an allowed verification method
  * alongside OTP.
  */
+@ApiExtraModels(LateFeeRuleDto)
 export class FeesSettingsDto {
+  @ApiProperty({ enum: ApprovalMode })
   @IsIn(Object.values(ApprovalMode))
   approvalMode: ApprovalMode;
 
+  @ApiProperty()
   @IsBoolean()
   notifyOnManualGenerationDefault: boolean;
 
+  @ApiProperty()
   @IsBoolean()
   notifyOnScheduleDefault: boolean;
 
   /** [16.7.4] Per-fee-type late-fee rule. Omitted/absent fee type = no
-   * late fee ever applies to that fee type. */
+   * late fee ever applies to that fee type.
+   *
+   * [CodeRabbit review, PR #801] `@ApiPropertyOptional` here is load-bearing,
+   * not decorative: nestjs/swagger's CLI-plugin reflection can describe a
+   * plain class property automatically, but not a mapped type like
+   * `Partial<Record<FeeType, LateFeeRuleDto>>` — without this, the
+   * generated OpenAPI (and therefore ui/src/api/schema.d.ts) described
+   * `lateFees` as `Record<string, never>`, which rejected every real
+   * field (`enabled`, `grace_days`, `kind`, `value`) at the UI's type
+   * level even though the server accepted and validated them correctly. */
+  @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: { $ref: getSchemaPath(LateFeeRuleDto) },
+    description: 'Keyed by FeeType. Omitted key = that fee type never gets a late fee.',
+  })
   @IsOptional()
   @Validate(LateFeesMapConstraint)
   lateFees?: Partial<Record<FeeType, LateFeeRuleDto>>;

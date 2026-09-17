@@ -4143,12 +4143,22 @@ export interface components {
             /** @enum {string} */
             schedule: "OFF" | "WEEKLY" | "DAILY";
         };
+        LateFeeRuleDto: {
+            enabled: boolean;
+            grace_days: number;
+            /** @enum {string} */
+            kind: "FLAT" | "PERCENT";
+            value: number;
+        };
         FeesSettingsDto: {
             /** @enum {string} */
             approvalMode: "OTP" | "OTP_OR_PASSWORD";
             notifyOnManualGenerationDefault: boolean;
             notifyOnScheduleDefault: boolean;
-            lateFees?: Record<string, never>;
+            /** @description Keyed by FeeType. Omitted key = that fee type never gets a late fee. */
+            lateFees?: {
+                [key: string]: components["schemas"]["LateFeeRuleDto"];
+            };
         };
         TenantSettingsDto: {
             /** @enum {number} */
