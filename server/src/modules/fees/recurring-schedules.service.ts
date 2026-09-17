@@ -11,6 +11,7 @@ import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
 import { AuditService } from '../audit/audit.service';
+import { localToday } from '../attendance/attendance-policy.util';
 import {
   AddExclusionDto,
   CloneScheduleDto,
@@ -24,6 +25,11 @@ import {
 } from './dto/recurring-schedules.dto';
 
 const PREVIEW_LIMIT = 50;
+// Duplicated rather than imported, matching checkout.service.ts /
+// payments-query.service.ts / collections-report.service.ts — schedule
+// windows are school-local calendar days (Asia/Dhaka, epic #637 D14),
+// never server-local/UTC time.
+const SCHOOL_TIMEZONE = 'Asia/Dhaka';
 
 /**
  * [16.7.1] CRUD + exclusions + clone-to-next-year for `RecurringSchedule`.
@@ -117,6 +123,16 @@ export class RecurringSchedulesService {
       if (classId && section.class_id !== classId) {
         throw new BadRequestException('audience.section_id does not belong to audience.class_id');
       }
+      // section itself carries no academic_year_id — confirm via its class,
+      // even when no class_id was given directly in the audience.
+      const sectionClass = await this.classRepo.findOne({
+        where: { id: section.class_id, tenant_id: tenantId, academic_year_id: academicYearId },
+      });
+      if (!sectionClass) {
+        throw new BadRequestException(
+          `Section "${audience.section_id}" does not belong to this tenant/academic year`,
+        );
+      }
     }
   }
 
@@ -128,14 +144,103 @@ export class RecurringSchedulesService {
     if (ids.length === 0) {
       throw new BadRequestException('fee_structure_ids must not be empty');
     }
+    if (new Set(ids).size !== ids.length) {
+      // Without this check a duplicate slips past the count comparison
+      // below (the DB match count and the deduped id count still agree)
+      // and only fails later as an unhandled unique-constraint violation
+      // on (schedule_id, fee_structure_id) when the structure rows save.
+      throw new BadRequestException('fee_structure_ids must not contain duplicates');
+    }
     const found = await this.feeStructureRepo.find({
       where: { id: In(ids), tenant_id: tenantId, academic_year_id: academicYearId },
     });
-    if (found.length !== new Set(ids).size) {
+    if (found.length !== ids.length) {
       throw new BadRequestException(
         'One or more fee_structure_ids do not belong to this tenant/academic year',
       );
     }
+  }
+
+  /**
+   * Remap a class/section-scoped audience across academic years by name —
+   * a `class_id`/`section_id` only exists in the year it was created for
+   * (`classes` is unique per `(name, academic_year_id, tenant_id)`), so
+   * carrying the source year's id forward unchanged would silently match
+   * zero students once the target year's roster sits in different rows.
+   * Mirrors how `clone()` already remaps fee structures by
+   * `(name, fee_type)` and reports misses instead of guessing.
+   */
+  private async remapAudienceToYear(
+    audience: { class_id?: string; section_id?: string; enrollment_status: 'ACTIVE' },
+    targetYearId: string,
+    tenantId: string,
+  ): Promise<{
+    audience: { class_id?: string; section_id?: string; enrollment_status: 'ACTIVE' };
+    unmatchedLabel: string | null;
+  }> {
+    if (!audience.class_id && !audience.section_id) {
+      return { audience, unmatchedLabel: null };
+    }
+
+    let sourceClassId = audience.class_id;
+    let sourceSectionName: string | null = null;
+    if (audience.section_id) {
+      const section = await this.classSectionRepo.findOne({
+        where: { id: audience.section_id, tenant_id: tenantId },
+      });
+      sourceSectionName = section?.section_name ?? null;
+      sourceClassId = sourceClassId ?? section?.class_id;
+    }
+
+    const sourceClass = sourceClassId
+      ? await this.classRepo.findOne({ where: { id: sourceClassId, tenant_id: tenantId } })
+      : null;
+    if (!sourceClass) {
+      // The source class/section was itself deleted since — nothing to
+      // remap by name; fall back to enrollment_status only.
+      return {
+        audience: { enrollment_status: audience.enrollment_status },
+        unmatchedLabel: sourceSectionName ?? audience.class_id ?? audience.section_id ?? 'audience',
+      };
+    }
+
+    const targetClass = await this.classRepo.findOne({
+      where: { name: sourceClass.name, tenant_id: tenantId, academic_year_id: targetYearId },
+    });
+    if (!targetClass) {
+      return {
+        audience: { enrollment_status: audience.enrollment_status },
+        unmatchedLabel: sourceSectionName
+          ? `${sourceClass.name} / ${sourceSectionName}`
+          : sourceClass.name,
+      };
+    }
+
+    if (!sourceSectionName) {
+      return {
+        audience: { class_id: targetClass.id, enrollment_status: audience.enrollment_status },
+        unmatchedLabel: null,
+      };
+    }
+
+    const targetSection = await this.classSectionRepo.findOne({
+      where: { class_id: targetClass.id, section_name: sourceSectionName, tenant_id: tenantId },
+    });
+    if (!targetSection) {
+      return {
+        audience: { class_id: targetClass.id, enrollment_status: audience.enrollment_status },
+        unmatchedLabel: `${sourceClass.name} / ${sourceSectionName}`,
+      };
+    }
+
+    return {
+      audience: {
+        class_id: targetClass.id,
+        section_id: targetSection.id,
+        enrollment_status: audience.enrollment_status,
+      },
+      unmatchedLabel: null,
+    };
   }
 
   private resolveEndsOn(requested: string | undefined, academicYear: AcademicYear): string {
@@ -143,7 +248,11 @@ export class RecurringSchedulesService {
     if (!requested) {
       return capDate;
     }
-    if (requested > capDate) {
+    // `@IsDateString()` on the DTO admits a full ISO datetime, not just a
+    // date-only string, so compare by instant (Date) rather than by raw
+    // string — a lexicographic compare puts a datetime equal to the cap
+    // date after it and rejects a valid value with a confusing 400.
+    if (new Date(requested).getTime() > new Date(capDate).getTime()) {
       throw new BadRequestException(
         `ends_on (${requested}) may not be after the academic year's end date (${capDate})`,
       );
@@ -400,9 +509,16 @@ export class RecurringSchedulesService {
   ): Promise<void> {
     const schedule = await this.getOwnedSchedule(id, tenantId);
     await this.repo.manager.transaction(async (manager) => {
-      await manager
-        .getRepository(RecurringScheduleExclusion)
-        .delete({ schedule_id: schedule.id, student_id: studentId });
+      const exclusionRepo = manager.getRepository(RecurringScheduleExclusion);
+      const existing = await exclusionRepo.findOne({
+        where: { schedule_id: schedule.id, student_id: studentId },
+      });
+      if (!existing) {
+        // Nothing to remove — skip the delete and the audit entry rather
+        // than recording a DELETE for a row that never existed.
+        return;
+      }
+      await exclusionRepo.delete({ schedule_id: schedule.id, student_id: studentId });
 
       await this.auditService.record(
         {
@@ -473,7 +589,19 @@ export class RecurringSchedulesService {
     userId: string,
   ): Promise<CloneScheduleResultDto> {
     const source = await this.getOwnedSchedule(id, tenantId);
+    if (dto.academic_year_id === source.academic_year_id) {
+      throw new BadRequestException(
+        'Cannot clone a schedule into its own academic year — this would create a duplicate active schedule and double-bill its audience',
+      );
+    }
     const targetYear = await this.loadAcademicYear(dto.academic_year_id, tenantId);
+    // audience.class_id/section_id are year-scoped rows (a class only
+    // exists within one academic year) — remap by name into the target
+    // year, the same way fee structures are remapped below, rather than
+    // blindly carrying the source year's class/section id forward (which
+    // would silently match zero students).
+    const { audience: remappedAudience, unmatchedLabel: unmatchedAudienceLabel } =
+      await this.remapAudienceToYear(source.audience, targetYear.id, tenantId);
 
     const sourceStructures = await this.structureRepo.find({
       where: { schedule_id: source.id },
@@ -509,7 +637,7 @@ export class RecurringSchedulesService {
           tenant_id: tenantId,
           academic_year_id: targetYear.id,
           name: source.name,
-          audience: source.audience,
+          audience: remappedAudience,
           rule: source.rule,
           period_type: source.period_type,
           due_days_after_period_start: source.due_days_after_period_start,
@@ -560,6 +688,7 @@ export class RecurringSchedulesService {
     return {
       schedule: await this.findOne(created.id, tenantId),
       unmatched_structure_names: unmatchedNames,
+      unmatched_audience_label: unmatchedAudienceLabel,
     };
   }
 
@@ -572,7 +701,18 @@ export class RecurringSchedulesService {
       throw new NotFoundException(`Student "${studentId}" not found`);
     }
 
-    const schedules = await this.repo.find({ where: { tenant_id: tenantId, is_active: true } });
+    // Restrict to schedules whose window is currently open — otherwise a
+    // student keeps seeing last year's (never-deactivated) schedules
+    // forever. `today` is the school's local calendar day (Asia/Dhaka),
+    // not UTC — otherwise this flips a few hours early/late every day.
+    const today = localToday(SCHOOL_TIMEZONE);
+    const schedules = await this.repo
+      .createQueryBuilder('rs')
+      .where('rs.tenant_id = :tenantId', { tenantId })
+      .andWhere('rs.is_active = true')
+      .andWhere('rs.starts_on <= :today', { today })
+      .andWhere('rs.ends_on >= :today', { today })
+      .getMany();
     const exclusions = await this.exclusionRepo.find({ where: { student_id: studentId } });
     const excludedScheduleIds = new Set(exclusions.map((e) => e.schedule_id));
 

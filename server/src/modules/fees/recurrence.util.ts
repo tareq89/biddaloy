@@ -84,8 +84,8 @@ export function isDue(rule: RecurringScheduleRule, date: string): boolean {
  */
 export function nextRunDates(rule: RecurringScheduleRule, from: string, count: number): string[] {
   const dates: string[] = [];
-  let { year, month, day } = parseDateOnly(from);
-  let cursor = new Date(Date.UTC(year, month - 1, day));
+  const { year, month, day } = parseDateOnly(from);
+  const cursor = new Date(Date.UTC(year, month - 1, day));
 
   // A year of days is enough headroom for both cadences (monthly rules
   // fire at least once a month, weekly rules at least once a week) without

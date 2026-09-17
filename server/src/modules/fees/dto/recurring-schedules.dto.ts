@@ -12,7 +12,8 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
+import { ApiProperty } from '@nestjs/swagger';
 import { PeriodType } from '@biddaloy/shared';
 
 export class RecurringScheduleAudienceDto {
@@ -137,9 +138,17 @@ export class QueryRecurringSchedulesDto {
   @IsUUID()
   academic_year_id?: string;
 
+  // `@Type(() => Boolean)` is deliberately not used here: class-transformer's
+  // Boolean coercion is `Boolean(value)`, which treats the *string* "false"
+  // (what a query param actually is) as truthy — `?is_active=false` would
+  // silently become `true`. Same fix as `fees.dto.ts`'s `include_deleted`.
   @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
   @IsBoolean()
-  @Type(() => Boolean)
   is_active?: boolean;
 }
 
@@ -176,14 +185,20 @@ export class RecurringScheduleResponseDto {
 }
 
 /** `GET /fees/schedules/:id/preview` — who the schedule would bill today. */
+export class SchedulePreviewStudentDto {
+  id: string;
+  full_name: string;
+  registration_number: string | null;
+  excluded: boolean;
+}
+
 export class SchedulePreviewDto {
   total_count: number;
-  students: Array<{
-    id: string;
-    full_name: string;
-    registration_number: string | null;
-    excluded: boolean;
-  }>;
+  // An inline object-literal array type here makes @nestjs/swagger's CLI
+  // plugin infer a self-referencing anonymous class and throw "circular
+  // dependency detected" — a named class + explicit @ApiProperty avoids it.
+  @ApiProperty({ type: () => [SchedulePreviewStudentDto] })
+  students: SchedulePreviewStudentDto[];
 }
 
 /** `POST /fees/schedules/:id/clone` result — surfaces structures the
@@ -192,6 +207,12 @@ export class SchedulePreviewDto {
 export class CloneScheduleResultDto {
   schedule: RecurringScheduleResponseDto;
   unmatched_structure_names: string[];
+  /** Set when the source's class/section audience has no same-named
+   * counterpart in the target year — the clone's audience is cleared to
+   * `enrollment_status`-only rather than silently keeping the source
+   * year's (now meaningless) class/section id. `null` when the audience
+   * carried no class/section, or was matched cleanly. */
+  unmatched_audience_label: string | null;
 }
 
 /** One row returned by `GET /students/:id/schedules`. */

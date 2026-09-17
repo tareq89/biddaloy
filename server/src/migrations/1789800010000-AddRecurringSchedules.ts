@@ -87,6 +87,12 @@ export class AddRecurringSchedules1789800010000 implements MigrationInterface {
     await queryRunner.query(
       `CREATE UNIQUE INDEX "IDX_recurring_schedule_exclusions_schedule_student" ON "recurring_schedule_exclusions" ("schedule_id", "student_id")`,
     );
+    // findForStudent() queries exclusions by student_id alone (no
+    // schedule_id) — the composite index above can't seek on that, so it
+    // needs its own leading-column index.
+    await queryRunner.query(
+      `CREATE INDEX "IDX_recurring_schedule_exclusions_student" ON "recurring_schedule_exclusions" ("student_id")`,
+    );
     await queryRunner.query(
       `ALTER TABLE "recurring_schedule_exclusions" ADD CONSTRAINT "FK_recurring_schedule_exclusions_schedule" FOREIGN KEY ("schedule_id") REFERENCES "recurring_schedules"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
     );
@@ -100,9 +106,19 @@ export class AddRecurringSchedules1789800010000 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE "fee_generations" ADD CONSTRAINT "FK_fee_generations_recurring_schedule" FOREIGN KEY ("recurring_schedule_id") REFERENCES "recurring_schedules"("id") ON DELETE SET NULL ON UPDATE NO ACTION`,
     );
+    // Postgres does not auto-index FK columns; without this, the
+    // ON DELETE SET NULL cascade and 16.7.2's by-schedule lookups scan
+    // fee_generations in full.
+    await queryRunner.query(
+      `CREATE INDEX "IDX_fee_generations_recurring_schedule" ON "fee_generations" ("recurring_schedule_id")`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    // fee_generations isn't dropped below (it predates this migration), so
+    // its added index must be dropped explicitly, unlike the two indexes
+    // on tables this migration owns (reclaimed by DROP TABLE).
+    await queryRunner.query(`DROP INDEX "IDX_fee_generations_recurring_schedule"`);
     await queryRunner.query(
       `ALTER TABLE "fee_generations" DROP CONSTRAINT "FK_fee_generations_recurring_schedule"`,
     );

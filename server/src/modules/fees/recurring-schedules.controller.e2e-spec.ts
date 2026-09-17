@@ -110,13 +110,47 @@ describe('Recurring Schedules E2E', () => {
         .expect(401);
     });
 
-    it('allows a TEACHER to read GET /fees/schedules (FEE_READ)', async () => {
+    it('denies a TEACHER GET /fees/schedules (401 — role not in @Roles list; unlike FeeGenerationsController, a schedule read exposes tenant-wide audience data, not a class-scoped list)', async () => {
       await supertest(app.getHttpServer())
         .get('/api/v1/fees/schedules')
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.TEACHER)
+        .expect(401);
+    });
+  });
+
+  describe('GET /fees/schedules?is_active=', () => {
+    it("filters correctly — the string 'false' must not coerce to boolean true", async () => {
+      const feeStructureId = await createFeeStructure();
+      const createRes = await createSchedule(adminToken, feeStructureId).expect(201);
+      await supertest(app.getHttpServer())
+        .patch(`/api/v1/fees/schedules/${createRes.body.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .send({ is_active: false })
         .expect(200);
+
+      const activeRes = await supertest(app.getHttpServer())
+        .get('/api/v1/fees/schedules?is_active=false')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(200);
+
+      const ids = activeRes.body.map((s: { id: string }) => s.id);
+      expect(ids).toContain(createRes.body.id);
+
+      const inactiveRes = await supertest(app.getHttpServer())
+        .get('/api/v1/fees/schedules?is_active=true')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.ADMIN)
+        .expect(200);
+
+      const activeIds = inactiveRes.body.map((s: { id: string }) => s.id);
+      expect(activeIds).not.toContain(createRes.body.id);
     });
   });
 

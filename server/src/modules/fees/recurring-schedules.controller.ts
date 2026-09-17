@@ -34,8 +34,10 @@ import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
  * plus `GET /students/:id/schedules` (a student-scoped read, kept in this
  * controller rather than `StudentController` since it's this ticket's own
  * territory). Management routes (`SCHEDULE_MANAGE`) are ADMIN/ACCOUNTANT
- * only; reads (`FEE_READ`) also admit EXECUTIVE and TEACHER, matching
- * `FeeGenerationsController`.
+ * only; reads (`FEE_READ`) admit ADMIN/ACCOUNTANT/EXECUTIVE, matching
+ * `FeeGenerationsController` exactly (no TEACHER — a schedule preview
+ * exposes the full matched audience's names and registration numbers
+ * tenant-wide, unlike a class-scoped fee list).
  */
 @ApiTags('recurring-schedules')
 @ApiTenantAuth()
@@ -45,7 +47,7 @@ export class RecurringSchedulesController {
   constructor(private readonly service: RecurringSchedulesService) {}
 
   @Get('fees/schedules')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({ summary: 'List recurring fee-generation schedules for this tenant.' })
   findAll(
@@ -68,7 +70,7 @@ export class RecurringSchedulesController {
   }
 
   @Get('fees/schedules/:id')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({ summary: 'Get one recurring fee-generation schedule.' })
   findOne(
@@ -148,7 +150,7 @@ export class RecurringSchedulesController {
   }
 
   @Get('fees/schedules/:id/preview')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({
     summary: "Preview a schedule's currently resolved audience (count + first 50).",
@@ -161,7 +163,7 @@ export class RecurringSchedulesController {
   }
 
   @Get('students/:id/schedules')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({
     summary:
