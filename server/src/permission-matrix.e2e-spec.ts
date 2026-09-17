@@ -180,6 +180,45 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
       '14.12.3/#617 — platform route (SUPER_ADMIN cross-school backup health), same rationale as GET /schools.',
   },
   {
+    controller: 'PublicHolidaysController',
+    method: 'GET',
+    path: '/platform/holiday-sets',
+    reason:
+      '17.2.4 — platform route (SUPER_ADMIN curates public-holiday sets), no tenant involved.',
+  },
+  {
+    controller: 'PublicHolidaysController',
+    method: 'GET',
+    path: '/platform/holiday-sets/:id',
+    reason:
+      '17.2.4 — platform route (SUPER_ADMIN curates public-holiday sets), no tenant involved.',
+  },
+  {
+    controller: 'PublicHolidaysController',
+    method: 'POST',
+    path: '/platform/holiday-sets/fetch',
+    reason:
+      '17.2.4 — platform route (SUPER_ADMIN fetches a country/year set from an external source).',
+  },
+  {
+    controller: 'PublicHolidaysController',
+    method: 'PUT',
+    path: '/platform/holiday-sets/:id/entries',
+    reason: '17.2.4 — platform route (SUPER_ADMIN edits set entries).',
+  },
+  {
+    controller: 'PublicHolidaysController',
+    method: 'POST',
+    path: '/platform/holiday-sets/:id/publish',
+    reason: '17.2.4 — platform route (SUPER_ADMIN publishes a set for tenants to import from).',
+  },
+  {
+    controller: 'PublicHolidaysController',
+    method: 'POST',
+    path: '/platform/holiday-sets/:id/unpublish',
+    reason: '17.2.4 — platform route (SUPER_ADMIN unpublishes a set).',
+  },
+  {
     controller: 'PushSubscriptionsController',
     method: 'GET',
     path: '/me/push/public-key',
@@ -474,8 +513,9 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // discount-rule CRUD endpoints — also removed from this list.
   Permission.FEE_APPROVE,
   // [17.2.1]-[17.2.5] CALENDAR_READ/CALENDAR_MANAGE now gate
-  // `/calendar/events`, `/calendar/terms`, `/calendar-settings`, and the
-  // platform holiday-set routes — no longer UI-only, removed from this list.
+  // `/calendar/events`, `/calendar/terms`, `/calendar-settings`, the
+  // platform holiday-set routes, and `/calendar/public-holidays/add` —
+  // no longer UI-only, removed from this list.
 ];
 
 describe('Permission matrix (regression)', () => {

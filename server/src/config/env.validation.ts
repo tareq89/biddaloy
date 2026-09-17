@@ -193,6 +193,15 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   PLATFORM_TENANT_ID?: string;
+
+  // [17.2.4] Timeout for each outbound call `PublicHolidayFetchService`
+  // makes (Google ICS, then the Nager.Date fallback). Unset defaults to
+  // 8000ms — see `PublicHolidayFetchService.timeoutMs()`.
+  @IsOptional()
+  @Matches(POSITIVE_INTEGER, {
+    message: 'PUBLIC_HOLIDAY_FETCH_TIMEOUT_MS must be a positive integer',
+  })
+  PUBLIC_HOLIDAY_FETCH_TIMEOUT_MS?: string;
 }
 
 /** The fixed id `seed.ts` gives its "Default School" row when it has to

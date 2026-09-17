@@ -428,6 +428,57 @@ describe('SheetDecorator.addListValidation guards', () => {
   });
 });
 
+// [17.2.5]: `holidays` was renamed to `calendar_events`. A workbook exported
+// before that rename must still restore.
+describe('readWorkbook legacy `holidays` sheet alias', () => {
+  it('reads a `holidays` sheet as `calendar_events` when no `calendar_events` sheet exists', async () => {
+    const workbook = new ExcelJS.Workbook();
+    const metaSheet = workbook.addWorksheet('_meta');
+    metaSheet.addRow(['key', 'value']);
+    metaSheet.addRow(['schema_version', SCHEMA_VERSION]);
+    metaSheet.addRow(['kind', 'BACKUP']);
+
+    const sheet = workbook.addWorksheet('holidays');
+    sheet.getRow(1).values = ['id', 'academic_year', 'name'];
+    sheet.getRow(2).values = [ID_A, '2026-2027', 'Winter break'];
+    const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+
+    const result = await readWorkbook(buffer);
+
+    expect(result.sheets.has('holidays')).toBe(false);
+    const calendarEvents = result.sheets.get('calendar_events');
+    expect(calendarEvents).toBeDefined();
+    expect(calendarEvents!.header).toEqual(['id', 'academic_year', 'name']);
+    expect(calendarEvents!.rows).toHaveLength(1);
+    expect(calendarEvents!.rows[0].cells.name).toBe('Winter break');
+  });
+
+  it('leaves an actual `calendar_events` sheet alone when both sheets are present', async () => {
+    const workbook = new ExcelJS.Workbook();
+    const metaSheet = workbook.addWorksheet('_meta');
+    metaSheet.addRow(['key', 'value']);
+    metaSheet.addRow(['schema_version', SCHEMA_VERSION]);
+    metaSheet.addRow(['kind', 'BACKUP']);
+
+    const legacy = workbook.addWorksheet('holidays');
+    legacy.getRow(1).values = ['id', 'name'];
+    legacy.getRow(2).values = [ID_A, 'Legacy row'];
+
+    const current = workbook.addWorksheet('calendar_events');
+    current.getRow(1).values = ['id', 'name'];
+    current.getRow(2).values = [ID_B, 'Current row'];
+
+    const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+
+    const result = await readWorkbook(buffer);
+
+    expect(result.sheets.get('calendar_events')!.rows[0].cells.name).toBe('Current row');
+    // `holidays` isn't in EXPECTED_TABS anymore, so it is skipped as a
+    // stray sheet rather than clobbering the real `calendar_events` data.
+    expect(result.warnings.some((w) => w.tab === 'holidays')).toBe(true);
+  });
+});
+
 // Acceptance criterion from the ticket, enforced rather than trusted.
 describe('exceljs containment', () => {
   // Spec files are excluded: this spec imports exceljs itself to build

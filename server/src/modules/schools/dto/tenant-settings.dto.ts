@@ -5,6 +5,7 @@ import {
   IsArray,
   IsBoolean,
   ArrayNotEmpty,
+  IsISO31661Alpha2,
   IsNotEmpty,
   IsOptional,
   Matches,
@@ -138,8 +139,15 @@ export class RegionSettingsDto {
 
   // ISO 3166-1 alpha-2, e.g. 'BD' (D11) — picks the default public-holiday
   // source for a tenant's calendar (Epic 17).
+  // `@Matches` keeps case strict (rejects 'bd') — `@IsISO31661Alpha2` alone
+  // is case-insensitive per its underlying `validator` library, so on its
+  // own it would accept a lowercase code and store it un-normalised,
+  // producing a value like 'bd' next to `DEFAULT_REGION_SETTINGS.country`'s
+  // 'BD'. Chosen behaviour: reject anything but a real, uppercase ISO
+  // 3166-1 alpha-2 code (`tenant-settings.dto.spec.ts` documents this).
   @IsString()
   @Matches(/^[A-Z]{2}$/, { message: 'country must be an ISO 3166-1 alpha-2 code, e.g. BD' })
+  @IsISO31661Alpha2({ message: 'country must be a real ISO 3166-1 alpha-2 country code' })
   country: string;
 
   @NestedSettings(() => RegionCurrencyDto)

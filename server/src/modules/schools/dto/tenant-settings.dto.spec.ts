@@ -307,6 +307,76 @@ describe('TenantSettingsDto', () => {
     });
   });
 
+  // [17.2.3] `region.country` (D11) and `region.calendar.termLabel`.
+  describe('region — country and calendar', () => {
+    it('accepts the default region, which already carries country + calendar.termLabel', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        region: DEFAULT_REGION_SETTINGS,
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      expect(errors.find((e) => e.property === 'region')).toBeUndefined();
+    });
+
+    // Chosen behaviour, documented here rather than left ambiguous: a
+    // lowercase code is rejected outright, not silently upper-cased. See
+    // the comment on `RegionSettingsDto.country` for why one decorator
+    // (`@IsISO31661Alpha2`) alone would not be enough.
+    it('rejects a lowercase country code instead of normalising it', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        region: { ...DEFAULT_REGION_SETTINGS, country: 'bd' },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      const regionError = errors.find((e) => e.property === 'region');
+      expect(regionError?.children?.some((e) => e.property === 'country')).toBe(true);
+    });
+
+    it('rejects a country code that is not a real ISO 3166-1 alpha-2 code', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        region: { ...DEFAULT_REGION_SETTINGS, country: 'ZZ' },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      const regionError = errors.find((e) => e.property === 'region');
+      expect(regionError?.children?.some((e) => e.property === 'country')).toBe(true);
+    });
+
+    it('rejects a calendar.termLabel outside the TermLabel enum', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        region: {
+          ...DEFAULT_REGION_SETTINGS,
+          calendar: { termLabel: 'QUARTER' },
+        },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      const regionError = errors.find((e) => e.property === 'region');
+      const calendarError = regionError?.children?.find((e) => e.property === 'calendar');
+      expect(calendarError?.children?.some((e) => e.property === 'termLabel')).toBe(true);
+    });
+
+    it('still accepts region with calendar omitted — it is optional', async () => {
+      const { calendar: _calendar, ...regionWithoutCalendar } = DEFAULT_REGION_SETTINGS;
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        region: regionWithoutCalendar,
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      expect(errors.find((e) => e.property === 'region')).toBeUndefined();
+    });
+  });
+
   describe('attendance', () => {
     it('accepts a full valid attendance section', async () => {
       const dto = toDto({
