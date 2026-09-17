@@ -50,6 +50,7 @@ import { ClassSection } from './modules/academics/entities/class-section.entity'
 import { Student } from './modules/students/entities/student.entity';
 import { Guardian } from './modules/students/entities/guardian.entity';
 import { FeeStructure } from './modules/fees/entities/fee-structure.entity';
+import { DiscountRule } from './modules/fees/entities/discount-rule.entity';
 import { StudentFee } from './modules/fees/entities/student-fee.entity';
 import { FeeGeneration } from './modules/fees/entities/fee-generation.entity';
 import { StudentWallet } from './modules/fees/entities/student-wallet.entity';
@@ -117,6 +118,7 @@ import { WorkbookJob } from './modules/workbook/jobs/workbook-job.entity';
             Student,
             Guardian,
             FeeStructure,
+            DiscountRule,
             StudentFee,
             FeeGeneration,
             StudentWallet,

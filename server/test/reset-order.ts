@@ -36,6 +36,7 @@ export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'invoice_share_tokens',
   'invoices',
   'payments',
+  'discount_rules',
   'student_fees',
   'fee_generations',
   'fee_structures',
