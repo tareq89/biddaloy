@@ -50,9 +50,21 @@ sees the diff, it does not see the plan.
 The `code-review` skill judges the diff on its own terms. You additionally
 judge it against the plan and the repo's invariants:
 
-- **Plan divergence.** Where does the diff do something the plan didn't say, or
-  skip something the plan did? Either can be correct — the plan can be wrong —
-  but an unreported divergence is a defect regardless of which one is right.
+- **Plan divergence — measured, not just noted.** Enumerate every place the
+  diff does something the plan didn't say, or skips something the plan did.
+  For each: is it a small implementation detail (fine, expected), a scope cut
+  (missing a step/file the plan committed to), a scope addition (touching
+  files/behavior outside the plan's territory), or a contradiction (diff does
+  the opposite of what the plan said)? Either the diff or the plan can be
+  right — but an unreported divergence is a defect regardless of which one
+  is. Roll this up into one drift verdict: **none/minor** (implementation
+  details only), **moderate** (a few scope cuts or additions, each
+  individually explainable), or **alarming** (multiple scope cuts, a
+  contradiction, or any divergence that changes what the ticket actually
+  ships vs. what was approved at plan time). An alarming verdict must be
+  flagged first and loudest in what you return — before line-level findings —
+  since it's a "does this even do what we agreed to build" question, not a
+  code-quality one.
 - **Plan corrections ignored.** If the plan carried a **Plan corrections**
   section and the diff follows the issue body instead, that is a known bug
   reintroduced. Check this specifically.
@@ -92,11 +104,14 @@ parent is about to commit on the strength of it.
 
 ## What you return
 
+- **Plan-drift verdict first**: none/minor, moderate, or alarming (see above),
+  with the specific divergences that drove it. If alarming, say so plainly
+  before anything else — the parent should not proceed to commit/integrate
+  on an alarming-drift ticket without deciding, eyes open, whether the
+  drifted version is actually what should ship.
 - Every finding, ordered most severe first, each as `file:line` plus one
   sentence on what breaks and under what input.
 - The actual test and lint output — pass or fail, not a summary of it.
-- Every divergence between the plan and the diff, with which one you think is
-  right.
 - An explicit verdict: **ready to commit**, or **not ready**, with the shortest
   list of things that would change the answer.
 

@@ -590,6 +590,12 @@ Present the ordered merge list and stop. On approval, merge in branch-name
 order, and after each merge rebase and retarget whatever was stacked on it.
 Then delete merged branches and remove their worktrees.
 
+After each merge to `main`, close every GitHub issue that landed in it: check
+every box under that issue's `## Acceptance` section (`- [ ]` → `- [x]`) and
+close the issue with a comment naming the merged PR and merge date. Do this
+per issue, not once per wave — a wave-close task doesn't get this treatment
+(it isn't a sub-issue), but every ticket sub-issue that shipped does.
+
 ## Resuming
 
 The state file on disk and the plan comments on GitHub are the sources of
@@ -612,6 +618,10 @@ session model and report it. Never re-plan a ticket that already has a current
   files included — split the chain at a commit boundary instead.
 - Never open PRs before integration is green.
 - Never pass a gate on assumed approval.
+- Never let a ticket proceed to commit/integration on an **alarming** plan-drift
+  verdict from `issue-reviewer` without surfacing it to the user first — an
+  alarming verdict means the diff may not be what was actually approved at
+  plan time, which is a different question from whether the code is correct.
 - Never bypass the design system: existing components and tokens first,
   extend it by its own conventions if something is genuinely missing.
 - Never re-plan a ticket that already has a current plan comment.
