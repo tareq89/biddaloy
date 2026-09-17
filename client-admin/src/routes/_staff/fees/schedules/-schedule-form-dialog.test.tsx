@@ -6,6 +6,13 @@
  * Covers issue #679's own Tests list: the rule editor round-trips
  * (set monthly, save, reopen in edit mode, same rule shown) and ends-on
  * gets capped to the selected academic year's end date.
+ *
+ * The submitted-body assertions are deliberately exact (`toEqual`, not
+ * `toMatchObject`). An earlier version of this file asserted the dialog's
+ * own hand-typed interim shape (`rule.mode`, `audience.active_only`),
+ * which meant the test passed while every real request was rejected by
+ * the server for a missing `rule.kind` / `audience.enrollment_status`.
+ * Assert the shape `CreateRecurringScheduleDto` actually validates.
  */
 import type { RecurringSchedule } from '@biddaloy/ui/hooks';
 import {
@@ -49,16 +56,16 @@ function schedule(overrides: Partial<RecurringSchedule> = {}): RecurringSchedule
     name: 'Monthly tuition',
     academic_year_id: 'year-1',
     fee_structure_ids: ['fee-1'],
-    audience: { class_id: null, section_id: null, active_only: true },
-    rule: { mode: 'MONTHLY', day_of_month: 1 },
+    audience: { enrollment_status: 'ACTIVE' },
+    rule: { kind: 'MONTHLY', day_of_month: 1 },
+    period_type: 'MONTH',
     due_days_after_period_start: 7,
     starts_on: '2026-01-01',
-    ends_on: null,
+    ends_on: '',
     notify_families: false,
     is_active: true,
     last_run_period: null,
     created_at: '2026-01-01T00:00:00.000Z',
-    updated_at: '2026-01-01T00:00:00.000Z',
     ...overrides,
   };
 }
@@ -107,12 +114,54 @@ describe('ScheduleFormDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
-    expect(submittedBody?.rule).toEqual({ mode: 'MONTHLY', day_of_month: 1 });
+    // `kind`, not `mode` — `RecurringScheduleRuleDto.kind` is `@IsIn`
+    // and required, so a body carrying `mode` is a 400.
+    expect(submittedBody?.rule).toEqual({ kind: 'MONTHLY', day_of_month: 1 });
+    // `enrollment_status` is required and `'ACTIVE'` is its only accepted
+    // value; there is no `active_only` field on the server's audience DTO,
+    // and `forbidNonWhitelisted` would reject one.
+    expect(submittedBody?.audience).toEqual({ enrollment_status: 'ACTIVE' });
+    expect(submittedBody?.audience).not.toHaveProperty('active_only');
+    expect(submittedBody?.rule).not.toHaveProperty('mode');
+  });
+
+  it('submits ISO weekday numbers, not weekday name strings, for a weekly rule', async () => {
+    server.use(...referenceHandlers());
+    let submittedBody: Record<string, unknown> | undefined;
+    server.use(
+      http.post('/api/v1/fees/schedules', async ({ request }) => {
+        submittedBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(schedule({ ...(submittedBody as object) }));
+      }),
+    );
+
+    const { onSaved } = await renderDialog();
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByLabelText('Name'), 'Weekly transport');
+    await user.click(await screen.findByRole('combobox', { name: 'Academic year' }));
+    await user.click(await screen.findByRole('option', { name: '2026-2027' }));
+    await waitFor(() => expect(screen.getByLabelText('Monthly Tuition')).toBeTruthy());
+    await user.click(screen.getByLabelText('Monthly Tuition'));
+
+    await user.click(await screen.findByRole('combobox', { name: 'Rule' }));
+    await user.click(await screen.findByRole('option', { name: 'Weekly' }));
+    // Chips are labelled from `common:weekdays.<iso>` — Mon = 1, Thu = 4.
+    await user.click(await screen.findByRole('button', { name: 'Mon', pressed: false }));
+    await user.click(screen.getByRole('button', { name: 'Thu', pressed: false }));
+
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    // `recurrence.util.ts` reads ISO weekday numbers (1 = Monday .. 7 =
+    // Sunday). The interim client sent `['MON', 'THU']`, which never
+    // matched any day.
+    expect(submittedBody?.rule).toEqual({ kind: 'WEEKLY', weekdays: [1, 4] });
   });
 
   it('round-trips a saved monthly rule when reopened in edit mode', async () => {
     server.use(...referenceHandlers());
-    const existing = schedule({ rule: { mode: 'MONTHLY', day_of_month: 15 } });
+    const existing = schedule({ rule: { kind: 'MONTHLY', day_of_month: 15 } });
 
     await renderDialog({ mode: 'edit', schedule: existing });
 

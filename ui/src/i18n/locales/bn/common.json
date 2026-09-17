@@ -174,6 +174,15 @@
     "announceResults_other": "{{total}}টির মধ্যে {{count}}টি ফলাফল",
     "pageOf": "{{total}} পাতার মধ্যে {{page}} নম্বর পাতা"
   },
+  "weekdays": {
+    "1": "সোম",
+    "2": "মঙ্গল",
+    "3": "বুধ",
+    "4": "বৃহস্পতি",
+    "5": "শুক্র",
+    "6": "শনি",
+    "7": "রবি"
+  },
   "pagination": {
     "rowsPerPage": "প্রতি পাতায় সারি",
     "rowsPerPageOption": "{{count}}",

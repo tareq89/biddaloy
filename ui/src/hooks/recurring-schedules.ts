@@ -1,66 +1,65 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
+import type { components } from '../api/schema';
 
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
 /**
- * [16.7.5] Hand-typed interim client contract for `RecurringSchedule`
- * CRUD. Server ticket #675 (same wave, sibling lane) builds the actual
- * `/fees/schedules` endpoints and their `schema.d.ts` entries in
- * parallel — this file does NOT wait on that merge, per this ticket's
- * plan. Once #675 lands and `schema.d.ts` regenerates with real
- * `RecurringSchedule`/`CreateRecurringScheduleDto`/etc. types, this file
- * should be replaced by `components['schemas'][...]` aliases the same
- * way every other entity hook in this directory does it — the shapes
- * below were written to match the contract documented on issue #679,
- * so that swap should be a type-only diff, not a behavior change.
+ * [16.7.5] Client hooks for `RecurringSchedule` CRUD.
+ *
+ * Server ticket #675 has landed, so `schema.d.ts` carries the real
+ * `/fees/schedules` contract. Every request/response shape below is a
+ * `components['schemas'][...]` alias — the same convention `invoices.ts`
+ * and the other entity hooks in this directory follow. Do not re-introduce
+ * hand-typed shapes here: the interim ones that used to live in this file
+ * had drifted from the server (`audience.active_only` instead of the
+ * required `audience.enrollment_status`, `rule.mode` instead of the
+ * required `rule.kind`, `'MON'`-style weekday strings instead of ISO
+ * weekday numbers), so every create/edit request the UI sent was rejected.
  */
 
-export type RecurringScheduleRuleMode = 'MONTHLY' | 'WEEKLY';
+export type RecurringScheduleAudience = components['schemas']['RecurringScheduleAudienceDto'];
+export type RecurringScheduleRule = components['schemas']['RecurringScheduleRuleDto'];
 
-/** Day-of-month rule: 1-28, or the literal `'LAST'` for "last day of
- * the month" (handles 30/31/Feb without a magic 29-31 number). */
-export type MonthlyRuleDay = number | 'LAST';
+/** `'MONTHLY' | 'WEEKLY'`. Lives on `rule.kind` — the server has no
+ * `rule.mode`, and `kind` is required (`@IsIn`), so omitting it is a 400. */
+export type RecurringScheduleRuleKind = RecurringScheduleRule['kind'];
 
-export type Weekday = 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT' | 'SUN';
+/** Day-of-month rule: 1-28, or the literal `'LAST'` for "last day of the
+ * month" (handles 30/31/Feb without a magic 29-31 number). */
+export type MonthlyRuleDay = NonNullable<RecurringScheduleRule['day_of_month']>;
 
-export interface RecurringScheduleRule {
-  mode: RecurringScheduleRuleMode;
-  /** Set when `mode === 'MONTHLY'`. */
-  day_of_month?: MonthlyRuleDay;
-  /** Set when `mode === 'WEEKLY'`. */
-  weekdays?: Weekday[];
-}
+/** An ISO-8601 weekday number: 1 = Monday … 7 = Sunday. The server's
+ * `recurrence.util.ts` and `RecurringSchedulesService.validateRule` speak
+ * ISO numbers; they never accept `'MON'`/`'TUE'` strings. */
+export type Weekday = number;
 
-export interface RecurringScheduleAudience {
-  class_id?: string | null;
-  section_id?: string | null;
-  active_only: boolean;
-}
+export const ISO_WEEKDAYS: Weekday[] = [1, 2, 3, 4, 5, 6, 7];
 
-export interface RecurringSchedule {
-  id: string;
-  name: string;
-  academic_year_id: string;
-  fee_structure_ids: string[];
-  audience: RecurringScheduleAudience;
-  rule: RecurringScheduleRule;
-  due_days_after_period_start: number;
-  starts_on: string;
-  ends_on: string | null;
-  notify_families: boolean;
-  is_active: boolean;
-  last_run_period: string | null;
-  created_at: string;
-  updated_at: string;
-  /** Only populated on `GET /fees/schedules/:id` (the detail fetch), not
-   * on list rows — matches `useStudentFeeSummary`'s `fee_breakdown`
-   * precedent for "detail-only nested collection" in this codebase. */
-  exclusions?: RecurringScheduleExclusion[];
-}
+export type RecurringSchedule = components['schemas']['RecurringScheduleResponseDto'];
+export type CreateRecurringScheduleInput = components['schemas']['CreateRecurringScheduleDto'];
+export type UpdateRecurringScheduleInput = components['schemas']['UpdateRecurringScheduleDto'];
+export type AddExclusionInput = components['schemas']['AddExclusionDto'];
+export type CloneScheduleResult = components['schemas']['CloneScheduleResultDto'];
+export type SchedulePreview = components['schemas']['SchedulePreviewDto'];
+export type SchedulePreviewStudent = components['schemas']['SchedulePreviewStudentDto'];
 
+/** One row of `GET /students/:id/schedules` — the schedules whose audience
+ * currently matches the student, with the ones they are explicitly
+ * excluded from flagged via `excluded`. */
+export type StudentScheduleItem = components['schemas']['StudentScheduleItemDto'];
+
+/**
+ * KNOWN SERVER GAP (#675): there is no endpoint that reads a schedule's
+ * exclusion list back. `POST .../exclusions` and `DELETE
+ * .../exclusions/:studentId` exist, but `RecurringScheduleResponseDto`
+ * carries no `exclusions` array and there is no `GET .../exclusions`, so
+ * the schedule-detail exclusions table can add and remove rows but cannot
+ * list existing ones. Typed as optional here rather than pretended into
+ * `RecurringSchedule` so the gap stays visible.
+ */
 export interface RecurringScheduleExclusion {
   student_id: string;
   student_name: string;
@@ -68,45 +67,20 @@ export interface RecurringScheduleExclusion {
   created_at: string;
 }
 
-export interface CreateRecurringScheduleInput {
-  name: string;
-  academic_year_id: string;
-  fee_structure_ids: string[];
-  audience: RecurringScheduleAudience;
-  rule: RecurringScheduleRule;
-  due_days_after_period_start: number;
-  starts_on: string;
-  ends_on: string | null;
-  notify_families: boolean;
-}
-
-export type UpdateRecurringScheduleInput = Partial<CreateRecurringScheduleInput> & {
-  is_active?: boolean;
+export type RecurringScheduleDetail = RecurringSchedule & {
+  /** See `RecurringScheduleExclusion` — never populated by the server today. */
+  exclusions?: RecurringScheduleExclusion[];
 };
 
-export interface RecurringSchedulePreviewResult {
-  matching_student_count: number;
-}
-
-export interface PaginatedRecurringSchedules {
-  data: RecurringSchedule[];
-  total: number;
-  page: number;
-  limit: number;
-}
-
+/**
+ * The only query parameters `QueryRecurringSchedulesDto` accepts. The
+ * global pipe runs with `forbidNonWhitelisted: true`, so sending anything
+ * else (the old interim `page`/`limit`) makes `GET /fees/schedules` 400.
+ * The endpoint returns the tenant's full list, unpaginated.
+ */
 export interface RecurringScheduleListFilters {
   academic_year_id?: string;
   is_active?: boolean;
-  page?: number;
-  limit?: number;
-}
-
-/** One student's recurring-schedule coverage — `GET /students/:id/
- * schedules` per issue #679's contract table. */
-export interface StudentScheduleCoverage {
-  included: RecurringSchedule[];
-  excluded: (RecurringSchedule & { exclusion_reason: string | null })[];
 }
 
 export const recurringScheduleKeys =
@@ -116,7 +90,7 @@ export function recurringSchedulesQueryOptions(filters: RecurringScheduleListFil
   return queryOptions({
     queryKey: recurringScheduleKeys.list(filters),
     queryFn: async ({ signal }) => {
-      const res = await apiClient.get<PaginatedRecurringSchedules>('/fees/schedules', {
+      const res = await apiClient.get<RecurringSchedule[]>('/fees/schedules', {
         params: filters,
         signal,
       });
@@ -134,7 +108,7 @@ export function recurringScheduleQueryOptions(id: string) {
   return queryOptions({
     queryKey: recurringScheduleKeys.detail(id),
     queryFn: async ({ signal }) => {
-      const res = await apiClient.get<RecurringSchedule>(`/fees/schedules/${id}`, { signal });
+      const res = await apiClient.get<RecurringScheduleDetail>(`/fees/schedules/${id}`, { signal });
       return res.data;
     },
     retry: shouldRetryQuery,
@@ -152,8 +126,8 @@ export function useCreateRecurringSchedule() {
       const res = await apiClient.post<RecurringSchedule>('/fees/schedules', input);
       return res.data;
     },
-    // No retry — POST isn't idempotent, matches useCreateFeeStructure's
-    // reasoning (double-submit would create a second schedule that
+    // No retry — POST isn't idempotent, matching useCreateFeeStructure's
+    // reasoning (a double-submit would create a second schedule that
     // double-bills every matching student going forward).
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: recurringScheduleKeys.lists() });
@@ -189,28 +163,17 @@ export function useDeleteRecurringSchedule() {
   });
 }
 
-export function useRunRecurringScheduleNow() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const res = await apiClient.post<RecurringSchedule>(`/fees/schedules/${id}/run`);
-      return res.data;
-    },
-    retry: false,
-    onSuccess: (_data, id) => {
-      void queryClient.invalidateQueries({ queryKey: recurringScheduleKeys.detail(id) });
-      void queryClient.invalidateQueries({ queryKey: recurringScheduleKeys.lists() });
-      void queryClient.invalidateQueries({ queryKey: ['fee-generations'] });
-    },
-  });
-}
-
 export function useCloneRecurringSchedule() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { id: string; academic_year_id: string; name?: string }) => {
-      const { id, ...body } = input;
-      const res = await apiClient.post<RecurringSchedule>(`/fees/schedules/${id}/clone`, body);
+    // `CloneScheduleDto` is `{ academic_year_id }` only — the target year.
+    // The interim contract also sent `name`, which now 400s under
+    // `forbidNonWhitelisted`.
+    mutationFn: async (input: { id: string; academic_year_id: string }) => {
+      const { id, academic_year_id } = input;
+      const res = await apiClient.post<CloneScheduleResult>(`/fees/schedules/${id}/clone`, {
+        academic_year_id,
+      });
       return res.data;
     },
     onSuccess: () => {
@@ -219,40 +182,52 @@ export function useCloneRecurringSchedule() {
   });
 }
 
-export function useRecurringSchedulePreview() {
-  return useMutation({
-    mutationFn: async (input: CreateRecurringScheduleInput) => {
-      const res = await apiClient.post<RecurringSchedulePreviewResult>(
-        '/fees/schedules/preview',
-        input,
-      );
+export const schedulePreviewKeys = createEntityKeys<never, string>('recurring-schedule-preview');
+
+/**
+ * `GET /fees/schedules/:id/preview` — who a *saved* schedule would bill
+ * today (count plus the first 50 students). There is no preview-an-unsaved-
+ * draft endpoint, so the create/edit dialog can only preview in edit mode.
+ */
+export function schedulePreviewQueryOptions(id: string) {
+  return queryOptions({
+    queryKey: schedulePreviewKeys.detail(id),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<SchedulePreview>(`/fees/schedules/${id}/preview`, { signal });
       return res.data;
     },
-    retry: false,
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useSchedulePreview(id: string | undefined, options: { enabled?: boolean } = {}) {
+  return useQuery({
+    ...schedulePreviewQueryOptions(id ?? ''),
+    enabled: id !== undefined && id !== '' && options.enabled !== false,
   });
 }
 
 export function useAddScheduleExclusion(scheduleId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { student_id: string; reason?: string }) => {
-      const res = await apiClient.post<RecurringScheduleExclusion>(
-        `/fees/schedules/${scheduleId}/exclusions`,
-        input,
-      );
-      return res.data;
+    // `reason` is required by `AddExclusionDto` (`@IsNotEmpty`).
+    mutationFn: async (input: AddExclusionInput) => {
+      await apiClient.post(`/fees/schedules/${scheduleId}/exclusions`, input);
     },
-    onSuccess: () => {
+    onSuccess: (_data, input) => {
       void queryClient.invalidateQueries({ queryKey: recurringScheduleKeys.detail(scheduleId) });
+      void queryClient.invalidateQueries({
+        queryKey: studentScheduleCoverageKeys.detail(input.student_id),
+      });
     },
   });
 }
 
-/** Removing an exclusion (schedule-detail's `-exclusions-table.tsx`) and
- * "include again"/"add to schedule" (the student-tab's own context) are
- * both just `DELETE .../exclusions/:studentId` — one mutation, invalidating
- * both the schedule detail and this student's own coverage query so
- * neither view goes stale, regardless of which screen fired it. */
+/** Removing an exclusion (the schedule-detail `-exclusions-table.tsx` row
+ * action) and "include again" (the student tab's own context) are both just
+ * `DELETE .../exclusions/:studentId`, so they share one mutation, which
+ * invalidates both the schedule detail and the student's own coverage query
+ * so neither view goes stale regardless of which screen fired it. */
 export function useRemoveScheduleExclusion(scheduleId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -277,7 +252,7 @@ export function studentScheduleCoverageQueryOptions(studentId: string) {
   return queryOptions({
     queryKey: studentScheduleCoverageKeys.detail(studentId),
     queryFn: async ({ signal }) => {
-      const res = await apiClient.get<StudentScheduleCoverage>(`/students/${studentId}/schedules`, {
+      const res = await apiClient.get<StudentScheduleItem[]>(`/students/${studentId}/schedules`, {
         signal,
       });
       return res.data;
@@ -295,34 +270,7 @@ export function useStudentScheduleCoverage(studentId: string | undefined) {
 
 /** Student-tab "Include again" (a schedule the student is currently
  * excluded from) is the same request as `-exclusions-table.tsx`'s own
- * "remove exclusion" row action — see `useRemoveScheduleExclusion`'s own
+ * "remove exclusion" row action — see `useRemoveScheduleExclusion`'s
  * comment. Aliased under this name at call sites in the student tab for
  * readability; not a second implementation. */
 export const useIncludeStudentInSchedule = useRemoveScheduleExclusion;
-
-/** Student-tab "Add to schedule" — an active schedule whose audience
- * *does* already match this student (same academic year/class/section/
- * active-only rule an unrelated matching student would already be
- * covered by), added explicitly rather than waiting for the schedule's
- * own audience query to pick them up next run. Documented contract
- * (#679's own table) only lists exclusions add/remove; this mirrors
- * that same shape as the addition #679's Step 4 needs — flagged for
- * confirmation against #675's real server contract once it merges. */
-export function useAddScheduleInclusion(scheduleId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (studentId: string) => {
-      const res = await apiClient.post<{ student_id: string }>(
-        `/fees/schedules/${scheduleId}/inclusions`,
-        { student_id: studentId },
-      );
-      return res.data;
-    },
-    onSuccess: (_data, studentId) => {
-      void queryClient.invalidateQueries({ queryKey: recurringScheduleKeys.detail(scheduleId) });
-      void queryClient.invalidateQueries({
-        queryKey: studentScheduleCoverageKeys.detail(studentId),
-      });
-    },
-  });
-}

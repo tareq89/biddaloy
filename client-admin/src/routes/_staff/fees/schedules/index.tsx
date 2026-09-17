@@ -1,24 +1,24 @@
 /**
  * `/fees/schedules` — [16.7.5]. Full CRUD list for `RecurringSchedule`:
- * create, edit, clone into another academic year, run-now, and
+ * create, edit, clone into another academic year, and
  * deactivate/activate — same `ListShell` pattern as `fee-structures/
  * index.tsx`, adapted for a per-row rule summary instead of a filter
  * bar (schedules are few enough per school that filtering hasn't
  * mattered yet; add one if that stops being true). Sorting is a
  * deliberate stub (`sorting={null}`) same as `fee-structures/index.tsx`
- * used to be — no server-sortable field exists on this interim
- * contract yet — but paging is real, wired through `useListShellState`'s
- * `actions` the same way that page does.
+ * used to be — no server-sortable field exists on this contract.
+ *
+ * Paging is client-side: `GET /fees/schedules` returns the tenant's whole
+ * list and rejects `page`/`limit` query params outright, so `ListShell`'s
+ * paging slices the fetched array instead of driving the request.
  */
 import { Permission } from '@biddaloy/shared';
 import { Button, CachedDataNotice, DataTableColumn, RoutePending } from '@biddaloy/ui/components';
 import {
   recurringSchedulesQueryOptions,
-  useActiveRole,
   useClasses,
   useHasPermission,
   useRecurringSchedules,
-  useRunRecurringScheduleNow,
   useUpdateRecurringSchedule,
   type Class,
   type MonthlyRuleDay,
@@ -48,18 +48,23 @@ export const Route = createFileRoute('/_staff/fees/schedules/')({
 });
 
 function ruleSummary(schedule: RecurringSchedule, t: TFunction<'fees', undefined>): string {
-  if (schedule.rule.mode === 'MONTHLY') {
+  if (schedule.rule.kind === 'MONTHLY') {
     const day = schedule.rule.day_of_month;
     return day === 'LAST' ? t('schedules.ruleMonthlyLast') : t('schedules.ruleMonthly', { day });
   }
-  return t('schedules.ruleWeekly', { days: (schedule.rule.weekdays ?? []).join(', ') });
+  // `rule.weekdays` are ISO weekday numbers (1 = Monday .. 7 = Sunday), so
+  // they have to be turned into names — joining the raw array rendered
+  // "Every 1, 4".
+  const days = (schedule.rule.weekdays ?? [])
+    .map((day) => t(`weekdays.${day}`, { ns: 'common', defaultValue: String(day) }))
+    .join(', ');
+  return t('schedules.ruleWeekly', { days });
 }
 
 /** `classesById`/`sectionsById` resolve `audience.class_id`/`section_id`
- * into real names — without them, a class-scoped schedule with
- * `active_only: false` produced an empty `parts` and fell through to the
- * "whole school" default, wrongly labeling a scoped billing audience as
- * unscoped. */
+ * into real names — without them, a class-scoped schedule produced an
+ * empty `parts` and fell through to the "whole school" default, wrongly
+ * labeling a scoped billing audience as unscoped. */
 function audienceSummary(
   schedule: RecurringSchedule,
   t: TFunction<'fees', undefined>,
@@ -78,7 +83,10 @@ function audienceSummary(
   } else {
     parts.push(t('schedules.wholeSchool'));
   }
-  if (schedule.audience.active_only) parts.push(t('schedules.activeOnly'));
+  // `audience.enrollment_status` is required and `'ACTIVE'` is its only
+  // accepted value, so every schedule is active-students-only. Stated
+  // unconditionally rather than read from a flag that can't vary.
+  if (schedule.audience.enrollment_status === 'ACTIVE') parts.push(t('schedules.activeOnly'));
   return parts.join(' · ');
 }
 
@@ -127,19 +135,15 @@ function nextMonthlyOccurrence(from: Date, day: MonthlyRuleDay): Date {
   return candidate;
 }
 
-const WEEKDAY_INDEX: Record<Weekday, number> = {
-  SUN: 0,
-  MON: 1,
-  TUE: 2,
-  WED: 3,
-  THU: 4,
-  FRI: 5,
-  SAT: 6,
-};
+/** ISO weekday (1 = Monday .. 7 = Sunday) -> JS `getUTCDay()` (0 = Sunday
+ * .. 6 = Saturday). Only Sunday differs, hence the modulo. */
+function isoWeekdayToJsDay(day: Weekday): number {
+  return day % 7;
+}
 
 function nextWeeklyOccurrence(from: Date, weekdays: Weekday[]): Date | null {
   if (weekdays.length === 0) return null;
-  const target = new Set(weekdays.map((day) => WEEKDAY_INDEX[day]));
+  const target = new Set(weekdays.map(isoWeekdayToJsDay));
   const today = startOfUtcDay(from);
   for (let offset = 0; offset < 7; offset += 1) {
     const candidate = new Date(today.getTime() + offset * 86_400_000);
@@ -157,7 +161,7 @@ function nextRunDate(schedule: RecurringSchedule, now: Date): Date | null {
   const startsOn = parseDateOnly(schedule.starts_on);
   const from = now > startsOn ? now : startsOn;
   const candidate =
-    schedule.rule.mode === 'MONTHLY'
+    schedule.rule.kind === 'MONTHLY'
       ? nextMonthlyOccurrence(from, schedule.rule.day_of_month ?? 1)
       : nextWeeklyOccurrence(from, schedule.rule.weekdays ?? []);
   if (!candidate) return null;
@@ -171,18 +175,15 @@ function nextRunDate(schedule: RecurringSchedule, now: Date): Date | null {
 function ScheduleRowActions({
   schedule,
   canManage,
-  canRunNow,
   onEdit,
   onClone,
 }: {
   schedule: RecurringSchedule;
   canManage: boolean;
-  canRunNow: boolean;
   onEdit: () => void;
   onClone: () => void;
 }) {
   const { t } = useTranslation('fees');
-  const runNow = useRunRecurringScheduleNow();
   const toggleActive = useUpdateRecurringSchedule(schedule.id);
 
   return (
@@ -201,16 +202,10 @@ function ScheduleRowActions({
       >
         {t('schedules.clone')}
       </button>
-      {canRunNow && (
-        <button
-          type="button"
-          className="text-sm font-medium text-primary underline-offset-2 hover:underline"
-          disabled={runNow.isPending}
-          onClick={() => runNow.mutate(schedule.id)}
-        >
-          {t('schedules.runNow')}
-        </button>
-      )}
+      {/* "Run now" is gone: #679 specced `POST /fees/schedules/:id/run`,
+          but the shipped server (#675) has no such route, so the button
+          could only ever 404. Schedules fire from the scheduler; a one-off
+          bill is the "Generate fees" flow. */}
       {canManage && (
         <button
           type="button"
@@ -230,7 +225,16 @@ function SchedulesListPage() {
   const regionConfig = useRegionConfig();
   const [state, actions] = useListShellState({ limit: 20 });
 
-  const schedulesQuery = useRecurringSchedules({ page: state.page, limit: state.limit });
+  // `GET /fees/schedules` is unpaginated and its query DTO whitelists only
+  // `academic_year_id`/`is_active` — the old interim `{ page, limit }`
+  // params 400'd under the server's `forbidNonWhitelisted` pipe. The list
+  // is tenant-wide and small, so it's fetched whole and paged client-side.
+  const schedulesQuery = useRecurringSchedules({});
+  const allSchedules = React.useMemo(() => schedulesQuery.data ?? [], [schedulesQuery.data]);
+  const pagedSchedules = React.useMemo(
+    () => allSchedules.slice((state.page - 1) * state.limit, state.page * state.limit),
+    [allSchedules, state.page, state.limit],
+  );
   // Resolves audience.class_id/section_id to real names for
   // audienceSummary() below — one school-wide fetch, `Class.sections` is
   // already embedded so this needs no per-class follow-up request.
@@ -247,10 +251,6 @@ function SchedulesListPage() {
     return { classesById: classes, sectionsById: sections };
   }, [classesQuery.data]);
   const canManage = useHasPermission(Permission.SCHEDULE_MANAGE);
-  // Ticket #679: "run now" is ADMIN-only, narrower than SCHEDULE_MANAGE
-  // (ADMIN + ACCOUNTANT) which the rest of this page's actions use.
-  const role = useActiveRole();
-  const canRunNow = canManage && role === 'ADMIN';
   const [createOpen, setCreateOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<RecurringSchedule | null>(null);
   const [cloning, setCloning] = React.useState<RecurringSchedule | null>(null);
@@ -312,7 +312,6 @@ function SchedulesListPage() {
         <ScheduleRowActions
           schedule={row}
           canManage={canManage}
-          canRunNow={canRunNow}
           onEdit={() => setEditing(row)}
           onClone={() => setCloning(row)}
         />
@@ -322,9 +321,7 @@ function SchedulesListPage() {
 
   return (
     <>
-      <CachedDataNotice
-        queryKey={recurringSchedulesQueryOptions({ page: state.page, limit: state.limit }).queryKey}
-      />
+      <CachedDataNotice queryKey={recurringSchedulesQueryOptions({}).queryKey} />
       <ListShell
         title={t('schedules.title')}
         primaryAction={
@@ -337,13 +334,13 @@ function SchedulesListPage() {
         tableId="recurring-schedules-list"
         caption={t('schedules.title')}
         columns={columns}
-        data={schedulesQuery.data?.data ?? []}
+        data={pagedSchedules}
         getRowId={(row) => row.id}
         sorting={null}
         onSortingChange={() => {}}
         page={state.page}
         pageSize={state.limit}
-        totalCount={schedulesQuery.data?.total ?? 0}
+        totalCount={allSchedules.length}
         onPageChange={actions.setPage}
         onPageSizeChange={actions.setLimit}
         pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}

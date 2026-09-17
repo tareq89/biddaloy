@@ -5,9 +5,21 @@
  * doesn't earn react-hook-form's autosave/unsaved-changes machinery
  * either.
  *
- * Audience/rule/preview follow issue #679's Step 2 exactly: monthly
- * day-of-month (1-28 or "Last"), weekly weekday chips, "active students
- * only" toggle, ends-on capped to the selected academic year's end date.
+ * Audience/rule follow issue #679's Step 2: monthly day-of-month (1-28 or
+ * "Last"), weekly weekday chips (ISO numbers, 1 = Monday .. 7 = Sunday),
+ * ends-on capped to the selected academic year's end date.
+ *
+ * Two of #679's Step 2 controls are gone because the shipped server
+ * contract (#675) does not back them:
+ *
+ * - The "active students only" checkbox. `RecurringScheduleAudienceDto`
+ *   has a required `enrollment_status` whose only accepted value is
+ *   `'ACTIVE'`, so every schedule is active-students-only and the toggle
+ *   offered a choice that did not exist. The form now always sends
+ *   `enrollment_status: 'ACTIVE'` and the audience summary states it.
+ * - The live "preview matching students" button in create mode. The only
+ *   preview endpoint is `GET /fees/schedules/:id/preview`, which needs a
+ *   saved schedule, so preview is edit-mode only.
  */
 import {
   Button,
@@ -33,8 +45,9 @@ import {
   useClassSections,
   useCreateRecurringSchedule,
   useFeeStructures,
-  useRecurringSchedulePreview,
+  useSchedulePreview,
   useUpdateRecurringSchedule,
+  ISO_WEEKDAYS,
   type CreateRecurringScheduleInput,
   type MonthlyRuleDay,
   type RecurringSchedule,
@@ -46,7 +59,7 @@ import * as React from 'react';
 
 const NO_CLASS = '__none__';
 const NO_SECTION = '__none__';
-const WEEKDAYS: Weekday[] = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+const WEEKDAYS: Weekday[] = ISO_WEEKDAYS;
 const DAY_OF_MONTH_OPTIONS: MonthlyRuleDay[] = [
   ...Array.from({ length: 28 }, (_, i) => i + 1),
   'LAST',
@@ -88,7 +101,13 @@ export function ScheduleFormDialog({
   const createSchedule = useCreateRecurringSchedule();
   const updateSchedule = useUpdateRecurringSchedule(schedule?.id ?? '');
   const mutation = mode === 'create' ? createSchedule : updateSchedule;
-  const previewMutation = useRecurringSchedulePreview();
+  // Preview needs a saved schedule (`GET /fees/schedules/:id/preview`), so
+  // it is edit-mode only and shows the audience as it is currently *saved*,
+  // not as it is being edited. Fetched lazily, on the button press.
+  const [previewRequested, setPreviewRequested] = React.useState(false);
+  const previewQuery = useSchedulePreview(schedule?.id, {
+    enabled: open && mode === 'edit' && previewRequested,
+  });
 
   const yearsQuery = useAcademicYears();
 
@@ -97,9 +116,8 @@ export function ScheduleFormDialog({
   const [feeIds, setFeeIds] = React.useState<string[]>(schedule?.fee_structure_ids ?? []);
   const [classId, setClassId] = React.useState(schedule?.audience.class_id ?? '');
   const [sectionId, setSectionId] = React.useState(schedule?.audience.section_id ?? '');
-  const [activeOnly, setActiveOnly] = React.useState(schedule?.audience.active_only ?? true);
-  const [ruleMode, setRuleMode] = React.useState<'MONTHLY' | 'WEEKLY'>(
-    schedule?.rule.mode ?? 'MONTHLY',
+  const [ruleKind, setRuleKind] = React.useState<'MONTHLY' | 'WEEKLY'>(
+    schedule?.rule.kind ?? 'MONTHLY',
   );
   const [dayOfMonth, setDayOfMonth] = React.useState<MonthlyRuleDay>(
     schedule?.rule.day_of_month ?? 1,
@@ -133,14 +151,13 @@ export function ScheduleFormDialog({
   React.useEffect(() => {
     if (!open) return;
     mutation.reset();
-    previewMutation.reset();
+    setPreviewRequested(false);
     setName(schedule?.name ?? '');
     setAcademicYearId(schedule?.academic_year_id ?? '');
     setFeeIds(schedule?.fee_structure_ids ?? []);
     setClassId(schedule?.audience.class_id ?? '');
     setSectionId(schedule?.audience.section_id ?? '');
-    setActiveOnly(schedule?.audience.active_only ?? true);
-    setRuleMode(schedule?.rule.mode ?? 'MONTHLY');
+    setRuleKind(schedule?.rule.kind ?? 'MONTHLY');
     setDayOfMonth(schedule?.rule.day_of_month ?? 1);
     setWeekdays(schedule?.rule.weekdays ?? []);
     setDueDays(schedule?.due_days_after_period_start ?? 7);
@@ -173,7 +190,7 @@ export function ScheduleFormDialog({
       setValidationError(t('schedules.form.feesRequired'));
       return null;
     }
-    if (ruleMode === 'WEEKLY' && weekdays.length === 0) {
+    if (ruleKind === 'WEEKLY' && weekdays.length === 0) {
       setValidationError(t('schedules.form.weekdaysRequired'));
       return null;
     }
@@ -182,19 +199,26 @@ export function ScheduleFormDialog({
       name: name.trim(),
       academic_year_id: academicYearId,
       fee_structure_ids: feeIds,
+      // `class_id`/`section_id` are `@IsOptional() @IsUUID()` — an explicit
+      // `null` fails UUID validation, so "all classes" omits the key
+      // entirely rather than sending null. `enrollment_status` is required
+      // and `'ACTIVE'` is its only accepted value today.
       audience: {
-        class_id: classId !== '' ? classId : null,
-        section_id: sectionId !== '' ? sectionId : null,
-        active_only: activeOnly,
+        ...(classId !== '' ? { class_id: classId } : {}),
+        ...(sectionId !== '' ? { section_id: sectionId } : {}),
+        enrollment_status: 'ACTIVE' as const,
       },
       rule:
-        ruleMode === 'MONTHLY'
-          ? { mode: 'MONTHLY', day_of_month: dayOfMonth }
-          : { mode: 'WEEKLY', weekdays },
+        ruleKind === 'MONTHLY'
+          ? { kind: 'MONTHLY' as const, day_of_month: dayOfMonth }
+          : { kind: 'WEEKLY' as const, weekdays },
       due_days_after_period_start: dueDays,
       starts_on: toDateInput(startsOn ?? new Date()),
-      ends_on: endsOn ? toDateInput(endsOn) : null,
+      ...(endsOn ? { ends_on: toDateInput(endsOn) } : {}),
       notify_families: notifyFamilies,
+      // No control for this in the dialog — activate/deactivate is a row
+      // action on the list. Preserve it on edit, default on to create.
+      is_active: schedule?.is_active ?? true,
     };
   }
 
@@ -210,9 +234,7 @@ export function ScheduleFormDialog({
   }
 
   function handlePreview() {
-    const input = buildInput();
-    if (!input) return;
-    previewMutation.mutate(input);
+    setPreviewRequested(true);
   }
 
   const isEdit = mode === 'edit';
@@ -318,21 +340,17 @@ export function ScheduleFormDialog({
                 </Select>
               )}
             </div>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={activeOnly}
-                onCheckedChange={(checked) => setActiveOnly(checked === true)}
-                aria-label={t('schedules.form.activeOnlyLabel')}
-              />
-              {t('schedules.form.activeOnlyLabel')}
-            </label>
+            {/* Not a control: `enrollment_status` accepts only `'ACTIVE'`,
+                so this states the fixed rule instead of offering a choice
+                the server would reject. */}
+            <p className="text-xs text-muted-foreground">{t('schedules.form.activeOnlyNotice')}</p>
           </fieldset>
 
           <fieldset className="flex flex-col gap-3 rounded-lg border border-border-subtle p-3">
             <legend className="px-1 text-sm font-medium">{t('schedules.form.ruleLegend')}</legend>
             <Select
-              value={ruleMode}
-              onValueChange={(value) => setRuleMode(value as 'MONTHLY' | 'WEEKLY')}
+              value={ruleKind}
+              onValueChange={(value) => setRuleKind(value as 'MONTHLY' | 'WEEKLY')}
             >
               <SelectTrigger aria-label={t('schedules.form.ruleLegend')}>
                 <SelectValue />
@@ -343,7 +361,7 @@ export function ScheduleFormDialog({
               </SelectContent>
             </Select>
 
-            {ruleMode === 'MONTHLY' ? (
+            {ruleKind === 'MONTHLY' ? (
               <Select
                 value={String(dayOfMonth)}
                 onValueChange={(value) => setDayOfMonth(value === 'LAST' ? 'LAST' : Number(value))}
@@ -379,7 +397,7 @@ export function ScheduleFormDialog({
                           : 'border-border-subtle'
                       }`}
                     >
-                      {t(`weekdays.${day}`, { ns: 'common', defaultValue: day })}
+                      {t(`weekdays.${day}`, { ns: 'common', defaultValue: String(day) })}
                     </button>
                   );
                 })}
@@ -437,22 +455,24 @@ export function ScheduleFormDialog({
             {t('schedules.form.notifyFamiliesLabel')}
           </label>
 
-          <div className="flex items-center justify-between rounded-lg border border-border-subtle p-3">
-            <span className="text-sm">
-              {previewMutation.isPending
-                ? t('schedules.form.saving')
-                : previewMutation.data
-                  ? t('schedules.form.previewLabel', {
-                      count: previewMutation.data.matching_student_count,
-                    })
-                  : previewMutation.isError
-                    ? t('schedules.form.previewError')
-                    : null}
-            </span>
-            <Button type="button" variant="outline" size="sm" onClick={handlePreview}>
-              {t('schedules.form.previewButton')}
-            </Button>
-          </div>
+          {isEdit && (
+            <div className="flex items-center justify-between rounded-lg border border-border-subtle p-3">
+              <span className="text-sm">
+                {previewQuery.isFetching
+                  ? t('schedules.form.saving')
+                  : previewQuery.data
+                    ? t('schedules.form.previewLabel', {
+                        count: previewQuery.data.total_count,
+                      })
+                    : previewQuery.isError
+                      ? t('schedules.form.previewError')
+                      : t('schedules.form.previewSavedOnlyNotice')}
+              </span>
+              <Button type="button" variant="outline" size="sm" onClick={handlePreview}>
+                {t('schedules.form.previewButton')}
+              </Button>
+            </div>
+          )}
 
           {validationError && (
             <p role="alert" className="text-sm text-destructive">
