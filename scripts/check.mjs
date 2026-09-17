@@ -16,7 +16,7 @@
  */
 import { spawn, execFileSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -65,7 +65,9 @@ export function runOne(name, command, args) {
 export async function runTasks(tasks, opts = {}) {
   const log = opts.log ?? ((line) => console.log(line));
 
-  const results = await Promise.all(tasks.map((task) => runOne(task.name, task.command, task.args)));
+  const results = await Promise.all(
+    tasks.map((task) => runOne(task.name, task.command, task.args)),
+  );
 
   for (const result of results) {
     const icon = result.ok ? '✓' : '✗';
@@ -81,12 +83,31 @@ export async function runTasks(tasks, opts = {}) {
   return failed.length === 0;
 }
 
+// Committed diff against `base`, PLUS working-tree changes (staged and
+// unstaged) and untracked files — consistent with `tests`' own affected
+// detection (scripts/test-affected.mjs shells out to `vitest --changed`,
+// which covers uncommitted work too). A committed-only diff would miss
+// exactly the files someone is mid-edit on, which is the normal state
+// while `.husky/pre-push` runs this.
 function changedFiles(base) {
-  const out = execFileSync('git', ['diff', '--name-only', base, '--', '*.ts', '*.tsx', '*.mjs'], {
+  const pathspec = ['--', '*.ts', '*.tsx', '*.mjs'];
+  const committed = execFileSync('git', ['diff', '--name-only', base, ...pathspec], {
     cwd: repoRoot,
     encoding: 'utf8',
   });
-  return out.split('\n').filter(Boolean);
+  const workingTree = execFileSync('git', ['diff', '--name-only', 'HEAD', ...pathspec], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  });
+  const untracked = execFileSync(
+    'git',
+    ['ls-files', '--others', '--exclude-standard', ...pathspec],
+    { cwd: repoRoot, encoding: 'utf8' },
+  );
+  const files = new Set(
+    [committed, workingTree, untracked].flatMap((out) => out.split('\n').filter(Boolean)),
+  );
+  return [...files];
 }
 
 // Packages with their own flat eslint.config.mjs — server's "lint" script
@@ -103,7 +124,9 @@ const ESLINT_PACKAGES = ['ui', 'client-admin'];
  */
 function buildLintCommand(affected) {
   if (!affected) {
-    const perPackage = ['server', ...ESLINT_PACKAGES].map((pkg) => `yarn workspace @biddaloy/${pkg} lint`);
+    const perPackage = ['server', ...ESLINT_PACKAGES].map(
+      (pkg) => `yarn workspace @biddaloy/${pkg} lint`,
+    );
     return { command: 'sh', args: ['-c', perPackage.join(' && ')] };
   }
 
@@ -146,6 +169,9 @@ async function main() {
   process.exit(ok ? 0 : 1);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// pathToFileURL (not a manual `file://` template) so this comparison
+// works on Windows, where process.argv[1] is a filesystem path (drive
+// letter, backslashes) that a plain string template doesn't URL-encode.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main();
 }
