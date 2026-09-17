@@ -154,6 +154,35 @@ describe('buildTrend', () => {
     expect(markdown).toContain('_no job data in this window_');
   });
 
+  it('[18.5.2] reports 100% pass rate for an all-green week, in the Pass rate column', () => {
+    const runs = [run(1), run(2), run(3)];
+    const { json, markdown } = buildTrend({ runs, jobsByRunId: new Map() });
+
+    expect(json.passRate).toBe(1);
+    expect(markdown).toMatch(/\|\s*100%\s*\|/);
+  });
+
+  it('[18.5.2] reports the complement of failure rate for a mixed week', () => {
+    const runs = [
+      run(1, { conclusion: 'success' }),
+      run(2, { conclusion: 'success' }),
+      run(3, { conclusion: 'success' }),
+      run(4, { conclusion: 'failure' }),
+    ];
+    const { json } = buildTrend({ runs, jobsByRunId: new Map() });
+
+    expect(json.passRate).toBeCloseTo(0.75);
+    expect(json.passRate).toBeCloseTo(1 - json.failureRate);
+  });
+
+  it('[18.5.2] reports pass rate as n/a ("—" in JSON, "n/a" in markdown) when every run in the window was cancelled', () => {
+    const runs = [run(1, { conclusion: 'cancelled' }), run(2, { conclusion: 'cancelled' })];
+    const { json, markdown } = buildTrend({ runs, jobsByRunId: new Map() });
+
+    expect(json.passRate).toBeNull();
+    expect(markdown).toMatch(/\|\s*n\/a\s*\|/);
+  });
+
   it('excludes in-progress (non-completed) runs from every computation', () => {
     const runs = [run(1, { status: 'in_progress', conclusion: null }), run(2)];
     const jobsByRunId = new Map([
