@@ -473,6 +473,9 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // `POST /fees/schedules/run-now` and DISCOUNT_RULE_MANAGE now gates the
   // discount-rule CRUD endpoints — also removed from this list.
   Permission.FEE_APPROVE,
+  // [17.2.1]-[17.2.5] CALENDAR_READ/CALENDAR_MANAGE now gate
+  // `/calendar/events`, `/calendar/terms`, `/calendar-settings`, and the
+  // platform holiday-set routes — no longer UI-only, removed from this list.
 ];
 
 describe('Permission matrix (regression)', () => {
