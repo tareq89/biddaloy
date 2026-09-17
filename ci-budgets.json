@@ -14,9 +14,21 @@
       "budgetSeconds": 220,
       "$comment": "Baseline: p90 184s."
     },
-    "Frontend tests": {
-      "budgetSeconds": 450,
-      "$comment": "Baseline: p90 386s."
+    "Frontend tests (1/3)": {
+      "budgetSeconds": 180,
+      "$comment": "[18.5.1] Provisional — 3-way shard replaces the single 450s-budget job; re-baselined once real CI numbers exist (18.5.2)."
+    },
+    "Frontend tests (2/3)": {
+      "budgetSeconds": 180,
+      "$comment": "[18.5.1] Provisional, see (1/3)."
+    },
+    "Frontend tests (3/3)": {
+      "budgetSeconds": 180,
+      "$comment": "[18.5.1] Provisional, see (1/3)."
+    },
+    "Frontend coverage merge": {
+      "budgetSeconds": 90,
+      "$comment": "[18.5.1] Provisional — merge-reports + coverage merge, no test execution. Re-baselined once real CI numbers exist (18.5.2)."
     },
     "Integration & e2e tests": {
       "budgetSeconds": 500,

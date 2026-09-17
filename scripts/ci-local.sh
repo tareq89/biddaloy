@@ -332,6 +332,12 @@ fi
 
 if should_run "frontend"; then
   section "frontend"
+  # [18.5.1] ci.yml's "frontend" job shards this 3-way on CI and merges the
+  # reports in a separate "frontend-merge" job — not mirrored here: one
+  # local machine gets no wall-clock win from splitting a suite across
+  # matrix legs it still has to run serially, so this stays a single
+  # unsharded run, same as before.
+  #
   # [#437] ci.yml also runs the quarantined tests non-blockingly here
   # (`QUARANTINE_MODE=only`, guarded on quarantine.json being non-empty) —
   # deliberately not mirrored locally: on an empty list it would still spend
