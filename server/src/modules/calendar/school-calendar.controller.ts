@@ -97,9 +97,20 @@ export class SchoolCalendarController {
   }
 
   @Get('working-days')
-  // [10.4] G4 — reference-data read.
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT, UserRole.TEACHER)
-  @RequirePermissions(Permission.ACADEMIC_STRUCTURE_READ)
+  // [17.2.1] D16/D19 — moved onto CALENDAR_READ; this reference-data read
+  // belongs with the rest of the calendar surface, not academic structure.
+  // @Roles widened to match CALENDAR_READ's actual holder set (PARENT/
+  // STUDENT now included) — permission-matrix.e2e-spec.ts's "documents
+  // every deliberate @Roles narrowing" check requires the two to agree.
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    UserRole.TEACHER,
+    UserRole.PARENT,
+    UserRole.STUDENT,
+  )
+  @RequirePermissions(Permission.CALENDAR_READ)
   @ApiOperation({
     summary:
       'Every working day in [from, to] for the current tenant — weekly-off days and holidays ' +

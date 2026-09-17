@@ -473,12 +473,6 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // `POST /fees/schedules/run-now` and DISCOUNT_RULE_MANAGE now gates the
   // discount-rule CRUD endpoints — also removed from this list.
   Permission.FEE_APPROVE,
-  // [17.1] CALENDAR_READ/CALENDAR_MANAGE exist for the academic calendar
-  // feature (17.x), but no server route gates on them yet — they're
-  // consumed only by client UI nav/actions until the calendar endpoints
-  // land in a later 17.x wave.
-  Permission.CALENDAR_READ,
-  Permission.CALENDAR_MANAGE,
 ];
 
 describe('Permission matrix (regression)', () => {
