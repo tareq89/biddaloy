@@ -303,4 +303,28 @@ describe('LateFeeService (integration)', () => {
     const yearIds = new Set(lateFeeStructures.map((s) => s.academic_year_id));
     expect(yearIds).toEqual(new Set([priorYearId, SEED_ACADEMIC_YEAR_ID]));
   });
+
+  it('[CodeRabbit review, PR #801] two concurrent applyDue runs for the same bill do not throw or duplicate the late fee', async () => {
+    await setSettings({
+      MONTHLY_TUITION: { enabled: true, grace_days: 0, kind: DiscountKind.FLAT, value: 100 },
+    });
+    await seedBill('2026-03-01');
+
+    // Both "workers" race to process the same candidate bill — the loser
+    // must resolve with a no-op (ON CONFLICT DO NOTHING), not throw and
+    // roll back its whole fee-type transaction.
+    await expect(
+      Promise.all([
+        service.applyDue(SEED_TENANT_ID, TODAY),
+        service.applyDue(SEED_TENANT_ID, TODAY),
+      ]),
+    ).resolves.not.toThrow();
+
+    const bills = await ds.getRepository(StudentFee).find({
+      where: { student_id: STUDENT_ID },
+      relations: { fee_structure: true },
+    });
+    const lateFeeBills = bills.filter((b) => b.fee_structure.fee_type === FeeType.LATE_FEE);
+    expect(lateFeeBills).toHaveLength(1);
+  });
 });

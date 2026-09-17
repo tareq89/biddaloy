@@ -4,7 +4,6 @@ import { DataSource, EntityManager } from 'typeorm';
 import { DiscountKind, FeeStatus, FeeType, PeriodType } from '@biddaloy/shared';
 import { School } from '../schools/entities/school.entity';
 import { FeeStructure } from './entities/fee-structure.entity';
-import { StudentFee } from './entities/student-fee.entity';
 
 interface LateFeeRule {
   enabled: boolean;
@@ -154,22 +153,43 @@ export class LateFeeService {
           [bill.student_id, lateFeeStructureId, bill.period_start],
         )) as { next_occurrence: number }[];
 
-        await manager.getRepository(StudentFee).insert({
-          student_id: bill.student_id,
-          academic_year_id: bill.academic_year_id,
-          fee_structure_id: lateFeeStructureId,
-          period_start: bill.period_start,
-          // [Opus review, non-blocking] the original bill's own
-          // period_type — was hardcoded to MONTH, losing a WEEK original.
-          period_type: bill.period_type,
-          occurrence,
-          total_amount: amount,
-          paid_amount: 0,
-          discount_amount: 0,
-          status: FeeStatus.PENDING,
-          due_date: addDays(today, 7),
-          late_fee_for_student_fee_id: bill.id,
-        } as unknown as Partial<StudentFee>);
+        // [CodeRabbit review, PR #801] Raw INSERT ... ON CONFLICT ...
+        // DO NOTHING (targeting IDX_student_fees_late_fee_for_student_fee_id,
+        // the partial unique index on late_fee_for_student_fee_id) instead
+        // of a plain TypeORM insert(). Two workers processing the
+        // scheduled and run-now jobs concurrently can both pass the
+        // `NOT EXISTS` check above under READ COMMITTED (the row lock on
+        // the *original* bill doesn't make one transaction's snapshot see
+        // a late-fee row the other transaction just inserted) — a plain
+        // insert() would throw a unique-violation on the loser, which
+        // Postgres then requires a ROLLBACK for, aborting this whole
+        // fee-type transaction and discarding every other candidate bill's
+        // late fee, not just this one's. ON CONFLICT DO NOTHING makes the
+        // loser's insert a no-op instead — the winner's row already covers
+        // this bill.
+        await manager.query(
+          `INSERT INTO student_fees
+             (student_id, academic_year_id, fee_structure_id, period_start, period_type,
+              occurrence, total_amount, paid_amount, discount_amount, status, due_date,
+              late_fee_for_student_fee_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, 0, 0, $8, $9, $10)
+           ON CONFLICT (late_fee_for_student_fee_id) WHERE late_fee_for_student_fee_id IS NOT NULL
+           DO NOTHING`,
+          [
+            bill.student_id,
+            bill.academic_year_id,
+            lateFeeStructureId,
+            bill.period_start,
+            // [Opus review, non-blocking] the original bill's own
+            // period_type — was hardcoded to MONTH, losing a WEEK original.
+            bill.period_type,
+            occurrence,
+            amount,
+            FeeStatus.PENDING,
+            addDays(today, 7),
+            bill.id,
+          ],
+        );
       }
     });
   }
