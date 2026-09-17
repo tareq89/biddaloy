@@ -160,6 +160,18 @@ export {
   type StudentFeeSummary,
 } from './payments';
 export {
+  discountRulesQueryOptions,
+  useCreateDiscountRule,
+  useDeleteDiscountRule,
+  useDiscountRules,
+  useUpdateDiscountRule,
+  type CreateDiscountRuleInput,
+  type DeleteDiscountRuleInput,
+  type DiscountKind,
+  type DiscountRule,
+  type UpdateDiscountRuleInput,
+} from './discount-rules';
+export {
   enrollmentKeys,
   useStudentEnrollments,
   useCurrentEnrollment,
@@ -535,6 +547,9 @@ export {
   type MaskedCommunicationsSettings,
   type MaskedTenantSettings,
   type BackupSettings,
+  type FeesSettings,
+  type FeesSettingsInput,
+  type LateFeeSetting,
   type ConnectionTestResult,
   type TenantSettingsInput,
   type TestConnectionInput,

@@ -130,7 +130,8 @@
       "historyEmptyMessage": "No paid bills yet.",
       "previousPage": "Previous",
       "nextPage": "Next",
-      "pageOf": "Page {{page}} of {{totalPages}}"
+      "pageOf": "Page {{page}} of {{totalPages}}",
+      "discountsTab": "Discounts"
     },
     "payments": {
       "columnDate": "Date",
@@ -289,6 +290,42 @@
         "saveAction": "Add guardian",
         "cancelAction": "Cancel"
       }
+    }
+  },
+  "discounts": {
+    "addRule": "Add discount rule",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteConfirmTitle": "Delete this discount rule?",
+    "deleteConfirmDescription": "This can't be undone. The discount will stop applying to future bills immediately.",
+    "loading": "Loading discount rules…",
+    "emptyMessage": "No discount rules yet.",
+    "errorMessage": "Couldn't load discount rules.",
+    "columnKind": "Kind",
+    "columnValue": "Value",
+    "columnFeeTypes": "Fee types",
+    "columnRange": "Valid range",
+    "columnReason": "Reason",
+    "columnActions": "Actions",
+    "form": {
+      "addTitle": "Add discount rule",
+      "editTitle": "Edit discount rule",
+      "description": "Standing discounts apply automatically to every matching bill until they expire.",
+      "kindLabel": "Kind",
+      "kindPercent": "Percent",
+      "kindFlat": "Flat amount",
+      "valueLabel": "Value",
+      "allFeeTypes": "All fee types",
+      "startsOnLabel": "Starts on",
+      "endsOnLabel": "Ends on",
+      "reasonLabel": "Reason",
+      "save": "Save",
+      "errorValue": "Enter a value greater than 0.",
+      "errorPercentRange": "Percent discounts must be between 0 and 100.",
+      "errorFeeTypes": "Select at least one fee type, or choose \"All fee types\".",
+      "errorReason": "Reason must be at least 3 characters.",
+      "errorDateRange": "End date must be on or after the start date.",
+      "errorSave": "Couldn't save the discount rule."
     }
   }
 }
