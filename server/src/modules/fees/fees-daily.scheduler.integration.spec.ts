@@ -135,7 +135,9 @@ describe('FeesDailyScheduler (integration)', () => {
         rule: dueRuleToday(),
         fee_structure_ids: overrides.fee_structure_ids,
         starts_on: '2026-01-01',
-        ends_on: '2026-12-31',
+        // No explicit ends_on -- defaults to the academic year's own
+        // end_date (resolveEndsOn), which stays correct if the seeded
+        // year's bounds ever change rather than hardcoding a literal.
         notify_families: overrides.notify_families ?? true,
       } as any,
       TENANT_ID,
@@ -343,8 +345,17 @@ describe('FeesDailyScheduler (integration)', () => {
     const structure = await structureRepo.save(makeStructure());
     await studentRepo.save(makeStudent());
 
-    // starts_on in the far future relative to "today" — the scheduler's
-    // date-window check (`fresh.starts_on > today`) skips it.
+    // starts_on the academic year's own end_date — guaranteed in the
+    // future relative to "today" for as long as this suite runs within
+    // that year (every other test in this file already assumes that),
+    // without hardcoding a literal year that goes stale once it passes.
+    // The scheduler's date-window check (`fresh.starts_on > today`)
+    // skips it.
+    const [{ end_date: academicYearEnd }] = await dataSource.query(
+      `SELECT end_date FROM academic_years WHERE id = $1`,
+      [SEED_ACADEMIC_YEAR_ID],
+    );
+    const yearEnd = new Date(academicYearEnd).toISOString().slice(0, 10);
     await recurringSchedulesService.create(
       {
         academic_year_id: SEED_ACADEMIC_YEAR_ID,
@@ -352,8 +363,8 @@ describe('FeesDailyScheduler (integration)', () => {
         audience: { section_id: SEED_SECTION_1_ID, enrollment_status: 'ACTIVE' },
         rule: dueRuleToday(),
         fee_structure_ids: [structure.id],
-        starts_on: '2026-12-30',
-        ends_on: '2026-12-31',
+        starts_on: yearEnd,
+        ends_on: yearEnd,
       } as any,
       TENANT_ID,
       SEED_ADMIN_USER_ID,
