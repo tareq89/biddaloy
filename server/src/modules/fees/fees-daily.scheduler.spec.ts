@@ -17,8 +17,13 @@ function scheduleRow(overrides: Partial<any> = {}) {
     rule: { kind: 'WEEKLY', weekdays: [0, 1, 2, 3, 4, 5, 6] },
     period_type: 'WEEK',
     due_days_after_period_start: 9,
-    starts_on: '2026-01-01',
-    ends_on: '2026-12-31',
+    // [CodeRabbit review, PR #801] A year-pinned window (e.g. 2026-12-31)
+    // would make this fixture start failing runSchedule's date-window
+    // check the moment the suite runs past that date, with no code
+    // regression involved — deliberately wide instead, independent of
+    // whatever year the suite actually runs in.
+    starts_on: '2000-01-01',
+    ends_on: '2100-12-31',
     notify_families: true,
     last_run_period: null,
     fee_structure_ids: ['fs-1'],

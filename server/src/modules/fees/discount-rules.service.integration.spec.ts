@@ -494,7 +494,7 @@ describe('DiscountRulesService (integration)', () => {
   });
 
   describe('[CodeRabbit review, PR #801] batched resolution', () => {
-    it('preloadRulesForStudents() lets resolve() skip its own per-call query for a preloaded student', async () => {
+    it('preloadRulesForStudents() returns a map whose per-student slice lets resolve() skip its own query', async () => {
       await service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, {
         student_id: STUDENT_ID,
         kind: DiscountKind.FLAT,
@@ -502,7 +502,8 @@ describe('DiscountRulesService (integration)', () => {
         reason: 'Batched',
       });
 
-      await service.preloadRulesForStudents(SEED_TENANT_ID, [STUDENT_ID]);
+      const preloaded = await service.preloadRulesForStudents(SEED_TENANT_ID, [STUDENT_ID]);
+      expect(preloaded.get(STUDENT_ID)).toHaveLength(1);
 
       const findSpy = vi.spyOn(ruleRepo, 'find');
       const result = await service.resolve({
@@ -512,11 +513,13 @@ describe('DiscountRulesService (integration)', () => {
         baseAmount: 1000,
         periodStart: TODAY_PERIOD,
         feeType: FeeType.MONTHLY_TUITION,
+        preloadedRules: preloaded.get(STUDENT_ID),
       });
 
       expect(result.amount).toBe(100);
       // The preload already ran the one query for this student — resolve()
-      // must not query the rules table again.
+      // must not query the rules table again when the caller passes the
+      // preloaded slice through explicitly.
       expect(findSpy).not.toHaveBeenCalled();
       findSpy.mockRestore();
     });
@@ -530,7 +533,7 @@ describe('DiscountRulesService (integration)', () => {
       });
 
       // Preload for a *different* student only.
-      await service.preloadRulesForStudents(SEED_TENANT_ID, [OTHER_STUDENT_ID]);
+      const preloaded = await service.preloadRulesForStudents(SEED_TENANT_ID, [OTHER_STUDENT_ID]);
 
       const result = await service.resolve({
         tenantId: SEED_TENANT_ID,
@@ -538,9 +541,58 @@ describe('DiscountRulesService (integration)', () => {
         feeStructureId: TUITION_STRUCTURE_ID,
         baseAmount: 1000,
         periodStart: TODAY_PERIOD,
+        // STUDENT_ID has no slice in `preloaded` — resolve() must fall
+        // back to its own query rather than treating "no entry" as "no
+        // rules apply".
+        preloadedRules: preloaded.get(STUDENT_ID),
       });
 
       expect(result.amount).toBe(100);
+    });
+
+    it("[CodeRabbit review, PR #801] two concurrent preloads never see each other's rules", async () => {
+      // The whole point of not caching on `this`: two callers preloading
+      // for different students at "the same time" (interleaved awaits)
+      // must each still resolve only against their own preloaded slice.
+      const SECOND_STUDENT_ID = '00000000-0000-4000-8000-000000000504';
+      await studentRepo.save(
+        studentRepo.create({
+          id: SECOND_STUDENT_ID,
+          full_name: 'Second Student',
+          registration_number: 'REG-504',
+          tenant_id: SEED_TENANT_ID,
+          class_section_id: SEED_SECTION_1_ID,
+          enrollment_status: EnrollmentStatus.ACTIVE,
+          roll_number: 504,
+        }),
+      );
+      await service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, {
+        student_id: STUDENT_ID,
+        kind: DiscountKind.FLAT,
+        value: 100,
+        reason: 'Batch A',
+      });
+      await service.create(SEED_TENANT_ID, APPROVER_ID, APPROVER_ID, {
+        student_id: SECOND_STUDENT_ID,
+        kind: DiscountKind.FLAT,
+        value: 999,
+        reason: 'Batch B',
+      });
+
+      const [preloadedA] = await Promise.all([
+        service.preloadRulesForStudents(SEED_TENANT_ID, [STUDENT_ID]),
+        service.preloadRulesForStudents(SEED_TENANT_ID, [SECOND_STUDENT_ID]),
+      ]);
+
+      const resultA = await service.resolve({
+        tenantId: SEED_TENANT_ID,
+        studentId: STUDENT_ID,
+        feeStructureId: TUITION_STRUCTURE_ID,
+        baseAmount: 1000,
+        periodStart: TODAY_PERIOD,
+        preloadedRules: preloadedA.get(STUDENT_ID),
+      });
+      expect(resultA.amount).toBe(100); // never picks up SECOND_STUDENT_ID's 999
     });
   });
 });

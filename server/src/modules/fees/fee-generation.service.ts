@@ -62,22 +62,33 @@ export interface DiscountResolver {
     // ignores this and queries anyway (`NoopDiscountResolver`) stays
     // correct, just unoptimized.
     feeType?: FeeType;
+    // [CodeRabbit review, PR #801] This student's slice of the map
+    // `preloadRulesForStudents` returned, if the caller preloaded one —
+    // deliberately passed in per-call rather than cached on the resolver
+    // instance: `DiscountRulesService` is a singleton, and instance state
+    // shared across concurrent `POST /fees/generate` requests let one
+    // request's preload clear/overwrite the map mid-flight for another,
+    // occasionally letting a resolved rule mismatch the student it was
+    // actually resolved for.
+    preloadedRules?: unknown[];
   }): Promise<{ amount: number }>;
 
   /**
    * [CodeRabbit review, PR #801] Optional: a resolver backed by a real
    * rules table can implement this to load every active rule for a whole
-   * batch of students in ONE query and cache it internally (keyed by
-   * tenantId + studentId), instead of `generate()` calling `resolve()`
-   * once per (student, fee-structure) pair — each of which previously ran
-   * its own `FeeStructure` lookup plus its own `DiscountRule` query.
-   * `GenerateFeesDto` legally allows up to 5,000 students × 20 fee
-   * structures; without batching, one request could perform up to
-   * ~200,000 sequential DB reads before a single bill was inserted.
-   * `generate()` calls this once (if present) before its per-pair loop;
-   * the subsequent `resolve()` calls in that same batch hit the cache.
+   * batch of students in ONE query, instead of `generate()` calling
+   * `resolve()` once per (student, fee-structure) pair — each of which
+   * previously ran its own `FeeStructure` lookup plus its own
+   * `DiscountRule` query. `GenerateFeesDto` legally allows up to 5,000
+   * students × 20 fee structures; without batching, one request could
+   * perform up to ~200,000 sequential DB reads before a single bill was
+   * inserted. `generate()` calls this once (if present) before its
+   * per-pair loop and passes each student's own slice into the
+   * `resolve()` calls that follow, via `preloadedRules` above — the
+   * returned map is local to that one `generate()` call, never stored on
+   * the resolver itself.
    */
-  preloadRulesForStudents?(tenantId: string, studentIds: string[]): Promise<void>;
+  preloadRulesForStudents?(tenantId: string, studentIds: string[]): Promise<Map<string, unknown[]>>;
 }
 
 /** Default `DiscountResolver`: no discounts apply. Real rules land in
@@ -91,6 +102,7 @@ export class NoopDiscountResolver implements DiscountResolver {
     baseAmount: number;
     periodStart: string;
     feeType?: FeeType;
+    preloadedRules?: unknown[];
   }): Promise<{ amount: number }> {
     return Promise.resolve({ amount: 0 });
   }
@@ -100,8 +112,11 @@ export class NoopDiscountResolver implements DiscountResolver {
   // (`NoopDiscountResolver`, kept as the constructor param's type so Nest
   // has a real runtime token — `DiscountRulesService` is wired in via
   // `useExisting` in fees.module.ts) is declared with.
-  preloadRulesForStudents(_tenantId: string, _studentIds: string[]): Promise<void> {
-    return Promise.resolve();
+  preloadRulesForStudents(
+    _tenantId: string,
+    _studentIds: string[],
+  ): Promise<Map<string, unknown[]>> {
+    return Promise.resolve(new Map());
   }
 }
 
@@ -406,9 +421,12 @@ export class FeeGenerationService {
       // discount rule for every student in this generation, instead of
       // `resolve()` querying per (student, fee-structure) pair below —
       // a resolver that doesn't implement this optional hook (e.g.
-      // NoopDiscountResolver) just no-ops here and resolve() falls back
-      // to its own per-pair queries, so this stays correct either way.
-      await this.discountResolver.preloadRulesForStudents?.(
+      // NoopDiscountResolver) just returns an empty map and resolve()
+      // falls back to its own per-pair queries, so this stays correct
+      // either way. The map is local to this one generate() call — never
+      // stored on the resolver itself, so two concurrent generate() calls
+      // can't clobber each other's preload.
+      const preloadedRulesByStudent = await this.discountResolver.preloadRulesForStudents?.(
         tenantId,
         Array.from(new Set(pairsToInsert.map((p) => p.student.id))),
       );
@@ -427,6 +445,7 @@ export class FeeGenerationService {
           // [CodeRabbit review, PR #801] already loaded via loadContext()
           // — lets the resolver skip its own FeeStructure lookup.
           feeType: pair.structure.fee_type,
+          preloadedRules: preloadedRulesByStudent?.get(pair.student.id),
         });
         rowsToInsert.push({
           student_id: pair.student.id,

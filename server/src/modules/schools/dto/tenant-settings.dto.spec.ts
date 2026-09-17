@@ -497,5 +497,70 @@ describe('TenantSettingsDto', () => {
       ).toBe(true);
       expect(feesError?.children?.some((e) => e.property === 'notifyOnScheduleDefault')).toBe(true);
     });
+
+    describe('lateFees', () => {
+      function feesWithLateFees(lateFees: unknown): Record<string, unknown> {
+        return {
+          version: TENANT_SETTINGS_SCHEMA_VERSION,
+          fees: {
+            approvalMode: 'OTP',
+            notifyOnManualGenerationDefault: false,
+            notifyOnScheduleDefault: false,
+            lateFees,
+          },
+        };
+      }
+
+      it('accepts a valid lateFees map', async () => {
+        const dto = toDto(
+          feesWithLateFees({
+            MONTHLY_TUITION: { enabled: true, grace_days: 5, kind: 'FLAT', value: 100 },
+          }),
+        );
+
+        const errors = await validate(dto, VALIDATION_OPTIONS);
+
+        expect(errors.find((e) => e.property === 'fees')).toBeUndefined();
+      });
+
+      it('[CodeRabbit review, PR #801] rejects a fractional grace_days', async () => {
+        const dto = toDto(
+          feesWithLateFees({
+            MONTHLY_TUITION: { enabled: true, grace_days: 1.5, kind: 'FLAT', value: 100 },
+          }),
+        );
+
+        const errors = await validate(dto, VALIDATION_OPTIONS);
+
+        const feesError = errors.find((e) => e.property === 'fees');
+        expect(feesError?.children?.some((e) => e.property === 'lateFees')).toBe(true);
+      });
+
+      it('rejects grace_days outside 0-60', async () => {
+        const dto = toDto(
+          feesWithLateFees({
+            MONTHLY_TUITION: { enabled: true, grace_days: 61, kind: 'FLAT', value: 100 },
+          }),
+        );
+
+        const errors = await validate(dto, VALIDATION_OPTIONS);
+
+        const feesError = errors.find((e) => e.property === 'fees');
+        expect(feesError?.children?.some((e) => e.property === 'lateFees')).toBe(true);
+      });
+
+      it('rejects an unknown fee type key', async () => {
+        const dto = toDto(
+          feesWithLateFees({
+            NOT_A_REAL_FEE_TYPE: { enabled: true, grace_days: 5, kind: 'FLAT', value: 100 },
+          }),
+        );
+
+        const errors = await validate(dto, VALIDATION_OPTIONS);
+
+        const feesError = errors.find((e) => e.property === 'fees');
+        expect(feesError?.children?.some((e) => e.property === 'lateFees')).toBe(true);
+      });
+    });
   });
 });

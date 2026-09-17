@@ -397,7 +397,11 @@ export class LateFeesMapConstraint implements ValidatorConstraintInterface {
         this.lastError = `lateFees.${feeType}.enabled must be a boolean`;
         return false;
       }
-      if (typeof r.grace_days !== 'number' || r.grace_days < 0 || r.grace_days > 60) {
+      if (
+        !Number.isInteger(r.grace_days) ||
+        (r.grace_days as number) < 0 ||
+        (r.grace_days as number) > 60
+      ) {
         this.lastError = `lateFees.${feeType}.grace_days must be an integer 0-60`;
         return false;
       }

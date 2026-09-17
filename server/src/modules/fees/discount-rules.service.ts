@@ -86,31 +86,35 @@ export class DiscountRulesService implements DiscountResolver {
     }
   }
 
-  // [CodeRabbit review, PR #801] Populated by preloadRulesForStudents()
-  // for the lifetime of one FeeGenerationService.generate() batch —
-  // keyed by `${tenantId}:${studentId}`. resolve() checks this first and
-  // only falls back to its own per-call query when the key is absent, so
-  // a caller that never preloads (or a student outside the preloaded set)
-  // still gets a correct answer, just via the unbatched path.
-  private preloadedRulesByStudent = new Map<string, DiscountRule[]>();
-
-  /** [CodeRabbit review, PR #801] One query for every active rule across
-   * a whole batch of students, instead of `resolve()` querying per
-   * (student, fee-structure) pair. See the doc comment on
-   * `DiscountResolver.preloadRulesForStudents` in
-   * fee-generation.service.ts for why this exists. */
-  async preloadRulesForStudents(tenantId: string, studentIds: string[]): Promise<void> {
-    this.preloadedRulesByStudent.clear();
-    if (studentIds.length === 0) return;
+  /**
+   * [CodeRabbit review, PR #801] One query for every active rule across a
+   * whole batch of students, instead of `resolve()` querying per
+   * (student, fee-structure) pair. The returned map is *not* stored on
+   * this service — `DiscountRulesService` is a singleton, so instance
+   * state here would be shared across every concurrent
+   * `POST /fees/generate` request; one request's preload could clear or
+   * overwrite the map mid-flight for another, letting a resolved rule
+   * apply to the wrong request's bill. The caller (`generate()`) holds
+   * the map locally for the lifetime of its own call and passes each
+   * student's slice into `resolve()` explicitly via `preloadedRules`. See
+   * the doc comment on `DiscountResolver.preloadRulesForStudents` in
+   * fee-generation.service.ts for the full contract.
+   */
+  async preloadRulesForStudents(
+    tenantId: string,
+    studentIds: string[],
+  ): Promise<Map<string, DiscountRule[]>> {
+    const byStudent = new Map<string, DiscountRule[]>();
+    if (studentIds.length === 0) return byStudent;
     const rules = await this.discountRuleRepo.find({
       where: { tenant_id: tenantId, student_id: In(studentIds), is_active: true },
     });
     for (const rule of rules) {
-      const key = `${tenantId}:${rule.student_id}`;
-      const existing = this.preloadedRulesByStudent.get(key);
+      const existing = byStudent.get(rule.student_id);
       if (existing) existing.push(rule);
-      else this.preloadedRulesByStudent.set(key, [rule]);
+      else byStudent.set(rule.student_id, [rule]);
     }
+    return byStudent;
   }
 
   async resolve(context: {
@@ -126,6 +130,10 @@ export class DiscountRulesService implements DiscountResolver {
     // [CodeRabbit review, PR #801] Already-loaded fee_type — skips the
     // FeeStructure lookup below when supplied.
     feeType?: FeeType;
+    // [CodeRabbit review, PR #801] This student's slice of the map
+    // `preloadRulesForStudents` returned to the caller — when supplied,
+    // skips this call's own DiscountRule query entirely.
+    preloadedRules?: unknown[];
   }): Promise<{ amount: number }> {
     let feeType = context.feeType;
     if (!feeType) {
@@ -140,9 +148,8 @@ export class DiscountRulesService implements DiscountResolver {
       return { amount: 0 };
     }
 
-    const preloadKey = `${context.tenantId}:${context.studentId}`;
-    const rules = this.preloadedRulesByStudent.has(preloadKey)
-      ? this.preloadedRulesByStudent.get(preloadKey)!
+    const rules = context.preloadedRules
+      ? (context.preloadedRules as DiscountRule[])
       : await this.discountRuleRepo.find({
           // [Opus review, B3] an inactive rule (paused, not deleted) must
           // not resolve — same as an expired one.
