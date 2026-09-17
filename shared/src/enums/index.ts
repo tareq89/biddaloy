@@ -307,3 +307,40 @@ export enum RecurrenceKind {
   MONTHLY = 'MONTHLY',
   WEEKLY = 'WEEKLY',
 }
+
+/** Kind of `CalendarEvent` on the school calendar (17.x). */
+export enum CalendarEventType {
+  HOLIDAY = 'HOLIDAY',
+  EXAM = 'EXAM',
+  EVENT = 'EVENT',
+  MEETING = 'MEETING',
+  DEADLINE = 'DEADLINE',
+}
+
+/** Who a `CalendarEvent` is visible to (17.x). */
+export enum CalendarAudience {
+  ALL = 'ALL',
+  STAFF = 'STAFF',
+}
+
+/** What a tenant calls a grading period on its academic calendar (17.x). */
+export enum TermLabel {
+  TERM = 'TERM',
+  SEMESTER = 'SEMESTER',
+  TRIMESTER = 'TRIMESTER',
+}
+
+/** Where a `PublicHolidaySet`'s holidays were sourced from (17.x). */
+export enum PublicHolidaySource {
+  GOOGLE_ICS = 'GOOGLE_ICS',
+  NAGER_DATE = 'NAGER_DATE',
+  MANUAL = 'MANUAL',
+}
+
+/** Result of reconciling one row during a calendar import (17.x). */
+export enum CalendarImportRowStatus {
+  NEW = 'NEW',
+  UPDATED = 'UPDATED',
+  UNCHANGED = 'UNCHANGED',
+  ERROR = 'ERROR',
+}

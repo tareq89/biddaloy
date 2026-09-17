@@ -15,11 +15,14 @@
  */
 export const AUDIT_ENTITY_TYPES = [
   'AbsenceNoticePreview',
+  'AcademicTerm',
   'AcademicYear',
   'ApprovalToken',
   'AttendanceDevice',
   'AttendanceRecord',
   'AttendanceSession',
+  'CalendarEvent',
+  'CalendarFeedToken',
   'Class',
   'ClassSection',
   'DiscountRule',
@@ -30,11 +33,11 @@ export const AUDIT_ENTITY_TYPES = [
   'InvitationBatch',
   'Invoice',
   'Payment',
+  'PublicHolidaySet',
   'RefreshToken',
   'ReminderBatch',
   'ReminderBatchPreview',
   'School',
-  'SchoolHoliday',
   'Student',
   'User',
 ] as const;

@@ -1,4 +1,4 @@
-import type { ApprovalMode } from '../enums';
+import type { ApprovalMode, TermLabel } from '../enums';
 
 /**
  * Shape of the JSON blob stored on `schools.settings`. `version` is a
@@ -53,8 +53,21 @@ export interface RegionIdentifierSettings {
   student: string;
 }
 
+/**
+ * `region.calendar` (17.1.1) — what a tenant calls a grading period on its
+ * academic calendar. Read by the calendar module (Epic 17) wherever a term/
+ * semester/trimester label is shown.
+ */
+export interface CalendarSettings {
+  /** Default `'TERM'`. */
+  termLabel: TermLabel;
+}
+
 export interface RegionSettings {
   locale: string;
+  /** ISO 3166-1 alpha-2 country code, e.g. `'BD'` (D11). Used to pick the
+   * default public-holiday source for a tenant's calendar (Epic 17). */
+  country: string;
   currency: RegionCurrencySettings;
   numerals: NumeralSystem;
   date: RegionDateSettings;
@@ -63,6 +76,7 @@ export interface RegionSettings {
   academicYear: RegionAcademicYearSettings;
   identifiers: RegionIdentifierSettings;
   timezone: string;
+  calendar?: CalendarSettings;
 }
 
 /**
