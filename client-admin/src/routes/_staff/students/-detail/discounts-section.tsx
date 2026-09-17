@@ -44,6 +44,8 @@ import {
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
+import { MutationErrorMessage } from '../../../../components/MutationErrorMessage';
+
 const REASON_MIN_LENGTH = 3;
 const ALL_FEE_TYPES = Object.values(FeeType).filter((type) => type !== FeeType.LATE_FEE);
 
@@ -319,21 +321,40 @@ function RuleFormDialog({
 function DeleteRuleAction({
   rule,
   studentId,
-  onSettled,
+  onSuccess,
+  onDismissError,
 }: {
   rule: DiscountRule;
   studentId: string;
-  onSettled: () => void;
+  onSuccess: () => void;
+  onDismissError: () => void;
 }) {
+  const { t } = useTranslation('students');
   const deleteRule = useDeleteDiscountRule();
   const fired = React.useRef(false);
 
   React.useEffect(() => {
     if (fired.current) return;
     fired.current = true;
-    deleteRule.mutate({ id: rule.id, studentId }, { onSettled: () => onSettled() });
+    deleteRule.mutate({ id: rule.id, studentId }, { onSuccess: () => onSuccess() });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fire exactly once per mount
   }, []);
+
+  // A failed delete used to be indistinguishable from a slow refresh --
+  // `onSettled` cleared this component's mount trigger regardless of
+  // success or failure, discarding `deleteRule.error` before the user
+  // ever saw it. Stay mounted on failure so the error (and a way to
+  // dismiss it and try again) is actually visible.
+  if (deleteRule.isError) {
+    return (
+      <div className="flex items-center gap-2">
+        <MutationErrorMessage error={deleteRule.error} />
+        <Button type="button" size="sm" variant="outline" onClick={onDismissError}>
+          {t('discounts.dismissDeleteError')}
+        </Button>
+      </div>
+    );
+  }
 
   return deleteRule.modal;
 }
@@ -486,7 +507,8 @@ export function DiscountsSection({ studentId }: DiscountsSectionProps) {
           key={deletingRule.id}
           rule={deletingRule}
           studentId={studentId}
-          onSettled={() => setDeletingRule(null)}
+          onSuccess={() => setDeletingRule(null)}
+          onDismissError={() => setDeletingRule(null)}
         />
       )}
     </div>

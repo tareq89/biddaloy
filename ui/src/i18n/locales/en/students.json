@@ -295,6 +295,7 @@
     "addRule": "Add discount rule",
     "edit": "Edit",
     "delete": "Delete",
+    "dismissDeleteError": "Dismiss",
     "deleteConfirmTitle": "Delete this discount rule?",
     "deleteConfirmDescription": "This can't be undone. The discount will stop applying to future bills immediately.",
     "loading": "Loading discount rules…",

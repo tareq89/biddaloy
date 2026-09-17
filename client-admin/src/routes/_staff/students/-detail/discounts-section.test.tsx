@@ -148,6 +148,37 @@ describe('students/-detail/discounts-section', () => {
     await waitFor(() => expect(deleteCalls).toBe(1));
   });
 
+  it('shows the failure and lets the user retry when delete fails, instead of silently discarding it', async () => {
+    server.use(
+      http.get('/api/v1/students/:studentId/discount-rules', () =>
+        HttpResponse.json([discountRule()]),
+      ),
+      http.delete('/api/v1/discount-rules/:id', () =>
+        HttpResponse.json({ message: 'Rule already applied to a bill' }, { status: 409 }),
+      ),
+    );
+    renderWithProviders(<DiscountsSection studentId="student-1" />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: 'tenant-1',
+    });
+    const user = userEvent.setup();
+    await screen.findByText('Sibling discount');
+
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    const confirmDialog = await screen.findByRole('dialog');
+    await user.click(within(confirmDialog).getByRole('button', { name: 'Delete' }));
+
+    expect((await screen.findByRole('alert')).textContent).toBeTruthy();
+    // The row is still there -- a real deletion never happened, unlike
+    // the old behavior where onSettled cleared the delete state and
+    // discarded the error regardless of success or failure.
+    expect(screen.getByText('Sibling discount')).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
   it('lists existing discount rules', async () => {
     renderDiscountsTab([discountRule()]);
     const panel = await openDiscountsTab();
