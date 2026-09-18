@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from '@biddaloy/ui/components';
 import {
+  feeStructuresQueryOptions,
   useAcademicYears,
   useGenerateFees,
   useGenerateFeesPreview,
@@ -46,6 +47,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { parseServerDate } from '@biddaloy/ui/utils';
+import { useQuery } from '@tanstack/react-query';
 import type { TFunction } from 'i18next';
 import * as React from 'react';
 
@@ -184,6 +186,23 @@ export function GenerateFeesModal({
   const generate = useGenerateFees();
   const previewMutation = useGenerateFeesPreview();
 
+  // Same data `FeePicker` fetches for its own list — re-queried here (React
+  // Query dedupes by key, so this doesn't double the network call) purely
+  // to build an id -> name lookup for `DuplicatesStep`, since the preview
+  // response only ever carries `fee_structure_id` (see
+  // `ui/src/hooks/fee-generation.ts`'s own comment on `DuplicateBillDto`).
+  const feeStructuresQuery = useQuery({
+    ...feeStructuresQueryOptions({ academic_year_id: academicYearId, limit: 100 }),
+    enabled: academicYearId !== '',
+  });
+  const feeStructureNames = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const structure of feeStructuresQuery.data?.data ?? []) {
+      map.set(structure.id, structure.name);
+    }
+    return map;
+  }, [feeStructuresQuery.data]);
+
   const feeCount = selectedFees.size;
   const studentCount = selectedStudents.size;
   const canGenerate =
@@ -255,7 +274,7 @@ export function GenerateFeesModal({
       {
         ...scope(),
         notify_families: notifyFamilies,
-        ...(action ? { duplicate_action: action } : {}),
+        ...(action ? { duplicate_strategy: action } : {}),
       },
       {
         onSuccess: (result) => {
@@ -263,9 +282,9 @@ export function GenerateFeesModal({
             tenantId: notifyTenantId,
             variant: 'success',
             message: t('notifications.generated', {
-              generated: result.generated,
-              skipped: result.skipped,
-              students: result.students_evaluated,
+              generated: result.generated_count,
+              skipped: result.skipped_count,
+              students: result.student_count,
             }),
           });
           resetAndClose();
@@ -292,7 +311,7 @@ export function GenerateFeesModal({
 
     previewMutation.mutate(previewScope(), {
       onSuccess: (result) => {
-        if (result.duplicates.length === 0 && result.inactive_students.length === 0) {
+        if (result.duplicates.length === 0 && result.inactive.length === 0) {
           submitGenerate();
           return;
         }
@@ -425,6 +444,8 @@ export function GenerateFeesModal({
               preview={preview}
               action={duplicateAction}
               onActionChange={setDuplicateAction}
+              studentNames={selectedStudents}
+              feeStructureNames={feeStructureNames}
             />
           )}
 

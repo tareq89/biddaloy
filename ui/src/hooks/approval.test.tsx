@@ -53,6 +53,47 @@ function stepUpHandlers() {
   ];
 }
 
+describe('handleVerify request body', () => {
+  it('posts the server-shaped body to /auth/step-up: uppercase method, `otp`, and `scope`', async () => {
+    let capturedBody: unknown;
+    server.use(
+      http.post('/api/v1/auth/step-up/otp/request', () => HttpResponse.json({}, { status: 202 })),
+      http.post('/api/v1/auth/step-up', async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json(
+          { approval_token: 'tok-123', approver: { id: 'u1', name: 'Admin' } },
+          { status: 201 },
+        );
+      }),
+    );
+
+    const mutationFn = vi
+      .fn()
+      .mockRejectedValueOnce(approvalRequiredError())
+      .mockResolvedValueOnce('done');
+    const user = userEvent.setup();
+    renderWithProviders(<Harness mutationFn={mutationFn} />, {
+      locale: 'en',
+      tenantId: 'tenant-1',
+    });
+
+    await user.click(screen.getByRole('button', { name: 'run' }));
+    await screen.findByRole('dialog');
+    await user.type(screen.getByLabelText('Email or phone'), 'admin@example.com');
+    await user.click(screen.getByRole('button', { name: 'Send code' }));
+    await user.type(await screen.findByLabelText('Verification code'), '123456');
+    await user.click(screen.getByRole('button', { name: 'Verify' }));
+
+    await screen.findByText('done', { selector: '[data-testid="result"]' });
+    expect(capturedBody).toEqual({
+      identifier: 'admin@example.com',
+      method: 'OTP',
+      otp: '123456',
+      scope: 'fees.duplicate_create',
+    });
+  });
+});
+
 /** Same as `Harness`, but with its own testid prefix so two of them can be
  * on screen at once. */
 function NamedHarness({ name, mutationFn }: HarnessProps & { name: string }) {

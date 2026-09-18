@@ -52,8 +52,13 @@ export class ApprovalModalPage {
 
     let otp: string | undefined;
     for (let attempt = 0; attempt < 4 && !otp; attempt += 1) {
+      // `waitForResponse` defaults to Playwright's 30s action timeout,
+      // shorter than the up-to-65s the paired `click()` is allowed to
+      // wait out the cooldown for — without an explicit matching timeout
+      // here, a real cooldown wait made the response wait lose the race
+      // and throw first, even though the click would have gone through.
       const [otpResponse] = await Promise.all([
-        this.page.waitForResponse('**/auth/step-up/otp/request'),
+        this.page.waitForResponse('**/auth/step-up/otp/request', { timeout: 65_000 }),
         this.requestButton().click({ timeout: attempt === 0 ? 5000 : 65_000 }),
       ]);
       const body = (await otpResponse.json()) as { debug?: { otp?: string } };

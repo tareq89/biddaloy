@@ -85,7 +85,22 @@ function toVerificationError(error: unknown): AdminVerificationError {
   return { message: error instanceof Error ? error.message : String(error) };
 }
 
+/** Body of `POST /auth/step-up` — matches the server's `StepUpVerifyDto`
+ * (`server/src/modules/auth/dto/step-up.dto.ts`): uppercase `method`, the
+ * OTP field is named `otp` (not `code`), and `scope` is required so the
+ * issued approval token is bound to the gated action being approved. */
 export interface StepUpVerifyInput {
+  identifier: string;
+  method: 'OTP' | 'PASSWORD';
+  otp?: string;
+  password?: string;
+  scope: string;
+}
+
+/** What `AdminVerificationModal`'s `onVerify` prop passes — the UI-facing
+ * shape (lowercase method, `code` for the OTP digits). `handleVerify` below
+ * maps this onto `StepUpVerifyInput` before it reaches the network. */
+export interface ModalVerifyInput {
   identifier: string;
   method: ApprovalMethod;
   code?: string;
@@ -175,9 +190,22 @@ export function ApprovalModalHostProvider({ children }: { children: React.ReactN
     }
   }
 
-  async function handleVerify(input: StepUpVerifyInput): Promise<ApprovalResult> {
+  async function handleVerify(input: ModalVerifyInput): Promise<ApprovalResult> {
     try {
-      const result = await stepUp.verify(input);
+      if (!current) {
+        throw new Error('No approval request is queued.');
+      }
+      const result = await stepUp.verify({
+        identifier: input.identifier,
+        method: input.method === 'otp' ? 'OTP' : 'PASSWORD',
+        scope: current.scope,
+        // `AdminVerificationModal`'s own `canSubmit` guards this: it never
+        // calls `onVerify` for the OTP method without a 6-digit `code`, or
+        // for the PASSWORD method without a non-empty `password` — the
+        // non-null assertions below reflect that invariant rather than
+        // re-validating it here.
+        ...(input.method === 'otp' ? { otp: input.code! } : { password: input.password! }),
+      });
       setVerifyError(null);
       return result;
     } catch (error) {

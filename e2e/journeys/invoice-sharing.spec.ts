@@ -21,12 +21,7 @@ import { t } from '../i18n';
 
 test.use(loggedIn('accountant'));
 
-// QUARANTINED (16.2.5 wave-close pass, 2026-09-18): written and grounded against
-// the real server/client, but not yet reliably green — see this file's own
-// header comment for the specific unresolved issue. `test.fixme` skips it (and
-// flags loudly in CI if it starts passing unexpectedly) rather than deleting the
-// work or claiming false-green. Follow-up: biddaloy#823.
-test.fixme('print, copy the share link, open it unauthenticated, then revoke it', async ({
+test('print, copy the share link, open it unauthenticated, then revoke it', async ({
   page,
   context,
   request,
@@ -68,13 +63,15 @@ test.fixme('print, copy the share link, open it unauthenticated, then revoke it'
     await page.getByRole('button', { name: t('fees.invoiceDetail.share.create') }).click();
     const copyButton = page.getByRole('button', { name: t('fees.invoiceDetail.share.copyLink') });
     await expect(copyButton).toBeVisible();
-    // The live share URL sits in a readOnly `<Input value={liveShare.url}>`
-    // next to the Copy link button ($invoiceId.tsx) — no accessible name
-    // of its own, so this reads it by the `/i/` path it's known to
-    // contain rather than a label. Reading the rendered input's value
-    // rather than the clipboard avoids clipboard-read permission
-    // flakiness in CI.
-    const urlInput = page.locator('input[readonly][value*="/i/"]');
+    // `input[value*="/i/"]` is a CSS *attribute* selector — React sets the
+    // DOM `value` *property* on a controlled input, not the HTML
+    // attribute, so this could never reliably match even once the URL
+    // box actually rendered (biddaloy#823's plan). The input now has a
+    // real accessible name (`fees.invoiceDetail.share.urlLabel`,
+    // `$invoiceId.tsx`), so this reads it by label instead — the same
+    // "rendered value, not the clipboard" reasoning still applies, to
+    // avoid clipboard-read permission flakiness in CI.
+    const urlInput = page.getByLabel(t('fees.invoiceDetail.share.urlLabel'));
     await expect(urlInput).toBeVisible();
     shareUrl = await urlInput.inputValue();
   });

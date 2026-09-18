@@ -20,9 +20,23 @@ export interface DuplicatesStepProps {
   preview: GenerateFeesPreviewResult;
   action: 'SKIP' | 'REMOVE_OLDER' | 'CREATE_ANYWAY';
   onActionChange: (action: 'SKIP' | 'REMOVE_OLDER' | 'CREATE_ANYWAY') => void;
+  /** id -> display name for the students the accountant selected — the
+   * server's `DuplicateBillDto` only carries `student_id`/`fee_structure_id`
+   * (see `ui/src/hooks/fee-generation.ts`'s own comment), so a
+   * human-readable row has to resolve those ids against selections this
+   * modal already made, not against the preview response itself. */
+  studentNames: Map<string, string>;
+  /** id -> display name for the fee structures the accountant selected. */
+  feeStructureNames: Map<string, string>;
 }
 
-export function DuplicatesStep({ preview, action, onActionChange }: DuplicatesStepProps) {
+export function DuplicatesStep({
+  preview,
+  action,
+  onActionChange,
+  studentNames,
+  feeStructureNames,
+}: DuplicatesStepProps) {
   const { t } = useTranslation('feeGeneration');
 
   return (
@@ -34,17 +48,18 @@ export function DuplicatesStep({ preview, action, onActionChange }: DuplicatesSt
           {preview.duplicates.map((duplicate) => (
             <li key={`${duplicate.student_id}-${duplicate.fee_structure_id}`}>
               {t('duplicates.row', {
-                student: duplicate.student_name,
-                fee: duplicate.fee_structure_name,
+                student: studentNames.get(duplicate.student_id) ?? duplicate.student_id,
+                fee:
+                  feeStructureNames.get(duplicate.fee_structure_id) ?? duplicate.fee_structure_id,
               })}
             </li>
           ))}
         </ul>
       )}
 
-      {preview.inactive_students.length > 0 && (
+      {preview.inactive.length > 0 && (
         <p className="text-sm text-muted-foreground">
-          {t('duplicates.inactiveCount', { count: preview.inactive_students.length })}
+          {t('duplicates.inactiveCount', { count: preview.inactive.length })}
         </p>
       )}
 

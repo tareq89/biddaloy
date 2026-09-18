@@ -67,19 +67,17 @@ describe('GenerateFeesModal', () => {
       http.get('/api/v1/students/ids', () => HttpResponse.json({ ids: ['student-1'], total: 1 })),
       http.post('/api/v1/fees/generate/preview', () =>
         HttpResponse.json({
-          students_evaluated: 1,
-          will_generate: 0,
+          students_total: 1,
+          would_generate: 0,
           duplicates: [
             {
               student_id: 'student-1',
-              student_name: 'Rahim Uddin',
               fee_structure_id: 'fee-1',
-              fee_structure_name: 'Tuition',
-              existing_fee_id: 'existing-1',
-              existing_created_at: new Date().toISOString(),
+              existing_bill_id: 'existing-1',
+              paid_amount: 500,
             },
           ],
-          inactive_students: [],
+          inactive: [],
         }),
       ),
     );
@@ -104,19 +102,17 @@ describe('GenerateFeesModal', () => {
       http.get('/api/v1/students/ids', () => HttpResponse.json({ ids: ['student-1'], total: 1 })),
       http.post('/api/v1/fees/generate/preview', () =>
         HttpResponse.json({
-          students_evaluated: 1,
-          will_generate: 0,
+          students_total: 1,
+          would_generate: 0,
           duplicates: [
             {
               student_id: 'student-1',
-              student_name: 'Rahim Uddin',
               fee_structure_id: 'fee-1',
-              fee_structure_name: 'Tuition',
-              existing_fee_id: 'existing-1',
-              existing_created_at: new Date().toISOString(),
+              existing_bill_id: 'existing-1',
+              paid_amount: 500,
             },
           ],
-          inactive_students: [],
+          inactive: [],
         }),
       ),
       http.post('/api/v1/auth/step-up/otp/request', () => HttpResponse.json({}, { status: 202 })),
@@ -134,7 +130,14 @@ describe('GenerateFeesModal', () => {
         generateCalls += 1;
         if (generateCalls === 1) return approvalRequiredBody();
         return HttpResponse.json(
-          { generated: 1, skipped: 0, students_evaluated: 1 },
+          {
+            fee_generation_id: 'gen-1',
+            student_count: 1,
+            generated_count: 1,
+            skipped_count: 0,
+            removed_count: 0,
+            inactive_skipped: [],
+          },
           { status: 201 },
         );
       }),
@@ -168,14 +171,24 @@ describe('GenerateFeesModal', () => {
       http.get('/api/v1/students/ids', () => HttpResponse.json({ ids: ['student-1'], total: 1 })),
       http.post('/api/v1/fees/generate/preview', () =>
         HttpResponse.json({
-          students_evaluated: 1,
-          will_generate: 1,
+          students_total: 1,
+          would_generate: 1,
           duplicates: [],
-          inactive_students: [],
+          inactive: [],
         }),
       ),
       http.post('/api/v1/fees/generate', () =>
-        HttpResponse.json({ generated: 60, skipped: 2, students_evaluated: 30 }, { status: 201 }),
+        HttpResponse.json(
+          {
+            fee_generation_id: 'gen-2',
+            student_count: 30,
+            generated_count: 60,
+            skipped_count: 2,
+            removed_count: 0,
+            inactive_skipped: [],
+          },
+          { status: 201 },
+        ),
       ),
     );
 

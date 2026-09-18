@@ -34,19 +34,17 @@ describe('useGenerateFeesPreview', () => {
       http.post('/api/v1/fees/generate/preview', async ({ request }) => {
         receivedBody = await request.json();
         return HttpResponse.json({
-          students_evaluated: 1,
-          will_generate: 0,
+          students_total: 1,
+          would_generate: 0,
           duplicates: [
             {
               student_id: 'student-1',
-              student_name: 'Rahim Uddin',
               fee_structure_id: 'fee-1',
-              fee_structure_name: 'Tuition',
-              existing_fee_id: 'existing-1',
-              existing_created_at: '2026-01-01T00:00:00.000Z',
+              existing_bill_id: 'existing-1',
+              paid_amount: 500,
             },
           ],
-          inactive_students: [],
+          inactive: [],
         });
       }),
     );
@@ -72,7 +70,14 @@ describe('useGenerateFees', () => {
       http.post('/api/v1/fees/generate', async ({ request }) => {
         body = (await request.json()) as Record<string, unknown>;
         return HttpResponse.json(
-          { generated: 12, skipped: 3, students_evaluated: 15 },
+          {
+            fee_generation_id: 'gen-1',
+            student_count: 15,
+            generated_count: 12,
+            skipped_count: 3,
+            removed_count: 0,
+            inactive_skipped: [],
+          },
           { status: 201 },
         );
       }),
@@ -85,7 +90,7 @@ describe('useGenerateFees', () => {
           <button onClick={() => generate.mutate({ ...baseScope(), notify_families: true })}>
             run
           </button>
-          {generate.isSuccess && <span data-testid="result">{generate.data.generated}</span>}
+          {generate.isSuccess && <span data-testid="result">{generate.data.generated_count}</span>}
         </div>
       );
     }
@@ -102,7 +107,17 @@ describe('useGenerateFees', () => {
   it('invalidates the fee-dues lists, every payment query, and fee-generations on success', async () => {
     server.use(
       http.post('/api/v1/fees/generate', () =>
-        HttpResponse.json({ generated: 1, skipped: 0, students_evaluated: 1 }, { status: 201 }),
+        HttpResponse.json(
+          {
+            fee_generation_id: 'gen-2',
+            student_count: 1,
+            generated_count: 1,
+            skipped_count: 0,
+            removed_count: 0,
+            inactive_skipped: [],
+          },
+          { status: 201 },
+        ),
       ),
     );
 
