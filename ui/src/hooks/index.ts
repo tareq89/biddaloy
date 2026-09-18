@@ -540,6 +540,9 @@ export {
   useRemoveScheduleExclusion,
   useStudentScheduleCoverage,
   useIncludeStudentInSchedule,
+  familyStudentScheduleKeys,
+  familyStudentSchedulesQueryOptions,
+  useFamilyStudentSchedules,
   ISO_WEEKDAYS,
   type RecurringSchedule,
   type RecurringScheduleDetail,
@@ -557,6 +560,7 @@ export {
   type SchedulePreviewStudent,
   type RecurringScheduleListFilters,
   type StudentScheduleItem,
+  type FamilyStudentSchedule,
 } from './recurring-schedules';
 export {
   schoolsKeys,

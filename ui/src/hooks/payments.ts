@@ -40,7 +40,12 @@ export interface StudentFeeSummary {
     total_discount: number;
     balance: number;
   };
-  fee_breakdown: StudentFee[];
+  // [16.8.4] `is_late_fee` is only present when the caller is
+  // PARENT/STUDENT (`FamilyStudentFeeDto.is_late_fee`, set by
+  // `toFamilyStudentFee` in `getInvoiceSummary` — see
+  // `fees.controller.ts`). Absent on the staff `StudentFee` shape, so
+  // it's widened here rather than added to `StudentFee` itself.
+  fee_breakdown: (StudentFee & { is_late_fee?: boolean })[];
   payments: Payment[];
 }
 
