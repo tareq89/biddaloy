@@ -50,7 +50,7 @@ test.use(loggedIn('admin'));
 // the real server/client, but not yet reliably green — see this file's own
 // header comment for the specific unresolved issue. `test.fixme` skips it (and
 // flags loudly in CI if it starts passing unexpectedly) rather than deleting the
-// work or claiming false-green. Follow-up: biddaloy#TBD.
+// work or claiming false-green. Follow-up: biddaloy#823.
 test.fixme('reversing a payment restores dues, cancels the invoice, and nets out of collections', async ({
   page,
   request,
