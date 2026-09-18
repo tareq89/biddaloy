@@ -629,3 +629,35 @@ export async function activateInvite(
   if (!membership) throw new Error('no membership in activate response');
   return { token: body.access_token, tenantId: membership.tenantId, role: membership.role };
 }
+
+/** `POST /auth/step-up/otp/request` — retried with a short wait when the
+ * echoed `debug.otp` is missing. `StepUpService.requestOtp` (16.2.2)
+ * swallows `OtpService`'s 60s-per-identifier cooldown into the same
+ * uniform 202 it always returns (never leaking whether a resend was
+ * actually issued), so a second journey in the same run requesting a
+ * step-up OTP for the same seeded admin identifier within 60s of another
+ * gets 202 with no `debug` block at all — not a failure, just "wait out
+ * the cooldown." `OtpService`'s `COOLDOWN_MS` is 60s, so this retries a
+ * few times past that window rather than once. */
+export async function requestStepUpOtp(
+  request: APIRequestContext,
+  session: ApiSession,
+  identifier: string,
+): Promise<string> {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const response = await request.post('/api/v1/auth/step-up/otp/request', {
+      headers: { Authorization: `Bearer ${session.token}`, 'X-Tenant-ID': session.tenantId },
+      data: { identifier },
+    });
+    if (!response.ok()) {
+      throw new Error(`step-up otp/request failed: ${response.status()} ${await response.text()}`);
+    }
+    const body = (await response.json()) as { debug?: { otp?: string } };
+    if (body.debug?.otp) return body.debug.otp;
+    if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 20_000));
+  }
+  throw new Error(
+    'No debug.otp in step-up otp/request response after retrying past the 60s cooldown — ' +
+      'ACCOUNT_ACCESS_ECHO_SECRETS=true set?',
+  );
+}

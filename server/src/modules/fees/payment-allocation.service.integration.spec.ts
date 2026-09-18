@@ -521,7 +521,9 @@ describe('PaymentAllocationService (integration)', () => {
               {
                 student_fee_id: future.id,
                 allocated_amount: 500,
-                allocation_type: PaymentAllocationType.ADVANCE,
+                // Value is irrelevant here: classifyPeriod throws on the
+                // future period before this client-sent type is ever read.
+                allocation_type: PaymentAllocationType.CURRENT,
               },
             ],
           } as any,

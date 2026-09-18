@@ -266,3 +266,39 @@ export function useStudentScheduleCoverage(studentId: string | undefined) {
  * comment. Aliased under this name at call sites in the student tab for
  * readability; not a second implementation. */
 export const useIncludeStudentInSchedule = useRemoveScheduleExclusion;
+
+export type FamilyStudentSchedule = components['schemas']['FamilyStudentScheduleDto'];
+
+export const familyStudentScheduleKeys = createEntityKeys<never, string>(
+  'family-student-schedules',
+);
+
+/** [16.8.4] `GET /students/:id/schedules` for a PARENT/STUDENT caller —
+ * same route `studentScheduleCoverageQueryOptions` calls, but the server
+ * returns a *different* body for this role (`FamilyStudentScheduleDto[]`,
+ * see `family.dto.ts`'s `toFamilyStudentSchedule`): human labels only
+ * (`name`, `fees`, `rule_label`, `next_period`), no schedule `id`,
+ * `audience`, `excluded`, or `is_active` — none of which family-facing UI
+ * is allowed to request. Kept as its own hook/query-key rather than
+ * widening `StudentScheduleItem` to a union: the staff coverage tab and
+ * this portal card never share a cache entry, and callers here should
+ * only ever see the family shape's fields. */
+export function familyStudentSchedulesQueryOptions(studentId: string) {
+  return queryOptions({
+    queryKey: familyStudentScheduleKeys.detail(studentId),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<FamilyStudentSchedule[]>(`/students/${studentId}/schedules`, {
+        signal,
+      });
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useFamilyStudentSchedules(studentId: string | undefined) {
+  return useQuery({
+    ...familyStudentSchedulesQueryOptions(studentId ?? ''),
+    enabled: studentId !== undefined,
+  });
+}

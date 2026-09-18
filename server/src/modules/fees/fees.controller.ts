@@ -48,6 +48,12 @@ import {
   GenerateFeesResultDto,
   QueryFeeDuesDto,
   QueryFlaggedDuesDto,
+  StaffStudentDueDto,
+  PaymentDetailDto,
+} from './dto/fees.dto';
+// [16.8.2] Every family-facing (PARENT/STUDENT) shape on this controller
+// comes from the one allow-list module — see `dto/family.dto.ts`.
+import {
   toFamilyPayment,
   toFamilyStudentFee,
   toFamilyStudentDue,
@@ -55,9 +61,7 @@ import {
   FamilyFeeStructureDto,
   FamilyPaymentDto,
   FamilyStudentDueDto,
-  StaffStudentDueDto,
-  PaymentDetailDto,
-} from './dto/fees.dto';
+} from './dto/family.dto';
 import { FeeStructure } from './entities/fee-structure.entity';
 import { Payment } from './entities/payment.entity';
 import { Permission, UserRole, isGuardianRole } from '@biddaloy/shared';

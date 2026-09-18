@@ -40,7 +40,12 @@ export interface StudentFeeSummary {
     total_discount: number;
     balance: number;
   };
-  fee_breakdown: StudentFee[];
+  // [16.8.4] `is_late_fee` is only present when the caller is
+  // PARENT/STUDENT (`FamilyStudentFeeDto.is_late_fee`, set by
+  // `toFamilyStudentFee` in `getInvoiceSummary` — see
+  // `fees.controller.ts`). Absent on the staff `StudentFee` shape, so
+  // it's widened here rather than added to `StudentFee` itself.
+  fee_breakdown: (StudentFee & { is_late_fee?: boolean })[];
   payments: Payment[];
 }
 
@@ -94,7 +99,12 @@ export interface CartSuggestion {
 export interface CartResult {
   students: CartStudent[];
   total_balance: number;
-  suggested: CartSuggestion;
+  // Only present when the request carried an `amount` — see
+  // `record-payment-modal.tsx`'s own comment on the effect that reads
+  // this. Matches the generated `schema.d.ts`'s
+  // `suggested: SuggestedAllocationDto | null`, which this interim
+  // hand-written type had drifted from.
+  suggested: CartSuggestion | null;
 }
 
 // ---- interim types: #659 POST /payments/checkout ----

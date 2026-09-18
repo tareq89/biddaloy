@@ -11,7 +11,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiExtraModels,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  getSchemaPath,
+} from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -25,9 +31,13 @@ import {
   CloneScheduleDto,
   CreateRecurringScheduleDto,
   QueryRecurringSchedulesDto,
+  StudentScheduleItemDto,
   UpdateRecurringScheduleDto,
 } from './dto/recurring-schedules.dto';
-import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
+// [16.8.2] Family-facing shape from the one allow-list module.
+import { FamilyStudentScheduleDto } from './dto/family.dto';
+import { FamilyAccessService } from '../students/family-access.service';
+import { JwtPayload, Permission, UserRole, isGuardianRole } from '@biddaloy/shared';
 
 /**
  * [16.7.1] CRUD + exclusions + clone-to-next-year for `RecurringSchedule`,
@@ -41,10 +51,14 @@ import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
  */
 @ApiTags('recurring-schedules')
 @ApiTenantAuth()
+@ApiExtraModels(StudentScheduleItemDto, FamilyStudentScheduleDto)
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 @Controller()
 export class RecurringSchedulesController {
-  constructor(private readonly service: RecurringSchedulesService) {}
+  constructor(
+    private readonly service: RecurringSchedulesService,
+    private readonly familyAccess: FamilyAccessService,
+  ) {}
 
   @Get('fees/schedules')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
@@ -163,17 +177,41 @@ export class RecurringSchedulesController {
   }
 
   @Get('students/:id/schedules')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.PARENT, UserRole.STUDENT)
   @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({
     summary:
-      "A student's recurring schedules: ones whose audience currently matches them, " +
-      'plus ones they are explicitly excluded from (flagged).',
+      "A student's recurring schedules. Staff see the billing-automation view (ones whose " +
+      'audience currently matches them, plus ones they are explicitly excluded from, ' +
+      'flagged). [16.8.2] A PARENT or STUDENT must additionally be linked to this student, ' +
+      'and gets an allow-listed "what will I be billed next" view instead.',
   })
-  findForStudent(
+  @ApiOkResponse({
+    description:
+      'An array of `StudentScheduleItemDto` for staff; allow-listed ' +
+      '`FamilyStudentScheduleDto` rows for a PARENT/STUDENT.',
+    schema: {
+      type: 'array',
+      items: {
+        oneOf: [
+          { $ref: getSchemaPath(StudentScheduleItemDto) },
+          { $ref: getSchemaPath(FamilyStudentScheduleDto) },
+        ],
+      },
+    },
+  })
+  async findForStudent(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
+    // Object-level check first: `assertLinked` no-ops for staff and throws
+    // for a PARENT/STUDENT who is not linked to this child, so a family
+    // caller can never read another family's billing schedule.
+    await this.familyAccess.assertLinked(tenant.role, user.sub, id, tenant.id);
+    if (isGuardianRole(tenant.role)) {
+      return this.service.findForStudentFamily(id, tenant.id);
+    }
     return this.service.findForStudent(id, tenant.id);
   }
 }

@@ -8,6 +8,7 @@
 // `{{var}}` interpolation, nothing more.
 
 import bnAcademicYears from '../ui/src/i18n/locales/bn/academicYears.json';
+import bnApproval from '../ui/src/i18n/locales/bn/approval.json';
 import bnAttendance from '../ui/src/i18n/locales/bn/attendance.json';
 import bnAuth from '../ui/src/i18n/locales/bn/auth.json';
 import bnBackup from '../ui/src/i18n/locales/bn/backup.json';
@@ -23,10 +24,12 @@ import bnNav from '../ui/src/i18n/locales/bn/nav.json';
 import bnPayments from '../ui/src/i18n/locales/bn/payments.json';
 import bnPlatform from '../ui/src/i18n/locales/bn/platform.json';
 import bnPortal from '../ui/src/i18n/locales/bn/portal.json';
+import bnReports from '../ui/src/i18n/locales/bn/reports.json';
 import bnSettings from '../ui/src/i18n/locales/bn/settings.json';
 import bnStaff from '../ui/src/i18n/locales/bn/staff.json';
 import bnStudents from '../ui/src/i18n/locales/bn/students.json';
 import enAcademicYears from '../ui/src/i18n/locales/en/academicYears.json';
+import enApproval from '../ui/src/i18n/locales/en/approval.json';
 import enAttendance from '../ui/src/i18n/locales/en/attendance.json';
 import enAuth from '../ui/src/i18n/locales/en/auth.json';
 import enBackup from '../ui/src/i18n/locales/en/backup.json';
@@ -42,6 +45,7 @@ import enNav from '../ui/src/i18n/locales/en/nav.json';
 import enPayments from '../ui/src/i18n/locales/en/payments.json';
 import enPlatform from '../ui/src/i18n/locales/en/platform.json';
 import enPortal from '../ui/src/i18n/locales/en/portal.json';
+import enReports from '../ui/src/i18n/locales/en/reports.json';
 import enSettings from '../ui/src/i18n/locales/en/settings.json';
 import enStaff from '../ui/src/i18n/locales/en/staff.json';
 import enStudents from '../ui/src/i18n/locales/en/students.json';
@@ -49,6 +53,7 @@ import enStudents from '../ui/src/i18n/locales/en/students.json';
 const catalogs = {
   bn: {
     academicYears: bnAcademicYears,
+    approval: bnApproval,
     attendance: bnAttendance,
     auth: bnAuth,
     backup: bnBackup,
@@ -64,12 +69,14 @@ const catalogs = {
     payments: bnPayments,
     platform: bnPlatform,
     portal: bnPortal,
+    reports: bnReports,
     settings: bnSettings,
     staff: bnStaff,
     students: bnStudents,
   },
   en: {
     academicYears: enAcademicYears,
+    approval: enApproval,
     attendance: enAttendance,
     auth: enAuth,
     backup: enBackup,
@@ -85,6 +92,7 @@ const catalogs = {
     payments: enPayments,
     platform: enPlatform,
     portal: enPortal,
+    reports: enReports,
     settings: enSettings,
     staff: enStaff,
     students: enStudents,
