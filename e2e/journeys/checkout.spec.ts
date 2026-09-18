@@ -67,12 +67,7 @@ async function seedStudentWithTwoBills(
   return { studentId: student.id };
 }
 
-// QUARANTINED (16.2.5 wave-close pass, 2026-09-18): written and grounded against
-// the real server/client, but not yet reliably green — see this file's own
-// header comment for the specific unresolved issue. `test.fixme` skips it (and
-// flags loudly in CI if it starts passing unexpectedly) rather than deleting the
-// work or claiming false-green. Follow-up: biddaloy#823.
-test.fixme('a partial checkout across two bills leaves a balance, then a CASH top-up credits the wallet', async ({
+test('a partial checkout across two bills leaves a balance, then a CASH top-up credits the wallet', async ({
   page,
   request,
 }) => {
@@ -106,16 +101,7 @@ test.fixme('a partial checkout across two bills leaves a balance, then a CASH to
   // straight through.
   const submitButton = page.getByRole('button', { name: t('payments.record.submitAction') });
   await expect(submitButton).toBeEnabled({ timeout: 10_000 });
-  await submitButton.scrollIntoViewIfNeeded();
-  // `scrollIntoViewIfNeeded` reports done, but Playwright's own
-  // actionability check still sees the footer as outside the
-  // viewport on this modal's taller states (two bills, or the
-  // discount/tender fields) — `record-payment-modal.tsx`'s
-  // `DialogFooter` doesn't scroll with the body content it sits
-  // below on a default 1280x720 viewport. Confirmed enabled just
-  // above, so this is a viewport-fit issue, not a real click
-  // target problem; forced rather than chasing a bigger fix here.
-  await submitButton.dispatchEvent('click');
+  await submitButton.click();
   await expect(page.getByText(t('payments.record.success.title'))).toBeVisible();
 
   const duesBefore = await get<{
@@ -129,27 +115,19 @@ test.fixme('a partial checkout across two bills leaves a balance, then a CASH to
 
   // Wallet-balance top-up: a second CASH payment tenders more than the
   // remaining bill needs, with the change credited to the wallet instead
-  // of returned.
-  await page
-    .getByRole('button', { name: t('students.detail.fees.recordPayment') })
-    .first()
-    .click();
+  // of returned. The modal doesn't close on success — it swaps to the
+  // success panel in place (`record-payment-modal.tsx`) — so the next
+  // payment starts from that panel's own "Record another" button, not
+  // the page's "Record payment" button sitting behind the still-open
+  // dialog's overlay.
+  await page.getByRole('button', { name: t('payments.record.success.recordAnother') }).click();
   await expect(page.getByRole('dialog', { name: t('payments.record.title') })).toBeVisible();
   await page.getByLabel(t('payments.record.amountReceived.label')).fill('500');
   await page.getByLabel(t('payments.record.tender.tenderedLabel')).fill('600');
   await page.getByLabel(t('payments.record.tender.changeToWallet')).check();
   const topUpSubmit = page.getByRole('button', { name: t('payments.record.submitAction') });
   await expect(topUpSubmit).toBeEnabled({ timeout: 10_000 });
-  await topUpSubmit.scrollIntoViewIfNeeded();
-  // `scrollIntoViewIfNeeded` reports done, but Playwright's own
-  // actionability check still sees the footer as outside the
-  // viewport on this modal's taller states (two bills, or the
-  // discount/tender fields) — `record-payment-modal.tsx`'s
-  // `DialogFooter` doesn't scroll with the body content it sits
-  // below on a default 1280x720 viewport. Confirmed enabled just
-  // above, so this is a viewport-fit issue, not a real click
-  // target problem; forced rather than chasing a bigger fix here.
-  await topUpSubmit.dispatchEvent('click');
+  await topUpSubmit.click();
   await expect(page.getByText(t('payments.record.success.title'))).toBeVisible();
 
   const cartAfter = await get<{ students: { id: string; wallet_balance: number }[] }>(
@@ -201,15 +179,15 @@ async function seedStudentWithOneBill(
   return { studentId: student.id };
 }
 
-// QUARANTINED (16.2.5 wave-close pass, 2026-09-18): written and grounded against
-// the real server/client, but not yet reliably green — see this file's own
-// header comment for the specific unresolved issue. `test.fixme` skips it (and
-// flags loudly in CI if it starts passing unexpectedly) rather than deleting the
-// work or claiming false-green. Follow-up: biddaloy#823.
-test.fixme('a discounted bKash checkout needs step-up approval, then settles', async ({
+test('a discounted bKash checkout needs step-up approval, then settles', async ({
   page,
   request,
 }) => {
+  // `ApprovalModalPage.complete` waits out `OtpService`'s 60s-per-
+  // identifier cooldown when a resend is needed — see `step-up.spec.ts`'s
+  // own comment on the same thing. Overruns Playwright's 30s default.
+  test.setTimeout(120_000);
+
   const session = await adminApiSession(request);
   const name = `Checkout Discount Student ${Date.now()}`;
   const { studentId } = await seedStudentWithOneBill(request, session, name, 1000);
@@ -228,24 +206,37 @@ test.fixme('a discounted bKash checkout needs step-up approval, then settles', a
   // require approval, paying the rest (500) via bKash — the "Tendered"/
   // change-to-wallet fields (`TenderSection`) only render for CASH, so a
   // non-cash method here means no tender step, just a reference number.
+  //
+  // Order matters: `DiscountCell.commit` clamps to `balance - pay`, and
+  // `pay` defaults to the full balance until "Amount received" is typed —
+  // discounting first would clamp straight to 0. Amount received has to
+  // land before the discount.
+  //
+  // Typing amount received debounces a `GET /payments/cart` refetch
+  // (`record-payment-modal.tsx`'s `debouncedAmountReceivedMinorUnits`)
+  // that re-seeds every line's pay/discount from the server's suggested
+  // split. `MoneyInput` fires `onValueChange` per keystroke, so a single
+  // `.fill('500')` triggers several debounce cycles in flight at once
+  // (amount 5, then 50, then 500) — editing the discount before the
+  // *last* one's response lands gets clobbered by that response's reseed
+  // the moment it arrives. Waiting for the "Pay" cell to reflect the
+  // final amount isn't enough on its own (an earlier cycle's stale
+  // response can still land after); wait for the network to go quiet too,
+  // so every in-flight cart refetch has resolved before touching discount.
+  await page.getByLabel(t('payments.record.amountReceived.label')).fill('500');
+  // MoneyInput renders in the locale's own digits/currency mark (e.g.
+  // "৳৫০০.০০" in Bangla) — match on the digit run showing up rather than
+  // pinning an exact formatted string.
+  await expect(page.getByLabel(t('payments.record.cart.columnPay'))).not.toHaveValue(/^.?0+\.0+$/);
+  await page.waitForLoadState('networkidle');
   await page.getByRole('button', { name: t('payments.record.discount.unlock') }).click();
   await page.getByLabel(t('payments.record.discount.label')).fill('500');
-  await page.getByLabel(t('payments.record.amountReceived.label')).fill('500');
   await page.getByLabel(t('payments.record.method.methods.BKASH')).check();
   await page.getByLabel(t('payments.record.method.referenceLabel')).fill('BKASH-TXN-1');
 
   const discountSubmit = page.getByRole('button', { name: t('payments.record.submitAction') });
   await expect(discountSubmit).toBeEnabled({ timeout: 10_000 });
-  await discountSubmit.scrollIntoViewIfNeeded();
-  // `scrollIntoViewIfNeeded` reports done, but Playwright's own
-  // actionability check still sees the footer as outside the
-  // viewport on this modal's taller states (two bills, or the
-  // discount/tender fields) — `record-payment-modal.tsx`'s
-  // `DialogFooter` doesn't scroll with the body content it sits
-  // below on a default 1280x720 viewport. Confirmed enabled just
-  // above, so this is a viewport-fit issue, not a real click
-  // target problem; forced rather than chasing a bigger fix here.
-  await discountSubmit.dispatchEvent('click');
+  await discountSubmit.click();
 
   // Discount above the threshold trips APPROVAL_REQUIRED — the step-up
   // modal appears mid-submit (`useApprovedMutation`, same contract

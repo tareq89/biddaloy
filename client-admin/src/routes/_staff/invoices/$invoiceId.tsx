@@ -95,6 +95,17 @@ function InvoiceDetailPage() {
   const revokeShare = useRevokeShare(invoiceId);
   const [revokeTargetId, setRevokeTargetId] = React.useState<string | null>(null);
   const liveShare = sharesQuery.data?.find((share) => share.revoked_at === null);
+  // The raw share URL only ever exists in `POST /invoices/:id/share`'s own
+  // response (`CreateInvoiceShareResult`) — `GET /invoices/:id/share`
+  // (`useInvoiceShares`, which `liveShare` above reads) only ever returns
+  // the stored token *hash* (`invoices.controller.ts`'s `listTokens`), by
+  // design: the server can't recover a URL it never kept the raw token
+  // for. So this only ever holds a value right after a fresh
+  // `shareInvoice.mutate()` in *this* session, cleared on reload or once
+  // the share is revoked — there is no bug to "fix" that makes it survive
+  // a reload; the raw token is genuinely gone once the response that
+  // minted it is.
+  const [createdShareUrl, setCreatedShareUrl] = React.useState<string | null>(null);
 
   const invoice = invoiceQuery.data as InvoiceWithSnapshot | undefined;
   const sendInvoice = useSendInvoice(invoiceId);
@@ -246,21 +257,42 @@ function InvoiceDetailPage() {
                       variant="outline"
                       className="self-start"
                       loading={shareInvoice.isPending}
-                      onClick={() => shareInvoice.mutate(invoiceId)}
+                      onClick={() =>
+                        // `useShareInvoice`'s mutation resolves to
+                        // `{ invoiceId, result }`, not the create response
+                        // directly — see its own doc comment.
+                        shareInvoice.mutate(invoiceId, {
+                          onSuccess: ({ result }) => setCreatedShareUrl(result.url),
+                        })
+                      }
                     >
                       {t('invoiceDetail.share.create')}
                     </Button>
                   ) : (
                     <div className="flex flex-wrap items-center gap-2">
-                      <Input readOnly value={liveShare.url ?? ''} className="max-w-sm" />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => void handleCopyLink(liveShare.url ?? '')}
-                      >
-                        {t('invoiceDetail.share.copyLink')}
-                      </Button>
+                      {createdShareUrl !== null && (
+                        <Input
+                          readOnly
+                          aria-label={t('invoiceDetail.share.urlLabel')}
+                          value={createdShareUrl}
+                          className="max-w-sm"
+                        />
+                      )}
+                      {createdShareUrl !== null && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void handleCopyLink(createdShareUrl)}
+                        >
+                          {t('invoiceDetail.share.copyLink')}
+                        </Button>
+                      )}
+                      {createdShareUrl === null && (
+                        <p className="text-sm text-muted-foreground">
+                          {t('invoiceDetail.share.linkHidden')}
+                        </p>
+                      )}
                       <Button
                         type="button"
                         variant="ghost"
@@ -331,6 +363,7 @@ function InvoiceDetailPage() {
                   onSuccess: () => {
                     toast.success(t('invoiceDetail.share.revoked'));
                     setRevokeTargetId(null);
+                    setCreatedShareUrl(null);
                   },
                 });
               }}

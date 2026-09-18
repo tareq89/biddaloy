@@ -28,12 +28,7 @@ import { ListShellPage } from '../pages/list-shell';
 
 test.use(loggedIn('accountant'));
 
-// QUARANTINED (16.2.5 wave-close pass, 2026-09-18): written and grounded against
-// the real server/client, but not yet reliably green — see this file's own
-// header comment for the specific unresolved issue. `test.fixme` skips it (and
-// flags loudly in CI if it starts passing unexpectedly) rather than deleting the
-// work or claiming false-green. Follow-up: biddaloy#823.
-test.fixme('generating fees with an existing duplicate skips it, and the log filters by source and status', async ({
+test('generating fees with an existing duplicate skips it, and the log filters by source and status', async ({
   page,
   request,
 }) => {
@@ -124,8 +119,35 @@ test.fixme('generating fees with an existing duplicate skips it, and the log fil
     await page.getByLabel(t('feeGeneration.period.dueDateLabel')).fill('2026-01-10');
 
     await page.getByLabel(t('feeGeneration.audience.searchLabel')).fill(studentName);
-    await page.getByRole('checkbox', { name: studentName }).click();
-    await page.getByRole('checkbox', { name: feeName }).click();
+    // `useStudentSearch` re-fetches on every keystroke, same as the
+    // Record Payment cart's own debounce (`record-payment-modal.tsx`) —
+    // an out-of-order response landing after the click can re-render the
+    // checkbox list (or a sibling field's own refetch can reset selection
+    // state entirely) and silently lose it. `waitForLoadState('network
+    // idle')` narrows the window but doesn't close it, so check-and-retry
+    // against the checkbox's own state instead of trusting one click.
+    await page.waitForLoadState('networkidle');
+    await checkCheckbox(studentName);
+    await checkCheckbox(feeName);
+  }
+
+  /** Retries a checkbox click against its own `checked` state rather than
+   * trusting one click — see `fillGenerateForm`'s own comment on why a
+   * click here can silently land and then get reset by an unrelated
+   * async re-render. */
+  async function checkCheckbox(name: string): Promise<void> {
+    const checkbox = page.getByRole('checkbox', { name });
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      if (await checkbox.isChecked()) return;
+      await checkbox.click();
+      try {
+        await expect(checkbox).toBeChecked({ timeout: 1000 });
+        return;
+      } catch {
+        // Lost the race — retry.
+      }
+    }
+    await expect(checkbox).toBeChecked();
   }
 
   await test.step('first run: no duplicate yet, generates directly', async () => {
@@ -154,17 +176,14 @@ test.fixme('generating fees with an existing duplicate skips it, and the log fil
       page.getByRole('radio', { name: new RegExp(t('feeGeneration.duplicates.skipLabel')) }),
     ).toBeChecked();
 
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      try {
-        await Promise.all([
-          page.waitForResponse('**/fees/generate', { timeout: 5000 }),
-          generateButton.click(),
-        ]);
-        break;
-      } catch {
-        // Same lost-click retry as `clickGenerateAndWaitForPreview` above.
-      }
-    }
+    // The blind 3x retry loop this used to have papered over a real bug
+    // (`fee-generation.ts`'s hand-written types drifted from the server's
+    // actual DTOs, so `POST /fees/generate` never fired at all — see
+    // biddaloy#823's plan). That's fixed now, so the real network
+    // response is the primary, sufficient signal — the modal closing is
+    // just a secondary confirmation, not something worth its own retry
+    // loop on top.
+    await Promise.all([page.waitForResponse('**/fees/generate'), generateButton.click()]);
     await expect(page.getByRole('dialog')).toHaveCount(0, { timeout: 15_000 });
   });
 

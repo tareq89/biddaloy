@@ -33,27 +33,23 @@ export const Duplicates: Story = {
       handlers: [
         http.post('/api/v1/fees/generate/preview', () =>
           HttpResponse.json({
-            students_evaluated: 30,
-            will_generate: 28,
+            students_total: 30,
+            would_generate: 28,
             duplicates: [
               {
                 student_id: 'student-1',
-                student_name: 'Rahim Uddin',
                 fee_structure_id: 'fee-1',
-                fee_structure_name: 'Tuition',
-                existing_fee_id: 'existing-1',
-                existing_created_at: new Date().toISOString(),
+                existing_bill_id: 'existing-1',
+                paid_amount: 500,
               },
               {
                 student_id: 'student-2',
-                student_name: 'Karim Ahmed',
                 fee_structure_id: 'fee-1',
-                fee_structure_name: 'Tuition',
-                existing_fee_id: 'existing-2',
-                existing_created_at: new Date().toISOString(),
+                existing_bill_id: 'existing-2',
+                paid_amount: 500,
               },
             ],
-            inactive_students: [{ student_id: 'student-3', student_name: 'Fatema Begum' }],
+            inactive: [{ id: 'student-3', full_name: 'Fatema Begum' }],
           }),
         ),
       ],

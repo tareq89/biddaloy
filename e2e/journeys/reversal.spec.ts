@@ -22,26 +22,29 @@ import { ApprovalModalPage } from '../pages';
 // role to even see the Reverse button.
 test.use(loggedIn('admin'));
 
-// QUARANTINED (16.2.5 wave-close pass, 2026-09-18): written and grounded against
-// the real server/client, but not yet reliably green — see this file's own
-// header comment for the specific unresolved issue. `test.fixme` skips it (and
-// flags loudly in CI if it starts passing unexpectedly) rather than deleting the
-// work or claiming false-green. Follow-up: biddaloy#823.
-test.fixme('reversing a payment restores dues, cancels the invoice, and nets out of collections', async ({
+test('reversing a payment restores dues, cancels the invoice, and nets out of collections', async ({
   page,
   request,
 }) => {
+  // `ApprovalModalPage.complete` waits out `OtpService`'s 60s-per-
+  // identifier cooldown when a resend is needed — see `step-up.spec.ts`'s
+  // own comment on the same thing. Overruns Playwright's 30s default.
+  test.setTimeout(120_000);
+
   const session = await adminApiSession(request);
   const name = `Reversal Student ${Date.now()}`;
   const { studentId } = await createStudentWithDues(request, session, name, { amount: 1000 });
 
   const payment = await recordFullPayment(request, session, studentId);
-  const paymentDetail = await get<{ invoice_id: string }>(
+  // `GET /payments/:id` (`PaymentsQueryService.findOne`) nests the invoice
+  // under `invoice: { id, invoice_number, status }` — there's no flat
+  // `invoice_id` field on this response.
+  const paymentDetail = await get<{ invoice: { id: string } | null }>(
     request,
     session,
     `/payments/${payment.id}`,
   );
-  const invoice = paymentDetail.invoice_id;
+  const invoice = paymentDetail.invoice?.id;
 
   await page.goto(`/payments/${payment.id}`);
   await expect(page.getByText(t('payments.detail.amount')).first()).toBeVisible();
@@ -60,12 +63,23 @@ test.fixme('reversing a payment restores dues, cancels the invoice, and nets out
     await page.goto('/fees/dues');
     await page.getByLabel(t('fees.dues.searchLabel')).fill(name);
     await expect(page.getByText(name).first()).toBeVisible();
-    await expect(page.getByText(/1,?000/).first()).toBeVisible();
+    // This journey runs in `bn` (this app's real market locale, per the
+    // suite's default) — `formatCurrency` renders Bangla digits
+    // ("৳১,০০০.০০"), not Latin ones, so the balance check has to match
+    // both digit sets rather than assuming Latin "1000".
+    await expect(page.getByText(/(?:1,?000|১,?০০০)/).first()).toBeVisible();
   });
 
   await test.step('the invoice is CANCELLED with a credit note', async () => {
+    // The credit note is a *separate*, sibling invoice
+    // (`invoice.kind === 'CREDIT_NOTE'`) the reversal mints alongside —
+    // `payment-reversal.service.ts`'s own comment: it "mints a credit
+    // note and flips the original invoice to CANCELLED". Navigating to
+    // the original `invoice` id (captured before the reversal) shows the
+    // CANCELLED status on *that* invoice, not the credit-note badge,
+    // which only ever renders on the new sibling.
     await page.goto(`/invoices/${invoice}`);
-    await expect(page.getByText(t('fees.invoiceDetail.creditNoteBadge'))).toBeVisible();
+    await expect(page.getByText(t('common.status.invoice.CANCELLED'))).toBeVisible();
   });
 
   await test.step('collections report nets out the reversed amount', async () => {
