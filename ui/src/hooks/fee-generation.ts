@@ -20,14 +20,21 @@ export type PeriodType = 'MONTH' | 'WEEK';
 
 /** Shared shape between the preview call and the real generate call — the
  * preview exists so the accountant sees duplicates/inactive students
- * *before* committing to the write, not as a separate screen. */
+ * *before* committing to the write, not as a separate screen.
+ *
+ * `period_start` (an ISO date), not `month`/`year`/`week_start`: this
+ * matches `GenerateFeesPreviewDto`/`GenerateFeesDto`
+ * (`server/src/modules/fees/dto/fees.dto.ts`) — the server has never
+ * accepted the raw period fields directly, `class-validator` rejects any
+ * unknown property outright. `due_date` is optional here because the
+ * preview endpoint's own DTO doesn't have it at all (the real generate
+ * call is the one that needs it — see `GenerateFeesRequest` below, which
+ * doesn't re-declare it as required either, for the same reason). */
 export interface GenerateFeesScope {
   academic_year_id: string;
   period_type: PeriodType;
-  month?: number;
-  year?: number;
-  week_start?: string;
-  due_date: string;
+  period_start: string;
+  due_date?: string;
   student_ids: string[];
   fee_structure_ids: string[];
 }
