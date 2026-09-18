@@ -12,6 +12,7 @@ import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
 import { AuditService } from '../audit/audit.service';
 import { localToday } from '../attendance/attendance-policy.util';
+import { nextRunDates, periodFor } from './recurrence.util';
 import {
   AddExclusionDto,
   CloneScheduleDto,
@@ -23,6 +24,8 @@ import {
   StudentScheduleItemDto,
   UpdateRecurringScheduleDto,
 } from './dto/recurring-schedules.dto';
+// [16.8.2] Family-facing shape + mapper live in the one allow-list module.
+import { FamilyStudentScheduleDto, toFamilyStudentSchedule } from './dto/family.dto';
 
 const PREVIEW_LIMIT = 50;
 // Duplicated rather than imported, matching checkout.service.ts /
@@ -808,5 +811,58 @@ export class RecurringSchedulesService {
       }
     }
     return results;
+  }
+
+  /**
+   * [16.8.2] The family (PARENT/STUDENT) answer to "what will I be billed
+   * next, and how often?" for one of the caller's own children.
+   *
+   * Deliberately *not* a shaped version of `findForStudent` above:
+   *
+   * - Schedules this student is **excluded** from are dropped entirely
+   *   rather than returned with a flag. "The school carved your child out
+   *   of this fee" is a staff decision, and surfacing it invites a
+   *   conversation the portal is not the place for.
+   * - The response carries no schedule `id`, no audience, no activity flag
+   *   — see `FamilyStudentScheduleDto` for the full withheld list.
+   *
+   * Object-level access (is this caller linked to this student?) is the
+   * *controller's* job via `FamilyAccessService`, exactly as it is for
+   * `/students/:id/wallet` and `/payments/student/:id`; this method is
+   * tenant-scoped only.
+   */
+  async findForStudentFamily(
+    studentId: string,
+    tenantId: string,
+  ): Promise<FamilyStudentScheduleDto[]> {
+    const staffView = await this.findForStudent(studentId, tenantId);
+    const visible = staffView.filter((item) => !item.excluded && item.is_active);
+    if (visible.length === 0) return [];
+
+    const scheduleIds = visible.map((item) => item.id);
+    const schedules = await this.repo.find({
+      where: { id: In(scheduleIds), tenant_id: tenantId },
+    });
+    // Join rows are tenant-scoped through `schedules` (which is already
+    // tenant-filtered), never through a bare schedule_id from the caller.
+    const structures = await this.structureRepo.find({
+      where: { schedule_id: In(scheduleIds) },
+      relations: { fee_structure: true },
+    });
+
+    const today = localToday(SCHOOL_TIMEZONE);
+    return schedules.map((schedule) => {
+      const fees = structures
+        .filter((s) => s.schedule_id === schedule.id && s.fee_structure)
+        .map((s) => ({ name: s.fee_structure.name, amount: Number(s.fee_structure.amount) }));
+
+      // The next date the rule fires, clamped to the schedule's own window:
+      // a schedule that ends this month must not promise a bill next month.
+      const [nextRun] = nextRunDates(schedule.rule, today, 1);
+      const nextPeriod =
+        nextRun && nextRun <= schedule.ends_on ? periodFor(nextRun, schedule.rule) : null;
+
+      return toFamilyStudentSchedule({ schedule, fees, next_period: nextPeriod });
+    });
   }
 }

@@ -586,6 +586,77 @@ describe('RecurringSchedulesService (integration)', () => {
     });
   });
 
+  describe('[16.8.2] findForStudentFamily', () => {
+    it('returns the allow-listed shape with the billed fees and a next period', async () => {
+      const structureId = await createFeeStructure({
+        name: `Family-view Tuition ${Date.now()}`,
+      });
+      const student = await createStudent({ class_section_id: SEED_SECTION_1_ID });
+
+      const schedule = await service.create(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          name: `Family-view schedule ${Date.now()}`,
+          audience: { section_id: SEED_SECTION_1_ID, enrollment_status: 'ACTIVE' },
+          rule: { kind: 'MONTHLY', day_of_month: 5 },
+          fee_structure_ids: [structureId],
+          starts_on: '2026-01-01',
+        } as any,
+        SEED_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      const results = await service.findForStudentFamily(student, SEED_TENANT_ID);
+      const entry = results.find((s) => s.name === schedule.name);
+
+      expect(entry).toBeDefined();
+      expect(Object.keys(entry!).sort()).toEqual(
+        ['name', 'fees', 'rule_label', 'next_period'].sort(),
+      );
+      expect(entry!.fees).toEqual([
+        { name: expect.stringContaining('Family-view Tuition'), amount: 1000 },
+      ]);
+      expect(entry!.rule_label).toBe('Monthly on day 5');
+      // A MONTHLY rule always fires within the next 31 days, and the window
+      // here is wide open, so a next period must always resolve.
+      expect(entry!.next_period).toMatch(/^\d{4}-\d{2}-01$/);
+    });
+
+    it('drops a schedule this student is excluded from, rather than flagging it', async () => {
+      const structureId = await createFeeStructure({ name: `Excluded Tuition ${Date.now()}` });
+      const student = await createStudent({ class_section_id: SEED_SECTION_1_ID });
+
+      const schedule = await service.create(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          name: `Family-excluded schedule ${Date.now()}`,
+          audience: { section_id: SEED_SECTION_1_ID, enrollment_status: 'ACTIVE' },
+          rule: { kind: 'MONTHLY', day_of_month: 5 },
+          fee_structure_ids: [structureId],
+          starts_on: '2026-01-01',
+        } as any,
+        SEED_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      await service.addExclusion(
+        schedule.id,
+        { student_id: student, reason: 'Sponsored' },
+        SEED_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      // Staff still see it, flagged. The family must not: "the school
+      // carved your child out of this fee" is a staff-side decision, and
+      // the exclusion `reason` is staff free text.
+      const staffView = await service.findForStudent(student, SEED_TENANT_ID);
+      expect(staffView.find((s) => s.id === schedule.id)?.excluded).toBe(true);
+
+      const familyView = await service.findForStudentFamily(student, SEED_TENANT_ID);
+      expect(familyView.find((s) => s.name === schedule.name)).toBeUndefined();
+      expect(JSON.stringify(familyView)).not.toContain('Sponsored');
+    });
+  });
+
   describe('findOne / update — exclusions read-back', () => {
     it('includes the exclusion list on findOne, but not on findAll list rows', async () => {
       const structureId = await createFeeStructure({ name: `Tuition ${Date.now()}` });
