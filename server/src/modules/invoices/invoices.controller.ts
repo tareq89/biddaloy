@@ -38,12 +38,14 @@ import {
   CreateInvoiceDto,
   QueryInvoiceDto,
   SendInvoiceDto,
-  toFamilyInvoice,
-  FamilyInvoiceDto,
   StaffInvoiceDto,
   PrintFormatQueryDto,
   ShareLinkResponseDto,
 } from './dto/invoices.dto';
+// [16.8.2] The family-facing invoice shape is owned by the fees module's
+// single family allow-list module, alongside every other PARENT/STUDENT
+// mapper, so "what can a guardian see?" is answerable from one file.
+import { toFamilyInvoice, FamilyInvoiceDto } from '../fees/dto/family.dto';
 import { Invoice } from './entities/invoice.entity';
 import { paginatedSchema } from '../../common/swagger/paginated-schema.util';
 import {

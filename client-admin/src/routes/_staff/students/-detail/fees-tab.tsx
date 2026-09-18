@@ -235,7 +235,12 @@ function WalletSection({ studentId }: { studentId: string }) {
                       <TableCell className="tabular-nums">
                         {formatServerAmount(tx.amount, regionConfig)}
                       </TableCell>
-                      <TableCell>{tx.note ?? '—'}</TableCell>
+                      {/* [16.8.2] `note` is staff free text and is no longer
+                          part of the family shape at all, so it is only
+                          present on the staff variant of this union. */}
+                      <TableCell>
+                        {'note' in tx && typeof tx.note === 'string' ? tx.note : '—'}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
