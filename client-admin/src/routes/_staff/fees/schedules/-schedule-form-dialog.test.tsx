@@ -182,4 +182,52 @@ describe('ScheduleFormDialog', () => {
       expect(endsOnInput.value).not.toContain('2027');
     });
   });
+
+  it('shows the right validation error for each unmet requirement, in order', async () => {
+    server.use(...referenceHandlers());
+    const { onSaved } = await renderDialog();
+    const user = userEvent.setup();
+
+    // Empty name -- first check, before fees or the rule are even looked at.
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Name is required')).toBeTruthy();
+
+    // Name filled, still no fees selected.
+    await user.type(await screen.findByLabelText('Name'), 'Monthly tuition');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Select at least one fee')).toBeTruthy();
+
+    // Fees selected, switch to Weekly, leave no day checked.
+    await user.click(await screen.findByRole('combobox', { name: 'Academic year' }));
+    await user.click(await screen.findByRole('option', { name: '2026-2027' }));
+    await waitFor(() => expect(screen.getByLabelText('Monthly Tuition')).toBeTruthy());
+    await user.click(screen.getByLabelText('Monthly Tuition'));
+    await user.click(await screen.findByRole('combobox', { name: 'Rule' }));
+    await user.click(await screen.findByRole('option', { name: 'Weekly' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Select at least one day')).toBeTruthy();
+
+    expect(onSaved).not.toHaveBeenCalled();
+  });
+
+  it('saves an edited schedule via PATCH, not POST', async () => {
+    server.use(...referenceHandlers());
+    const existing = schedule({ id: 'schedule-9' });
+    let patched = false;
+    server.use(
+      http.patch('/api/v1/fees/schedules/:id', ({ params }) => {
+        patched = params.id === 'schedule-9';
+        return HttpResponse.json(existing);
+      }),
+    );
+
+    const { onSaved } = await renderDialog({ mode: 'edit', schedule: existing });
+    const user = userEvent.setup();
+    await screen.findByLabelText('Day of month');
+
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(patched).toBe(true);
+  });
 });

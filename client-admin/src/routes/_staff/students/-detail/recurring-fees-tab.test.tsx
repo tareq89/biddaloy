@@ -172,7 +172,10 @@ describe('students/-detail/recurring-fees-tab', () => {
         scheduleFixture({
           id: 'addable-1',
           name: 'Matching schedule',
-          audience: { class_id: 'class-1', enrollment_status: 'ACTIVE' },
+          // Sets section_id too (not just class_id), so this also exercises
+          // the section-matches branch of audienceMatchesStudent, not just
+          // the "no section restriction" one.
+          audience: { class_id: 'class-1', section_id: 'section-1', enrollment_status: 'ACTIVE' },
         }),
       ],
     });

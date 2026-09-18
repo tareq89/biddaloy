@@ -78,6 +78,21 @@ describe('fees/schedules/-exclusions-table', () => {
     );
   });
 
+  it('shows a no-results message when the student search returns nothing', async () => {
+    server.use(
+      http.get('/api/v1/students', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    await renderTable();
+
+    await user.type(screen.getByLabelText('Search students'), 'Nobody');
+
+    expect(await screen.findByText('No students found')).toBeTruthy();
+  });
+
   it('removes an existing exclusion', async () => {
     let removedPath: string | undefined;
     server.use(

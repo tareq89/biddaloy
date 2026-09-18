@@ -247,6 +247,23 @@ describe('useApprovedMutation', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('passes through a non-APPROVAL_REQUIRED rejection unchanged, with no modal', async () => {
+    const plainError = new Error('boom, unrelated to approval');
+    const mutationFn = vi.fn().mockRejectedValueOnce(plainError);
+    const user = userEvent.setup();
+    renderWithProviders(<Harness mutationFn={mutationFn} />, {
+      locale: 'en',
+      tenantId: 'tenant-1',
+    });
+
+    await user.click(screen.getByRole('button', { name: 'run' }));
+
+    await waitFor(() => expect(screen.getByTestId('error')).toBeTruthy());
+    expect(screen.getByTestId('error').textContent).toContain('boom, unrelated to approval');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(mutationFn).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects with ApprovalCancelledError when the admin cancels', async () => {
     const mutationFn = vi.fn().mockRejectedValueOnce(approvalRequiredError());
     const user = userEvent.setup();
