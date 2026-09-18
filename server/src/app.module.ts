@@ -53,6 +53,9 @@ import { FeeStructure } from './modules/fees/entities/fee-structure.entity';
 import { DiscountRule } from './modules/fees/entities/discount-rule.entity';
 import { StudentFee } from './modules/fees/entities/student-fee.entity';
 import { FeeGeneration } from './modules/fees/entities/fee-generation.entity';
+import { RecurringSchedule } from './modules/fees/entities/recurring-schedule.entity';
+import { RecurringScheduleStructure } from './modules/fees/entities/recurring-schedule-structure.entity';
+import { RecurringScheduleExclusion } from './modules/fees/entities/recurring-schedule-exclusion.entity';
 import { StudentWallet } from './modules/fees/entities/student-wallet.entity';
 import { WalletTransaction } from './modules/fees/entities/wallet-transaction.entity';
 import { Payment } from './modules/fees/entities/payment.entity';
@@ -121,6 +124,9 @@ import { WorkbookJob } from './modules/workbook/jobs/workbook-job.entity';
             DiscountRule,
             StudentFee,
             FeeGeneration,
+            RecurringSchedule,
+            RecurringScheduleStructure,
+            RecurringScheduleExclusion,
             StudentWallet,
             WalletTransaction,
             Payment,

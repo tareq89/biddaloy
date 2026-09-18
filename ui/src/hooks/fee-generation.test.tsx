@@ -83,7 +83,6 @@ describe('useGenerateFees', () => {
             run
           </button>
           {generate.isSuccess && <span data-testid="result">{generate.data.generated}</span>}
-          {generate.modal}
         </div>
       );
     }
@@ -117,7 +116,6 @@ describe('useGenerateFees', () => {
             run
           </button>
           {generate.isSuccess && <span data-testid="done" />}
-          {generate.modal}
         </div>
       );
     }
@@ -150,7 +148,6 @@ describe('useGenerateFees', () => {
             run
           </button>
           {generate.isError && <span data-testid="error" />}
-          {generate.modal}
         </div>
       );
     }

@@ -196,7 +196,6 @@ export function EditBatchDialog({
           </form>
         </DialogContent>
       </Dialog>
-      {patchGeneration.modal}
     </>
   );
 }

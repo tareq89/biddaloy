@@ -11,7 +11,7 @@ import {
   ThemeToggle,
   type AppShellNavGroup,
 } from '@biddaloy/ui/components';
-import { useActiveRole } from '@biddaloy/ui/hooks';
+import { ApprovalModalHostProvider, useActiveRole } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { RequirePermission, RequireRole } from '@biddaloy/ui/routes';
 import { createFileRoute, Outlet, useMatches, useNavigate } from '@tanstack/react-router';
@@ -24,6 +24,7 @@ import {
   CalendarDaysIcon,
   ClipboardListIcon,
   FilePlus2Icon,
+  RepeatIcon,
   GraduationCapIcon,
   HandCoinsIcon,
   HistoryIcon,
@@ -254,6 +255,16 @@ function StaffLayout() {
           permission: Permission.FEE_GENERATE,
           icon: <FilePlus2Icon aria-hidden="true" />,
         },
+        // [16.7.5] recurring schedules — `SCHEDULE_MANAGE`, the
+        // permission `@biddaloy/shared` defines specifically for
+        // managing `RecurringSchedule` (ADMIN/ACCOUNTANT, same audience
+        // as "Generate fees" above, its one-off sibling).
+        {
+          to: '/fees/schedules',
+          label: t('items.recurringSchedules'),
+          permission: Permission.SCHEDULE_MANAGE,
+          icon: <RepeatIcon aria-hidden="true" />,
+        },
         {
           to: '/invoices',
           label: t('items.invoices'),
@@ -367,89 +378,95 @@ function StaffLayout() {
 
   return (
     <RequireRole allow={STAFF_ROLES} redirectTo="/portal">
-      <AppShell
-        navItems={navItems}
-        navGroups={navGroups}
-        brand={t('brand')}
-        // [8.14.3]: desktop-only now — below `md` the consolidated mobile
-        // header row (`mobileHeaderActions`) carries search and the bell,
-        // and `TenantBar` moves into the drawer (`drawerHeader`) instead of
-        // stacking a second chrome row under this one. `topBar` itself
-        // stays wired (not deleted): `AppShell` still measures it into
-        // `--app-header-h` for the desktop sticky-chrome contract [8.14.2]
-        // established.
-        topBar={
-          <div className="hidden md:flex">
-            <AppHeader
-              start={<TenantBar />}
-              end={
-                <>
-                  <SyncStatusIndicator />
-                  <GlobalSearchLauncher />
-                  {notificationBell}
-                  <LocaleSwitcher />
-                  <ThemeToggle />
-                  <StaffUserMenu />
-                </>
-              }
-            />
-          </div>
-        }
-        mobileHeaderActions={
-          <>
-            <GlobalSearchLauncher />
-            {notificationBell}
-          </>
-        }
-        drawerHeader={
-          <div className="mb-4 flex flex-col gap-2">
-            <TenantBar />
-            <div className="flex items-center gap-2">
-              <SyncStatusIndicator />
-              <ThemeToggle />
+      {/* The app's single step-up approval modal host. Every staff route
+          renders inside this layout, so any `useApprovedMutation` on any
+          staff page finds exactly one host — regardless of which component
+          mounted first. See `ui/src/hooks/approval.tsx`. */}
+      <ApprovalModalHostProvider>
+        <AppShell
+          navItems={navItems}
+          navGroups={navGroups}
+          brand={t('brand')}
+          // [8.14.3]: desktop-only now — below `md` the consolidated mobile
+          // header row (`mobileHeaderActions`) carries search and the bell,
+          // and `TenantBar` moves into the drawer (`drawerHeader`) instead of
+          // stacking a second chrome row under this one. `topBar` itself
+          // stays wired (not deleted): `AppShell` still measures it into
+          // `--app-header-h` for the desktop sticky-chrome contract [8.14.2]
+          // established.
+          topBar={
+            <div className="hidden md:flex">
+              <AppHeader
+                start={<TenantBar />}
+                end={
+                  <>
+                    <SyncStatusIndicator />
+                    <GlobalSearchLauncher />
+                    {notificationBell}
+                    <LocaleSwitcher />
+                    <ThemeToggle />
+                    <StaffUserMenu />
+                  </>
+                }
+              />
             </div>
-          </div>
-        }
-        bottomNav={
-          <BottomNav
-            // [9.6 fix] `BottomNav`'s own contract caps `items` at 4 when
-            // `more` is present (`bottom-nav.tsx`) — a 5th cell isn't
-            // truncated for you, it just overflows the bar past 320/640px
-            // (WCAG 1.4.10 reflow) for any role that can see all of them.
-            // `attendanceItem` stays reachable through the drawer nav group
-            // below instead, same as `attendanceReportsItem`/
-            // `attendanceRegisterItem` already are.
-            items={[dashboardItem, studentsItem, duesItem, recordPaymentItem]}
-            label={t('bottomNavStaffLabel')}
-            more={{
-              label: t('items.more'),
-              icon: <MoreHorizontalIcon className="size-5" aria-hidden="true" />,
-            }}
-          />
-        }
-        openMenuLabel={t('openMenuLabel')}
-        closeMenuLabel={t('closeMenuLabel')}
-        navLabel={t('navLabel')}
-        skipLinkLabel={t('skipToContent')}
-      >
-        {requiredPermission ? (
-          <RequirePermission
-            permission={requiredPermission}
-            onDenied={onDenied}
-            {...(isAuditLogsRoute
-              ? { explanation: t('forbidden.explanation', { ns: 'auditLogs' }) }
-              : {})}
-          >
-            <Outlet />
-          </RequirePermission>
-        ) : (
-          // Fail-closed: no map entry for this route ID means
-          // `route-permissions.test.ts`'s drift guard has a bug to catch
-          // before this ever ships, but until it does, an unmapped route
-          // refuses everyone — including admins — rather than rendering.
-          <AccessDeniedState onAction={onDenied} />
-        )}
-      </AppShell>
+          }
+          mobileHeaderActions={
+            <>
+              <GlobalSearchLauncher />
+              {notificationBell}
+            </>
+          }
+          drawerHeader={
+            <div className="mb-4 flex flex-col gap-2">
+              <TenantBar />
+              <div className="flex items-center gap-2">
+                <SyncStatusIndicator />
+                <ThemeToggle />
+              </div>
+            </div>
+          }
+          bottomNav={
+            <BottomNav
+              // [9.6 fix] `BottomNav`'s own contract caps `items` at 4 when
+              // `more` is present (`bottom-nav.tsx`) — a 5th cell isn't
+              // truncated for you, it just overflows the bar past 320/640px
+              // (WCAG 1.4.10 reflow) for any role that can see all of them.
+              // `attendanceItem` stays reachable through the drawer nav group
+              // below instead, same as `attendanceReportsItem`/
+              // `attendanceRegisterItem` already are.
+              items={[dashboardItem, studentsItem, duesItem, recordPaymentItem]}
+              label={t('bottomNavStaffLabel')}
+              more={{
+                label: t('items.more'),
+                icon: <MoreHorizontalIcon className="size-5" aria-hidden="true" />,
+              }}
+            />
+          }
+          openMenuLabel={t('openMenuLabel')}
+          closeMenuLabel={t('closeMenuLabel')}
+          navLabel={t('navLabel')}
+          skipLinkLabel={t('skipToContent')}
+        >
+          {requiredPermission ? (
+            <RequirePermission
+              permission={requiredPermission}
+              onDenied={onDenied}
+              {...(isAuditLogsRoute
+                ? { explanation: t('forbidden.explanation', { ns: 'auditLogs' }) }
+                : {})}
+            >
+              <Outlet />
+            </RequirePermission>
+          ) : (
+            // Fail-closed: no map entry for this route ID means
+            // `route-permissions.test.ts`'s drift guard has a bug to catch
+            // before this ever ships, but until it does, an unmapped route
+            // refuses everyone — including admins — rather than rendering.
+            <AccessDeniedState onAction={onDenied} />
+          )}
+        </AppShell>
+      </ApprovalModalHostProvider>
     </RequireRole>
   );
 }

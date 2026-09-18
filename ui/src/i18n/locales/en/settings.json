@@ -174,5 +174,21 @@
         "manual": "Manual"
       }
     }
+  },
+  "fees": {
+    "approvalLegend": "Step-up approval",
+    "approvalModeLabel": "Approval method",
+    "approvalModeOtp": "OTP only",
+    "approvalModeOtpOrPassword": "OTP or password",
+    "notifyLegend": "Notify families",
+    "notifyOnScheduleDefault": "Notify by default for scheduled fee generation",
+    "notifyOnManualGenerationDefault": "Notify by default for manual fee generation",
+    "lateFeeLegend": "Late fees",
+    "lateFeeAppliesFromTomorrow": "Changes apply from tomorrow's fee-generation run.",
+    "lateFeeGraceDays": "Grace days",
+    "lateFeeKind": "Kind",
+    "lateFeeKindPercent": "Percent",
+    "lateFeeKindFlat": "Flat amount",
+    "lateFeeValue": "Value"
   }
 }

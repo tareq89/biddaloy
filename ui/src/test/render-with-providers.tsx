@@ -1,7 +1,13 @@
 /**
- * The provider stack every component test needs — TanStack Query and
- * i18next. No router yet; see `ui/README.md`'s "Testing" section for why
- * and what's planned.
+ * The provider stack every component test needs — TanStack Query, i18next
+ * and the step-up approval modal host. No router yet; see `ui/README.md`'s
+ * "Testing" section for why and what's planned.
+ *
+ * `ApprovalModalHostProvider` is here (rather than per-test) for the same
+ * reason it lives at the app's layout route in `client-admin`: any
+ * component that wraps a mutation with `useApprovedMutation` needs exactly
+ * one host above it, and a test that renders such a component in isolation
+ * shouldn't have to know that.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, type RenderOptions, type RenderResult } from '@testing-library/react';
@@ -10,6 +16,7 @@ import type { ReactElement, ReactNode } from 'react';
 
 import { clearAuthState, setAccessToken, setActiveRole, setActiveTenant } from '../api/auth-state';
 import { resetSessionBootstrap } from '../api/session';
+import { ApprovalModalHostProvider } from '../hooks/approval';
 import { i18n } from '../i18n/i18n';
 import { I18nProvider } from '../i18n/locale-provider';
 import { DEFAULT_LOCALE, clearPersistedLocale, type Locale } from '../i18n/locale-storage';
@@ -135,7 +142,9 @@ export function renderWithProviders(
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
-        <I18nProvider>{children}</I18nProvider>
+        <I18nProvider>
+          <ApprovalModalHostProvider>{children}</ApprovalModalHostProvider>
+        </I18nProvider>
       </QueryClientProvider>
     );
   }

@@ -600,6 +600,57 @@ is [8.9.4]; `scheduleTokenRefresh` is exported specifically so that
 ticket's `login()` can arm the same proactive timer after a real login
 response, the same way the cold-boot path above does.
 
+#### Step-up approval (`useApprovedMutation`)
+
+Some actions need a second admin to approve them in the moment — discounting
+a bill, reversing a payment, editing an already-paid fee. The server decides,
+not the client: it answers `403 { "code": "APPROVAL_REQUIRED" }`, the client
+collects an approval token, and retries the same request once with an
+`X-Approval-Token` header.
+
+Wrapping a mutation with `useApprovedMutation` is all a feature writes:
+
+```ts
+return useApprovedMutation(reversePaymentRequest, {
+  approvalScope: ApprovalScope.PAYMENTS_REVERSE,
+  retry: false,
+});
+```
+
+The prompt itself is rendered by **one** `<ApprovalModalHostProvider>` at the
+app shell (`client-admin/src/routes/_staff.tsx`). Callers render nothing.
+
+```mermaid
+sequenceDiagram
+  participant C as Component<br/>(useApprovedMutation)
+  participant H as ApprovalModalHostProvider<br/>(app shell)
+  participant S as Server
+
+  C->>S: POST /payments/:id/reverse
+  S-->>C: 403 APPROVAL_REQUIRED
+  C->>H: requestApproval({ scope })
+  H->>H: show AdminVerificationModal
+  H->>S: POST /auth/step-up (OTP or password)
+  S-->>H: { approval_token }
+  H-->>C: approval_token
+  C->>S: retry, X-Approval-Token: …
+  S-->>C: 200
+```
+
+Two things this shape buys, both of which the earlier "the first hook
+instance to mount owns the modal" design got wrong:
+
+- **Mount order is irrelevant.** Any number of components can call
+  `useApprovedMutation` at once; none of them can starve another.
+- **Two approvals asked for at once are queued, not dropped.** The second
+  prompt opens as soon as the first settles.
+
+Without a provider above it, a mutation that hits `APPROVAL_REQUIRED` fails
+with an explicit "no `<ApprovalModalHostProvider>`" error — loudly, rather
+than hanging on a modal nobody renders. `renderWithProviders`,
+`renderWithRouter` and Storybook's global decorator all include the provider,
+so tests and stories get it for free.
+
 #### Optimistic updates — and where they're forbidden
 
 Optimistic UI (show the new state immediately, roll back on failure) is fine

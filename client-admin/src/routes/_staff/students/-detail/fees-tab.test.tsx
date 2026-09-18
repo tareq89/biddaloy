@@ -83,15 +83,12 @@ describe('students/-detail/fees-tab', () => {
     });
   }
 
-  it('shows Open bills, Wallet and History section tabs, with a disabled Recurring fees placeholder', async () => {
+  it('shows Open bills, Wallet and History section tabs', async () => {
     renderFeesTab([feeLine()]);
 
     await screen.findByRole('tab', { name: 'Open bills', selected: true });
     expect(screen.getByRole('tab', { name: 'Wallet' })).toBeTruthy();
     expect(screen.getByRole('tab', { name: 'History' })).toBeTruthy();
-
-    const recurring = screen.getByRole('tab', { name: 'Recurring fees' });
-    expect(recurring.getAttribute('disabled')).not.toBeNull();
   });
 
   it('Open bills lists open fee lines', async () => {

@@ -123,8 +123,8 @@ async function generateFeesRequest(
  * `duplicate_action: 'CREATE_ANYWAY'` submission that comes back
  * `403 APPROVAL_REQUIRED` walks the accountant through
  * `AdminVerificationModal` and retries once with `X-Approval-Token`
- * attached — render `generate.modal` once, anywhere in the calling
- * component's tree (see `useApprovedMutation`'s own doc comment).
+ * attached. The prompt is rendered by the app-level
+ * `<ApprovalModalHostProvider>` (see `useApprovedMutation`'s doc comment).
  *
  * `retry: false`, same reasoning the old wizard's `useGenerateFees` gave:
  * the endpoint is rate-limited (`STRICT_RATE_LIMIT`) and a batch write
