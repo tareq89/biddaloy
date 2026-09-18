@@ -94,7 +94,12 @@ export interface CartSuggestion {
 export interface CartResult {
   students: CartStudent[];
   total_balance: number;
-  suggested: CartSuggestion;
+  // Only present when the request carried an `amount` — see
+  // `record-payment-modal.tsx`'s own comment on the effect that reads
+  // this. Matches the generated `schema.d.ts`'s
+  // `suggested: SuggestedAllocationDto | null`, which this interim
+  // hand-written type had drifted from.
+  suggested: CartSuggestion | null;
 }
 
 // ---- interim types: #659 POST /payments/checkout ----
