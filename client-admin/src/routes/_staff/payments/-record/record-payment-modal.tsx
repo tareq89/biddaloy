@@ -208,8 +208,17 @@ export function RecordPaymentModal({
     const forceReseedAll = !linesTouched || amountChanged;
     if (!forceReseedAll && newStudentIds.length === 0) return;
 
+    // `GET /payments/cart`'s `suggested` block is only present when the
+    // request carried an `amount` (`checkout.dto.ts`'s own comment on
+    // `QueryCheckoutCartDto.amount`: "Omitted → no suggested block") — the
+    // modal opens with no amount typed yet (`debouncedAmountReceivedMinor
+    // Units` starts `undefined`), so this effect's first run always sees
+    // `cart.data.suggested === undefined` and must not assume otherwise.
+    // Every component test's own `cartResponse()` mock always includes
+    // `suggested`, which is why this crash-on-open only showed up against
+    // the real server (`e2e/journeys/checkout.spec.ts`).
     const suggestions = new Map(
-      cart.data.suggested.allocations.map((allocation) => [
+      (cart.data.suggested?.allocations ?? []).map((allocation) => [
         allocation.student_fee_id,
         allocation.amount,
       ]),

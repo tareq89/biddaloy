@@ -16,8 +16,11 @@ function baseScope() {
   return {
     academic_year_id: 'year-1',
     period_type: 'MONTH' as const,
-    month: 3,
-    year: 2026,
+    // `period_start`, not `month`/`year`: matches the real server DTO
+    // (`GenerateFeesPreviewDto`/`GenerateFeesDto`) — see
+    // `generate-fees-modal.tsx`'s own fix comment on why the client used
+    // to send fields the server always rejected.
+    period_start: '2026-03-01',
     due_date: '2026-03-10',
     student_ids: ['student-1'],
     fee_structure_ids: ['fee-1'],

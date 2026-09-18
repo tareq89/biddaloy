@@ -174,6 +174,66 @@ It can retire route-by-route: give a narrowed route its own permission (e.g.
 the `@Roles` line, delete the `ROLE_NARROWINGS` entry. When the list is
 empty, delete `RolesGuard`. Tracked as a follow-up, not part of Epic 10.0.
 
+### Step-up approval (16.2) — a second person's OK for a risky action
+
+Some actions (reversing a payment, discounting a bill past a threshold,
+creating a duplicate fee, voiding an invoice) need a second, in-the-moment
+"yes" from an admin — not just the acting user's own login. `@RequireApproval`
+marks a route as gated; walking the modal through to a token is the same
+flow everywhere, regardless of which route triggered it.
+
+```mermaid
+sequenceDiagram
+    actor Staff as Acting user
+    participant UI as AdminVerificationModal
+    participant API as POST /auth/step-up*
+    participant Guard as ApprovalGuard
+    participant Route as Gated route<br/>(e.g. POST /payments/:id/reverse)
+    actor Audit as audit_logs
+
+    Staff->>Route: original request, no token
+    Route->>Guard: @RequireApproval(scope)
+    Guard-->>Staff: 403 { details: { code: "APPROVAL_REQUIRED", scope } }
+    Staff->>UI: modal opens (useApprovedMutation)
+    UI->>API: POST /auth/step-up/otp/request { identifier }
+    API-->>UI: 202 (always — never reveals if identifier is an approver)
+    Staff->>UI: enters the approver's OTP (or password)
+    UI->>API: POST /auth/step-up { identifier, method, otp, scope }
+    API->>Audit: record step-up attempt (success or failure)
+    API-->>UI: { approval_token, expires_at, approver }
+    UI->>Route: retries original request,<br/>header X-Approval-Token: <approval_token>
+    Route->>Guard: verify token — scope, actor, tenant, single-use
+    Guard->>Audit: record token consumption
+    Guard-->>Staff: request proceeds
+```
+
+A few things worth being explicit about, because they're easy to get wrong
+building a new gated route:
+
+- **The 403 body is nested.** `ApprovalRequiredException`
+  (`server/src/common/errors/approval-required.exception.ts`) must put
+  `code`/`scope` under a `details` key — the global exception filter only
+  ever forwards a top-level `details` field onto the wire, and every
+  consumer (`ui/src/hooks/approval.tsx`'s `isApprovalRequiredError`,
+  `ui/src/api/errors.ts`'s `ApiError.details`) reads `error.details.code`. A
+  flat `{code, scope}` body silently breaks every step-up flow in the app —
+  this happened once already (fixed in [16.2.5]'s wave-close pass) and every
+  mocked component test kept passing throughout, because the mocks assumed
+  the correct nested shape from the start. Only a live-server test (an
+  `e2e/journeys/*.spec.ts` hitting the real guard, not a `msw`-mocked one)
+  catches this class of drift.
+- **A token is single-use and scope-bound.** `approval_token` is consumed by
+  `ApprovalGuard` on first successful use; a retry with the same token — even
+  against the same route — gets another `APPROVAL_REQUIRED` 403.
+  `e2e/journeys/step-up.spec.ts` (16.2.5) proves the whole loop end to end:
+  no token → 403, full OTP round trip → token → route succeeds once →
+  same token replayed → 403 again.
+- **`ApprovalGuard` runs after `RolesGuard`/`PermissionsGuard`.** A caller
+  who isn't allowed on the route at all still gets a plain 401/403 from the
+  earlier guards, not `APPROVAL_REQUIRED` — the step-up prompt only appears
+  once the caller has cleared "can you call this route," to avoid using
+  "approval required" as a way to fingerprint routes a caller can't see.
+
 ## Invitations & account access
 
 When an admin creates a user without a password (`POST /users`, no

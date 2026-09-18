@@ -61,8 +61,22 @@ function addDays(date: Date, days: number): Date {
   return next;
 }
 
+// Not `date.toISOString().slice(0, 10)`: `toISOString` converts to UTC
+// first, and every `Date` this modal builds (`periodStart`,
+// `addDays(periodStart, 9)`) is a *local* calendar date — "January 2026"
+// means the browser's own January, not UTC's. Asia/Dhaka is UTC+6, so a
+// user there picking "January" got `toISOString()`-truncated straight
+// into "2025-12-31": local midnight Jan 1 is still Dec 31 in UTC. Found
+// live by `e2e/journeys/generation.spec.ts` (16.3.6) — every Playwright
+// run in this repo's own dev environment sits in that same +6 offset, so
+// the bug reproduced there before it could reach a real user. Reading
+// the date's own local Y/M/D fields sidesteps the UTC conversion
+// entirely.
 function toDateInputValue(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function describeSubmitError(error: unknown, t: TFunction<'feeGeneration'>): string {
@@ -182,15 +196,35 @@ export function GenerateFeesModal({
     !generate.isPending;
 
   function scope() {
+    // `GenerateFeesPreviewDto`/`GenerateFeesDto` (`server/src/modules/
+    // fees/dto/fees.dto.ts`) take `period_start` (an ISO date) and
+    // `period_type` — never `month`/`year`/`week_start` directly. Those
+    // were being sent as their own top-level fields, which the server's
+    // `class-validator` DTO rejects outright ("property month should not
+    // exist … period_start must be a valid ISO 8601 date string"), so
+    // every preview 400'd and the whole modal crashed rendering the
+    // error. `periodStart` above is already the correctly-derived `Date`
+    // for both period types — this just needed to serialize it.
     return {
       academic_year_id: academicYearId,
       period_type: periodType,
-      ...(periodType === 'MONTH' ? { month: Number(month), year: Number(calendarYear) } : {}),
-      ...(periodType === 'WEEK' ? { week_start: weekStart } : {}),
+      period_start: periodStart ? toDateInputValue(periodStart) : '',
       due_date: dueDate,
       student_ids: Array.from(selectedStudents.keys()),
       fee_structure_ids: Array.from(selectedFees),
     };
+  }
+
+  /** `GenerateFeesPreviewDto` (the preview endpoint's own DTO) has no
+   * `due_date` field at all — `GenerateFeesDto` (the real generate call)
+   * is the one that extends it with `due_date`/`duplicate_action`/
+   * `notify_families`. The server's `ValidationPipe` rejects unknown
+   * properties outright, so sending `scope()` — which carries `due_date`
+   * for the generate call's sake — straight to the preview endpoint
+   * 400s every preview. */
+  function previewScope() {
+    const { due_date: _dueDate, ...rest } = scope();
+    return rest;
   }
 
   // Sorted so the key doesn't depend on Set/Map iteration order, and used
@@ -255,7 +289,7 @@ export function GenerateFeesModal({
       return;
     }
 
-    previewMutation.mutate(scope(), {
+    previewMutation.mutate(previewScope(), {
       onSuccess: (result) => {
         if (result.duplicates.length === 0 && result.inactive_students.length === 0) {
           submitGenerate();
