@@ -3534,7 +3534,7 @@ export interface components {
             student_fee_id: string;
             allocated_amount: number;
             /** @enum {string} */
-            allocation_type: "DUE" | "CURRENT" | "ADVANCE";
+            allocation_type: "DUE" | "CURRENT";
             discount_amount: number;
             notes: string | null;
             /** Format: date-time */
@@ -3605,7 +3605,7 @@ export interface components {
             student_fee_id: string;
             allocated_amount: number;
             /** @enum {string} */
-            allocation_type: "DUE" | "CURRENT" | "ADVANCE";
+            allocation_type: "DUE" | "CURRENT";
             fee_name: string | null;
             /** Format: date-time */
             period_start: string | null;
@@ -3786,7 +3786,7 @@ export interface components {
             student_fee_id: string;
             allocated_amount: number;
             /** @enum {string} */
-            allocation_type: "DUE" | "CURRENT" | "ADVANCE";
+            allocation_type: "DUE" | "CURRENT";
             discount_amount: number;
             fee_name: string | null;
             /** Format: date-time */
