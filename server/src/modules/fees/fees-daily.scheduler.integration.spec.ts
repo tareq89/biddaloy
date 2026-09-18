@@ -352,7 +352,7 @@ describe('FeesDailyScheduler (integration)', () => {
     // The scheduler's date-window check (`fresh.starts_on > today`)
     // skips it.
     const [{ end_date: academicYearEnd }] = await dataSource.query(
-      `SELECT end_date FROM academic_years WHERE id = $1`,
+      `SELECT end_date::text FROM academic_years WHERE id = $1`,
       [SEED_ACADEMIC_YEAR_ID],
     );
     const yearEnd = new Date(academicYearEnd).toISOString().slice(0, 10);

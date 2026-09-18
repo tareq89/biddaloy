@@ -177,6 +177,15 @@ export class CloneScheduleDto {
   academic_year_id: string;
 }
 
+/** One row of a schedule's exclusions, returned only by `GET .../:id` (the
+ * detail fetch) -- see `RecurringScheduleResponseDto.exclusions`. */
+export class RecurringScheduleExclusionResponseDto {
+  student_id: string;
+  student_name: string;
+  reason: string;
+  created_at: Date;
+}
+
 /** One row returned by `GET/POST /fees/schedules` and `GET .../:id`. */
 export class RecurringScheduleResponseDto {
   id: string;
@@ -193,6 +202,12 @@ export class RecurringScheduleResponseDto {
   last_run_period: string | null;
   fee_structure_ids: string[];
   created_at: Date;
+  /** Only populated by `GET /fees/schedules/:id` (the detail fetch) and
+   * `PATCH /fees/schedules/:id` -- omitted from `GET /fees/schedules`'s
+   * list rows so that endpoint doesn't pay for an exclusions join per
+   * schedule it never needs to render. */
+  @ApiPropertyOptional({ type: () => [RecurringScheduleExclusionResponseDto] })
+  exclusions?: RecurringScheduleExclusionResponseDto[];
 }
 
 /** `GET /fees/schedules/:id/preview` — who the schedule would bill today. */

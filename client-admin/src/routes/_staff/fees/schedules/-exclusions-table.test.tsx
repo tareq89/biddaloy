@@ -108,7 +108,7 @@ describe('fees/schedules/-exclusions-table', () => {
         {
           student_id: 'student-1',
           student_name: 'Rahim Uddin',
-          reason: null,
+          reason: 'Sibling discount',
           created_at: '2026-01-01T00:00:00.000Z',
         },
       ],
@@ -128,7 +128,7 @@ describe('fees/schedules/-exclusions-table', () => {
         {
           student_id: 'student-1',
           student_name: 'Rahim Uddin',
-          reason: null,
+          reason: 'Sibling discount',
           created_at: '2026-01-01T00:00:00.000Z',
         },
       ],

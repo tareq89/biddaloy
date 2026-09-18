@@ -244,7 +244,7 @@ describe('RecurringSchedulesService (integration)', () => {
     it('rejects a starts_on before the academic year start date with 400 on create', async () => {
       const structureId = await createFeeStructure({ name: `Tuition ${Date.now()}` });
       const [{ start_date }] = await dataSource.query(
-        `SELECT start_date FROM academic_years WHERE id = $1`,
+        `SELECT start_date::text FROM academic_years WHERE id = $1`,
         [SEED_ACADEMIC_YEAR_ID],
       );
       const beforeYearStart = new Date(start_date);
@@ -269,7 +269,7 @@ describe('RecurringSchedulesService (integration)', () => {
     it('rejects a starts_on before the academic year start date with 400 on update', async () => {
       const structureId = await createFeeStructure({ name: `Tuition ${Date.now()}` });
       const [{ start_date }] = await dataSource.query(
-        `SELECT start_date FROM academic_years WHERE id = $1`,
+        `SELECT start_date::text FROM academic_years WHERE id = $1`,
         [SEED_ACADEMIC_YEAR_ID],
       );
       const beforeYearStart = new Date(start_date);
@@ -583,6 +583,79 @@ describe('RecurringSchedulesService (integration)', () => {
 
       const results = await service.findForStudent(student, SEED_TENANT_ID);
       expect(results.find((s) => s.id === schedule.id)).toBeUndefined();
+    });
+  });
+
+  describe('findOne / update — exclusions read-back', () => {
+    it('includes the exclusion list on findOne, but not on findAll list rows', async () => {
+      const structureId = await createFeeStructure({ name: `Tuition ${Date.now()}` });
+      const student = await createStudent({ class_section_id: SEED_SECTION_1_ID });
+
+      const schedule = await service.create(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          name: `Exclusion read-back schedule ${Date.now()}`,
+          audience: { section_id: SEED_SECTION_1_ID, enrollment_status: 'ACTIVE' },
+          rule: { kind: 'MONTHLY', day_of_month: 1 },
+          fee_structure_ids: [structureId],
+          starts_on: '2026-01-01',
+        } as any,
+        SEED_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      await service.addExclusion(
+        schedule.id,
+        { student_id: student, reason: 'Sibling discount' },
+        SEED_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      const detail = await service.findOne(schedule.id, SEED_TENANT_ID);
+      expect(detail.exclusions).toEqual([
+        expect.objectContaining({
+          student_id: student,
+          reason: 'Sibling discount',
+        }),
+      ]);
+      expect(detail.exclusions?.[0].student_name).toBeTruthy();
+
+      const list = await service.findAll({}, SEED_TENANT_ID);
+      const listRow = list.find((s) => s.id === schedule.id);
+      expect(listRow?.exclusions).toBeUndefined();
+    });
+
+    it('still includes the exclusion list after an update, via the same findOne path', async () => {
+      const structureId = await createFeeStructure({ name: `Tuition ${Date.now()}` });
+      const student = await createStudent({ class_section_id: SEED_SECTION_1_ID });
+
+      const schedule = await service.create(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          name: `Update read-back schedule ${Date.now()}`,
+          audience: { section_id: SEED_SECTION_1_ID, enrollment_status: 'ACTIVE' },
+          rule: { kind: 'MONTHLY', day_of_month: 1 },
+          fee_structure_ids: [structureId],
+          starts_on: '2026-01-01',
+        } as any,
+        SEED_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      await service.addExclusion(
+        schedule.id,
+        { student_id: student, reason: 'Sibling discount' },
+        SEED_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      const updated = await service.update(
+        schedule.id,
+        { name: 'Renamed schedule' } as any,
+        SEED_TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      expect(updated.exclusions).toHaveLength(1);
     });
   });
 

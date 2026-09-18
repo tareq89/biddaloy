@@ -83,11 +83,6 @@ function ScheduleDetailPage() {
   const canManage = useHasPermission(Permission.SCHEDULE_MANAGE);
 
   const scheduleQuery = useRecurringSchedule(id);
-  // KNOWN SERVER GAP (#675): `RecurringScheduleResponseDto` carries no
-  // `exclusions`, and there is no `GET /fees/schedules/:id/exclusions`, so
-  // this list is always empty today — adding and removing exclusions works,
-  // reading them back does not. See `RecurringScheduleExclusion` in
-  // `ui/src/hooks/recurring-schedules.ts`.
   const exclusions = scheduleQuery.data?.exclusions ?? [];
 
   if (scheduleQuery.isLoading) return <ScheduleDetailPending />;

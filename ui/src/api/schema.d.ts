@@ -3864,6 +3864,13 @@ export interface components {
         RemoveUncollectedResultDto: {
             removed_count: number;
         };
+        RecurringScheduleExclusionResponseDto: {
+            student_id: string;
+            student_name: string;
+            reason: string;
+            /** Format: date-time */
+            created_at: string;
+        };
         RecurringScheduleAudienceDto: {
             /** Format: uuid */
             class_id?: string;
@@ -3880,6 +3887,7 @@ export interface components {
             weekdays?: number[];
         };
         RecurringScheduleResponseDto: {
+            exclusions?: components["schemas"]["RecurringScheduleExclusionResponseDto"][];
             id: string;
             academic_year_id: string;
             name: string;

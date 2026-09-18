@@ -73,8 +73,15 @@ function audienceSummary(
 ): string {
   const parts: string[] = [];
   const { class_id, section_id } = schedule.audience;
-  if (class_id) {
-    const className = classesById.get(class_id) ?? t('schedules.unknownClass');
+  // `RecurringScheduleAudienceDto` allows `section_id` without `class_id`
+  // (the create form never offers that combination, but a schedule created
+  // some other way, or the DTO changing later, can still reach it) --
+  // branch on either being set, not just class_id, or a section-only
+  // audience wrongly showed "Whole school".
+  if (class_id || section_id) {
+    const className = class_id
+      ? (classesById.get(class_id) ?? t('schedules.unknownClass'))
+      : t('schedules.unknownClass');
     parts.push(
       section_id
         ? `${className} — ${sectionsById.get(section_id) ?? t('schedules.unknownSection')}`

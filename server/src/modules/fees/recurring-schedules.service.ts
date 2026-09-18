@@ -366,7 +366,7 @@ export class RecurringSchedulesService {
 
   async findOne(id: string, tenantId: string): Promise<RecurringScheduleResponseDto> {
     const schedule = await this.getOwnedSchedule(id, tenantId);
-    return this.toResponseDto(schedule);
+    return this.toResponseDto(schedule, { includeExclusions: true });
   }
 
   private async getOwnedSchedule(id: string, tenantId: string): Promise<RecurringSchedule> {
@@ -377,8 +377,18 @@ export class RecurringSchedulesService {
     return schedule;
   }
 
-  private async toResponseDto(schedule: RecurringSchedule): Promise<RecurringScheduleResponseDto> {
+  private async toResponseDto(
+    schedule: RecurringSchedule,
+    options: { includeExclusions?: boolean } = {},
+  ): Promise<RecurringScheduleResponseDto> {
     const structures = await this.structureRepo.find({ where: { schedule_id: schedule.id } });
+    const exclusions = options.includeExclusions
+      ? await this.exclusionRepo.find({
+          where: { schedule_id: schedule.id },
+          relations: { student: true },
+          order: { created_at: 'DESC' },
+        })
+      : undefined;
     return {
       id: schedule.id,
       academic_year_id: schedule.academic_year_id,
@@ -394,6 +404,16 @@ export class RecurringSchedulesService {
       last_run_period: schedule.last_run_period ? String(schedule.last_run_period) : null,
       fee_structure_ids: structures.map((s) => s.fee_structure_id),
       created_at: schedule.created_at,
+      ...(exclusions
+        ? {
+            exclusions: exclusions.map((e) => ({
+              student_id: e.student_id,
+              student_name: e.student.full_name,
+              reason: e.reason,
+              created_at: e.created_at,
+            })),
+          }
+        : {}),
     };
   }
 

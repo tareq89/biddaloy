@@ -51,25 +51,17 @@ export type SchedulePreviewStudent = components['schemas']['SchedulePreviewStude
  * excluded from flagged via `excluded`. */
 export type StudentScheduleItem = components['schemas']['StudentScheduleItemDto'];
 
-/**
- * KNOWN SERVER GAP (#675): there is no endpoint that reads a schedule's
- * exclusion list back. `POST .../exclusions` and `DELETE
- * .../exclusions/:studentId` exist, but `RecurringScheduleResponseDto`
- * carries no `exclusions` array and there is no `GET .../exclusions`, so
- * the schedule-detail exclusions table can add and remove rows but cannot
- * list existing ones. Typed as optional here rather than pretended into
- * `RecurringSchedule` so the gap stays visible.
- */
-export interface RecurringScheduleExclusion {
-  student_id: string;
-  student_name: string;
-  reason: string | null;
-  created_at: string;
-}
+/** One row of a schedule's exclusion list — only present on
+ * `RecurringSchedule.exclusions`, which `GET`/`PATCH /fees/schedules/:id`
+ * populate but `GET /fees/schedules` (the list endpoint) omits, so it
+ * doesn't pay for the join on rows nothing renders it for. */
+export type RecurringScheduleExclusion =
+  components['schemas']['RecurringScheduleExclusionResponseDto'];
 
+/** `GET /fees/schedules/:id`'s shape — `RecurringSchedule` with
+ * `exclusions` guaranteed present (the list endpoint's rows never set it). */
 export type RecurringScheduleDetail = RecurringSchedule & {
-  /** See `RecurringScheduleExclusion` — never populated by the server today. */
-  exclusions?: RecurringScheduleExclusion[];
+  exclusions: RecurringScheduleExclusion[];
 };
 
 /**
