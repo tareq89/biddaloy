@@ -1,9 +1,7 @@
-import type { Page } from '@playwright/test';
-
 import { adminApiSession, get, post } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
-import { DetailShellPage } from '../pages/detail-shell';
+import { ApprovalModalPage, DetailShellPage } from '../pages';
 
 /**
  * [16.4.6] Journey: Record Payment, through the real modal
@@ -23,29 +21,6 @@ import { DetailShellPage } from '../pages/detail-shell';
  */
 
 test.use(loggedIn('accountant'));
-
-/** The step-up OTP flow, driven through the real modal — retried past
- * `OtpService`'s 60s-per-identifier cooldown (`step-up.spec.ts`'s own API
- * equivalent, `requestStepUpOtp` in `api.ts`, documents why: another
- * journey requesting a code for the same seeded admin within the last 60s
- * gets a 202 with no `debug` block, not a failure). */
-async function completeStepUpInModal(page: Page, identifier: string): Promise<void> {
-  await page.getByLabel(t('approval.identifierLabel')).fill(identifier);
-  let otp: string | undefined;
-  for (let attempt = 0; attempt < 4 && !otp; attempt += 1) {
-    const [otpResponse] = await Promise.all([
-      page.waitForResponse('**/auth/step-up/otp/request'),
-      page.getByRole('button', { name: /code/i }).click({ timeout: attempt === 0 ? 5000 : 65_000 }),
-    ]);
-    const body = (await otpResponse.json()) as { debug?: { otp?: string } };
-    otp = body.debug?.otp;
-  }
-  if (!otp) {
-    throw new Error('No debug.otp on step-up otp/request response after retrying the cooldown.');
-  }
-  await page.getByLabel(t('approval.otp.codeLabel')).fill(otp);
-  await page.getByRole('button', { name: t('approval.submit') }).click();
-}
 
 async function seedStudentWithTwoBills(
   request: Parameters<typeof adminApiSession>[0],
@@ -275,7 +250,7 @@ test.fixme('a discounted bKash checkout needs step-up approval, then settles', a
   // Discount above the threshold trips APPROVAL_REQUIRED — the step-up
   // modal appears mid-submit (`useApprovedMutation`, same contract
   // `-reverse-payment-dialog.test.tsx` exercises at the component level).
-  await completeStepUpInModal(page, 'admin@biddaloy.test');
+  await new ApprovalModalPage(page).complete('admin@biddaloy.test');
 
   await expect(page.getByText(t('payments.record.success.title'))).toBeVisible();
 

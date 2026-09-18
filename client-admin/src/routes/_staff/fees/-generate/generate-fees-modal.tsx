@@ -195,36 +195,37 @@ export function GenerateFeesModal({
     !previewMutation.isPending &&
     !generate.isPending;
 
-  function scope() {
-    // `GenerateFeesPreviewDto`/`GenerateFeesDto` (`server/src/modules/
-    // fees/dto/fees.dto.ts`) take `period_start` (an ISO date) and
-    // `period_type` — never `month`/`year`/`week_start` directly. Those
-    // were being sent as their own top-level fields, which the server's
-    // `class-validator` DTO rejects outright ("property month should not
-    // exist … period_start must be a valid ISO 8601 date string"), so
-    // every preview 400'd and the whole modal crashed rendering the
-    // error. `periodStart` above is already the correctly-derived `Date`
-    // for both period types — this just needed to serialize it.
+  /** Exactly `GenerateFeesPreviewDto` (the preview endpoint's own DTO),
+   * which has no `due_date` field at all — `GenerateFeesDto` (the real
+   * generate call) is the one that extends it with `due_date`/
+   * `duplicate_action`/`notify_families`. The server's `ValidationPipe`
+   * rejects unknown properties outright, so sending the generate-shaped
+   * payload — which carries `due_date` for the generate call's sake —
+   * straight to the preview endpoint 400s every preview. Built as the
+   * narrower shape here and widened by `scope()` below, mirroring the
+   * `extends` relationship between the two DTOs.
+   *
+   * Both DTOs take `period_start` (an ISO date) and `period_type` — never
+   * `month`/`year`/`week_start` directly. Those were being sent as their
+   * own top-level fields, which the server's `class-validator` DTO
+   * rejects outright ("property month should not exist … period_start
+   * must be a valid ISO 8601 date string"), so every preview 400'd and
+   * the whole modal crashed rendering the error. `periodStart` above is
+   * already the correctly-derived `Date` for both period types — this
+   * just needed to serialize it. */
+  function previewScope() {
     return {
       academic_year_id: academicYearId,
       period_type: periodType,
       period_start: periodStart ? toDateInputValue(periodStart) : '',
-      due_date: dueDate,
       student_ids: Array.from(selectedStudents.keys()),
       fee_structure_ids: Array.from(selectedFees),
     };
   }
 
-  /** `GenerateFeesPreviewDto` (the preview endpoint's own DTO) has no
-   * `due_date` field at all — `GenerateFeesDto` (the real generate call)
-   * is the one that extends it with `due_date`/`duplicate_action`/
-   * `notify_families`. The server's `ValidationPipe` rejects unknown
-   * properties outright, so sending `scope()` — which carries `due_date`
-   * for the generate call's sake — straight to the preview endpoint
-   * 400s every preview. */
-  function previewScope() {
-    const { due_date: _dueDate, ...rest } = scope();
-    return rest;
+  /** `GenerateFeesDto`'s own shape: the preview scope plus `due_date`. */
+  function scope() {
+    return { ...previewScope(), due_date: dueDate };
   }
 
   // Sorted so the key doesn't depend on Set/Map iteration order, and used

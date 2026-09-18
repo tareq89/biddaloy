@@ -73,6 +73,23 @@ export function occurrenceLabel(occurrence: number | null | undefined): string |
   return `#${occurrence}`;
 }
 
+/** Every money column on `Payment`, `PaymentAllocation`, `StudentFee` and
+ * `Invoice` is `@Column({ type: 'decimal' })` with no `ValueTransformer`,
+ * and `pg` hands `numeric` back as a **string** to avoid silent float
+ * precision loss. So `payment.total_amount` is `'1000.00'` at runtime even
+ * though the entity — and every DTO here — types it `number`, and the
+ * string reaches the client, where `balance - paid` concatenates instead of
+ * subtracting. `checkout.controller.e2e-spec.ts` pins that string on the
+ * staff surface today.
+ *
+ * Every family response goes through this, so the family contract matches
+ * its declared types. The staff DTOs still pass the raw value through;
+ * fixing that properly means a numeric transformer on the columns
+ * themselves — one change, every endpoint, its own ticket. */
+export function money(amount: number | string | null | undefined): number {
+  return Number(amount ?? 0);
+}
+
 // ---------------------------------------------------------------------------
 // Payments
 // ---------------------------------------------------------------------------
@@ -140,7 +157,7 @@ export function toFamilyPayment(payment: Payment): FamilyPaymentDto {
   return {
     id: payment.id,
     student_id: payment.student_id,
-    total_amount: payment.total_amount,
+    total_amount: money(payment.total_amount),
     payment_method: payment.payment_method,
     payment_status: payment.payment_status,
     transaction_reference: payment.transaction_reference,
@@ -156,8 +173,8 @@ export function toFamilyPayment(payment: Payment): FamilyPaymentDto {
           allocations: payment.allocations.map((a) => ({
             id: a.id,
             student_fee_id: a.student_fee_id,
-            allocated_amount: a.allocated_amount,
-            discount_amount: a.discount_amount,
+            allocated_amount: money(a.allocated_amount),
+            discount_amount: money(a.discount_amount),
             allocation_type: a.allocation_type,
             // `student_fee`/`fee_structure` are only present if the caller
             // eager-loaded them; a caller that didn't (or a soft-deleted
@@ -233,10 +250,10 @@ export function toFamilyStudentFee(fee: StudentFee): FamilyStudentFeeDto {
     period_type: fee.period_type,
     occurrence_label: occurrenceLabel(fee.occurrence),
     is_late_fee: fee.late_fee_for_student_fee_id !== null,
-    total_amount: fee.total_amount,
-    paid_amount: fee.paid_amount,
-    discount_amount: fee.discount_amount,
-    balance: Number(fee.total_amount) - Number(fee.discount_amount) - Number(fee.paid_amount),
+    total_amount: money(fee.total_amount),
+    paid_amount: money(fee.paid_amount),
+    discount_amount: money(fee.discount_amount),
+    balance: money(fee.total_amount) - money(fee.discount_amount) - money(fee.paid_amount),
     status: fee.status,
     due_date: fee.due_date,
   };
@@ -311,10 +328,10 @@ export function toFamilyStudentDue(summary: StudentDueSummary): FamilyStudentDue
       period_type: due.period_type,
       occurrence_label: occurrenceLabel(due.occurrence),
       is_late_fee: due.is_late_fee,
-      total_amount: due.total_amount,
-      paid_amount: due.paid_amount,
-      discount_amount: due.discount_amount,
-      balance: due.balance,
+      total_amount: money(due.total_amount),
+      paid_amount: money(due.paid_amount),
+      discount_amount: money(due.discount_amount),
+      balance: money(due.balance),
       status: due.status,
       due_date: due.due_date,
     })),
@@ -348,7 +365,7 @@ export function toFamilyFeeStructure(structure: FeeStructure): FamilyFeeStructur
     id: structure.id,
     fee_type: structure.fee_type,
     name: structure.name,
-    amount: structure.amount,
+    amount: money(structure.amount),
     class_id: structure.class_id,
     section_id: structure.section_id,
     academic_year_id: structure.academic_year_id,
@@ -381,10 +398,9 @@ export class FamilyWalletTransactionDto {
 
 export function toFamilyWalletTransaction(tx: WalletTransaction): FamilyWalletTransactionDto {
   return {
-    // tx.amount comes back from the pg driver as a numeric string; the DTO
-    // promises `number` (matching `balance`, already normalized in
-    // WalletService), so normalize here too rather than leak a string.
-    amount: Number(tx.amount),
+    // Matches `balance`, already normalized in WalletService — see
+    // `money()` for why every decimal column needs this.
+    amount: money(tx.amount),
     kind: tx.kind,
     created_at: tx.created_at,
   };
@@ -499,9 +515,9 @@ export function toFamilyInvoice(invoice: Invoice & { issuer?: IssuerSnapshot }):
     student_id: invoice.student_id,
     payment_id: invoice.payment_id,
     related_invoice_id: invoice.related_invoice_id,
-    total_amount: invoice.total_amount,
-    tax_amount: invoice.tax_amount,
-    discount_amount: invoice.discount_amount,
+    total_amount: money(invoice.total_amount),
+    tax_amount: money(invoice.tax_amount),
+    discount_amount: money(invoice.discount_amount),
     status: invoice.status,
     issued_date: invoice.issued_date,
     due_date: invoice.due_date,
@@ -551,7 +567,7 @@ export function toFamilyDiscountRule(rule: DiscountRule): FamilyDiscountRuleDto 
     id: rule.id,
     student_id: rule.student_id,
     kind: rule.kind,
-    value: Number(rule.value),
+    value: money(rule.value),
     fee_types: rule.fee_types,
     starts_on: rule.starts_on,
     ends_on: rule.ends_on,
@@ -615,7 +631,7 @@ export function toFamilyStudentSchedule(input: {
 }): FamilyStudentScheduleDto {
   return {
     name: input.schedule.name,
-    fees: input.fees.map((fee) => ({ name: fee.name, amount: fee.amount })),
+    fees: input.fees.map((fee) => ({ name: fee.name, amount: money(fee.amount) })),
     rule_label: ruleLabel(input.schedule.rule),
     next_period: input.next_period,
   };

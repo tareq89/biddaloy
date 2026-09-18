@@ -1,31 +1,7 @@
-import type { Page } from '@playwright/test';
-
 import { adminApiSession, createStudentWithDues, get, post } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
-
-/** The step-up OTP flow, driven through the real modal — retried past
- * `OtpService`'s 60s-per-identifier cooldown, same reasoning as
- * `checkout.spec.ts`'s own `completeStepUpInModal` and `api.ts`'s
- * `requestStepUpOtp`: another journey requesting a code for the same
- * seeded admin within the last 60s gets a 202 with no `debug` block. */
-async function completeStepUpInModal(page: Page, identifier: string): Promise<void> {
-  await page.getByLabel(t('approval.identifierLabel')).fill(identifier);
-  let otp: string | undefined;
-  for (let attempt = 0; attempt < 4 && !otp; attempt += 1) {
-    const [otpResponse] = await Promise.all([
-      page.waitForResponse('**/auth/step-up/otp/request'),
-      page.getByRole('button', { name: /code/i }).click({ timeout: attempt === 0 ? 5000 : 65_000 }),
-    ]);
-    const body = (await otpResponse.json()) as { debug?: { otp?: string } };
-    otp = body.debug?.otp;
-  }
-  if (!otp) {
-    throw new Error('No debug.otp on step-up otp/request response after retrying the cooldown.');
-  }
-  await page.getByLabel(t('approval.otp.codeLabel')).fill(otp);
-  await page.getByRole('button', { name: t('approval.submit') }).click();
-}
+import { ApprovalModalPage } from '../pages';
 
 /**
  * [16.6.5] Journey: reverse a recorded payment through the real dialog
@@ -76,7 +52,7 @@ test.fixme('reversing a payment restores dues, cancels the invoice, and nets out
     .fill('e2e: reversal journey proof');
   await page.getByRole('button', { name: t('payments.detail.reverseDialog.confirm') }).click();
 
-  await completeStepUpInModal(page, 'admin@biddaloy.test');
+  await new ApprovalModalPage(page).complete('admin@biddaloy.test');
 
   await expect(page.getByText(t('payments.detail.reversedBanner'))).toBeVisible();
 

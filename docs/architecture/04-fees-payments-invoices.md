@@ -37,8 +37,7 @@ erDiagram
         decimal discount_amount
         decimal paid_amount
         enum status "PENDING to PARTIALLY_PAID to PAID"
-        bool is_late_fee
-        uuid late_fee_for_student_fee_id "self-reference, nullable"
+        uuid late_fee_for_student_fee_id "self-reference, nullable: set means this row IS a late fee"
     }
     RecurringSchedule {
         uuid id
@@ -51,7 +50,8 @@ erDiagram
         decimal total_amount
         enum payment_method "CASH CHEQUE BANK_TRANSFER CARD BKASH NAGAD ROCKET"
         string idempotency_key "unique per tenant"
-        bool is_reversal
+        uuid reversal_of_payment_id "nullable: set means this row IS a reversal"
+        uuid reversed_by_payment_id "nullable: set on the payment that was reversed"
     }
     PaymentAllocation {
         uuid id
@@ -66,7 +66,9 @@ erDiagram
     Invoice {
         uuid id
         string invoice_number "INV-YYYY-XXXXX"
-        enum kind "ISSUED or CREDIT_NOTE"
+        enum kind "INVOICE or CREDIT_NOTE"
+        enum status "DRAFT ISSUED PAID OVERDUE CANCELLED"
+        uuid related_invoice_id "nullable: a credit note points at the invoice it cancels"
         jsonb snapshot "line items frozen at issue time"
     }
     DiscountRule {
@@ -81,6 +83,19 @@ A `StudentFee` row is one student owing one fee for one period — the
 rows (e.g. tuition + exam fee), never merged. `FeeStructure` is a price tag
 consumed at generation time; editing it later doesn't change bills already
 generated, only future ones.
+
+**"Is this a late fee / a reversal?" is a relationship, not a flag.** There
+is no `is_late_fee` or `is_reversal` column. The API fields of those names
+are derived in the DTO mappers from whether the self-reference is set:
+
+```ts
+// server/src/modules/fees/dto/family.dto.ts
+is_late_fee: fee.late_fee_for_student_fee_id !== null,
+is_reversal: payment.reversal_of_payment_id !== null,
+```
+
+That way the row always says _which_ bill it is a late fee for, or _which_
+payment it reverses — a boolean alone could never be reconciled.
 
 ## Generate: turning a price tag into bills
 
@@ -193,10 +208,20 @@ sequenceDiagram
         API-->>Admin: 409 — reverse the spender first (D10)
     else untouched
         API->>DB: restore StudentFee.paid_amount/status, claw back any wallet credit
-        API->>DB: mark Payment.is_reversal, Invoice.kind = CREDIT_NOTE
+        API->>DB: INSERT reversal Payment (reversal_of_payment_id = original, REFUNDED)
+        API->>DB: UPDATE original Payment (reversed_by_payment_id = reversal, REFUNDED)
+        API->>DB: INSERT Invoice (kind = CREDIT_NOTE, related_invoice_id = original)
+        API->>DB: UPDATE original Invoice (status = CANCELLED)
         API-->>Admin: 200
     end
 ```
+
+Note the shape: a reversal is a **second, positive `Payment` row** pointing
+back at the first, not a negative amount and not a deleted row. The two
+rows reference each other (`reversal_of_payment_id` one way,
+`reversed_by_payment_id` the other), so the original stays on the books
+with a visible audit trail. The credit note works the same way — a second
+`Invoice` row, never an edit.
 
 Reversal is only ever full, never partial, and only ADMIN can call it —
 `PAYMENT_REVERSE` stays admin-gated by explicit decision, not just an
@@ -219,9 +244,16 @@ for the full step-up sequence (request OTP → verify → token → retry).
 Generated automatically when a payment is recorded, with a sequential
 number (`INV-YYYY-XXXXX`). The `snapshot` field freezes the line items at
 issue time, so an invoice stays historically accurate even if the
-underlying fee structure is edited later. Invoices are immutable after
-issue (D21) — a reversal never edits the original invoice, it creates a
-second `Invoice` row with `kind = CREDIT_NOTE` referencing it.
+underlying fee structure is edited later. `kind` is `INVOICE` or
+`CREDIT_NOTE`; `ISSUED` is a `status`, not a kind.
+
+Invoices are immutable after issue (D21) — a reversal never edits the
+original invoice, it creates a second `Invoice` row with
+`kind = CREDIT_NOTE` and `related_invoice_id` pointing at it. "Immutable"
+here means the _financial_ fields: once `status` leaves `DRAFT`, only
+`status`, `updated_at` and `deleted_at` may change on that row
+(`invoice.entity.ts`). That is what lets a reversal flip the original to
+`CANCELLED` while its amounts and `snapshot` stay exactly as issued.
 
 Two ways to view an invoice:
 
@@ -258,7 +290,7 @@ sequenceDiagram
     end
     Scheduler->>DB: any bill past its late-fee grace period with a fee type that has one configured?
     loop each qualifying bill
-        Scheduler->>DB: INSERT StudentFee (is_late_fee=true, late_fee_for_student_fee_id = original)
+        Scheduler->>DB: INSERT StudentFee (late_fee_for_student_fee_id = the overdue bill)
     end
 ```
 

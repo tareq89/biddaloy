@@ -28,6 +28,13 @@ test.use(loggedIn('accountant'));
 test('a gated route rejects without a token, then accepts a step-up token exactly once', async ({
   request,
 }) => {
+  // `requestStepUpOtp` waits out `OtpService`'s 60s-per-identifier
+  // cooldown in three 20s sleeps before giving up (see its own comment),
+  // which alone overruns Playwright's 30s default. CI gets a fresh Redis
+  // and never retries; a repeated local run does, and used to fail on the
+  // timeout rather than on anything this test is about.
+  test.setTimeout(120_000);
+
   const admin = await adminApiSession(request);
   const name = `StepUp Student ${Date.now()}`;
   const { studentId } = await createStudentWithDues(request, admin, name, { amount: 1000 });
@@ -88,6 +95,12 @@ test('a gated route rejects without a token, then accepts a step-up token exactl
     data: { reason: 'e2e: replayed token must fail' },
   });
   expect(replay.status()).toBe(403);
+  // Which 403 matters: `RolesGuard`/`PermissionsGuard` also answer 403 on
+  // this route, so a bare status check would pass even if the token were
+  // still valid and something else had rejected the call. Asserting the
+  // `ApprovalRequiredException` body is what pins the single-use contract.
+  const replayBody = (await replay.json()) as { details?: { code?: string } };
+  expect(replayBody.details?.code).toBe('APPROVAL_REQUIRED');
 });
 
 /** Pays a seeded student's first open bill in full via `POST
