@@ -393,7 +393,7 @@ export class PaymentAllocationService {
 
   /** [16.1.6] The advance path is removed (D5) — a fee period in the
    * future can no longer be allocated against at all, so this throws
-   * instead of returning `PaymentAllocationType.ADVANCE`. */
+   * instead of returning an "advance" allocation type. */
   private classifyPeriod(
     year: number,
     month: number,
