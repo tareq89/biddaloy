@@ -1171,7 +1171,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** A student's recurring schedules: ones whose audience currently matches them, plus ones they are explicitly excluded from (flagged). */
+        /** A student's recurring schedules. Staff see the billing-automation view (ones whose audience currently matches them, plus ones they are explicitly excluded from, flagged). [16.8.2] A PARENT or STUDENT must additionally be linked to this student, and gets an allow-listed "what will I be billed next" view instead. */
         get: operations["RecurringSchedulesController_findForStudent_v1"];
         put?: never;
         post?: never;
@@ -3604,6 +3604,7 @@ export interface components {
             id: string;
             student_fee_id: string;
             allocated_amount: number;
+            discount_amount: number;
             /** @enum {string} */
             allocation_type: "DUE" | "CURRENT";
             fee_name: string | null;
@@ -3620,6 +3621,8 @@ export interface components {
             payment_status: "SUCCESS" | "PENDING" | "FAILED" | "REFUNDED";
             transaction_reference: string | null;
             invoice_id: string | null;
+            invoice_number: string | null;
+            is_reversal: boolean;
             /** Format: date-time */
             payment_date: string;
             /** Format: date-time */
@@ -3675,6 +3678,7 @@ export interface components {
             period_start: string;
             /** @enum {string} */
             period_type: "MONTH" | "WEEK";
+            occurrence_label: string | null;
             is_late_fee: boolean;
             total_amount: number;
             paid_amount: number;
@@ -3864,6 +3868,25 @@ export interface components {
         RemoveUncollectedResultDto: {
             removed_count: number;
         };
+        StudentScheduleItemDto: {
+            id: string;
+            name: string;
+            /** @enum {string} */
+            period_type: "MONTH" | "WEEK";
+            due_days_after_period_start: number;
+            is_active: boolean;
+            excluded: boolean;
+        };
+        FamilyScheduleFeeDto: {
+            name: string;
+            amount: number;
+        };
+        FamilyStudentScheduleDto: {
+            name: string;
+            fees: components["schemas"]["FamilyScheduleFeeDto"][];
+            rule_label: string;
+            next_period: string | null;
+        };
         RecurringScheduleExclusionResponseDto: {
             student_id: string;
             student_name: string;
@@ -3956,15 +3979,6 @@ export interface components {
             students: components["schemas"]["SchedulePreviewStudentDto"][];
             total_count: number;
         };
-        StudentScheduleItemDto: {
-            id: string;
-            name: string;
-            /** @enum {string} */
-            period_type: "MONTH" | "WEEK";
-            due_days_after_period_start: number;
-            is_active: boolean;
-            excluded: boolean;
-        };
         StudentWallet: {
             id: string;
             tenant: components["schemas"]["School"];
@@ -4001,13 +4015,34 @@ export interface components {
             amount: number;
             /** @enum {string} */
             kind: "CREDIT_OVERPAYMENT" | "CREDIT_CHANGE" | "DEBIT_CHECKOUT" | "DEBIT_GENERATION" | "REVERSAL";
-            note: string | null;
             /** Format: date-time */
             created_at: string;
         };
         FamilyStudentWalletResponseDto: {
             balance: number;
             transactions: components["schemas"]["FamilyWalletTransactionDto"][];
+        };
+        FamilyDiscountRuleDto: {
+            id: string;
+            student_id: string;
+            /** @enum {string} */
+            kind: "FLAT" | "PERCENT";
+            value: number;
+            fee_types: ("MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER")[] | null;
+            starts_on: string | null;
+            ends_on: string | null;
+            is_active: boolean;
+        };
+        CreateDiscountRuleDto: {
+            /** Format: uuid */
+            student_id: string;
+            /** @enum {string} */
+            kind: "FLAT" | "PERCENT";
+            value: number;
+            fee_types?: ("MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER")[] | null;
+            starts_on?: string | null;
+            ends_on?: string | null;
+            reason: string;
         };
         DiscountRuleDto: {
             id: string;
@@ -4026,17 +4061,6 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
-        };
-        CreateDiscountRuleDto: {
-            /** Format: uuid */
-            student_id: string;
-            /** @enum {string} */
-            kind: "FLAT" | "PERCENT";
-            value: number;
-            fee_types?: ("MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER")[] | null;
-            starts_on?: string | null;
-            ends_on?: string | null;
-            reason: string;
         };
         UpdateDiscountRuleDto: {
             /** @enum {string} */
@@ -4110,7 +4134,6 @@ export interface components {
             issuer?: components["schemas"]["IssuerSnapshot"];
         };
         FamilyInvoiceDto: {
-            /** @description Always `null` for a family caller; the staff variant carries the issuing user. */
             issued_by: Record<string, never> | null;
             id: string;
             invoice_number: string;
@@ -4129,7 +4152,6 @@ export interface components {
             /** Format: date-time */
             due_date: string;
             snapshot: components["schemas"]["InvoiceSnapshot"];
-            notes: string | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -7981,12 +8003,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description An array of `StudentScheduleItemDto` for staff; allow-listed `FamilyStudentScheduleDto` rows for a PARENT/STUDENT. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["StudentScheduleItemDto"][];
+                    "application/json": (components["schemas"]["StudentScheduleItemDto"] | components["schemas"]["FamilyStudentScheduleDto"])[];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -8055,7 +8078,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DiscountRuleDto"][];
+                    "application/json": components["schemas"]["FamilyDiscountRuleDto"][];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
