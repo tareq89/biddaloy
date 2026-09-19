@@ -4,6 +4,9 @@ import {
   AttendanceSessionState,
   AttendanceSource,
   AttendanceStatus,
+  CalendarAudience,
+  CalendarEventType,
+  PublicHolidaySource,
   TeacherDesignation,
   UserRole,
   UserStatus,
@@ -18,13 +21,18 @@ import { ClassSection } from '../modules/academics/entities/class-section.entity
 import { Student } from '../modules/students/entities/student.entity';
 import { Guardian } from '../modules/students/entities/guardian.entity';
 import { Subject } from '../modules/academics/entities/subject.entity';
-import { SchoolHoliday } from '../modules/academics/entities/school-holiday.entity';
+import { CalendarEvent } from '../modules/calendar/entities/calendar-event.entity';
+import { CalendarEventClass } from '../modules/calendar/entities/calendar-event-class.entity';
+import { AcademicTerm } from '../modules/calendar/entities/academic-term.entity';
+import { PublicHolidaySet } from '../modules/calendar/entities/public-holiday-set.entity';
+import { PublicHolidayEntry } from '../modules/calendar/entities/public-holiday-entry.entity';
 import { Teacher } from '../modules/academics/entities/teacher.entity';
 import { TeacherClassSection } from '../modules/academics/entities/teacher-class-section.entity';
 import { AttendanceSession } from '../modules/attendance/entities/attendance-session.entity';
 import { AttendanceRecord } from '../modules/attendance/entities/attendance-record.entity';
 import { AttendanceDevice } from '../modules/attendance/entities/attendance-device.entity';
 import { hashDeviceKey } from '../modules/attendance/devices/device.service';
+import { SeedPublicHolidayEntry } from './seed-data/public-holidays-bd';
 
 /** [8.9.5] manual-testing aid: gives the seed admin a *second* school
  * membership so `/select-school`'s picker actually has something to show
@@ -638,7 +646,7 @@ function statusForDay(studentIndex: number, dayIndex: number): AttendanceStatus 
 
 export interface AttendanceSeedRepositories {
   subjectRepository: Repository<Subject>;
-  schoolHolidayRepository: Repository<SchoolHoliday>;
+  schoolHolidayRepository: Repository<CalendarEvent>;
   teacherRepository: Repository<Teacher>;
   teacherClassSectionRepository: Repository<TeacherClassSection>;
   attendanceSessionRepository: Repository<AttendanceSession>;
@@ -716,11 +724,20 @@ export async function ensureAttendanceSeed(
           start_date: holiday.startDate,
           end_date: holiday.endDate,
           counts_as_working_day: holiday.countsAsWorkingDay,
+          // [17.1.2] D9 — a draft (published_at IS NULL) holiday never
+          // affects working days; seeded demo holidays must be published
+          // immediately so ATTENDANCE_SEED_WORKING_DAYS stays correct.
+          published_at: new Date(),
         }),
       );
       result.holidays += 1;
     } else if (existing.deleted_at) {
-      await repos.schoolHolidayRepository.save(undelete(existing));
+      // Same D9 reasoning as the create branch above: a restored holiday
+      // must come back published, not as an unpublished draft, or
+      // ATTENDANCE_SEED_WORKING_DAYS goes stale silently.
+      const restored = undelete(existing);
+      restored.published_at ??= new Date();
+      await repos.schoolHolidayRepository.save(restored);
     }
   }
 
@@ -853,6 +870,229 @@ export async function ensureAttendanceSeed(
       `  Attendance seed: +${result.subjects} subjects, +${result.holidays} holidays, ` +
         `+${result.sessions} sessions, +${result.records} records, +${result.devices} devices`,
     );
+  }
+  return result;
+}
+
+// ===========================================================================
+// [17.2.6] Platform public-holiday set + demo academic terms/events
+// ===========================================================================
+
+export interface PublicHolidaySeedRepositories {
+  publicHolidaySetRepository: Repository<PublicHolidaySet>;
+  publicHolidayEntryRepository: Repository<PublicHolidayEntry>;
+}
+
+/** Idempotent, same find-or-create shape as every other `ensure*` in this
+ * file: safe to re-run against a database that already has this
+ * country/year set (`(country, year)` is a unique index — see
+ * `PublicHolidaySet`'s own docstring).
+ *
+ * Unlike [17.2.4]'s `PublicHolidaysService.fetchIntoSet`, this writes the
+ * set **already published** (`published_at` set immediately) — a fresh
+ * dev/CI environment has no SUPER_ADMIN clicking "Publish" by hand, and a
+ * draft set is invisible to every tenant's `suggest()` call (D9-equivalent
+ * rule for holiday sets), so `yarn seed` would otherwise produce a set no
+ * demo tenant can ever see. */
+export async function ensurePublicHolidaySet(
+  repos: PublicHolidaySeedRepositories,
+  country: string,
+  year: number,
+  entries: readonly SeedPublicHolidayEntry[],
+): Promise<PublicHolidaySet> {
+  let set = await repos.publicHolidaySetRepository.findOne({ where: { country, year } });
+  if (!set) {
+    set = repos.publicHolidaySetRepository.create({
+      country,
+      year,
+      source: PublicHolidaySource.MANUAL,
+      published_at: new Date(),
+      fetched_at: new Date(),
+    });
+    set = await repos.publicHolidaySetRepository.save(set);
+    console.log(`  Public holiday set: ${country} ${year} (${set.id})`);
+  } else if (!set.published_at) {
+    set.published_at = new Date();
+    set = await repos.publicHolidaySetRepository.save(set);
+  }
+
+  const existingEntries = await repos.publicHolidayEntryRepository.find({
+    where: { set_id: set.id },
+  });
+  const existingDates = new Set(existingEntries.map((entry) => entry.date));
+  const missing = entries.filter((entry) => !existingDates.has(entry.date));
+  if (missing.length > 0) {
+    await repos.publicHolidayEntryRepository.save(
+      missing.map((entry) =>
+        repos.publicHolidayEntryRepository.create({
+          set_id: set!.id,
+          date: entry.date,
+          end_date: entry.end_date,
+          name: entry.name,
+          name_bn: entry.name_bn,
+        }),
+      ),
+    );
+  }
+
+  return set;
+}
+
+export interface CalendarDemoSeedRepositories {
+  academicTermRepository: Repository<AcademicTerm>;
+  calendarEventRepository: Repository<CalendarEvent>;
+  calendarEventClassRepository: Repository<CalendarEventClass>;
+}
+
+export interface CalendarDemoSeedParams {
+  schoolId: string;
+  academicYearId: string;
+  /** Class ids the seeded EXAM event is scoped to — exactly two, matching
+   * the issue's "one EXAM scoped two classes" step. */
+  examClassIds: readonly [string, string];
+}
+
+export interface CalendarDemoSeedResult {
+  terms: number;
+  events: number;
+}
+
+/** Three demo `AcademicTerm`s spanning `DEMO_ACADEMIC_YEAR` plus a demo
+ * `CalendarEvent` of each remaining type ([17.1.2]'s `CalendarEventType`)
+ * so a fresh environment's calendar UI has something realistic to render:
+ * an EXAM scoped to two classes, a staff-only MEETING, a DEADLINE, and one
+ * unpublished draft. `HOLIDAY` rows are deliberately left to
+ * `ensureAttendanceSeed`/`ensurePublicHolidaySet` above — this function
+ * only adds the event *types* [17.x] introduced on top of the pre-existing
+ * holiday seed, so `ATTENDANCE_SEED_HOLIDAYS`'s working-day math is
+ * untouched. Idempotent, same find-or-create shape as the rest of this
+ * file. */
+export async function ensureCalendarDemoSeed(
+  repos: CalendarDemoSeedRepositories,
+  params: CalendarDemoSeedParams,
+): Promise<CalendarDemoSeedResult> {
+  const { schoolId, academicYearId, examClassIds } = params;
+  const result: CalendarDemoSeedResult = { terms: 0, events: 0 };
+
+  // --- terms -------------------------------------------------------------
+  const termSeeds: readonly { seq: number; name: string; start: string; end: string }[] = [
+    { seq: 1, name: 'First Term', start: '2026-01-01', end: '2026-04-30' },
+    { seq: 2, name: 'Second Term', start: '2026-05-01', end: '2026-08-31' },
+    { seq: 3, name: 'Third Term', start: '2026-09-01', end: '2026-12-31' },
+  ];
+  for (const termSeed of termSeeds) {
+    const existing = await findLivePreferred(repos.academicTermRepository, {
+      tenant_id: schoolId,
+      academic_year_id: academicYearId,
+      seq: termSeed.seq,
+    } as FindOptionsWhere<AcademicTerm>);
+    if (!existing) {
+      await repos.academicTermRepository.save(
+        repos.academicTermRepository.create({
+          tenant_id: schoolId,
+          academic_year_id: academicYearId,
+          seq: termSeed.seq,
+          name: termSeed.name,
+          start_date: termSeed.start,
+          end_date: termSeed.end,
+        } as Partial<AcademicTerm>),
+      );
+      result.terms += 1;
+    } else if (existing.deleted_at) {
+      await repos.academicTermRepository.save(undelete(existing));
+    }
+  }
+
+  // --- events --------------------------------------------------------------
+  async function ensureEvent(seed: {
+    name: string;
+    type: CalendarEventType;
+    audience: CalendarAudience;
+    start: string;
+    end: string;
+    countsAsWorkingDay: boolean;
+    published: boolean;
+  }): Promise<CalendarEvent> {
+    let event = await repos.calendarEventRepository.findOne({
+      where: { tenant_id: schoolId, name: seed.name },
+      withDeleted: true,
+    });
+    if (!event) {
+      event = repos.calendarEventRepository.create({
+        tenant_id: schoolId,
+        academic_year_id: academicYearId,
+        type: seed.type,
+        audience: seed.audience,
+        name: seed.name,
+        start_date: seed.start,
+        end_date: seed.end,
+        counts_as_working_day: seed.countsAsWorkingDay,
+        published_at: seed.published ? new Date() : null,
+      });
+      event = await repos.calendarEventRepository.save(event);
+      result.events += 1;
+    } else if (event.deleted_at) {
+      event = await repos.calendarEventRepository.save(undelete(event));
+    }
+    return event;
+  }
+
+  const examEvent = await ensureEvent({
+    name: 'Half-Yearly Examination',
+    type: CalendarEventType.EXAM,
+    audience: CalendarAudience.ALL,
+    start: '2026-06-15',
+    end: '2026-06-20',
+    countsAsWorkingDay: true,
+    published: true,
+  });
+  for (const classId of examClassIds) {
+    const existingLink = await repos.calendarEventClassRepository.findOne({
+      where: { event_id: examEvent.id, class_id: classId },
+    });
+    if (!existingLink) {
+      await repos.calendarEventClassRepository.save(
+        repos.calendarEventClassRepository.create({
+          event_id: examEvent.id,
+          class_id: classId,
+          tenant_id: schoolId,
+        }),
+      );
+    }
+  }
+
+  await ensureEvent({
+    name: 'Staff Planning Meeting',
+    type: CalendarEventType.MEETING,
+    audience: CalendarAudience.STAFF,
+    start: '2026-07-05',
+    end: '2026-07-05',
+    countsAsWorkingDay: true,
+    published: true,
+  });
+
+  await ensureEvent({
+    name: 'Annual Report Submission Deadline',
+    type: CalendarEventType.DEADLINE,
+    audience: CalendarAudience.ALL,
+    start: '2026-11-30',
+    end: '2026-11-30',
+    countsAsWorkingDay: true,
+    published: true,
+  });
+
+  await ensureEvent({
+    name: 'Winter Fair (Draft)',
+    type: CalendarEventType.EVENT,
+    audience: CalendarAudience.ALL,
+    start: '2026-12-20',
+    end: '2026-12-21',
+    countsAsWorkingDay: true,
+    published: false,
+  });
+
+  if (result.terms > 0 || result.events > 0) {
+    console.log(`  Calendar demo seed: +${result.terms} terms, +${result.events} events`);
   }
   return result;
 }

@@ -5,7 +5,7 @@ import { AttendancePolicySettings, AttendanceStatus } from '@biddaloy/shared';
 import { AttendanceRecord } from './entities/attendance-record.entity';
 import { Student } from '../students/entities/student.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
-import { SchoolCalendarService } from '../academics/school-calendar.service';
+import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import { SchoolsService } from '../schools/schools.service';
 import { resolveAttendancePolicy } from './attendance-policy.util';
 

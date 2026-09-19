@@ -5,6 +5,7 @@ import {
   IsArray,
   IsBoolean,
   ArrayNotEmpty,
+  IsISO31661Alpha2,
   IsNotEmpty,
   IsOptional,
   Matches,
@@ -20,7 +21,7 @@ import { NestedSettings } from '../settings/nested-settings.decorator';
 import { OptionalSetting } from '../settings/optional-setting.decorator';
 import { IsRegexSourceConstraint } from '../settings/regex-source.validator';
 import { SmsProviderIsConfiguredConstraint } from '../settings/sms-provider-config.validator';
-import { ApprovalMode, DiscountKind, FeeType } from '@biddaloy/shared';
+import { ApprovalMode, DiscountKind, FeeType, TermLabel } from '@biddaloy/shared';
 import type {
   NumeralSystem,
   CurrencyGrouping,
@@ -122,9 +123,32 @@ export class RegionIdentifiersDto {
   student: string;
 }
 
+/**
+ * `region.calendar` (17.1.1/17.1.2) — what a tenant calls a grading period
+ * on its academic calendar. Optional: a tenant with no calendar settings
+ * yet resolves to `TermLabel.TERM` via `DEFAULT_REGION_SETTINGS`.
+ */
+export class RegionCalendarDto {
+  @IsIn(Object.values(TermLabel))
+  termLabel: TermLabel;
+}
+
 export class RegionSettingsDto {
   @IsString()
   locale: string;
+
+  // ISO 3166-1 alpha-2, e.g. 'BD' (D11) — picks the default public-holiday
+  // source for a tenant's calendar (Epic 17).
+  // `@Matches` keeps case strict (rejects 'bd') — `@IsISO31661Alpha2` alone
+  // is case-insensitive per its underlying `validator` library, so on its
+  // own it would accept a lowercase code and store it un-normalised,
+  // producing a value like 'bd' next to `DEFAULT_REGION_SETTINGS.country`'s
+  // 'BD'. Chosen behaviour: reject anything but a real, uppercase ISO
+  // 3166-1 alpha-2 code (`tenant-settings.dto.spec.ts` documents this).
+  @IsString()
+  @Matches(/^[A-Z]{2}$/, { message: 'country must be an ISO 3166-1 alpha-2 code, e.g. BD' })
+  @IsISO31661Alpha2({ message: 'country must be a real ISO 3166-1 alpha-2 country code' })
+  country: string;
 
   @NestedSettings(() => RegionCurrencyDto)
   currency: RegionCurrencyDto;
@@ -149,6 +173,10 @@ export class RegionSettingsDto {
 
   @IsString()
   timezone: string;
+
+  @OptionalSetting()
+  @NestedSettings(() => RegionCalendarDto)
+  calendar?: RegionCalendarDto;
 }
 
 export class GreenwebSmsDto {

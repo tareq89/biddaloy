@@ -15,11 +15,14 @@
  */
 export const AUDIT_ENTITY_TYPES = [
   'AbsenceNoticePreview',
+  'AcademicTerm',
   'AcademicYear',
   'ApprovalToken',
   'AttendanceDevice',
   'AttendanceRecord',
   'AttendanceSession',
+  'CalendarEvent',
+  'CalendarFeedToken',
   'Class',
   'ClassSection',
   'DiscountRule',
@@ -30,11 +33,15 @@ export const AUDIT_ENTITY_TYPES = [
   'InvitationBatch',
   'Invoice',
   'Payment',
+  'PublicHolidaySet',
   'RecurringSchedule',
   'RefreshToken',
   'ReminderBatch',
   'ReminderBatchPreview',
   'School',
+  // Deprecated: `school_holidays` was renamed to `calendar_events` (Epic
+  // 17). Kept read-compatible so historical audit rows with this
+  // entity_type still validate — no new write ever uses it.
   'SchoolHoliday',
   'Student',
   'User',

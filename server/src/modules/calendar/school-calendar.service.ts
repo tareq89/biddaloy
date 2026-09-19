@@ -1,32 +1,33 @@
 import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
-import { SchoolHoliday } from './entities/school-holiday.entity';
-import { CreateHolidayDto, QueryHolidayDto, UpdateHolidayDto } from './dto/school-calendar.dto';
+import { CalendarEvent } from './entities/calendar-event.entity';
+import { CreateHolidayDto, QueryHolidayDto, UpdateHolidayDto } from './dto/working-days.dto';
 import { SchoolsService } from '../schools/schools.service';
 import { isWeeklyOff, resolveAttendancePolicy } from '../attendance/attendance-policy.util';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '@biddaloy/shared';
 
-/** Refuse a `getWorkingDays` range wider than this many days. An unbounded
- * range is how this endpoint becomes a way to make the server build a
- * million-element array. 400 days comfortably covers one academic year plus
- * slack, with room to spare. */
+/** Refuse to compute `getWorkingDays` for a range wider than this many days.
+ * An unbounded range is how this endpoint becomes a way to make the server
+ * build a million-element array. 400 days comfortably covers one academic
+ * year plus slack, with room to spare. */
 const MAX_RANGE_DAYS = 400;
 
 /** Epoch day (days since 1970-01-01) for a `'YYYY-MM-DD'` string, computed
  * against UTC midnight. Mirrors `attendance-policy.util.ts`'s `toEpochDay` —
- * duplicated rather than imported because that helper is private to the
- * attendance module and this is an academics-module concern; both must stay
- * in sync with "never use `Date` in a local timezone" for calendar math. */
+ * duplicated rather than imported because the helper is private to each
+ * module's own calendar math; both must stay in sync with "never use
+ * `Date` in local timezone" for calendar math. */
 function toEpochDay(dateIso: string): number {
   const [year, month, day] = dateIso.split('-').map(Number);
   return Date.UTC(year, month - 1, day) / (24 * 60 * 60 * 1000);
 }
 
-/** The inverse of `toEpochDay` — formats a UTC epoch day back to
- * `'YYYY-MM-DD'` without ever touching `toLocaleDateString` or a
- * local-timezone `Date` method, both of which drift by the server's TZ. */
+/** The inverse of `toEpochDay` — formats a UTC epoch day back into a
+ * `'YYYY-MM-DD'` string without ever touching `toLocaleDateString` or any
+ * other local-timezone `Date` method, both of which drift by the server's
+ * TZ. */
 function epochDayToIso(epochDay: number): string {
   const ms = epochDay * 24 * 60 * 60 * 1000;
   const d = new Date(ms);
@@ -37,36 +38,33 @@ function epochDayToIso(epochDay: number): string {
 }
 
 /**
- * Working-day math for one tenant: expand a date range into the school days
- * within it, and own CRUD for the `school_holidays` calendar entries that
- * feed that math.
- *
- * This is an academics/calendar concern, not an attendance one — attendance
- * only ever reads `getWorkingDays`/`isNonWorkingDay` (see
- * `SchoolHoliday`'s own docstring). [9.3]'s write path used a private
- * stand-in query before this service existed; [9.4] replaced it with the
- * two methods here so there is exactly one definition of "is this a school
- * day".
+ * Working-day math and holiday CRUD, moved verbatim from
+ * `academics/school-calendar.service.ts` in [17.1.2] — an academics/calendar
+ * concern, not an attendance one: attendance only ever reads
+ * `getWorkingDays`/`isNonWorkingDay` (see `CalendarEvent`'s own docstring).
+ * [9.3]'s write path used a private stand-in query before this service
+ * existed; [9.4] replaced it so there is exactly one definition of "is this
+ * a school day".
  */
 @Injectable()
 export class SchoolCalendarService {
   constructor(
-    @InjectRepository(SchoolHoliday)
-    private readonly holidayRepo: Repository<SchoolHoliday>,
+    @InjectRepository(CalendarEvent)
+    private readonly holidayRepo: Repository<CalendarEvent>,
     private readonly schoolsService: SchoolsService,
     private readonly auditService: AuditService,
   ) {}
 
   /**
-   * Every date in `[from, to]` that is a school day for this tenant: the
-   * range, minus weekly off days, minus holidays whose
-   * `counts_as_working_day` is `false`. Dates are `'YYYY-MM-DD'` strings —
-   * never `Date` objects, which drift by timezone.
+   * Every date in `[from, to]` that is a school day for the tenant: every
+   * date in the range, minus weekly off days, minus published holidays
+   * whose `counts_as_working_day` is `false`. Dates are `'YYYY-MM-DD'`
+   * strings — never `Date` objects, which drift by timezone.
    *
    * Resolves the tenant's attendance policy itself (via `SchoolsService`)
    * rather than taking it as a parameter, so every caller — [9.3]'s write
-   * path, [9.4]'s summary service, and this service's own CRUD — reads the
-   * same weekly-off set without re-resolving it themselves.
+   * path, [9.4]'s summary service, and this service's own CRUD reads — use
+   * the same weekly-off set without re-resolving it themselves.
    */
   async getWorkingDays(input: {
     tenantId: string;
@@ -110,6 +108,9 @@ export class SchoolCalendarService {
       .createQueryBuilder('h')
       .where('h.tenant_id = :tenantId', { tenantId })
       .andWhere('h.deleted_at IS NULL')
+      // [17.1.2] D9: a draft holiday (published_at IS NULL) never affects
+      // working-day math — only a published one does.
+      .andWhere('h.published_at IS NOT NULL')
       .andWhere('h.counts_as_working_day = false')
       .andWhere('h.start_date <= :to AND h.end_date >= :from', { to, from });
     if (academicYearId) {
@@ -130,11 +131,11 @@ export class SchoolCalendarService {
     return { dates, count: dates.length };
   }
 
-  /** True when this one date is not a school day for the tenant — a
+  /** True if a single date is not a school day for the tenant — either a
    * weekly-off day, or covered by a holiday with `counts_as_working_day =
    * false`. Used by [9.3]'s write path. Delegates to `getWorkingDays` so
-   * there is exactly one definition of "is this a school day" — a
-   * single-day range whose only candidate got removed. */
+   * there is exactly one definition of "is this a school day", with a
+   * single-day range checking only whether the candidate got removed. */
   async isNonWorkingDay(input: { tenantId: string; date: string }): Promise<boolean> {
     const { tenantId, date } = input;
     const { count } = await this.getWorkingDays({ tenantId, from: date, to: date });
@@ -145,7 +146,7 @@ export class SchoolCalendarService {
     query: QueryHolidayDto,
     tenantId: string,
   ): Promise<{
-    data: SchoolHoliday[];
+    data: CalendarEvent[];
     total: number;
     page: number;
     limit: number;
@@ -183,7 +184,7 @@ export class SchoolCalendarService {
     dto: CreateHolidayDto,
     tenantId: string,
     userId: string,
-  ): Promise<SchoolHoliday> {
+  ): Promise<CalendarEvent> {
     if (dto.end_date < dto.start_date) {
       throw new UnprocessableEntityException({
         message: '"end_date" must not be earlier than "start_date"',
@@ -197,11 +198,16 @@ export class SchoolCalendarService {
       end_date: dto.end_date,
       name: dto.name,
       counts_as_working_day: dto.counts_as_working_day ?? false,
+      // This legacy CRUD surface predates the draft/publish workflow the
+      // wider calendar module owns (17.2.x) — a holiday created here is
+      // published immediately so it behaves exactly as it did before
+      // [17.1.2]'s rename, rather than becoming an invisible draft.
+      published_at: new Date(),
     });
     const saved = await this.holidayRepo.save(holiday);
     await this.auditService.record({
       action: AuditAction.CREATE,
-      entity_type: 'SchoolHoliday',
+      entity_type: 'CalendarEvent',
       entity_id: saved.id,
       tenant_id: tenantId,
       performed_by_user_id: userId,
@@ -211,7 +217,7 @@ export class SchoolCalendarService {
     return saved;
   }
 
-  private async findOneOrThrow(id: string, tenantId: string): Promise<SchoolHoliday> {
+  private async findOneOrThrow(id: string, tenantId: string): Promise<CalendarEvent> {
     const holiday = await this.holidayRepo.findOne({
       where: { id, tenant_id: tenantId, deleted_at: IsNull() },
     });
@@ -226,9 +232,10 @@ export class SchoolCalendarService {
     dto: UpdateHolidayDto,
     tenantId: string,
     userId: string,
-  ): Promise<SchoolHoliday> {
+  ): Promise<CalendarEvent> {
     const holiday = await this.findOneOrThrow(id, tenantId);
     const oldValues = { ...holiday };
+
     const nextStart = dto.start_date ?? holiday.start_date;
     const nextEnd = dto.end_date ?? holiday.end_date;
     if (nextEnd < nextStart) {
@@ -237,11 +244,12 @@ export class SchoolCalendarService {
         details: { code: 'SCHOOL_CALENDAR_INVALID_RANGE' },
       });
     }
+
     Object.assign(holiday, dto);
     const saved = await this.holidayRepo.save(holiday);
     await this.auditService.record({
       action: AuditAction.UPDATE,
-      entity_type: 'SchoolHoliday',
+      entity_type: 'CalendarEvent',
       entity_id: saved.id,
       tenant_id: tenantId,
       performed_by_user_id: userId,
@@ -251,12 +259,12 @@ export class SchoolCalendarService {
     return saved;
   }
 
-  async removeHoliday(id: string, tenantId: string, userId: string): Promise<SchoolHoliday> {
+  async removeHoliday(id: string, tenantId: string, userId: string): Promise<CalendarEvent> {
     const holiday = await this.findOneOrThrow(id, tenantId);
     await this.holidayRepo.softDelete({ id, tenant_id: tenantId });
     await this.auditService.record({
       action: AuditAction.DELETE,
-      entity_type: 'SchoolHoliday',
+      entity_type: 'CalendarEvent',
       entity_id: holiday.id,
       tenant_id: tenantId,
       performed_by_user_id: userId,

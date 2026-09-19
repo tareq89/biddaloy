@@ -5,7 +5,12 @@ import { Teacher } from '../src/modules/academics/entities/teacher.entity';
 import { TeacherClassSection } from '../src/modules/academics/entities/teacher-class-section.entity';
 import { Subject } from '../src/modules/academics/entities/subject.entity';
 import { ClassSubject } from '../src/modules/academics/entities/class-subject.entity';
-import { SchoolHoliday } from '../src/modules/academics/entities/school-holiday.entity';
+import { CalendarEvent } from '../src/modules/calendar/entities/calendar-event.entity';
+import { CalendarEventClass } from '../src/modules/calendar/entities/calendar-event-class.entity';
+import { AcademicTerm } from '../src/modules/calendar/entities/academic-term.entity';
+import { PublicHolidaySet } from '../src/modules/calendar/entities/public-holiday-set.entity';
+import { PublicHolidayEntry } from '../src/modules/calendar/entities/public-holiday-entry.entity';
+import { CalendarFeedToken } from '../src/modules/calendar/entities/calendar-feed-token.entity';
 import { AttendanceSession } from '../src/modules/attendance/entities/attendance-session.entity';
 import { AttendanceRecord } from '../src/modules/attendance/entities/attendance-record.entity';
 import { AttendanceDevice } from '../src/modules/attendance/entities/attendance-device.entity';
@@ -46,7 +51,12 @@ export const ALL_ENTITIES = [
   TeacherClassSection,
   Subject,
   ClassSubject,
-  SchoolHoliday,
+  CalendarEvent,
+  CalendarEventClass,
+  AcademicTerm,
+  PublicHolidaySet,
+  PublicHolidayEntry,
+  CalendarFeedToken,
   AttendanceSession,
   AttendanceRecord,
   AttendanceDevice,

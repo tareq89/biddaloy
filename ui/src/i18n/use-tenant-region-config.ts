@@ -1,3 +1,4 @@
+import type { RegionSettings } from '@biddaloy/shared';
 import { useQuery } from '@tanstack/react-query';
 
 import { getActiveTenant } from '../api/auth-state';
@@ -44,5 +45,11 @@ export function useTenantRegionConfig(): RegionConfig {
   // [15.4.2]; the provider wrapping a screen is chrome, not content.
   const { data } = useQuery({ ...schoolSettingsQueryOptions(tenantId ?? ''), throwOnError: false });
 
-  return resolveRegionConfig(fallback, data?.region);
+  // [17.1.3] `data.region` is the OpenAPI-generated DTO shape, whose
+  // `calendar.termLabel` is a plain string-literal union
+  // ("TERM" | "SEMESTER" | "TRIMESTER") rather than the shared
+  // `TermLabel` enum `resolveRegionConfig` expects — the two are
+  // value-identical (`shared/src/enums/calendar-enums.spec.ts` pins the
+  // enum to that exact member set), so this cast is safe.
+  return resolveRegionConfig(fallback, data?.region as Partial<RegionSettings> | undefined);
 }

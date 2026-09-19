@@ -6,18 +6,21 @@ import { getDataSourceToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID, SEED_ADMIN_USER_ID } from '@test/constants';
-import { AcademicYearModule } from './academic-year.module';
+import { CalendarModule } from './calendar.module';
 import { AuthModule } from '../auth/auth.module';
 import { SchoolCalendarService } from './school-calendar.service';
 import { School } from '../schools/entities/school.entity';
-import { AcademicYear } from './entities/academic-year.entity';
-import { SchoolHoliday } from './entities/school-holiday.entity';
+import { AcademicYear } from '../academics/entities/academic-year.entity';
+import { CalendarEvent } from './entities/calendar-event.entity';
 
 /**
  * Integration tests for `SchoolCalendarService`'s working-day math — the
  * one place `AttendanceService` ([9.3]) and `AttendanceSummaryService`
- * ([9.4]) both read "is this a school day". Runs against a real, migrated
- * test database.
+ * ([9.4]) both read "is this a school day". Moved verbatim from
+ * `academics/school-calendar.service.integration.spec.ts` in [17.1.2],
+ * with `SchoolHoliday` swapped for `CalendarEvent` and `published_at` set
+ * on every directly-inserted fixture (see D9 — a draft never affects
+ * working-day math). Runs against a real, migrated test database.
  *
  * `weeklyOffDays: []` is set for every tenant in `beforeEach` so the
  * expected working-day counts below are pinned to the fixed date range
@@ -38,7 +41,7 @@ describe('SchoolCalendarService (integration)', () => {
     const module = await createTestModule(
       ALL_ENTITIES,
       [],
-      [ConfigModule.forRoot({ isGlobal: true }), AcademicYearModule, AuthModule],
+      [ConfigModule.forRoot({ isGlobal: true }), CalendarModule, AuthModule],
     );
     service = module.get<SchoolCalendarService>(SchoolCalendarService);
     dataSource = module.get<DataSource>(getDataSourceToken());
@@ -76,9 +79,9 @@ describe('SchoolCalendarService (integration)', () => {
   }
 
   beforeEach(async () => {
-    // school_holidays is a "transactional" table for this suite's purposes
+    // calendar_events is a "transactional" table for this suite's purposes
     // — reseed per test rather than relying on file-level fixtures.
-    await dataSource.query('DELETE FROM school_holidays');
+    await dataSource.query('DELETE FROM calendar_events');
     await setWeeklyOffDays(TENANT_A, []);
     await setWeeklyOffDays(TENANT_B, []);
   });
@@ -98,13 +101,14 @@ describe('SchoolCalendarService (integration)', () => {
     });
 
     it('excludes a multi-day holiday', async () => {
-      await dataSource.getRepository(SchoolHoliday).save({
+      await dataSource.getRepository(CalendarEvent).save({
         tenant_id: TENANT_A,
         academic_year_id: academicYearAId,
         start_date: '2026-09-02',
         end_date: '2026-09-03',
         name: 'Eid Break',
         counts_as_working_day: false,
+        published_at: new Date(),
       });
       const result = await service.getWorkingDays({
         tenantId: TENANT_A,
@@ -116,13 +120,14 @@ describe('SchoolCalendarService (integration)', () => {
     });
 
     it('keeps a holiday whose counts_as_working_day is true', async () => {
-      await dataSource.getRepository(SchoolHoliday).save({
+      await dataSource.getRepository(CalendarEvent).save({
         tenant_id: TENANT_A,
         academic_year_id: academicYearAId,
         start_date: '2026-09-02',
         end_date: '2026-09-02',
         name: 'Half-Yearly Exam',
         counts_as_working_day: true,
+        published_at: new Date(),
       });
       const result = await service.getWorkingDays({
         tenantId: TENANT_A,
@@ -134,7 +139,7 @@ describe('SchoolCalendarService (integration)', () => {
     });
 
     it('counts overlapping holidays once, not once per overlapping row', async () => {
-      const holidayRepo = dataSource.getRepository(SchoolHoliday);
+      const holidayRepo = dataSource.getRepository(CalendarEvent);
       await holidayRepo.save({
         tenant_id: TENANT_A,
         academic_year_id: academicYearAId,
@@ -142,6 +147,7 @@ describe('SchoolCalendarService (integration)', () => {
         end_date: '2026-09-04',
         name: 'Holiday A',
         counts_as_working_day: false,
+        published_at: new Date(),
       });
       await holidayRepo.save({
         tenant_id: TENANT_A,
@@ -150,6 +156,7 @@ describe('SchoolCalendarService (integration)', () => {
         end_date: '2026-09-05',
         name: 'Holiday B',
         counts_as_working_day: false,
+        published_at: new Date(),
       });
       const result = await service.getWorkingDays({
         tenantId: TENANT_A,
@@ -168,13 +175,35 @@ describe('SchoolCalendarService (integration)', () => {
     });
 
     it("does not let tenant B's holiday shrink tenant A's working days", async () => {
-      await dataSource.getRepository(SchoolHoliday).save({
+      await dataSource.getRepository(CalendarEvent).save({
         tenant_id: TENANT_B,
         academic_year_id: academicYearBId,
         start_date: '2026-09-02',
         end_date: '2026-09-02',
         name: 'Tenant B Holiday',
         counts_as_working_day: false,
+        published_at: new Date(),
+      });
+      const result = await service.getWorkingDays({
+        tenantId: TENANT_A,
+        from: '2026-09-01',
+        to: '2026-09-03',
+      });
+      expect(result.dates).toEqual(['2026-09-01', '2026-09-02', '2026-09-03']);
+      expect(result.count).toBe(3);
+    });
+
+    // [17.1.2] D9 — new case: a draft holiday (published_at IS NULL) is on
+    // the calendar but must not affect working-day math.
+    it('does not let a draft holiday (published_at null) remove a working day', async () => {
+      await dataSource.getRepository(CalendarEvent).save({
+        tenant_id: TENANT_A,
+        academic_year_id: academicYearAId,
+        start_date: '2026-09-02',
+        end_date: '2026-09-02',
+        name: 'Draft Holiday',
+        counts_as_working_day: false,
+        published_at: null,
       });
       const result = await service.getWorkingDays({
         tenantId: TENANT_A,
