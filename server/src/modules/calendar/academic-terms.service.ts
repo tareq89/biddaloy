@@ -270,7 +270,18 @@ export class AcademicTermsService {
       }
 
       const termIds = new Set(terms.map((t) => t.id));
-      if (ids.length !== terms.length || !ids.every((id) => termIds.has(id))) {
+      const uniqueIds = new Set(ids);
+      // `uniqueIds.size !== ids.length` catches a duplicate id (e.g.
+      // [A, A] for a 2-term year) that `ids.length === terms.length` alone
+      // would miss, letting it through as if A and B were both present —
+      // the two-pass write below would then try to give A two different
+      // seq values and fail on the unique-constraint instead of returning
+      // a clean 422.
+      if (
+        ids.length !== terms.length ||
+        uniqueIds.size !== ids.length ||
+        !ids.every((id) => termIds.has(id))
+      ) {
         throw new UnprocessableEntityException({
           message: "ids must exactly match the academic year's current terms",
           details: { code: 'TERM_REORDER_MISMATCH' },

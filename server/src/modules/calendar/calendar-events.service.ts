@@ -338,6 +338,20 @@ export class CalendarEventsService {
     let classIds: string[] | undefined;
     if (dto.class_ids !== undefined) {
       classIds = await this.assertClassesInTenant(tenantId, dto.class_ids, academicYear.id);
+    } else if (academicYear.id !== event.academic_year_id) {
+      // The patch didn't touch class_ids, but a date change moved the
+      // event into a different academic year — the retained links were
+      // validated against the *old* year and Class rows are scoped per
+      // year, so silently keeping them would leave the event pointing at
+      // classes from a year it no longer belongs to (visibility joins
+      // only match on event_id/class_id, so this would leak the event to
+      // the wrong year's viewers). Re-validate the same links against the
+      // new year; reject the update if any no longer belong.
+      const retainedLinks = await this.eventClassRepo.find({ where: { event_id: event.id } });
+      const retainedClassIds = retainedLinks.map((link) => link.class_id);
+      if (retainedClassIds.length > 0) {
+        await this.assertClassesInTenant(tenantId, retainedClassIds, academicYear.id);
+      }
     }
 
     Object.assign(event, {

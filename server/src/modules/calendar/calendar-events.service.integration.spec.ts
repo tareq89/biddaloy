@@ -525,4 +525,34 @@ describe('CalendarEventsService (integration)', () => {
     );
     expect(untouched.description).toBeNull();
   });
+
+  it('rejects a date change that crosses academic years while retaining a class link from the old year', async () => {
+    const created = await service.create(
+      {
+        type: CalendarEventType.EVENT,
+        name: 'Year-crossing event',
+        start_date: '2030-09-20',
+        end_date: '2030-09-20',
+        audience: CalendarAudience.ALL,
+        class_ids: [classId],
+      } as any,
+      TENANT_ID,
+      SEED_ADMIN_USER_ID,
+    );
+    expect(created.academic_year_id).toBe(yearId);
+    expect(created.class_ids).toEqual([classId]);
+
+    // `classId` belongs to `yearId` (2030), not `pastSpanningYearId`
+    // (2020-2027) — moving the event's dates into that range without
+    // touching class_ids must be rejected rather than silently leaving
+    // the retained link pointing at a class from the wrong year.
+    await expect(
+      service.update(
+        created.id,
+        { start_date: '2027-06-01', end_date: '2027-06-01' } as any,
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      ),
+    ).rejects.toBeInstanceOf(UnprocessableEntityException);
+  });
 });

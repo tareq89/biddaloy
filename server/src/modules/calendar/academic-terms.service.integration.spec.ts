@@ -279,6 +279,36 @@ describe('AcademicTermsService (integration)', () => {
     expect(reordered.map((t) => t.seq)).toEqual([1, 2]);
   });
 
+  it('rejects reorder ids containing a duplicate', async () => {
+    const yearRepo = dataSource.getRepository(AcademicYear);
+    const year = await yearRepo.save({
+      name: 'Duplicate Reorder Year',
+      start_date: '2026-01-01',
+      end_date: '2026-12-31',
+      tenant_id: TENANT_B,
+    });
+
+    const t1 = await service.create(
+      TENANT_B,
+      { academic_year_id: year.id, name: 'D1', start_date: '2026-01-01', end_date: '2026-03-31' },
+      SEED_ADMIN_USER_ID,
+      CONTEXT,
+    );
+    await service.create(
+      TENANT_B,
+      { academic_year_id: year.id, name: 'D2', start_date: '2026-04-01', end_date: '2026-06-30' },
+      SEED_ADMIN_USER_ID,
+      CONTEXT,
+    );
+
+    // [t1, t1] has the right length (2) to match the year's term count,
+    // but is not a permutation of the real ids — must still be rejected,
+    // not attempted (which would hit a unique-constraint error instead).
+    await expect(
+      service.reorder(TENANT_B, year.id, [t1.id, t1.id], SEED_ADMIN_USER_ID, CONTEXT),
+    ).rejects.toBeInstanceOf(UnprocessableEntityException);
+  });
+
   it('throws NotFoundException updating a term in another tenant', async () => {
     const term = await service.create(
       TENANT_A,
