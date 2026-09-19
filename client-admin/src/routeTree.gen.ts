@@ -43,6 +43,7 @@ import { Route as StaffAttendanceRegisterRouteImport } from './routes/_staff/att
 import { Route as StaffAttendanceReportsRouteImport } from './routes/_staff/attendance/reports'
 import { Route as StaffAuditLogsIndexRouteImport } from './routes/_staff/audit-logs/index'
 import { Route as StaffCalendarIndexRouteImport } from './routes/_staff/calendar/index'
+import { Route as StaffCalendarImportRouteImport } from './routes/_staff/calendar/import'
 import { Route as StaffClassesIndexRouteImport } from './routes/_staff/classes/index'
 import { Route as StaffClassesClassIdRouteImport } from './routes/_staff/classes/$classId'
 import { Route as StaffCommunicationsRemindersRouteImport } from './routes/_staff/communications/reminders'
@@ -241,6 +242,11 @@ const StaffCalendarIndexRoute = StaffCalendarIndexRouteImport.update({
   path: '/calendar/',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffCalendarImportRoute = StaffCalendarImportRouteImport.update({
+  id: '/calendar/import',
+  path: '/calendar/import',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffClassesIndexRoute = StaffClassesIndexRouteImport.update({
   id: '/classes/',
   path: '/classes/',
@@ -399,6 +405,7 @@ export interface FileRoutesByFullPath {
   '/attendance/$sectionId': typeof StaffAttendanceSectionIdRoute
   '/attendance/register': typeof StaffAttendanceRegisterRoute
   '/attendance/reports': typeof StaffAttendanceReportsRoute
+  '/calendar/import': typeof StaffCalendarImportRoute
   '/classes/$classId': typeof StaffClassesClassIdRoute
   '/communications/reminders': typeof StaffCommunicationsRemindersRoute
   '/communications/send': typeof StaffCommunicationsSendRoute
@@ -456,6 +463,7 @@ export interface FileRoutesByTo {
   '/attendance/$sectionId': typeof StaffAttendanceSectionIdRoute
   '/attendance/register': typeof StaffAttendanceRegisterRoute
   '/attendance/reports': typeof StaffAttendanceReportsRoute
+  '/calendar/import': typeof StaffCalendarImportRoute
   '/classes/$classId': typeof StaffClassesClassIdRoute
   '/communications/reminders': typeof StaffCommunicationsRemindersRoute
   '/communications/send': typeof StaffCommunicationsSendRoute
@@ -518,6 +526,7 @@ export interface FileRoutesById {
   '/_staff/attendance/$sectionId': typeof StaffAttendanceSectionIdRoute
   '/_staff/attendance/register': typeof StaffAttendanceRegisterRoute
   '/_staff/attendance/reports': typeof StaffAttendanceReportsRoute
+  '/_staff/calendar/import': typeof StaffCalendarImportRoute
   '/_staff/classes/$classId': typeof StaffClassesClassIdRoute
   '/_staff/communications/reminders': typeof StaffCommunicationsRemindersRoute
   '/_staff/communications/send': typeof StaffCommunicationsSendRoute
@@ -579,6 +588,7 @@ export interface FileRouteTypes {
     | '/attendance/$sectionId'
     | '/attendance/register'
     | '/attendance/reports'
+    | '/calendar/import'
     | '/classes/$classId'
     | '/communications/reminders'
     | '/communications/send'
@@ -636,6 +646,7 @@ export interface FileRouteTypes {
     | '/attendance/$sectionId'
     | '/attendance/register'
     | '/attendance/reports'
+    | '/calendar/import'
     | '/classes/$classId'
     | '/communications/reminders'
     | '/communications/send'
@@ -697,6 +708,7 @@ export interface FileRouteTypes {
     | '/_staff/attendance/$sectionId'
     | '/_staff/attendance/register'
     | '/_staff/attendance/reports'
+    | '/_staff/calendar/import'
     | '/_staff/classes/$classId'
     | '/_staff/communications/reminders'
     | '/_staff/communications/send'
@@ -984,6 +996,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffCalendarIndexRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/calendar/import': {
+      id: '/_staff/calendar/import'
+      path: '/calendar/import'
+      fullPath: '/calendar/import'
+      preLoaderRoute: typeof StaffCalendarImportRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/classes/': {
       id: '/_staff/classes/'
       path: '/classes'
@@ -1208,6 +1227,7 @@ interface StaffRouteChildren {
   StaffAttendanceSectionIdRoute: typeof StaffAttendanceSectionIdRoute
   StaffAttendanceRegisterRoute: typeof StaffAttendanceRegisterRoute
   StaffAttendanceReportsRoute: typeof StaffAttendanceReportsRoute
+  StaffCalendarImportRoute: typeof StaffCalendarImportRoute
   StaffClassesClassIdRoute: typeof StaffClassesClassIdRoute
   StaffCommunicationsRemindersRoute: typeof StaffCommunicationsRemindersRoute
   StaffCommunicationsSendRoute: typeof StaffCommunicationsSendRoute
@@ -1246,6 +1266,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffAttendanceSectionIdRoute: StaffAttendanceSectionIdRoute,
   StaffAttendanceRegisterRoute: StaffAttendanceRegisterRoute,
   StaffAttendanceReportsRoute: StaffAttendanceReportsRoute,
+  StaffCalendarImportRoute: StaffCalendarImportRoute,
   StaffClassesClassIdRoute: StaffClassesClassIdRoute,
   StaffCommunicationsRemindersRoute: StaffCommunicationsRemindersRoute,
   StaffCommunicationsSendRoute: StaffCommunicationsSendRoute,
