@@ -355,6 +355,25 @@ export {
   type UpdateAcademicYearInput,
 } from './academic-years';
 export {
+  calendarSettingsKeys,
+  calendarSettingsQueryOptions,
+  useCalendarSettings,
+  type CalendarSettings,
+} from './calendar-settings';
+export {
+  termKeys,
+  termsQueryOptions,
+  useCreateTerm,
+  useDeleteTerm,
+  useReorderTerms,
+  useTerms,
+  useUpdateTerm,
+  type AcademicTerm,
+  type CreateTermInput,
+  type ReorderTermsInput,
+  type UpdateTermInput,
+} from './calendar-terms';
+export {
   feeStructureKeys,
   feeStructureQueryOptions,
   feeStructuresQueryOptions,

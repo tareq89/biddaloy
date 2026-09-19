@@ -174,5 +174,29 @@
         "manual": "ম্যানুয়াল"
       }
     }
+  },
+  "calendar": {
+    "legend": "ক্যালেন্ডার",
+    "termLabel": "গ্রেডিং পিরিয়ডকে আপনি কী নামে ডাকেন?",
+    "termLabelTerm": "টার্ম",
+    "termLabelSemester": "সেমিস্টার",
+    "termLabelTrimester": "ট্রাইমেস্টার",
+    "country": "দেশ",
+    "weekShapeLabel": "সপ্তাহের শুরু / সাপ্তাহিক ছুটি",
+    "weekShapeLoading": "লোড হচ্ছে…",
+    "weekShapeError": "সপ্তাহের কাঠামো লোড করা যায়নি।",
+    "weekShapeValue": "সপ্তাহ শুরু হয় {{weekStart}}, সাপ্তাহিক ছুটি {{weekend}}, টাইমজোন {{timezone}}",
+    "weekendSeparator": " এবং ",
+    "changeInRegional": "রিজিওনাল-এ পরিবর্তন করুন",
+    "changeInAttendance": "অ্যাটেনডেন্স-এ পরিবর্তন করুন",
+    "weekday": {
+      "sunday": "রবিবার",
+      "monday": "সোমবার",
+      "tuesday": "মঙ্গলবার",
+      "wednesday": "বুধবার",
+      "thursday": "বৃহস্পতিবার",
+      "friday": "শুক্রবার",
+      "saturday": "শনিবার"
+    }
   }
 }
