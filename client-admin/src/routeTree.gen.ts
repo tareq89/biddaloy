@@ -41,6 +41,7 @@ import { Route as StaffAttendanceSectionIdRouteImport } from './routes/_staff/at
 import { Route as StaffAttendanceRegisterRouteImport } from './routes/_staff/attendance/register'
 import { Route as StaffAttendanceReportsRouteImport } from './routes/_staff/attendance/reports'
 import { Route as StaffAuditLogsIndexRouteImport } from './routes/_staff/audit-logs/index'
+import { Route as StaffCalendarIndexRouteImport } from './routes/_staff/calendar/index'
 import { Route as StaffClassesIndexRouteImport } from './routes/_staff/classes/index'
 import { Route as StaffClassesClassIdRouteImport } from './routes/_staff/classes/$classId'
 import { Route as StaffCommunicationsRemindersRouteImport } from './routes/_staff/communications/reminders'
@@ -229,6 +230,11 @@ const StaffAuditLogsIndexRoute = StaffAuditLogsIndexRouteImport.update({
   path: '/audit-logs/',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffCalendarIndexRoute = StaffCalendarIndexRouteImport.update({
+  id: '/calendar/',
+  path: '/calendar/',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffClassesIndexRoute = StaffClassesIndexRouteImport.update({
   id: '/classes/',
   path: '/classes/',
@@ -405,6 +411,7 @@ export interface FileRoutesByFullPath {
   '/academic-years/': typeof StaffAcademicYearsIndexRoute
   '/attendance/': typeof StaffAttendanceIndexRoute
   '/audit-logs/': typeof StaffAuditLogsIndexRoute
+  '/calendar/': typeof StaffCalendarIndexRoute
   '/classes/': typeof StaffClassesIndexRoute
   '/fee-structures/': typeof StaffFeeStructuresIndexRoute
   '/fees/': typeof StaffFeesIndexRoute
@@ -460,6 +467,7 @@ export interface FileRoutesByTo {
   '/academic-years': typeof StaffAcademicYearsIndexRoute
   '/attendance': typeof StaffAttendanceIndexRoute
   '/audit-logs': typeof StaffAuditLogsIndexRoute
+  '/calendar': typeof StaffCalendarIndexRoute
   '/classes': typeof StaffClassesIndexRoute
   '/fee-structures': typeof StaffFeeStructuresIndexRoute
   '/fees': typeof StaffFeesIndexRoute
@@ -520,6 +528,7 @@ export interface FileRoutesById {
   '/_staff/academic-years/': typeof StaffAcademicYearsIndexRoute
   '/_staff/attendance/': typeof StaffAttendanceIndexRoute
   '/_staff/audit-logs/': typeof StaffAuditLogsIndexRoute
+  '/_staff/calendar/': typeof StaffCalendarIndexRoute
   '/_staff/classes/': typeof StaffClassesIndexRoute
   '/_staff/fee-structures/': typeof StaffFeeStructuresIndexRoute
   '/_staff/fees/': typeof StaffFeesIndexRoute
@@ -579,6 +588,7 @@ export interface FileRouteTypes {
     | '/academic-years/'
     | '/attendance/'
     | '/audit-logs/'
+    | '/calendar/'
     | '/classes/'
     | '/fee-structures/'
     | '/fees/'
@@ -634,6 +644,7 @@ export interface FileRouteTypes {
     | '/academic-years'
     | '/attendance'
     | '/audit-logs'
+    | '/calendar'
     | '/classes'
     | '/fee-structures'
     | '/fees'
@@ -693,6 +704,7 @@ export interface FileRouteTypes {
     | '/_staff/academic-years/'
     | '/_staff/attendance/'
     | '/_staff/audit-logs/'
+    | '/_staff/calendar/'
     | '/_staff/classes/'
     | '/_staff/fee-structures/'
     | '/_staff/fees/'
@@ -946,6 +958,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffAuditLogsIndexRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/calendar/': {
+      id: '/_staff/calendar/'
+      path: '/calendar'
+      fullPath: '/calendar/'
+      preLoaderRoute: typeof StaffCalendarIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/classes/': {
       id: '/_staff/classes/'
       path: '/classes'
@@ -1185,6 +1204,7 @@ interface StaffRouteChildren {
   StaffAcademicYearsIndexRoute: typeof StaffAcademicYearsIndexRoute
   StaffAttendanceIndexRoute: typeof StaffAttendanceIndexRoute
   StaffAuditLogsIndexRoute: typeof StaffAuditLogsIndexRoute
+  StaffCalendarIndexRoute: typeof StaffCalendarIndexRoute
   StaffClassesIndexRoute: typeof StaffClassesIndexRoute
   StaffFeeStructuresIndexRoute: typeof StaffFeeStructuresIndexRoute
   StaffGuardiansIndexRoute: typeof StaffGuardiansIndexRoute
@@ -1222,6 +1242,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffAcademicYearsIndexRoute: StaffAcademicYearsIndexRoute,
   StaffAttendanceIndexRoute: StaffAttendanceIndexRoute,
   StaffAuditLogsIndexRoute: StaffAuditLogsIndexRoute,
+  StaffCalendarIndexRoute: StaffCalendarIndexRoute,
   StaffClassesIndexRoute: StaffClassesIndexRoute,
   StaffFeeStructuresIndexRoute: StaffFeeStructuresIndexRoute,
   StaffGuardiansIndexRoute: StaffGuardiansIndexRoute,
