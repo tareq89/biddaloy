@@ -140,6 +140,20 @@
       "archetype": "wizard"
     },
     {
+      "path": "/fees/schedules",
+      "role": "accountant",
+      "archetype": "list",
+      "overlays": ["create-schedule"]
+    },
+    {
+      "path": "/fees/schedules/$id",
+      "params": {
+        "id": "seeded"
+      },
+      "role": "accountant",
+      "archetype": "detail"
+    },
+    {
       "path": "/guardians",
       "role": "admin",
       "archetype": "list"

@@ -110,7 +110,10 @@ describe('FeePicker', () => {
     const checkboxes = await screen.findAllByRole('checkbox');
     expect(checkboxes.length).toBe(2);
     // Both pre-selected: running total should reflect both amounts summed.
-    await waitFor(() => expect(screen.getByText(/৩\.৫০/)).toBeTruthy());
+    // `structure.amount` is a server major-unit decimal (100 + 250 = 350
+    // taka), not minor units — see `fee-picker.tsx`'s own comment on why
+    // it's parsed through `parseCurrency` before summing.
+    await waitFor(() => expect(screen.getByText(/৩৫০\.০০/)).toBeTruthy());
   });
 
   it('unchecking a selected fee removes it from the selection', async () => {

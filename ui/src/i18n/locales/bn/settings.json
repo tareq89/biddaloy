@@ -198,5 +198,21 @@
       "friday": "শুক্রবার",
       "saturday": "শনিবার"
     }
+  },
+  "fees": {
+    "approvalLegend": "ধাপে অনুমোদন",
+    "approvalModeLabel": "অনুমোদনের পদ্ধতি",
+    "approvalModeOtp": "শুধু OTP",
+    "approvalModeOtpOrPassword": "OTP অথবা পাসওয়ার্ড",
+    "notifyLegend": "পরিবারকে জানান",
+    "notifyOnScheduleDefault": "নির্ধারিত ফি তৈরিতে ডিফল্টভাবে জানানো হবে",
+    "notifyOnManualGenerationDefault": "ম্যানুয়াল ফি তৈরিতে ডিফল্টভাবে জানানো হবে",
+    "lateFeeLegend": "বিলম্ব ফি",
+    "lateFeeAppliesFromTomorrow": "পরিবর্তন আগামীকালের ফি-তৈরির প্রক্রিয়া থেকে কার্যকর হবে।",
+    "lateFeeGraceDays": "রেয়াত দিন",
+    "lateFeeKind": "ধরন",
+    "lateFeeKindPercent": "শতাংশ",
+    "lateFeeKindFlat": "নির্দিষ্ট পরিমাণ",
+    "lateFeeValue": "মান"
   }
 }

@@ -25,6 +25,7 @@ import * as React from 'react';
 
 import { RecordPaymentModal } from '../../payments/-record/record-payment-modal';
 
+import { DiscountsSection } from './discounts-section';
 import { TabQueryState } from './tab-query-state';
 
 export interface FeesTabProps {
@@ -234,7 +235,12 @@ function WalletSection({ studentId }: { studentId: string }) {
                       <TableCell className="tabular-nums">
                         {formatServerAmount(tx.amount, regionConfig)}
                       </TableCell>
-                      <TableCell>{tx.note ?? '—'}</TableCell>
+                      {/* [16.8.2] `note` is staff free text and is no longer
+                          part of the family shape at all, so it is only
+                          present on the staff variant of this union. */}
+                      <TableCell>
+                        {'note' in tx && typeof tx.note === 'string' ? tx.note : '—'}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -350,10 +356,7 @@ export function FeesTab({ studentId }: FeesTabProps) {
                   <TabsTrigger value="open-bills">{t('detail.fees.openBillsTab')}</TabsTrigger>
                   <TabsTrigger value="wallet">{t('detail.fees.walletTab')}</TabsTrigger>
                   <TabsTrigger value="history">{t('detail.fees.historyTab')}</TabsTrigger>
-                  {/* [16.7.5]: disabled placeholder — not implemented yet. */}
-                  <TabsTrigger value="recurring-fees" disabled>
-                    {t('detail.fees.recurringFeesTab')}
-                  </TabsTrigger>
+                  <TabsTrigger value="discounts">{t('detail.fees.discountsTab')}</TabsTrigger>
                 </TabsList>
                 <TabsContent value="open-bills">
                   <FeeLinesTable
@@ -372,10 +375,8 @@ export function FeesTab({ studentId }: FeesTabProps) {
                 <TabsContent value="history">
                   <HistorySection fees={feeSummary.fee_breakdown} />
                 </TabsContent>
-                <TabsContent value="recurring-fees">
-                  <p className="text-sm text-muted-foreground">
-                    {t('detail.fees.recurringFeesPlaceholder')}
-                  </p>
+                <TabsContent value="discounts">
+                  <DiscountsSection studentId={studentId} />
                 </TabsContent>
               </Tabs>
             </div>

@@ -484,6 +484,21 @@ jobs:
       S3_SECRET_ACCESS_KEY: ci-secret-key
       S3_ALLOW_INSECURE_HTTP: 'true'
       S3_FORCE_PATH_STYLE: 'true'
+      # Every e2e spec in this job authenticates as the same seeded admin
+      # user (SEED_ADMIN_USER_ID), so `common/rate-limit/rate-limit-tracker.ts`'s
+      # `user:<sub>` bucket is shared across the whole file suite, not
+      # per-file. The default 100/60s (server/src/rate-limit.ts) is sized
+      # for one real admin's traffic, not a CI worker running
+      # `step-up.controller.e2e-spec.ts`, `checkout.controller.e2e-spec.ts`,
+      # `route-guard-coverage.e2e-spec.ts` and
+      # `discount-rules.controller.e2e-spec.ts` back to back against the
+      # same identity — discount-rules' own step-up calls landed on an
+      # already-warm bucket and got 429'd. `RATE_LIMIT_DEFAULT_LIMIT` is
+      # exactly the env knob `resolveDefaultRateLimit` exists for; this
+      # doesn't touch the guard itself or any per-route `STRICT_RATE_LIMIT`
+      # tier, just the generous global default this job's own traffic
+      # pattern outruns.
+      RATE_LIMIT_DEFAULT_LIMIT: '1000'
     steps:
       - uses: actions/checkout@v7
 

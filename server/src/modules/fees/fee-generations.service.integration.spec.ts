@@ -222,6 +222,52 @@ describe('FeeGenerationsService (integration)', () => {
     });
   });
 
+  describe('findAll recurring_schedule_id filter', () => {
+    it('scopes results to one schedule when multiple schedules have batches', async () => {
+      const scheduleA = '00000000-0000-4000-8000-0000006a1000';
+      const scheduleB = '00000000-0000-4000-8000-0000006a1001';
+      for (const id of [scheduleA, scheduleB]) {
+        await dataSource.query(
+          `INSERT INTO recurring_schedules (
+             id, tenant_id, academic_year_id, name, audience, rule, period_type,
+             starts_on, ends_on
+           ) VALUES ($1, $2, $3, $4, $5, $6, 'MONTH', '2026-01-01', '2026-12-31')
+           ON CONFLICT DO NOTHING`,
+          [
+            id,
+            TENANT_ID,
+            SEED_ACADEMIC_YEAR_ID,
+            `Filter test schedule ${id}`,
+            JSON.stringify({ enrollment_status: 'ACTIVE' }),
+            JSON.stringify({ kind: 'MONTHLY', day_of_month: 1 }),
+          ],
+        );
+      }
+
+      const batchA = await dataSource.transaction((manager) =>
+        service.create(
+          { ...baseInput, source: FeeGenerationSource.SCHEDULE, recurring_schedule_id: scheduleA },
+          manager,
+        ),
+      );
+      const batchB = await dataSource.transaction((manager) =>
+        service.create(
+          { ...baseInput, source: FeeGenerationSource.SCHEDULE, recurring_schedule_id: scheduleB },
+          manager,
+        ),
+      );
+
+      const page = await service.findAll(
+        { recurring_schedule_id: scheduleA, page: 1, limit: 20 },
+        TENANT_ID,
+      );
+
+      const ids = page.data.map((d) => d.id);
+      expect(ids).toContain(batchA.id);
+      expect(ids).not.toContain(batchB.id);
+    });
+  });
+
   describe('findAll aggregate', () => {
     it('matches summing the batch bills directly', async () => {
       const batch = await dataSource.transaction((manager) =>

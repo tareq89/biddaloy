@@ -66,6 +66,8 @@ import { Route as StaffStudentsImportRouteImport } from './routes/_staff/student
 import { Route as StaffStudentsNewRouteImport } from './routes/_staff/students/new'
 import { Route as StaffCommunicationsBatchesIndexRouteImport } from './routes/_staff/communications/batches/index'
 import { Route as StaffCommunicationsBatchesBatchIdRouteImport } from './routes/_staff/communications/batches/$batchId'
+import { Route as StaffFeesSchedulesIndexRouteImport } from './routes/_staff/fees/schedules/index'
+import { Route as StaffFeesSchedulesIdRouteImport } from './routes/_staff/fees/schedules/$id'
 import { Route as StaffStudentsStudentIdEditRouteImport } from './routes/_staff/students/$studentId_.edit'
 
 const IndexRoute = IndexRouteImport.update({
@@ -359,6 +361,16 @@ const StaffCommunicationsBatchesBatchIdRoute =
     path: '/communications/batches/$batchId',
     getParentRoute: () => StaffRoute,
   } as any)
+const StaffFeesSchedulesIndexRoute = StaffFeesSchedulesIndexRouteImport.update({
+  id: '/schedules/',
+  path: '/schedules/',
+  getParentRoute: () => StaffFeesRoute,
+} as any)
+const StaffFeesSchedulesIdRoute = StaffFeesSchedulesIdRouteImport.update({
+  id: '/schedules/$id',
+  path: '/schedules/$id',
+  getParentRoute: () => StaffFeesRoute,
+} as any)
 const StaffStudentsStudentIdEditRoute =
   StaffStudentsStudentIdEditRouteImport.update({
     id: '/students/$studentId_/edit',
@@ -421,8 +433,10 @@ export interface FileRoutesByFullPath {
   '/staff/': typeof StaffStaffIndexRoute
   '/students/': typeof StaffStudentsIndexRoute
   '/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
+  '/fees/schedules/$id': typeof StaffFeesSchedulesIdRoute
   '/students/$studentId/edit': typeof StaffStudentsStudentIdEditRoute
   '/communications/batches/': typeof StaffCommunicationsBatchesIndexRoute
+  '/fees/schedules/': typeof StaffFeesSchedulesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -477,8 +491,10 @@ export interface FileRoutesByTo {
   '/staff': typeof StaffStaffIndexRoute
   '/students': typeof StaffStudentsIndexRoute
   '/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
+  '/fees/schedules/$id': typeof StaffFeesSchedulesIdRoute
   '/students/$studentId/edit': typeof StaffStudentsStudentIdEditRoute
   '/communications/batches': typeof StaffCommunicationsBatchesIndexRoute
+  '/fees/schedules': typeof StaffFeesSchedulesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -538,8 +554,10 @@ export interface FileRoutesById {
   '/_staff/staff/': typeof StaffStaffIndexRoute
   '/_staff/students/': typeof StaffStudentsIndexRoute
   '/_staff/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
+  '/_staff/fees/schedules/$id': typeof StaffFeesSchedulesIdRoute
   '/_staff/students/$studentId_/edit': typeof StaffStudentsStudentIdEditRoute
   '/_staff/communications/batches/': typeof StaffCommunicationsBatchesIndexRoute
+  '/_staff/fees/schedules/': typeof StaffFeesSchedulesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -598,8 +616,10 @@ export interface FileRouteTypes {
     | '/staff/'
     | '/students/'
     | '/communications/batches/$batchId'
+    | '/fees/schedules/$id'
     | '/students/$studentId/edit'
     | '/communications/batches/'
+    | '/fees/schedules/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -654,8 +674,10 @@ export interface FileRouteTypes {
     | '/staff'
     | '/students'
     | '/communications/batches/$batchId'
+    | '/fees/schedules/$id'
     | '/students/$studentId/edit'
     | '/communications/batches'
+    | '/fees/schedules'
   id:
     | '__root__'
     | '/'
@@ -714,8 +736,10 @@ export interface FileRouteTypes {
     | '/_staff/staff/'
     | '/_staff/students/'
     | '/_staff/communications/batches/$batchId'
+    | '/_staff/fees/schedules/$id'
     | '/_staff/students/$studentId_/edit'
     | '/_staff/communications/batches/'
+    | '/_staff/fees/schedules/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1133,6 +1157,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffCommunicationsBatchesBatchIdRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/fees/schedules/': {
+      id: '/_staff/fees/schedules/'
+      path: '/schedules'
+      fullPath: '/fees/schedules/'
+      preLoaderRoute: typeof StaffFeesSchedulesIndexRouteImport
+      parentRoute: typeof StaffFeesRoute
+    }
+    '/_staff/fees/schedules/$id': {
+      id: '/_staff/fees/schedules/$id'
+      path: '/schedules/$id'
+      fullPath: '/fees/schedules/$id'
+      preLoaderRoute: typeof StaffFeesSchedulesIdRouteImport
+      parentRoute: typeof StaffFeesRoute
+    }
     '/_staff/students/$studentId_/edit': {
       id: '/_staff/students/$studentId_/edit'
       path: '/students/$studentId/edit'
@@ -1167,12 +1205,16 @@ interface StaffFeesRouteChildren {
   StaffFeesDuesRoute: typeof StaffFeesDuesRoute
   StaffFeesGenerateRoute: typeof StaffFeesGenerateRoute
   StaffFeesIndexRoute: typeof StaffFeesIndexRoute
+  StaffFeesSchedulesIdRoute: typeof StaffFeesSchedulesIdRoute
+  StaffFeesSchedulesIndexRoute: typeof StaffFeesSchedulesIndexRoute
 }
 
 const StaffFeesRouteChildren: StaffFeesRouteChildren = {
   StaffFeesDuesRoute: StaffFeesDuesRoute,
   StaffFeesGenerateRoute: StaffFeesGenerateRoute,
   StaffFeesIndexRoute: StaffFeesIndexRoute,
+  StaffFeesSchedulesIdRoute: StaffFeesSchedulesIdRoute,
+  StaffFeesSchedulesIndexRoute: StaffFeesSchedulesIndexRoute,
 }
 
 const StaffFeesRouteWithChildren = StaffFeesRoute._addFileChildren(

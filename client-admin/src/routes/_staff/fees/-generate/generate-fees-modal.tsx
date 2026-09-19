@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from '@biddaloy/ui/components';
 import {
+  feeStructuresQueryOptions,
   useAcademicYears,
   useGenerateFees,
   useGenerateFeesPreview,
@@ -46,6 +47,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { parseServerDate } from '@biddaloy/ui/utils';
+import { useQuery } from '@tanstack/react-query';
 import type { TFunction } from 'i18next';
 import * as React from 'react';
 
@@ -61,8 +63,22 @@ function addDays(date: Date, days: number): Date {
   return next;
 }
 
+// Not `date.toISOString().slice(0, 10)`: `toISOString` converts to UTC
+// first, and every `Date` this modal builds (`periodStart`,
+// `addDays(periodStart, 9)`) is a *local* calendar date — "January 2026"
+// means the browser's own January, not UTC's. Asia/Dhaka is UTC+6, so a
+// user there picking "January" got `toISOString()`-truncated straight
+// into "2025-12-31": local midnight Jan 1 is still Dec 31 in UTC. Found
+// live by `e2e/journeys/generation.spec.ts` (16.3.6) — every Playwright
+// run in this repo's own dev environment sits in that same +6 offset, so
+// the bug reproduced there before it could reach a real user. Reading
+// the date's own local Y/M/D fields sidesteps the UTC conversion
+// entirely.
 function toDateInputValue(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function describeSubmitError(error: unknown, t: TFunction<'feeGeneration'>): string {
@@ -88,9 +104,21 @@ function majorityClassId(studentNames: Map<string, string>): string | undefined 
 export interface GenerateFeesModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** [16.7.5]: the student-detail "Recurring fees" tab's "Bill one-off"
+   * action opens this modal pre-selected to one student — a schedule's
+   * audience genuinely doesn't match them (wrong academic year, wrong
+   * class), so a one-off bill through this existing flow is the
+   * fallback rather than a second bespoke billing UI. Seeded into
+   * `selectedStudents` on open; the picker itself still lets staff add
+   * or remove students from there. */
+  preselectedStudent?: { id: string; name: string } | null;
 }
 
-export function GenerateFeesModal({ open, onOpenChange }: GenerateFeesModalProps) {
+export function GenerateFeesModal({
+  open,
+  onOpenChange,
+  preselectedStudent,
+}: GenerateFeesModalProps) {
   const { t } = useTranslation('feeGeneration');
 
   const yearsQuery = useAcademicYears();
@@ -150,8 +178,30 @@ export function GenerateFeesModal({ open, onOpenChange }: GenerateFeesModalProps
     // eslint-disable-next-line react-hooks/exhaustive-deps -- default only, not a controlled sync
   }, [periodStart]);
 
+  React.useEffect(() => {
+    if (!open || !preselectedStudent) return;
+    setSelectedStudents(new Map([[preselectedStudent.id, preselectedStudent.name]]));
+  }, [open, preselectedStudent]);
+
   const generate = useGenerateFees();
   const previewMutation = useGenerateFeesPreview();
+
+  // Same data `FeePicker` fetches for its own list — re-queried here (React
+  // Query dedupes by key, so this doesn't double the network call) purely
+  // to build an id -> name lookup for `DuplicatesStep`, since the preview
+  // response only ever carries `fee_structure_id` (see
+  // `ui/src/hooks/fee-generation.ts`'s own comment on `DuplicateBillDto`).
+  const feeStructuresQuery = useQuery({
+    ...feeStructuresQueryOptions({ academic_year_id: academicYearId, limit: 100 }),
+    enabled: academicYearId !== '',
+  });
+  const feeStructureNames = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const structure of feeStructuresQuery.data?.data ?? []) {
+      map.set(structure.id, structure.name);
+    }
+    return map;
+  }, [feeStructuresQuery.data]);
 
   const feeCount = selectedFees.size;
   const studentCount = selectedStudents.size;
@@ -164,16 +214,37 @@ export function GenerateFeesModal({ open, onOpenChange }: GenerateFeesModalProps
     !previewMutation.isPending &&
     !generate.isPending;
 
-  function scope() {
+  /** Exactly `GenerateFeesPreviewDto` (the preview endpoint's own DTO),
+   * which has no `due_date` field at all — `GenerateFeesDto` (the real
+   * generate call) is the one that extends it with `due_date`/
+   * `duplicate_action`/`notify_families`. The server's `ValidationPipe`
+   * rejects unknown properties outright, so sending the generate-shaped
+   * payload — which carries `due_date` for the generate call's sake —
+   * straight to the preview endpoint 400s every preview. Built as the
+   * narrower shape here and widened by `scope()` below, mirroring the
+   * `extends` relationship between the two DTOs.
+   *
+   * Both DTOs take `period_start` (an ISO date) and `period_type` — never
+   * `month`/`year`/`week_start` directly. Those were being sent as their
+   * own top-level fields, which the server's `class-validator` DTO
+   * rejects outright ("property month should not exist … period_start
+   * must be a valid ISO 8601 date string"), so every preview 400'd and
+   * the whole modal crashed rendering the error. `periodStart` above is
+   * already the correctly-derived `Date` for both period types — this
+   * just needed to serialize it. */
+  function previewScope() {
     return {
       academic_year_id: academicYearId,
       period_type: periodType,
-      ...(periodType === 'MONTH' ? { month: Number(month), year: Number(calendarYear) } : {}),
-      ...(periodType === 'WEEK' ? { week_start: weekStart } : {}),
-      due_date: dueDate,
+      period_start: periodStart ? toDateInputValue(periodStart) : '',
       student_ids: Array.from(selectedStudents.keys()),
       fee_structure_ids: Array.from(selectedFees),
     };
+  }
+
+  /** `GenerateFeesDto`'s own shape: the preview scope plus `due_date`. */
+  function scope() {
+    return { ...previewScope(), due_date: dueDate };
   }
 
   // Sorted so the key doesn't depend on Set/Map iteration order, and used
@@ -203,7 +274,7 @@ export function GenerateFeesModal({ open, onOpenChange }: GenerateFeesModalProps
       {
         ...scope(),
         notify_families: notifyFamilies,
-        ...(action ? { duplicate_action: action } : {}),
+        ...(action ? { duplicate_strategy: action } : {}),
       },
       {
         onSuccess: (result) => {
@@ -211,9 +282,9 @@ export function GenerateFeesModal({ open, onOpenChange }: GenerateFeesModalProps
             tenantId: notifyTenantId,
             variant: 'success',
             message: t('notifications.generated', {
-              generated: result.generated,
-              skipped: result.skipped,
-              students: result.students_evaluated,
+              generated: result.generated_count,
+              skipped: result.skipped_count,
+              students: result.student_count,
             }),
           });
           resetAndClose();
@@ -238,9 +309,9 @@ export function GenerateFeesModal({ open, onOpenChange }: GenerateFeesModalProps
       return;
     }
 
-    previewMutation.mutate(scope(), {
+    previewMutation.mutate(previewScope(), {
       onSuccess: (result) => {
-        if (result.duplicates.length === 0 && result.inactive_students.length === 0) {
+        if (result.duplicates.length === 0 && result.inactive.length === 0) {
           submitGenerate();
           return;
         }
@@ -373,6 +444,8 @@ export function GenerateFeesModal({ open, onOpenChange }: GenerateFeesModalProps
               preview={preview}
               action={duplicateAction}
               onActionChange={setDuplicateAction}
+              studentNames={selectedStudents}
+              feeStructureNames={feeStructureNames}
             />
           )}
 
@@ -404,8 +477,6 @@ export function GenerateFeesModal({ open, onOpenChange }: GenerateFeesModalProps
             </div>
           </DialogFooter>
         </form>
-
-        {generate.modal}
       </DialogContent>
     </Dialog>
   );

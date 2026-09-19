@@ -312,4 +312,57 @@ describe('/invoices/$invoiceId', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Copy link' })).toBeNull());
     expect(await screen.findByRole('button', { name: 'Create share link' })).toBeTruthy();
   });
+
+  it('shows the created share URL in a labelled input right after creation', async () => {
+    const invoice = invoiceFactory({ id: 'invoice-1' });
+    let shares: Array<{ id: string; url: string; revoked_at: string | null }> = [];
+    server.use(
+      http.get('/api/v1/invoices/:id', () => HttpResponse.json(invoice)),
+      http.get('/api/v1/invoices/:id/share', () => HttpResponse.json(shares)),
+      http.post('/api/v1/invoices/:id/share', () => {
+        shares = [{ id: 'share-1', url: 'https://example.test/i/tok', revoked_at: null }];
+        return HttpResponse.json({ id: 'share-1', url: 'https://example.test/i/tok' });
+      }),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/invoices/invoice-1'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Create share link' }));
+
+    const input = await screen.findByLabelText('Shareable receipt link');
+    expect((input as HTMLInputElement).value).toBe('https://example.test/i/tok');
+  });
+
+  // The share endpoint (`GET /invoices/:id/share`) only ever returns the
+  // stored token *hash*, never the raw URL (`invoices.controller.ts`'s
+  // `listTokens`) — so a share that already existed before this page
+  // mounted (e.g. after a reload) can never populate the URL input. This
+  // used to render an empty, unlabelled `<Input>` instead; the fix is to
+  // not pretend the URL is recoverable at all.
+  it('hides the URL input for a share that already existed on load, instead of rendering it empty', async () => {
+    const invoice = invoiceFactory({ id: 'invoice-1' });
+    server.use(
+      http.get('/api/v1/invoices/:id', () => HttpResponse.json(invoice)),
+      http.get('/api/v1/invoices/:id/share', () =>
+        HttpResponse.json([{ id: 'share-1', revoked_at: null }]),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/invoices/invoice-1'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    await screen.findByRole('button', { name: 'Revoke' });
+    expect(screen.queryByLabelText('Shareable receipt link')).toBeNull();
+    expect(
+      await screen.findByText(/Link created\. It's only shown right after creation/),
+    ).toBeTruthy();
+  });
 });

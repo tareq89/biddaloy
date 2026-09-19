@@ -124,6 +124,13 @@ describe('[5.1] Family-facing read API', () => {
       name: 'GET /payments/invoices/student/:id',
       path: (id: string) => `${API}/payments/invoices/student/${id}`,
     },
+    // [16.8.2] Opened to PARENT/STUDENT with an allow-listed "what will I
+    // be billed next" shape. Listed here so it inherits every cross-family,
+    // cross-tenant and soft-delete case this table already drives.
+    {
+      name: 'GET /students/:id/schedules',
+      path: (id: string) => `${API}/students/${id}/schedules`,
+    },
   ];
 
   beforeAll(async () => {
@@ -865,6 +872,43 @@ describe('[5.1] Family-facing read API', () => {
         .set('Authorization', `Bearer ${studentToken}`)
         .set('X-Tenant-ID', TENANT_B)
         .expect(401);
+    });
+  });
+
+  describe('[16.8.2] GET /students/:id/schedules — family variant', () => {
+    it('gives the linked PARENT the allow-listed shape, never the staff config', async () => {
+      const res = await http()
+        .get(`${API}/students/${childOneId}/schedules`)
+        .set('Authorization', `Bearer ${parentToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .expect(200);
+
+      expect(Array.isArray(res.body)).toBe(true);
+      for (const item of res.body) {
+        // Key equality, not "some fields are missing" — the staff shape's
+        // id/period_type/due_days_after_period_start/is_active/excluded must
+        // not reach a guardian, and nor must anything added later.
+        expect(Object.keys(item).sort()).toEqual(
+          ['name', 'fees', 'rule_label', 'next_period'].sort(),
+        );
+        for (const fee of item.fees) {
+          expect(Object.keys(fee).sort()).toEqual(['name', 'amount'].sort());
+        }
+      }
+    });
+
+    it('still gives staff the full billing-automation view on the same route', async () => {
+      const res = await http()
+        .get(`${API}/students/${childOneId}/schedules`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .expect(200);
+
+      expect(Array.isArray(res.body)).toBe(true);
+      for (const item of res.body) {
+        expect(item).toHaveProperty('id');
+        expect(item).toHaveProperty('excluded');
+      }
     });
   });
 

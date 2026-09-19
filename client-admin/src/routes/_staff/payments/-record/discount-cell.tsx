@@ -2,7 +2,7 @@
  * [16.4.4] A `MoneyInput` that stays visually locked (a lock icon,
  * `readOnly`) until the accountant clicks it — discounting a bill is
  * rare enough, and consequential enough (it triggers a step-up approval
- * prompt on submit — see `record-payment-modal.tsx`'s `checkout.modal`),
+ * prompt on submit — see `record-payment-modal.tsx`'s `useCheckout()`),
  * that it shouldn't be one accidental keystroke away from the Pay column
  * next to it.
  */

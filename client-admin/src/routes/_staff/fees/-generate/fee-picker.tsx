@@ -10,7 +10,7 @@
 import { Checkbox } from '@biddaloy/ui/components';
 import { feeStructuresQueryOptions, type FeeStructure } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatCurrency } from '@biddaloy/ui/utils';
+import { formatCurrency, formatServerAmount, parseCurrency } from '@biddaloy/ui/utils';
 import { useQuery } from '@tanstack/react-query';
 
 export interface FeePickerProps {
@@ -48,9 +48,14 @@ export function FeePicker({
   });
   const structures = sortStructures(structuresQuery.data?.data ?? [], majorityClassId);
 
+  // `structure.amount` is a server decimal ("500" or "500.00"), same
+  // shape `fee-structures/index.tsx`'s own list column reads with
+  // `formatServerAmount` — not minor units. Parsed to minor units before
+  // summing so `runningTotal` can go straight into `formatCurrency` below
+  // without every intermediate sum re-triggering its own integer check.
   const runningTotal = structures
     .filter((structure) => selected.has(structure.id))
-    .reduce((sum, structure) => sum + structure.amount, 0);
+    .reduce((sum, structure) => sum + parseCurrency(String(structure.amount), config), 0);
 
   function toggle(structure: FeeStructure, checked: boolean) {
     const next = new Set(selected);
@@ -81,7 +86,7 @@ export function FeePicker({
               {structure.name}
             </label>
             <span className="text-xs text-muted-foreground">
-              {formatCurrency(structure.amount, config)}
+              {formatServerAmount(structure.amount, config)}
             </span>
           </li>
         ))}

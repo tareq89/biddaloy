@@ -70,15 +70,37 @@ test('paging keeps rows, scroll position and table height stable while busy', as
   const scrollYBefore = await page.evaluate(() => window.scrollY);
   const firstRowBefore = await list.dataRows().first().innerText();
 
+  // The same `role="status"` scoping as `table` above, applied to the
+  // rows too. `ListShellPage.dataRows()` is deliberately unscoped — every
+  // other spec wants "the rows on screen, wherever they are" — but
+  // `RoutePending`'s `SkeletonTable` (`ui/src/components/skeleton.tsx`)
+  // is built from the same `<Table>` parts as the real one and, unlike
+  // `DataTable`'s own placeholder rows, carries no `data-placeholder`.
+  // An unscoped `dataRows()` therefore counts the *fallback's* six
+  // skeleton rows, so assertion (a) below would pass on the skeleton —
+  // the exact opposite of what it exists to prove.
+  const realRows = page.locator(
+    'table:not([role="status"] table) > tbody > tr:not(:has(td[colspan])):not([data-placeholder])',
+  );
+
   // Fire the transition and immediately start polling — the busy window
   // is short (a real API call, not throttled here), so this races the
   // response deliberately rather than waiting first.
-  const rowCountDuringTransition: number[] = [];
-  const heightDuringTransition: number[] = [];
+  //
+  // Rows and height are sampled as one paired instant, and an instant
+  // where the real table isn't mounted at all is skipped rather than
+  // recorded. That gap is the route-level pending fallback the `table`
+  // locator above already excludes by design: `boundingBox()` returns
+  // `null` when the locator matches nothing, and coercing that to `0`
+  // scored "no table right now" as "the table collapsed to 0px" —
+  // failing assertion (b) against a fallback this spec declares out of
+  // scope. `samples.length` below keeps the skip from hiding a real
+  // collapse.
+  const samples: { rows: number; height: number }[] = [];
   const pollDuringTransition = (async () => {
     for (let i = 0; i < 20; i += 1) {
-      rowCountDuringTransition.push(await list.dataRows().count());
-      heightDuringTransition.push((await table.boundingBox())?.height ?? 0);
+      const box = await table.boundingBox();
+      if (box) samples.push({ rows: await realRows.count(), height: box.height });
       await page.waitForTimeout(10);
     }
   })();
@@ -86,9 +108,17 @@ test('paging keeps rows, scroll position and table height stable while busy', as
   await list.nextPage();
   await pollDuringTransition;
 
+  // The transition has to have been observed for (a) and (b) to mean
+  // anything — without this a run where the real table was never mounted
+  // during any sample would pass vacuously.
+  expect(
+    samples.length,
+    'no real-table samples taken during the transition',
+  ).toBeGreaterThanOrEqual(5);
+
   // (a) row count never drops to 0 during the transition — the stale
   // page-1 rows stay mounted (dimmed) until page 2's rows replace them.
-  expect(rowCountDuringTransition.every((count) => count > 0)).toBe(true);
+  expect(samples.every(({ rows }) => rows > 0)).toBe(true);
 
   await expectUrlParam(page, 'page', '2');
   await list.expectResultCount(PAGE_SIZE);
@@ -104,7 +134,7 @@ test('paging keeps rows, scroll position and table height stable while busy', as
   // table had before the transition started.
   if (before) {
     const settledHeight = (await table.boundingBox())?.height ?? 0;
-    const jumped = [...heightDuringTransition, settledHeight].filter(
+    const jumped = [...samples.map(({ height }) => height), settledHeight].filter(
       (height) => Math.abs(height - before.height) >= ROW_HEIGHT_TOLERANCE_PX,
     );
     expect(jumped, `table height moved mid-transition: ${jumped.join(', ')}`).toEqual([]);

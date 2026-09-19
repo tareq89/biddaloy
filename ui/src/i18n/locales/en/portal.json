@@ -35,6 +35,13 @@
     "invoicesEmpty": "No invoices yet.",
     "printLabel": "Print invoice {{number}}",
     "printError": "Could not open the printable invoice. Try again.",
+    "lateFeeTag": "Late fee",
+    "walletTitle": "Wallet",
+    "walletBalance": "Balance",
+    "walletEmpty": "No wallet activity yet.",
+    "recurringTitle": "Recurring fees",
+    "recurringEmpty": "No recurring fees set up.",
+    "recurringNextOn": "Next on {{date}}",
     "error": {
       "message": "Could not load these fees. Something went wrong reaching the school's records — check your connection and try again.",
       "retry": "Try again"

@@ -15,11 +15,16 @@ import {
   myStudentsQueryOptions,
   openPrintableInvoice,
   useCurrentUser,
+  useFamilyStudentSchedules,
   useMyStudents,
   useStudentFeeSummary,
+  useStudentWallet,
+  type FamilyStudentSchedule,
+  type FamilyStudentWallet,
   type Invoice,
   type Student,
   type StudentFee,
+  type StudentWallet,
 } from '@biddaloy/ui/hooks';
 import {
   RegionConfigProvider,
@@ -261,6 +266,8 @@ function PortalFees() {
     ),
     enabled: selected !== undefined,
   });
+  const walletQuery = useStudentWallet(selected?.id);
+  const schedulesQuery = useFamilyStudentSchedules(selected?.id);
 
   if (studentsQuery.isPending) return <FeesSkeleton label={t('fees.loading')} />;
 
@@ -286,15 +293,25 @@ function PortalFees() {
     );
   }
 
-  if (summaryQuery.isPending || invoicesQuery.isPending) {
+  if (
+    summaryQuery.isPending ||
+    invoicesQuery.isPending ||
+    walletQuery.isPending ||
+    schedulesQuery.isPending
+  ) {
     return <FeesSkeleton label={t('fees.loading')} showPicker={students.length > 1} />;
   }
 
-  if (summaryQuery.isError || invoicesQuery.isError) {
-    // One error frame for the whole page, not one per card: both halves
-    // describe the same student's money, and a half-rendered page would
-    // imply the other half is complete. No `<h1>`, and never the server's
-    // own message — a raw id must not reach a parent.
+  if (
+    summaryQuery.isError ||
+    invoicesQuery.isError ||
+    walletQuery.isError ||
+    schedulesQuery.isError
+  ) {
+    // One error frame for the whole page, not one per card: every card
+    // describes the same student's money, and a half-rendered page would
+    // imply the rest is complete. No `<h1>`, and never the server's own
+    // message — a raw id must not reach a parent.
     return (
       <ErrorState
         message={t('fees.error.message')}
@@ -302,6 +319,8 @@ function PortalFees() {
         onRetry={() => {
           void summaryQuery.refetch();
           void invoicesQuery.refetch();
+          void walletQuery.refetch();
+          void schedulesQuery.refetch();
         }}
       />
     );
@@ -327,6 +346,8 @@ function PortalFees() {
       )}
       <FeesSummary summary={summaryQuery.data} config={config} />
       <BreakdownCard fees={summaryQuery.data.fee_breakdown} config={config} />
+      <WalletCard wallet={walletQuery.data} config={config} />
+      <RecurringFeesCard schedules={schedulesQuery.data} config={config} />
       <InvoicesCard
         invoices={invoicesQuery.data.data}
         total={invoicesQuery.data.total}
@@ -494,7 +515,13 @@ function Figure({ label, value, small }: { label: string; value: string | null; 
   );
 }
 
-function BreakdownCard({ fees, config }: { fees: StudentFee[]; config: RegionConfig }) {
+function BreakdownCard({
+  fees,
+  config,
+}: {
+  fees: (StudentFee & { is_late_fee?: boolean })[];
+  config: RegionConfig;
+}) {
   const { t } = useTranslation('portal');
   const monthNames = useMonthNames();
   const now = new Date();
@@ -533,6 +560,16 @@ function BreakdownCard({ fees, config }: { fees: StudentFee[]; config: RegionCon
                     // gets, so a year isn't the one Latin number left.
                     year: renderDigits(String(fee.year), config.numerals),
                   })}
+                  {/* [16.8.4] `is_late_fee` is only set true on bills the
+                      school raised *because* an earlier bill went unpaid
+                      (`late_fee_for_student_fee_id IS NOT NULL`
+                      server-side) — labelled so a parent doesn't mistake
+                      it for another ordinary month's fee. */}
+                  {fee.is_late_fee === true && (
+                    <span className="ml-1.5 text-[11px] font-normal text-status-overdue-fg">
+                      {t('fees.lateFeeTag')}
+                    </span>
+                  )}
                 </span>
                 <span className={`text-base font-bold tabular-nums ${toneFor(status)}`}>
                   {formatServerAmount(Math.max(balance, 0), config)}
@@ -654,6 +691,129 @@ function InvoicesCard({
             >
               <PrinterIcon className="size-4.5" aria-hidden="true" />
             </button>
+          </div>
+        ))
+      )}
+    </Card>
+  );
+}
+
+/**
+ * [16.8.4] Wallet balance + short transaction list — `GET
+ * /students/:id/wallet`'s family shape (`FamilyStudentWalletResponseDto`,
+ * `family.dto.ts`), allow-listed to `{amount, kind, created_at}` per
+ * transaction: no `note` (staff free text, withheld same as `Payment.remarks`
+ * elsewhere on this page). Kind labels reuse `common.walletTransactionKind.*`
+ * — the same keys the staff wallet tab (`fees-tab.tsx`) already renders, so
+ * this doesn't duplicate that translation set for a second surface.
+ */
+function WalletCard({
+  wallet,
+  config,
+}: {
+  // `useStudentWallet` is shared with the staff wallet tab, so it's typed
+  // as the role union (`StudentWallet | FamilyStudentWallet`) — this card
+  // is only ever mounted in the family portal, but stays honest about
+  // that by reading nothing beyond the fields both shapes share
+  // (`balance`, and `amount`/`kind`/`created_at` per transaction), never
+  // the staff-only `note`.
+  wallet: StudentWallet | FamilyStudentWallet;
+  config: RegionConfig;
+}) {
+  const { t } = useTranslation('portal');
+  const { t: tCommon } = useTranslation('common');
+  // Newest few only — this is a glance-at card, not a ledger. The wallet
+  // controller itself already caps the page at 50; this narrows further,
+  // same reasoning `fees-tab.tsx`'s `WalletSection` slices to 10.
+  const recent = wallet.transactions.slice(0, 5);
+
+  return (
+    <Card className="flex flex-col">
+      <h2 className="border-b border-border-subtle px-3.5 py-3 text-sm font-semibold">
+        {t('fees.walletTitle')}
+      </h2>
+      <div className="flex flex-col gap-1.5 border-b border-border-subtle px-3.5 py-3">
+        <span className="text-sm text-muted-foreground">{t('fees.walletBalance')}</span>
+        <span className="text-lg font-semibold tabular-nums">
+          {formatServerAmount(wallet.balance, config)}
+        </span>
+      </div>
+      {recent.length === 0 ? (
+        <p className="p-3.5 text-sm text-muted-foreground">{t('fees.walletEmpty')}</p>
+      ) : (
+        recent.map((tx, index) => (
+          <div
+            key={`${tx.created_at}-${index}`}
+            className={`flex items-center justify-between gap-2 px-3.5 py-2.5 ${
+              index > 0 ? 'border-t border-border-subtle' : ''
+            }`}
+          >
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="text-sm">
+                {tCommon(`walletTransactionKind.${tx.kind}`, { defaultValue: tx.kind })}
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                {formatDate(new Date(tx.created_at), config)}
+              </span>
+            </div>
+            <span className="flex-shrink-0 text-sm font-semibold tabular-nums">
+              {formatServerAmount(tx.amount, config)}
+            </span>
+          </div>
+        ))
+      )}
+    </Card>
+  );
+}
+
+/**
+ * [16.8.4] "Recurring fees" — `GET /students/:id/schedules`'s family
+ * shape (`FamilyStudentScheduleDto[]`, `family.dto.ts`): human labels
+ * only (`name`, `fees`, `rule_label`, `next_period`). No schedule `id`,
+ * `audience`, `excluded` or `is_active` — none of that is family's
+ * business, and `useFamilyStudentSchedules` never requests it.
+ */
+function RecurringFeesCard({
+  schedules,
+  config,
+}: {
+  schedules: FamilyStudentSchedule[];
+  config: RegionConfig;
+}) {
+  const { t } = useTranslation('portal');
+
+  return (
+    <Card className="flex flex-col">
+      <h2 className="border-b border-border-subtle px-3.5 py-3 text-sm font-semibold">
+        {t('fees.recurringTitle')}
+      </h2>
+      {schedules.length === 0 ? (
+        <p className="p-3.5 text-sm text-muted-foreground">{t('fees.recurringEmpty')}</p>
+      ) : (
+        schedules.map((schedule, index) => (
+          <div
+            key={`${schedule.name}-${index}`}
+            className={`flex flex-col gap-1 px-3.5 py-2.5 ${
+              index > 0 ? 'border-t border-border-subtle' : ''
+            }`}
+          >
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <span className="text-sm font-semibold">{schedule.name}</span>
+              <span className="text-sm font-semibold tabular-nums">
+                {formatServerAmount(
+                  schedule.fees.reduce((sum, fee) => sum + fee.amount, 0),
+                  config,
+                )}
+              </span>
+            </div>
+            <span className="text-[11px] text-muted-foreground">{schedule.rule_label}</span>
+            {schedule.next_period !== null && (
+              <span className="text-[11px] text-muted-foreground">
+                {t('fees.recurringNextOn', {
+                  date: formatDate(parseServerDate(schedule.next_period), config),
+                })}
+              </span>
+            )}
           </div>
         ))
       )}

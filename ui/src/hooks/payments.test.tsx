@@ -116,7 +116,6 @@ describe('useCheckout', () => {
         <div>
           <button onClick={() => checkout.mutate(input)}>run</button>
           {checkout.isSuccess && <span data-testid="result">{checkout.data.invoice_number}</span>}
-          {checkout.modal}
         </div>
       );
     }
