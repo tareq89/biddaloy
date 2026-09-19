@@ -201,7 +201,7 @@ export function MonthGrid({
                 onDayClick?.(day);
               }}
               className={[
-                'min-h-24 border-r border-b p-1 text-left align-top',
+                'min-h-24 border-r border-b p-1 text-start align-top',
                 isWeekend ? 'bg-muted/40' : 'bg-background',
                 isCurrentMonth ? '' : 'text-muted-foreground/50',
               ].join(' ')}
