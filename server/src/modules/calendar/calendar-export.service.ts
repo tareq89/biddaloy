@@ -290,17 +290,41 @@ export class CalendarExportService {
       // lookup in the *target* year resolves them to that year's own
       // class ids (classes are scoped per academic year, same rule
       // `CalendarEventsService.resolveAcademicYear` enforces on write).
-      const targetClassIds =
-        row.class_names.length === 0
-          ? []
-          : (
-              await this.classRepo
-                .createQueryBuilder('class')
-                .where('class.tenant_id = :tenantId', { tenantId })
-                .andWhere('class.academic_year_id = :targetYearId', { targetYearId })
-                .andWhere('class.name IN (:...names)', { names: row.class_names })
-                .getMany()
-            ).map((c) => c.id);
+      let targetClassIds: string[] = [];
+      if (row.class_names.length > 0) {
+        const targetClasses = await this.classRepo
+          .createQueryBuilder('class')
+          .where('class.tenant_id = :tenantId', { tenantId })
+          .andWhere('class.academic_year_id = :targetYearId', { targetYearId })
+          .andWhere('class.name IN (:...names)', { names: row.class_names })
+          .getMany();
+
+        // Same rule `CalendarImportService.resolveClassIds` enforces on
+        // upload: a class name missing in the target year must stage an
+        // ERROR row, not silently become `class_ids: []` — that would
+        // clone an event restricted to specific classes as unrestricted,
+        // widening who sees it in the new year.
+        const foundNames = new Set(targetClasses.map((c) => c.name));
+        const missingNames = row.class_names.filter((name) => !foundNames.has(name));
+        if (missingNames.length > 0) {
+          staged.push({
+            rowNumber,
+            status: CalendarImportRowStatus.ERROR,
+            errors: [
+              {
+                row: rowNumber,
+                column: 'classes',
+                message: `Unknown class name(s) in target academic year: ${missingNames.join(', ')}`,
+                severity: 'error',
+              },
+            ],
+            draft: null,
+            existing_event_id: null,
+          });
+          continue;
+        }
+        targetClassIds = targetClasses.map((c) => c.id);
+      }
 
       const existing = await this.eventRepo
         .createQueryBuilder('e')

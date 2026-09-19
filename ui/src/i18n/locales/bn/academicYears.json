@@ -107,8 +107,8 @@
         "errorDatesRequired": "শুরু ও শেষের তারিখ আবশ্যক",
         "errorEndBeforeStart": "শেষের তারিখ শুরুর তারিখের পরে হতে হবে",
         "errorMessage": "টার্ম সংরক্ষণ করতে ব্যর্থ হয়েছে",
-        "errorOverlap": "{{message}}",
-        "errorOutsideYear": "{{message}}",
+        "errorOverlap": "\"{{name}}\" চলতি শিক্ষাবর্ষের একটি বিদ্যমান টার্মের সাথে সাংঘর্ষিক",
+        "errorOutsideYear": "টার্মের তারিখ অবশ্যই শিক্ষাবর্ষের মধ্যে হতে হবে ({{yearStart}} – {{yearEnd}})",
         "save": "সংরক্ষণ করুন",
         "saving": "সংরক্ষণ করা হচ্ছে…"
       },

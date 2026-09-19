@@ -10,7 +10,9 @@ import { AuthModule } from '../auth/auth.module';
 import { CalendarExportService } from './calendar-export.service';
 import { CalendarImportService } from './calendar-import.service';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
+import { Class } from '../academics/entities/class.entity';
 import { CalendarEvent } from './entities/calendar-event.entity';
+import { CalendarEventClass } from './entities/calendar-event-class.entity';
 import { CalendarImportRowStatus, CalendarAudience, UserRole } from '@biddaloy/shared';
 import { CALENDAR_IMPORT_COLUMNS, RawCalendarImportRow } from './import/calendar-import-rows.util';
 import { CalendarViewer } from './calendar-visibility.util';
@@ -355,6 +357,57 @@ describe('CalendarExportService (integration)', () => {
     expect(result.dropped).toBe(1);
     expect(result.rows).toHaveLength(0);
     expect(result.summary).toEqual({ new: 0, updated: 0, unchanged: 0, error: 0 });
+  });
+
+  it('errors a row instead of widening visibility when its class is missing in the target year', async () => {
+    const classRepo = dataSource.getRepository(Class);
+    const sourceClass = await classRepo.save({
+      name: 'Clone-Missing-Class 9A',
+      academic_year_id: sourceYearId,
+      tenant_id: TENANT_ID,
+    });
+
+    const eventRepo = dataSource.getRepository(CalendarEvent);
+    const event = await eventRepo.save({
+      tenant_id: TENANT_ID,
+      academic_year_id: sourceYearId,
+      type: 'EXAM',
+      name: 'Class-Restricted Exam',
+      start_date: '2031-06-01',
+      end_date: '2031-06-01',
+      counts_as_working_day: true,
+      audience: CalendarAudience.ALL,
+      published_at: new Date(),
+    });
+    await dataSource.getRepository(CalendarEventClass).save({
+      event_id: event.id,
+      class_id: sourceClass.id,
+      tenant_id: TENANT_ID,
+    });
+
+    // `targetYearId` deliberately has no class named 'Clone-Missing-Class
+    // 9A' — cloning must refuse to silently drop the restriction (which
+    // would make the cloned event visible to every class) rather than
+    // stage it unrestricted.
+    const result = await exportService.cloneToYear(
+      TENANT_ID,
+      SEED_ADMIN_USER_ID,
+      sourceYearId,
+      targetYearId,
+      [event.id],
+    );
+
+    expect(result.summary.error).toBe(1);
+    expect(result.rows[0]!.status).toBe(CalendarImportRowStatus.ERROR);
+
+    const cloned = await eventRepo.findOne({
+      where: {
+        name: 'Class-Restricted Exam',
+        tenant_id: TENANT_ID,
+        academic_year_id: targetYearId,
+      },
+    });
+    expect(cloned).toBeNull();
   });
 
   it('does not false-match an unrelated event in a different year sharing the shifted name/date', async () => {

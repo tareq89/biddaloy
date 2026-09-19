@@ -207,6 +207,12 @@ export class CalendarImportService {
 
     const today = await this.getToday(tenantId);
     const staged: StagedCalendarImportRow[] = [];
+    // A (name, start_date) pair staged as NEW earlier in this same file —
+    // the existing-event lookup below only queries the database, so two
+    // rows sharing a (name, start_date) that both miss the database would
+    // otherwise both stage as NEW and commit() would create two events
+    // instead of the second one erroring or upserting against the first.
+    const stagedNewKeys = new Set<string>();
 
     for (let i = 0; i < rawRows.length; i++) {
       const rowNumber = i + 2; // header is row 1
@@ -278,6 +284,26 @@ export class CalendarImportService {
         continue;
       }
 
+      const dedupeKey = `${row.name} ${row.start_date}`;
+      if (stagedNewKeys.has(dedupeKey)) {
+        staged.push({
+          rowNumber,
+          status: CalendarImportRowStatus.ERROR,
+          errors: [
+            {
+              row: rowNumber,
+              column: 'name',
+              message: 'Another row earlier in this file already has this name and start date',
+              severity: 'error',
+              value: row.name,
+            },
+          ],
+          draft: null,
+          existing_event_id: null,
+        });
+        continue;
+      }
+
       const existing = await this.eventRepo
         .createQueryBuilder('event')
         .where('event.tenant_id = :tenantId', { tenantId })
@@ -300,6 +326,7 @@ export class CalendarImportService {
       };
 
       if (!existing) {
+        stagedNewKeys.add(dedupeKey);
         staged.push({
           rowNumber,
           status: CalendarImportRowStatus.NEW,

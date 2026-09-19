@@ -28,6 +28,25 @@ export type RawCalendarImportRow = Record<CalendarImportColumn, string>;
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_ONLY = /^\d{2}:\d{2}(:\d{2})?$/;
+
+/** `DATE_ONLY` only checks shape — "2031-13-45" matches it. Round-trips
+ * through `Date.UTC` and compares components back, so an out-of-range
+ * date is caught here instead of surfacing later as a 500 when the
+ * service layer hands it to Postgres (same fix as `ics-parse.util.ts`'s
+ * `toIsoDate`). */
+function isRealDate(isoDate: string): boolean {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  const date = new Date(Date.UTC(year!, month! - 1, day!));
+  return (
+    date.getUTCFullYear() === year && date.getUTCMonth() === month! - 1 && date.getUTCDate() === day
+  );
+}
+
+/** `TIME_ONLY` only checks shape — "99:99" matches it. */
+function isRealTime(hhmm: string): boolean {
+  const [hours, minutes] = hhmm.split(':').map(Number);
+  return hours! >= 0 && hours! <= 23 && minutes! >= 0 && minutes! <= 59;
+}
 const TRUE_WORDS = new Set(['TRUE', 'YES', '1']);
 const FALSE_WORDS = new Set(['FALSE', 'NO', '0', '']);
 
@@ -77,28 +96,30 @@ export function validateCalendarImportRow(
   }
 
   const startDate = raw.start_date.trim();
-  if (!DATE_ONLY.test(startDate)) {
+  const startDateValid = DATE_ONLY.test(startDate) && isRealDate(startDate);
+  if (!startDateValid) {
     errors.push(err(rowNumber, 'start_date', '"start_date" must be YYYY-MM-DD', raw.start_date));
   }
 
   const endDate = raw.end_date.trim();
-  if (!DATE_ONLY.test(endDate)) {
+  const endDateValid = DATE_ONLY.test(endDate) && isRealDate(endDate);
+  if (!endDateValid) {
     errors.push(err(rowNumber, 'end_date', '"end_date" must be YYYY-MM-DD', raw.end_date));
   }
 
-  if (DATE_ONLY.test(startDate) && DATE_ONLY.test(endDate) && endDate < startDate) {
+  if (startDateValid && endDateValid && endDate < startDate) {
     errors.push(err(rowNumber, 'end_date', '"end_date" must not be earlier than "start_date"'));
   }
 
   const startTimeRaw = raw.start_time.trim();
   const startTime = startTimeRaw.length > 0 ? startTimeRaw : null;
-  if (startTime !== null && !TIME_ONLY.test(startTime)) {
+  if (startTime !== null && !(TIME_ONLY.test(startTime) && isRealTime(startTime))) {
     errors.push(err(rowNumber, 'start_time', '"start_time" must be HH:mm', raw.start_time));
   }
 
   const endTimeRaw = raw.end_time.trim();
   const endTime = endTimeRaw.length > 0 ? endTimeRaw : null;
-  if (endTime !== null && !TIME_ONLY.test(endTime)) {
+  if (endTime !== null && !(TIME_ONLY.test(endTime) && isRealTime(endTime))) {
     errors.push(err(rowNumber, 'end_time', '"end_time" must be HH:mm', raw.end_time));
   }
 

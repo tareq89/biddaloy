@@ -9,7 +9,6 @@
 import { CalendarEventType, Permission } from '@biddaloy/shared';
 import { Button, ErrorState, Skeleton } from '@biddaloy/ui/components';
 import {
-  calendarEventsQueryOptions,
   calendarSettingsQueryOptions,
   useAddPublicHolidays,
   useCalendarEvent,
@@ -75,13 +74,14 @@ function addMonths(month: string, delta: number): string {
 
 export const Route = createFileRoute('/_staff/calendar/')({
   validateSearch: calendarSearchSchema,
-  loaderDeps: ({ search }) => ({ month: search.month ?? currentMonth() }),
-  loader: ({ context: { queryClient }, deps }) => {
-    const { from, to } = monthRange(deps.month);
+  loader: ({ context: { queryClient } }) => {
+    // No events prefetch here: `useCalendarEvents`'s real query key also
+    // includes `types`/`classId`/`includeDrafts` (the last derived from a
+    // permission check the loader has no access to), so a `{ from, to }`
+    // -only prefetch can never match it — it would just be an extra,
+    // wasted request rather than actually warming the cache the component
+    // reads from.
     return Promise.all([
-      queryClient
-        .ensureQueryData(calendarEventsQueryOptions({ from, to }))
-        .catch(swallowUnlessOffline),
       queryClient.ensureQueryData(calendarSettingsQueryOptions()).catch(swallowUnlessOffline),
       loadRouteNamespaces('calendar', 'common'),
     ]);

@@ -107,8 +107,8 @@
         "errorDatesRequired": "Start and end dates are required",
         "errorEndBeforeStart": "End date must be after the start date",
         "errorMessage": "Failed to save term",
-        "errorOverlap": "{{message}}",
-        "errorOutsideYear": "{{message}}",
+        "errorOverlap": "\"{{name}}\" overlaps an existing term in this academic year",
+        "errorOutsideYear": "Term dates must fall within the academic year ({{yearStart}} – {{yearEnd}})",
         "save": "Save",
         "saving": "Saving…"
       },

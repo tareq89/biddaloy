@@ -69,13 +69,14 @@ export function EventDetailsSheet({
               <dd>{event.description}</dd>
             </div>
           )}
-          {!event.published && <dd className="text-muted-foreground">{t('eventDetails.draft')}</dd>}
-          {event.is_locked && (
-            <p role="status" className="text-muted-foreground">
-              {t('eventDetails.locked')}
-            </p>
-          )}
         </dl>
+
+        {!event.published && <p className="text-muted-foreground">{t('eventDetails.draft')}</p>}
+        {event.is_locked && (
+          <p role="status" className="text-muted-foreground">
+            {t('eventDetails.locked')}
+          </p>
+        )}
 
         {canManage && (
           <DialogFooter>

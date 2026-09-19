@@ -386,7 +386,7 @@ describe('EventFormDialog', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Save' }));
 
     const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toBe("Couldn't save this event. Try again.");
+    expect(alert.textContent).toBe('Name is required.');
     expect(onSubmit).not.toHaveBeenCalled();
   });
 

@@ -57,7 +57,10 @@ export class AcademicTermsService {
     if (startDate < yearStart || endDate > yearEnd || startDate > endDate) {
       throw new UnprocessableEntityException({
         message: `Term dates must fall within the academic year (${yearStart} – ${yearEnd})`,
-        details: { code: 'TERM_OUTSIDE_ACADEMIC_YEAR' },
+        // `yearStart`/`yearEnd` let the client build a fully localized
+        // message instead of interpolating this English-only sentence —
+        // see client-admin's terms-tab.tsx `termServerErrorDetail`.
+        details: { code: 'TERM_OUTSIDE_ACADEMIC_YEAR', yearStart, yearEnd },
       });
     }
   }
@@ -71,7 +74,9 @@ export class AcademicTermsService {
     ) {
       throw new UnprocessableEntityException({
         message: `"${name}" overlaps an existing term in this academic year`,
-        details: { code: 'TERM_OVERLAP' },
+        // `name` lets the client build a fully localized message instead
+        // of interpolating this English-only sentence.
+        details: { code: 'TERM_OVERLAP', name },
       });
     }
     throw err;
