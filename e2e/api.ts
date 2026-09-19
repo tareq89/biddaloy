@@ -88,6 +88,31 @@ export async function post<T>(
   return (await response.json()) as T;
 }
 
+/** `POST <path>` with a `multipart/form-data` body — for endpoints behind
+ * `@UseInterceptors(FileInterceptor(...))`, like `/calendar-import/validate`
+ * (17.3.6). `post` above always sends JSON, which Nest's multer
+ * interceptor never sees as `file`. */
+export async function postMultipart<T>(
+  request: APIRequestContext,
+  session: ApiSession,
+  path: string,
+  file: { name: string; mimeType: string; buffer: Buffer },
+): Promise<T> {
+  const response = await request.post(`/api/v1${path}`, {
+    headers: {
+      Authorization: `Bearer ${session.token}`,
+      'X-Tenant-ID': session.tenantId,
+    },
+    multipart: { file },
+  });
+  if (!response.ok()) {
+    throw new Error(
+      `POST ${path} (multipart) failed: ${response.status()} ${await response.text()}`,
+    );
+  }
+  return (await response.json()) as T;
+}
+
 /** `PATCH <path>` — same shape as `post` above. `journeys/backup-restore.spec.ts`
  * (#614) uses this to rename its seeded student between two restores, so the
  * second restore's diff shows exactly one update. */
