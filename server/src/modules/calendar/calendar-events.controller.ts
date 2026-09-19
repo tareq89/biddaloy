@@ -22,9 +22,19 @@ import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator
 import { CalendarEventsService } from './calendar-events.service';
 import {
   CreateCalendarEventDto,
+  FamilyCalendarEventDto,
   QueryCalendarEventsDto,
   UpdateCalendarEventDto,
 } from './dto/calendar-events.dto';
+import { CalendarEventWithClassIds } from './calendar-events.service';
+
+/** Roles that see the allow-list `FamilyCalendarEventDto` rather than the
+ * full staff response (D4, D9) — see `FamilyCalendarEventDto`'s doc. */
+const FAMILY_ROLES: ReadonlySet<string> = new Set([
+  UserRole.PARENT,
+  UserRole.STUDENT,
+  UserRole.TEACHER,
+]);
 
 /**
  * `/calendar/events` — the CRUD surface for `CalendarEvent` (17.x), on top
@@ -59,7 +69,11 @@ export class CalendarEventsController {
     @CurrentUser() user: { sub: string },
   ) {
     const viewer = await this.service.resolveViewer(tenant.role, user.sub, tenant.id);
-    return this.service.list(query, tenant.id, viewer);
+    const result = await this.service.list(query, tenant.id, viewer);
+    return {
+      ...result,
+      data: this.serializeForRole(result.data, tenant.role),
+    };
   }
 
   @Get('events/:id')
@@ -79,7 +93,8 @@ export class CalendarEventsController {
     @CurrentUser() user: { sub: string },
   ) {
     const viewer = await this.service.resolveViewer(tenant.role, user.sub, tenant.id);
-    return this.service.findOne(id, tenant.id, viewer);
+    const event = await this.service.findOne(id, tenant.id, viewer);
+    return this.serializeForRole([event], tenant.role)[0];
   }
 
   @Post('events')
@@ -118,6 +133,18 @@ export class CalendarEventsController {
   ) {
     await this.service.remove(id, tenant.id, user.sub);
     return { success: true };
+  }
+
+  /** PARENT/STUDENT/TEACHER get the allow-list DTO; every other role
+   * (ADMIN, EXECUTIVE, ACCOUNTANT) keeps the full staff response. */
+  private serializeForRole(
+    events: CalendarEventWithClassIds[],
+    role: string,
+  ): Array<CalendarEventWithClassIds | FamilyCalendarEventDto> {
+    if (!FAMILY_ROLES.has(role)) {
+      return events;
+    }
+    return events.map((event) => FamilyCalendarEventDto.fromEvent(event));
   }
 
   @Post('events/:id/publish')
