@@ -1,0 +1,32 @@
+{
+  "card": {
+    "title": "Subscribe to the calendar",
+    "description": "Add this link to your calendar app to see term dates, holidays and events, and get updates automatically."
+  },
+  "field": {
+    "label": "Your personal subscribe link",
+    "show": "Show",
+    "hide": "Hide",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyFailed": "Couldn't copy the link. Select and copy it manually."
+  },
+  "regenerate": {
+    "action": "Regenerate link",
+    "confirmTitle": "Regenerate subscribe link?",
+    "confirmDescription": "Your old link stops working right away. Any calendar app still using it will need the new link below.",
+    "confirmAction": "Regenerate",
+    "cancel": "Cancel",
+    "loading": "Regenerating"
+  },
+  "howTo": {
+    "title": "How to subscribe",
+    "google": "Google Calendar: \"Other calendars\" → \"+\" → \"From URL\", then paste the link.",
+    "apple": "Apple Calendar: File → \"New Calendar Subscription\", then paste the link.",
+    "outlook": "Outlook: \"Add calendar\" → \"Subscribe from web\", then paste the link."
+  },
+  "error": {
+    "load": "Couldn't load your subscribe link.",
+    "retry": "Retry"
+  }
+}

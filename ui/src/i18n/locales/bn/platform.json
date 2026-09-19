@@ -123,5 +123,67 @@
     "viewSchool": "স্কুল দেখুন",
     "importWorkbookToggle": "ওয়ার্কবুক থেকে ডেটা আমদানি করুন (ঐচ্ছিক)",
     "importWorkbookWarning": "এটি এই স্কুলের ডেটা ওয়ার্কবুকের ডেটা দিয়ে প্রতিস্থাপন করে — আপনি এইমাত্র যাকে আমন্ত্রণ জানিয়েছেন সেই অ্যাডমিন থেকে যাবেন, কিন্তু বাকি সবকিছু ফাইল অনুযায়ী হবে।"
+  },
+  "holidaySets": {
+    "title": "ছুটির তালিকা",
+    "caption": "স্কুলগুলো যেসব দেশভিত্তিক সরকারি ছুটির তালিকা থেকে আমদানি করে।",
+    "columnCountry": "দেশ",
+    "columnYear": "বছর",
+    "columnSource": "উৎস",
+    "columnEntries": "এন্ট্রি",
+    "columnPublished": "প্রকাশিত",
+    "emptyMessage": "এখনো কোনো ছুটির তালিকা নেই। শুরু করতে একটি আনুন।",
+    "errorMessage": "ছুটির তালিকা লোড করা যায়নি।",
+    "published": "প্রকাশিত",
+    "draft": "খসড়া",
+    "fetchAction": "তালিকা আনুন",
+    "fetchDialog": {
+      "title": "একটি ছুটির তালিকা আনুন",
+      "countryLabel": "দেশ (ISO alpha-2, যেমন BD)",
+      "yearLabel": "বছর",
+      "submitAction": "আনুন",
+      "fetching": "আনা হচ্ছে…",
+      "countryRequiredError": "একটি ২-অক্ষরের দেশ কোড লিখুন।",
+      "errorMessage": "কোনো উৎস থেকেই এই তালিকা আনা যায়নি।"
+    },
+    "detail": {
+      "back": "ছুটির তালিকায় ফিরে যান",
+      "loadError": "এই ছুটির তালিকা লোড করা যায়নি।",
+      "sourceLabel": "উৎস",
+      "fetchedAtLabel": "আনা হয়েছে",
+      "columnDate": "শুরুর তারিখ",
+      "columnEndDate": "শেষ তারিখ",
+      "columnName": "নাম",
+      "columnNameBn": "নাম (বাংলা)",
+      "columnActions": "কার্যক্রম",
+      "addRow": "ছুটি যোগ করুন",
+      "removeRow": "সরান",
+      "emptyMessage": "এখনো কোনো এন্ট্রি নেই — নিচে একটি যোগ করুন।",
+      "saveAction": "সংরক্ষণ করুন",
+      "saving": "সংরক্ষণ হচ্ছে…",
+      "saveSuccess": "এন্ট্রি সংরক্ষিত হয়েছে।",
+      "saveError": "এই এন্ট্রিগুলো সংরক্ষণ করা যায়নি।",
+      "publishAction": "প্রকাশ করুন",
+      "unpublishAction": "অপ্রকাশিত করুন",
+      "publishError": "এই তালিকা প্রকাশ করা যায়নি।",
+      "unpublishError": "এই তালিকা অপ্রকাশিত করা যায়নি।",
+      "publishDialog": {
+        "title": "এই তালিকা প্রকাশ করুন",
+        "description": "প্রকাশিত হলে স্কুলগুলো এই ছুটিগুলো আমদানি করতে পারবে।",
+        "confirm": "প্রকাশ করুন"
+      },
+      "unpublishDialog": {
+        "title": "এই তালিকা অপ্রকাশিত করুন",
+        "description": "স্কুলগুলো আর এই তালিকা থেকে আমদানি করতে পারবে না।",
+        "confirm": "অপ্রকাশিত করুন"
+      },
+      "publishDisabledHint": "প্রকাশ করার আগে আপনার পরিবর্তনগুলো সংরক্ষণ করুন।",
+      "unsavedChangesDialog": {
+        "title": "সংরক্ষণ না করেই চলে যাবেন?",
+        "description": "আপনার এন্ট্রি পরিবর্তনগুলো এখনো সংরক্ষিত হয়নি।",
+        "stayAction": "সম্পাদনা চালিয়ে যান",
+        "leaveAction": "চলে যান"
+      }
+    }
   }
 }

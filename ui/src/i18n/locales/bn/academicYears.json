@@ -76,6 +76,49 @@
       "students": "শিক্ষার্থী",
       "feeStructures": "ফি কাঠামো",
       "errorMessage": "পরিসংখ্যান লোড করতে ব্যর্থ হয়েছে"
+    },
+    "tabTerms": "টার্ম",
+    "terms": {
+      "labelTerm": "টার্ম",
+      "labelSemester": "সেমিস্টার",
+      "labelTrimester": "ট্রাইমেস্টার",
+      "addTerm": "টার্ম যোগ করুন",
+      "columnSeq": "#",
+      "columnName": "নাম",
+      "columnStartDate": "শুরুর তারিখ",
+      "columnEndDate": "শেষের তারিখ",
+      "columnLength": "দৈর্ঘ্য",
+      "columnActions": "কার্যক্রম",
+      "weekCount_one": "{{count}} সপ্তাহ",
+      "weekCount_other": "{{count}} সপ্তাহ",
+      "edit": "সম্পাদনা",
+      "delete": "মুছুন",
+      "moveUp": "উপরে সরান",
+      "moveDown": "নিচে সরান",
+      "emptyMessage": "এই শিক্ষাবর্ষের জন্য কোনো টার্ম নির্ধারিত নেই",
+      "errorMessage": "টার্ম লোড করতে ব্যর্থ হয়েছে",
+      "form": {
+        "createTitle": "টার্ম যোগ করুন",
+        "editTitle": "টার্ম সম্পাদনা করুন",
+        "nameLabel": "নাম",
+        "startDateLabel": "শুরুর তারিখ",
+        "endDateLabel": "শেষের তারিখ",
+        "errorNameRequired": "নাম আবশ্যক",
+        "errorDatesRequired": "শুরু ও শেষের তারিখ আবশ্যক",
+        "errorEndBeforeStart": "শেষের তারিখ শুরুর তারিখের পরে হতে হবে",
+        "errorMessage": "টার্ম সংরক্ষণ করতে ব্যর্থ হয়েছে",
+        "errorOverlap": "{{message}}",
+        "errorOutsideYear": "{{message}}",
+        "save": "সংরক্ষণ করুন",
+        "saving": "সংরক্ষণ করা হচ্ছে…"
+      },
+      "deleteDialog": {
+        "title": "টার্ম মুছুন",
+        "description": "\"{{name}}\" মুছে ফেলবেন? এটি ফিরিয়ে আনা যাবে না।",
+        "confirm": "মুছুন",
+        "deleting": "মুছে ফেলা হচ্ছে…",
+        "errorMessage": "টার্ম মুছতে ব্যর্থ হয়েছে"
+      }
     }
   }
 }

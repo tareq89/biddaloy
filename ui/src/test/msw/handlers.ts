@@ -12,6 +12,7 @@ import { guardianDefaultHandlers } from './handlers/guardians';
 import { invitationDefaultHandlers } from './handlers/invitations';
 import { invoiceDefaultHandlers } from './handlers/invoices';
 import { paymentDefaultHandlers } from './handlers/payments';
+import { publicHolidaySetsDefaultHandlers } from './handlers/public-holiday-sets';
 import { schoolsDefaultHandlers } from './handlers/schools';
 import { studentDefaultHandlers } from './handlers/students';
 import { teacherDefaultHandlers } from './handlers/teachers';
@@ -65,4 +66,5 @@ export const handlers: readonly HttpHandler[] = [
   ...communicationDefaultHandlers,
   ...auditLogDefaultHandlers,
   ...schoolsDefaultHandlers,
+  ...publicHolidaySetsDefaultHandlers,
 ];

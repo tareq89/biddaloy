@@ -69,3 +69,15 @@ export const SETTINGS_RATE_LIMIT: RateLimitTierOptions = { limit: 20, ttl: 60_00
  * but the tier still caps how hard a caller can hammer the DB lookup).
  */
 export const PUBLIC_INVOICE_RATE_LIMIT: RateLimitTierOptions = { limit: 30, ttl: 60_000 };
+
+/**
+ * Applied to `GET /calendar/feed/:token.ics` (17.4.1) — the second route in
+ * this codebase reachable with no auth header and no `X-Tenant-ID` at all.
+ * A phone calendar app re-polls a subscribed `.ics` URL on its own refresh
+ * schedule (typically every 15-60 minutes), so this tier is sized for
+ * automated polling rather than a human clicking a link: same 30/min cap
+ * as `PUBLIC_INVOICE_RATE_LIMIT` (per issue #717's spec), generous enough
+ * that a normal client's poll cadence never trips it, while still bounding
+ * a brute-force scan across random 32-byte tokens.
+ */
+export const CALENDAR_FEED_RATE_LIMIT: RateLimitTierOptions = { limit: 30, ttl: 60_000 };

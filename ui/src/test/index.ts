@@ -75,6 +75,12 @@ export { invoiceHandlers } from './msw/handlers/invoices';
 export { communicationHandlers } from './msw/handlers/communications';
 export { auditLogHandlers, mixedActionFixtures } from './msw/handlers/audit-logs';
 export { schoolsHandlers, resetSchoolsStore } from './msw/handlers/schools';
+export {
+  publicHolidaySetsHandlers,
+  publicHolidaySetsDefaultHandlers,
+  resetHolidaySetsStore,
+  BD_2026_SET_ID,
+} from './msw/handlers/public-holiday-sets';
 
 export * from './factories';
 export * from './a11y';

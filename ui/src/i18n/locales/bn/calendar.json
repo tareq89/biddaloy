@@ -1,0 +1,77 @@
+{
+  "page": {
+    "title": "ক্যালেন্ডার",
+    "viewGrid": "মাস",
+    "viewAgenda": "এজেন্ডা",
+    "today": "আজ",
+    "previousMonth": "পূর্ববর্তী মাস",
+    "nextMonth": "পরবর্তী মাস",
+    "addEvent": "ইভেন্ট যোগ করুন",
+    "governmentHolidays": "সরকারি ছুটি",
+    "moreEvents": "+{{count}} আরও",
+    "agendaEmpty": "এই সময়ে কোনো ইভেন্ট নেই।",
+    "errorMessage": "ক্যালেন্ডার লোড করা যায়নি। আবার চেষ্টা করুন।"
+  },
+  "weekdays": {
+    "Sun": "রবি",
+    "Mon": "সোম",
+    "Tue": "মঙ্গল",
+    "Wed": "বুধ",
+    "Thu": "বৃহস্পতি",
+    "Fri": "শুক্র",
+    "Sat": "শনি"
+  },
+  "filters": {
+    "typesLabel": "ইভেন্টের ধরন",
+    "classLabel": "ক্লাস",
+    "allClasses": "সব ক্লাস",
+    "allTypes": "সব ধরন"
+  },
+  "types": {
+    "HOLIDAY": "ছুটি",
+    "EXAM": "পরীক্ষা",
+    "EVENT": "ইভেন্ট",
+    "MEETING": "সভা",
+    "DEADLINE": "সময়সীমা"
+  },
+  "eventForm": {
+    "createTitle": "ইভেন্ট যোগ করুন",
+    "editTitle": "ইভেন্ট সম্পাদনা করুন",
+    "type": "ধরন",
+    "name": "নাম",
+    "description": "বিবরণ",
+    "startDate": "শুরুর তারিখ",
+    "endDate": "শেষের তারিখ",
+    "countsAsWorkingDay": "কর্মদিবস হিসেবে গণ্য হবে",
+    "publishNow": "এখনই প্রকাশ করুন",
+    "notify": "প্রভাবিত পরিবার/কর্মীদের জানান",
+    "notifySms": "এসএমএস দিয়েও জানান",
+    "save": "সংরক্ষণ করুন",
+    "cancel": "বাতিল",
+    "errors": {
+      "CALENDAR_EVENT_LOCKED": "এই ইভেন্টটি অতীতের, এটি আর পরিবর্তন করা যাবে না।",
+      "CALENDAR_OUTSIDE_ACADEMIC_YEAR": "এই তারিখগুলো চলতি শিক্ষাবর্ষের বাইরে।",
+      "CALENDAR_DAY_HAS_ATTENDANCE": "এই দিনগুলোর একটির জন্য ইতিমধ্যে উপস্থিতি রেকর্ড করা হয়েছে।",
+      "CALENDAR_INVALID_CLASS": "নির্বাচিত ক্লাসগুলোর একটি অবৈধ।",
+      "CALENDAR_INVALID_RANGE": "শেষের তারিখ শুরুর তারিখের সমান বা পরে হতে হবে।",
+      "generic": "এই ইভেন্টটি সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।"
+    }
+  },
+  "eventDetails": {
+    "edit": "সম্পাদনা",
+    "delete": "মুছুন",
+    "publish": "প্রকাশ করুন",
+    "draft": "খসড়া",
+    "locked": "এই ইভেন্টটি অতীতের, এটি আর সম্পাদনা করা যাবে না।"
+  },
+  "governmentHolidaysDialog": {
+    "title": "সরকারি ছুটি",
+    "description": "প্রকাশিত জাতীয় ক্যালেন্ডার থেকে এই বছরের প্রস্তাবিত ছুটি।",
+    "add": "নির্বাচিতগুলো যোগ করুন",
+    "alreadyAdded": "ইতিমধ্যে যোগ করা হয়েছে",
+    "empty": "এই বছরের জন্য এখনো কোনো প্রস্তাবিত ছুটি নেই।"
+  },
+  "upcomingPanel": {
+    "title": "আসন্ন"
+  }
+}

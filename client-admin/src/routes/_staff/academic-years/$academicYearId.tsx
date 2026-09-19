@@ -19,6 +19,7 @@ import { DeleteYearDialog } from './-delete-year-dialog';
 import { ClassesTab } from './-detail/classes-tab';
 import { FeeStructuresTab } from './-detail/fee-structures-tab';
 import { StatisticsTab } from './-detail/statistics-tab';
+import { TermsTab } from './-detail/terms-tab';
 import { SetCurrentDialog } from './-set-current-dialog';
 import { YearFormDialog, type YearFormPayload } from './-year-form-dialog';
 
@@ -41,7 +42,7 @@ export const Route = createFileRoute('/_staff/academic-years/$academicYearId')({
   component: AcademicYearDetailPage,
 });
 
-const TAB_IDS = ['classes', 'feeStructures', 'statistics'] as const;
+const TAB_IDS = ['classes', 'feeStructures', 'statistics', 'terms'] as const;
 
 function AcademicYearDetailPage() {
   const { academicYearId } = Route.useParams();
@@ -58,6 +59,7 @@ function AcademicYearDetailPage() {
   const yearQuery = useAcademicYear(academicYearId);
   const [activeTab, setActiveTab] = useDetailShellTab(TAB_IDS);
   const canManage = useHasPermission(Permission.ACADEMIC_YEAR_MANAGE);
+  const canReadCalendar = useHasPermission(Permission.CALENDAR_READ);
 
   const updateYear = useUpdateAcademicYear(academicYearId);
   const [editOpen, setEditOpen] = React.useState(false);
@@ -157,6 +159,15 @@ function AcademicYearDetailPage() {
               label: t('detail.tabStatistics'),
               content: <StatisticsTab academicYearId={year.id} />,
             },
+            ...(canReadCalendar
+              ? [
+                  {
+                    id: 'terms',
+                    label: t('detail.tabTerms'),
+                    content: <TermsTab academicYearId={year.id} />,
+                  },
+                ]
+              : []),
           ]}
           activeTab={activeTab}
           onTabChange={setActiveTab}
