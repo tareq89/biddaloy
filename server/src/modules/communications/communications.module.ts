@@ -59,7 +59,13 @@ import { InvoicesModule } from '../invoices/invoices.module';
     // modules depend on each other, so both sides use `forwardRef` (same
     // shape as the `SchoolsModule` edge above).
     forwardRef(() => InvoicesModule),
-    CreditsModule,
+    // [#713] `CalendarModule` (calendar reminder SMS, via
+    // `CalendarNotifyService`) now imports `CreditsModule`, and
+    // `CreditsModule` -> `forwardRef(SchoolsModule)` -> `AccountAccessModule`
+    // -> `CommunicationsModule` -> `CreditsModule` closes a second cycle
+    // through this bare import (the first is the `InvoicesModule` edge
+    // above). `forwardRef` breaks it the same way.
+    forwardRef(() => CreditsModule),
     BullModule.registerQueue({
       name: COMMUNICATIONS_QUEUE,
       defaultJobOptions: {

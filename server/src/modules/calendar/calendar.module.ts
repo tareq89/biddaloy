@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { BullModule } from '@nestjs/bullmq';
 import { CalendarEvent } from './entities/calendar-event.entity';
 import { CalendarEventClass } from './entities/calendar-event-class.entity';
 import { AcademicTerm } from './entities/academic-term.entity';
@@ -12,6 +13,11 @@ import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
+import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { ReminderBatch } from '../communications/entities/reminder-batch.entity';
+import { CommunicationLog } from '../communications/entities/communication-log.entity';
+import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
+import { CreditsModule } from '../communications/credits/credits.module';
 import { SchoolsModule } from '../schools/schools.module';
 import { AuditModule } from '../audit/audit.module';
 import { PushModule } from '../push/push.module';
@@ -65,7 +71,26 @@ import { CalendarFeedController } from './calendar-feed.controller';
       Student,
       TeacherClassSection,
       AcademicYear,
+      UserTenant,
+      ReminderBatch,
+      CommunicationLog,
     ]),
+    // [17.3.3] SMS reuses the same COMMUNICATIONS_QUEUE primitive
+    // `attendance.module.ts`'s AbsenceNoticeService uses, rather than
+    // importing the whole CommunicationsModule provider graph.
+    BullModule.registerQueue({
+      name: COMMUNICATIONS_QUEUE,
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+      },
+    }),
+    // [#713] Real `SmsCreditService.reserve`/`settle` (via `CreditsModule`)
+    // instead of a raw `sms_credit_balance` UPDATE — now that both bare
+    // `CreditsModule` imports on its own cycle (`invoices.module.ts`,
+    // `communications.module.ts`) are `forwardRef`'d, this import no
+    // longer trips the circular-init bug that motivated the workaround.
+    CreditsModule,
     SchoolsModule,
     AuditModule,
     PushModule,
