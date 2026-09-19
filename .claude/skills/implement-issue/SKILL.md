@@ -52,6 +52,15 @@ carve-out: the published plan comment, code, tests, and stories stay normal.
 Subagents are separate contexts — they don't inherit your mode unless you say
 so in the dispatch prompt.
 
+Also tell them to run in `/ponytail full`. This one *does* shape the
+artifact, not just narration: `issue-planner`'s plan should pick the leanest
+design that satisfies the issue (reuse/extend over new abstraction, kill
+speculative scope), and `issue-implementer` should write the smallest diff
+that plan requires. Same carve-out as elsewhere in this codebase — never cuts
+input validation, auth, tenant isolation, or error handling at a trust
+boundary. Like caveman, this doesn't inherit either; say it in the dispatch
+prompt.
+
 Batch independent tool calls into one message wherever the loop allows it
 (e.g. Step 0's resolve + Step 1's state-file write, or checking the plan
 comment and `git status` together on resume). Each subagent dispatch already

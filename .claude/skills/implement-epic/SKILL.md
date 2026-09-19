@@ -54,6 +54,14 @@ in `/caveman ultra` for their own narration, with the same carve-out —
 published plans, code, tests, stories, and commit/PR text stay normal.
 Subagents are separate contexts and don't inherit your mode unless told.
 
+Also tell them to run in `/ponytail full`. Unlike caveman, this shapes the
+artifact: each group's plan and code should take the leanest design that
+satisfies its tickets — reuse/extend over new abstraction, no speculative
+scope — never cutting input validation, auth, tenant isolation, or error
+handling at a trust boundary. Say it explicitly in every dispatch prompt; it
+doesn't inherit down the `epic-group-worker` → `issue-planner`/
+`issue-implementer` chain either.
+
 Batch independent tool calls into one message — dispatch all of a wave's
 group agents in a single turn, and fetch every sub-issue body in one batched
 call at Step 0 rather than one `gh issue view` per turn. Every group agent
