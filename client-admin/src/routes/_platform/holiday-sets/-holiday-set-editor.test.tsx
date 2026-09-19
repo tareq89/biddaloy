@@ -117,7 +117,7 @@ describe('HolidaySetEditor', () => {
 
   it('opens the unpublish dialog, and confirming it calls onUnpublish', async () => {
     const { user, props } = renderEditor({
-      set: { ...BASE_SET, published_at: '2026-01-05T00:00:00.000Z' } as PublicHolidaySet,
+      set: { ...BASE_SET, published_at: '2026-01-05T00:00:00.000Z' },
     });
 
     await user.click(screen.getByRole('button', { name: 'Unpublish' }));
