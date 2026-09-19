@@ -14,6 +14,8 @@ import { Student } from '../students/entities/student.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { User } from '../users/entities/user.entity';
+import { School } from '../schools/entities/school.entity';
 import { ReminderBatch } from '../communications/entities/reminder-batch.entity';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
@@ -39,7 +41,7 @@ import { CalendarExportService } from './calendar-export.service';
 import { CalendarExportController } from './calendar-export.controller';
 import { CalendarNotifyService } from './calendar-notify.service';
 import { CalendarFeedService } from './calendar-feed.service';
-import { CalendarFeedController } from './calendar-feed.controller';
+import { CalendarFeedController, CalendarFeedPublicController } from './calendar-feed.controller';
 
 /**
  * The academic-calendar module (Epic 17). [17.1.2] creates this module as
@@ -72,6 +74,8 @@ import { CalendarFeedController } from './calendar-feed.controller';
       TeacherClassSection,
       AcademicYear,
       UserTenant,
+      User,
+      School,
       ReminderBatch,
       CommunicationLog,
     ]),
@@ -117,6 +121,7 @@ import { CalendarFeedController } from './calendar-feed.controller';
     CalendarImportController,
     CalendarExportController,
     CalendarFeedController,
+    CalendarFeedPublicController,
   ],
   // SchoolCalendarService is exported for AttendanceModule's working-day
   // math (summary service) and for AttendanceService's non-working-day
