@@ -123,5 +123,67 @@
     "viewSchool": "View school",
     "importWorkbookToggle": "Import data from a workbook (optional)",
     "importWorkbookWarning": "This replaces this school's data with the workbook's — the admin you just invited stays, but everything else follows the file."
+  },
+  "holidaySets": {
+    "title": "Holiday sets",
+    "caption": "Per-country public-holiday lists schools import from.",
+    "columnCountry": "Country",
+    "columnYear": "Year",
+    "columnSource": "Source",
+    "columnEntries": "Entries",
+    "columnPublished": "Published",
+    "emptyMessage": "No holiday sets yet. Fetch one to get started.",
+    "errorMessage": "Could not load holiday sets.",
+    "published": "Published",
+    "draft": "Draft",
+    "fetchAction": "Fetch a set",
+    "fetchDialog": {
+      "title": "Fetch a holiday set",
+      "countryLabel": "Country (ISO alpha-2, e.g. BD)",
+      "yearLabel": "Year",
+      "submitAction": "Fetch",
+      "fetching": "Fetching…",
+      "countryRequiredError": "Enter a 2-letter country code.",
+      "errorMessage": "Could not fetch this set from either source."
+    },
+    "detail": {
+      "back": "Back to holiday sets",
+      "loadError": "Could not load this holiday set.",
+      "sourceLabel": "Source",
+      "fetchedAtLabel": "Fetched",
+      "columnDate": "Start date",
+      "columnEndDate": "End date",
+      "columnName": "Name",
+      "columnNameBn": "Name (Bengali)",
+      "columnActions": "Actions",
+      "addRow": "Add holiday",
+      "removeRow": "Remove",
+      "emptyMessage": "No entries yet — add one below.",
+      "saveAction": "Save",
+      "saving": "Saving…",
+      "saveSuccess": "Entries saved.",
+      "saveError": "Could not save these entries.",
+      "publishAction": "Publish",
+      "unpublishAction": "Unpublish",
+      "publishError": "Could not publish this set.",
+      "unpublishError": "Could not unpublish this set.",
+      "publishDialog": {
+        "title": "Publish this set",
+        "description": "Schools will be able to import these holidays once published.",
+        "confirm": "Publish"
+      },
+      "unpublishDialog": {
+        "title": "Unpublish this set",
+        "description": "Schools will no longer be able to import from this set.",
+        "confirm": "Unpublish"
+      },
+      "publishDisabledHint": "Save your changes before publishing.",
+      "unsavedChangesDialog": {
+        "title": "Leave without saving?",
+        "description": "Your entry changes haven't been saved yet.",
+        "stayAction": "Keep editing",
+        "leaveAction": "Leave"
+      }
+    }
   }
 }

@@ -174,5 +174,29 @@
         "manual": "Manual"
       }
     }
+  },
+  "calendar": {
+    "legend": "Calendar",
+    "termLabel": "What do you call a grading period?",
+    "termLabelTerm": "Term",
+    "termLabelSemester": "Semester",
+    "termLabelTrimester": "Trimester",
+    "country": "Country",
+    "weekShapeLabel": "Week start / weekend",
+    "weekShapeLoading": "Loading…",
+    "weekShapeError": "Couldn't load week shape.",
+    "weekShapeValue": "Week starts {{weekStart}}, weekend is {{weekend}}, timezone {{timezone}}",
+    "weekendSeparator": " and ",
+    "changeInRegional": "Change in Regional",
+    "changeInAttendance": "Change in Attendance",
+    "weekday": {
+      "sunday": "Sunday",
+      "monday": "Monday",
+      "tuesday": "Tuesday",
+      "wednesday": "Wednesday",
+      "thursday": "Thursday",
+      "friday": "Friday",
+      "saturday": "Saturday"
+    }
   }
 }

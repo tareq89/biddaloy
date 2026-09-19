@@ -355,6 +355,25 @@ export {
   type UpdateAcademicYearInput,
 } from './academic-years';
 export {
+  calendarSettingsKeys,
+  calendarSettingsQueryOptions,
+  useCalendarSettings,
+  type CalendarSettings,
+} from './calendar-settings';
+export {
+  termKeys,
+  termsQueryOptions,
+  useCreateTerm,
+  useDeleteTerm,
+  useReorderTerms,
+  useTerms,
+  useUpdateTerm,
+  type AcademicTerm,
+  type CreateTermInput,
+  type ReorderTermsInput,
+  type UpdateTermInput,
+} from './calendar-terms';
+export {
   feeStructureKeys,
   feeStructureQueryOptions,
   feeStructuresQueryOptions,
@@ -563,6 +582,21 @@ export {
   type UpdateSchoolProfileInput,
 } from './school-profile';
 export { useDensity, type DensityMode } from './use-density';
+export {
+  publicHolidaySetKeys,
+  publicHolidaySetsQueryOptions,
+  publicHolidaySetQueryOptions,
+  useHolidaySets,
+  useHolidaySet,
+  useFetchHolidaySet,
+  useUpdateHolidaySetEntries,
+  usePublishHolidaySet,
+  useUnpublishHolidaySet,
+  type PublicHolidaySet,
+  type PublicHolidayEntry,
+  type HolidayEntryInput,
+  type FetchHolidaySetInput,
+} from './public-holiday-sets';
 export {
   smsCreditsKeys,
   smsCreditsQueryOptions,
