@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -89,28 +90,45 @@ describe('runTasks', () => {
     // exists on disk (deleted after that diff, or on a branch stacked far
     // ahead of `base`) used to crash the whole `--affected` eslint
     // invocation instead of being skipped — regression for that.
-    writeFileSync(scratchFile, 'export const x = 1;\n');
+    // AFFECTED_BASE is pinned to HEAD here so the test doesn't depend on
+    // an `origin/main` ref existing in the checkout (a CI job for a PR
+    // stacked on a non-main base only fetches that base, not `origin/main`).
+    const prevBase = process.env.AFFECTED_BASE;
+    process.env.AFFECTED_BASE = 'HEAD';
     try {
-      const withFile = buildLintCommand(true);
-      expect(withFile.args.join(' ')).toContain('__check-spec-scratch');
-    } finally {
-      rmSync(scratchFile, { force: true });
-    }
+      writeFileSync(scratchFile, 'export const x = 1;\n');
+      try {
+        const withFile = buildLintCommand(true);
+        expect(withFile.args.join(' ')).toContain('__check-spec-scratch');
+      } finally {
+        rmSync(scratchFile, { force: true });
+      }
 
-    // Now the same untracked file is gone but still exists in the
-    // working-tree diff `changedFiles()` reads from `git diff --name-only
-    // HEAD` momentarily — simulate that by asserting the real fix directly:
-    // changedFiles() itself does no existence filtering (it's a pure git
-    // diff), buildLintCommand() is what must filter, and it must never
-    // reference a path that doesn't exist on disk right now.
-    const command = buildLintCommand(true);
-    for (const arg of command.args) {
-      expect(arg).not.toContain('__check-spec-scratch');
+      // Now the same untracked file is gone but still exists in the
+      // working-tree diff `changedFiles()` reads from `git diff --name-only
+      // HEAD` momentarily — simulate that by asserting the real fix directly:
+      // changedFiles() itself does no existence filtering (it's a pure git
+      // diff), buildLintCommand() is what must filter, and it must never
+      // reference a path that doesn't exist on disk right now.
+      const command = buildLintCommand(true);
+      for (const arg of command.args) {
+        expect(arg).not.toContain('__check-spec-scratch');
+      }
+    } finally {
+      if (prevBase === undefined) delete process.env.AFFECTED_BASE;
+      else process.env.AFFECTED_BASE = prevBase;
     }
   });
 
   it('honors AFFECTED_BASE for lint scoping, same override scripts/test-affected.mjs reads', () => {
     const prev = process.env.AFFECTED_BASE;
+    // A second, always-resolvable ref: HEAD's own SHA, obtained with a real
+    // git call rather than a hardcoded branch name like `origin/main`,
+    // which isn't fetched in every checkout (e.g. a stacked-PR CI job).
+    const headSha = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+    }).trim();
     try {
       process.env.AFFECTED_BASE = 'HEAD';
       const filesAgainstHead = changedFiles('HEAD');
@@ -118,9 +136,9 @@ describe('runTasks', () => {
       // working-tree/untracked noise, which changedFiles also includes) —
       // this just proves the base argument is actually threaded through
       // rather than hardcoded, by comparing two different explicit bases.
-      const filesAgainstMain = changedFiles('origin/main');
+      const filesAgainstSha = changedFiles(headSha);
       expect(Array.isArray(filesAgainstHead)).toBe(true);
-      expect(Array.isArray(filesAgainstMain)).toBe(true);
+      expect(Array.isArray(filesAgainstSha)).toBe(true);
     } finally {
       if (prev === undefined) delete process.env.AFFECTED_BASE;
       else process.env.AFFECTED_BASE = prev;
