@@ -17,7 +17,7 @@ read later (["The correction rules"](#4-the-correction-rules) below).
 ```mermaid
 erDiagram
     School            ||--o{ Subject             : scopes
-    School            ||--o{ SchoolHoliday       : scopes
+    School            ||--o{ CalendarEvent       : scopes
     School            ||--o{ AttendanceSession   : scopes
     School            ||--o{ AttendanceDevice    : scopes
     ClassSection      ||--o{ AttendanceSession   : "one register per day/period"
@@ -36,9 +36,11 @@ erDiagram
   see ["Teacher authority wins"](#7-integrating-a-device).
 - **`AttendanceDevice`** / **`AttendanceDeviceEvent`** — see
   ["Integrating a device"](#7-integrating-a-device).
-- **`SchoolHoliday`** (`modules/academics`) — a calendar entry the
-  working-day calculator reads. An academics concern, not an attendance one;
-  attendance only ever reads it.
+- **`CalendarEvent`** (`modules/calendar`, [16-academic-calendar.md](16-academic-calendar.md)) — a
+  calendar entry the working-day calculator reads. Renamed from
+  `SchoolHoliday` in [17.1.2]. A `calendar` concern, not an attendance one;
+  attendance only ever reads it, and only published (non-draft) events —
+  a draft never counts toward working-day math or attendance.
 - **`Subject`** (`modules/academics`) — only meaningful for period-level
   attendance (`AttendanceSession.subject_id`), unused until a later epic.
 
@@ -107,6 +109,13 @@ exists on either attendance table; there is nothing to delete, only marks to
 correct.
 
 ## 5. Working days and the percentage
+
+`working_days` itself comes from `modules/calendar`'s
+`SchoolCalendarService.getWorkingDays` — it walks the date range and
+subtracts every published `CalendarEvent` with `counts_as_working_day =
+false` (plus the weekly off-day). See
+[16-academic-calendar.md](16-academic-calendar.md) for how that calendar is
+built; this section only covers what attendance does with the number.
 
 The formula, from `attendance-summary.service.ts`'s
 `computeAttendancePercentage`:

@@ -22,7 +22,9 @@ erDiagram
     School ||--o{ ReminderBatch : scopes
     School ||--o{ AttendanceSession : scopes
     School ||--o{ AttendanceDevice : scopes
-    School ||--o{ SchoolHoliday : scopes
+    School ||--o{ CalendarEvent : scopes
+    School ||--o{ AcademicTerm : scopes
+    School ||--o{ CalendarFeedToken : scopes
 
     AcademicYear ||--o{ Class : contains
     AcademicYear ||--o{ FeeStructure : "fees for"
@@ -59,7 +61,11 @@ erDiagram
     Student ||--o{ AttendanceRecord : "marked in"
     AttendanceDevice ||--o{ AttendanceRecord : "produced"
     AttendanceDevice ||--o{ AttendanceDeviceEvent : "sent"
-    AcademicYear ||--o{ SchoolHoliday : "calendar for"
+    AcademicYear ||--o{ CalendarEvent : "calendar for"
+    AcademicYear ||--o{ AcademicTerm : "split into"
+    CalendarEvent ||--o{ CalendarEventClass : "scoped to (empty = all classes)"
+    Class ||--o{ CalendarEventClass : "scoped by"
+    User ||--o{ CalendarFeedToken : "subscribes via"
 ```
 
 _(This shows the shape of the graph, not every column — see each entity file
@@ -90,6 +96,20 @@ for full field lists.)_
 - **`Teacher`** — a staff profile layered on top of a `User`. Can hold
   multiple designations and be assigned to multiple sections via
   **`TeacherClassSection`**.
+
+### Calendar (`modules/calendar`) — see [16-academic-calendar.md](16-academic-calendar.md) for the full model
+
+- **`CalendarEvent`** — see under Attendance below; the one calendar table
+  every other module reads.
+- **`AcademicTerm`** — a term/semester/trimester within an `AcademicYear`;
+  ordered by `seq`, never overlaps another term in the same year.
+- **`CalendarEventClass`** — join table scoping a `CalendarEvent` to
+  specific `Class`es; no rows means "every class."
+- **`CalendarFeedToken`** — a revocable per-user token that turns into a
+  subscribable ICS feed URL.
+- **`PublicHolidaySet`** (platform-level, no `tenant_id`) — one country's
+  fetched public holidays for one year, shared across every tenant in that
+  country.
 
 ### Students & guardians (`modules/students`)
 
@@ -137,7 +157,7 @@ for full field lists.)_
 - **`AttendanceRecord`** — one student's mark within one `AttendanceSession`. `date` is denormalised from the session for fast per-student range queries.
 - **`AttendanceDevice`** — a biometric/face/RFID reader that can post attendance events for a tenant.
 - **`AttendanceDeviceEvent`** — one raw scan a device sent, the forensic trail behind an `AttendanceRecord`.
-- **`SchoolHoliday`** (`modules/academics`) — a calendar entry (holiday, exam day, event) attendance reads to compute working-day math; an academics concern, not an attendance one.
+- **`CalendarEvent`** (`modules/calendar`, [16-academic-calendar.md](16-academic-calendar.md)) — a holiday, exam, event, meeting, or deadline attendance reads to compute working-day math. Renamed from `SchoolHoliday` in [17.1.2] to reflect the wider set of `type`s the calendar module now owns; a `calendar` concern, not an `academics` one.
 
 ### Audit & auth internals (`modules/audit`, `modules/auth`)
 
