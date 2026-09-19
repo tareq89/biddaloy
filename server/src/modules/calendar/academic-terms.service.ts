@@ -257,6 +257,18 @@ export class AcademicTermsService {
         where: { tenant_id: tenantId, academic_year_id: academicYearId, deleted_at: IsNull() },
       });
 
+      // Explicit bound, checked before anything iterates `ids`: the DTO's
+      // `@ArrayMaxSize` already rejects an oversized payload at the HTTP
+      // boundary, but this guard keeps the loops below provably bounded by
+      // a fixed constant regardless of what reaches this method directly.
+      const MAX_REORDER_IDS = 100;
+      if (ids.length > MAX_REORDER_IDS) {
+        throw new UnprocessableEntityException({
+          message: `ids must not exceed ${MAX_REORDER_IDS} entries`,
+          details: { code: 'TERM_REORDER_TOO_LARGE' },
+        });
+      }
+
       const termIds = new Set(terms.map((t) => t.id));
       if (ids.length !== terms.length || !ids.every((id) => termIds.has(id))) {
         throw new UnprocessableEntityException({
