@@ -202,7 +202,7 @@ export class CalendarFeedService {
   }
 
   private urlFor(rawToken: string): string {
-    return `${resolveApiBaseUrl(this.config)}/calendar/feed/${rawToken}.ics`;
+    return `${resolveApiBaseUrl(this.config)}/api/v1/calendar/feed/${rawToken}.ics`;
   }
 
   /**

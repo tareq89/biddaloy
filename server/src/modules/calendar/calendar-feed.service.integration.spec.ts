@@ -68,7 +68,7 @@ describe('CalendarFeedService (integration)', () => {
   describe('getOrCreate / regenerate', () => {
     it('mints a token on first call and returns the same URL on repeat calls', async () => {
       const first = await service.getOrCreate(TENANT_ID, SEED_ADMIN_USER_ID);
-      expect(first.url).toMatch(/\/calendar\/feed\/.+\.ics$/);
+      expect(first.url).toMatch(/\/api\/v1\/calendar\/feed\/.+\.ics$/);
 
       const second = await service.getOrCreate(TENANT_ID, SEED_ADMIN_USER_ID);
       expect(second.url).toBe(first.url);
