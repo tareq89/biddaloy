@@ -9,12 +9,15 @@
  * Usage:
  *   node scripts/check.mjs [--affected]
  *
- *   --affected  Scope lint to files changed since origin/main instead of
- *               the whole repo. `tests` is always affected-only (it
- *               shells out to scripts/test-affected.mjs, which is itself
- *               affected-based).
+ *   --affected  Scope lint to files changed since origin/main (or
+ *               AFFECTED_BASE, if set — same override scripts/test-affected.mjs
+ *               honors, for a branch stacked on something other than main)
+ *               instead of the whole repo. `tests` is always affected-only
+ *               (it shells out to scripts/test-affected.mjs, which is
+ *               itself affected-based).
  */
 import { spawn, execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -89,7 +92,7 @@ export async function runTasks(tasks, opts = {}) {
 // which covers uncommitted work too). A committed-only diff would miss
 // exactly the files someone is mid-edit on, which is the normal state
 // while `.husky/pre-push` runs this.
-function changedFiles(base) {
+export function changedFiles(base) {
   const pathspec = ['--', '*.ts', '*.tsx', '*.mjs'];
   const committed = execFileSync('git', ['diff', '--name-only', base, ...pathspec], {
     cwd: repoRoot,
@@ -122,7 +125,7 @@ const ESLINT_PACKAGES = ['ui', 'client-admin'];
  * `--affected`: eslint scoped to the changed `*.ts`/`*.tsx`/`*.mjs` files,
  * grouped by owning package so each gets its own flat config.
  */
-function buildLintCommand(affected) {
+export function buildLintCommand(affected) {
   if (!affected) {
     const perPackage = ['server', ...ESLINT_PACKAGES].map(
       (pkg) => `yarn workspace @biddaloy/${pkg} lint`,
@@ -130,7 +133,11 @@ function buildLintCommand(affected) {
     return { command: 'sh', args: ['-c', perPackage.join(' && ')] };
   }
 
-  const files = changedFiles('origin/main');
+  const base = process.env.AFFECTED_BASE || 'origin/main';
+  // A deleted file still shows up in the diff against `base` — passing it
+  // to eslint matches 0 files and makes the whole invocation exit non-zero
+  // ("Oops! Something went wrong!") instead of just skipping it.
+  const files = changedFiles(base).filter((file) => existsSync(resolve(repoRoot, file)));
   const byPackage = ESLINT_PACKAGES.map((pkg) => ({
     pkg,
     files: files.filter((file) => file.startsWith(`${pkg}/`)),
