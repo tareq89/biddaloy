@@ -1,7 +1,11 @@
 import {
+  AgendaList,
+  type AgendaEvent,
   Card,
   EmptyState,
   ErrorState,
+  MonthGrid,
+  type MonthGridEvent,
   RoutePending,
   Skeleton,
   StudentPicker,
@@ -21,8 +25,6 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 import { z } from 'zod';
 
-import { AgendaList, type AgendaEvent } from '../../components/calendar/agenda-list';
-import { MonthGrid, type MonthGridEvent } from '../../components/calendar/month-grid';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
 
 /**
@@ -313,13 +315,7 @@ function PortalCalendar() {
   );
 }
 
-function CalendarSkeleton({
-  label,
-  showPicker = false,
-}: {
-  label: string;
-  showPicker?: boolean;
-}) {
+function CalendarSkeleton({ label, showPicker = false }: { label: string; showPicker?: boolean }) {
   return (
     <div className="flex max-w-3xl flex-col gap-3" aria-busy="true" aria-live="polite">
       <span className="sr-only">{label}</span>

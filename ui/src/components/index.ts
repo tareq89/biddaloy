@@ -289,3 +289,11 @@ export {
   type InvoiceReceiptProps,
   type InvoiceReceiptStudent,
 } from './print/invoice-receipt';
+export { EventTypeBadge, type EventTypeBadgeProps } from './calendar/event-type-badge';
+export {
+  MonthGrid,
+  type MonthGridEvent,
+  type MonthGridProps,
+  type MonthGridTermBand,
+} from './calendar/month-grid';
+export { AgendaList, type AgendaEvent, type AgendaListProps } from './calendar/agenda-list';

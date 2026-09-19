@@ -4,12 +4,10 @@
  * Also reused (via `calendar.json`'s shared `upcomingPanel.*` keys) by
  * [17.5.4]'s dashboard widget.
  */
-import { Card } from '@biddaloy/ui/components';
+import { Card, EventTypeBadge } from '@biddaloy/ui/components';
 import type { CalendarEvent } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDate, parseServerDate } from '@biddaloy/ui/utils';
-
-import { EventTypeBadge } from '../../../components/calendar/event-type-badge';
 
 export interface UpcomingPanelProps {
   events: CalendarEvent[];

@@ -14,15 +14,13 @@
  * already role-gated server-side, same pattern [17.5.1]/[17.5.2] use.
  */
 import { CalendarEventType, Permission } from '@biddaloy/shared';
-import { Card, Skeleton } from '@biddaloy/ui/components';
+import { Card, EventTypeBadge, Skeleton } from '@biddaloy/ui/components';
 import { calendarEventsQueryOptions, useHasPermission } from '@biddaloy/ui/hooks';
 import type { CalendarEvent } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDate, parseServerDate } from '@biddaloy/ui/utils';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-
-import { EventTypeBadge } from './calendar/event-type-badge';
 
 const WINDOW_DAYS = 60;
 const FETCH_LIMIT = 6;
@@ -101,9 +99,7 @@ export function UpcomingCalendarCard({
   const events = published.slice(0, DISPLAY_LIMIT);
 
   const daysUntil = (event: CalendarEvent): number =>
-    Math.round(
-      (parseServerDate(event.start_date).getTime() - startOfToday.getTime()) / MS_PER_DAY,
-    );
+    Math.round((parseServerDate(event.start_date).getTime() - startOfToday.getTime()) / MS_PER_DAY);
 
   return (
     <Card className="flex flex-col gap-2 p-4">

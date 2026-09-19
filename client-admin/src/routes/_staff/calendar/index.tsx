@@ -7,7 +7,15 @@
  * holidays picker.
  */
 import { CalendarEventType, Permission } from '@biddaloy/shared';
-import { Button, ErrorState, Skeleton } from '@biddaloy/ui/components';
+import {
+  AgendaList,
+  type AgendaEvent,
+  Button,
+  ErrorState,
+  MonthGrid,
+  type MonthGridEvent,
+  Skeleton,
+} from '@biddaloy/ui/components';
 import {
   calendarEventsQueryOptions,
   calendarSettingsQueryOptions,
@@ -34,8 +42,6 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
 
-import { AgendaList, type AgendaEvent } from '../../../components/calendar/agenda-list';
-import { MonthGrid, type MonthGridEvent } from '../../../components/calendar/month-grid';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { CloneDialog } from './-clone-dialog';

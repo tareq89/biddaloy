@@ -75,7 +75,7 @@ export function AgendaList({
                 <button
                   type="button"
                   onClick={() => onEventClick?.(event.id)}
-                  className="flex w-full items-center gap-2 rounded p-1 text-left hover:bg-muted"
+                  className="flex w-full items-center gap-2 rounded p-1 text-start hover:bg-muted"
                 >
                   <EventTypeBadge type={event.type} label={event.typeLabel} />
                   <span className="text-sm">{event.name}</span>

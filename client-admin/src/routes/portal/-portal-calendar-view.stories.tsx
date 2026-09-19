@@ -1,10 +1,15 @@
 import { CalendarEventType } from '@biddaloy/shared';
-import { Card, StudentPicker, type StudentPickerItem } from '@biddaloy/ui/components';
+import {
+  AgendaList,
+  type AgendaEvent,
+  Card,
+  MonthGrid,
+  type MonthGridEvent,
+  StudentPicker,
+  type StudentPickerItem,
+} from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-
-import { AgendaList, type AgendaEvent } from '../../components/calendar/agenda-list';
-import { MonthGrid, type MonthGridEvent } from '../../components/calendar/month-grid';
 
 /**
  * [17.5.2]'s `/portal/calendar` — static composition of the same
