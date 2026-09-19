@@ -89,6 +89,10 @@ export function parseIcsEvents(raw: string): ParsedIcsEvent[] {
   const events: ParsedIcsEvent[] = [];
 
   let inEvent = false;
+  // Depth of nested components (VALARM, etc.) inside the current VEVENT —
+  // a property is only read at depth 0, so a VALARM's own SUMMARY can't
+  // overwrite the holiday's actual name.
+  let nestedDepth = 0;
   let dtstart: string | null = null;
   let dtend: string | null = null;
   let summary: string | null = null;
@@ -97,6 +101,7 @@ export function parseIcsEvents(raw: string): ParsedIcsEvent[] {
     const trimmed = line.trim();
     if (trimmed === 'BEGIN:VEVENT') {
       inEvent = true;
+      nestedDepth = 0;
       dtstart = null;
       dtend = null;
       summary = null;
@@ -116,6 +121,16 @@ export function parseIcsEvents(raw: string): ParsedIcsEvent[] {
       continue;
     }
     if (!inEvent) continue;
+
+    if (trimmed.startsWith('BEGIN:')) {
+      nestedDepth += 1;
+      continue;
+    }
+    if (trimmed.startsWith('END:')) {
+      nestedDepth = Math.max(0, nestedDepth - 1);
+      continue;
+    }
+    if (nestedDepth > 0) continue;
 
     const prop = propValue(trimmed);
     if (!prop) continue;

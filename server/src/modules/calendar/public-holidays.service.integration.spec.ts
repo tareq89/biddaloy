@@ -14,6 +14,8 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { CalendarEvent } from './entities/calendar-event.entity';
 import { PublicHolidaySet } from './entities/public-holiday-set.entity';
 import { PublicHolidayEntry } from './entities/public-holiday-entry.entity';
+import { AuditLog } from '../audit/entities/audit-log.entity';
+import { AuditAction } from '@biddaloy/shared';
 
 /**
  * Integration tests for `PublicHolidaysService` (17.2.4) — real, migrated
@@ -91,6 +93,22 @@ describe('PublicHolidaysService (integration)', () => {
     expect(refetched.published_at).not.toBeNull();
     expect(refetched.entries).toHaveLength(1);
     expect(refetched.entries[0].name).toBe('Independence Day');
+  });
+
+  it('records CREATE on first fetch, UPDATE on a re-fetch of the same (country, year)', async () => {
+    mockFetch([{ date: '2030-01-01', end_date: '2030-01-01', name: 'New Year' }]);
+    const first = await service.fetchIntoSet('BD', 2030, SEED_ADMIN_USER_ID);
+
+    mockFetch([{ date: '2030-03-26', end_date: '2030-03-26', name: 'Independence Day' }]);
+    await service.fetchIntoSet('BD', 2030, SEED_ADMIN_USER_ID);
+
+    const auditLogs = await dataSource.getRepository(AuditLog).find({
+      where: { entity_type: 'PublicHolidaySet', entity_id: first.id },
+      order: { created_at: 'ASC' },
+    });
+    expect(auditLogs).toHaveLength(2);
+    expect(auditLogs[0]!.action).toBe(AuditAction.CREATE);
+    expect(auditLogs[1]!.action).toBe(AuditAction.UPDATE);
   });
 
   it('fetchIntoSet raises a 502 with PUBLIC_HOLIDAY_SOURCE_UNAVAILABLE when the source fails', async () => {
@@ -186,5 +204,27 @@ describe('PublicHolidaysService (integration)', () => {
     // A second bulkAdd for the same entries adds nothing new.
     const secondResult = await service.bulkAdd(TENANT_ID, SEED_ADMIN_USER_ID, entryIds);
     expect(secondResult.added).toBe(0);
+  });
+
+  it('two concurrent bulkAdd calls for the same entries never both create the same holiday', async () => {
+    mockFetch([{ date: '2030-05-01', end_date: '2030-05-01', name: 'May Day' }]);
+    const set = await service.fetchIntoSet('BD', 2030, SEED_ADMIN_USER_ID);
+    await service.publish(set.id, SEED_ADMIN_USER_ID);
+    const entryIds = set.entries.map((e) => e.id);
+
+    // Without the advisory lock, both calls could read the same
+    // pre-creation snapshot of existing dates and both create a HOLIDAY
+    // event for 2030-05-01.
+    const [first, second] = await Promise.all([
+      service.bulkAdd(TENANT_ID, SEED_ADMIN_USER_ID, entryIds),
+      service.bulkAdd(TENANT_ID, SEED_ADMIN_USER_ID, entryIds),
+    ]);
+
+    expect(first.added + second.added).toBe(1);
+
+    const events = await dataSource.getRepository(CalendarEvent).find({
+      where: { tenant_id: TENANT_ID, type: CalendarEventType.HOLIDAY, start_date: '2030-05-01' },
+    });
+    expect(events).toHaveLength(1);
   });
 });
