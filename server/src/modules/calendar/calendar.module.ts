@@ -78,7 +78,13 @@ import { CalendarFeedController } from './calendar-feed.controller';
     // [17.3.3] SMS reuses the same COMMUNICATIONS_QUEUE primitive
     // `attendance.module.ts`'s AbsenceNoticeService uses, rather than
     // importing the whole CommunicationsModule provider graph.
-    BullModule.registerQueue({ name: COMMUNICATIONS_QUEUE }),
+    BullModule.registerQueue({
+      name: COMMUNICATIONS_QUEUE,
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+      },
+    }),
     // [#713] Real `SmsCreditService.reserve`/`settle` (via `CreditsModule`)
     // instead of a raw `sms_credit_balance` UPDATE — now that both bare
     // `CreditsModule` imports on its own cycle (`invoices.module.ts`,

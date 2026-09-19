@@ -427,7 +427,111 @@ describe('CalendarNotifyService (integration)', () => {
     expect(ledgerRows.some((r) => r.kind === SmsCreditLedgerKind.RESERVE)).toBe(true);
     expect(ledgerRows.some((r) => r.kind === SmsCreditLedgerKind.RELEASE)).toBe(true);
 
+    // NEW B: nothing will ever process a job for this guardian's share —
+    // recordBatchOutcome must have moved the batch to a terminal status
+    // instead of leaving it stuck PROCESSING forever.
+    const refreshedBatch = await dataSource
+      .getRepository(ReminderBatch)
+      .findOneOrFail({ where: { id: batch!.id } });
+    expect(refreshedBatch.status).not.toBe('PROCESSING');
+    expect(refreshedBatch.successful_count + refreshedBatch.failed_count).toBe(
+      refreshedBatch.total_recipients,
+    );
+    expect(refreshedBatch.failed_count).toBe(1);
+
     await setSmsSettings('OFF');
+  });
+
+  it('NEW B: CommunicationLog insert failure also leaves the batch terminal, not stuck PROCESSING', async () => {
+    await setSmsSettings('PLATFORM');
+    await grantSmsCredit(100);
+
+    const saveSpy = vi
+      .spyOn(logRepo, 'save')
+      .mockRejectedValueOnce(new Error('simulated log insert failure'));
+
+    const event = await makeEvent({
+      audience: CalendarAudience.ALL,
+      name: 'Log Insert Failure Terminal Event',
+    });
+    await expect(
+      notify.eventCreated(event, { notify: true, notifySms: true, userId: adminUserId }),
+    ).resolves.toBeUndefined();
+    saveSpy.mockRestore();
+
+    const batch = await dataSource
+      .getRepository(ReminderBatch)
+      .findOne({ where: { tenant_id: TENANT_ID, batch_name: `Calendar: ${event.name}` } });
+    expect(batch).not.toBeNull();
+    expect(batch!.status).not.toBe('PROCESSING');
+    expect(batch!.successful_count + batch!.failed_count).toBe(batch!.total_recipients);
+    expect(batch!.failed_count).toBe(1);
+
+    await setSmsSettings('OFF');
+  });
+
+  it('NEW A: opted-out and non-primary guardians are excluded from SMS (push-eligible family is unaffected)', async () => {
+    await setSmsSettings('PLATFORM');
+    await grantSmsCredit(100);
+
+    const optedOutGuardian = await dataSource.getRepository(Guardian).save({
+      full_name: 'Opted Out Guardian',
+      relationship: 'Mother',
+      phone: '01722222222',
+      preferred_communication: CommunicationMedium.SMS,
+      tenant_id: TENANT_ID,
+      is_primary_contact: true,
+      notifications_enabled: false,
+    } as any);
+    const nonPrimaryGuardian = await dataSource.getRepository(Guardian).save({
+      full_name: 'Non Primary Guardian',
+      relationship: 'Uncle',
+      phone: '01733333333',
+      preferred_communication: CommunicationMedium.SMS,
+      tenant_id: TENANT_ID,
+      is_primary_contact: false,
+      notifications_enabled: true,
+    } as any);
+
+    const student = await dataSource.getRepository(Student).findOneOrFail({
+      where: { user_id: studentUserId, tenant_id: TENANT_ID },
+      relations: ['guardians'],
+    });
+    const originalGuardians = student.guardians;
+    student.guardians = [...originalGuardians, optedOutGuardian, nonPrimaryGuardian];
+    await dataSource.getRepository(Student).save(student);
+
+    try {
+      const event = await makeEvent({
+        audience: CalendarAudience.ALL,
+        name: 'Guardian Filter Event',
+      });
+      await expect(
+        notify.eventCreated(event, { notify: true, notifySms: true, userId: adminUserId }),
+      ).resolves.toBeUndefined();
+
+      const batch = await dataSource
+        .getRepository(ReminderBatch)
+        .findOne({ where: { tenant_id: TENANT_ID, batch_name: `Calendar: ${event.name}` } });
+      expect(batch).not.toBeNull();
+      // Only the primary, reachable fixture guardian gets billed/SMS'd —
+      // the opted-out guardian (real DB opt-out) and the non-primary
+      // guardian (real DB is_primary_contact) are both excluded, and the
+      // reserved segment count matches this post-filter recipient count.
+      expect(batch?.total_recipients).toBe(1);
+
+      const logs = await dataSource
+        .getRepository(CommunicationLog)
+        .find({ where: { reminder_batch_id: batch!.id } });
+      expect(logs).toHaveLength(1);
+      expect(logs[0].guardian_id).toBe(guardianId);
+    } finally {
+      // Restore the shared fixture's guardian list so later tests in this
+      // file keep seeing exactly the one guardian they were written for.
+      student.guardians = originalGuardians;
+      await dataSource.getRepository(Student).save(student);
+      await setSmsSettings('OFF');
+    }
   });
 
   it('F4: an SMS reserve failure never escapes eventCreated/eventUpdated', async () => {

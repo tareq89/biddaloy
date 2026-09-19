@@ -21,6 +21,8 @@ import { ReminderBatch } from '../communications/entities/reminder-batch.entity'
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
 import { SmsCreditService } from '../communications/credits/sms-credit.service';
+import { recordBatchOutcome } from '../communications/reminder-batch-counters';
+import { resolveReminderAudience } from '../communications/reminder-recipients.util';
 import { PushService } from '../push/push.service';
 
 export interface CalendarNotifyOpts {
@@ -226,10 +228,20 @@ export class CalendarNotifyService {
       if (student.user_id && student.user?.status === UserStatus.ACTIVE) {
         pushUserIds.add(student.user_id);
       }
-      for (const guardian of student.guardians ?? []) {
+      const linked = student.guardians ?? [];
+      for (const guardian of linked) {
         if (guardian.user_id && guardian.user?.status === UserStatus.ACTIVE) {
           pushUserIds.add(guardian.user_id);
         }
+      }
+
+      // SMS is metered and billed per recipient — unlike push above, it must
+      // respect the same opt-out/primary-contact selection every other
+      // reminder flow uses (`reminders.service.ts`, `absence-notice.service.ts`),
+      // or an opted-out guardian keeps getting charged-for SMS and a
+      // non-primary guardian doubles the bill for one student.
+      const { guardians: smsEligible } = resolveReminderAudience(linked);
+      for (const guardian of smsEligible) {
         if (guardian.phone && !smsGuardians.has(guardian.id)) {
           smsGuardians.set(guardian.id, {
             id: guardian.id,
@@ -344,6 +356,11 @@ export class CalendarNotifyService {
         // leaving it reserved forever (mirrors reminders.service.ts's
         // enqueue-failure release below).
         await this.releaseSegments(tenantId, batch.id, guardian.id, segmentsPerRecipient);
+        // Nothing will ever process a job for this guardian's share either
+        // — record the failure now, or this batch never reaches
+        // total_recipients and stays PROCESSING forever (mirrors
+        // absence-notice.service.ts's queueRecipients).
+        await recordBatchOutcome(this.logRepo.manager, batch.id, 'failure');
         continue;
       }
 
@@ -361,8 +378,15 @@ export class CalendarNotifyService {
         this.logger.warn(
           `sendSms: failed to enqueue log ${log.id} for batch ${batch.id}: ${String(error)}`,
         );
-        log.status = CommunicationStatus.FAILED;
-        await this.logRepo.save(log);
+        // Same transaction as absence-notice.service.ts's enqueue-failure
+        // path: the log's terminal status and the batch's counter/status
+        // transition must commit together, or a crash between them leaves
+        // the batch permanently short a count.
+        await this.logRepo.manager.transaction(async (manager) => {
+          log.status = CommunicationStatus.FAILED;
+          await manager.save(log);
+          await recordBatchOutcome(manager, batch.id, 'failure');
+        });
         // Same as reminders.service.ts:696-723 — the job that would have
         // settled this log's share of the RESERVE was never created.
         await this.releaseSegments(tenantId, batch.id, log.id, segmentsPerRecipient);
