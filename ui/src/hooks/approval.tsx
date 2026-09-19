@@ -16,6 +16,25 @@
  * (`POST /auth/step-up/otp/request`, `POST /auth/step-up`); factored out
  * of `useApprovedMutation` so a caller could drive `AdminVerificationModal`
  * directly if it ever needed to (none does yet).
+ *
+ * ## Who renders the modal
+ *
+ * One `<ApprovalModalHostProvider>` near the app root owns the single
+ * `AdminVerificationModal`; every `useApprovedMutation` on the page asks it
+ * for approval through context. This replaced a module-level
+ * "first hook instance to mount claims the modal" singleton, which was a
+ * real bug: two components mounted at the same time (e.g. the student
+ * detail page's `RecordPaymentModal` and its discounts tab) raced for the
+ * claim, and whichever lost rejected its own approval with
+ * "no modal host mounted" instead of ever showing the prompt. Ownership
+ * now comes from the tree, not from mount order.
+ *
+ * ```
+ * <ApprovalModalHostProvider>          <- renders AdminVerificationModal
+ *   <RecordPaymentModal/>              <- useCheckout()        ─┐
+ *   <DiscountsSection/>                <- useCreateDiscountRule ┴─> requestApproval()
+ * </ApprovalModalHostProvider>
+ * ```
  */
 import {
   useMutation,
@@ -26,7 +45,11 @@ import * as React from 'react';
 
 import { apiClient } from '../api/client';
 import { ApiError, RateLimitedError } from '../api/errors';
-import type { AdminVerificationError, ApprovalMethod, ApprovalResult } from '../components/admin-verification-modal';
+import type {
+  AdminVerificationError,
+  ApprovalMethod,
+  ApprovalResult,
+} from '../components/admin-verification-modal';
 import { AdminVerificationModal } from '../components/admin-verification-modal';
 
 /** Rejected by a cancelled approval — `useApprovedMutation`'s caller sees
@@ -62,7 +85,22 @@ function toVerificationError(error: unknown): AdminVerificationError {
   return { message: error instanceof Error ? error.message : String(error) };
 }
 
+/** Body of `POST /auth/step-up` — matches the server's `StepUpVerifyDto`
+ * (`server/src/modules/auth/dto/step-up.dto.ts`): uppercase `method`, the
+ * OTP field is named `otp` (not `code`), and `scope` is required so the
+ * issued approval token is bound to the gated action being approved. */
 export interface StepUpVerifyInput {
+  identifier: string;
+  method: 'OTP' | 'PASSWORD';
+  otp?: string;
+  password?: string;
+  scope: string;
+}
+
+/** What `AdminVerificationModal`'s `onVerify` prop passes — the UI-facing
+ * shape (lowercase method, `code` for the OTP digits). `handleVerify` below
+ * maps this onto `StepUpVerifyInput` before it reaches the network. */
+export interface ModalVerifyInput {
   identifier: string;
   method: ApprovalMethod;
   code?: string;
@@ -86,104 +124,61 @@ export function useStepUp() {
   });
 
   return {
-    requestOtp: (identifier: string) => requestOtpMutation.mutateAsync(identifier).then(() => undefined),
+    requestOtp: (identifier: string) =>
+      requestOtpMutation.mutateAsync(identifier).then(() => undefined),
     verify: (input: StepUpVerifyInput) => verifyMutation.mutateAsync(input),
     isRequestingOtp: requestOtpMutation.isPending,
     isVerifying: verifyMutation.isPending,
   };
 }
 
-/** `Omit<UseMutationOptions, 'mutationFn' | 'scope'>`: TanStack Query's own
- * `UseMutationOptions.scope` (mutation concurrency grouping) is a different
- * concept from this hook's `approvalScope` (the human-facing action being
- * approved) — named `approvalScope` rather than `scope` precisely to avoid
- * colliding with that reserved option. */
-export interface ApprovedMutationOptions<TVariables, TResult>
-  extends Omit<UseMutationOptions<TResult, unknown, TVariables>, 'mutationFn' | 'scope'> {
+/** What a wrapped mutation asks the host for. */
+export interface ApprovalRequest {
   /** Machine key for `AdminVerificationModal`'s scope label. */
-  approvalScope: string;
-  /** Derived from the school's auth settings — see `AdminVerificationModal`'s
-   * own doc comment on why this is a plain boolean rather than a query this
-   * hook runs itself. */
-  passwordAllowed?: boolean;
+  scope: string;
+  passwordAllowed: boolean;
 }
 
-/** A type intersection, not `interface ... extends` — `UseMutationResult` is
- * a discriminated union (idle/pending/success/error), not a plain object
- * type, and an interface can only extend statically-known object members. */
-export type ApprovedMutationResult<TVariables, TResult> = UseMutationResult<
-  TResult,
-  unknown,
-  TVariables
-> & {
-  /** Render this once, anywhere in the calling component's tree — it's a
-   * no-op (`null`) whenever no approval is pending. This is the one line
-   * of "approval code" a feature needs beyond calling
-   * `useApprovedMutation(fn, { approvalScope })` itself. */
-  modal: React.ReactNode;
-};
+export type RequestApproval = (request: ApprovalRequest) => Promise<ApprovalResult>;
 
-/** Only the first `useApprovedMutation` instance mounted at any moment
- * renders `AdminVerificationModal` — if two components on screen both wrap
- * a mutation with this hook, the second's `modal` stays `null` rather than
- * mounting a second `Dialog` portal. Since only one step-up can be in
- * flight at a time in practice (an admin can only be looking at one
- * approval prompt), this just guards the pathological case where two
- * mounted callers would otherwise fight over the same DOM. */
-let hostClaimed = false;
+const ApprovalHostContext = React.createContext<RequestApproval | null>(null);
 
-function useIsModalHost(): boolean {
-  const [isHost] = React.useState(() => {
-    if (hostClaimed) return false;
-    hostClaimed = true;
-    return true;
-  });
-  React.useEffect(
-    () => () => {
-      if (isHost) hostClaimed = false;
-    },
-    [isHost],
-  );
-  return isHost;
+interface QueuedApproval extends ApprovalRequest {
+  id: number;
+  resolve: (result: ApprovalResult) => void;
+  reject: (error: unknown) => void;
 }
 
 /**
- * Wraps `mutationFn` so an `APPROVAL_REQUIRED` response opens
- * `AdminVerificationModal`, waits for a token, and retries exactly once.
- * A second `APPROVAL_REQUIRED` on the retry is not looped — it surfaces to
- * the caller as a normal mutation error, same as any other failure.
+ * Renders the app's one `AdminVerificationModal` and hands every
+ * `useApprovedMutation` below it a `requestApproval()`.
+ *
+ * Two approvals asked for at once are **queued**, not dropped: only one
+ * `AdminVerificationModal` is on screen at a time (an admin can only answer
+ * one prompt anyway), and the second prompt opens as soon as the first
+ * settles. Queueing rather than rejecting the loser is what makes this
+ * independent of mount order — nothing about "who asked first" changes
+ * whether an approval is reachable.
  */
-export function useApprovedMutation<TVariables, TResult>(
-  mutationFn: (variables: TVariables, options: { headers?: Record<string, string> }) => Promise<TResult>,
-  {
-    approvalScope,
-    passwordAllowed = false,
-    ...mutationOptions
-  }: ApprovedMutationOptions<TVariables, TResult>,
-): ApprovedMutationResult<TVariables, TResult> {
-  const isHost = useIsModalHost();
+export function ApprovalModalHostProvider({ children }: { children: React.ReactNode }) {
   const stepUp = useStepUp();
-
-  const [pending, setPending] = React.useState<{
-    resolve: (result: ApprovalResult) => void;
-    reject: (error: unknown) => void;
-  } | null>(null);
+  const [queue, setQueue] = React.useState<QueuedApproval[]>([]);
   const [verifyError, setVerifyError] = React.useState<AdminVerificationError | null>(null);
+  const nextId = React.useRef(0);
 
-  function requestApproval(): Promise<ApprovalResult> {
-    return new Promise((resolve, reject) => {
-      if (!isHost) {
-        // See `useIsModalHost`'s own comment: only the host instance ever
-        // renders `AdminVerificationModal`. A non-host instance rejects
-        // immediately instead of setting `pending` state nobody will ever
-        // render a UI for, which would otherwise hang the mutation forever.
-        reject(new Error('useApprovedMutation: no modal host mounted to show the approval prompt.'));
-        return;
-      }
-      setVerifyError(null);
-      setPending({ resolve, reject });
-    });
-  }
+  const requestApproval = React.useCallback<RequestApproval>(
+    ({ scope, passwordAllowed }) =>
+      new Promise<ApprovalResult>((resolve, reject) => {
+        nextId.current += 1;
+        setQueue((current) => [
+          ...current,
+          { id: nextId.current, scope, passwordAllowed, resolve, reject },
+        ]);
+      }),
+    [],
+  );
+
+  const current = queue[0] ?? null;
 
   async function handleRequestOtp(identifier: string): Promise<void> {
     try {
@@ -195,24 +190,22 @@ export function useApprovedMutation<TVariables, TResult>(
     }
   }
 
-  const mutation = useMutation<TResult, unknown, TVariables>({
-    ...mutationOptions,
-    mutationFn: async (variables: TVariables) => {
-      try {
-        return await mutationFn(variables, {});
-      } catch (error) {
-        if (!isApprovalRequiredError(error)) throw error;
-        const { approval_token } = await requestApproval();
-        // A second APPROVAL_REQUIRED here is not caught — it propagates
-        // as a normal error rather than looping back into the modal.
-        return await mutationFn(variables, { headers: { 'X-Approval-Token': approval_token } });
-      }
-    },
-  });
-
-  async function handleVerify(input: StepUpVerifyInput): Promise<ApprovalResult> {
+  async function handleVerify(input: ModalVerifyInput): Promise<ApprovalResult> {
     try {
-      const result = await stepUp.verify(input);
+      if (!current) {
+        throw new Error('No approval request is queued.');
+      }
+      const result = await stepUp.verify({
+        identifier: input.identifier,
+        method: input.method === 'otp' ? 'OTP' : 'PASSWORD',
+        scope: current.scope,
+        // `AdminVerificationModal`'s own `canSubmit` guards this: it never
+        // calls `onVerify` for the OTP method without a 6-digit `code`, or
+        // for the PASSWORD method without a non-empty `password` — the
+        // non-null assertions below reflect that invariant rather than
+        // re-validating it here.
+        ...(input.method === 'otp' ? { otp: input.code! } : { password: input.password! }),
+      });
       setVerifyError(null);
       return result;
     } catch (error) {
@@ -221,32 +214,119 @@ export function useApprovedMutation<TVariables, TResult>(
     }
   }
 
-  function handleSuccess(result: ApprovalResult) {
-    pending?.resolve(result);
-    setPending(null);
-  }
-
-  function handleCancel() {
-    pending?.reject(new ApprovalCancelledError());
-    setPending(null);
+  /** Pops the head of the queue; the next one (if any) opens a fresh modal
+   * because `key={current.id}` remounts it with empty inputs. */
+  function dequeue() {
+    setQueue((rest) => rest.slice(1));
     setVerifyError(null);
   }
 
-  const modal =
-    isHost && pending ? (
-      <AdminVerificationModal
-        open
-        scope={approvalScope}
-        passwordAllowed={passwordAllowed}
-        onRequestOtp={handleRequestOtp}
-        onVerify={handleVerify}
-        onSuccess={handleSuccess}
-        onCancel={handleCancel}
-        loading={stepUp.isVerifying}
-        requestingOtp={stepUp.isRequestingOtp}
-        error={verifyError}
-      />
-    ) : null;
+  function handleSuccess(result: ApprovalResult) {
+    current?.resolve(result);
+    dequeue();
+  }
 
-  return { ...mutation, modal };
+  function handleCancel() {
+    current?.reject(new ApprovalCancelledError());
+    dequeue();
+  }
+
+  return (
+    <ApprovalHostContext.Provider value={requestApproval}>
+      {children}
+      {current ? (
+        <AdminVerificationModal
+          key={current.id}
+          open
+          scope={current.scope}
+          passwordAllowed={current.passwordAllowed}
+          onRequestOtp={handleRequestOtp}
+          onVerify={handleVerify}
+          onSuccess={handleSuccess}
+          onCancel={handleCancel}
+          loading={stepUp.isVerifying}
+          requestingOtp={stepUp.isRequestingOtp}
+          error={verifyError}
+        />
+      ) : null}
+    </ApprovalHostContext.Provider>
+  );
+}
+
+/** `Omit<UseMutationOptions, 'mutationFn' | 'scope'>`: TanStack Query's own
+ * `UseMutationOptions.scope` (mutation concurrency grouping) is a different
+ * concept from this hook's `approvalScope` (the human-facing action being
+ * approved) — named `approvalScope` rather than `scope` precisely to avoid
+ * colliding with that reserved option. */
+export interface ApprovedMutationOptions<TVariables, TResult> extends Omit<
+  UseMutationOptions<TResult, unknown, TVariables>,
+  'mutationFn' | 'scope'
+> {
+  /** Machine key for `AdminVerificationModal`'s scope label. */
+  approvalScope: string;
+  /** Derived from the school's auth settings — see `AdminVerificationModal`'s
+   * own doc comment on why this is a plain boolean rather than a query this
+   * hook runs itself. */
+  passwordAllowed?: boolean;
+}
+
+/** Plain `UseMutationResult` — the approval modal is rendered by
+ * `ApprovalModalHostProvider`, so callers render nothing of their own.
+ * (This used to carry an extra `modal: React.ReactNode` that each caller
+ * had to drop into its JSX.) */
+export type ApprovedMutationResult<TVariables, TResult> = UseMutationResult<
+  TResult,
+  unknown,
+  TVariables
+>;
+
+/**
+ * Wraps `mutationFn` so an `APPROVAL_REQUIRED` response opens
+ * `AdminVerificationModal`, waits for a token, and retries exactly once.
+ * A second `APPROVAL_REQUIRED` on the retry is not looped — it surfaces to
+ * the caller as a normal mutation error, same as any other failure.
+ *
+ * Requires an `<ApprovalModalHostProvider>` somewhere above it. Without one
+ * the mutation fails loudly with an explanatory error rather than hanging.
+ */
+export function useApprovedMutation<TVariables, TResult>(
+  mutationFn: (
+    variables: TVariables,
+    options: { headers?: Record<string, string> },
+  ) => Promise<TResult>,
+  {
+    approvalScope,
+    passwordAllowed = false,
+    ...mutationOptions
+  }: ApprovedMutationOptions<TVariables, TResult>,
+): ApprovedMutationResult<TVariables, TResult> {
+  const requestApproval = React.useContext(ApprovalHostContext);
+
+  return useMutation<TResult, unknown, TVariables>({
+    ...mutationOptions,
+    mutationFn: async (variables: TVariables) => {
+      try {
+        return await mutationFn(variables, {});
+      } catch (error) {
+        if (!isApprovalRequiredError(error)) throw error;
+        if (!requestApproval) {
+          // Loud, not silent: a missing provider is a wiring mistake, and a
+          // mutation that quietly no-ops (or hangs forever waiting on a
+          // modal nobody renders) is far harder to diagnose than this.
+          throw new Error(
+            'useApprovedMutation: no <ApprovalModalHostProvider> above this component — ' +
+              'the approval prompt cannot be shown. Mount one at the app root.',
+            { cause: error },
+          );
+        }
+        const { approval_token } = await requestApproval({
+          scope: approvalScope,
+          passwordAllowed,
+        });
+        // A second APPROVAL_REQUIRED here is not caught — it propagates
+        // as a normal error rather than looping back into the modal.
+        return await mutationFn(variables, { headers: { 'X-Approval-Token': approval_token } });
+      }
+    },
+  });
 }

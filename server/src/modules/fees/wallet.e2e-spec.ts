@@ -208,12 +208,16 @@ describe('GET /students/:id/wallet (16.1.5)', () => {
     expect(res.body.transactions).toHaveLength(1);
     expect(Number(res.body.transactions[0].amount)).toBe(500);
     expect(res.body.transactions[0].kind).toBe(WalletTransactionKind.CREDIT_OVERPAYMENT);
-    expect(res.body.transactions[0].note).toBe('Overpayment refund');
     expect(res.body.transactions[0]).toHaveProperty('created_at');
-    // Allow-list enforced: exactly amount/kind/note/created_at, no internal
+    // [16.8.2] `note` is staff free text of the same category as
+    // `Payment.remarks` ("Overpayment refund" here, but nothing stops a
+    // clerk typing anything into it) and was previously handed to family
+    // callers verbatim. It is now withheld.
+    expect(res.body.transactions[0]).not.toHaveProperty('note');
+    // Allow-list enforced: exactly amount/kind/created_at, no internal
     // columns (wallet_id, tenant_id, payment_id, created_by_user_id, ...).
     expect(Object.keys(res.body.transactions[0]).sort()).toEqual(
-      ['amount', 'kind', 'note', 'created_at'].sort(),
+      ['amount', 'kind', 'created_at'].sort(),
     );
   });
 

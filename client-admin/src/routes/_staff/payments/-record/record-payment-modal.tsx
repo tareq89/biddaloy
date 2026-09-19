@@ -7,9 +7,9 @@
  * `useApprovedMutation(checkoutRequest, { approvalScope: ... })` — not
  * `{ scope }` — per the published plan's correction
  * (`ui/src/hooks/approval.tsx:96-109` reserves `scope` for TanStack
- * Query's own mutation-concurrency option). `checkout.modal` is rendered
- * as the last child of `DialogContent`, or the approval prompt never
- * appears.
+ * Query's own mutation-concurrency option). The approval prompt itself is
+ * rendered by the app-level `<ApprovalModalHostProvider>` in
+ * `routes/_staff.tsx` — this component renders nothing for it.
  *
  * `useCart`/`useCheckout` are backed by hand-written interim types in
  * `ui/src/hooks/payments.ts` — #658/#659's cart and checkout endpoints
@@ -208,8 +208,17 @@ export function RecordPaymentModal({
     const forceReseedAll = !linesTouched || amountChanged;
     if (!forceReseedAll && newStudentIds.length === 0) return;
 
+    // `GET /payments/cart`'s `suggested` block is only present when the
+    // request carried an `amount` (`checkout.dto.ts`'s own comment on
+    // `QueryCheckoutCartDto.amount`: "Omitted → no suggested block") — the
+    // modal opens with no amount typed yet (`debouncedAmountReceivedMinor
+    // Units` starts `undefined`), so this effect's first run always sees
+    // `cart.data.suggested === undefined` and must not assume otherwise.
+    // Every component test's own `cartResponse()` mock always includes
+    // `suggested`, which is why this crash-on-open only showed up against
+    // the real server (`e2e/journeys/checkout.spec.ts`).
     const suggestions = new Map(
-      cart.data.suggested.allocations.map((allocation) => [
+      (cart.data.suggested?.allocations ?? []).map((allocation) => [
         allocation.student_fee_id,
         allocation.amount,
       ]),
@@ -692,8 +701,6 @@ export function RecordPaymentModal({
             </form>
           </>
         )}
-
-        {checkout.modal}
       </DialogContent>
     </Dialog>
   );

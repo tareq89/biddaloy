@@ -34,6 +34,7 @@ export const AUDIT_ENTITY_TYPES = [
   'Invoice',
   'Payment',
   'PublicHolidaySet',
+  'RecurringSchedule',
   'RefreshToken',
   'ReminderBatch',
   'ReminderBatchPreview',

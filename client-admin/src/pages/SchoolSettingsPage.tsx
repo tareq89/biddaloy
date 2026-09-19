@@ -7,6 +7,7 @@ import { AttendanceSection } from './settings/AttendanceSection';
 import { BackupSection } from './settings/backup-section';
 import { CalendarSection } from './settings/CalendarSection';
 import { EmailSection } from './settings/EmailSection';
+import { FeesSection } from './settings/FeesSection';
 import { MessengerSection } from './settings/MessengerSection';
 import { RegionalSection } from './settings/RegionalSection';
 import { SchoolProfileSection } from './settings/school-profile-section';
@@ -155,6 +156,7 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
           <EmailSection schoolId={schoolId} email={settingsQuery.data.communications?.email} />
           <SmsSection schoolId={schoolId} sms={settingsQuery.data.communications?.sms} />
           <SmsCreditSection key={schoolId} schoolId={schoolId} isSuperAdmin={isSuperAdmin} />
+          <FeesSection key={schoolId} schoolId={schoolId} fees={settingsQuery.data.fees} />
         </div>
       )}
     </div>

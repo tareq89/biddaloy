@@ -17,6 +17,7 @@ import { shouldRetryQuery } from './retry';
  */
 export type TenantSettingsInput = components['schemas']['TenantSettingsDto'] & {
   backup?: BackupSettings;
+  fees?: FeesSettingsInput;
 };
 export type TestConnectionInput = components['schemas']['TestConnectionDto'];
 export type TestableMedium = TestConnectionInput['medium'];
@@ -114,6 +115,34 @@ export interface BackupSettings {
   schedule: BackupScheduleMode;
 }
 
+/** [16.7.6/#678] `late_fees` isn't in `schema.d.ts`'s `FeesSettingsDto` yet —
+ * hand-typed against the plan comment's `#678` contract ahead of the
+ * server work, same reconciliation-seam pattern `BackupSettings` above
+ * documents: replace with the generated equivalent once #678 lands and
+ * `schema.d.ts` regenerates. `approvalMode`/`notifyOn*DefaultDefault` are
+ * already generated (`FeesSettingsDto`), so those are reused as-is rather
+ * than re-hand-typed. */
+export interface LateFeeSetting {
+  enabled: boolean;
+  /** 0-60 inclusive, per D11/#678. */
+  grace_days: number;
+  kind: 'PERCENT' | 'FLAT';
+  /** 0-100 when `kind === 'PERCENT'`; unbounded (major-unit amount) when
+   * `kind === 'FLAT'` — same asymmetry `discount-rules.ts`'s `DiscountRule
+   * .value` has. */
+  value: number;
+}
+
+export type FeesSettingsInput = components['schemas']['FeesSettingsDto'] & {
+  /** Keyed by `FeeType` (`@biddaloy/shared`) enum value, e.g.
+   * `MONTHLY_TUITION`. Not every `FeeType` needs an entry — an absent key
+   * means late fees stay off for that fee type, same "off by default"
+   * default D11 describes. */
+  late_fees?: Record<string, LateFeeSetting>;
+};
+
+export type FeesSettings = NonNullable<TenantSettingsInput['fees']>;
+
 export interface MaskedTenantSettings {
   version: 1;
   region: MaskedRegionSettings;
@@ -121,6 +150,7 @@ export interface MaskedTenantSettings {
   attendance?: AttendancePolicySettings;
   auth?: AuthSettings;
   backup?: BackupSettings;
+  fees?: FeesSettings;
 }
 
 export interface ConnectionTestResult {

@@ -53,17 +53,6 @@ export enum FeeType {
   OTHER = 'OTHER',
 }
 
-/**
- * @deprecated Slated for removal per Epic 16 decision D3, once every
- * `fee-generation.service.ts`-adjacent consumer drops it. #638 keeps it
- * alive on purpose — #639 and siblings still import it — do not delete
- * until those sibling tickets land their own removal.
- */
-export enum FeeApplicability {
-  ALL = 'ALL',
-  SELECTED = 'SELECTED',
-}
-
 export enum FeeStatus {
   PENDING = 'PENDING',
   PARTIALLY_PAID = 'PARTIALLY_PAID',
@@ -90,16 +79,9 @@ export enum PaymentStatus {
   REFUNDED = 'REFUNDED',
 }
 
-/**
- * @deprecated ADVANCE is being removed per Epic 16 decision D5 — kept for now
- * because `payment-allocation.service.ts`'s `classifyPeriod` (owned by #643)
- * still returns it. Remove ADVANCE here in the same commit that removes that
- * usage.
- */
 export enum PaymentAllocationType {
   DUE = 'DUE',
   CURRENT = 'CURRENT',
-  ADVANCE = 'ADVANCE',
 }
 
 export enum InvoiceStatus {

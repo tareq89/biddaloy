@@ -10,6 +10,7 @@ import { renderHook, type RenderHookOptions, type RenderHookResult } from '@test
 import type { ReactNode } from 'react';
 
 import { setAccessToken, setActiveRole, setActiveTenant } from '../api/auth-state';
+import { ApprovalModalHostProvider } from '../hooks/approval';
 
 import { createTestQueryClient } from './render-with-providers';
 import type { SeedQuery } from './render-with-providers';
@@ -71,7 +72,14 @@ export function renderHookWithProviders<Result, Props>(
   }
 
   function Wrapper({ children }: { children: ReactNode }) {
-    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    return (
+      <QueryClientProvider client={queryClient}>
+        {/* Same reasoning as `renderWithProviders`: a hook under test may
+            wrap its mutation with `useApprovedMutation`, which needs one
+            approval-modal host above it. */}
+        <ApprovalModalHostProvider>{children}</ApprovalModalHostProvider>
+      </QueryClientProvider>
+    );
   }
 
   const view = renderHook(callback, { wrapper: Wrapper, ...renderHookOptions });

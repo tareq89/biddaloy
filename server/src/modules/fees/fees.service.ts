@@ -407,10 +407,13 @@ export class PaymentService {
       // `toFamilyPayment()` (called on this result for PARENT/STUDENT
       // callers) fill in `fee_name`/`period_start` — without it those
       // fields are always null even when the underlying data exists.
+      // [16.8.2] `invoice` backs `FamilyPaymentDto.invoice_number` — the
+      // document number a family quotes back to the office.
       relations: [
         'allocations',
         'allocations.student_fee',
         'allocations.student_fee.fee_structure',
+        'invoice',
       ],
       order: { payment_date: 'DESC' },
     });
@@ -470,6 +473,8 @@ export class PaymentService {
         'allocations',
         'allocations.student_fee',
         'allocations.student_fee.fee_structure',
+        // [16.8.2] Backs `FamilyPaymentDto.invoice_number`.
+        'invoice',
       ],
       order: { payment_date: 'DESC' },
     });

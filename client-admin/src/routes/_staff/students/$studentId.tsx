@@ -20,6 +20,7 @@ import { GuardiansTab } from './-detail/guardians-tab';
 import { InvoicesTab } from './-detail/invoices-tab';
 import { OverviewTab } from './-detail/overview-tab';
 import { PaymentsTab } from './-detail/payments-tab';
+import { RecurringFeesTab } from './-detail/recurring-fees-tab';
 import { TransferStatusDialog } from './-detail/transfer-status-dialog';
 import { SendReminderDialog } from './-send-reminder-dialog';
 
@@ -66,6 +67,7 @@ const TAB_IDS = [
   'overview',
   'enrollment',
   'fees',
+  'recurring-fees',
   'payments',
   'invoices',
   'guardians',
@@ -194,6 +196,11 @@ function StudentDetailPage() {
                   id: 'fees',
                   label: t('detail.tabs.fees'),
                   content: <FeesTab studentId={studentId} />,
+                },
+                {
+                  id: 'recurring-fees',
+                  label: t('detail.tabs.recurringFees'),
+                  content: <RecurringFeesTab studentId={studentId} />,
                 },
                 {
                   id: 'payments',

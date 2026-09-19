@@ -8,7 +8,7 @@
  * should mirror `students.ts`'s shape rather than reinvent it — see
  * `ui/README.md`'s "Hooks" section for the full pattern write-up.
  */
-export { ApprovalCancelledError } from './approval';
+export { ApprovalCancelledError, ApprovalModalHostProvider } from './approval';
 export { createEntityKeys, type EntityKeys } from './query-keys';
 export { shouldRetryQuery } from './retry';
 export { useOnline } from './use-online';
@@ -159,6 +159,18 @@ export {
   type StudentFee,
   type StudentFeeSummary,
 } from './payments';
+export {
+  discountRulesQueryOptions,
+  useCreateDiscountRule,
+  useDeleteDiscountRule,
+  useDiscountRules,
+  useUpdateDiscountRule,
+  type CreateDiscountRuleInput,
+  type DeleteDiscountRuleInput,
+  type DiscountKind,
+  type DiscountRule,
+  type UpdateDiscountRuleInput,
+} from './discount-rules';
 export {
   enrollmentKeys,
   useStudentEnrollments,
@@ -565,6 +577,47 @@ export {
 } from './global-search';
 export { useNotifications, useUnreadNotificationCount } from './notifications';
 export {
+  recurringScheduleKeys,
+  recurringSchedulesQueryOptions,
+  recurringScheduleQueryOptions,
+  studentScheduleCoverageKeys,
+  studentScheduleCoverageQueryOptions,
+  useRecurringSchedules,
+  useRecurringSchedule,
+  useCreateRecurringSchedule,
+  useUpdateRecurringSchedule,
+  useDeleteRecurringSchedule,
+  useCloneRecurringSchedule,
+  schedulePreviewKeys,
+  schedulePreviewQueryOptions,
+  useSchedulePreview,
+  useAddScheduleExclusion,
+  useRemoveScheduleExclusion,
+  useStudentScheduleCoverage,
+  useIncludeStudentInSchedule,
+  familyStudentScheduleKeys,
+  familyStudentSchedulesQueryOptions,
+  useFamilyStudentSchedules,
+  ISO_WEEKDAYS,
+  type RecurringSchedule,
+  type RecurringScheduleDetail,
+  type RecurringScheduleRule,
+  type RecurringScheduleRuleKind,
+  type RecurringScheduleAudience,
+  type RecurringScheduleExclusion,
+  type MonthlyRuleDay,
+  type Weekday,
+  type AddExclusionInput,
+  type CreateRecurringScheduleInput,
+  type UpdateRecurringScheduleInput,
+  type CloneScheduleResult,
+  type SchedulePreview,
+  type SchedulePreviewStudent,
+  type RecurringScheduleListFilters,
+  type StudentScheduleItem,
+  type FamilyStudentSchedule,
+} from './recurring-schedules';
+export {
   schoolsKeys,
   schoolSettingsKeys,
   schoolSettingsQueryOptions,
@@ -590,6 +643,9 @@ export {
   type MaskedCommunicationsSettings,
   type MaskedTenantSettings,
   type BackupSettings,
+  type FeesSettings,
+  type FeesSettingsInput,
+  type LateFeeSetting,
   type ConnectionTestResult,
   type TenantSettingsInput,
   type TestConnectionInput,

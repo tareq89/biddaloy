@@ -12,18 +12,13 @@
  * date" opens `EditBatchDialog`, its own file, since that one needs a real
  * form.
  *
- * **Only one dialog's `useApprovedMutation` is ever mounted at a time.**
- * `approval.tsx`'s `useIsModalHost` hands the single approval-modal "host"
- * slot to whichever `useApprovedMutation` instance mounts first and never
- * hands it back while that instance stays mounted — it's built for one
- * approvable action live on screen, not three sharing a row's kebab menu.
- * Rendering `EditBatchDialog`/the remove-uncollected confirm/the delete
- * confirm unconditionally (each always calling its own
- * `useApprovedMutation`) would let whichever mounts first at component
- * mount time permanently squat the host, silently breaking the other two
- * mutations' approval flow. Each of the three dialogs below is only
- * rendered — and so only calls its mutation hook — while `openDialog`
- * actually selects it, so exactly one is ever mounted.
+ * Each of the three dialogs below is rendered only while `openDialog`
+ * selects it, so each mounts with fresh form state. This used to be
+ * load-bearing for a second reason — `approval.tsx` once handed a single
+ * approval-modal "host" slot to whichever `useApprovedMutation` mounted
+ * first, so three always-mounted dialogs would silently break two of the
+ * three approval flows. The modal is now owned by one app-level
+ * `<ApprovalModalHostProvider>` and mount order no longer matters.
  */
 import { ApiError } from '@biddaloy/ui/api';
 import {
@@ -192,7 +187,6 @@ function RemoveUncollectedConfirmDialog({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {removeUncollected.modal}
     </>
   );
 }
@@ -266,7 +260,6 @@ function DeleteBatchConfirmDialog({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {deleteGeneration.modal}
     </>
   );
 }

@@ -31,6 +31,8 @@ import {
   UpdateDiscountRuleDto,
   toDiscountRuleDto,
 } from './dto/discount-rules.dto';
+// [16.8.2] Family-facing shape from the one allow-list module.
+import { toFamilyDiscountRule } from './dto/family.dto';
 import { ApprovalScope, JwtPayload, Permission, UserRole, isGuardianRole } from '@biddaloy/shared';
 
 /**
@@ -86,6 +88,13 @@ export class DiscountRulesController {
       if (!linkedIds.includes(studentId)) {
         throw new ForbiddenException('Not linked to this student');
       }
+      // [16.8.2] This route has admitted PARENT/STUDENT since it was built,
+      // but returned the staff DTO unchanged — leaking `created_by_user_id`,
+      // `approved_by_user_id` and the internal `reason` free text. Shaped
+      // through the same family allow-list module as every other
+      // family-facing fees response.
+      const familyRules = await this.discountRulesService.listForStudent(tenant.id, studentId);
+      return familyRules.map(toFamilyDiscountRule);
     }
     const rules = await this.discountRulesService.listForStudent(tenant.id, studentId);
     return rules.map(toDiscountRuleDto);

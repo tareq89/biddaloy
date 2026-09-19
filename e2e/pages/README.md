@@ -23,6 +23,12 @@ flowchart LR
     ASP --> AS[AppShell chrome]
 ```
 
+Two objects here are not archetypes but cross-route **overlays** — one
+component every route shares, so the knowledge of how to drive it lives in
+one place instead of being copied per journey: `AppShellPage` (the app
+chrome) and `ApprovalModalPage` (the step-up approval modal every
+`@RequireApproval` route pops).
+
 ## Locator policy (this is an accessibility decision)
 
 - **`getByRole` / `getByLabel` only.** These resolve through the

@@ -53,7 +53,18 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          'fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground shadow-e3 ring-1 ring-foreground/10 duration-(--motion-duration-slow) outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-sm dark:ring-border-subtle',
+          // [#823] `max-h-[calc(100dvh-2rem)]` + `overflow-y-auto` — a
+          // dialog taller than the viewport (Record Payment's success
+          // panel with discount/tender fields, Generate Fees with a fee
+          // selected) used to render past the bottom of the screen with
+          // no way to reach its own footer/submit button. `flex flex-col`
+          // here + `DialogFooter`'s own `sticky bottom-0` keep the footer
+          // reachable rather than scrolling off with the rest of the
+          // content. This is a shared-primitive change — every `Dialog`
+          // in both SPAs renders through it, so re-check Storybook (every
+          // existing dialog story, plus a new "tall content" one) rather
+          // than assuming this one caller's fix is safe everywhere.
+          'fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-xl bg-popover p-4 text-sm text-popover-foreground shadow-e3 ring-1 ring-foreground/10 duration-(--motion-duration-slow) outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-sm dark:ring-border-subtle',
           className,
         )}
         {...props}
@@ -90,7 +101,10 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        '-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end',
+        // `sticky bottom-0` (plus `shrink-0` so a tall body can't squeeze
+        // it) keeps this reachable when `DialogContent` above scrolls —
+        // see that component's own comment on why.
+        'sticky bottom-0 -mx-4 -mb-4 flex shrink-0 flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end',
         className,
       )}
       {...props}

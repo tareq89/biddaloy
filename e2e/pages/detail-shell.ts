@@ -23,10 +23,19 @@ export class DetailShellPage {
   }
 
   /** `openTab('students.detail.tabs.fees', 'fees')` — the second argument
-   * is the tab id persisted to `?tab=` by `useDetailShellTab`. */
+   * is the tab id persisted to `?tab=` by `useDetailShellTab`.
+   *
+   * `exact: true` matters here: Playwright's default `name` match is a
+   * normalized *substring* match, and since [16.7.5] added a "Recurring
+   * fees" tab (`পুনরাবৃত্ত ফি`) alongside the existing "Fees" tab (`ফি`),
+   * the Bengali label for the former contains the latter as a literal
+   * substring — an un-exact match resolves `getByRole('tab', { name:
+   * 'ফি' })` to both tabs and throws a strict-mode violation. */
   async openTab(labelKey: string, tabId: string): Promise<void> {
-    await this.page.getByRole('tab', { name: this.t(labelKey) }).click();
-    await expect(this.page.getByRole('tabpanel', { name: this.t(labelKey) })).toBeVisible();
+    await this.page.getByRole('tab', { name: this.t(labelKey), exact: true }).click();
+    await expect(
+      this.page.getByRole('tabpanel', { name: this.t(labelKey), exact: true }),
+    ).toBeVisible();
     await expectUrlParam(this.page, 'tab', tabId);
   }
 

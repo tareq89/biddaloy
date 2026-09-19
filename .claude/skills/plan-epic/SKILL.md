@@ -35,6 +35,12 @@ epic body and every sub-issue body stay normal and readable — the user
 reviews the design *there*, and Sonnet implements from the bodies with no
 other context.
 
+`/ponytail ultra` for scope shaping. Applies to the ladder filter in Phase 3
+and the reuse-vs-new question in Phase 4: cut harder, default out unless a
+current requirement demands it, prefer "extend `<X>`" over "build `<Y>`"
+even when the case for `<Y>` is plausible. Same rule as caveman — governs
+what gets scoped, never the epic/sub-issue body text itself.
+
 ## Phase 0 — Ground before asking
 
 Do this **before the first question**, silently, in one batch of tool calls:
@@ -145,6 +151,20 @@ propose, the user picks:
 - The user pulls items in or leaves them. Each *out* goes to **Out of
   scope** with its reason so the next epic doesn't re-ask.
 
+**Ponytail filter, before you propose the list.** Run every candidate item
+through the ladder's first two rungs and drop what fails silently — don't
+even surface it:
+- Rung 1 — does this need to exist at all, or is it speculative ("while
+  we're at it", a config knob for a value that never changes, an extension
+  point nobody asked for)? If speculative, it never makes the list.
+- Rung 2 — is there already an entity/service/pattern in the codebase that
+  covers it? If so, propose "extend `<X>`" not "build `<Y>`".
+- If a widen item is deliberately deferred rather than dropped (real need,
+  wrong epic), write it to **Out of scope** with a `ponytail:`-style note —
+  the ceiling that makes it out of scope now and the trigger that brings it
+  back in (e.g. `ponytail: single-tenant payee only, generalize when a
+  second payee type is requested`).
+
 ## Phase 4 — Final grill on the plan
 
 Invoke `grilling` on the scratch file itself, ~10 questions, targeted at
@@ -152,6 +172,12 @@ Invoke `grilling` on the scratch file itself, ~10 questions, targeted at
 chose, names you picked, anything a reviewer would ask "why". Fold every
 answer into a numbered decision. After this the decision list is **final** —
 sub-issues cite them by number and never restate them.
+
+**Ponytail pass, one question in this round:** for each building block or
+sub-issue that adds a new abstraction (new service, new table, new config
+surface, new interface) — could it instead extend something that already
+exists? Push the answer into a decision (either "new, because `<X>`" or
+"extend `<Y>` instead"), don't leave it implicit.
 
 ## Phase 5 — Write the epic and sub-issues
 

@@ -94,6 +94,9 @@ describe('/portal/fees', () => {
     discount?: number;
     status: 'PENDING' | 'PARTIALLY_PAID' | 'PAID' | 'WAIVED' | 'ADVANCE';
     dueInDays: number | null;
+    /** [16.8.4] `FamilyStudentFeeDto.is_late_fee` — omitted by default so
+     * existing fixtures stay ordinary bills. */
+    isLateFee?: boolean;
   }
 
   /** A literal `FamilyStudentFeeDto` — no `student` relation, no
@@ -111,6 +114,7 @@ describe('/portal/fees', () => {
       discount_amount: input.discount ?? 0,
       status: input.status,
       due_date: input.dueInDays === null ? null : serverDate(input.dueInDays),
+      ...(input.isLateFee === undefined ? {} : { is_late_fee: input.isLateFee }),
     };
   }
 
@@ -175,6 +179,13 @@ describe('/portal/fees', () => {
     invoiceLimits.length = 0;
   });
 
+  /** [16.8.4] Empty `FamilyStudentWalletResponseDto` — most tests care
+   * about the fee/invoice halves of the page, not the wallet, so this is
+   * the wallet card's empty state unless a test overrides `wallets`. */
+  function emptyWallet() {
+    return { balance: 0, transactions: [] };
+  }
+
   function mockFees(options: {
     students: unknown[];
     summaries: Record<string, unknown>;
@@ -182,6 +193,13 @@ describe('/portal/fees', () => {
     /** Server-side `total` when it exceeds the rows returned — i.e. the
      * history is longer than one page. Defaults to the row count. */
     invoiceTotals?: Record<string, number>;
+    /** `FamilyStudentWalletResponseDto` per student id. Defaults to an
+     * empty wallet so tests that don't care about it still get a
+     * deterministic, non-hanging response. */
+    wallets?: Record<string, unknown>;
+    /** `FamilyStudentScheduleDto[]` per student id. Defaults to no
+     * schedules. */
+    schedules?: Record<string, unknown[]>;
   }) {
     server.use(
       http.get('/api/v1/students/mine', () => HttpResponse.json(options.students)),
@@ -204,6 +222,14 @@ describe('/portal/fees', () => {
           limit: Number(url.searchParams.get('limit') ?? 10),
           totalPages: Math.max(1, Math.ceil(total / rows.length || 1)),
         });
+      }),
+      http.get('/api/v1/students/:id/wallet', ({ params }) => {
+        const id = params.id as string;
+        return HttpResponse.json(options.wallets?.[id] ?? emptyWallet());
+      }),
+      http.get('/api/v1/students/:id/schedules', ({ params }) => {
+        const id = params.id as string;
+        return HttpResponse.json(options.schedules?.[id] ?? []);
       }),
     );
   }
@@ -272,7 +298,11 @@ describe('/portal/fees', () => {
     invoice('inv-3', 'INV-2025-0705', 3000, 'PAID', 74),
   ];
 
-  function standardMocks(extra?: { invoiceTotals?: Record<string, number> }) {
+  function standardMocks(extra?: {
+    invoiceTotals?: Record<string, number>;
+    wallets?: Record<string, unknown>;
+    schedules?: Record<string, unknown[]>;
+  }) {
     mockFees({
       ...extra,
       students: [fatima, imran],
@@ -620,6 +650,168 @@ describe('/portal/fees', () => {
 
       expect(await screen.findByText('No students linked to you yet')).toBeTruthy();
       expect(summaryRequests).toEqual([]);
+    });
+  });
+
+  describe('[16.8.4] two bills in the same month', () => {
+    it('renders both as separate line items rather than merging them', async () => {
+      mockFees({
+        students: [fatima],
+        summaries: {
+          'student-1': summary('student-1', [
+            fee('student-1', {
+              id: 'sep-a',
+              month: 9,
+              year: 2025,
+              total: 3000,
+              paid: 0,
+              status: 'PENDING',
+              dueInDays: -12,
+            }),
+            fee('student-1', {
+              id: 'sep-b',
+              month: 9,
+              year: 2025,
+              total: 500,
+              paid: 500,
+              status: 'PAID',
+              dueInDays: -12,
+            }),
+          ]),
+        },
+        invoices: { 'student-1': [] },
+      });
+      renderFees();
+
+      // Both months are the same "September 2025" label — one row per
+      // bill, not one row per month. A `fee_breakdown` grouped/merged by
+      // month would collapse this to a single heading.
+      const rows = await screen.findAllByText('September 2025');
+      expect(rows).toHaveLength(2);
+      const [firstLabel, secondLabel] = rows;
+      const first = monthRow(firstLabel!);
+      const second = monthRow(secondLabel!);
+      expect(badgeText(first)).toEqual(['Overdue']);
+      expect(badgeText(second)).toEqual(['Paid']);
+    });
+  });
+
+  describe('[16.8.4] late fee lines', () => {
+    it('labels a bill raised because an earlier one went unpaid', async () => {
+      mockFees({
+        students: [fatima],
+        summaries: {
+          'student-1': summary('student-1', [
+            fee('student-1', {
+              id: 'late-1',
+              month: 9,
+              year: 2025,
+              total: 100,
+              paid: 0,
+              status: 'PENDING',
+              dueInDays: -5,
+              isLateFee: true,
+            }),
+          ]),
+        },
+        invoices: { 'student-1': [] },
+      });
+      renderFees();
+
+      const row = monthRow(await screen.findByText('September 2025'));
+      expect(within(row).getByText('Late fee')).toBeTruthy();
+    });
+
+    it('does not label an ordinary bill', async () => {
+      standardMocks();
+      renderFees();
+
+      const row = monthRow(await screen.findByText('September 2025'));
+      expect(within(row).queryByText('Late fee')).toBeNull();
+    });
+  });
+
+  describe('[16.8.4] wallet card', () => {
+    it('renders the balance and recent transactions', async () => {
+      standardMocks({
+        wallets: {
+          'student-1': {
+            balance: 1500,
+            transactions: [
+              { amount: 1500, kind: 'CREDIT_OVERPAYMENT', created_at: serverDate(-2) },
+            ],
+          },
+        },
+      });
+      renderFees();
+
+      await screen.findByText('September 2025');
+      expect(screen.getByText('Wallet')).toBeTruthy();
+      expect(screen.getAllByText('৳1,500.00').length).toBeGreaterThan(0);
+      expect(screen.getByText('Overpayment credit')).toBeTruthy();
+      // Withheld field: the family shape carries no `note`, so nothing
+      // rendered by this card may depend on one being present.
+    });
+
+    it('says so plainly when there is no wallet activity', async () => {
+      standardMocks();
+      renderFees();
+
+      await screen.findByText('September 2025');
+      expect(screen.getByText('No wallet activity yet.')).toBeTruthy();
+    });
+  });
+
+  describe('[16.8.4] recurring fees', () => {
+    it('renders each schedule with its fees and next period', async () => {
+      standardMocks({
+        schedules: {
+          'student-1': [
+            {
+              name: 'Monthly Tuition',
+              fees: [{ name: 'Tuition', amount: 3000 }],
+              rule_label: 'Monthly on day 5',
+              next_period: '2025-10-05',
+            },
+          ],
+        },
+      });
+      renderFees();
+
+      await screen.findByText('September 2025');
+      expect(screen.getByText('Recurring fees')).toBeTruthy();
+      expect(screen.getByText('Monthly Tuition')).toBeTruthy();
+      expect(screen.getByText('Monthly on day 5')).toBeTruthy();
+      // Withheld fields: no schedule id, audience, excluded or is_active
+      // reaches this card — `FamilyStudentSchedule` doesn't carry them.
+    });
+
+    it('says so plainly when nothing is scheduled', async () => {
+      standardMocks();
+      renderFees();
+
+      await screen.findByText('September 2025');
+      expect(screen.getByText('No recurring fees set up.')).toBeTruthy();
+    });
+  });
+
+  describe('[16.8.4] invoice actions', () => {
+    // `POST/GET /invoices/:id/share` (the public `/i/<token>` link) is
+    // ADMIN/ACCOUNTANT-only (`invoices.controller.ts`'s `@Roles` on
+    // `createShareLink`/`listShareLinks`) — a PARENT/STUDENT caller can
+    // neither mint nor list a share token for their own child's invoice.
+    // So the only receipt affordance this page offers a family caller is
+    // the print route (`GET /invoices/:id/print`, which *does* allow
+    // PARENT/STUDENT), already covered by the "print history" tests
+    // above. This pins the negative: no "View receipt"/share-link control
+    // is rendered, since there is nothing family-side it could call.
+    it('does not render a "View receipt" share-link control', async () => {
+      standardMocks();
+      renderFees();
+
+      await screen.findByText('September 2025');
+      expect(screen.queryByText(/view receipt/i)).toBeNull();
+      expect(screen.queryByRole('link', { name: /receipt/i })).toBeNull();
     });
   });
 

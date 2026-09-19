@@ -20,14 +20,21 @@ export type PeriodType = 'MONTH' | 'WEEK';
 
 /** Shared shape between the preview call and the real generate call — the
  * preview exists so the accountant sees duplicates/inactive students
- * *before* committing to the write, not as a separate screen. */
+ * *before* committing to the write, not as a separate screen.
+ *
+ * `period_start` (an ISO date), not `month`/`year`/`week_start`: this
+ * matches `GenerateFeesPreviewDto`/`GenerateFeesDto`
+ * (`server/src/modules/fees/dto/fees.dto.ts`) — the server has never
+ * accepted the raw period fields directly, `class-validator` rejects any
+ * unknown property outright. `due_date` is optional here because the
+ * preview endpoint's own DTO doesn't have it at all (the real generate
+ * call is the one that needs it — see `GenerateFeesRequest` below, which
+ * doesn't re-declare it as required either, for the same reason). */
 export interface GenerateFeesScope {
   academic_year_id: string;
   period_type: PeriodType;
-  month?: number;
-  year?: number;
-  week_start?: string;
-  due_date: string;
+  period_start: string;
+  due_date?: string;
   student_ids: string[];
   fee_structure_ids: string[];
 }
@@ -39,26 +46,32 @@ export type GenerateFeesPreviewInput = GenerateFeesScope;
 /** One row of "this student already has this fee for this period" — the
  * duplicates step lists these so the accountant can decide SKIP /
  * REMOVE_OLDER / CREATE_ANYWAY per D6/D13, rather than the server
- * silently `ON CONFLICT DO NOTHING`-ing them away as the old wizard did. */
+ * silently `ON CONFLICT DO NOTHING`-ing them away as the old wizard did.
+ *
+ * Matches `DuplicateBillDto` (`server/src/modules/fees/dto/fees.dto.ts`)
+ * exactly — the server never sends `student_name`/`fee_structure_name`/
+ * `existing_created_at`, so a caller that needs a human-readable row has
+ * to resolve `student_id`/`fee_structure_id` against data it already has
+ * (the audience/fee pickers' own selections), not against this DTO. */
 export interface GenerateFeesDuplicate {
   student_id: string;
-  student_name: string;
   fee_structure_id: string;
-  fee_structure_name: string;
-  existing_fee_id: string;
-  existing_created_at: string;
+  existing_bill_id: string;
+  paid_amount: number;
 }
 
+/** Matches `InactiveStudentDto`. */
 export interface GenerateFeesInactiveStudent {
-  student_id: string;
-  student_name: string;
+  id: string;
+  full_name: string;
 }
 
+/** Matches `GenerateFeesPreviewResultDto`. */
 export interface GenerateFeesPreviewResult {
-  students_evaluated: number;
-  will_generate: number;
+  students_total: number;
+  inactive: GenerateFeesInactiveStudent[];
   duplicates: GenerateFeesDuplicate[];
-  inactive_students: GenerateFeesInactiveStudent[];
+  would_generate: number;
 }
 
 /** D13's three choices for what to do with the duplicates the preview
@@ -66,16 +79,22 @@ export interface GenerateFeesPreviewResult {
  * `useGenerateFees`'s own comment and `duplicates-step.tsx`. */
 export type DuplicateAction = 'SKIP' | 'REMOVE_OLDER' | 'CREATE_ANYWAY';
 
+/** Matches `GenerateFeesDto` — `duplicate_strategy`, not `duplicate_action`
+ * (that name only ever existed on this client-side type). */
 export interface GenerateFeesRequest extends GenerateFeesScope {
   notify_families: boolean;
   /** Omitted when the preview found no duplicates — nothing to decide. */
-  duplicate_action?: DuplicateAction;
+  duplicate_strategy?: DuplicateAction;
 }
 
+/** Matches `GenerateFeesResultDto`. */
 export interface GenerateFeesResult {
-  generated: number;
-  skipped: number;
-  students_evaluated: number;
+  fee_generation_id: string;
+  student_count: number;
+  generated_count: number;
+  skipped_count: number;
+  removed_count: number;
+  inactive_skipped: GenerateFeesInactiveStudent[];
 }
 
 /**
@@ -123,8 +142,8 @@ async function generateFeesRequest(
  * `duplicate_action: 'CREATE_ANYWAY'` submission that comes back
  * `403 APPROVAL_REQUIRED` walks the accountant through
  * `AdminVerificationModal` and retries once with `X-Approval-Token`
- * attached — render `generate.modal` once, anywhere in the calling
- * component's tree (see `useApprovedMutation`'s own doc comment).
+ * attached. The prompt is rendered by the app-level
+ * `<ApprovalModalHostProvider>` (see `useApprovedMutation`'s doc comment).
  *
  * `retry: false`, same reasoning the old wizard's `useGenerateFees` gave:
  * the endpoint is rate-limited (`STRICT_RATE_LIMIT`) and a batch write
