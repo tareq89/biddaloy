@@ -60,6 +60,8 @@ export interface CalendarImportCommitResult {
  * matching a row against an existing event by `(name, start_date)` to
  * decide `NEW`/`UPDATED`/`UNCHANGED`.
  */
+const MAX_IMPORT_ROWS = 5000;
+
 @Injectable()
 export class CalendarImportService {
   constructor(
@@ -190,6 +192,17 @@ export class CalendarImportService {
         throw new BadRequestException(error.message);
       }
       throw error;
+    }
+
+    // Explicit bound before anything iterates the parsed rows: the upload
+    // is size-capped at the dropzone, but a pathological CSV can still pack
+    // far more rows than any real school calendar needs into a small file.
+    // Checked here, not just at the dropzone, so this stays provably bounded
+    // no matter what calls validate() directly.
+    if (rawRows.length > MAX_IMPORT_ROWS) {
+      throw new BadRequestException(
+        `File has ${rawRows.length} rows; the maximum is ${MAX_IMPORT_ROWS}`,
+      );
     }
 
     const today = await this.getToday(tenantId);
