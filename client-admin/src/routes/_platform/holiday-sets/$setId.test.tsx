@@ -84,4 +84,35 @@ describe('/holiday-sets/$setId', () => {
       expect(screen.getByRole('button', { name: 'Unpublish' }).hasAttribute('disabled')).toBe(true),
     );
   });
+
+  it('shows a load error when the set fails to fetch', async () => {
+    server.use(
+      http.get('/api/v1/platform/holiday-sets/:id', () => HttpResponse.json({}, { status: 500 })),
+    );
+
+    renderDetail();
+
+    expect(await screen.findByRole('alert')).toBeTruthy();
+  });
+
+  it('blocks leaving with unsaved changes, and the "leave" action navigates away', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+
+    await screen.findByRole('heading', { name: 'BD 2026' });
+    const nameInput = screen.getByDisplayValue('International Mother Language Day');
+    await user.type(nameInput, ' (edited)');
+
+    await user.click(screen.getByRole('link', { name: 'Back to holiday sets' }));
+
+    await screen.findByText('Leave without saving?');
+    await user.click(screen.getByRole('button', { name: 'Keep editing' }));
+    expect(screen.queryByText('Leave without saving?')).toBeNull();
+
+    await user.click(screen.getByRole('link', { name: 'Back to holiday sets' }));
+    await screen.findByText('Leave without saving?');
+    await user.click(screen.getByRole('button', { name: 'Leave' }));
+
+    await waitFor(() => expect(screen.queryByText('Leave without saving?')).toBeNull());
+  });
 });
