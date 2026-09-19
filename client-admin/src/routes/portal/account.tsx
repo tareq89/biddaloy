@@ -47,6 +47,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { LogOutIcon } from 'lucide-react';
 import * as React from 'react';
 
+import { CalendarFeedCard } from '../../components/calendar-feed-card';
 import { loadRouteNamespaces } from '../../route-loaders';
 
 /**
@@ -81,7 +82,7 @@ export const Route = createFileRoute('/portal/account')({
   // `sessions.*` strings — preloaded here so first navigation to this route
   // never suspends into a blank `I18nProvider` fallback, same reasoning
   // `route-loaders.ts`'s own doc comment documents for every other route.
-  loader: () => loadRouteNamespaces('auth', 'push'),
+  loader: () => loadRouteNamespaces('auth', 'push', 'calendarFeed'),
   component: PortalAccountRoute,
 });
 
@@ -481,6 +482,8 @@ function PortalAccount() {
           locale={locale}
         />
       </Card>
+
+      <CalendarFeedCard />
 
       <Button
         type="button"

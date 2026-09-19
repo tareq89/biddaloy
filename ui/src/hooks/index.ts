@@ -392,6 +392,12 @@ export {
   type UpdateCalendarEventInput,
 } from './calendar-events';
 export {
+  calendarFeedKeys,
+  useCalendarFeed,
+  useRegenerateCalendarFeed,
+  type CalendarFeed,
+} from './calendar-feed';
+export {
   feeStructureKeys,
   feeStructureQueryOptions,
   feeStructuresQueryOptions,
