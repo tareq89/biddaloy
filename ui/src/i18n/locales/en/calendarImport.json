@@ -1,0 +1,72 @@
+{
+  "pageTitle": "Import calendar",
+  "step1": {
+    "title": "Upload a spreadsheet",
+    "description": "Download the template, fill it in, and upload it below.",
+    "downloadTemplate": "Download template",
+    "chooseFile": "Choose file",
+    "uploading": "Uploading… {{percent}}%",
+    "validating": "Checking your file…",
+    "fileTooLarge": "This file is too large — choose a file under 2 MB",
+    "fileWrongType": "This file type isn't supported — choose a .xlsx or .csv file",
+    "uploadFailed": "Upload failed"
+  },
+  "step2": {
+    "title": "Review before importing",
+    "summaryNew": "{{count}} new",
+    "summaryUpdated": "{{count}} updated",
+    "summaryUnchanged": "{{count}} unchanged",
+    "summaryError": "{{count}} with errors",
+    "columnRow": "Row",
+    "columnName": "Name",
+    "columnDates": "Dates",
+    "columnStatus": "Status",
+    "columnError": "Problem",
+    "status": {
+      "NEW": "New",
+      "UPDATED": "Updated",
+      "UNCHANGED": "Unchanged",
+      "ERROR": "Error"
+    },
+    "allowPartial": "Import the valid rows anyway",
+    "allowPartialHint": "Some rows have errors. Turn this on to import everything else and skip those rows.",
+    "back": "Choose a different file",
+    "continue": "Continue"
+  },
+  "step3": {
+    "title": "Commit import",
+    "publishImmediately": "Publish immediately",
+    "publishImmediatelyHint": "Off imports these as drafts — publish them later from the calendar.",
+    "commit": "Commit import",
+    "committing": "Importing…"
+  },
+  "success": {
+    "title": "Import complete",
+    "publishedMessage": "{{count}} event(s) were published.",
+    "draftMessage": "{{count}} event(s) were saved as drafts.",
+    "viewOnCalendar": "View on calendar",
+    "publishAllNow": "Publish all now",
+    "importAnother": "Import another file"
+  },
+  "expired": {
+    "title": "This preview expired",
+    "message": "Preview links only last a few minutes — upload the file again.",
+    "retry": "Upload again"
+  },
+  "clone": {
+    "title": "Clone from another year",
+    "description": "Copy events from a previous academic year into a new one. Holidays are skipped by default.",
+    "sourceYear": "Copy from",
+    "targetYear": "Copy into",
+    "includeHolidays": "Include holidays",
+    "submit": "Preview clone",
+    "cancel": "Cancel"
+  },
+  "toolbar": {
+    "import": "Import",
+    "export": "Export",
+    "clone": "Clone from another year",
+    "exportXlsx": "Export as Excel (.xlsx)",
+    "exportCsv": "Export as CSV"
+  }
+}

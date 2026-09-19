@@ -28,6 +28,7 @@ import { Route as ITokenRouteImport } from './routes/i/$token'
 import { Route as PortalIndexRouteImport } from './routes/portal/index'
 import { Route as PortalAccountRouteImport } from './routes/portal/account'
 import { Route as PortalAttendanceRouteImport } from './routes/portal/attendance'
+import { Route as PortalCalendarRouteImport } from './routes/portal/calendar'
 import { Route as PortalFeesRouteImport } from './routes/portal/fees'
 import { Route as PlatformHolidaySetsIndexRouteImport } from './routes/_platform/holiday-sets/index'
 import { Route as PlatformHolidaySetsSetIdRouteImport } from './routes/_platform/holiday-sets/$setId'
@@ -42,6 +43,7 @@ import { Route as StaffAttendanceRegisterRouteImport } from './routes/_staff/att
 import { Route as StaffAttendanceReportsRouteImport } from './routes/_staff/attendance/reports'
 import { Route as StaffAuditLogsIndexRouteImport } from './routes/_staff/audit-logs/index'
 import { Route as StaffCalendarIndexRouteImport } from './routes/_staff/calendar/index'
+import { Route as StaffCalendarImportRouteImport } from './routes/_staff/calendar/import'
 import { Route as StaffClassesIndexRouteImport } from './routes/_staff/classes/index'
 import { Route as StaffClassesClassIdRouteImport } from './routes/_staff/classes/$classId'
 import { Route as StaffCommunicationsRemindersRouteImport } from './routes/_staff/communications/reminders'
@@ -161,6 +163,11 @@ const PortalAttendanceRoute = PortalAttendanceRouteImport.update({
   path: '/attendance',
   getParentRoute: () => PortalRoute,
 } as any)
+const PortalCalendarRoute = PortalCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => PortalRoute,
+} as any)
 const PortalFeesRoute = PortalFeesRouteImport.update({
   id: '/fees',
   path: '/fees',
@@ -233,6 +240,11 @@ const StaffAuditLogsIndexRoute = StaffAuditLogsIndexRouteImport.update({
 const StaffCalendarIndexRoute = StaffCalendarIndexRouteImport.update({
   id: '/calendar/',
   path: '/calendar/',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffCalendarImportRoute = StaffCalendarImportRouteImport.update({
+  id: '/calendar/import',
+  path: '/calendar/import',
   getParentRoute: () => StaffRoute,
 } as any)
 const StaffClassesIndexRoute = StaffClassesIndexRouteImport.update({
@@ -383,6 +395,7 @@ export interface FileRoutesByFullPath {
   '/i/$token': typeof ITokenRoute
   '/portal/account': typeof PortalAccountRoute
   '/portal/attendance': typeof PortalAttendanceRoute
+  '/portal/calendar': typeof PortalCalendarRoute
   '/portal/fees': typeof PortalFeesRoute
   '/portal/': typeof PortalIndexRoute
   '/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
@@ -392,6 +405,7 @@ export interface FileRoutesByFullPath {
   '/attendance/$sectionId': typeof StaffAttendanceSectionIdRoute
   '/attendance/register': typeof StaffAttendanceRegisterRoute
   '/attendance/reports': typeof StaffAttendanceReportsRoute
+  '/calendar/import': typeof StaffCalendarImportRoute
   '/classes/$classId': typeof StaffClassesClassIdRoute
   '/communications/reminders': typeof StaffCommunicationsRemindersRoute
   '/communications/send': typeof StaffCommunicationsSendRoute
@@ -439,6 +453,7 @@ export interface FileRoutesByTo {
   '/i/$token': typeof ITokenRoute
   '/portal/account': typeof PortalAccountRoute
   '/portal/attendance': typeof PortalAttendanceRoute
+  '/portal/calendar': typeof PortalCalendarRoute
   '/portal/fees': typeof PortalFeesRoute
   '/portal': typeof PortalIndexRoute
   '/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
@@ -448,6 +463,7 @@ export interface FileRoutesByTo {
   '/attendance/$sectionId': typeof StaffAttendanceSectionIdRoute
   '/attendance/register': typeof StaffAttendanceRegisterRoute
   '/attendance/reports': typeof StaffAttendanceReportsRoute
+  '/calendar/import': typeof StaffCalendarImportRoute
   '/classes/$classId': typeof StaffClassesClassIdRoute
   '/communications/reminders': typeof StaffCommunicationsRemindersRoute
   '/communications/send': typeof StaffCommunicationsSendRoute
@@ -500,6 +516,7 @@ export interface FileRoutesById {
   '/i/$token': typeof ITokenRoute
   '/portal/account': typeof PortalAccountRoute
   '/portal/attendance': typeof PortalAttendanceRoute
+  '/portal/calendar': typeof PortalCalendarRoute
   '/portal/fees': typeof PortalFeesRoute
   '/portal/': typeof PortalIndexRoute
   '/_platform/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
@@ -509,6 +526,7 @@ export interface FileRoutesById {
   '/_staff/attendance/$sectionId': typeof StaffAttendanceSectionIdRoute
   '/_staff/attendance/register': typeof StaffAttendanceRegisterRoute
   '/_staff/attendance/reports': typeof StaffAttendanceReportsRoute
+  '/_staff/calendar/import': typeof StaffCalendarImportRoute
   '/_staff/classes/$classId': typeof StaffClassesClassIdRoute
   '/_staff/communications/reminders': typeof StaffCommunicationsRemindersRoute
   '/_staff/communications/send': typeof StaffCommunicationsSendRoute
@@ -560,6 +578,7 @@ export interface FileRouteTypes {
     | '/i/$token'
     | '/portal/account'
     | '/portal/attendance'
+    | '/portal/calendar'
     | '/portal/fees'
     | '/portal/'
     | '/holiday-sets/$setId'
@@ -569,6 +588,7 @@ export interface FileRouteTypes {
     | '/attendance/$sectionId'
     | '/attendance/register'
     | '/attendance/reports'
+    | '/calendar/import'
     | '/classes/$classId'
     | '/communications/reminders'
     | '/communications/send'
@@ -616,6 +636,7 @@ export interface FileRouteTypes {
     | '/i/$token'
     | '/portal/account'
     | '/portal/attendance'
+    | '/portal/calendar'
     | '/portal/fees'
     | '/portal'
     | '/holiday-sets/$setId'
@@ -625,6 +646,7 @@ export interface FileRouteTypes {
     | '/attendance/$sectionId'
     | '/attendance/register'
     | '/attendance/reports'
+    | '/calendar/import'
     | '/classes/$classId'
     | '/communications/reminders'
     | '/communications/send'
@@ -676,6 +698,7 @@ export interface FileRouteTypes {
     | '/i/$token'
     | '/portal/account'
     | '/portal/attendance'
+    | '/portal/calendar'
     | '/portal/fees'
     | '/portal/'
     | '/_platform/holiday-sets/$setId'
@@ -685,6 +708,7 @@ export interface FileRouteTypes {
     | '/_staff/attendance/$sectionId'
     | '/_staff/attendance/register'
     | '/_staff/attendance/reports'
+    | '/_staff/calendar/import'
     | '/_staff/classes/$classId'
     | '/_staff/communications/reminders'
     | '/_staff/communications/send'
@@ -867,6 +891,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortalAttendanceRouteImport
       parentRoute: typeof PortalRoute
     }
+    '/portal/calendar': {
+      id: '/portal/calendar'
+      path: '/calendar'
+      fullPath: '/portal/calendar'
+      preLoaderRoute: typeof PortalCalendarRouteImport
+      parentRoute: typeof PortalRoute
+    }
     '/portal/fees': {
       id: '/portal/fees'
       path: '/fees'
@@ -963,6 +994,13 @@ declare module '@tanstack/react-router' {
       path: '/calendar'
       fullPath: '/calendar/'
       preLoaderRoute: typeof StaffCalendarIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/calendar/import': {
+      id: '/_staff/calendar/import'
+      path: '/calendar/import'
+      fullPath: '/calendar/import'
+      preLoaderRoute: typeof StaffCalendarImportRouteImport
       parentRoute: typeof StaffRoute
     }
     '/_staff/classes/': {
@@ -1189,6 +1227,7 @@ interface StaffRouteChildren {
   StaffAttendanceSectionIdRoute: typeof StaffAttendanceSectionIdRoute
   StaffAttendanceRegisterRoute: typeof StaffAttendanceRegisterRoute
   StaffAttendanceReportsRoute: typeof StaffAttendanceReportsRoute
+  StaffCalendarImportRoute: typeof StaffCalendarImportRoute
   StaffClassesClassIdRoute: typeof StaffClassesClassIdRoute
   StaffCommunicationsRemindersRoute: typeof StaffCommunicationsRemindersRoute
   StaffCommunicationsSendRoute: typeof StaffCommunicationsSendRoute
@@ -1227,6 +1266,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffAttendanceSectionIdRoute: StaffAttendanceSectionIdRoute,
   StaffAttendanceRegisterRoute: StaffAttendanceRegisterRoute,
   StaffAttendanceReportsRoute: StaffAttendanceReportsRoute,
+  StaffCalendarImportRoute: StaffCalendarImportRoute,
   StaffClassesClassIdRoute: StaffClassesClassIdRoute,
   StaffCommunicationsRemindersRoute: StaffCommunicationsRemindersRoute,
   StaffCommunicationsSendRoute: StaffCommunicationsSendRoute,
@@ -1261,6 +1301,7 @@ const StaffRouteWithChildren = StaffRoute._addFileChildren(StaffRouteChildren)
 interface PortalRouteChildren {
   PortalAccountRoute: typeof PortalAccountRoute
   PortalAttendanceRoute: typeof PortalAttendanceRoute
+  PortalCalendarRoute: typeof PortalCalendarRoute
   PortalFeesRoute: typeof PortalFeesRoute
   PortalIndexRoute: typeof PortalIndexRoute
 }
@@ -1268,6 +1309,7 @@ interface PortalRouteChildren {
 const PortalRouteChildren: PortalRouteChildren = {
   PortalAccountRoute: PortalAccountRoute,
   PortalAttendanceRoute: PortalAttendanceRoute,
+  PortalCalendarRoute: PortalCalendarRoute,
   PortalFeesRoute: PortalFeesRoute,
   PortalIndexRoute: PortalIndexRoute,
 }

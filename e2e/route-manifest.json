@@ -124,6 +124,11 @@
       "archetype": "list"
     },
     {
+      "path": "/calendar/import",
+      "role": "admin",
+      "archetype": "bespoke"
+    },
+    {
       "path": "/fees",
       "role": "accountant",
       "archetype": "list"
@@ -279,6 +284,11 @@
     },
     {
       "path": "/portal/attendance",
+      "role": "parent",
+      "archetype": "list"
+    },
+    {
+      "path": "/portal/calendar",
       "role": "parent",
       "archetype": "list"
     },
