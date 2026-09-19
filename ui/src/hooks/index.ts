@@ -374,6 +374,24 @@ export {
   type UpdateTermInput,
 } from './calendar-terms';
 export {
+  calendarEventKeys,
+  calendarEventsQueryOptions,
+  publicHolidayKeys,
+  useAddPublicHolidays,
+  useCalendarEvent,
+  useCalendarEvents,
+  useCreateCalendarEvent,
+  useDeleteCalendarEvent,
+  usePublicHolidaySuggestions,
+  usePublishCalendarEvent,
+  useUpdateCalendarEvent,
+  type CalendarEvent,
+  type CalendarEventList,
+  type CalendarEventsFilters,
+  type CreateCalendarEventInput,
+  type UpdateCalendarEventInput,
+} from './calendar-events';
+export {
   feeStructureKeys,
   feeStructureQueryOptions,
   feeStructuresQueryOptions,

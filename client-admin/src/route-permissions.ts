@@ -38,6 +38,11 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/students/$studentId_/edit': Permission.STUDENT_UPDATE,
   '/_staff/guardians/': Permission.GUARDIAN_READ,
   '/_staff/guardians/$guardianId': Permission.GUARDIAN_READ,
+  // [17.4.2] the staff calendar page — mutations (create/edit/delete/
+  // publish) are ADMIN-only server-side (CALENDAR_MANAGE), but
+  // the route itself only needs CALENDAR_READ to render, same "blanket
+  // refusal matching nav visibility" rule this file documents above.
+  '/_staff/calendar/': Permission.CALENDAR_READ,
   '/_staff/staff/': Permission.USER_READ,
   '/_staff/staff/$userId': Permission.USER_READ,
   '/_staff/fees/': Permission.FEE_STRUCTURE_READ,

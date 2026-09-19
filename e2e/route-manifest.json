@@ -119,6 +119,11 @@
       "archetype": "list"
     },
     {
+      "path": "/calendar",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
       "path": "/fees",
       "role": "accountant",
       "archetype": "list"
