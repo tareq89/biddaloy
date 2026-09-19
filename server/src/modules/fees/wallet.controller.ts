@@ -16,11 +16,9 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { FamilyAccessService } from '../students/family-access.service';
 import { WalletService } from './wallet.service';
-import {
-  FamilyStudentWalletResponseDto,
-  StudentWalletResponseDto,
-  toFamilyWalletTransaction,
-} from './dto/wallet.dto';
+import { StudentWalletResponseDto } from './dto/wallet.dto';
+// [16.8.2] Family-facing shapes live in the one allow-list module.
+import { FamilyStudentWalletResponseDto, toFamilyWalletTransaction } from './dto/family.dto';
 import { Permission, UserRole, isGuardianRole } from '@biddaloy/shared';
 import { JwtPayload } from '@biddaloy/shared';
 

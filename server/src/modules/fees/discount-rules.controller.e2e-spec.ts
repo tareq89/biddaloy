@@ -250,5 +250,64 @@ describe('Discount Rules E2E (16.7.3)', () => {
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .expect(200);
     });
+
+    it('[16.8.2] gives the linked PARENT an allow-listed rule, not the staff DTO', async () => {
+      const studentId = await createStudent();
+      const guardianRes = await dataSource.query(
+        `INSERT INTO guardians (id, full_name, relationship, phone, email, preferred_communication, is_primary_contact, tenant_id, user_id, created_at, updated_at)
+         VALUES (DEFAULT, 'Discount Shape Guardian', 'FATHER', '01700000001', $1, 'SMS', true, $2, $3, NOW(), NOW())
+         RETURNING id`,
+        [PARENT_EMAIL, SEED_TENANT_ID, PARENT_USER_ID],
+      );
+      await dataSource.query(
+        `INSERT INTO student_guardians (student_id, guardian_id) VALUES ($1, $2)`,
+        [studentId, guardianRes[0].id],
+      );
+
+      // A rule carrying exactly the fields a family must not see: who
+      // created it, who approved it, and why.
+      // Inserted directly rather than through POST /discount-rules: the
+      // write path needs a step-up OTP, and this file already spends three
+      // of them. What is under test here is the *read* shape, not the
+      // approval gate (covered above).
+      const created = await dataSource.query(
+        `INSERT INTO discount_rules (id, tenant_id, student_id, kind, value, fee_types, starts_on, ends_on, reason, created_by_user_id, approved_by_user_id, is_active, created_at, updated_at)
+         VALUES (DEFAULT, $1, $2, 'FLAT', 150, NULL, NULL, NULL, 'Trustee sponsorship, confidential', $3, $4, true, NOW(), NOW())
+         RETURNING id`,
+        [SEED_TENANT_ID, studentId, APPROVER_IDENTITIES[0][0], APPROVER_IDENTITIES[1][0]],
+      );
+      const createdId = created[0].id as string;
+
+      const staffRes = await supertest(app.getHttpServer())
+        .get(`${API}/students/${studentId}/discount-rules`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .expect(200);
+      const staffRule = staffRes.body.find((r: { id: string }) => r.id === createdId);
+      expect(staffRule).toBeDefined();
+      expect(staffRule).toHaveProperty('reason');
+      expect(staffRule).toHaveProperty('approved_by_user_id');
+
+      const familyRes = await supertest(app.getHttpServer())
+        .get(`${API}/students/${studentId}/discount-rules`)
+        .set('Authorization', `Bearer ${parentToken}`)
+        .set('X-Tenant-ID', SEED_TENANT_ID)
+        .expect(200);
+      const familyRule = familyRes.body.find((r: { id: string }) => r.id === createdId);
+      expect(familyRule).toBeDefined();
+      expect(Object.keys(familyRule).sort()).toEqual(
+        [
+          'id',
+          'student_id',
+          'kind',
+          'value',
+          'fee_types',
+          'starts_on',
+          'ends_on',
+          'is_active',
+        ].sort(),
+      );
+      expect(JSON.stringify(familyRes.body)).not.toContain('Trustee sponsorship');
+    });
   });
 });

@@ -104,7 +104,14 @@ export class CollectionsReportService {
    * by: tenant, date range (in Dhaka calendar days), optional collector,
    * optional method. `deleted_at IS NULL` excludes soft-deleted payments.
    * `payment_status = 'SUCCESS'` excludes PENDING/FAILED rows — those are
-   * not money collected and must never appear in a collections report. */
+   * not money collected and must never appear in a collections report.
+   * A reversal's own compensating `Payment` row is created with
+   * `payment_status: REFUNDED` (`payment-reversal.service.ts`), not
+   * `SUCCESS` — without the `OR reversal_of_payment_id IS NOT NULL`
+   * branch here, that row (and with it every reversal) was silently
+   * dropped from `collected`/`reversed`/`net` below, which all read this
+   * same filtered set and only tell the two kinds of row apart by that
+   * column afterwards. */
   private buildFilter(
     tenantId: string,
     query: CollectionsReportQueryDto,
@@ -112,7 +119,7 @@ export class CollectionsReportService {
   ): { clause: string; params: unknown[] } {
     const { from, to } = this.buildRange(query);
     const params: unknown[] = [tenantId, from, to];
-    let clause = `${alias}.tenant_id = $1 AND ${alias}.deleted_at IS NULL AND ${alias}.payment_date BETWEEN $2 AND $3 AND ${alias}.payment_status = 'SUCCESS'`;
+    let clause = `${alias}.tenant_id = $1 AND ${alias}.deleted_at IS NULL AND ${alias}.payment_date BETWEEN $2 AND $3 AND (${alias}.payment_status = 'SUCCESS' OR ${alias}.reversal_of_payment_id IS NOT NULL)`;
     if (query.received_by_user_id) {
       params.push(query.received_by_user_id);
       clause += ` AND ${alias}.received_by_user_id = $${params.length}`;

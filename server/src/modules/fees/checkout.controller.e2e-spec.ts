@@ -634,7 +634,7 @@ describe('POST /payments/:id/reverse (16.6.1)', () => {
       .set('X-Role', UserRole.ADMIN)
       .expect(403);
 
-    expect(res.body.code).toBe('APPROVAL_REQUIRED');
+    expect(res.body.details.code).toBe('APPROVAL_REQUIRED');
   });
 
   it('rejects reversing the same payment twice (second call 409)', async () => {

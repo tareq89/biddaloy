@@ -280,6 +280,35 @@ interface RoleNarrowing {
 
 export const ROLE_NARROWINGS: RoleNarrowing[] = [
   {
+    controller: 'RecurringSchedulesController',
+    method: 'GET',
+    path: '/fees/schedules',
+    reason:
+      '[16.7.1] recurring schedule definitions are staff-only, although every role (incl. PARENT/STUDENT) holds FEE_READ — a guardian who can read their own fees has no business seeing the billing-automation config',
+  },
+  {
+    controller: 'RecurringSchedulesController',
+    method: 'GET',
+    path: '/fees/schedules/:id',
+    reason: '[16.7.1] same narrowing as GET /fees/schedules',
+  },
+  {
+    controller: 'RecurringSchedulesController',
+    method: 'GET',
+    path: '/fees/schedules/:id/preview',
+    reason: '[16.7.1] same narrowing as GET /fees/schedules',
+  },
+  {
+    controller: 'RecurringSchedulesController',
+    method: 'GET',
+    path: '/students/:id/schedules',
+    reason:
+      '[16.8.2] now admits PARENT/STUDENT, who get an allow-listed "what will I be billed ' +
+      'next" view (FamilyStudentScheduleDto) after a FamilyAccessService linkage check — never ' +
+      'the staff billing-automation config. Still narrower than FEE_READ: TEACHER is excluded, ' +
+      'since a teacher has no fee-schedule surface at all',
+  },
+  {
     controller: 'InvoicesController',
     method: 'POST',
     path: '/invoices/:id/share',
@@ -508,8 +537,9 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // PAYMENT_REVERSE now gates `POST /payments/:id/reverse` (16.6.1) and
   // REPORT_COLLECTIONS_READ now gates `GET /reports/collections` and
   // `.../collections.csv` (16.6.2), so both are no longer UI-only —
-  // removed from this list. [16.7.2]/[16.7.3] SCHEDULE_MANAGE now gates
-  // `POST /fees/schedules/run-now` and DISCOUNT_RULE_MANAGE now gates the
+  // removed from this list. [16.7.1]/[16.7.2]/[16.7.3] SCHEDULE_MANAGE now
+  // gates the recurring-schedule management endpoints and
+  // `POST /fees/schedules/run-now`; DISCOUNT_RULE_MANAGE now gates the
   // discount-rule CRUD endpoints — also removed from this list.
   Permission.FEE_APPROVE,
   // [17.2.1]-[17.2.5] CALENDAR_READ/CALENDAR_MANAGE now gate
@@ -685,5 +715,134 @@ describe('Permission matrix (regression)', () => {
 
   it('SUPER_ADMIN holds every permission (sanity check for the narrowing test above)', () => {
     expect(ROLE_PERMISSIONS[UserRole.SUPER_ADMIN]).toEqual(Object.values(Permission));
+  });
+
+  /**
+   * [16.8.1] Epic #637's final role defaults for the fees domain, pinned.
+   *
+   * The tests above are all *structural* — they prove `@Roles` never grants
+   * more than `ROLE_PERMISSIONS` allows, and that every narrowing is
+   * documented. None of them pins what `ROLE_PERMISSIONS` actually says, so
+   * quietly adding `PAYMENT_REVERSE` to ACCOUNTANT (or `FEE_GENERATE` to
+   * TEACHER) would keep the whole suite green.
+   *
+   * Epic 16 added five money-moving capabilities across seven waves
+   * (FEE_GENERATE, PAYMENT_REVERSE, REPORT_COLLECTIONS_READ,
+   * SCHEDULE_MANAGE, DISCOUNT_RULE_MANAGE). This test states, per role,
+   * exactly which of the fee-domain permissions that role holds when the
+   * epic closes. Widening any of them is a one-line diff here, in review.
+   */
+  describe('[16.8.1] fees-domain role defaults', () => {
+    const FEE_DOMAIN: Permission[] = [
+      Permission.FEE_READ,
+      Permission.FEE_GENERATE,
+      Permission.FEE_COLLECT,
+      Permission.FEE_APPROVE,
+      Permission.FEE_STRUCTURE_CREATE,
+      Permission.FEE_STRUCTURE_READ,
+      Permission.FEE_STRUCTURE_UPDATE,
+      Permission.FEE_STRUCTURE_DELETE,
+      Permission.PAYMENT_RECORD,
+      Permission.PAYMENT_READ,
+      Permission.PAYMENT_REFUND,
+      Permission.PAYMENT_REVERSE,
+      Permission.INVOICE_CREATE,
+      Permission.INVOICE_READ,
+      Permission.INVOICE_PRINT,
+      Permission.INVOICE_DELETE,
+      Permission.REPORT_COLLECTIONS_READ,
+      Permission.SCHEDULE_MANAGE,
+      Permission.DISCOUNT_RULE_MANAGE,
+    ];
+
+    function feeDomainPermissionsOf(role: UserRole): Permission[] {
+      return FEE_DOMAIN.filter((permission) => roleHasPermission(role, permission)).sort();
+    }
+
+    function expectFeeDomain(role: UserRole, expected: Permission[]): void {
+      expect(feeDomainPermissionsOf(role)).toEqual([...expected].sort());
+    }
+
+    it('ADMIN holds every fees-domain permission', () => {
+      expectFeeDomain(UserRole.ADMIN, FEE_DOMAIN);
+    });
+
+    it('ACCOUNTANT runs collection but cannot approve or reverse', () => {
+      expectFeeDomain(UserRole.ACCOUNTANT, [
+        Permission.FEE_READ,
+        Permission.FEE_GENERATE,
+        Permission.FEE_COLLECT,
+        Permission.FEE_STRUCTURE_CREATE,
+        Permission.FEE_STRUCTURE_READ,
+        Permission.FEE_STRUCTURE_UPDATE,
+        Permission.PAYMENT_RECORD,
+        Permission.PAYMENT_READ,
+        Permission.INVOICE_CREATE,
+        Permission.INVOICE_READ,
+        Permission.INVOICE_PRINT,
+        Permission.REPORT_COLLECTIONS_READ,
+        Permission.SCHEDULE_MANAGE,
+        Permission.DISCOUNT_RULE_MANAGE,
+      ]);
+    });
+
+    it('ACCOUNTANT specifically holds neither FEE_APPROVE nor PAYMENT_REVERSE', () => {
+      // [16.2.1] kept both ADMIN-only regardless of the tenant's
+      // approval_mode: an approver must not be able to approve their own
+      // work, and a reversal undoes money that already moved. `POST
+      // /payments/:id/reverse` is `@Roles(ADMIN)` to match, and
+      // `checkout.controller.e2e-spec.ts` pins the 401 for an ACCOUNTANT.
+      // Granting either here silently widens who can unwind a payment.
+      expect(roleHasPermission(UserRole.ACCOUNTANT, Permission.FEE_APPROVE)).toBe(false);
+      expect(roleHasPermission(UserRole.ACCOUNTANT, Permission.PAYMENT_REVERSE)).toBe(false);
+      expect(roleHasPermission(UserRole.ADMIN, Permission.PAYMENT_REVERSE)).toBe(true);
+    });
+
+    it('EXECUTIVE is read-only: fee reads plus the collections report, nothing that writes', () => {
+      expectFeeDomain(UserRole.EXECUTIVE, [
+        Permission.FEE_READ,
+        Permission.REPORT_COLLECTIONS_READ,
+      ]);
+    });
+
+    it('TEACHER holds only the object-scoped fee read, never a money capability', () => {
+      // FEE_READ is object-scoped for a TEACHER exactly as it is for a
+      // family: the routes it unlocks (`/fees/dues`, `/fee-structures`)
+      // decide *whose* fees, not this permission.
+      expectFeeDomain(UserRole.TEACHER, [Permission.FEE_READ]);
+    });
+
+    it('PARENT and STUDENT hold only the two object-scoped family reads', () => {
+      for (const role of [UserRole.PARENT, UserRole.STUDENT]) {
+        expectFeeDomain(role, [Permission.FEE_READ, Permission.INVOICE_READ]);
+      }
+    });
+
+    it('no non-admin role holds a fees capability that moves or unwinds money', () => {
+      const moneyMoving = [
+        Permission.FEE_APPROVE,
+        Permission.PAYMENT_REVERSE,
+        Permission.PAYMENT_REFUND,
+        Permission.INVOICE_DELETE,
+      ];
+      const nonAdmin = [
+        UserRole.ACCOUNTANT,
+        UserRole.EXECUTIVE,
+        UserRole.TEACHER,
+        UserRole.PARENT,
+        UserRole.STUDENT,
+      ];
+
+      const violations: string[] = [];
+      for (const role of nonAdmin) {
+        for (const permission of moneyMoving) {
+          if (roleHasPermission(role, permission)) {
+            violations.push(`${role} holds ${permission}`);
+          }
+        }
+      }
+
+      expect(violations).toEqual([]);
+    });
   });
 });

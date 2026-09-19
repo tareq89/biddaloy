@@ -193,8 +193,14 @@ describe('CollectionsReportService', () => {
       // negative amounts), identified structurally via
       // reversal_of_payment_id — see the service's doc comment for why
       // this corrects the epic's stated D10 convention.
+      // `payment-reversal.service.ts` creates the reversal row with
+      // `payment_status: REFUNDED`, not `SUCCESS` — mirror that here so
+      // this fixture actually exercises `buildFilter`'s `OR
+      // reversal_of_payment_id IS NOT NULL` branch rather than passing
+      // by coincidence through the `SUCCESS` branch alone.
       const reversal = await makePayment(student.id, SEED_TENANT_ID, {
         total_amount: 1000,
+        payment_status: PaymentStatus.REFUNDED,
         received_by_user_id: COLLECTOR_USER_ID,
         reversal_of_payment_id: payment.id,
         payment_date: new Date('2026-03-16T05:00:00Z'),
@@ -295,8 +301,11 @@ describe('CollectionsReportService', () => {
     it('returns one row per payment, flagging reversals', async () => {
       const student = await makeStudent();
       const payment = await makePayment(student.id, SEED_TENANT_ID, { total_amount: 700 });
+      // Mirror `payment-reversal.service.ts`'s real `REFUNDED` status —
+      // see the other reversal fixture's own comment on why.
       const reversal = await makePayment(student.id, SEED_TENANT_ID, {
         total_amount: 700,
+        payment_status: PaymentStatus.REFUNDED,
         reversal_of_payment_id: payment.id,
         payment_date: new Date('2026-03-17T05:00:00Z'),
       });

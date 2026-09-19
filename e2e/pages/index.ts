@@ -7,3 +7,4 @@ export { expectUrlParam, expectNoHorizontalScroll } from './assertions';
 export { LoginPage } from './login-page';
 export { ActivatePage } from './activate-page';
 export { SchoolPickerPage } from './school-picker';
+export { ApprovalModalPage } from './approval-modal';

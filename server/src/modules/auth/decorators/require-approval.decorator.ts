@@ -38,7 +38,12 @@ export const RequireApproval = (scope: ApprovalScope) =>
       description:
         'Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token.',
       schema: {
-        example: { code: 'APPROVAL_REQUIRED', scope },
+        // [16.2.5] Nested under `details` — see
+        // `ApprovalRequiredException`'s own comment for why the wire body
+        // is `{ details: { code, scope } }` and not a top-level
+        // `{ code, scope }`. Documenting the old shape here advertised a
+        // contract no consumer could actually read.
+        example: { details: { code: 'APPROVAL_REQUIRED', scope } },
       },
     }),
   );

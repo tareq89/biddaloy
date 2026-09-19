@@ -227,8 +227,8 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
   private async findDueSchedules(tenantId: string, today: string): Promise<RecurringScheduleRow[]> {
     const rows = (await this.dataSource.query(
       `SELECT rs.id, rs.tenant_id, rs.academic_year_id, rs.audience, rs.rule, rs.period_type,
-              rs.due_days_after_period_start, rs.starts_on, rs.ends_on, rs.notify_families,
-              rs.last_run_period,
+              rs.due_days_after_period_start, rs.starts_on::text AS starts_on, rs.ends_on::text AS ends_on,
+              rs.notify_families, rs.last_run_period::text AS last_run_period,
               COALESCE(array_agg(rss.fee_structure_id) FILTER (WHERE rss.fee_structure_id IS NOT NULL), '{}') AS fee_structure_ids
          FROM recurring_schedules rs
          LEFT JOIN recurring_schedule_structures rss ON rss.schedule_id = rs.id
@@ -284,8 +284,8 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
       // audience/rule/date-window it read minutes (or longer) earlier.
       const [fresh] = (await manager.query(
         `SELECT id, tenant_id, academic_year_id, audience, rule, period_type,
-                due_days_after_period_start, starts_on, ends_on, notify_families,
-                last_run_period, is_active, deleted_at
+                due_days_after_period_start, starts_on::text AS starts_on, ends_on::text AS ends_on,
+                notify_families, last_run_period::text AS last_run_period, is_active, deleted_at
            FROM recurring_schedules
           WHERE id = $1
           FOR UPDATE`,

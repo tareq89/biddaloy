@@ -132,6 +132,44 @@ export const TriggerDisabled: Story = {
   ),
 };
 
+/** [#823] Regression story for the dialog-overflow bug: a body taller
+ * than the viewport used to push the footer's submit button off-screen
+ * with no way to scroll to it (Record Payment's success panel, Generate
+ * Fees with a fee selected). `DialogContent` now caps its own height and
+ * scrolls; `DialogFooter` stays `sticky` at the bottom of that scroll
+ * area so the primary action is always reachable. */
+export const TallContent: Story = {
+  name: 'Tall content (footer stays reachable)',
+  render: () => (
+    <Dialog defaultOpen>
+      <DialogTrigger asChild>
+        <Button>Generate fees</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Generate fees</DialogTitle>
+          <DialogDescription>
+            A body much taller than the viewport, standing in for a long student/fee selection list.
+          </DialogDescription>
+        </DialogHeader>
+        <div style={{ height: '1600px' }} className="rounded-md border border-dashed p-2">
+          Tall content — scroll the dialog, not the page, to reach the footer below.
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </DialogClose>
+          <Button>Generate</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  ),
+  play: async ({ canvasElement }) => {
+    const dialog = within(canvasElement.ownerDocument.body).getByRole('dialog');
+    await expect(within(dialog).getByRole('button', { name: 'Generate' })).toBeInTheDocument();
+  },
+};
+
 export const RightToLeft: Story = {
   render: () => (
     <Dialog defaultOpen>

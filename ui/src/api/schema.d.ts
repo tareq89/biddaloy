@@ -1059,6 +1059,128 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/fees/schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List recurring fee-generation schedules for this tenant. */
+        get: operations["RecurringSchedulesController_findAll_v1"];
+        put?: never;
+        /** Create a recurring fee-generation schedule. */
+        post: operations["RecurringSchedulesController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fees/schedules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one recurring fee-generation schedule. */
+        get: operations["RecurringSchedulesController_findOne_v1"];
+        put?: never;
+        post?: never;
+        /** Soft-delete a recurring fee-generation schedule. */
+        delete: operations["RecurringSchedulesController_remove_v1"];
+        options?: never;
+        head?: never;
+        /** Update a recurring fee-generation schedule. */
+        patch: operations["RecurringSchedulesController_update_v1"];
+        trace?: never;
+    };
+    "/api/v1/fees/schedules/{id}/exclusions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Exclude one student from a schedule. */
+        post: operations["RecurringSchedulesController_addExclusion_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fees/schedules/{id}/exclusions/{studentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a student exclusion from a schedule. */
+        delete: operations["RecurringSchedulesController_removeExclusion_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fees/schedules/{id}/clone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Clone a schedule into another academic year. Matches fee structures by (name, fee_type) in the target year; structures with no match are reported back, not silently dropped. */
+        post: operations["RecurringSchedulesController_clone_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fees/schedules/{id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preview a schedule's currently resolved audience (count + first 50). */
+        get: operations["RecurringSchedulesController_preview_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/{id}/schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A student's recurring schedules. Staff see the billing-automation view (ones whose audience currently matches them, plus ones they are explicitly excluded from, flagged). [16.8.2] A PARENT or STUDENT must additionally be linked to this student, and gets an allow-listed "what will I be billed next" view instead. */
+        get: operations["RecurringSchedulesController_findForStudent_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/students/{id}/wallet": {
         parameters: {
             query?: never;
@@ -3672,7 +3794,7 @@ export interface components {
             student_fee_id: string;
             allocated_amount: number;
             /** @enum {string} */
-            allocation_type: "DUE" | "CURRENT" | "ADVANCE";
+            allocation_type: "DUE" | "CURRENT";
             discount_amount: number;
             notes: string | null;
             /** Format: date-time */
@@ -3742,8 +3864,9 @@ export interface components {
             id: string;
             student_fee_id: string;
             allocated_amount: number;
+            discount_amount: number;
             /** @enum {string} */
-            allocation_type: "DUE" | "CURRENT" | "ADVANCE";
+            allocation_type: "DUE" | "CURRENT";
             fee_name: string | null;
             /** Format: date-time */
             period_start: string | null;
@@ -3758,6 +3881,8 @@ export interface components {
             payment_status: "SUCCESS" | "PENDING" | "FAILED" | "REFUNDED";
             transaction_reference: string | null;
             invoice_id: string | null;
+            invoice_number: string | null;
+            is_reversal: boolean;
             /** Format: date-time */
             payment_date: string;
             /** Format: date-time */
@@ -3813,6 +3938,7 @@ export interface components {
             period_start: string;
             /** @enum {string} */
             period_type: "MONTH" | "WEEK";
+            occurrence_label: string | null;
             is_late_fee: boolean;
             total_amount: number;
             paid_amount: number;
@@ -3924,7 +4050,7 @@ export interface components {
             student_fee_id: string;
             allocated_amount: number;
             /** @enum {string} */
-            allocation_type: "DUE" | "CURRENT" | "ADVANCE";
+            allocation_type: "DUE" | "CURRENT";
             discount_amount: number;
             fee_name: string | null;
             /** Format: date-time */
@@ -4002,6 +4128,117 @@ export interface components {
         RemoveUncollectedResultDto: {
             removed_count: number;
         };
+        StudentScheduleItemDto: {
+            id: string;
+            name: string;
+            /** @enum {string} */
+            period_type: "MONTH" | "WEEK";
+            due_days_after_period_start: number;
+            is_active: boolean;
+            excluded: boolean;
+        };
+        FamilyScheduleFeeDto: {
+            name: string;
+            amount: number;
+        };
+        FamilyStudentScheduleDto: {
+            name: string;
+            fees: components["schemas"]["FamilyScheduleFeeDto"][];
+            rule_label: string;
+            next_period: string | null;
+        };
+        RecurringScheduleExclusionResponseDto: {
+            student_id: string;
+            student_name: string;
+            reason: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        RecurringScheduleAudienceDto: {
+            /** Format: uuid */
+            class_id?: string;
+            /** Format: uuid */
+            section_id?: string;
+            /** @enum {string} */
+            enrollment_status: "ACTIVE";
+        };
+        RecurringScheduleRuleDto: {
+            /** @example 5 */
+            day_of_month?: number | "LAST";
+            /** @enum {string} */
+            kind: "MONTHLY" | "WEEKLY";
+            weekdays?: number[];
+        };
+        RecurringScheduleResponseDto: {
+            exclusions?: components["schemas"]["RecurringScheduleExclusionResponseDto"][];
+            id: string;
+            academic_year_id: string;
+            name: string;
+            audience: components["schemas"]["RecurringScheduleAudienceDto"];
+            rule: components["schemas"]["RecurringScheduleRuleDto"];
+            /** @enum {string} */
+            period_type: "MONTH" | "WEEK";
+            due_days_after_period_start: number;
+            starts_on: string;
+            ends_on: string;
+            notify_families: boolean;
+            is_active: boolean;
+            last_run_period: string | null;
+            fee_structure_ids: string[];
+            /** Format: date-time */
+            created_at: string;
+        };
+        CreateRecurringScheduleDto: {
+            /** Format: uuid */
+            academic_year_id: string;
+            name: string;
+            audience: components["schemas"]["RecurringScheduleAudienceDto"];
+            rule: components["schemas"]["RecurringScheduleRuleDto"];
+            fee_structure_ids: string[];
+            /** @default 9 */
+            due_days_after_period_start: number;
+            starts_on: string;
+            ends_on?: string;
+            /** @default true */
+            notify_families: boolean;
+            /** @default true */
+            is_active: boolean;
+        };
+        UpdateRecurringScheduleDto: {
+            name?: string;
+            audience?: components["schemas"]["RecurringScheduleAudienceDto"];
+            rule?: components["schemas"]["RecurringScheduleRuleDto"];
+            fee_structure_ids?: string[];
+            due_days_after_period_start?: number;
+            starts_on?: string;
+            ends_on?: string;
+            notify_families?: boolean;
+            is_active?: boolean;
+        };
+        AddExclusionDto: {
+            /** Format: uuid */
+            student_id: string;
+            reason: string;
+        };
+        CloneScheduleDto: {
+            /** Format: uuid */
+            academic_year_id: string;
+        };
+        CloneScheduleResultDto: {
+            schedule: components["schemas"]["RecurringScheduleResponseDto"];
+            unmatched_structure_names: string[];
+            unmatched_audience_label: string | null;
+        };
+        SchedulePreviewStudentDto: {
+            id: string;
+            full_name: string;
+            registration_number: string | null;
+            excluded: boolean;
+        };
+        SchedulePreviewDto: {
+            students: components["schemas"]["SchedulePreviewStudentDto"][];
+            total_count: number;
+        };
         StudentWallet: {
             id: string;
             tenant: components["schemas"]["School"];
@@ -4038,13 +4275,34 @@ export interface components {
             amount: number;
             /** @enum {string} */
             kind: "CREDIT_OVERPAYMENT" | "CREDIT_CHANGE" | "DEBIT_CHECKOUT" | "DEBIT_GENERATION" | "REVERSAL";
-            note: string | null;
             /** Format: date-time */
             created_at: string;
         };
         FamilyStudentWalletResponseDto: {
             balance: number;
             transactions: components["schemas"]["FamilyWalletTransactionDto"][];
+        };
+        FamilyDiscountRuleDto: {
+            id: string;
+            student_id: string;
+            /** @enum {string} */
+            kind: "FLAT" | "PERCENT";
+            value: number;
+            fee_types: ("MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER")[] | null;
+            starts_on: string | null;
+            ends_on: string | null;
+            is_active: boolean;
+        };
+        CreateDiscountRuleDto: {
+            /** Format: uuid */
+            student_id: string;
+            /** @enum {string} */
+            kind: "FLAT" | "PERCENT";
+            value: number;
+            fee_types?: ("MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER")[] | null;
+            starts_on?: string | null;
+            ends_on?: string | null;
+            reason: string;
         };
         DiscountRuleDto: {
             id: string;
@@ -4063,17 +4321,6 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
-        };
-        CreateDiscountRuleDto: {
-            /** Format: uuid */
-            student_id: string;
-            /** @enum {string} */
-            kind: "FLAT" | "PERCENT";
-            value: number;
-            fee_types?: ("MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER")[] | null;
-            starts_on?: string | null;
-            ends_on?: string | null;
-            reason: string;
         };
         UpdateDiscountRuleDto: {
             /** @enum {string} */
@@ -4147,7 +4394,6 @@ export interface components {
             issuer?: components["schemas"]["IssuerSnapshot"];
         };
         FamilyInvoiceDto: {
-            /** @description Always `null` for a family caller; the staff variant carries the issuing user. */
             issued_by: Record<string, never> | null;
             id: string;
             invoice_number: string;
@@ -4166,7 +4412,6 @@ export interface components {
             /** Format: date-time */
             due_date: string;
             snapshot: components["schemas"]["InvoiceSnapshot"];
-            notes: string | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -7613,6 +7858,7 @@ export interface operations {
                 fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
                 source?: "MANUAL" | "SCHEDULE";
                 generated_by_user_id?: string;
+                recurring_schedule_id?: string;
                 collection_status?: "NONE" | "PARTIAL" | "FULL";
                 page?: number;
                 limit?: number;
@@ -7841,6 +8087,347 @@ export interface operations {
             };
         };
     };
+    RecurringSchedulesController_findAll_v1: {
+        parameters: {
+            query?: {
+                academic_year_id?: string;
+                is_active?: boolean;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringScheduleResponseDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RecurringSchedulesController_create_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRecurringScheduleDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringScheduleResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RecurringSchedulesController_findOne_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringScheduleResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RecurringSchedulesController_remove_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RecurringSchedulesController_update_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRecurringScheduleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringScheduleResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RecurringSchedulesController_addExclusion_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddExclusionDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RecurringSchedulesController_removeExclusion_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+                studentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RecurringSchedulesController_clone_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CloneScheduleDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CloneScheduleResultDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RecurringSchedulesController_preview_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchedulePreviewDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RecurringSchedulesController_findForStudent_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description An array of `StudentScheduleItemDto` for staff; allow-listed `FamilyStudentScheduleDto` rows for a PARENT/STUDENT. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": (components["schemas"]["StudentScheduleItemDto"] | components["schemas"]["FamilyStudentScheduleDto"])[];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     WalletController_getWallet_v1: {
         parameters: {
             query?: {
@@ -7898,7 +8485,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DiscountRuleDto"][];
+                    "application/json": components["schemas"]["FamilyDiscountRuleDto"][];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
