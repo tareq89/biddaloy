@@ -15,6 +15,7 @@
  *               affected-based).
  */
 import { spawn, execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -107,7 +108,9 @@ function changedFiles(base) {
   const files = new Set(
     [committed, workingTree, untracked].flatMap((out) => out.split('\n').filter(Boolean)),
   );
-  return [...files];
+  // A file deleted since `base` still shows up in the diff but no longer
+  // exists on disk — eslint errors on a path it can't find, so drop those.
+  return [...files].filter((file) => existsSync(resolve(repoRoot, file)));
 }
 
 // Packages with their own flat eslint.config.mjs — server's "lint" script
