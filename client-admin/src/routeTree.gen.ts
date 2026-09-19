@@ -29,6 +29,8 @@ import { Route as PortalIndexRouteImport } from './routes/portal/index'
 import { Route as PortalAccountRouteImport } from './routes/portal/account'
 import { Route as PortalAttendanceRouteImport } from './routes/portal/attendance'
 import { Route as PortalFeesRouteImport } from './routes/portal/fees'
+import { Route as PlatformHolidaySetsIndexRouteImport } from './routes/_platform/holiday-sets/index'
+import { Route as PlatformHolidaySetsSetIdRouteImport } from './routes/_platform/holiday-sets/$setId'
 import { Route as PlatformSchoolsIndexRouteImport } from './routes/_platform/schools/index'
 import { Route as PlatformSchoolsSchoolIdRouteImport } from './routes/_platform/schools/$schoolId'
 import { Route as PlatformSchoolsNewRouteImport } from './routes/_platform/schools/new'
@@ -163,6 +165,18 @@ const PortalFeesRoute = PortalFeesRouteImport.update({
   path: '/fees',
   getParentRoute: () => PortalRoute,
 } as any)
+const PlatformHolidaySetsIndexRoute =
+  PlatformHolidaySetsIndexRouteImport.update({
+    id: '/holiday-sets/',
+    path: '/holiday-sets/',
+    getParentRoute: () => PlatformRouteRoute,
+  } as any)
+const PlatformHolidaySetsSetIdRoute =
+  PlatformHolidaySetsSetIdRouteImport.update({
+    id: '/holiday-sets/$setId',
+    path: '/holiday-sets/$setId',
+    getParentRoute: () => PlatformRouteRoute,
+  } as any)
 const PlatformSchoolsIndexRoute = PlatformSchoolsIndexRouteImport.update({
   id: '/schools/',
   path: '/schools/',
@@ -365,6 +379,7 @@ export interface FileRoutesByFullPath {
   '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/fees': typeof PortalFeesRoute
   '/portal/': typeof PortalIndexRoute
+  '/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
   '/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
   '/schools/new': typeof PlatformSchoolsNewRoute
   '/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
@@ -385,6 +400,7 @@ export interface FileRoutesByFullPath {
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/students/import': typeof StaffStudentsImportRoute
   '/students/new': typeof StaffStudentsNewRoute
+  '/holiday-sets/': typeof PlatformHolidaySetsIndexRoute
   '/schools/': typeof PlatformSchoolsIndexRoute
   '/academic-years/': typeof StaffAcademicYearsIndexRoute
   '/attendance/': typeof StaffAttendanceIndexRoute
@@ -418,6 +434,7 @@ export interface FileRoutesByTo {
   '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/fees': typeof PortalFeesRoute
   '/portal': typeof PortalIndexRoute
+  '/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
   '/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
   '/schools/new': typeof PlatformSchoolsNewRoute
   '/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
@@ -438,6 +455,7 @@ export interface FileRoutesByTo {
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/students/import': typeof StaffStudentsImportRoute
   '/students/new': typeof StaffStudentsNewRoute
+  '/holiday-sets': typeof PlatformHolidaySetsIndexRoute
   '/schools': typeof PlatformSchoolsIndexRoute
   '/academic-years': typeof StaffAcademicYearsIndexRoute
   '/attendance': typeof StaffAttendanceIndexRoute
@@ -476,6 +494,7 @@ export interface FileRoutesById {
   '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/fees': typeof PortalFeesRoute
   '/portal/': typeof PortalIndexRoute
+  '/_platform/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
   '/_platform/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
   '/_platform/schools/new': typeof PlatformSchoolsNewRoute
   '/_staff/academic-years/$academicYearId': typeof StaffAcademicYearsAcademicYearIdRoute
@@ -496,6 +515,7 @@ export interface FileRoutesById {
   '/_staff/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/_staff/students/import': typeof StaffStudentsImportRoute
   '/_staff/students/new': typeof StaffStudentsNewRoute
+  '/_platform/holiday-sets/': typeof PlatformHolidaySetsIndexRoute
   '/_platform/schools/': typeof PlatformSchoolsIndexRoute
   '/_staff/academic-years/': typeof StaffAcademicYearsIndexRoute
   '/_staff/attendance/': typeof StaffAttendanceIndexRoute
@@ -533,6 +553,7 @@ export interface FileRouteTypes {
     | '/portal/attendance'
     | '/portal/fees'
     | '/portal/'
+    | '/holiday-sets/$setId'
     | '/schools/$schoolId'
     | '/schools/new'
     | '/academic-years/$academicYearId'
@@ -553,6 +574,7 @@ export interface FileRouteTypes {
     | '/students/$studentId'
     | '/students/import'
     | '/students/new'
+    | '/holiday-sets/'
     | '/schools/'
     | '/academic-years/'
     | '/attendance/'
@@ -586,6 +608,7 @@ export interface FileRouteTypes {
     | '/portal/attendance'
     | '/portal/fees'
     | '/portal'
+    | '/holiday-sets/$setId'
     | '/schools/$schoolId'
     | '/schools/new'
     | '/academic-years/$academicYearId'
@@ -606,6 +629,7 @@ export interface FileRouteTypes {
     | '/students/$studentId'
     | '/students/import'
     | '/students/new'
+    | '/holiday-sets'
     | '/schools'
     | '/academic-years'
     | '/attendance'
@@ -643,6 +667,7 @@ export interface FileRouteTypes {
     | '/portal/attendance'
     | '/portal/fees'
     | '/portal/'
+    | '/_platform/holiday-sets/$setId'
     | '/_platform/schools/$schoolId'
     | '/_platform/schools/new'
     | '/_staff/academic-years/$academicYearId'
@@ -663,6 +688,7 @@ export interface FileRouteTypes {
     | '/_staff/students/$studentId'
     | '/_staff/students/import'
     | '/_staff/students/new'
+    | '/_platform/holiday-sets/'
     | '/_platform/schools/'
     | '/_staff/academic-years/'
     | '/_staff/attendance/'
@@ -835,6 +861,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/portal/fees'
       preLoaderRoute: typeof PortalFeesRouteImport
       parentRoute: typeof PortalRoute
+    }
+    '/_platform/holiday-sets/': {
+      id: '/_platform/holiday-sets/'
+      path: '/holiday-sets'
+      fullPath: '/holiday-sets/'
+      preLoaderRoute: typeof PlatformHolidaySetsIndexRouteImport
+      parentRoute: typeof PlatformRouteRoute
+    }
+    '/_platform/holiday-sets/$setId': {
+      id: '/_platform/holiday-sets/$setId'
+      path: '/holiday-sets/$setId'
+      fullPath: '/holiday-sets/$setId'
+      preLoaderRoute: typeof PlatformHolidaySetsSetIdRouteImport
+      parentRoute: typeof PlatformRouteRoute
     }
     '/_platform/schools/': {
       id: '/_platform/schools/'
@@ -1085,14 +1125,18 @@ declare module '@tanstack/react-router' {
 }
 
 interface PlatformRouteRouteChildren {
+  PlatformHolidaySetsSetIdRoute: typeof PlatformHolidaySetsSetIdRoute
   PlatformSchoolsSchoolIdRoute: typeof PlatformSchoolsSchoolIdRoute
   PlatformSchoolsNewRoute: typeof PlatformSchoolsNewRoute
+  PlatformHolidaySetsIndexRoute: typeof PlatformHolidaySetsIndexRoute
   PlatformSchoolsIndexRoute: typeof PlatformSchoolsIndexRoute
 }
 
 const PlatformRouteRouteChildren: PlatformRouteRouteChildren = {
+  PlatformHolidaySetsSetIdRoute: PlatformHolidaySetsSetIdRoute,
   PlatformSchoolsSchoolIdRoute: PlatformSchoolsSchoolIdRoute,
   PlatformSchoolsNewRoute: PlatformSchoolsNewRoute,
+  PlatformHolidaySetsIndexRoute: PlatformHolidaySetsIndexRoute,
   PlatformSchoolsIndexRoute: PlatformSchoolsIndexRoute,
 }
 
