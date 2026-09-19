@@ -1,0 +1,77 @@
+{
+  "page": {
+    "title": "Calendar",
+    "viewGrid": "Month",
+    "viewAgenda": "Agenda",
+    "today": "Today",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "addEvent": "Add event",
+    "governmentHolidays": "Government holidays",
+    "moreEvents": "+{{count}} more",
+    "agendaEmpty": "No events in this range.",
+    "errorMessage": "Couldn't load the calendar. Try again."
+  },
+  "weekdays": {
+    "Sun": "Sun",
+    "Mon": "Mon",
+    "Tue": "Tue",
+    "Wed": "Wed",
+    "Thu": "Thu",
+    "Fri": "Fri",
+    "Sat": "Sat"
+  },
+  "filters": {
+    "typesLabel": "Event type",
+    "classLabel": "Class",
+    "allClasses": "All classes",
+    "allTypes": "All types"
+  },
+  "types": {
+    "HOLIDAY": "Holiday",
+    "EXAM": "Exam",
+    "EVENT": "Event",
+    "MEETING": "Meeting",
+    "DEADLINE": "Deadline"
+  },
+  "eventForm": {
+    "createTitle": "Add event",
+    "editTitle": "Edit event",
+    "type": "Type",
+    "name": "Name",
+    "description": "Description",
+    "startDate": "Start date",
+    "endDate": "End date",
+    "countsAsWorkingDay": "Counts as a working day",
+    "publishNow": "Publish immediately",
+    "notify": "Notify affected families/staff",
+    "notifySms": "Also notify by SMS",
+    "save": "Save",
+    "cancel": "Cancel",
+    "errors": {
+      "CALENDAR_EVENT_LOCKED": "This event is in the past and can no longer be changed.",
+      "CALENDAR_OUTSIDE_ACADEMIC_YEAR": "These dates fall outside the current academic year.",
+      "CALENDAR_DAY_HAS_ATTENDANCE": "Attendance has already been recorded for one of these days.",
+      "CALENDAR_INVALID_CLASS": "One of the selected classes is invalid.",
+      "CALENDAR_INVALID_RANGE": "The end date must be on or after the start date.",
+      "generic": "Couldn't save this event. Try again."
+    }
+  },
+  "eventDetails": {
+    "edit": "Edit",
+    "delete": "Delete",
+    "publish": "Publish",
+    "draft": "Draft",
+    "locked": "This event is in the past and can no longer be edited."
+  },
+  "governmentHolidaysDialog": {
+    "title": "Government holidays",
+    "description": "Suggested holidays for this year, from the published national calendar.",
+    "add": "Add selected",
+    "alreadyAdded": "Already added",
+    "empty": "No suggested holidays for this year yet."
+  },
+  "upcomingPanel": {
+    "title": "Upcoming"
+  }
+}

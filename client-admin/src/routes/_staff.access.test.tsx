@@ -146,6 +146,23 @@ describe('_staff route access [8.14.17]', () => {
     await waitFor(() => expect(screen.queryByText(ACCESS_DENIED_TITLE)).toBeNull());
   });
 
+  // [17.4.2] Calendar nav item — every tenant role (`ROLE_PERMISSIONS`
+  // in `shared/src/enums/permissions.ts`) holds `CALENDAR_READ`, so
+  // there is no *authenticated* role that should see the sidebar without
+  // the Calendar link — the "no role active" case just below is the one
+  // real "hidden" case: with no session, `_staff.tsx`'s sidebar never
+  // mounts at all.
+  it('shows the Calendar nav item for a TEACHER, who holds CALENDAR_READ', async () => {
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: UserRole.TEACHER,
+      locale: 'en',
+    });
+
+    await waitFor(() => expect(screen.getByRole('link', { name: /calendar/i })).toBeTruthy());
+  });
+
   it('fails closed when no role is active at all', async () => {
     // No role active never even reaches `RequirePermission` — or even
     // `_staff.tsx`'s outer `RequireRole` gate. `__root.tsx`'s own
@@ -162,5 +179,7 @@ describe('_staff route access [8.14.17]', () => {
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
     expect(screen.queryByText(ACCESS_DENIED_TITLE)).toBeNull();
+    // Sidebar (and its Calendar link) never mounts pre-login.
+    expect(screen.queryByRole('link', { name: /calendar/i })).toBeNull();
   });
 });

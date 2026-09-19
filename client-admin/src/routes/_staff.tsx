@@ -208,6 +208,16 @@ function StaffLayout() {
           permission: Permission.GUARDIAN_READ,
           icon: <UsersRoundIcon aria-hidden="true" />,
         },
+        // [17.4.2] — every role holding CALENDAR_READ (including
+        // TEACHER/PARENT/STUDENT/EXECUTIVE, per ROLE_PERMISSIONS) can
+        // browse; only ADMIN also holds CALENDAR_MANAGE and sees the
+        // mutation affordances the page itself gates on.
+        {
+          to: '/calendar',
+          label: t('items.calendar'),
+          permission: Permission.CALENDAR_READ,
+          icon: <CalendarDaysIcon aria-hidden="true" />,
+        },
         // [8.11.8] — gated on USER_READ, which ROLE_PERMISSIONS grants
         // to ADMIN only. Deliberately stricter than `GET /users`'s own
         // `@Roles(ADMIN, ACCOUNTANT, EXECUTIVE, TEACHER)` server-side —
