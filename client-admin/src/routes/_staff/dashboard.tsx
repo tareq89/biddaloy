@@ -2,6 +2,7 @@ import { EmptyState, RoutePending } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 
+import { UpcomingCalendarCard } from '../../components/upcoming-calendar-card';
 import { loadRouteNamespaces } from '../../route-loaders';
 
 /**
@@ -16,7 +17,7 @@ export const Route = createFileRoute('/_staff/dashboard')({
   // `nav` strings (already warm from `_staff.tsx`'s own loader, but
   // listed again here per the plan's per-route table so this route is
   // self-sufficient if ever moved out from under that layout).
-  loader: () => loadRouteNamespaces('nav'),
+  loader: () => loadRouteNamespaces('nav', 'calendar'),
   pendingComponent: DashboardPending,
   component: DashboardPage,
 });
@@ -26,11 +27,15 @@ function DashboardPage() {
   const navigate = useNavigate();
 
   return (
-    <EmptyState
-      title={t('dashboard.title')}
-      explanation={t('dashboard.explanation')}
-      action={{ label: t('dashboard.action'), onClick: () => void navigate({ to: '/settings' }) }}
-    />
+    <div className="flex flex-col gap-3">
+      {/* [17.5.4]: hides itself without CALENDAR_READ. */}
+      <UpcomingCalendarCard calendarPath="/calendar" requirePermission />
+      <EmptyState
+        title={t('dashboard.title')}
+        explanation={t('dashboard.explanation')}
+        action={{ label: t('dashboard.action'), onClick: () => void navigate({ to: '/settings' }) }}
+      />
+    </div>
   );
 }
 

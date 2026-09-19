@@ -72,6 +72,8 @@
     "empty": "No suggested holidays for this year yet."
   },
   "upcomingPanel": {
-    "title": "Upcoming"
+    "title": "Upcoming",
+    "nextHoliday": "Next holiday: {{name}} · in {{count}} days",
+    "empty": "Nothing scheduled in the next 60 days."
   }
 }
