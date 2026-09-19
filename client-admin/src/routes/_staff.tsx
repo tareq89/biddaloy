@@ -352,6 +352,11 @@ function StaffLayout() {
                 label: t('items.platformSchools'),
                 icon: <SchoolIcon aria-hidden="true" />,
               },
+              {
+                to: '/holiday-sets',
+                label: t('items.platformHolidaySets'),
+                icon: <CalendarDaysIcon aria-hidden="true" />,
+              },
             ]
           : []),
       ],

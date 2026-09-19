@@ -583,6 +583,21 @@ export {
 } from './school-profile';
 export { useDensity, type DensityMode } from './use-density';
 export {
+  publicHolidaySetKeys,
+  publicHolidaySetsQueryOptions,
+  publicHolidaySetQueryOptions,
+  useHolidaySets,
+  useHolidaySet,
+  useFetchHolidaySet,
+  useUpdateHolidaySetEntries,
+  usePublishHolidaySet,
+  useUnpublishHolidaySet,
+  type PublicHolidaySet,
+  type PublicHolidayEntry,
+  type HolidayEntryInput,
+  type FetchHolidaySetInput,
+} from './public-holiday-sets';
+export {
   smsCreditsKeys,
   smsCreditsQueryOptions,
   useGrantSmsCredits,
