@@ -527,6 +527,20 @@ describe('CalendarEventsService (integration)', () => {
   });
 
   it('rejects a date change that crosses academic years while retaining a class link from the old year', async () => {
+    // A dedicated second year, not `pastSpanningYearId` — that one's range
+    // (2020-2027) is close enough to "now" that a hardcoded date inside it
+    // would eventually stop being in the future as CI's clock advances.
+    // This year is anchored 20+ years out instead, so the test stays
+    // stable regardless of when it runs (same reasoning as this suite's
+    // other fixtures — see the file-level comment above).
+    const yearRepo = dataSource.getRepository(AcademicYear);
+    await yearRepo.save({
+      name: 'Calendar Events Far-Future Year',
+      start_date: '2050-01-01',
+      end_date: '2050-12-31',
+      tenant_id: TENANT_ID,
+    });
+
     const created = await service.create(
       {
         type: CalendarEventType.EVENT,
@@ -542,14 +556,14 @@ describe('CalendarEventsService (integration)', () => {
     expect(created.academic_year_id).toBe(yearId);
     expect(created.class_ids).toEqual([classId]);
 
-    // `classId` belongs to `yearId` (2030), not `pastSpanningYearId`
-    // (2020-2027) — moving the event's dates into that range without
-    // touching class_ids must be rejected rather than silently leaving
-    // the retained link pointing at a class from the wrong year.
+    // `classId` belongs to `yearId` (2030), not `farFutureYear` (2050) —
+    // moving the event's dates into that range without touching class_ids
+    // must be rejected rather than silently leaving the retained link
+    // pointing at a class from the wrong year.
     await expect(
       service.update(
         created.id,
-        { start_date: '2027-06-01', end_date: '2027-06-01' } as any,
+        { start_date: '2050-06-01', end_date: '2050-06-01' } as any,
         TENANT_ID,
         SEED_ADMIN_USER_ID,
       ),
