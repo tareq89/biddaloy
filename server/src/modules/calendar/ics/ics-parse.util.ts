@@ -50,6 +50,21 @@ function toIsoDate(yyyymmdd: string): string {
   if (!/^\d{8}$/.test(yyyymmdd)) {
     throw new Error(`Not a bare YYYYMMDD date: "${yyyymmdd}"`);
   }
+  const year = Number(yyyymmdd.slice(0, 4));
+  const month = Number(yyyymmdd.slice(4, 6));
+  const day = Number(yyyymmdd.slice(6, 8));
+  const date = new Date(Date.UTC(year, month - 1, day));
+  // `Date.UTC` normalizes out-of-range components (e.g. month 13, day 30 of
+  // February) instead of throwing — round-trip through it and compare, so a
+  // feed entry like "20260230" is rejected rather than silently becoming
+  // a real (wrong) date.
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    throw new Error(`Not a real calendar date: "${yyyymmdd}"`);
+  }
   return `${yyyymmdd.slice(0, 4)}-${yyyymmdd.slice(4, 6)}-${yyyymmdd.slice(6, 8)}`;
 }
 

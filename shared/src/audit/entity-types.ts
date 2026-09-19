@@ -39,6 +39,10 @@ export const AUDIT_ENTITY_TYPES = [
   'ReminderBatch',
   'ReminderBatchPreview',
   'School',
+  // Deprecated: `school_holidays` was renamed to `calendar_events` (Epic
+  // 17). Kept read-compatible so historical audit rows with this
+  // entity_type still validate — no new write ever uses it.
+  'SchoolHoliday',
   'Student',
   'User',
 ] as const;

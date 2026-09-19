@@ -732,7 +732,12 @@ export async function ensureAttendanceSeed(
       );
       result.holidays += 1;
     } else if (existing.deleted_at) {
-      await repos.schoolHolidayRepository.save(undelete(existing));
+      // Same D9 reasoning as the create branch above: a restored holiday
+      // must come back published, not as an unpublished draft, or
+      // ATTENDANCE_SEED_WORKING_DAYS goes stale silently.
+      const restored = undelete(existing);
+      restored.published_at ??= new Date();
+      await repos.schoolHolidayRepository.save(restored);
     }
   }
 

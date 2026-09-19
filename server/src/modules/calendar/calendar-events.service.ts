@@ -252,7 +252,7 @@ export class CalendarEventsService {
     await this.assertNotPast(tenantId, dto.end_date);
 
     const academicYear = await this.resolveAcademicYear(tenantId, dto.start_date, dto.end_date);
-    const classIds = await this.assertClassesInTenant(tenantId, dto.class_ids);
+    const classIds = await this.assertClassesInTenant(tenantId, dto.class_ids, academicYear.id);
 
     if (dto.counts_as_working_day === false || dto.counts_as_working_day === undefined) {
       await this.assertNoAttendanceInRange(tenantId, dto.start_date, dto.end_date);
@@ -337,7 +337,7 @@ export class CalendarEventsService {
 
     let classIds: string[] | undefined;
     if (dto.class_ids !== undefined) {
-      classIds = await this.assertClassesInTenant(tenantId, dto.class_ids);
+      classIds = await this.assertClassesInTenant(tenantId, dto.class_ids, academicYear.id);
     }
 
     Object.assign(event, {
@@ -500,22 +500,27 @@ export class CalendarEventsService {
     return startYear;
   }
 
-  /** Every `class_ids` entry must be a `Class` row in this tenant — a class
-   * id from another tenant, or one that doesn't exist, is rejected rather
-   * than silently dropped. */
+  /** Every `class_ids` entry must be a `Class` row in this tenant AND in
+   * the event's own academic year — a class from another tenant, another
+   * academic year, or one that doesn't exist, is rejected rather than
+   * silently dropped or scoped incorrectly (calendar visibility joins on
+   * `class_id` alone, so a cross-year class link would leak the event to
+   * students in a class that has since moved to a different year). */
   private async assertClassesInTenant(
     tenantId: string,
     classIds: string[] | undefined,
+    academicYearId: string,
   ): Promise<string[]> {
     if (!classIds || classIds.length === 0) return [];
     const found = await this.classRepo
       .createQueryBuilder('class')
       .where('class.id IN (:...ids)', { ids: classIds })
       .andWhere('class.tenant_id = :tenantId', { tenantId })
+      .andWhere('class.academic_year_id = :academicYearId', { academicYearId })
       .getMany();
     if (found.length !== new Set(classIds).size) {
       throw new UnprocessableEntityException({
-        message: 'One or more class_ids do not belong to this tenant',
+        message: 'One or more class_ids do not belong to this tenant and academic year',
         details: { code: 'CALENDAR_INVALID_CLASS' },
       });
     }

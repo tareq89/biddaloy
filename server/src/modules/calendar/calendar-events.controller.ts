@@ -9,7 +9,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { Permission, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
@@ -21,6 +21,8 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { CalendarEventsService } from './calendar-events.service';
 import {
+  CalendarEventListResponseDto,
+  CalendarEventResponseDto,
   CreateCalendarEventDto,
   QueryCalendarEventsDto,
   UpdateCalendarEventDto,
@@ -53,6 +55,7 @@ export class CalendarEventsController {
   )
   @RequirePermissions(Permission.CALENDAR_READ)
   @ApiOperation({ summary: 'List calendar events visible to the caller, paginated.' })
+  @ApiResponse({ status: 200, type: CalendarEventListResponseDto })
   async list(
     @Query() query: QueryCalendarEventsDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -73,6 +76,7 @@ export class CalendarEventsController {
   )
   @RequirePermissions(Permission.CALENDAR_READ)
   @ApiOperation({ summary: 'Fetch one calendar event, if visible to the caller.' })
+  @ApiResponse({ status: 200, type: CalendarEventResponseDto })
   async findOne(
     @Param('id') id: string,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -86,6 +90,7 @@ export class CalendarEventsController {
   @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CALENDAR_MANAGE)
   @ApiOperation({ summary: 'Create a calendar event.' })
+  @ApiResponse({ status: 201, type: CalendarEventResponseDto })
   async create(
     @Body() dto: CreateCalendarEventDto,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -98,6 +103,7 @@ export class CalendarEventsController {
   @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CALENDAR_MANAGE)
   @ApiOperation({ summary: 'Update a calendar event.' })
+  @ApiResponse({ status: 200, type: CalendarEventResponseDto })
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateCalendarEventDto,
@@ -124,6 +130,7 @@ export class CalendarEventsController {
   @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CALENDAR_MANAGE)
   @ApiOperation({ summary: 'Publish a draft calendar event.' })
+  @ApiResponse({ status: 200, type: CalendarEventResponseDto })
   async publish(
     @Param('id') id: string,
     @CurrentTenant() tenant: { id: string; role: string },

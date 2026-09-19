@@ -4861,6 +4861,31 @@ export interface components {
             name?: string;
             counts_as_working_day?: boolean;
         };
+        CalendarEventResponseDto: {
+            id: string;
+            academic_year_id: string;
+            /** @enum {string} */
+            type: "HOLIDAY" | "EXAM" | "EVENT" | "MEETING" | "DEADLINE";
+            name: string;
+            description?: string | null;
+            start_date: string;
+            end_date: string;
+            start_time?: string | null;
+            end_time?: string | null;
+            counts_as_working_day: boolean;
+            /** @enum {string} */
+            audience: "ALL" | "STAFF";
+            class_ids: string[];
+            is_locked: boolean;
+            published: boolean;
+        };
+        CalendarEventListResponseDto: {
+            data: components["schemas"]["CalendarEventResponseDto"][];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
         CreateCalendarEventDto: {
             /** @enum {string} */
             type: "HOLIDAY" | "EXAM" | "EVENT" | "MEETING" | "DEADLINE";
@@ -10450,7 +10475,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CalendarEventListResponseDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -10484,7 +10511,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["CalendarEventResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -10517,7 +10544,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["CalendarEventResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -10585,7 +10612,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["CalendarEventResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -10613,12 +10640,12 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["CalendarEventResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

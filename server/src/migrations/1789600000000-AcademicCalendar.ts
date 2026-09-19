@@ -65,15 +65,32 @@ export class AcademicCalendar1789600000000 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE "calendar_events" ADD CONSTRAINT "CHK_calendar_events_time_range" CHECK ("start_time" IS NULL OR "end_time" IS NULL OR "start_time" <= "end_time")`,
     );
+    // Composite unique so calendar_event_classes' FK below can pin
+    // (event_id, tenant_id) together — Postgres otherwise happily accepts
+    // an event/class/link row from three different tenants, since a plain
+    // `FK (event_id) REFERENCES calendar_events(id)` says nothing about
+    // tenant_id at all. `id` is already globally unique (PK), so this adds
+    // no new constraint on real data, only a target for the composite FK.
+    await queryRunner.query(
+      `ALTER TABLE "calendar_events" ADD CONSTRAINT "UQ_calendar_events_id_tenant" UNIQUE ("id", "tenant_id")`,
+    );
 
     // 2. calendar_event_classes
+    // NOTE: only the event_id leg is composite-FK'd to (event_id, tenant_id)
+    // here, since that table (calendar_events) is this migration's own.
+    // class_id and academic_year_id have the same theoretical gap against
+    // `classes`/`academic_years`, but hardening those means adding a
+    // composite unique key to tables this migration doesn't own and many
+    // other epics already depend on — left as a follow-up rather than
+    // widened here. Application code (`assertClassesInTenant`) already
+    // checks tenant_id match on every write.
     await queryRunner.query(`
       CREATE TABLE "calendar_event_classes" (
         "event_id" uuid NOT NULL,
         "class_id" uuid NOT NULL,
         "tenant_id" uuid NOT NULL,
         CONSTRAINT "PK_calendar_event_classes" PRIMARY KEY ("event_id", "class_id"),
-        CONSTRAINT "FK_calendar_event_classes_event" FOREIGN KEY ("event_id") REFERENCES "calendar_events"("id") ON DELETE CASCADE,
+        CONSTRAINT "FK_calendar_event_classes_event" FOREIGN KEY ("event_id", "tenant_id") REFERENCES "calendar_events"("id", "tenant_id") ON DELETE CASCADE,
         CONSTRAINT "FK_calendar_event_classes_class" FOREIGN KEY ("class_id") REFERENCES "classes"("id") ON DELETE CASCADE,
         CONSTRAINT "FK_calendar_event_classes_tenant" FOREIGN KEY ("tenant_id") REFERENCES "schools"("id") ON DELETE CASCADE
       )
@@ -182,6 +199,9 @@ export class AcademicCalendar1789600000000 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE IF EXISTS "academic_terms"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "calendar_event_classes"`);
 
+    await queryRunner.query(
+      `ALTER TABLE "calendar_events" DROP CONSTRAINT IF EXISTS "UQ_calendar_events_id_tenant"`,
+    );
     await queryRunner.query(
       `ALTER TABLE "calendar_events" DROP CONSTRAINT IF EXISTS "CHK_calendar_events_time_range"`,
     );
