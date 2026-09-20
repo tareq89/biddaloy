@@ -609,17 +609,20 @@ flowchart LR
     R[Router route tree<br/>routeTree.gen.ts] --> M[route-manifest.json]
     R --> P[route-permissions.ts]
     R --> N[nav-tree.ts]
-    R --> C[route-crumbs.ts]
+    R --> C["route-crumbs.ts (planned)"]
     M --> GM[route-manifest.test.ts]
     P --> GP[route-permissions.test.ts]
     N --> GN[nav-tree.test.ts]
-    C --> GC[route-crumbs.test.ts]
+    C --> GC["route-crumbs.test.ts (planned)"]
     GM -->|diff fails| CI[CI red]
     GP -->|diff fails| CI
     GN -->|diff fails| CI
     GC -->|diff fails| CI
-    A[action-registry.ts] --> GA[shape guard]
+    A["action-registry.ts (planned)"] --> GA["shape guard (planned)"]
     GA -->|missing run or unregistered entry| CI
+
+    classDef planned stroke-dasharray: 5 5,fill:#eee,color:#666
+    class C,GC,A,GA planned
 ```
 
 Every route-keyed registry's _test_ lives beside the router
@@ -637,7 +640,7 @@ registry is server-side — it guards TypeORM entities, not client routes.
 | `nav-not-in-nav.ts` + `nav-tree.test.ts`                                                                                       | Every route is either in the nav tree or on the explicit `NOT_IN_NAV` allowlist                                                                                                                                                                                                              | `nav-tree.test.ts` fails: `leaf route(s) with no sidebar home and no NOT_IN_NAV reason: /_staff/reports/new`                                      |
 | `route-crumbs.ts` + `route-crumbs.test.ts` (planned — PR [#873](https://github.com/tareq89/biddaloy/pull/873), not yet merged) | Every route has a breadcrumb label                                                                                                                                                                                                                                                           | once merged: same bidirectional-diff shape as the three guards above                                                                              |
 | `action-registry.ts` (`ACTIONS`) + `unregistered-actions.ts` (`UNREGISTERED_ACTIONS`)                                          | Every `Ctrl+K` palette action either has a real `run()` that navigates without throwing, targets a route in `STAFF_ROUTE_PERMISSIONS` with a matching permission, and unique id — or is accounted for in `UNREGISTERED_ACTIONS` with a file that exists on disk and a still-open owning epic | `unregistered-actions.test.ts` fails on a stale entry: `client-admin/src/components/some-dialog.tsx "9.9"` is not in the set of known open epics  |
-| Workbook tab registry (`server/src/modules/workbook/codec/registry.ts`) + `registry.completeness.spec.ts`                      | Every TypeORM entity is exported/restored by a workbook tab, or is explicitly allow-listed in `entity-coverage.ts` with a reason                                                                                                                                                             | `registry.completeness.spec.ts` fails: `Entity "PushSubscription" has no workbook tab and no entry in ENTITY_COVERAGE_EXEMPT.`                    |
+| Workbook tab registry (`server/src/modules/workbook/codec/registry.ts`) + `registry.completeness.spec.ts`                      | Every TypeORM entity is exported/restored by a workbook tab, or is explicitly allow-listed in `entity-coverage.ts` with a reason                                                                                                                                                             | `registry.completeness.spec.ts` fails: `Entity "NewFeatureLog" has no workbook tab and no entry in ENTITY_COVERAGE_EXEMPT.` (a hypothetical new entity added without a tab or an exemption — `PushSubscription` itself is already listed in `entity-coverage.ts` as an exempt, regenerable credential, so it never trips this check)                    |
 
 **What's deliberately out of scope here, and where it lives instead:**
 the palette's _search results_ — which people/pages an action can find —
