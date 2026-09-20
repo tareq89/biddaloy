@@ -4,7 +4,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HomeIcon, SettingsIcon, UsersRoundIcon, WalletIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { LINK_KEYS, expectKeyboardOperable } from '../test/a11y';
 import { renderWithRouter } from '../test/render-with-router';
@@ -89,7 +89,24 @@ function buildRouteTree() {
       </AppShell>
     ),
   });
-  return rootRoute.addChildren([indexRoute, studentsRoute]);
+  const feesRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/fees',
+    component: () => (
+      <AppShell navItems={navItems} navGroups={navGroups} brand="Biddaloy">
+        <p>Fees content</p>
+      </AppShell>
+    ),
+  });
+  return rootRoute.addChildren([indexRoute, studentsRoute, feesRoute]);
+}
+
+/** [30.1.3] Groups now start collapsed unless they own the active route.
+ * Tests that assert on *every* group's items seed an explicit "not
+ * collapsed" preference first — a stored value wins over the derived
+ * default, so this is exactly the sidebar a returning user sees. */
+function expandGroups(...ids: string[]) {
+  for (const id of ids) window.localStorage.setItem(`nav-group-collapsed-v2:${id}`, 'false');
 }
 
 describe('AppShell', () => {
@@ -98,6 +115,7 @@ describe('AppShell', () => {
   });
 
   it('renders every visible nav item as a link, and the active-route content', async () => {
+    expandGroups('finance', 'administration');
     renderWithRouter(buildRouteTree(), { initialEntries: ['/students'], role: 'SUPER_ADMIN' });
 
     expect(await screen.findByRole('link', { name: 'Dashboard' })).toBeTruthy();
@@ -194,6 +212,7 @@ describe('AppShell', () => {
 
   describe('[8.9.6] domain groups, role-gated', () => {
     it('renders Finance pinned above the rest, separated by a divider', async () => {
+      expandGroups('finance');
       renderWithRouter(buildRouteTree(), { initialEntries: ['/students'], role: 'ACCOUNTANT' });
 
       const nav = await screen.findByRole('navigation', { name: 'Main' });
@@ -228,6 +247,7 @@ describe('AppShell', () => {
     });
 
     it('a group header toggles collapse and persists the state to localStorage', async () => {
+      expandGroups('finance');
       const user = userEvent.setup();
       renderWithRouter(buildRouteTree(), { initialEntries: ['/students'], role: 'SUPER_ADMIN' });
 
@@ -238,7 +258,7 @@ describe('AppShell', () => {
       await user.click(header);
       expect(header.getAttribute('aria-expanded')).toBe('false');
       expect(screen.queryByRole('link', { name: 'Fees' })).toBeNull();
-      expect(window.localStorage.getItem('nav-group-collapsed:finance')).toBe('true');
+      expect(window.localStorage.getItem('nav-group-collapsed-v2:finance')).toBe('true');
     });
   });
 
@@ -397,6 +417,7 @@ describe('AppShell', () => {
     });
 
     it('renders every nav icon aria-hidden, leaving accessible link names unchanged', async () => {
+      expandGroups('finance', 'administration');
       renderWithRouter(buildRouteTree(), { initialEntries: ['/students'], role: 'SUPER_ADMIN' });
 
       const nav = await screen.findByRole('navigation', { name: 'Main' });
@@ -616,6 +637,59 @@ describe('AppShell', () => {
 
       await screen.findByText('Portal content');
       expect(screen.queryByRole('button', { name: 'Search' })).toBeNull();
+    });
+  });
+
+  describe('[30.1.3] group collapses unless it owns the active route', () => {
+    it('expands the group owning the active route and collapses siblings', async () => {
+      renderWithRouter(buildRouteTree(), { initialEntries: ['/fees'], role: 'SUPER_ADMIN' });
+
+      const finance = await screen.findByRole('button', { name: 'Finance' });
+      expect(finance.getAttribute('aria-expanded')).toBe('true');
+      expect(screen.getByRole('button', { name: 'People' }).getAttribute('aria-expanded')).toBe(
+        'false',
+      );
+      expect(
+        screen.getByRole('button', { name: 'Administration' }).getAttribute('aria-expanded'),
+      ).toBe('false');
+
+      // Regression lock on the mount-time write the ticket removed: a
+      // group the user never touched must not gain a stored preference,
+      // or the derived default above is dead on the next page load.
+      expect(window.localStorage.getItem('nav-group-collapsed-v2:people')).toBeNull();
+    });
+
+    it("keeps an active group collapsed if the user's stored preference says so", async () => {
+      window.localStorage.setItem('nav-group-collapsed-v2:finance', 'true');
+      renderWithRouter(buildRouteTree(), { initialEntries: ['/fees'], role: 'SUPER_ADMIN' });
+
+      const finance = await screen.findByRole('button', { name: 'Finance' });
+      expect(finance.getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('keeps a non-active group expanded if the stored preference says so', async () => {
+      expandGroups('finance');
+      renderWithRouter(buildRouteTree(), { initialEntries: ['/students'], role: 'SUPER_ADMIN' });
+
+      const finance = await screen.findByRole('button', { name: 'Finance' });
+      expect(finance.getAttribute('aria-expanded')).toBe('true');
+    });
+
+    it('falls back to the derived default when storage throws', async () => {
+      const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new Error('storage blocked');
+      });
+      try {
+        renderWithRouter(buildRouteTree(), { initialEntries: ['/fees'], role: 'SUPER_ADMIN' });
+
+        const finance = await screen.findByRole('button', { name: 'Finance' });
+        expect(finance.getAttribute('aria-expanded')).toBe('true');
+        expect(screen.getByRole('button', { name: 'People' }).getAttribute('aria-expanded')).toBe(
+          'false',
+        );
+      } finally {
+        getItem.mockRestore();
+      }
     });
   });
 });
