@@ -38,7 +38,8 @@
     "publishImmediately": "Publish immediately",
     "publishImmediatelyHint": "Off imports these as drafts — publish them later from the calendar.",
     "commit": "Commit import",
-    "committing": "Importing…"
+    "committing": "Importing…",
+    "commitFailed": "Import failed"
   },
   "success": {
     "title": "Import complete",
@@ -60,7 +61,8 @@
     "targetYear": "Copy into",
     "includeHolidays": "Include holidays",
     "submit": "Preview clone",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "cloneFailed": "Clone failed"
   },
   "toolbar": {
     "import": "Import",

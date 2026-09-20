@@ -155,6 +155,11 @@ function CalendarImportPage() {
             {commitMutation.isPending ? t('step3.committing') : t('step3.commit')}
           </Button>
         </div>
+        {commitMutation.isError && (
+          <p className="text-sm text-destructive" role="alert">
+            {t('step3.commitFailed')}
+          </p>
+        )}
       </div>
     );
   }

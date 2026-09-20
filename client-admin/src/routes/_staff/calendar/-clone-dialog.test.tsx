@@ -193,4 +193,21 @@ describe('calendar/-clone-dialog', () => {
     await user.click(await screen.findByRole('button', { name: 'Cancel' }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
+
+  it('shows an error message when the clone request has failed', async () => {
+    const { localeReady } = renderWithProviders(
+      <CloneDialog
+        open
+        onOpenChange={vi.fn()}
+        academicYears={YEARS}
+        isPending={false}
+        error={new Error('Could not clone')}
+        onSubmit={vi.fn()}
+      />,
+      { locale: 'en', role: 'ADMIN', tenantId: 'tenant-1' },
+    );
+    await localeReady;
+
+    expect(await screen.findByRole('alert')).toBeTruthy();
+  });
 });

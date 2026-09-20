@@ -56,7 +56,11 @@ const mixedPreview = {
     { row: 2, status: 'NEW', errors: [] },
     { row: 3, status: 'UPDATED', errors: [] },
     { row: 4, status: 'UNCHANGED', errors: [] },
-    { row: 5, status: 'ERROR', errors: [{ row: 5, column: null, message: 'Bad date', severity: 'error' }] },
+    {
+      row: 5,
+      status: 'ERROR',
+      errors: [{ row: 5, column: null, message: 'Bad date', severity: 'error' }],
+    },
   ],
 };
 
@@ -138,6 +142,28 @@ describe('/calendar/import', () => {
     await screen.findByText('Import complete');
     expect(commitCalled).toBe(true);
     expect(screen.getByText('2 event(s) were saved as drafts.')).toBeTruthy();
+  });
+
+  it('shows an error and stays on the preview screen when commit fails', async () => {
+    server.use(
+      validateHandler(cleanPreview),
+      http.post('/api/v1/calendar-import/commit', () =>
+        HttpResponse.json({ message: 'Could not commit' }, { status: 500 }),
+      ),
+    );
+    renderImportPage();
+    await uploadFile(makeFile('calendar.csv'));
+    await screen.findByText('2 new');
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Commit import' }));
+
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    // Stayed on the preview screen, not a success screen — the button is
+    // clickable again (not stuck disabled from a lingering isPending).
+    expect(screen.getByRole('button', { name: 'Commit import' }).hasAttribute('disabled')).toBe(
+      false,
+    );
   });
 
   it('shows a published success message when "Publish immediately" is checked', async () => {

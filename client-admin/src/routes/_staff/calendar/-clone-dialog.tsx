@@ -40,6 +40,7 @@ export function CloneDialog({
   onOpenChange,
   academicYears,
   isPending,
+  error,
   onSubmit,
 }: CloneDialogProps) {
   const { t } = useTranslation('calendarImport');
@@ -71,7 +72,10 @@ export function CloneDialog({
         <div className="space-y-4">
           <div className="space-y-1">
             <Label htmlFor="clone-source-year">{t('clone.sourceYear')}</Label>
-            <Select {...(sourceYearId ? { value: sourceYearId } : {})} onValueChange={setSourceYearId}>
+            <Select
+              {...(sourceYearId ? { value: sourceYearId } : {})}
+              onValueChange={setSourceYearId}
+            >
               <SelectTrigger id="clone-source-year">
                 <SelectValue />
               </SelectTrigger>
@@ -87,7 +91,10 @@ export function CloneDialog({
 
           <div className="space-y-1">
             <Label htmlFor="clone-target-year">{t('clone.targetYear')}</Label>
-            <Select {...(targetYearId ? { value: targetYearId } : {})} onValueChange={setTargetYearId}>
+            <Select
+              {...(targetYearId ? { value: targetYearId } : {})}
+              onValueChange={setTargetYearId}
+            >
               <SelectTrigger id="clone-target-year">
                 <SelectValue />
               </SelectTrigger>
@@ -107,6 +114,12 @@ export function CloneDialog({
               {t('clone.includeHolidays')}
             </Label>
           </div>
+
+          {error !== undefined && (
+            <p className="text-sm text-destructive" role="alert">
+              {t('clone.cloneFailed')}
+            </p>
+          )}
         </div>
 
         <DialogFooter>

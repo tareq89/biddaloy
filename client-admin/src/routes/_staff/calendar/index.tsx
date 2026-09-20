@@ -415,6 +415,7 @@ function CalendarPage() {
           onOpenChange={setCloneOpen}
           academicYears={academicYearsQuery.data?.data ?? []}
           isPending={cloneMutation.isPending}
+          error={cloneMutation.error}
           onSubmit={({ sourceYearId, targetYearId }) => {
             cloneMutation.mutate(
               { source_year_id: sourceYearId, target_year_id: targetYearId },

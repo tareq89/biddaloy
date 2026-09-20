@@ -92,7 +92,12 @@ export function UpcomingCalendarCard({
   }
 
   const published = eventsQuery.data.data
-    .filter((event) => event.published)
+    // The portal's FamilyCalendarEventDto has no `published` field at all
+    // (allow-listed shape) — `event.published` is `undefined` there, which
+    // `!== false` correctly still passes. The API already excludes drafts
+    // for every caller (no `includeDrafts` passed above), so this is a
+    // defensive filter, not the source of truth.
+    .filter((event) => event.published !== false)
     .sort((a, b) => a.start_date.localeCompare(b.start_date));
 
   const nextHoliday = published.find((event) => event.type === CalendarEventType.HOLIDAY);

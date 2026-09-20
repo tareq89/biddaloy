@@ -113,15 +113,15 @@ clicking through the UI event by event.
 ```mermaid
 sequenceDiagram
     participant Admin
-    participant API as calendar/import
+    participant API as calendar-import
     participant Staging as ImportStagingService
 
-    Admin->>API: POST /calendar/import/validate (xlsx/csv upload)
+    Admin->>API: POST /calendar-import/validate (xlsx/csv upload)
     API->>API: parse rows, resolve class names → ids,<br/>match by (name, start_date)
     API->>Staging: stage rows + per-row NEW/UPDATED/UNCHANGED/ERROR
     API-->>Admin: staging_id + row-by-row preview
 
-    Admin->>API: POST /calendar/import/commit {staging_id}
+    Admin->>API: POST /calendar-import/commit {staging_id}
     API->>API: CalendarEventsService.create/update, one row at a time
     API-->>Admin: {created, updated, unchanged, failed[]}
 ```

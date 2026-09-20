@@ -32,7 +32,10 @@ function buildRouteTree(props: UpcomingCalendarCardProps) {
   return rootRoute.addChildren([indexRoute, calendarRoute, portalCalendarRoute]);
 }
 
-function renderCard(props: UpcomingCalendarCardProps, options: Parameters<typeof renderWithRouter>[1] = {}) {
+function renderCard(
+  props: UpcomingCalendarCardProps,
+  options: Parameters<typeof renderWithRouter>[1] = {},
+) {
   return renderWithRouter(buildRouteTree(props), {
     tenantId: 'tenant-1',
     role: 'ADMIN',
@@ -42,7 +45,13 @@ function renderCard(props: UpcomingCalendarCardProps, options: Parameters<typeof
 }
 
 function eventsResponse(events: Array<Record<string, unknown>>) {
-  return HttpResponse.json({ data: events, total: events.length, page: 1, limit: 6, totalPages: 1 });
+  return HttpResponse.json({
+    data: events,
+    total: events.length,
+    page: 1,
+    limit: 6,
+    totalPages: 1,
+  });
 }
 
 function makeEvent(overrides: Record<string, unknown>) {
@@ -144,6 +153,35 @@ describe('UpcomingCalendarCard', () => {
 
     const link = await screen.findByRole('link', { name: /Sports day/ });
     expect(link.getAttribute('href')).toBe('/portal/calendar');
+  });
+
+  it('renders an event whose `published` field is absent (the portal family DTO shape)', async () => {
+    // FamilyCalendarEventDto (what the portal surface actually receives)
+    // has no `published` field at all — `event.published` is `undefined`
+    // there. Filtering on truthiness alone would drop every portal event.
+    const { published: _published, ...eventWithoutPublished } = makeEvent({
+      id: 'evt-portal',
+      name: 'Portal Event',
+    });
+    void _published;
+    server.use(http.get('/api/v1/calendar/events', () => eventsResponse([eventWithoutPublished])));
+
+    renderCard({ calendarPath: '/portal/calendar' }, { role: 'PARENT' });
+
+    expect(await screen.findByText('Portal Event')).toBeTruthy();
+  });
+
+  it('excludes an event explicitly marked published: false', async () => {
+    server.use(
+      http.get('/api/v1/calendar/events', () =>
+        eventsResponse([makeEvent({ id: 'evt-draft', name: 'Draft Event', published: false })]),
+      ),
+    );
+
+    renderCard({ calendarPath: '/calendar' });
+
+    expect(await screen.findByText('Nothing scheduled in the next 60 days.')).toBeTruthy();
+    expect(screen.queryByText('Draft Event')).toBeNull();
   });
 
   it('shows the empty state when nothing is scheduled', async () => {
