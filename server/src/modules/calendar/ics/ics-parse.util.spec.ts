@@ -129,6 +129,25 @@ describe('parseIcsEvents', () => {
     expect(events).toEqual([{ date: '2026-01-01', end_date: '2026-01-01', name: 'New Year' }]);
   });
 
+  it("does not let a nested VALARM's own SUMMARY/DTSTART overwrite the VEVENT's", () => {
+    const events = parseIcsEvents(
+      ics(
+        'BEGIN:VEVENT',
+        'DTSTART;VALUE=DATE:20260101',
+        'DTEND;VALUE=DATE:20260102',
+        'SUMMARY:New Year',
+        'BEGIN:VALARM',
+        'ACTION:DISPLAY',
+        'SUMMARY:Reminder',
+        'DTSTART:20251231T230000Z',
+        'END:VALARM',
+        'END:VEVENT',
+      ),
+    );
+
+    expect(events).toEqual([{ date: '2026-01-01', end_date: '2026-01-01', name: 'New Year' }]);
+  });
+
   it('returns [] for an empty document', () => {
     expect(parseIcsEvents('')).toEqual([]);
   });

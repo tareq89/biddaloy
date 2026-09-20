@@ -41,7 +41,7 @@ describe('17.1.1 calendar enums + audit catalog [#702]', () => {
     );
   });
 
-  it('AUDIT_ENTITY_TYPES has the four new calendar names and no SchoolHoliday', () => {
+  it('AUDIT_ENTITY_TYPES has the four new calendar names, and keeps SchoolHoliday read-compatible', () => {
     expect(AUDIT_ENTITY_TYPES).toEqual(
       expect.arrayContaining([
         'AcademicTerm',
@@ -50,6 +50,11 @@ describe('17.1.1 calendar enums + audit catalog [#702]', () => {
         'PublicHolidaySet',
       ]),
     );
-    expect(AUDIT_ENTITY_TYPES).not.toContain('SchoolHoliday');
+    // Deprecated, not removed: the school_holidays -> calendar_events
+    // rename doesn't rewrite historical audit rows, so 'SchoolHoliday'
+    // stays in the catalog as a read-compatible legacy value. No server
+    // code writes it anymore (server/src/modules/audit/entity-catalog.spec.ts
+    // has its own explicit exception for this one entry).
+    expect(AUDIT_ENTITY_TYPES).toContain('SchoolHoliday');
   });
 });

@@ -197,6 +197,38 @@ describe('round trip', () => {
       value: 'nonexistent-class',
     });
   });
+
+  it('rejects a class scoped to a different academic year than the event', () => {
+    const OTHER_CLASS_ID = '44444444-4444-4444-8444-444444444444';
+    const ctx = makeImportCtx({
+      ref: (tab, key) => {
+        if (tab === 'academic_years' && key === '2026-2027') return YEAR_ID;
+        if (tab === 'classes' && key === 'Class 5|2026-2027') return CLASS_ID;
+        // Same class name, a different year — the natural-key year suffix
+        // is what fromRow must catch, not just "does this class exist".
+        if (tab === 'classes' && key === 'Class 5|2025-2026') return OTHER_CLASS_ID;
+        return undefined;
+      },
+    });
+    const cells = { ...toCells(makeEvent()), classes: 'Class 5|2025-2026' };
+
+    const result = calendarEventsTab.fromRow(cells, 4, ctx);
+
+    expect('errors' in result).toBe(true);
+    if (!('errors' in result)) return;
+    expect(result.errors[0]).toMatchObject({ column: 'classes', row: 4 });
+    expect(result.errors[0]!.message).toContain('different academic year');
+  });
+
+  it('rejects an invalid start_time', () => {
+    const cells = { ...toCells(makeEvent()), start_time: 'not-a-time' };
+
+    const result = calendarEventsTab.fromRow(cells, 4, makeImportCtx());
+
+    expect('errors' in result).toBe(true);
+    if (!('errors' in result)) return;
+    expect(result.errors[0]).toMatchObject({ column: 'start_time', value: 'not-a-time' });
+  });
 });
 
 describe('legacy `holidays` sheet defaults (D17)', () => {

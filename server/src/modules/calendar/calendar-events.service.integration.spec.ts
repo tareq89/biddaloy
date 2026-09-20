@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { ConfigModule } from '@nestjs/config';
 import { DataSource, getDataSourceToken } from '@nestjs/typeorm';
 import { UnprocessableEntityException } from '@nestjs/common';
@@ -524,5 +524,55 @@ describe('CalendarEventsService (integration)', () => {
       SEED_ADMIN_USER_ID,
     );
     expect(untouched.description).toBeNull();
+  });
+
+  it('rejects a date change that crosses academic years while retaining a class link from the old year', async () => {
+    // Pin "today" with a fake clock instead of relying on a hardcoded
+    // future date staying future forever — `yearId` spans 2030, which is
+    // real today but would eventually become past as wall-clock time
+    // advances, making both the source event's create() and this test
+    // itself fail at assertNotPast rather than exercising the intended
+    // retained-link validation path.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2030-01-01T00:00:00Z'));
+    try {
+      const yearRepo = dataSource.getRepository(AcademicYear);
+      await yearRepo.save({
+        name: 'Calendar Events Far-Future Year',
+        start_date: '2050-01-01',
+        end_date: '2050-12-31',
+        tenant_id: TENANT_ID,
+      });
+
+      const created = await service.create(
+        {
+          type: CalendarEventType.EVENT,
+          name: 'Year-crossing event',
+          start_date: '2030-09-20',
+          end_date: '2030-09-20',
+          audience: CalendarAudience.ALL,
+          class_ids: [classId],
+        } as any,
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+      expect(created.academic_year_id).toBe(yearId);
+      expect(created.class_ids).toEqual([classId]);
+
+      // `classId` belongs to `yearId` (2030), not `farFutureYear` (2050)
+      // — moving the event's dates into that range without touching
+      // class_ids must be rejected rather than silently leaving the
+      // retained link pointing at a class from the wrong year.
+      await expect(
+        service.update(
+          created.id,
+          { start_date: '2050-06-01', end_date: '2050-06-01' } as any,
+          TENANT_ID,
+          SEED_ADMIN_USER_ID,
+        ),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

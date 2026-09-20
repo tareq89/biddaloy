@@ -1,4 +1,12 @@
-import { IsArray, IsDateString, IsOptional, IsUUID, MaxLength, MinLength } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsDateString,
+  IsOptional,
+  IsUUID,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import { AcademicTerm } from '../entities/academic-term.entity';
 
@@ -39,6 +47,7 @@ export class ReorderTermsDto {
   academic_year_id: string;
 
   @IsArray()
+  @ArrayMaxSize(100)
   @IsUUID('4', { each: true })
   ids: string[];
 }
