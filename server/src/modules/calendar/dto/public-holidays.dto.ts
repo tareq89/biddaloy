@@ -11,9 +11,26 @@ import {
   Max,
   MaxLength,
   Min,
+  Validate,
   ValidateNested,
+  ValidationArguments,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+
+@ValidatorConstraint({ name: 'isOnOrAfter', async: false })
+export class IsOnOrAfterConstraint implements ValidatorConstraintInterface {
+  validate(propertyValue: string, args: ValidationArguments) {
+    return (
+      new Date(propertyValue) >=
+      new Date((args.object as Record<string, string>)[args.constraints[0]])
+    );
+  }
+  defaultMessage(args: ValidationArguments) {
+    return `"${args.property}" must be on or after "${args.constraints[0]}"`;
+  }
+}
 
 const COUNTRY_CODE = /^[A-Z]{2}$/;
 
@@ -40,6 +57,7 @@ export class HolidayEntryInputDto {
   date: string;
 
   @IsDateString()
+  @Validate(IsOnOrAfterConstraint, ['date'])
   end_date: string;
 
   @IsString()

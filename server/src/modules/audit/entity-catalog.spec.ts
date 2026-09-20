@@ -16,6 +16,13 @@ import { AUDIT_ENTITY_TYPES } from '@biddaloy/shared';
  */
 const ENTITY_TYPE_LITERAL = /entity_type:\s*'([A-Za-z_]+)'/g;
 
+/** Catalog entries kept only for read-compatibility with historical audit
+ * rows — no server code writes them anymore, on purpose (see
+ * `entity-types.ts`'s own comment on each). Excluded from the "dead entry"
+ * check below, which otherwise exists specifically to catch entries that
+ * became dead *by accident*. */
+const DEPRECATED_READ_ONLY_ENTRIES = new Set(['SchoolHoliday']);
+
 function collectServerSourceFiles(dir: string): string[] {
   const files: string[] = [];
   for (const name of readdirSync(dir)) {
@@ -56,7 +63,9 @@ describe('audit entity-type catalog contract', () => {
   it('has no dead catalog entries — every entry is written somewhere under server/src', () => {
     const written = collectWrittenEntityTypes(serverSrcDir);
 
-    const deadEntries = AUDIT_ENTITY_TYPES.filter((type) => !written.has(type));
+    const deadEntries = AUDIT_ENTITY_TYPES.filter(
+      (type) => !written.has(type) && !DEPRECATED_READ_ONLY_ENTRIES.has(type),
+    );
     expect(deadEntries).toEqual([]);
   });
 });
