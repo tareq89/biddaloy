@@ -594,6 +594,59 @@ autosaved form draft. Draft storage keys are tenant-scoped too
 two schools was offered school A's abandoned draft while working in
 school B.
 
+## The registry family — one list per "does every X have a Y"
+
+A handful of files each answer one "did we forget one" question — every
+route has a manifest entry, every route has a permission, every route is
+reachable from the nav tree — and each is paired with a test that fails
+the build the moment the list and reality drift apart. See
+[15-ux-principles.md §2](15-ux-principles.md) for the full guard table
+(one row per registry, with the exact "guard today" file and what it
+checks); this section is the shape they all share.
+
+```mermaid
+flowchart LR
+    R[Router route tree<br/>routeTree.gen.ts] --> M[route-manifest.json]
+    R --> P[route-permissions.ts]
+    R --> N[nav-tree.ts]
+    R --> C[route-crumbs.ts]
+    M --> GM[route-manifest.test.ts]
+    P --> GP[route-permissions.test.ts]
+    N --> GN[nav-tree.test.ts]
+    C --> GC[route-crumbs.test.ts]
+    GM -->|diff fails| CI[CI red]
+    GP -->|diff fails| CI
+    GN -->|diff fails| CI
+    GC -->|diff fails| CI
+    A[action-registry.ts] --> GA[shape guard]
+    GA -->|missing run or unregistered entry| CI
+```
+
+Every route-keyed registry's _test_ lives beside the router
+(`client-admin/src/`), not inside `ui/` — the router itself is
+`client-admin`-owned, so a check keyed by route ID has to live where the
+route IDs are real, not in the route-agnostic `ui/` package. Two rows
+below aren't route-keyed at all: `route-manifest.json` itself lives in
+`e2e/` (it's shared with the Playwright suites), and the workbook tab
+registry is server-side — it guards TypeORM entities, not client routes.
+
+| Registry file                                                                                                                  | Guards                                                                                                                                                                                                                                                                                       | What a failure looks like                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `route-manifest.json` (`e2e/`) + `route-manifest.test.ts`                                                                      | Every router route has a manifest entry for the a11y/responsive suites                                                                                                                                                                                                                       | `route-manifest.test.ts` fails: the two sorted path lists aren't equal, so Vitest prints its own array diff (the assertion has no custom message) |
+| `route-permissions.ts` (`STAFF_ROUTE_PERMISSIONS`) + `route-permissions.test.ts`                                               | Every staff route has an explicit permission (fails closed, not open)                                                                                                                                                                                                                        | `route-permissions.test.ts` fails: `route(s) missing a STAFF_ROUTE_PERMISSIONS entry: /_staff/attendance/reports`                                 |
+| `nav-not-in-nav.ts` + `nav-tree.test.ts`                                                                                       | Every route is either in the nav tree or on the explicit `NOT_IN_NAV` allowlist                                                                                                                                                                                                              | `nav-tree.test.ts` fails: `leaf route(s) with no sidebar home and no NOT_IN_NAV reason: /_staff/reports/new`                                      |
+| `route-crumbs.ts` + `route-crumbs.test.ts` (planned — PR [#873](https://github.com/tareq89/biddaloy/pull/873), not yet merged) | Every route has a breadcrumb label                                                                                                                                                                                                                                                           | once merged: same bidirectional-diff shape as the three guards above                                                                              |
+| `action-registry.ts` (`ACTIONS`) + `unregistered-actions.ts` (`UNREGISTERED_ACTIONS`)                                          | Every `Ctrl+K` palette action either has a real `run()` that navigates without throwing, targets a route in `STAFF_ROUTE_PERMISSIONS` with a matching permission, and unique id — or is accounted for in `UNREGISTERED_ACTIONS` with a file that exists on disk and a still-open owning epic | `unregistered-actions.test.ts` fails on a stale entry: `client-admin/src/components/some-dialog.tsx "9.9"` is not in the set of known open epics  |
+| Workbook tab registry (`server/src/modules/workbook/codec/registry.ts`) + `registry.completeness.spec.ts`                      | Every TypeORM entity is exported/restored by a workbook tab, or is explicitly allow-listed in `entity-coverage.ts` with a reason                                                                                                                                                             | `registry.completeness.spec.ts` fails: `Entity "PushSubscription" has no workbook tab and no entry in ENTITY_COVERAGE_EXEMPT.`                    |
+
+**What's deliberately out of scope here, and where it lives instead:**
+the palette's _search results_ — which people/pages an action can find —
+are server-side and tenant-scoped (a comment in the action registry marks
+this as Epic 33.0's branch-filtering seam for `search.service.ts`), not
+part of any registry above. Likewise a tenant renaming "Section" to
+"Batch" (Epic 35.0's label overrides) changes what a route's nav label
+_says_, not whether it's registered.
+
 ## Testing
 
 Vitest for unit/component tests (colocated `*.test.tsx`), Playwright for
