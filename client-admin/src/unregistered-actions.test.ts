@@ -55,12 +55,31 @@ describe('unregistered-actions.ts', () => {
   });
 
   it('no file appears in both the registered ACTIONS targets and UNREGISTERED_ACTIONS', () => {
-    const registeredTargets = new Set<string>();
+    // `PaletteAction` carries a route (`run()`'s navigate target), not a
+    // source file — `unregistered-actions.ts` is keyed by file. This maps
+    // each `kind: 'modal'` seeded action to the actual dialog-bearing file
+    // its route mounts, verified by hand against
+    // `rg -l '<Dialog|DialogContent' client-admin/src/routes` — the same
+    // command `unregistered-actions.ts`'s own header comment says seeds
+    // that file. `kind: 'navigate'` actions (sendFeeReminder, attendance,
+    // students.import) open a full-page route, not a Dialog, so they were
+    // never candidates for UNREGISTERED_ACTIONS in the first place and
+    // aren't in this map.
+    const registeredDialogFiles: Record<string, string> = {
+      'payments.record': 'client-admin/src/routes/_staff/payments/-record/record-payment-modal.tsx',
+      'communications.sendMessage': 'client-admin/src/routes/_staff/communications/send.tsx',
+      'fees.generate': 'client-admin/src/routes/_staff/fees/-generate/generate-fees-modal.tsx',
+      'students.add': 'client-admin/src/routes/_staff/students/new.tsx',
+    };
     for (const action of ACTIONS) {
-      const calls: string[] = [];
-      action.run({ navigate: (opts) => calls.push(opts.to) });
-      calls.forEach((target) => registeredTargets.add(target));
+      const file = registeredDialogFiles[action.id];
+      if (!file) continue; // navigate-kind or non-dialog modal, not applicable
+      expect(
+        UNREGISTERED_ACTIONS.some((entry) => entry.file === file),
+        `${action.id} is registered in ACTIONS but its file (${file}) still appears in UNREGISTERED_ACTIONS`,
+      ).toBe(false);
     }
+
     // UNREGISTERED_ACTIONS lists source files, not routes, so this checks
     // for the direct file-level duplicates that would indicate the same
     // dialog is claimed both as seeded and as still-unregistered.
