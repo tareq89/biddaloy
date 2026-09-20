@@ -41,7 +41,11 @@
   },
   "groups": {
     "people": "ব্যক্তিবর্গ",
+    "academics": "একাডেমিক",
+    "attendance": "উপস্থিতি",
+    "examsResults": "পরীক্ষা ও ফলাফল",
     "finance": "অর্থ",
+    "reports": "প্রতিবেদন",
     "administration": "প্রশাসন",
     "communications": "যোগাযোগ",
     "quickActions": "দ্রুত পদক্ষেপ"

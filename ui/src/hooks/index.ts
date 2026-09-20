@@ -496,6 +496,7 @@ export {
   type UseRouteFocusOptions,
 } from './use-route-focus';
 export { useDebouncedValue } from './use-debounce';
+export { useEntityLabel } from './entity-label';
 export { useContainerWidth } from './use-container-width';
 export {
   invoiceKeys,

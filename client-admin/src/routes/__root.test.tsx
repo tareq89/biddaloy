@@ -206,6 +206,7 @@ describe('root beforeLoad: unresolved-tenant redirect', () => {
 describe('root layout nav: reactive to a tenant switch', () => {
   afterEach(async () => {
     await cleanupTestState();
+    window.localStorage.removeItem('nav-group-collapsed-v2:administration');
   });
 
   function fakeJwtWithMemberships(memberships: unknown): string {
@@ -222,6 +223,10 @@ describe('root layout nav: reactive to a tenant switch', () => {
       { tenantId: 'tenant-1', role: 'ADMIN', name: 'Greenview School' },
       { tenantId: 'tenant-2', role: 'TEACHER', name: 'Rose Valley School' },
     ];
+    // [30.1.3]: nav groups start collapsed unless they own the active route.
+    // Settings lives in "Administration", which doesn't own /students, so
+    // seed it expanded — a stored preference wins over the derived default.
+    window.localStorage.setItem('nav-group-collapsed-v2:administration', 'false');
     renderWithRouter(routeTree, {
       initialEntries: ['/students'],
       accessToken: fakeJwtWithMemberships(memberships),

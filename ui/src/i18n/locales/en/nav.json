@@ -41,7 +41,11 @@
   },
   "groups": {
     "people": "People",
+    "academics": "Academics",
+    "attendance": "Attendance",
+    "examsResults": "Exams & Results",
     "finance": "Finance",
+    "reports": "Reports",
     "administration": "Administration",
     "communications": "Communications",
     "quickActions": "Quick actions"
