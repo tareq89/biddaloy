@@ -239,6 +239,13 @@ export {
   type GlobalSearchResult,
 } from './global-search';
 export {
+  CommandPalette,
+  type CommandPaletteProps,
+  type CommandPaletteTab,
+  type CommandPaletteTabId,
+} from './command-palette';
+export { ShortcutsSheet, type ShortcutsSheetProps } from './shortcuts-sheet';
+export {
   SignInForm,
   type SignInCredentials,
   type SignInFormError,

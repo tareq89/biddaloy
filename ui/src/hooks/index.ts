@@ -12,6 +12,7 @@ export { ApprovalCancelledError, ApprovalModalHostProvider } from './approval';
 export { createEntityKeys, type EntityKeys } from './query-keys';
 export { shouldRetryQuery } from './retry';
 export { useOnline } from './use-online';
+export { useRecentItems, type RecentItem, type UseRecentItemsResult } from './recent-items';
 export { useQueryFreshness } from './use-query-freshness';
 export { useSyncQueue } from './use-sync-queue';
 export { switchActiveTenant } from './tenant';
