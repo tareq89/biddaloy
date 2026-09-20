@@ -1,0 +1,17 @@
+$schema: https://api.gitbook.com/gitbook-docs.yaml
+site:
+  title: Biddaloy Help Center
+  structure:
+    - type: space
+      key: docs-bn
+      title: বাংলা
+      path: bn
+      default: true
+      content:
+        directory: ./docs/user-guide/bn
+    - type: space
+      key: docs-en
+      title: English
+      path: en
+      content:
+        directory: ./docs/user-guide/en
