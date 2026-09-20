@@ -76,7 +76,13 @@ test('teacher marks and submits a whole section without touching the mouse', asy
     });
     await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: t('nav.skipToContent') })).toBeFocused();
-    await tabUntilFocused(page, t('nav.items.attendance'));
+    // [30.1.3]: the "Attendance" nav group is collapsed by default here —
+    // /dashboard doesn't own it — so the first "Attendance" reached by Tab
+    // is the group's own toggle button, not the leaf link (both share the
+    // same label). Expand it, then tab on to the actual link.
+    await tabUntilFocused(page, t('nav.items.attendance'), 60, { tag: 'button' });
+    await page.keyboard.press('Enter');
+    await tabUntilFocused(page, t('nav.items.attendance'), 60, { tag: 'a' });
     await page.keyboard.press('Enter');
     await expect(page.getByRole('heading', { name: t('attendance.list.title') })).toBeVisible();
   });

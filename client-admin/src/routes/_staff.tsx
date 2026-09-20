@@ -168,13 +168,16 @@ function StaffLayout() {
   // component's top level (unconditional, same order every render), not
   // inside the `resolveLabel`/`toNavItem` loop below where the rules of
   // hooks would forbid it.
+  // Nav labels here are all collection links ("Students", "Classes", …),
+  // so pass a plural count — the singular form reads wrong in a sidebar
+  // that lists many of each.
   const entityLabels: Record<string, string> = {
-    student: useEntityLabel('student'),
-    guardian: useEntityLabel('guardian'),
-    staff: useEntityLabel('staff'),
-    class: useEntityLabel('class'),
-    academicYear: useEntityLabel('academicYear'),
-    invoice: useEntityLabel('invoice'),
+    student: useEntityLabel('student', { count: 2 }),
+    guardian: useEntityLabel('guardian', { count: 2 }),
+    staff: useEntityLabel('staff', { count: 2 }),
+    class: useEntityLabel('class', { count: 2 }),
+    academicYear: useEntityLabel('academicYear', { count: 2 }),
+    invoice: useEntityLabel('invoice', { count: 2 }),
   };
 
   function resolveLabel(label: StaffNavLabel, namespace: 'items' | 'groups'): string {
