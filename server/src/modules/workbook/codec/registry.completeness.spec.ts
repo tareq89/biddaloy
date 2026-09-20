@@ -1,7 +1,8 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { DataSource } from 'typeorm';
+import { DataSource, type EntityTarget } from 'typeorm';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { ALL_TABS } from './registry';
+import { ENTITY_COVERAGE_EXEMPT } from './entity-coverage';
 
 /**
  * The gate that stops a workbook tab quietly falling behind its entity.
@@ -90,5 +91,51 @@ describe('registry completeness', () => {
         `Tab "${tab.name}" excludes column(s) that no longer exist: ${stale.join(', ')}`,
       ).toEqual([]);
     }
+  });
+
+  /**
+   * The other direction of the gate (#835): a brand-new entity with no tab
+   * passed silently before this test existed, because the checks above only
+   * ever walk from a tab to its own entity — they never ask whether every
+   * entity has a tab in the first place.
+   */
+  it('every entity has a tab or a documented coverage exemption', () => {
+    const tabbedEntities = new Set(ALL_TABS.map((tab) => tab.entity));
+    const problems: string[] = [];
+
+    for (const entity of ALL_ENTITIES) {
+      if (tabbedEntities.has(entity as EntityTarget<unknown>)) continue;
+      if (ENTITY_COVERAGE_EXEMPT.has(entity as EntityTarget<unknown>)) continue;
+
+      const name = dataSource.getMetadata(entity).name;
+      problems.push(
+        `Entity "${name}" has no workbook tab and no entry in ENTITY_COVERAGE_EXEMPT. ` +
+          `Either add a tab for it, or add it to entity-coverage.ts with a reason.`,
+      );
+    }
+
+    expect(problems).toEqual([]);
+  });
+
+  it('never exempts an entity that already has a tab', () => {
+    const tabbedEntities = new Set(ALL_TABS.map((tab) => tab.entity));
+    const staleExemptions = [...ENTITY_COVERAGE_EXEMPT.keys()]
+      .filter((entity) => tabbedEntities.has(entity))
+      .map((entity) => dataSource.getMetadata(entity).name);
+
+    expect(
+      staleExemptions,
+      `ENTITY_COVERAGE_EXEMPT lists entities that already have a tab: ${staleExemptions.join(', ')}`,
+    ).toEqual([]);
+  });
+
+  it('never exempts an entity that is not in ALL_ENTITIES', () => {
+    const known = new Set(ALL_ENTITIES as EntityTarget<unknown>[]);
+    const stale = [...ENTITY_COVERAGE_EXEMPT.keys()].filter((entity) => !known.has(entity));
+
+    expect(
+      stale,
+      `ENTITY_COVERAGE_EXEMPT lists entities not in ALL_ENTITIES (stale): ${stale.length}`,
+    ).toEqual([]);
   });
 });
