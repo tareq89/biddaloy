@@ -7,14 +7,25 @@
  * holidays picker.
  */
 import { CalendarEventType, Permission } from '@biddaloy/shared';
-import { Button, ErrorState, Skeleton } from '@biddaloy/ui/components';
+import {
+  AgendaList,
+  type AgendaEvent,
+  Button,
+  ErrorState,
+  MonthGrid,
+  type MonthGridEvent,
+  Skeleton,
+} from '@biddaloy/ui/components';
 import {
   calendarSettingsQueryOptions,
+  downloadCalendarExport,
+  useAcademicYears,
   useAddPublicHolidays,
   useCalendarEvent,
   useCalendarEvents,
   useCalendarSettings,
   useClasses,
+  useCloneCalendar,
   useCreateCalendarEvent,
   useDeleteCalendarEvent,
   useHasPermission,
@@ -26,19 +37,19 @@ import {
   type UpdateCalendarEventInput,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
 
-import { AgendaList, type AgendaEvent } from '../../../components/calendar/agenda-list';
-import { MonthGrid, type MonthGridEvent } from '../../../components/calendar/month-grid';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
+import { CloneDialog } from './-clone-dialog';
 import { EventDetailsSheet } from './-event-details-sheet';
 import { EventFormDialog, type EventFormPayload } from './-event-form-dialog';
 import { CalendarFilters } from './-filters';
 import { GovernmentHolidaysDialog } from './-government-holidays-dialog';
 import { UpcomingPanel } from './-upcoming-panel';
+import { setPendingClonePreview } from './import';
 
 export const calendarSearchSchema = z.object({
   month: z
@@ -87,7 +98,7 @@ export const Route = createFileRoute('/_staff/calendar/')({
     // reads from.
     return Promise.all([
       queryClient.ensureQueryData(calendarSettingsQueryOptions()).catch(swallowUnlessOffline),
-      loadRouteNamespaces('calendar', 'common'),
+      loadRouteNamespaces('calendar', 'calendarImport', 'common'),
     ]);
   },
   component: CalendarPage,
@@ -133,6 +144,10 @@ function CalendarPage() {
   const [editingId, setEditingId] = React.useState<string | undefined>(undefined);
   const [detailsId, setDetailsId] = React.useState<string | undefined>(undefined);
   const [governmentHolidaysOpen, setGovernmentHolidaysOpen] = React.useState(false);
+  const [cloneOpen, setCloneOpen] = React.useState(false);
+  const { t: tImport } = useTranslation('calendarImport');
+  const academicYearsQuery = useAcademicYears();
+  const cloneMutation = useCloneCalendar();
 
   const detailsEvent = useCalendarEvent(detailsId);
   const editingEvent = useCalendarEvent(editingId);
@@ -210,6 +225,22 @@ function CalendarPage() {
           <div className="flex flex-wrap gap-2">
             {canManage && (
               <>
+                <Button asChild variant="outline">
+                  <Link to="/calendar/import">{tImport('toolbar.import')}</Link>
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setCloneOpen(true)}>
+                  {tImport('toolbar.clone')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!academicYearId}
+                  onClick={() => {
+                    if (academicYearId) void downloadCalendarExport(academicYearId, 'xlsx');
+                  }}
+                >
+                  {tImport('toolbar.export')}
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
@@ -375,6 +406,28 @@ function CalendarPage() {
               onSuccess: () => setGovernmentHolidaysOpen(false),
             })
           }
+        />
+      )}
+
+      {canManage && (
+        <CloneDialog
+          open={cloneOpen}
+          onOpenChange={setCloneOpen}
+          academicYears={academicYearsQuery.data?.data ?? []}
+          isPending={cloneMutation.isPending}
+          error={cloneMutation.error}
+          onSubmit={({ sourceYearId, targetYearId }) => {
+            cloneMutation.mutate(
+              { source_year_id: sourceYearId, target_year_id: targetYearId },
+              {
+                onSuccess: (preview) => {
+                  setCloneOpen(false);
+                  setPendingClonePreview(preview);
+                  void navigate({ to: '/calendar/import' });
+                },
+              },
+            );
+          }}
         />
       )}
     </div>

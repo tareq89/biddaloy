@@ -144,6 +144,37 @@
   "loading": {
     "label": "Loading your portal"
   },
+  "calendar": {
+    "title": "Calendar",
+    "loading": "Loading the school calendar",
+    "pickerLabel": "Choose a student",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "today": "Today",
+    "agendaEmpty": "No events this month.",
+    "moreEvents_one": "+{{count}} more",
+    "moreEvents_other": "+{{count}} more",
+    "error": {
+      "message": "Could not load the school calendar. Something went wrong reaching the school's records — check your connection and try again.",
+      "retry": "Try again"
+    },
+    "types": {
+      "HOLIDAY": "Holiday",
+      "EXAM": "Exam",
+      "EVENT": "Event",
+      "MEETING": "Meeting",
+      "DEADLINE": "Deadline"
+    },
+    "weekdays": {
+      "Sun": "Sun",
+      "Mon": "Mon",
+      "Tue": "Tue",
+      "Wed": "Wed",
+      "Thu": "Thu",
+      "Fri": "Fri",
+      "Sat": "Sat"
+    }
+  },
   "empty": {
     "title": "No students linked to you yet",
     "explanation": "Your account is not connected to any student at this school. Ask the school office to link your children, then check again.",

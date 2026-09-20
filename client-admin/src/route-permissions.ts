@@ -43,6 +43,10 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // the route itself only needs CALENDAR_READ to render, same "blanket
   // refusal matching nav visibility" rule this file documents above.
   '/_staff/calendar/': Permission.CALENDAR_READ,
+  // [17.5.3] import/clone/export all write or stage writes — unlike the
+  // read-only calendar page above, this route requires CALENDAR_MANAGE
+  // outright.
+  '/_staff/calendar/import': Permission.CALENDAR_MANAGE,
   '/_staff/staff/': Permission.USER_READ,
   '/_staff/staff/$userId': Permission.USER_READ,
   '/_staff/fees/': Permission.FEE_STRUCTURE_READ,

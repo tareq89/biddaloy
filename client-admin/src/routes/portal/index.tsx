@@ -25,6 +25,7 @@ import { formatDate, formatServerAmount, isPastDueDate, parseServerDate } from '
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { ChevronRightIcon } from 'lucide-react';
 
+import { UpcomingCalendarCard } from '../../components/upcoming-calendar-card';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
 
 /**
@@ -96,7 +97,7 @@ export const Route = createFileRoute('/portal/')({
       // [8.14.5]: swallowed — see `_staff/academic-years/index.tsx`'s
       // identical comment for why.
       queryClient.ensureQueryData(myStudentsQueryOptions()).catch(swallowUnlessOffline),
-      loadRouteNamespaces('portal', 'common'),
+      loadRouteNamespaces('portal', 'common', 'calendar'),
     ]),
   pendingComponent: PortalOverviewPending,
   component: PortalOverviewRoute,
@@ -105,6 +106,10 @@ export const Route = createFileRoute('/portal/')({
 function PortalOverviewRoute() {
   return (
     <RegionConfigProvider>
+      {/* [17.5.4]: mounted unconditionally — no permission prop on the
+          portal variant, same "role-gated server-side" pattern the
+          portal calendar/attendance routes already use. */}
+      <UpcomingCalendarCard calendarPath="/portal/calendar" />
       <PortalOverview />
     </RegionConfigProvider>
   );

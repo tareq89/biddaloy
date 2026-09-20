@@ -11,7 +11,12 @@ import { useDensity } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { RequireRole } from '@biddaloy/ui/routes';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
-import { CalendarDaysIcon, CreditCardIcon, HomeIcon, UserRoundIcon } from 'lucide-react';
+import {
+  CalendarDaysIcon,
+  CreditCardIcon,
+  HomeIcon,
+  UserRoundIcon,
+} from 'lucide-react';
 
 import { loadRouteNamespaces } from '../route-loaders';
 
@@ -98,6 +103,14 @@ function PortalLayout() {
       // `ATTENDANCE_READ` in `ROLE_PERMISSIONS` to key off, same "every
       // signed-in role in this shell owns it" case `/portal/account`
       // documents above.
+    },
+    {
+      to: '/portal/calendar',
+      label: t('items.portalCalendar'),
+      icon: <CalendarDaysIcon className="size-5" aria-hidden="true" />,
+      // [17.5.2] Same reasoning as `/portal/attendance` above: family
+      // visibility is role-gated server-side (`@Roles(..., PARENT,
+      // STUDENT)`), not behind a `Permission`, so no `permission` here.
     },
     {
       to: '/portal/account',

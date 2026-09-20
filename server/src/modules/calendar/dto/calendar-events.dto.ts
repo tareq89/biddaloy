@@ -234,6 +234,54 @@ export class CalendarEventResponseDto {
   @ApiProperty() published: boolean;
 }
 
+/**
+ * What a PARENT/STUDENT/TEACHER caller may see of a `CalendarEvent` — the
+ * allow-list DTO for 17.5.1 (D4, D9). Deliberately excludes `audience`,
+ * `created_by`/`updated_by`, external refs, and draft state: family/teacher
+ * viewers never need to know who scheduled an event or that it started
+ * life as a draft, and `visibilityWhere` already guarantees they never see
+ * an unpublished one in the first place. Staff callers keep the full
+ * `CalendarEventResponseDto`.
+ */
+export class FamilyCalendarEventDto {
+  @ApiProperty() id: string;
+  @ApiProperty() type: CalendarEventType;
+  @ApiProperty() name: string;
+  @ApiProperty({ required: false, nullable: true }) description: string | null;
+  @ApiProperty() start_date: string;
+  @ApiProperty() end_date: string;
+  @ApiProperty({ required: false, nullable: true }) start_time: string | null;
+  @ApiProperty({ required: false, nullable: true }) end_time: string | null;
+  @ApiProperty({ type: String, isArray: true }) class_ids: string[];
+  @ApiProperty() counts_as_working_day: boolean;
+
+  static fromEvent(event: {
+    id: string;
+    type: CalendarEventType;
+    name: string;
+    description: string | null;
+    start_date: string;
+    end_date: string;
+    start_time: string | null;
+    end_time: string | null;
+    class_ids: string[];
+    counts_as_working_day: boolean;
+  }): FamilyCalendarEventDto {
+    const dto = new FamilyCalendarEventDto();
+    dto.id = event.id;
+    dto.type = event.type;
+    dto.name = event.name;
+    dto.description = event.description;
+    dto.start_date = event.start_date;
+    dto.end_date = event.end_date;
+    dto.start_time = event.start_time;
+    dto.end_time = event.end_time;
+    dto.class_ids = event.class_ids;
+    dto.counts_as_working_day = event.counts_as_working_day;
+    return dto;
+  }
+}
+
 export class CalendarEventListResponseDto {
   @ApiProperty({ type: CalendarEventResponseDto, isArray: true }) data: CalendarEventResponseDto[];
   @ApiProperty() total: number;

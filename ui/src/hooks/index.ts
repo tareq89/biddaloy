@@ -410,6 +410,18 @@ export {
   type CalendarFeed,
 } from './calendar-feed';
 export {
+  downloadCalendarExport,
+  downloadCalendarImportTemplate,
+  useCloneCalendar,
+  useCommitCalendarImport,
+  useValidateCalendarImport,
+  type CalendarImportCommitResponse,
+  type CalendarImportRow,
+  type CalendarImportRowStatus,
+  type CalendarImportSummary,
+  type CalendarImportValidateResponse,
+} from './calendar-import';
+export {
   feeStructureKeys,
   feeStructureQueryOptions,
   feeStructuresQueryOptions,

@@ -2,13 +2,16 @@ import '@biddaloy/ui/test';
 
 import { CalendarAudience, CalendarEventType } from '@biddaloy/shared';
 import { ApiError, type ApiErrorBody } from '@biddaloy/ui/api';
+import {
+  AgendaList,
+  type AgendaEvent,
+  MonthGrid,
+  type MonthGridEvent,
+} from '@biddaloy/ui/components';
 import type { CalendarEvent, PublicHolidayEntry } from '@biddaloy/ui/hooks';
 import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
 import { fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-
-import { AgendaList, type AgendaEvent } from '../../../components/calendar/agenda-list';
-import { MonthGrid, type MonthGridEvent } from '../../../components/calendar/month-grid';
 
 import { EventDetailsSheet } from './-event-details-sheet';
 import { EventFormDialog } from './-event-form-dialog';
