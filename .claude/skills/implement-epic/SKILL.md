@@ -79,14 +79,16 @@ flowchart TB
     G1 --> A1["group agent w1-g1\nworktree"]
     G1 --> A2["group agent w1-g2\nworktree"]
     G1 --> A3["group agent w1-g3\nworktree"]
-    A1 --> INT["integration branch\nmerge all heads · regenerate artifacts · full CI"]
+    A1 --> INT["accumulating PR branch\nmerge wave heads · regenerate artifacts · full CI"]
     A2 --> INT
     A3 --> INT
-    INT --> G2{{"GATE 2\nintegration green"}}
-    G2 --> PR["PRs opened serially\nback-to-back, no pacing wait"]
+    INT --> G2{{"GATE 2\nwave green on accumulating branch"}}
+    G2 --> NW{{"next wave needs a PR yet?\n(100-file cap check)"}}
+    NW -->|no, keep going| W
+    NW -->|yes| PR["open one PR for what's accumulated"]
     PR --> CR["CodeRabbit + CI loop\ncapped at 3 rounds"]
     CR --> G3{{"GATE 3\nuser approves merge"}}
-    G3 --> M["merge in wave order"]
+    G3 --> M["merge · start fresh accumulating branch on new main"]
 ```
 
 ## Model routing
@@ -156,27 +158,44 @@ A full run (no `--only`) works the waves **one at a time, to completion**:
 
 ```
 for each wave N in order:
-    step 5   run wave N's lanes in parallel        (GATE 1 once, before wave 1)
-    step 6   integrate wave N's heads               → GATE 2
-    step 7–8 open wave N's PRs, fix CI/CodeRabbit
-    GATE 3   merge wave N to main
-    w<N>c    run the wave-close task on main, PR, merge   (plan-grade epics)
-next wave — its lanes root at the new main
+    step 5   run wave N's lanes in parallel          (GATE 1 once, before wave 1)
+    step 6   merge wave N's heads into the accumulating
+             PR branch, verify green                  → GATE 2 (per wave)
+    w<N>c    run the wave-close task on the accumulating
+             branch, add its commit                    (plan-grade epics)
+    check the accumulating branch's file count against main
+        still ≤ 100  → keep accumulating, go to next wave without opening a PR
+        would cross  → step 7–8: open a PR for what's accumulated,
+                        fix CI/CodeRabbit, GATE 3, merge, start a fresh
+                        accumulating branch rooted on the new main
+next wave — its lanes root at the accumulating branch's current head,
+NOT necessarily at `main` (only a just-merged PR moves `main` itself)
 ```
 
-Wave N+1 is never started until wave N is on `main`, because its tickets build
-on wave N's tables, services and types. Integration and PRs are therefore
-**per wave**, not once for the whole epic. `--only w<N>` runs exactly one
-iteration of this loop and stops; `resume` continues from the recorded wave.
+Wave N+1 is never started until wave N is **integration-green on the
+accumulating branch** — its tickets build on wave N's tables, services and
+types, and the accumulating branch already has them even before any PR
+merges to `main`. So a wave-N+1 lane's base branch is the accumulating
+branch's current head, not `origin/main`, whenever a PR hasn't been cut yet.
+Record this explicitly in the state file for each wave, since `resume` and
+any dispatched worker need to know which branch is the real "current head"
+distinct from `main`.
+
+`--only w<N>` runs exactly one wave's step 5–6 (plus its close task) and
+stops, leaving the accumulating branch exactly where it is — it does not
+force a PR open. `resume` continues from the recorded wave and accumulating
+branch.
 
 PRs open back-to-back, no pacing wait between them — open the next one as soon
 as the previous `gh pr create` returns, don't wait on CI or CodeRabbit first.
-Expect a wave to still span some real time (CI run length, CodeRabbit rounds,
-GATE 3 approval), and a multi-wave epic to span hours to a day depending on
-epic size — but nothing in the loop should have you sitting idle. While one
-PR's CI/CodeRabbit runs, keep working: dispatch the next wave's lanes, fix a
-different PR's findings, or open the next PR. The state file and the `## Plan`
-comments carry position between sessions if a run does span more than one.
+This matters less now that PRs are infrequent (ideally one per epic), but
+still applies if the 100-file cap forces more than one. Expect a wave to still
+span some real time (CI run length, CodeRabbit rounds, GATE 3 approval), and a
+multi-wave epic to span hours to a day depending on epic size — but nothing in
+the loop should have you sitting idle. While integration or CI runs, keep
+working: dispatch the next wave's lanes against the accumulating branch. The
+state file and the `## Plan` comments carry position between sessions if a run
+does span more than one.
 
 ## Step 0 — Resolve the epic
 
@@ -517,40 +536,89 @@ Find it and move it before opening any PR.
 
 ## GATE 2 — integration green
 
-Report the integration result, the full branch/PR table, and total files
-changed per chain. Stop for approval before opening PRs — a PR is
-outward-facing and hard to unpublish.
+Report the integration result for this wave, the full branch/PR table, total
+files changed per chain, and the accumulating branch's running file count
+against `main`. This gate happens **every wave**, whether or not a PR is
+about to open — GATE 3 is the separate, PR-specific approval that only fires
+when the file count forces one open. Stop for approval before opening any
+PR — a PR is outward-facing and hard to unpublish.
 
 ## Step 7 — Open the PRs
 
 The orchestrator opens them, never the agents.
 
-### CodeRabbit's 100-file limit — checked at open time, every PR
+### Default to one PR per epic — consolidate, don't fragment
+
+**Try to ship the whole epic as a single PR to `main`.** Once a wave's chains
+are integration-green, merge them into one accumulating branch rather than
+opening a separate PR per chain — carry that branch forward wave after wave,
+so by the time the epic is done there is (ideally) exactly one PR containing
+everything, which is far easier for both CodeRabbit and a human reviewer than
+a scattered stack of small ones.
+
+The only thing that forces a split is the 100-file cap below. Check the
+running file count against `main` after every wave merges into the
+accumulating branch:
+
+```bash
+git diff --name-only main...<accumulating-branch> | wc -l
+```
+
+- **Still ≤ 100:** keep going — merge the next wave into the same branch, do
+  not open a PR yet.
+- **Would cross 100 once the next wave lands:** open a PR for what's
+  accumulated so far (this closes out PR N), then start a **new** accumulating
+  branch rooted on `main` (not on the just-opened PR's branch — once a PR is
+  open it's outward-facing, treat it as closed to further additions) for the
+  next wave onward. This becomes PR N+1. Repeat.
+
+So in the common case a small-to-medium epic ships as **one** PR opened after
+the final wave. A large epic ships as **two or three**, each as large as the
+100-file cap allows, opened only when the cap would otherwise be breached —
+not one per wave and not one per chain. Record each PR's wave/chain coverage
+in the state file so `resume` knows which accumulating branch is still open
+for additions.
+
+This changes step 6's integration shape too: "the integration branch" is now
+the same thing as "the accumulating PR branch" — there's no separate
+throwaway integration branch discarded before PRs open. Build it once per
+wave, verify green (GATE 2), keep accumulating, and only cut a PR out of it
+when the file-count forces one.
+
+### CodeRabbit's 100-file limit — checked before every merge into the
+accumulating branch, and again immediately before every `gh pr create`
 
 CodeRabbit does not review a PR that changes more than **100 files**; it posts
 a summary and skips the line-by-line pass, which silently removes the review
 the whole point of opening the PR was to get. The branch cap (soft 50 / hard
-90) protects this *before* the work, but two things land after that check:
-regenerated artifacts (`schema.d.ts`, `routeTree.gen.ts` — excluded from the
-cap, counted by CodeRabbit) and integration fixes cherry-picked onto chain
-heads. So count again immediately before each `gh pr create`, against the
-branch the PR will actually target:
+90) protects individual chains *before* the work, but three things can still
+push the accumulating branch over 100 after that: multiple chains merging
+into one branch, regenerated artifacts (`schema.d.ts`, `routeTree.gen.ts` —
+excluded from the per-chain cap, counted by CodeRabbit), and integration fixes
+cherry-picked onto chain heads. So count again immediately before each
+`gh pr create`, against the branch the PR will actually target:
 
 ```bash
 git diff --name-only <target>...<head> | wc -l     # must be ≤ 100, generated files included
 ```
 
-If it exceeds 100, **do not open the PR.** Split the chain at a commit boundary
-instead — tickets are separate commits, so cut a new branch after the last
-ticket that keeps the count under the limit, open that as the PR, and stack the
-remainder on it as the next PR. Never trim files to get under the number, and
-never rewrite history to merge commits. Record the split in the state file.
+If it exceeds 100, **do not open the PR.** Cut the accumulating branch at the
+last wave boundary that keeps the count under the limit — open that as PR N,
+then continue accumulating the rest from `main` as a fresh branch for PR N+1
+(per the consolidation logic above). Within a single chain, if a chain alone
+would exceed 100 (rare — the 50/90-file chain cap should prevent this), split
+it at a commit boundary the same way: tickets are separate commits, cut a new
+branch after the last one that keeps the count under the limit. Never trim
+files to get under the number, and never rewrite history to merge commits.
+Record every split in the state file.
 
-Wave-close PRs are the usual offender (seed + regenerated types + Playwright).
-If a close task alone exceeds 100, split it into "regenerated artifacts" and
-"everything else" as two stacked PRs.
+Wave-close tasks are the usual single-chain offender (seed + regenerated
+types + Playwright). If a close task alone would push its own chain over 100,
+split it into "regenerated artifacts" and "everything else" as two commits at
+minimum, cut at that boundary if needed.
 
-- Wave order, then group order, then chain order.
+- Consolidated-PR order, then within each PR: wave order, group order, chain
+  order for how commits stack inside it.
 - **No pacing wait between PRs.** Open them back-to-back as soon as each
   branch is ready — don't wait on the previous PR's CI or CodeRabbit pass
   before opening the next one. If CodeRabbit reviews a PR shallowly because
@@ -635,10 +703,16 @@ session model and report it. Never re-plan a ticket that already has a current
 - No pacing wait between opening PRs — open the next one as soon as its
   branch is ready. Don't sit idle; while one PR's CI/CodeRabbit runs, keep
   working the next ticket or PR.
-- Never cross the 90-file hard ceiling on a branch.
+- Never cross the 90-file hard ceiling on a single chain's branch.
+- Default to one PR for the whole epic — keep merging wave heads into the same
+  accumulating branch instead of opening a PR per wave or per chain. Only cut
+  a PR when the accumulating branch's diff against `main` would otherwise
+  exceed 100 files; start a fresh accumulating branch on the new `main`
+  immediately after that PR merges.
 - Never open a PR whose diff against its target exceeds 100 files, generated
-  files included — split the chain at a commit boundary instead.
-- Never open PRs before integration is green.
+  files included — cut the accumulating branch at the last wave boundary that
+  stays under the limit instead.
+- Never open PRs before that wave's integration is green.
 - Never pass a gate on assumed approval — this applies with special force to
   GATE 3: never merge a PR without the user's explicit go-ahead **for that
   specific PR**, every time, no matter how routine or how green its CI is.
