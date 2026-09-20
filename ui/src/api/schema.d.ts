@@ -3099,6 +3099,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Unified palette search across students, guardians, staff, invoices and payments; each group's own permission decides whether it appears at all. */
+        get: operations["SearchController_search_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5785,6 +5802,43 @@ export interface components {
             by_collector: components["schemas"]["CollectionsByCollector"][];
             by_fee_type: components["schemas"]["CollectionsByFeeType"][];
             by_day: components["schemas"]["CollectionsByDay"][];
+        };
+        SearchStudentResult: {
+            id: string;
+            full_name: string;
+            registration_number: string;
+            roll_number: number;
+            class_name: string | null;
+            section_name: string | null;
+            /** @enum {string} */
+            matched_via: "direct" | "guardian_phone";
+        };
+        SearchGuardianResult: {
+            id: string;
+            full_name: string;
+            phone: string | null;
+        };
+        SearchStaffResult: {
+            id: string;
+            full_name: string;
+            employee_id: string;
+        };
+        SearchInvoiceResult: {
+            id: string;
+            invoice_number: string;
+            student_name: string | null;
+        };
+        SearchPaymentResult: {
+            id: string;
+            transaction_reference: string | null;
+            student_name: string | null;
+        };
+        SearchResultsDto: {
+            students?: components["schemas"]["SearchStudentResult"][];
+            guardians?: components["schemas"]["SearchGuardianResult"][];
+            staff?: components["schemas"]["SearchStaffResult"][];
+            invoices?: components["schemas"]["SearchInvoiceResult"][];
+            payments?: components["schemas"]["SearchPaymentResult"][];
         };
     };
     responses: never;
@@ -13737,6 +13791,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SearchController_search_v1: {
+        parameters: {
+            query?: {
+                q?: string;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResultsDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
