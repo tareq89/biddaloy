@@ -83,7 +83,7 @@ flowchart TB
     A2 --> INT
     A3 --> INT
     INT --> G2{{"GATE 2\nintegration green"}}
-    G2 --> PR["PRs opened serially\n60 min apart"]
+    G2 --> PR["PRs opened serially\nback-to-back, no pacing wait"]
     PR --> CR["CodeRabbit + CI loop\ncapped at 3 rounds"]
     CR --> G3{{"GATE 3\nuser approves merge"}}
     G3 --> M["merge in wave order"]
@@ -169,9 +169,14 @@ on wave N's tables, services and types. Integration and PRs are therefore
 **per wave**, not once for the whole epic. `--only w<N>` runs exactly one
 iteration of this loop and stops; `resume` continues from the recorded wave.
 
-Expect a wave to span hours (60-minute PR pacing, CI, CodeRabbit rounds) and
-an eight-wave epic to span days across several sessions. That is normal — the
-state file and the `## Plan` comments carry position between sessions.
+PRs open back-to-back, no pacing wait between them — open the next one as soon
+as the previous `gh pr create` returns, don't wait on CI or CodeRabbit first.
+Expect a wave to still span some real time (CI run length, CodeRabbit rounds,
+GATE 3 approval), and a multi-wave epic to span hours to a day depending on
+epic size — but nothing in the loop should have you sitting idle. While one
+PR's CI/CodeRabbit runs, keep working: dispatch the next wave's lanes, fix a
+different PR's findings, or open the next PR. The state file and the `## Plan`
+comments carry position between sessions if a run does span more than one.
 
 ## Step 0 — Resolve the epic
 
@@ -277,9 +282,8 @@ Rules:
 
 - A ticket that blocks many others (`**Blocks every other sub-issue**`, e.g.
   #417, #429, #410) is a wave of its own. Don't try to parallelize around it.
-- Default max 3 concurrent groups. More lanes means more worktrees, more
-  review load and more PR pacing waits — it does not mean proportionally more
-  throughput.
+- Default max 3 concurrent groups. More lanes means more worktrees and more
+  review load — it does not mean proportionally more throughput.
 - Give each group a one-line territory description ("the `ui/` shell
   components", "server fees module + its DTOs"). If you cannot write that line,
   the partition is wrong.
@@ -407,10 +411,12 @@ only escalates to the planner on `needs-planner`. Its definition
 These three overrides deviate from `implement-issue` deliberately. Anyone
 "fixing" them back reintroduces the failure they prevent.
 
-1. **No `gh pr create`.** CodeRabbit reviews shallowly when a second PR arrives
-   within an hour of the first; N agents opening PRs at once buys N useless
-   reviews. Agents push branches and report ready; the orchestrator opens PRs
-   serially in step 6.
+1. **No `gh pr create`.** N agents opening PRs concurrently is still worth
+   avoiding — it makes merge order and CodeRabbit's per-PR context harder to
+   reason about, not because of pacing (PRs now open back-to-back with no
+   wait) but because the orchestrator is the one place that knows the actual
+   dependency/merge order. Agents push branches and report ready; the
+   orchestrator opens PRs serially, one after another, in step 6.
 2. **No regenerating committed generated artifacts** (`schema.d.ts`,
    `routeTree.gen.ts`). Two branches regenerating the same committed artifact
    conflict on every merge. Regenerated once, at integration. If a ticket's
@@ -523,8 +529,8 @@ The orchestrator opens them, never the agents.
 
 CodeRabbit does not review a PR that changes more than **100 files**; it posts
 a summary and skips the line-by-line pass, which silently removes the review
-this whole pacing scheme exists to get. The branch cap (soft 50 / hard 90)
-protects this *before* the work, but two things land after that check:
+the whole point of opening the PR was to get. The branch cap (soft 50 / hard
+90) protects this *before* the work, but two things land after that check:
 regenerated artifacts (`schema.d.ts`, `routeTree.gen.ts` — excluded from the
 cap, counted by CodeRabbit) and integration fixes cherry-picked onto chain
 heads. So count again immediately before each `gh pr create`, against the
@@ -545,8 +551,11 @@ If a close task alone exceeds 100, split it into "regenerated artifacts" and
 "everything else" as two stacked PRs.
 
 - Wave order, then group order, then chain order.
-- **≥60 minutes between PRs** (CodeRabbit pacing, per `implement-issue`).
-  Compute from the last recorded PR timestamp, not from when work finished.
+- **No pacing wait between PRs.** Open them back-to-back as soon as each
+  branch is ready — don't wait on the previous PR's CI or CodeRabbit pass
+  before opening the next one. If CodeRabbit reviews a PR shallowly because
+  it arrived close behind another, that's a `pr-fix`-round problem to catch
+  in step 8, not a reason to sit idle in step 7.
 - Chain heads target `main`; inner chain PRs target their parent branch.
 - Each description: the issue, the approach, plan corrections the planner
   found, design-system additions, how to test, and its position in the merge
@@ -594,9 +603,12 @@ code to get green, and never silently re-run a red job without saying so.
 
 ## GATE 3 — merge
 
-Present the ordered merge list and stop. On approval, merge in branch-name
-order, and after each merge rebase and retarget whatever was stacked on it.
-Then delete merged branches and remove their worktrees.
+Present the ordered merge list and stop. **Merge only the PR(s) the user
+explicitly approves, only when they explicitly say so — never on assumed or
+standing approval, even if every prior PR in the same run was approved and
+merged the same way.** Green CI is not approval. On approval for a given PR,
+merge it, then rebase and retarget whatever was stacked on it. Then delete
+merged branches and remove their worktrees.
 
 After each merge to `main`, close every GitHub issue that landed in it: check
 every box under that issue's `## Acceptance` section (`- [ ]` → `- [x]`) and
@@ -620,12 +632,17 @@ session model and report it. Never re-plan a ticket that already has a current
 - Never spawn a group agent without `isolation: "worktree"`.
 - Never let a group agent regenerate committed artifacts, open a PR, or merge
   to `main`.
-- Never open two PRs within 60 minutes.
+- No pacing wait between opening PRs — open the next one as soon as its
+  branch is ready. Don't sit idle; while one PR's CI/CodeRabbit runs, keep
+  working the next ticket or PR.
 - Never cross the 90-file hard ceiling on a branch.
 - Never open a PR whose diff against its target exceeds 100 files, generated
   files included — split the chain at a commit boundary instead.
 - Never open PRs before integration is green.
-- Never pass a gate on assumed approval.
+- Never pass a gate on assumed approval — this applies with special force to
+  GATE 3: never merge a PR without the user's explicit go-ahead **for that
+  specific PR**, every time, no matter how routine or how green its CI is.
+  A prior approval to merge one PR is not standing approval for the next one.
 - Never let a ticket proceed to commit/integration on an **alarming** plan-drift
   verdict from `issue-reviewer` without surfacing it to the user first — an
   alarming verdict means the diff may not be what was actually approved at
