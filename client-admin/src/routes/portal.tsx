@@ -11,12 +11,7 @@ import { useDensity } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { RequireRole } from '@biddaloy/ui/routes';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
-import {
-  CalendarDaysIcon,
-  CreditCardIcon,
-  HomeIcon,
-  UserRoundIcon,
-} from 'lucide-react';
+import { CalendarDaysIcon, CreditCardIcon, HomeIcon, UserRoundIcon } from 'lucide-react';
 
 import { loadRouteNamespaces } from '../route-loaders';
 
@@ -34,7 +29,7 @@ import { loadRouteNamespaces } from '../route-loaders';
  * because there was nowhere else to send them.
  *
  * A lighter shell than `_staff.tsx`: same `AppShell`, but no
- * `GlobalSearchLauncher` (staff search over students/receipts) and no
+ * `CommandPaletteLauncher` (staff search over students/receipts) and no
  * `NotificationBell` (staff notifications), because neither has a
  * guardian-scoped API behind it yet. `TenantBar` stays — a parent with
  * children at two schools switches the same way staff do, and [8.9.11]'s

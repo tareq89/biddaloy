@@ -572,11 +572,14 @@ export {
   type RemoveUncollectedResult,
 } from './fee-generations';
 export {
-  useGlobalSearch,
-  type GlobalSearchEntityResult,
-  type GlobalSearchResults,
-  type TeacherProfile,
-} from './global-search';
+  usePaletteSearch,
+  type PaletteSearchResults,
+  type PaletteSearchStudent,
+  type PaletteSearchGuardian,
+  type PaletteSearchStaff,
+  type PaletteSearchInvoice,
+  type PaletteSearchPayment,
+} from './palette-search';
 export { useNotifications, useUnreadNotificationCount } from './notifications';
 export {
   recurringScheduleKeys,

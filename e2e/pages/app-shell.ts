@@ -33,10 +33,14 @@ export class AppShellPage {
       .click();
   }
 
-  /** Cmd/Ctrl+K palette ([8.9.9]) — opened via its toolbar button; the
-   * keyboard shortcut itself is covered by the a11y/keyboard suite. */
+  /** Cmd/Ctrl+K command palette ([30.4.1]/[30.5.1]) — opened via its
+   * toolbar button; the keyboard shortcut itself is covered by the
+   * a11y/keyboard suite. Method name kept from the retired
+   * `GlobalSearch` for callers outside this ticket's territory
+   * (`e2e/journeys/global-search.spec.ts`) — it drives the same People
+   * tab the old single-list search did. */
   async openGlobalSearch(): Promise<void> {
-    await this.page.getByRole('button', { name: t('nav.globalSearch.buttonLabel') }).click();
+    await this.page.getByRole('button', { name: t('nav.commandPalette.buttonLabel') }).click();
     await expect(this.searchInput()).toBeVisible();
   }
 
@@ -48,8 +52,19 @@ export class AppShellPage {
     await this.page.getByRole('option', { name: text }).click();
   }
 
+  /** Switches the open palette to its Page or Action tab (`>`/`/` typed
+   * as the very first character, or `Ctrl+2`/`Ctrl+3` — see
+   * `command-palette.tsx`'s own D11 comment). */
+  async switchToActionTab(): Promise<void> {
+    await this.searchInput().press('Control+3');
+  }
+
+  async switchToPageTab(): Promise<void> {
+    await this.searchInput().press('Control+2');
+  }
+
   private searchInput() {
-    return this.page.getByRole('combobox', { name: t('nav.globalSearch.ariaLabel') });
+    return this.page.getByRole('combobox', { name: t('nav.commandPalette.ariaLabel') });
   }
 
   /** Permission assertions: is a sidebar item rendered for this role? */

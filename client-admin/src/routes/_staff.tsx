@@ -42,7 +42,7 @@ import {
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { GlobalSearchLauncher } from '../components/global-search-launcher';
+import { CommandPaletteLauncher } from '../components/command-palette-launcher';
 import { StaffUserMenu } from '../components/staff-user-menu';
 import {
   STAFF_NAV_GROUPS,
@@ -285,7 +285,7 @@ function StaffLayout() {
                 end={
                   <>
                     <SyncStatusIndicator />
-                    <GlobalSearchLauncher />
+                    <CommandPaletteLauncher />
                     {notificationBell}
                     <LocaleSwitcher />
                     <ThemeToggle />
@@ -297,7 +297,7 @@ function StaffLayout() {
           }
           mobileHeaderActions={
             <>
-              <GlobalSearchLauncher />
+              <CommandPaletteLauncher />
               {notificationBell}
             </>
           }

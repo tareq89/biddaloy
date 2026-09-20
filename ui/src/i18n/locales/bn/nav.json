@@ -87,32 +87,7 @@
     "empty": "আপনি সব দেখে ফেলেছেন।",
     "markAllRead": "সব পঠিত হিসেবে চিহ্নিত করুন",
     "viewAll": "সব বিজ্ঞপ্তি দেখুন",
-    "variant": {
-      "success": "সফল",
-      "error": "ব্যর্থ",
-      "info": "তথ্য"
-    }
-  },
-  "globalSearch": {
-    "buttonLabel": "খুঁজুন (Ctrl+K)",
-    "ariaLabel": "সব কিছুতে খুঁজুন",
-    "title": "খুঁজুন",
-    "placeholder": "শিক্ষার্থী, অভিভাবক, শিক্ষক, চালান, রসিদ খুঁজুন…",
-    "description": "শিক্ষার্থী, অভিভাবক, শিক্ষক, চালান ও রসিদ জুড়ে খুঁজুন। ফলাফলের মধ্যে যেতে অ্যারো কী এবং খুলতে এন্টার চাপুন।",
-    "searchableHint": "শিক্ষার্থীর নাম, রোল নম্বর, অভিভাবক, শিক্ষক, চালান নম্বর অথবা রসিদের রেফারেন্স দিয়ে খুঁজুন।",
-    "noResults": "\"{{query}}\"-এর জন্য কোনো ফলাফল নেই। নাম, রোল নম্বর, চালান নম্বর অথবা রসিদের রেফারেন্স দিয়ে চেষ্টা করুন।",
-    "resultCount": "{{count}}টি ফলাফল",
-    "resultCountPlural": "{{count}}টি ফলাফল",
-    "receiptFallbackLabel": "৳{{amount}}-এর রসিদ",
-    "groups": {
-      "students": "শিক্ষার্থী",
-      "guardians": "অভিভাবক",
-      "teachers": "শিক্ষক",
-      "invoices": "চালান",
-      "receipts": "রসিদ"
-    },
-    "shortcutHint": "Ctrl+K",
-    "launcherPlaceholder": "অনুসন্ধান…"
+    "variant": { "success": "সফল", "error": "ব্যর্থ", "info": "তথ্য" }
   },
   "theme": {
     "label": "থিম",
@@ -150,10 +125,32 @@
       "dismiss": "খারিজ করুন"
     }
   },
-  "routeProgress": {
-    "label": "পাতা লোড হচ্ছে…"
-  },
-  "routePending": {
-    "label": "লোড হচ্ছে…"
+  "routeProgress": { "label": "পাতা লোড হচ্ছে…" },
+  "routePending": { "label": "লোড হচ্ছে…" },
+  "commandPalette": {
+    "buttonLabel": "খুঁজুন (Ctrl+K)",
+    "ariaLabel": "কমান্ড প্যালেট",
+    "title": "কমান্ড প্যালেট",
+    "placeholder": "শিক্ষার্থী, অভিভাবক, পাতা ও কাজ খুঁজুন…",
+    "description": "ব্যক্তি, পাতা ও কাজ জুড়ে খুঁজুন। ফলাফলের মধ্যে যেতে অ্যারো কী এবং খুলতে এন্টার চাপুন।",
+    "searchableHint": "শিক্ষার্থীর নাম, রোল নম্বর, অভিভাবক, স্টাফ অথবা চালান নম্বর দিয়ে খুঁজুন।",
+    "pageSearchableHint": "নাম দিয়ে একটি পাতা খুঁজুন।",
+    "actionSearchableHint": "চালানোর জন্য একটি কাজ খুঁজুন।",
+    "noResults": "\"{{query}}\"-এর জন্য কোনো ফলাফল নেই।",
+    "resultCount": "{{count}}টি ফলাফল",
+    "resultCountPlural": "{{count}}টি ফলাফল",
+    "receiptFallbackLabel": "রসিদ",
+    "tabs": { "people": "ব্যক্তি", "page": "পাতা", "action": "কাজ" },
+    "groups": {
+      "students": "শিক্ষার্থী",
+      "guardians": "অভিভাবক",
+      "staff": "স্টাফ",
+      "invoices": "চালান",
+      "payments": "রসিদ",
+      "pages": "পাতা",
+      "actions": "কাজ"
+    },
+    "shortcutHint": "Ctrl+K",
+    "launcherPlaceholder": "অনুসন্ধান…"
   }
 }

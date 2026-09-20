@@ -233,16 +233,12 @@ export {
 } from './route-pending';
 export { RouteProgress, type RouteProgressProps } from './route-progress';
 export {
-  GlobalSearch,
-  type GlobalSearchProps,
-  type GlobalSearchGroup,
-  type GlobalSearchResult,
-} from './global-search';
-export {
   CommandPalette,
   type CommandPaletteProps,
   type CommandPaletteTab,
   type CommandPaletteTabId,
+  type GlobalSearchGroup,
+  type GlobalSearchResult,
 } from './command-palette';
 export { ShortcutsSheet, type ShortcutsSheetProps } from './shortcuts-sheet';
 export {

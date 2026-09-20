@@ -88,13 +88,24 @@ export const overlayOpeners: Record<string, (page: Page, locale: Locale) => Prom
   // [30.4.1] `ShortcutsSheet` (`ui/src/components/shortcuts-sheet.tsx`) —
   // the `?` keyboard-shortcuts help. It is global, not tied to any one
   // route, so it is deliberately NOT in `route-manifest.json` — that file
-  // only lists navigable routes, and this dialog has no URL. Registered
-  // here anyway, same pattern as every other named overlay, so whichever
-  // ticket wires the global `?` listener into `client-admin`'s app shell
-  // can add this key to a route's `overlays` list (or a dedicated
-  // route-agnostic sweep) without inventing a new opener shape.
+  // only lists navigable routes, and this dialog has no URL.
   '$global::shortcuts-sheet': async (page) => {
     await page.keyboard.press('?');
     await expectDialogOpen(page);
   },
+  // [30.5.1] `CommandPalette` itself — same "global, no URL" reasoning as
+  // the shortcuts sheet above. Wired into the axe sweep alongside it now
+  // that `command-palette-launcher.tsx` mounts both behind global
+  // listeners (`e2e/a11y/routes.a11y.spec.ts`'s `$global` sweep).
+  '$global::command-palette': async (page) => {
+    await page.keyboard.press('ControlOrMeta+k');
+    await expectDialogOpen(page);
+  },
 };
+
+/** Keys in `overlayOpeners` that open a route-agnostic overlay rather
+ * than one scoped to a manifest route — swept separately by
+ * `routes.a11y.spec.ts`'s `$global` sweep. */
+export const GLOBAL_OVERLAY_KEYS = Object.keys(overlayOpeners).filter((key) =>
+  key.startsWith('$global::'),
+);
