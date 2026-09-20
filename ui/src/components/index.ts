@@ -169,6 +169,7 @@ export {
 } from './push-notification-settings';
 export { PushOptInCard, type PushOptInCardProps } from './push-opt-in-card';
 export { BottomNav, type BottomNavProps } from './bottom-nav';
+export { Breadcrumbs, type BreadcrumbItem, type BreadcrumbsProps } from './breadcrumbs';
 export { EmptyState, type EmptyStateKind, type EmptyStateProps } from './empty-state';
 export { StudentPicker, type StudentPickerProps, type StudentPickerItem } from './student-picker';
 export { ErrorState, type ErrorStateProps } from './error-state';
@@ -237,6 +238,13 @@ export {
   type GlobalSearchGroup,
   type GlobalSearchResult,
 } from './global-search';
+export {
+  CommandPalette,
+  type CommandPaletteProps,
+  type CommandPaletteTab,
+  type CommandPaletteTabId,
+} from './command-palette';
+export { ShortcutsSheet, type ShortcutsSheetProps } from './shortcuts-sheet';
 export {
   SignInForm,
   type SignInCredentials,

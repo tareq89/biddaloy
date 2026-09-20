@@ -36,14 +36,16 @@ flowchart LR
   I[i18n keys en/bn] -->|no missing key on any route| L[locale completeness]
 ```
 
-| Registry                                                                | Enumerates                                           | Guard today                                                            | Guard required                                                                                                           | Owner     |
-| ----------------------------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | --------- |
-| `e2e/route-manifest.json`                                               | Routes + overlays for the a11y and responsive suites | none — hand-maintained                                                 | test that diffs router routes vs manifest; fails on any missing route                                                    | Epic 30.0 |
-| Workbook tab registry (`server/src/modules/workbook/codec/registry.ts`) | Which entities export/restore                        | `registry.completeness.spec.ts` checks **columns** of covered entities | entity-level check: every entity in `ALL_ENTITIES` has a tab or sits in an explicit allowlist (jobs, logs) with a reason | Epic 30.0 |
-| Nav tree (§3) → `navGroups`/`navItems`                                  | Where every screen lives                             | none                                                                   | test: every staff/portal route is reachable from the nav tree, a detail tab, or the palette; unplaced route fails        | Epic 30.0 |
-| Palette action registry                                                 | Every user-invocable operation                       | does not exist yet                                                     | registry is the only way to add an action; test that every registered action has permission + kind + i18n label          | Epic 30.0 |
-| i18n locale files                                                       | Every user-visible string, en + bn                   | partial (lint on raw strings)                                          | missing-key check on both locales for every route in the manifest                                                        | Epic 30.0 |
-| Seed data                                                               | Demo/dev rows for every entity                       | wave-close convention                                                  | wave-close ticket checklist item; entity without seed fails the seed smoke test                                          | each epic |
+| Registry                                                                                    | Enumerates                                           | Guard today                                                                                                                                                                                                                                     | Guard required                                                                                                                                                                                                           | Owner     |
+| ------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| `e2e/route-manifest.json`                                                                   | Routes + overlays for the a11y and responsive suites | `client-admin/src/route-manifest.test.ts` — bidirectional diff between the manifest and the router's own route tree                                                                                                                             | fails on any route missing from the manifest, or any manifest entry with no matching route                                                                                                                               | Epic 30.0 |
+| `client-admin/src/route-permissions.ts` (`STAFF_ROUTE_PERMISSIONS`)                         | Which permission gates each staff route              | `client-admin/src/route-permissions.test.ts` — bidirectional diff between the map's keys and the router's route tree                                                                                                                            | fails closed: a route with no entry is refused to everyone, and the test still flags it so it's caught before merge                                                                                                      | Epic 30.0 |
+| Workbook tab registry (`server/src/modules/workbook/codec/registry.ts`)                     | Which entities export/restore                        | `registry.completeness.spec.ts` checks every entity in `ALL_ENTITIES` has a tab or sits in `entity-coverage.ts`'s explicit allowlist, with a reason                                                                                             | entity-level check: same as today                                                                                                                                                                                        | Epic 30.0 |
+| Nav tree (§3) → `navGroups`/`navItems`                                                      | Where every screen lives                             | `client-admin/src/nav-tree.test.ts` + `nav-not-in-nav.ts` — every route is either in the nav tree or on the explicit `NOT_IN_NAV` allowlist (auth pages, framework plumbing)                                                                    | fails if a route is reachable but appears in neither list                                                                                                                                                                | Epic 30.0 |
+| Palette action registry (`client-admin/src/action-registry.ts` + `unregistered-actions.ts`) | Every user-invocable palette action                  | **in review** — the Epic 30.4.2 PR adds `ACTIONS` (registered actions, each with a `run()` and a matching `STAFF_ROUTE_PERMISSIONS` entry) and `UNREGISTERED_ACTIONS` (dialogs not yet wired in, each tagged with the epic that owns wiring it) | once merged: a route-and-permission check on every `ACTIONS` entry, plus a stale-epic check on every `UNREGISTERED_ACTIONS` entry (see the registry table in [06-frontend-architecture.md](06-frontend-architecture.md)) | Epic 30.4 |
+| i18n locale files (`en`/`bn`)                                                               | Every user-visible string                            | `ui/scripts/check-i18n-keys.mjs`, blocking in CI ("UI missing-translation-key check", `.github/workflows/ci.yml:220`)                                                                                                                           | fails on a key present in one locale but not the other, or a `t()` call with no matching key in either locale                                                                                                            | Epic 8.7  |
+| Route breadcrumbs (`client-admin/src/route-crumbs.ts`)                                      | Breadcrumb label per route                           | **planned, not yet merged** — PR [#873](https://github.com/tareq89/biddaloy/pull/873) adds `route-crumbs.test.ts`, same bidirectional-diff shape as the two guards above                                                                        | once merged: fails if a route has no crumb entry, or an entry points at a route that no longer exists                                                                                                                    | Epic 30.0 |
+| Seed data                                                                                   | Demo/dev rows for every entity                       | wave-close convention                                                                                                                                                                                                                           | wave-close ticket checklist item; entity without seed fails the seed smoke test                                                                                                                                          | each epic |
 
 Concrete example of the rule applied: Epic 21.0 adds `/routines/class`.
 The wave-close ticket must (a) add it to the route manifest, (b) add it to
@@ -173,8 +175,16 @@ Schools [have] · Public holiday sets [17.0] · Preset library [N3]
 ## 4. Command palette — `Ctrl/Cmd+K`
 
 One component, three tabs. Each tab is a mode; the shortcut opens the
-palette on _People_; `←`/`→` (and `Tab`) move between tabs; typing a prefix
-jumps to a mode as a shortcut (`/` Page, `>` Action). The existing
+palette on _People_; `←`/`→` move between tabs, `Ctrl+1`/`Ctrl+2`/`Ctrl+3`
+jump directly to People/Page/Action, and typing a prefix jumps to a mode
+as a shortcut (`/` Page, `>` Action). **`Tab` deliberately keeps its native
+browser meaning** rather than switching tabs — the palette's search input
+is a `role="combobox"` that must keep focus for the whole interaction, and
+binding `Tab` inside it would break the browser's own focus-trap-escape
+that keyboard users rely on (`ui/src/components/command-palette.tsx`'s own
+comment block spells this out — **in review**, PR
+[epic/30/w4-g1-01-command-palette](https://github.com/tareq89/biddaloy/tree/epic/30/w4-g1-01-command-palette),
+not yet merged). The existing
 `ui/src/components/global-search.tsx` + `client-admin/src/components/global-search-launcher.tsx`
 is the base to generalise — it already has the keyboard model, role
 gating and per-entity capped requests.
@@ -215,8 +225,13 @@ sequenceDiagram
 Rules: no field-count restriction on modal actions — a modal may hold a
 whole flow (pick person → see applied fees → record). Modal actions render
 the same form component as the page (U7). Every action carries i18n labels
-in both locales. The first 34 actions (20 existing dialogs/routes, 14 from
-epics) are listed in the analysis; each epic registers its own.
+in both locales. The actual seed list lives in
+`client-admin/src/action-registry.ts` (`ACTIONS` — actions already wired
+into the palette) and `client-admin/src/unregistered-actions.ts`
+(`UNREGISTERED_ACTIONS` — dialogs that exist in the app but aren't in the
+palette yet, each tagged with the epic that owns wiring it in); there is
+no separately-persisted "first 34 actions" list — that count was never
+more than a plan-time estimate.
 
 ## 5. Breadcrumbs
 
