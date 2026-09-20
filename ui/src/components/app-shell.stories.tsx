@@ -272,3 +272,62 @@ export const StaffMobile: Story = {
   decorators: [withMemoryRouter(['/students'])],
   parameters: { viewport: { defaultViewport: 'mobile1' } },
 };
+
+/** [30.1.3] — the state the ticket exists for: eight groups, exactly one
+ * of them (People, which owns the decorator's `/students` route) expanded
+ * on a fresh profile. Every `to` is distinct so only one group can own the
+ * route; `ScrollingSidebar`'s trick of copying the fixture would give
+ * several groups the same `/students` item and expand all of them. */
+const eightGroups: AppShellNavGroup[] = [
+  {
+    id: 'people-8',
+    label: 'People',
+    items: [{ to: '/students', label: 'Students', icon: <UsersRoundIcon aria-hidden="true" /> }],
+  },
+  {
+    id: 'academics-8',
+    label: 'Academics',
+    items: [{ to: '/classes', label: 'Classes', icon: <LayoutDashboardIcon aria-hidden="true" /> }],
+  },
+  {
+    id: 'finance-8',
+    label: 'Finance',
+    items: [{ to: '/fees', label: 'Fees', icon: <WalletIcon aria-hidden="true" /> }],
+  },
+  {
+    id: 'attendance-8',
+    label: 'Attendance',
+    items: [{ to: '/attendance', label: 'Daily register', icon: <HomeIcon aria-hidden="true" /> }],
+  },
+  {
+    id: 'exams-8',
+    label: 'Exams',
+    items: [{ to: '/exams', label: 'Results', icon: <BriefcaseIcon aria-hidden="true" /> }],
+  },
+  {
+    id: 'communication-8',
+    label: 'Communication',
+    items: [{ to: '/messages', label: 'Messages', icon: <BanknoteIcon aria-hidden="true" /> }],
+  },
+  {
+    id: 'reports-8',
+    label: 'Reports',
+    items: [{ to: '/reports', label: 'Reports', icon: <CreditCardIcon aria-hidden="true" /> }],
+  },
+  {
+    id: 'administration-8',
+    label: 'Administration',
+    items: [{ to: '/settings', label: 'Settings', icon: <SettingsIcon aria-hidden="true" /> }],
+  },
+];
+
+/** States shown: eight collapsed headers with a chevron-right, and one
+ * (People) expanded with a chevron-down and its item visible — it owns
+ * the decorator's `/students` route. Clicking any header in the canvas
+ * demonstrates the toggle — and only the toggle — persists. No second
+ * story for the "stored preference wins" case: Storybook has no way to
+ * seed `localStorage` per story here without a new decorator, and
+ * `app-shell.test.tsx` already covers it. */
+export const CollapsedByDefault: Story = {
+  args: { navGroups: eightGroups },
+};

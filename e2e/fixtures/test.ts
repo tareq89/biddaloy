@@ -38,6 +38,29 @@ function localeEntry(locale: string) {
   return { name: 'biddaloy:locale', value: locale };
 }
 
+// [30.1.3]: staff nav groups now start collapsed unless they own the
+// active route (ui/src/components/app-shell.tsx `readGroupCollapsed`).
+// Almost every spec that isn't specifically testing that behavior wants
+// the old always-visible sidebar — seed every group's stored preference
+// to expanded here, once, rather than patching each affected spec.
+const STAFF_NAV_GROUP_IDS = [
+  'people',
+  'academics',
+  'attendance',
+  'examsResults',
+  'finance',
+  'reports',
+  'communications',
+  'administration',
+];
+
+function expandedNavGroupEntries() {
+  return STAFF_NAV_GROUP_IDS.map((id) => ({
+    name: `nav-group-collapsed-v2:${id}`,
+    value: 'false',
+  }));
+}
+
 async function freshLogin(
   role: SeedRole,
   tenant: 'persisted' | 'none',
@@ -83,6 +106,7 @@ async function freshLogin(
             },
           ]),
       ...(locale === 'bn' ? [] : [localeEntry(locale)]),
+      ...expandedNavGroupEntries(),
     ];
     if (localStorage.length === 0) return state;
     return {

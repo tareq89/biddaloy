@@ -22,10 +22,14 @@
  *   dialog.tsx`) used as a left-edge drawer — its focus trap and
  *   restore-focus-on-close behaviour is Radix's own, exercised end to end
  *   by `dialog.test.tsx` already, not reimplemented here.
- * - A group's collapsed state persists to `localStorage`, same read-in-
- *   initializer / write-in-effect shape as `data-table.tsx`'s column
- *   persistence, so a corrupt or blocked store just falls back to
- *   expanded rather than crashing the shell over a display preference.
+ * - A group's collapsed state persists to `localStorage`, read in the
+ *   state initializer and written only when the user actually toggles the
+ *   header. [30.1.3]: with no stored preference a group starts collapsed
+ *   unless it owns the active route, so an 8-group sidebar opens with one
+ *   section open rather than eight. A stored value always wins over the
+ *   derived default, and a corrupt or blocked store falls back to the
+ *   derived default rather than crashing the shell over a display
+ *   preference.
  *
  * `navItems`/`navGroups` use real `Link` components (not `<a href>`)
  * specifically so hovering one triggers the router's
@@ -35,7 +39,7 @@
  * sighted users get from the highlight.
  */
 import type { Permission } from '@biddaloy/shared';
-import { Link } from '@tanstack/react-router';
+import { Link, useMatchRoute } from '@tanstack/react-router';
 import { ChevronDownIcon, ChevronRightIcon, MenuIcon, XIcon } from 'lucide-react';
 import { VisuallyHidden } from 'radix-ui';
 import * as React from 'react';
@@ -228,14 +232,18 @@ function NavLink({
   );
 }
 
-function readGroupCollapsed(groupId: string): boolean {
-  if (typeof window === 'undefined') return false;
+function readGroupCollapsed(groupId: string, fallback: boolean): boolean {
+  if (typeof window === 'undefined') return fallback;
   try {
-    return window.localStorage.getItem(`nav-group-collapsed:${groupId}`) === 'true';
+    const stored = window.localStorage.getItem(`nav-group-collapsed-v2:${groupId}`);
+    if (stored === null) return fallback;
+    return stored === 'true';
   } catch {
-    // Storage blocked (private browsing) or unavailable — default expanded
-    // rather than losing the group's contents over a display preference.
-    return false;
+    // Storage blocked (private browsing) or unavailable — fall back to
+    // the caller's derived default (expanded iff the group owns the active
+    // route) rather than losing the group's contents over a preference we
+    // could not read.
+    return fallback;
   }
 }
 
@@ -250,17 +258,35 @@ function NavGroupSection({
 }) {
   const pinned = visibleItems(group.pinnedItems ?? [], role);
   const rest = visibleItems(group.items, role);
-  const [collapsed, setCollapsed] = React.useState(() => readGroupCollapsed(group.id));
+  // [30.1.3] With 8 groups, all-expanded is an unusable sidebar. A group
+  // with no saved preference starts collapsed unless it owns the route the
+  // user is on. `fuzzy: true` matches `Link`'s own `activeProps`
+  // (`activeOptions.exact` defaults to false), so a detail route like
+  // `/students/42` still counts as People's. `search` is deliberately not
+  // passed: Finance owns `/fees` whether or not `?tab=dues` is set.
+  const matchRoute = useMatchRoute();
+  const ownsActiveRoute = [...pinned, ...rest].some((item) =>
+    Boolean(matchRoute({ to: item.to, fuzzy: true })),
+  );
+  const [collapsed, setCollapsed] = React.useState(() =>
+    readGroupCollapsed(group.id, !ownsActiveRoute),
+  );
 
-  React.useEffect(() => {
+  // [30.1.3] The write lives here, not in a mount effect: the effect wrote
+  // a value for every group on first render, which made every group's
+  // preference "explicit" and left the derived default above dead on
+  // arrival for anyone who had loaded the app even once.
+  function toggleCollapsed() {
+    const next = !collapsed;
+    setCollapsed(next);
     if (typeof window === 'undefined') return;
     try {
-      window.localStorage.setItem(`nav-group-collapsed:${group.id}`, String(collapsed));
+      window.localStorage.setItem(`nav-group-collapsed-v2:${group.id}`, String(next));
     } catch {
-      // Same as above — a failed write just doesn't persist, not worth
-      // failing the toggle over.
+      // A failed write just doesn't persist, not worth failing the toggle
+      // over.
     }
-  }, [group.id, collapsed]);
+  }
 
   if (pinned.length === 0 && rest.length === 0) return null;
 
@@ -270,7 +296,7 @@ function NavGroupSection({
     <div className="mb-1">
       <button
         type="button"
-        onClick={() => setCollapsed((value) => !value)}
+        onClick={toggleCollapsed}
         aria-expanded={!collapsed}
         aria-controls={panelId}
         className="flex w-full items-center justify-between rounded-md px-3 pt-4 pb-1 text-sm font-semibold tracking-wide text-foreground hover:bg-accent"
