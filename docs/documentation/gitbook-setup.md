@@ -25,12 +25,16 @@ inside the directory that uses them. Do not map `docs/architecture` or
 4. Set the Git Sync **Project directory** to the repository root (leave it
    empty in GitBook if that means the root).
 5. Choose the site-wide/monorepo mapping option if GitBook offers it. Import
-   from **GitHub to GitBook** first so the repository remains the source of
-   these files.
-6. Review the generated `gitbook-docs.yaml` mapping. Keep the stable keys
+   from **GitHub to GitBook** first to initialize the spaces from the reviewed
+   repository content. Git Sync is bidirectional: later edits made in GitBook
+   can sync back to GitHub, and repository changes can sync into GitBook.
+6. Use GitHub pull requests as the team's normal editing path. Keep GitBook
+   editing for previews or deliberate small changes, and review any GitBook
+   change that is synchronized back before it reaches the publication branch.
+7. Review the generated `gitbook-docs.yaml` mapping. Keep the stable keys
    `docs-bn` and `docs-en`; changing a key makes GitBook treat the space as a
    new space.
-7. Preview the site, confirm both variants and their pages, then publish only
+8. Preview the site, confirm both variants and their pages, then publish only
    after checking the public content.
 
 The repository configuration intentionally omits `content.language` for both
