@@ -104,10 +104,12 @@ describe('family read grants [5.1]', () => {
     Permission.FEE_READ,
     Permission.INVOICE_READ,
     Permission.ATTENDANCE_READ,
+    // [17.1.1] Calendar read — every tenant role, including family roles.
+    Permission.CALENDAR_READ,
   ] as const;
 
   for (const role of FAMILY_ROLES) {
-    it(`grants ${role} exactly STUDENT_READ, FEE_READ, INVOICE_READ and ATTENDANCE_READ`, () => {
+    it(`grants ${role} exactly STUDENT_READ, FEE_READ, INVOICE_READ, ATTENDANCE_READ and CALENDAR_READ`, () => {
       expect([...ROLE_PERMISSIONS[role]].sort()).toEqual([...FAMILY_PERMISSIONS].sort());
     });
   }
@@ -428,4 +430,43 @@ describe('fees rebuild role grants [16.2.1]', () => {
       expect(ROLE_PERMISSIONS[UserRole.SUPER_ADMIN]).toContain(permission);
     }
   });
+});
+
+describe('calendar role grants [17.1.1]', () => {
+  const TENANT_ROLES = [
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    UserRole.TEACHER,
+    UserRole.PARENT,
+    UserRole.STUDENT,
+  ] as const;
+
+  for (const role of TENANT_ROLES) {
+    it(`grants CALENDAR_READ to ${role}`, () => {
+      expect(ROLE_PERMISSIONS[role]).toContain(Permission.CALENDAR_READ);
+    });
+  }
+
+  it('grants CALENDAR_MANAGE to ADMIN', () => {
+    expect(ROLE_PERMISSIONS[UserRole.ADMIN]).toContain(Permission.CALENDAR_MANAGE);
+  });
+
+  it('grants CALENDAR_MANAGE to SUPER_ADMIN, which holds every permission', () => {
+    expect(ROLE_PERMISSIONS[UserRole.SUPER_ADMIN]).toContain(Permission.CALENDAR_MANAGE);
+  });
+
+  const ROLES_WITHOUT_CALENDAR_MANAGE = [
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    UserRole.TEACHER,
+    UserRole.PARENT,
+    UserRole.STUDENT,
+  ] as const;
+
+  for (const role of ROLES_WITHOUT_CALENDAR_MANAGE) {
+    it(`withholds CALENDAR_MANAGE from ${role}`, () => {
+      expect(ROLE_PERMISSIONS[role]).not.toContain(Permission.CALENDAR_MANAGE);
+    });
+  }
 });

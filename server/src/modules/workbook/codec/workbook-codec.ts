@@ -1,4 +1,5 @@
 import { PassThrough } from 'node:stream';
+import { Logger } from '@nestjs/common';
 import ExcelJS from 'exceljs';
 import { cellText, normalizeCell, toCell } from './cell-format';
 import { META_FIELDS, META_SHEET, SCHEMA_VERSION, type WorkbookMeta } from './meta';
@@ -291,6 +292,22 @@ function sampleRowMatchesShipped(tab: TabSpec<any, any>, cells: Record<string, s
 
 const KINDS = new Set<WorkbookMeta['kind']>(['BACKUP', 'SNAPSHOT', 'TEMPLATE']);
 
+/**
+ * Legacy sheet names, mapped to the current tab name that reads them.
+ *
+ * [17.2.5] renamed the `holidays` tab to `calendar_events` (it now exports
+ * the full `CalendarEvent` shape, not just the holiday-shaped subset). A
+ * workbook exported before that rename still has a `holidays` sheet; this
+ * alias lets `readWorkbook` hand that sheet's rows to `calendarEventsTab`
+ * so an old backup keeps restoring instead of the sheet being skipped as
+ * "not a known tab".
+ */
+const LEGACY_SHEET_ALIASES: Readonly<Record<string, string>> = {
+  holidays: 'calendar_events',
+};
+
+const readWorkbookLogger = new Logger('readWorkbook');
+
 export async function readWorkbook(buffer: Buffer): Promise<ReadWorkbookResult> {
   const workbook = new ExcelJS.Workbook();
 
@@ -308,10 +325,24 @@ export async function readWorkbook(buffer: Buffer): Promise<ReadWorkbookResult> 
   const meta = readMeta(workbook);
   const known = new Set<string>(EXPECTED_TABS);
   const sheets = new Map<string, SheetData>();
+  const presentSheetNames = new Set<string>(workbook.worksheets.map((ws) => ws.name));
 
   workbook.eachSheet((worksheet) => {
-    const name = worksheet.name;
-    if (name === META_SHEET || name === README_SHEET) return;
+    const originalName = worksheet.name;
+    if (originalName === META_SHEET || originalName === README_SHEET) return;
+
+    // A legacy sheet name is only aliased when the workbook has no sheet
+    // already using the current name — a backup never carries both
+    // `holidays` and `calendar_events`, but this guard keeps the current
+    // sheet authoritative if it somehow did.
+    const aliasTarget = LEGACY_SHEET_ALIASES[originalName];
+    const name = aliasTarget && !presentSheetNames.has(aliasTarget) ? aliasTarget : originalName;
+
+    if (name !== originalName) {
+      readWorkbookLogger.log(
+        `Restoring legacy sheet "${originalName}" as "${name}" (${originalName} was renamed in [17.2.5]).`,
+      );
+    }
 
     if (!known.has(name)) {
       // Skipped, not fatal: a workbook written by a newer schema may carry a

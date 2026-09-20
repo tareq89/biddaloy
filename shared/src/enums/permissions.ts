@@ -138,6 +138,13 @@ export enum Permission {
   // which is why it is listed in permission-matrix.e2e-spec.ts's
   // UI_ONLY_PERMISSIONS for now.
   BACKUP_MANAGE = 'BACKUP_MANAGE',
+
+  // Calendar
+  // [17.1.1] D19 — school calendar (holidays, exams, events, terms). Read
+  // is granted to every tenant role; write (create/edit/delete holidays,
+  // events, terms, import public holidays) is ADMIN only.
+  CALENDAR_READ = 'CALENDAR_READ',
+  CALENDAR_MANAGE = 'CALENDAR_MANAGE',
 }
 
 import { UserRole } from './index';
@@ -212,6 +219,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ATTENDANCE_DEVICE_MANAGE,
     // [14.2.1] Backup/restore; see enum comment.
     Permission.BACKUP_MANAGE,
+    // [17.1.1] School calendar — ADMIN manages, everyone else reads.
+    Permission.CALENDAR_READ,
+    Permission.CALENDAR_MANAGE,
   ],
 
   [UserRole.ACCOUNTANT]: [
@@ -264,6 +274,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.SCHEDULE_MANAGE,
     Permission.DISCOUNT_RULE_MANAGE,
     Permission.ATTENDANCE_READ,
+    // [17.1.1] School calendar read.
+    Permission.CALENDAR_READ,
   ],
 
   [UserRole.TEACHER]: [
@@ -284,6 +296,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.AUDIT_ENTITY_HISTORY_READ,
     Permission.ATTENDANCE_READ,
     Permission.ATTENDANCE_MARK,
+    // [17.1.1] School calendar read.
+    Permission.CALENDAR_READ,
   ],
 
   // [5.1] added no permissions to either family role. The widened server
@@ -301,6 +315,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.FEE_READ,
     Permission.INVOICE_READ,
     Permission.ATTENDANCE_READ,
+    // [17.1.1] School calendar read.
+    Permission.CALENDAR_READ,
   ],
 
   [UserRole.STUDENT]: [
@@ -308,6 +324,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.FEE_READ,
     Permission.INVOICE_READ,
     Permission.ATTENDANCE_READ,
+    // [17.1.1] School calendar read.
+    Permission.CALENDAR_READ,
   ],
 
   [UserRole.EXECUTIVE]: [
@@ -340,6 +358,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // [10.4] G6 — per-entity Activity tab; see enum comment.
     Permission.AUDIT_ENTITY_HISTORY_READ,
     Permission.ATTENDANCE_READ,
+    // [17.1.1] School calendar read.
+    Permission.CALENDAR_READ,
   ],
 };
 

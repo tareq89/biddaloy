@@ -7,7 +7,7 @@ import { AttendanceSessionState, UserRole } from '@biddaloy/shared';
 import { AttendanceSession } from './entities/attendance-session.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { SchoolsService } from '../schools/schools.service';
-import { SchoolCalendarService } from '../academics/school-calendar.service';
+import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import { localToday, resolveAttendancePolicy } from './attendance-policy.util';
 import { AbsenceNoticeService } from './absence-notice.service';
 

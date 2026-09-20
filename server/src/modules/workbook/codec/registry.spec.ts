@@ -53,7 +53,7 @@ describe('EXPECTED_TABS', () => {
       'sections',
       'subjects',
       'class_subjects',
-      'holidays',
+      'calendar_events',
       'users',
       'teachers',
       'teacher_assignments',
