@@ -124,12 +124,18 @@ export function CommandPalette({
 
   // Every open resets both the tab and the walked-option index — a
   // reopened palette should never silently resume a stale tab/selection
-  // from the session before.
+  // from the session before. Resets to `initialTab`, not a hard-coded
+  // 'people' — otherwise this effect firing on mount (when `open` starts
+  // `true`, e.g. a Storybook story or a caller that mounts pre-opened)
+  // would immediately override the caller-supplied `initialTab`.
   React.useEffect(() => {
     if (open) {
-      setActiveTab('people');
+      setActiveTab(initialTab);
       setActiveIndex(-1);
     }
+    // Deliberately excludes `initialTab`: it's a mount-time default, not
+    // something a later prop change should re-trigger a reset for.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const tabById = React.useMemo(() => {

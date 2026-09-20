@@ -3,7 +3,11 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CommandPalette, type CommandPaletteTab, type CommandPaletteTabId } from './command-palette';
+import {
+  CommandPalette,
+  type CommandPaletteTab,
+  type CommandPaletteTabId,
+} from './command-palette';
 
 const PEOPLE_TAB: CommandPaletteTab = {
   id: 'people',
@@ -52,9 +56,11 @@ const ACTION_TAB: CommandPaletteTab = {
 function Controlled({
   tabs = [PEOPLE_TAB, PAGE_TAB, ACTION_TAB],
   onSelect = () => {},
+  initialTab,
 }: {
   tabs?: readonly [CommandPaletteTab, CommandPaletteTab, CommandPaletteTab];
   onSelect?: (tabId: CommandPaletteTabId, groupId: string, resultId: string) => void;
+  initialTab?: CommandPaletteTabId;
 }) {
   const [open, setOpen] = useState(true);
   const [query, setQuery] = useState('');
@@ -67,6 +73,7 @@ function Controlled({
       onQueryChange={setQuery}
       tabs={tabs}
       onSelect={onSelect}
+      {...(initialTab !== undefined && { initialTab })}
     />
   );
 }
@@ -154,6 +161,12 @@ describe('CommandPalette', () => {
     render(<Controlled />);
     const peopleTab = screen.getByRole('tab', { name: 'People' });
     expect(peopleTab.getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('initialTab overrides the default People-tab open, without fighting the open-reset effect', () => {
+    render(<Controlled initialTab="page" />);
+    expect(screen.getByRole('tab', { name: 'Page' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('tab', { name: 'People' }).getAttribute('aria-selected')).toBe('false');
   });
 
   it('Ctrl+2 and Ctrl+3 jump directly to Page and Action', async () => {
@@ -257,11 +270,9 @@ describe('CommandPalette', () => {
   });
 
   it('still renders when localStorage throws', () => {
-    const getItemSpy = vi
-      .spyOn(window.localStorage.__proto__, 'getItem')
-      .mockImplementation(() => {
-        throw new Error('blocked');
-      });
+    const getItemSpy = vi.spyOn(window.localStorage.__proto__, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
 
     expect(() => render(<Controlled />)).not.toThrow();
     expect(screen.getByRole('combobox', { name: 'Command palette' })).toBeTruthy();
