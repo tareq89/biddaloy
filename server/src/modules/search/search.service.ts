@@ -116,8 +116,12 @@ export class SearchService {
   /** Student branch, one round trip covering both match kinds: a direct
    * hit on the student's own name/registration/roll/class-section, and
    * the cross-entity rule (Step 4) — a `term` matching a linked
-   * guardian's phone also surfaces that guardian's students, flagged
-   * `matched_via: 'guardian_phone'`. The guardian match is an `EXISTS`
+   * guardian's phone *or name* also surfaces that guardian's students,
+   * flagged `matched_via: 'guardian_phone'` (the label names the
+   * original, highest-value case — "a guardian's phone finds students" —
+   * but covers the guardian's name too, mirroring `GET
+   * /students?search=`'s existing predicate; not worth a DTO rename for
+   * one extra field). The guardian match is an `EXISTS`
    * subquery, not a join, so there is exactly one row per student and no
    * `DISTINCT ON` is needed — results are ordered by name like the other
    * four branches. Every join carries its own `tenant_id` check — a join
@@ -169,7 +173,7 @@ export class SearchService {
              WHERE sg.student_id = s.id
                AND g.tenant_id = $1
                AND g.deleted_at IS NULL
-               AND g.phone ILIKE $2
+               AND (g.phone ILIKE $2 OR g.full_name ILIKE $2)
            )
          )
        ORDER BY s.full_name ASC

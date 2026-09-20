@@ -162,6 +162,20 @@ describe('SearchService', () => {
     expect(match?.matched_via).toBe('guardian_phone');
   });
 
+  it('students branch: guardian full name also finds linked students (parity with GET /students?search=)', async () => {
+    const student = await makeStudent({ full_name: 'Nabila Child' });
+    const guardian = await makeGuardian({ full_name: 'Findable Guardian Name' });
+    await studentRepo.createQueryBuilder().relation(Student, 'guardians').of(student).add(guardian);
+
+    const result = await service.search(SEED_TENANT_ID, UserRole.ADMIN, {
+      q: 'Findable Guardian Name',
+    });
+
+    const match = result.students?.find((r) => r.id === student.id);
+    expect(match).toBeDefined();
+    expect(match?.matched_via).toBe('guardian_phone');
+  });
+
   it('guardians branch: matches name and phone, does not surface unrelated students', async () => {
     await makeGuardian({ full_name: 'Findable Guardian', phone: '01711122233' });
 
