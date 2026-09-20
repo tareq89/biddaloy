@@ -241,6 +241,13 @@ export class CalendarEventsService {
     dto: CreateCalendarEventDto,
     tenantId: string,
     userId: string,
+    /** Trusted, non-DTO override for callers that already picked a specific
+     * academic year out-of-band (clone-to-year's commit path) — bypasses
+     * `resolveAcademicYear`'s date-range lookup, which can't disambiguate
+     * between two academic years whose ranges overlap and would otherwise
+     * silently land the event in the wrong one. Never sourced from client
+     * input. */
+    expectedAcademicYearId?: string,
   ): Promise<CalendarEventWithClassIds> {
     if (dto.end_date < dto.start_date) {
       throw new UnprocessableEntityException({
@@ -251,7 +258,9 @@ export class CalendarEventsService {
 
     await this.assertNotPast(tenantId, dto.end_date);
 
-    const academicYear = await this.resolveAcademicYear(tenantId, dto.start_date, dto.end_date);
+    const academicYear = expectedAcademicYearId
+      ? await this.assertInsideYear(tenantId, expectedAcademicYearId, dto.start_date, dto.end_date)
+      : await this.resolveAcademicYear(tenantId, dto.start_date, dto.end_date);
     const classIds = await this.assertClassesInTenant(tenantId, dto.class_ids, academicYear.id);
 
     if (dto.counts_as_working_day === false || dto.counts_as_working_day === undefined) {
@@ -310,6 +319,8 @@ export class CalendarEventsService {
     dto: UpdateCalendarEventDto,
     tenantId: string,
     userId: string,
+    /** Same trusted override as `create()`'s — see there for why. */
+    expectedAcademicYearId?: string,
   ): Promise<CalendarEventWithClassIds> {
     const event = await this.findEntityOrThrow(id, tenantId);
     const oldValues = { ...event };
@@ -328,7 +339,9 @@ export class CalendarEventsService {
     }
     await this.assertNotPast(tenantId, nextEnd);
 
-    const academicYear = await this.resolveAcademicYear(tenantId, nextStart, nextEnd);
+    const academicYear = expectedAcademicYearId
+      ? await this.assertInsideYear(tenantId, expectedAcademicYearId, nextStart, nextEnd)
+      : await this.resolveAcademicYear(tenantId, nextStart, nextEnd);
 
     const nextCountsAsWorkingDay = dto.counts_as_working_day ?? event.counts_as_working_day;
     if (!nextCountsAsWorkingDay) {
@@ -512,6 +525,41 @@ export class CalendarEventsService {
     }
 
     return startYear;
+  }
+
+  /**
+   * Same boundary checks as `resolveAcademicYear`, but for a caller that
+   * already knows which specific academic year the event belongs to
+   * (clone-to-year's commit path picked it explicitly) rather than one
+   * that needs it looked up by date — a lookup that can't disambiguate
+   * when two academic years' ranges overlap.
+   */
+  private async assertInsideYear(
+    tenantId: string,
+    academicYearId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<AcademicYear> {
+    const year = await this.academicYearRepo.findOne({
+      where: { id: academicYearId, tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    if (!year) {
+      throw new UnprocessableEntityException({
+        message: 'This date range falls outside any academic year',
+        details: { code: 'CALENDAR_OUTSIDE_ACADEMIC_YEAR' },
+      });
+    }
+    if (
+      startDate < String(year.start_date) ||
+      endDate < String(year.start_date) ||
+      endDate > String(year.end_date)
+    ) {
+      throw new UnprocessableEntityException({
+        message: 'This event crosses an academic-year boundary',
+        details: { code: 'CALENDAR_OUTSIDE_ACADEMIC_YEAR' },
+      });
+    }
+    return year;
   }
 
   /** Every `class_ids` entry must be a `Class` row in this tenant AND in

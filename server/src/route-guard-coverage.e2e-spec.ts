@@ -221,6 +221,13 @@ const ALLOWLIST: AllowlistEntry[] = [
     reason:
       '[#666] the share token itself is the credential and carries its own tenant scope (InvoiceShareService.validatePublicToken) — there is no JWT, no user, and no X-Tenant-ID on this path at all, same no-guards rationale as /auth/activate*. Throttled instead via PUBLIC_INVOICE_RATE_LIMIT.',
   },
+  {
+    controller: 'CalendarFeedPublicController',
+    method: 'GET',
+    path: '/calendar/feed/:token.ics',
+    reason:
+      '[17.4.1] D13 — per-user feed token itself is the credential and carries its own tenant scope (CalendarFeedService.render resolves tenant + user from the token row, 404s on unknown/revoked/deactivated); the link is opened by a phone calendar app with no login, so there is no JWT, no user and no X-Tenant-ID on this path at all — same no-guards rationale as /public/invoices/:token. Throttled instead via CALENDAR_FEED_RATE_LIMIT.',
+  },
 ];
 
 function findAllowlistEntry(

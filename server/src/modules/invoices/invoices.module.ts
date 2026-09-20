@@ -27,7 +27,14 @@ import { PublicInvoiceController } from './public-invoice.controller';
     // `InvoiceNotificationsListener`'s `InvoiceShareService` dependency), so
     // this edge needs `forwardRef` too.
     forwardRef(() => CommunicationsModule),
-    CreditsModule,
+    // [#713] `CalendarModule` now imports `CreditsModule` too, and its own
+    // import chain (`CalendarModule` -> `CreditsModule` ->
+    // `forwardRef(SchoolsModule)` -> `AccountAccessModule` ->
+    // `CommunicationsModule` -> `FeeModule` -> `InvoicesModule` ->
+    // `CreditsModule`) closes a second cycle through this bare import.
+    // `forwardRef` here breaks that cycle the same way the two imports
+    // below already do for their own cycles.
+    forwardRef(() => CreditsModule),
     // [16.5.4] `sendInvoice` needs the tenant's resolved locale for the
     // receipt message. `SchoolsModule` -> `AccountAccessModule` ->
     // `CommunicationsModule` -> `FeeModule` -> `InvoicesModule` is a real

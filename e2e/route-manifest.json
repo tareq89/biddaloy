@@ -70,6 +70,19 @@
       "archetype": "wizard"
     },
     {
+      "path": "/holiday-sets",
+      "role": "super_admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/holiday-sets/$setId",
+      "params": {
+        "setId": "seeded"
+      },
+      "role": "super_admin",
+      "archetype": "detail"
+    },
+    {
       "path": "/settings",
       "role": "admin",
       "archetype": "form"
@@ -102,6 +115,11 @@
     },
     {
       "path": "/audit-logs",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/calendar",
       "role": "admin",
       "archetype": "list"
     },

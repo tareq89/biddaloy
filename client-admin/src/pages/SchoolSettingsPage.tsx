@@ -5,6 +5,7 @@ import * as React from 'react';
 
 import { AttendanceSection } from './settings/AttendanceSection';
 import { BackupSection } from './settings/backup-section';
+import { CalendarSection } from './settings/CalendarSection';
 import { EmailSection } from './settings/EmailSection';
 import { FeesSection } from './settings/FeesSection';
 import { MessengerSection } from './settings/MessengerSection';
@@ -136,8 +137,13 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
 
       {schoolId && settingsQuery.data && (
         <div className="flex flex-col gap-8">
-          <RegionalSection schoolId={schoolId} region={settingsQuery.data.region} />
-          <AttendanceSection schoolId={schoolId} attendance={settingsQuery.data.attendance} />
+          <div id="regional-section">
+            <RegionalSection schoolId={schoolId} region={settingsQuery.data.region} />
+          </div>
+          <CalendarSection schoolId={schoolId} region={settingsQuery.data.region} />
+          <div id="attendance-section">
+            <AttendanceSection schoolId={schoolId} attendance={settingsQuery.data.attendance} />
+          </div>
           <SignInSection key={schoolId} schoolId={schoolId} auth={settingsQuery.data.auth} />
           <WhatsAppSection
             schoolId={schoolId}

@@ -55,6 +55,7 @@
     "tabClasses": "Classes",
     "tabFeeStructures": "Fee Structures",
     "tabStatistics": "Statistics",
+    "tabTerms": "Terms",
     "forbidden": "You don't have permission to view this.",
     "classes": {
       "columnName": "Name",
@@ -76,6 +77,48 @@
       "students": "Students",
       "feeStructures": "Fee structures",
       "errorMessage": "Failed to load statistics"
+    },
+    "terms": {
+      "labelTerm": "Terms",
+      "labelSemester": "Semesters",
+      "labelTrimester": "Trimesters",
+      "addTerm": "Add term",
+      "columnSeq": "#",
+      "columnName": "Name",
+      "columnStartDate": "Start date",
+      "columnEndDate": "End date",
+      "columnLength": "Length",
+      "columnActions": "Actions",
+      "weekCount_one": "{{count}} week",
+      "weekCount_other": "{{count}} weeks",
+      "edit": "Edit",
+      "delete": "Delete",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "emptyMessage": "No terms defined for this academic year",
+      "errorMessage": "Failed to load terms",
+      "form": {
+        "createTitle": "Add term",
+        "editTitle": "Edit term",
+        "nameLabel": "Name",
+        "startDateLabel": "Start date",
+        "endDateLabel": "End date",
+        "errorNameRequired": "Name is required",
+        "errorDatesRequired": "Start and end dates are required",
+        "errorEndBeforeStart": "End date must be after the start date",
+        "errorMessage": "Failed to save term",
+        "errorOverlap": "\"{{name}}\" overlaps an existing term in this academic year",
+        "errorOutsideYear": "Term dates must fall within the academic year ({{yearStart}} – {{yearEnd}})",
+        "save": "Save",
+        "saving": "Saving…"
+      },
+      "deleteDialog": {
+        "title": "Delete term",
+        "description": "Delete \"{{name}}\"? This cannot be undone.",
+        "confirm": "Delete",
+        "deleting": "Deleting…",
+        "errorMessage": "Failed to delete term"
+      }
     }
   }
 }
