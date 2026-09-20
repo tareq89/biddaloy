@@ -18,7 +18,7 @@
 // earlier version of this file flaky in CI despite passing locally every
 // time. A guardian phone this test creates itself can't collide with
 // anything else.
-import { adminApiSession, apiSession, createGuardian, createStudentWithGuardian, get } from './api';
+import { adminApiSession, apiSession, createClassSection, createGuardian, get, post } from './api';
 import { expect, loggedIn, test } from './fixtures/test';
 
 /** `server/src/modules/search/dto/search.dto.ts`'s `SearchResultsDto` —
@@ -28,6 +28,9 @@ interface SearchStudentResult {
   id: string;
   full_name: string;
   registration_number: string;
+  roll_number: number;
+  class_name: string | null;
+  section_name: string | null;
   matched_via: 'direct' | 'guardian_phone';
 }
 interface SearchGuardianResult {
@@ -56,24 +59,36 @@ test.describe('admin', () => {
       'Search Contract Guardian',
       '01799911111',
     );
-    const student = await createStudentWithGuardian(
+    const chain = await createClassSection(request, admin);
+    const fullName = 'Search Contract Student';
+    const created = await post<{ id: string; registration_number: string; roll_number: number }>(
       request,
       admin,
-      'Search Contract Student',
-      guardian.id,
+      '/students',
+      { full_name: fullName, class_section_id: chain.sectionId, guardian_ids: [guardian.id] },
     );
-    const registrationNumber = await studentRegistrationNumber(request, admin, student.id);
 
     const results = await get<SearchResults>(
       request,
       admin,
-      `/search?q=${encodeURIComponent(registrationNumber)}`,
+      `/search?q=${encodeURIComponent(created.registration_number)}`,
     );
 
     expect(results.students).toBeDefined();
-    const match = results.students?.find((s) => s.id === student.id);
-    expect(match).toBeDefined();
-    expect(match?.matched_via).toBe('direct');
+    const match = results.students?.find((s) => s.id === created.id);
+    // Full-object equality, not just id/matched_via — proves the search
+    // result carries exactly the fields the DTO promises, not a superset
+    // or subset. `find` above keeps this independent of result ordering
+    // or additional unrelated matches in the response.
+    expect(match).toEqual({
+      id: created.id,
+      full_name: fullName,
+      registration_number: created.registration_number,
+      roll_number: created.roll_number,
+      class_name: chain.className,
+      section_name: 'A',
+      matched_via: 'direct',
+    });
   });
 
   test('admin searching a guardian phone gets the guardian and the linked student', async ({
@@ -81,12 +96,15 @@ test.describe('admin', () => {
   }) => {
     const admin = await adminApiSession(request);
     const phone = uniquePhone();
-    const guardian = await createGuardian(request, admin, 'Search Contract Guardian Two', phone);
-    const student = await createStudentWithGuardian(
+    const guardianName = 'Search Contract Guardian Two';
+    const guardian = await createGuardian(request, admin, guardianName, phone);
+    const chain = await createClassSection(request, admin);
+    const studentName = 'Search Contract Child';
+    const created = await post<{ id: string; registration_number: string; roll_number: number }>(
       request,
       admin,
-      'Search Contract Child',
-      guardian.id,
+      '/students',
+      { full_name: studentName, class_section_id: chain.sectionId, guardian_ids: [guardian.id] },
     );
 
     const results = await get<SearchResults>(
@@ -97,13 +115,19 @@ test.describe('admin', () => {
 
     expect(results.guardians).toBeDefined();
     const guardianMatch = results.guardians?.find((g) => g.id === guardian.id);
-    expect(guardianMatch).toBeDefined();
-    expect(guardianMatch?.phone).toBe(phone);
+    expect(guardianMatch).toEqual({ id: guardian.id, full_name: guardianName, phone });
 
     expect(results.students).toBeDefined();
-    const studentMatch = results.students?.find((s) => s.id === student.id);
-    expect(studentMatch).toBeDefined();
-    expect(studentMatch?.matched_via).toBe('guardian_phone');
+    const studentMatch = results.students?.find((s) => s.id === created.id);
+    expect(studentMatch).toEqual({
+      id: created.id,
+      full_name: studentName,
+      registration_number: created.registration_number,
+      roll_number: created.roll_number,
+      class_name: chain.className,
+      section_name: 'A',
+      matched_via: 'guardian_phone',
+    });
   });
 });
 
@@ -129,17 +153,4 @@ test.describe('teacher', () => {
 function uniquePhone(): string {
   const suffix = String(Date.now() % 100000000).padStart(8, '0');
   return `017${suffix}`;
-}
-
-async function studentRegistrationNumber(
-  request: Parameters<typeof get>[0],
-  session: Parameters<typeof get>[1],
-  studentId: string,
-): Promise<string> {
-  const student = await get<{ registration_number: string }>(
-    request,
-    session,
-    `/students/${studentId}`,
-  );
-  return student.registration_number;
 }
