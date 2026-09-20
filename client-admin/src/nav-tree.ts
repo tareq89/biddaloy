@@ -1,0 +1,264 @@
+import type { EntityLabel } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
+
+/**
+ * [30.1.3]'s staff nav as plain, serialisable data — no JSX, no hooks, so
+ * this module is importable from a plain `.test.ts` file the same way
+ * `route-permissions.ts` is. `_staff.tsx` is what turns this into the
+ * `AppShellNavGroup[]` `AppShell` actually renders: it supplies the
+ * `ReactNode` icon per item (keyed by `id`) and resolves each item's
+ * `label` — either through `useEntityLabel` ([30.1.2], for an entity noun
+ * like "Students") or the `nav` namespace's `items` map (for everything
+ * else, e.g. "Attendance", "Settings").
+ *
+ * **`id` is a stable contract, not a display detail.** Once shipped it must
+ * never change: Epic 24.0's `RoleMenu` rows will join on an item's `id`,
+ * and a *group's* `id` is what `AppShellNavGroup` already uses as its
+ * `localStorage` collapse-state key (`app-shell.tsx`'s
+ * `nav-group-collapsed:${group.id}`) — renaming a group id silently resets
+ * every user's saved collapse preference for it.
+ */
+export type StaffNavLabel = { readonly entity: EntityLabel } | { readonly key: string };
+
+export interface StaffNavItemDef {
+  /** Stable id, e.g. `academics.classes`. Must not change across releases. */
+  readonly id: string;
+  /** Route path, passed straight through to `AppShellNavItem.to`. */
+  readonly to: string;
+  /** Omitted → every signed-in staff role sees the item (e.g. Dashboard). */
+  readonly permission?: Permission;
+  readonly label: StaffNavLabel;
+}
+
+export interface StaffNavGroupDef {
+  /** Stable id — kept identical to the pre-30.1.3 groups (`people`,
+   * `finance`, `communications`, `administration`) where the group
+   * survives this restructure, so a user's saved collapse preference for
+   * it survives too. */
+  readonly id: string;
+  readonly label: StaffNavLabel;
+  readonly items: readonly StaffNavItemDef[];
+  readonly pinnedItems?: readonly StaffNavItemDef[];
+  readonly pinnedLabel?: StaffNavLabel;
+}
+
+/** Every nav item, flat, keyed by its own `id` — the lookup `_staff.tsx`
+ * uses to attach an icon and resolve a label, and what
+ * `nav-tree.test.ts` asserts ids against directly. */
+export const STAFF_NAV_ITEMS = {
+  dashboard: {
+    id: 'dashboard',
+    to: '/dashboard',
+    permission: Permission.DASHBOARD_VIEW,
+    label: { key: 'dashboard' },
+  },
+  'people.students': {
+    id: 'people.students',
+    to: '/students',
+    permission: Permission.STUDENT_READ,
+    label: { entity: 'student' },
+  },
+  'people.guardians': {
+    id: 'people.guardians',
+    to: '/guardians',
+    permission: Permission.GUARDIAN_READ,
+    label: { entity: 'guardian' },
+  },
+  'people.calendar': {
+    id: 'people.calendar',
+    to: '/calendar',
+    permission: Permission.CALENDAR_READ,
+    label: { key: 'calendar' },
+  },
+  'people.staff': {
+    id: 'people.staff',
+    to: '/staff',
+    permission: Permission.USER_READ,
+    label: { entity: 'staff' },
+  },
+  'academics.academicYears': {
+    id: 'academics.academicYears',
+    to: '/academic-years',
+    permission: Permission.ACADEMIC_YEAR_MANAGE,
+    label: { entity: 'academicYear' },
+  },
+  'academics.classes': {
+    id: 'academics.classes',
+    to: '/classes',
+    permission: Permission.CLASS_MANAGE,
+    label: { entity: 'class' },
+  },
+  'attendance.attendance': {
+    id: 'attendance.attendance',
+    to: '/attendance',
+    permission: Permission.ATTENDANCE_READ,
+    label: { key: 'attendance' },
+  },
+  'attendance.attendanceReports': {
+    id: 'attendance.attendanceReports',
+    to: '/attendance/reports',
+    permission: Permission.ATTENDANCE_READ,
+    label: { key: 'attendanceReports' },
+  },
+  'attendance.attendanceRegister': {
+    id: 'attendance.attendanceRegister',
+    to: '/attendance/register',
+    permission: Permission.ATTENDANCE_READ,
+    label: { key: 'attendanceRegister' },
+  },
+  'finance.dues': {
+    id: 'finance.dues',
+    to: '/fees/dues',
+    permission: Permission.FEE_COLLECT,
+    label: { key: 'studentDues' },
+  },
+  'finance.recordPayment': {
+    id: 'finance.recordPayment',
+    to: '/payments/record',
+    permission: Permission.PAYMENT_RECORD,
+    label: { key: 'recordPayment' },
+  },
+  'finance.fees': {
+    id: 'finance.fees',
+    to: '/fees',
+    permission: Permission.FEE_STRUCTURE_READ,
+    label: { key: 'fees' },
+  },
+  'finance.feeStructures': {
+    id: 'finance.feeStructures',
+    to: '/fee-structures',
+    permission: Permission.FEE_STRUCTURE_READ,
+    label: { key: 'feeStructures' },
+  },
+  'finance.generateFees': {
+    id: 'finance.generateFees',
+    to: '/fees/generate',
+    permission: Permission.FEE_GENERATE,
+    label: { key: 'generateFees' },
+  },
+  'finance.recurringSchedules': {
+    id: 'finance.recurringSchedules',
+    to: '/fees/schedules',
+    permission: Permission.SCHEDULE_MANAGE,
+    label: { key: 'recurringSchedules' },
+  },
+  'finance.invoices': {
+    id: 'finance.invoices',
+    to: '/invoices',
+    permission: Permission.INVOICE_READ,
+    label: { entity: 'invoice' },
+  },
+  'reports.collectionsReport': {
+    id: 'reports.collectionsReport',
+    to: '/reports/collections',
+    permission: Permission.REPORT_COLLECTIONS_READ,
+    label: { key: 'collectionsReport' },
+  },
+  'communications.sendMessage': {
+    id: 'communications.sendMessage',
+    to: '/communications/send',
+    permission: Permission.COMMUNICATION_SEND,
+    label: { key: 'sendMessage' },
+  },
+  'communications.feeReminders': {
+    id: 'communications.feeReminders',
+    to: '/communications/reminders',
+    permission: Permission.COMMUNICATION_BULK_SEND,
+    label: { key: 'feeReminders' },
+  },
+  'communications.reminderHistory': {
+    id: 'communications.reminderHistory',
+    to: '/communications/batches',
+    permission: Permission.COMMUNICATION_BULK_SEND,
+    label: { key: 'reminderHistory' },
+  },
+  'administration.auditLogs': {
+    id: 'administration.auditLogs',
+    to: '/audit-logs',
+    permission: Permission.AUDIT_LOG_READ,
+    label: { key: 'auditLogs' },
+  },
+  'administration.settings': {
+    id: 'administration.settings',
+    to: '/settings',
+    permission: Permission.SETTINGS_MANAGE,
+    label: { key: 'settings' },
+  },
+} as const satisfies Record<string, StaffNavItemDef>;
+
+/**
+ * The [15-ux-principles.md] §3 restructure: Dashboard stays a flat item;
+ * People/Finance/Communications/Administration keep their pre-30.1.3
+ * group `id`s (so saved collapse preferences survive) but shed the items
+ * the three new domain groups now own; **Academics**, **Attendance** and
+ * **Reports** are new groups carved out of Administration/People/Finance;
+ * **Exams & Results** is declared with zero items on purpose — `AppShell`
+ * already auto-hides an empty group (`app-shell.tsx`'s
+ * `NavGroupSection`), so it renders nothing until [19.0] gives it a route.
+ */
+export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
+  {
+    id: 'people',
+    label: { key: 'people' },
+    items: [
+      STAFF_NAV_ITEMS['people.students'],
+      STAFF_NAV_ITEMS['people.guardians'],
+      STAFF_NAV_ITEMS['people.calendar'],
+      STAFF_NAV_ITEMS['people.staff'],
+    ],
+  },
+  {
+    id: 'academics',
+    label: { key: 'academics' },
+    items: [STAFF_NAV_ITEMS['academics.academicYears'], STAFF_NAV_ITEMS['academics.classes']],
+  },
+  {
+    id: 'attendance',
+    label: { key: 'attendance' },
+    items: [
+      STAFF_NAV_ITEMS['attendance.attendance'],
+      STAFF_NAV_ITEMS['attendance.attendanceReports'],
+      STAFF_NAV_ITEMS['attendance.attendanceRegister'],
+    ],
+  },
+  {
+    id: 'examsResults',
+    label: { key: 'examsResults' },
+    items: [],
+  },
+  {
+    id: 'finance',
+    label: { key: 'finance' },
+    pinnedLabel: { key: 'quickActions' },
+    pinnedItems: [STAFF_NAV_ITEMS['finance.dues'], STAFF_NAV_ITEMS['finance.recordPayment']],
+    items: [
+      STAFF_NAV_ITEMS['finance.fees'],
+      STAFF_NAV_ITEMS['finance.feeStructures'],
+      STAFF_NAV_ITEMS['finance.generateFees'],
+      STAFF_NAV_ITEMS['finance.recurringSchedules'],
+      STAFF_NAV_ITEMS['finance.invoices'],
+    ],
+  },
+  {
+    id: 'reports',
+    label: { key: 'reports' },
+    items: [STAFF_NAV_ITEMS['reports.collectionsReport']],
+  },
+  {
+    id: 'communications',
+    label: { key: 'communications' },
+    items: [
+      STAFF_NAV_ITEMS['communications.sendMessage'],
+      STAFF_NAV_ITEMS['communications.feeReminders'],
+      STAFF_NAV_ITEMS['communications.reminderHistory'],
+    ],
+  },
+  {
+    id: 'administration',
+    label: { key: 'administration' },
+    items: [
+      STAFF_NAV_ITEMS['administration.auditLogs'],
+      STAFF_NAV_ITEMS['administration.settings'],
+    ],
+  },
+];

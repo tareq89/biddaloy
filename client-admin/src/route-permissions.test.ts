@@ -3,12 +3,8 @@ import { QueryClient } from '@tanstack/react-query';
 import { createRouter } from '@tanstack/react-router';
 import { describe, expect, it } from 'vitest';
 
-// Vite's `?raw` suffix imports the file's contents as a plain string at
-// build/test time — no `node:fs`/`node:url` needed, and no ESM
-// `import.meta.url` file-scheme assumption that doesn't hold under
-// Vitest's module transform.
+import { STAFF_NAV_GROUPS, STAFF_NAV_ITEMS } from './nav-tree';
 import { STAFF_ROUTE_PERMISSIONS } from './route-permissions';
-import staffTsxSource from './routes/_staff.tsx?raw';
 import { routeTree } from './routeTree.gen';
 
 /**
@@ -57,20 +53,21 @@ describe('STAFF_ROUTE_PERMISSIONS', () => {
 });
 
 /**
- * `_staff.tsx`'s sidebar nav items each carry their own `permission` —
- * the gate that decides whether the item is *shown*. This cross-checks
- * that gate against `STAFF_ROUTE_PERMISSIONS`, the gate that decides
- * whether the route itself *renders*: a nav item and its target route
- * disagreeing about which permission is required is exactly the kind of
- * drift `_staff.tsx`'s own file comment promises can't happen (Sidebar
- * and BottomNav share one item object; this extends the same promise to
- * the route guard).
+ * `nav-tree.ts`'s `STAFF_NAV_GROUPS`/`STAFF_NAV_ITEMS` each carry their own
+ * `permission` — the gate that decides whether the item is *shown* in
+ * `_staff.tsx`'s sidebar. This cross-checks that gate against
+ * `STAFF_ROUTE_PERMISSIONS`, the gate that decides whether the route
+ * itself *renders*: a nav item and its target route disagreeing about
+ * which permission is required is exactly the kind of drift `_staff.tsx`'s
+ * own file comment promises can't happen (Sidebar and BottomNav share one
+ * item object; this extends the same promise to the route guard).
  *
- * Regex over the source text, not a render — `StaffLayout` needs
- * `RegionConfigProvider`/router/query-client context to mount, and
+ * Reads `nav-tree.ts`'s plain data directly, not a render — `StaffLayout`
+ * needs `RegionConfigProvider`/router/query-client context to mount, and
  * `_staff.access.test.tsx` already exercises the real rendered gate
- * end-to-end. This test only needs the static `{ to: '...', permission:
- * Permission.XXX }` shape every nav item object shares.
+ * end-to-end. [30.1.3] made `nav-tree.ts` importable from a plain
+ * `.test.ts` for exactly this reason, so this test no longer needs to
+ * regex `_staff.tsx`'s source text for the `{ to, permission }` shape.
  */
 /** Nav `to` paths (URL paths, no `/_staff` prefix) to the route ID
  * `STAFF_ROUTE_PERMISSIONS` keys them under. Index leaves carry a
@@ -101,24 +98,28 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/reports/collections': '/_staff/reports/collections',
 };
 
-/** Matches each nav item object's `to`/`permission` pair, in either
- * order — `_staff.tsx` always writes `to` before `permission`, but the
- * regex doesn't assume it so a harmless reorder doesn't silently stop
- * this test from finding the pair. */
-function extractNavPermissions(source: string): Map<string, string> {
-  const itemPattern = /to:\s*'([^']+)'[\s\S]{0,200}?permission:\s*Permission\.(\w+)/g;
+/** Every `to`/`permission` pair `STAFF_NAV_GROUPS` declares (plus
+ * `dashboard`, `_staff.tsx`'s one flat `navItems` entry outside any
+ * group), flattened — `nav-tree.ts` is plain data, so this just walks it
+ * directly rather than regexing `_staff.tsx`'s rendered JSX for the
+ * shape. */
+function collectNavPermissions(): Map<string, string> {
   const found = new Map<string, string>();
-  for (const match of source.matchAll(itemPattern)) {
-    const [, to, permission] = match;
-    if (to && permission) found.set(to, permission);
+  if (STAFF_NAV_ITEMS.dashboard.permission !== undefined) {
+    found.set(STAFF_NAV_ITEMS.dashboard.to, STAFF_NAV_ITEMS.dashboard.permission);
+  }
+  for (const group of STAFF_NAV_GROUPS) {
+    for (const item of [...(group.pinnedItems ?? []), ...group.items]) {
+      if (item.permission !== undefined) found.set(item.to, item.permission);
+    }
   }
   return found;
 }
 
-describe('_staff.tsx nav items agree with STAFF_ROUTE_PERMISSIONS', () => {
-  const navPermissions = extractNavPermissions(staffTsxSource);
+describe('nav-tree.ts nav items agree with STAFF_ROUTE_PERMISSIONS', () => {
+  const navPermissions = collectNavPermissions();
 
-  it('found every expected nav item in _staff.tsx (regex sanity check)', () => {
+  it('found every expected nav item in nav-tree.ts (sanity check)', () => {
     expect([...navPermissions.keys()].sort()).toEqual(Object.keys(NAV_PATH_TO_ROUTE_ID).sort());
   });
 
