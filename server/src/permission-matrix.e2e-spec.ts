@@ -374,6 +374,13 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
     reason: 'staff-only directory read, not exposed to PARENT/STUDENT',
   },
   {
+    controller: 'SearchController',
+    method: 'GET',
+    path: '/search',
+    reason:
+      '[30.2.1] staff-only palette query across students/guardians/staff/invoices/payments, same rationale as GET /students and GET /guardians — the object-scoped STUDENT_READ/GUARDIAN_READ/INVOICE_READ/PAYMENT_READ permissions PARENT/STUDENT also hold would otherwise let a guardian search every family in the tenant, not just their own.',
+  },
+  {
     controller: 'FeeController',
     method: 'GET',
     path: '/fees/dues/flagged',

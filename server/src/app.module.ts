@@ -38,6 +38,7 @@ import { RestoreModule } from './modules/workbook/restore/restore.module';
 import { ImportModule } from './modules/workbook/import/import.module';
 import { TemplateModule } from './modules/workbook/template/template.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { SearchModule } from './modules/search/search.module';
 import { validate } from './config/env.validation';
 
 // Entities for auto-loading
@@ -232,6 +233,7 @@ import { WorkbookJob } from './modules/workbook/jobs/workbook-job.entity';
     RestoreModule,
     TemplateModule,
     ReportsModule,
+    SearchModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
