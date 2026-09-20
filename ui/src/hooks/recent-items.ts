@@ -74,44 +74,65 @@ export interface UseRecentItemsResult {
   addRecentItem: (item: RecentItem) => void;
 }
 
+interface RecentItemsState {
+  key: string;
+  items: RecentItem[];
+}
+
 export function useRecentItems(): UseRecentItemsResult {
   const tenantId = useActiveTenant();
   const userId = useCurrentUserId();
   const key = storageKey(tenantId, userId);
 
-  const [recentItems, setRecentItems] = React.useState<RecentItem[]>(() => readRecentItems(key));
-
-  // Tracks the key the current `recentItems` state actually belongs to, so
-  // the write effect below can skip the one render where `key` has already
-  // switched (tenant change, login/logout) but `recentItems` is still the
-  // previous viewer's array — without this guard that render would write
-  // the outgoing viewer's recents into the incoming viewer's storage slot
-  // before the re-read effect corrects it.
-  const loadedKeyRef = React.useRef(key);
+  // `key` and `items` move together in one state value, not two separate
+  // ones — that's load-bearing, not style. With a ref-tracked key and a
+  // sibling `items` state (the previous shape here), React runs both the
+  // re-read effect and the write effect in the same commit when `key`
+  // changes: the re-read effect updates the ref synchronously and schedules
+  // a state update for the next render, but the write effect — running in
+  // the same pass, still seeing the *old* `items` — reads the now-updated
+  // ref, sees it matches the new `key`, and persists the outgoing viewer's
+  // recents into the incoming viewer's storage slot before the re-read's
+  // state update ever lands. Keeping `key` and `items` in one object makes
+  // that pairing atomic: there is no render where a stale `items` array is
+  // paired with the new `key`.
+  const [state, setState] = React.useState<RecentItemsState>(() => ({
+    key,
+    items: readRecentItems(key),
+  }));
 
   // Re-read when the scope key changes so a shared device never shows the
   // previous viewer's recents.
   React.useEffect(() => {
-    setRecentItems(readRecentItems(key));
-    loadedKeyRef.current = key;
+    setState({ key, items: readRecentItems(key) });
   }, [key]);
 
   // The write lives here, not inside `addRecentItem` directly — same
   // reasoning as `app-shell.tsx`'s `NavGroupSection` comment: keeping the
   // state update and the persistence as two separate steps means a test
   // (or a future caller) can assert on `recentItems` without also having
-  // to stub `localStorage`.
+  // to stub `localStorage`. Guarded on `state.key === key`, the same
+  // atomic pairing above, so this never fires for a state slice that
+  // hasn't caught up to the current viewer yet.
   React.useEffect(() => {
-    if (loadedKeyRef.current !== key) return;
-    writeRecentItems(key, recentItems);
-  }, [key, recentItems]);
+    if (state.key !== key) return;
+    writeRecentItems(state.key, state.items);
+  }, [key, state]);
 
-  const addRecentItem = React.useCallback((item: RecentItem) => {
-    setRecentItems((previous) => {
-      const deduped = previous.filter((existing) => existing.id !== item.id);
-      return [item, ...deduped].slice(0, MAX_ITEMS);
-    });
-  }, []);
+  const addRecentItem = React.useCallback(
+    (item: RecentItem) => {
+      setState((previous) => {
+        if (previous.key !== key) return previous;
+        const deduped = previous.items.filter((existing) => existing.id !== item.id);
+        return { key, items: [item, ...deduped].slice(0, MAX_ITEMS) };
+      });
+    },
+    [key],
+  );
+
+  // Never return a previous viewer's items — even for the one render where
+  // `key` has changed but the re-read effect above hasn't committed yet.
+  const recentItems = state.key === key ? state.items : [];
 
   return { recentItems, addRecentItem };
 }
