@@ -85,4 +85,16 @@ export const overlayOpeners: Record<string, (page: Page, locale: Locale) => Prom
     await new DetailShellPage(page, locale).clickAction('students.detail.actions.transferStatus');
     await expectDialogOpen(page);
   },
+  // [30.4.1] `ShortcutsSheet` (`ui/src/components/shortcuts-sheet.tsx`) —
+  // the `?` keyboard-shortcuts help. It is global, not tied to any one
+  // route, so it is deliberately NOT in `route-manifest.json` — that file
+  // only lists navigable routes, and this dialog has no URL. Registered
+  // here anyway, same pattern as every other named overlay, so whichever
+  // ticket wires the global `?` listener into `client-admin`'s app shell
+  // can add this key to a route's `overlays` list (or a dedicated
+  // route-agnostic sweep) without inventing a new opener shape.
+  '$global::shortcuts-sheet': async (page) => {
+    await page.keyboard.press('?');
+    await expectDialogOpen(page);
+  },
 };

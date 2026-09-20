@@ -93,6 +93,21 @@
     "explanation": "Your role doesn't include this permission. If you need it, ask an administrator.",
     "action": "Back to dashboard"
   },
+  "shortcuts": {
+    "title": "Keyboard shortcuts",
+    "description": "Shortcuts for the command palette and the rest of the app.",
+    "rows": {
+      "openPalette": "Open command palette",
+      "openShortcuts": "Open this list",
+      "switchTab": "Switch tab",
+      "jumpTab": "Jump to a tab",
+      "jumpPageTab": "Jump to Page (as first character)",
+      "jumpActionTab": "Jump to Action (as first character)",
+      "moveSelection": "Move selection",
+      "openSelection": "Open selection",
+      "close": "Close"
+    }
+  },
   "update": {
     "available": "A new version of the app is available.",
     "reload": "Reload",
