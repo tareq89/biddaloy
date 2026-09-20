@@ -29,10 +29,13 @@ export interface GovernmentHolidaysDialogProps {
   onAdd: (entryIds: string[]) => void;
 }
 
+/** Matches the server's own dedupe rule for adding a suggestion twice —
+ * by `start_date` alone, not name. A holiday can be renamed or have a
+ * `name_bn` set after being added; matching on name too would then miss
+ * the existing event and let this dialog show it as addable again, even
+ * though the server would silently skip it as a duplicate. */
 function isAlreadyAdded(entry: PublicHolidayEntry, existingEvents: CalendarEvent[]): boolean {
-  return existingEvents.some(
-    (event) => event.name === entry.name && event.start_date === entry.date,
-  );
+  return existingEvents.some((event) => event.start_date === entry.date);
 }
 
 export function GovernmentHolidaysDialog({

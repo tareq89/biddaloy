@@ -113,6 +113,33 @@ describe('CalendarImportService (integration)', () => {
     expect(result.rows[0].status).toBe(CalendarImportRowStatus.ERROR);
   });
 
+  it('errors the second of two rows sharing a (name, start_date) within the same file', async () => {
+    const result = await service.validate(
+      TENANT_ID,
+      SEED_ADMIN_USER_ID,
+      csvFile([
+        {
+          type: 'EVENT',
+          name: 'Duplicate Within File',
+          start_date: '2031-04-01',
+          end_date: '2031-04-01',
+          counts_as_working_day: 'TRUE',
+        },
+        {
+          type: 'EVENT',
+          name: 'Duplicate Within File',
+          start_date: '2031-04-01',
+          end_date: '2031-04-01',
+          counts_as_working_day: 'TRUE',
+        },
+      ]),
+    );
+
+    expect(result.summary).toEqual({ new: 1, updated: 0, unchanged: 0, error: 1 });
+    expect(result.rows[0].status).toBe(CalendarImportRowStatus.NEW);
+    expect(result.rows[1].status).toBe(CalendarImportRowStatus.ERROR);
+  });
+
   it('rejects a row whose end_date has already passed', async () => {
     const result = await service.validate(
       TENANT_ID,

@@ -60,6 +60,8 @@ export interface CalendarImportCommitResult {
  * matching a row against an existing event by `(name, start_date)` to
  * decide `NEW`/`UPDATED`/`UNCHANGED`.
  */
+const MAX_IMPORT_ROWS = 5000;
+
 @Injectable()
 export class CalendarImportService {
   constructor(
@@ -192,8 +194,25 @@ export class CalendarImportService {
       throw error;
     }
 
+    // Explicit bound before anything iterates the parsed rows: the upload
+    // is size-capped at the dropzone, but a pathological CSV can still pack
+    // far more rows than any real school calendar needs into a small file.
+    // Checked here, not just at the dropzone, so this stays provably bounded
+    // no matter what calls validate() directly.
+    if (rawRows.length > MAX_IMPORT_ROWS) {
+      throw new BadRequestException(
+        `File has ${rawRows.length} rows; the maximum is ${MAX_IMPORT_ROWS}`,
+      );
+    }
+
     const today = await this.getToday(tenantId);
     const staged: StagedCalendarImportRow[] = [];
+    // A (name, start_date) pair staged as NEW earlier in this same file —
+    // the existing-event lookup below only queries the database, so two
+    // rows sharing a (name, start_date) that both miss the database would
+    // otherwise both stage as NEW and commit() would create two events
+    // instead of the second one erroring or upserting against the first.
+    const stagedNewKeys = new Set<string>();
 
     for (let i = 0; i < rawRows.length; i++) {
       const rowNumber = i + 2; // header is row 1
@@ -265,6 +284,26 @@ export class CalendarImportService {
         continue;
       }
 
+      const dedupeKey = `${row.name} ${row.start_date}`;
+      if (stagedNewKeys.has(dedupeKey)) {
+        staged.push({
+          rowNumber,
+          status: CalendarImportRowStatus.ERROR,
+          errors: [
+            {
+              row: rowNumber,
+              column: 'name',
+              message: 'Another row earlier in this file already has this name and start date',
+              severity: 'error',
+              value: row.name,
+            },
+          ],
+          draft: null,
+          existing_event_id: null,
+        });
+        continue;
+      }
+
       const existing = await this.eventRepo
         .createQueryBuilder('event')
         .where('event.tenant_id = :tenantId', { tenantId })
@@ -287,6 +326,7 @@ export class CalendarImportService {
       };
 
       if (!existing) {
+        stagedNewKeys.add(dedupeKey);
         staged.push({
           rowNumber,
           status: CalendarImportRowStatus.NEW,
@@ -381,6 +421,7 @@ export class CalendarImportService {
             },
             tenantId,
             userId,
+            row.draft.academic_year_id,
           );
           created += 1;
           continue;
@@ -403,6 +444,7 @@ export class CalendarImportService {
           },
           tenantId,
           userId,
+          row.draft.academic_year_id,
         );
         // `update()` never touches `published_at` (only `create()`'s
         // `dto.publish` or the dedicated `publish()` method do) — apply the

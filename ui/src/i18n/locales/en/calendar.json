@@ -54,6 +54,7 @@
       "CALENDAR_DAY_HAS_ATTENDANCE": "Attendance has already been recorded for one of these days.",
       "CALENDAR_INVALID_CLASS": "One of the selected classes is invalid.",
       "CALENDAR_INVALID_RANGE": "The end date must be on or after the start date.",
+      "nameRequired": "Name is required.",
       "generic": "Couldn't save this event. Try again."
     }
   },

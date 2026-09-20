@@ -121,6 +121,19 @@ const MAX_LENGTHS: Record<string, number> = {
   name: 120,
 };
 
+// `start_time`/`end_time` are plain `string` columns (no `time` ColumnType
+// exists in this codec), so `fromRow` must validate the format itself — a
+// value like "not-a-time" would otherwise reach `m.save` and fail the
+// whole restore operation when Postgres rejects it for the `time` column,
+// instead of failing just this one row.
+const TIME_ONLY = /^\d{2}:\d{2}(:\d{2})?$/;
+
+function isValidTime(value: string): boolean {
+  if (!TIME_ONLY.test(value)) return false;
+  const [hours, minutes] = value.split(':').map(Number);
+  return hours! >= 0 && hours! <= 23 && minutes! >= 0 && minutes! <= 59;
+}
+
 export const calendarEventsTab: TabSpec<CalendarEvent, CalendarEventRow> = {
   name: 'calendar_events',
   entity: CalendarEvent,
@@ -228,8 +241,43 @@ export const calendarEventsTab: TabSpec<CalendarEvent, CalendarEventRow> = {
           severity: 'error',
           value: key,
         });
-      } else {
-        classIdSet.add(resolved);
+        continue;
+      }
+      // A class's own natural key is `${name}|${academicYearKey}` (see
+      // classes.tab.ts's keyOf) — the year portion is already right there
+      // in the cell text, no extra lookup needed to catch a class scoped
+      // to a *different* academic year than this event's own. Without
+      // this check, `upsert` would link the event to a class from another
+      // year — `calendar_event_classes` has no DB constraint enforcing
+      // the years match, unlike the live API's `assertClassesInTenant`.
+      const classYearKey = key.slice(key.indexOf('|') + 1);
+      if (academicYearKey && classYearKey !== academicYearKey) {
+        errors.push({
+          tab: 'calendar_events',
+          row: rowNo,
+          column: 'classes',
+          message: `Column "classes": "${key}" belongs to a different academic year than this event ("${academicYearKey}").`,
+          severity: 'error',
+          value: key,
+        });
+        continue;
+      }
+      classIdSet.add(resolved);
+    }
+
+    for (const [column, value] of [
+      ['start_time', values.start_time],
+      ['end_time', values.end_time],
+    ] as const) {
+      if (value && !isValidTime(value as string)) {
+        errors.push({
+          tab: 'calendar_events',
+          row: rowNo,
+          column,
+          message: `Column "${column}": "${value}" is not a valid HH:MM time.`,
+          severity: 'error',
+          value: value as string,
+        });
       }
     }
 

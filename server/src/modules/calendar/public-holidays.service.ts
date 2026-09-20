@@ -10,6 +10,10 @@ import {
   PublicHolidaySourceUnavailableError,
 } from './public-holiday-fetch.service';
 import { HolidayEntryInputDto } from './dto/public-holidays.dto';
+// Own namespace, separate from the invoice-numbering/roll-number locks'
+// (see those files' own comments on the shared `pg_advisory_xact_lock`
+// keyspace convention).
+const BULK_ADD_LOCK_NAMESPACE = 630147;
 import { CreateCalendarEventDto } from './dto/calendar-events.dto';
 import { CalendarEventsService } from './calendar-events.service';
 import { SchoolsService } from '../schools/schools.service';
@@ -79,38 +83,52 @@ export class PublicHolidaysService {
       throw error;
     }
 
-    let set = await this.setRepo.findOne({ where: { country, year } });
-    if (!set) {
-      set = this.setRepo.create({
-        country,
-        year,
-        source: fetched.source,
-        published_at: null,
-        fetched_at: new Date(),
-      });
-    } else {
-      set.source = fetched.source;
-      set.fetched_at = new Date();
-    }
-    const saved = await this.setRepo.save(set);
+    const existing = await this.setRepo.findOne({ where: { country, year } });
+    const isNewSet = !existing;
 
-    await this.entryRepo.delete({ set_id: saved.id });
-    if (fetched.entries.length > 0) {
-      await this.entryRepo.save(
-        fetched.entries.map((entry) =>
-          this.entryRepo.create({
-            set_id: saved.id,
-            date: entry.date,
-            end_date: entry.end_date,
-            name: entry.name,
-            name_bn: null,
-          }),
-        ),
-      );
-    }
+    const saved = await this.setRepo.manager.transaction(async (manager) => {
+      const setManager = manager.getRepository(PublicHolidaySet);
+      const entryManager = manager.getRepository(PublicHolidayEntry);
+
+      let set = existing;
+      if (!set) {
+        set = setManager.create({
+          country,
+          year,
+          source: fetched.source,
+          published_at: null,
+          fetched_at: new Date(),
+        });
+      } else {
+        set.source = fetched.source;
+        set.fetched_at = new Date();
+      }
+      const savedSet = await setManager.save(set);
+
+      // Delete + re-insert must commit together — a crash between them
+      // would otherwise leave a published set with zero entries exposed
+      // to tenant requests for however long until the next fetch.
+      await entryManager.delete({ set_id: savedSet.id });
+      if (fetched.entries.length > 0) {
+        await entryManager.save(
+          fetched.entries.map((entry) =>
+            entryManager.create({
+              set_id: savedSet.id,
+              date: entry.date,
+              end_date: entry.end_date,
+              name: entry.name,
+              name_bn: null,
+            }),
+          ),
+        );
+      }
+      return savedSet;
+    });
 
     await this.auditService.record({
-      action: AuditAction.CREATE,
+      // A re-fetch of an already-existing (country, year) set is an
+      // update, not a create — this used to always say CREATE.
+      action: isNewSet ? AuditAction.CREATE : AuditAction.UPDATE,
       entity_type: 'PublicHolidaySet',
       entity_id: saved.id,
       tenant_id: null,
@@ -131,20 +149,26 @@ export class PublicHolidaysService {
   ): Promise<PublicHolidaySet> {
     const set = await this.getSet(setId);
 
-    await this.entryRepo.delete({ set_id: set.id });
-    if (entries.length > 0) {
-      await this.entryRepo.save(
-        entries.map((entry) =>
-          this.entryRepo.create({
-            set_id: set.id,
-            date: entry.date,
-            end_date: entry.end_date,
-            name: entry.name,
-            name_bn: entry.name_bn ?? null,
-          }),
-        ),
-      );
-    }
+    // Same atomicity reasoning as fetchIntoSet: delete + re-insert must
+    // commit together, or a crash mid-replace leaves the published set
+    // with zero entries until the next edit.
+    await this.entryRepo.manager.transaction(async (manager) => {
+      const entryManager = manager.getRepository(PublicHolidayEntry);
+      await entryManager.delete({ set_id: set.id });
+      if (entries.length > 0) {
+        await entryManager.save(
+          entries.map((entry) =>
+            entryManager.create({
+              set_id: set.id,
+              date: entry.date,
+              end_date: entry.end_date,
+              name: entry.name,
+              name_bn: entry.name_bn ?? null,
+            }),
+          ),
+        );
+      }
+    });
 
     await this.auditService.record({
       action: AuditAction.UPDATE,
@@ -245,24 +269,42 @@ export class PublicHolidaysService {
     const settings = await this.schoolsService.getResolvedSettings(tenantId);
     const useBn = (settings.region?.locale ?? '').toLowerCase().startsWith('bn');
 
-    const existingDates = await this.existingHolidayDates(tenantId);
+    // Two concurrent bulkAdd calls for the same tenant could otherwise
+    // both read the same `existingDates` snapshot and both create a
+    // HOLIDAY event for the same date. A transaction-scoped advisory lock
+    // keyed on tenantId serializes the whole read-check-create sequence
+    // per tenant (same convention as invoice-numbering.util.ts and
+    // roll-number.util.ts), releasing automatically on commit/rollback.
+    const added = await this.calendarEventRepo.manager.transaction(async (manager) => {
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1), $2)', [
+        tenantId,
+        BULK_ADD_LOCK_NAMESPACE,
+      ]);
 
-    let added = 0;
-    for (const entry of publishedEntries) {
-      if (existingDates.has(entry.date)) continue;
+      const existing = await manager.getRepository(CalendarEvent).find({
+        where: { tenant_id: tenantId, type: CalendarEventType.HOLIDAY },
+        select: ['start_date'],
+      });
+      const existingDates = new Set(existing.map((event) => event.start_date));
 
-      const name = useBn && entry.name_bn ? entry.name_bn : entry.name;
-      const dto = new CreateCalendarEventDto();
-      dto.type = CalendarEventType.HOLIDAY;
-      dto.name = name;
-      dto.start_date = entry.date;
-      dto.end_date = entry.end_date;
-      dto.counts_as_working_day = false;
-      dto.publish = true;
-      await this.calendarEventsService.create(dto, tenantId, userId);
-      existingDates.add(entry.date);
-      added += 1;
-    }
+      let addedCount = 0;
+      for (const entry of publishedEntries) {
+        if (existingDates.has(entry.date)) continue;
+
+        const name = useBn && entry.name_bn ? entry.name_bn : entry.name;
+        const dto = new CreateCalendarEventDto();
+        dto.type = CalendarEventType.HOLIDAY;
+        dto.name = name;
+        dto.start_date = entry.date;
+        dto.end_date = entry.end_date;
+        dto.counts_as_working_day = false;
+        dto.publish = true;
+        await this.calendarEventsService.create(dto, tenantId, userId);
+        existingDates.add(entry.date);
+        addedCount += 1;
+      }
+      return addedCount;
+    });
 
     return { added };
   }

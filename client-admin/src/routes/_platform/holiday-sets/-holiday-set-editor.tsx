@@ -210,6 +210,7 @@ export function HolidaySetEditor({
                     type="date"
                     aria-label={t('holidaySets.detail.columnDate')}
                     value={row.date}
+                    disabled={isSaving}
                     onChange={(event) => updateRow(row.rowKey, { date: event.target.value })}
                   />
                 </TableCell>
@@ -218,6 +219,7 @@ export function HolidaySetEditor({
                     type="date"
                     aria-label={t('holidaySets.detail.columnEndDate')}
                     value={row.end_date}
+                    disabled={isSaving}
                     onChange={(event) => updateRow(row.rowKey, { end_date: event.target.value })}
                   />
                 </TableCell>
@@ -225,6 +227,7 @@ export function HolidaySetEditor({
                   <Input
                     aria-label={t('holidaySets.detail.columnName')}
                     value={row.name}
+                    disabled={isSaving}
                     onChange={(event) => updateRow(row.rowKey, { name: event.target.value })}
                   />
                 </TableCell>
@@ -232,6 +235,7 @@ export function HolidaySetEditor({
                   <Input
                     aria-label={t('holidaySets.detail.columnNameBn')}
                     value={row.name_bn}
+                    disabled={isSaving}
                     onChange={(event) => updateRow(row.rowKey, { name_bn: event.target.value })}
                   />
                 </TableCell>
@@ -241,6 +245,7 @@ export function HolidaySetEditor({
                     variant="ghost"
                     size="icon"
                     aria-label={t('holidaySets.detail.removeRow')}
+                    disabled={isSaving}
                     onClick={() => removeRow(row.rowKey)}
                   >
                     <Trash2 className="size-4" />
@@ -253,7 +258,7 @@ export function HolidaySetEditor({
       )}
 
       <div className="flex items-center justify-between">
-        <Button type="button" variant="outline" size="sm" onClick={addRow}>
+        <Button type="button" variant="outline" size="sm" disabled={isSaving} onClick={addRow}>
           {t('holidaySets.detail.addRow')}
         </Button>
         <Button type="button" disabled={!isDirty} loading={isSaving} onClick={handleSave}>

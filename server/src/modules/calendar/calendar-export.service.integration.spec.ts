@@ -10,7 +10,9 @@ import { AuthModule } from '../auth/auth.module';
 import { CalendarExportService } from './calendar-export.service';
 import { CalendarImportService } from './calendar-import.service';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
+import { Class } from '../academics/entities/class.entity';
 import { CalendarEvent } from './entities/calendar-event.entity';
+import { CalendarEventClass } from './entities/calendar-event-class.entity';
 import { CalendarImportRowStatus, CalendarAudience, UserRole } from '@biddaloy/shared';
 import { CALENDAR_IMPORT_COLUMNS, RawCalendarImportRow } from './import/calendar-import-rows.util';
 import { CalendarViewer } from './calendar-visibility.util';
@@ -357,6 +359,57 @@ describe('CalendarExportService (integration)', () => {
     expect(result.summary).toEqual({ new: 0, updated: 0, unchanged: 0, error: 0 });
   });
 
+  it('errors a row instead of widening visibility when its class is missing in the target year', async () => {
+    const classRepo = dataSource.getRepository(Class);
+    const sourceClass = await classRepo.save({
+      name: 'Clone-Missing-Class 9A',
+      academic_year_id: sourceYearId,
+      tenant_id: TENANT_ID,
+    });
+
+    const eventRepo = dataSource.getRepository(CalendarEvent);
+    const event = await eventRepo.save({
+      tenant_id: TENANT_ID,
+      academic_year_id: sourceYearId,
+      type: 'EXAM',
+      name: 'Class-Restricted Exam',
+      start_date: '2031-06-01',
+      end_date: '2031-06-01',
+      counts_as_working_day: true,
+      audience: CalendarAudience.ALL,
+      published_at: new Date(),
+    });
+    await dataSource.getRepository(CalendarEventClass).save({
+      event_id: event.id,
+      class_id: sourceClass.id,
+      tenant_id: TENANT_ID,
+    });
+
+    // `targetYearId` deliberately has no class named 'Clone-Missing-Class
+    // 9A' — cloning must refuse to silently drop the restriction (which
+    // would make the cloned event visible to every class) rather than
+    // stage it unrestricted.
+    const result = await exportService.cloneToYear(
+      TENANT_ID,
+      SEED_ADMIN_USER_ID,
+      sourceYearId,
+      targetYearId,
+      [event.id],
+    );
+
+    expect(result.summary.error).toBe(1);
+    expect(result.rows[0]!.status).toBe(CalendarImportRowStatus.ERROR);
+
+    const cloned = await eventRepo.findOne({
+      where: {
+        name: 'Class-Restricted Exam',
+        tenant_id: TENANT_ID,
+        academic_year_id: targetYearId,
+      },
+    });
+    expect(cloned).toBeNull();
+  });
+
   it('does not false-match an unrelated event in a different year sharing the shifted name/date', async () => {
     const yearRepo = dataSource.getRepository(AcademicYear);
     const eventRepo = dataSource.getRepository(CalendarEvent);
@@ -423,5 +476,62 @@ describe('CalendarExportService (integration)', () => {
     // The unrelated third-year event must be untouched.
     const stillThere = await eventRepo.findOneOrFail({ where: { id: unrelatedEvent.id } });
     expect(stillThere.academic_year_id).toBe(unrelatedYear.id);
+  });
+
+  it('preserves the explicitly picked target year when academic years overlap', async () => {
+    const yearRepo = dataSource.getRepository(AcademicYear);
+    const eventRepo = dataSource.getRepository(CalendarEvent);
+
+    const leapSource = await yearRepo.save({
+      name: 'Overlap Source Year',
+      start_date: '2050-01-01',
+      end_date: '2050-12-31',
+      tenant_id: TENANT_ID,
+    });
+    const leapTarget = await yearRepo.save({
+      name: 'Overlap Target Year',
+      start_date: '2051-01-01',
+      end_date: '2051-12-31',
+      tenant_id: TENANT_ID,
+    });
+    // A second, overlapping year whose range also contains the clone's
+    // shifted dates — `resolveAcademicYear`'s date-only lookup can't tell
+    // this apart from `leapTarget`, so `commit()` must be told which year
+    // was actually picked rather than re-deriving it from dates alone.
+    await yearRepo.save({
+      name: 'Overlapping Year',
+      start_date: '2051-06-01',
+      end_date: '2052-05-31',
+      tenant_id: TENANT_ID,
+    });
+
+    await eventRepo.save({
+      tenant_id: TENANT_ID,
+      academic_year_id: leapSource.id,
+      type: 'EVENT',
+      name: 'Overlap Clone Event',
+      start_date: '2050-07-10',
+      end_date: '2050-07-10',
+      counts_as_working_day: true,
+      audience: CalendarAudience.ALL,
+      published_at: new Date(),
+    });
+
+    const result = await exportService.cloneToYear(
+      TENANT_ID,
+      SEED_ADMIN_USER_ID,
+      leapSource.id,
+      leapTarget.id,
+      undefined,
+    );
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].status).toBe(CalendarImportRowStatus.NEW);
+
+    await importService.commit(TENANT_ID, SEED_ADMIN_USER_ID, result.staging_id, false);
+
+    const cloned = await eventRepo.findOneOrFail({
+      where: { name: 'Overlap Clone Event', tenant_id: TENANT_ID, start_date: '2051-07-10' },
+    });
+    expect(cloned.academic_year_id).toBe(leapTarget.id);
   });
 });

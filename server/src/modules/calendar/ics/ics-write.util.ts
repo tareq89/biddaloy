@@ -81,10 +81,60 @@ function addDaysIso(iso: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-/** `HH:MM[:SS]` → `HHMMSS`. */
-function timeToIcs(time: string): string {
-  const [h, m, s] = time.split(':');
-  return `${(h ?? '00').padStart(2, '0')}${(m ?? '00').padStart(2, '0')}${(s ?? '00').padStart(2, '0')}`;
+/** Converts a wall-clock `YYYY-MM-DD`/`HH:MM[:SS]` pair in `timeZone` to
+ * the UTC instant it represents, so a timed VEVENT can carry an absolute
+ * `DTSTART:...Z` instead of `DTSTART;TZID=<zone>` — RFC 5545 §3.2.19
+ * requires a `TZID` reference to be backed by a `VTIMEZONE` component in
+ * the same calendar, which this minimal writer doesn't emit. A strict
+ * ICS client would otherwise treat the bare IANA identifier as floating
+ * (no timezone) and show the wrong local time; an absolute instant needs
+ * no VTIMEZONE and is unambiguous everywhere.
+ *
+ * Standard `Intl`-only technique (no timezone library): interpret the
+ * wall-clock value as if it were already UTC, read back what that same
+ * instant looks like in `timeZone`, and correct by the difference — this
+ * naturally accounts for DST since it's driven by the real calendar date. */
+const ZONE_OFFSET_FORMATTERS = new Map<string, Intl.DateTimeFormat>();
+
+function zonedTimeToUtc(isoDate: string, time: string, timeZone: string): Date {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  const [hour, minute, second] = time.split(':').map(Number);
+  // First guess: treat the wall-clock value as if it were already UTC.
+  const utcGuess = Date.UTC(year!, month! - 1, day!, hour!, minute!, second ?? 0);
+
+  // `formatToParts` (not `toLocaleString` + re-parse — `Date` string
+  // parsing is runtime-locale-dependent, not a reliable round-trip) reads
+  // back what that guessed instant looks like in `timeZone`. The
+  // difference between that and the guess is the zone's offset at this
+  // exact calendar date, so this is DST-correct without a timezone
+  // library.
+  let formatter = ZONE_OFFSET_FORMATTERS.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+    ZONE_OFFSET_FORMATTERS.set(timeZone, formatter);
+  }
+  const parts = Object.fromEntries(
+    formatter.formatToParts(new Date(utcGuess)).map((part) => [part.type, part.value]),
+  );
+  const asIfGuessWereUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second),
+  );
+  const offsetMs = asIfGuessWereUtc - utcGuess;
+  return new Date(utcGuess - offsetMs);
 }
 
 function timestampToIcs(date: Date): string {
@@ -108,12 +158,10 @@ function buildVevent(event: IcsEventInput, now: Date): string[] {
     lines.push(`DTSTART;VALUE=DATE:${dateOnlyToIcs(event.startDate)}`);
     lines.push(`DTEND;VALUE=DATE:${dateOnlyToIcs(addDaysIso(event.endDate, 1))}`);
   } else {
-    lines.push(
-      `DTSTART;TZID=${event.timezone}:${dateOnlyToIcs(event.startDate)}T${timeToIcs(event.startTime!)}`,
-    );
-    lines.push(
-      `DTEND;TZID=${event.timezone}:${dateOnlyToIcs(event.endDate)}T${timeToIcs(event.endTime!)}`,
-    );
+    const startUtc = zonedTimeToUtc(event.startDate, event.startTime!, event.timezone);
+    const endUtc = zonedTimeToUtc(event.endDate, event.endTime!, event.timezone);
+    lines.push(`DTSTART:${timestampToIcs(startUtc)}`);
+    lines.push(`DTEND:${timestampToIcs(endUtc)}`);
   }
 
   lines.push(`SUMMARY:${escapeIcsText(event.name)}`);

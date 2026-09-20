@@ -138,9 +138,7 @@ export function TermsTab({ academicYearId }: TermsTabProps) {
                   <TableHead>{t('detail.terms.columnEndDate')}</TableHead>
                   <TableHead>{t('detail.terms.columnLength')}</TableHead>
                   {canManage && (
-                    <TableHead className="text-right">
-                      {t('detail.terms.columnActions')}
-                    </TableHead>
+                    <TableHead className="text-right">{t('detail.terms.columnActions')}</TableHead>
                   )}
                 </TableRow>
               </TableHeader>
@@ -318,13 +316,25 @@ interface TermFormDialogProps {
  * a generic error banner — `TERM_OVERLAP` points at the name field (its
  * message already names the other overlapping term), `TERM_OUTSIDE_ACADEMIC_YEAR`
  * points at the dates. See `academic-terms.service.ts`'s own docstrings on
- * both checks. Returns the raw server message for those two codes (already
- * human-readable — see the service), and `null` for "no error"/anything
+ * both checks. Returns a translation key + interpolation params built from
+ * `error.details` (not the server's own `error.message`, which is
+ * English-only) for those two codes, and `null` for "no error"/anything
  * else, letting the caller supply its own generic fallback for the latter. */
-function termServerErrorDetail(error: unknown): string | null {
+function termServerErrorDetail(
+  error: unknown,
+): { key: string; params?: Record<string, string> } | null {
   if (!(error instanceof ApiError) || error.statusCode !== 422) return null;
-  const code = (error.details as { code?: string } | undefined)?.code;
-  if (code === 'TERM_OVERLAP' || code === 'TERM_OUTSIDE_ACADEMIC_YEAR') return error.message;
+  const details = error.details as
+    { code?: string; name?: string; yearStart?: string; yearEnd?: string } | undefined;
+  if (details?.code === 'TERM_OVERLAP' && details.name) {
+    return { key: 'detail.terms.form.errorOverlap', params: { name: details.name } };
+  }
+  if (details?.code === 'TERM_OUTSIDE_ACADEMIC_YEAR' && details.yearStart && details.yearEnd) {
+    return {
+      key: 'detail.terms.form.errorOutsideYear',
+      params: { yearStart: details.yearStart, yearEnd: details.yearEnd },
+    };
+  }
   return null;
 }
 
@@ -380,10 +390,13 @@ function TermFormDialog({
     });
   }
 
-  const title = mode === 'create' ? t('detail.terms.form.createTitle') : t('detail.terms.form.editTitle');
+  const title =
+    mode === 'create' ? t('detail.terms.form.createTitle') : t('detail.terms.form.editTitle');
   const serverErrorDetail = termServerErrorDetail(error);
   const serverError = error
-    ? (serverErrorDetail ?? t('detail.terms.form.errorMessage'))
+    ? serverErrorDetail
+      ? t(serverErrorDetail.key, serverErrorDetail.params ?? {})
+      : t('detail.terms.form.errorMessage')
     : null;
 
   return (
@@ -398,7 +411,11 @@ function TermFormDialog({
             <label htmlFor="term-form-name" className="text-sm font-medium">
               {t('detail.terms.form.nameLabel')}
             </label>
-            <Input id="term-form-name" value={name} onChange={(event) => setName(event.target.value)} />
+            <Input
+              id="term-form-name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
           </div>
 
           <div className="flex gap-3">

@@ -142,7 +142,7 @@ describe('TermsTab', () => {
             timestamp: new Date().toISOString(),
             path: '/api/v1/calendar/terms/term-1',
             requestId: 'req-1',
-            details: { code: 'TERM_OVERLAP' },
+            details: { code: 'TERM_OVERLAP', name: 'First Term' },
           },
           { status: 422 },
         ),
@@ -163,6 +163,46 @@ describe('TermsTab', () => {
     await waitFor(() =>
       expect(
         screen.getByText('"First Term" overlaps an existing term in this academic year'),
+      ).toBeTruthy(),
+    );
+  });
+
+  it('maps a 422 TERM_OUTSIDE_ACADEMIC_YEAR response with a localized, structured message', async () => {
+    mockTerms();
+    server.use(
+      http.patch('/api/v1/calendar/terms/:id', () =>
+        HttpResponse.json(
+          {
+            statusCode: 422,
+            message: 'Term dates must fall within the academic year (2026-01-01 – 2026-12-31)',
+            timestamp: new Date().toISOString(),
+            path: '/api/v1/calendar/terms/term-1',
+            requestId: 'req-1',
+            details: {
+              code: 'TERM_OUTSIDE_ACADEMIC_YEAR',
+              yearStart: '2026-01-01',
+              yearEnd: '2026-12-31',
+            },
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+
+    const { user } = renderWithProviders(<TermsTab academicYearId="year-1" />, {
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('First Term');
+    await user.click(screen.getAllByRole('button', { name: 'Edit' })[0]!);
+    const dialog = within(await screen.findByRole('dialog'));
+    await user.click(dialog.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('Term dates must fall within the academic year (2026-01-01 – 2026-12-31)'),
       ).toBeTruthy(),
     );
   });

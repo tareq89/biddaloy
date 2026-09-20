@@ -86,7 +86,7 @@ describe('buildIcsCalendar', () => {
     expect(ics).toContain('DTEND;VALUE=DATE:20260216\r\n');
   });
 
-  it('serializes a timed event with TZID on DTSTART/DTEND', () => {
+  it('serializes a timed event as an absolute UTC instant, not a bare TZID', () => {
     const ics = buildIcsCalendar({
       calendarName: 'School',
       events: [
@@ -99,8 +99,13 @@ describe('buildIcsCalendar', () => {
       ],
       now: NOW,
     });
-    expect(ics).toContain('DTSTART;TZID=Asia/Dhaka:20260101T090000\r\n');
-    expect(ics).toContain('DTEND;TZID=Asia/Dhaka:20260101T113000\r\n');
+    // Asia/Dhaka is UTC+6 year-round (no DST) — 09:00/11:30 local on
+    // 2026-01-01 is 03:00/05:30 UTC. A bare `DTSTART;TZID=Asia/Dhaka`
+    // would need a VTIMEZONE component this minimal writer doesn't emit
+    // (RFC 5545 §3.2.19) — an absolute `Z` instant needs none.
+    expect(ics).toContain('DTSTART:20260101T030000Z\r\n');
+    expect(ics).toContain('DTEND:20260101T053000Z\r\n');
+    expect(ics).not.toContain('TZID');
   });
 
   it('escapes commas, semicolons and newlines in SUMMARY/DESCRIPTION', () => {

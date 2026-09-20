@@ -241,6 +241,13 @@ export class CalendarEventsService {
     dto: CreateCalendarEventDto,
     tenantId: string,
     userId: string,
+    /** Trusted, non-DTO override for callers that already picked a specific
+     * academic year out-of-band (clone-to-year's commit path) — bypasses
+     * `resolveAcademicYear`'s date-range lookup, which can't disambiguate
+     * between two academic years whose ranges overlap and would otherwise
+     * silently land the event in the wrong one. Never sourced from client
+     * input. */
+    expectedAcademicYearId?: string,
   ): Promise<CalendarEventWithClassIds> {
     if (dto.end_date < dto.start_date) {
       throw new UnprocessableEntityException({
@@ -251,8 +258,10 @@ export class CalendarEventsService {
 
     await this.assertNotPast(tenantId, dto.end_date);
 
-    const academicYear = await this.resolveAcademicYear(tenantId, dto.start_date, dto.end_date);
-    const classIds = await this.assertClassesInTenant(tenantId, dto.class_ids);
+    const academicYear = expectedAcademicYearId
+      ? await this.assertInsideYear(tenantId, expectedAcademicYearId, dto.start_date, dto.end_date)
+      : await this.resolveAcademicYear(tenantId, dto.start_date, dto.end_date);
+    const classIds = await this.assertClassesInTenant(tenantId, dto.class_ids, academicYear.id);
 
     if (dto.counts_as_working_day === false || dto.counts_as_working_day === undefined) {
       await this.assertNoAttendanceInRange(tenantId, dto.start_date, dto.end_date);
@@ -310,6 +319,8 @@ export class CalendarEventsService {
     dto: UpdateCalendarEventDto,
     tenantId: string,
     userId: string,
+    /** Same trusted override as `create()`'s — see there for why. */
+    expectedAcademicYearId?: string,
   ): Promise<CalendarEventWithClassIds> {
     const event = await this.findEntityOrThrow(id, tenantId);
     const oldValues = { ...event };
@@ -328,7 +339,9 @@ export class CalendarEventsService {
     }
     await this.assertNotPast(tenantId, nextEnd);
 
-    const academicYear = await this.resolveAcademicYear(tenantId, nextStart, nextEnd);
+    const academicYear = expectedAcademicYearId
+      ? await this.assertInsideYear(tenantId, expectedAcademicYearId, nextStart, nextEnd)
+      : await this.resolveAcademicYear(tenantId, nextStart, nextEnd);
 
     const nextCountsAsWorkingDay = dto.counts_as_working_day ?? event.counts_as_working_day;
     if (!nextCountsAsWorkingDay) {
@@ -337,7 +350,21 @@ export class CalendarEventsService {
 
     let classIds: string[] | undefined;
     if (dto.class_ids !== undefined) {
-      classIds = await this.assertClassesInTenant(tenantId, dto.class_ids);
+      classIds = await this.assertClassesInTenant(tenantId, dto.class_ids, academicYear.id);
+    } else if (academicYear.id !== event.academic_year_id) {
+      // The patch didn't touch class_ids, but a date change moved the
+      // event into a different academic year — the retained links were
+      // validated against the *old* year and Class rows are scoped per
+      // year, so silently keeping them would leave the event pointing at
+      // classes from a year it no longer belongs to (visibility joins
+      // only match on event_id/class_id, so this would leak the event to
+      // the wrong year's viewers). Re-validate the same links against the
+      // new year; reject the update if any no longer belong.
+      const retainedLinks = await this.eventClassRepo.find({ where: { event_id: event.id } });
+      const retainedClassIds = retainedLinks.map((link) => link.class_id);
+      if (retainedClassIds.length > 0) {
+        await this.assertClassesInTenant(tenantId, retainedClassIds, academicYear.id);
+      }
     }
 
     Object.assign(event, {
@@ -500,22 +527,62 @@ export class CalendarEventsService {
     return startYear;
   }
 
-  /** Every `class_ids` entry must be a `Class` row in this tenant — a class
-   * id from another tenant, or one that doesn't exist, is rejected rather
-   * than silently dropped. */
+  /**
+   * Same boundary checks as `resolveAcademicYear`, but for a caller that
+   * already knows which specific academic year the event belongs to
+   * (clone-to-year's commit path picked it explicitly) rather than one
+   * that needs it looked up by date — a lookup that can't disambiguate
+   * when two academic years' ranges overlap.
+   */
+  private async assertInsideYear(
+    tenantId: string,
+    academicYearId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<AcademicYear> {
+    const year = await this.academicYearRepo.findOne({
+      where: { id: academicYearId, tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    if (!year) {
+      throw new UnprocessableEntityException({
+        message: 'This date range falls outside any academic year',
+        details: { code: 'CALENDAR_OUTSIDE_ACADEMIC_YEAR' },
+      });
+    }
+    if (
+      startDate < String(year.start_date) ||
+      endDate < String(year.start_date) ||
+      endDate > String(year.end_date)
+    ) {
+      throw new UnprocessableEntityException({
+        message: 'This event crosses an academic-year boundary',
+        details: { code: 'CALENDAR_OUTSIDE_ACADEMIC_YEAR' },
+      });
+    }
+    return year;
+  }
+
+  /** Every `class_ids` entry must be a `Class` row in this tenant AND in
+   * the event's own academic year — a class from another tenant, another
+   * academic year, or one that doesn't exist, is rejected rather than
+   * silently dropped or scoped incorrectly (calendar visibility joins on
+   * `class_id` alone, so a cross-year class link would leak the event to
+   * students in a class that has since moved to a different year). */
   private async assertClassesInTenant(
     tenantId: string,
     classIds: string[] | undefined,
+    academicYearId: string,
   ): Promise<string[]> {
     if (!classIds || classIds.length === 0) return [];
     const found = await this.classRepo
       .createQueryBuilder('class')
       .where('class.id IN (:...ids)', { ids: classIds })
       .andWhere('class.tenant_id = :tenantId', { tenantId })
+      .andWhere('class.academic_year_id = :academicYearId', { academicYearId })
       .getMany();
     if (found.length !== new Set(classIds).size) {
       throw new UnprocessableEntityException({
-        message: 'One or more class_ids do not belong to this tenant',
+        message: 'One or more class_ids do not belong to this tenant and academic year',
         details: { code: 'CALENDAR_INVALID_CLASS' },
       });
     }

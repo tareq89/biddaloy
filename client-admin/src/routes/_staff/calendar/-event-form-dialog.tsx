@@ -126,7 +126,7 @@ export function EventFormDialog({
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!name.trim()) {
-      setValidationError(t('eventForm.errors.generic'));
+      setValidationError(t('eventForm.errors.nameRequired'));
       return;
     }
     if (!startDate || !endDate) {

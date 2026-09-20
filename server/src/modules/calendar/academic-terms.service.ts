@@ -57,7 +57,10 @@ export class AcademicTermsService {
     if (startDate < yearStart || endDate > yearEnd || startDate > endDate) {
       throw new UnprocessableEntityException({
         message: `Term dates must fall within the academic year (${yearStart} – ${yearEnd})`,
-        details: { code: 'TERM_OUTSIDE_ACADEMIC_YEAR' },
+        // `yearStart`/`yearEnd` let the client build a fully localized
+        // message instead of interpolating this English-only sentence —
+        // see client-admin's terms-tab.tsx `termServerErrorDetail`.
+        details: { code: 'TERM_OUTSIDE_ACADEMIC_YEAR', yearStart, yearEnd },
       });
     }
   }
@@ -71,7 +74,9 @@ export class AcademicTermsService {
     ) {
       throw new UnprocessableEntityException({
         message: `"${name}" overlaps an existing term in this academic year`,
-        details: { code: 'TERM_OVERLAP' },
+        // `name` lets the client build a fully localized message instead
+        // of interpolating this English-only sentence.
+        details: { code: 'TERM_OVERLAP', name },
       });
     }
     throw err;
@@ -257,8 +262,31 @@ export class AcademicTermsService {
         where: { tenant_id: tenantId, academic_year_id: academicYearId, deleted_at: IsNull() },
       });
 
+      // Explicit bound, checked before anything iterates `ids`: the DTO's
+      // `@ArrayMaxSize` already rejects an oversized payload at the HTTP
+      // boundary, but this guard keeps the loops below provably bounded by
+      // a fixed constant regardless of what reaches this method directly.
+      const MAX_REORDER_IDS = 100;
+      if (ids.length > MAX_REORDER_IDS) {
+        throw new UnprocessableEntityException({
+          message: `ids must not exceed ${MAX_REORDER_IDS} entries`,
+          details: { code: 'TERM_REORDER_TOO_LARGE' },
+        });
+      }
+
       const termIds = new Set(terms.map((t) => t.id));
-      if (ids.length !== terms.length || !ids.every((id) => termIds.has(id))) {
+      const uniqueIds = new Set(ids);
+      // `uniqueIds.size !== ids.length` catches a duplicate id (e.g.
+      // [A, A] for a 2-term year) that `ids.length === terms.length` alone
+      // would miss, letting it through as if A and B were both present —
+      // the two-pass write below would then try to give A two different
+      // seq values and fail on the unique-constraint instead of returning
+      // a clean 422.
+      if (
+        ids.length !== terms.length ||
+        uniqueIds.size !== ids.length ||
+        !ids.every((id) => termIds.has(id))
+      ) {
         throw new UnprocessableEntityException({
           message: "ids must exactly match the academic year's current terms",
           details: { code: 'TERM_REORDER_MISMATCH' },

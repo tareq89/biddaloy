@@ -7,6 +7,7 @@ import {
   IsDateString,
   IsEnum,
   IsInt,
+  IsISO8601,
   IsOptional,
   IsString,
   IsUUID,
@@ -20,7 +21,6 @@ import {
 import { CalendarAudience, CalendarEventType } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
-const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_ONLY = /^\d{2}:\d{2}(:\d{2})?$/;
 
 // ---------------------------------------------------------------------------
@@ -158,13 +158,11 @@ export class UpdateCalendarEventDto {
  * same 400-day ceiling as `SchoolCalendarService.getWorkingDays`. */
 export class QueryCalendarEventsDto {
   @IsOptional()
-  @IsString()
-  @Matches(DATE_ONLY, { message: 'from must be YYYY-MM-DD' })
+  @IsISO8601({ strict: true }, { message: 'from must be a valid YYYY-MM-DD date' })
   from?: string;
 
   @IsOptional()
-  @IsString()
-  @Matches(DATE_ONLY, { message: 'to must be YYYY-MM-DD' })
+  @IsISO8601({ strict: true }, { message: 'to must be a valid YYYY-MM-DD date' })
   to?: string;
 
   @IsOptional()

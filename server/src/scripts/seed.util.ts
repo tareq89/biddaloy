@@ -732,7 +732,12 @@ export async function ensureAttendanceSeed(
       );
       result.holidays += 1;
     } else if (existing.deleted_at) {
-      await repos.schoolHolidayRepository.save(undelete(existing));
+      // Same D9 reasoning as the create branch above: a restored holiday
+      // must come back published, not as an unpublished draft, or
+      // ATTENDANCE_SEED_WORKING_DAYS goes stale silently.
+      const restored = undelete(existing);
+      restored.published_at ??= new Date();
+      await repos.schoolHolidayRepository.save(restored);
     }
   }
 
@@ -914,8 +919,8 @@ export async function ensurePublicHolidaySet(
   const existingEntries = await repos.publicHolidayEntryRepository.find({
     where: { set_id: set.id },
   });
-  const existingDates = new Set(existingEntries.map((entry) => entry.date));
-  const missing = entries.filter((entry) => !existingDates.has(entry.date));
+  const existingByDate = new Map(existingEntries.map((entry) => [entry.date, entry]));
+  const missing = entries.filter((entry) => !existingByDate.has(entry.date));
   if (missing.length > 0) {
     await repos.publicHolidayEntryRepository.save(
       missing.map((entry) =>
@@ -927,6 +932,28 @@ export async function ensurePublicHolidaySet(
           name_bn: entry.name_bn,
         }),
       ),
+    );
+  }
+
+  // A matching `date` alone doesn't mean the entry is up to date — if the
+  // fixture later corrects `end_date`/`name`/`name_bn`, a re-run of this
+  // seed used to leave the stale values in place forever, silently.
+  // Reconcile any that actually changed.
+  const changed = entries.filter((entry) => {
+    const existing = existingByDate.get(entry.date);
+    return (
+      existing &&
+      (existing.end_date !== entry.end_date ||
+        existing.name !== entry.name ||
+        existing.name_bn !== entry.name_bn)
+    );
+  });
+  if (changed.length > 0) {
+    await repos.publicHolidayEntryRepository.save(
+      changed.map((entry) => {
+        const existing = existingByDate.get(entry.date)!;
+        return { ...existing, end_date: entry.end_date, name: entry.name, name_bn: entry.name_bn };
+      }),
     );
   }
 

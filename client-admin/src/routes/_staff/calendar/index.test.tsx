@@ -10,12 +10,30 @@ import {
 } from '@biddaloy/ui/components';
 import type { CalendarEvent, PublicHolidayEntry } from '@biddaloy/ui/hooks';
 import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
-import { screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { EventDetailsSheet } from './-event-details-sheet';
 import { EventFormDialog } from './-event-form-dialog';
 import { GovernmentHolidaysDialog } from './-government-holidays-dialog';
+
+import { calendarSearchSchema } from './index';
+
+describe('calendarSearchSchema', () => {
+  it('accepts a well-formed YYYY-MM month', () => {
+    expect(calendarSearchSchema.parse({ month: '2026-09' }).month).toBe('2026-09');
+  });
+
+  it('falls back to undefined instead of crashing the route for a malformed month', () => {
+    // `?month=abc` used to reach `monthRange()`/`addMonths()`, which pass
+    // the parsed parts to `Date.UTC` and call `.toISOString()` on the
+    // result — an invalid date throws `RangeError: Invalid time value`
+    // there instead of falling back to the current month.
+    expect(calendarSearchSchema.parse({ month: 'abc' }).month).toBeUndefined();
+    expect(calendarSearchSchema.parse({ month: '2026-13' }).month).toBeUndefined();
+    expect(calendarSearchSchema.parse({ month: '2026-00' }).month).toBeUndefined();
+  });
+});
 
 /**
  * [17.4.2] — component-level tests, not a full `renderWithRouter` +
@@ -85,6 +103,110 @@ describe('MonthGrid', () => {
       const cell = screen.getByTestId(`day-cell-${day}`);
       expect(within(cell).getByText('Mid-term exams')).toBeTruthy();
     }
+  });
+
+  it('calls onDayClick when a day cell is clicked', () => {
+    const onDayClick = vi.fn();
+    renderWithProviders(
+      <MonthGrid
+        month="2026-09"
+        firstDayOfWeek={0}
+        weeklyOffDays={[5, 6]}
+        events={[]}
+        weekdayLabels={WEEKDAY_LABELS}
+        moreLabel={(count) => `+${count} more`}
+        onDayClick={onDayClick}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('day-cell-2026-09-10'));
+
+    expect(onDayClick).toHaveBeenCalledWith('2026-09-10');
+  });
+
+  it('calls onEventClick, not onDayClick, when an event chip is clicked', () => {
+    const onDayClick = vi.fn();
+    const onEventClick = vi.fn();
+    renderWithProviders(
+      <MonthGrid
+        month="2026-09"
+        firstDayOfWeek={0}
+        weeklyOffDays={[5, 6]}
+        events={[multiDayEvent()]}
+        weekdayLabels={WEEKDAY_LABELS}
+        moreLabel={(count) => `+${count} more`}
+        onDayClick={onDayClick}
+        onEventClick={onEventClick}
+      />,
+    );
+
+    fireEvent.click(screen.getAllByText('Mid-term exams')[0]!);
+
+    expect(onEventClick).toHaveBeenCalledWith('ev-1');
+    expect(onDayClick).not.toHaveBeenCalled();
+  });
+
+  it('moves focus with arrow keys and activates the focused day with Enter/Space', () => {
+    const onDayClick = vi.fn();
+    renderWithProviders(
+      <MonthGrid
+        month="2026-09"
+        firstDayOfWeek={0}
+        weeklyOffDays={[5, 6]}
+        events={[]}
+        weekdayLabels={WEEKDAY_LABELS}
+        moreLabel={(count) => `+${count} more`}
+        onDayClick={onDayClick}
+      />,
+    );
+
+    const startCell = screen.getByTestId('day-cell-2026-09-10');
+    fireEvent.keyDown(startCell, { key: 'ArrowRight' });
+    fireEvent.keyDown(screen.getByTestId('day-cell-2026-09-11'), { key: 'ArrowDown' });
+    fireEvent.keyDown(screen.getByTestId('day-cell-2026-09-18'), { key: 'ArrowLeft' });
+    fireEvent.keyDown(screen.getByTestId('day-cell-2026-09-17'), { key: 'ArrowUp' });
+    fireEvent.keyDown(screen.getByTestId('day-cell-2026-09-10'), { key: ' ' });
+
+    expect(onDayClick).toHaveBeenCalledWith('2026-09-10');
+  });
+
+  it('ignores unrecognized keys and does not move focus or activate a day', () => {
+    const onDayClick = vi.fn();
+    renderWithProviders(
+      <MonthGrid
+        month="2026-09"
+        firstDayOfWeek={0}
+        weeklyOffDays={[5, 6]}
+        events={[]}
+        weekdayLabels={WEEKDAY_LABELS}
+        moreLabel={(count) => `+${count} more`}
+        onDayClick={onDayClick}
+      />,
+    );
+
+    fireEvent.keyDown(screen.getByTestId('day-cell-2026-09-10'), { key: 'Tab' });
+
+    expect(onDayClick).not.toHaveBeenCalled();
+  });
+
+  it("renders a term band and includes the term name in a covered day's label", () => {
+    renderWithProviders(
+      <MonthGrid
+        month="2026-09"
+        firstDayOfWeek={0}
+        weeklyOffDays={[5, 6]}
+        events={[]}
+        terms={[{ id: 't1', name: 'Term 1', startDate: '2026-09-01', endDate: '2026-09-30' }]}
+        weekdayLabels={WEEKDAY_LABELS}
+        moreLabel={(count) => `+${count} more`}
+      />,
+    );
+
+    expect(screen.getByTestId('term-bands')).toBeTruthy();
+    expect(screen.getByText('Term 1')).toBeTruthy();
+    expect(screen.getByTestId('day-cell-2026-09-10').getAttribute('aria-label')).toBe(
+      '2026-09-10 (Term 1)',
+    );
   });
 });
 
@@ -239,6 +361,140 @@ describe('EventFormDialog', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toBe(expectedMessage);
+  });
+
+  it('falls back to the generic message for an unmapped error code', async () => {
+    const body: ApiErrorBody = {
+      statusCode: 422,
+      message: 'Unprocessable',
+      timestamp: new Date().toISOString(),
+      path: '/calendar/events',
+      requestId: 'req-1',
+      details: { code: 'SOMETHING_UNKNOWN' },
+    };
+    const error = new ApiError(body);
+
+    renderWithProviders(
+      <EventFormDialog
+        open
+        onOpenChange={() => {}}
+        mode="create"
+        isPending={false}
+        error={error}
+        onSubmit={() => {}}
+      />,
+      { locale: 'en' },
+    );
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe("Couldn't save this event. Try again.");
+  });
+
+  it('shows a validation error and does not submit when the name is blank', async () => {
+    const onSubmit = vi.fn();
+    renderWithProviders(
+      <EventFormDialog
+        open
+        onOpenChange={() => {}}
+        mode="create"
+        isPending={false}
+        error={null}
+        onSubmit={onSubmit}
+      />,
+      { locale: 'en' },
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Save' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe('Name is required.');
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('shows the invalid-range message when a name is set but dates are missing', async () => {
+    const onSubmit = vi.fn();
+    renderWithProviders(
+      <EventFormDialog
+        open
+        onOpenChange={() => {}}
+        mode="create"
+        isPending={false}
+        error={null}
+        onSubmit={onSubmit}
+      />,
+      { locale: 'en' },
+    );
+
+    fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'New Event' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe('The end date must be on or after the start date.');
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('submits with the prefilled values in edit mode, and titles the dialog "Edit event"', async () => {
+    const onSubmit = vi.fn();
+    const initialValues: CalendarEvent = {
+      id: 'ev-1',
+      academic_year_id: 'ay-1',
+      type: CalendarEventType.EXAM,
+      name: 'Mid-term exam',
+      description: 'All classes',
+      start_date: '2026-09-10',
+      end_date: '2026-09-12',
+      start_time: null,
+      end_time: null,
+      counts_as_working_day: true,
+      audience: CalendarAudience.ALL,
+      class_ids: [],
+      is_locked: false,
+      published: true,
+    };
+    renderWithProviders(
+      <EventFormDialog
+        open
+        onOpenChange={() => {}}
+        mode="edit"
+        initialValues={initialValues}
+        isPending={false}
+        error={null}
+        onSubmit={onSubmit}
+      />,
+      { locale: 'en' },
+    );
+
+    expect(await screen.findByText('Edit event')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Mid-term exam',
+        start_date: '2026-09-10',
+        end_date: '2026-09-12',
+      }),
+    );
+  });
+
+  it('keeps "notify by SMS" disabled until "notify" is checked', async () => {
+    renderWithProviders(
+      <EventFormDialog
+        open
+        onOpenChange={() => {}}
+        mode="create"
+        isPending={false}
+        error={null}
+        onSubmit={() => {}}
+      />,
+      { locale: 'en' },
+    );
+
+    const notifySms = await screen.findByRole('checkbox', { name: 'Also notify by SMS' });
+    expect((notifySms as HTMLButtonElement).disabled).toBe(true);
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Notify affected families/staff' }));
+
+    expect((notifySms as HTMLButtonElement).disabled).toBe(false);
   });
 });
 

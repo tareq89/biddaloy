@@ -9,6 +9,7 @@ import {
   CommunicationStatus,
   CommunicationTrigger,
   countSmsSegments,
+  EnrollmentStatus,
   ReminderBatchStatus,
   STAFF_ROLES,
   UserStatus,
@@ -86,17 +87,20 @@ export class CalendarNotifyService {
    * `notify_sms` flag, and an import batch has no single flag to charge
    * credits against — see the plan comment's documented deviation. */
   async eventsImported(events: CalendarEvent[], opts?: CalendarNotifyOpts): Promise<void> {
-    if (!opts?.notify || events.length === 0) return;
+    // Same D9 guard as notifyOne — a batch that included left-as-draft
+    // rows must not count or notify for them.
+    const publishedEvents = events.filter((event) => event.published_at !== null);
+    if (!opts?.notify || publishedEvents.length === 0) return;
 
-    const tenantId = events[0].tenant_id;
+    const tenantId = publishedEvents[0].tenant_id;
     const userIds = new Set<string>();
-    for (const event of events) {
+    for (const event of publishedEvents) {
       const { pushUserIds } = await this.resolveRecipients(event, tenantId);
       pushUserIds.forEach((id) => userIds.add(id));
     }
 
     const title = 'Calendar updated';
-    const body = `${events.length} new calendar event${events.length === 1 ? '' : 's'} added`;
+    const body = `${publishedEvents.length} new calendar event${publishedEvents.length === 1 ? '' : 's'} added`;
     const url = '/calendar';
 
     const results = await Promise.allSettled(
@@ -121,7 +125,11 @@ export class CalendarNotifyService {
     opts: CalendarNotifyOpts | undefined,
     action: 'created' | 'updated',
   ): Promise<void> {
-    if (!opts?.notify) return;
+    // Defense-in-depth: both callers only pass notify:true for an
+    // already-published event today, but this guard means a draft can
+    // never reach a recipient regardless of what a future caller does —
+    // same D9 rule the rest of the calendar module enforces.
+    if (!opts?.notify || event.published_at === null) return;
 
     // The whole body is best-effort: calendar-events.service.ts's callers
     // (eventCreated/eventUpdated) have no try/catch of their own, so
@@ -218,7 +226,10 @@ export class CalendarNotifyService {
       .leftJoinAndSelect('student.user', 'student_user')
       .leftJoinAndSelect('guardian.user', 'guardian_user')
       .where('student.tenant_id = :tenantId', { tenantId })
-      .andWhere('student.deleted_at IS NULL');
+      .andWhere('student.deleted_at IS NULL')
+      .andWhere('student.enrollment_status = :enrollmentStatus', {
+        enrollmentStatus: EnrollmentStatus.ACTIVE,
+      });
     if (classIds.length > 0) {
       qb.andWhere('class_section.class_id IN (:...classIds)', { classIds });
     }

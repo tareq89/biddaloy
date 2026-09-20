@@ -33,6 +33,7 @@ import {
   CalendarEventType,
   CommunicationMedium,
   CommunicationStatus,
+  EnrollmentStatus,
   UserRole,
   UserStatus,
 } from '@biddaloy/shared';
@@ -274,6 +275,31 @@ describe('CalendarNotifyService (integration)', () => {
     await dataSource
       .getRepository(User)
       .update({ id: guardianUserId }, { status: UserStatus.ACTIVE });
+  });
+
+  it('a student who has left the school no longer pulls in their guardian as a recipient', async () => {
+    const student = await dataSource
+      .getRepository(Student)
+      .findOneOrFail({ where: { user_id: studentUserId, tenant_id: TENANT_ID } });
+    student.enrollment_status = EnrollmentStatus.INACTIVE;
+    await dataSource.getRepository(Student).save(student);
+
+    const event = await makeEvent({ audience: CalendarAudience.ALL });
+    const sendToUser = vi.spyOn(pushService, 'sendToUser').mockResolvedValue(undefined as any);
+
+    await expect(
+      notify.eventCreated(event, { notify: true, userId: adminUserId }),
+    ).resolves.toBeUndefined();
+
+    // Both the withdrawn student and the guardian resolved only through
+    // them must be excluded — staff (ACTIVE) is unaffected.
+    const notifiedUserIds = sendToUser.mock.calls.map((call) => call[0]);
+    expect(notifiedUserIds).not.toContain(studentUserId);
+    expect(notifiedUserIds).not.toContain(guardianUserId);
+    expect(notifiedUserIds).toContain(adminUserId);
+
+    student.enrollment_status = EnrollmentStatus.ACTIVE;
+    await dataSource.getRepository(Student).save(student);
   });
 
   it('push failure never fails the mutation (PushService is a no-op without VAPID config)', async () => {
