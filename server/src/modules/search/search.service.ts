@@ -148,6 +148,7 @@ export class SearchService {
          c.name AS class_name, cs.section_name AS section_name,
          CASE
            WHEN s.full_name ILIKE $2 OR s.registration_number ILIKE $2 OR s.roll_number = $4
+             OR c.name ILIKE $2 OR cs.section_name ILIKE $2
              THEN 'direct'
            ELSE 'guardian_phone'
          END AS matched_via
@@ -160,6 +161,8 @@ export class SearchService {
            s.full_name ILIKE $2
            OR s.registration_number ILIKE $2
            OR s.roll_number = $4
+           OR c.name ILIKE $2
+           OR cs.section_name ILIKE $2
            OR EXISTS (
              SELECT 1 FROM student_guardians sg
              INNER JOIN guardians g ON g.id = sg.guardian_id
@@ -235,7 +238,11 @@ export class SearchService {
   /** Invoices have no `tenant_id` column of their own — tenant scope
    * comes through the owning student, exactly the pattern
    * `InvoicesController.findOne` already uses (`invoice.student.tenant_id
-   * !== tenantId`). */
+   * !== tenantId`). Matches `invoice_number` OR the linked student's
+   * `full_name`, mirroring `InvoicesService`'s own `findAll` search
+   * predicate (`invoice.invoice_number ILIKE :search OR student.full_name
+   * ILIKE :search`) — the join is already here for `student_name` display,
+   * so this reuses it rather than adding a second one. */
   private async searchInvoices(
     tenantId: string,
     term: string,
@@ -251,7 +258,7 @@ export class SearchService {
        WHERE s.tenant_id = $1
          AND s.deleted_at IS NULL
          AND i.deleted_at IS NULL
-         AND i.invoice_number ILIKE $2
+         AND (i.invoice_number ILIKE $2 OR s.full_name ILIKE $2)
        ORDER BY i.invoice_number ASC
        LIMIT $3`,
       [tenantId, like, limit],
@@ -259,6 +266,14 @@ export class SearchService {
     return rows;
   }
 
+  /** Matches `transaction_reference` OR the linked student's `full_name`
+   * OR `registration_number`, mirroring `PaymentsQueryService`'s own
+   * `findAll` search predicate (`payment.transaction_reference ILIKE
+   * :search OR student.full_name ILIKE :search OR student.registration_number
+   * ILIKE :search`). The student join also carries its own `deleted_at IS
+   * NULL`, matching `PaymentsQueryService`'s `leftJoinAndSelect('payment.student',
+   * 'student', 'student.deleted_at IS NULL')` — otherwise a soft-deleted
+   * student's name would still render in `student_name`. */
   private async searchPayments(
     tenantId: string,
     term: string,
@@ -270,10 +285,14 @@ export class SearchService {
     >(
       `SELECT p.id, p.transaction_reference, s.full_name AS student_name
        FROM payments p
-       LEFT JOIN students s ON s.id = p.student_id AND s.tenant_id = $1
+       LEFT JOIN students s ON s.id = p.student_id AND s.tenant_id = $1 AND s.deleted_at IS NULL
        WHERE p.tenant_id = $1
          AND p.deleted_at IS NULL
-         AND p.transaction_reference ILIKE $2
+         AND (
+           p.transaction_reference ILIKE $2
+           OR s.full_name ILIKE $2
+           OR s.registration_number ILIKE $2
+         )
        ORDER BY p.transaction_reference ASC
        LIMIT $3`,
       [tenantId, like, limit],

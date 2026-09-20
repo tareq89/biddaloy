@@ -137,6 +137,19 @@ describe('SearchService', () => {
     expect(result.students?.find((r) => r.id === s1.id)?.matched_via).toBe('direct');
   });
 
+  it('students branch: matches by class or section name (plan Step 3), tagged direct', async () => {
+    const s1 = await makeStudent({ full_name: 'Section Match Student' });
+    const [{ section_name: sectionName }] = await dataSource.query<Array<{ section_name: string }>>(
+      'SELECT section_name FROM class_sections WHERE id = $1',
+      [SEED_SECTION_1_ID],
+    );
+
+    const result = await service.search(SEED_TENANT_ID, UserRole.ADMIN, { q: sectionName });
+
+    expect(result.students?.map((r) => r.id)).toContain(s1.id);
+    expect(result.students?.find((r) => r.id === s1.id)?.matched_via).toBe('direct');
+  });
+
   it('students branch: guardian phone finds linked students, flagged matched_via guardian_phone', async () => {
     const student = await makeStudent({ full_name: 'Karim Child' });
     const guardian = await makeGuardian({ phone: '01799912345', full_name: 'Karim Parent' });
@@ -199,6 +212,26 @@ describe('SearchService', () => {
     expect(result.invoices?.map((r) => r.id)).toContain(invoice.id);
   });
 
+  it("invoices branch: matches the linked student's full name, not just invoice number", async () => {
+    const student = await makeStudent({ full_name: 'Invoice Parity Student' });
+    const invoice = await invoiceRepo.save(
+      invoiceRepo.create({
+        invoice_number: 'INV-SEARCH-0002',
+        student_id: student.id,
+        total_amount: 1000,
+        issued_date: new Date('2026-01-01'),
+        due_date: new Date('2026-01-31'),
+        snapshot: { students: [], totals: {} } as never,
+      } as Partial<Invoice>),
+    );
+
+    const result = await service.search(SEED_TENANT_ID, UserRole.ADMIN, {
+      q: 'Invoice Parity Student',
+    });
+
+    expect(result.invoices?.map((r) => r.id)).toContain(invoice.id);
+  });
+
   it('payments branch: matches transaction reference', async () => {
     const student = await makeStudent();
     const payment = await paymentRepo.save(
@@ -217,6 +250,62 @@ describe('SearchService', () => {
     });
 
     expect(result.payments?.map((r) => r.id)).toContain(payment.id);
+  });
+
+  it("payments branch: matches the linked student's full name or registration number, not just transaction reference", async () => {
+    const student = await makeStudent({
+      full_name: 'Payment Parity Student',
+      registration_number: 'REG-PAY-PARITY',
+    });
+    const payment = await paymentRepo.save(
+      paymentRepo.create({
+        student_id: student.id,
+        total_amount: 500,
+        payment_method: PaymentMethod.CASH,
+        transaction_reference: 'TXN-PARITY-0002',
+        payment_date: new Date('2026-01-01T00:00:00Z'),
+        tenant_id: SEED_TENANT_ID,
+      } as Partial<Payment>),
+    );
+
+    const byName = await service.search(SEED_TENANT_ID, UserRole.ADMIN, {
+      q: 'Payment Parity Student',
+    });
+    expect(byName.payments?.map((r) => r.id)).toContain(payment.id);
+
+    const byRegistration = await service.search(SEED_TENANT_ID, UserRole.ADMIN, {
+      q: 'REG-PAY-PARITY',
+    });
+    expect(byRegistration.payments?.map((r) => r.id)).toContain(payment.id);
+  });
+
+  it("payments branch: a soft-deleted student's name no longer renders in the payment's student_name", async () => {
+    const student = await makeStudent({ full_name: 'Soft Deleted Payer' });
+    const payment = await paymentRepo.save(
+      paymentRepo.create({
+        student_id: student.id,
+        total_amount: 500,
+        payment_method: PaymentMethod.CASH,
+        transaction_reference: 'TXN-SOFT-DELETE-0001',
+        payment_date: new Date('2026-01-01T00:00:00Z'),
+        tenant_id: SEED_TENANT_ID,
+      } as Partial<Payment>),
+    );
+    await studentRepo.softRemove(student);
+
+    const result = await service.search(SEED_TENANT_ID, UserRole.ADMIN, {
+      q: 'TXN-SOFT-DELETE-0001',
+    });
+
+    const match = result.payments?.find((r) => r.id === payment.id);
+    expect(match).toBeDefined();
+    expect(match?.student_name).toBeNull();
+
+    // The soft-deleted student's own name must not surface a payment match either.
+    const byName = await service.search(SEED_TENANT_ID, UserRole.ADMIN, {
+      q: 'Soft Deleted Payer',
+    });
+    expect(byName.payments?.map((r) => r.id)).not.toContain(payment.id);
   });
 
   it('caps every group at the requested limit', async () => {
