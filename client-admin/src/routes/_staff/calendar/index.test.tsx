@@ -14,6 +14,24 @@ import { EventDetailsSheet } from './-event-details-sheet';
 import { EventFormDialog } from './-event-form-dialog';
 import { GovernmentHolidaysDialog } from './-government-holidays-dialog';
 
+import { calendarSearchSchema } from './index';
+
+describe('calendarSearchSchema', () => {
+  it('accepts a well-formed YYYY-MM month', () => {
+    expect(calendarSearchSchema.parse({ month: '2026-09' }).month).toBe('2026-09');
+  });
+
+  it('falls back to undefined instead of crashing the route for a malformed month', () => {
+    // `?month=abc` used to reach `monthRange()`/`addMonths()`, which pass
+    // the parsed parts to `Date.UTC` and call `.toISOString()` on the
+    // result — an invalid date throws `RangeError: Invalid time value`
+    // there instead of falling back to the current month.
+    expect(calendarSearchSchema.parse({ month: 'abc' }).month).toBeUndefined();
+    expect(calendarSearchSchema.parse({ month: '2026-13' }).month).toBeUndefined();
+    expect(calendarSearchSchema.parse({ month: '2026-00' }).month).toBeUndefined();
+  });
+});
+
 /**
  * [17.4.2] — component-level tests, not a full `renderWithRouter` +
  * `routeTree.gen.ts` integration test like `academic-years/index.test.tsx`.

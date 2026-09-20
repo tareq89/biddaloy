@@ -76,6 +76,19 @@ describe('validateCalendarImportRow (17.3.1)', () => {
     expect(errors).toEqual([expect.objectContaining({ column: 'start_time' })]);
   });
 
+  it('rejects an out-of-range seconds component in "HH:mm:ss"', () => {
+    // The shape regex alone matches "12:34:99" — isRealTime() must also
+    // reject a seconds value outside 0-59, not just hours/minutes.
+    const { errors } = validateCalendarImportRow(row({ start_time: '12:34:99' }), 2);
+    expect(errors).toEqual([expect.objectContaining({ column: 'start_time' })]);
+  });
+
+  it('accepts a valid "HH:mm:ss" with seconds present', () => {
+    const { row: parsed, errors } = validateCalendarImportRow(row({ start_time: '12:34:56' }), 2);
+    expect(errors).toEqual([]);
+    expect(parsed?.start_time).toBe('12:34:56');
+  });
+
   it('accepts YES/NO/1/0 as counts_as_working_day synonyms', () => {
     expect(
       validateCalendarImportRow(row({ counts_as_working_day: 'YES' }), 2).row

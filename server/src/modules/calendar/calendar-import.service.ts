@@ -421,6 +421,7 @@ export class CalendarImportService {
             },
             tenantId,
             userId,
+            row.draft.academic_year_id,
           );
           created += 1;
           continue;
@@ -443,6 +444,7 @@ export class CalendarImportService {
           },
           tenantId,
           userId,
+          row.draft.academic_year_id,
         );
         // `update()` never touches `published_at` (only `create()`'s
         // `dto.publish` or the dedicated `publish()` method do) — apply the

@@ -40,8 +40,12 @@ import { CalendarFilters } from './-filters';
 import { GovernmentHolidaysDialog } from './-government-holidays-dialog';
 import { UpcomingPanel } from './-upcoming-panel';
 
-const calendarSearchSchema = z.object({
-  month: z.string().optional().catch(undefined),
+export const calendarSearchSchema = z.object({
+  month: z
+    .string()
+    .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
+    .optional()
+    .catch(undefined),
   types: z.string().optional().catch(undefined),
   view: z.enum(['grid', 'agenda']).optional().catch(undefined),
   class_id: z.string().optional().catch(undefined),

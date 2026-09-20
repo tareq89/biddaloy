@@ -477,4 +477,61 @@ describe('CalendarExportService (integration)', () => {
     const stillThere = await eventRepo.findOneOrFail({ where: { id: unrelatedEvent.id } });
     expect(stillThere.academic_year_id).toBe(unrelatedYear.id);
   });
+
+  it('preserves the explicitly picked target year when academic years overlap', async () => {
+    const yearRepo = dataSource.getRepository(AcademicYear);
+    const eventRepo = dataSource.getRepository(CalendarEvent);
+
+    const leapSource = await yearRepo.save({
+      name: 'Overlap Source Year',
+      start_date: '2050-01-01',
+      end_date: '2050-12-31',
+      tenant_id: TENANT_ID,
+    });
+    const leapTarget = await yearRepo.save({
+      name: 'Overlap Target Year',
+      start_date: '2051-01-01',
+      end_date: '2051-12-31',
+      tenant_id: TENANT_ID,
+    });
+    // A second, overlapping year whose range also contains the clone's
+    // shifted dates — `resolveAcademicYear`'s date-only lookup can't tell
+    // this apart from `leapTarget`, so `commit()` must be told which year
+    // was actually picked rather than re-deriving it from dates alone.
+    await yearRepo.save({
+      name: 'Overlapping Year',
+      start_date: '2051-06-01',
+      end_date: '2052-05-31',
+      tenant_id: TENANT_ID,
+    });
+
+    await eventRepo.save({
+      tenant_id: TENANT_ID,
+      academic_year_id: leapSource.id,
+      type: 'EVENT',
+      name: 'Overlap Clone Event',
+      start_date: '2050-07-10',
+      end_date: '2050-07-10',
+      counts_as_working_day: true,
+      audience: CalendarAudience.ALL,
+      published_at: new Date(),
+    });
+
+    const result = await exportService.cloneToYear(
+      TENANT_ID,
+      SEED_ADMIN_USER_ID,
+      leapSource.id,
+      leapTarget.id,
+      undefined,
+    );
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].status).toBe(CalendarImportRowStatus.NEW);
+
+    await importService.commit(TENANT_ID, SEED_ADMIN_USER_ID, result.staging_id, false);
+
+    const cloned = await eventRepo.findOneOrFail({
+      where: { name: 'Overlap Clone Event', tenant_id: TENANT_ID, start_date: '2051-07-10' },
+    });
+    expect(cloned.academic_year_id).toBe(leapTarget.id);
+  });
 });

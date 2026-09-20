@@ -9,6 +9,7 @@ import {
   CommunicationStatus,
   CommunicationTrigger,
   countSmsSegments,
+  EnrollmentStatus,
   ReminderBatchStatus,
   STAFF_ROLES,
   UserStatus,
@@ -225,7 +226,10 @@ export class CalendarNotifyService {
       .leftJoinAndSelect('student.user', 'student_user')
       .leftJoinAndSelect('guardian.user', 'guardian_user')
       .where('student.tenant_id = :tenantId', { tenantId })
-      .andWhere('student.deleted_at IS NULL');
+      .andWhere('student.deleted_at IS NULL')
+      .andWhere('student.enrollment_status = :enrollmentStatus', {
+        enrollmentStatus: EnrollmentStatus.ACTIVE,
+      });
     if (classIds.length > 0) {
       qb.andWhere('class_section.class_id IN (:...classIds)', { classIds });
     }

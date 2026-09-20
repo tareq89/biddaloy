@@ -350,6 +350,12 @@ export class CalendarExportService {
         audience: row.audience,
         class_ids: targetClassIds,
         description: row.description,
+        // The row's dates were already validated against `targetYear`'s
+        // bounds above (the `shiftedStart`/`shiftedEnd` drop check); pass
+        // the year explicitly rather than letting `commit()` re-derive it
+        // from dates alone, which can't disambiguate two academic years
+        // whose ranges overlap.
+        academic_year_id: targetYearId,
       };
 
       if (!existing) {

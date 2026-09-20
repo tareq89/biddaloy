@@ -63,6 +63,12 @@ export interface StagedCalendarImportRow {
     audience: CalendarAudience;
     class_ids: string[];
     description: string | null;
+    /** Set only by `CalendarExportService.cloneToYear` — the explicitly
+     * picked target year, passed through to `commit()` as a trusted
+     * override so it doesn't get re-derived from dates alone (which can't
+     * disambiguate overlapping academic years). `undefined` for a plain
+     * file import, which has no such pre-selected year. */
+    academic_year_id?: string;
   } | null;
   /** Set when `status` is `UPDATED`/`UNCHANGED` — the existing event this
    * row matched by `(name, start_date)`. */

@@ -42,10 +42,16 @@ function isRealDate(isoDate: string): boolean {
   );
 }
 
-/** `TIME_ONLY` only checks shape — "99:99" matches it. */
+/** `TIME_ONLY` only checks shape — "99:99" (or "12:34:99") matches it. */
 function isRealTime(hhmm: string): boolean {
-  const [hours, minutes] = hhmm.split(':').map(Number);
-  return hours! >= 0 && hours! <= 23 && minutes! >= 0 && minutes! <= 59;
+  const [hours, minutes, seconds] = hhmm.split(':').map(Number);
+  return (
+    hours! >= 0 &&
+    hours! <= 23 &&
+    minutes! >= 0 &&
+    minutes! <= 59 &&
+    (seconds === undefined || (seconds >= 0 && seconds <= 59))
+  );
 }
 const TRUE_WORDS = new Set(['TRUE', 'YES', '1']);
 const FALSE_WORDS = new Set(['FALSE', 'NO', '0', '']);
