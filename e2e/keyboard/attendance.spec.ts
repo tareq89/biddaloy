@@ -57,6 +57,12 @@ test('teacher marks and submits a whole section without touching the mouse', asy
               name: 'biddaloy:activeTenant',
               value: JSON.stringify({ tenantId: membership.tenantId, role: membership.role }),
             },
+            // [30.1.3]: the "Attendance" nav group starts collapsed unless
+            // it owns the active route (/dashboard doesn't). This spec is
+            // about keyboard operability of the attendance flow, not nav
+            // collapse behavior, so seed it expanded like the shared
+            // `loggedIn` fixture does for every other role.
+            { name: 'nav-group-collapsed-v2:attendance', value: 'false' },
           ],
         },
       ],
