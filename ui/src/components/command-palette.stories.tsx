@@ -107,6 +107,7 @@ export const PageTab: Story = {
         onQueryChange={setQuery}
         tabs={[PEOPLE_TAB, PAGE_TAB, ACTION_TAB]}
         onSelect={() => {}}
+        initialTab="page"
       />
     );
   },

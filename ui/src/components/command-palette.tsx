@@ -81,6 +81,12 @@ export interface CommandPaletteProps {
   placeholder?: string;
   description?: string;
   announceResults?: (count: number) => string;
+  /** Overrides which tab is active on mount — D11 still means the palette
+   * opens on People by default (the default here), but a caller that
+   * already knows the viewer wants a specific tab (e.g. a Storybook story
+   * demonstrating the Page tab, or `>`/`/` consuming the first keystroke
+   * before this component ever mounts) can skip the extra keypress. */
+  initialTab?: CommandPaletteTabId;
 }
 
 interface FlatOption {
@@ -107,8 +113,9 @@ export function CommandPalette({
   placeholder = 'Search students, guardians, pages, and actions…',
   description = 'Search across people, pages, and actions. Use the arrow keys to move between results and Enter to open one.',
   announceResults = (count) => `${count} result${count === 1 ? '' : 's'}`,
+  initialTab = 'people',
 }: CommandPaletteProps) {
-  const [activeTab, setActiveTab] = React.useState<CommandPaletteTabId>('people');
+  const [activeTab, setActiveTab] = React.useState<CommandPaletteTabId>(initialTab);
   const [activeIndex, setActiveIndex] = React.useState(-1);
   const listboxId = React.useId();
   const tablistId = React.useId();
@@ -269,7 +276,8 @@ export function CommandPalette({
                 setActiveIndex((index) => Math.max(index - 1, 0));
               } else if (event.key === 'Enter') {
                 if (isPeopleEmptyQuery) {
-                  const item = clampedActiveIndex >= 0 ? recentItems[clampedActiveIndex] : recentItems[0];
+                  const item =
+                    clampedActiveIndex >= 0 ? recentItems[clampedActiveIndex] : recentItems[0];
                   if (item) {
                     event.preventDefault();
                     selectRecentItem(item);
@@ -354,8 +362,9 @@ export function CommandPalette({
             </div>
           ) : totalResults === 0 ? (
             <p className="px-2 py-4 text-sm text-muted-foreground">
-              {(activeTabData.noResultsText ??
-                ((q: string) => `No matches for "${q}".`))(trimmedQuery)}
+              {(activeTabData.noResultsText ?? ((q: string) => `No matches for "${q}".`))(
+                trimmedQuery,
+              )}
             </p>
           ) : (
             <div role="listbox" id={listboxId} aria-label={ariaLabel}>
