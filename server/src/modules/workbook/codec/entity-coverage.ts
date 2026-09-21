@@ -25,6 +25,8 @@ import { WalletTransaction } from '../../fees/entities/wallet-transaction.entity
 import { InvoiceShareToken } from '../../invoices/entities/invoice-share-token.entity';
 import { PushSubscription } from '../../push/entities/push-subscription.entity';
 import { WorkbookJob } from '../jobs/workbook-job.entity';
+import { GradingScale } from '../../grading/entities/grading-scale.entity';
+import { GradingBand } from '../../grading/entities/grading-band.entity';
 
 /**
  * Entities that `registry.completeness.spec.ts` allows to have no workbook
@@ -86,4 +88,6 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   ],
   [StudentWallet, 'Tenant-scoped student wallet balance, no tab yet — tracked in #856.'],
   [WalletTransaction, 'Tenant-scoped wallet transaction history, no tab yet — tracked in #856.'],
+  [GradingScale, 'Tenant-scoped grading scale, no tab yet — tracked in #910.'],
+  [GradingBand, 'Tenant-scoped grading band, no tab yet — tracked in #910.'],
 ]);

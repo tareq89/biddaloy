@@ -39,6 +39,7 @@ import { ImportModule } from './modules/workbook/import/import.module';
 import { TemplateModule } from './modules/workbook/template/template.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { SearchModule } from './modules/search/search.module';
+import { GradingModule } from './modules/grading/grading.module';
 import { validate } from './config/env.validation';
 
 // Entities for auto-loading
@@ -84,6 +85,8 @@ import { AttendanceDevice } from './modules/attendance/entities/attendance-devic
 import { AttendanceDeviceEvent } from './modules/attendance/entities/attendance-device-event.entity';
 import { AuthToken } from './modules/account-access/entities/auth-token.entity';
 import { WorkbookJob } from './modules/workbook/jobs/workbook-job.entity';
+import { GradingScale } from './modules/grading/entities/grading-scale.entity';
+import { GradingBand } from './modules/grading/entities/grading-band.entity';
 
 @Module({
   imports: [
@@ -160,6 +163,8 @@ import { WorkbookJob } from './modules/workbook/jobs/workbook-job.entity';
             AttendanceDeviceEvent,
             AuthToken,
             WorkbookJob,
+            GradingScale,
+            GradingBand,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],
@@ -234,6 +239,7 @@ import { WorkbookJob } from './modules/workbook/jobs/workbook-job.entity';
     TemplateModule,
     ReportsModule,
     SearchModule,
+    GradingModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

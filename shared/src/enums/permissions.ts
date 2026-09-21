@@ -145,6 +145,12 @@ export enum Permission {
   // events, terms, import public holidays) is ADMIN only.
   CALENDAR_READ = 'CALENDAR_READ',
   CALENDAR_MANAGE = 'CALENDAR_MANAGE',
+
+  // Grading
+  // [20.1.1] Manage grading scales/bands (percent-to-grade mapping).
+  // ADMIN only — no read permission: teachers/executives see scales
+  // implicitly through results, not as a standalone list.
+  GRADING_SCALE_MANAGE = 'GRADING_SCALE_MANAGE',
 }
 
 import { UserRole } from './index';
@@ -222,6 +228,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // [17.1.1] School calendar — ADMIN manages, everyone else reads.
     Permission.CALENDAR_READ,
     Permission.CALENDAR_MANAGE,
+    // [20.1.1] Grading scales — ADMIN only.
+    Permission.GRADING_SCALE_MANAGE,
   ],
 
   [UserRole.ACCOUNTANT]: [
