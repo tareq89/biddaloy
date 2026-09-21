@@ -64,8 +64,13 @@ test('Ctrl+3 jumps to the Action tab and a `navigate`-kind action runs, mouse-fr
     await page.keyboard.press('Enter');
   });
 
-  await test.step('the action navigated', async () => {
-    await expect(page).toHaveURL(/\/students\/(new|import)/);
+  await test.step('the action navigated to the real URL, not the internal route id', async () => {
+    // Un-anchored, this would also match the pathless-layout-prefixed
+    // `/_staff/students/new` as a substring — anchor it so a regression
+    // like that (a real bug CodeRabbit caught: action-registry.ts's
+    // navigate() targets carried the internal `/_staff/...` route id
+    // instead of the real path) fails loudly instead of passing by luck.
+    await expect(page).toHaveURL(/^https?:\/\/[^/]+\/students\/(new|import)$/);
   });
 });
 
