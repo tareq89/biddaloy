@@ -1,4 +1,4 @@
-# Biddaloy
+# SchoolManager
 
 A school management system. Monorepo: NestJS backend + Vite React clients.
 

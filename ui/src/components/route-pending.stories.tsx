@@ -13,7 +13,7 @@ function MockShellFrame({ children }: { children: ReactNode }) {
   return (
     <div className="max-w-3xl border border-border-subtle">
       <div className="flex h-14 items-center border-b border-border-subtle bg-surface px-4 text-sm text-muted-foreground">
-        Biddaloy — sticky header (does not move or fade)
+        SchoolManager — sticky header (does not move or fade)
       </div>
       <div className="p-6">{children}</div>
     </div>

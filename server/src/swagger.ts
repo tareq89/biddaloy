@@ -6,7 +6,7 @@ export const DOCS_PATH = 'docs';
 
 export function buildSwaggerDocumentConfig(): Omit<OpenAPIObject, 'paths'> {
   return new DocumentBuilder()
-    .setTitle('biddaloy API')
+    .setTitle('SchoolManager API')
     .setDescription(
       'School fee management API. Every authenticated route additionally requires the ' +
         "X-Tenant-ID header, validated against the caller's memberships by ContextGuard; " +

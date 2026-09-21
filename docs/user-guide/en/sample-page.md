@@ -1,4 +1,4 @@
-# A sample Biddaloy task
+# A sample SchoolManager task
 
 > **Sample content:** This page is a template example. It does not describe a
 > live feature yet.
@@ -15,7 +15,7 @@ who can do it, and when it is useful.
 
 ## Steps
 
-1. Open the relevant area of Biddaloy.
+1. Open the relevant area of SchoolManager.
 2. Choose the action described by the tutorial.
 3. Enter the requested information.
 4. Save the change and check the confirmation message.

@@ -1,6 +1,6 @@
 $schema: https://api.gitbook.com/gitbook-docs.yaml
 site:
-  title: Biddaloy Help Center
+  title: SchoolManager Help Center
   structure:
     - type: space
       key: docs-bn

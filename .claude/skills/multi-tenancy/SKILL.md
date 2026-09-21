@@ -1,7 +1,7 @@
 ---
 name: multi-tenancy
 description: >
-  Enforces Biddaloy's tenant-isolation rules whenever you create or touch a
+  Enforces SchoolManager's tenant-isolation rules whenever you create or touch a
   School-scoped entity, endpoint, query, background job, cache key, file, or
   export. Trigger on: adding a new entity/table, a new controller route, a
   new repository/service query, a new BullMQ job, a new cache key, a new
@@ -10,7 +10,7 @@ description: >
   feature", "add an endpoint", "add a query", or "add a table" in server/.
 ---
 
-# Multi-Tenancy Rules (Biddaloy)
+# Multi-Tenancy Rules (SchoolManager)
 
 For the *why* (the `School`/`UserTenant` model, the JWT/header contract,
 diagrams), see

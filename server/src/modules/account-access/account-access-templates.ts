@@ -40,7 +40,9 @@ const TEMPLATES: Record<
 > = {
   INVITATION: {
     SMS: {
-      en: { body: 'Hi {{name}}, {{school}} invited you to Biddaloy. Set your password: {{link}}' },
+      en: {
+        body: 'Hi {{name}}, {{school}} invited you to SchoolManager. Set your password: {{link}}',
+      },
       bn: {
         body: '{{name}}, {{school}} আপনাকে বিদ্যালয়ে যুক্ত করেছে। পাসওয়ার্ড সেট করুন: {{link}}',
       },
@@ -48,7 +50,7 @@ const TEMPLATES: Record<
     EMAIL: {
       en: {
         subject: 'You have been invited to {{school}}',
-        body: 'Hi {{name}},\n\n{{school}} has invited you to Biddaloy. Set your password using the link below:\n\n{{link}}\n\nThis link expires in 7 days.',
+        body: 'Hi {{name}},\n\n{{school}} has invited you to SchoolManager. Set your password using the link below:\n\n{{link}}\n\nThis link expires in 7 days.',
       },
       bn: {
         subject: '{{school}} থেকে আমন্ত্রণ',

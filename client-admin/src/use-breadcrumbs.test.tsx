@@ -106,6 +106,6 @@ describe('useBreadcrumbs (wired into _staff.tsx)', () => {
       locale: 'en',
     });
 
-    await waitFor(() => expect(document.title).toBe('Rahim Uddin · Students · Biddaloy'));
+    await waitFor(() => expect(document.title).toBe('Rahim Uddin · Students · SchoolManager'));
   });
 });

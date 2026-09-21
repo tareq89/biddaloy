@@ -1,4 +1,4 @@
-# Biddaloy Frontend Design Audit
+# SchoolManager Frontend Design Audit
 
 **Date:** 2026-09-02
 **Scope:** `client-admin/` (the whole SPA) + `ui/` (the shared design system)
@@ -10,7 +10,7 @@ from JSX unless explicitly tagged `[code-inferred]`.
 
 ## 0. Read this first
 
-Biddaloy is **not an un-designed product**. Epic 8.13 ("Visual Design Layer")
+SchoolManager is **not an un-designed product**. Epic 8.13 ("Visual Design Layer")
 landed a 663-line token system, dark mode, density modes, an elevation rollout
 across ~50 components, and a 1,124-line written design contract at
 [`docs/architecture/09-design-direction.md`](../architecture/09-design-direction.md).

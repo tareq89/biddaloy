@@ -7,7 +7,7 @@
 
 ## The core idea: tenants, not a single school
 
-Biddaloy hosts **many independent schools** on one deployment. A `School`
+SchoolManager hosts **many independent schools** on one deployment. A `School`
 row _is_ a tenant. Everything school-specific — students, classes, fees,
 staff — is scoped to exactly one tenant. A single `User` account, however,
 is **not** tenant-scoped: the same person can belong to multiple schools,

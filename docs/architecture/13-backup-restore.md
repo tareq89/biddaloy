@@ -1,6 +1,6 @@
 # Backup and disaster recovery
 
-How Biddaloy's database gets backed up, how to restore it, and what to do
+How SchoolManager's database gets backed up, how to restore it, and what to do
 about the parts a database restore doesn't cover (the object store,
 in-flight background jobs).
 

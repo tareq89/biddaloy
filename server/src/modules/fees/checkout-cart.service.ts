@@ -16,7 +16,7 @@ const OPEN_STATUSES = [FeeStatus.PENDING, FeeStatus.PARTIALLY_PAID];
  * combined-bills sort/allocation walk small. */
 export const MAX_CART_STUDENTS = 10;
 
-/** [D14] All "today" comparisons in Biddaloy go through the tenant's
+/** [D14] All "today" comparisons in SchoolManager go through the tenant's
  * calendar day in Asia/Dhaka, never server-local time — a bill due
  * `2026-09-14` must not flip to "overdue" at UTC midnight, six hours before
  * the school's own midnight. */

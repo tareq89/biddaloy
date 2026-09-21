@@ -20,7 +20,7 @@ Read both before planning any screen.
 
 ## 2. No silent gaps — the registries and their guards
 
-Biddaloy already has several lists that enumerate "everything". The
+SchoolManager already has several lists that enumerate "everything". The
 problem is that most of them are hand-maintained: adding a route to the
 router without adding it to the manifest silently drops that screen out of
 the a11y gate. The fix is one guard per registry.
@@ -58,7 +58,7 @@ review.
 
 Built from a full inventory (672 rows: the reference ERP's nav, its
 permission catalogue of 169 controllers, the analysis report's 136
-features, every existing Biddaloy route, every open epic). 657 rows placed,
+features, every existing SchoolManager route, every open epic). 657 rows placed,
 15 deliberately excluded (vendor quiz game, application-menu registry,
 mobile-app CMS pages, framework plumbing), 0 unplaced. Owners in brackets:
 `have` exists today · `partial` exists but thinner than the reference ·
@@ -237,7 +237,7 @@ more than a plan-time estimate.
 
 - Derived from the TanStack route tree, never hand-written per page.
 - Entity segments show the entity name once loaded (`Students › Rahim Uddin › Fees`), the ID as fallback while loading.
-- Every crumb but the last is a link. The trail also feeds `document.title` (`Fees · Rahim Uddin · Biddaloy`).
+- Every crumb but the last is a link. The trail also feeds `document.title` (`Fees · Rahim Uddin · SchoolManager`).
 - Sits **above** the page title inside the shell header; on phones only the last two crumbs show.
 - Identical placement and behaviour on every screen — staff and portal.
 

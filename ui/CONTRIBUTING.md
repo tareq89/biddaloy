@@ -130,7 +130,7 @@ Any new or visually-changed component or page gets a mockup, approved by a
 human, _before_ any functional implementation plan or real code — not
 after, and not as part of the same pass that builds it.
 
-Build the mockup in the **"Biddaloy Client UI" Claude Design project**
+Build the mockup in the **"SchoolManager Client UI" Claude Design project**
 (see `.design-sync/config.json`), not a freehand Artifact — it renders
 using the actual compiled `@biddaloy/ui` components (real `.d.ts` props,
 real `styles.css`), so what gets approved is pixel-identical to what

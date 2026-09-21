@@ -53,10 +53,10 @@ export interface PwaManifest {
 }
 
 export const pwaManifest: PwaManifest = {
-  name: 'Biddaloy — School Management',
+  name: 'SchoolManager — School Management',
   // Android home screens truncate past ~12 characters, so `short_name` is
   // the bare brand, not a shortened sentence.
-  short_name: 'Biddaloy',
+  short_name: 'SchoolManager',
   description: 'Manage students, fees, attendance and communications for your school.',
   start_url: '/',
   scope: '/',

@@ -48,7 +48,7 @@ import {
 const API = '/api/v1';
 
 /**
- * Biddaloy's RolesGuard answers a role refusal with `UnauthorizedException`
+ * SchoolManager's RolesGuard answers a role refusal with `UnauthorizedException`
  * (`context.guard.ts:139`), so a role-denied route is a **401**, not a 403.
  * Named here so the refusal assertions below read as intent rather than as
  * a typo.

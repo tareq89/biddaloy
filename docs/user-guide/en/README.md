@@ -1,8 +1,8 @@
-# Welcome to Biddaloy 👋
+# Welcome to SchoolManager 👋
 
 Less paperwork. More time for your school.
 
-Biddaloy is designed to help school teams organize everyday work and keep
+SchoolManager is designed to help school teams organize everyday work and keep
 school families connected. This guide will grow into a simple handbook for
 administrators, accountants, teachers, students, and guardians.
 
@@ -20,9 +20,9 @@ Use the language picker at the top of the documentation site to switch to
 
 This starter site contains one sample page while the full customer handbook is
 being prepared. Some examples are intentionally dummy content and do not yet
-describe a live Biddaloy workflow.
+describe a live SchoolManager workflow.
 
 ## Start with the sample
 
-Open [A sample Biddaloy task](sample-page.md) to see the format we will use for
+Open [A sample SchoolManager task](sample-page.md) to see the format we will use for
 future guides.

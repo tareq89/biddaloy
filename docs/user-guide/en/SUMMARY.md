@@ -1,4 +1,4 @@
 # Summary
 
-* [Welcome to Biddaloy](README.md)
-* [A sample Biddaloy task](sample-page.md)
+* [Welcome to SchoolManager](README.md)
+* [A sample SchoolManager task](sample-page.md)

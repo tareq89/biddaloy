@@ -116,7 +116,7 @@ export interface UseBreadcrumbsResult {
    * placeholder pages), so `Breadcrumbs` itself renders nothing there. */
   items: BreadcrumbItem[];
   /** Reversed trail joined with ` · `, e.g. `Fees · Rahim Uddin ·
-   * Biddaloy` — the tab title for routes that do have a trail.
+   * SchoolManager` — the tab title for routes that do have a trail.
    * `undefined` when there is no trail, so the caller can leave
    * `document.title` to whatever already owns it for that route. */
   title: string | undefined;

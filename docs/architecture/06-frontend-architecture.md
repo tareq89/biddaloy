@@ -576,7 +576,7 @@ change — it was already generic over `QueueableEntity`, attendance's
 
 ### Tenant isolation
 
-Same rule as everywhere else in Biddaloy, with two independent mechanisms
+Same rule as everywhere else in SchoolManager, with two independent mechanisms
 because one silent failure shows one school's students under another
 school's name:
 

@@ -2,7 +2,7 @@
 
 **§1–§10:** Epic 8.13, approved 2026-08-28, decided in [#342](https://github.com/tareq89/biddaloy/issues/342), implemented by #343–#354 · **§12–§17:** Epic 8.14, recorded in [#461](https://github.com/tareq89/biddaloy/issues/461) from #365–#460 as shipped
 
-This is the agreed _look_ of Biddaloy (§1–§10: the exact type, colour,
+This is the agreed _look_ of SchoolManager (§1–§10: the exact type, colour,
 elevation, border, density and motion values that epic 8.13 put into the
 code) plus the agreed _interaction contract_ built on top of that look
 (§12–§17: focus, responsive/table grammar, i18n defaults, access states and
@@ -33,7 +33,7 @@ section number.
 
 ## 1. Why this document exists
 
-Biddaloy today uses stock Tailwind defaults: `blue-600` as the brand, the
+SchoolManager today uses stock Tailwind defaults: `blue-600` as the brand, the
 system font stack, `shadow-sm/md/lg` picked ad hoc, one border colour for
 everything. That is not _wrong_ — it is _unowned_. It reads as a template.
 
@@ -94,7 +94,7 @@ actually shipped.
 
 ## 2. Typography — one superfamily, two scripts
 
-Biddaloy renders Bengali and English side by side. A guardian sees
+SchoolManager renders Bengali and English side by side. A guardian sees
 `পরিশোধিত ৳ ১,২০০` on the same row as a Latin date. Two unrelated
 typefaces would show two different apparent weights on one line.
 

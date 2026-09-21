@@ -1,6 +1,6 @@
 # Third-Party Services
 
-What Biddaloy talks to outside its own containers, and what it deliberately
+What SchoolManager talks to outside its own containers, and what it deliberately
 doesn't.
 
 ## Self-hosted infrastructure

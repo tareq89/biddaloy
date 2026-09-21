@@ -13,6 +13,6 @@ if [ ! -f "$SCRIPT_DIR/.env" ]; then
   exit 1
 fi
 
-echo "==> Starting Biddaloy server on port ${PORT:-3000}..."
+echo "==> Starting SchoolManager server on port ${PORT:-3000}..."
 cd "$SCRIPT_DIR/server"
 exec node dist/main.js
