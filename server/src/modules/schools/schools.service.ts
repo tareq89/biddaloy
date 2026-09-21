@@ -1,11 +1,18 @@
-import { Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { MoreThanOrEqual, Repository } from 'typeorm';
+import { EntityManager, MoreThanOrEqual, QueryFailedError, Repository } from 'typeorm';
 import Redis from 'ioredis';
-import type { TenantSettings } from '@biddaloy/shared';
+import type { TenantSettings, OrganisationSettings } from '@biddaloy/shared';
 import { AuditAction, CommunicationStatus, UserStatus } from '@biddaloy/shared';
 import { School } from './entities/school.entity';
-import { TenantSettingsDto } from './dto/tenant-settings.dto';
+import { TenantSettingsDto, OrganisationRenameDto } from './dto/tenant-settings.dto';
 import { resolveTenantSettings } from './settings/tenant-settings-resolver';
 import { mergeTenantSettings, toPlainSettingsPatch } from './settings/tenant-settings-merge.util';
 import { EncryptionService } from './settings/encryption.service';
@@ -13,6 +20,11 @@ import { decryptSecretFields, encryptSecretFields } from './settings/settings-en
 import { maskSecretFields } from './settings/settings-mask.util';
 import { pickPatchShape, redactSecretPaths } from './settings/settings-audit-redact.util';
 import { TenantSettingsCache } from './settings/tenant-settings-cache.service';
+import {
+  diffOrganisationVocabulary,
+  VOCABULARY_LIST_NAMES,
+  VocabularyListName,
+} from './settings/organisation-vocabulary.util';
 import { TENANT_STATUS_REDIS, TenantStatusService } from './tenant-status.service';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
@@ -21,6 +33,8 @@ import { Student } from '../students/entities/student.entity';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { UpdateSchoolStatusDto } from './dto/update-school-status.dto';
+import { Class } from '../academics/entities/class.entity';
+import { ClassSection } from '../academics/entities/class-section.entity';
 
 export interface SchoolStatusResponse {
   id: string;
@@ -199,7 +213,15 @@ export class SchoolsService {
     userId: string,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<Record<string, unknown>> {
-    const plainPatch = toPlainSettingsPatch(dto);
+    // [33.3.1] `organisationRenames` rides alongside the PATCH as a write
+    // instruction, not a stored setting — pulled out of the plain patch
+    // before it ever reaches `mergeTenantSettings`, so it never lands in
+    // the persisted `settings` jsonb.
+    const rawPlainPatch = toPlainSettingsPatch(dto) as Record<string, unknown> & {
+      organisationRenames?: unknown;
+    };
+    const { organisationRenames: _organisationRenames, ...plainPatch } = rawPlainPatch;
+    const renames = dto.organisationRenames ?? [];
     const encryptedPatch = encryptSecretFields(plainPatch, this.encryption);
 
     const settings = await this.repo.manager.transaction(async (manager) => {
@@ -218,8 +240,44 @@ export class SchoolsService {
         plainPatch,
       );
 
+      // [33.3.1] Guard/rename runs inside this same transaction, before the
+      // settings save — a value still in use is rejected before it ever
+      // disappears from `organisation`, and a rename's row rewrite commits
+      // atomically with the settings change that renamed it (both, or
+      // neither, on any later failure/rollback).
+      if (encryptedPatch.organisation !== undefined) {
+        await this.applyOrganisationVocabularyGuard(
+          manager,
+          schoolId,
+          (school.settings as Record<string, unknown> | null)?.organisation as
+            OrganisationSettings | undefined,
+          encryptedPatch.organisation as OrganisationSettings,
+          renames,
+        );
+      } else if (renames.length > 0) {
+        throw new BadRequestException(
+          'organisationRenames requires an organisation patch in the same request.',
+        );
+      }
+
       school.settings = mergeTenantSettings(school.settings, encryptedPatch);
       await schoolRepo.save(school);
+
+      // [money-tier review] `organisationRenames` is stripped from
+      // `plainPatch` before it ever reaches the stored settings (it's a
+      // write instruction, not a setting), but that means it's otherwise
+      // invisible in the audit trail — a bulk row rewrite across the
+      // tenant's `classes`/`class_sections` would audit as a plain
+      // settings edit, with no record of which value became which or how
+      // many rows moved. Added back in here, audit-only, alongside the
+      // settings diff it rode in with.
+      const auditNewValues =
+        renames.length > 0
+          ? {
+              ...plainPatch,
+              organisationRenames: renames.map((r) => ({ list: r.list, from: r.from, to: r.to })),
+            }
+          : plainPatch;
 
       await this.auditService.record(
         {
@@ -231,7 +289,7 @@ export class SchoolsService {
           ip_address: context.ip,
           user_agent: context.userAgent,
           old_values: redactSecretPaths(oldSnapshot),
-          new_values: redactSecretPaths(plainPatch),
+          new_values: redactSecretPaths(auditNewValues),
         },
         manager,
       );
@@ -246,6 +304,183 @@ export class SchoolsService {
       this.encryption,
       this.logMaskingFailure(schoolId),
     );
+  }
+
+  /**
+   * [33.3.1] Guards an `organisation` vocabulary change and applies any
+   * accompanying rename, inside `updateSettings`'s existing transaction —
+   * see that method's own comment for why this doesn't open a second one.
+   *
+   * For every list (`shifts`/`versions`/`groups`):
+   *  - a value present in `oldOrg` but absent from `newOrg`, with no
+   *    matching rename, is a removal — rejected if any `classes` (shifts/
+   *    versions) or `class_sections` (groups) row still uses it, message
+   *    naming the value and the count.
+   *  - a value covered by an explicit `{ list, from, to }` rename skips
+   *    that removal check and instead rewrites every matching row to the
+   *    new value, in the same transaction as the settings save.
+   *
+   * What the transaction actually buys: atomicity between the guard, the
+   * rename's row rewrite, and the settings save — all three commit or
+   * roll back together. It does **not** exclude a concurrent
+   * `ClassService.create`/`update`: both read the tenant's vocabulary
+   * through `SchoolSettingsReader`'s cache *before* opening their own
+   * transaction, so under read-committed a create/update can still commit
+   * using a value this call just removed or renamed away from (the
+   * create-vs-remove half is `ClassService.create`'s own known,
+   * out-of-scope race; update-vs-rename is the same root cause).
+   *
+   * That window isn't microseconds either: `TenantSettingsCache` is
+   * process-local with a 30s TTL, and `invalidate()` (called right after
+   * this transaction commits) only clears *this* process's copy. On a
+   * multi-replica deploy, a create/update served by a replica that didn't
+   * handle this PATCH can keep validating against the pre-rename/removal
+   * vocabulary for up to 30 real seconds afterward — no unlucky timing
+   * required, just two replicas.
+   * ponytail: no cross-table lock or cross-replica invalidation guards
+   * this — revisit only if it actually produces a stale-vocabulary row a
+   * customer hits.
+   */
+  private async applyOrganisationVocabularyGuard(
+    manager: EntityManager,
+    tenantId: string,
+    oldOrg: OrganisationSettings | undefined,
+    newOrg: OrganisationSettings,
+    renames: OrganisationRenameDto[],
+  ): Promise<void> {
+    const diff = diffOrganisationVocabulary(oldOrg, newOrg);
+
+    const renamesByList = new Map<VocabularyListName, OrganisationRenameDto>();
+    for (const rename of renames) {
+      if (renamesByList.has(rename.list)) {
+        throw new BadRequestException(
+          `Only one rename per list is supported; "${rename.list}" was given twice.`,
+        );
+      }
+      if (!(oldOrg?.[rename.list] ?? []).includes(rename.from)) {
+        throw new BadRequestException(
+          `Cannot rename "${rename.from}" in "${rename.list}" — it is not a currently configured value.`,
+        );
+      }
+      if (!newOrg[rename.list].includes(rename.to)) {
+        throw new BadRequestException(
+          `Rename target "${rename.to}" in "${rename.list}" must be included in the new organisation settings.`,
+        );
+      }
+      // [money-tier review, bug 1] `from` must actually be a *removal* in
+      // this diff, not just present in the old list — old `['Morning']` +
+      // new `['Morning', 'Prabhati']` + rename `Morning→Prabhati` would
+      // otherwise pass both checks above and still fire the row rewrite,
+      // silently folding every `Morning` row into `Prabhati` while
+      // `Morning` stays a live, configured shift. Also rejects the
+      // `from === to` no-op for free.
+      if (!diff[rename.list].removed.includes(rename.from)) {
+        throw new BadRequestException(
+          `Rename "${rename.from}" → "${rename.to}" in "${rename.list}" is a no-op — "${rename.from}" is still in the new organisation settings, so nothing was removed to rename.`,
+        );
+      }
+      // [money-tier review, bug 2] `to` colliding with an *other*,
+      // untouched value already in `oldOrg` would either fold two live
+      // vocabulary values into one (lossy, unmentioned in the plan) or
+      // hit `classes`/`class_sections`' unique index and surface as an
+      // unhandled 500 — reject it explicitly instead.
+      if ((oldOrg?.[rename.list] ?? []).includes(rename.to)) {
+        throw new BadRequestException(
+          `Cannot rename "${rename.from}" to "${rename.to}" in "${rename.list}" — "${rename.to}" is already a configured value.`,
+        );
+      }
+      renamesByList.set(rename.list, rename);
+    }
+
+    for (const list of VOCABULARY_LIST_NAMES) {
+      const rename = renamesByList.get(list);
+
+      for (const removedValue of diff[list].removed) {
+        if (rename && rename.from === removedValue) continue; // handled by the rename below
+        const count = await this.countVocabularyUsage(manager, list, tenantId, removedValue);
+        if (count > 0) {
+          throw new BadRequestException(
+            `Cannot remove "${removedValue}" from ${list} — ${count} row(s) still use it. Rename it instead, or reassign those rows first.`,
+          );
+        }
+      }
+
+      if (rename) {
+        await this.renameVocabularyUsage(manager, list, tenantId, rename.from, rename.to);
+      }
+    }
+  }
+
+  private async countVocabularyUsage(
+    manager: EntityManager,
+    list: VocabularyListName,
+    tenantId: string,
+    value: string,
+  ): Promise<number> {
+    if (list === 'groups') {
+      return manager
+        .getRepository(ClassSection)
+        .createQueryBuilder('cs')
+        .where('cs.tenant_id = :tenantId', { tenantId })
+        .andWhere('cs.group_name = :value', { value })
+        .andWhere('cs.deleted_at IS NULL')
+        .getCount();
+    }
+    const column = list === 'shifts' ? 'shift' : 'version';
+    return manager
+      .getRepository(Class)
+      .createQueryBuilder('c')
+      .where('c.tenant_id = :tenantId', { tenantId })
+      .andWhere(`c.${column} = :value`, { value })
+      .andWhere('c.deleted_at IS NULL')
+      .getCount();
+  }
+
+  private async renameVocabularyUsage(
+    manager: EntityManager,
+    list: VocabularyListName,
+    tenantId: string,
+    from: string,
+    to: string,
+  ): Promise<void> {
+    try {
+      if (list === 'groups') {
+        await manager
+          .createQueryBuilder()
+          .update(ClassSection)
+          .set({ group_name: to })
+          .where('tenant_id = :tenantId', { tenantId })
+          .andWhere('group_name = :from', { from })
+          .execute();
+        return;
+      }
+      const column = list === 'shifts' ? 'shift' : 'version';
+      await manager
+        .createQueryBuilder()
+        .update(Class)
+        .set({ [column]: to } as Partial<Class>)
+        .where('tenant_id = :tenantId', { tenantId })
+        .andWhere(`${column} = :from`, { from })
+        .execute();
+    } catch (err) {
+      // [money-tier review, bug 2] The `rename.to` pre-check above rejects
+      // a collision with the tenant's *other configured* values, but not
+      // every row-level collision — a soft-deleted class/section can still
+      // hold the target value (`classes`' unique index has no `deleted_at`
+      // filter — see `countVocabularyUsage`'s own comment for why that's
+      // deliberate for the *usage count*, unrelated to this rewrite). Same
+      // 23505→409 mapping `UsersService`/`bulk-upload.service.ts` already
+      // use, rather than a raw 500.
+      if (
+        err instanceof QueryFailedError &&
+        (err as unknown as { code?: string }).code === '23505'
+      ) {
+        throw new ConflictException(
+          `Cannot rename "${from}" to "${to}" in "${list}" — "${to}" collides with an existing row.`,
+        );
+      }
+      throw err;
+    }
   }
 
   private statsKey(schoolId: string): string {

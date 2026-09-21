@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, ConflictException } from '@nestjs/common';
+import { QueryFailedError } from 'typeorm';
 import { plainToInstance } from 'class-transformer';
 import { randomBytes } from 'crypto';
 import { AuditAction } from '@biddaloy/shared';
@@ -8,6 +9,8 @@ import { TenantSettingsDto } from './dto/tenant-settings.dto';
 import { DEFAULT_REGION_SETTINGS } from './settings/tenant-settings-defaults';
 import { EncryptionService } from './settings/encryption.service';
 import { TenantSettingsCache } from './settings/tenant-settings-cache.service';
+import { Class } from '../academics/entities/class.entity';
+import { ClassSection } from '../academics/entities/class-section.entity';
 
 const REQUEST_CONTEXT = { ip: '10.0.0.1', userAgent: 'vitest' };
 
@@ -45,6 +48,88 @@ function fakeAuditService() {
 
 function fakeTenantStatus() {
   return { invalidate: vi.fn(), isActive: vi.fn() };
+}
+
+/**
+ * [33.3.1] `updateSettings`'s organisation-vocabulary guard/rename reads
+ * `Class`/`ClassSection` through `manager.getRepository(...)` and rewrites
+ * rows through `manager.createQueryBuilder().update(...)` — both inside the
+ * *same* `manager.transaction(...)` callback `fakeRepo` above already
+ * stands in for. This variant dispatches `getRepository` by entity so
+ * those two calls resolve to configurable, independent fakes rather than
+ * always returning the `School` repo.
+ */
+function fakeVocabularyRepo(
+  school: { id: string; settings: unknown } | null,
+  options: {
+    classCount?: number;
+    classSectionCount?: number;
+    saveError?: Error;
+    renameConflictError?: Error;
+  } = {},
+) {
+  const { classCount = 0, classSectionCount = 0, saveError, renameConflictError } = options;
+  const classUpdateExecute = vi.fn(async () => {
+    if (renameConflictError) throw renameConflictError;
+    return { affected: 1 };
+  });
+  const classSectionUpdateExecute = vi.fn(async () => {
+    if (renameConflictError) throw renameConflictError;
+    return { affected: 1 };
+  });
+
+  const schoolRepo = {
+    createQueryBuilder: vi.fn(() => ({
+      where: vi.fn().mockReturnThis(),
+      setLock: vi.fn().mockReturnThis(),
+      getOne: vi.fn(async () => school),
+    })),
+    save: vi.fn(async (s: typeof school) => {
+      if (saveError) throw saveError;
+      return s;
+    }),
+  };
+  const classRepo = {
+    createQueryBuilder: vi.fn(() => ({
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      getCount: vi.fn(async () => classCount),
+    })),
+  };
+  const classSectionRepo = {
+    createQueryBuilder: vi.fn(() => ({
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      getCount: vi.fn(async () => classSectionCount),
+    })),
+  };
+
+  const manager = {
+    getRepository: vi.fn((entity: unknown) => {
+      if (entity === Class) return classRepo;
+      if (entity === ClassSection) return classSectionRepo;
+      return schoolRepo;
+    }),
+    createQueryBuilder: vi.fn(() => ({
+      update: vi.fn((entity: unknown) => ({
+        set: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        execute: entity === ClassSection ? classSectionUpdateExecute : classUpdateExecute,
+      })),
+    })),
+  };
+
+  return {
+    schoolRepo,
+    classRepo,
+    classSectionRepo,
+    classUpdateExecute,
+    classSectionUpdateExecute,
+    findOne: vi.fn(async () => school),
+    find: vi.fn(async () => []),
+    manager: { transaction: vi.fn(async (cb: any) => cb(manager)) },
+  };
 }
 
 describe('SchoolsService', () => {
@@ -548,6 +633,265 @@ describe('SchoolsService', () => {
         communications: { whatsapp: { phoneNumberId: 'new-id' } },
       });
       expect(entry.old_values).not.toHaveProperty('communications.sms');
+    });
+  });
+
+  describe('updateSettings — organisation vocabulary guard [33.3.1]', () => {
+    function makeService(repo: ReturnType<typeof fakeVocabularyRepo>) {
+      return new SchoolsService(
+        repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
+        encryption,
+        settingsCache,
+        auditService as any,
+        tenantStatus as any,
+      );
+    }
+
+    it('allows removing a shift no class currently uses', async () => {
+      const school = {
+        id: 's1',
+        settings: {
+          version: 1,
+          organisation: { shifts: ['Morning', 'Day'], versions: [], groups: [] },
+        },
+      };
+      const repo = fakeVocabularyRepo(school, { classCount: 0 });
+      const service = makeService(repo);
+
+      const patch = plainToInstance(TenantSettingsDto, {
+        version: 1,
+        organisation: { shifts: ['Morning'], versions: [], groups: [] },
+      });
+
+      await service.updateSettings('s1', patch, 'user-1', REQUEST_CONTEXT);
+
+      expect(repo.schoolRepo.save).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects removing a shift used by two classes, naming the count', async () => {
+      const school = {
+        id: 's1',
+        settings: {
+          version: 1,
+          organisation: { shifts: ['Morning', 'Day'], versions: [], groups: [] },
+        },
+      };
+      const repo = fakeVocabularyRepo(school, { classCount: 2 });
+      const service = makeService(repo);
+
+      const patch = plainToInstance(TenantSettingsDto, {
+        version: 1,
+        organisation: { shifts: ['Morning'], versions: [], groups: [] },
+      });
+
+      await expect(service.updateSettings('s1', patch, 'user-1', REQUEST_CONTEXT)).rejects.toThrow(
+        /"Day".*2/,
+      );
+      expect(repo.schoolRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('rewrites rows and saves settings together, in the same transaction, on an explicit rename', async () => {
+      const school = {
+        id: 's1',
+        settings: {
+          version: 1,
+          organisation: { shifts: ['Morning', 'Day'], versions: [], groups: [] },
+        },
+      };
+      const repo = fakeVocabularyRepo(school, { classCount: 2 });
+      const service = makeService(repo);
+
+      const patch = plainToInstance(TenantSettingsDto, {
+        version: 1,
+        organisation: { shifts: ['Morning', 'Prohor'], versions: [], groups: [] },
+        organisationRenames: [{ list: 'shifts', from: 'Day', to: 'Prohor' }],
+      });
+
+      await service.updateSettings('s1', patch, 'user-1', REQUEST_CONTEXT);
+
+      // The rename's row rewrite and the settings save both happened, off
+      // the one `manager` the single `manager.transaction(...)` call
+      // handed the callback — not two separate transactions.
+      expect(repo.classUpdateExecute).toHaveBeenCalledTimes(1);
+      expect(repo.schoolRepo.save).toHaveBeenCalledTimes(1);
+      const saved = repo.schoolRepo.save.mock.calls[0][0];
+      expect(saved.settings.organisation.shifts).toEqual(['Morning', 'Prohor']);
+    });
+
+    it('rolls back the row rewrite together with the settings save when the save fails mid-way', async () => {
+      const school = {
+        id: 's1',
+        settings: {
+          version: 1,
+          organisation: { shifts: ['Morning', 'Day'], versions: [], groups: [] },
+        },
+      };
+      const saveError = new Error('save failed');
+      const repo = fakeVocabularyRepo(school, { classCount: 2, saveError });
+      const service = makeService(repo);
+
+      const patch = plainToInstance(TenantSettingsDto, {
+        version: 1,
+        organisation: { shifts: ['Morning', 'Prohor'], versions: [], groups: [] },
+        organisationRenames: [{ list: 'shifts', from: 'Day', to: 'Prohor' }],
+      });
+
+      // Both the rename's row rewrite and the settings save ran inside the
+      // one `manager.transaction(...)` call below — a real Postgres
+      // transaction rolls back everything that ran inside it (including
+      // the already-executed row rewrite) when any statement in it fails,
+      // which is exactly what this single call boundary buys: there is no
+      // second transaction the rewrite could have already committed to.
+      await expect(service.updateSettings('s1', patch, 'user-1', REQUEST_CONTEXT)).rejects.toThrow(
+        'save failed',
+      );
+      expect(repo.classUpdateExecute).toHaveBeenCalledTimes(1);
+      expect(repo.manager.transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not persist organisationRenames itself into the stored settings', async () => {
+      const school = {
+        id: 's1',
+        settings: {
+          version: 1,
+          organisation: { shifts: ['Morning', 'Day'], versions: [], groups: [] },
+        },
+      };
+      const repo = fakeVocabularyRepo(school, { classCount: 0 });
+      const service = makeService(repo);
+
+      const patch = plainToInstance(TenantSettingsDto, {
+        version: 1,
+        organisation: { shifts: ['Morning', 'Prohor'], versions: [], groups: [] },
+        organisationRenames: [{ list: 'shifts', from: 'Day', to: 'Prohor' }],
+      });
+
+      await service.updateSettings('s1', patch, 'user-1', REQUEST_CONTEXT);
+
+      const saved = repo.schoolRepo.save.mock.calls[0][0];
+      expect(saved.settings).not.toHaveProperty('organisationRenames');
+    });
+
+    it('[money-tier review, bug 1] rejects a rename whose "from" is not actually removed from the list', async () => {
+      const school = {
+        id: 's1',
+        settings: { version: 1, organisation: { shifts: ['Morning'], versions: [], groups: [] } },
+      };
+      const repo = fakeVocabularyRepo(school, { classCount: 5 });
+      const service = makeService(repo);
+
+      // "Morning" stays in the new list — this rename would otherwise
+      // silently rewrite every Morning row to Prabhati while Morning
+      // itself remains a live, configured shift.
+      const patch = plainToInstance(TenantSettingsDto, {
+        version: 1,
+        organisation: { shifts: ['Morning', 'Prabhati'], versions: [], groups: [] },
+        organisationRenames: [{ list: 'shifts', from: 'Morning', to: 'Prabhati' }],
+      });
+
+      await expect(service.updateSettings('s1', patch, 'user-1', REQUEST_CONTEXT)).rejects.toThrow(
+        /no-op/,
+      );
+      expect(repo.classUpdateExecute).not.toHaveBeenCalled();
+      expect(repo.schoolRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('[money-tier review, bug 2] rejects a rename target that already exists in the vocabulary, before writing', async () => {
+      const school = {
+        id: 's1',
+        settings: {
+          version: 1,
+          organisation: { shifts: ['Morning', 'Evening', 'Day'], versions: [], groups: [] },
+        },
+      };
+      const repo = fakeVocabularyRepo(school, { classCount: 3 });
+      const service = makeService(repo);
+
+      // Renaming Morning -> Evening would fold two live vocabulary values
+      // into one — Evening is already configured and untouched.
+      const patch = plainToInstance(TenantSettingsDto, {
+        version: 1,
+        organisation: { shifts: ['Evening', 'Day'], versions: [], groups: [] },
+        organisationRenames: [{ list: 'shifts', from: 'Morning', to: 'Evening' }],
+      });
+
+      await expect(service.updateSettings('s1', patch, 'user-1', REQUEST_CONTEXT)).rejects.toThrow(
+        /already a configured value/,
+      );
+      expect(repo.classUpdateExecute).not.toHaveBeenCalled();
+      expect(repo.schoolRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('[money-tier review, bug 2] maps a row-level unique-index collision on rename to 409, not 500', async () => {
+      const school = {
+        id: 's1',
+        settings: {
+          version: 1,
+          organisation: { shifts: ['Morning', 'Day'], versions: [], groups: [] },
+        },
+      };
+      const driverError = Object.assign(new Error('duplicate key value'), { code: '23505' });
+      const conflictError = new QueryFailedError('UPDATE', [], driverError);
+      const repo = fakeVocabularyRepo(school, {
+        classCount: 1,
+        renameConflictError: conflictError,
+      });
+      const service = makeService(repo);
+
+      const patch = plainToInstance(TenantSettingsDto, {
+        version: 1,
+        organisation: { shifts: ['Morning', 'Prohor'], versions: [], groups: [] },
+        organisationRenames: [{ list: 'shifts', from: 'Day', to: 'Prohor' }],
+      });
+
+      await expect(service.updateSettings('s1', patch, 'user-1', REQUEST_CONTEXT)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(repo.schoolRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('records the rename instruction(s) in the audit trail alongside the settings diff', async () => {
+      const school = {
+        id: 's1',
+        settings: {
+          version: 1,
+          organisation: { shifts: ['Morning', 'Day'], versions: [], groups: [] },
+        },
+      };
+      const repo = fakeVocabularyRepo(school, { classCount: 0 });
+      const service = makeService(repo);
+
+      const patch = plainToInstance(TenantSettingsDto, {
+        version: 1,
+        organisation: { shifts: ['Morning', 'Prohor'], versions: [], groups: [] },
+        organisationRenames: [{ list: 'shifts', from: 'Day', to: 'Prohor' }],
+      });
+
+      await service.updateSettings('s1', patch, 'user-1', REQUEST_CONTEXT);
+
+      expect(auditService.record).toHaveBeenCalledTimes(1);
+      const [entry] = auditService.record.mock.calls[0];
+      expect((entry.new_values as any).organisationRenames).toEqual([
+        { list: 'shifts', from: 'Day', to: 'Prohor' },
+      ]);
     });
   });
 

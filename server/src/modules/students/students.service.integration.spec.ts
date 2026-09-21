@@ -3,6 +3,7 @@ import { NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { StudentService, GuardianService } from './students.service';
+import { QueryStudentIdsDto } from './dto/students.dto';
 import { Student } from './entities/student.entity';
 import { Guardian } from './entities/guardian.entity';
 import { Enrollment } from './entities/enrollment.entity';
@@ -705,6 +706,117 @@ describe('StudentService (integration)', () => {
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0].full_name).toBe('Younger Student');
+    });
+
+    // [33.3.1] shift/version filter via `class_section.class`.
+    describe('shift/version filters', () => {
+      it('filters to only students enrolled in a class with the given version', async () => {
+        const classRepo = dataSource.getRepository(Class);
+        const sectionRepo = dataSource.getRepository(ClassSection);
+        const englishClass = await classRepo.save(
+          classRepo.create({
+            name: 'English Medium',
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            tenant_id: TENANT_ID,
+            version: 'English',
+          }),
+        );
+        const englishSection = await sectionRepo.save(
+          sectionRepo.create({
+            section_name: 'A',
+            class_id: englishClass.id,
+            tenant_id: TENANT_ID,
+          }),
+        );
+        await studentRepo.save(
+          studentRepo.create({
+            full_name: 'Bangla Student',
+            registration_number: 'REG-2026-0011',
+            roll_number: 11,
+            class_section_id: SEED_SECTION_1_ID,
+            tenant_id: TENANT_ID,
+            date_of_birth: new Date('2010-01-01'),
+          }),
+        );
+        await studentRepo.save(
+          studentRepo.create({
+            full_name: 'English Student',
+            registration_number: 'REG-2026-0012',
+            roll_number: 12,
+            class_section_id: englishSection.id,
+            tenant_id: TENANT_ID,
+            date_of_birth: new Date('2010-01-01'),
+          }),
+        );
+
+        const result = await service.findAll(
+          { version: 'English', page: 1, limit: 10 } as any,
+          TENANT_ID,
+        );
+
+        expect(result.data.map((s) => s.full_name)).toEqual(['English Student']);
+      });
+
+      it('returns an empty page for a version value that matches no student, not a 500', async () => {
+        const result = await service.findAll(
+          { version: 'Nonexistent Version', page: 1, limit: 10 } as any,
+          TENANT_ID,
+        );
+
+        expect(result.data).toEqual([]);
+        expect(result.total).toBe(0);
+      });
+
+      // [money-tier review, bug 3] `findAllIds` (the audience-picker's
+      // "select all matching" action) must honour shift/version too — a
+      // missing filter here would silently over-broaden a communications
+      // audience to every enrollment-status/search match, ignoring the
+      // shift/version the paginated list was just filtered by.
+      it('findAllIds also filters by shift/version, matching findAll', async () => {
+        const classRepo = dataSource.getRepository(Class);
+        const sectionRepo = dataSource.getRepository(ClassSection);
+        const englishClass = await classRepo.save(
+          classRepo.create({
+            name: 'English Medium (ids)',
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            tenant_id: TENANT_ID,
+            version: 'English',
+          }),
+        );
+        const englishSection = await sectionRepo.save(
+          sectionRepo.create({
+            section_name: 'A',
+            class_id: englishClass.id,
+            tenant_id: TENANT_ID,
+          }),
+        );
+        await studentRepo.save(
+          studentRepo.create({
+            full_name: 'Bangla Student (ids)',
+            registration_number: 'REG-2026-0021',
+            roll_number: 21,
+            class_section_id: SEED_SECTION_1_ID,
+            tenant_id: TENANT_ID,
+            date_of_birth: new Date('2010-01-01'),
+          }),
+        );
+        const englishStudent = await studentRepo.save(
+          studentRepo.create({
+            full_name: 'English Student (ids)',
+            registration_number: 'REG-2026-0022',
+            roll_number: 22,
+            class_section_id: englishSection.id,
+            tenant_id: TENANT_ID,
+            date_of_birth: new Date('2010-01-01'),
+          }),
+        );
+
+        const query: QueryStudentIdsDto = { version: 'English' };
+        const result = await service.findAllIds(query, TENANT_ID);
+
+        expect(result.ids).toEqual([englishStudent.id]);
+        expect(result.total).toBe(1);
+      });
     });
 
     // [8.14.9] search now also matches via the student's guardian(s).

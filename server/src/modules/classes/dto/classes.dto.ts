@@ -72,6 +72,19 @@ export class QueryClassDto {
   @IsUUID()
   academic_year_id?: string;
 
+  // [33.3.1] Filters the classes list to a single organisation-vocabulary
+  // value. Unknown/nonexistent value → no matching rows (empty page), same
+  // as any other filter that happens to match nothing — never a 500.
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  shift?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  version?: string;
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()

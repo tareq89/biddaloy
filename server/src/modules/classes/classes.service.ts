@@ -154,6 +154,15 @@ export class ClassService {
     if (query.academic_year_id) {
       where.academic_year_id = query.academic_year_id;
     }
+    // [33.3.1] Plain equality filters, like `academic_year_id` above — an
+    // unknown/nonexistent value just matches nothing (empty page), never a
+    // 500.
+    if (query.shift) {
+      where.shift = query.shift;
+    }
+    if (query.version) {
+      where.version = query.version;
+    }
 
     const [data, total] = await this.repo.findAndCount({
       where,

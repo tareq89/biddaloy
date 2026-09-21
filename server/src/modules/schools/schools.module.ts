@@ -29,6 +29,13 @@ import { AuditLog } from '../audit/entities/audit-log.entity';
 import { CreditsModule } from '../communications/credits/credits.module';
 import { SchoolSmsCreditsController } from './sms-credits/sms-credits.controller';
 import { SmsCreditsService } from './sms-credits/sms-credits.service';
+// [33.3.1] Entity-only registration (no ClassModule import) — same
+// reasoning as Student above: SchoolsService's vocabulary guard needs to
+// count/rewrite Class/ClassSection rows on an `organisation` settings
+// change without a cross-module DI cycle (ClassModule already imports
+// SchoolsModule for SchoolSettingsReader).
+import { Class } from '../academics/entities/class.entity';
+import { ClassSection } from '../academics/entities/class-section.entity';
 
 const TENANT_SETTINGS_CACHE_TTL_MS = 30_000;
 
@@ -58,6 +65,8 @@ export function encryptionServiceFactory(config: ConfigService): EncryptionServi
       AuditLog,
       User,
       AuthToken,
+      Class,
+      ClassSection,
     ]),
     ConfigModule,
     AuditModule,

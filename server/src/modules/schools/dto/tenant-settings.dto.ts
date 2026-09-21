@@ -12,9 +12,11 @@ import {
   Min,
   Max,
   Validate,
+  ValidateNested,
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiExtraModels, ApiProperty, ApiPropertyOptional, getSchemaPath } from '@nestjs/swagger';
 import { Secret } from '../settings/secret-field.decorator';
 import { NestedSettings } from '../settings/nested-settings.decorator';
@@ -511,9 +513,42 @@ export class FeesSettingsDto {
   lateFees?: Partial<Record<FeeType, LateFeeRuleDto>>;
 }
 
+/**
+ * [33.3.1] An explicit rename instruction for one `organisation` vocabulary
+ * list, carried alongside a settings PATCH rather than inferred from the
+ * `organisation` diff itself — inferring "Morning removed, Prabhati added"
+ * as a rename would turn an unrelated delete-then-add into a silent mass
+ * `UPDATE` of every `classes`/`class_sections` row using the deleted value.
+ * `SchoolsService.updateSettings` strips this out of the persisted
+ * `settings` jsonb before merging (it's an instruction *for* this write,
+ * not a stored setting) and uses it to rewrite affected rows in the same
+ * transaction as the settings save.
+ */
+export class OrganisationRenameDto {
+  @IsIn(['shifts', 'versions', 'groups'])
+  list: 'shifts' | 'versions' | 'groups';
+
+  @IsString()
+  @IsNotEmpty()
+  from: string;
+
+  @IsString()
+  @IsNotEmpty()
+  to: string;
+}
+
 export class TenantSettingsDto {
   @IsIn([TENANT_SETTINGS_SCHEMA_VERSION])
   version: typeof TENANT_SETTINGS_SCHEMA_VERSION;
+
+  /** [33.3.1] See `OrganisationRenameDto`. Not part of the stored settings
+   * shape — a write instruction only. */
+  @ApiPropertyOptional({ type: [OrganisationRenameDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => OrganisationRenameDto)
+  organisationRenames?: OrganisationRenameDto[];
 
   @OptionalSetting()
   @NestedSettings(() => RegionSettingsDto)
