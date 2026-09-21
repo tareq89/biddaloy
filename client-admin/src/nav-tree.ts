@@ -28,6 +28,11 @@ export interface StaffNavItemDef {
   /** Omitted → every signed-in staff role sees the item (e.g. Dashboard). */
   readonly permission?: Permission;
   readonly label: StaffNavLabel;
+  /** [30.5.1] Extra terms `CommandPalette`'s Page tab matches this item
+   * against, alongside its translated `label` (en + bn) — plain-language
+   * synonyms staff actually type ("routine" for the class timetable) that
+   * would otherwise dead-end the search with no match. */
+  readonly synonyms?: readonly string[];
 }
 
 export interface StaffNavGroupDef {
@@ -93,6 +98,7 @@ export const STAFF_NAV_ITEMS = {
     to: '/attendance',
     permission: Permission.ATTENDANCE_READ,
     label: { key: 'attendance' },
+    synonyms: ['routine', 'timetable'],
   },
   'attendance.attendanceReports': {
     id: 'attendance.attendanceReports',
@@ -196,6 +202,23 @@ export const STAFF_NAV_ITEMS = {
  * already auto-hides an empty group (`app-shell.tsx`'s
  * `NavGroupSection`), so it renders nothing until [19.0] gives it a route.
  */
+/** [30.5.1] `CommandPalette`'s Page-tab match predicate: does `query`
+ * appear in the item's already-resolved display `label`, or in one of
+ * its `synonyms`? Pure and React-free so it is unit-testable directly,
+ * without rendering the palette — `command-palette-launcher.tsx` is the
+ * only caller. An empty `query` never matches anything: the Page tab
+ * shows a searchable hint for an empty query rather than every item. */
+export function matchesNavSearch(
+  label: string,
+  synonyms: readonly string[] | undefined,
+  query: string,
+): boolean {
+  const trimmed = query.trim().toLowerCase();
+  if (trimmed === '') return false;
+  if (label.toLowerCase().includes(trimmed)) return true;
+  return (synonyms ?? []).some((synonym) => synonym.toLowerCase().includes(trimmed));
+}
+
 export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
   {
     id: 'people',

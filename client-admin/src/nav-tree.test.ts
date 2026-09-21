@@ -3,7 +3,7 @@ import { createRouter } from '@tanstack/react-router';
 import { describe, expect, it } from 'vitest';
 
 import { NOT_IN_NAV } from './nav-not-in-nav';
-import { STAFF_NAV_GROUPS, STAFF_NAV_ITEMS } from './nav-tree';
+import { matchesNavSearch, STAFF_NAV_GROUPS, STAFF_NAV_ITEMS } from './nav-tree';
 import { routeTree } from './routeTree.gen';
 
 function allGroupItems() {
@@ -147,5 +147,30 @@ describe('nav-tree completeness against routeTree.gen.ts', () => {
       .map(([id]) => id);
 
     expect(empty, `NOT_IN_NAV entry(ies) missing a reason: ${empty.join(', ')}`).toEqual([]);
+  });
+});
+
+describe('matchesNavSearch — CommandPalette Page tab (30.5.1)', () => {
+  it('matches on the item label', () => {
+    expect(matchesNavSearch('Attendance', undefined, 'attend')).toBe(true);
+  });
+
+  it('matches on a synonym, e.g. "routine" for the attendance item', () => {
+    const item = STAFF_NAV_ITEMS['attendance.attendance'];
+    expect(item.synonyms).toContain('routine');
+    expect(matchesNavSearch('Attendance', item.synonyms, 'routine')).toBe(true);
+  });
+
+  it('is case-insensitive', () => {
+    expect(matchesNavSearch('Attendance', undefined, 'ATTEND')).toBe(true);
+  });
+
+  it('never matches an empty query', () => {
+    expect(matchesNavSearch('Attendance', ['routine'], '')).toBe(false);
+    expect(matchesNavSearch('Attendance', ['routine'], '   ')).toBe(false);
+  });
+
+  it('does not match an unrelated term', () => {
+    expect(matchesNavSearch('Attendance', ['routine', 'timetable'], 'invoice')).toBe(false);
   });
 });

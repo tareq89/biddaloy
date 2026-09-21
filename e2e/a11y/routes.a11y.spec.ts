@@ -4,7 +4,7 @@ import { adminApiSession, createStudentWithDues } from '../api';
 import { expect, guest, loggedIn, test } from '../fixtures/test';
 import type { SeedRole } from '../seed-contract';
 import { resolvePath, routes, type ManifestRoute } from '../responsive/routes';
-import { overlayOpeners } from './overlay-openers';
+import { GLOBAL_OVERLAY_KEYS, overlayOpeners } from './overlay-openers';
 import { expectNoAxeViolations } from './assert';
 
 /**
@@ -103,5 +103,27 @@ for (const { locale, theme } of VARIANTS) {
         });
       });
     }
+
+    // [30.4.3]/[30.5.1] Global overlays — `CommandPalette` and
+    // `ShortcutsSheet` — have no URL, so they sit outside the per-route
+    // `routes` loop above. Opened from `/dashboard`, an arbitrary staff
+    // route that's always reachable for the `admin` seed role.
+    test.describe('$global overlays', () => {
+      test.use({ ...loggedIn('admin'), e2eLocale: locale });
+
+      for (const key of GLOBAL_OVERLAY_KEYS) {
+        test(`${key} has zero axe violations`, async ({ page }) => {
+          if (theme === 'dark') {
+            await page.addInitScript(() => localStorage.setItem('biddaloy:theme', 'dark'));
+          }
+          await page.goto('/dashboard');
+          await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+          const opener = overlayOpeners[key];
+          if (!opener) throw new Error(`no opener for ${key}`);
+          await opener(page, locale);
+          await expectNoAxeViolations(page, '[role="dialog"]');
+        });
+      }
+    });
   });
 }

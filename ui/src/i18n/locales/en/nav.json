@@ -93,23 +93,32 @@
       "info": "Info"
     }
   },
-  "globalSearch": {
+  "commandPalette": {
     "buttonLabel": "Search (Ctrl+K)",
-    "ariaLabel": "Search everything",
-    "title": "Search",
-    "placeholder": "Search students, guardians, teachers, invoices, receipts…",
-    "description": "Search across students, guardians, teachers, invoices, and receipts. Use the arrow keys to move between results and Enter to open one.",
-    "searchableHint": "Search by student name, roll number, guardian, teacher, invoice number, or receipt reference.",
-    "noResults": "No matches for \"{{query}}\". Try a name, roll number, invoice number, or receipt reference.",
+    "ariaLabel": "Command palette",
+    "title": "Command palette",
+    "placeholder": "Search students, guardians, pages, and actions…",
+    "description": "Search across people, pages, and actions. Use the arrow keys to move between results and Enter to open one.",
+    "searchableHint": "Search by student name, roll number, guardian, staff, or invoice number.",
+    "pageSearchableHint": "Search for a page by name.",
+    "actionSearchableHint": "Search for an action to run.",
+    "noResults": "No matches for \"{{query}}\".",
     "resultCount": "{{count}} result",
     "resultCountPlural": "{{count}} results",
-    "receiptFallbackLabel": "Receipt for ৳{{amount}}",
+    "receiptFallbackLabel": "Receipt",
+    "tabs": {
+      "people": "People",
+      "page": "Page",
+      "action": "Action"
+    },
     "groups": {
       "students": "Students",
       "guardians": "Guardians",
-      "teachers": "Teachers",
+      "staff": "Staff",
       "invoices": "Invoices",
-      "receipts": "Receipts"
+      "payments": "Receipts",
+      "pages": "Pages",
+      "actions": "Actions"
     },
     "shortcutHint": "Ctrl+K",
     "launcherPlaceholder": "Search…"

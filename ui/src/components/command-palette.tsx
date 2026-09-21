@@ -48,9 +48,24 @@ import * as React from 'react';
 import { useRecentItems } from '../hooks/recent-items';
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from './dialog';
-import type { GlobalSearchGroup, GlobalSearchResult } from './global-search';
 import { Input } from './input';
 import { Skeleton } from './skeleton';
+
+/** [30.5.1] Moved here from the now-deleted `global-search.tsx` — this
+ * was that component's own result-group shape, and `CommandPalette` is
+ * the only consumer left once `GlobalSearch` was retired. */
+export interface GlobalSearchResult {
+  id: string;
+  label: string;
+  description?: string;
+}
+
+export interface GlobalSearchGroup {
+  id: string;
+  label: string;
+  results: readonly GlobalSearchResult[];
+  isLoading?: boolean;
+}
 
 export type CommandPaletteTabId = 'people' | 'page' | 'action';
 
@@ -151,6 +166,17 @@ export function CommandPalette({
   const totalResults = isPeopleEmptyQuery ? recentItems.length : options.length;
   const anyLoading = activeTabData.groups.some((group) => group.isLoading);
   const clampedActiveIndex = activeIndex >= totalResults ? totalResults - 1 : activeIndex;
+  // [30.5.1] Mirrors exactly which branch below renders a `role="listbox"`
+  // element bearing `id={listboxId}` — an empty query (either tab), the
+  // loading-skeleton branch, and the "no results" branch all render
+  // neither. `aria-controls` pointing at an id with no matching element
+  // is an `aria-valid-attr-value` violation (caught by a real axe scan
+  // the moment the palette opens on People with no recents and nothing
+  // typed yet — `$global::command-palette`'s own overlay opener), so the
+  // input only claims to control the listbox while one actually exists.
+  const hasListbox = isPeopleEmptyQuery
+    ? recentItems.length > 0
+    : trimmedQuery !== '' && !(anyLoading && totalResults === 0) && totalResults !== 0;
 
   function optionId(index: number): string {
     return `${listboxId}-option-${index}`;
@@ -321,6 +347,15 @@ export function CommandPalette({
           aria-labelledby={tabElementId(activeTabData.id)}
           className="max-h-96 overflow-y-auto border-t border-border-subtle p-2"
         >
+          {/* `role="combobox"` requires `aria-controls` to name a real
+           * element (`aria-required-attr`) even while nothing is shown
+           * below — the hint/skeleton/no-results branches below render
+           * no `id={listboxId}` element of their own, so this empty
+           * placeholder stands in for it exactly when `hasListbox` is
+           * false, keeping the input's `aria-controls` always valid. */}
+          {!hasListbox && (
+            <div role="listbox" id={listboxId} aria-label={ariaLabel} className="sr-only" />
+          )}
           {isPeopleEmptyQuery ? (
             recentItems.length > 0 ? (
               <div role="listbox" id={listboxId} aria-label={ariaLabel}>
