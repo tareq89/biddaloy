@@ -77,6 +77,7 @@ const excluded: readonly string[] = [
   'class_id', // exported instead as the `class` ref column, keyed by the referenced tab's natural key
   'subject_id', // exported instead as the `subject` ref column, keyed by the subject's `code`
   'academic_year_id', // exported instead as the `academic_year` ref column, keyed by the referenced tab's natural key
+  'is_graded_only', // [20.1.1] not exported by this tab yet — tracked in #910
 ];
 
 export const classSubjectsTab: TabSpec<ClassSubject, ClassSubjectRow> = {

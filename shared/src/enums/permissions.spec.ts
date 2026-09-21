@@ -470,3 +470,29 @@ describe('calendar role grants [17.1.1]', () => {
     });
   }
 });
+
+describe('grading-scale permissions [20.1.1]', () => {
+  it('grants GRADING_SCALE_MANAGE to ADMIN', () => {
+    expect(ROLE_PERMISSIONS[UserRole.ADMIN]).toContain(Permission.GRADING_SCALE_MANAGE);
+  });
+
+  it('grants GRADING_SCALE_MANAGE to SUPER_ADMIN, which holds every permission', () => {
+    expect(ROLE_PERMISSIONS[UserRole.SUPER_ADMIN]).toContain(Permission.GRADING_SCALE_MANAGE);
+  });
+
+  // No read permission: teachers/executives see scales implicitly through
+  // results, not as a standalone list — so every non-admin role is denied.
+  const ROLES_WITHOUT_GRADING_SCALE_MANAGE = [
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    UserRole.TEACHER,
+    UserRole.PARENT,
+    UserRole.STUDENT,
+  ] as const;
+
+  for (const role of ROLES_WITHOUT_GRADING_SCALE_MANAGE) {
+    it(`withholds GRADING_SCALE_MANAGE from ${role}`, () => {
+      expect(ROLE_PERMISSIONS[role]).not.toContain(Permission.GRADING_SCALE_MANAGE);
+    });
+  }
+});

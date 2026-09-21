@@ -24,6 +24,8 @@ import {
  */
 export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'workbook_jobs',
+  'grading_bands',
+  'grading_scales',
   'push_subscriptions',
   'attendance_device_events',
   'attendance_records',
