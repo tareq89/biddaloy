@@ -51,7 +51,9 @@ describe('/guardians/$guardianId', () => {
       locale: 'en',
     });
 
-    await waitFor(() => expect(screen.getByText('Abdul Karim')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 1, name: 'Abdul Karim' })).toBeTruthy(),
+    );
     expect(screen.getByRole('tab', { name: 'Information', selected: true })).toBeTruthy();
     await screen.findByText('+880 1712-345678');
     expect(screen.getByText('karim@example.com')).toBeTruthy();
@@ -235,7 +237,9 @@ describe('/guardians/$guardianId', () => {
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() => expect(patchedBody?.full_name).toBe('Abdul Karim Updated'));
-    await waitFor(() => expect(screen.getByText('Abdul Karim Updated')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 1, name: 'Abdul Karim Updated' })).toBeTruthy(),
+    );
   });
 
   it('Edit clearing an optional field sends it as empty, not omitted, so it actually clears', async () => {
@@ -341,7 +345,7 @@ describe('/guardians/$guardianId', () => {
       locale: 'en',
     });
 
-    await screen.findByText('Abdul Karim');
+    await screen.findByRole('heading', { level: 1, name: 'Abdul Karim' });
     await expect(container).toHaveNoViolations();
   });
 });

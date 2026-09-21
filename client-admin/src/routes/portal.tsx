@@ -3,6 +3,7 @@ import {
   AppHeader,
   AppShell,
   BottomNav,
+  Breadcrumbs,
   SyncStatusIndicator,
   TenantBar,
   ThemeToggle,
@@ -12,8 +13,10 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 import { RequireRole } from '@biddaloy/ui/routes';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
 import { CalendarDaysIcon, CreditCardIcon, HomeIcon, UserRoundIcon } from 'lucide-react';
+import * as React from 'react';
 
 import { loadRouteNamespaces } from '../route-loaders';
+import { useBreadcrumbs } from '../use-breadcrumbs';
 
 /**
  * [8.9.10]'s guardian half of one SPA — the family-facing audience
@@ -67,6 +70,21 @@ function PortalLayout() {
   // restores the previous value on unmount, so navigating (or going Back) to
   // a staff route leaves the document compact again.
   useDensity('comfortable');
+
+  // [30.3.3]: same wiring `_staff.tsx` uses — `ROUTE_CRUMBS` marks every
+  // `/portal/*` leaf `null` today (this shell uses bottom-tab nav, not
+  // breadcrumb chrome), so `breadcrumbItems` is always empty and
+  // `breadcrumbTitle` always `undefined` here in practice. Wired
+  // identically anyway so a future portal route that does get a crumb
+  // entry needs no new plumbing, and so `use-route-focus.ts`'s own
+  // `document.title` fallback keeps owning every page in this shell,
+  // unchanged, exactly as it does today.
+  const { items: breadcrumbItems, title: breadcrumbTitle } = useBreadcrumbs(t('brand'));
+  React.useEffect(() => {
+    if (breadcrumbTitle !== undefined) {
+      document.title = breadcrumbTitle;
+    }
+  }, [breadcrumbTitle]);
 
   // `FEE_READ`/`INVOICE_READ` are what `ROLE_PERMISSIONS[PARENT]` and
   // `[STUDENT]` actually hold, so `AppShell`'s own `visibleItems()` filter
@@ -139,6 +157,13 @@ function PortalLayout() {
         skipLinkLabel={t('skipToContent')}
         bottomNav={<BottomNav items={navItems} label={t('bottomNavLabel')} />}
       >
+        {breadcrumbItems.length > 0 && (
+          <Breadcrumbs
+            items={breadcrumbItems}
+            aria-label={t('breadcrumb.navLabel')}
+            className="mb-4"
+          />
+        )}
         <Outlet />
       </AppShell>
     </RequireRole>

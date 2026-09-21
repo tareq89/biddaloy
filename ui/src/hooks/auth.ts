@@ -74,10 +74,16 @@ async function adoptSession(
  * query — every cached query in this app is tenant-scoped, per `tenant.ts`'s
  * own reasoning) runs in a `finally`, so a browser that's actually offline
  * still ends up logged out locally even though the server never heard about
- * it. The network error (if any) still propagates after that cleanup —
- * nothing calls this today, so there's no UI yet choosing whether to
- * surface "logged out, but couldn't reach the server"; a future caller that
- * wants to should wrap the call in its own `.catch()`.
+ * it. The network error (if any) is swallowed here rather than left to
+ * propagate: every current caller (`logout`/`logoutAll` in
+ * `staff-user-menu.tsx`, `security.tsx`, `account.tsx`, `select-school.tsx`)
+ * already discards it identically — local cleanup always ran, the button
+ * always navigates away regardless — so propagating it just forces each
+ * caller to repeat the same empty `catch`, and `select-school.tsx`'s
+ * `void logout(...).finally(...)` doesn't catch it at all, which was a real
+ * unhandled-rejection source (surfaced as a flaky `account.test.tsx` failure
+ * whenever the mocked logout call errored, since the rejection escaped
+ * before that test's own `.catch()` could matter).
  */
 /**
  * `postAuthLogin` (the network call) plus everything a real login needs to
@@ -219,6 +225,8 @@ async function endSession(
 ): Promise<void> {
   try {
     await postAuthLogout(endpoint);
+  } catch {
+    // Best-effort: see this function's own doc comment above.
   } finally {
     resetSessionBootstrap();
     clearAuthState();

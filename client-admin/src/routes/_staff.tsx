@@ -4,6 +4,7 @@ import {
   AppHeader,
   AppShell,
   BottomNav,
+  Breadcrumbs,
   LocaleSwitcher,
   NotificationBell,
   SyncStatusIndicator,
@@ -40,6 +41,7 @@ import {
   UsersRoundIcon,
   WalletIcon,
 } from 'lucide-react';
+import * as React from 'react';
 import type { ReactNode } from 'react';
 
 import { CommandPaletteLauncher } from '../components/command-palette-launcher';
@@ -53,6 +55,7 @@ import {
 } from '../nav-tree';
 import { loadRouteNamespaces } from '../route-loaders';
 import { STAFF_ROUTE_PERMISSIONS } from '../route-permissions';
+import { useBreadcrumbs } from '../use-breadcrumbs';
 
 /** [30.1.3] One icon per `STAFF_NAV_ITEMS` id — `nav-tree.ts` stays
  * JSX-free (importable from a plain `.test.ts`), so the `ReactNode` side of
@@ -162,6 +165,17 @@ function StaffLayout() {
   const requiredPermission = leafRouteId ? STAFF_ROUTE_PERMISSIONS[leafRouteId] : undefined;
   const onDenied = () => void navigate({ to: '/' });
   const isAuditLogsRoute = leafRouteId === '/_staff/audit-logs/';
+
+  // [30.3.3]: `document.title` for a route with a breadcrumb trail is
+  // owned here, not by `useRouteFocus` (`__root.tsx`) — see that hook's
+  // own comment on the `[data-slot="breadcrumbs"]` check it uses to stay
+  // out of the way once this trail is on the page.
+  const { items: breadcrumbItems, title: breadcrumbTitle } = useBreadcrumbs(t('brand'));
+  React.useEffect(() => {
+    if (breadcrumbTitle !== undefined) {
+      document.title = breadcrumbTitle;
+    }
+  }, [breadcrumbTitle]);
 
   // [30.1.3]: entity nouns route through `useEntityLabel` ([30.1.2]) —
   // one hook call per entity used anywhere in `STAFF_NAV_GROUPS`, at the
@@ -332,6 +346,13 @@ function StaffLayout() {
           navLabel={t('navLabel')}
           skipLinkLabel={t('skipToContent')}
         >
+          {breadcrumbItems.length > 0 && (
+            <Breadcrumbs
+              items={breadcrumbItems}
+              aria-label={t('breadcrumb.navLabel')}
+              className="mb-4"
+            />
+          )}
           {requiredPermission ? (
             <RequirePermission
               permission={requiredPermission}

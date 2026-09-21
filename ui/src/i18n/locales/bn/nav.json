@@ -127,6 +127,7 @@
   },
   "routeProgress": { "label": "পাতা লোড হচ্ছে…" },
   "routePending": { "label": "লোড হচ্ছে…" },
+  "breadcrumb": { "navLabel": "ব্রেডক্রাম্ব" },
   "commandPalette": {
     "buttonLabel": "খুঁজুন (Ctrl+K)",
     "ariaLabel": "কমান্ড প্যালেট",

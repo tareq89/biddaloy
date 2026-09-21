@@ -108,6 +108,14 @@ export function useRouteFocus({ mainId, appName }: UseRouteFocusOptions): string
   // redundant `document.title` write on a `MutationObserver` callback
   // that fired for something other than a heading change.
   const lastHeadingTextRef = React.useRef<string | null | undefined>(undefined);
+  // [30.3.3]: whether the *last processed* route had a breadcrumb trail —
+  // tracked separately from `lastHeadingTextRef` so that navigating from a
+  // breadcrumb-owned route to a non-breadcrumb route with the *same* `<h1>`
+  // text still forces a title write here. Without this, `headingText !==
+  // lastHeadingTextRef.current` below is false (the text didn't change),
+  // so the write is skipped entirely and the tab keeps the old
+  // breadcrumb-built title even though this hook now owns the title again.
+  const lastHasBreadcrumbTrailRef = React.useRef(false);
   // The pathname last actually processed — `undefined` means "nothing
   // seen yet" (the cold-load case). This, not `lastHeadingTextRef`, is
   // what decides whether focus should move: two *different* routes that
@@ -188,9 +196,28 @@ export function useRouteFocus({ mainId, appName }: UseRouteFocusOptions): string
       // same-route content update (a detail page's `<h1>` going from a
       // loading placeholder to the loaded entity's name, say) should
       // still retitle the tab even though it isn't a page change.
-      if (headingText !== lastHeadingTextRef.current) {
+      //
+      // [30.3.3]: skip this write entirely when a `Breadcrumbs` trail is
+      // rendered for the route (`data-slot="breadcrumbs"`, `ui/src/
+      // components/breadcrumbs.tsx`) — `use-breadcrumbs.ts` (client-
+      // admin) owns `document.title` for those routes instead, building
+      // the full reversed trail rather than just the `<h1>` text. This
+      // hook still owns it everywhere else (pre-auth screens, the
+      // platform console, the guardian portal's placeholder pages) —
+      // routes with no crumb entry at all — so it re-checks the DOM
+      // (same "watch what's actually rendered" approach as the rest of
+      // this hook) instead of taking a prop that would need every
+      // caller, including ones with no breadcrumbs, to thread through.
+      const hasBreadcrumbTrail = container.querySelector('[data-slot="breadcrumbs"] li') !== null;
+      if (
+        headingText !== lastHeadingTextRef.current ||
+        hasBreadcrumbTrail !== lastHasBreadcrumbTrailRef.current
+      ) {
         lastHeadingTextRef.current = headingText;
-        document.title = headingText ? `${headingText} · ${appName}` : appName;
+        lastHasBreadcrumbTrailRef.current = hasBreadcrumbTrail;
+        if (!hasBreadcrumbTrail) {
+          document.title = headingText ? `${headingText} · ${appName}` : appName;
+        }
       }
 
       const isRouteChange = pathname !== lastPathnameRef.current;

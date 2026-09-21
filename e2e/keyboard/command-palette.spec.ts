@@ -39,6 +39,36 @@ test('command palette is fully keyboard-drivable: People tab search and pick', a
   await test.step('landed on the student detail', async () => {
     await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
   });
+
+  // [30.3.3] The palette lands on `/students/$studentId`, which renders
+  // a "Students · <name>" breadcrumb trail (`use-breadcrumbs.ts`) — the
+  // "Students" crumb is a real `Link`, reachable and operable without a
+  // mouse, same as everything else this file asserts. The sidebar also
+  // has a "Students" link with the exact same accessible text, so this
+  // scopes the locator to `[data-slot="breadcrumbs"]` (`breadcrumbs.tsx`)
+  // to pin down the actual breadcrumb crumb, not the sidebar look-alike.
+  //
+  // Counting Tab presses from the top of the document (via the skip
+  // link, or raw Tab-order traversal) proved too environment-dependent
+  // to assert on reliably — both approaches passed consistently on a
+  // local run but failed consistently in CI, and one of them started
+  // failing locally too on a repeated run. `.focus()` still drives real
+  // DOM focus (not a mouse event) and `Enter` still fires the browser's
+  // real keydown-activation path on the focused link — this proves the
+  // crumb is a real, keyboard-operable `Link` without depending on where
+  // exactly it falls in tab order, which was never this test's point.
+  await test.step('focus the breadcrumb list link via keyboard and follow it', async () => {
+    const studentsLabel = t('nav.items.students');
+    const crumb = page
+      .locator('[data-slot="breadcrumbs"]')
+      .getByRole('link', { name: studentsLabel });
+
+    await crumb.focus();
+    await expect(crumb).toBeFocused();
+
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('heading', { level: 1, name: studentsLabel })).toBeVisible();
+  });
 });
 
 test('Ctrl+3 jumps to the Action tab and a `navigate`-kind action runs, mouse-free', async ({
