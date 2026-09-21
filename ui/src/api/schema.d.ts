@@ -4800,6 +4800,11 @@ export interface components {
             allowFutureDates: boolean;
             autoAbsentNotification: components["schemas"]["AutoAbsentNotificationDto"];
         };
+        OrganisationSettingsDto: {
+            shifts: string[];
+            versions: string[];
+            groups: string[];
+        };
         AuthSettingsDto: {
             otpLoginEnabled: boolean;
         };
@@ -4830,6 +4835,7 @@ export interface components {
             region?: components["schemas"]["RegionSettingsDto"];
             communications?: components["schemas"]["CommunicationsSettingsDto"];
             attendance?: components["schemas"]["AttendancePolicyDto"];
+            organisation?: components["schemas"]["OrganisationSettingsDto"];
             auth?: components["schemas"]["AuthSettingsDto"];
             backup?: components["schemas"]["BackupSettingsDto"];
             fees?: components["schemas"]["FeesSettingsDto"];

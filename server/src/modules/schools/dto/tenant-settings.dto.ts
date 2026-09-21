@@ -21,6 +21,7 @@ import { NestedSettings } from '../settings/nested-settings.decorator';
 import { OptionalSetting } from '../settings/optional-setting.decorator';
 import { IsRegexSourceConstraint } from '../settings/regex-source.validator';
 import { SmsProviderIsConfiguredConstraint } from '../settings/sms-provider-config.validator';
+import { UniqueLabelListConstraint } from '../settings/unique-labels.validator';
 import { ApprovalMode, DiscountKind, FeeType, TermLabel } from '@biddaloy/shared';
 import type {
   NumeralSystem,
@@ -351,6 +352,25 @@ export class AttendancePolicyDto {
 }
 
 /**
+ * `organisation.{shifts,versions,groups}` (33.1.1) — a tenant's own
+ * vocabulary for shift/version/group. Each list: trimmed non-empty entries,
+ * at most 50 characters, at most 20 entries, no case-insensitive duplicate.
+ */
+export class OrganisationSettingsDto {
+  @IsArray()
+  @Validate(UniqueLabelListConstraint)
+  shifts: string[];
+
+  @IsArray()
+  @Validate(UniqueLabelListConstraint)
+  versions: string[];
+
+  @IsArray()
+  @Validate(UniqueLabelListConstraint)
+  groups: string[];
+}
+
+/**
  * Per-tenant login policy (12.5). `otpLoginEnabled` is a school's off-switch
  * for passwordless phone+OTP sign-in — not a secret, no `@Secret()`. A user
  * with memberships in several tenants is allowed OTP login only if *every*
@@ -506,6 +526,10 @@ export class TenantSettingsDto {
   @OptionalSetting()
   @NestedSettings(() => AttendancePolicyDto)
   attendance?: AttendancePolicyDto;
+
+  @OptionalSetting()
+  @NestedSettings(() => OrganisationSettingsDto)
+  organisation?: OrganisationSettingsDto;
 
   @OptionalSetting()
   @NestedSettings(() => AuthSettingsDto)

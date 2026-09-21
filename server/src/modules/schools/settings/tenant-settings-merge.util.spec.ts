@@ -111,6 +111,23 @@ describe('mergeTenantSettings', () => {
     });
   });
 
+  it('replaces organisation wholesale when present, and leaves it untouched when the patch omits it (33.1.1)', () => {
+    const existing = {
+      version: 1,
+      organisation: { shifts: ['Morning'], versions: [], groups: [] },
+    };
+
+    const untouched = mergeTenantSettings(existing, toPatch({ version: 1 }));
+    expect(untouched.organisation).toEqual(existing.organisation);
+
+    const patch = toPatch({
+      version: 1,
+      organisation: { shifts: [], versions: ['Bangla'], groups: ['A'] },
+    });
+    const merged = mergeTenantSettings(existing, patch);
+    expect(merged.organisation).toEqual({ shifts: [], versions: ['Bangla'], groups: ['A'] });
+  });
+
   describe('field-level merge within a medium — #8.7.9 PATCH contract', () => {
     it('omitting a secret field from the patch leaves the stored value unchanged', () => {
       const existing = {

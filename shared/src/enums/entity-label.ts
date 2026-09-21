@@ -23,6 +23,11 @@ export const EntityLabel = {
   fee: 'fee',
   invoice: 'invoice',
   payment: 'payment',
+  // [33.1.1] Epic 33.0's org-structure vocabulary. Values live per-tenant on
+  // `TenantSettings.organisation`, not here — this only reserves the keys.
+  shift: 'shift',
+  version: 'version',
+  group: 'group',
 } as const;
 
 export type EntityLabel = (typeof EntityLabel)[keyof typeof EntityLabel];
