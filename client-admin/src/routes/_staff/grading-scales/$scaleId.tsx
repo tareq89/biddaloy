@@ -33,10 +33,7 @@ export const Route = createFileRoute('/_staff/grading-scales/$scaleId')({
       queryClient
         .ensureQueryData(gradingScaleQueryOptions(params.scaleId))
         .catch(swallowUnlessOffline),
-      // `approval` too: saving is approval-gated, and the step-up modal's
-      // `useTranslation('approval')` would otherwise suspend the whole page
-      // (the only <Suspense> is `I18nProvider`'s) the moment it opens.
-      loadRouteNamespaces('grading', 'common', 'approval'),
+      loadRouteNamespaces('grading', 'common'),
     ]),
   pendingComponent: ScaleEditorPending,
   component: ScaleEditorPage,
