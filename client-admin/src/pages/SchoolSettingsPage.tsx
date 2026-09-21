@@ -9,6 +9,7 @@ import { CalendarSection } from './settings/CalendarSection';
 import { EmailSection } from './settings/EmailSection';
 import { FeesSection } from './settings/FeesSection';
 import { MessengerSection } from './settings/MessengerSection';
+import { OrganisationSection } from './settings/OrganisationSection';
 import { RegionalSection } from './settings/RegionalSection';
 import { SchoolProfileSection } from './settings/school-profile-section';
 import { SignInSection } from './settings/SignInSection';
@@ -143,6 +144,12 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
           <CalendarSection schoolId={schoolId} region={settingsQuery.data.region} />
           <div id="attendance-section">
             <AttendanceSection schoolId={schoolId} attendance={settingsQuery.data.attendance} />
+          </div>
+          <div id="organisation-section">
+            <OrganisationSection
+              schoolId={schoolId}
+              organisation={settingsQuery.data.organisation}
+            />
           </div>
           <SignInSection key={schoolId} schoolId={schoolId} auth={settingsQuery.data.auth} />
           <WhatsAppSection
