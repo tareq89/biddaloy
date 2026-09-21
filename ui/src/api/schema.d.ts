@@ -7072,6 +7072,8 @@ export interface operations {
                 search?: string;
                 class_id?: string;
                 section_id?: string;
+                shift?: string;
+                version?: string;
                 enrollment_status?: "ACTIVE" | "INACTIVE" | "TRANSFERRED" | "GRADUATED";
                 gender?: string;
                 date_of_birth_from?: string;

@@ -765,6 +765,56 @@ describe('StudentService (integration)', () => {
         expect(result.data).toEqual([]);
         expect(result.total).toBe(0);
       });
+
+      // [money-tier review, bug 3] `findAllIds` (the audience-picker's
+      // "select all matching" action) must honour shift/version too — a
+      // missing filter here would silently over-broaden a communications
+      // audience to every enrollment-status/search match, ignoring the
+      // shift/version the paginated list was just filtered by.
+      it('findAllIds also filters by shift/version, matching findAll', async () => {
+        const classRepo = dataSource.getRepository(Class);
+        const sectionRepo = dataSource.getRepository(ClassSection);
+        const englishClass = await classRepo.save(
+          classRepo.create({
+            name: 'English Medium (ids)',
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            tenant_id: TENANT_ID,
+            version: 'English',
+          }),
+        );
+        const englishSection = await sectionRepo.save(
+          sectionRepo.create({
+            section_name: 'A',
+            class_id: englishClass.id,
+            tenant_id: TENANT_ID,
+          }),
+        );
+        await studentRepo.save(
+          studentRepo.create({
+            full_name: 'Bangla Student (ids)',
+            registration_number: 'REG-2026-0021',
+            roll_number: 21,
+            class_section_id: SEED_SECTION_1_ID,
+            tenant_id: TENANT_ID,
+            date_of_birth: new Date('2010-01-01'),
+          }),
+        );
+        const englishStudent = await studentRepo.save(
+          studentRepo.create({
+            full_name: 'English Student (ids)',
+            registration_number: 'REG-2026-0022',
+            roll_number: 22,
+            class_section_id: englishSection.id,
+            tenant_id: TENANT_ID,
+            date_of_birth: new Date('2010-01-01'),
+          }),
+        );
+
+        const result = await service.findAllIds({ version: 'English' } as any, TENANT_ID);
+
+        expect(result.ids).toEqual([englishStudent.id]);
+        expect(result.total).toBe(1);
+      });
     });
 
     // [8.14.9] search now also matches via the student's guardian(s).

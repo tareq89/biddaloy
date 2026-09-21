@@ -13,6 +13,9 @@ import { TenantStatusModule } from './tenant-status.module';
 import { AuditService } from '../audit/audit.service';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { User } from '../users/entities/user.entity';
+import { Class } from '../academics/entities/class.entity';
+import { ClassSection } from '../academics/entities/class-section.entity';
+import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_ADMIN_USER_ID, SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD_HASH } from '@test/constants';
@@ -50,6 +53,16 @@ describe('SchoolsService (integration)', () => {
     auditLogRepo = module.get<Repository<AuditLog>>(getRepositoryToken(AuditLog));
     dataSource = module.get(DataSource);
 
+    // [33.3.1] `class.entity.ts` deliberately does not declare the
+    // `NULLS NOT DISTINCT` unique index via `@Index` — TypeORM's decorator
+    // can't express it, so `1789800010700-AddOrganisationDimensions.ts` is
+    // the source of truth, not `synchronize: true` above. This module runs
+    // no migrations, so it's created by hand, matching that migration's
+    // `up()` — same as `classes.service.integration.spec.ts`.
+    await dataSource.query(
+      `CREATE UNIQUE INDEX "IDX_cl_name_year_tenant_shift_version" ON "classes" ("name", "academic_year_id", "tenant_id", "shift", "version") NULLS NOT DISTINCT`,
+    );
+
     const userRepo = dataSource.getRepository(User);
     await userRepo.save(
       userRepo.create({
@@ -70,6 +83,10 @@ describe('SchoolsService (integration)', () => {
   beforeEach(async () => {
     if (dataSource) {
       await dataSource.query('DELETE FROM audit_logs');
+      // FK-safe order — children of `schools` before the row itself.
+      await dataSource.query('DELETE FROM class_sections');
+      await dataSource.query('DELETE FROM classes');
+      await dataSource.query('DELETE FROM academic_years');
       await dataSource.query('DELETE FROM schools');
     }
   });
@@ -189,5 +206,123 @@ describe('SchoolsService (integration)', () => {
     expect(reloaded?.settings).toBeNull();
     const logs = await auditLogRepo.find({ where: { entity_id: school.id } });
     expect(logs).toHaveLength(0);
+  });
+
+  /**
+   * [33.3.1, money-tier review] Real-Postgres coverage the unit specs
+   * (`schools.service.spec.ts`) can't provide — a mocked `manager` can
+   * assert "both calls happened before the mocked save threw", but only a
+   * real transaction can prove the row rewrite actually rolls back, and
+   * only a real unique index can prove a rename collision surfaces as a
+   * `ConflictException` rather than an unhandled 500.
+   */
+  describe('organisation vocabulary guard/rename', () => {
+    async function createSchoolWithClass(shift: string) {
+      const school = await createSchool();
+      await schoolRepo.update(school.id, {
+        settings: { version: 1, organisation: { shifts: [shift], versions: [], groups: [] } },
+      });
+      const yearRepo = dataSource.getRepository(AcademicYear);
+      const year = await yearRepo.save({
+        name: '2026-2027',
+        start_date: '2026-01-01',
+        end_date: '2026-12-31',
+        tenant_id: school.id,
+      });
+      const classRepo = dataSource.getRepository(Class);
+      const klass = await classRepo.save({
+        name: 'Class A',
+        academic_year_id: year.id,
+        tenant_id: school.id,
+        shift,
+      });
+      return { school, year, klass };
+    }
+
+    it('rewrites rows and saves settings together, and both persist after commit', async () => {
+      const { school, klass } = await createSchoolWithClass('Day');
+
+      const patch = plainToInstance(TenantSettingsDto, {
+        version: 1,
+        organisation: { shifts: ['Prohor'], versions: [], groups: [] },
+        organisationRenames: [{ list: 'shifts', from: 'Day', to: 'Prohor' }],
+      });
+      await service.updateSettings(school.id, patch, SEED_ADMIN_USER_ID);
+
+      const classRepo = dataSource.getRepository(Class);
+      const reloadedClass = await classRepo.findOneOrFail({ where: { id: klass.id } });
+      expect(reloadedClass.shift).toBe('Prohor');
+
+      const reloadedSchool = await schoolRepo.findOneOrFail({ where: { id: school.id } });
+      expect((reloadedSchool.settings as any).organisation.shifts).toEqual(['Prohor']);
+    });
+
+    it('rolls back the row rewrite together with the settings save when the write fails mid-transaction', async () => {
+      const { school, klass } = await createSchoolWithClass('Day');
+
+      const patch = plainToInstance(TenantSettingsDto, {
+        version: 1,
+        organisation: { shifts: ['Prohor'], versions: [], groups: [] },
+        organisationRenames: [{ list: 'shifts', from: 'Day', to: 'Prohor' }],
+      });
+
+      // Same FK-violation trick as the audit-rollback test above — a real
+      // Postgres failure inside the same transaction as the row rewrite,
+      // not a mock.
+      await expect(service.updateSettings(school.id, patch, randomUUID())).rejects.toThrow();
+
+      const classRepo = dataSource.getRepository(Class);
+      const reloadedClass = await classRepo.findOneOrFail({ where: { id: klass.id } });
+      expect(reloadedClass.shift).toBe('Day');
+
+      const reloadedSchool = await schoolRepo.findOneOrFail({ where: { id: school.id } });
+      expect((reloadedSchool.settings as any).organisation.shifts).toEqual(['Day']);
+    });
+
+    it('maps a rename target colliding with an existing row to a 4xx, not a 500', async () => {
+      const school = await createSchool();
+      await schoolRepo.update(school.id, {
+        settings: {
+          version: 1,
+          organisation: { shifts: ['Morning', 'Day'], versions: [], groups: [] },
+        },
+      });
+      const yearRepo = dataSource.getRepository(AcademicYear);
+      const year = await yearRepo.save({
+        name: '2026-2027',
+        start_date: '2026-01-01',
+        end_date: '2026-12-31',
+        tenant_id: school.id,
+      });
+      const classRepo = dataSource.getRepository(Class);
+      // Same name/year, different shift — a Morning->Day rename would
+      // rewrite this row's shift into direct collision with the other one.
+      await classRepo.save({
+        name: 'Class A',
+        academic_year_id: year.id,
+        tenant_id: school.id,
+        shift: 'Morning',
+      });
+      await classRepo.save({
+        name: 'Class A',
+        academic_year_id: year.id,
+        tenant_id: school.id,
+        shift: 'Day',
+      });
+
+      const patch = plainToInstance(TenantSettingsDto, {
+        version: 1,
+        organisation: { shifts: ['Day'], versions: [], groups: [] },
+        organisationRenames: [{ list: 'shifts', from: 'Morning', to: 'Day' }],
+      });
+
+      // Bug 2's *first* guard (reject `to` already in `oldOrg`) already
+      // catches this exact case before any row is touched — this proves
+      // the outcome is a clean 4xx either way, not a raw 500 from the
+      // unique index.
+      await expect(
+        service.updateSettings(school.id, patch, SEED_ADMIN_USER_ID),
+      ).rejects.toMatchObject({ status: 400 });
+    });
   });
 });

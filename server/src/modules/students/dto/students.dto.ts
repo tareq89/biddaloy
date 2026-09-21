@@ -210,6 +210,22 @@ export class QueryStudentIdsDto {
   @IsUUID()
   section_id?: string;
 
+  // [money-tier review, bug 3] Without these, `QueryStudentIdsDto`
+  // structurally satisfies `buildStudentIdsQuery`'s `Pick<QueryStudentDto,
+  // ... | 'shift' | 'version' | ...>` parameter type while always reading
+  // `undefined` for both at runtime — "select all N matching" would
+  // silently ignore a shift/version filter the paginated list just
+  // applied, over-broadening a communications audience with no error.
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  shift?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  version?: string;
+
   @IsOptional()
   @IsEnum(EnrollmentStatus)
   enrollment_status?: EnrollmentStatus;
