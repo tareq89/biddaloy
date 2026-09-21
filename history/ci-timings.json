@@ -1,92 +1,111 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-14T11:53:46.736Z",
+  "generatedAt": "2026-09-21T12:05:14.440Z",
   "window": {
     "requestedRuns": 60,
-    "consideredRuns": 55
+    "consideredRuns": 57
   },
-  "failureRate": 0.5818181818181818,
+  "failureRate": 0.22807017543859648,
+  "passRate": 0.7719298245614035,
   "wall": {
-    "n": 55,
-    "medianMs": 737000,
-    "p90Ms": 813000
+    "n": 57,
+    "medianMs": 367000,
+    "p90Ms": 426000
   },
   "jobs": [
     {
-      "name": "Frontend tests",
-      "n": 55,
-      "medianMs": 705000,
-      "p90Ms": 757000
-    },
-    {
-      "name": "E2E (chromium 1/3)",
-      "n": 52,
-      "medianMs": 454000,
-      "p90Ms": 488000
-    },
-    {
-      "name": "E2E (chromium 2/3)",
-      "n": 52,
-      "medianMs": 408000,
-      "p90Ms": 457000
-    },
-    {
-      "name": "E2E (chromium 3/3)",
-      "n": 52,
-      "medianMs": 411000,
-      "p90Ms": 448000
+      "name": "E2E smoke (chromium)",
+      "n": 51,
+      "medianMs": 342000,
+      "p90Ms": 368000
     },
     {
       "name": "Integration & e2e tests",
-      "n": 55,
-      "medianMs": 363000,
-      "p90Ms": 434000
+      "n": 57,
+      "medianMs": 298000,
+      "p90Ms": 331000
     },
     {
-      "name": "Lighthouse (3G budgets)",
-      "n": 55,
-      "medianMs": 0,
-      "p90Ms": 312000
+      "name": "Frontend tests (3/3)",
+      "n": 51,
+      "medianMs": 228000,
+      "p90Ms": 241000
+    },
+    {
+      "name": "Frontend tests (1/3)",
+      "n": 51,
+      "medianMs": 217000,
+      "p90Ms": 234000
+    },
+    {
+      "name": "Frontend tests (2/3)",
+      "n": 51,
+      "medianMs": 212000,
+      "p90Ms": 229000
     },
     {
       "name": "Build, lint, unit tests",
-      "n": 55,
-      "medianMs": 201000,
-      "p90Ms": 239000
+      "n": 57,
+      "medianMs": 158000,
+      "p90Ms": 172000
+    },
+    {
+      "name": "Frontend coverage merge",
+      "n": 57,
+      "medianMs": 46000,
+      "p90Ms": 56000
     },
     {
       "name": "Storybook build",
-      "n": 55,
-      "medianMs": 70000,
-      "p90Ms": 95000
-    },
-    {
-      "name": "Dependency vulnerability scan",
-      "n": 55,
-      "medianMs": 63000,
-      "p90Ms": 92000
+      "n": 57,
+      "medianMs": 41000,
+      "p90Ms": 54000
     },
     {
       "name": "Bundle size delta",
-      "n": 55,
-      "medianMs": 61000,
-      "p90Ms": 89000
+      "n": 57,
+      "medianMs": 32000,
+      "p90Ms": 48000
+    },
+    {
+      "name": "Dependency vulnerability scan",
+      "n": 57,
+      "medianMs": 40000,
+      "p90Ms": 47000
     },
     {
       "name": "Test timings & budgets",
-      "n": 55,
+      "n": 57,
       "medianMs": 10000,
       "p90Ms": 14000
     },
     {
       "name": "Detect changed areas",
-      "n": 55,
+      "n": 57,
       "medianMs": 7000,
       "p90Ms": 8000
     },
     {
-      "name": "E2E (${{ matrix.browser }} ${{ matrix.shard }}/3)",
-      "n": 3,
+      "name": "Nightly quality (merge queue)",
+      "n": 57,
+      "medianMs": 0,
+      "p90Ms": 0
+    },
+    {
+      "name": "Route sweeps (chromium-sweeps)",
+      "n": 57,
+      "medianMs": -1000,
+      "p90Ms": 0
+    },
+    {
+      "name": "Frontend tests (${{ matrix.shard }}/3)",
+      "n": 6,
+      "medianMs": -1000,
+      "p90Ms": 0
+    },
+    {
+      "name": "E2E smoke (${{ matrix.browser }})",
+      "n": 6,
       "medianMs": -1000,
       "p90Ms": 0
     }
