@@ -141,15 +141,6 @@ function ScaleEditorPage() {
 
   const previewBands = usePreviewBands(scaleId);
 
-  if (scaleQuery.isPending || bands === undefined) {
-    return (
-      <div className="flex flex-col gap-2" aria-hidden="true">
-        <Skeleton className="h-8 w-1/3" />
-        <Skeleton className="h-40 w-full" />
-      </div>
-    );
-  }
-
   if (scaleQuery.isError) {
     const forbidden = scaleQuery.error instanceof ApiError && scaleQuery.error.statusCode === 403;
     return (
@@ -157,6 +148,15 @@ function ScaleEditorPage() {
         message={forbidden ? t('detail.forbidden') : t('detail.errorMessage')}
         onRetry={() => void scaleQuery.refetch()}
       />
+    );
+  }
+
+  if (scaleQuery.isPending || bands === undefined) {
+    return (
+      <div className="flex flex-col gap-2" aria-hidden="true">
+        <Skeleton className="h-8 w-1/3" />
+        <Skeleton className="h-40 w-full" />
+      </div>
     );
   }
 

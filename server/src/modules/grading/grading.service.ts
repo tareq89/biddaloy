@@ -48,9 +48,14 @@ export class GradingService {
     if (!year) throw new BadRequestException('Academic year not found in this tenant');
     if (classId) {
       const cls = await this.classRepo.findOne({
-        where: { id: classId, tenant_id: tenantId, deleted_at: IsNull() },
+        where: {
+          id: classId,
+          tenant_id: tenantId,
+          academic_year_id: academicYearId,
+          deleted_at: IsNull(),
+        },
       });
-      if (!cls) throw new BadRequestException('Class not found in this tenant');
+      if (!cls) throw new BadRequestException('Class not found in this academic year');
     }
   }
 

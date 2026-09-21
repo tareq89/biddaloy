@@ -70,7 +70,10 @@ const columns: readonly ColumnSpec[] = [
   {
     key: 'is_graded_only',
     type: 'bool',
-    required: true,
+    // Optional, not required: existing backups predate this column (#910)
+    // and don't carry it. A missing cell defaults to `false` in `fromRow`
+    // below, matching the entity's own `default: false` — required here
+    // would turn every pre-#910 class-subject row into a restore error.
     // [20.4.1] a graded-only subject is scored but excluded from GPA/result
     // composition — same "not this ticket" boundary `GradingBand.gpa`'s own
     // docstring draws.
@@ -223,7 +226,7 @@ export const classSubjectsTab: TabSpec<ClassSubject, ClassSubjectRow> = {
         academic_year_id: academicYearId as string,
         subject_id: subjectId as string,
         is_optional: values.is_optional as boolean,
-        is_graded_only: values.is_graded_only as boolean,
+        is_graded_only: (values.is_graded_only as boolean | null) ?? false,
         class_key: classKey,
         academic_year_key: academicYearKey,
         subject_key: subjectKey,

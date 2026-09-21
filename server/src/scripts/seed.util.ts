@@ -1382,9 +1382,14 @@ export async function ensureGradingDemoSeed(
   );
 
   // --- one graded-only subject, on the override class -------------------
-  let subject = await repos.subjectRepository.findOne({
-    where: { tenant_id: schoolId, code: 'PE' },
-    withDeleted: true,
+  // `subjects(tenant_id, code)` and `class_subjects(class_id, subject_id,
+  // academic_year_id)` are both partial unique indexes — go through
+  // `findLivePreferred`, not a raw `withDeleted` findOne, or a re-run risks
+  // undeleting a dead row into a collision with a live one that already
+  // owns the key (see that helper's own docstring above).
+  let subject = await findLivePreferred(repos.subjectRepository, {
+    tenant_id: schoolId,
+    code: 'PE',
   });
   if (!subject) {
     subject = repos.subjectRepository.create({
@@ -1400,14 +1405,11 @@ export async function ensureGradingDemoSeed(
   }
 
   let gradedOnlySubjects = 0;
-  let classSubject = await repos.classSubjectRepository.findOne({
-    where: {
-      tenant_id: schoolId,
-      class_id: overrideClassId,
-      subject_id: subject.id,
-      academic_year_id: academicYearId,
-    },
-    withDeleted: true,
+  let classSubject = await findLivePreferred(repos.classSubjectRepository, {
+    tenant_id: schoolId,
+    class_id: overrideClassId,
+    subject_id: subject.id,
+    academic_year_id: academicYearId,
   });
   if (!classSubject) {
     classSubject = repos.classSubjectRepository.create({

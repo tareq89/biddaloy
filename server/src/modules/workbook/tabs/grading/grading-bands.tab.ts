@@ -140,6 +140,35 @@ export const gradingBandsTab: TabSpec<GradingBand, GradingBandRow> = {
 
     if (errors.length > 0) return { errors };
 
+    // `percent_from`/`percent_to` are plain `int` columns (no min/max on
+    // `ColumnSpec`) — validated here rather than at persistence, same as
+    // `MAX_LENGTHS` above. `validateBands` stays a whole-scale check (it
+    // needs every band together to check 0-100 coverage); this is the
+    // narrower per-row check it can't do: one band's own range.
+    const percentFrom = values.percent_from as number;
+    const percentTo = values.percent_to as number;
+    if (percentFrom < 0 || percentFrom > 100 || percentTo < 0 || percentTo > 100) {
+      errors.push({
+        tab: 'grading_bands',
+        row: rowNo,
+        column: 'percent_from',
+        message: `Band ${percentFrom}-${percentTo} must be within 0-100.`,
+        severity: 'error',
+        value: cells.percent_from ?? '',
+      });
+    } else if (percentFrom > percentTo) {
+      errors.push({
+        tab: 'grading_bands',
+        row: rowNo,
+        column: 'percent_from',
+        message: `Band's percent_from (${percentFrom}) is after its percent_to (${percentTo}).`,
+        severity: 'error',
+        value: cells.percent_from ?? '',
+      });
+    }
+
+    if (errors.length > 0) return { errors };
+
     let scaleId: string | undefined;
     const scaleKey = values.scale as string;
     if (scaleKey) {

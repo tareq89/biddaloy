@@ -146,7 +146,7 @@ for full field lists.)_
 GradingScale (2026-2027, class: null)         "the year's default"
 ├── GradingBand  80-100  A+  gpa 5.00
 ├── GradingBand  70-79   A   gpa 4.00
-└── GradingBand   0-32   F   gpa null   (D4: fail band, not a zero GPA)
+└── GradingBand   0-69   F   gpa null   (D4: fail band, not a zero GPA)
 
 GradingScale (2026-2027, class: "Class 9-Vocational")   "an override"
 ├── GradingBand  50-100  PASS  gpa null

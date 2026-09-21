@@ -110,4 +110,60 @@ describe('BandEditor', () => {
     await user.tab();
     expect(document.activeElement).toBe(screen.getAllByLabelText('To %')[0]);
   });
+
+  it('editing GPA updates the value, and clearing it stores null not a placeholder', async () => {
+    const user = userEvent.setup();
+    render(<Controlled initial={ONE_BAND} />);
+
+    const gpaInput = (await screen.findAllByLabelText<HTMLInputElement>('GPA'))[0]!;
+    await user.clear(gpaInput);
+    await user.type(gpaInput, '4.5');
+    expect(gpaInput.value).toBe('4.5');
+
+    await user.clear(gpaInput);
+    expect(gpaInput.value).toBe('');
+  });
+
+  it('toggling "Fail" flips is_fail', async () => {
+    const user = userEvent.setup();
+    render(<Controlled initial={ONE_BAND} />);
+
+    const failCheckbox = (await screen.findAllByLabelText('Fail'))[0]!;
+    expect(failCheckbox.getAttribute('aria-checked')).toBe('false');
+    await user.click(failCheckbox);
+    expect(failCheckbox.getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('editing the comment updates it, and clearing it stores null', async () => {
+    const user = userEvent.setup();
+    render(<Controlled initial={ONE_BAND} />);
+
+    const commentInput = (await screen.findAllByLabelText<HTMLInputElement>('Comment'))[0]!;
+    await user.type(commentInput, 'Distinction');
+    expect(commentInput.value).toBe('Distinction');
+
+    await user.clear(commentInput);
+    expect(commentInput.value).toBe('');
+  });
+
+  it('editing To % updates the band', async () => {
+    const user = userEvent.setup();
+    render(<Controlled initial={ONE_BAND} />);
+
+    const toInput = (await screen.findAllByLabelText<HTMLInputElement>('To %'))[0]!;
+    await user.clear(toInput);
+    await user.type(toInput, '95');
+    expect(toInput.value).toBe('95');
+  });
+
+  it('"Add band" appends a band continuing from the last one\'s percent_to', async () => {
+    const user = userEvent.setup();
+    render(<Controlled initial={ONE_BAND} />);
+
+    await user.click(screen.getByRole('button', { name: 'Add band' }));
+
+    const fromInputs = screen.getAllByLabelText<HTMLInputElement>('From %');
+    expect(fromInputs).toHaveLength(2);
+    expect(fromInputs[1]!.value).toBe('90');
+  });
 });

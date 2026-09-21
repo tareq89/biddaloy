@@ -5,6 +5,7 @@ import {
   IsInt,
   IsBoolean,
   IsArray,
+  IsNumber,
   ArrayMinSize,
   ValidateNested,
   Min,
@@ -56,7 +57,13 @@ export class BandInputDto {
   @MaxLength(10)
   grade: string;
 
+  // `numeric(4,2)` on `grading_bands.gpa` (2 integer digits, 2 decimal) —
+  // bounds match the column, not just the "0-5 is typical" convention, so
+  // an out-of-range value never reaches Postgres as a raw column error.
   @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(99.99)
   gpa?: number | null;
 
   @IsOptional()

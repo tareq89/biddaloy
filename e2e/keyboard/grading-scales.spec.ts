@@ -41,7 +41,11 @@ test('keyboard-only: start from BD NCTB, edit a boundary, watch coverage, save',
   await expect(page.getByRole('heading', { name: scaleName })).toBeVisible();
 
   await test.step('start from BD NCTB, keyboard only', async () => {
-    await tabUntilFocused(page, t('grading.detail.startFromNctb'), 20, { tag: 'BUTTON' });
+    // 60, not 20: tab traversal starts at document body and must pass the
+    // skip link, header actions, and every sidebar item (plus PR #887's
+    // [30.3.3] breadcrumb trail) before reaching this page's own content —
+    // matching the budget the save step below already uses.
+    await tabUntilFocused(page, t('grading.detail.startFromNctb'), 60, { tag: 'BUTTON' });
     await page.keyboard.press('Enter');
     // Seven BD NCTB bands land in the table; the coverage bar goes green
     // (a single "covered" segment, no gap/overlap testids) immediately,

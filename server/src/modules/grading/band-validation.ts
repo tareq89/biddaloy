@@ -16,10 +16,22 @@
 export interface BandRange {
   percent_from: number;
   percent_to: number;
+  /** Optional so pure percentage-coverage tests don't need to invent one;
+   * when present, must be unique across the set — `IDX_grading_bands_scale_sequence`
+   * rejects a duplicate at the database, but that's a raw constraint error,
+   * not a validation problem an admin can read. */
+  sequence?: number;
 }
 
 export type BandValidationProblemType =
-  'out_of_range' | 'inverted' | 'missing_zero' | 'missing_hundred' | 'gap' | 'overlap' | 'empty';
+  | 'out_of_range'
+  | 'inverted'
+  | 'missing_zero'
+  | 'missing_hundred'
+  | 'gap'
+  | 'overlap'
+  | 'empty'
+  | 'duplicate_sequence';
 
 export interface BandValidationProblem {
   type: BandValidationProblemType;
@@ -50,6 +62,21 @@ export function validateBands(bands: BandRange[]): BandValidationProblem[] {
         message: `Band ${index} has percent_from (${band.percent_from}) after percent_to (${band.percent_to})`,
         index,
       });
+    }
+  });
+
+  const seenSequences = new Map<number, number>();
+  bands.forEach((band, index) => {
+    if (band.sequence === undefined) return;
+    const firstIndex = seenSequences.get(band.sequence);
+    if (firstIndex !== undefined) {
+      problems.push({
+        type: 'duplicate_sequence',
+        message: `Bands ${firstIndex} and ${index} both use sequence ${band.sequence}`,
+        index,
+      });
+    } else {
+      seenSequences.set(band.sequence, index);
     }
   });
 

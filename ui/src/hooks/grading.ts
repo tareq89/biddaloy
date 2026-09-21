@@ -8,11 +8,13 @@ import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
 // ---- interim types: [20.3.1] `/grading/scales*` (server: #907/#908) ----
-// `schema.d.ts` regeneration needs a live Postgres to boot the Nest app
-// through `generate-openapi.ts` — not available in this worktree. Hand-typed
-// here, same reconciliation-seam pattern as `discount-rules.ts`: once a
-// later ticket regenerates `schema.d.ts`, swap these for the generated
-// `components['schemas']` equivalents.
+// `schema.d.ts` now includes the generated `GradingScaleDto`/`GradingBandDto`
+// equivalents and these match them field-for-field — kept hand-typed rather
+// than swapped, same as `discount-rules.ts`'s own still-unswapped reconciliation
+// note for #677. `RecomputePreviewResult`/`RecomputeProblem` below have no
+// generated equivalent yet: `GradingController_previewBands_v1`'s response is
+// `Record<string, never>` in the generated schema, since #908's controller
+// doesn't declare an `@ApiResponse` type for it.
 
 export interface GradingBand {
   id: string;
