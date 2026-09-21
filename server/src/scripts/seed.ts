@@ -21,6 +21,9 @@ import { TeacherClassSection } from '../modules/academics/entities/teacher-class
 import { AttendanceSession } from '../modules/attendance/entities/attendance-session.entity';
 import { AttendanceRecord } from '../modules/attendance/entities/attendance-record.entity';
 import { AttendanceDevice } from '../modules/attendance/entities/attendance-device.entity';
+import { ClassSubject } from '../modules/academics/entities/class-subject.entity';
+import { GradingScale } from '../modules/grading/entities/grading-scale.entity';
+import { GradingBand } from '../modules/grading/entities/grading-band.entity';
 import { DEV_SEED_PLATFORM_TENANT_ID } from '../config/env.validation';
 import { seedAccounts } from './seed.accounts';
 import { ensureDemoOrganisation } from './seed.util';
@@ -126,6 +129,9 @@ export async function seed() {
       attendanceSessionRepository: dataSource.getRepository(AttendanceSession),
       attendanceRecordRepository: dataSource.getRepository(AttendanceRecord),
       attendanceDeviceRepository: dataSource.getRepository(AttendanceDevice),
+      classSubjectRepository: dataSource.getRepository(ClassSubject),
+      gradingScaleRepository: dataSource.getRepository(GradingScale),
+      gradingBandRepository: dataSource.getRepository(GradingBand),
     },
     school,
     adminEmail,

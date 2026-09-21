@@ -73,6 +73,7 @@ function makeClassSubject(overrides: Partial<ClassSubject> = {}): ClassSubject {
     subject_id: SUBJECT_ID,
     subject: makeSubject(),
     is_optional: false,
+    is_graded_only: false,
     tenant_id: TENANT_ID,
     ...overrides,
   } satisfies Partial<ClassSubject>);
@@ -139,6 +140,7 @@ describe('round trip', () => {
         academic_year_id: YEAR_ID,
         subject_id: SUBJECT_ID,
         is_optional: false,
+        is_graded_only: false,
         class_key: 'Class 10|2026-2027',
         academic_year_key: '2026-2027',
         subject_key: 'MATH',
@@ -197,6 +199,7 @@ describe('diffFields', () => {
       academic_year_id: YEAR_ID,
       subject_id: SUBJECT_ID,
       is_optional: false,
+      is_graded_only: false,
       class_key: 'unused',
       academic_year_key: 'unused',
       subject_key: 'unused',
@@ -213,11 +216,29 @@ describe('diffFields', () => {
       academic_year_id: YEAR_ID,
       subject_id: SUBJECT_ID,
       is_optional: true,
+      is_graded_only: false,
       class_key: 'unused',
       academic_year_key: 'unused',
       subject_key: 'unused',
     };
 
     expect(classSubjectsTab.diffFields(row, classSubject)).toEqual(['is_optional']);
+  });
+
+  it('reports a changed is_graded_only', () => {
+    const classSubject = makeClassSubject();
+    const row: ClassSubjectRow = {
+      id: CLASS_SUBJECT_ID,
+      class_id: CLASS_ID,
+      academic_year_id: YEAR_ID,
+      subject_id: SUBJECT_ID,
+      is_optional: false,
+      is_graded_only: true,
+      class_key: 'unused',
+      academic_year_key: 'unused',
+      subject_key: 'unused',
+    };
+
+    expect(classSubjectsTab.diffFields(row, classSubject)).toEqual(['is_graded_only']);
   });
 });

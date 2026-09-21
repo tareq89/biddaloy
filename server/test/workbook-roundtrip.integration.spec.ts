@@ -33,6 +33,8 @@ import { StudentFee } from '../src/modules/fees/entities/student-fee.entity';
 import { Invoice } from '../src/modules/invoices/entities/invoice.entity';
 import { Payment } from '../src/modules/fees/entities/payment.entity';
 import { PaymentAllocation } from '../src/modules/fees/entities/payment-allocation.entity';
+import { GradingScale } from '../src/modules/grading/entities/grading-scale.entity';
+import { GradingBand } from '../src/modules/grading/entities/grading-band.entity';
 import { DEMO_ORGANISATION, ensureDemoStudents, SEED_DEVICE_KEY } from '../src/scripts/seed.util';
 import { ImportStagingService } from '../src/modules/bulk-import/import-staging.service';
 import { ValidationService } from '../src/modules/workbook/import/validation.service';
@@ -585,6 +587,44 @@ describe('workbook round trip (integration)', () => {
         notes: null,
       }),
     );
+
+    // One grading scale carrying `revision` above 1 (D6: restore must
+    // preserve it, not reset it to the entity's `default: 1`), plus two
+    // bands — one with a real `gpa`, one with `gpa: null` (D4: a letter-only
+    // band never computes one) — so both cases hit the round trip.
+    const scale = await dataSource.getRepository(GradingScale).save(
+      dataSource.getRepository(GradingScale).create({
+        tenant_id: TENANT_A,
+        academic_year_id: year.id,
+        class_id: null,
+        name: 'BD NCTB',
+        revision: 3,
+      }),
+    );
+    await dataSource.getRepository(GradingBand).save([
+      dataSource.getRepository(GradingBand).create({
+        tenant_id: TENANT_A,
+        scale_id: scale.id,
+        percent_from: 80,
+        percent_to: 100,
+        grade: 'A+',
+        gpa: '5.00',
+        is_fail: false,
+        sequence: 1,
+        comment: null,
+      }),
+      dataSource.getRepository(GradingBand).create({
+        tenant_id: TENANT_A,
+        scale_id: scale.id,
+        percent_from: 0,
+        percent_to: 32,
+        grade: 'F',
+        gpa: null,
+        is_fail: true,
+        sequence: 2,
+        comment: null,
+      }),
+    ]);
   }
 
   /**
@@ -613,6 +653,8 @@ describe('workbook round trip (integration)', () => {
       'invoices',
       'payments',
       'payment_allocations',
+      'grading_scales',
+      'grading_bands',
     ];
     const empty = mustBeNonEmpty.filter((tab) => !(rowCounts[tab] ?? 0));
     expect(empty, `fixture produced no rows for: ${empty.join(', ')}`).toEqual([]);
@@ -840,6 +882,23 @@ describe('workbook round trip (integration)', () => {
     const diffLines = diffNormalized(normalizedANoName, normalizedBNoName);
     expect(diffLines).toEqual([]);
     expect(normalizedBNoName).toEqual(normalizedANoName);
+
+    // (D6) explicit, beyond the generic diff above: restoring a scale whose
+    // `revision` sat above the entity's `default: 1` must not silently reset
+    // it — a fresh `GradingScale()` created by restore defaults to 1, and
+    // only `gradingScalesTab.upsert` writing the restored value back
+    // prevents that from winning.
+    const restoredScale = await dataSource
+      .getRepository(GradingScale)
+      .findOneOrFail({ where: { tenant_id: TENANT_B, name: 'BD NCTB' } });
+    expect(restoredScale.revision).toBe(3);
+
+    // (D4) explicit: a letter-only band's `gpa` must restore as `null`, not
+    // fall back to `0.00` or any other placeholder.
+    const restoredFailBand = await dataSource
+      .getRepository(GradingBand)
+      .findOneOrFail({ where: { scale_id: restoredScale.id, grade: 'F' } });
+    expect(restoredFailBand.gpa).toBeNull();
 
     // `_meta` is *expected* to differ — assert that explicitly rather
     // than ignoring it.
