@@ -4747,6 +4747,12 @@ export interface components {
             region?: components["schemas"]["RegionSettingsDto"];
             communications?: components["schemas"]["MaskedCommunicationsSettingsResponseDto"];
         };
+        OrganisationRenameDto: {
+            /** @enum {string} */
+            list: "shifts" | "versions" | "groups";
+            from: string;
+            to: string;
+        };
         GreenwebSmsDto: {
             apiKey?: string | null;
             apiUrl?: string;
@@ -4833,6 +4839,7 @@ export interface components {
             };
         };
         TenantSettingsDto: {
+            organisationRenames?: components["schemas"]["OrganisationRenameDto"][];
             /** @enum {number} */
             version: 1;
             region?: components["schemas"]["RegionSettingsDto"];
@@ -6883,6 +6890,8 @@ export interface operations {
                 search?: string;
                 class_id?: string;
                 section_id?: string;
+                shift?: string;
+                version?: string;
                 enrollment_status?: "ACTIVE" | "INACTIVE" | "TRANSFERRED" | "GRADUATED";
                 gender?: string;
                 date_of_birth_from?: string;
@@ -11631,6 +11640,8 @@ export interface operations {
         parameters: {
             query?: {
                 academic_year_id?: string;
+                shift?: string;
+                version?: string;
                 page?: number;
                 limit?: number;
             };
