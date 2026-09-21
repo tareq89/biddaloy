@@ -6,7 +6,7 @@ import { STAFF_ROUTE_PERMISSIONS } from './route-permissions';
 import { UNREGISTERED_ACTIONS } from './unregistered-actions';
 
 const VALID_KINDS = new Set(['modal', 'navigate', 'inline']);
-const VALID_CONTEXTS = new Set<ActionContext>(['student', 'guardian', 'invoice']);
+const VALID_CONTEXTS = new Set<ActionContext>(['student', 'guardian', 'invoice', 'gradingScale']);
 const PERMISSION_VALUES = new Set(Object.values(Permission));
 
 /** `action.run()`'s `navigate({ to })` target is a real URL path (no
@@ -24,6 +24,7 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/fees/generate': '/_staff/fees/generate',
   '/students/new': '/_staff/students/new',
   '/students/import': '/_staff/students/import',
+  '/grading-scales': '/_staff/grading-scales/',
 };
 
 /**
@@ -42,6 +43,7 @@ const REGISTERED_ACTION_FILES: Record<string, string> = {
   'fees.generate': 'client-admin/src/routes/_staff/fees/generate.tsx',
   'students.add': 'client-admin/src/routes/_staff/students/new.tsx',
   'students.import': 'client-admin/src/routes/_staff/students/import.tsx',
+  'grading.copyScale': 'client-admin/src/routes/_staff/grading-scales/-copy-scale-dialog.tsx',
 };
 
 /**

@@ -93,6 +93,12 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.CLASS_MANAGE,
     label: { entity: 'class' },
   },
+  'examsResults.gradingScales': {
+    id: 'examsResults.gradingScales',
+    to: '/grading-scales',
+    permission: Permission.GRADING_SCALE_MANAGE,
+    label: { key: 'gradingScales' },
+  },
   'attendance.attendance': {
     id: 'attendance.attendance',
     to: '/attendance',
@@ -247,7 +253,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
   {
     id: 'examsResults',
     label: { key: 'examsResults' },
-    items: [],
+    items: [STAFF_NAV_ITEMS['examsResults.gradingScales']],
   },
   {
     id: 'finance',

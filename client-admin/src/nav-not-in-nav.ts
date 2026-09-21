@@ -44,6 +44,7 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/attendance/$sectionId': 'detail route reached from the attendance list',
   '/_staff/calendar/import': 'action reached from the calendar page, not its own nav item',
   '/_staff/classes/$classId': 'detail route reached from the classes list',
+  '/_staff/grading-scales/$scaleId': 'detail route reached from the grading scales list',
   '/_staff/guardians/$guardianId': 'detail route reached from the guardians list',
   '/_staff/invoices/$invoiceId': 'detail route reached from the invoices list',
   '/_staff/payments/':

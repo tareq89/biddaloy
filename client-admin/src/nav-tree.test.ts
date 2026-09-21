@@ -70,9 +70,9 @@ describe('nav-tree', () => {
     expect(Object.keys(STAFF_NAV_ITEMS).length).toBeGreaterThan(0);
   });
 
-  it('declares Exams & Results with zero items so it auto-hides until 19.0', () => {
+  it('declares Exams & Results with grading scales — [20.3.1], first item in the group', () => {
     const examsResults = STAFF_NAV_GROUPS.find((group) => group.id === 'examsResults');
-    expect(examsResults?.items).toEqual([]);
+    expect(examsResults?.items.map((item) => item.id)).toEqual(['examsResults.gradingScales']);
     expect(examsResults?.pinnedItems ?? []).toEqual([]);
   });
 

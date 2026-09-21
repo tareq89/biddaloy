@@ -114,6 +114,19 @@
       "archetype": "detail"
     },
     {
+      "path": "/grading-scales",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/grading-scales/$scaleId",
+      "params": {
+        "scaleId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
       "path": "/audit-logs",
       "role": "admin",
       "archetype": "list"
