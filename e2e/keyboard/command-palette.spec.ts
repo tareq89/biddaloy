@@ -66,6 +66,12 @@ test('command palette is fully keyboard-drivable: People tab search and pick', a
     await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'মূল বিষয়বস্তুতে যান' })).toBeFocused();
     await page.keyboard.press('Enter');
+    // Focus moves to `#main-content` itself first (see
+    // `focus-management.spec.ts`'s own assertion on this same jump) —
+    // waiting for that to settle before the next Tab avoids a race where
+    // a slower render (seen in CI, not reproduced locally) leaves this
+    // Tab firing before focus has actually landed there.
+    await expect(page.locator('#main-content')).toBeFocused();
 
     await page.keyboard.press('Tab');
     expect(await focusedText(page)).toBe(studentsLabel);
