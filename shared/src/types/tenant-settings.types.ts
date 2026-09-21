@@ -111,6 +111,19 @@ export interface AttendancePolicySettings {
 }
 
 /**
+ * `organisation.{shifts,versions,groups}` (33.1.1) — a tenant's own
+ * vocabulary for shift/version/group, e.g. `shifts: ['Morning', 'Day']`.
+ * These are settings values, not entities (Epic 33.0 D2/D3): a school picks
+ * its own words, so this list is what every later Epic 33 ticket reads
+ * instead of a hardcoded enum.
+ */
+export interface OrganisationSettings {
+  shifts: string[];
+  versions: string[];
+  groups: string[];
+}
+
+/**
  * Per-tenant login policy. `otpLoginEnabled` (default true) is a school's
  * off-switch for passwordless phone+OTP sign-in (12.5). A user who belongs
  * to more than one tenant is allowed OTP login only if *every* tenant they
@@ -202,6 +215,7 @@ export interface TenantSettings {
   region?: RegionSettings;
   communications?: CommunicationsSettings;
   attendance?: AttendancePolicySettings;
+  organisation?: OrganisationSettings;
   auth?: AuthSettings;
   backup?: BackupSettings;
   fees?: FeesSettings;

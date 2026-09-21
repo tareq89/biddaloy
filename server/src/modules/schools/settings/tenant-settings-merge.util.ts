@@ -85,6 +85,16 @@ export function mergeTenantSettings(
     merged.attendance = patch.attendance;
   }
 
+  // [33.1.1] Wholesale replace, like `backup`/`fees` — not
+  // `deepMergeOmittingUnset` like `communications`. Each field is a plain
+  // string array; a deep merge can't express "remove this shift", only add/
+  // overwrite, so a rename or deletion sent by #891 would never take. A full
+  // replace on `organisation` (or per-list, if #891 needs finer control) is
+  // the only shape where sending a shorter list actually shortens it.
+  if (patch.organisation !== undefined) {
+    merged.organisation = patch.organisation;
+  }
+
   if (patch.auth !== undefined) {
     merged.auth = patch.auth;
   }

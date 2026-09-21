@@ -36,4 +36,14 @@ describe('EntityLabel', () => {
       expect(value).toBe(key);
     }
   });
+
+  it('includes the Epic 33.0 org-structure keys (shift, version, group)', () => {
+    const expectedKeys = ['shift', 'version', 'group'] as const;
+
+    for (const key of expectedKeys) {
+      expect(keys).toContain(key);
+      const value: EntityLabel = EntityLabel[key];
+      expect(value).toBe(key);
+    }
+  });
 });

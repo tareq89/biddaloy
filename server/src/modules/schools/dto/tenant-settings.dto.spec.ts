@@ -633,4 +633,117 @@ describe('TenantSettingsDto', () => {
       });
     });
   });
+
+  // `organisation.{shifts,versions,groups}` (33.1.1) — a tenant's own
+  // vocabulary for shift/version/group. Same validation on all three lists.
+  describe('organisation', () => {
+    it('accepts a fully-specified organisation block', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        organisation: { shifts: ['Morning', 'Day'], versions: ['Bangla'], groups: ['A', 'B'] },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      expect(errors.find((e) => e.property === 'organisation')).toBeUndefined();
+    });
+
+    it('rejects an empty-string entry', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        organisation: { shifts: [''], versions: [], groups: [] },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      const orgError = errors.find((e) => e.property === 'organisation');
+      expect(orgError?.children?.some((e) => e.property === 'shifts')).toBe(true);
+    });
+
+    it('rejects an entry over 50 characters', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        organisation: { shifts: ['x'.repeat(51)], versions: [], groups: [] },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      const orgError = errors.find((e) => e.property === 'organisation');
+      expect(orgError?.children?.some((e) => e.property === 'shifts')).toBe(true);
+    });
+
+    it('accepts an entry at exactly 50 characters', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        organisation: { shifts: ['x'.repeat(50)], versions: [], groups: [] },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      expect(errors.find((e) => e.property === 'organisation')).toBeUndefined();
+    });
+
+    it('rejects a case-insensitive duplicate', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        organisation: { shifts: ['Morning', 'morning'], versions: [], groups: [] },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      const orgError = errors.find((e) => e.property === 'organisation');
+      expect(orgError?.children?.some((e) => e.property === 'shifts')).toBe(true);
+    });
+
+    it('rejects more than 20 entries', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        organisation: {
+          shifts: Array.from({ length: 21 }, (_, i) => `Shift ${i}`),
+          versions: [],
+          groups: [],
+        },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      const orgError = errors.find((e) => e.property === 'organisation');
+      expect(orgError?.children?.some((e) => e.property === 'shifts')).toBe(true);
+    });
+
+    it('rejects a non-trimmed entry', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        organisation: { shifts: [' Morning '], versions: [], groups: [] },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      const orgError = errors.find((e) => e.property === 'organisation');
+      expect(orgError?.children?.some((e) => e.property === 'shifts')).toBe(true);
+    });
+
+    it('accepts empty lists (the default)', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        organisation: { shifts: [], versions: [], groups: [] },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      expect(errors.find((e) => e.property === 'organisation')).toBeUndefined();
+    });
+
+    it('rejects an incomplete organisation block (missing versions)', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        organisation: { shifts: [], groups: [] },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      const orgError = errors.find((e) => e.property === 'organisation');
+      expect(orgError?.children?.some((e) => e.property === 'versions')).toBe(true);
+    });
+  });
 });

@@ -5,6 +5,7 @@ import type {
   AuthSettings,
   BackupSettings,
   FeesSettings,
+  OrganisationSettings,
   RegionSettings,
   TenantSettings,
 } from '@biddaloy/shared';
@@ -74,6 +75,16 @@ export const DEFAULT_ATTENDANCE_SETTINGS: AttendancePolicySettings = {
   autoAbsentNotification: { enabled: false, cutoffTime: '11:00' },
 };
 
+/**
+ * [33.1.1] Empty by default: a school has to opt into naming its own
+ * shifts/versions/groups, nothing is invented on its behalf.
+ */
+export const DEFAULT_ORGANISATION_SETTINGS: OrganisationSettings = {
+  shifts: [],
+  versions: [],
+  groups: [],
+};
+
 /** 12.5: OTP login is on by default; a school opts out, not in. */
 export const DEFAULT_AUTH_SETTINGS: AuthSettings = {
   otpLoginEnabled: true,
@@ -97,6 +108,7 @@ export const DEFAULT_TENANT_SETTINGS: TenantSettings = {
   version: TENANT_SETTINGS_SCHEMA_VERSION,
   region: DEFAULT_REGION_SETTINGS,
   attendance: DEFAULT_ATTENDANCE_SETTINGS,
+  organisation: DEFAULT_ORGANISATION_SETTINGS,
   auth: DEFAULT_AUTH_SETTINGS,
   backup: DEFAULT_BACKUP_SETTINGS,
   fees: DEFAULT_FEES_SETTINGS,
