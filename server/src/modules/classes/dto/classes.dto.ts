@@ -16,6 +16,21 @@ export class CreateClassDto {
   @IsNotEmpty()
   @IsUUID()
   academic_year_id: string;
+
+  // [33.2.1] Validated in `ClassService.create` against the tenant's own
+  // `TenantSettings.organisation.shifts`/`.versions` vocabulary, not here
+  // — the DTO only checks shape, the service knows what's in vocabulary.
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  @SanitizeText()
+  shift?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  @SanitizeText()
+  version?: string | null;
 }
 
 export class UpdateClassDto {
@@ -36,6 +51,20 @@ export class UpdateClassDto {
   @IsOptional()
   @IsInt()
   numeric_grade?: number | null;
+
+  // `| null`, same reasoning as `numeric_grade` above — an explicit
+  // `null` clears a previously-set shift/version.
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  @SanitizeText()
+  shift?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  @SanitizeText()
+  version?: string | null;
 }
 
 export class QueryClassDto {
@@ -67,6 +96,14 @@ export class CreateSectionDto {
   @IsInt()
   @Min(1)
   capacity?: number;
+
+  // [33.2.1] Validated in `SectionService.create` against the tenant's
+  // own `TenantSettings.organisation.groups` vocabulary.
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  @SanitizeText()
+  group_name?: string | null;
 }
 
 export class UpdateSectionDto {
@@ -85,4 +122,10 @@ export class UpdateSectionDto {
   @IsInt()
   @Min(1)
   capacity?: number | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  @SanitizeText()
+  group_name?: string | null;
 }

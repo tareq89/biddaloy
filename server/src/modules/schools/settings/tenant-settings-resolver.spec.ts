@@ -5,6 +5,7 @@ import {
   DEFAULT_AUTH_SETTINGS,
   DEFAULT_BACKUP_SETTINGS,
   DEFAULT_FEES_SETTINGS,
+  DEFAULT_ORGANISATION_SETTINGS,
   DEFAULT_REGION_SETTINGS,
 } from './tenant-settings-defaults';
 
@@ -15,6 +16,7 @@ describe('resolveTenantSettings', () => {
     expect(resolved.version).toBe(1);
     expect(resolved.region).toEqual(DEFAULT_REGION_SETTINGS);
     expect(resolved.attendance).toEqual(DEFAULT_ATTENDANCE_SETTINGS);
+    expect(resolved.organisation).toEqual(DEFAULT_ORGANISATION_SETTINGS);
     expect(resolved.auth).toEqual(DEFAULT_AUTH_SETTINGS);
     expect(resolved.backup).toEqual(DEFAULT_BACKUP_SETTINGS);
     expect(resolved.fees).toEqual(DEFAULT_FEES_SETTINGS);
@@ -26,7 +28,26 @@ describe('resolveTenantSettings', () => {
 
     expect(resolved.region).toEqual(DEFAULT_REGION_SETTINGS);
     expect(resolved.attendance).toEqual(DEFAULT_ATTENDANCE_SETTINGS);
+    expect(resolved.organisation).toEqual(DEFAULT_ORGANISATION_SETTINGS);
     expect(resolved.auth).toEqual(DEFAULT_AUTH_SETTINGS);
+  });
+
+  describe('organisation (33.2.1)', () => {
+    it(
+      'a stored shifts/versions/groups vocabulary overlays onto the empty default — ' +
+        'without this, ClassService/SectionService write-validation would read `undefined`',
+      () => {
+        const resolved = resolveTenantSettings({
+          organisation: { shifts: ['Morning', 'Day'], versions: ['Bangla'], groups: ['Science'] },
+        });
+
+        expect(resolved.organisation).toEqual({
+          shifts: ['Morning', 'Day'],
+          versions: ['Bangla'],
+          groups: ['Science'],
+        });
+      },
+    );
   });
 
   describe('backup.schedule (14.12.1/#615)', () => {

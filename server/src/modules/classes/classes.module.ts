@@ -6,6 +6,7 @@ import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { Student } from '../students/entities/student.entity';
 import { AuditModule } from '../audit/audit.module';
+import { SchoolsModule } from '../schools/schools.module';
 import { ClassService, SectionService } from './classes.service';
 import { ClassController } from './classes.controller';
 
@@ -22,6 +23,9 @@ import { ClassController } from './classes.controller';
   imports: [
     TypeOrmModule.forFeature([Class, ClassSection, Teacher, TeacherClassSection, Student]),
     AuditModule,
+    // Only `SchoolSettingsReader` is used ([33.2.1] vocabulary lookup) —
+    // same reasoning as its other consumers (16.2.2's step-up flow).
+    SchoolsModule,
   ],
   providers: [ClassService, SectionService],
   controllers: [ClassController],

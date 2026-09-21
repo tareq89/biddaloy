@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { ApprovalMode } from '@biddaloy/shared';
+import type { ApprovalMode, OrganisationSettings } from '@biddaloy/shared';
 import { SchoolsService } from '../schools.service';
 
 /**
@@ -25,5 +25,17 @@ export class SchoolSettingsReader {
     // fills it from `DEFAULT_FEES_SETTINGS`), so this non-null assertion
     // reflects that invariant rather than papering over an unknown case.
     return settings.fees!.approvalMode;
+  }
+
+  /** [33.2.1] The tenant's `settings.organisation` — shift/version/group
+   * vocabulary, defaulting to empty arrays when unset (see
+   * `DEFAULT_ORGANISATION_SETTINGS`). `ClassService`/`SectionService`
+   * validate writes against this instead of a hardcoded enum. */
+  async organisationVocabulary(tenantId: string): Promise<OrganisationSettings> {
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    // Always present on a resolved `TenantSettings` — same invariant as
+    // `feesApprovalMode` above (the resolver fills it from
+    // `DEFAULT_ORGANISATION_SETTINGS`).
+    return settings.organisation!;
   }
 }
