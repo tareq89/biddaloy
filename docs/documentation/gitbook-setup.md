@@ -19,7 +19,7 @@ inside the directory that uses them. Do not map `docs/architecture` or
 
 ## Connect the site
 
-1. Create or open the Biddaloy site in GitBook.
+1. Create or open the SchoolManager site in GitBook.
 2. From the site content, choose **Git Sync** and set up GitHub sync.
 3. Select `tareq89/biddaloy` and the branch that contains the reviewed docs.
 4. Set the Git Sync **Project directory** to the repository root (leave it

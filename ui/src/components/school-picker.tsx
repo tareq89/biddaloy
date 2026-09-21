@@ -1,5 +1,5 @@
 /**
- * The living version of the "Biddaloy Client UI" design project's
+ * The living version of the "SchoolManager Client UI" design project's
  * `templates/school-picker` mockup (approved for [8.9.5] — see
  * `ui/CONTRIBUTING.md`'s "Design before you build"). Presentational only,
  * no network and no `switchActiveTenant` call inside it: the caller

@@ -1,4 +1,4 @@
-# Biddaloy
+# SchoolManager
 
 A school management system. Multi-tenant. NestJS backend + React/Vite SPAs.
 

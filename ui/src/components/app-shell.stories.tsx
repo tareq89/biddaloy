@@ -106,7 +106,7 @@ const meta: Meta<typeof AppShell> = {
   title: 'Components/AppShell',
   component: AppShell,
   tags: ['autodocs'],
-  args: { navItems, brand: 'Biddaloy', children: <p>Page content</p> },
+  args: { navItems, brand: 'SchoolManager', children: <p>Page content</p> },
   // `Link`'s active-state and hover-preload behaviour both read router
   // context, so every story needs one — see `withMemoryRouter`'s own
   // comment for why this is a decorator factory, not a shared instance.

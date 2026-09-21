@@ -66,7 +66,8 @@ export const radius = {
  * `--text-*` theme variable, and check-contrast.mjs fails on drift.
  */
 export const typography = {
-  fontSans: '"Biddaloy Sans", "Biddaloy Sans Fallback", system-ui, "Segoe UI", sans-serif',
+  fontSans:
+    '"Biddaloy Sans", "Biddaloy Sans Fallback", system-ui, "Segoe UI", sans-serif',
   ramp: {
     display: { size: '1.75rem', lineHeight: '2.25rem', weight: '620', tracking: '-0.01em' },
     h1: { size: '1.375rem', lineHeight: '1.875rem', weight: '620', tracking: '-0.01em' },

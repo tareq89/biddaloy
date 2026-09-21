@@ -5,7 +5,7 @@ import { UserRole, isGuardianRole } from '@biddaloy/shared';
 import { Student } from './entities/student.entity';
 
 /**
- * The single home of Biddaloy's object-level "is this family caller allowed
+ * The single home of SchoolManager's object-level "is this family caller allowed
  * to see this student?" check [5.1].
  *
  * Role alone is never enough for a PARENT or STUDENT. `@Roles(PARENT, STUDENT)`

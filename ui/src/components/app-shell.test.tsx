@@ -75,7 +75,7 @@ function buildRouteTree() {
     getParentRoute: () => rootRoute,
     path: '/',
     component: () => (
-      <AppShell navItems={navItems} navGroups={navGroups} brand="Biddaloy">
+      <AppShell navItems={navItems} navGroups={navGroups} brand="SchoolManager">
         <p>Dashboard content</p>
       </AppShell>
     ),
@@ -84,7 +84,7 @@ function buildRouteTree() {
     getParentRoute: () => rootRoute,
     path: '/students',
     component: () => (
-      <AppShell navItems={navItems} navGroups={navGroups} brand="Biddaloy">
+      <AppShell navItems={navItems} navGroups={navGroups} brand="SchoolManager">
         <p>Students content</p>
       </AppShell>
     ),
@@ -93,7 +93,7 @@ function buildRouteTree() {
     getParentRoute: () => rootRoute,
     path: '/fees',
     component: () => (
-      <AppShell navItems={navItems} navGroups={navGroups} brand="Biddaloy">
+      <AppShell navItems={navItems} navGroups={navGroups} brand="SchoolManager">
         <p>Fees content</p>
       </AppShell>
     ),
@@ -155,7 +155,7 @@ describe('AppShell', () => {
       getParentRoute: () => rootRoute,
       path: '/',
       component: () => (
-        <AppShell navItems={navItems} brand="Biddaloy" topBar={<div>Greenview School</div>}>
+        <AppShell navItems={navItems} brand="SchoolManager" topBar={<div>Greenview School</div>}>
           <p>Dashboard content</p>
         </AppShell>
       ),
@@ -183,7 +183,7 @@ describe('AppShell', () => {
         getParentRoute: () => rootRoute,
         path: '/',
         component: () => (
-          <AppShell navItems={navItems} brand="Biddaloy" topBar={<div>Greenview School</div>}>
+          <AppShell navItems={navItems} brand="SchoolManager" topBar={<div>Greenview School</div>}>
             <p>Dashboard content</p>
           </AppShell>
         ),
@@ -317,7 +317,7 @@ describe('AppShell', () => {
         getParentRoute: () => rootRoute,
         path: '/',
         component: () => (
-          <AppShell navItems={navItems} brand="Biddaloy" bottomNav={slot}>
+          <AppShell navItems={navItems} brand="SchoolManager" bottomNav={slot}>
             <p>Portal content</p>
           </AppShell>
         ),
@@ -475,7 +475,7 @@ describe('AppShell', () => {
         getParentRoute: () => rootRoute,
         path: '/',
         component: () => (
-          <AppShell navItems={navItems} navGroups={noPinnedLabelGroups} brand="Biddaloy">
+          <AppShell navItems={navItems} navGroups={noPinnedLabelGroups} brand="SchoolManager">
             <p>Dashboard content</p>
           </AppShell>
         ),
@@ -533,7 +533,7 @@ describe('AppShell', () => {
           <AppShell
             navItems={navItems}
             navGroups={navGroups}
-            brand="Biddaloy"
+            brand="SchoolManager"
             mobileHeaderActions={<button type="button">Search</button>}
             drawerHeader={<div data-testid="drawer-header">Tenant switcher</div>}
             bottomNav={
@@ -551,11 +551,11 @@ describe('AppShell', () => {
       renderWithRouter(buildStaffMobileTree(), { initialEntries: ['/'], role: 'SUPER_ADMIN' });
 
       await screen.findByText('Dashboard content');
-      // 'Biddaloy' also appears in the always-present desktop `<aside>`
+      // 'SchoolManager' also appears in the always-present desktop `<aside>`
       // sidebar (`hidden md:flex`) below; jsdom does no layout, so both
       // are 'visible' to a query — scope to the mobile header row itself.
       const header = screen.getByRole('button', { name: 'Open menu' }).closest('div')!;
-      expect(within(header).getByText('Biddaloy')).toBeTruthy();
+      expect(within(header).getByText('SchoolManager')).toBeTruthy();
       expect(within(header).getByRole('button', { name: 'Search' })).toBeTruthy();
       expect(within(header).getByRole('button', { name: 'Open menu' })).toBeTruthy();
     });
@@ -623,7 +623,7 @@ describe('AppShell', () => {
         component: () => (
           <AppShell
             navItems={navItems}
-            brand="Biddaloy"
+            brand="SchoolManager"
             bottomNav={<nav aria-label="Portal">Bottom bar</nav>}
           >
             <p>Portal content</p>

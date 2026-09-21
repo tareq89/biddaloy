@@ -2,7 +2,7 @@
 
 ## What this is
 
-Biddaloy is a **multi-tenant school management platform**. It started as a
+SchoolManager is a **multi-tenant school management platform**. It started as a
 single-school "print fee invoices and remind guardians" tool and grew, during
 build, into a system that hosts **many independent schools** on one
 deployment. Each school (called a **tenant**) has its own students, classes,

@@ -93,7 +93,7 @@ export interface UseRouteFocusOptions {
    * `APP_SHELL_MAIN_ID` (`./app-shell.tsx`), which both this hook's own
    * caller and `AppShell` itself should use, so they never drift apart. */
   mainId: string;
-  /** Appended to the found `<h1>` for `document.title`, e.g. `Biddaloy`
+  /** Appended to the found `<h1>` for `document.title`, e.g. `SchoolManager`
    * — passed in rather than read via `useTranslation` here so this hook
    * stays translation-library-agnostic. */
   appName: string;

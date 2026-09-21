@@ -134,7 +134,7 @@ const validateInvalid = http.post('/api/v1/backup/validate', () =>
       {
         row: 1,
         column: null,
-        message: 'Archive is corrupted or not a Biddaloy backup file',
+        message: 'Archive is corrupted or not a SchoolManager backup file',
         severity: 'error',
       },
     ],

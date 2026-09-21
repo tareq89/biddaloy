@@ -17,7 +17,7 @@ import { XLSX_MIME } from './template.constants';
 
 /**
  * [14.13.1] `GET /backup/template` — a blank workbook with samples,
- * dropdowns and a README sheet, so a school can move into Biddaloy from
+ * dropdowns and a README sheet, so a school can move into SchoolManager from
  * paper or another system. A dedicated controller, not bolted onto
  * `WorkbookController`'s `@Controller('backup')`: same base path, same
  * `BACKUP_MANAGE` permission (epic D12), but nothing else in common with

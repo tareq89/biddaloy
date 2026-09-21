@@ -1,5 +1,5 @@
 {
-  "name": "biddaloy",
+  "name": "schoolmanager",
   "version": "0.1.0",
   "private": true,
   "engines": {
@@ -38,6 +38,7 @@
     "test:affected": "node scripts/test-affected.mjs",
     "test:unit:watch": "yarn workspace @biddaloy/server test:unit:watch",
     "check:node": "node scripts/check-node-version.mjs",
+    "check:public-branding": "node scripts/check-public-branding.mjs",
     "test:unit": "yarn workspace @biddaloy/server test:unit",
     "test:unit:changed": "yarn workspace @biddaloy/server test:unit:changed",
     "test:integration": "yarn workspace @biddaloy/server test:integration",

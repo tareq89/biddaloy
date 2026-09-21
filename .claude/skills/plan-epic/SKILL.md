@@ -6,7 +6,7 @@ description: Turn a symptom, idea or vague feature request into a plan-grade epi
 # Plan Epic
 
 Output: **one epic issue + N plan-grade sub-issues** in waves, native
-sub-issues, on the *Biddaloy Development* project — the exact input shape
+sub-issues, on the *SchoolManager Development* project — the exact input shape
 `implement-epic` is cheapest on. The process is the one that produced Epic 16
 (#637): grill → recap → design → widen → grill the plan → write.
 

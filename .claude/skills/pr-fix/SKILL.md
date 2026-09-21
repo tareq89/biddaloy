@@ -297,7 +297,7 @@ pause-before-push confirmation.
 
 ## Scope notes
 
-- This skill is generic (not Biddaloy-specific) — safe to copy to
+- This skill is generic (not SchoolManager-specific) — safe to copy to
   `~/.claude/skills/` if useful in other repos too.
 - It fixes what reviewers already flagged and what CI already failed on.
   It does not go looking for additional unrelated changes to make while

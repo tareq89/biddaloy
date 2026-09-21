@@ -19,10 +19,11 @@ import { pwaManifest, THEME_COLOR } from './manifest';
 
 describe('pwaManifest', () => {
   it('names the app for both the install dialog and the home screen', () => {
-    expect(pwaManifest.name).toBe('Biddaloy — School Management');
-    expect(pwaManifest.short_name).toBe('Biddaloy');
-    // Android truncates a longer home-screen label.
-    expect(pwaManifest.short_name.length).toBeLessThanOrEqual(12);
+    expect(pwaManifest.name).toBe('SchoolManager — School Management');
+    expect(pwaManifest.short_name).toBe('SchoolManager');
+    // SchoolManager is intentionally kept intact; Android may truncate a
+    // longer home-screen label on narrow launchers.
+    expect(pwaManifest.short_name.length).toBeLessThanOrEqual(13);
   });
 
   it('scopes the app to the site root, matching a SPA served from `/`', () => {

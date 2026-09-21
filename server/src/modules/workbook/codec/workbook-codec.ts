@@ -316,7 +316,7 @@ export async function readWorkbook(buffer: Buffer): Promise<ReadWorkbookResult> 
   } catch (cause) {
     throw new WorkbookFormatError(
       'NOT_XLSX',
-      'This file is not a valid .xlsx workbook. Export a backup from Biddaloy and upload that file.',
+      'This file is not a valid .xlsx workbook. Export a backup from SchoolManager and upload that file.',
       { cause },
     );
   }
@@ -370,7 +370,7 @@ function readMeta(workbook: ExcelJS.Workbook): WorkbookMeta {
   if (!sheet) {
     throw new WorkbookFormatError(
       'MISSING_META',
-      `This workbook has no "${META_SHEET}" sheet, so it cannot be identified as a Biddaloy backup.`,
+      `This workbook has no "${META_SHEET}" sheet, so it cannot be identified as a SchoolManager backup.`,
     );
   }
 
@@ -391,7 +391,7 @@ function readMeta(workbook: ExcelJS.Workbook): WorkbookMeta {
     throw new WorkbookFormatError(
       'UNSUPPORTED_VERSION',
       `This workbook uses schema version ${values.schema_version ?? '(missing)'}, but this ` +
-        `version of Biddaloy reads version ${SCHEMA_VERSION}.`,
+        `version of SchoolManager reads version ${SCHEMA_VERSION}.`,
     );
   }
 

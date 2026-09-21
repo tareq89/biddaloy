@@ -184,6 +184,8 @@ export function buildIcsCalendar(input: IcsCalendarInput): string {
   const lines: string[] = [];
   lines.push('BEGIN:VCALENDAR');
   lines.push('VERSION:2.0');
+  // Keep the producer identifier stable so existing calendar subscriptions do
+  // not treat a branding change as a new feed and duplicate events.
   lines.push('PRODID:-//Biddaloy//Calendar Feed//EN');
   lines.push('CALSCALE:GREGORIAN');
   lines.push(`X-WR-CALNAME:${escapeIcsText(input.calendarName)}`);

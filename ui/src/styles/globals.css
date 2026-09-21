@@ -1,5 +1,5 @@
 /**
- * Global stylesheet for every biddaloy SPA.
+ * Global stylesheet for every SchoolManager SPA.
  *
  * Imported by an app as `import "@biddaloy/ui/styles";`, once, before any
  * app-specific CSS. No SPA should redefine a token below — extend by adding

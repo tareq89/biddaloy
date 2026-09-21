@@ -8,7 +8,7 @@
  * owns its own `useQueryClient()` for the one thing switching a tenant
  * always needs — `tenant.ts`'s `switchActiveTenant`.
  *
- * The living version of the "Biddaloy Client UI" design project's
+ * The living version of the "SchoolManager Client UI" design project's
  * `templates/school-picker` mockup's top-bar/switch-confirm cells
  * (approved for [8.9.5] — see `ui/CONTRIBUTING.md`'s "Design before you
  * build").

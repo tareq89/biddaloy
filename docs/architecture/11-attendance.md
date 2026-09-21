@@ -182,13 +182,13 @@ fails CI the moment the key set changes.
 
 A biometric fingerprint reader, a face-recognition camera, or an RFID card
 turnstile can post attendance directly, without a human ever opening the app.
-Biddaloy authenticates these devices with a long-lived key instead of the
+SchoolManager authenticates these devices with a long-lived key instead of the
 usual login — there's no user to log in as, and no browser to hold a session.
 
 ```mermaid
 sequenceDiagram
     participant D as Device (turnstile)
-    participant A as Biddaloy API
+    participant A as SchoolManager API
     participant DB as Database
 
     D->>A: POST /attendance/device-events<br/>X-Device-Key: bd_dev_...
@@ -214,7 +214,7 @@ sequenceDiagram
    auth). The response is the **only time** the raw key is ever shown:
    `{ "device": { "id": "...", "token_last4": "9f3a", ... }, "key": "bd_dev_..." }`.
 2. The device stores that key and sends it as `X-Device-Key` on every
-   request from then on. Biddaloy stores only a SHA-256 hash of it — even a
+   request from then on. SchoolManager stores only a SHA-256 hash of it — even a
    database leak doesn't hand out working credentials.
 3. If a key leaks, `POST /attendance/devices/:id/rotate` issues a new one
    immediately — the old key stops working the instant the call succeeds,

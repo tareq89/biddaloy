@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Shared React component package consumed by every Biddaloy SPA.",
+  "description": "Shared React component package consumed by every SchoolManager SPA.",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
