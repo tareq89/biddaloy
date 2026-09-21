@@ -26,6 +26,15 @@ test('keyboard-only: start from BD NCTB, edit a boundary, watch coverage, save',
   page,
   request,
 }) => {
+  // `ApprovalModalPage.complete` waits out `OtpService`'s 60s-per-
+  // identifier cooldown when a resend is needed — see `reversal.spec.ts`'s
+  // and `checkout.spec.ts`'s own identical comment. Overruns Playwright's
+  // 30s default, same reason this step's own `toBeHidden` assertion (the
+  // confirm mutation's real DB write + audit + revision bump, not mocked
+  // here) needs more room than its 5s default expect timeout under a
+  // loaded CI runner.
+  test.setTimeout(120_000);
+
   const session = await adminApiSession(request);
   // A fresh academic year (`createClassSection` mints one alongside a
   // class/section this spec doesn't need) keeps the scale's natural key
@@ -97,7 +106,12 @@ test('keyboard-only: start from BD NCTB, edit a boundary, watch coverage, save',
     // file's own header comment on why this one step isn't keyboard-only.
     await new ApprovalModalPage(page).complete('admin@biddaloy.test');
 
-    await expect(page.getByText(t('grading.recomputePreview.title'))).toBeHidden();
+    // 15s, not the 5s default: the confirm mutation here is a real DB
+    // write + audit record + revision bump (not mocked), which can outrun
+    // the default expect timeout on a loaded CI runner.
+    await expect(page.getByText(t('grading.recomputePreview.title'))).toBeHidden({
+      timeout: 15_000,
+    });
   });
 
   await test.step('the scale appears on the list', async () => {
