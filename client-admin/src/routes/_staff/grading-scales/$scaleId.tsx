@@ -19,6 +19,7 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute } from '@tanstack/react-router';
 import * as React from 'react';
 
+import { MutationErrorMessage } from '../../../components/MutationErrorMessage';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { BandEditor } from './-band-editor';
@@ -100,7 +101,11 @@ const NCTB_BANDS: BandInput[] = [
     percent_from: 0,
     percent_to: 32,
     grade: 'F',
-    gpa: 0,
+    // null, not 0 (D4): a fail band never computes a GPA. Matches the
+    // seeded BD_NCTB_BANDS (server/src/scripts/seed.util.ts) and the copy
+    // path, both of which already leave this null — a UI-created scale
+    // starting from this preset must store the same semantics.
+    gpa: null,
     is_fail: true,
     sequence: 7,
     comment: null,
@@ -163,7 +168,15 @@ function ScaleEditorPage() {
   const scale = scaleQuery.data;
 
   async function handleSave() {
-    const result = await previewBands.mutateAsync(bands ?? []);
+    let result;
+    try {
+      result = await previewBands.mutateAsync(bands ?? []);
+    } catch {
+      // A network/API failure here is rendered below from
+      // `previewBands.isError` (`MutationErrorMessage`) — nothing further
+      // to do in this handler than stop, not let the rejection go unhandled.
+      return;
+    }
     if (!result.valid) return; // problems render below from previewBands.data
     if (result.affected_result_count > 0) {
       setAffectedCount(result.affected_result_count);
@@ -211,6 +224,8 @@ function ScaleEditorPage() {
           </ul>
         </div>
       )}
+
+      {previewBands.isError && <MutationErrorMessage error={previewBands.error} />}
 
       {canManage && (
         <Button type="button" loading={previewBands.isPending} onClick={() => void handleSave()}>
