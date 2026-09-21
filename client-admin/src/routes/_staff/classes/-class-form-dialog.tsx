@@ -24,13 +24,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@biddaloy/ui/components';
-import { useAcademicYears, useCreateClass, useUpdateClass } from '@biddaloy/ui/hooks';
+import {
+  useAcademicYears,
+  useCreateClass,
+  useOrganisationVocabulary,
+  useUpdateClass,
+} from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
 export interface ClassFormInitialValues {
   name: string;
   numericGrade: number | undefined;
+  /** [33.4.1] `undefined` on create (no previous value); on edit, `null`
+   * means "not set" — same three-state shape `UpdateClassDto.shift`/
+   * `.version` accept. */
+  shift?: string | null;
+  version?: string | null;
 }
 
 export interface ClassFormDialogProps {
@@ -50,6 +60,22 @@ export interface ClassFormDialogProps {
 
 const EMPTY_VALUES: ClassFormInitialValues = { name: '', numericGrade: undefined };
 
+/** Radix `Select.Item` rejects an empty-string `value` — same sentinel
+ * convention `classes/index.tsx`'s `ALL_VALUE` uses, for "no shift/version
+ * chosen" rather than "all".
+ *
+ * [CodeRabbit, PR #916] Leading space, not a plain `'__none__'` — the
+ * organisation vocabulary (`UniqueLabelListConstraint`,
+ * `server/src/modules/schools/settings/unique-labels.validator.ts`)
+ * accepts any trimmed, non-empty, ≤50-char string, so an admin really
+ * could name a shift `__none__`, which would then be indistinguishable
+ * from "no shift chosen" in this Select. A leading space makes the
+ * sentinel structurally impossible for a real vocabulary entry to equal
+ * — the validator rejects `entry.trim() !== entry` outright — so the
+ * collision is ruled out by construction, not by convention. Don't
+ * "clean up" this leading space; it's load-bearing. */
+const NONE_VALUE = ' __none__';
+
 export function ClassFormDialog({
   open,
   onOpenChange,
@@ -61,6 +87,7 @@ export function ClassFormDialog({
 }: ClassFormDialogProps) {
   const { t } = useTranslation('classes');
   const academicYearsQuery = useAcademicYears();
+  const vocabularyQuery = useOrganisationVocabulary();
   const createClass = useCreateClass();
   const updateClass = useUpdateClass(classId ?? '');
   const mutation = mode === 'create' ? createClass : updateClass;
@@ -70,6 +97,8 @@ export function ClassFormDialog({
     initialValues?.numericGrade !== undefined ? String(initialValues.numericGrade) : '',
   );
   const [academicYearId, setAcademicYearId] = React.useState(defaultAcademicYearId ?? '');
+  const [shift, setShift] = React.useState(initialValues?.shift ?? NONE_VALUE);
+  const [version, setVersion] = React.useState(initialValues?.version ?? NONE_VALUE);
   const [validationError, setValidationError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -78,10 +107,19 @@ export function ClassFormDialog({
     setName(values.name);
     setNumericGrade(values.numericGrade !== undefined ? String(values.numericGrade) : '');
     setAcademicYearId(defaultAcademicYearId ?? '');
+    setShift(values.shift ?? NONE_VALUE);
+    setVersion(values.version ?? NONE_VALUE);
     setValidationError(null);
     mutation.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
   }, [open]);
+
+  // [D5] Each select only renders once its vocabulary has 2+ entries — a
+  // single-shift school sees nothing new, same rule the list filters use.
+  const shifts = vocabularyQuery.data?.shifts ?? [];
+  const versions = vocabularyQuery.data?.versions ?? [];
+  const showShift = shifts.length >= 2;
+  const showVersion = versions.length >= 2;
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -115,6 +153,10 @@ export function ClassFormDialog({
           name: name.trim(),
           ...(parsedGrade !== undefined ? { numeric_grade: parsedGrade } : {}),
           academic_year_id: academicYearId,
+          // Omitted (not `null`) on create, same reasoning as
+          // `numeric_grade` above — there is no previous value to clear.
+          ...(showShift && shift !== NONE_VALUE ? { shift } : {}),
+          ...(showVersion && version !== NONE_VALUE ? { version } : {}),
         },
         { onSuccess: onSaved },
       );
@@ -128,7 +170,15 @@ export function ClassFormDialog({
       // while the old value silently survived. `UpdateClassDto.
       // numeric_grade?: number | null` accepts the explicit `null`.
       updateClass.mutate(
-        { name: name.trim(), numeric_grade: parsedGrade ?? null },
+        {
+          name: name.trim(),
+          numeric_grade: parsedGrade ?? null,
+          // Always sent when the select is shown, same "explicit null
+          // clears it" reasoning as `numeric_grade` — omitting it would
+          // leave a previously-set shift/version untouched server-side.
+          ...(showShift ? { shift: shift === NONE_VALUE ? null : shift } : {}),
+          ...(showVersion ? { version: version === NONE_VALUE ? null : version } : {}),
+        },
         { onSuccess: onSaved },
       );
     }
@@ -181,6 +231,44 @@ export function ClassFormDialog({
                   {academicYearsQuery.data?.data.map((year) => (
                     <SelectItem key={year.id} value={year.id}>
                       {year.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {showShift && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium">{t('classForm.shiftLabel')}</span>
+              <Select value={shift} onValueChange={setShift}>
+                <SelectTrigger aria-label={t('classForm.shiftLabel')}>
+                  <SelectValue placeholder={t('classForm.shiftPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE_VALUE}>{t('classForm.shiftPlaceholder')}</SelectItem>
+                  {shifts.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {value}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {showVersion && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium">{t('classForm.versionLabel')}</span>
+              <Select value={version} onValueChange={setVersion}>
+                <SelectTrigger aria-label={t('classForm.versionLabel')}>
+                  <SelectValue placeholder={t('classForm.versionPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE_VALUE}>{t('classForm.versionPlaceholder')}</SelectItem>
+                  {versions.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {value}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -17,14 +17,23 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@biddaloy/ui/components';
-import { useCreateSection, useUpdateSection } from '@biddaloy/ui/hooks';
+import { useCreateSection, useOrganisationVocabulary, useUpdateSection } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
 export interface SectionFormInitialValues {
   sectionName: string;
   capacity: number | undefined;
+  /** [33.4.1] `undefined` on create, `null` means "not set" on edit —
+   * same three-state shape `-class-form-dialog.tsx`'s `shift`/`version`
+   * use. */
+  groupName?: string | null;
 }
 
 export interface SectionFormDialogProps {
@@ -40,6 +49,14 @@ export interface SectionFormDialogProps {
 
 const EMPTY_VALUES: SectionFormInitialValues = { sectionName: '', capacity: undefined };
 
+/** Radix `Select.Item` rejects an empty-string `value` — same sentinel
+ * `-class-form-dialog.tsx`'s `NONE_VALUE` uses, including the leading
+ * space (see that file's comment: the organisation vocabulary's own
+ * validator rejects any entry where `entry.trim() !== entry`, which is
+ * what makes this sentinel structurally impossible to collide with a
+ * real group name). Don't "clean up" the leading space. */
+const NONE_VALUE = ' __none__';
+
 export function SectionFormDialog({
   open,
   onOpenChange,
@@ -50,6 +67,7 @@ export function SectionFormDialog({
   onSaved,
 }: SectionFormDialogProps) {
   const { t } = useTranslation('classes');
+  const vocabularyQuery = useOrganisationVocabulary();
   const createSection = useCreateSection(classId);
   const updateSection = useUpdateSection(classId, sectionId ?? '');
   const mutation = mode === 'create' ? createSection : updateSection;
@@ -58,6 +76,7 @@ export function SectionFormDialog({
   const [capacity, setCapacity] = React.useState(
     initialValues?.capacity !== undefined ? String(initialValues.capacity) : '',
   );
+  const [groupName, setGroupName] = React.useState(initialValues?.groupName ?? NONE_VALUE);
   const [validationError, setValidationError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -65,10 +84,15 @@ export function SectionFormDialog({
     const values = initialValues ?? EMPTY_VALUES;
     setSectionName(values.sectionName);
     setCapacity(values.capacity !== undefined ? String(values.capacity) : '');
+    setGroupName(values.groupName ?? NONE_VALUE);
     setValidationError(null);
     mutation.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
   }, [open]);
+
+  // [D5] Only rendered once the tenant has 2+ groups configured.
+  const groups = vocabularyQuery.data?.groups ?? [];
+  const showGroup = groups.length >= 2;
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -96,6 +120,7 @@ export function SectionFormDialog({
         {
           section_name: sectionName.trim(),
           ...(parsedCapacity !== undefined ? { capacity: parsedCapacity } : {}),
+          ...(showGroup && groupName !== NONE_VALUE ? { group_name: groupName } : {}),
         },
         { onSuccess: onSaved },
       );
@@ -106,7 +131,11 @@ export function SectionFormDialog({
       // `UpdateSectionDto.capacity?: number | null` accepts the explicit
       // `null`.
       updateSection.mutate(
-        { section_name: sectionName.trim(), capacity: parsedCapacity ?? null },
+        {
+          section_name: sectionName.trim(),
+          capacity: parsedCapacity ?? null,
+          ...(showGroup ? { group_name: groupName === NONE_VALUE ? null : groupName } : {}),
+        },
         { onSuccess: onSaved },
       );
     }
@@ -147,6 +176,25 @@ export function SectionFormDialog({
               placeholder={t('sectionForm.capacityPlaceholder')}
             />
           </div>
+
+          {showGroup && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium">{t('sectionForm.groupLabel')}</span>
+              <Select value={groupName} onValueChange={setGroupName}>
+                <SelectTrigger aria-label={t('sectionForm.groupLabel')}>
+                  <SelectValue placeholder={t('sectionForm.groupPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE_VALUE}>{t('sectionForm.groupPlaceholder')}</SelectItem>
+                  {groups.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {value}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {validationError && (
             <p role="alert" className="text-sm text-destructive">

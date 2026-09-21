@@ -143,6 +143,11 @@ export type FeesSettingsInput = components['schemas']['FeesSettingsDto'] & {
 
 export type FeesSettings = NonNullable<TenantSettingsInput['fees']>;
 
+/** [33.4.1] Not secret data — `OrganisationSettingsDto` has no
+ * `Secret()`-decorated fields, same reasoning as `AttendancePolicySettings`
+ * above. */
+export type OrganisationSettings = NonNullable<TenantSettingsInput['organisation']>;
+
 export interface MaskedTenantSettings {
   version: 1;
   region: MaskedRegionSettings;
@@ -151,6 +156,7 @@ export interface MaskedTenantSettings {
   auth?: AuthSettings;
   backup?: BackupSettings;
   fees?: FeesSettings;
+  organisation?: OrganisationSettings;
 }
 
 export interface ConnectionTestResult {

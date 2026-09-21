@@ -131,6 +131,22 @@ const teachers = http.get('/api/v1/classes/:classId/teachers', () =>
 
 const teachersEmpty = http.get('/api/v1/classes/:classId/teachers', () => HttpResponse.json([]));
 
+/** [33.4.1] `GET /classes/vocabulary` — empty by default, matching D5's
+ * "a single-shift school sees nothing new" default: no test that doesn't
+ * explicitly opt into a populated vocabulary should see the shift/
+ * version/group selects or filter chips appear. */
+const vocabulary = http.get('/api/v1/classes/vocabulary', () =>
+  HttpResponse.json({ shifts: [], versions: [], groups: [] }),
+);
+
+const vocabularyPopulated = http.get('/api/v1/classes/vocabulary', () =>
+  HttpResponse.json({
+    shifts: ['Morning', 'Day'],
+    versions: ['Bangla', 'English'],
+    groups: ['Science', 'Commerce'],
+  }),
+);
+
 export const classHandlers = {
   list,
   listEmpty,
@@ -146,6 +162,8 @@ export const classHandlers = {
   removeSectionBlocked,
   teachers,
   teachersEmpty,
+  vocabulary,
+  vocabularyPopulated,
 };
 
 export const classDefaultHandlers = [
@@ -159,4 +177,5 @@ export const classDefaultHandlers = [
   updateSection,
   removeSection,
   teachers,
+  vocabulary,
 ];

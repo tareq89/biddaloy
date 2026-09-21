@@ -44,7 +44,11 @@
     "announceResults_one": "{{visible}} of {{total}} student",
     "announceResults_other": "{{visible}} of {{total}} students",
     "noGuardian": "—",
-    "emptyValue": "—"
+    "emptyValue": "—",
+    "shiftLabel": "Shift",
+    "allShifts": "All shifts",
+    "versionLabel": "Version",
+    "allVersions": "All versions"
   },
   "sendReminderDialog": {
     "title": "Send reminder",

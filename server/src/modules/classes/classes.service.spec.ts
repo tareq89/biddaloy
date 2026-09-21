@@ -84,6 +84,18 @@ async function buildSectionService(vocabulary: { groups: string[] }, existingSec
   return { service: moduleRef.get(SectionService), sectionRepo, settingsReader };
 }
 
+describe('ClassService.organisationVocabulary [33.4.1]', () => {
+  it('delegates straight to SchoolSettingsReader for the given tenant', async () => {
+    const { service, settingsReader } = await buildClassService({
+      shifts: ['Morning', 'Day'],
+      versions: ['Bangla'],
+    });
+    const result = await service.organisationVocabulary(TENANT_ID);
+    expect(result).toEqual({ groups: [], shifts: ['Morning', 'Day'], versions: ['Bangla'] });
+    expect(settingsReader.organisationVocabulary).toHaveBeenCalledWith(TENANT_ID);
+  });
+});
+
 describe('ClassService shift/version vocabulary [33.2.1]', () => {
   it('accepts a value present in the vocabulary', async () => {
     const { service } = await buildClassService({ shifts: ['Morning', 'Day'], versions: [] });

@@ -17,7 +17,11 @@
     "announceResults_one": "{{visible}} of {{total}} class",
     "announceResults_other": "{{visible}} of {{total}} classes",
     "expandLabel": "Sections for {{name}}",
-    "noGrade": "—"
+    "noGrade": "—",
+    "shiftLabel": "Shift",
+    "allShifts": "All shifts",
+    "versionLabel": "Version",
+    "allVersions": "All versions"
   },
   "classForm": {
     "createTitle": "Add class",
@@ -34,7 +38,11 @@
     "errorGradeInvalid": "Grade must be a positive whole number",
     "errorMessage": "Failed to save class",
     "save": "Save",
-    "saving": "Saving…"
+    "saving": "Saving…",
+    "shiftLabel": "Shift",
+    "shiftPlaceholder": "Select a shift",
+    "versionLabel": "Version",
+    "versionPlaceholder": "Select a version"
   },
   "sectionForm": {
     "createTitle": "Add section",
@@ -48,7 +56,9 @@
     "errorCapacityInvalid": "Capacity must be a positive whole number",
     "errorMessage": "Failed to save section",
     "save": "Save",
-    "saving": "Saving…"
+    "saving": "Saving…",
+    "groupLabel": "Group",
+    "groupPlaceholder": "Select a group"
   },
   "deleteClassDialog": {
     "title": "Delete class",

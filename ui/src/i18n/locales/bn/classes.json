@@ -17,7 +17,11 @@
     "announceResults_one": "{{total}} টির মধ্যে {{visible}} টি শ্রেণি",
     "announceResults_other": "{{total}} টির মধ্যে {{visible}} টি শ্রেণি",
     "expandLabel": "{{name}}-এর শাখা",
-    "noGrade": "—"
+    "noGrade": "—",
+    "shiftLabel": "শিফট",
+    "allShifts": "সকল শিফট",
+    "versionLabel": "ভার্সন",
+    "allVersions": "সকল ভার্সন"
   },
   "classForm": {
     "createTitle": "শ্রেণি যোগ করুন",
@@ -34,7 +38,11 @@
     "errorGradeInvalid": "গ্রেড অবশ্যই একটি ধনাত্মক পূর্ণসংখ্যা হতে হবে",
     "errorMessage": "শ্রেণি সংরক্ষণ করতে ব্যর্থ হয়েছে",
     "save": "সংরক্ষণ করুন",
-    "saving": "সংরক্ষণ করা হচ্ছে…"
+    "saving": "সংরক্ষণ করা হচ্ছে…",
+    "shiftLabel": "শিফট",
+    "shiftPlaceholder": "একটি শিফট নির্বাচন করুন",
+    "versionLabel": "ভার্সন",
+    "versionPlaceholder": "একটি ভার্সন নির্বাচন করুন"
   },
   "sectionForm": {
     "createTitle": "শাখা যোগ করুন",
@@ -48,7 +56,9 @@
     "errorCapacityInvalid": "ধারণক্ষমতা অবশ্যই একটি ধনাত্মক পূর্ণসংখ্যা হতে হবে",
     "errorMessage": "শাখা সংরক্ষণ করতে ব্যর্থ হয়েছে",
     "save": "সংরক্ষণ করুন",
-    "saving": "সংরক্ষণ করা হচ্ছে…"
+    "saving": "সংরক্ষণ করা হচ্ছে…",
+    "groupLabel": "গ্রুপ",
+    "groupPlaceholder": "একটি গ্রুপ নির্বাচন করুন"
   },
   "deleteClassDialog": {
     "title": "শ্রেণি মুছুন",

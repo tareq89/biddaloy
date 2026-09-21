@@ -65,8 +65,41 @@ export interface PaginatedClasses {
 
 export interface ClassListFilters {
   academic_year_id?: string;
+  /** [33.4.1] Organisation-vocabulary filters (`QueryClassDto.shift`/
+   * `.version`) — unknown/nonexistent value is an empty page, never a
+   * 500, same contract as `academic_year_id`. */
+  shift?: string;
+  version?: string;
   page?: number;
   limit?: number;
+}
+
+/** [33.4.1] `GET /classes/vocabulary` — the tenant's own
+ * `organisation.{shifts,versions,groups}`, gated by
+ * `ACADEMIC_STRUCTURE_READ` (same permission as `useClasses` below), not
+ * `SETTINGS_MANAGE`. Not in `schema.d.ts` (no `@ApiResponse` on that
+ * route, same hand-typed gap `SchoolSummary` documents elsewhere), so
+ * hand-typed here against `OrganisationSettingsDto`'s own shape. */
+export interface OrganisationVocabulary {
+  shifts: string[];
+  versions: string[];
+  groups: string[];
+}
+
+export function organisationVocabularyQueryOptions() {
+  return queryOptions({
+    queryKey: [...classKeys.all, 'organisation-vocabulary'] as const,
+    queryFn: async () => (await apiClient.get<OrganisationVocabulary>('/classes/vocabulary')).data,
+    retry: shouldRetryQuery,
+  });
+}
+
+/** Every list/form that needs shift/version/group options reads this one
+ * hook — a single request the query cache shares across the class form
+ * dialog, the section form dialog, and both list filter bars, rather
+ * than each mounting its own. */
+export function useOrganisationVocabulary() {
+  return useQuery(organisationVocabularyQueryOptions());
 }
 
 export const classKeys = createEntityKeys<ClassListFilters>('classes');

@@ -214,5 +214,19 @@
     "lateFeeKindPercent": "Percent",
     "lateFeeKindFlat": "Flat amount",
     "lateFeeValue": "Value"
+  },
+  "organisation": {
+    "legend": "Shift, version & group",
+    "shiftsLabel": "Shifts",
+    "versionsLabel": "Versions",
+    "groupsLabel": "Groups",
+    "addPlaceholder": "Add a value",
+    "addAction": "Add",
+    "renameAction": "Rename",
+    "removeAction": "Remove",
+    "renamePlaceholder": "New name",
+    "renameConfirm": "Save",
+    "renameCancel": "Cancel",
+    "emptyList": "No values yet."
   }
 }

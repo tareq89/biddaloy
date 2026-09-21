@@ -89,6 +89,18 @@ export class ClassService {
     private readonly settingsReader: SchoolSettingsReader,
   ) {}
 
+  /** [33.4.1] Read-only vocabulary lookup for the class/section forms and
+   * list filters — gated by `ACADEMIC_STRUCTURE_READ` (same permission as
+   * `findAll` below), not `SETTINGS_MANAGE`. The settings page's own GET
+   * (`SchoolsController`'s `/schools/:id/settings`) is `SETTINGS_MANAGE`-
+   * only, which ACCOUNTANT/EXECUTIVE/TEACHER never hold — those roles can
+   * still see the classes/students list (`ACADEMIC_STRUCTURE_READ`), so
+   * their shift/version filter chips need a route they're actually
+   * allowed to call. */
+  async organisationVocabulary(tenantId: string) {
+    return this.settingsReader.organisationVocabulary(tenantId);
+  }
+
   async create(
     dto: CreateClassDto,
     tenantId: string,

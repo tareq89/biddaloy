@@ -179,6 +179,7 @@ export function SectionsPanel({ classId, className, padded = true }: SectionsPan
           initialValues={{
             sectionName: editing.section_name,
             capacity: editing.capacity ?? undefined,
+            groupName: editing.group_name ?? null,
           }}
           onSaved={() => setEditing(null)}
         />

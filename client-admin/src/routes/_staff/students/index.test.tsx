@@ -1,6 +1,7 @@
 import {
   cleanupTestState,
   classFactory,
+  classHandlers,
   classSectionFactory,
   renderWithRouter,
   server,
@@ -425,5 +426,89 @@ describe('/students', () => {
 
     await screen.findByText('No students found');
     expect(screen.queryByText('Migrating a whole school?')).toBeNull();
+  });
+
+  // [33.4.1] D5 — no shift/version filter field at all with an empty
+  // organisation vocabulary (this suite's default handler).
+  it('shows no shift/version filter with an empty organisation vocabulary', async () => {
+    server.use(
+      http.get('/api/v1/students', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('No students found');
+    expect(screen.queryByLabelText('Shift')).toBeNull();
+    expect(screen.queryByLabelText('Version')).toBeNull();
+  });
+
+  it('the shift filter actually filters the student list, once the tenant has 2+ shifts', async () => {
+    const morningStudent = studentFactory({ id: 'student-1', full_name: 'Rahim Uddin' });
+    const dayStudent = studentFactory({ id: 'student-2', full_name: 'Karim Hossain' });
+    server.use(
+      classHandlers.vocabularyPopulated,
+      http.get('/api/v1/students', ({ request }) => {
+        const shift = new URL(request.url).searchParams.get('shift');
+        const data = shift === 'Morning' ? [morningStudent] : [morningStudent, dayStudent];
+        return HttpResponse.json({ data, total: data.length, page: 1, limit: 10, totalPages: 1 });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('Rahim Uddin');
+    await screen.findByText('Karim Hossain');
+
+    const shiftSelect = await screen.findByLabelText('Shift');
+    await user.click(shiftSelect);
+    await user.click(await screen.findByRole('option', { name: 'Morning' }));
+
+    await waitFor(() => expect(screen.queryByText('Karim Hossain')).toBeNull());
+    expect(screen.getByText('Rahim Uddin')).toBeTruthy();
+  });
+
+  // [CodeRabbit, PR #916] A `?shift=Morning` left over in the URL (a
+  // bookmark, a share, or the vocabulary having shrunk since the link was
+  // made) must not keep silently filtering once the field itself is gone
+  // (D5, empty vocabulary here) — no chip on screen to explain or clear
+  // it otherwise.
+  it('drops a leftover ?shift= URL param once the vocabulary has shrunk below 2 entries', async () => {
+    const requestedShift = vi.fn();
+    server.use(
+      http.get('/api/v1/students', ({ request }) => {
+        requestedShift(new URL(request.url).searchParams.get('shift'));
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 });
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students?shift=Morning'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('No students found');
+    expect(screen.queryByLabelText('Shift')).toBeNull();
+    // The route `loader`'s own prefetch can't gate on vocabulary (no
+    // hooks in a TanStack Router loader) and still fires once with the
+    // raw URL param — that's a separate, wasted background request under
+    // its own query key, not what's on screen. What matters for D5 is
+    // the query this page's own `useStudents(studentListFilters)` call
+    // actually renders from, which settles last and must exclude it.
+    await waitFor(() => expect(requestedShift.mock.calls.at(-1)?.[0] ?? null).toBeNull());
   });
 });
