@@ -13,7 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { ApprovalScope, JwtPayload, Permission, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
@@ -32,6 +32,7 @@ import {
   UpdateGradingScaleDto,
   CopyScaleDto,
   RecomputeBandsDto,
+  RecomputePreviewResult,
   toGradingScaleDto,
   toGradingBandDto,
 } from './dto/grading.dto';
@@ -161,6 +162,7 @@ export class GradingController {
   @ApiOperation({
     summary: 'Validate a proposed band set and report what would change. Writes nothing.',
   })
+  @ApiResponse({ status: 201, type: RecomputePreviewResult })
   async previewBands(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RecomputeBandsDto,

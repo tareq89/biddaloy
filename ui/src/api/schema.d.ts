@@ -6012,6 +6012,17 @@ export interface components {
         RecomputeBandsDto: {
             bands: components["schemas"]["BandInputDto"][];
         };
+        RecomputeProblemDto: {
+            type: string;
+            message: string;
+            index?: number;
+        };
+        RecomputePreviewResult: {
+            valid: boolean;
+            problems: components["schemas"]["RecomputeProblemDto"][];
+            bands_changed: boolean;
+            affected_result_count: number;
+        };
     };
     responses: never;
     parameters: never;
@@ -14275,7 +14286,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["RecomputePreviewResult"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

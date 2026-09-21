@@ -140,9 +140,21 @@ export function toGradingScaleDto(scale: GradingScale, bands: GradingBand[]): Gr
   };
 }
 
-export interface RecomputePreviewResult {
+export class RecomputeProblemDto {
+  type: string;
+  message: string;
+  index?: number;
+}
+
+// A class, not the interface this replaced — the nest-cli.json swagger
+// plugin only introspects classes to build `@ApiResponse`'s schema, same
+// as `GradingScaleDto`/`GradingBandDto` above (no manual `@ApiProperty`
+// needed). Without this, `GradingController_previewBands_v1`'s generated
+// response type was `Record<string, never>`, silently out of sync with
+// what the endpoint actually returns.
+export class RecomputePreviewResult {
   valid: boolean;
-  problems: { type: string; message: string; index?: number }[];
+  problems: RecomputeProblemDto[];
   /** Would this write actually change anything — a no-op preview (bands
    * submitted identical to what's stored) still needs no approval. */
   bands_changed: boolean;

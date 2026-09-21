@@ -2,6 +2,7 @@ import { ApprovalScope } from '@biddaloy/shared';
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
+import type { components } from '../api/schema';
 
 import { type ApprovedMutationResult, useApprovedMutation } from './approval';
 import { createEntityKeys } from './query-keys';
@@ -11,10 +12,8 @@ import { shouldRetryQuery } from './retry';
 // `schema.d.ts` now includes the generated `GradingScaleDto`/`GradingBandDto`
 // equivalents and these match them field-for-field — kept hand-typed rather
 // than swapped, same as `discount-rules.ts`'s own still-unswapped reconciliation
-// note for #677. `RecomputePreviewResult`/`RecomputeProblem` below have no
-// generated equivalent yet: `GradingController_previewBands_v1`'s response is
-// `Record<string, never>` in the generated schema, since #908's controller
-// doesn't declare an `@ApiResponse` type for it.
+// note for #677. `RecomputePreviewResult`/`RecomputeProblem` are generated,
+// below (a real `@ApiResponse` type was missing on the controller; fixed).
 
 export interface GradingBand {
   id: string;
@@ -60,18 +59,10 @@ export interface CopyScaleInput {
   source_scale_id: string;
 }
 
-export interface RecomputeProblem {
-  type: string;
-  message: string;
-  index?: number;
-}
-
-export interface RecomputePreviewResult {
-  valid: boolean;
-  problems: RecomputeProblem[];
-  bands_changed: boolean;
-  affected_result_count: number;
-}
+// Generated now that #908's controller declares a real `@ApiResponse` type
+// for `previewBands` — no longer hand-typed.
+export type RecomputeProblem = components['schemas']['RecomputeProblemDto'];
+export type RecomputePreviewResult = components['schemas']['RecomputePreviewResult'];
 
 export interface ConfirmBandsResult {
   scale: GradingScale;
