@@ -354,6 +354,78 @@ export class AttendancePolicyDto {
 }
 
 /**
+ * `subjectPeriodsPerWeek`'s keys are arbitrary subject ids, not a fixed
+ * enum (unlike `lateFees`/`FeeType` below) — validated by hand rather than
+ * `@ValidateNested()` for the same arbitrary-key-map reason as
+ * `LateFeesMapConstraint`.
+ */
+@ValidatorConstraint({ name: 'isSubjectPeriodsPerWeekMap', async: false })
+export class SubjectPeriodsPerWeekMapConstraint implements ValidatorConstraintInterface {
+  private lastError = '';
+
+  validate(value: unknown): boolean {
+    if (value === undefined || value === null) return true;
+    if (typeof value !== 'object' || Array.isArray(value)) {
+      this.lastError = 'subjectPeriodsPerWeek must be an object keyed by subject id';
+      return false;
+    }
+    for (const [subjectId, target] of Object.entries(value as Record<string, unknown>)) {
+      if (!subjectId.trim()) {
+        this.lastError = 'subjectPeriodsPerWeek has an empty subject id key';
+        return false;
+      }
+      if (!Number.isInteger(target) || (target as number) < 1) {
+        this.lastError = `subjectPeriodsPerWeek.${subjectId} must be a positive integer`;
+        return false;
+      }
+    }
+    return true;
+  }
+
+  defaultMessage(): string {
+    return this.lastError || 'subjectPeriodsPerWeek is invalid';
+  }
+}
+
+/**
+ * `routine.*` (21.1.1) — class-timetable generation constraints (D7).
+ * `maxPeriodsPerTeacherPerDay`/`maxConsecutivePeriods` are nullable caps:
+ * `null` (or omitted) means no cap.
+ */
+export class RoutineSettingsDto {
+  @ApiProperty({ minimum: 0 })
+  @IsInt()
+  @Min(0)
+  defaultChangeoverMinutes: number;
+
+  @ApiPropertyOptional({ minimum: 1, nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxPeriodsPerTeacherPerDay?: number | null;
+
+  @ApiPropertyOptional({ minimum: 1, nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxConsecutivePeriods?: number | null;
+
+  /** [21.1.1] Target periods/week per subject, keyed by subject id. Subject
+   * ids are arbitrary tenant data (not a fixed enum like `FeeType`), so this
+   * validates shape (non-empty string keys, positive-int values) rather
+   * than membership — the greedy-fill service (wave 4) is the one that
+   * checks a key against the tenant's real subject list. */
+  @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: { type: 'integer', minimum: 1 },
+    description: 'Keyed by subject id. Omitted subject = builder enforces no target for it.',
+  })
+  @IsOptional()
+  @Validate(SubjectPeriodsPerWeekMapConstraint)
+  subjectPeriodsPerWeek?: Record<string, number>;
+}
+
+/**
  * `organisation.{shifts,versions,groups}` (33.1.1) — a tenant's own
  * vocabulary for shift/version/group. Each list: trimmed non-empty entries,
  * at most 50 characters, at most 20 entries, no case-insensitive duplicate.
@@ -561,6 +633,10 @@ export class TenantSettingsDto {
   @OptionalSetting()
   @NestedSettings(() => AttendancePolicyDto)
   attendance?: AttendancePolicyDto;
+
+  @OptionalSetting()
+  @NestedSettings(() => RoutineSettingsDto)
+  routine?: RoutineSettingsDto;
 
   @OptionalSetting()
   @NestedSettings(() => OrganisationSettingsDto)
