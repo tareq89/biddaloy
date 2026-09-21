@@ -90,7 +90,7 @@ People
 Academics
   Academic years & terms [have, 17.0 adds terms]                    A E
   Calendar [17.0] · Holidays [have API, 17.0 UI]                    A Ac E T
-  Classes & sections [have] · Groups/streams [N1] · Classrooms [21.0]
+  Classes & sections [have] · Groups/streams [have, 33.0] · Classrooms [21.0]
   Subjects [partial → own page; flags: order, unit, effect, merge-with, grade-subject]
   Timetable & routines [21.0]  ("Routines")                         A Ac E T
     Class routine · Auto-generate · Routine setup · Substitutions · Exam routine · My routine (T)
@@ -131,7 +131,9 @@ Administration
   Settings [have] → sub-pages:
     Attendance policy & times [partial → N15] · Fine rules [N8] · Communication providers [have]
     School profile & logo [have] · Region & locale [17.0] · Presets & feature toggles [N3]
-    Organisation structure [N1] · Result templates library [19.0] · Backup & restore [have] · Website sync [N13]
+    Organisation structure [have, 33.0 — Settings section, no new route; a
+    shift/version/group field only shows once the tenant has 2+ entries in
+    it] · Result templates library [19.0] · Backup & restore [have] · Website sync [N13]
   Users [have, kept here for now — revisit in Epic 24.0]
   Roles & access [24.0] · Audit logs [have] · Security [have]
 

@@ -91,8 +91,23 @@ for full field lists.)_
   school-scoped. Only one can be `is_current` per school. Everything
   fee-related is ultimately scoped to one of these.
 - **`Class`** — a grade/standard (e.g. "Class 10"), unique per
-  academic-year + school.
-- **`ClassSection`** — a division within a class (e.g. "Section A").
+  academic-year + school + `shift` + `version`. `shift` (e.g. "Morning" vs
+  "Day") and `version` (e.g. "Bangla" vs "English") are free-text values a
+  school configures for itself in Settings → Organisation
+  (`TenantSettings.organisation.{shifts,versions}`) — a school that doesn't
+  use either dimension just leaves every class's `shift`/`version` `NULL`.
+  `NULL` counts as one more distinct value here, not "don't care": `Class 6`
+  with `shift: NULL` and a second `Class 6` with `shift: 'Morning'` are two
+  different rows, never a collision (`NULLS NOT DISTINCT` on the unique
+  index — see `1789800010700-AddOrganisationDimensions.ts`).
+  **Branches are a separate concern**: a school with multiple physical
+  branches models each branch as its own tenant (`School` row) with its own
+  EIIN, not as a shift/version value (Epic 33 decision D1).
+- **`ClassSection`** — a division within a class (e.g. "Section A"), with an
+  optional `group` (e.g. "Science" vs "Commerce") drawn from the same
+  tenant vocabulary (`organisation.groups`). Unlike shift/version, `group`
+  is **not** part of what makes a section unique — two sections named "A"
+  in the same class always collide regardless of group.
 - **`Teacher`** — a staff profile layered on top of a `User`. Can hold
   multiple designations and be assigned to multiple sections via
   **`TeacherClassSection`**.
