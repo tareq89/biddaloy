@@ -71,6 +71,17 @@ export class ClassController {
     return this.classService.findAll(query, tenant.id);
   }
 
+  @Get('vocabulary')
+  // [33.4.1] Ahead of `:id` below — Nest matches routes in declaration
+  // order, and `:id` would otherwise swallow the literal `vocabulary`
+  // segment as a (rejected-by-`ParseUUIDPipe`) id.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @RequirePermissions(Permission.ACADEMIC_STRUCTURE_READ)
+  @ApiOperation({ summary: "Read the tenant's organisation vocabulary (shifts/versions/groups)." })
+  getOrganisationVocabulary(@CurrentTenant() tenant: { id: string; role: string }) {
+    return this.classService.organisationVocabulary(tenant.id);
+  }
+
   @Get(':id')
   // [10.4] G4 — reference-data read.
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
