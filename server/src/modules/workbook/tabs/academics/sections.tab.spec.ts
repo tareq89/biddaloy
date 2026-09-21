@@ -54,6 +54,7 @@ function makeSection(overrides: Partial<ClassSection> = {}): ClassSection {
     class: makeClass(),
     section_name: 'A',
     capacity: 40,
+    group_name: null,
     tenant_id: TENANT_ID,
     ...overrides,
   } satisfies Partial<ClassSection>);
@@ -90,9 +91,10 @@ describe('sectionsTab shape', () => {
 
   it('keys a section by class, academic year, and section name, never a uuid', () => {
     // The `class` segment is itself the classes tab's own key
-    // (`name|academic_year`), so the joined string has an embedded pipe —
-    // still unique and stable, just not exactly three `|`-separated parts.
-    expect(sectionsTab.keyOf(makeSection())).toBe('Class 10|2026-2027|2026-2027|A');
+    // (`name|academic_year|shift|version`, [33.2.1]), so the joined string
+    // has embedded pipes — still unique and stable, just not exactly four
+    // `|`-separated parts.
+    expect(sectionsTab.keyOf(makeSection())).toBe('Class 10|2026-2027|||2026-2027|A');
   });
 });
 
@@ -111,6 +113,7 @@ describe('round trip', () => {
         capacity: 40,
         class_key: `Class 10|2026-2027`,
         academic_year_key: '2026-2027',
+        group_name: null,
       } satisfies ClassSectionRow,
     });
   });
@@ -129,6 +132,26 @@ describe('round trip', () => {
         capacity: null,
         class_key: `Class 10|2026-2027`,
         academic_year_key: '2026-2027',
+        group_name: null,
+      } satisfies ClassSectionRow,
+    });
+  });
+
+  it('round-trips a section with a group set', () => {
+    const section = makeSection({ group_name: 'Science' });
+
+    const result = sectionsTab.fromRow(toCells(section), 2, makeImportCtx());
+
+    expect(result).toEqual({
+      row: {
+        id: SECTION_ID,
+        class_id: CLASS_ID,
+        academic_year_id: YEAR_ID,
+        section_name: 'A',
+        capacity: 40,
+        class_key: `Class 10|2026-2027`,
+        academic_year_key: '2026-2027',
+        group_name: 'Science',
       } satisfies ClassSectionRow,
     });
   });
@@ -209,6 +232,7 @@ describe('diffFields', () => {
       capacity: 40,
       class_key: `Class 10|2026-2027`,
       academic_year_key: '2026-2027',
+      group_name: null,
     };
 
     expect(sectionsTab.diffFields(row, section)).toEqual([]);
@@ -224,8 +248,25 @@ describe('diffFields', () => {
       capacity: 45,
       class_key: `Class 10|2026-2027`,
       academic_year_key: '2026-2027',
+      group_name: null,
     };
 
     expect(sectionsTab.diffFields(row, section)).toEqual(['capacity']);
+  });
+
+  it('reports a changed group', () => {
+    const section = makeSection({ group_name: 'Science' });
+    const row: ClassSectionRow = {
+      id: SECTION_ID,
+      class_id: CLASS_ID,
+      academic_year_id: YEAR_ID,
+      section_name: 'A',
+      capacity: 40,
+      class_key: `Class 10|2026-2027`,
+      academic_year_key: '2026-2027',
+      group_name: 'Commerce',
+    };
+
+    expect(sectionsTab.diffFields(row, section)).toEqual(['group_name']);
   });
 });

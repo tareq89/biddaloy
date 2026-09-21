@@ -114,7 +114,10 @@ describe('classSubjectsTab shape', () => {
 
   it('keys a class_subject by class, year, and subject code, never a uuid', () => {
     const key = classSubjectsTab.keyOf(makeClassSubject());
-    expect(key).toBe('Class 10|2026-2027|2026-2027|MATH');
+    // The `class` segment is itself `classesTab.keyOf`'s own key
+    // (`name|academic_year|shift|version`, [33.2.1]) — embedded pipes,
+    // same as `sectionsTab`/`teacherAssignmentsTab`.
+    expect(key).toBe('Class 10|2026-2027|||2026-2027|MATH');
     // No id (uuid) segment appears in the key text.
     expect(key).not.toContain(CLASS_SUBJECT_ID);
     expect(key).not.toContain(CLASS_ID);

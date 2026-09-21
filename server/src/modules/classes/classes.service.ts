@@ -25,11 +25,15 @@ import { SchoolSettingsReader } from '../schools/settings/school-settings-reader
 
 /** [33.2.1] Rejects a non-null value that isn't in the tenant's own
  * vocabulary for this dimension. `null`/`undefined` is always allowed —
- * an empty vocabulary means the tenant hasn't opted into this dimension
- * yet, so any value would be meaningless to validate against and is
- * accepted as-is (D5). Matching is case-sensitive: the DTO that writes
- * the vocabulary itself (33.1.1) already blocks case-variant duplicates
- * from entering it. */
+ * clearing/omitting the field never needs a vocabulary to check against
+ * (D5's "this tenant doesn't use this dimension"). A *non-null* value is
+ * validated even when the vocabulary is empty, which means it is always
+ * rejected in that case: an empty vocabulary is "tenant hasn't configured
+ * anything yet", not "tenant accepts anything" — the value is unvalidated
+ * input crossing a trust boundary, and there is nothing configured to
+ * check it against, so it's refused rather than written blind. Matching
+ * is case-sensitive: the DTO that writes the vocabulary itself (33.1.1)
+ * already blocks case-variant duplicates from entering it. */
 function assertInVocabulary(
   value: string | null | undefined,
   vocabulary: string[],
@@ -121,6 +125,8 @@ export class ClassService {
             name: saved.name,
             numeric_grade: saved.numeric_grade,
             academic_year_id: saved.academic_year_id,
+            shift: saved.shift,
+            version: saved.version,
           },
         },
         manager,
@@ -226,10 +232,15 @@ export class ClassService {
   ): Promise<Class> {
     const existing = await this.findOne(id, tenantId);
 
-    if ('shift' in dto || 'version' in dto) {
+    // `dto.shift !== undefined`, not `'shift' in dto` — class-validator's
+    // `plainToInstance` sets every declared property key on the instance
+    // (`useDefineForClassFields`), so an unsent field is still present as
+    // `undefined` rather than absent, and `in` would always be true here.
+    if (dto.shift !== undefined || dto.version !== undefined) {
       const organisation = await this.settingsReader.organisationVocabulary(tenantId);
-      if ('shift' in dto) assertInVocabulary(dto.shift, organisation.shifts, 'shift');
-      if ('version' in dto) assertInVocabulary(dto.version, organisation.versions, 'version');
+      if (dto.shift !== undefined) assertInVocabulary(dto.shift, organisation.shifts, 'shift');
+      if (dto.version !== undefined)
+        assertInVocabulary(dto.version, organisation.versions, 'version');
     }
 
     const changedKeys = Object.keys(dto);
@@ -390,6 +401,7 @@ export class SectionService {
             class_id: saved.class_id,
             section_name: saved.section_name,
             capacity: saved.capacity,
+            group_name: saved.group_name,
           },
         },
         manager,
@@ -510,7 +522,9 @@ export class SectionService {
       throw new NotFoundException(`Section with ID "${sectionId}" not found in class "${classId}"`);
     }
 
-    if ('group_name' in dto) {
+    // `dto.group_name !== undefined`, not `'group_name' in dto` — same
+    // reasoning as `ClassService.update` above.
+    if (dto.group_name !== undefined) {
       const organisation = await this.settingsReader.organisationVocabulary(tenantId);
       assertInVocabulary(dto.group_name, organisation.groups, 'group');
     }

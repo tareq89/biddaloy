@@ -27,6 +27,11 @@ export interface ClassRow {
   // freshly-imported row and an existing entity, without a uuid ever
   // appearing in a natural key (see key-index.ts).
   academic_year_key: string;
+  // [33.2.1] Same property name as `Class.shift`/`.version`, so `keyOf`
+  // below can read them straight off either a `ClassRow` or a `Class`
+  // without the entity/row branching `academic_year_key` needs.
+  shift: string | null;
+  version: string | null;
 }
 
 const columns: readonly ColumnSpec[] = [
@@ -39,6 +44,15 @@ const columns: readonly ColumnSpec[] = [
     required: true,
     label: { en: 'Academic year', bn: 'শিক্ষাবর্ষ' },
   },
+  // [33.2.1] Part of `naturalKey` below, not just an exported column: the
+  // DB's own unique index is `(name, academic_year_id, tenant_id, shift,
+  // version)` — two classes can legitimately share name+year once one is
+  // "Morning" and the other "Day". Leaving shift/version out of the
+  // workbook's natural key would collapse both onto one key on export,
+  // and `deleteByAbsence: true` would then delete whichever class lost
+  // that collision on restore.
+  { key: 'shift', type: 'string', label: { en: 'Shift', bn: 'শিফট' } },
+  { key: 'version', type: 'string', label: { en: 'Version', bn: 'ভার্সন' } },
 ];
 
 /**
@@ -53,6 +67,8 @@ const excluded: readonly string[] = [
 
 const MAX_LENGTHS: Record<string, number> = {
   name: 50,
+  shift: 50,
+  version: 50,
 };
 
 export const classesTab: TabSpec<Class, ClassRow> = {
@@ -61,7 +77,11 @@ export const classesTab: TabSpec<Class, ClassRow> = {
   excluded,
   dependsOn: ['academic_years'],
   columns,
-  naturalKey: ['name', 'academic_year'],
+  // [33.2.1] `shift`/`version` included: same statement as the DB's own
+  // `IDX_cl_name_year_tenant_shift_version`, expressed a second time at
+  // this layer because the workbook's own key-collision/delete-by-absence
+  // logic never touches the database's unique index directly.
+  naturalKey: ['name', 'academic_year', 'shift', 'version'],
   deleteByAbsence: true,
 
   load(tenantId: string, m: EntityManager): Promise<Class[]> {
@@ -76,6 +96,8 @@ export const classesTab: TabSpec<Class, ClassRow> = {
       id: entity.id,
       name: entity.name,
       academic_year: ctx.keyOf('academic_years', entity.academic_year_id),
+      shift: entity.shift,
+      version: entity.version,
     };
   },
 
@@ -137,6 +159,8 @@ export const classesTab: TabSpec<Class, ClassRow> = {
         name: values.name as string,
         academic_year_id: academicYearId as string,
         academic_year_key: academicYearKey,
+        shift: (values.shift as string | null) ?? null,
+        version: (values.version as string | null) ?? null,
       },
     };
   },
@@ -144,15 +168,21 @@ export const classesTab: TabSpec<Class, ClassRow> = {
   keyOf(x: ClassRow | Class): string {
     // A natural key is never a uuid (see key-index.ts): a row carries the
     // year's key text directly, an entity must read it off the (eagerly
-    // loaded) `academic_year` relation.
+    // loaded) `academic_year` relation. `shift`/`version` share the same
+    // property name on both `ClassRow` and `Class`, so they need no such
+    // branching — but they do need a null-safe default, since two classes
+    // both missing shift must still produce the same key segment (`''`)
+    // rather than diverge on `null` vs `undefined` formatting.
     const yearKey = x instanceof Class ? (x.academic_year?.name ?? '') : x.academic_year_key;
-    return `${x.name}|${yearKey}`;
+    return `${x.name}|${yearKey}|${x.shift ?? ''}|${x.version ?? ''}`;
   },
 
   diffFields(row: ClassRow, existing: Class): string[] {
     const changed: string[] = [];
     if (row.name !== existing.name) changed.push('name');
     if (row.academic_year_id !== existing.academic_year_id) changed.push('academic_year');
+    if (row.shift !== existing.shift) changed.push('shift');
+    if (row.version !== existing.version) changed.push('version');
     return changed;
   },
 
@@ -166,6 +196,8 @@ export const classesTab: TabSpec<Class, ClassRow> = {
     klass.tenant_id = tenantId;
     klass.name = row.name;
     klass.academic_year_id = row.academic_year_id;
+    klass.shift = row.shift;
+    klass.version = row.version;
 
     return m.save(Class, klass);
   },

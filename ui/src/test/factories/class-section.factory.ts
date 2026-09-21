@@ -17,6 +17,9 @@ export function classSectionFactory(overrides: Partial<ClassSection> = {}): Clas
     class_id: klass.id,
     section_name: faker.helpers.arrayElement(SECTION_NAMES),
     capacity: faker.number.int({ min: 20, max: 60 }),
+    // [33.2.1] `null` by default — a tenant opts into group, tests that
+    // need one pass it in via overrides.
+    group_name: null,
     tenant,
     tenant_id: tenant.id,
     created_at: faker.date.past({ refDate: FACTORY_REFERENCE_DATE }).toISOString(),

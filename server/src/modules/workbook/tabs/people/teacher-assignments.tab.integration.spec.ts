@@ -272,8 +272,18 @@ describe('teacherAssignmentsTab (integration)', () => {
       expect(loaded.map((a) => a.id)).toEqual([createdA.id]);
     });
 
-    it('attaches the relations keyOf needs: no empty fragment, no uuid', async () => {
+    it('attaches the relations keyOf needs: no missing relation, no uuid', async () => {
       const chain = await seedChain(TENANT_A, 'lr');
+      // [33.2.1] `shift`/`version`/`group_name` are legitimately `null`
+      // when a tenant doesn't use that dimension, and `classesTab.keyOf`/
+      // `sectionsTab.keyOf` now embed them — so an *empty* `|`-separated
+      // fragment in the composed key is no longer proof of a missing
+      // relation on its own. Setting them here keeps this test's real
+      // purpose (a failed-to-load relation defaults its segment to `''`)
+      // meaningful: every fragment, including these, should be non-empty
+      // when every relation loaded correctly.
+      await classRepo.update(chain.klass.id, { shift: 'Morning', version: 'Bangla' });
+      await sectionRepo.update(chain.section.id, { group_name: 'Science' });
       await teacherAssignmentsTab.upsert(rowFor(chain), null, TENANT_A, dataSource.manager);
 
       const [loaded] = await teacherAssignmentsTab.load(TENANT_A, dataSource.manager);

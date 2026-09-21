@@ -126,6 +126,18 @@ describe('ClassService shift/version vocabulary [33.2.1]', () => {
     );
     expect(classRepo.update).not.toHaveBeenCalled();
   });
+
+  it(
+    'rejects a non-null value when the vocabulary is empty — an empty vocabulary means ' +
+      '"nothing configured yet", not "anything goes"',
+    async () => {
+      const { service } = await buildClassService({ shifts: [], versions: [] });
+
+      await expect(
+        service.create({ name: 'C', academic_year_id: 'y', shift: 'Morning' } as any, TENANT_ID),
+      ).rejects.toThrow(BadRequestException);
+    },
+  );
 });
 
 describe('SectionService group vocabulary [33.2.1]', () => {
@@ -172,6 +184,18 @@ describe('SectionService group vocabulary [33.2.1]', () => {
     ).rejects.toThrow(BadRequestException);
     expect(sectionRepo.update).not.toHaveBeenCalled();
   });
+
+  it(
+    'rejects a non-null value when the vocabulary is empty — an empty vocabulary means ' +
+      '"nothing configured yet", not "anything goes"',
+    async () => {
+      const { service } = await buildSectionService({ groups: [] });
+
+      await expect(
+        service.create('class-1', { section_name: 'A', group_name: 'Science' } as any, TENANT_ID),
+      ).rejects.toThrow(BadRequestException);
+    },
+  );
 
   it('throws NotFoundException, not a vocabulary error, when the section does not exist', async () => {
     const { service } = await buildSectionService({ groups: ['Science'] }, null);

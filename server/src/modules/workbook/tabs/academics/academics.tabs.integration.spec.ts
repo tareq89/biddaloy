@@ -202,6 +202,8 @@ describe('academics tabs (integration)', () => {
         name: 'Class 10',
         academic_year_id: academicYearId,
         academic_year_key: 'unused-in-upsert',
+        shift: null,
+        version: null,
         ...overrides,
       };
     }
@@ -281,7 +283,14 @@ describe('academics tabs (integration)', () => {
       );
 
       return classesTab.upsert(
-        { id, name: 'Class 10', academic_year_id: year.id, academic_year_key: 'unused-in-upsert' },
+        {
+          id,
+          name: 'Class 10',
+          academic_year_id: year.id,
+          academic_year_key: 'unused-in-upsert',
+          shift: null,
+          version: null,
+        },
         null,
         tenantId,
         dataSource.manager,
@@ -295,6 +304,7 @@ describe('academics tabs (integration)', () => {
         academic_year_id: klass.academic_year_id,
         section_name: 'A',
         capacity: 40,
+        group_name: null,
         class_key: 'unused-in-upsert',
         academic_year_key: 'unused-in-upsert',
         ...overrides,
@@ -446,7 +456,14 @@ describe('academics tabs (integration)', () => {
       );
 
       const klass = await classesTab.upsert(
-        { id, name: 'Class 10', academic_year_id: year.id, academic_year_key: 'unused-in-upsert' },
+        {
+          id,
+          name: 'Class 10',
+          academic_year_id: year.id,
+          academic_year_key: 'unused-in-upsert',
+          shift: null,
+          version: null,
+        },
         null,
         tenantId,
         dataSource.manager,

@@ -30,6 +30,8 @@ function makeClass(overrides: Partial<Class> = {}): Class {
     id: CLASS_ID,
     name: 'Class 10',
     numeric_grade: 10,
+    shift: null,
+    version: null,
     academic_year_id: YEAR_ID,
     academic_year: Object.assign(new AcademicYear(), { id: YEAR_ID, name: '2026-2027' }),
     tenant_id: TENANT_ID,
@@ -64,12 +66,31 @@ describe('classesTab shape', () => {
   it('depends on academic_years, deletes by absence', () => {
     expect(classesTab.name).toBe('classes');
     expect(classesTab.dependsOn).toEqual(['academic_years']);
-    expect(classesTab.naturalKey).toEqual(['name', 'academic_year']);
+    expect(classesTab.naturalKey).toEqual(['name', 'academic_year', 'shift', 'version']);
     expect(classesTab.deleteByAbsence).toBe(true);
   });
 
-  it('keys a class by name and academic year name, never a uuid', () => {
-    expect(classesTab.keyOf(makeClass())).toBe('Class 10|2026-2027');
+  it('keys a class by name, academic year, shift and version, never a uuid', () => {
+    expect(classesTab.keyOf(makeClass())).toBe('Class 10|2026-2027||');
+  });
+
+  // [33.2.1] The DB's own unique index is `(name, academic_year_id,
+  // tenant_id, shift, version)` — two classes can legitimately share a
+  // name and year. If `keyOf` didn't include shift/version, both classes
+  // would collapse onto the same workbook key, and `deleteByAbsence: true`
+  // would delete whichever one loses that collision on the next restore.
+  it('keys two same-name-and-year classes distinctly when only shift differs', () => {
+    const morning = makeClass({ shift: 'Morning' });
+    const day = makeClass({ shift: 'Day' });
+
+    expect(classesTab.keyOf(morning)).not.toBe(classesTab.keyOf(day));
+  });
+
+  it('keys two same-name-and-year classes distinctly when only version differs', () => {
+    const bangla = makeClass({ version: 'Bangla' });
+    const english = makeClass({ version: 'English' });
+
+    expect(classesTab.keyOf(bangla)).not.toBe(classesTab.keyOf(english));
   });
 });
 
@@ -85,6 +106,25 @@ describe('round trip', () => {
         name: 'Class 10',
         academic_year_id: YEAR_ID,
         academic_year_key: '2026-2027',
+        shift: null,
+        version: null,
+      } satisfies ClassRow,
+    });
+  });
+
+  it('round-trips a class with shift and version set', () => {
+    const klass = makeClass({ shift: 'Morning', version: 'Bangla' });
+
+    const result = classesTab.fromRow(toCells(klass), 2, makeImportCtx());
+
+    expect(result).toEqual({
+      row: {
+        id: CLASS_ID,
+        name: 'Class 10',
+        academic_year_id: YEAR_ID,
+        academic_year_key: '2026-2027',
+        shift: 'Morning',
+        version: 'Bangla',
       } satisfies ClassRow,
     });
   });
@@ -122,6 +162,8 @@ describe('diffFields', () => {
       name: 'Class 10',
       academic_year_id: YEAR_ID,
       academic_year_key: '2026-2027',
+      shift: null,
+      version: null,
     };
 
     expect(classesTab.diffFields(row, klass)).toEqual([]);
@@ -134,8 +176,24 @@ describe('diffFields', () => {
       name: 'Class 10',
       academic_year_id: '33333333-3333-4333-8333-333333333333',
       academic_year_key: '2027-2028',
+      shift: null,
+      version: null,
     };
 
     expect(classesTab.diffFields(row, klass)).toEqual(['academic_year']);
+  });
+
+  it('reports a changed shift', () => {
+    const klass = makeClass({ shift: 'Morning' });
+    const row: ClassRow = {
+      id: CLASS_ID,
+      name: 'Class 10',
+      academic_year_id: YEAR_ID,
+      academic_year_key: '2026-2027',
+      shift: 'Day',
+      version: null,
+    };
+
+    expect(classesTab.diffFields(row, klass)).toEqual(['shift']);
   });
 });

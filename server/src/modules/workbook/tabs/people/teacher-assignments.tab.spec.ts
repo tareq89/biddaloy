@@ -108,11 +108,18 @@ function makeAssignment(overrides: Partial<TeacherClassSection> = {}): TeacherCl
   } satisfies Partial<TeacherClassSection>);
 }
 
+// `classesTab.keyOf` now embeds shift/version ([33.2.1]:
+// `${name}|${year}|${shift}|${version}`), and `sectionsTab.keyOf` embeds
+// that whole class key — `makeClass()`/`makeSection()` below leave both
+// unset, so both keys carry two trailing empty segments.
+const CLASS_KEY = 'Six|2026||';
+const SECTION_KEY = `${CLASS_KEY}|2026|A`;
+
 const KEY_INDEX: Record<string, Record<string, string>> = {
   teachers: { EMP001: TEACHER_ID },
-  classes: { 'Six|2026': CLASS_ID },
+  classes: { [CLASS_KEY]: CLASS_ID },
   academic_years: { '2026': YEAR_ID },
-  sections: { 'Six|2026|2026|A': SECTION_ID },
+  sections: { [SECTION_KEY]: SECTION_ID },
   subjects: { MATH: SUBJECT_ID },
 };
 
@@ -120,9 +127,9 @@ function exportCtx(): ExportContext {
   return {
     keyOf: (tab: string, id: string) => {
       if (tab === 'teachers') return id === TEACHER_ID ? 'EMP001' : '';
-      if (tab === 'classes') return id === CLASS_ID ? 'Six|2026' : '';
+      if (tab === 'classes') return id === CLASS_ID ? CLASS_KEY : '';
       if (tab === 'academic_years') return id === YEAR_ID ? '2026' : '';
-      if (tab === 'sections') return id === SECTION_ID ? 'Six|2026|2026|A' : '';
+      if (tab === 'sections') return id === SECTION_ID ? SECTION_KEY : '';
       if (tab === 'subjects') return id === SUBJECT_ID ? 'MATH' : '';
       return '';
     },
@@ -212,7 +219,7 @@ describe('round-trip', () => {
     // Nested pipes precedented (sections/class_subjects do the same):
     // teacherKey|classKey|academicYearKey|sectionKey|subjectKey.
     expect(teacherAssignmentsTab.keyOf(assignment)).toBe(
-      'EMP001|Six|2026|2026|Six|2026|2026|A|MATH',
+      `EMP001|${CLASS_KEY}|2026|${SECTION_KEY}|MATH`,
     );
   });
 

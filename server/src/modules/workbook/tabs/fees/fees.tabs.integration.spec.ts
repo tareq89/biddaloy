@@ -65,7 +65,10 @@ describe('fees tabs (integration)', () => {
   let feeStructureAId: string;
   // `feeStructuresTab.keyOf`'s composite: class|year|section|fee_type|month|name.
   // The shared fee structure below has no section, hence the empty segment.
-  const FEE_STRUCTURE_A_KEY = 'Class 5|2026-2027|2026-2027||MONTHLY_TUITION|Tuition - January';
+  // `classesTab.keyOf` now embeds shift/version ([33.2.1]) — this class has
+  // neither set, so its embedded key carries two trailing empty segments
+  // (`Class 5|2026-2027||`) before `feeStructuresTab`'s own fields resume.
+  const FEE_STRUCTURE_A_KEY = 'Class 5|2026-2027|||2026-2027||MONTHLY_TUITION|Tuition - January';
 
   beforeAll(async () => {
     module = await createTestModule(ALL_ENTITIES, []);

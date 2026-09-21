@@ -25,7 +25,11 @@ import { SchoolSettingsReader } from '../schools/settings/school-settings-reader
  * fixed vocabulary, so a stub provider stands in, same as any other
  * integration spec that fakes a cross-module read dependency rather than
  * wiring the entire owning module in. */
-const FAKE_ORGANISATION_VOCABULARY = { shifts: ['Morning', 'Day'], versions: [], groups: [] };
+const FAKE_ORGANISATION_VOCABULARY = {
+  shifts: ['Morning', 'Day'],
+  versions: ['Bangla', 'English'],
+  groups: [],
+};
 
 /**
  * Integration tests for ClassService/SectionService — run against a real
@@ -689,12 +693,19 @@ describe('ClassService / SectionService (integration)', () => {
         TENANT_ID,
       );
 
+      // Asserts the actual unique-violation constraint, not just "some
+      // error" — a bare `.rejects.toThrow()` would also pass if the
+      // create failed for an unrelated reason (e.g. a bug that rejects
+      // every second create), giving false confidence in the index.
       await expect(
         classService.create(
           { name: 'Class 6', academic_year_id: year.id, shift: 'Morning' } as any,
           TENANT_ID,
         ),
-      ).rejects.toThrow();
+      ).rejects.toMatchObject({
+        code: '23505',
+        constraint: 'IDX_cl_name_year_tenant_shift_version',
+      });
     });
 
     it(
@@ -706,8 +717,26 @@ describe('ClassService / SectionService (integration)', () => {
 
         await expect(
           classService.create({ name: 'Class 6', academic_year_id: year.id } as any, TENANT_ID),
-        ).rejects.toThrow();
+        ).rejects.toMatchObject({
+          code: '23505',
+          constraint: 'IDX_cl_name_year_tenant_shift_version',
+        });
       },
     );
+
+    it('allows two same-name classes in the same year distinguished only by version', async () => {
+      const year = await createYear();
+
+      const bangla = await classService.create(
+        { name: 'Class 6', academic_year_id: year.id, version: 'Bangla' } as any,
+        TENANT_ID,
+      );
+      const english = await classService.create(
+        { name: 'Class 6', academic_year_id: year.id, version: 'English' } as any,
+        TENANT_ID,
+      );
+
+      expect(bangla.id).not.toBe(english.id);
+    });
   });
 });
