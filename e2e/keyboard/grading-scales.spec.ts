@@ -104,14 +104,25 @@ test('keyboard-only: start from BD NCTB, edit a boundary, watch coverage, save',
     // First confirm attempt trips `APPROVAL_REQUIRED`, which opens the
     // shared step-up modal on its own (`useApprovedMutation`) — see this
     // file's own header comment on why this one step isn't keyboard-only.
-    await new ApprovalModalPage(page).complete('admin@biddaloy.test');
+    // `ApprovalModalPage.complete` only waits for its own Verify click, not
+    // for the *retried* confirm-bands request that follows — waiting on
+    // that response explicitly (instead of just polling for the dialog to
+    // close) surfaces a real failure's actual status/body directly, rather
+    // than a bare "still visible after 15s" with no indication of why.
+    const [confirmResponse] = await Promise.all([
+      page.waitForResponse(
+        async (response) => {
+          if (response.request().method() !== 'POST') return false;
+          if (!/\/grading\/scales\/[^/]+\/bands\/confirm$/.test(response.url())) return false;
+          return (await response.request().headerValue('X-Approval-Token')) !== null;
+        },
+        { timeout: 30_000 },
+      ),
+      new ApprovalModalPage(page).complete('admin@biddaloy.test'),
+    ]);
+    expect(confirmResponse.ok(), await confirmResponse.text()).toBe(true);
 
-    // 15s, not the 5s default: the confirm mutation here is a real DB
-    // write + audit record + revision bump (not mocked), which can outrun
-    // the default expect timeout on a loaded CI runner.
-    await expect(page.getByText(t('grading.recomputePreview.title'))).toBeHidden({
-      timeout: 15_000,
-    });
+    await expect(page.getByText(t('grading.recomputePreview.title'))).toBeHidden();
   });
 
   await test.step('the scale appears on the list', async () => {
