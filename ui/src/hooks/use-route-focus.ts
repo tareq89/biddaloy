@@ -108,6 +108,14 @@ export function useRouteFocus({ mainId, appName }: UseRouteFocusOptions): string
   // redundant `document.title` write on a `MutationObserver` callback
   // that fired for something other than a heading change.
   const lastHeadingTextRef = React.useRef<string | null | undefined>(undefined);
+  // [30.3.3]: whether the *last processed* route had a breadcrumb trail —
+  // tracked separately from `lastHeadingTextRef` so that navigating from a
+  // breadcrumb-owned route to a non-breadcrumb route with the *same* `<h1>`
+  // text still forces a title write here. Without this, `headingText !==
+  // lastHeadingTextRef.current` below is false (the text didn't change),
+  // so the write is skipped entirely and the tab keeps the old
+  // breadcrumb-built title even though this hook now owns the title again.
+  const lastHasBreadcrumbTrailRef = React.useRef(false);
   // The pathname last actually processed — `undefined` means "nothing
   // seen yet" (the cold-load case). This, not `lastHeadingTextRef`, is
   // what decides whether focus should move: two *different* routes that
@@ -201,8 +209,12 @@ export function useRouteFocus({ mainId, appName }: UseRouteFocusOptions): string
       // this hook) instead of taking a prop that would need every
       // caller, including ones with no breadcrumbs, to thread through.
       const hasBreadcrumbTrail = container.querySelector('[data-slot="breadcrumbs"] li') !== null;
-      if (headingText !== lastHeadingTextRef.current) {
+      if (
+        headingText !== lastHeadingTextRef.current ||
+        hasBreadcrumbTrail !== lastHasBreadcrumbTrailRef.current
+      ) {
         lastHeadingTextRef.current = headingText;
+        lastHasBreadcrumbTrailRef.current = hasBreadcrumbTrail;
         if (!hasBreadcrumbTrail) {
           document.title = headingText ? `${headingText} · ${appName}` : appName;
         }

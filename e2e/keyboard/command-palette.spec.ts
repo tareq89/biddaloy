@@ -44,18 +44,36 @@ test('command palette is fully keyboard-drivable: People tab search and pick', a
   // [30.3.3] The palette lands on `/students/$studentId`, which renders
   // a "Students · <name>" breadcrumb trail (`use-breadcrumbs.ts`) — the
   // "Students" crumb is a real `Link`, reachable and operable without a
-  // mouse, same as everything else this file asserts.
+  // mouse, same as everything else this file asserts. The sidebar also
+  // has a "Students" link with the exact same accessible text and sits
+  // much earlier in tab order (it's rendered before `<main>`), so this
+  // uses the skip link (`focus-management.spec.ts`'s own pattern) to jump
+  // straight past the sidebar into `#main-content`, then confirms the
+  // very next Tab stop — the breadcrumb, the first focusable thing inside
+  // `<main>` — is the crumb we actually mean, not the sidebar's look-alike.
   await test.step('Tab into the breadcrumb list link and follow it back', async () => {
     const studentsLabel = t('nav.items.students');
-    let reached = false;
-    for (let i = 0; i < 40; i++) {
-      await page.keyboard.press('Tab');
-      if ((await focusedText(page)) === studentsLabel) {
-        reached = true;
-        break;
-      }
-    }
-    expect(reached).toBe(true);
+
+    // Reset the Tab cursor to the top of the document — `useRouteFocus`
+    // already moved focus to the page's `<h1>`, and Tab from there
+    // wouldn't reach the skip link (see `focus-management.spec.ts`'s
+    // identical comment on this exact reset).
+    await page.evaluate(() => {
+      document.body.setAttribute('tabindex', '-1');
+      document.body.focus();
+      document.body.removeAttribute('tabindex');
+    });
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('link', { name: 'মূল বিষয়বস্তুতে যান' })).toBeFocused();
+    await page.keyboard.press('Enter');
+
+    await page.keyboard.press('Tab');
+    expect(await focusedText(page)).toBe(studentsLabel);
+    const inBreadcrumb = await page.evaluate(
+      () => document.activeElement?.closest('[data-slot="breadcrumbs"]') !== null,
+    );
+    expect(inBreadcrumb).toBe(true);
+
     await page.keyboard.press('Enter');
     await expect(page.getByRole('heading', { level: 1, name: studentsLabel })).toBeVisible();
   });
