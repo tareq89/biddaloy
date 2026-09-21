@@ -12,6 +12,7 @@ import {
   useClasses,
   useClassSections,
   useHasPermission,
+  useOrganisationVocabulary,
   useStudents,
   type Student,
   type StudentListFilters,
@@ -48,6 +49,8 @@ interface StudentFilters {
   search?: string | undefined;
   class_id?: string | undefined;
   section_id?: string | undefined;
+  shift?: string | undefined;
+  version?: string | undefined;
   enrollment_status?: string | undefined;
   gender?: string | undefined;
   date_of_birth_from?: string | undefined;
@@ -62,6 +65,8 @@ const studentsSearchSchema = z.object({
   search: z.string().optional().catch(undefined),
   class_id: z.string().optional().catch(undefined),
   section_id: z.string().optional().catch(undefined),
+  shift: z.string().optional().catch(undefined),
+  version: z.string().optional().catch(undefined),
   enrollment_status: z.string().optional().catch(undefined),
   gender: z.string().optional().catch(undefined),
   date_of_birth_from: z.string().optional().catch(undefined),
@@ -79,6 +84,8 @@ function toStudentListFilters(filters: StudentFilters, sortColumnId: string | un
     ...(filters.search !== undefined ? { search: filters.search } : {}),
     ...(filters.class_id !== undefined ? { class_id: filters.class_id } : {}),
     ...(filters.section_id !== undefined ? { section_id: filters.section_id } : {}),
+    ...(filters.shift !== undefined ? { shift: filters.shift } : {}),
+    ...(filters.version !== undefined ? { version: filters.version } : {}),
     ...(filters.enrollment_status !== undefined
       ? { enrollment_status: filters.enrollment_status }
       : {}),
@@ -107,6 +114,8 @@ export const Route = createFileRoute('/_staff/students/')({
     search: search.search,
     classId: search.class_id,
     sectionId: search.section_id,
+    shift: search.shift,
+    version: search.version,
     enrollmentStatus: search.enrollment_status,
     gender: search.gender,
     dateOfBirthFrom: search.date_of_birth_from,
@@ -126,6 +135,8 @@ export const Route = createFileRoute('/_staff/students/')({
                 search: deps.search,
                 class_id: deps.classId,
                 section_id: deps.sectionId,
+                shift: deps.shift,
+                version: deps.version,
                 enrollment_status: deps.enrollmentStatus,
                 gender: deps.gender,
                 date_of_birth_from: deps.dateOfBirthFrom,
@@ -169,6 +180,13 @@ function StudentsListPage() {
   const studentsQuery = useStudents(studentListFilters);
   const classesQuery = useClasses();
   const sectionsQuery = useClassSections(filters.class_id);
+  const vocabularyQuery = useOrganisationVocabulary();
+  // [D5] A shift/version filter field only exists once the tenant has 2+
+  // entries — a single-shift school has nothing to filter on.
+  const shifts = vocabularyQuery.data?.shifts ?? [];
+  const versions = vocabularyQuery.data?.versions ?? [];
+  const showShiftFilter = shifts.length >= 2;
+  const showVersionFilter = versions.length >= 2;
 
   const canCollectFees = useHasPermission(Permission.FEE_COLLECT);
   const canSendReminder = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
@@ -229,6 +247,28 @@ function StudentsListPage() {
       label: t('list.genderFilterLabel'),
       placeholder: t('list.genderFilterLabel'),
     },
+    ...(showShiftFilter
+      ? [
+          {
+            kind: 'select' as const,
+            key: 'shift',
+            label: t('list.shiftLabel'),
+            allLabel: t('list.allShifts'),
+            options: shifts.map((value) => ({ value, label: value })),
+          },
+        ]
+      : []),
+    ...(showVersionFilter
+      ? [
+          {
+            kind: 'select' as const,
+            key: 'version',
+            label: t('list.versionLabel'),
+            allLabel: t('list.allVersions'),
+            options: versions.map((value) => ({ value, label: value })),
+          },
+        ]
+      : []),
     {
       kind: 'date-range',
       fromKey: 'date_of_birth_from',

@@ -21,6 +21,7 @@ import {
   useAcademicYears,
   useClasses,
   useHasPermission,
+  useOrganisationVocabulary,
   type ClassWithCounts,
 } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
@@ -56,6 +57,8 @@ const ALL_VALUE = '__all__';
 
 interface ClassFilters {
   academic_year_id?: string | undefined;
+  shift?: string | undefined;
+  version?: string | undefined;
 }
 
 function ClassesListPage() {
@@ -68,6 +71,13 @@ function ClassesListPage() {
   const canManageBackup = useHasPermission(Permission.BACKUP_MANAGE);
 
   const academicYearsQuery = useAcademicYears();
+  const vocabularyQuery = useOrganisationVocabulary();
+  // [D5] Filter chips only exist once the tenant has 2+ entries — a
+  // single-shift school has nothing to filter on, so no chip renders.
+  const shifts = vocabularyQuery.data?.shifts ?? [];
+  const versions = vocabularyQuery.data?.versions ?? [];
+  const showShiftFilter = shifts.length >= 2;
+  const showVersionFilter = versions.length >= 2;
 
   // Derived at render time, not written to the URL by an effect — an
   // effect that back-fills "current year" into the URL the first time
@@ -92,6 +102,8 @@ function ClassesListPage() {
   // see `students/index.tsx` for why the object is lifted.
   const classListFilters = {
     ...(effectiveAcademicYearId !== undefined ? { academic_year_id: effectiveAcademicYearId } : {}),
+    ...(showShiftFilter && filters.shift !== undefined ? { shift: filters.shift } : {}),
+    ...(showVersionFilter && filters.version !== undefined ? { version: filters.version } : {}),
     page: state.page,
     limit: state.limit,
   };
@@ -183,28 +195,78 @@ function ClassesListPage() {
           )
         }
         filterBar={
-          <Select
-            value={effectiveAcademicYearId ?? ALL_VALUE}
-            onValueChange={(value) =>
-              // Writes `ALL_VALUE` itself when chosen, not an absent key —
-              // see the `effectiveAcademicYearId` comment above on why
-              // "explicitly All" has to be a distinct, sticky URL state
-              // from "not chosen yet".
-              actions.setFilters({ ...state.filters, academic_year_id: value })
-            }
-          >
-            <SelectTrigger aria-label={t('list.academicYearLabel')}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_VALUE}>{t('list.allAcademicYears')}</SelectItem>
-              {academicYearsQuery.data?.data.map((year) => (
-                <SelectItem key={year.id} value={year.id}>
-                  {year.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              value={effectiveAcademicYearId ?? ALL_VALUE}
+              onValueChange={(value) =>
+                // Writes `ALL_VALUE` itself when chosen, not an absent key —
+                // see the `effectiveAcademicYearId` comment above on why
+                // "explicitly All" has to be a distinct, sticky URL state
+                // from "not chosen yet".
+                actions.setFilters({ ...state.filters, academic_year_id: value })
+              }
+            >
+              <SelectTrigger aria-label={t('list.academicYearLabel')}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_VALUE}>{t('list.allAcademicYears')}</SelectItem>
+                {academicYearsQuery.data?.data.map((year) => (
+                  <SelectItem key={year.id} value={year.id}>
+                    {year.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {showShiftFilter && (
+              <Select
+                value={filters.shift ?? ALL_VALUE}
+                onValueChange={(value) =>
+                  actions.setFilters({
+                    ...state.filters,
+                    shift: value === ALL_VALUE ? null : value,
+                  })
+                }
+              >
+                <SelectTrigger aria-label={t('list.shiftLabel')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_VALUE}>{t('list.allShifts')}</SelectItem>
+                  {shifts.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {value}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {showVersionFilter && (
+              <Select
+                value={filters.version ?? ALL_VALUE}
+                onValueChange={(value) =>
+                  actions.setFilters({
+                    ...state.filters,
+                    version: value === ALL_VALUE ? null : value,
+                  })
+                }
+              >
+                <SelectTrigger aria-label={t('list.versionLabel')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_VALUE}>{t('list.allVersions')}</SelectItem>
+                  {versions.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {value}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
         }
         tableId="classes-list"
         caption={t('list.caption')}
@@ -260,7 +322,12 @@ function ClassesListPage() {
           onOpenChange={(open) => !open && setEditing(null)}
           mode="edit"
           classId={editing.id}
-          initialValues={{ name: editing.name, numericGrade: editing.numeric_grade ?? undefined }}
+          initialValues={{
+            name: editing.name,
+            numericGrade: editing.numeric_grade ?? undefined,
+            shift: editing.shift ?? null,
+            version: editing.version ?? null,
+          }}
           onSaved={() => setEditing(null)}
         />
       )}

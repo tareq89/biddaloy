@@ -1,6 +1,7 @@
 import {
   academicYearFactory,
   classFactory,
+  classHandlers,
   classSectionFactory,
   cleanupTestState,
   renderWithRouter,
@@ -264,6 +265,75 @@ describe('/classes', () => {
     await screen.findByText('Class 9');
   });
 
+  // [33.4.1] D5 — no shift/version select at all with an empty vocabulary.
+  it('the class form has no shift/version select with an empty organisation vocabulary', async () => {
+    const year = academicYearFactory({ id: 'year-1', name: '2026-2027', is_current: true });
+    server.use(
+      http.get('/api/v1/academic-years', () =>
+        HttpResponse.json({ data: [year], total: 1, page: 1, limit: 100, totalPages: 1 }),
+      ),
+      http.get('/api/v1/classes', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/classes'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await user.click(await screen.findByRole('button', { name: 'Add class' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    expect(dialog.queryByLabelText('Shift')).toBeNull();
+    expect(dialog.queryByLabelText('Version')).toBeNull();
+  });
+
+  it('the class form shows shift/version selects with 2+ entries, and the chosen values reach the payload', async () => {
+    const year = academicYearFactory({ id: 'year-1', name: '2026-2027', is_current: true });
+    let postedBody: Record<string, unknown> | undefined;
+    server.use(
+      classHandlers.vocabularyPopulated,
+      http.get('/api/v1/academic-years', () =>
+        HttpResponse.json({ data: [year], total: 1, page: 1, limit: 100, totalPages: 1 }),
+      ),
+      http.get('/api/v1/classes', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+      ),
+      http.post('/api/v1/classes', async ({ request }) => {
+        postedBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(classFactory({ id: 'new-class' }), { status: 201 });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/classes'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await user.click(await screen.findByRole('button', { name: 'Add class' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    await user.type(dialog.getByLabelText('Name'), 'Class 9');
+    await user.click(dialog.getByRole('combobox', { name: 'Academic year' }));
+    await user.click(await screen.findByRole('option', { name: '2026-2027' }));
+
+    await user.click(dialog.getByRole('combobox', { name: 'Shift' }));
+    await user.click(await screen.findByRole('option', { name: 'Morning' }));
+    await user.click(dialog.getByRole('combobox', { name: 'Version' }));
+    await user.click(await screen.findByRole('option', { name: 'Bangla' }));
+
+    await user.click(dialog.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(postedBody).toBeDefined());
+    expect(postedBody?.shift).toBe('Morning');
+    expect(postedBody?.version).toBe('Bangla');
+  });
+
   it('deleting a class blocked by enrolled students shows the server message, not a generic toast', async () => {
     const klass = classFactory({ id: 'class-1', name: 'Class 6' });
     server.use(
@@ -435,5 +505,60 @@ describe('/classes', () => {
     await screen.findByRole('heading', { name: 'Classes' });
     await screen.findByText('Class 6');
     await expect(container).toHaveNoViolations();
+  });
+
+  // [33.4.1] D5 — a single-shift school (the default empty-vocabulary
+  // handler) sees no shift/version filter chip at all.
+  it('shows no shift/version filter chips with an empty organisation vocabulary', async () => {
+    const klass = classFactory({ id: 'class-1', name: 'Class 6' });
+    server.use(
+      http.get('/api/v1/classes', () =>
+        HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 10, totalPages: 1 }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/classes'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('Class 6');
+    expect(screen.queryByLabelText('Shift')).toBeNull();
+    expect(screen.queryByLabelText('Version')).toBeNull();
+  });
+
+  it('filters classes by the shift chip once the tenant has 2+ shifts', async () => {
+    const morningClass = classFactory({ id: 'class-1', name: 'Class 6 Morning', shift: 'Morning' });
+    const dayClass = classFactory({ id: 'class-2', name: 'Class 6 Day', shift: 'Day' });
+    server.use(
+      classHandlers.vocabularyPopulated,
+      http.get('/api/v1/classes', ({ request }) => {
+        const shift = new URL(request.url).searchParams.get('shift');
+        const data = shift
+          ? [morningClass, dayClass].filter((c) => c.shift === shift)
+          : [morningClass, dayClass];
+        return HttpResponse.json({ data, total: data.length, page: 1, limit: 10, totalPages: 1 });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/classes'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('Class 6 Morning');
+    await screen.findByText('Class 6 Day');
+
+    const shiftSelect = await screen.findByLabelText('Shift');
+    await user.click(shiftSelect);
+    await user.click(await screen.findByRole('option', { name: 'Morning' }));
+
+    await waitFor(() => expect(screen.queryByText('Class 6 Day')).toBeNull());
+    expect(screen.getByText('Class 6 Morning')).toBeTruthy();
   });
 });
