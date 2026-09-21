@@ -201,7 +201,7 @@ describe('logout', () => {
     const queryClient = new QueryClient();
     queryClient.setQueryData(['probe'], { ok: true });
 
-    await expect(logout(queryClient)).rejects.toThrow();
+    await expect(logout(queryClient)).resolves.toBeUndefined();
 
     expect(getAccessToken()).toBeNull();
     expect(getActiveTenant()).toBeNull();
@@ -253,7 +253,7 @@ describe('logoutAll', () => {
     const queryClient = new QueryClient();
     queryClient.setQueryData(['probe'], { ok: true });
 
-    await expect(logoutAll(queryClient)).rejects.toThrow();
+    await expect(logoutAll(queryClient)).resolves.toBeUndefined();
 
     expect(getAccessToken()).toBeNull();
     expect(getActiveTenant()).toBeNull();
