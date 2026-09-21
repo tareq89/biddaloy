@@ -18,7 +18,7 @@ import {
 } from '@tanstack/react-router';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -146,5 +146,31 @@ describe('RecomputePreviewDialog', () => {
 
     await waitFor(() => expect(onConfirmed).toHaveBeenCalled());
     expect(attempt).toBe(2);
+  });
+
+  it('refuses to be dismissed while the confirm is in flight, then still fires onConfirmed', async () => {
+    // Regression: `$scaleId.tsx` unmounts this dialog on close, and
+    // unmounting drops the per-call `onSuccess`. A dismissal landing while
+    // the confirm was in flight (the step-up modal opening over this one
+    // and taking an interaction Radix attributed to this layer) meant the
+    // 201 arrived with nobody listening — the dialog reopened, stuck.
+    server.use(
+      http.post('/api/v1/grading/scales/:id/bands/confirm', async () => {
+        await delay(300);
+        return HttpResponse.json({ scale: {}, affected_result_count: 3 });
+      }),
+    );
+
+    const user = userEvent.setup();
+    const { onOpenChange, onConfirmed } = await renderDialog();
+
+    await user.click(await screen.findByRole('button', { name: 'Confirm' }));
+    await user.keyboard('{Escape}'); // in flight: must be a no-op
+    expect(onOpenChange).not.toHaveBeenCalled();
+
+    await waitFor(() => expect(onConfirmed).toHaveBeenCalled(), { timeout: 3000 });
+
+    await user.keyboard('{Escape}'); // settled: dismissal works again
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });

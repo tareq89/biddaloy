@@ -26,7 +26,6 @@ import {
 } from '@biddaloy/ui/components';
 import { useConfirmBands, type BandInput } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import * as React from 'react';
 
 export interface RecomputePreviewDialogProps {
   open: boolean;
@@ -48,17 +47,26 @@ export function RecomputePreviewDialog({
   const { t } = useTranslation('grading');
   const confirmBands = useConfirmBands(scaleId);
 
-  React.useEffect(() => {
-    if (open) confirmBands.reset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
-  }, [open]);
-
   function handleConfirm() {
     confirmBands.mutate(bands, { onSuccess: onConfirmed });
   }
 
+  // Once Confirm is clicked, nothing may dismiss this dialog until the
+  // mutation settles. `$scaleId.tsx` unmounts it on close, and unmounting
+  // drops the per-call `onSuccess` above (TanStack detaches the observer),
+  // so a dismissal that lands while the confirm is in flight — the step-up
+  // modal opening over this one and taking a pointer/focus interaction that
+  // Radix's DismissableLayer attributes to *this* layer — meant the 201
+  // arrived with nobody listening and the dialog reopened, stuck. Seen in
+  // CI (timing-dependent), never locally. Pinning `open` during `isPending`
+  // is the contract a confirm-with-write should have anyway.
+  function handleOpenChange(next: boolean) {
+    if (!next && confirmBands.isPending) return;
+    onOpenChange(next);
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t('recomputePreview.title')}</DialogTitle>
