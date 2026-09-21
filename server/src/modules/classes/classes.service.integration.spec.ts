@@ -18,6 +18,18 @@ import { SEED_TENANT_ID } from '@test/constants';
 import { EnrollmentStatus, TeacherDesignation, AuditAction } from '@biddaloy/shared';
 import { AuditService } from '../audit/audit.service';
 import { AuditLog } from '../audit/entities/audit-log.entity';
+import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
+
+/** [33.2.1] A real `SchoolSettingsReader` needs `SchoolsService` and its
+ * whole DI graph (encryption, caching, ...) — this test only needs a
+ * fixed vocabulary, so a stub provider stands in, same as any other
+ * integration spec that fakes a cross-module read dependency rather than
+ * wiring the entire owning module in. */
+const FAKE_ORGANISATION_VOCABULARY = {
+  shifts: ['Morning', 'Day'],
+  versions: ['Bangla', 'English'],
+  groups: [],
+};
 
 /**
  * Integration tests for ClassService/SectionService — run against a real
@@ -40,7 +52,17 @@ describe('ClassService / SectionService (integration)', () => {
   beforeAll(async () => {
     const module = await createTestModule(
       ALL_ENTITIES,
-      [ClassService, SectionService, AuditService],
+      [
+        ClassService,
+        SectionService,
+        AuditService,
+        {
+          provide: SchoolSettingsReader,
+          useValue: {
+            organisationVocabulary: async () => FAKE_ORGANISATION_VOCABULARY,
+          },
+        },
+      ],
       [],
       {
         synchronize: true,
@@ -52,6 +74,16 @@ describe('ClassService / SectionService (integration)', () => {
     sectionService = module.get<SectionService>(SectionService);
     classRepo = module.get<Repository<Class>>(getRepositoryToken(Class));
     dataSource = module.get<DataSource>(getDataSourceToken());
+
+    // `class.entity.ts` deliberately does not declare the
+    // `NULLS NOT DISTINCT` unique index via `@Index` — TypeORM's decorator
+    // can't express it, so `1789800010700-AddOrganisationDimensions.ts`
+    // is the source of truth, not `synchronize: true` above. This test
+    // module runs no migrations, so the index is created by hand here,
+    // matching that migration's `up()` exactly.
+    await dataSource.query(
+      `CREATE UNIQUE INDEX "IDX_cl_name_year_tenant_shift_version" ON "classes" ("name", "academic_year_id", "tenant_id", "shift", "version") NULLS NOT DISTINCT`,
+    );
 
     const schoolRepo = dataSource.getRepository(School);
     if (!(await schoolRepo.findOne({ where: { id: TENANT_ID } }))) {
@@ -635,6 +667,76 @@ describe('ClassService / SectionService (integration)', () => {
         where: { entity_id: created.id, entity_type: 'Class', tenant_id: OTHER_TENANT },
       });
       expect(otherTenantLogs).toHaveLength(1);
+    });
+  });
+
+  describe('unique index (name, academic_year_id, tenant_id, shift, version) [33.2.1]', () => {
+    it('allows two same-name classes in the same year distinguished by shift', async () => {
+      const year = await createYear();
+
+      const morning = await classService.create(
+        { name: 'Class 6', academic_year_id: year.id, shift: 'Morning' } as any,
+        TENANT_ID,
+      );
+      const day = await classService.create(
+        { name: 'Class 6', academic_year_id: year.id, shift: 'Day' } as any,
+        TENANT_ID,
+      );
+
+      expect(morning.id).not.toBe(day.id);
+    });
+
+    it('rejects a second class with the same name/year/shift', async () => {
+      const year = await createYear();
+      await classService.create(
+        { name: 'Class 6', academic_year_id: year.id, shift: 'Morning' } as any,
+        TENANT_ID,
+      );
+
+      // Asserts the actual unique-violation constraint, not just "some
+      // error" — a bare `.rejects.toThrow()` would also pass if the
+      // create failed for an unrelated reason (e.g. a bug that rejects
+      // every second create), giving false confidence in the index.
+      await expect(
+        classService.create(
+          { name: 'Class 6', academic_year_id: year.id, shift: 'Morning' } as any,
+          TENANT_ID,
+        ),
+      ).rejects.toMatchObject({
+        code: '23505',
+        constraint: 'IDX_cl_name_year_tenant_shift_version',
+      });
+    });
+
+    it(
+      'rejects a second class with the same name/year and NULL shift — proves ' +
+        'NULLS NOT DISTINCT closes the gap a plain unique index would leave open',
+      async () => {
+        const year = await createYear();
+        await classService.create({ name: 'Class 6', academic_year_id: year.id } as any, TENANT_ID);
+
+        await expect(
+          classService.create({ name: 'Class 6', academic_year_id: year.id } as any, TENANT_ID),
+        ).rejects.toMatchObject({
+          code: '23505',
+          constraint: 'IDX_cl_name_year_tenant_shift_version',
+        });
+      },
+    );
+
+    it('allows two same-name classes in the same year distinguished only by version', async () => {
+      const year = await createYear();
+
+      const bangla = await classService.create(
+        { name: 'Class 6', academic_year_id: year.id, version: 'Bangla' } as any,
+        TENANT_ID,
+      );
+      const english = await classService.create(
+        { name: 'Class 6', academic_year_id: year.id, version: 'English' } as any,
+        TENANT_ID,
+      );
+
+      expect(bangla.id).not.toBe(english.id);
     });
   });
 });

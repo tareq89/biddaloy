@@ -35,6 +35,7 @@ export interface ClassSectionRow {
   // entity, without a uuid ever appearing in a natural key.
   class_key: string;
   academic_year_key: string;
+  group_name: string | null;
 }
 
 const columns: readonly ColumnSpec[] = [
@@ -60,6 +61,11 @@ const columns: readonly ColumnSpec[] = [
     label: { en: 'Section name', bn: 'শাখার নাম' },
   },
   { key: 'capacity', type: 'int', label: { en: 'Capacity', bn: 'ধারণক্ষমতা' } },
+  // [33.2.1] Not part of `naturalKey` below — `group` doesn't change what
+  // makes a section name unique within a class (the DB unique index on
+  // `class_sections` is untouched by 33.2.1), so it's exported like any
+  // other plain column.
+  { key: 'group_name', type: 'string', label: { en: 'Group', bn: 'গ্রুপ' } },
 ];
 
 /**
@@ -73,6 +79,7 @@ const excluded: readonly string[] = [
 
 const MAX_LENGTHS: Record<string, number> = {
   section_name: 20,
+  group_name: 50,
 };
 
 export const sectionsTab: TabSpec<ClassSection, ClassSectionRow> = {
@@ -106,6 +113,7 @@ export const sectionsTab: TabSpec<ClassSection, ClassSectionRow> = {
       academic_year: ctx.keyOf('academic_years', entity.class?.academic_year_id ?? ''),
       section_name: entity.section_name,
       capacity: entity.capacity,
+      group_name: entity.group_name,
     };
   },
 
@@ -178,10 +186,14 @@ export const sectionsTab: TabSpec<ClassSection, ClassSectionRow> = {
     if (errors.length > 0) return { errors };
 
     // `classKey` embeds its own academic year (`classesTab.keyOf` builds it
-    // as `${name}|${yearKey}`) — reject a row whose separately given
-    // `academic_year` names a different year, since persistence only saves
-    // `class_id` and would otherwise silently ignore the contradiction.
-    const classYearKey = classKey.slice(classKey.indexOf('|') + 1);
+    // as `${name}|${yearKey}|${shift}|${version}`, [33.2.1]) — reject a
+    // row whose separately given `academic_year` names a different year,
+    // since persistence only saves `class_id` and would otherwise
+    // silently ignore the contradiction. Split rather than
+    // slice-after-first-pipe: the key now has two more `|`-separated
+    // segments after the year (shift, version), so "everything after the
+    // first pipe" would wrongly include them too.
+    const classYearKey = classKey.split('|')[1] ?? '';
     if (classYearKey !== academicYearKey) {
       return {
         errors: [
@@ -206,6 +218,7 @@ export const sectionsTab: TabSpec<ClassSection, ClassSectionRow> = {
         capacity: (values.capacity as number | null) ?? null,
         class_key: classKey,
         academic_year_key: academicYearKey,
+        group_name: (values.group_name as string | null) ?? null,
       },
     };
   },
@@ -226,6 +239,7 @@ export const sectionsTab: TabSpec<ClassSection, ClassSectionRow> = {
     if (row.class_id !== existing.class_id) changed.push('class');
     if (row.section_name !== existing.section_name) changed.push('section_name');
     if (row.capacity !== existing.capacity) changed.push('capacity');
+    if (row.group_name !== existing.group_name) changed.push('group_name');
     return changed;
   },
 
@@ -240,6 +254,7 @@ export const sectionsTab: TabSpec<ClassSection, ClassSectionRow> = {
     section.class_id = row.class_id;
     section.section_name = row.section_name;
     section.capacity = row.capacity;
+    section.group_name = row.group_name;
 
     return m.save(ClassSection, section);
   },

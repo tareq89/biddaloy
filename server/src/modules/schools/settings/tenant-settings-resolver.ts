@@ -4,6 +4,7 @@ import {
   DEFAULT_AUTH_SETTINGS,
   DEFAULT_BACKUP_SETTINGS,
   DEFAULT_FEES_SETTINGS,
+  DEFAULT_ORGANISATION_SETTINGS,
   DEFAULT_REGION_SETTINGS,
 } from './tenant-settings-defaults';
 import { ApprovalMode } from '@biddaloy/shared';
@@ -81,6 +82,7 @@ const FEES_APPROVAL_MODES: readonly ApprovalMode[] = Object.values(ApprovalMode)
 export function resolveTenantSettings(stored: Record<string, unknown> | null): TenantSettings {
   const region = overlayOnDefaults(DEFAULT_REGION_SETTINGS, stored?.region);
   const attendance = overlayOnDefaults(DEFAULT_ATTENDANCE_SETTINGS, stored?.attendance);
+  const organisation = overlayOnDefaults(DEFAULT_ORGANISATION_SETTINGS, stored?.organisation);
   const auth = overlayOnDefaults(DEFAULT_AUTH_SETTINGS, stored?.auth);
   // `overlayOnDefaults` only type-checks (a string is a string), so a
   // stored `{ schedule: 'NONSENSE' }` would otherwise come back typed as a
@@ -106,6 +108,7 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
     version: TENANT_SETTINGS_SCHEMA_VERSION,
     region,
     attendance,
+    organisation,
     auth,
     backup,
     fees,

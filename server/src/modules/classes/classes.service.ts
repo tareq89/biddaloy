@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { EnrollmentStatus, TeacherDesignation, AuditAction } from '@biddaloy/shared';
@@ -16,6 +21,31 @@ import {
 } from './dto/classes.dto';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
+import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
+
+/** [33.2.1] Rejects a non-null value that isn't in the tenant's own
+ * vocabulary for this dimension. `null`/`undefined` is always allowed —
+ * clearing/omitting the field never needs a vocabulary to check against
+ * (D5's "this tenant doesn't use this dimension"). A *non-null* value is
+ * validated even when the vocabulary is empty, which means it is always
+ * rejected in that case: an empty vocabulary is "tenant hasn't configured
+ * anything yet", not "tenant accepts anything" — the value is unvalidated
+ * input crossing a trust boundary, and there is nothing configured to
+ * check it against, so it's refused rather than written blind. Matching
+ * is case-sensitive: the DTO that writes the vocabulary itself (33.1.1)
+ * already blocks case-variant duplicates from entering it. */
+function assertInVocabulary(
+  value: string | null | undefined,
+  vocabulary: string[],
+  field: string,
+): void {
+  if (value === null || value === undefined) return;
+  if (!vocabulary.includes(value)) {
+    throw new BadRequestException(
+      `"${value}" is not a configured ${field}. Configure it in organisation settings first.`,
+    );
+  }
+}
 
 /** [8.11.2] — `SectionService.findAll`'s per-section enrolled count, so the
  * classes list's inline expansion can show it without an extra request per
@@ -56,6 +86,7 @@ export class ClassService {
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
     private readonly auditService: AuditService,
+    private readonly settingsReader: SchoolSettingsReader,
   ) {}
 
   async create(
@@ -64,12 +95,18 @@ export class ClassService {
     userId: string | null = null,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<Class> {
+    const organisation = await this.settingsReader.organisationVocabulary(tenantId);
+    assertInVocabulary(dto.shift, organisation.shifts, 'shift');
+    assertInVocabulary(dto.version, organisation.versions, 'version');
+
     return this.repo.manager.transaction(async (manager) => {
       const repo = manager.getRepository(Class);
       const entity = repo.create({
         name: dto.name,
         numeric_grade: dto.numeric_grade,
         academic_year_id: dto.academic_year_id,
+        shift: dto.shift ?? null,
+        version: dto.version ?? null,
         tenant_id: tenantId,
       });
       const saved = await repo.save(entity);
@@ -88,6 +125,8 @@ export class ClassService {
             name: saved.name,
             numeric_grade: saved.numeric_grade,
             academic_year_id: saved.academic_year_id,
+            shift: saved.shift,
+            version: saved.version,
           },
         },
         manager,
@@ -192,6 +231,17 @@ export class ClassService {
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<Class> {
     const existing = await this.findOne(id, tenantId);
+
+    // `dto.shift !== undefined`, not `'shift' in dto` — class-validator's
+    // `plainToInstance` sets every declared property key on the instance
+    // (`useDefineForClassFields`), so an unsent field is still present as
+    // `undefined` rather than absent, and `in` would always be true here.
+    if (dto.shift !== undefined || dto.version !== undefined) {
+      const organisation = await this.settingsReader.organisationVocabulary(tenantId);
+      if (dto.shift !== undefined) assertInVocabulary(dto.shift, organisation.shifts, 'shift');
+      if (dto.version !== undefined)
+        assertInVocabulary(dto.version, organisation.versions, 'version');
+    }
 
     const changedKeys = Object.keys(dto);
     if (changedKeys.length > 0) {
@@ -305,6 +355,7 @@ export class SectionService {
     @InjectRepository(TeacherClassSection)
     private readonly teacherClassSectionRepo: Repository<TeacherClassSection>,
     private readonly auditService: AuditService,
+    private readonly settingsReader: SchoolSettingsReader,
   ) {}
 
   async create(
@@ -322,12 +373,16 @@ export class SectionService {
       throw new NotFoundException(`Class with ID "${classId}" not found`);
     }
 
+    const organisation = await this.settingsReader.organisationVocabulary(tenantId);
+    assertInVocabulary(dto.group_name, organisation.groups, 'group');
+
     return this.repo.manager.transaction(async (manager) => {
       const repo = manager.getRepository(ClassSection);
       const entity = repo.create({
         class_id: classId,
         section_name: dto.section_name,
         capacity: dto.capacity ?? null,
+        group_name: dto.group_name ?? null,
         tenant_id: tenantId,
       });
       const saved = await repo.save(entity);
@@ -346,6 +401,7 @@ export class SectionService {
             class_id: saved.class_id,
             section_name: saved.section_name,
             capacity: saved.capacity,
+            group_name: saved.group_name,
           },
         },
         manager,
@@ -464,6 +520,13 @@ export class SectionService {
     });
     if (!section) {
       throw new NotFoundException(`Section with ID "${sectionId}" not found in class "${classId}"`);
+    }
+
+    // `dto.group_name !== undefined`, not `'group_name' in dto` — same
+    // reasoning as `ClassService.update` above.
+    if (dto.group_name !== undefined) {
+      const organisation = await this.settingsReader.organisationVocabulary(tenantId);
+      assertInVocabulary(dto.group_name, organisation.groups, 'group');
     }
 
     const changedKeys = Object.keys(dto);

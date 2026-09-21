@@ -182,11 +182,14 @@ export const classSubjectsTab: TabSpec<ClassSubject, ClassSubjectRow> = {
     if (errors.length > 0) return { errors };
 
     // `classKey` embeds its own academic year (`classesTab.keyOf` builds it
-    // as `${name}|${yearKey}`) — reject a row whose separately given
-    // `academic_year` names a different year, since persistence saves both
-    // `class_id` and `academic_year_id` and would otherwise store two
-    // contradictory foreign keys.
-    const classYearKey = classKey.slice(classKey.indexOf('|') + 1);
+    // as `${name}|${yearKey}|${shift}|${version}`, [33.2.1]) — reject a row
+    // whose separately given `academic_year` names a different year, since
+    // persistence saves both `class_id` and `academic_year_id` and would
+    // otherwise store two contradictory foreign keys. Split rather than
+    // slice-after-first-pipe: the key has two more `|`-separated segments
+    // after the year (shift, version), so "everything after the first
+    // pipe" would wrongly include them too.
+    const classYearKey = classKey.split('|')[1] ?? '';
     if (classYearKey !== academicYearKey) {
       return {
         errors: [

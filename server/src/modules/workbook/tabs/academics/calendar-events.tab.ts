@@ -243,14 +243,18 @@ export const calendarEventsTab: TabSpec<CalendarEvent, CalendarEventRow> = {
         });
         continue;
       }
-      // A class's own natural key is `${name}|${academicYearKey}` (see
-      // classes.tab.ts's keyOf) — the year portion is already right there
-      // in the cell text, no extra lookup needed to catch a class scoped
-      // to a *different* academic year than this event's own. Without
-      // this check, `upsert` would link the event to a class from another
-      // year — `calendar_event_classes` has no DB constraint enforcing
-      // the years match, unlike the live API's `assertClassesInTenant`.
-      const classYearKey = key.slice(key.indexOf('|') + 1);
+      // A class's own natural key is `${name}|${academicYearKey}|${shift}|
+      // ${version}` (see classes.tab.ts's keyOf, [33.2.1]) — the year
+      // portion is already right there in the cell text, no extra lookup
+      // needed to catch a class scoped to a *different* academic year than
+      // this event's own. Without this check, `upsert` would link the
+      // event to a class from another year — `calendar_event_classes` has
+      // no DB constraint enforcing the years match, unlike the live API's
+      // `assertClassesInTenant`. Split rather than slice-after-first-pipe:
+      // the key has two more `|`-separated segments after the year (shift,
+      // version), so "everything after the first pipe" would wrongly
+      // include them too.
+      const classYearKey = key.split('|')[1] ?? '';
       if (academicYearKey && classYearKey !== academicYearKey) {
         errors.push({
           tab: 'calendar_events',

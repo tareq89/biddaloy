@@ -17,6 +17,10 @@ export function classFactory(overrides: Partial<Class> = {}): Class {
     id: faker.string.uuid(),
     name: `Class ${faker.number.int({ min: 1, max: 12 })}`,
     numeric_grade: faker.number.int({ min: 1, max: 12 }),
+    // [33.2.1] `null` by default — a tenant opts into shift/version, tests
+    // that need one pass it in via overrides.
+    shift: null,
+    version: null,
     academic_year: academicYear,
     academic_year_id: academicYear.id,
     tenant,

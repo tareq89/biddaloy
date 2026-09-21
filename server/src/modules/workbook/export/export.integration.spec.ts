@@ -205,7 +205,9 @@ describe('ExportProcessor (integration)', () => {
 
     const sectionsSheet = result.sheets.get('sections')!;
     const sectionRow = sectionsSheet.rows.find((r) => r.cells.section_name === 'A')!;
-    expect(sectionRow.cells.class).toBe('Class 10|2026-2027');
+    // `classesTab.keyOf` now embeds shift/version ([33.2.1]) — this class
+    // has neither set, so the key carries two trailing empty segments.
+    expect(sectionRow.cells.class).toBe('Class 10|2026-2027||');
     expect(sectionRow.cells.academic_year).toBe('2026-2027');
 
     await dataSource.getRepository(ClassSection).delete({ tenant_id: TENANT_A });

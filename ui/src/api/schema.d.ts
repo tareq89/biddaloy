@@ -3555,6 +3555,8 @@ export interface components {
             id: string;
             name: string;
             numeric_grade: number | null;
+            shift: string | null;
+            version: string | null;
             academic_year: components["schemas"]["AcademicYear"];
             academic_year_id: string;
             tenant: components["schemas"]["School"];
@@ -3573,6 +3575,7 @@ export interface components {
             class_id: string;
             section_name: string;
             capacity: number | null;
+            group_name: string | null;
             tenant: components["schemas"]["School"];
             tenant_id: string;
             /** Format: date-time */
@@ -5206,18 +5209,24 @@ export interface components {
             numeric_grade?: number;
             /** Format: uuid */
             academic_year_id: string;
+            shift?: string | null;
+            version?: string | null;
         };
         UpdateClassDto: {
             name?: string;
             numeric_grade?: number | null;
+            shift?: string | null;
+            version?: string | null;
         };
         CreateSectionDto: {
             section_name: string;
             capacity?: number;
+            group_name?: string | null;
         };
         UpdateSectionDto: {
             section_name?: string;
             capacity?: number | null;
+            group_name?: string | null;
         };
         Enrollment: {
             id: string;
