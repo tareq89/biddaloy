@@ -44,14 +44,20 @@ async function freshSessionStorageState(role: SeedRole) {
   }
   const ctx = await playwrightRequest.newContext({ baseURL: shells.app.baseURL });
   try {
-    const response = await ctx.post('/api/v1/auth/login', {
-      data: { email: SEED_ROLE_EMAILS[role], password },
-    });
-    if (!response.ok()) {
-      throw new Error(
-        `Login failed for ${SEED_ROLE_EMAILS[role]}: ${response.status()} ${await response.text()}`,
-      );
+    let response;
+    let failure = '';
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      response = await ctx.post('/api/v1/auth/login', {
+        data: { email: SEED_ROLE_EMAILS[role], password },
+      });
+      if (response.ok()) break;
+      failure = `Login failed for ${SEED_ROLE_EMAILS[role]}: ${response.status()} ${await response.text()}`;
+      if (response.status() !== 401 || attempt === 4) throw new Error(failure);
+      // portal-account.spec.ts briefly rotates the student seed password;
+      // wait for its finally block to restore it before giving up.
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
+    if (!response?.ok()) throw new Error(failure || 'Login failed without a response');
     const body = (await response.json()) as {
       memberships: { tenantId: string; role: string; name: string }[];
     };

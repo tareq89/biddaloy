@@ -60,14 +60,14 @@ test.describe('focus management, skip link, route announcements', () => {
   test('a route change moves focus to the new page and updates the title, never leaving focus on <body>', async ({
     page,
   }) => {
-    await expect(page).toHaveTitle('ড্যাশবোর্ড · বিদ্যালয়');
+    await expect(page).toHaveTitle('ড্যাশবোর্ড · SchoolManager');
 
     await page.getByRole('link', { name: 'শিক্ষার্থী', exact: true }).click();
 
     const heading = page.getByRole('heading', { name: 'শিক্ষার্থী' });
     await expect(heading).toBeVisible();
     await expect(heading).toBeFocused();
-    await expect(page).toHaveTitle('শিক্ষার্থী · বিদ্যালয়');
+    await expect(page).toHaveTitle('শিক্ষার্থী · SchoolManager');
     await expect(page.locator('body')).not.toBeFocused();
 
     // RouteAnnouncer's aria-live region — the other half of the
