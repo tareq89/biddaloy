@@ -32,7 +32,7 @@ import { GradingScale } from './grading-scale.entity';
  */
 @Entity('grading_bands')
 @Index(['tenant_id', 'scale_id'])
-@Index(['scale_id', 'sequence'], { unique: true })
+@Index(['scale_id', 'sequence'], { unique: true, where: '"deleted_at" IS NULL' })
 export class GradingBand {
   @PrimaryGeneratedColumn('uuid')
   id: string;

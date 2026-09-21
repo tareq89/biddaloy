@@ -76,8 +76,12 @@ export class AddGradingScales1789800011000 implements MigrationInterface {
       `CREATE INDEX "IDX_grading_bands_tenant_scale" ON "grading_bands" ("tenant_id", "scale_id")`,
     );
     // A scale's bands must not share a display order (D-earlier plan step 3).
+    // Partial on deleted_at IS NULL, same as the two grading_scales unique
+    // indexes above: recompute soft-deletes old bands and inserts new ones
+    // reusing the same sequence numbers, so a plain unique index here would
+    // collide with the just-deleted rows.
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "IDX_grading_bands_scale_sequence" ON "grading_bands" ("scale_id", "sequence")`,
+      `CREATE UNIQUE INDEX "IDX_grading_bands_scale_sequence" ON "grading_bands" ("scale_id", "sequence") WHERE "deleted_at" IS NULL`,
     );
     await queryRunner.query(
       `ALTER TABLE "grading_bands" ADD CONSTRAINT "FK_grading_bands_tenant" FOREIGN KEY ("tenant_id") REFERENCES "schools"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
