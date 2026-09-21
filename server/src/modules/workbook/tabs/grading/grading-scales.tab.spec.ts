@@ -96,7 +96,9 @@ describe('gradingScalesTab shape', () => {
       tenant_id: TENANT_ID,
     });
     const key = gradingScalesTab.keyOf(makeScale({ class_id: CLASS_ID, class: klass }));
-    expect(key).toBe('BD NCTB|2026-2027|Class 10|2026-2027');
+    // [33.2.1] classesTab.keyOf now appends shift/version segments too —
+    // empty here since this fixture's class sets neither.
+    expect(key).toBe('BD NCTB|2026-2027|Class 10|2026-2027||');
   });
 });
 
