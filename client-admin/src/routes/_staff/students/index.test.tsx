@@ -479,4 +479,36 @@ describe('/students', () => {
     await waitFor(() => expect(screen.queryByText('Karim Hossain')).toBeNull());
     expect(screen.getByText('Rahim Uddin')).toBeTruthy();
   });
+
+  // [CodeRabbit, PR #916] A `?shift=Morning` left over in the URL (a
+  // bookmark, a share, or the vocabulary having shrunk since the link was
+  // made) must not keep silently filtering once the field itself is gone
+  // (D5, empty vocabulary here) — no chip on screen to explain or clear
+  // it otherwise.
+  it('drops a leftover ?shift= URL param once the vocabulary has shrunk below 2 entries', async () => {
+    const requestedShift = vi.fn();
+    server.use(
+      http.get('/api/v1/students', ({ request }) => {
+        requestedShift(new URL(request.url).searchParams.get('shift'));
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 });
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students?shift=Morning'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('No students found');
+    expect(screen.queryByLabelText('Shift')).toBeNull();
+    // The route `loader`'s own prefetch can't gate on vocabulary (no
+    // hooks in a TanStack Router loader) and still fires once with the
+    // raw URL param — that's a separate, wasted background request under
+    // its own query key, not what's on screen. What matters for D5 is
+    // the query this page's own `useStudents(studentListFilters)` call
+    // actually renders from, which settles last and must exclude it.
+    await waitFor(() => expect(requestedShift.mock.calls.at(-1)?.[0] ?? null).toBeNull());
+  });
 });

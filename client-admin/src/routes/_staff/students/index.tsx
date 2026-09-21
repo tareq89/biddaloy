@@ -164,22 +164,6 @@ function StudentsListPage() {
   const [state, actions] = useListShellState({ limit: 10 });
   const filters = state.filters as StudentFilters;
 
-  // [8.12.3]: the filter bag is lifted into a variable so the exact same
-  // object feeds the query *and* `CachedDataNotice`'s key. Rebuilding the
-  // key by hand at the render site is how the notice silently stops
-  // matching the query it is supposed to be describing.
-  // Annotated, not inferred: spreading a conditional `order` into a
-  // fresh object widens it to `string`, which `StudentListFilters` (an
-  // `'asc' | 'desc'` union) rightly rejects.
-  const studentListFilters: StudentListFilters = {
-    page: state.page,
-    limit: state.limit,
-    ...toStudentListFilters(filters, state.sorting?.id),
-    ...(state.sorting ? { order: state.sorting.desc ? 'desc' : 'asc' } : {}),
-  };
-  const studentsQuery = useStudents(studentListFilters);
-  const classesQuery = useClasses();
-  const sectionsQuery = useClassSections(filters.class_id);
   const vocabularyQuery = useOrganisationVocabulary();
   // [D5] A shift/version filter field only exists once the tenant has 2+
   // entries — a single-shift school has nothing to filter on.
@@ -187,6 +171,37 @@ function StudentsListPage() {
   const versions = vocabularyQuery.data?.versions ?? [];
   const showShiftFilter = shifts.length >= 2;
   const showVersionFilter = versions.length >= 2;
+
+  // [8.12.3]: the filter bag is lifted into a variable so the exact same
+  // object feeds the query *and* `CachedDataNotice`'s key. Rebuilding the
+  // key by hand at the render site is how the notice silently stops
+  // matching the query it is supposed to be describing.
+  // Annotated, not inferred: spreading a conditional `order` into a
+  // fresh object widens it to `string`, which `StudentListFilters` (an
+  // `'asc' | 'desc'` union) rightly rejects.
+  //
+  // [CodeRabbit, PR #916] `shift`/`version` stripped from the filter bag
+  // here, before it reaches `toStudentListFilters` — that helper is a
+  // pure function of the URL's filter bag alone and has no vocabulary to
+  // gate on. Without this, a URL carrying `?shift=Morning` from before
+  // the tenant's vocabulary shrank to one shift (or a bookmarked/shared
+  // link) would keep silently filtering the list with no visible chip
+  // to explain or clear it (D5 says the *field* disappears, not that the
+  // filter stops applying).
+  const effectiveFilters: StudentFilters = {
+    ...filters,
+    ...(showShiftFilter ? {} : { shift: undefined }),
+    ...(showVersionFilter ? {} : { version: undefined }),
+  };
+  const studentListFilters: StudentListFilters = {
+    page: state.page,
+    limit: state.limit,
+    ...toStudentListFilters(effectiveFilters, state.sorting?.id),
+    ...(state.sorting ? { order: state.sorting.desc ? 'desc' : 'asc' } : {}),
+  };
+  const studentsQuery = useStudents(studentListFilters);
+  const classesQuery = useClasses();
+  const sectionsQuery = useClassSections(filters.class_id);
 
   const canCollectFees = useHasPermission(Permission.FEE_COLLECT);
   const canSendReminder = useHasPermission(Permission.COMMUNICATION_BULK_SEND);

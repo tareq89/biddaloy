@@ -62,8 +62,19 @@ const EMPTY_VALUES: ClassFormInitialValues = { name: '', numericGrade: undefined
 
 /** Radix `Select.Item` rejects an empty-string `value` — same sentinel
  * convention `classes/index.tsx`'s `ALL_VALUE` uses, for "no shift/version
- * chosen" rather than "all". */
-const NONE_VALUE = '__none__';
+ * chosen" rather than "all".
+ *
+ * [CodeRabbit, PR #916] Leading space, not a plain `'__none__'` — the
+ * organisation vocabulary (`UniqueLabelListConstraint`,
+ * `server/src/modules/schools/settings/unique-labels.validator.ts`)
+ * accepts any trimmed, non-empty, ≤50-char string, so an admin really
+ * could name a shift `__none__`, which would then be indistinguishable
+ * from "no shift chosen" in this Select. A leading space makes the
+ * sentinel structurally impossible for a real vocabulary entry to equal
+ * — the validator rejects `entry.trim() !== entry` outright — so the
+ * collision is ruled out by construction, not by convention. Don't
+ * "clean up" this leading space; it's load-bearing. */
+const NONE_VALUE = ' __none__';
 
 export function ClassFormDialog({
   open,

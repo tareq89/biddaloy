@@ -561,4 +561,125 @@ describe('/classes', () => {
     await waitFor(() => expect(screen.queryByText('Class 6 Day')).toBeNull());
     expect(screen.getByText('Class 6 Morning')).toBeTruthy();
   });
+
+  // [CodeRabbit, PR #916] A shift genuinely named the same text as the
+  // "All shifts"/"no shift" sentinel must stay selectable as itself, not
+  // get swallowed into "All"/"unset" — proven behaviourally (not just by
+  // asserting the constant's shape) by round-tripping a vocabulary entry
+  // whose name is exactly the sentinel's un-spaced text.
+  it('a shift literally named "__all__" stays a distinct, selectable filter value', async () => {
+    const klass = classFactory({ id: 'class-1', name: 'Class 6', shift: '__all__' });
+    server.use(
+      http.get('/api/v1/classes/vocabulary', () =>
+        HttpResponse.json({ shifts: ['__all__', 'Day'], versions: [], groups: [] }),
+      ),
+      http.get('/api/v1/classes', ({ request }) => {
+        const shift = new URL(request.url).searchParams.get('shift');
+        const data = shift === '__all__' || shift === null ? [klass] : [];
+        return HttpResponse.json({ data, total: data.length, page: 1, limit: 10, totalPages: 1 });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/classes'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('Class 6');
+    const shiftSelect = await screen.findByLabelText('Shift');
+    await user.click(shiftSelect);
+    // Two real options ("__all__", "Day") plus the sentinel-labelled "All
+    // shifts" entry — the vocabulary's own "__all__" must appear as its
+    // own selectable option, not merge into the built-in one.
+    await screen.findByRole('option', { name: '__all__' });
+    await user.click(screen.getByRole('option', { name: '__all__' }));
+
+    await waitFor(() => expect(screen.getByText('Class 6')).toBeTruthy());
+  });
+
+  it('a shift literally named " __none__" (the form\'s sentinel text) reaches the create payload', async () => {
+    const year = academicYearFactory({ id: 'year-1', name: '2026-2027', is_current: true });
+    let postedBody: Record<string, unknown> | undefined;
+    server.use(
+      http.get('/api/v1/classes/vocabulary', () =>
+        HttpResponse.json({ shifts: ['__none__', 'Day'], versions: [], groups: [] }),
+      ),
+      http.get('/api/v1/academic-years', () =>
+        HttpResponse.json({ data: [year], total: 1, page: 1, limit: 100, totalPages: 1 }),
+      ),
+      http.get('/api/v1/classes', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+      ),
+      http.post('/api/v1/classes', async ({ request }) => {
+        postedBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(classFactory({ id: 'new-class' }), { status: 201 });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/classes'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await user.click(await screen.findByRole('button', { name: 'Add class' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    await user.type(dialog.getByLabelText('Name'), 'Class 9');
+    await user.click(dialog.getByRole('combobox', { name: 'Academic year' }));
+    await user.click(await screen.findByRole('option', { name: '2026-2027' }));
+
+    await user.click(dialog.getByRole('combobox', { name: 'Shift' }));
+    // The real vocabulary entry "__none__" is a distinct option from the
+    // select's own built-in placeholder ("Select a shift", the sentinel's
+    // display label) — this asserts it's clickable and reaches the
+    // payload as the literal string, not treated as "no shift chosen".
+    await user.click(await screen.findByRole('option', { name: '__none__' }));
+    await user.click(dialog.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(postedBody).toBeDefined());
+    expect(postedBody?.shift).toBe('__none__');
+  });
+
+  it('a group literally named "__none__" reaches the section create payload', async () => {
+    const klass = { ...classFactory({ id: 'class-1', name: 'Class 6' }), section_count: 0 };
+    let postedBody: Record<string, unknown> | undefined;
+    server.use(
+      http.get('/api/v1/classes/vocabulary', () =>
+        HttpResponse.json({ shifts: [], versions: [], groups: ['__none__', 'Commerce'] }),
+      ),
+      http.get('/api/v1/classes', () =>
+        HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 10, totalPages: 1 }),
+      ),
+      http.get('/api/v1/classes/:classId/sections', () => HttpResponse.json([])),
+      http.post('/api/v1/classes/:classId/sections', async ({ request }) => {
+        postedBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(classSectionFactory({ id: 'new-section' }), { status: 201 });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/classes'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await user.click(await screen.findByRole('button', { name: 'Sections for Class 6' }));
+    await user.click(await screen.findByRole('button', { name: '+ Section' }));
+
+    const dialog = within(await screen.findByRole('dialog'));
+    await user.type(dialog.getByLabelText('Section name'), 'A');
+    await user.click(dialog.getByRole('combobox', { name: 'Group' }));
+    await user.click(await screen.findByRole('option', { name: '__none__' }));
+    await user.click(dialog.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(postedBody).toBeDefined());
+    expect(postedBody?.group_name).toBe('__none__');
+  });
 });

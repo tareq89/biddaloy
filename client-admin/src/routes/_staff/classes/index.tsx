@@ -52,8 +52,17 @@ export const Route = createFileRoute('/_staff/classes/')({
 
 /** Radix `Select.Item` rejects an empty-string `value` — same sentinel
  * convention `students/index.tsx`/`dues.tsx` use for "All classes"/"All
- * sections". */
-const ALL_VALUE = '__all__';
+ * sections". Also used below for the shift/version filters, not just
+ * `academic_year_id` — a real academic year id is a UUID (no collision
+ * risk), but shift/version are free-text organisation vocabulary an
+ * admin can name anything up to 50 characters.
+ *
+ * [CodeRabbit, PR #916] Leading space, not a plain `'__all__'` — the
+ * vocabulary validator (`UniqueLabelListConstraint`) rejects any entry
+ * where `entry.trim() !== entry`, so this sentinel is structurally
+ * impossible for a real shift/version name to equal. Don't "clean up"
+ * this leading space; it's load-bearing. */
+const ALL_VALUE = ' __all__';
 
 interface ClassFilters {
   academic_year_id?: string | undefined;

@@ -143,12 +143,26 @@ export function OrganisationSection({ schoolId, organisation }: OrganisationSect
       const from = state.renamingValue;
       const to = state.renameInput.trim();
       if (!from || !to || to === from) return { ...state, renamingValue: null, renameInput: '' };
+      // [CodeRabbit, PR #916] Only one rename per list per save (the
+      // server's own limit — `applyOrganisationVocabularyGuard` rejects a
+      // second `{ list, from, to }` for the same list). A rename on a
+      // *different* entry while one is already pending would otherwise
+      // silently overwrite `state.rename`, dropping the first rename from
+      // the PATCH — that entry then reads as a plain removal server-side
+      // and gets rejected if still in use. Refused here (the "Rename"
+      // button is also `disabled` on every other row while one is
+      // pending — see `VocabularyList` below — so this is a defensive
+      // second guard, not the only one). Re-renaming the *same* entry
+      // again (chained: Morning → Prabhati → Shokal) collapses into the
+      // original `from`, so the server still sees exactly one pair.
+      if (state.rename && state.rename.to !== from) return state;
+      const originalFrom = state.rename?.from ?? from;
       return {
         ...state,
         entries: state.entries.map((entry) =>
           entry.value === from ? { ...entry, value: to } : entry,
         ),
-        rename: { from, to },
+        rename: { from: originalFrom, to },
         renamingValue: null,
         renameInput: '',
       };
@@ -309,6 +323,14 @@ function VocabularyList({
                   type="button"
                   size="sm"
                   variant="ghost"
+                  // [CodeRabbit, PR #916] Only one rename per list per
+                  // save — disabled on every other row while one is
+                  // pending, so the one-at-a-time limit is visible, not a
+                  // silent no-op discovered only after Save. The row that
+                  // *is* the pending rename's target stays enabled, so a
+                  // chained rename (Morning → Prabhati → Shokal) still
+                  // works.
+                  disabled={state.rename !== null && state.rename.to !== entry.value}
                   onClick={() => onStartRename(entry.value)}
                 >
                   {t('organisation.renameAction')}

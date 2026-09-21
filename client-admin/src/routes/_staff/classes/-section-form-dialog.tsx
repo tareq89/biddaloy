@@ -50,8 +50,12 @@ export interface SectionFormDialogProps {
 const EMPTY_VALUES: SectionFormInitialValues = { sectionName: '', capacity: undefined };
 
 /** Radix `Select.Item` rejects an empty-string `value` — same sentinel
- * `-class-form-dialog.tsx`'s `NONE_VALUE` uses. */
-const NONE_VALUE = '__none__';
+ * `-class-form-dialog.tsx`'s `NONE_VALUE` uses, including the leading
+ * space (see that file's comment: the organisation vocabulary's own
+ * validator rejects any entry where `entry.trim() !== entry`, which is
+ * what makes this sentinel structurally impossible to collide with a
+ * real group name). Don't "clean up" the leading space. */
+const NONE_VALUE = ' __none__';
 
 export function SectionFormDialog({
   open,

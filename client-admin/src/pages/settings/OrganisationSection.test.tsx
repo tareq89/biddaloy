@@ -131,4 +131,71 @@ describe('OrganisationSection', () => {
     expect(body.organisation.shifts).toEqual(['Prabhati', 'Day']);
     expect(body.organisationRenames).toEqual([{ list: 'shifts', from: 'Morning', to: 'Prabhati' }]);
   });
+
+  // [CodeRabbit, PR #916] Only one rename per list per save — a second
+  // rename on a *different* entry must not silently overwrite the first.
+  it('refuses a second rename on a different entry in the same list', async () => {
+    const { user } = renderWithProviders(
+      <OrganisationSection schoolId={SCHOOL_ID} organisation={ORGANISATION} />,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+
+    const shifts = within(await screen.findByTestId('organisation-shifts'));
+    const morningRow = shifts.getByText('Morning').closest('li')!;
+    await user.click(within(morningRow).getByRole('button', { name: 'Rename' }));
+    const renameInput = within(morningRow).getByPlaceholderText('New name');
+    await user.type(renameInput, 'Prabhati');
+    await user.click(within(morningRow).getByRole('button', { name: 'Save' }));
+
+    // Morning's row now reads "Prabhati" — the Rename button on the
+    // *other* row (Day) must be disabled while that rename is pending.
+    // No jest-dom in this repo's test setup (same gotcha
+    // `AttendanceSection.test.tsx`'s own comment documents) — a plain
+    // `.disabled` read instead of `toBeDisabled()`.
+    const dayRow = shifts.getByText('Day').closest('li')!;
+    const dayRenameButton = within(dayRow).getByRole('button', { name: 'Rename' });
+    expect((dayRenameButton as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('a chained rename on the same entry sends a single { from: original, to: latest }', async () => {
+    const patchBody = vi.fn();
+    server.use(
+      http.patch('/api/v1/schools/:id/settings', async ({ request }) => {
+        const body = (await request.json()) as Record<string, unknown>;
+        patchBody(body);
+        return HttpResponse.json({
+          version: 1,
+          organisation: { ...ORGANISATION, shifts: ['Shokal', 'Day'] },
+        });
+      }),
+    );
+
+    const { user } = renderWithProviders(
+      <OrganisationSection schoolId={SCHOOL_ID} organisation={ORGANISATION} />,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+
+    const shifts = within(await screen.findByTestId('organisation-shifts'));
+    let row = shifts.getByText('Morning').closest('li')!;
+    await user.click(within(row).getByRole('button', { name: 'Rename' }));
+    let renameInput = within(row).getByPlaceholderText('New name');
+    await user.clear(renameInput);
+    await user.type(renameInput, 'Prabhati');
+    await user.click(within(row).getByRole('button', { name: 'Save' }));
+
+    // Re-rename the same entry, now reading "Prabhati".
+    row = shifts.getByText('Prabhati').closest('li')!;
+    await user.click(within(row).getByRole('button', { name: 'Rename' }));
+    renameInput = within(row).getByPlaceholderText('New name');
+    await user.clear(renameInput);
+    await user.type(renameInput, 'Shokal');
+    await user.click(within(row).getByRole('button', { name: 'Save' }));
+
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(patchBody).toHaveBeenCalled());
+    const body = patchBody.mock.calls[0]![0];
+    expect(body.organisation.shifts).toEqual(['Shokal', 'Day']);
+    expect(body.organisationRenames).toEqual([{ list: 'shifts', from: 'Morning', to: 'Shokal' }]);
+  });
 });
