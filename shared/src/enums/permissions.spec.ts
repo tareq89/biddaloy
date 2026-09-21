@@ -106,10 +106,12 @@ describe('family read grants [5.1]', () => {
     Permission.ATTENDANCE_READ,
     // [17.1.1] Calendar read — every tenant role, including family roles.
     Permission.CALENDAR_READ,
+    // [21.1.1] Routine read — families need to see the published timetable.
+    Permission.ROUTINE_READ,
   ] as const;
 
   for (const role of FAMILY_ROLES) {
-    it(`grants ${role} exactly STUDENT_READ, FEE_READ, INVOICE_READ, ATTENDANCE_READ and CALENDAR_READ`, () => {
+    it(`grants ${role} exactly STUDENT_READ, FEE_READ, INVOICE_READ, ATTENDANCE_READ, CALENDAR_READ and ROUTINE_READ`, () => {
       expect([...ROLE_PERMISSIONS[role]].sort()).toEqual([...FAMILY_PERMISSIONS].sort());
     });
   }
@@ -467,6 +469,51 @@ describe('calendar role grants [17.1.1]', () => {
   for (const role of ROLES_WITHOUT_CALENDAR_MANAGE) {
     it(`withholds CALENDAR_MANAGE from ${role}`, () => {
       expect(ROLE_PERMISSIONS[role]).not.toContain(Permission.CALENDAR_MANAGE);
+    });
+  }
+});
+
+describe('routine role grants [21.1.1]', () => {
+  // Everyone with a stake in a published class routine can read it,
+  // including families — unlike CALENDAR_READ, ACCOUNTANT has no stake
+  // and is deliberately excluded.
+  const ROLES_WITH_ROUTINE_READ = [
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.TEACHER,
+    UserRole.PARENT,
+    UserRole.STUDENT,
+  ] as const;
+
+  for (const role of ROLES_WITH_ROUTINE_READ) {
+    it(`grants ROUTINE_READ to ${role}`, () => {
+      expect(ROLE_PERMISSIONS[role]).toContain(Permission.ROUTINE_READ);
+    });
+  }
+
+  it('withholds ROUTINE_READ from ACCOUNTANT', () => {
+    expect(ROLE_PERMISSIONS[UserRole.ACCOUNTANT]).not.toContain(Permission.ROUTINE_READ);
+  });
+
+  it('grants ROUTINE_MANAGE to ADMIN', () => {
+    expect(ROLE_PERMISSIONS[UserRole.ADMIN]).toContain(Permission.ROUTINE_MANAGE);
+  });
+
+  it('grants ROUTINE_MANAGE to SUPER_ADMIN, which holds every permission', () => {
+    expect(ROLE_PERMISSIONS[UserRole.SUPER_ADMIN]).toContain(Permission.ROUTINE_MANAGE);
+  });
+
+  const ROLES_WITHOUT_ROUTINE_MANAGE = [
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    UserRole.TEACHER,
+    UserRole.PARENT,
+    UserRole.STUDENT,
+  ] as const;
+
+  for (const role of ROLES_WITHOUT_ROUTINE_MANAGE) {
+    it(`withholds ROUTINE_MANAGE from ${role}`, () => {
+      expect(ROLE_PERMISSIONS[role]).not.toContain(Permission.ROUTINE_MANAGE);
     });
   }
 });

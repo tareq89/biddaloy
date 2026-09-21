@@ -553,6 +553,11 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // `/calendar/events`, `/calendar/terms`, `/calendar-settings`, the
   // platform holiday-set routes, and `/calendar/public-holidays/add` —
   // no longer UI-only, removed from this list.
+  // [21.1.1] Plumbing landed ahead of the routes that will require them:
+  // ROUTINE_READ/ROUTINE_MANAGE will gate the routine-builder endpoints a
+  // later Epic 21.0 ticket adds — remove once those routes exist.
+  Permission.ROUTINE_READ,
+  Permission.ROUTINE_MANAGE,
 ];
 
 describe('Permission matrix (regression)', () => {

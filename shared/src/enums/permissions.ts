@@ -145,6 +145,14 @@ export enum Permission {
   // events, terms, import public holidays) is ADMIN only.
   CALENDAR_READ = 'CALENDAR_READ',
   CALENDAR_MANAGE = 'CALENDAR_MANAGE',
+
+  // Routine (class timetable)
+  // [21.1.1] Read is granted to every tenant role that has a stake in a
+  // published routine (admin, executive, teacher, guardian, student);
+  // write (build/edit/publish a routine, its slots, its change requests)
+  // is ADMIN only.
+  ROUTINE_READ = 'ROUTINE_READ',
+  ROUTINE_MANAGE = 'ROUTINE_MANAGE',
 }
 
 import { UserRole } from './index';
@@ -222,6 +230,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // [17.1.1] School calendar — ADMIN manages, everyone else reads.
     Permission.CALENDAR_READ,
     Permission.CALENDAR_MANAGE,
+    // [21.1.1] Class routine — ADMIN builds/publishes, everyone else reads.
+    Permission.ROUTINE_READ,
+    Permission.ROUTINE_MANAGE,
   ],
 
   [UserRole.ACCOUNTANT]: [
@@ -298,6 +309,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ATTENDANCE_MARK,
     // [17.1.1] School calendar read.
     Permission.CALENDAR_READ,
+    // [21.1.1] Class routine read.
+    Permission.ROUTINE_READ,
   ],
 
   // [5.1] added no permissions to either family role. The widened server
@@ -317,6 +330,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ATTENDANCE_READ,
     // [17.1.1] School calendar read.
     Permission.CALENDAR_READ,
+    // [21.1.1] Class routine read.
+    Permission.ROUTINE_READ,
   ],
 
   [UserRole.STUDENT]: [
@@ -326,6 +341,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ATTENDANCE_READ,
     // [17.1.1] School calendar read.
     Permission.CALENDAR_READ,
+    // [21.1.1] Class routine read.
+    Permission.ROUTINE_READ,
   ],
 
   [UserRole.EXECUTIVE]: [
@@ -360,6 +377,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ATTENDANCE_READ,
     // [17.1.1] School calendar read.
     Permission.CALENDAR_READ,
+    // [21.1.1] Class routine read.
+    Permission.ROUTINE_READ,
   ],
 };
 
