@@ -32,6 +32,12 @@ export interface StudentListFilters {
   search?: string;
   class_id?: string;
   section_id?: string;
+  /** [33.4.1] Organisation-vocabulary filters, resolved through
+   * `class_section.class` server-side (`QueryStudentDto.shift`/
+   * `.version`) — same "unknown value = empty page, never a 500" contract
+   * as every other filter here. */
+  shift?: string;
+  version?: string;
   enrollment_status?: string;
   /** [8.14.10] Mirrors `QueryStudentDto.gender` — free text (`@MaxLength(20)`
    * server-side), not an enum. */

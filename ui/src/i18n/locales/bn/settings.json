@@ -214,5 +214,19 @@
     "lateFeeKindPercent": "শতাংশ",
     "lateFeeKindFlat": "নির্দিষ্ট পরিমাণ",
     "lateFeeValue": "মান"
+  },
+  "organisation": {
+    "legend": "শিফট, ভার্সন ও গ্রুপ",
+    "shiftsLabel": "শিফট",
+    "versionsLabel": "ভার্সন",
+    "groupsLabel": "গ্রুপ",
+    "addPlaceholder": "একটি মান যোগ করুন",
+    "addAction": "যোগ করুন",
+    "renameAction": "নাম পরিবর্তন",
+    "removeAction": "মুছুন",
+    "renamePlaceholder": "নতুন নাম",
+    "renameConfirm": "সংরক্ষণ করুন",
+    "renameCancel": "বাতিল",
+    "emptyList": "এখনও কোনো মান নেই।"
   }
 }

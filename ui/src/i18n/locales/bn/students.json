@@ -44,7 +44,11 @@
     "announceResults_one": "{{total}} জনের মধ্যে {{visible}} জন শিক্ষার্থী",
     "announceResults_other": "{{total}} জনের মধ্যে {{visible}} জন শিক্ষার্থী",
     "noGuardian": "—",
-    "emptyValue": "—"
+    "emptyValue": "—",
+    "shiftLabel": "শিফট",
+    "allShifts": "সকল শিফট",
+    "versionLabel": "ভার্সন",
+    "allVersions": "সকল ভার্সন"
   },
   "sendReminderDialog": {
     "title": "রিমাইন্ডার পাঠান",
