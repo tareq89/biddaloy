@@ -1,6 +1,7 @@
 import { adminApiSession, createStudent } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
+import { focusedText } from './keyboard-utils';
 
 /**
  * [30.4.3]/[30.5.1] `CommandPalette`, keyboard only. Replaces
@@ -38,6 +39,25 @@ test('command palette is fully keyboard-drivable: People tab search and pick', a
 
   await test.step('landed on the student detail', async () => {
     await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+  });
+
+  // [30.3.3] The palette lands on `/students/$studentId`, which renders
+  // a "Students · <name>" breadcrumb trail (`use-breadcrumbs.ts`) — the
+  // "Students" crumb is a real `Link`, reachable and operable without a
+  // mouse, same as everything else this file asserts.
+  await test.step('Tab into the breadcrumb list link and follow it back', async () => {
+    const studentsLabel = t('nav.items.students');
+    let reached = false;
+    for (let i = 0; i < 40; i++) {
+      await page.keyboard.press('Tab');
+      if ((await focusedText(page)) === studentsLabel) {
+        reached = true;
+        break;
+      }
+    }
+    expect(reached).toBe(true);
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('heading', { level: 1, name: studentsLabel })).toBeVisible();
   });
 });
 

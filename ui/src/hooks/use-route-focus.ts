@@ -188,9 +188,24 @@ export function useRouteFocus({ mainId, appName }: UseRouteFocusOptions): string
       // same-route content update (a detail page's `<h1>` going from a
       // loading placeholder to the loaded entity's name, say) should
       // still retitle the tab even though it isn't a page change.
+      //
+      // [30.3.3]: skip this write entirely when a `Breadcrumbs` trail is
+      // rendered for the route (`data-slot="breadcrumbs"`, `ui/src/
+      // components/breadcrumbs.tsx`) — `use-breadcrumbs.ts` (client-
+      // admin) owns `document.title` for those routes instead, building
+      // the full reversed trail rather than just the `<h1>` text. This
+      // hook still owns it everywhere else (pre-auth screens, the
+      // platform console, the guardian portal's placeholder pages) —
+      // routes with no crumb entry at all — so it re-checks the DOM
+      // (same "watch what's actually rendered" approach as the rest of
+      // this hook) instead of taking a prop that would need every
+      // caller, including ones with no breadcrumbs, to thread through.
+      const hasBreadcrumbTrail = container.querySelector('[data-slot="breadcrumbs"] li') !== null;
       if (headingText !== lastHeadingTextRef.current) {
         lastHeadingTextRef.current = headingText;
-        document.title = headingText ? `${headingText} · ${appName}` : appName;
+        if (!hasBreadcrumbTrail) {
+          document.title = headingText ? `${headingText} · ${appName}` : appName;
+        }
       }
 
       const isRouteChange = pathname !== lastPathnameRef.current;
