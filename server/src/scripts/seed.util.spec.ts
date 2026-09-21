@@ -24,9 +24,11 @@ import { hashDeviceKey } from '../modules/attendance/devices/device.service';
 import {
   ATTENDANCE_SEED_ABSENT_DATE,
   DEMO_CLASSES,
+  DEMO_ORGANISATION,
   DEMO_STUDENTS_PER_SECTION,
   ensureAttendanceSeed,
   ensureCalendarDemoSeed,
+  ensureDemoOrganisation,
   ensureDemoStudents,
   ensurePublicHolidaySet,
   ensureRoleTestUsers,
@@ -301,6 +303,65 @@ describe('e2e seed contract', () => {
 
   it('[9.11] matches the literal absent date seed.util.ts actually seeds for roll 1', () => {
     expect(E2E_ATTENDANCE_SEED_ABSENT_DATE).toBe(ATTENDANCE_SEED_ABSENT_DATE);
+  });
+});
+
+describe('DEMO_ORGANISATION / DEMO_CLASSES invariant', () => {
+  // [33.5.1] The seed script bypasses ClassService/SectionService, so
+  // nothing enforces `assertInVocabulary` for it at runtime — this test is
+  // the enforcement. It fails loudly if a future edit adds a shift/version/
+  // group to DEMO_CLASSES without adding it to DEMO_ORGANISATION first.
+  it('draws every DEMO_CLASSES shift/version/group from DEMO_ORGANISATION', () => {
+    for (const klass of DEMO_CLASSES) {
+      if (klass.shift !== null) expect(DEMO_ORGANISATION.shifts).toContain(klass.shift);
+      if (klass.version !== null) expect(DEMO_ORGANISATION.versions).toContain(klass.version);
+      for (const section of klass.sections) {
+        if (section.group !== null) expect(DEMO_ORGANISATION.groups).toContain(section.group);
+      }
+    }
+  });
+
+  it('includes a class with shift, version and every section group all null', () => {
+    expect(
+      DEMO_CLASSES.some(
+        (c) => c.shift === null && c.version === null && c.sections.every((s) => s.group === null),
+      ),
+    ).toBe(true);
+  });
+
+  it('includes two classes sharing a name and year that differ only by shift', () => {
+    const byName = new Map<string, typeof DEMO_CLASSES>();
+    for (const klass of DEMO_CLASSES) {
+      byName.set(klass.name, [...(byName.get(klass.name) ?? []), klass]);
+    }
+    const duplicateNamePair = [...byName.values()].find((group) => group.length > 1);
+    expect(duplicateNamePair).toBeDefined();
+    const [a, b] = duplicateNamePair!;
+    expect(a.shift).not.toBe(b.shift);
+  });
+});
+
+describe('ensureDemoOrganisation', () => {
+  it('writes DEMO_ORGANISATION onto a school with no settings yet', () => {
+    const school = { settings: null } as School;
+    expect(ensureDemoOrganisation(school)).toBe(true);
+    expect(school.settings?.organisation).toEqual(DEMO_ORGANISATION);
+  });
+
+  it('preserves other settings keys already present', () => {
+    const school = { settings: { fees: { approvalMode: 'PASSWORD' } } } as unknown as School;
+    expect(ensureDemoOrganisation(school)).toBe(true);
+    expect(school.settings).toEqual({
+      fees: { approvalMode: 'PASSWORD' },
+      organisation: DEMO_ORGANISATION,
+    });
+  });
+
+  it('does nothing if the tenant already has an organisation vocabulary, hand-edited or not', () => {
+    const handEdited = { shifts: ['Prabhati'], versions: [], groups: [] };
+    const school = { settings: { organisation: handEdited } } as unknown as School;
+    expect(ensureDemoOrganisation(school)).toBe(false);
+    expect(school.settings?.organisation).toBe(handEdited);
   });
 });
 

@@ -23,6 +23,7 @@ import { AttendanceRecord } from '../modules/attendance/entities/attendance-reco
 import { AttendanceDevice } from '../modules/attendance/entities/attendance-device.entity';
 import { DEV_SEED_PLATFORM_TENANT_ID } from '../config/env.validation';
 import { seedAccounts } from './seed.accounts';
+import { ensureDemoOrganisation } from './seed.util';
 
 export { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
 
@@ -91,6 +92,17 @@ export async function seed() {
     });
     await schoolRepository.save(school);
     console.log(`Created default school (${school.id}).`);
+  }
+
+  // [33.5.1] `DEMO_CLASSES` below writes `shift`/`version`/`group_name`
+  // straight through the repository (bypassing `ClassService`'s vocabulary
+  // check), so the tenant's own vocabulary must exist first — on both the
+  // freshly-created and the already-existing-school path. Idempotent: does
+  // nothing once the tenant has any `organisation` vocabulary, hand-edited
+  // or not.
+  if (ensureDemoOrganisation(school)) {
+    await schoolRepository.save(school);
+    console.log(`Set organisation vocabulary on ${school.name}.`);
   }
 
   await seedAccounts(

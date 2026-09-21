@@ -33,7 +33,7 @@ import { StudentFee } from '../src/modules/fees/entities/student-fee.entity';
 import { Invoice } from '../src/modules/invoices/entities/invoice.entity';
 import { Payment } from '../src/modules/fees/entities/payment.entity';
 import { PaymentAllocation } from '../src/modules/fees/entities/payment-allocation.entity';
-import { ensureDemoStudents, SEED_DEVICE_KEY } from '../src/scripts/seed.util';
+import { DEMO_ORGANISATION, ensureDemoStudents, SEED_DEVICE_KEY } from '../src/scripts/seed.util';
 import { ImportStagingService } from '../src/modules/bulk-import/import-staging.service';
 import { ValidationService } from '../src/modules/workbook/import/validation.service';
 import { DiffService } from '../src/modules/workbook/import/diff.service';
@@ -378,7 +378,13 @@ describe('workbook round trip (integration)', () => {
         slug: `roundtrip-a-${TENANT_A.slice(0, 8)}`,
         // Same leak-check pattern as export.integration.spec.ts: the
         // `school` tab redacts known secret paths before export.
-        settings: { communications: { sms: { mimsms: { apiKey: PROVIDER_SECRET } } } } as any,
+        // [33.5.1] `organisation` is a plain (non-secret) settings key —
+        // `ensureDemoStudents` below needs it present before it seeds
+        // `DEMO_CLASSES`' shift/version/group values (see seed.util.ts).
+        settings: {
+          communications: { sms: { mimsms: { apiKey: PROVIDER_SECRET } } },
+          organisation: DEMO_ORGANISATION,
+        } as any,
       }),
       dataSource.getRepository(School).create({
         id: TENANT_B,
@@ -807,6 +813,18 @@ describe('workbook round trip (integration)', () => {
     // other column still fails loudly.
     expect(normalizedA.school?.[0]?.name).toBe('Roundtrip Test School A');
     expect(normalizedB.school?.[0]?.name).toBe('Roundtrip Test School B (empty)');
+
+    // [33.5.1] `settings.organisation` is folded into the generic equality
+    // check below like any other column, but assert it explicitly too: it
+    // is the one settings key this fixture actually varies, so a passing
+    // generic diff would otherwise prove nothing about `stripSecretPaths` /
+    // `deepMergePresent` (school.tab.ts) actually preserving it intact
+    // through export → strip → re-import → merge.
+    const organisationA = JSON.parse(normalizedA.school?.[0]?.settings ?? '{}').organisation;
+    const organisationB = JSON.parse(normalizedB.school?.[0]?.settings ?? '{}').organisation;
+    expect(organisationA).toEqual(DEMO_ORGANISATION);
+    expect(organisationB).toEqual(DEMO_ORGANISATION);
+
     const normalizedANoName = {
       ...normalizedA,
       school: normalizedA.school?.map(({ name: _name, ...rest }) => rest),

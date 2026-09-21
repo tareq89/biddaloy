@@ -11,6 +11,7 @@ import {
   UserRole,
   UserStatus,
 } from '@biddaloy/shared';
+import type { OrganisationSettings } from '@biddaloy/shared';
 import { FindOptionsWhere, IsNull, ObjectLiteral, Repository } from 'typeorm';
 import { School } from '../modules/schools/entities/school.entity';
 import { User } from '../modules/users/entities/user.entity';
@@ -165,16 +166,88 @@ export const DEMO_ACADEMIC_YEAR = {
   end_date: '2026-12-31',
 } as const;
 
+/** [33.5.1] The tenant's `settings.organisation` vocabulary for demo/seed
+ * data. `DEMO_CLASSES` below draws every shift/version/group value from
+ * exactly this list — `ClassService.create`/`SectionService.create` reject
+ * any value not in the tenant's own vocabulary (`assertInVocabulary`), and
+ * this seed script writes rows straight through the repository, bypassing
+ * that check. Keeping the two in sync by hand (rather than by the type
+ * system) is why `seed.util.spec.ts` asserts every `DEMO_CLASSES` value is
+ * a member of this list. */
+export const DEMO_ORGANISATION: OrganisationSettings = {
+  shifts: ['Morning', 'Day'],
+  versions: ['Bangla', 'English'],
+  groups: ['Science', 'Commerce', 'Arts'],
+};
+
+/** Writes `DEMO_ORGANISATION` onto `school.settings.organisation` — but
+ * only when the tenant doesn't already have one, so a developer's
+ * hand-edited vocabulary (via the organisation settings UI) survives a
+ * re-run of `yarn seed`. Returns whether it changed anything, so callers
+ * only `save()` when needed. */
+export function ensureDemoOrganisation(school: School): boolean {
+  if (school.settings?.organisation) return false;
+  school.settings = { ...(school.settings ?? {}), organisation: DEMO_ORGANISATION };
+  return true;
+}
+
+export interface DemoSectionSeed {
+  name: string;
+  /** [33.5.1] Validated against `DEMO_ORGANISATION.groups`; `null` = no group. */
+  group: string | null;
+}
+
 export interface DemoClassSeed {
   name: string;
   numericGrade: number;
-  sections: readonly string[];
+  /** [33.5.1] Validated against `DEMO_ORGANISATION.shifts`/`.versions`; `null` = tenant doesn't use that dimension. */
+  shift: string | null;
+  version: string | null;
+  sections: readonly DemoSectionSeed[];
 }
 
+// [33.5.1] "Class 8" is deliberately seeded twice with the same name and
+// academic year, differing only by shift — two real classes sharing a name
+// is exactly the case `classesTab.naturalKey` (and the DB's own
+// `NULLS NOT DISTINCT` unique index) has to tell apart, so the demo data
+// and the round-trip fixture exercise it instead of only unit tests doing
+// so. "Class 6" is left with shift/version/group all `null`, covering the
+// "tenant doesn't use this dimension" case the same way.
 export const DEMO_CLASSES: readonly DemoClassSeed[] = [
-  { name: 'Class 6', numericGrade: 6, sections: ['A', 'B'] },
-  { name: 'Class 7', numericGrade: 7, sections: ['A', 'B'] },
-  { name: 'Class 8', numericGrade: 8, sections: ['A'] },
+  {
+    name: 'Class 6',
+    numericGrade: 6,
+    shift: null,
+    version: null,
+    sections: [
+      { name: 'A', group: null },
+      { name: 'B', group: null },
+    ],
+  },
+  {
+    name: 'Class 7',
+    numericGrade: 7,
+    shift: 'Morning',
+    version: 'Bangla',
+    sections: [
+      { name: 'A', group: 'Science' },
+      { name: 'B', group: 'Commerce' },
+    ],
+  },
+  {
+    name: 'Class 8',
+    numericGrade: 8,
+    shift: 'Morning',
+    version: 'English',
+    sections: [{ name: 'A', group: 'Arts' }],
+  },
+  {
+    name: 'Class 8',
+    numericGrade: 8,
+    shift: 'Day',
+    version: null,
+    sections: [{ name: 'A', group: null }],
+  },
 ];
 
 /** Three per section, in section order — enough for the list route to show
@@ -400,39 +473,60 @@ export async function ensureDemoStudents(
   // --- classes, sections, students ------------------------------------
   let rosterIndex = 0;
   for (const classSeed of DEMO_CLASSES) {
+    // [33.5.1] `shift`/`version` are part of the where clause, not just the
+    // create payload: two `DEMO_CLASSES` entries can share a name and year
+    // (see "Class 8" above), and the DB's own unique index tells them apart
+    // by shift/version too (`NULLS NOT DISTINCT`). Without this, a re-run
+    // would resolve both entries to whichever row `findOne` happens to
+    // return first, instead of the one this seed entry actually owns.
     let klass = await classRepository.findOne({
-      where: { name: classSeed.name, academic_year_id: year.id, tenant_id: schoolId },
+      where: {
+        name: classSeed.name,
+        academic_year_id: year.id,
+        tenant_id: schoolId,
+        shift: classSeed.shift ?? IsNull(),
+        version: classSeed.version ?? IsNull(),
+      },
       withDeleted: true,
     });
     if (!klass) {
       klass = classRepository.create({
         name: classSeed.name,
         numeric_grade: classSeed.numericGrade,
+        shift: classSeed.shift,
+        version: classSeed.version,
         academic_year_id: year.id,
         tenant_id: schoolId,
       });
       await classRepository.save(klass);
       result.classes += 1;
     } else if (klass.deleted_at) {
+      klass.shift = classSeed.shift;
+      klass.version = classSeed.version;
       await classRepository.save(undelete(klass));
     }
 
-    for (const sectionName of classSeed.sections) {
+    for (const sectionSeed of classSeed.sections) {
+      // `group` deliberately left out of this lookup — see `sections.tab.ts`:
+      // it's not part of `class_sections`' own unique index, so sections
+      // stay unique by name within a class regardless of group.
       let section = await findLivePreferred(classSectionRepository, {
         class_id: klass.id,
-        section_name: sectionName,
+        section_name: sectionSeed.name,
         tenant_id: schoolId,
       });
       if (!section) {
         section = classSectionRepository.create({
           class_id: klass.id,
-          section_name: sectionName,
+          section_name: sectionSeed.name,
           capacity: 30,
+          group_name: sectionSeed.group,
           tenant_id: schoolId,
         });
         await classSectionRepository.save(section);
         result.sections += 1;
       } else if (section.deleted_at) {
+        section.group_name = sectionSeed.group;
         await classSectionRepository.save(undelete(section));
       }
 
