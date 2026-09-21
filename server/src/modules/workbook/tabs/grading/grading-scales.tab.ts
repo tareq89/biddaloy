@@ -191,6 +191,26 @@ export const gradingScalesTab: TabSpec<GradingScale, GradingScaleRow> = {
       }
     }
 
+    // `revision` is a plain `int` column (no min on `ColumnSpec`) — a
+    // 0/negative value would violate the revision-counter contract (D6:
+    // results pin against a specific revision, so it can never go
+    // backwards) and get persisted as-is by `upsert` otherwise.
+    const revision = values.revision as number;
+    if (revision < 1) {
+      return {
+        errors: [
+          {
+            tab: 'grading_scales',
+            row: rowNo,
+            column: 'revision',
+            message: 'Column "revision": must be at least 1.',
+            severity: 'error',
+            value: cells.revision ?? '',
+          },
+        ],
+      };
+    }
+
     return {
       row: {
         id: values.id as string,
@@ -199,7 +219,7 @@ export const gradingScalesTab: TabSpec<GradingScale, GradingScaleRow> = {
         academic_year_key: academicYearKey,
         class_id: classId,
         class_key: classKey,
-        revision: values.revision as number,
+        revision,
       },
     };
   },

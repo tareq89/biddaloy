@@ -1331,9 +1331,10 @@ async function ensureBdNctbScale(
   let createdBands = 0;
   for (const [index, band] of BD_NCTB_BANDS.entries()) {
     const sequence = index + 1;
-    let row = await repos.gradingBandRepository.findOne({
-      where: { scale_id: scale.id, sequence },
-      withDeleted: true,
+    let row = await findLivePreferred(repos.gradingBandRepository, {
+      tenant_id: schoolId,
+      scale_id: scale.id,
+      sequence,
     });
     if (!row) {
       row = repos.gradingBandRepository.create({
