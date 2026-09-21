@@ -9,6 +9,23 @@ const VALID_KINDS = new Set(['modal', 'navigate', 'inline']);
 const VALID_CONTEXTS = new Set<ActionContext>(['student', 'guardian', 'invoice']);
 const PERMISSION_VALUES = new Set(Object.values(Permission));
 
+/** `action.run()`'s `navigate({ to })` target is a real URL path (no
+ * `/_staff` prefix) — that's what the router actually navigates to, same
+ * convention `nav-tree.ts` uses. `STAFF_ROUTE_PERMISSIONS` is keyed by the
+ * route's internal id instead (it does carry the `/_staff` prefix), so
+ * checking an action's target against it needs the same translation
+ * `route-permissions.test.ts`'s `NAV_PATH_TO_ROUTE_ID` already does — a
+ * small subset here, only the routes seeded actions actually target. */
+const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
+  '/payments/record': '/_staff/payments/record',
+  '/communications/send': '/_staff/communications/send',
+  '/communications/reminders': '/_staff/communications/reminders',
+  '/attendance': '/_staff/attendance/',
+  '/fees/generate': '/_staff/fees/generate',
+  '/students/new': '/_staff/students/new',
+  '/students/import': '/_staff/students/import',
+};
+
 /**
  * [30.4.3] The component file each seeded action's `run()` actually opens
  * (dialog or full-page form). The disjointness test below asserts none of
@@ -113,11 +130,16 @@ describe('action-registry.ts', () => {
       const calls: string[] = [];
       action.run({ navigate: (opts) => calls.push(opts.to) });
       const [target] = calls;
+      const routeId = NAV_PATH_TO_ROUTE_ID[target as keyof typeof NAV_PATH_TO_ROUTE_ID];
+      expect(
+        routeId,
+        `no NAV_PATH_TO_ROUTE_ID entry for ${target} (action ${action.id}) — add one if this is a genuinely new seeded action`,
+      ).toBeDefined();
       const routePermission =
-        STAFF_ROUTE_PERMISSIONS[target as keyof typeof STAFF_ROUTE_PERMISSIONS];
+        STAFF_ROUTE_PERMISSIONS[routeId as keyof typeof STAFF_ROUTE_PERMISSIONS];
       expect(
         routePermission,
-        `no STAFF_ROUTE_PERMISSIONS entry for ${target} (action ${action.id})`,
+        `no STAFF_ROUTE_PERMISSIONS entry for ${routeId} (action ${action.id})`,
       ).toBeDefined();
       expect(
         action.permission,
