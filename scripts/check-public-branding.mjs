@@ -5,6 +5,7 @@ const publicRoots = [
   'client-admin/index.html',
   'client-admin/public/',
   'client-admin/src/pwa/',
+  'client-admin/src/use-breadcrumbs.ts',
   'docs/user-guide/',
   'docs/design/',
   'server/src/swagger.ts',
@@ -23,7 +24,8 @@ const trackedFiles = execFileSync('git', ['ls-files'], { encoding: 'utf8' })
 
 const failures = [];
 const oldBrand = /\bBiddaloy\b|\bbiddaloy\b/;
-const compatibilityReference = /@biddaloy|biddaloy(?:[._:/-]|['"`;]|\.test|\.com)|tareq89\/biddaloy|\/opt\/biddaloy|postgres:\/\/[^\s]*biddaloy/;
+const compatibilityReference =
+  /@biddaloy|biddaloy(?:[._:/-]|['"`;]|\.test|\.com)|tareq89\/biddaloy|\/opt\/biddaloy|postgres:\/\/[^\s]*biddaloy/;
 
 for (const file of trackedFiles) {
   const content = await readFile(file, 'utf8');

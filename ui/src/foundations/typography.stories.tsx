@@ -135,7 +135,7 @@ export const OneApparentWeight: Story = {
   render: () => (
     <div className="flex flex-col gap-4 text-foreground">
       <div>
-        <p className="text-caption text-muted-foreground">SchoolManager Sans (shipped)</p>
+        <p className="text-caption text-muted-foreground">Biddaloy Sans (shipped)</p>
         <p className="text-h2">Fatima Rahman — বকেয়া ৳ ৩,৫০০</p>
       </div>
       <div>
