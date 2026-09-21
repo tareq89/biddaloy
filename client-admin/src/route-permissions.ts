@@ -78,6 +78,8 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/academic-years/$academicYearId': Permission.ACADEMIC_YEAR_MANAGE,
   '/_staff/classes/': Permission.CLASS_MANAGE,
   '/_staff/classes/$classId': Permission.CLASS_MANAGE,
+  '/_staff/grading-scales/': Permission.GRADING_SCALE_MANAGE,
+  '/_staff/grading-scales/$scaleId': Permission.GRADING_SCALE_MANAGE,
   '/_staff/audit-logs/': Permission.AUDIT_LOG_READ,
   '/_staff/settings': Permission.SETTINGS_MANAGE,
   // [9.6] Both gated on ATTENDANCE_READ, not ATTENDANCE_MARK — this table

@@ -69,6 +69,7 @@ const STAFF_NAV_ICONS: Record<string, ReactNode> = {
   'people.staff': <BriefcaseIcon aria-hidden="true" />,
   'academics.academicYears': <CalendarDaysIcon aria-hidden="true" />,
   'academics.classes': <SchoolIcon aria-hidden="true" />,
+  'examsResults.gradingScales': <ClipboardListIcon aria-hidden="true" />,
   'attendance.attendance': <CalendarCheck2Icon aria-hidden="true" />,
   'attendance.attendanceReports': <ClipboardListIcon aria-hidden="true" />,
   'attendance.attendanceRegister': <PrinterIcon aria-hidden="true" />,
