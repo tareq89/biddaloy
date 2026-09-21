@@ -3,6 +3,7 @@ import { NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { StudentService, GuardianService } from './students.service';
+import { QueryStudentIdsDto } from './dto/students.dto';
 import { Student } from './entities/student.entity';
 import { Guardian } from './entities/guardian.entity';
 import { Enrollment } from './entities/enrollment.entity';
@@ -810,7 +811,8 @@ describe('StudentService (integration)', () => {
           }),
         );
 
-        const result = await service.findAllIds({ version: 'English' } as any, TENANT_ID);
+        const query: QueryStudentIdsDto = { version: 'English' };
+        const result = await service.findAllIds(query, TENANT_ID);
 
         expect(result.ids).toEqual([englishStudent.id]);
         expect(result.total).toBe(1);

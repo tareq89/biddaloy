@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { plainToInstance } from 'class-transformer';
-import { QueryGuardianDto } from './students.dto';
+import { validate } from 'class-validator';
+import { QueryGuardianDto, QueryStudentIdsDto } from './students.dto';
 
 /**
  * [8.14.9] Regression test for a boolean query-param coercion bug: an HTTP
@@ -29,5 +30,31 @@ describe('QueryGuardianDto is_primary_contact boolean coercion', () => {
   it('leaves is_primary_contact undefined when absent from the query', () => {
     const dto = plainToInstance(QueryGuardianDto, {});
     expect(dto.is_primary_contact).toBeUndefined();
+  });
+});
+
+/**
+ * [money-tier review, bug 3 regression] The global pipe
+ * (`server/src/validation-pipe.ts`) runs with `whitelist: true` but *not*
+ * `forbidNonWhitelisted` — a field the request DTO doesn't declare is
+ * silently stripped before it ever reaches the service, no error, no
+ * signal. That's the exact mechanism that made bug 3 invisible:
+ * `shift`/`version` compiled against `buildStudentIdsQuery`'s
+ * `Pick<QueryStudentDto, ...>` parameter type while `QueryStudentIdsDto`
+ * didn't actually declare either field, so whitelisting silently dropped
+ * both before the service ever saw them. A service-level test calling
+ * `findAllIds(query, tenantId)` directly with a plain object bypasses this
+ * boundary entirely and would have passed even before the fix — this one
+ * exercises the same `whitelist: true` the real pipe applies.
+ */
+describe('QueryStudentIdsDto shift/version survive whitelisting', () => {
+  it('keeps shift and version after whitelist validation, matching the pipe', async () => {
+    const dto = plainToInstance(QueryStudentIdsDto, { shift: 'Morning', version: 'English' });
+
+    const errors = await validate(dto, { whitelist: true });
+
+    expect(errors).toHaveLength(0);
+    expect(dto.shift).toBe('Morning');
+    expect(dto.version).toBe('English');
   });
 });
