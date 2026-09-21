@@ -82,7 +82,11 @@ test('keyboard-only: start from BD NCTB, edit a boundary, watch coverage, save',
   });
 
   await test.step('save, approve the step-up, confirm', async () => {
-    await tabUntilFocused(page, t('grading.detail.save'), 40, { tag: 'BUTTON' });
+    // 60, not 40: focus sits on row 0's "To %" cell here, so this must
+    // clear the rest of that row plus all 6 remaining BD NCTB rows (7
+    // cells each: from/to/grade/gpa/fail/comment/delete) and "Add band"
+    // before reaching Save — roughly 49 cells, not a handful.
+    await tabUntilFocused(page, t('grading.detail.save'), 60, { tag: 'BUTTON' });
     await page.keyboard.press('Enter');
 
     await expect(page.getByText(t('grading.recomputePreview.title'))).toBeVisible();
