@@ -135,6 +135,19 @@ export class QueryStudentDto {
   @IsUUID()
   section_id?: string;
 
+  // [33.3.1] Filters to students enrolled in a class using this
+  // organisation-vocabulary shift/version, via `class_section.class`.
+  // Unknown/nonexistent value → no matching rows (empty page), never a 500.
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  shift?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  version?: string;
+
   @IsOptional()
   @IsEnum(EnrollmentStatus)
   enrollment_status?: EnrollmentStatus;

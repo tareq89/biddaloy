@@ -707,6 +707,66 @@ describe('StudentService (integration)', () => {
       expect(result.data[0].full_name).toBe('Younger Student');
     });
 
+    // [33.3.1] shift/version filter via `class_section.class`.
+    describe('shift/version filters', () => {
+      it('filters to only students enrolled in a class with the given version', async () => {
+        const classRepo = dataSource.getRepository(Class);
+        const sectionRepo = dataSource.getRepository(ClassSection);
+        const englishClass = await classRepo.save(
+          classRepo.create({
+            name: 'English Medium',
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            tenant_id: TENANT_ID,
+            version: 'English',
+          }),
+        );
+        const englishSection = await sectionRepo.save(
+          sectionRepo.create({
+            section_name: 'A',
+            class_id: englishClass.id,
+            tenant_id: TENANT_ID,
+          }),
+        );
+        await studentRepo.save(
+          studentRepo.create({
+            full_name: 'Bangla Student',
+            registration_number: 'REG-2026-0011',
+            roll_number: 11,
+            class_section_id: SEED_SECTION_1_ID,
+            tenant_id: TENANT_ID,
+            date_of_birth: new Date('2010-01-01'),
+          }),
+        );
+        await studentRepo.save(
+          studentRepo.create({
+            full_name: 'English Student',
+            registration_number: 'REG-2026-0012',
+            roll_number: 12,
+            class_section_id: englishSection.id,
+            tenant_id: TENANT_ID,
+            date_of_birth: new Date('2010-01-01'),
+          }),
+        );
+
+        const result = await service.findAll(
+          { version: 'English', page: 1, limit: 10 } as any,
+          TENANT_ID,
+        );
+
+        expect(result.data.map((s) => s.full_name)).toEqual(['English Student']);
+      });
+
+      it('returns an empty page for a version value that matches no student, not a 500', async () => {
+        const result = await service.findAll(
+          { version: 'Nonexistent Version', page: 1, limit: 10 } as any,
+          TENANT_ID,
+        );
+
+        expect(result.data).toEqual([]);
+        expect(result.total).toBe(0);
+      });
+    });
+
     // [8.14.9] search now also matches via the student's guardian(s).
     describe('search via guardian', () => {
       it('finds a student by their guardian full_name or phone', async () => {

@@ -193,6 +193,8 @@ export class StudentService {
       QueryStudentDto,
       | 'class_id'
       | 'section_id'
+      | 'shift'
+      | 'version'
       | 'enrollment_status'
       | 'gender'
       | 'date_of_birth_from'
@@ -213,6 +215,17 @@ export class StudentService {
     }
     if (query.section_id) {
       qb.andWhere('student.class_section_id = :sectionId', { sectionId: query.section_id });
+    }
+    // [33.3.1] Filters via `class_section.class` — an unknown/nonexistent
+    // shift/version just matches nothing (empty page), never a 500.
+    if (query.shift || query.version) {
+      qb.leftJoin('class_section.class', 'class');
+      if (query.shift) {
+        qb.andWhere('class.shift = :shift', { shift: query.shift });
+      }
+      if (query.version) {
+        qb.andWhere('class.version = :version', { version: query.version });
+      }
     }
     if (query.enrollment_status) {
       qb.andWhere('student.enrollment_status = :enrollmentStatus', {

@@ -248,6 +248,43 @@ describe('ClassService / SectionService (integration)', () => {
     });
   });
 
+  describe('findAll (shift/version filters) [33.3.1]', () => {
+    it('filters to only classes with the given shift', async () => {
+      const year = await createYear();
+      await classRepo.save({
+        name: 'Morning Class',
+        academic_year_id: year.id,
+        tenant_id: TENANT_ID,
+        shift: 'Morning',
+      });
+      await classRepo.save({
+        name: 'Day Class',
+        academic_year_id: year.id,
+        tenant_id: TENANT_ID,
+        shift: 'Day',
+      });
+
+      const result = await classService.findAll({ shift: 'Morning' } as any, TENANT_ID);
+
+      expect(result.data.map((cls) => cls.name)).toEqual(['Morning Class']);
+    });
+
+    it('returns an empty page for a shift value that matches no class, not a 500', async () => {
+      const year = await createYear();
+      await classRepo.save({
+        name: 'Morning Class',
+        academic_year_id: year.id,
+        tenant_id: TENANT_ID,
+        shift: 'Morning',
+      });
+
+      const result = await classService.findAll({ shift: 'Nonexistent Shift' } as any, TENANT_ID);
+
+      expect(result.data).toEqual([]);
+      expect(result.total).toBe(0);
+    });
+  });
+
   describe('remove (delete class)', () => {
     it('deletes a class with no sections and no enrollments', async () => {
       const year = await createYear();
