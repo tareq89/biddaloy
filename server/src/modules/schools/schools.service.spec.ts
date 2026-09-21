@@ -8,6 +8,8 @@ import { TenantSettingsDto } from './dto/tenant-settings.dto';
 import { DEFAULT_REGION_SETTINGS } from './settings/tenant-settings-defaults';
 import { EncryptionService } from './settings/encryption.service';
 import { TenantSettingsCache } from './settings/tenant-settings-cache.service';
+import { Class } from '../academics/entities/class.entity';
+import { ClassSection } from '../academics/entities/class-section.entity';
 
 const REQUEST_CONTEXT = { ip: '10.0.0.1', userAgent: 'vitest' };
 
@@ -45,6 +47,77 @@ function fakeAuditService() {
 
 function fakeTenantStatus() {
   return { invalidate: vi.fn(), isActive: vi.fn() };
+}
+
+/**
+ * [33.3.1] `updateSettings`'s organisation-vocabulary guard/rename reads
+ * `Class`/`ClassSection` through `manager.getRepository(...)` and rewrites
+ * rows through `manager.createQueryBuilder().update(...)` — both inside the
+ * *same* `manager.transaction(...)` callback `fakeRepo` above already
+ * stands in for. This variant dispatches `getRepository` by entity so
+ * those two calls resolve to configurable, independent fakes rather than
+ * always returning the `School` repo.
+ */
+function fakeVocabularyRepo(
+  school: { id: string; settings: unknown } | null,
+  options: { classCount?: number; classSectionCount?: number; saveError?: Error } = {},
+) {
+  const { classCount = 0, classSectionCount = 0, saveError } = options;
+  const classUpdateExecute = vi.fn(async () => ({ affected: 1 }));
+  const classSectionUpdateExecute = vi.fn(async () => ({ affected: 1 }));
+
+  const schoolRepo = {
+    createQueryBuilder: vi.fn(() => ({
+      where: vi.fn().mockReturnThis(),
+      setLock: vi.fn().mockReturnThis(),
+      getOne: vi.fn(async () => school),
+    })),
+    save: vi.fn(async (s: typeof school) => {
+      if (saveError) throw saveError;
+      return s;
+    }),
+  };
+  const classRepo = {
+    createQueryBuilder: vi.fn(() => ({
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      getCount: vi.fn(async () => classCount),
+    })),
+  };
+  const classSectionRepo = {
+    createQueryBuilder: vi.fn(() => ({
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      getCount: vi.fn(async () => classSectionCount),
+    })),
+  };
+
+  const manager = {
+    getRepository: vi.fn((entity: unknown) => {
+      if (entity === Class) return classRepo;
+      if (entity === ClassSection) return classSectionRepo;
+      return schoolRepo;
+    }),
+    createQueryBuilder: vi.fn(() => ({
+      update: vi.fn((entity: unknown) => ({
+        set: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        execute: entity === ClassSection ? classSectionUpdateExecute : classUpdateExecute,
+      })),
+    })),
+  };
+
+  return {
+    schoolRepo,
+    classRepo,
+    classSectionRepo,
+    classUpdateExecute,
+    classSectionUpdateExecute,
+    findOne: vi.fn(async () => school),
+    find: vi.fn(async () => []),
+    manager: { transaction: vi.fn(async (cb: any) => cb(manager)) },
+  };
 }
 
 describe('SchoolsService', () => {
@@ -548,6 +621,138 @@ describe('SchoolsService', () => {
         communications: { whatsapp: { phoneNumberId: 'new-id' } },
       });
       expect(entry.old_values).not.toHaveProperty('communications.sms');
+    });
+  });
+
+  describe('updateSettings — organisation vocabulary guard [33.3.1]', () => {
+    function makeService(repo: ReturnType<typeof fakeVocabularyRepo>) {
+      return new SchoolsService(
+        repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
+        encryption,
+        settingsCache,
+        auditService as any,
+        tenantStatus as any,
+      );
+    }
+
+    it('allows removing a shift no class currently uses', async () => {
+      const school = {
+        id: 's1',
+        settings: {
+          version: 1,
+          organisation: { shifts: ['Morning', 'Day'], versions: [], groups: [] },
+        },
+      };
+      const repo = fakeVocabularyRepo(school, { classCount: 0 });
+      const service = makeService(repo);
+
+      const patch = plainToInstance(TenantSettingsDto, {
+        version: 1,
+        organisation: { shifts: ['Morning'], versions: [], groups: [] },
+      });
+
+      await service.updateSettings('s1', patch, 'user-1', REQUEST_CONTEXT);
+
+      expect(repo.schoolRepo.save).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects removing a shift used by two classes, naming the count', async () => {
+      const school = {
+        id: 's1',
+        settings: {
+          version: 1,
+          organisation: { shifts: ['Morning', 'Day'], versions: [], groups: [] },
+        },
+      };
+      const repo = fakeVocabularyRepo(school, { classCount: 2 });
+      const service = makeService(repo);
+
+      const patch = plainToInstance(TenantSettingsDto, {
+        version: 1,
+        organisation: { shifts: ['Morning'], versions: [], groups: [] },
+      });
+
+      await expect(service.updateSettings('s1', patch, 'user-1', REQUEST_CONTEXT)).rejects.toThrow(
+        /"Day".*2/,
+      );
+      expect(repo.schoolRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('rewrites rows and saves settings together, in the same transaction, on an explicit rename', async () => {
+      const school = {
+        id: 's1',
+        settings: {
+          version: 1,
+          organisation: { shifts: ['Morning', 'Day'], versions: [], groups: [] },
+        },
+      };
+      const repo = fakeVocabularyRepo(school, { classCount: 2 });
+      const service = makeService(repo);
+
+      const patch = plainToInstance(TenantSettingsDto, {
+        version: 1,
+        organisation: { shifts: ['Morning', 'Prohor'], versions: [], groups: [] },
+        organisationRenames: [{ list: 'shifts', from: 'Day', to: 'Prohor' }],
+      });
+
+      await service.updateSettings('s1', patch, 'user-1', REQUEST_CONTEXT);
+
+      // The rename's row rewrite and the settings save both happened, off
+      // the one `manager` the single `manager.transaction(...)` call
+      // handed the callback — not two separate transactions.
+      expect(repo.classUpdateExecute).toHaveBeenCalledTimes(1);
+      expect(repo.schoolRepo.save).toHaveBeenCalledTimes(1);
+      const saved = repo.schoolRepo.save.mock.calls[0][0];
+      expect(saved.settings.organisation.shifts).toEqual(['Morning', 'Prohor']);
+    });
+
+    it('rolls back the row rewrite together with the settings save when the save fails mid-way', async () => {
+      const school = {
+        id: 's1',
+        settings: {
+          version: 1,
+          organisation: { shifts: ['Morning', 'Day'], versions: [], groups: [] },
+        },
+      };
+      const saveError = new Error('save failed');
+      const repo = fakeVocabularyRepo(school, { classCount: 2, saveError });
+      const service = makeService(repo);
+
+      const patch = plainToInstance(TenantSettingsDto, {
+        version: 1,
+        organisation: { shifts: ['Morning', 'Prohor'], versions: [], groups: [] },
+        organisationRenames: [{ list: 'shifts', from: 'Day', to: 'Prohor' }],
+      });
+
+      // Both the rename's row rewrite and the settings save ran inside the
+      // one `manager.transaction(...)` call below — a real Postgres
+      // transaction rolls back everything that ran inside it (including
+      // the already-executed row rewrite) when any statement in it fails,
+      // which is exactly what this single call boundary buys: there is no
+      // second transaction the rewrite could have already committed to.
+      await expect(service.updateSettings('s1', patch, 'user-1', REQUEST_CONTEXT)).rejects.toThrow(
+        'save failed',
+      );
+      expect(repo.classUpdateExecute).toHaveBeenCalledTimes(1);
+      expect(repo.manager.transaction).toHaveBeenCalledTimes(1);
     });
   });
 

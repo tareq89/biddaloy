@@ -1,11 +1,11 @@
-import { Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { MoreThanOrEqual, Repository } from 'typeorm';
+import { EntityManager, MoreThanOrEqual, Repository } from 'typeorm';
 import Redis from 'ioredis';
-import type { TenantSettings } from '@biddaloy/shared';
+import type { TenantSettings, OrganisationSettings } from '@biddaloy/shared';
 import { AuditAction, CommunicationStatus, UserStatus } from '@biddaloy/shared';
 import { School } from './entities/school.entity';
-import { TenantSettingsDto } from './dto/tenant-settings.dto';
+import { TenantSettingsDto, OrganisationRenameDto } from './dto/tenant-settings.dto';
 import { resolveTenantSettings } from './settings/tenant-settings-resolver';
 import { mergeTenantSettings, toPlainSettingsPatch } from './settings/tenant-settings-merge.util';
 import { EncryptionService } from './settings/encryption.service';
@@ -13,6 +13,11 @@ import { decryptSecretFields, encryptSecretFields } from './settings/settings-en
 import { maskSecretFields } from './settings/settings-mask.util';
 import { pickPatchShape, redactSecretPaths } from './settings/settings-audit-redact.util';
 import { TenantSettingsCache } from './settings/tenant-settings-cache.service';
+import {
+  diffOrganisationVocabulary,
+  VOCABULARY_LIST_NAMES,
+  VocabularyListName,
+} from './settings/organisation-vocabulary.util';
 import { TENANT_STATUS_REDIS, TenantStatusService } from './tenant-status.service';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
@@ -21,6 +26,8 @@ import { Student } from '../students/entities/student.entity';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { UpdateSchoolStatusDto } from './dto/update-school-status.dto';
+import { Class } from '../academics/entities/class.entity';
+import { ClassSection } from '../academics/entities/class-section.entity';
 
 export interface SchoolStatusResponse {
   id: string;
@@ -199,7 +206,15 @@ export class SchoolsService {
     userId: string,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<Record<string, unknown>> {
-    const plainPatch = toPlainSettingsPatch(dto);
+    // [33.3.1] `organisationRenames` rides alongside the PATCH as a write
+    // instruction, not a stored setting — pulled out of the plain patch
+    // before it ever reaches `mergeTenantSettings`, so it never lands in
+    // the persisted `settings` jsonb.
+    const rawPlainPatch = toPlainSettingsPatch(dto) as Record<string, unknown> & {
+      organisationRenames?: unknown;
+    };
+    const { organisationRenames: _organisationRenames, ...plainPatch } = rawPlainPatch;
+    const renames = dto.organisationRenames ?? [];
     const encryptedPatch = encryptSecretFields(plainPatch, this.encryption);
 
     const settings = await this.repo.manager.transaction(async (manager) => {
@@ -217,6 +232,26 @@ export class SchoolsService {
         (school.settings ?? {}) as Record<string, unknown>,
         plainPatch,
       );
+
+      // [33.3.1] Guard/rename runs inside this same transaction, before the
+      // settings save — a value still in use is rejected before it ever
+      // disappears from `organisation`, and a rename's row rewrite commits
+      // atomically with the settings change that renamed it (both, or
+      // neither, on any later failure/rollback).
+      if (encryptedPatch.organisation !== undefined) {
+        await this.applyOrganisationVocabularyGuard(
+          manager,
+          schoolId,
+          (school.settings as Record<string, unknown> | null)?.organisation as
+            OrganisationSettings | undefined,
+          encryptedPatch.organisation as OrganisationSettings,
+          renames,
+        );
+      } else if (renames.length > 0) {
+        throw new BadRequestException(
+          'organisationRenames requires an organisation patch in the same request.',
+        );
+      }
 
       school.settings = mergeTenantSettings(school.settings, encryptedPatch);
       await schoolRepo.save(school);
@@ -246,6 +281,120 @@ export class SchoolsService {
       this.encryption,
       this.logMaskingFailure(schoolId),
     );
+  }
+
+  /**
+   * [33.3.1] Guards an `organisation` vocabulary change and applies any
+   * accompanying rename, inside `updateSettings`'s existing transaction —
+   * see that method's own comment for why this doesn't open a second one.
+   *
+   * For every list (`shifts`/`versions`/`groups`):
+   *  - a value present in `oldOrg` but absent from `newOrg`, with no
+   *    matching rename, is a removal — rejected if any `classes` (shifts/
+   *    versions) or `class_sections` (groups) row still uses it, message
+   *    naming the value and the count.
+   *  - a value covered by an explicit `{ list, from, to }` rename skips
+   *    that removal check and instead rewrites every matching row to the
+   *    new value, in the same transaction as the settings save.
+   */
+  private async applyOrganisationVocabularyGuard(
+    manager: EntityManager,
+    tenantId: string,
+    oldOrg: OrganisationSettings | undefined,
+    newOrg: OrganisationSettings,
+    renames: OrganisationRenameDto[],
+  ): Promise<void> {
+    const diff = diffOrganisationVocabulary(oldOrg, newOrg);
+
+    const renamesByList = new Map<VocabularyListName, OrganisationRenameDto>();
+    for (const rename of renames) {
+      if (renamesByList.has(rename.list)) {
+        throw new BadRequestException(
+          `Only one rename per list is supported; "${rename.list}" was given twice.`,
+        );
+      }
+      if (!(oldOrg?.[rename.list] ?? []).includes(rename.from)) {
+        throw new BadRequestException(
+          `Cannot rename "${rename.from}" in "${rename.list}" — it is not a currently configured value.`,
+        );
+      }
+      if (!newOrg[rename.list].includes(rename.to)) {
+        throw new BadRequestException(
+          `Rename target "${rename.to}" in "${rename.list}" must be included in the new organisation settings.`,
+        );
+      }
+      renamesByList.set(rename.list, rename);
+    }
+
+    for (const list of VOCABULARY_LIST_NAMES) {
+      const rename = renamesByList.get(list);
+
+      for (const removedValue of diff[list].removed) {
+        if (rename && rename.from === removedValue) continue; // handled by the rename below
+        const count = await this.countVocabularyUsage(manager, list, tenantId, removedValue);
+        if (count > 0) {
+          throw new BadRequestException(
+            `Cannot remove "${removedValue}" from ${list} — ${count} row(s) still use it. Rename it instead, or reassign those rows first.`,
+          );
+        }
+      }
+
+      if (rename) {
+        await this.renameVocabularyUsage(manager, list, tenantId, rename.from, rename.to);
+      }
+    }
+  }
+
+  private async countVocabularyUsage(
+    manager: EntityManager,
+    list: VocabularyListName,
+    tenantId: string,
+    value: string,
+  ): Promise<number> {
+    if (list === 'groups') {
+      return manager
+        .getRepository(ClassSection)
+        .createQueryBuilder('cs')
+        .where('cs.tenant_id = :tenantId', { tenantId })
+        .andWhere('cs.group_name = :value', { value })
+        .andWhere('cs.deleted_at IS NULL')
+        .getCount();
+    }
+    const column = list === 'shifts' ? 'shift' : 'version';
+    return manager
+      .getRepository(Class)
+      .createQueryBuilder('c')
+      .where('c.tenant_id = :tenantId', { tenantId })
+      .andWhere(`c.${column} = :value`, { value })
+      .andWhere('c.deleted_at IS NULL')
+      .getCount();
+  }
+
+  private async renameVocabularyUsage(
+    manager: EntityManager,
+    list: VocabularyListName,
+    tenantId: string,
+    from: string,
+    to: string,
+  ): Promise<void> {
+    if (list === 'groups') {
+      await manager
+        .createQueryBuilder()
+        .update(ClassSection)
+        .set({ group_name: to })
+        .where('tenant_id = :tenantId', { tenantId })
+        .andWhere('group_name = :from', { from })
+        .execute();
+      return;
+    }
+    const column = list === 'shifts' ? 'shift' : 'version';
+    await manager
+      .createQueryBuilder()
+      .update(Class)
+      .set({ [column]: to } as Partial<Class>)
+      .where('tenant_id = :tenantId', { tenantId })
+      .andWhere(`${column} = :from`, { from })
+      .execute();
   }
 
   private statsKey(schoolId: string): string {
