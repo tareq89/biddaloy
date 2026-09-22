@@ -188,6 +188,11 @@ export async function seedAccounts(
       guardianRepository: repos.guardianRepository,
     },
     school.id,
+    // [33.5.1] `school` is already in hand here — the caller (`seed.ts`)
+    // must have run `ensureDemoOrganisation(school)` before this, or
+    // `ensureDemoStudents` refuses any `DEMO_CLASSES` shift/version/group
+    // the tenant's own vocabulary doesn't have (see its own comment).
+    school.settings?.organisation,
     parentTestUser?.id ?? null,
   );
 

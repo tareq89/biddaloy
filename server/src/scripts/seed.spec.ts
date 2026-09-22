@@ -21,6 +21,7 @@ import type { AttendanceSession } from '../modules/attendance/entities/attendanc
 import type { AttendanceRecord } from '../modules/attendance/entities/attendance-record.entity';
 import type { AttendanceDevice } from '../modules/attendance/entities/attendance-device.entity';
 import { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
+import { ensureDemoOrganisation } from './seed.util';
 
 /**
  * A deliberately small in-memory stand-in for a TypeORM repository. It only
@@ -171,6 +172,12 @@ function makeRepos() {
 }
 
 const DEFAULT_SCHOOL = { id: 'school-default', name: 'Default School', slug: 'default-school' };
+// [33.5.1] Mirrors `seed.ts`'s own call order (`ensureDemoOrganisation(school)`
+// runs before `seedAccounts`) — `seedAccounts` → `ensureDemoStudents` refuses
+// to write `DEMO_CLASSES`' shift/version/group into a tenant whose
+// `settings.organisation` doesn't cover them (see `ensureDemoStudents`'s own
+// comment), so this fixture has to hold the same invariant production does.
+ensureDemoOrganisation(DEFAULT_SCHOOL as unknown as School);
 
 /**
  * The same "earliest membership wins" rule AuthService applies
@@ -264,5 +271,20 @@ describe('seedAccounts', () => {
       status: UserStatus.ACTIVE,
       password_hash: 'fresh-hash',
     });
+  });
+
+  it('[33.5.1] refuses to seed demo classes into a tenant with no organisation vocabulary', async () => {
+    // Deliberately does NOT run `ensureDemoOrganisation` first, unlike
+    // `DEFAULT_SCHOOL` above — pins that `seedAccounts` really does depend
+    // on the caller having set up the tenant's vocabulary already (the
+    // real ordering `seed.ts` enforces via `ensureDemoOrganisation(school)`
+    // before `seedAccounts`), rather than silently writing an orphaned
+    // shift/version/group when that step is skipped.
+    const { repos } = makeRepos();
+    const noVocabSchool = { id: 'school-no-vocab', name: 'No Vocab School', slug: 'no-vocab' };
+
+    await expect(
+      seedAccounts(repos, noVocabSchool as unknown as School, 'admin@school.com', 'hash'),
+    ).rejects.toThrow(/Class 7.*shift "Morning"/);
   });
 });

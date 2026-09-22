@@ -24,9 +24,11 @@ import { hashDeviceKey } from '../modules/attendance/devices/device.service';
 import {
   ATTENDANCE_SEED_ABSENT_DATE,
   DEMO_CLASSES,
+  DEMO_ORGANISATION,
   DEMO_STUDENTS_PER_SECTION,
   ensureAttendanceSeed,
   ensureCalendarDemoSeed,
+  ensureDemoOrganisation,
   ensureDemoStudents,
   ensurePublicHolidaySet,
   ensureRoleTestUsers,
@@ -304,6 +306,65 @@ describe('e2e seed contract', () => {
   });
 });
 
+describe('DEMO_ORGANISATION / DEMO_CLASSES invariant', () => {
+  // [33.5.1] The seed script bypasses ClassService/SectionService, so
+  // nothing enforces `assertInVocabulary` for it at runtime — this test is
+  // the enforcement. It fails loudly if a future edit adds a shift/version/
+  // group to DEMO_CLASSES without adding it to DEMO_ORGANISATION first.
+  it('draws every DEMO_CLASSES shift/version/group from DEMO_ORGANISATION', () => {
+    for (const klass of DEMO_CLASSES) {
+      if (klass.shift !== null) expect(DEMO_ORGANISATION.shifts).toContain(klass.shift);
+      if (klass.version !== null) expect(DEMO_ORGANISATION.versions).toContain(klass.version);
+      for (const section of klass.sections) {
+        if (section.group !== null) expect(DEMO_ORGANISATION.groups).toContain(section.group);
+      }
+    }
+  });
+
+  it('includes a class with shift, version and every section group all null', () => {
+    expect(
+      DEMO_CLASSES.some(
+        (c) => c.shift === null && c.version === null && c.sections.every((s) => s.group === null),
+      ),
+    ).toBe(true);
+  });
+
+  it('includes two classes sharing a name and year that differ only by shift', () => {
+    const byName = new Map<string, typeof DEMO_CLASSES>();
+    for (const klass of DEMO_CLASSES) {
+      byName.set(klass.name, [...(byName.get(klass.name) ?? []), klass]);
+    }
+    const duplicateNamePair = [...byName.values()].find((group) => group.length > 1);
+    expect(duplicateNamePair).toBeDefined();
+    const [a, b] = duplicateNamePair!;
+    expect(a.shift).not.toBe(b.shift);
+  });
+});
+
+describe('ensureDemoOrganisation', () => {
+  it('writes DEMO_ORGANISATION onto a school with no settings yet', () => {
+    const school = { settings: null } as School;
+    expect(ensureDemoOrganisation(school)).toBe(true);
+    expect(school.settings?.organisation).toEqual(DEMO_ORGANISATION);
+  });
+
+  it('preserves other settings keys already present', () => {
+    const school = { settings: { fees: { approvalMode: 'PASSWORD' } } } as unknown as School;
+    expect(ensureDemoOrganisation(school)).toBe(true);
+    expect(school.settings).toEqual({
+      fees: { approvalMode: 'PASSWORD' },
+      organisation: DEMO_ORGANISATION,
+    });
+  });
+
+  it('does nothing if the tenant already has an organisation vocabulary, hand-edited or not', () => {
+    const handEdited = { shifts: ['Prabhati'], versions: [], groups: [] };
+    const school = { settings: { organisation: handEdited } } as unknown as School;
+    expect(ensureDemoOrganisation(school)).toBe(false);
+    expect(school.settings?.organisation).toBe(handEdited);
+  });
+});
+
 describe('ensureDemoStudents', () => {
   function demoRepos() {
     return {
@@ -329,7 +390,7 @@ describe('ensureDemoStudents', () => {
     const repos = demoRepos();
     emptyDatabase(repos);
 
-    const result = await ensureDemoStudents(repos, 'school-1');
+    const result = await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
     expect(result).toEqual({
       classes: DEMO_CLASSES.length,
@@ -348,11 +409,35 @@ describe('ensureDemoStudents', () => {
     expect(repos.studentRepository.create).toHaveBeenCalledTimes(EXPECTED_STUDENTS);
   });
 
+  it('[33.5.1] refuses to write a class whose shift/version/group is missing from the tenant vocabulary', async () => {
+    const repos = demoRepos();
+    emptyDatabase(repos);
+    const emptyVocabulary = { shifts: [], versions: [], groups: [] };
+
+    // "Class 6" (the first DEMO_CLASSES entry) has shift/version/group all
+    // null, so the first real miss is "Class 7"'s shift — the message
+    // names that value, not a generic failure.
+    await expect(ensureDemoStudents(repos, 'school-1', emptyVocabulary)).rejects.toThrow(
+      /Class 7.*shift "Morning"/,
+    );
+    expect(repos.classRepository.create).not.toHaveBeenCalled();
+  });
+
+  it('[33.5.1] refuses to write any DEMO_CLASSES shift/version/group when no vocabulary is given at all', async () => {
+    const repos = demoRepos();
+    emptyDatabase(repos);
+
+    await expect(ensureDemoStudents(repos, 'school-1', undefined)).rejects.toThrow(
+      /Class 7.*shift "Morning"/,
+    );
+    expect(repos.classRepository.create).not.toHaveBeenCalled();
+  });
+
   it('scopes every created row to the given tenant', async () => {
     const repos = demoRepos();
     emptyDatabase(repos);
 
-    await ensureDemoStudents(repos, 'school-1');
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
     for (const repo of Object.values(repos)) {
       const calls = vi.mocked(repo.create).mock.calls;
@@ -367,7 +452,7 @@ describe('ensureDemoStudents', () => {
     const repos = demoRepos();
     emptyDatabase(repos);
 
-    await ensureDemoStudents(repos, 'school-1');
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
     const students = vi
       .mocked(repos.studentRepository.create)
@@ -411,7 +496,7 @@ describe('ensureDemoStudents', () => {
       user_id: null,
     } as Guardian);
 
-    const result = await ensureDemoStudents(repos, 'school-1');
+    const result = await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
     expect(result).toEqual({ classes: 0, sections: 0, students: 0, guardians: 0 });
     for (const repo of Object.values(repos)) {
@@ -429,7 +514,7 @@ describe('ensureDemoStudents', () => {
     const deleted = { id: 'student-1', deleted_at: new Date() } as Student;
     vi.mocked(repos.studentRepository.findOne).mockResolvedValue(deleted);
 
-    const result = await ensureDemoStudents(repos, 'school-1');
+    const result = await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
     expect(result.students).toBe(0);
     expect(repos.studentRepository.create).not.toHaveBeenCalled();
@@ -453,7 +538,7 @@ describe('ensureDemoStudents', () => {
         Promise.resolve(options?.withDeleted === true ? softDeleted : live),
     );
 
-    await ensureDemoStudents(repos, 'school-1');
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
     // The dead row is left dead, and the live row is not resurrected-and-saved.
     expect(softDeleted.deleted_at).not.toBeNull();
@@ -474,7 +559,7 @@ describe('ensureDemoStudents', () => {
         Promise.resolve(options?.withDeleted === true ? softDeleted : null),
     );
 
-    await ensureDemoStudents(repos, 'school-1');
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
     expect(softDeleted.deleted_at).toBeNull();
     expect(repos.academicYearRepository.save).toHaveBeenCalledWith(softDeleted);
@@ -492,7 +577,7 @@ describe('ensureDemoStudents', () => {
         Promise.resolve(options?.withDeleted === true ? softDeleted : live),
     );
 
-    await ensureDemoStudents(repos, 'school-1');
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
     expect(softDeleted.deleted_at).not.toBeNull();
     expect(repos.classSectionRepository.save).not.toHaveBeenCalled();
@@ -514,14 +599,14 @@ describe('ensureDemoStudents', () => {
           options?.where?.is_current === true ? ({ id: 'other-year' } as AcademicYear) : null,
         ),
     );
-    await ensureDemoStudents(withCurrent, 'school-1');
+    await ensureDemoStudents(withCurrent, 'school-1', DEMO_ORGANISATION);
     expect(vi.mocked(withCurrent.academicYearRepository.create).mock.calls[0]?.[0]).toMatchObject({
       is_current: false,
     });
 
     const without = demoRepos();
     emptyDatabase(without);
-    await ensureDemoStudents(without, 'school-1');
+    await ensureDemoStudents(without, 'school-1', DEMO_ORGANISATION);
     expect(vi.mocked(without.academicYearRepository.create).mock.calls[0]?.[0]).toMatchObject({
       is_current: true,
     });
@@ -549,7 +634,7 @@ describe('ensureDemoStudents', () => {
       },
     );
 
-    await ensureDemoStudents(repos, 'school-1');
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
     expect(softDeleted.deleted_at).toBeNull();
     expect(softDeleted.is_current).toBe(false);
@@ -569,7 +654,7 @@ describe('ensureDemoStudents', () => {
         Promise.resolve(options?.withDeleted === true ? softDeleted : null),
     );
 
-    await ensureDemoStudents(repos, 'school-1');
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
     expect(softDeleted.deleted_at).toBeNull();
     expect(softDeleted.is_current).toBe(true);
@@ -594,7 +679,7 @@ describe('ensureDemoStudents', () => {
       },
     );
 
-    await ensureDemoStudents(repos, 'school-1');
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
     const rolls = vi
       .mocked(repos.studentRepository.create)
@@ -608,7 +693,7 @@ describe('ensureDemoStudents', () => {
     const repos = demoRepos();
     emptyDatabase(repos);
 
-    await ensureDemoStudents(repos, 'school-1');
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
     const bySection = new Map<string, number[]>();
     for (const [payload] of vi.mocked(repos.studentRepository.create).mock.calls) {
@@ -625,7 +710,7 @@ describe('ensureDemoStudents', () => {
     const repos = demoRepos();
     emptyDatabase(repos);
 
-    await ensureDemoStudents(repos, 'school-1', 'parent-user-1');
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION, 'parent-user-1');
 
     const guardians = vi
       .mocked(repos.guardianRepository.create)
@@ -640,7 +725,7 @@ describe('ensureDemoStudents', () => {
     const existing = { id: 'guardian-1', deleted_at: null, user_id: null } as Guardian;
     vi.mocked(repos.guardianRepository.findOne).mockResolvedValueOnce(existing);
 
-    await ensureDemoStudents(repos, 'school-1', 'parent-user-1');
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION, 'parent-user-1');
 
     expect(existing.user_id).toBe('parent-user-1');
     expect(repos.guardianRepository.save).toHaveBeenCalledWith(existing);
