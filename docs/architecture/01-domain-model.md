@@ -96,10 +96,15 @@ for full field lists.)_
   school configures for itself in Settings → Organisation
   (`TenantSettings.organisation.{shifts,versions}`) — a school that doesn't
   use either dimension just leaves every class's `shift`/`version` `NULL`.
-  `NULL` counts as one more distinct value here, not "don't care": `Class 6`
-  with `shift: NULL` and a second `Class 6` with `shift: 'Morning'` are two
-  different rows, never a collision (`NULLS NOT DISTINCT` on the unique
-  index — see `1789800010700-AddOrganisationDimensions.ts`).
+  `NULL` is treated as one specific, real value here, not a wildcard: two
+  `Class 6` rows with `shift: NULL` **collide**, exactly like two `Class 6`
+  rows both with `shift: 'Morning'` would — so a school that never sets a
+  shift still only ever gets one `Class 6` per year, not an unlimited
+  number of them. `Class 6` with `shift: NULL` and a separate `Class 6`
+  with `shift: 'Morning'` _do_ stay distinct. Postgres's own default
+  (`NULLS DISTINCT`) would let any number of `NULL`-shift `Class 6` rows
+  through silently — the unique index is declared `NULLS NOT DISTINCT`
+  specifically to close that gap (`1789800010700-AddOrganisationDimensions.ts`).
   **Branches are a separate concern**: a school with multiple physical
   branches models each branch as its own tenant (`School` row) with its own
   EIIN, not as a shift/version value (Epic 33 decision D1).

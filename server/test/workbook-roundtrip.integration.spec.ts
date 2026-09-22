@@ -430,6 +430,7 @@ describe('workbook round trip (integration)', () => {
     // people/academics tabs only — no fee/payment helper exists to reuse).
     await ensureDemoStudents(
       {
+        schoolRepository: dataSource.getRepository(School),
         academicYearRepository: dataSource.getRepository(AcademicYear),
         classRepository: dataSource.getRepository(Class),
         classSectionRepository: dataSource.getRepository(ClassSection),

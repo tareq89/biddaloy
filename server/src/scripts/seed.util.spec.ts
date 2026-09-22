@@ -367,7 +367,17 @@ describe('ensureDemoOrganisation', () => {
 
 describe('ensureDemoStudents', () => {
   function demoRepos() {
+    // [33.5.1] Defaults to a school whose `organisation` already covers
+    // every DEMO_CLASSES shift/version/group, so the vocabulary guard
+    // (`ensureDemoStudents`'s own comment) doesn't trip on every other
+    // test in this block — only the tests about that guard itself
+    // override this.
+    const schoolRepository = mockRepo<School>();
+    vi.mocked(schoolRepository.findOne).mockResolvedValue({
+      settings: { organisation: DEMO_ORGANISATION },
+    } as unknown as School);
     return {
+      schoolRepository,
       academicYearRepository: mockRepo<AcademicYear>(),
       classRepository: mockRepo<Class>(),
       classSectionRepository: mockRepo<ClassSection>(),
@@ -376,9 +386,12 @@ describe('ensureDemoStudents', () => {
     };
   }
 
-  /** Every findOne returns null — the "empty database" path. */
+  /** Every findOne returns null — the "empty database" path. `schoolRepository`
+   * is excluded: it's not part of the class/section/student chain this
+   * models as empty, and `demoRepos()` already gives it a working default. */
   function emptyDatabase(repos: ReturnType<typeof demoRepos>) {
-    for (const repo of Object.values(repos)) {
+    for (const [key, repo] of Object.entries(repos)) {
+      if (key === 'schoolRepository') continue;
       vi.mocked(repo.findOne).mockResolvedValue(null);
     }
   }
@@ -409,13 +422,32 @@ describe('ensureDemoStudents', () => {
     expect(repos.studentRepository.create).toHaveBeenCalledTimes(EXPECTED_STUDENTS);
   });
 
+  it('[33.5.1] refuses to write a class whose shift/version/group is missing from the tenant vocabulary', async () => {
+    const repos = demoRepos();
+    emptyDatabase(repos);
+    vi.mocked(repos.schoolRepository.findOne).mockResolvedValue({
+      settings: { organisation: { shifts: [], versions: [], groups: [] } },
+    } as unknown as School);
+
+    // "Class 6" (the first DEMO_CLASSES entry) has shift/version/group all
+    // null, so the first real miss is "Class 7"'s shift — the message
+    // names that value, not a generic failure.
+    await expect(ensureDemoStudents(repos, 'school-1')).rejects.toThrow(
+      /Class 7.*shift "Morning"/,
+    );
+    expect(repos.classRepository.create).not.toHaveBeenCalled();
+  });
+
   it('scopes every created row to the given tenant', async () => {
     const repos = demoRepos();
     emptyDatabase(repos);
 
     await ensureDemoStudents(repos, 'school-1');
 
-    for (const repo of Object.values(repos)) {
+    // `schoolRepository` excluded — `ensureDemoStudents` only reads it
+    // (for the vocabulary guard), it never creates a school.
+    for (const [key, repo] of Object.entries(repos)) {
+      if (key === 'schoolRepository') continue;
       const calls = vi.mocked(repo.create).mock.calls;
       expect(calls.length).toBeGreaterThan(0);
       for (const [payload] of calls) {

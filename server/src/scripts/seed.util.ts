@@ -191,6 +191,23 @@ export function ensureDemoOrganisation(school: School): boolean {
   return true;
 }
 
+/** [33.5.1] Throws if `value` (a `DEMO_CLASSES` shift/version/group) isn't
+ * in the tenant's own vocabulary — see `ensureDemoStudents`'s own comment
+ * on why this check exists instead of just writing the value anyway. */
+function assertVocabularyHas(
+  kind: 'shift' | 'version' | 'group',
+  value: string,
+  className: string,
+  vocabulary: readonly string[],
+): void {
+  if (vocabulary.includes(value)) return;
+  throw new Error(
+    `Seed refuses to write class "${className}" with ${kind} "${value}": tenant vocabulary ` +
+      `${kind}s is [${vocabulary.join(', ')}] — add it in Settings → Organisation, or clear ` +
+      `settings.organisation so ensureDemoOrganisation can default it.`,
+  );
+}
+
 export interface DemoSectionSeed {
   name: string;
   /** [33.5.1] Validated against `DEMO_ORGANISATION.groups`; `null` = no group. */
@@ -284,6 +301,7 @@ const DEMO_GUARDIAN_NAMES: readonly string[] = [
 ];
 
 export interface DemoStudentRepositories {
+  schoolRepository: Repository<School>;
   academicYearRepository: Repository<AcademicYear>;
   classRepository: Repository<Class>;
   classSectionRepository: Repository<ClassSection>;
@@ -385,6 +403,7 @@ export async function ensureDemoStudents(
   guardianUserId: string | null = null,
 ): Promise<DemoStudentSeedResult> {
   const {
+    schoolRepository,
     academicYearRepository,
     classRepository,
     classSectionRepository,
@@ -471,6 +490,35 @@ export async function ensureDemoStudents(
   }
 
   // --- classes, sections, students ------------------------------------
+  // [33.5.1] This loop writes `shift`/`version`/`group_name` straight
+  // through the repository, bypassing `ClassService`/`SectionService`'s
+  // own `assertInVocabulary` — so this is the only thing standing between
+  // `DEMO_CLASSES` and writing a class/section that names a value the
+  // tenant's own vocabulary doesn't have. That's the orphaned state
+  // [33.5.1]'s seed trap 2 exists to rule out: refusing loudly here beats
+  // writing it anyway and finding out later. Doesn't widen
+  // `ensureDemoOrganisation`'s own guard to overwrite a hand-edited
+  // vocabulary — that guard is correct as-is; this just holds the
+  // invariant at the point it would otherwise be violated.
+  const school = await schoolRepository.findOne({ where: { id: schoolId } });
+  const organisation = school?.settings?.organisation as OrganisationSettings | undefined;
+  const tenantShifts = organisation?.shifts ?? [];
+  const tenantVersions = organisation?.versions ?? [];
+  const tenantGroups = organisation?.groups ?? [];
+  for (const classSeed of DEMO_CLASSES) {
+    if (classSeed.shift !== null) {
+      assertVocabularyHas('shift', classSeed.shift, classSeed.name, tenantShifts);
+    }
+    if (classSeed.version !== null) {
+      assertVocabularyHas('version', classSeed.version, classSeed.name, tenantVersions);
+    }
+    for (const sectionSeed of classSeed.sections) {
+      if (sectionSeed.group !== null) {
+        assertVocabularyHas('group', sectionSeed.group, classSeed.name, tenantGroups);
+      }
+    }
+  }
+
   let rosterIndex = 0;
   for (const classSeed of DEMO_CLASSES) {
     // [33.5.1] `shift`/`version` are part of the where clause, not just the

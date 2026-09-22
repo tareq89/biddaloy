@@ -181,6 +181,7 @@ export async function seedAccounts(
   });
   await ensureDemoStudents(
     {
+      schoolRepository: repos.schoolRepository,
       academicYearRepository: repos.academicYearRepository,
       classRepository: repos.classRepository,
       classSectionRepository: repos.classSectionRepository,
