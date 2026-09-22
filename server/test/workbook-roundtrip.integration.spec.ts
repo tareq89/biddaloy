@@ -430,7 +430,6 @@ describe('workbook round trip (integration)', () => {
     // people/academics tabs only — no fee/payment helper exists to reuse).
     await ensureDemoStudents(
       {
-        schoolRepository: dataSource.getRepository(School),
         academicYearRepository: dataSource.getRepository(AcademicYear),
         classRepository: dataSource.getRepository(Class),
         classSectionRepository: dataSource.getRepository(ClassSection),
@@ -438,6 +437,9 @@ describe('workbook round trip (integration)', () => {
         guardianRepository: dataSource.getRepository(Guardian),
       },
       TENANT_A,
+      // Matches the `organisation: DEMO_ORGANISATION` set on TENANT_A's
+      // `School.settings` above (:381).
+      DEMO_ORGANISATION,
     );
 
     const year = await dataSource

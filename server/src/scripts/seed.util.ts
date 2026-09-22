@@ -301,7 +301,6 @@ const DEMO_GUARDIAN_NAMES: readonly string[] = [
 ];
 
 export interface DemoStudentRepositories {
-  schoolRepository: Repository<School>;
   academicYearRepository: Repository<AcademicYear>;
   classRepository: Repository<Class>;
   classSectionRepository: Repository<ClassSection>;
@@ -400,10 +399,15 @@ async function findFreeRollNumber(
 export async function ensureDemoStudents(
   repos: DemoStudentRepositories,
   schoolId: string,
+  // [33.5.1] The tenant's own `settings.organisation` — the caller already
+  // holds the `School` entity this belongs to (`seedAccounts` receives it
+  // as a parameter; nothing here refetches it by id), so this is threaded
+  // straight through rather than looked up again from a `schoolRepository`
+  // this function would otherwise need to carry just for this one read.
+  organisation: OrganisationSettings | undefined,
   guardianUserId: string | null = null,
 ): Promise<DemoStudentSeedResult> {
   const {
-    schoolRepository,
     academicYearRepository,
     classRepository,
     classSectionRepository,
@@ -500,8 +504,6 @@ export async function ensureDemoStudents(
   // `ensureDemoOrganisation`'s own guard to overwrite a hand-edited
   // vocabulary — that guard is correct as-is; this just holds the
   // invariant at the point it would otherwise be violated.
-  const school = await schoolRepository.findOne({ where: { id: schoolId } });
-  const organisation = school?.settings?.organisation as OrganisationSettings | undefined;
   const tenantShifts = organisation?.shifts ?? [];
   const tenantVersions = organisation?.versions ?? [];
   const tenantGroups = organisation?.groups ?? [];

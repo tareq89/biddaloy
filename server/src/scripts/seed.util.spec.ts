@@ -367,17 +367,7 @@ describe('ensureDemoOrganisation', () => {
 
 describe('ensureDemoStudents', () => {
   function demoRepos() {
-    // [33.5.1] Defaults to a school whose `organisation` already covers
-    // every DEMO_CLASSES shift/version/group, so the vocabulary guard
-    // (`ensureDemoStudents`'s own comment) doesn't trip on every other
-    // test in this block — only the tests about that guard itself
-    // override this.
-    const schoolRepository = mockRepo<School>();
-    vi.mocked(schoolRepository.findOne).mockResolvedValue({
-      settings: { organisation: DEMO_ORGANISATION },
-    } as unknown as School);
     return {
-      schoolRepository,
       academicYearRepository: mockRepo<AcademicYear>(),
       classRepository: mockRepo<Class>(),
       classSectionRepository: mockRepo<ClassSection>(),
@@ -386,12 +376,9 @@ describe('ensureDemoStudents', () => {
     };
   }
 
-  /** Every findOne returns null — the "empty database" path. `schoolRepository`
-   * is excluded: it's not part of the class/section/student chain this
-   * models as empty, and `demoRepos()` already gives it a working default. */
+  /** Every findOne returns null — the "empty database" path. */
   function emptyDatabase(repos: ReturnType<typeof demoRepos>) {
-    for (const [key, repo] of Object.entries(repos)) {
-      if (key === 'schoolRepository') continue;
+    for (const repo of Object.values(repos)) {
       vi.mocked(repo.findOne).mockResolvedValue(null);
     }
   }
@@ -403,7 +390,7 @@ describe('ensureDemoStudents', () => {
     const repos = demoRepos();
     emptyDatabase(repos);
 
-    const result = await ensureDemoStudents(repos, 'school-1');
+    const result = await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
     expect(result).toEqual({
       classes: DEMO_CLASSES.length,
@@ -425,14 +412,22 @@ describe('ensureDemoStudents', () => {
   it('[33.5.1] refuses to write a class whose shift/version/group is missing from the tenant vocabulary', async () => {
     const repos = demoRepos();
     emptyDatabase(repos);
-    vi.mocked(repos.schoolRepository.findOne).mockResolvedValue({
-      settings: { organisation: { shifts: [], versions: [], groups: [] } },
-    } as unknown as School);
+    const emptyVocabulary = { shifts: [], versions: [], groups: [] };
 
     // "Class 6" (the first DEMO_CLASSES entry) has shift/version/group all
     // null, so the first real miss is "Class 7"'s shift — the message
     // names that value, not a generic failure.
-    await expect(ensureDemoStudents(repos, 'school-1')).rejects.toThrow(
+    await expect(ensureDemoStudents(repos, 'school-1', emptyVocabulary)).rejects.toThrow(
+      /Class 7.*shift "Morning"/,
+    );
+    expect(repos.classRepository.create).not.toHaveBeenCalled();
+  });
+
+  it('[33.5.1] refuses to write any DEMO_CLASSES shift/version/group when no vocabulary is given at all', async () => {
+    const repos = demoRepos();
+    emptyDatabase(repos);
+
+    await expect(ensureDemoStudents(repos, 'school-1', undefined)).rejects.toThrow(
       /Class 7.*shift "Morning"/,
     );
     expect(repos.classRepository.create).not.toHaveBeenCalled();
@@ -442,12 +437,9 @@ describe('ensureDemoStudents', () => {
     const repos = demoRepos();
     emptyDatabase(repos);
 
-    await ensureDemoStudents(repos, 'school-1');
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
-    // `schoolRepository` excluded — `ensureDemoStudents` only reads it
-    // (for the vocabulary guard), it never creates a school.
-    for (const [key, repo] of Object.entries(repos)) {
-      if (key === 'schoolRepository') continue;
+    for (const repo of Object.values(repos)) {
       const calls = vi.mocked(repo.create).mock.calls;
       expect(calls.length).toBeGreaterThan(0);
       for (const [payload] of calls) {
@@ -460,7 +452,7 @@ describe('ensureDemoStudents', () => {
     const repos = demoRepos();
     emptyDatabase(repos);
 
-    await ensureDemoStudents(repos, 'school-1');
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
     const students = vi
       .mocked(repos.studentRepository.create)
@@ -504,7 +496,7 @@ describe('ensureDemoStudents', () => {
       user_id: null,
     } as Guardian);
 
-    const result = await ensureDemoStudents(repos, 'school-1');
+    const result = await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
     expect(result).toEqual({ classes: 0, sections: 0, students: 0, guardians: 0 });
     for (const repo of Object.values(repos)) {
@@ -522,7 +514,7 @@ describe('ensureDemoStudents', () => {
     const deleted = { id: 'student-1', deleted_at: new Date() } as Student;
     vi.mocked(repos.studentRepository.findOne).mockResolvedValue(deleted);
 
-    const result = await ensureDemoStudents(repos, 'school-1');
+    const result = await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
     expect(result.students).toBe(0);
     expect(repos.studentRepository.create).not.toHaveBeenCalled();
@@ -546,7 +538,7 @@ describe('ensureDemoStudents', () => {
         Promise.resolve(options?.withDeleted === true ? softDeleted : live),
     );
 
-    await ensureDemoStudents(repos, 'school-1');
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
     // The dead row is left dead, and the live row is not resurrected-and-saved.
     expect(softDeleted.deleted_at).not.toBeNull();
@@ -567,7 +559,7 @@ describe('ensureDemoStudents', () => {
         Promise.resolve(options?.withDeleted === true ? softDeleted : null),
     );
 
-    await ensureDemoStudents(repos, 'school-1');
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
     expect(softDeleted.deleted_at).toBeNull();
     expect(repos.academicYearRepository.save).toHaveBeenCalledWith(softDeleted);
@@ -585,7 +577,7 @@ describe('ensureDemoStudents', () => {
         Promise.resolve(options?.withDeleted === true ? softDeleted : live),
     );
 
-    await ensureDemoStudents(repos, 'school-1');
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
     expect(softDeleted.deleted_at).not.toBeNull();
     expect(repos.classSectionRepository.save).not.toHaveBeenCalled();
@@ -607,14 +599,14 @@ describe('ensureDemoStudents', () => {
           options?.where?.is_current === true ? ({ id: 'other-year' } as AcademicYear) : null,
         ),
     );
-    await ensureDemoStudents(withCurrent, 'school-1');
+    await ensureDemoStudents(withCurrent, 'school-1', DEMO_ORGANISATION);
     expect(vi.mocked(withCurrent.academicYearRepository.create).mock.calls[0]?.[0]).toMatchObject({
       is_current: false,
     });
 
     const without = demoRepos();
     emptyDatabase(without);
-    await ensureDemoStudents(without, 'school-1');
+    await ensureDemoStudents(without, 'school-1', DEMO_ORGANISATION);
     expect(vi.mocked(without.academicYearRepository.create).mock.calls[0]?.[0]).toMatchObject({
       is_current: true,
     });
@@ -642,7 +634,7 @@ describe('ensureDemoStudents', () => {
       },
     );
 
-    await ensureDemoStudents(repos, 'school-1');
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
     expect(softDeleted.deleted_at).toBeNull();
     expect(softDeleted.is_current).toBe(false);
@@ -662,7 +654,7 @@ describe('ensureDemoStudents', () => {
         Promise.resolve(options?.withDeleted === true ? softDeleted : null),
     );
 
-    await ensureDemoStudents(repos, 'school-1');
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
     expect(softDeleted.deleted_at).toBeNull();
     expect(softDeleted.is_current).toBe(true);
@@ -687,7 +679,7 @@ describe('ensureDemoStudents', () => {
       },
     );
 
-    await ensureDemoStudents(repos, 'school-1');
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
     const rolls = vi
       .mocked(repos.studentRepository.create)
@@ -701,7 +693,7 @@ describe('ensureDemoStudents', () => {
     const repos = demoRepos();
     emptyDatabase(repos);
 
-    await ensureDemoStudents(repos, 'school-1');
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
     const bySection = new Map<string, number[]>();
     for (const [payload] of vi.mocked(repos.studentRepository.create).mock.calls) {
@@ -718,7 +710,7 @@ describe('ensureDemoStudents', () => {
     const repos = demoRepos();
     emptyDatabase(repos);
 
-    await ensureDemoStudents(repos, 'school-1', 'parent-user-1');
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION, 'parent-user-1');
 
     const guardians = vi
       .mocked(repos.guardianRepository.create)
@@ -733,7 +725,7 @@ describe('ensureDemoStudents', () => {
     const existing = { id: 'guardian-1', deleted_at: null, user_id: null } as Guardian;
     vi.mocked(repos.guardianRepository.findOne).mockResolvedValueOnce(existing);
 
-    await ensureDemoStudents(repos, 'school-1', 'parent-user-1');
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION, 'parent-user-1');
 
     expect(existing.user_id).toBe('parent-user-1');
     expect(repos.guardianRepository.save).toHaveBeenCalledWith(existing);
