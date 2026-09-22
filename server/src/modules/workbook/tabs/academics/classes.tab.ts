@@ -63,6 +63,7 @@ const columns: readonly ColumnSpec[] = [
 const excluded: readonly string[] = [
   'numeric_grade', // display-sort hint only; not in the ticket's column list and derivable from `name` if ever needed
   'academic_year_id', // exported instead as the `academic_year` ref column, keyed by the referenced tab's natural key
+  'shift_id', // [21.2.1] derived from `shift` (already exported above) by AddRoutines' promotion; re-derivable on restore, not a value someone edits in the sheet
 ];
 
 const MAX_LENGTHS: Record<string, number> = {
