@@ -35,6 +35,8 @@
     "classes": "ক্লাস",
     "routineSetup": "রুটিন সেটআপ",
     "routineBuilder": "টাইমটেবিল ও রুটিন",
+    "routineReview": "রুটিন পর্যালোচনা",
+    "routineSubstitutions": "প্রতিনিধিত্ব",
     "section": "সেকশন",
     "auditLogs": "নিরীক্ষা লগ",
     "sendMessage": "বার্তা পাঠান",

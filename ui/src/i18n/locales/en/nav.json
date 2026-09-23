@@ -35,6 +35,8 @@
     "classes": "Classes",
     "routineSetup": "Routine Setup",
     "routineBuilder": "Timetable & Routines",
+    "routineReview": "Routine Review",
+    "routineSubstitutions": "Substitutions",
     "section": "Section",
     "auditLogs": "Audit Logs",
     "sendMessage": "Send Message",
