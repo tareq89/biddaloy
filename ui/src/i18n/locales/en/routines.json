@@ -1,0 +1,47 @@
+{
+  "save": {
+    "action": "Save",
+    "success": "Saved"
+  },
+  "delete": {
+    "action": "Delete"
+  },
+  "setupPage": {
+    "title": "Routine setup"
+  },
+  "shiftsPanel": {
+    "legend": "Shifts",
+    "name": "Name",
+    "dayStartsAt": "Day starts at",
+    "dayEndsAt": "Day ends at",
+    "addAction": "Add shift"
+  },
+  "roomsPanel": {
+    "legend": "Rooms",
+    "building": "Building",
+    "roomNo": "Room no.",
+    "capacity": "Capacity",
+    "addAction": "Add room"
+  },
+  "periodSlotsPanel": {
+    "legend": "Period slots — {{shiftName}}",
+    "selectShift": "Add a shift above, then pick it to edit its period slots.",
+    "sequence": "#",
+    "kind": "Kind",
+    "kindClass": "Class",
+    "kindBreak": "Break",
+    "name": "Name",
+    "startsAt": "Starts at",
+    "endsAt": "Ends at",
+    "breakNoName": "—",
+    "addRowAction": "Add period",
+    "timelineLabel": "Day timeline for this shift"
+  },
+  "settingsPanel": {
+    "legend": "Routine settings",
+    "defaultChangeoverMinutes": "Changeover gap (minutes)",
+    "maxPeriodsPerTeacherPerDay": "Max periods per teacher per day",
+    "maxConsecutivePeriods": "Max consecutive periods",
+    "noCap": "No cap"
+  }
+}

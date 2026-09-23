@@ -80,6 +80,13 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/classes/$classId': Permission.CLASS_MANAGE,
   '/_staff/grading-scales/': Permission.GRADING_SCALE_MANAGE,
   '/_staff/grading-scales/$scaleId': Permission.GRADING_SCALE_MANAGE,
+  // [21.7.1] Setup screens (shifts, period slots, rooms, routine-wide
+  // settings) are all ADMIN-only server-side (`@RequirePermissions
+  // (Permission.ROUTINE_MANAGE)` on every write route in
+  // `shifts.controller.ts`/`rooms.controller.ts`) — no reduced read-only
+  // view offered here, same "blanket refusal matching nav visibility"
+  // rule as every other route in this file.
+  '/_staff/routines/setup': Permission.ROUTINE_MANAGE,
   '/_staff/audit-logs/': Permission.AUDIT_LOG_READ,
   '/_staff/settings': Permission.SETTINGS_MANAGE,
   // [9.6] Both gated on ATTENDANCE_READ, not ATTENDANCE_MARK — this table
