@@ -99,6 +99,9 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // "blanket route gate, finer-grained UI inside" pattern `$sectionId`
   // uses for its own write actions.
   '/_staff/routines/review': Permission.ROUTINE_READ,
+  // [21.10.1] The teacher/family agenda — same `ROUTINE_READ` gate as
+  // review above, this route never writes anything.
+  '/_staff/routines/my': Permission.ROUTINE_READ,
   // Substitution log + recorder — `ROUTINE_MANAGE` server-side
   // (`SubstitutionsController`), even for the `TEACHER` role entry in its
   // `@Roles` list.

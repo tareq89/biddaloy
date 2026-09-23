@@ -207,6 +207,28 @@
     "coveredByLabel": "Covered by {{name}}",
     "unknownTeacher": "Unknown"
   },
+  "agenda": {
+    "daySwitcherLabel": "Choose a day",
+    "todayLabel": "Today",
+    "weekViewOn": "Week view",
+    "weekViewOff": "Day view",
+    "emptyDay": "No classes.",
+    "cancelledLabel": "Cancelled",
+    "coveringForLabel": "Covering for {{name}}",
+    "periodLabel": "Period {{sequence}}",
+    "holidayReason": "Holiday — {{name}}",
+    "weeklyOffReason": "Weekly off day"
+  },
+  "myRoutine": {
+    "title": "My routine",
+    "loading": "Loading your routine",
+    "notATeacherExplanation": "No teacher record found for your account — nothing to show here.",
+    "noRoutineExplanation": "The school hasn't published a routine yet.",
+    "error": {
+      "message": "Could not load your routine. Check your connection and try again.",
+      "retry": "Try again"
+    }
+  },
   "substitutionDialog": {
     "title": "Record a substitution",
     "description": "Records a cover or a cancellation for one slot on one date — the weekly routine itself is never changed.",

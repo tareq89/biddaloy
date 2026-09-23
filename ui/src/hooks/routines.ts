@@ -3,6 +3,8 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
 
+import type { ClassSectionWithCount } from './classes';
+import { useClasses } from './classes';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
@@ -609,5 +611,148 @@ export function useRecordSubstitution() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: substitutionKeys.lists() });
     },
+  });
+}
+
+// --- Resolve, the one dated-agenda read path [21.10.1] D14 ---
+//
+// `ResolveRoutineController_resolve_v1`'s 200 body is untyped in
+// `schema.d.ts` (`Record<string, never>[]`, the same generator gap this
+// file documents above for `RoutineSlotWithWarnings` etc.) — hand-typed
+// here against `ResolveRoutineService`'s own `ResolvedSlot` interface
+// (server/src/modules/routines/dto/resolve.dto.ts). This is the **only**
+// client read path for "what happens on this date" — recurrence,
+// effective-dating, weekly-off/holiday exclusion and substitutions are
+// already applied server-side; nothing here re-derives any of it.
+
+/** One resolved, dated slot. Mirror of the server's `ResolvedSlot`. */
+export interface ResolvedSlot {
+  date: string;
+  routine_slot_id: string;
+  section_id: string;
+  period_slot_id: string;
+  weekday: number;
+  subject_id: string;
+  room_id: string | null;
+  kind: string;
+  teacher_ids: string[];
+  substituted: boolean;
+  cancelled: boolean;
+  substitute_teacher_id?: string;
+  covering_for_teacher_ids?: string[];
+}
+
+export interface ResolveRoutineFilters {
+  section_id?: string | undefined;
+  teacher_id?: string | undefined;
+  student_id?: string | undefined;
+  from: string;
+  to: string;
+  include_breaks?: boolean | undefined;
+}
+
+export const resolveRoutineKeys = {
+  all: (filters: ResolveRoutineFilters) => ['routines-resolve', filters] as const,
+};
+
+/** `undefined` filters (e.g. the caller's own teacher record hasn't
+ * loaded yet) disables the query rather than firing with a garbage
+ * `section_id`/`teacher_id`/`student_id` combination the server would
+ * 400 on. */
+export function useResolveRoutine(filters: ResolveRoutineFilters | undefined) {
+  return useQuery({
+    queryKey: resolveRoutineKeys.all(filters ?? { from: '', to: '' }),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<ResolvedSlot[]>('/routines/resolve', {
+        params: filters,
+        signal,
+      });
+      return res.data;
+    },
+    enabled: !!filters,
+    retry: shouldRetryQuery,
+  });
+}
+
+/** Every period slot's timing/sequence, id-keyed, across every shift.
+ * `resolveRoutine` deliberately returns only `period_slot_id` (D14 is
+ * about slot resolution, not period metadata), and there is no "period
+ * slots for these ids" endpoint — so this fetches each shift's period
+ * slots once and flattens them into one map. A school runs a handful of
+ * shifts, never hundreds, so this comfortably covers every section's
+ * agenda in one extra round-trip per shift (cached by react-query, not
+ * re-fetched per agenda render). */
+export interface PeriodSlotLookupEntry {
+  sequence: number;
+  kind: PeriodSlotKind;
+  name: string | null;
+  starts_at: string;
+  ends_at: string;
+}
+
+export function usePeriodSlotLookup() {
+  const shiftsQuery = useShifts();
+  const shifts = shiftsQuery.data?.data ?? [];
+  return useQuery({
+    queryKey: ['routine-period-slot-lookup', shifts.map((shift) => shift.id)],
+    queryFn: async () => {
+      const lists = await Promise.all(
+        shifts.map((shift) =>
+          apiClient
+            .get<PeriodSlot[]>(`/routines/shifts/${shift.id}/period-slots`)
+            .then((res) => res.data),
+        ),
+      );
+      const map: Record<string, PeriodSlotLookupEntry> = {};
+      for (const list of lists) {
+        for (const slot of list) {
+          map[slot.id] = {
+            sequence: slot.sequence,
+            kind: slot.kind,
+            name: slot.name,
+            starts_at: slot.starts_at,
+            ends_at: slot.ends_at,
+          };
+        }
+      }
+      return map;
+    },
+    enabled: shiftsQuery.isSuccess,
+    retry: shouldRetryQuery,
+  });
+}
+
+/** Every section's class+section label, id-keyed, across every class —
+ * same "no lookup-by-id endpoint, so flatten every list once" reasoning
+ * as `usePeriodSlotLookup` above. The teacher agenda needs "Class 6A" for
+ * a resolved slot that only carries `section_id`. */
+export interface SectionLookupEntry {
+  className: string;
+  sectionName: string;
+}
+
+export function useSectionLookup() {
+  const classesQuery = useClasses();
+  const classes = classesQuery.data?.data ?? [];
+  return useQuery({
+    queryKey: ['routine-section-lookup', classes.map((klass) => klass.id)],
+    queryFn: async () => {
+      const lists = await Promise.all(
+        classes.map((klass) =>
+          apiClient
+            .get<ClassSectionWithCount[]>(`/classes/${klass.id}/sections`)
+            .then((res) => res.data.map((section) => ({ section, className: klass.name }))),
+        ),
+      );
+      const map: Record<string, SectionLookupEntry> = {};
+      for (const list of lists) {
+        for (const { section, className } of list) {
+          map[section.id] = { className, sectionName: section.section_name };
+        }
+      }
+      return map;
+    },
+    enabled: classesQuery.isSuccess,
+    retry: shouldRetryQuery,
   });
 }

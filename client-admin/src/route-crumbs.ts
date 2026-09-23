@@ -56,6 +56,7 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/portal/attendance': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/calendar': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/fees': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
+  '/portal/routine': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
 
   // --- Platform (SUPER_ADMIN) area ---
   '/_platform/holiday-sets/': [{ label: { key: 'holidaySets' } }],
@@ -89,6 +90,7 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   ],
   '/_staff/routines/review': [{ label: { key: 'routineReview' } }],
   '/_staff/routines/substitutions': [{ label: { key: 'routineSubstitutions' } }],
+  '/_staff/routines/my': [{ label: { key: 'myRoutine' } }],
   '/_staff/attendance/': [{ label: { key: 'attendance' } }],
   '/_staff/attendance/reports': [{ label: { key: 'attendanceReports' } }],
   '/_staff/attendance/register': [{ label: { key: 'attendanceRegister' } }],

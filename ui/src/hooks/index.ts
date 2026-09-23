@@ -444,6 +444,14 @@ export {
   type UnmappedSubject,
   type CopyRoutineResult,
   type SubstitutionFilters,
+  resolveRoutineKeys,
+  useResolveRoutine,
+  usePeriodSlotLookup,
+  useSectionLookup,
+  type ResolvedSlot,
+  type ResolveRoutineFilters,
+  type PeriodSlotLookupEntry,
+  type SectionLookupEntry,
 } from './routines';
 export {
   calendarSettingsKeys,

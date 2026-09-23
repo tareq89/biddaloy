@@ -126,6 +126,16 @@
       "6": "Sat"
     }
   },
+  "routine": {
+    "title": "Routine",
+    "loading": "Loading routine",
+    "pickerLabel": "Choose a student",
+    "noRoutineExplanation": "The school hasn't published a routine yet.",
+    "error": {
+      "message": "Could not load this student's routine. Check your connection and try again.",
+      "retry": "Try again"
+    }
+  },
   "payments": {
     "title": "Recent payments",
     "seeAll": "See all payments",
