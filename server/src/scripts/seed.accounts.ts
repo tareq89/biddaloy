@@ -29,6 +29,7 @@ import { Mark } from '../modules/exams/entities/mark.entity';
 import { MarkGrid } from '../modules/exams/entities/mark-grid.entity';
 import { Result } from '../modules/exams/entities/result.entity';
 import { ResultSubject } from '../modules/exams/entities/result-subject.entity';
+import { ExamSchedule } from '../modules/exams/entities/exam-schedule.entity';
 import {
   DEMO_ACADEMIC_YEAR,
   ensureAttendanceSeed,
@@ -90,6 +91,7 @@ export interface SeedAccountRepositories {
   markRepository: Repository<Mark>;
   resultRepository: Repository<Result>;
   resultSubjectRepository: Repository<ResultSubject>;
+  examScheduleRepository: Repository<ExamSchedule>;
 }
 
 /** Creates/repairs the seed accounts, their memberships and the demo
@@ -369,6 +371,7 @@ export async function seedAccounts(
           markRepository: repos.markRepository,
           resultRepository: repos.resultRepository,
           resultSubjectRepository: repos.resultSubjectRepository,
+          examScheduleRepository: repos.examScheduleRepository,
         },
         {
           schoolId: school.id,

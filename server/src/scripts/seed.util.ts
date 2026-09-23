@@ -37,6 +37,7 @@ import { Mark } from '../modules/exams/entities/mark.entity';
 import { MarkGrid } from '../modules/exams/entities/mark-grid.entity';
 import { Result } from '../modules/exams/entities/result.entity';
 import { ResultSubject } from '../modules/exams/entities/result-subject.entity';
+import { ExamSchedule } from '../modules/exams/entities/exam-schedule.entity';
 import { CalendarEvent } from '../modules/calendar/entities/calendar-event.entity';
 import { CalendarEventClass } from '../modules/calendar/entities/calendar-event-class.entity';
 import { AcademicTerm } from '../modules/calendar/entities/academic-term.entity';
@@ -1503,6 +1504,7 @@ export interface ExamsDemoSeedRepositories {
   markRepository: Repository<Mark>;
   resultRepository: Repository<Result>;
   resultSubjectRepository: Repository<ResultSubject>;
+  examScheduleRepository: Repository<ExamSchedule>;
 }
 
 export interface ExamsDemoSeedParams {
@@ -1523,6 +1525,7 @@ export interface ExamsDemoSeedResult {
   grids: number;
   marks: number;
   results: number;
+  schedules: number;
 }
 
 /** Idempotent, same find-or-create shape as every other `ensure*` in this
@@ -1532,7 +1535,14 @@ export async function ensureExamsDemoSeed(
   params: ExamsDemoSeedParams,
 ): Promise<ExamsDemoSeedResult> {
   const { schoolId, academicYearId, classId, sectionIds, sectionStudentIds } = params;
-  const result: ExamsDemoSeedResult = { exams: 0, components: 0, grids: 0, marks: 0, results: 0 };
+  const result: ExamsDemoSeedResult = {
+    exams: 0,
+    components: 0,
+    grids: 0,
+    marks: 0,
+    results: 0,
+    schedules: 0,
+  };
 
   // --- subjects (reuse the attendance seed's MATH/ENG if present) -------
   async function ensureSubject(code: string, nameEn: string, nameBn: string): Promise<Subject> {
@@ -1746,10 +1756,49 @@ export async function ensureExamsDemoSeed(
     }
   }
 
-  if (result.exams + result.components + result.grids + result.marks + result.results > 0) {
+  // --- [19.11.1] schedule: MATH and ENG both have components above, so
+  // scheduling both makes this exam's schedule COMPLETE — the demo needs
+  // at least one complete exam for the portal's family visibility rule to
+  // have anything to show.
+  const scheduleSpecs: { subject: Subject; date: string; venue: string | null }[] = [
+    { subject: math, date: '2026-02-05', venue: 'Main Hall' },
+    { subject: english, date: '2026-02-06', venue: null },
+  ];
+  for (const spec of scheduleSpecs) {
+    let schedule = await repos.examScheduleRepository.findOne({
+      where: { exam_id: exam.id, subject_id: spec.subject.id },
+      withDeleted: true,
+    });
+    if (!schedule) {
+      schedule = repos.examScheduleRepository.create({
+        tenant_id: schoolId,
+        exam_id: exam.id,
+        subject_id: spec.subject.id,
+        date: spec.date,
+        starts_at: '09:00:00',
+        ends_at: '11:00:00',
+        venue: spec.venue,
+      });
+      await repos.examScheduleRepository.save(schedule);
+      result.schedules += 1;
+    } else if (schedule.deleted_at) {
+      await repos.examScheduleRepository.save(undelete(schedule));
+    }
+  }
+
+  if (
+    result.exams +
+      result.components +
+      result.grids +
+      result.marks +
+      result.results +
+      result.schedules >
+    0
+  ) {
     console.log(
       `  Exams demo seed: +${result.exams} exams, +${result.components} components, ` +
-        `+${result.grids} grids, +${result.marks} marks, +${result.results} results`,
+        `+${result.grids} grids, +${result.marks} marks, +${result.results} results, ` +
+        `+${result.schedules} schedules`,
     );
   }
   return result;

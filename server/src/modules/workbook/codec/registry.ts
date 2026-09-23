@@ -38,6 +38,7 @@ export const EXPECTED_TABS = [
   'grading_bands',
   'exams',
   'exam_components',
+  'exam_schedules',
   'mark_grids',
   'marks',
   'results',

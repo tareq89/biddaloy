@@ -30,6 +30,7 @@ import { Mark } from '../modules/exams/entities/mark.entity';
 import { MarkGrid } from '../modules/exams/entities/mark-grid.entity';
 import { Result } from '../modules/exams/entities/result.entity';
 import { ResultSubject } from '../modules/exams/entities/result-subject.entity';
+import { ExamSchedule } from '../modules/exams/entities/exam-schedule.entity';
 import { DEV_SEED_PLATFORM_TENANT_ID } from '../config/env.validation';
 import { seedAccounts } from './seed.accounts';
 import { ensureDemoOrganisation } from './seed.util';
@@ -144,6 +145,7 @@ export async function seed() {
       markRepository: dataSource.getRepository(Mark),
       resultRepository: dataSource.getRepository(Result),
       resultSubjectRepository: dataSource.getRepository(ResultSubject),
+      examScheduleRepository: dataSource.getRepository(ExamSchedule),
     },
     school,
     adminEmail,

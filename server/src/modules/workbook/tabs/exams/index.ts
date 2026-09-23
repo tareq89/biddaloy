@@ -1,6 +1,7 @@
 import type { TabSpec } from '../../codec/tab-spec';
 import { examsTab } from './exams.tab';
 import { examComponentsTab } from './exam-components.tab';
+import { examSchedulesTab } from './exam-schedules.tab';
 import { markGridsTab } from './mark-grids.tab';
 import { marksTab } from './marks.tab';
 import { resultsTab } from './results.tab';
@@ -21,6 +22,7 @@ import { studentSubjectChoicesTab } from './student-subject-choices.tab';
 export const examsTabs: TabSpec<any, any>[] = [
   examsTab,
   examComponentsTab,
+  examSchedulesTab,
   markGridsTab,
   marksTab,
   resultsTab,
@@ -31,6 +33,7 @@ export const examsTabs: TabSpec<any, any>[] = [
 export {
   examsTab,
   examComponentsTab,
+  examSchedulesTab,
   markGridsTab,
   marksTab,
   resultsTab,
@@ -39,6 +42,7 @@ export {
 };
 export type { ExamRow } from './exams.tab';
 export type { ExamComponentRow } from './exam-components.tab';
+export type { ExamScheduleRow } from './exam-schedules.tab';
 export type { MarkGridRow } from './mark-grids.tab';
 export type { MarkRow } from './marks.tab';
 export type { ResultRow } from './results.tab';

@@ -45,6 +45,7 @@ import { Subject } from '../src/modules/academics/entities/subject.entity';
 import { ClassSubject } from '../src/modules/academics/entities/class-subject.entity';
 import { Exam } from '../src/modules/exams/entities/exam.entity';
 import { ExamComponent } from '../src/modules/exams/entities/exam-component.entity';
+import { ExamSchedule } from '../src/modules/exams/entities/exam-schedule.entity';
 import { Mark } from '../src/modules/exams/entities/mark.entity';
 import { MarkGrid } from '../src/modules/exams/entities/mark-grid.entity';
 import { Result } from '../src/modules/exams/entities/result.entity';
@@ -777,6 +778,39 @@ describe('workbook round trip (integration)', () => {
         is_fourth: true,
       }),
     );
+
+    // [19.11.1] exam_schedules — one row with a venue, one with a null
+    // venue, so the round trip covers the nullable column explicitly.
+    await dataSource.getRepository(ExamSchedule).save([
+      dataSource.getRepository(ExamSchedule).create({
+        tenant_id: TENANT_A,
+        exam_id: exam.id,
+        subject_id: subject.id,
+        date: '2026-02-05',
+        starts_at: '09:00:00',
+        ends_at: '11:00:00',
+        venue: 'Main Hall',
+      }),
+    ]);
+    const secondSubject = await dataSource.getRepository(Subject).save(
+      dataSource.getRepository(Subject).create({
+        tenant_id: TENANT_A,
+        name_en: 'English',
+        name_bn: 'ইংরেজি',
+        code: `ENG-${TENANT_A.slice(0, 8)}`,
+      }),
+    );
+    await dataSource.getRepository(ExamSchedule).save([
+      dataSource.getRepository(ExamSchedule).create({
+        tenant_id: TENANT_A,
+        exam_id: exam.id,
+        subject_id: secondSubject.id,
+        date: '2026-02-06',
+        starts_at: '09:00:00',
+        ends_at: '11:00:00',
+        venue: null,
+      }),
+    ]);
   }
 
   /**
@@ -809,6 +843,7 @@ describe('workbook round trip (integration)', () => {
       'grading_bands',
       'exams',
       'exam_components',
+      'exam_schedules',
       'mark_grids',
       'marks',
       'results',
