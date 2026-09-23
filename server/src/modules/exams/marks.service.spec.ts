@@ -24,6 +24,7 @@ import {
   MarkStatus,
   UserRole,
 } from '@biddaloy/shared';
+import { QueryFailedError } from 'typeorm';
 
 const TENANT_ID = 'tenant-1';
 const EXAM_ID = 'exam-1';
@@ -401,5 +402,41 @@ describe('MarksService.upsertBatch', () => {
         'user-1',
       ),
     ).rejects.toThrow(ConflictException);
+  });
+
+  it('a concurrent first-write race on the same cell does not 500 (last write wins)', async () => {
+    const { service, markRepo } = await buildService({
+      existingMarks: [
+        { student_id: 'stu-1', component_id: 'comp-1', value: '75.00', status: MarkStatus.PRESENT },
+      ],
+    });
+    // Both requests see no existing row (the race), so both take the
+    // insert branch; the DB rejects the second with a unique violation.
+    markRepo.findOne = vi.fn(async () => null);
+    markRepo.save = vi.fn(async () => {
+      throw new QueryFailedError('insert', [], {
+        code: '23505',
+        message: 'duplicate key',
+      } as any);
+    });
+
+    await expect(
+      service.upsertBatch(
+        EXAM_ID,
+        batchDto([
+          { student_id: 'stu-1', component_id: 'comp-1', value: '75', status: MarkStatus.PRESENT },
+        ]),
+        TENANT_ID,
+        UserRole.TEACHER,
+        'user-1',
+      ),
+    ).resolves.toBeDefined();
+
+    // Falls back to an update keyed on the natural key, not the row id
+    // it never got back from the failed insert.
+    expect(markRepo.update).toHaveBeenCalledWith(
+      { exam_id: EXAM_ID, student_id: 'stu-1', component_id: 'comp-1' },
+      { value: '75', status: MarkStatus.PRESENT, entered_by: 'user-1' },
+    );
   });
 });
