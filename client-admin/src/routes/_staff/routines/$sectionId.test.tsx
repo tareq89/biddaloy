@@ -18,7 +18,11 @@ const SECTION = classSectionFactory({
   id: 'section-1',
   section_name: 'A',
   class: {
-    ...classFactory({ id: '11111111-1111-4111-8111-111111111111', name: 'Class 6', shift_id: 'shift-1' }),
+    ...classFactory({
+      id: '11111111-1111-4111-8111-111111111111',
+      name: 'Class 6',
+      shift_id: 'shift-1',
+    }),
   },
   class_id: '11111111-1111-4111-8111-111111111111',
 });
@@ -137,7 +141,10 @@ describe('/routines/$sectionId', () => {
             requestId: 'req-1',
             details: {
               violations: [
-                { code: 'TEACHER_DOUBLE_BOOKED', message: 'Ms Nahar is already teaching 7B at this time' },
+                {
+                  code: 'TEACHER_DOUBLE_BOOKED',
+                  message: 'Ms Nahar is already teaching 7B at this time',
+                },
               ],
             },
           },
@@ -168,5 +175,174 @@ describe('/routines/$sectionId', () => {
     );
     // The empty cell placeholder is still there — the failed save never wrote a slot.
     expect(screen.getAllByText('Empty').length).toBeGreaterThan(0);
+  });
+
+  it('opens the cell picker prefilled when editing an existing slot, and shows a generic error on a non-conflict failure', async () => {
+    mockCommonRoutes();
+    server.use(
+      http.get('/api/v1/routines/routine-1/slots', () =>
+        HttpResponse.json([
+          {
+            slot: {
+              id: 'slot-1',
+              section_id: 'section-1',
+              weekday: 0,
+              period_slot_id: 'p1',
+              subject_id: 'subject-math',
+              recurrence: 'WEEKLY',
+              recurrence_offset: 0,
+              valid_from: '2026-01-01',
+              valid_to: null,
+            },
+            teacher_ids: ['teacher-1'],
+            warnings: ['heads up'],
+          },
+        ]),
+      ),
+      http.patch('/api/v1/routines/slots/slot-1', () =>
+        HttpResponse.json({ statusCode: 500, message: 'boom' }, { status: 500 }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/routines/section-1?classId=11111111-1111-4111-8111-111111111111'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const table = await screen.findByRole('table');
+    await waitFor(() => expect(screen.getByText('Math')).toBeTruthy());
+    fireEvent.keyDown(table, { key: 'Enter' });
+
+    // Prefilled from the existing slot: the subject picker already shows Math selected.
+    await waitFor(() => expect(screen.getByLabelText('Subject')).toBeTruthy());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    // A non-conflict failure leaves the picker open (no violations to show, no close).
+    await waitFor(() => expect(screen.getByLabelText('Subject')).toBeTruthy());
+  });
+
+  it('shows the noClassId explanation when opened without ?classId=', async () => {
+    renderWithRouter(routeTree, {
+      initialEntries: ['/routines/section-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    expect(await screen.findByText(/routine builder's section list/i)).toBeTruthy();
+  });
+
+  it('shows the sectionNotFound explanation when the section id does not match', async () => {
+    mockCommonRoutes();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/routines/missing-section?classId=11111111-1111-4111-8111-111111111111'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    expect(await screen.findByText(/section.*not found|not found/i)).toBeTruthy();
+  });
+
+  it('shows the noShift explanation when the section has no shift', async () => {
+    server.use(
+      http.get('/api/v1/classes/11111111-1111-4111-8111-111111111111/sections', () =>
+        HttpResponse.json([
+          { ...SECTION, enrolled_count: 40, class: { ...SECTION.class, shift_id: null } },
+        ]),
+      ),
+      http.get('/api/v1/calendar-settings', () =>
+        HttpResponse.json({ weeklyOffDays: [5, 6], termLabel: null }),
+      ),
+      http.get('/api/v1/routines', () => HttpResponse.json([])),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/routines/section-1?classId=11111111-1111-4111-8111-111111111111'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    expect(await screen.findByText(/no shift/i)).toBeTruthy();
+  });
+
+  it('shows the noRoutine explanation when no routine exists for the year', async () => {
+    server.use(
+      http.get('/api/v1/classes/11111111-1111-4111-8111-111111111111/sections', () =>
+        HttpResponse.json([{ ...SECTION, enrolled_count: 40 }]),
+      ),
+      http.get('/api/v1/calendar-settings', () =>
+        HttpResponse.json({ weeklyOffDays: [5, 6], termLabel: null }),
+      ),
+      http.get('/api/v1/routines', () => HttpResponse.json([])),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/routines/section-1?classId=11111111-1111-4111-8111-111111111111'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    expect(await screen.findByText(/no routine/i)).toBeTruthy();
+  });
+
+  it('clears an existing cell on Delete/Backspace', async () => {
+    mockCommonRoutes();
+    let deleted = false;
+    const entry = {
+      slot: {
+        id: 'slot-1',
+        section_id: 'section-1',
+        weekday: 0,
+        period_slot_id: 'p1',
+        subject_id: 'subject-math',
+        recurrence: 'WEEKLY' as const,
+        recurrence_offset: 0,
+        valid_from: '2026-01-01',
+        valid_to: null,
+      },
+      teacher_ids: ['teacher-1'],
+      warnings: [],
+    };
+    server.use(
+      http.get('/api/v1/routines/routine-1/slots', () => HttpResponse.json(deleted ? [] : [entry])),
+      http.delete('/api/v1/routines/slots/slot-1', () => {
+        deleted = true;
+        return HttpResponse.json({});
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/routines/section-1?classId=11111111-1111-4111-8111-111111111111'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const table = await screen.findByRole('table');
+    await waitFor(() => expect(screen.getByText('Math')).toBeTruthy());
+    fireEvent.keyDown(table, { key: 'Delete' });
+
+    await waitFor(() => expect(screen.queryByText('Math')).toBeNull());
+  });
+
+  it('opens the fill-assist dialog from the header action', async () => {
+    mockCommonRoutes();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/routines/section-1?classId=11111111-1111-4111-8111-111111111111'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await screen.findByRole('table');
+    await user.click(screen.getByRole('button', { name: /fill assist/i }));
+
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
   });
 });

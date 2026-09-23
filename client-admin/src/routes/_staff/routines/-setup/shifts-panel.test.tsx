@@ -1,7 +1,8 @@
 import '@biddaloy/ui/test';
 
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -69,5 +70,31 @@ describe('ShiftsPanel', () => {
     expect(
       await screen.findByText(/still reference it/, { selector: '[role="alert"]' }),
     ).toBeTruthy();
+  });
+
+  it('adds a new shift and clears the name field, highlighting the selected shift', async () => {
+    server.use(
+      http.get('*/routines/shifts', () =>
+        HttpResponse.json({ data: [SHIFT], total: 1, page: 1, limit: 100, totalPages: 1 }),
+      ),
+      http.post('*/routines/shifts', () =>
+        HttpResponse.json({ ...SHIFT, id: 'shift-2', name: 'Evening', sequence: 1 }),
+      ),
+    );
+
+    renderWithProviders(<ShiftsPanel selectedShiftId="shift-1" onSelectShift={vi.fn()} />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: SCHOOL_ID,
+    });
+
+    expect((await screen.findByRole('button', { name: 'Morning' })).className).toMatch(/underline/);
+
+    const user = userEvent.setup();
+    const nameInput = screen.getByLabelText('Name');
+    await user.type(nameInput, 'Evening');
+    await user.click(screen.getByRole('button', { name: 'Add shift' }));
+
+    await waitFor(() => expect((nameInput as HTMLInputElement).value).toBe(''));
   });
 });
