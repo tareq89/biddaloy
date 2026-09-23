@@ -33,12 +33,29 @@ describe('exam enums', () => {
     expect(Object.values(ExamStatus)).toEqual(['DRAFT', 'PROCESSED', 'PUBLISHED']);
   });
 
-  it('ExamComponentKind includes the D11 derived ATTENDANCE kind', () => {
-    expect(ExamComponentKind.ATTENDANCE).toBe('ATTENDANCE');
+  it('ExamComponentKind has all eight kinds', () => {
+    expect(ExamComponentKind).toEqual({
+      WRITTEN: 'WRITTEN',
+      MCQ: 'MCQ',
+      VIVA: 'VIVA',
+      LAB: 'LAB',
+      PRACTICAL: 'PRACTICAL',
+      MONTHLY_TEST: 'MONTHLY_TEST',
+      ATTENDANCE: 'ATTENDANCE',
+      OTHER: 'OTHER',
+    });
   });
 
   it('ExamComponentSource distinguishes MANUAL from DERIVED', () => {
     expect(Object.values(ExamComponentSource).sort()).toEqual(['DERIVED', 'MANUAL']);
+  });
+
+  it('MarkStatus has all three statuses', () => {
+    expect(MarkStatus).toEqual({
+      PRESENT: 'PRESENT',
+      ABSENT: 'ABSENT',
+      EXEMPT: 'EXEMPT',
+    });
   });
 
   it('MarkGridState is the D12 two-state grid lock', () => {

@@ -123,6 +123,36 @@ describe('family read grants [5.1]', () => {
   });
 
   /**
+   * [19.1.1] D20's staff role table, pinned exactly — a role picking up
+   * (or losing) an exam permission it shouldn't have passes every other
+   * test in this file, since those check unrelated permission groups.
+   */
+  const EXAM_PERMISSIONS = [
+    Permission.EXAM_MANAGE,
+    Permission.MARK_ENTER,
+    Permission.MARK_VIEW,
+    Permission.RESULT_PROCESS,
+    Permission.RESULT_PUBLISH,
+    Permission.RESULT_READ,
+  ] as const;
+
+  const STAFF_EXAM_EXPECTATIONS: ReadonlyArray<readonly [UserRole, readonly Permission[]]> = [
+    [UserRole.ADMIN, [...EXAM_PERMISSIONS]],
+    [UserRole.ACCOUNTANT, []],
+    [UserRole.EXECUTIVE, [Permission.MARK_VIEW, Permission.RESULT_READ]],
+    [UserRole.TEACHER, [Permission.MARK_ENTER, Permission.MARK_VIEW, Permission.RESULT_READ]],
+  ];
+
+  for (const [role, expected] of STAFF_EXAM_EXPECTATIONS) {
+    it(`grants ${role} exactly the D20 exam permission set`, () => {
+      const actual = EXAM_PERMISSIONS.filter((permission) =>
+        ROLE_PERMISSIONS[role].includes(permission),
+      );
+      expect([...actual].sort()).toEqual([...expected].sort());
+    });
+  }
+
+  /**
    * `GET /payments/student/{studentId}` admits PARENT and STUDENT since
    * [5.1], and already admitted TEACHER and EXECUTIVE. None of them hold
    * PAYMENT_READ, because that permission means the *tenant-wide ledger*
