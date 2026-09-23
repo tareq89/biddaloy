@@ -101,10 +101,16 @@ export function CellPicker({
   }
 
   const canSave = subjectId !== '' && teacherIds.length > 0;
+  const subjectFilterRef = React.useRef<HTMLInputElement>(null);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          subjectFilterRef.current?.focus();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{t('cellPicker.title')}</DialogTitle>
           <DialogDescription>{t('cellPicker.description')}</DialogDescription>
@@ -115,10 +121,10 @@ export function CellPicker({
             <Label htmlFor="cell-picker-subject-filter">{t('cellPicker.subjectLabel')}</Label>
             <Input
               id="cell-picker-subject-filter"
+              ref={subjectFilterRef}
               value={subjectFilter}
               onChange={(event) => setSubjectFilter(event.target.value)}
               placeholder={t('cellPicker.subjectFilterPlaceholder')}
-              autoFocus
             />
             <ul className="flex max-h-32 flex-col gap-0.5 overflow-y-auto rounded-md border border-border-subtle p-1">
               {subjects.map((subject) => (

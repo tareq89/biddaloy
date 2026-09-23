@@ -16,7 +16,9 @@
  * exists yet in this codebase, out of this ticket's `## Files` list —
  * flagged in the PR description).
  */
+import { getActiveTenant } from '@biddaloy/ui/api';
 import { toast } from '@biddaloy/ui/components';
+import { RoutineGrid, cellKey, RoutePending, type RoutineGridCell } from '@biddaloy/ui/components';
 import {
   useClassSections,
   useCalendarSettings,
@@ -34,13 +36,6 @@ import {
   type ConstraintViolation,
   type ConstraintWarning,
 } from '@biddaloy/ui/hooks';
-import { getActiveTenant } from '@biddaloy/ui/api';
-import {
-  RoutineGrid,
-  cellKey,
-  RoutePending,
-  type RoutineGridCell,
-} from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute } from '@tanstack/react-router';
 import * as React from 'react';

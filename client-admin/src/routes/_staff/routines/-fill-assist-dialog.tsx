@@ -136,7 +136,7 @@ export function FillAssistDialog({
             type="button"
             disabled={!proposals || proposals.length === 0}
             loading={applying}
-            onClick={handleConfirm}
+            onClick={() => void handleConfirm()}
           >
             {t('fillAssist.confirm', { count: proposals?.length ?? 0 })}
           </Button>

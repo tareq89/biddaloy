@@ -98,6 +98,7 @@ export const STAFF_NAV_ITEMS = {
     to: '/grading-scales',
     permission: Permission.GRADING_SCALE_MANAGE,
     label: { key: 'gradingScales' },
+  },
   'academics.routineSetup': {
     id: 'academics.routineSetup',
     to: '/routines/setup',
