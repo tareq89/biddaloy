@@ -61,6 +61,18 @@
       "12": "December"
     }
   },
+  "results": {
+    "title": "Results",
+    "loading": "Loading results",
+    "empty": "No published results yet. Results appear here once the school publishes them.",
+    "failTag": "Fail",
+    "printLabel": "Print {{name}}",
+    "breakdownError": "Could not load this exam's breakdown.",
+    "error": {
+      "message": "Could not load your results. Something went wrong reaching the school's records — check your connection and try again.",
+      "retry": "Try again"
+    }
+  },
   "attendance": {
     "title": "Attendance",
     "loading": "Loading attendance",

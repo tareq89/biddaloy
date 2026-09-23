@@ -12,7 +12,13 @@ import { useDensity } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { RequireRole } from '@biddaloy/ui/routes';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
-import { CalendarDaysIcon, CreditCardIcon, HomeIcon, UserRoundIcon } from 'lucide-react';
+import {
+  CalendarDaysIcon,
+  CreditCardIcon,
+  GraduationCapIcon,
+  HomeIcon,
+  UserRoundIcon,
+} from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces } from '../route-loaders';
@@ -124,6 +130,15 @@ function PortalLayout() {
       // [17.5.2] Same reasoning as `/portal/attendance` above: family
       // visibility is role-gated server-side (`@Roles(..., PARENT,
       // STUDENT)`), not behind a `Permission`, so no `permission` here.
+    },
+    {
+      to: '/portal/results',
+      label: t('items.portalResults'),
+      icon: <GraduationCapIcon className="size-5" aria-hidden="true" />,
+      // [19.9.1] `StudentResultsController` gates on `RESULT_READ`, which
+      // `ROLE_PERMISSIONS[PARENT]`/`[STUDENT]` both hold — same pattern as
+      // `/portal/fees`'s `INVOICE_READ` above.
+      permission: Permission.RESULT_READ,
     },
     {
       to: '/portal/account',
