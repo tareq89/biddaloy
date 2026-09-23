@@ -6,6 +6,12 @@ import {
   AttendanceStatus,
   CalendarAudience,
   CalendarEventType,
+  ExamComponentKind,
+  ExamComponentSource,
+  ExamKind,
+  ExamStatus,
+  MarkGridState,
+  MarkStatus,
   PublicHolidaySource,
   TeacherDesignation,
   UserRole,
@@ -25,6 +31,12 @@ import { Subject } from '../modules/academics/entities/subject.entity';
 import { ClassSubject } from '../modules/academics/entities/class-subject.entity';
 import { GradingScale } from '../modules/grading/entities/grading-scale.entity';
 import { GradingBand } from '../modules/grading/entities/grading-band.entity';
+import { Exam } from '../modules/exams/entities/exam.entity';
+import { ExamComponent } from '../modules/exams/entities/exam-component.entity';
+import { Mark } from '../modules/exams/entities/mark.entity';
+import { MarkGrid } from '../modules/exams/entities/mark-grid.entity';
+import { Result } from '../modules/exams/entities/result.entity';
+import { ResultSubject } from '../modules/exams/entities/result-subject.entity';
 import { CalendarEvent } from '../modules/calendar/entities/calendar-event.entity';
 import { CalendarEventClass } from '../modules/calendar/entities/calendar-event-class.entity';
 import { AcademicTerm } from '../modules/calendar/entities/academic-term.entity';
@@ -1462,6 +1474,282 @@ export async function ensureGradingDemoSeed(
     console.log(
       `  Grading demo seed: +${result.scales} scales, +${result.bands} bands, ` +
         `+${result.gradedOnlySubjects} graded-only subjects`,
+    );
+  }
+  return result;
+}
+
+/** [19.10.1] Demo exams/marks/results data so the marks-entry grid, the
+ * progress screen and the guardian portal all have something real to
+ * render — see the ticket's step 3:
+ *
+ * - one exam on the demo year's "Class 6", components across MATH and ENG
+ *   (both MANUAL) plus one DERIVED `ATTENDANCE` component on MATH, so the
+ *   marks grid shows a mix of enterable and read-only columns;
+ * - marks entered for two sections ("A" and "B"), so grids/results are not
+ *   confined to a single section;
+ * - section A's grid left `SUBMITTED`, section B's left `DRAFT` — the
+ *   progress screen needs at least one grid still outstanding to show
+ *   anything;
+ * - one `PUBLISHED` result (section A's roll 1), pinned against the demo
+ *   BD NCTB scale `ensureGradingDemoSeed` already seeded, so the portal is
+ *   not empty for `parent@biddaloy.test`'s linked child.
+ */
+export interface ExamsDemoSeedRepositories {
+  subjectRepository: Repository<Subject>;
+  examRepository: Repository<Exam>;
+  examComponentRepository: Repository<ExamComponent>;
+  markGridRepository: Repository<MarkGrid>;
+  markRepository: Repository<Mark>;
+  resultRepository: Repository<Result>;
+  resultSubjectRepository: Repository<ResultSubject>;
+}
+
+export interface ExamsDemoSeedParams {
+  schoolId: string;
+  academicYearId: string;
+  classId: string;
+  /** "Class 6" section "A" and "B" ids, in that order. */
+  sectionIds: readonly [string, string];
+  /** Each section's students, in roll-number order — index 0 is roll 1. */
+  sectionStudentIds: readonly [readonly string[], readonly string[]];
+  gradingScaleId: string;
+  gradingScaleRevision: number;
+}
+
+export interface ExamsDemoSeedResult {
+  exams: number;
+  components: number;
+  grids: number;
+  marks: number;
+  results: number;
+}
+
+/** Idempotent, same find-or-create shape as every other `ensure*` in this
+ * file. Everything is scoped to `params.schoolId`. */
+export async function ensureExamsDemoSeed(
+  repos: ExamsDemoSeedRepositories,
+  params: ExamsDemoSeedParams,
+): Promise<ExamsDemoSeedResult> {
+  const { schoolId, academicYearId, classId, sectionIds, sectionStudentIds } = params;
+  const result: ExamsDemoSeedResult = { exams: 0, components: 0, grids: 0, marks: 0, results: 0 };
+
+  // --- subjects (reuse the attendance seed's MATH/ENG if present) -------
+  async function ensureSubject(code: string, nameEn: string, nameBn: string): Promise<Subject> {
+    let subject = await findLivePreferred(repos.subjectRepository, { tenant_id: schoolId, code });
+    if (!subject) {
+      subject = repos.subjectRepository.create({
+        tenant_id: schoolId,
+        code,
+        name_en: nameEn,
+        name_bn: nameBn,
+      });
+      await repos.subjectRepository.save(subject);
+    } else if (subject.deleted_at) {
+      await repos.subjectRepository.save(undelete(subject));
+    }
+    return subject;
+  }
+  const math = await ensureSubject('MATH', 'Mathematics', 'গণিত');
+  const english = await ensureSubject('ENG', 'English', 'ইংরেজি');
+
+  // --- exam ---------------------------------------------------------------
+  let exam = await repos.examRepository.findOne({
+    where: {
+      tenant_id: schoolId,
+      academic_year_id: academicYearId,
+      class_id: classId,
+      name: 'First Term Exam',
+    },
+    withDeleted: true,
+  });
+  if (!exam) {
+    exam = repos.examRepository.create({
+      tenant_id: schoolId,
+      academic_year_id: academicYearId,
+      class_id: classId,
+      academic_term_id: null,
+      name: 'First Term Exam',
+      kind: ExamKind.TERM,
+      status: ExamStatus.PROCESSED,
+      published_at: null,
+    });
+    await repos.examRepository.save(exam);
+    result.exams += 1;
+  } else if (exam.deleted_at) {
+    await repos.examRepository.save(undelete(exam));
+  }
+
+  // --- components: MATH written, ENG written, MATH attendance (DERIVED) -
+  const componentSpecs: {
+    subject: Subject;
+    name: string;
+    kind: ExamComponentKind;
+    source: ExamComponentSource;
+    fullMarks: string;
+    sequence: number;
+  }[] = [
+    {
+      subject: math,
+      name: 'Written',
+      kind: ExamComponentKind.WRITTEN,
+      source: ExamComponentSource.MANUAL,
+      fullMarks: '100.00',
+      sequence: 1,
+    },
+    {
+      subject: english,
+      name: 'Written',
+      kind: ExamComponentKind.WRITTEN,
+      source: ExamComponentSource.MANUAL,
+      fullMarks: '100.00',
+      sequence: 1,
+    },
+    {
+      subject: math,
+      name: 'Attendance',
+      kind: ExamComponentKind.ATTENDANCE,
+      source: ExamComponentSource.DERIVED,
+      fullMarks: '10.00',
+      sequence: 2,
+    },
+  ];
+  const components: ExamComponent[] = [];
+  for (const spec of componentSpecs) {
+    let component = await repos.examComponentRepository.findOne({
+      where: { exam_id: exam.id, subject_id: spec.subject.id, name: spec.name },
+      withDeleted: true,
+    });
+    if (!component) {
+      component = repos.examComponentRepository.create({
+        tenant_id: schoolId,
+        exam_id: exam.id,
+        subject_id: spec.subject.id,
+        name: spec.name,
+        kind: spec.kind,
+        source: spec.source,
+        full_marks: spec.fullMarks,
+        pass_marks: spec.source === ExamComponentSource.MANUAL ? '33.00' : null,
+        sequence: spec.sequence,
+      });
+      await repos.examComponentRepository.save(component);
+      result.components += 1;
+    } else if (component.deleted_at) {
+      await repos.examComponentRepository.save(undelete(component));
+    }
+    components.push(component);
+  }
+
+  // --- grids: section A submitted, section B left DRAFT -----------------
+  const gridStates: readonly MarkGridState[] = [MarkGridState.SUBMITTED, MarkGridState.DRAFT];
+  for (const [index, sectionId] of sectionIds.entries()) {
+    for (const subject of [math, english]) {
+      let grid = await repos.markGridRepository.findOne({
+        where: { exam_id: exam.id, section_id: sectionId, subject_id: subject.id },
+      });
+      if (!grid) {
+        grid = repos.markGridRepository.create({
+          tenant_id: schoolId,
+          exam_id: exam.id,
+          section_id: sectionId,
+          subject_id: subject.id,
+          state: gridStates[index],
+          submitted_by: null,
+          submitted_at:
+            gridStates[index] === MarkGridState.SUBMITTED
+              ? new Date('2026-02-01T00:00:00.000Z')
+              : null,
+        });
+        await repos.markGridRepository.save(grid);
+        result.grids += 1;
+      }
+    }
+  }
+
+  // --- marks: every student, MATH written + ENG written; roll 1 of
+  // section A's roll 2 is deliberately ABSENT (D10) --------------------
+  for (const [sectionIndex, studentIds] of sectionStudentIds.entries()) {
+    for (const [studentIndex, studentId] of studentIds.entries()) {
+      for (const component of [components[0], components[1]]) {
+        const isAbsent = sectionIndex === 0 && studentIndex === 1;
+        const existing = await repos.markRepository.findOne({
+          where: { exam_id: exam.id, student_id: studentId, component_id: component.id },
+        });
+        if (existing) continue;
+        await repos.markRepository.save(
+          repos.markRepository.create({
+            tenant_id: schoolId,
+            exam_id: exam.id,
+            student_id: studentId,
+            subject_id: component.subject_id,
+            component_id: component.id,
+            value: isAbsent ? null : '78.50',
+            status: isAbsent ? MarkStatus.ABSENT : MarkStatus.PRESENT,
+            entered_by: null,
+          }),
+        );
+        result.marks += 1;
+      }
+    }
+  }
+
+  // --- one published result: section A, roll 1 --------------------------
+  const publishedStudentId = sectionStudentIds[0][0];
+  if (publishedStudentId) {
+    let publishedResult = await repos.resultRepository.findOne({
+      where: { exam_id: exam.id, student_id: publishedStudentId },
+      withDeleted: true,
+    });
+    if (!publishedResult) {
+      publishedResult = repos.resultRepository.create({
+        tenant_id: schoolId,
+        exam_id: exam.id,
+        student_id: publishedStudentId,
+        total_marks: '167.00',
+        gpa: '4.50',
+        grade: 'A',
+        position: 1,
+        is_fail: false,
+        grading_scale_id: params.gradingScaleId,
+        grading_scale_revision: params.gradingScaleRevision,
+        rule_version: 'nctb-2026.1',
+        computed_at: new Date('2026-02-10T00:00:00.000Z'),
+        published_at: new Date('2026-02-11T00:00:00.000Z'),
+      });
+      await repos.resultRepository.save(publishedResult);
+      result.results += 1;
+
+      for (const [subject, obtained] of [
+        [math, '89.00'],
+        [english, '78.00'],
+      ] as const) {
+        const existingLine = await repos.resultSubjectRepository.findOne({
+          where: { result_id: publishedResult.id, subject_id: subject.id },
+        });
+        if (!existingLine) {
+          await repos.resultSubjectRepository.save(
+            repos.resultSubjectRepository.create({
+              tenant_id: schoolId,
+              result_id: publishedResult.id,
+              subject_id: subject.id,
+              obtained,
+              grade: 'A',
+              gpa: '4.50',
+              is_fail: false,
+              is_fourth_subject: false,
+            }),
+          );
+        }
+      }
+    } else if (publishedResult.deleted_at) {
+      await repos.resultRepository.save(undelete(publishedResult));
+    }
+  }
+
+  if (result.exams + result.components + result.grids + result.marks + result.results > 0) {
+    console.log(
+      `  Exams demo seed: +${result.exams} exams, +${result.components} components, ` +
+        `+${result.grids} grids, +${result.marks} marks, +${result.results} results`,
     );
   }
   return result;

@@ -24,6 +24,12 @@ import { AttendanceDevice } from '../modules/attendance/entities/attendance-devi
 import { ClassSubject } from '../modules/academics/entities/class-subject.entity';
 import { GradingScale } from '../modules/grading/entities/grading-scale.entity';
 import { GradingBand } from '../modules/grading/entities/grading-band.entity';
+import { Exam } from '../modules/exams/entities/exam.entity';
+import { ExamComponent } from '../modules/exams/entities/exam-component.entity';
+import { Mark } from '../modules/exams/entities/mark.entity';
+import { MarkGrid } from '../modules/exams/entities/mark-grid.entity';
+import { Result } from '../modules/exams/entities/result.entity';
+import { ResultSubject } from '../modules/exams/entities/result-subject.entity';
 import { DEV_SEED_PLATFORM_TENANT_ID } from '../config/env.validation';
 import { seedAccounts } from './seed.accounts';
 import { ensureDemoOrganisation } from './seed.util';
@@ -132,6 +138,12 @@ export async function seed() {
       classSubjectRepository: dataSource.getRepository(ClassSubject),
       gradingScaleRepository: dataSource.getRepository(GradingScale),
       gradingBandRepository: dataSource.getRepository(GradingBand),
+      examRepository: dataSource.getRepository(Exam),
+      examComponentRepository: dataSource.getRepository(ExamComponent),
+      markGridRepository: dataSource.getRepository(MarkGrid),
+      markRepository: dataSource.getRepository(Mark),
+      resultRepository: dataSource.getRepository(Result),
+      resultSubjectRepository: dataSource.getRepository(ResultSubject),
     },
     school,
     adminEmail,
