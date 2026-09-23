@@ -5,6 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { ExamComponentsService } from './exam-components.service';
 import { Exam } from './entities/exam.entity';
 import { ExamComponent } from './entities/exam-component.entity';
+import { Subject } from '../academics/entities/subject.entity';
 import { AuditService } from '../audit/audit.service';
 import { ExamComponentKind, ExamComponentSource } from '@biddaloy/shared';
 
@@ -53,6 +54,15 @@ function component(overrides: Partial<ExamComponent> = {}): ExamComponent {
 async function buildService(existing: ExamComponent[] = []) {
   const examRepo = { findOne: vi.fn(async () => ({ id: 'exam-1', tenant_id: TENANT_ID })) };
   const componentRepo = createComponentRepoStub(existing);
+  // Default: any subject_id/target_subject_ids requested belongs to the
+  // tenant — matches every existing test's fixture data, so only the
+  // IDOR-guard-specific tests below need to override this.
+  const subjectRepo: any = {
+    findOne: vi.fn(async ({ where }: any) => ({ id: where.id, tenant_id: where.tenant_id })),
+    find: vi.fn(async ({ where }: any) =>
+      (where.id.value as string[]).map((id: string) => ({ id, tenant_id: TENANT_ID })),
+    ),
+  };
   const auditService = { record: vi.fn(async () => undefined) };
 
   const moduleRef = await Test.createTestingModule({
@@ -60,11 +70,18 @@ async function buildService(existing: ExamComponent[] = []) {
       ExamComponentsService,
       { provide: getRepositoryToken(Exam), useValue: examRepo },
       { provide: getRepositoryToken(ExamComponent), useValue: componentRepo },
+      { provide: getRepositoryToken(Subject), useValue: subjectRepo },
       { provide: AuditService, useValue: auditService },
     ],
   }).compile();
 
-  return { service: moduleRef.get(ExamComponentsService), examRepo, componentRepo, auditService };
+  return {
+    service: moduleRef.get(ExamComponentsService),
+    examRepo,
+    componentRepo,
+    subjectRepo,
+    auditService,
+  };
 }
 
 describe('ExamComponentsService validation (issue rules #2, #5)', () => {
@@ -278,5 +295,61 @@ describe('ExamComponentsService.copy (issue rule #3)', () => {
     );
 
     expect(result.copied).toEqual([{ subject_id: 'subj-1', name: 'Viva' }]);
+  });
+
+  it("rejects a target_subject_id that doesn't belong to the tenant (IDOR)", async () => {
+    const { service, subjectRepo } = await buildService([]);
+    subjectRepo.find = vi.fn(async () => []);
+
+    await expect(
+      service.copy(
+        'exam-1',
+        {
+          source_exam_id: 'exam-1',
+          source_subject_id: 'subj-1',
+          target_subject_ids: ['other-tenant-subject'],
+        } as any,
+        TENANT_ID,
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+});
+
+describe('ExamComponentsService tenant-reference guard (IDOR)', () => {
+  it("rejects a subject_id that doesn't belong to the tenant on create", async () => {
+    const { service, subjectRepo } = await buildService([]);
+    subjectRepo.findOne = vi.fn(async () => null);
+
+    await expect(
+      service.create(
+        'exam-1',
+        {
+          subject_id: 'other-tenant-subject',
+          name: 'Written',
+          kind: ExamComponentKind.WRITTEN,
+          full_marks: '100',
+          sequence: 1,
+        } as any,
+        TENANT_ID,
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('rejects a duplicate component name within the same exam-subject', async () => {
+    const { service } = await buildService([component({ name: 'Written', sequence: 1 })]);
+
+    await expect(
+      service.create(
+        'exam-1',
+        {
+          subject_id: 'subj-1',
+          name: 'Written',
+          kind: ExamComponentKind.MCQ,
+          full_marks: '50',
+          sequence: 2,
+        } as any,
+        TENANT_ID,
+      ),
+    ).rejects.toThrow(ConflictException);
   });
 });

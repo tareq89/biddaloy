@@ -1,12 +1,28 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, QueryFailedError } from 'typeorm';
 import { AuditAction } from '@biddaloy/shared';
 import { Exam } from './entities/exam.entity';
 import { Mark } from './entities/mark.entity';
+import { Class } from '../academics/entities/class.entity';
+import { AcademicYear } from '../academics/entities/academic-year.entity';
+import { AcademicTerm } from '../calendar/entities/academic-term.entity';
 import { CreateExamDto, UpdateExamDto, QueryExamDto } from './dto/exams.dto';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
+
+/** Postgres unique-violation code — used to turn a race-condition insert
+ * conflict into a 409 instead of letting it fall through to a raw 500. */
+const PG_UNIQUE_VIOLATION = '23505';
+
+function isUniqueViolation(err: unknown): boolean {
+  return err instanceof QueryFailedError && (err as any).code === PG_UNIQUE_VIOLATION;
+}
 
 @Injectable()
 export class ExamsService {
@@ -15,8 +31,61 @@ export class ExamsService {
     private readonly repo: Repository<Exam>,
     @InjectRepository(Mark)
     private readonly markRepo: Repository<Mark>,
+    @InjectRepository(Class)
+    private readonly classRepo: Repository<Class>,
+    @InjectRepository(AcademicYear)
+    private readonly yearRepo: Repository<AcademicYear>,
+    @InjectRepository(AcademicTerm)
+    private readonly termRepo: Repository<AcademicTerm>,
     private readonly auditService: AuditService,
   ) {}
+
+  /** IDOR guard: every client-supplied foreign key on an Exam must belong
+   * to the caller's own tenant, and a class must belong to the given
+   * year, and a term (if any) must belong to that same year — the
+   * migration's FKs are single-column and don't themselves enforce
+   * tenant or cross-reference consistency. */
+  private async assertReferencesBelongToTenant(
+    tenantId: string,
+    refs: { classId: string; academicYearId: string; academicTermId?: string | null },
+  ): Promise<void> {
+    const cls = await this.classRepo.findOne({
+      where: { id: refs.classId, tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    if (!cls) {
+      throw new BadRequestException(`Class "${refs.classId}" not found for this tenant.`);
+    }
+    if (cls.academic_year_id !== refs.academicYearId) {
+      throw new BadRequestException(
+        `Class "${refs.classId}" does not belong to academic year "${refs.academicYearId}".`,
+      );
+    }
+
+    const year = await this.yearRepo.findOne({
+      where: { id: refs.academicYearId, tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    if (!year) {
+      throw new BadRequestException(
+        `Academic year "${refs.academicYearId}" not found for this tenant.`,
+      );
+    }
+
+    if (refs.academicTermId) {
+      const term = await this.termRepo.findOne({
+        where: {
+          id: refs.academicTermId,
+          tenant_id: tenantId,
+          academic_year_id: refs.academicYearId,
+          deleted_at: IsNull(),
+        },
+      });
+      if (!term) {
+        throw new BadRequestException(
+          `Academic term "${refs.academicTermId}" not found for this tenant/year.`,
+        );
+      }
+    }
+  }
 
   async create(
     dto: CreateExamDto,
@@ -24,40 +93,55 @@ export class ExamsService {
     userId: string | null = null,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<Exam> {
-    return this.repo.manager.transaction(async (manager) => {
-      const repo = manager.getRepository(Exam);
-      const entity = repo.create({
-        name: dto.name,
-        kind: dto.kind,
-        academic_year_id: dto.academic_year_id,
-        class_id: dto.class_id,
-        academic_term_id: dto.academic_term_id ?? null,
-        tenant_id: tenantId,
-      });
-      const saved = await repo.save(entity);
-
-      await this.auditService.record(
-        {
-          action: AuditAction.CREATE,
-          entity_type: 'Exam',
-          entity_id: saved.id,
-          tenant_id: tenantId,
-          performed_by_user_id: userId,
-          ip_address: context.ip,
-          user_agent: context.userAgent,
-          old_values: null,
-          new_values: {
-            name: saved.name,
-            kind: saved.kind,
-            academic_year_id: saved.academic_year_id,
-            class_id: saved.class_id,
-          },
-        },
-        manager,
-      );
-
-      return saved;
+    await this.assertReferencesBelongToTenant(tenantId, {
+      classId: dto.class_id,
+      academicYearId: dto.academic_year_id,
+      academicTermId: dto.academic_term_id,
     });
+
+    try {
+      return await this.repo.manager.transaction(async (manager) => {
+        const repo = manager.getRepository(Exam);
+        const entity = repo.create({
+          name: dto.name,
+          kind: dto.kind,
+          academic_year_id: dto.academic_year_id,
+          class_id: dto.class_id,
+          academic_term_id: dto.academic_term_id ?? null,
+          tenant_id: tenantId,
+        });
+        const saved = await repo.save(entity);
+
+        await this.auditService.record(
+          {
+            action: AuditAction.CREATE,
+            entity_type: 'Exam',
+            entity_id: saved.id,
+            tenant_id: tenantId,
+            performed_by_user_id: userId,
+            ip_address: context.ip,
+            user_agent: context.userAgent,
+            old_values: null,
+            new_values: {
+              name: saved.name,
+              kind: saved.kind,
+              academic_year_id: saved.academic_year_id,
+              class_id: saved.class_id,
+            },
+          },
+          manager,
+        );
+
+        return saved;
+      });
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw new ConflictException(
+          `An exam named "${dto.name}" already exists for this class and academic year.`,
+        );
+      }
+      throw err;
+    }
   }
 
   async findAll(
@@ -121,31 +205,57 @@ export class ExamsService {
       }
     }
 
+    // Same IDOR guard as create() — re-validated whenever any of these
+    // three fields is present in the PATCH, even the ones that didn't
+    // "change" from the exam's own recorded value, since a caller could
+    // otherwise smuggle in a same-value-looking id from another tenant.
+    if (
+      dto.class_id !== undefined ||
+      dto.academic_year_id !== undefined ||
+      dto.academic_term_id !== undefined
+    ) {
+      await this.assertReferencesBelongToTenant(tenantId, {
+        classId: dto.class_id ?? existing.class_id,
+        academicYearId: dto.academic_year_id ?? existing.academic_year_id,
+        academicTermId:
+          dto.academic_term_id !== undefined ? dto.academic_term_id : existing.academic_term_id,
+      });
+    }
+
     const changedKeys = Object.keys(dto);
     if (changedKeys.length > 0) {
-      await this.repo.manager.transaction(async (manager) => {
-        const repo = manager.getRepository(Exam);
-        const oldValues = Object.fromEntries(
-          changedKeys.map((key) => [key, (existing as any)[key]]),
-        );
+      try {
+        await this.repo.manager.transaction(async (manager) => {
+          const repo = manager.getRepository(Exam);
+          const oldValues = Object.fromEntries(
+            changedKeys.map((key) => [key, (existing as any)[key]]),
+          );
 
-        await repo.update({ id, tenant_id: tenantId }, dto);
+          await repo.update({ id, tenant_id: tenantId }, dto);
 
-        await this.auditService.record(
-          {
-            action: AuditAction.UPDATE,
-            entity_type: 'Exam',
-            entity_id: id,
-            tenant_id: tenantId,
-            performed_by_user_id: userId,
-            ip_address: context.ip,
-            user_agent: context.userAgent,
-            old_values: oldValues,
-            new_values: { ...dto },
-          },
-          manager,
-        );
-      });
+          await this.auditService.record(
+            {
+              action: AuditAction.UPDATE,
+              entity_type: 'Exam',
+              entity_id: id,
+              tenant_id: tenantId,
+              performed_by_user_id: userId,
+              ip_address: context.ip,
+              user_agent: context.userAgent,
+              old_values: oldValues,
+              new_values: { ...dto },
+            },
+            manager,
+          );
+        });
+      } catch (err) {
+        if (isUniqueViolation(err)) {
+          throw new ConflictException(
+            `An exam with this name already exists for this class and academic year.`,
+          );
+        }
+        throw err;
+      }
     }
 
     return this.findOne(id, tenantId);

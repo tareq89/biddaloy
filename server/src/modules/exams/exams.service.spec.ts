@@ -1,10 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
-import { NotFoundException, ConflictException } from '@nestjs/common';
+import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { QueryFailedError } from 'typeorm';
 import { ExamsService } from './exams.service';
 import { Exam } from './entities/exam.entity';
 import { Mark } from './entities/mark.entity';
+import { Class } from '../academics/entities/class.entity';
+import { AcademicYear } from '../academics/entities/academic-year.entity';
+import { AcademicTerm } from '../calendar/entities/academic-term.entity';
 import { AuditService } from '../audit/audit.service';
 import { ExamKind } from '@biddaloy/shared';
 
@@ -36,6 +40,22 @@ function createRepoStub() {
 async function buildService() {
   const examRepo = createRepoStub();
   const markRepo = { count: vi.fn(async () => 0) };
+  // Default: the referenced class exists for the tenant and belongs to
+  // academic year 'y1' — matches every existing test's fixture data, so
+  // only the IDOR-guard-specific tests below need to override this.
+  const classRepo: any = {
+    findOne: vi.fn(async ({ where }: any) => ({
+      id: where.id,
+      tenant_id: where.tenant_id,
+      academic_year_id: 'y1',
+    })),
+  };
+  const yearRepo: any = {
+    findOne: vi.fn(async ({ where }: any) => ({ id: where.id, tenant_id: where.tenant_id })),
+  };
+  const termRepo: any = {
+    findOne: vi.fn(async ({ where }: any) => ({ id: where.id, tenant_id: where.tenant_id })),
+  };
   const auditService = { record: vi.fn(async () => undefined) };
 
   const moduleRef = await Test.createTestingModule({
@@ -43,11 +63,22 @@ async function buildService() {
       ExamsService,
       { provide: getRepositoryToken(Exam), useValue: examRepo },
       { provide: getRepositoryToken(Mark), useValue: markRepo },
+      { provide: getRepositoryToken(Class), useValue: classRepo },
+      { provide: getRepositoryToken(AcademicYear), useValue: yearRepo },
+      { provide: getRepositoryToken(AcademicTerm), useValue: termRepo },
       { provide: AuditService, useValue: auditService },
     ],
   }).compile();
 
-  return { service: moduleRef.get(ExamsService), examRepo, markRepo, auditService };
+  return {
+    service: moduleRef.get(ExamsService),
+    examRepo,
+    markRepo,
+    classRepo,
+    yearRepo,
+    termRepo,
+    auditService,
+  };
 }
 
 describe('ExamsService CRUD', () => {
@@ -189,5 +220,105 @@ describe('ExamsService class/year change guard (issue rule #1)', () => {
     await expect(
       service.update('e1', { class_id: 'c1', academic_year_id: 'y1' } as any, TENANT_ID),
     ).resolves.toBeDefined();
+  });
+});
+
+describe('ExamsService tenant-reference guard (IDOR)', () => {
+  it("rejects a class_id that doesn't belong to the tenant", async () => {
+    const { service, classRepo } = await buildService();
+    classRepo.findOne = vi.fn(async () => null);
+
+    await expect(
+      service.create(
+        {
+          name: 'Term 1',
+          kind: ExamKind.TERM,
+          academic_year_id: 'y1',
+          class_id: 'other-tenant-class',
+        } as any,
+        TENANT_ID,
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('rejects a class whose academic_year_id does not match the given year', async () => {
+    const { service, classRepo } = await buildService();
+    classRepo.findOne = vi.fn(async ({ where }: any) => ({
+      id: where.id,
+      tenant_id: where.tenant_id,
+      academic_year_id: 'y-different',
+    }));
+
+    await expect(
+      service.create(
+        { name: 'Term 1', kind: ExamKind.TERM, academic_year_id: 'y1', class_id: 'c1' } as any,
+        TENANT_ID,
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects an academic_year_id that doesn't belong to the tenant", async () => {
+    const { service, yearRepo } = await buildService();
+    yearRepo.findOne = vi.fn(async () => null);
+
+    await expect(
+      service.create(
+        { name: 'Term 1', kind: ExamKind.TERM, academic_year_id: 'y1', class_id: 'c1' } as any,
+        TENANT_ID,
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("rejects an academic_term_id that doesn't belong to the tenant/year", async () => {
+    const { service, termRepo } = await buildService();
+    termRepo.findOne = vi.fn(async () => null);
+
+    await expect(
+      service.create(
+        {
+          name: 'Term 1',
+          kind: ExamKind.TERM,
+          academic_year_id: 'y1',
+          class_id: 'c1',
+          academic_term_id: 'other-tenant-term',
+        } as any,
+        TENANT_ID,
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('re-validates references on update when class_id/academic_year_id/academic_term_id is present', async () => {
+    const { service, examRepo, classRepo } = await buildService();
+    examRepo.findOne = vi.fn(async () => ({
+      id: 'e1',
+      tenant_id: TENANT_ID,
+      class_id: 'c1',
+      academic_year_id: 'y1',
+    }));
+    classRepo.findOne = vi.fn(async () => null);
+
+    await expect(
+      service.update('e1', { class_id: 'other-tenant-class' } as any, TENANT_ID),
+    ).rejects.toThrow(BadRequestException);
+  });
+});
+
+describe('ExamsService duplicate-name mapping', () => {
+  it('maps a unique-constraint violation on create to 409, not a raw 500', async () => {
+    const { service, examRepo } = await buildService();
+    examRepo.save = vi.fn(async () => {
+      throw new QueryFailedError(
+        'insert',
+        [],
+        Object.assign(new Error('duplicate'), { code: '23505' }),
+      );
+    });
+
+    await expect(
+      service.create(
+        { name: 'Term 1', kind: ExamKind.TERM, academic_year_id: 'y1', class_id: 'c1' } as any,
+        TENANT_ID,
+      ),
+    ).rejects.toThrow(ConflictException);
   });
 });

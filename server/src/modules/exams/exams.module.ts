@@ -10,6 +10,10 @@ import { StudentSubjectChoice } from '../students/entities/student-subject-choic
 import { Student } from '../students/entities/student.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { ClassSubject } from '../academics/entities/class-subject.entity';
+import { Class } from '../academics/entities/class.entity';
+import { AcademicYear } from '../academics/entities/academic-year.entity';
+import { AcademicTerm } from '../calendar/entities/academic-term.entity';
+import { Subject } from '../academics/entities/subject.entity';
 import { AuditModule } from '../audit/audit.module';
 import { ExamsService } from './exams.service';
 import { ExamsController } from './exams.controller';
@@ -40,6 +44,10 @@ import { SubjectChoicesController } from '../students/subject-choices.controller
       Student,
       ClassSection,
       ClassSubject,
+      Class,
+      AcademicYear,
+      AcademicTerm,
+      Subject,
     ]),
     AuditModule,
   ],

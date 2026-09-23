@@ -5,10 +5,11 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, In } from 'typeorm';
 import { AuditAction, ExamComponentKind, ExamComponentSource } from '@biddaloy/shared';
 import { Exam } from './entities/exam.entity';
 import { ExamComponent } from './entities/exam-component.entity';
+import { Subject } from '../academics/entities/subject.entity';
 import {
   CreateExamComponentDto,
   UpdateExamComponentDto,
@@ -29,6 +30,8 @@ export class ExamComponentsService {
     private readonly examRepo: Repository<Exam>,
     @InjectRepository(ExamComponent)
     private readonly repo: Repository<ExamComponent>,
+    @InjectRepository(Subject)
+    private readonly subjectRepo: Repository<Subject>,
     private readonly auditService: AuditService,
   ) {}
 
@@ -42,6 +45,18 @@ export class ExamComponentsService {
     return exam;
   }
 
+  /** IDOR guard: a component's `subject_id` must belong to the caller's
+   * own tenant — the migration's FK is single-column and doesn't itself
+   * enforce that. */
+  private async assertSubjectBelongsToTenant(subjectId: string, tenantId: string): Promise<void> {
+    const subject = await this.subjectRepo.findOne({
+      where: { id: subjectId, tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    if (!subject) {
+      throw new BadRequestException(`Subject "${subjectId}" not found for this tenant.`);
+    }
+  }
+
   /** Shared validation for create/update/copy (issue rules #2 and #5):
    * `pass_marks <= full_marks`, `sequence` unique within exam-subject, and
    * an ATTENDANCE-kind component must be DERIVED with at most one per
@@ -52,6 +67,7 @@ export class ExamComponentsService {
     subjectId: string,
     tenantId: string,
     values: {
+      name: string;
       kind: ExamComponentKind;
       source: ExamComponentSource;
       full_marks: string;
@@ -75,6 +91,16 @@ export class ExamComponentsService {
       where: { exam_id: examId, subject_id: subjectId, tenant_id: tenantId, deleted_at: IsNull() },
     });
     const others = existing.filter((c) => c.id !== excludeId);
+
+    // Mirrors IDX_exam_components_exam_subject_name — checked here too so
+    // create/update 409 with a clear message instead of reaching the DB
+    // and failing with an unmapped 23505 (the copy() method already has
+    // this check; create/update didn't).
+    if (others.some((c) => c.name === values.name)) {
+      throw new ConflictException(
+        `A component named "${values.name}" already exists for this exam-subject.`,
+      );
+    }
 
     if (others.some((c) => c.sequence === values.sequence)) {
       throw new ConflictException(
@@ -100,9 +126,11 @@ export class ExamComponentsService {
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<ExamComponent> {
     await this.findExam(examId, tenantId);
+    await this.assertSubjectBelongsToTenant(dto.subject_id, tenantId);
     const source = dto.source ?? ExamComponentSource.MANUAL;
 
     await this.validate(examId, dto.subject_id, tenantId, {
+      name: dto.name,
       kind: dto.kind,
       source,
       full_marks: dto.full_marks,
@@ -181,6 +209,7 @@ export class ExamComponentsService {
       existing.subject_id,
       tenantId,
       {
+        name: dto.name ?? existing.name,
         kind: dto.kind ?? existing.kind,
         source: dto.source ?? existing.source,
         full_marks: dto.full_marks ?? existing.full_marks,
@@ -271,6 +300,19 @@ export class ExamComponentsService {
     // across exams), see the issue's "source = another subject in the
     // same exam, or the same subject in another exam".
     await this.findExam(dto.source_exam_id, tenantId);
+
+    // IDOR guard: every target must belong to this tenant, checked before
+    // the loop starts rather than inside it — a bad id fails the whole
+    // call up front instead of copying into some tenant-owned targets and
+    // silently skipping (or writing into) one that isn't.
+    const targetSubjects = await this.subjectRepo.find({
+      where: { id: In(dto.target_subject_ids), tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    if (targetSubjects.length !== dto.target_subject_ids.length) {
+      const found = new Set(targetSubjects.map((s) => s.id));
+      const missing = dto.target_subject_ids.filter((id) => !found.has(id));
+      throw new BadRequestException(`Subject(s) not found for this tenant: ${missing.join(', ')}`);
+    }
 
     const sourceComponents = await this.repo.find({
       where: {
