@@ -34,8 +34,12 @@ const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 @ValidatorConstraint({ name: 'recurrenceOffsetForType', async: false })
 class RecurrenceOffsetForTypeConstraint implements ValidatorConstraintInterface {
   validate(value: number | undefined, args: ValidationArguments): boolean {
-    if (value === undefined) return true;
     const recurrence = (args.object as { recurrence?: SlotRecurrence }).recurrence;
+    // MONTHLY has no default offset that means anything — `persist`
+    // defaults an omitted offset to 0, but `occursOn` never matches
+    // offset 0 for MONTHLY, so a MONTHLY slot created without one would
+    // silently never occur. Every other recurrence tolerates omission.
+    if (value === undefined) return recurrence !== SlotRecurrence.MONTHLY;
     switch (recurrence) {
       case SlotRecurrence.WEEKLY:
         return value === 0;
