@@ -217,4 +217,90 @@ describe('CopyRoutineService [21.6.1] D19', () => {
     expect(ctx.savedTeachers).toHaveLength(1);
     expect(ctx.savedTeachers[0].teacher_id).toBe('t-1');
   });
+
+  it('clamps a remapped valid_to that overruns the target year end, instead of dropping the slot', async () => {
+    // Source year is a leap year (366 days), target is not (365) — a
+    // slot valid through the very last day of the source year maps past
+    // the target year's end by one day.
+    const ctx = buildService({
+      targetYear: {
+        id: 'year-2',
+        tenant_id: TENANT_ID,
+        deleted_at: null,
+        start_date: '2027-01-01',
+        end_date: '2027-12-31',
+      },
+      sourceSlots: [{ ...SOURCE_SLOT, valid_from: '2025-01-01', valid_to: '2025-12-31' }],
+      sourceSections: [{ id: 'section-src', class_id: 'class-src', section_name: 'A' }],
+      sourceClasses: [{ id: 'class-src', name: 'Class 6' }],
+      targetClasses: [{ id: 'class-tgt', name: 'Class 6', academic_year_id: 'year-2' }],
+      targetSections: [{ id: 'section-tgt', class_id: 'class-tgt', section_name: 'A' }],
+      subjects: [{ id: 'subject-1', code: 'MATH', deleted_at: null }],
+    });
+
+    const result = await ctx.service.copyToYear(
+      'routine-src',
+      { target_academic_year_id: 'year-2' },
+      TENANT_ID,
+    );
+
+    expect(result.skipped_slot_count).toBe(0);
+    expect(ctx.savedSlots).toHaveLength(1);
+    expect(ctx.savedSlots[0].valid_to).toBe('2027-12-31');
+  });
+
+  it('does not collapse same-named classes that differ only by shift/version', async () => {
+    // Two source classes named "Class 6" — one Morning/A, one Day/B — and
+    // matching target classes. Without shift/version in the map key,
+    // both would collide on the same `Map` entry.
+    const morningSlot = { ...SOURCE_SLOT, id: 'slot-morning', section_id: 'section-morning' };
+    const daySlot = { ...SOURCE_SLOT, id: 'slot-day', section_id: 'section-day' };
+    const ctx = buildService({
+      sourceSlots: [morningSlot, daySlot],
+      sourceSections: [
+        { id: 'section-morning', class_id: 'class-morning', section_name: 'A' },
+        { id: 'section-day', class_id: 'class-day', section_name: 'A' },
+      ],
+      sourceClasses: [
+        { id: 'class-morning', name: 'Class 6', shift: 'Morning', version: null },
+        { id: 'class-day', name: 'Class 6', shift: 'Day', version: null },
+      ],
+      targetClasses: [
+        {
+          id: 'class-tgt-morning',
+          name: 'Class 6',
+          shift: 'Morning',
+          version: null,
+          academic_year_id: 'year-2',
+        },
+        {
+          id: 'class-tgt-day',
+          name: 'Class 6',
+          shift: 'Day',
+          version: null,
+          academic_year_id: 'year-2',
+        },
+      ],
+      targetSections: [
+        { id: 'section-tgt-morning', class_id: 'class-tgt-morning', section_name: 'A' },
+        { id: 'section-tgt-day', class_id: 'class-tgt-day', section_name: 'A' },
+      ],
+      subjects: [{ id: 'subject-1', code: 'MATH', deleted_at: null }],
+    });
+
+    const result = await ctx.service.copyToYear(
+      'routine-src',
+      { target_academic_year_id: 'year-2' },
+      TENANT_ID,
+    );
+
+    expect(result.unmapped_sections).toEqual([]);
+    expect(result.skipped_slot_count).toBe(0);
+    expect(ctx.savedSlots).toHaveLength(2);
+    const bySlotSection = new Map(ctx.savedSlots.map((s: any) => [s.section_id, s]));
+    expect(new Set(ctx.savedSlots.map((s: any) => s.section_id))).toEqual(
+      new Set(['section-tgt-morning', 'section-tgt-day']),
+    );
+    expect(bySlotSection.size).toBe(2);
+  });
 });

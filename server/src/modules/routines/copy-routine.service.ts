@@ -23,25 +23,57 @@ export interface UnmappedSubject {
   code: string;
 }
 
+/** `dateStr` mapped onto `targetYear`, preserving how many days into
+ * `sourceYear` it fell — the raw result, un-clamped, un-bounds-checked. */
+function mapOffset(dateStr: string, sourceYear: AcademicYear, targetYear: AcademicYear): Date {
+  const source = new Date(`${dateStr}T00:00:00Z`);
+  const sourceStart = new Date(sourceYear.start_date);
+  const targetStart = new Date(targetYear.start_date);
+  const offsetDays = Math.round((source.getTime() - sourceStart.getTime()) / 86_400_000);
+  return new Date(targetStart.getTime() + offsetDays * 86_400_000);
+}
+
 /** Maps `dateStr` (a `YYYY-MM-DD` string falling within `sourceYear`) onto
  * the equivalent day of `targetYear`, preserving how far into the source
  * year it fell (in days). Returns `null` if the mapped date would fall
  * outside `targetYear`'s own boundaries — the caller skips that slot
- * rather than saving a date-resolution-breaking out-of-range row. */
+ * rather than saving a date-resolution-breaking out-of-range row. Used
+ * for `valid_from`, which must always land inside the target year;
+ * `valid_to` uses `remapValidTo` below instead, which clamps rather than
+ * nulling out on overrun. */
 function remapDate(
   dateStr: string,
   sourceYear: AcademicYear,
   targetYear: AcademicYear,
 ): string | null {
-  const source = new Date(`${dateStr}T00:00:00Z`);
-  const sourceStart = new Date(sourceYear.start_date);
   const targetStart = new Date(targetYear.start_date);
   const targetEnd = new Date(targetYear.end_date);
-
-  const offsetDays = Math.round((source.getTime() - sourceStart.getTime()) / 86_400_000);
-  const mapped = new Date(targetStart.getTime() + offsetDays * 86_400_000);
+  const mapped = mapOffset(dateStr, sourceYear, targetYear);
   if (mapped.getTime() < targetStart.getTime() || mapped.getTime() > targetEnd.getTime()) {
     return null;
+  }
+  return mapped.toISOString().slice(0, 10);
+}
+
+/** Same mapping as `remapDate`, but for `valid_to`: a mapped date past
+ * `targetYear.end_date` is clamped to `end_date` rather than nulled out
+ * (the source year can be longer than the target year — e.g. 366 vs 365
+ * days — and that alone shouldn't drop the slot). A mapped date before
+ * `targetYear.start_date` still returns `null` — that would mean an
+ * already-invalid range (`valid_to` before the year even starts). */
+function remapValidTo(
+  dateStr: string,
+  sourceYear: AcademicYear,
+  targetYear: AcademicYear,
+): string | null {
+  const targetStart = new Date(targetYear.start_date);
+  const targetEnd = new Date(targetYear.end_date);
+  const mapped = mapOffset(dateStr, sourceYear, targetYear);
+  if (mapped.getTime() < targetStart.getTime()) {
+    return null;
+  }
+  if (mapped.getTime() > targetEnd.getTime()) {
+    return targetEnd.toISOString().slice(0, 10);
   }
   return mapped.toISOString().slice(0, 10);
 }
@@ -177,14 +209,24 @@ export class CopyRoutineService {
 
         // The source dates were valid within `sourceYear`'s boundaries —
         // remapping them means preserving how far into the source year
-        // they fell, applied to the target year's boundaries, then
-        // clamping so a slot never ends up before its year starts or
-        // after it ends.
+        // they fell, applied to the target year's boundaries. Only
+        // `valid_from` falling outside the target year is reason to skip
+        // the slot; a `valid_to` that overruns the target year's end
+        // (source year longer than target, e.g. 366 vs 365 days) is
+        // clamped to `targetYear.end_date` instead, as long as
+        // `valid_from` is still within it.
         const remappedFrom = remapDate(slot.valid_from, sourceYear, targetYear);
-        const remappedTo = slot.valid_to ? remapDate(slot.valid_to, sourceYear, targetYear) : null;
-        if (remappedFrom === null || (slot.valid_to && remappedTo === null)) {
+        if (remappedFrom === null) {
           skippedSlotCount += 1;
           continue;
+        }
+        let remappedTo: string | null = null;
+        if (slot.valid_to) {
+          remappedTo = remapValidTo(slot.valid_to, sourceYear, targetYear);
+          if (remappedTo === null) {
+            skippedSlotCount += 1;
+            continue;
+          }
         }
 
         const newSlot = await slotRepo.save(
@@ -279,16 +321,23 @@ export class CopyRoutineService {
     const targetSections = await this.sectionRepo.find({
       where: { class_id: In(targetClasses.map((c) => c.id)), tenant_id: tenantId },
     });
+    // [33.0] Same-named classes can coexist in one academic year when
+    // `shift`/`version` differ — the key must include them too, or
+    // distinct classes collapse onto the same map entry and a slot maps
+    // to the wrong section.
     const targetSectionByKey = new Map<string, string>(
       targetSections.map((s) => {
         const targetClass = targetClasses.find((c) => c.id === s.class_id);
-        return [`${targetClass?.name}|${s.section_name}`, s.id];
+        return [
+          `${targetClass?.name}|${targetClass?.shift ?? ''}|${targetClass?.version ?? ''}|${s.section_name}`,
+          s.id,
+        ];
       }),
     );
 
     for (const section of sourceSections) {
       const cls = classById.get(section.class_id);
-      const key = `${cls?.name}|${section.section_name}`;
+      const key = `${cls?.name}|${cls?.shift ?? ''}|${cls?.version ?? ''}|${section.section_name}`;
       const targetSectionId = targetSectionByKey.get(key);
       if (targetSectionId) {
         sectionMap.set(section.id, targetSectionId);
