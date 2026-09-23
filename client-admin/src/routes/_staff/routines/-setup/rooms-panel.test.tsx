@@ -1,7 +1,8 @@
 import '@biddaloy/ui/test';
 
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -55,5 +56,54 @@ describe('RoomsPanel', () => {
     expect(
       await screen.findByText(/still reference it/, { selector: '[role="alert"]' }),
     ).toBeTruthy();
+  });
+
+  it('shows the — placeholder for a room with no building/capacity, and adds a new room', async () => {
+    const BARE_ROOM = { id: 'room-2', building: null, room_no: '202', capacity: null };
+    server.use(
+      http.get('*/routines/rooms', () =>
+        HttpResponse.json({ data: [BARE_ROOM], total: 1, page: 1, limit: 100, totalPages: 1 }),
+      ),
+      http.post('*/routines/rooms', () =>
+        HttpResponse.json({ id: 'room-3', building: null, room_no: '303', capacity: null }),
+      ),
+    );
+
+    renderWithProviders(<RoomsPanel />, { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID });
+
+    expect(await screen.findByText('202')).toBeTruthy();
+    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2);
+
+    const user = userEvent.setup();
+    const roomNoInput = screen.getByLabelText('Room no.');
+    await user.type(roomNoInput, '303');
+    await user.click(screen.getByRole('button', { name: 'Add room' }));
+
+    await waitFor(() => expect((roomNoInput as HTMLInputElement).value).toBe(''));
+  });
+
+  it('adds a room with a building and capacity filled in', async () => {
+    let posted: unknown = null;
+    server.use(
+      http.get('*/routines/rooms', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 1 }),
+      ),
+      http.post('*/routines/rooms', async ({ request }) => {
+        posted = await request.json();
+        return HttpResponse.json({ id: 'room-4', building: 'Annex', room_no: '404', capacity: 25 });
+      }),
+    );
+
+    renderWithProviders(<RoomsPanel />, { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID });
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText('Building'), 'Annex');
+    await user.type(screen.getByLabelText('Room no.'), '404');
+    await user.type(screen.getByLabelText('Capacity'), '25');
+    await user.click(screen.getByRole('button', { name: 'Add room' }));
+
+    await waitFor(() =>
+      expect(posted).toEqual({ building: 'Annex', room_no: '404', capacity: 25 }),
+    );
   });
 });
