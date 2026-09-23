@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { PeriodSlotKind, SlotRecurrence } from '@biddaloy/shared';
 import { RoutineSlotsService } from './routine-slots.service';
 import { RoutineSlot } from './entities/routine-slot.entity';
@@ -185,5 +185,36 @@ describe('RoutineSlotsService [21.4.1]', () => {
     expect(newRow).toBeDefined();
     expect(newRow.subject_id).toBe('subject-2');
     expect(newRow.valid_from).toBe('2026-06-01');
+  });
+
+  it("update() rejects a valid_from at or before the old row's valid_from", async () => {
+    const created = await ctx.service.create(ROUTINE_ID, baseDto as any, TENANT_ID);
+    await expect(
+      ctx.service.update(
+        created.slot.id,
+        { ...baseDto, valid_from: baseDto.valid_from } as any,
+        TENANT_ID,
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('update() rejects re-editing a row that was already superseded by a later edit', async () => {
+    const created = await ctx.service.create(ROUTINE_ID, baseDto as any, TENANT_ID);
+    // First edit closes the original row at 2026-05-31 and opens a new one.
+    await ctx.service.update(
+      created.slot.id,
+      { ...baseDto, valid_from: '2026-06-01' } as any,
+      TENANT_ID,
+    );
+    // Editing the now-superseded original row again, with a valid_from
+    // that falls after its valid_to, must be rejected rather than
+    // silently reopening/overwriting the closed row.
+    await expect(
+      ctx.service.update(
+        created.slot.id,
+        { ...baseDto, valid_from: '2026-09-01' } as any,
+        TENANT_ID,
+      ),
+    ).rejects.toThrow(ConflictException);
   });
 });
