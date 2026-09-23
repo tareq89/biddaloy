@@ -125,6 +125,18 @@ describe('AddExamsMarksResults1789800012000 (integration)', () => {
       `INSERT INTO "class_subjects" (id, tenant_id, class_id, subject_id, academic_year_id) VALUES (gen_random_uuid(), $1, $2, $3, $4) RETURNING id`,
       [TENANT_ID, SEED_CLASS_1_ID, subject3.id, SEED_ACADEMIC_YEAR_ID],
     );
+    // First non-fourth choice — inserted before the assertion below so the
+    // test actually exercises "a *second* non-fourth choice succeeds",
+    // not just "one succeeds". Without this row, the index would still
+    // let this test pass even if it wrongly rejected a second is_fourth
+    // = false row for the same student/year (it doesn't — the partial
+    // index only covers is_fourth = true — but the test wasn't proving
+    // that before).
+    await dataSource.query(
+      `INSERT INTO "student_subject_choices" (id, tenant_id, student_id, class_subject_id, academic_year_id, is_fourth) VALUES (gen_random_uuid(), $1, $2, $3, $4, false)`,
+      [TENANT_ID, studentId, classSubjectId, SEED_ACADEMIC_YEAR_ID],
+    );
+
     const [choice] = await dataSource.query(
       `INSERT INTO "student_subject_choices" (id, tenant_id, student_id, class_subject_id, academic_year_id, is_fourth) VALUES (gen_random_uuid(), $1, $2, $3, $4, false) RETURNING id`,
       [TENANT_ID, studentId, classSubject3.id, SEED_ACADEMIC_YEAR_ID],
