@@ -274,3 +274,131 @@ export function useSetSubjectChoice(studentId: string, academicYearId: string | 
       }),
   });
 }
+
+// --- Marks grid [19.7.1] ---
+
+export type MarkStatus = 'PRESENT' | 'ABSENT' | 'EXEMPT';
+export type MarkGridState = 'DRAFT' | 'SUBMITTED';
+
+export interface MarkGridStudent {
+  id: string;
+  roll_number: number;
+  full_name: string;
+}
+
+export interface MarkGridComponent {
+  id: string;
+  name: string;
+  kind: string;
+  source: 'MANUAL' | 'DERIVED';
+  full_marks: string;
+  pass_marks: string | null;
+  sequence: number;
+}
+
+export interface MarkGridCell {
+  student_id: string;
+  component_id: string;
+  value: string | null;
+  status: MarkStatus;
+}
+
+export interface MarkGrid {
+  exam_id: string;
+  section_id: string;
+  subject_id: string;
+  state: MarkGridState;
+  submitted_by: string | null;
+  submitted_at: string | null;
+  students: MarkGridStudent[];
+  components: MarkGridComponent[];
+  cells: MarkGridCell[];
+  derived: Record<string, { reason: string | null; values: Record<string, string | null> }>;
+}
+
+export function markGridKey(
+  examId: string | undefined,
+  sectionId: string | undefined,
+  subjectId: string | undefined,
+) {
+  return [...examKeys.all, 'marks-grid', examId, sectionId, subjectId] as const;
+}
+
+export function markGridQueryOptions(
+  examId: string | undefined,
+  sectionId: string | undefined,
+  subjectId: string | undefined,
+) {
+  return queryOptions({
+    queryKey: markGridKey(examId, sectionId, subjectId),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<MarkGrid>(`/exams/${examId}/marks`, {
+        params: { section_id: sectionId, subject_id: subjectId },
+        signal,
+      });
+      return res.data;
+    },
+    enabled: examId !== undefined && sectionId !== undefined && subjectId !== undefined,
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useMarkGrid(
+  examId: string | undefined,
+  sectionId: string | undefined,
+  subjectId: string | undefined,
+) {
+  return useQuery(markGridQueryOptions(examId, sectionId, subjectId));
+}
+
+export interface SavedMarkCell extends MarkGridCell {
+  saved_at: string;
+}
+
+/** Not a `useMutation` — `autosave.ts` owns its own retry/backoff loop
+ * (D19), so this is a plain async function the grid/stepper pass as that
+ * hook's `save` callback rather than TanStack Query's single-shot retry. */
+export function saveMarkBatch(
+  examId: string,
+  sectionId: string,
+  subjectId: string,
+  cells: MarkGridCell[],
+): Promise<{ cells: SavedMarkCell[] }> {
+  return apiClient
+    .patch<{ cells: SavedMarkCell[] }>(`/exams/${examId}/marks`, {
+      section_id: sectionId,
+      subject_id: subjectId,
+      cells,
+    })
+    .then((res) => res.data);
+}
+
+export function useSubmitMarkGrid(examId: string, sectionId: string, subjectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiClient.post<MarkGrid>(`/exams/${examId}/marks/submit`, {
+        section_id: sectionId,
+        subject_id: subjectId,
+      });
+      return res.data;
+    },
+    onSuccess: () =>
+      void queryClient.invalidateQueries({ queryKey: markGridKey(examId, sectionId, subjectId) }),
+  });
+}
+
+export function useReopenMarkGrid(examId: string, sectionId: string, subjectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiClient.post<MarkGrid>(`/exams/${examId}/marks/reopen`, {
+        section_id: sectionId,
+        subject_id: subjectId,
+      });
+      return res.data;
+    },
+    onSuccess: () =>
+      void queryClient.invalidateQueries({ queryKey: markGridKey(examId, sectionId, subjectId) }),
+  });
+}

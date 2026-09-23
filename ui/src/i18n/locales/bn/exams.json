@@ -123,5 +123,55 @@
     "empty": "এই শিক্ষার্থীর ক্লাসের জন্য কোনো ঐচ্ছিক বিষয় নেই।",
     "label": "চতুর্থ বিষয়",
     "errorMessage": "নির্বাচন সংরক্ষণ করা যায়নি।"
+  },
+  "marksList": {
+    "title": "মার্ক এন্ট্রি",
+    "examLabel": "পরীক্ষা",
+    "examPlaceholder": "একটি পরীক্ষা নির্বাচন করুন",
+    "stateFilterLabel": "অবস্থা অনুযায়ী ফিল্টার করুন",
+    "stateAll": "সব",
+    "stateDraft": "খসড়া",
+    "stateSubmitted": "জমাকৃত",
+    "tableCaption": "আপনি যেসব গ্রিডে মার্ক দিতে পারবেন",
+    "columnSection": "সেকশন · বিষয়",
+    "columnState": "অবস্থা",
+    "loadError": "গ্রিড লোড করা যায়নি।",
+    "empty": "এই পরীক্ষার জন্য এখনো কোনো গ্রিড নেই — কম্পোনেন্ট সেটআপ হওয়ার পর আবার দেখুন।",
+    "selectExamHint": "গ্রিড দেখতে একটি পরীক্ষা নির্বাচন করুন।"
+  },
+  "marksGrid": {
+    "caption": "মার্ক এন্ট্রি গ্রিড",
+    "columnStudent": "রোল · নাম",
+    "fullMarks": "/ {{max}}",
+    "cellMax": "সর্বোচ্চ {{max}}",
+    "cellLabel": "{{name}} — {{component}}",
+    "derivedCellLabel": "{{name}} (স্বয়ংক্রিয়, শুধু পঠনযোগ্য)",
+    "rowSaved": "সংরক্ষিত",
+    "absentShort": "অনু",
+    "exemptShort": "মওকুফ",
+    "empty": "এই সেকশনে কোনো শিক্ষার্থী নেই।",
+    "readOnlyBanner": "{{name}} দ্বারা {{time}} তারিখে জমা দেওয়া হয়েছে — শুধু পঠনযোগ্য।",
+    "reopenAction": "পুনরায় খুলুন"
+  },
+  "marksStepper": {
+    "previous": "পূর্ববর্তী",
+    "next": "পরবর্তী",
+    "progress": "{{total}} টির মধ্যে {{current}} টি"
+  },
+  "saveState": {
+    "idle": "এখনো কোনো পরিবর্তন নেই",
+    "saving": "সংরক্ষণ হচ্ছে…",
+    "saved": "সব পরিবর্তন সংরক্ষিত হয়েছে · {{time}}",
+    "error": "{{count}} টি পরিবর্তন সংরক্ষিত হয়নি — পুনরায় চেষ্টা করা হচ্ছে",
+    "navigationBlocked": "আপনার অসংরক্ষিত পরিবর্তন আছে। তবুও চলে যাবেন?",
+    "leaveAnyway": "তবুও চলে যান"
+  },
+  "submitDialog": {
+    "title": "এই গ্রিড জমা দেবেন?",
+    "description": "একবার জমা দিলে, একজন অ্যাডমিন পুনরায় না খোলা পর্যন্ত এই গ্রিড শুধু পঠনযোগ্য থাকবে।",
+    "blankCount": "{{count}} টি খালি সেল যেমন আছে তেমনই জমা হবে।",
+    "cancel": "বাতিল",
+    "confirm": "জমা দিন",
+    "shortcutHint": "Ctrl+Enter"
   }
 }

@@ -127,6 +127,21 @@
       "archetype": "detail"
     },
     {
+      "path": "/marks",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/marks/$examId/$sectionId/$subjectId",
+      "params": {
+        "examId": "seeded",
+        "sectionId": "seeded",
+        "subjectId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
       "path": "/grading-scales",
       "role": "admin",
       "archetype": "list"

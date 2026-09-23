@@ -266,6 +266,9 @@ export {
   examsQueryOptions,
   subjectChoiceOptionsKey,
   subjectChoiceOptionsQueryOptions,
+  markGridKey,
+  markGridQueryOptions,
+  saveMarkBatch,
   useCopyExamComponents,
   useCreateExam,
   useCreateExamComponent,
@@ -275,8 +278,11 @@ export {
   useExamComponentsAll,
   useExamProgress,
   useExams,
+  useMarkGrid,
+  useReopenMarkGrid,
   useSetSubjectChoice,
   useSubjectChoiceOptions,
+  useSubmitMarkGrid,
   useUpdateExam,
   useUpdateExamComponent,
   type CopyExamComponentsInput,
@@ -287,7 +293,14 @@ export {
   type ExamComponent,
   type ExamListFilters,
   type ExamProgress,
+  type MarkGrid,
+  type MarkGridCell,
+  type MarkGridComponent,
+  type MarkGridState,
+  type MarkGridStudent,
+  type MarkStatus,
   type PaginatedExams,
+  type SavedMarkCell,
   type SetSubjectChoiceInput,
   type SubjectChoiceOption,
   type UpdateExamComponentInput,
@@ -537,6 +550,12 @@ export {
   type UseRouteFocusOptions,
 } from './use-route-focus';
 export { useDebouncedValue } from './use-debounce';
+export {
+  useAutosave,
+  type AutosaveResult,
+  type SaveState,
+  type UseAutosaveOptions,
+} from './autosave';
 export { useEntityLabel } from './entity-label';
 export { useContainerWidth } from './use-container-width';
 export {

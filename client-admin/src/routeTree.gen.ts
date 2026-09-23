@@ -60,6 +60,7 @@ import { Route as StaffGuardiansIndexRouteImport } from './routes/_staff/guardia
 import { Route as StaffGuardiansGuardianIdRouteImport } from './routes/_staff/guardians/$guardianId'
 import { Route as StaffInvoicesIndexRouteImport } from './routes/_staff/invoices/index'
 import { Route as StaffInvoicesInvoiceIdRouteImport } from './routes/_staff/invoices/$invoiceId'
+import { Route as StaffMarksIndexRouteImport } from './routes/_staff/marks/index'
 import { Route as StaffPaymentsIndexRouteImport } from './routes/_staff/payments/index'
 import { Route as StaffPaymentsIdRouteImport } from './routes/_staff/payments/$id'
 import { Route as StaffPaymentsRecordRouteImport } from './routes/_staff/payments/record'
@@ -75,6 +76,7 @@ import { Route as StaffCommunicationsBatchesBatchIdRouteImport } from './routes/
 import { Route as StaffFeesSchedulesIndexRouteImport } from './routes/_staff/fees/schedules/index'
 import { Route as StaffFeesSchedulesIdRouteImport } from './routes/_staff/fees/schedules/$id'
 import { Route as StaffStudentsStudentIdEditRouteImport } from './routes/_staff/students/$studentId_.edit'
+import { Route as StaffMarksExamIdSectionIdSubjectIdRouteImport } from './routes/_staff/marks/$examId.$sectionId.$subjectId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -336,6 +338,11 @@ const StaffInvoicesInvoiceIdRoute = StaffInvoicesInvoiceIdRouteImport.update({
   path: '/invoices/$invoiceId',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffMarksIndexRoute = StaffMarksIndexRouteImport.update({
+  id: '/marks/',
+  path: '/marks/',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffPaymentsIndexRoute = StaffPaymentsIndexRouteImport.update({
   id: '/payments/',
   path: '/payments/',
@@ -414,6 +421,12 @@ const StaffStudentsStudentIdEditRoute =
     path: '/students/$studentId/edit',
     getParentRoute: () => StaffRoute,
   } as any)
+const StaffMarksExamIdSectionIdSubjectIdRoute =
+  StaffMarksExamIdSectionIdSubjectIdRouteImport.update({
+    id: '/marks/$examId/$sectionId/$subjectId',
+    path: '/marks/$examId/$sectionId/$subjectId',
+    getParentRoute: () => StaffRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -472,6 +485,7 @@ export interface FileRoutesByFullPath {
   '/grading-scales/': typeof StaffGradingScalesIndexRoute
   '/guardians/': typeof StaffGuardiansIndexRoute
   '/invoices/': typeof StaffInvoicesIndexRoute
+  '/marks/': typeof StaffMarksIndexRoute
   '/payments/': typeof StaffPaymentsIndexRoute
   '/staff/': typeof StaffStaffIndexRoute
   '/students/': typeof StaffStudentsIndexRoute
@@ -480,6 +494,7 @@ export interface FileRoutesByFullPath {
   '/students/$studentId/edit': typeof StaffStudentsStudentIdEditRoute
   '/communications/batches/': typeof StaffCommunicationsBatchesIndexRoute
   '/fees/schedules/': typeof StaffFeesSchedulesIndexRoute
+  '/marks/$examId/$sectionId/$subjectId': typeof StaffMarksExamIdSectionIdSubjectIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -536,6 +551,7 @@ export interface FileRoutesByTo {
   '/grading-scales': typeof StaffGradingScalesIndexRoute
   '/guardians': typeof StaffGuardiansIndexRoute
   '/invoices': typeof StaffInvoicesIndexRoute
+  '/marks': typeof StaffMarksIndexRoute
   '/payments': typeof StaffPaymentsIndexRoute
   '/staff': typeof StaffStaffIndexRoute
   '/students': typeof StaffStudentsIndexRoute
@@ -544,6 +560,7 @@ export interface FileRoutesByTo {
   '/students/$studentId/edit': typeof StaffStudentsStudentIdEditRoute
   '/communications/batches': typeof StaffCommunicationsBatchesIndexRoute
   '/fees/schedules': typeof StaffFeesSchedulesIndexRoute
+  '/marks/$examId/$sectionId/$subjectId': typeof StaffMarksExamIdSectionIdSubjectIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -605,6 +622,7 @@ export interface FileRoutesById {
   '/_staff/grading-scales/': typeof StaffGradingScalesIndexRoute
   '/_staff/guardians/': typeof StaffGuardiansIndexRoute
   '/_staff/invoices/': typeof StaffInvoicesIndexRoute
+  '/_staff/marks/': typeof StaffMarksIndexRoute
   '/_staff/payments/': typeof StaffPaymentsIndexRoute
   '/_staff/staff/': typeof StaffStaffIndexRoute
   '/_staff/students/': typeof StaffStudentsIndexRoute
@@ -613,6 +631,7 @@ export interface FileRoutesById {
   '/_staff/students/$studentId_/edit': typeof StaffStudentsStudentIdEditRoute
   '/_staff/communications/batches/': typeof StaffCommunicationsBatchesIndexRoute
   '/_staff/fees/schedules/': typeof StaffFeesSchedulesIndexRoute
+  '/_staff/marks/$examId/$sectionId/$subjectId': typeof StaffMarksExamIdSectionIdSubjectIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -673,6 +692,7 @@ export interface FileRouteTypes {
     | '/grading-scales/'
     | '/guardians/'
     | '/invoices/'
+    | '/marks/'
     | '/payments/'
     | '/staff/'
     | '/students/'
@@ -681,6 +701,7 @@ export interface FileRouteTypes {
     | '/students/$studentId/edit'
     | '/communications/batches/'
     | '/fees/schedules/'
+    | '/marks/$examId/$sectionId/$subjectId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -737,6 +758,7 @@ export interface FileRouteTypes {
     | '/grading-scales'
     | '/guardians'
     | '/invoices'
+    | '/marks'
     | '/payments'
     | '/staff'
     | '/students'
@@ -745,6 +767,7 @@ export interface FileRouteTypes {
     | '/students/$studentId/edit'
     | '/communications/batches'
     | '/fees/schedules'
+    | '/marks/$examId/$sectionId/$subjectId'
   id:
     | '__root__'
     | '/'
@@ -805,6 +828,7 @@ export interface FileRouteTypes {
     | '/_staff/grading-scales/'
     | '/_staff/guardians/'
     | '/_staff/invoices/'
+    | '/_staff/marks/'
     | '/_staff/payments/'
     | '/_staff/staff/'
     | '/_staff/students/'
@@ -813,6 +837,7 @@ export interface FileRouteTypes {
     | '/_staff/students/$studentId_/edit'
     | '/_staff/communications/batches/'
     | '/_staff/fees/schedules/'
+    | '/_staff/marks/$examId/$sectionId/$subjectId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1188,6 +1213,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffInvoicesInvoiceIdRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/marks/': {
+      id: '/_staff/marks/'
+      path: '/marks'
+      fullPath: '/marks/'
+      preLoaderRoute: typeof StaffMarksIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/payments/': {
       id: '/_staff/payments/'
       path: '/payments'
@@ -1293,6 +1325,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffStudentsStudentIdEditRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/marks/$examId/$sectionId/$subjectId': {
+      id: '/_staff/marks/$examId/$sectionId/$subjectId'
+      path: '/marks/$examId/$sectionId/$subjectId'
+      fullPath: '/marks/$examId/$sectionId/$subjectId'
+      preLoaderRoute: typeof StaffMarksExamIdSectionIdSubjectIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
   }
 }
 
@@ -1371,12 +1410,14 @@ interface StaffRouteChildren {
   StaffGradingScalesIndexRoute: typeof StaffGradingScalesIndexRoute
   StaffGuardiansIndexRoute: typeof StaffGuardiansIndexRoute
   StaffInvoicesIndexRoute: typeof StaffInvoicesIndexRoute
+  StaffMarksIndexRoute: typeof StaffMarksIndexRoute
   StaffPaymentsIndexRoute: typeof StaffPaymentsIndexRoute
   StaffStaffIndexRoute: typeof StaffStaffIndexRoute
   StaffStudentsIndexRoute: typeof StaffStudentsIndexRoute
   StaffCommunicationsBatchesBatchIdRoute: typeof StaffCommunicationsBatchesBatchIdRoute
   StaffStudentsStudentIdEditRoute: typeof StaffStudentsStudentIdEditRoute
   StaffCommunicationsBatchesIndexRoute: typeof StaffCommunicationsBatchesIndexRoute
+  StaffMarksExamIdSectionIdSubjectIdRoute: typeof StaffMarksExamIdSectionIdSubjectIdRoute
 }
 
 const StaffRouteChildren: StaffRouteChildren = {
@@ -1414,6 +1455,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffGradingScalesIndexRoute: StaffGradingScalesIndexRoute,
   StaffGuardiansIndexRoute: StaffGuardiansIndexRoute,
   StaffInvoicesIndexRoute: StaffInvoicesIndexRoute,
+  StaffMarksIndexRoute: StaffMarksIndexRoute,
   StaffPaymentsIndexRoute: StaffPaymentsIndexRoute,
   StaffStaffIndexRoute: StaffStaffIndexRoute,
   StaffStudentsIndexRoute: StaffStudentsIndexRoute,
@@ -1421,6 +1463,8 @@ const StaffRouteChildren: StaffRouteChildren = {
     StaffCommunicationsBatchesBatchIdRoute,
   StaffStudentsStudentIdEditRoute: StaffStudentsStudentIdEditRoute,
   StaffCommunicationsBatchesIndexRoute: StaffCommunicationsBatchesIndexRoute,
+  StaffMarksExamIdSectionIdSubjectIdRoute:
+    StaffMarksExamIdSectionIdSubjectIdRoute,
 }
 
 const StaffRouteWithChildren = StaffRoute._addFileChildren(StaffRouteChildren)

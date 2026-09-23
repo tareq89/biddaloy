@@ -123,5 +123,55 @@
     "empty": "No optional subjects are offered for this student's class.",
     "label": "Fourth subject",
     "errorMessage": "Couldn't save the choice."
+  },
+  "marksList": {
+    "title": "Marks entry",
+    "examLabel": "Exam",
+    "examPlaceholder": "Select an exam",
+    "stateFilterLabel": "Filter by state",
+    "stateAll": "All",
+    "stateDraft": "Draft",
+    "stateSubmitted": "Submitted",
+    "tableCaption": "Grids you may enter",
+    "columnSection": "Section · Subject",
+    "columnState": "State",
+    "loadError": "Couldn't load grids.",
+    "empty": "No grids for this exam yet — check back once components are set up.",
+    "selectExamHint": "Select an exam to see its grids."
+  },
+  "marksGrid": {
+    "caption": "Marks entry grid",
+    "columnStudent": "Roll · Name",
+    "fullMarks": "/ {{max}}",
+    "cellMax": "max {{max}}",
+    "cellLabel": "{{name}} — {{component}}",
+    "derivedCellLabel": "{{name}} (derived, read-only)",
+    "rowSaved": "Saved",
+    "absentShort": "Abs",
+    "exemptShort": "Exm",
+    "empty": "No students in this section.",
+    "readOnlyBanner": "Submitted by {{name}} at {{time}} — read-only.",
+    "reopenAction": "Reopen"
+  },
+  "marksStepper": {
+    "previous": "Previous",
+    "next": "Next",
+    "progress": "{{current}} of {{total}}"
+  },
+  "saveState": {
+    "idle": "No changes yet",
+    "saving": "Saving…",
+    "saved": "All changes saved · {{time}}",
+    "error": "{{count}} changes not saved — retrying",
+    "navigationBlocked": "You have unsaved changes. Leave anyway?",
+    "leaveAnyway": "Leave anyway"
+  },
+  "submitDialog": {
+    "title": "Submit this grid?",
+    "description": "Once submitted, this grid becomes read-only until an admin reopens it.",
+    "blankCount": "{{count}} blank cells will be submitted as-is.",
+    "cancel": "Cancel",
+    "confirm": "Submit",
+    "shortcutHint": "Ctrl+Enter"
   }
 }

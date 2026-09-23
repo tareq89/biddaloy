@@ -85,6 +85,12 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // `MARK_VIEW`.
   '/_staff/exams/': Permission.EXAM_MANAGE,
   '/_staff/exams/$examId': Permission.EXAM_MANAGE,
+  // [19.7.1] MARK_VIEW (not MARK_ENTER) — same "seeing is weaker than
+  // editing" split `/_staff/attendance/$sectionId` uses above: whether a
+  // signed-in teacher may actually save a cell is decided server-side by
+  // `MarksAuthorizationService`, not this table.
+  '/_staff/marks/': Permission.MARK_VIEW,
+  '/_staff/marks/$examId/$sectionId/$subjectId': Permission.MARK_VIEW,
   '/_staff/audit-logs/': Permission.AUDIT_LOG_READ,
   '/_staff/settings': Permission.SETTINGS_MANAGE,
   // [9.6] Both gated on ATTENDANCE_READ, not ATTENDANCE_MARK — this table

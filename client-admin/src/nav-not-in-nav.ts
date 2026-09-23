@@ -45,6 +45,10 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/calendar/import': 'action reached from the calendar page, not its own nav item',
   '/_staff/classes/$classId': 'detail route reached from the classes list',
   '/_staff/exams/$examId': 'detail route reached from the exams list',
+  '/_staff/marks/':
+    '[19.7.1] reached from the exam Progress tab’s outstanding-grid links, not its own sidebar item yet',
+  '/_staff/marks/$examId/$sectionId/$subjectId':
+    'detail route reached from /marks or the exam Progress tab',
   '/_staff/grading-scales/$scaleId': 'detail route reached from the grading scales list',
   '/_staff/guardians/$guardianId': 'detail route reached from the guardians list',
   '/_staff/invoices/$invoiceId': 'detail route reached from the invoices list',
