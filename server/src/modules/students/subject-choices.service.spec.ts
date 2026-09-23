@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { QueryFailedError } from 'typeorm';
 import { SubjectChoicesService } from './subject-choices.service';
 import { Student } from './entities/student.entity';
 import { StudentSubjectChoice } from './entities/student-subject-choice.entity';
@@ -114,6 +115,7 @@ describe('SubjectChoicesService.setChoice', () => {
     const { service, classSubjectRepo, choiceRepo } = await buildService();
     classSubjectRepo.findOne = vi.fn(async () => ({
       id: 'cs-1',
+      class_id: 'class-1',
       academic_year_id: YEAR_ID,
       is_optional: true,
     }));
@@ -145,6 +147,7 @@ describe('SubjectChoicesService.setChoice', () => {
     const { service, classSubjectRepo, choiceRepo } = await buildService();
     classSubjectRepo.findOne = vi.fn(async () => ({
       id: 'cs-1',
+      class_id: 'class-1',
       academic_year_id: YEAR_ID,
       is_optional: true,
     }));
@@ -163,6 +166,7 @@ describe('SubjectChoicesService.setChoice', () => {
     const { service, classSubjectRepo, choiceRepo } = await buildService();
     classSubjectRepo.findOne = vi.fn(async () => ({
       id: 'cs-2',
+      class_id: 'class-1',
       academic_year_id: YEAR_ID,
       is_optional: true,
     }));
@@ -187,6 +191,7 @@ describe('SubjectChoicesService.setChoice', () => {
     const { service, classSubjectRepo, choiceRepo } = await buildService();
     classSubjectRepo.findOne = vi.fn(async () => ({
       id: 'cs-1',
+      class_id: 'class-1',
       academic_year_id: YEAR_ID,
       is_optional: true,
     }));
@@ -204,5 +209,54 @@ describe('SubjectChoicesService.setChoice', () => {
         TENANT_ID,
       ),
     ).resolves.toBeDefined();
+  });
+
+  it("rejects a class-subject offering from a different class than the student's own (cross-class)", async () => {
+    const { service, classSubjectRepo } = await buildService();
+    // listOptions only ever surfaces offerings from the student's own
+    // class (class-1); this one belongs to a different class.
+    classSubjectRepo.findOne = vi.fn(async () => ({
+      id: 'cs-other-class',
+      class_id: 'class-2',
+      academic_year_id: YEAR_ID,
+      is_optional: true,
+    }));
+
+    await expect(
+      service.setChoice(
+        STUDENT_ID,
+        { class_subject_id: 'cs-other-class', is_fourth: false } as any,
+        TENANT_ID,
+      ),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('maps a concurrent unique-index violation to 409, not a raw 500', async () => {
+    const { service, classSubjectRepo, choiceRepo } = await buildService();
+    classSubjectRepo.findOne = vi.fn(async () => ({
+      id: 'cs-1',
+      class_id: 'class-1',
+      academic_year_id: YEAR_ID,
+      is_optional: true,
+    }));
+    // Both pre-checks pass (no existing is_fourth row, no existing choice
+    // row) — a concurrent request wins the race and the DB itself rejects
+    // this one's insert.
+    choiceRepo.findOne = vi.fn(async () => null);
+    choiceRepo.save = vi.fn(async () => {
+      throw new QueryFailedError(
+        'insert',
+        [],
+        Object.assign(new Error('duplicate'), { code: '23505' }),
+      );
+    });
+
+    await expect(
+      service.setChoice(
+        STUDENT_ID,
+        { class_subject_id: 'cs-1', is_fourth: true } as any,
+        TENANT_ID,
+      ),
+    ).rejects.toThrow(ConflictException);
   });
 });

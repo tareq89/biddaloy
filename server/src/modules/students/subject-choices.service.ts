@@ -1,7 +1,13 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, QueryFailedError } from 'typeorm';
 import { AuditAction } from '@biddaloy/shared';
+
+const PG_UNIQUE_VIOLATION = '23505';
+
+function isUniqueViolation(err: unknown): boolean {
+  return err instanceof QueryFailedError && (err as any).code === PG_UNIQUE_VIOLATION;
+}
 import { Student } from './entities/student.entity';
 import { StudentSubjectChoice } from './entities/student-subject-choice.entity';
 import { ClassSubject } from '../academics/entities/class-subject.entity';
@@ -93,7 +99,13 @@ export class SubjectChoicesService {
     userId: string | null = null,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<StudentSubjectChoice> {
-    await this.findStudent(studentId, tenantId);
+    const student = await this.findStudent(studentId, tenantId);
+    const section = await this.sectionRepo.findOne({
+      where: { id: student.class_section_id, tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    if (!section) {
+      throw new NotFoundException(`Class section for student "${studentId}" not found`);
+    }
 
     const classSubject = await this.classSubjectRepo.findOne({
       where: {
@@ -104,6 +116,15 @@ export class SubjectChoicesService {
       },
     });
     if (!classSubject) {
+      throw new NotFoundException(
+        `Optional class-subject offering "${dto.class_subject_id}" not found`,
+      );
+    }
+    // listOptions only ever shows a student offerings from their own
+    // class (via section.class_id) — setChoice must reject the same
+    // cross-class case rather than silently accepting a choice
+    // listOptions would never have shown the caller in the first place.
+    if (classSubject.class_id !== section.class_id) {
       throw new NotFoundException(
         `Optional class-subject offering "${dto.class_subject_id}" not found`,
       );
@@ -130,39 +151,54 @@ export class SubjectChoicesService {
       where: { student_id: studentId, class_subject_id: dto.class_subject_id, tenant_id: tenantId },
     });
 
-    return this.choiceRepo.manager.transaction(async (manager) => {
-      const repo = manager.getRepository(StudentSubjectChoice);
-      let saved: StudentSubjectChoice;
-      if (existing) {
-        await repo.update({ id: existing.id }, { is_fourth: isFourth });
-        saved = { ...existing, is_fourth: isFourth };
-      } else {
-        const entity = repo.create({
-          student_id: studentId,
-          class_subject_id: dto.class_subject_id,
-          academic_year_id: classSubject.academic_year_id,
-          is_fourth: isFourth,
-          tenant_id: tenantId,
-        });
-        saved = await repo.save(entity);
+    // The is_fourth pre-check and the `existing` lookup above run outside
+    // any lock, so two concurrent PUTs can both pass them and then race
+    // on the DB's own unique indexes (IDX_student_subject_choices_one_
+    // fourth_per_year, or the student_id+class_subject_id unique index).
+    // Whichever loses that race must surface as a clear 409, not a raw
+    // 23505-driven 500.
+    try {
+      return await this.choiceRepo.manager.transaction(async (manager) => {
+        const repo = manager.getRepository(StudentSubjectChoice);
+        let saved: StudentSubjectChoice;
+        if (existing) {
+          await repo.update({ id: existing.id }, { is_fourth: isFourth });
+          saved = { ...existing, is_fourth: isFourth };
+        } else {
+          const entity = repo.create({
+            student_id: studentId,
+            class_subject_id: dto.class_subject_id,
+            academic_year_id: classSubject.academic_year_id,
+            is_fourth: isFourth,
+            tenant_id: tenantId,
+          });
+          saved = await repo.save(entity);
+        }
+
+        await this.auditService.record(
+          {
+            action: existing ? AuditAction.UPDATE : AuditAction.CREATE,
+            entity_type: 'StudentSubjectChoice',
+            entity_id: saved.id,
+            tenant_id: tenantId,
+            performed_by_user_id: userId,
+            ip_address: context.ip,
+            user_agent: context.userAgent,
+            old_values: existing ? { is_fourth: existing.is_fourth } : null,
+            new_values: { class_subject_id: saved.class_subject_id, is_fourth: saved.is_fourth },
+          },
+          manager,
+        );
+
+        return saved;
+      });
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw new ConflictException(
+          `Student already has a fourth subject set for this academic year, or this choice was just changed concurrently.`,
+        );
       }
-
-      await this.auditService.record(
-        {
-          action: existing ? AuditAction.UPDATE : AuditAction.CREATE,
-          entity_type: 'StudentSubjectChoice',
-          entity_id: saved.id,
-          tenant_id: tenantId,
-          performed_by_user_id: userId,
-          ip_address: context.ip,
-          user_agent: context.userAgent,
-          old_values: existing ? { is_fourth: existing.is_fourth } : null,
-          new_values: { class_subject_id: saved.class_subject_id, is_fourth: saved.is_fourth },
-        },
-        manager,
-      );
-
-      return saved;
-    });
+      throw err;
+    }
   }
 }
