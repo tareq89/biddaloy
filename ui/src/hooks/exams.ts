@@ -17,6 +17,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
+import type { IssuerSnapshot } from '../components/print/issuer-header';
 
 import { type ApprovedMutationResult, useApprovedMutation } from './approval';
 import { createEntityKeys } from './query-keys';
@@ -544,4 +545,93 @@ export function useSendResultSms(examId: string) {
     mutationFn: async () =>
       (await apiClient.post<ResultSmsOutcome>(`/exams/${examId}/results/sms`)).data,
   });
+}
+
+// --- Student results [19.9.1] ---
+// `GET /students/:studentId/results(/:examId)` — shared by the family
+// portal (published-only, server-enforced) and the staff results panel on
+// student detail (every exam, `published` on each row lets the client
+// label the unpublished ones). Hand-typed against
+// `ResultsService.listForStudent`/`getStudentResultCard` — same
+// no-`@ApiResponse` gap `ResultRow`/`ResultDetail` above document.
+
+export interface StudentResultRow {
+  exam_id: string;
+  exam_name: string;
+  exam_kind: string;
+  published: boolean;
+  total_marks: number;
+  gpa: number;
+  grade: string;
+  position: number | null;
+  is_fail: boolean;
+}
+
+export function studentResultsKey(studentId: string | undefined) {
+  return ['students', studentId, 'results'] as const;
+}
+
+export function studentResultsQueryOptions(studentId: string | undefined) {
+  return queryOptions({
+    queryKey: studentResultsKey(studentId),
+    queryFn: async ({ signal }) =>
+      (await apiClient.get<StudentResultRow[]>(`/students/${studentId}/results`, { signal })).data,
+    enabled: studentId !== undefined,
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useStudentResults(studentId: string | undefined) {
+  return useQuery(studentResultsQueryOptions(studentId));
+}
+
+/** The report-card shape `ui/src/components/print/report-card.tsx` takes
+ * as `data` directly, plus `exam_name` — see
+ * `ResultsService.getStudentResultCard`'s own doc comment for why the
+ * legend is baked into this response rather than a second, ADMIN-only
+ * `/grading/scales/:id` call a PARENT/STUDENT could never make. */
+export interface StudentResultCard {
+  exam_name: string;
+  student: { full_name: string; roll_number: number };
+  result: {
+    total_marks: number;
+    gpa: number;
+    grade: string;
+    position: number | null;
+    is_fail: boolean;
+  };
+  subjects: ResultSubjectDetail[];
+  legend: Array<{ grade: string; gpa: number | null; comment: string | null }>;
+  issuer: IssuerSnapshot;
+  logo_url: string | null;
+}
+
+export function studentResultCardKey(studentId: string | undefined, examId: string | undefined) {
+  return ['students', studentId, 'results', examId] as const;
+}
+
+export function studentResultCardQueryOptions(
+  studentId: string | undefined,
+  examId: string | undefined,
+  enabled = true,
+) {
+  return queryOptions({
+    queryKey: studentResultCardKey(studentId, examId),
+    queryFn: async ({ signal }) =>
+      (
+        await apiClient.get<StudentResultCard>(`/students/${studentId}/results/${examId}`, {
+          signal,
+        })
+      ).data,
+    enabled: enabled && studentId !== undefined && examId !== undefined,
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useStudentResultCard(
+  studentId: string | undefined,
+  examId: string | undefined,
+  enabled = true,
+) {
+  return useQuery(studentResultCardQueryOptions(studentId, examId, enabled));
 }
