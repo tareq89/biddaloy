@@ -506,6 +506,19 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
     reason:
       "[19.4.1] D12 — reopening a SUBMITTED grid is deliberately ADMIN-only, although TEACHER also holds MARK_ENTER (which gates entering/submitting marks). A teacher may submit their own grid but must not be able to unlock it again once it's in review — reopening is enforced a second time inside MarkGridService.reopen with an explicit role check, not just this route gate.",
   },
+  {
+    controller: 'ResultsController',
+    method: 'GET',
+    path: '/exams/:examId/results',
+    reason:
+      '[19.8.1] This is the staff results-review console (sorting, fail filter, position) — PARENT/STUDENT also hold RESULT_READ, but for the guardian/student-facing single-result portal view (19.9.1), not this staff list across every student in the class.',
+  },
+  {
+    controller: 'ResultsController',
+    method: 'GET',
+    path: '/exams/:examId/results/:studentId',
+    reason: '[19.8.1] Same narrowing as GET /exams/:examId/results.',
+  },
 ];
 
 function findRoleNarrowing(
@@ -569,9 +582,10 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // no longer UI-only, removed from this list.
   // [19.5.1] RESULT_PROCESS/RESULT_PUBLISH now gate ResultsController's
   // process/publish/reopen/sms routes — no longer UI-only, removed from
-  // this list. RESULT_READ stays: the guardian/student-visible published
-  // result view is 19.8.1/19.9.1's job, not built yet.
-  Permission.RESULT_READ,
+  // this list.
+  // [19.8.1] RESULT_READ now gates ResultsController's GET routes (the
+  // staff results-review console) — no longer UI-only, removed from this
+  // list. The guardian/student-facing portal view is still 19.9.1's job.
 ];
 
 describe('Permission matrix (regression)', () => {

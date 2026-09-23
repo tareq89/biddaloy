@@ -9,6 +9,7 @@ import { Mark } from './entities/mark.entity';
 import { ExamComponent } from './entities/exam-component.entity';
 import { ClassSubject } from '../academics/entities/class-subject.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
+import { Subject } from '../academics/entities/subject.entity';
 import { Student } from '../students/entities/student.entity';
 import { StudentSubjectChoice } from '../students/entities/student-subject-choice.entity';
 import { GradingScale } from '../grading/entities/grading-scale.entity';
@@ -69,6 +70,8 @@ export class ResultsService {
     private readonly classSubjectRepo: Repository<ClassSubject>,
     @InjectRepository(ClassSection)
     private readonly sectionRepo: Repository<ClassSection>,
+    @InjectRepository(Subject)
+    private readonly subjectRepo: Repository<Subject>,
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
     @InjectRepository(StudentSubjectChoice)
@@ -626,5 +629,151 @@ export class ResultsService {
         manager,
       );
     });
+  }
+
+  /** [19.8.1] The results panel's per-student rows — not in the plan's own
+   * `## Files` list, but nothing upstream of this ticket ever added a read
+   * path for `results`/`result_subjects` (`process`/`publish`/`reopen`/`sms`
+   * are all write-only), so the panel has nothing to fetch without it.
+   * Reported as a plan divergence. Ordered by `position` (nulls last) so a
+   * fresh page load already reads top-to-bottom. */
+  async list(
+    examId: string,
+    tenantId: string,
+  ): Promise<
+    Array<{
+      student_id: string;
+      roll_number: number;
+      full_name: string;
+      total_marks: number;
+      gpa: number;
+      grade: string;
+      position: number | null;
+      is_fail: boolean;
+    }>
+  > {
+    const results = await this.resultRepo.find({
+      where: { exam_id: examId, tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    if (results.length === 0) return [];
+    const students = await this.studentRepo.find({
+      where: { id: In(results.map((r) => r.student_id)), tenant_id: tenantId },
+    });
+    const studentById = new Map(students.map((s) => [s.id, s]));
+
+    return results
+      .map((r) => {
+        const student = studentById.get(r.student_id);
+        return {
+          student_id: r.student_id,
+          roll_number: student?.roll_number ?? 0,
+          full_name: student?.full_name ?? '',
+          total_marks: Number(r.total_marks),
+          gpa: Number(r.gpa),
+          grade: r.grade,
+          position: r.position,
+          is_fail: r.is_fail,
+        };
+      })
+      .sort((a, b) => (a.position ?? Infinity) - (b.position ?? Infinity));
+  }
+
+  /** [19.8.1] One student's result for the report card — the subject
+   * breakdown plus each subject's component contributions (`obtained`
+   * marks a `ResultSubject` row never stores per-component, so those come
+   * from `Mark`/`ExamComponent` directly, same sources `computeAll` reads
+   * from). The grading scale's legend is fetched separately by the client
+   * (`useGradingScale(result.grading_scale_id)`) — no need to duplicate it
+   * here. */
+  async getStudentResult(
+    examId: string,
+    studentId: string,
+    tenantId: string,
+  ): Promise<{
+    student: { id: string; full_name: string; roll_number: number };
+    result: {
+      total_marks: number;
+      gpa: number;
+      grade: string;
+      position: number | null;
+      is_fail: boolean;
+      grading_scale_id: string;
+    };
+    subjects: Array<{
+      subject_id: string;
+      subject_name: string;
+      obtained: number;
+      grade: string;
+      gpa: number;
+      is_fail: boolean;
+      is_fourth_subject: boolean;
+      components: Array<{ name: string; full_marks: number; obtained: number | null }>;
+    }>;
+  } | null> {
+    const result = await this.resultRepo.findOne({
+      where: { exam_id: examId, student_id: studentId, tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    if (!result) return null;
+
+    const student = await this.studentRepo.findOne({
+      where: { id: studentId, tenant_id: tenantId },
+    });
+    const resultSubjects = await this.resultSubjectRepo.find({
+      where: { result_id: result.id, tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    const subjectIds = resultSubjects.map((s) => s.subject_id);
+    const subjects =
+      subjectIds.length === 0
+        ? []
+        : await this.subjectRepo.find({ where: { id: In(subjectIds), tenant_id: tenantId } });
+    const subjectNameById = new Map(subjects.map((s) => [s.id, s.name_en]));
+
+    const components = await this.componentRepo.find({
+      where: {
+        exam_id: examId,
+        subject_id: In(subjectIds.length ? subjectIds : ['']),
+        tenant_id: tenantId,
+        deleted_at: IsNull(),
+      },
+    });
+    const marks = await this.markRepo.find({
+      where: { exam_id: examId, student_id: studentId, tenant_id: tenantId },
+    });
+    const markByComponent = new Map(marks.map((m) => [m.component_id, m]));
+
+    return {
+      student: {
+        id: studentId,
+        full_name: student?.full_name ?? '',
+        roll_number: student?.roll_number ?? 0,
+      },
+      result: {
+        total_marks: Number(result.total_marks),
+        gpa: Number(result.gpa),
+        grade: result.grade,
+        position: result.position,
+        is_fail: result.is_fail,
+        grading_scale_id: result.grading_scale_id,
+      },
+      subjects: resultSubjects.map((rs) => ({
+        subject_id: rs.subject_id,
+        subject_name: subjectNameById.get(rs.subject_id) ?? '',
+        obtained: Number(rs.obtained),
+        grade: rs.grade,
+        gpa: Number(rs.gpa),
+        is_fail: rs.is_fail,
+        is_fourth_subject: rs.is_fourth_subject,
+        components: components
+          .filter((c) => c.subject_id === rs.subject_id)
+          .map((c) => {
+            const mark = markByComponent.get(c.id);
+            return {
+              name: c.name,
+              full_marks: Number(c.full_marks),
+              obtained: mark && mark.value !== null ? Number(mark.value) : null,
+            };
+          }),
+      })),
+    };
   }
 }

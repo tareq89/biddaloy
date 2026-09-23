@@ -8,6 +8,7 @@ import {
   UseGuards,
   Req,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -45,6 +46,35 @@ export class ResultsController {
       );
     }
     return approval;
+  }
+
+  @Get()
+  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @RequirePermissions(Permission.RESULT_READ)
+  @ApiOperation({ summary: "This exam's per-student results, for the results panel." })
+  list(
+    @Param('examId', ParseUUIDPipe) examId: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.resultsService.list(examId, tenant.id);
+  }
+
+  @Get(':studentId')
+  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @RequirePermissions(Permission.RESULT_READ)
+  @ApiOperation({
+    summary: "One student's result, with subject/component breakdown — the report card's data.",
+  })
+  async getStudentResult(
+    @Param('examId', ParseUUIDPipe) examId: string,
+    @Param('studentId', ParseUUIDPipe) studentId: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    const detail = await this.resultsService.getStudentResult(examId, studentId, tenant.id);
+    if (!detail) {
+      throw new NotFoundException(`No result for student "${studentId}" on exam "${examId}"`);
+    }
+    return detail;
   }
 
   @Post('process')

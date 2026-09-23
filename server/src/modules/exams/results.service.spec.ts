@@ -14,6 +14,7 @@ import { Student } from '../students/entities/student.entity';
 import { StudentSubjectChoice } from '../students/entities/student-subject-choice.entity';
 import { GradingScale } from '../grading/entities/grading-scale.entity';
 import { GradingBand } from '../grading/entities/grading-band.entity';
+import { Subject } from '../academics/entities/subject.entity';
 import { AttendanceComponentService } from './attendance-component.service';
 import { MarkGridService } from './mark-grid.service';
 import { AuditService } from '../audit/audit.service';
@@ -67,6 +68,7 @@ function makeRepos(overrides: Record<string, any> = {}) {
     create: vi.fn((v: any) => v),
     save: vi.fn(async (v: any) => ({ id: `result-${Math.random()}`, ...v })),
     find: vi.fn(async () => overrides.existingResults ?? []),
+    findOne: vi.fn(async () => overrides.resultForStudent ?? null),
     softDelete: vi.fn(async () => undefined),
     update: vi.fn(async () => undefined),
     manager: {
@@ -87,6 +89,7 @@ function makeRepos(overrides: Record<string, any> = {}) {
   const resultSubjectRepo: any = {
     create: vi.fn((v: any) => v),
     save: vi.fn(async (v: any) => ({ id: `rs-${Math.random()}`, ...v })),
+    find: vi.fn(async () => overrides.resultSubjects ?? []),
     softDelete: vi.fn(async () => undefined),
   };
 
@@ -97,9 +100,15 @@ function makeRepos(overrides: Record<string, any> = {}) {
     find: vi.fn(
       async () =>
         overrides.students ?? [
-          { id: 'stu-1', class_section_id: SECTION_ID, roll_number: 1 },
-          { id: 'stu-2', class_section_id: SECTION_ID, roll_number: 2 },
+          { id: 'stu-1', class_section_id: SECTION_ID, roll_number: 1, full_name: 'Student One' },
+          { id: 'stu-2', class_section_id: SECTION_ID, roll_number: 2, full_name: 'Student Two' },
         ],
+    ),
+    findOne: vi.fn(
+      async () =>
+        (overrides.students ?? [
+          { id: 'stu-1', class_section_id: SECTION_ID, roll_number: 1, full_name: 'Student One' },
+        ])[0],
     ),
   };
   const classSubjectRepo: any = {
@@ -126,6 +135,7 @@ function makeRepos(overrides: Record<string, any> = {}) {
             id: COMPONENT_ID,
             exam_id: EXAM_ID,
             subject_id: SUBJECT_ID,
+            name: 'Written',
             kind: ExamComponentKind.WRITTEN,
             source: ExamComponentSource.MANUAL,
             full_marks: '100',
@@ -149,6 +159,12 @@ function makeRepos(overrides: Record<string, any> = {}) {
     ),
   };
   const bandRepo: any = { find: vi.fn(async () => overrides.bands ?? NCTB_BAND_ROWS) };
+  const subjectRepo: any = {
+    find: vi.fn(async () => overrides.subjects ?? [{ id: SUBJECT_ID, name_en: 'Mathematics' }]),
+    findOne: vi.fn(
+      async () => (overrides.subjects ?? [{ id: SUBJECT_ID, name_en: 'Mathematics' }])[0],
+    ),
+  };
 
   const attendanceComponentService = {
     computeForSection: vi.fn(async () => ({ reason: null, valuesByStudent: new Map() })),
@@ -171,6 +187,7 @@ function makeRepos(overrides: Record<string, any> = {}) {
     markRepo,
     scaleRepo,
     bandRepo,
+    subjectRepo,
     attendanceComponentService,
     gridService,
     auditService,
@@ -194,6 +211,7 @@ async function buildService(overrides: Record<string, any> = {}) {
       { provide: getRepositoryToken(StudentSubjectChoice), useValue: repos.choiceRepo },
       { provide: getRepositoryToken(GradingScale), useValue: repos.scaleRepo },
       { provide: getRepositoryToken(GradingBand), useValue: repos.bandRepo },
+      { provide: getRepositoryToken(Subject), useValue: repos.subjectRepo },
       { provide: AttendanceComponentService, useValue: repos.attendanceComponentService },
       { provide: MarkGridService, useValue: repos.gridService },
       { provide: AuditService, useValue: repos.auditService },
@@ -356,5 +374,84 @@ describe('ResultsService.publish / reopen', () => {
     const { service } = await buildService({ exam: { status: ExamStatus.PROCESSED } });
 
     await expect(service.reopen(EXAM_ID, TENANT_ID, 'admin-1')).rejects.toThrow(ConflictException);
+  });
+});
+
+describe('ResultsService.list', () => {
+  it('returns rows sorted by position, with student names attached', async () => {
+    const { service } = await buildService({
+      existingResults: [
+        {
+          id: 'result-1',
+          student_id: 'stu-2',
+          total_marks: '150.00',
+          gpa: '4.00',
+          grade: 'A',
+          position: 2,
+          is_fail: false,
+        },
+        {
+          id: 'result-2',
+          student_id: 'stu-1',
+          total_marks: '180.00',
+          gpa: '5.00',
+          grade: 'A+',
+          position: 1,
+          is_fail: false,
+        },
+      ],
+    });
+
+    const rows = await service.list(EXAM_ID, TENANT_ID);
+
+    expect(rows.map((r) => r.student_id)).toEqual(['stu-1', 'stu-2']);
+    expect(rows[0].full_name).toBe('Student One');
+  });
+
+  it('returns an empty array when nothing has been processed yet', async () => {
+    const { service } = await buildService({ existingResults: [] });
+    expect(await service.list(EXAM_ID, TENANT_ID)).toEqual([]);
+  });
+});
+
+describe('ResultsService.getStudentResult', () => {
+  it('returns null when the student has no result for this exam', async () => {
+    const { service } = await buildService({ resultForStudent: null });
+    expect(await service.getStudentResult(EXAM_ID, 'stu-1', TENANT_ID)).toBeNull();
+  });
+
+  it('attaches subject names and per-component marks to the breakdown', async () => {
+    const { service } = await buildService({
+      resultForStudent: {
+        id: 'result-1',
+        student_id: 'stu-1',
+        total_marks: '85.00',
+        gpa: '5.00',
+        grade: 'A+',
+        position: 1,
+        is_fail: false,
+        grading_scale_id: SCALE_ID,
+      },
+      resultSubjects: [
+        {
+          subject_id: SUBJECT_ID,
+          obtained: '85.00',
+          grade: 'A+',
+          gpa: '5.00',
+          is_fail: false,
+          is_fourth_subject: false,
+        },
+      ],
+      marks: [
+        { student_id: 'stu-1', component_id: COMPONENT_ID, value: '85.00', status: 'PRESENT' },
+      ],
+    });
+
+    const detail = await service.getStudentResult(EXAM_ID, 'stu-1', TENANT_ID);
+
+    expect(detail?.subjects[0].subject_name).toBe('Mathematics');
+    expect(detail?.subjects[0].components).toEqual([
+      { name: expect.any(String), full_marks: 100, obtained: 85 },
+    ]);
   });
 });
