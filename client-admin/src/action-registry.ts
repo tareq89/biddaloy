@@ -130,6 +130,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     // `-copy-scale-dialog.tsx` from there (U7: reuse the page, never a
     // second copy of the dialog).
     run: (ctx) => ctx.navigate({ to: '/grading-scales' }),
+  },
   /**
    * [21.9.1] `run()` only carries `navigate({ to })` — there is no way to
    * pass the slot/date "context" the ticket names, or to auto-open a

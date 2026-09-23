@@ -1,5 +1,5 @@
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -73,11 +73,7 @@ describe('/routines/substitutions', () => {
 
     const user = userEvent.setup();
     const coveringTeacherSelect = screen.getByLabelText(/covering teacher/i);
-    await waitFor(() =>
-      expect(
-        Array.from(coveringTeacherSelect.querySelectorAll('option')).map((option) => option.textContent),
-      ).toContain('Ms Nahar'),
-    );
+    await within(coveringTeacherSelect).findByRole('option', { name: 'Ms Nahar' });
     await user.selectOptions(coveringTeacherSelect, TEACHER_1_ID);
 
     await waitFor(() => expect(router.state.location.search).toMatchObject({

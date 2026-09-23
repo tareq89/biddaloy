@@ -18,6 +18,7 @@
  * The state banner is the acceptance criterion made literal: it always
  * says, in words, who can see the routine right now.
  */
+import { Permission } from '@biddaloy/shared';
 import { toast } from '@biddaloy/ui/components';
 import {
   useAcademicYears,
@@ -35,7 +36,6 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute } from '@tanstack/react-router';
-import { Permission } from '@biddaloy/shared';
 import * as React from 'react';
 
 import { loadRouteNamespaces } from '../../../route-loaders';

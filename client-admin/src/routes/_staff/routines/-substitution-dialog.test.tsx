@@ -139,10 +139,7 @@ describe('SubstitutionDialog', () => {
 
     await user.click(screen.getByRole('button', { name: /^save$/i }));
 
-    await waitFor(() =>
-      expect(screen.getByRole('alert').textContent).toContain(
-        'Routine slot "slot-1" does not occur on 2026-02-02',
-      ),
-    );
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('Routine slot "slot-1" does not occur on 2026-02-02');
   });
 });

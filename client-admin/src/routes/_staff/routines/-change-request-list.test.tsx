@@ -1,10 +1,10 @@
+import type { RoutineChangeRequest } from '@biddaloy/ui/hooks';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import type { RoutineChangeRequest } from '@biddaloy/ui/hooks';
 
 import { ChangeRequestList } from './-change-request-list';
 
