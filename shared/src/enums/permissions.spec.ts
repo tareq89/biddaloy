@@ -106,10 +106,12 @@ describe('family read grants [5.1]', () => {
     Permission.ATTENDANCE_READ,
     // [17.1.1] Calendar read — every tenant role, including family roles.
     Permission.CALENDAR_READ,
+    // [19.1.1] D1 — guardian-visible published results are in scope.
+    Permission.RESULT_READ,
   ] as const;
 
   for (const role of FAMILY_ROLES) {
-    it(`grants ${role} exactly STUDENT_READ, FEE_READ, INVOICE_READ, ATTENDANCE_READ and CALENDAR_READ`, () => {
+    it(`grants ${role} exactly STUDENT_READ, FEE_READ, INVOICE_READ, ATTENDANCE_READ, CALENDAR_READ and RESULT_READ`, () => {
       expect([...ROLE_PERMISSIONS[role]].sort()).toEqual([...FAMILY_PERMISSIONS].sort());
     });
   }
@@ -119,6 +121,36 @@ describe('family read grants [5.1]', () => {
   it('gives PARENT and STUDENT the same permission set', () => {
     expect(ROLE_PERMISSIONS[UserRole.PARENT]).toEqual(ROLE_PERMISSIONS[UserRole.STUDENT]);
   });
+
+  /**
+   * [19.1.1] D20's staff role table, pinned exactly — a role picking up
+   * (or losing) an exam permission it shouldn't have passes every other
+   * test in this file, since those check unrelated permission groups.
+   */
+  const EXAM_PERMISSIONS = [
+    Permission.EXAM_MANAGE,
+    Permission.MARK_ENTER,
+    Permission.MARK_VIEW,
+    Permission.RESULT_PROCESS,
+    Permission.RESULT_PUBLISH,
+    Permission.RESULT_READ,
+  ] as const;
+
+  const STAFF_EXAM_EXPECTATIONS: ReadonlyArray<readonly [UserRole, readonly Permission[]]> = [
+    [UserRole.ADMIN, [...EXAM_PERMISSIONS]],
+    [UserRole.ACCOUNTANT, []],
+    [UserRole.EXECUTIVE, [Permission.MARK_VIEW, Permission.RESULT_READ]],
+    [UserRole.TEACHER, [Permission.MARK_ENTER, Permission.MARK_VIEW, Permission.RESULT_READ]],
+  ];
+
+  for (const [role, expected] of STAFF_EXAM_EXPECTATIONS) {
+    it(`grants ${role} exactly the D20 exam permission set`, () => {
+      const actual = EXAM_PERMISSIONS.filter((permission) =>
+        ROLE_PERMISSIONS[role].includes(permission),
+      );
+      expect([...actual].sort()).toEqual([...expected].sort());
+    });
+  }
 
   /**
    * `GET /payments/student/{studentId}` admits PARENT and STUDENT since

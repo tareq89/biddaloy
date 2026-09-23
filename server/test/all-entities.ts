@@ -44,6 +44,13 @@ import { PushSubscription } from '../src/modules/push/entities/push-subscription
 import { WorkbookJob } from '../src/modules/workbook/jobs/workbook-job.entity';
 import { GradingScale } from '../src/modules/grading/entities/grading-scale.entity';
 import { GradingBand } from '../src/modules/grading/entities/grading-band.entity';
+import { Exam } from '../src/modules/exams/entities/exam.entity';
+import { ExamComponent } from '../src/modules/exams/entities/exam-component.entity';
+import { Mark } from '../src/modules/exams/entities/mark.entity';
+import { MarkGrid } from '../src/modules/exams/entities/mark-grid.entity';
+import { Result } from '../src/modules/exams/entities/result.entity';
+import { ResultSubject } from '../src/modules/exams/entities/result-subject.entity';
+import { StudentSubjectChoice } from '../src/modules/students/entities/student-subject-choice.entity';
 
 export const ALL_ENTITIES = [
   AcademicYear,
@@ -92,4 +99,11 @@ export const ALL_ENTITIES = [
   WorkbookJob,
   GradingScale,
   GradingBand,
+  Exam,
+  ExamComponent,
+  Mark,
+  MarkGrid,
+  Result,
+  ResultSubject,
+  StudentSubjectChoice,
 ];

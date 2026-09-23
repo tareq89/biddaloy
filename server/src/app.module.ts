@@ -40,6 +40,7 @@ import { TemplateModule } from './modules/workbook/template/template.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { SearchModule } from './modules/search/search.module';
 import { GradingModule } from './modules/grading/grading.module';
+import { ExamsModule } from './modules/exams/exams.module';
 import { validate } from './config/env.validation';
 
 // Entities for auto-loading
@@ -87,6 +88,13 @@ import { AuthToken } from './modules/account-access/entities/auth-token.entity';
 import { WorkbookJob } from './modules/workbook/jobs/workbook-job.entity';
 import { GradingScale } from './modules/grading/entities/grading-scale.entity';
 import { GradingBand } from './modules/grading/entities/grading-band.entity';
+import { Exam } from './modules/exams/entities/exam.entity';
+import { ExamComponent } from './modules/exams/entities/exam-component.entity';
+import { Mark } from './modules/exams/entities/mark.entity';
+import { MarkGrid } from './modules/exams/entities/mark-grid.entity';
+import { Result } from './modules/exams/entities/result.entity';
+import { ResultSubject } from './modules/exams/entities/result-subject.entity';
+import { StudentSubjectChoice } from './modules/students/entities/student-subject-choice.entity';
 
 @Module({
   imports: [
@@ -165,6 +173,13 @@ import { GradingBand } from './modules/grading/entities/grading-band.entity';
             WorkbookJob,
             GradingScale,
             GradingBand,
+            Exam,
+            ExamComponent,
+            Mark,
+            MarkGrid,
+            Result,
+            ResultSubject,
+            StudentSubjectChoice,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],
@@ -240,6 +255,7 @@ import { GradingBand } from './modules/grading/entities/grading-band.entity';
     ReportsModule,
     SearchModule,
     GradingModule,
+    ExamsModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

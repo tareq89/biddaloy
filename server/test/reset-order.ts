@@ -24,6 +24,17 @@ import {
  */
 export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'workbook_jobs',
+  // [19.2.1] result_subjects/results reference exams+students+grading_scales;
+  // marks/mark_grids/exam_components reference exams+students+subjects;
+  // student_subject_choices references students+class_subjects. All must
+  // clear before their parents below.
+  'result_subjects',
+  'results',
+  'mark_grids',
+  'marks',
+  'student_subject_choices',
+  'exam_components',
+  'exams',
   'grading_bands',
   'grading_scales',
   'push_subscriptions',

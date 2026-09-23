@@ -553,6 +553,16 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // `/calendar/events`, `/calendar/terms`, `/calendar-settings`, the
   // platform holiday-set routes, and `/calendar/public-holidays/add` —
   // no longer UI-only, removed from this list.
+  // [19.1.1] Plumbing landed ahead of the exam/marks/result routes
+  // (19.2.1-19.5.1 build the Exam/ExamComponent/marks/result endpoints
+  // these will gate). Remove from this list as each route lands.
+  // [19.3.1] EXAM_MANAGE now gates every route on ExamsController and
+  // ExamComponentsController — no longer UI-only, removed from this list.
+  Permission.MARK_ENTER,
+  Permission.MARK_VIEW,
+  Permission.RESULT_PROCESS,
+  Permission.RESULT_PUBLISH,
+  Permission.RESULT_READ,
 ];
 
 describe('Permission matrix (regression)', () => {
