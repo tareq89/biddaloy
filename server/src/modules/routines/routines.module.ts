@@ -21,11 +21,19 @@ import { ResolveRoutineService } from './resolve-routine.service';
 import { ResolveRoutineController } from './resolve-routine.controller';
 import { SubstitutionsService } from './substitutions.service';
 import { SubstitutionsController } from './substitutions.controller';
+import { RoutineStateService } from './routine-state.service';
+import { ChangeRequestsService } from './change-requests.service';
+import { ChangeRequestsController } from './change-requests.controller';
+import { CopyRoutineService } from './copy-routine.service';
+import { WorkloadService } from './workload.service';
 import { SchoolsModule } from '../schools/schools.module';
 import { CalendarModule } from '../calendar/calendar.module';
+import { AuditModule } from '../audit/audit.module';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Class } from '../academics/entities/class.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
+import { Teacher } from '../academics/entities/teacher.entity';
+import { Subject } from '../academics/entities/subject.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Enrollment } from '../students/entities/enrollment.entity';
 
@@ -57,6 +65,10 @@ import { Enrollment } from '../students/entities/enrollment.entity';
       // year boundaries and a student's active enrollment/section.
       AcademicYear,
       Enrollment,
+      // [21.6.1] `ResolveRoutineService`'s teacher-visibility check and
+      // `CopyRoutineService`'s year-to-year remapping.
+      Teacher,
+      Subject,
     ]),
     // `SchoolSettingsReader` reads `TenantSettings.routine` — same
     // reasoning as `ClassModule`'s import of `SchoolsModule`.
@@ -66,6 +78,9 @@ import { Enrollment } from '../students/entities/enrollment.entity';
     // this a school day" (see that module's own docstring) — rather than
     // re-implementing it here.
     CalendarModule,
+    // [21.6.1] `RoutineStateService`/`ChangeRequestsService` audit every
+    // state transition and every resolved change request.
+    AuditModule,
   ],
   providers: [
     ShiftsService,
@@ -76,6 +91,10 @@ import { Enrollment } from '../students/entities/enrollment.entity';
     GreedyFillService,
     ResolveRoutineService,
     SubstitutionsService,
+    RoutineStateService,
+    ChangeRequestsService,
+    CopyRoutineService,
+    WorkloadService,
   ],
   controllers: [
     ShiftsController,
@@ -83,6 +102,7 @@ import { Enrollment } from '../students/entities/enrollment.entity';
     RoutineSlotsController,
     ResolveRoutineController,
     SubstitutionsController,
+    ChangeRequestsController,
   ],
   exports: [
     TypeOrmModule,
@@ -94,6 +114,10 @@ import { Enrollment } from '../students/entities/enrollment.entity';
     GreedyFillService,
     ResolveRoutineService,
     SubstitutionsService,
+    RoutineStateService,
+    ChangeRequestsService,
+    CopyRoutineService,
+    WorkloadService,
   ],
 })
 export class RoutinesModule {}

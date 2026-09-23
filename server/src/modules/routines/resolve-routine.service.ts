@@ -8,10 +8,24 @@ import { RoutineSubstitution } from './entities/routine-substitution.entity';
 import { PeriodSlot } from './entities/period-slot.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Enrollment } from '../students/entities/enrollment.entity';
+import { Teacher } from '../academics/entities/teacher.entity';
 import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import { occursOn } from './recurrence';
 import { ResolveRoutineQueryDto, ResolvedSlot } from './dto/resolve.dto';
-import { EnrollmentStatus, PeriodSlotKind, RoutineState } from '@biddaloy/shared';
+import {
+  EnrollmentStatus,
+  Permission,
+  PeriodSlotKind,
+  RoutineState,
+  UserRole,
+  roleHasPermission,
+} from '@biddaloy/shared';
+
+/** Who is asking, for the DRAFT/REVIEW visibility rule below (D11 step 2). */
+export interface ResolveRoutineCaller {
+  role: string;
+  userId: string;
+}
 
 /**
  * [21.5.1] D14: the **only** resolver of "what is on, for whom, between
@@ -32,10 +46,15 @@ export class ResolveRoutineService {
     @InjectRepository(PeriodSlot) private readonly periodSlotRepo: Repository<PeriodSlot>,
     @InjectRepository(AcademicYear) private readonly yearRepo: Repository<AcademicYear>,
     @InjectRepository(Enrollment) private readonly enrollmentRepo: Repository<Enrollment>,
+    @InjectRepository(Teacher) private readonly teacherRepo: Repository<Teacher>,
     private readonly calendarService: SchoolCalendarService,
   ) {}
 
-  async resolveRoutine(query: ResolveRoutineQueryDto, tenantId: string): Promise<ResolvedSlot[]> {
+  async resolveRoutine(
+    query: ResolveRoutineQueryDto,
+    tenantId: string,
+    caller: ResolveRoutineCaller,
+  ): Promise<ResolvedSlot[]> {
     const identifiers = [query.section_id, query.teacher_id, query.student_id].filter(Boolean);
     if (identifiers.length !== 1) {
       throw new BadRequestException(
@@ -43,7 +62,7 @@ export class ResolveRoutineService {
       );
     }
 
-    const sectionId = query.section_id ?? (await this.resolveStudentSection(query, tenantId));
+    let sectionId = query.section_id ?? (await this.resolveStudentSection(query, tenantId));
     if (query.student_id && !sectionId) {
       return [];
     }
@@ -60,15 +79,41 @@ export class ResolveRoutineService {
       .getOne();
     if (!academicYear) return [];
 
+    // D11 step 2: state governs visibility, decided here — the one
+    // place D14 says all visibility rules must live, rather than each
+    // consumer re-deriving it. tenant is always taken from request
+    // context above, never a caller-supplied parameter.
     const routine = await this.routineRepo.findOne({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYear.id,
-        state: RoutineState.PUBLISHED,
-        deleted_at: IsNull(),
-      },
+      where: { tenant_id: tenantId, academic_year_id: academicYear.id, deleted_at: IsNull() },
     });
     if (!routine) return [];
+
+    const isManager = roleHasPermission(caller.role, Permission.ROUTINE_MANAGE);
+    let effectiveQuery = query;
+
+    if (routine.state === RoutineState.DRAFT) {
+      // Draft is builder-only.
+      if (!isManager) return [];
+    } else if (routine.state === RoutineState.REVIEW) {
+      if (!isManager) {
+        // A teacher sees only their own slots while in review; anyone
+        // else (guardian, student, executive) sees nothing yet.
+        if (caller.role !== UserRole.TEACHER) return [];
+        const teacher = await this.teacherRepo.findOne({
+          where: { user_id: caller.userId, tenant_id: tenantId },
+        });
+        if (!teacher) return [];
+        // Force to the caller's own teacher id — never trust a
+        // caller-supplied teacher_id/section_id/student_id for this
+        // restriction, even if the request asked for a section or
+        // another student's section.
+        effectiveQuery = { ...query, teacher_id: teacher.id };
+        sectionId = null;
+      }
+    }
+    // PUBLISHED: any ROUTINE_READ holder may read (existing behavior,
+    // unrestricted beyond the section/teacher/student filter already
+    // required above).
 
     const { dates } = await this.calendarService.getWorkingDays({
       tenantId,
@@ -129,9 +174,10 @@ export class ResolveRoutineService {
         const cancelled = sub?.is_cancelled ?? false;
         const substituted = !!sub?.substitute_teacher_id;
 
-        if (query.teacher_id) {
-          const isOwn = ownTeacherIds.includes(query.teacher_id) && !substituted;
-          const isCovering = substituted && sub!.substitute_teacher_id === query.teacher_id;
+        if (effectiveQuery.teacher_id) {
+          const isOwn = ownTeacherIds.includes(effectiveQuery.teacher_id) && !substituted;
+          const isCovering =
+            substituted && sub!.substitute_teacher_id === effectiveQuery.teacher_id;
           if (!isOwn && !isCovering) continue;
         }
 

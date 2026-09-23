@@ -34,6 +34,8 @@ function buildService(
     substitutions?: any[];
     enrollment?: any;
     workingDays?: string[];
+    teacher?: any;
+    routine?: any;
   } = {},
 ) {
   const yearQb: any = {
@@ -44,7 +46,7 @@ function buildService(
   const yearRepo: any = {
     createQueryBuilder: vi.fn(() => yearQb),
   };
-  const routineRepo: any = { findOne: vi.fn(async () => ROUTINE) };
+  const routineRepo: any = { findOne: vi.fn(async () => overrides.routine ?? ROUTINE) };
   const slotRepo: any = { find: vi.fn(async () => overrides.slots ?? [MON_SLOT]) };
   const slotTeacherRepo: any = {
     find: vi.fn(
@@ -58,6 +60,9 @@ function buildService(
     ),
   };
   const enrollmentRepo: any = { findOne: vi.fn(async () => overrides.enrollment ?? null) };
+  const teacherRepo: any = {
+    findOne: vi.fn(async () => ('teacher' in overrides ? overrides.teacher : { id: 't-1' })),
+  };
   const calendarService: any = {
     getWorkingDays: vi.fn(async () => ({
       dates: overrides.workingDays ?? ['2026-01-05', '2026-01-06'],
@@ -72,9 +77,10 @@ function buildService(
     periodSlotRepo,
     yearRepo,
     enrollmentRepo,
+    teacherRepo,
     calendarService,
   );
-  return { service, calendarService, enrollmentRepo, substitutionRepo };
+  return { service, calendarService, enrollmentRepo, substitutionRepo, teacherRepo, routineRepo };
 }
 
 describe('ResolveRoutineService [21.5.1]', () => {
@@ -86,7 +92,10 @@ describe('ResolveRoutineService [21.5.1]', () => {
 
   it('rejects a query with no identifier', async () => {
     await expect(
-      ctx.service.resolveRoutine({ from: '2026-01-05', to: '2026-01-06' } as any, TENANT_ID),
+      ctx.service.resolveRoutine({ from: '2026-01-05', to: '2026-01-06' } as any, TENANT_ID, {
+        role: 'ADMIN',
+        userId: 'user-1',
+      }),
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -95,6 +104,7 @@ describe('ResolveRoutineService [21.5.1]', () => {
       ctx.service.resolveRoutine(
         { section_id: 's-1', teacher_id: 't-1', from: '2026-01-05', to: '2026-01-06' } as any,
         TENANT_ID,
+        { role: 'ADMIN', userId: 'user-1' },
       ),
     ).rejects.toThrow(BadRequestException);
   });
@@ -103,6 +113,7 @@ describe('ResolveRoutineService [21.5.1]', () => {
     const result = await ctx.service.resolveRoutine(
       { section_id: 'section-1', from: '2026-01-05', to: '2026-01-06' } as any,
       TENANT_ID,
+      { role: 'ADMIN', userId: 'user-1' },
     );
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({ date: '2026-01-05', substituted: false, cancelled: false });
@@ -113,6 +124,7 @@ describe('ResolveRoutineService [21.5.1]', () => {
     const result = await ctx2.service.resolveRoutine(
       { section_id: 'section-1', from: '2026-01-05', to: '2026-01-06' } as any,
       TENANT_ID,
+      { role: 'ADMIN', userId: 'user-1' },
     );
     expect(result).toHaveLength(0);
   });
@@ -127,6 +139,7 @@ describe('ResolveRoutineService [21.5.1]', () => {
         include_breaks: true,
       } as any,
       TENANT_ID,
+      { role: 'ADMIN', userId: 'user-1' },
     );
     expect(result).toHaveLength(1);
   });
@@ -145,6 +158,7 @@ describe('ResolveRoutineService [21.5.1]', () => {
     const result = await ctx2.service.resolveRoutine(
       { section_id: 'section-1', from: '2026-01-05', to: '2026-01-06' } as any,
       TENANT_ID,
+      { role: 'ADMIN', userId: 'user-1' },
     );
     expect(result[0]).toMatchObject({
       substituted: true,
@@ -158,6 +172,7 @@ describe('ResolveRoutineService [21.5.1]', () => {
     const result = await ctx2.service.resolveRoutine(
       { student_id: 'student-1', from: '2026-01-05', to: '2026-01-06' } as any,
       TENANT_ID,
+      { role: 'ADMIN', userId: 'user-1' },
     );
     expect(result).toHaveLength(1);
     expect(ctx2.enrollmentRepo.findOne).toHaveBeenCalledWith(
@@ -174,6 +189,7 @@ describe('ResolveRoutineService [21.5.1]', () => {
     const result = await ctx.service.resolveRoutine(
       { student_id: 'student-1', from: '2026-01-05', to: '2026-01-06' } as any,
       TENANT_ID,
+      { role: 'ADMIN', userId: 'user-1' },
     );
     expect(result).toEqual([]);
   });
@@ -203,6 +219,7 @@ describe('ResolveRoutineService [21.5.1]', () => {
     const result = await ctx2.service.resolveRoutine(
       { teacher_id: 't-1', from: '2026-01-05', to: '2026-01-06' } as any,
       TENANT_ID,
+      { role: 'ADMIN', userId: 'user-1' },
     );
     const ownSlot = result.find((r) => r.routine_slot_id === 'slot-1');
     const coveringSlot = result.find((r) => r.routine_slot_id === 'slot-2');
@@ -214,9 +231,92 @@ describe('ResolveRoutineService [21.5.1]', () => {
     await ctx.service.resolveRoutine(
       { section_id: 'section-1', from: '2026-01-05', to: '2026-01-06' } as any,
       TENANT_ID,
+      { role: 'ADMIN', userId: 'user-1' },
     );
     expect(ctx.calendarService.getWorkingDays).toHaveBeenCalledWith(
       expect.objectContaining({ tenantId: TENANT_ID }),
     );
+  });
+
+  describe('D11 step 2: state-based visibility', () => {
+    it('DRAFT: empty for a non-manager', async () => {
+      const ctx2 = buildService({ routine: { ...ROUTINE, state: RoutineState.DRAFT } });
+      const result = await ctx2.service.resolveRoutine(
+        { section_id: 'section-1', from: '2026-01-05', to: '2026-01-06' } as any,
+        TENANT_ID,
+        { role: 'TEACHER', userId: 'user-1' },
+      );
+      expect(result).toEqual([]);
+    });
+
+    it('DRAFT: visible to ROUTINE_MANAGE (ADMIN)', async () => {
+      const ctx2 = buildService({ routine: { ...ROUTINE, state: RoutineState.DRAFT } });
+      const result = await ctx2.service.resolveRoutine(
+        { section_id: 'section-1', from: '2026-01-05', to: '2026-01-06' } as any,
+        TENANT_ID,
+        { role: 'ADMIN', userId: 'user-1' },
+      );
+      expect(result).toHaveLength(1);
+    });
+
+    it('REVIEW: a guardian/student/executive sees nothing', async () => {
+      const ctx2 = buildService({ routine: { ...ROUTINE, state: RoutineState.REVIEW } });
+      const result = await ctx2.service.resolveRoutine(
+        { section_id: 'section-1', from: '2026-01-05', to: '2026-01-06' } as any,
+        TENANT_ID,
+        { role: 'PARENT', userId: 'user-1' },
+      );
+      expect(result).toEqual([]);
+    });
+
+    it('REVIEW: a teacher sees only their own slots, section_id request ignored', async () => {
+      const covered = { ...MON_SLOT, id: 'slot-2', section_id: 'section-2' };
+      const ctx2 = buildService({
+        routine: { ...ROUTINE, state: RoutineState.REVIEW },
+        slots: [MON_SLOT, covered],
+        periodSlots: [{ id: 'period-1', kind: PeriodSlotKind.CLASS }],
+        teacherRows: [
+          { routine_slot_id: 'slot-1', teacher_id: 't-1' },
+          { routine_slot_id: 'slot-2', teacher_id: 't-3' },
+        ],
+        teacher: { id: 't-1' },
+      });
+      // Caller asks for section-1 but is forced onto their own teacher_id
+      // filter — only slot-1 (t-1's own slot) comes back, never slot-2.
+      const result = await ctx2.service.resolveRoutine(
+        { section_id: 'section-1', from: '2026-01-05', to: '2026-01-06' } as any,
+        TENANT_ID,
+        { role: 'TEACHER', userId: 'teacher-user-1' },
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0].routine_slot_id).toBe('slot-1');
+      expect(ctx2.teacherRepo.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ user_id: 'teacher-user-1', tenant_id: TENANT_ID }),
+        }),
+      );
+    });
+
+    it('REVIEW: empty for a teacher with no Teacher profile', async () => {
+      const ctx2 = buildService({
+        routine: { ...ROUTINE, state: RoutineState.REVIEW },
+        teacher: null,
+      });
+      const result = await ctx2.service.resolveRoutine(
+        { section_id: 'section-1', from: '2026-01-05', to: '2026-01-06' } as any,
+        TENANT_ID,
+        { role: 'TEACHER', userId: 'user-1' },
+      );
+      expect(result).toEqual([]);
+    });
+
+    it('PUBLISHED: readable by a guardian (ROUTINE_READ, not manager)', async () => {
+      const result = await ctx.service.resolveRoutine(
+        { section_id: 'section-1', from: '2026-01-05', to: '2026-01-06' } as any,
+        TENANT_ID,
+        { role: 'PARENT', userId: 'user-1' },
+      );
+      expect(result).toHaveLength(1);
+    });
   });
 });

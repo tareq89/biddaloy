@@ -6,10 +6,11 @@ import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { ResolveRoutineService } from './resolve-routine.service';
 import { ResolveRoutineQueryDto } from './dto/resolve.dto';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
 
 const READ_ROLES = [
   UserRole.ADMIN,
@@ -43,7 +44,11 @@ export class ResolveRoutineController {
   resolve(
     @Query() query: ResolveRoutineQueryDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.resolveRoutineService.resolveRoutine(query, tenant.id);
+    return this.resolveRoutineService.resolveRoutine(query, tenant.id, {
+      role: tenant.role,
+      userId: user.sub,
+    });
   }
 }

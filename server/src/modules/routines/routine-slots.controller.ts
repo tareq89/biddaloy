@@ -10,7 +10,9 @@ import {
   UseGuards,
   ParseUUIDPipe,
   Inject,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
@@ -18,16 +20,22 @@ import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
+import { requestContext } from '../../common/request-context.util';
 import { RoutineService } from './routine.service';
 import { RoutineSlotsService } from './routine-slots.service';
 import { GreedyFillService } from './greedy-fill.service';
+import { RoutineStateService } from './routine-state.service';
+import { CopyRoutineService } from './copy-routine.service';
+import { WorkloadService } from './workload.service';
 import {
   CreateRoutineDto,
   UpsertRoutineSlotDto,
   GreedyFillQueryDto,
 } from './dto/routine-slots.dto';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { CopyRoutineDto } from './dto/workflow.dto';
+import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
 
 const READ_ROLES = [
   UserRole.ADMIN,
@@ -47,6 +55,9 @@ export class RoutineSlotsController {
     @Inject(RoutineService) private readonly routineService: RoutineService,
     @Inject(RoutineSlotsService) private readonly slotsService: RoutineSlotsService,
     @Inject(GreedyFillService) private readonly greedyFillService: GreedyFillService,
+    @Inject(RoutineStateService) private readonly stateService: RoutineStateService,
+    @Inject(CopyRoutineService) private readonly copyRoutineService: CopyRoutineService,
+    @Inject(WorkloadService) private readonly workloadService: WorkloadService,
   ) {}
 
   @Post()
@@ -134,5 +145,70 @@ export class RoutineSlotsController {
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     return this.greedyFillService.fill(id, query, tenant.id);
+  }
+
+  @Post(':id/submit-for-review')
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.ROUTINE_MANAGE)
+  @ApiOperation({ summary: 'D11: DRAFT -> REVIEW.' })
+  submitForReview(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.stateService.submitForReview(id, tenant.id, user.sub, requestContext(request));
+  }
+
+  @Post(':id/withdraw')
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.ROUTINE_MANAGE)
+  @ApiOperation({ summary: 'D11: REVIEW -> DRAFT.' })
+  withdraw(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.stateService.withdraw(id, tenant.id, user.sub, requestContext(request));
+  }
+
+  @Post(':id/publish')
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.ROUTINE_MANAGE)
+  @ApiOperation({ summary: 'D11: REVIEW -> PUBLISHED. There is no transition back out.' })
+  publish(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.stateService.publish(id, tenant.id, user.sub, requestContext(request));
+  }
+
+  @Post(':id/copy-year')
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.ROUTINE_MANAGE)
+  @ApiOperation({
+    summary:
+      'D19: copy every slot into a new DRAFT routine for another academic year. Reports anything it could not remap.',
+  })
+  copyYear(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CopyRoutineDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.copyRoutineService.copyToYear(id, dto, tenant.id);
+  }
+
+  @Get(':id/workload')
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.ROUTINE_MANAGE)
+  @ApiOperation({ summary: 'D19: read-only per-teacher periods-per-week/day for this routine.' })
+  workload(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.workloadService.forRoutine(id, tenant.id);
   }
 }
