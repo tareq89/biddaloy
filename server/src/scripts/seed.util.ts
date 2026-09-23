@@ -1311,11 +1311,20 @@ async function ensureBdNctbScale(
   // scope alone is what the one-default-scale-per-scope DB constraint
   // enforces. Filtering by name too could miss an existing scale in that
   // scope and attempt a second insert, which the constraint then rejects.
-  let scale = await findLivePreferred(repos.gradingScaleRepository, {
+  const scope = {
     tenant_id: schoolId,
     academic_year_id: academicYearId,
     class_id: classId ?? IsNull(),
-  });
+  };
+  // Only a dead row carrying the demo name may be restored — a deleted
+  // custom scale stays deleted. The unique indexes are partial on
+  // `deleted_at IS NULL`, so a fresh demo row can coexist with it.
+  let scale =
+    (await repos.gradingScaleRepository.findOne({ where: scope })) ??
+    (await repos.gradingScaleRepository.findOne({
+      where: { ...scope, name },
+      withDeleted: true,
+    }));
   let createdScale = false;
   if (!scale) {
     scale = repos.gradingScaleRepository.create({

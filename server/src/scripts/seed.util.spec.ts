@@ -1210,4 +1210,38 @@ describe('ensureGradingDemoSeed', () => {
     expect(vi.mocked(repos.gradingScaleRepository.create)).not.toHaveBeenCalled();
     expect(vi.mocked(repos.gradingBandRepository.create)).not.toHaveBeenCalled();
   });
+
+  it('leaves an admin-deleted custom scale deleted and creates the demo scale beside it', async () => {
+    const repos = gradingRepos();
+    const deletedCustom = {
+      id: 'scale-custom',
+      name: 'Custom Renamed Scale',
+      deleted_at: new Date('2026-09-01'),
+    } as GradingScale;
+    // Honour the query: the live lookup and the name-filtered deleted lookup
+    // both miss; only a name-blind withDeleted lookup would see the custom row.
+    vi.mocked(repos.gradingScaleRepository.findOne).mockImplementation(async (options) => {
+      const where = options.where as Partial<GradingScale>;
+      if (!options.withDeleted || where.name !== undefined) return null;
+      return deletedCustom;
+    });
+    vi.mocked(repos.gradingBandRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.subjectRepository.findOne).mockResolvedValue({
+      id: 'subject-1',
+      deleted_at: null,
+    } as Subject);
+    vi.mocked(repos.classSubjectRepository.findOne).mockResolvedValue({
+      id: 'cs-1',
+      deleted_at: null,
+      is_graded_only: true,
+    } as ClassSubject);
+
+    const result = await ensureGradingDemoSeed(repos, SCHOOL_ID, YEAR_ID, CLASS_ID);
+
+    // Business-critical: a seed re-run must never revive what an admin deleted.
+    expect(deletedCustom.deleted_at).not.toBeNull();
+    expect(vi.mocked(repos.gradingScaleRepository.save)).not.toHaveBeenCalledWith(deletedCustom);
+    expect(result.scales).toBe(2);
+    expect(result.bands).toBe(BD_NCTB_BANDS.length * 2);
+  });
 });
