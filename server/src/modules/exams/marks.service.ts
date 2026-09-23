@@ -6,7 +6,13 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In } from 'typeorm';
-import { AuditAction, ExamComponentSource, MarkGridState, MarkStatus } from '@biddaloy/shared';
+import {
+  AuditAction,
+  ExamComponentSource,
+  ExamStatus,
+  MarkGridState,
+  MarkStatus,
+} from '@biddaloy/shared';
 import { Exam } from './entities/exam.entity';
 import { Mark } from './entities/mark.entity';
 import { ExamComponent } from './entities/exam-component.entity';
@@ -61,6 +67,11 @@ export class MarksService {
     });
     if (!exam) {
       throw new NotFoundException(`Exam with ID "${examId}" not found`);
+    }
+    if (exam.status === ExamStatus.PUBLISHED) {
+      throw new ConflictException(
+        'This exam is already published — its marks can no longer be edited.',
+      );
     }
 
     await this.authz.assertCanWrite({

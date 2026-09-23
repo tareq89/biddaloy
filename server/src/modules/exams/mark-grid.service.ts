@@ -276,7 +276,12 @@ export class MarkGridService {
     if (role !== UserRole.ADMIN) {
       throw new ForbiddenException('Only an admin may reopen a submitted grid.');
     }
-    await this.findExam(examId, tenantId);
+    const exam = await this.findExam(examId, tenantId);
+    if (exam.status === ExamStatus.PUBLISHED) {
+      throw new ConflictException(
+        'This exam is already published — reopen its result instead of a grid.',
+      );
+    }
 
     const existing = await this.gridRepo.findOne({
       where: {

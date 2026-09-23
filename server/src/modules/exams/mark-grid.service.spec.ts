@@ -273,6 +273,28 @@ describe('MarkGridService.reopen (D12, admin-only, audited)', () => {
     ).rejects.toThrow(ForbiddenException);
   });
 
+  it('refuses to reopen a grid on an exam that is already PUBLISHED', async () => {
+    const { service } = await buildService({
+      exam: { id: EXAM_ID, tenant_id: TENANT_ID, class_id: 'c1', status: ExamStatus.PUBLISHED },
+      grid: {
+        id: 'grid-1',
+        state: MarkGridState.SUBMITTED,
+        submitted_by: 'user-0',
+        submitted_at: new Date(),
+      },
+    });
+
+    await expect(
+      service.reopen(
+        EXAM_ID,
+        { section_id: SECTION_ID, subject_id: SUBJECT_ID } as any,
+        TENANT_ID,
+        UserRole.ADMIN,
+        'admin-1',
+      ),
+    ).rejects.toThrow(ConflictException);
+  });
+
   it('rejects reopening a grid that was never submitted', async () => {
     const { service } = await buildService({ grid: null });
 

@@ -18,6 +18,7 @@ import { AuditService } from '../audit/audit.service';
 import {
   ExamComponentKind,
   ExamComponentSource,
+  ExamStatus,
   MarkGridState,
   MarkStatus,
   UserRole,
@@ -51,9 +52,16 @@ async function buildService(
     grid?: Partial<MarkGrid> | null;
     existingMarks?: Partial<Mark>[];
     enrolledCount?: number;
+    examStatus?: string;
   } = {},
 ) {
-  const { components = [component()], grid = null, existingMarks = [], enrolledCount } = opts;
+  const {
+    components = [component()],
+    grid = null,
+    existingMarks = [],
+    enrolledCount,
+    examStatus,
+  } = opts;
 
   const markRepo: any = {
     create: vi.fn((v: any) => v),
@@ -75,7 +83,9 @@ async function buildService(
 
   const componentRepo: any = { find: vi.fn(async () => components) };
   const gridRepo: any = { findOne: vi.fn(async () => grid) };
-  const examRepo: any = { findOne: vi.fn(async () => ({ id: EXAM_ID, tenant_id: TENANT_ID })) };
+  const examRepo: any = {
+    findOne: vi.fn(async () => ({ id: EXAM_ID, tenant_id: TENANT_ID, status: examStatus })),
+  };
   const studentIds = ['stu-1', 'stu-2'];
   const studentRepo: any = {
     count: vi.fn(async ({ where }: any) => enrolledCount ?? (where.id.value as string[]).length),
@@ -344,5 +354,21 @@ describe('MarksService.upsertBatch', () => {
         'user-1',
       ),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('refuses a write when the exam is already PUBLISHED', async () => {
+    const { service } = await buildService({ examStatus: ExamStatus.PUBLISHED });
+
+    await expect(
+      service.upsertBatch(
+        EXAM_ID,
+        batchDto([
+          { student_id: 'stu-1', component_id: 'comp-1', value: '75', status: MarkStatus.PRESENT },
+        ]),
+        TENANT_ID,
+        UserRole.TEACHER,
+        'user-1',
+      ),
+    ).rejects.toThrow(ConflictException);
   });
 });
