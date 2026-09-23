@@ -58,6 +58,17 @@ export {
   type DataTableSort,
 } from './data-table';
 export {
+  MarksGrid,
+  cellKey,
+  type MarksGridCell,
+  type MarksGridCellValue,
+  type MarksGridComponent,
+  type MarksGridProps,
+  type MarksGridStatus,
+  type MarksGridStudent,
+} from './marks-grid';
+export { MarksStepper, type MarksStepperProps } from './marks-stepper';
+export {
   RadioGroup,
   RadioGroupItem,
   type RadioGroupProps,
