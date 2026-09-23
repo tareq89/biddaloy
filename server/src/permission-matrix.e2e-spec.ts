@@ -511,7 +511,7 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
     method: 'GET',
     path: '/exams/:examId/results',
     reason:
-      '[19.8.1] This is the staff results-review console (sorting, fail filter, position) — PARENT/STUDENT also hold RESULT_READ, but for the guardian/student-facing single-result portal view (19.9.1), not this staff list across every student in the class.',
+      '[19.8.1] This is the staff results-review console (sorting, fail filter, position) — PARENT/STUDENT also hold RESULT_READ, but for `GET /students/:studentId/results` (19.9.1, `StudentResultsController`), not this staff list across every student in the class.',
   },
   {
     controller: 'ResultsController',
