@@ -121,7 +121,15 @@ function toBandInput(band: {
   sequence: number;
   comment: string | null;
 }): BandInput {
-  return { ...band };
+  return {
+    percent_from: band.percent_from,
+    percent_to: band.percent_to,
+    grade: band.grade,
+    gpa: band.gpa,
+    is_fail: band.is_fail,
+    sequence: band.sequence,
+    comment: band.comment,
+  };
 }
 
 function ScaleEditorPage() {
