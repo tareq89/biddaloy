@@ -124,6 +124,18 @@
     "label": "Fourth subject",
     "errorMessage": "Couldn't save the choice."
   },
+  "studentResultsPanel": {
+    "loadError": "Couldn't load results.",
+    "empty": "No results yet for this student.",
+    "caption": "Every exam this student has a result for",
+    "columnExam": "Exam",
+    "columnGrade": "Grade",
+    "columnGpa": "GPA",
+    "columnStatus": "Status",
+    "failTag": "Fail",
+    "published": "Published",
+    "notPublished": "Not yet published"
+  },
   "marksList": {
     "title": "Marks entry",
     "examLabel": "Exam",

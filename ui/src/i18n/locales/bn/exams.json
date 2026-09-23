@@ -124,6 +124,18 @@
     "label": "চতুর্থ বিষয়",
     "errorMessage": "নির্বাচন সংরক্ষণ করা যায়নি।"
   },
+  "studentResultsPanel": {
+    "loadError": "ফলাফল লোড করা যায়নি।",
+    "empty": "এই শিক্ষার্থীর জন্য এখনও কোনো ফলাফল নেই।",
+    "caption": "এই শিক্ষার্থীর ফলাফল আছে এমন প্রতিটি পরীক্ষা",
+    "columnExam": "পরীক্ষা",
+    "columnGrade": "গ্রেড",
+    "columnGpa": "জিপিএ",
+    "columnStatus": "অবস্থা",
+    "failTag": "অকৃতকার্য",
+    "published": "প্রকাশিত",
+    "notPublished": "এখনও প্রকাশিত হয়নি"
+  },
   "marksList": {
     "title": "মার্ক এন্ট্রি",
     "examLabel": "পরীক্ষা",
