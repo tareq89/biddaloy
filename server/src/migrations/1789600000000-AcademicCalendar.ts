@@ -196,7 +196,10 @@ export class AcademicCalendar1789600000000 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE IF EXISTS "calendar_feed_tokens"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "public_holiday_entries"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "public_holiday_sets"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "academic_terms"`);
+    // CASCADE: [19.2.1]'s `exams.academic_term_id` FK now references this
+    // table, and later migrations may add more — down() is a full rollback,
+    // so cascading its dependents is correct here, unlike a normal DROP.
+    await queryRunner.query(`DROP TABLE IF EXISTS "academic_terms" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "calendar_event_classes"`);
 
     await queryRunner.query(
