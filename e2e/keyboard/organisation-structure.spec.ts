@@ -148,7 +148,9 @@ test.describe('organisation structure', () => {
       // `keyboard/attendance.spec.ts` already documents — pin to the link.
       await tabUntilFocused(page, t('nav.items.settings'), 60, { tag: 'a' });
       await page.keyboard.press('Enter');
-      await expect(page.getByRole('heading', { name: t('settings.title') })).toBeVisible();
+      // `useRouteFocus` moves focus to the <h1> asynchronously after the
+      // route settles; tabbing before that lets it yank focus mid-sequence.
+      await expect(page.getByRole('heading', { name: t('settings.title') })).toBeFocused();
       // The organisation section only renders once `useSchoolSettings`
       // resolves (`SchoolSettingsPage`'s `{schoolId && settingsQuery.data
       // && (...)}` gate) — waited for explicitly rather than folded into
@@ -197,7 +199,10 @@ test.describe('organisation structure', () => {
       // — that key exists but this item doesn't use it.
       await tabUntilFocused(page, t('common.entities.class_other'), 60, { tag: 'a' });
       await page.keyboard.press('Enter');
-      await expect(page.getByRole('heading', { name: t('classes.list.title') })).toBeVisible();
+      // Same late `useRouteFocus` <h1> focus — if it lands after the dialog
+      // opens, Radix's trap re-focuses the name input with select: true and
+      // the next keystroke wipes what was typed.
+      await expect(page.getByRole('heading', { name: t('classes.list.title') })).toBeFocused();
     });
 
     await test.step('create a class with the first shift, without touching the mouse', async () => {
