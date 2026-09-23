@@ -1,0 +1,47 @@
+{
+  "save": {
+    "action": "সংরক্ষণ করুন",
+    "success": "সংরক্ষিত হয়েছে"
+  },
+  "delete": {
+    "action": "মুছুন"
+  },
+  "setupPage": {
+    "title": "রুটিন সেটআপ"
+  },
+  "shiftsPanel": {
+    "legend": "শিফট",
+    "name": "নাম",
+    "dayStartsAt": "দিন শুরু",
+    "dayEndsAt": "দিন শেষ",
+    "addAction": "শিফট যোগ করুন"
+  },
+  "roomsPanel": {
+    "legend": "রুম",
+    "building": "ভবন",
+    "roomNo": "রুম নং",
+    "capacity": "ধারণক্ষমতা",
+    "addAction": "রুম যোগ করুন"
+  },
+  "periodSlotsPanel": {
+    "legend": "পিরিয়ড স্লট — {{shiftName}}",
+    "selectShift": "উপরে একটি শিফট যোগ করুন, তারপর এর পিরিয়ড স্লট সম্পাদনা করতে সেটি বেছে নিন।",
+    "sequence": "#",
+    "kind": "ধরন",
+    "kindClass": "ক্লাস",
+    "kindBreak": "বিরতি",
+    "name": "নাম",
+    "startsAt": "শুরু",
+    "endsAt": "শেষ",
+    "breakNoName": "—",
+    "addRowAction": "পিরিয়ড যোগ করুন",
+    "timelineLabel": "এই শিফটের দিনের সময়রেখা"
+  },
+  "settingsPanel": {
+    "legend": "রুটিন সেটিংস",
+    "defaultChangeoverMinutes": "পরিবর্তন বিরতি (মিনিট)",
+    "maxPeriodsPerTeacherPerDay": "প্রতি শিক্ষকের প্রতিদিন সর্বোচ্চ পিরিয়ড",
+    "maxConsecutivePeriods": "সর্বোচ্চ ধারাবাহিক পিরিয়ড",
+    "noCap": "কোনো সীমা নেই"
+  }
+}

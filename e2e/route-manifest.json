@@ -169,6 +169,11 @@
       "archetype": "detail"
     },
     {
+      "path": "/routines/setup",
+      "role": "admin",
+      "archetype": "form"
+    },
+    {
       "path": "/audit-logs",
       "role": "admin",
       "archetype": "list"

@@ -101,6 +101,11 @@ export interface MaskedCommunicationsSettings {
  * ['attendance']` exactly rather than needing its own `Masked*` shape. */
 export type AttendancePolicySettings = NonNullable<TenantSettingsInput['attendance']>;
 
+/** [21.7.1] Not secret data either — `RoutineSettingsDto` has no
+ * `Secret()`-decorated fields, same reasoning as `AttendancePolicySettings`
+ * above. */
+export type RoutineSettingsInput = NonNullable<TenantSettingsInput['routine']>;
+
 /** [12.5] Not secret data either — `AuthSettingsDto` has no `Secret()`-decorated
  * fields, same reasoning as `AttendancePolicySettings` above. */
 export type AuthSettings = NonNullable<TenantSettingsInput['auth']>;
@@ -157,6 +162,8 @@ export interface MaskedTenantSettings {
   backup?: BackupSettings;
   fees?: FeesSettings;
   organisation?: OrganisationSettings;
+  /** [21.7.1] Not secret data, same reasoning as `attendance` above. */
+  routine?: RoutineSettingsInput;
 }
 
 export interface ConnectionTestResult {
