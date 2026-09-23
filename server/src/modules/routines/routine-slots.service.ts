@@ -86,7 +86,16 @@ export class RoutineSlotsService {
 
       const { violations, warnings } = await this.check(candidate, existing, periodSlot, tenantId);
       if (violations.length > 0) {
-        throw new ConflictException({ message: 'Slot violates hard constraints', violations });
+        // [21.8.1] `details` (not a bare top-level `violations` key) is
+        // what `error-response.ts`'s `resolveDetails` actually forwards to
+        // the client — a plain key here was silently dropped, so the grid
+        // builder's conflict list had nothing to render. Fixed here rather
+        // than worked around client-side since every caller of this 409
+        // needs the same fix.
+        throw new ConflictException({
+          message: 'Slot violates hard constraints',
+          details: { violations },
+        });
       }
 
       const saved = await this.persist(routineId, tenantId, dto, manager);

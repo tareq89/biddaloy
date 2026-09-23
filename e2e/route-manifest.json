@@ -132,6 +132,19 @@
       "archetype": "form"
     },
     {
+      "path": "/routines",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/routines/$sectionId",
+      "params": {
+        "sectionId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "form"
+    },
+    {
       "path": "/audit-logs",
       "role": "admin",
       "archetype": "list"

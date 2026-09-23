@@ -104,6 +104,13 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.ROUTINE_MANAGE,
     label: { key: 'routineSetup' },
   },
+  'academics.routineBuilder': {
+    id: 'academics.routineBuilder',
+    to: '/routines',
+    permission: Permission.ROUTINE_MANAGE,
+    label: { key: 'routineBuilder' },
+    synonyms: ['routine', 'timetable', 'grid'],
+  },
   'attendance.attendance': {
     id: 'attendance.attendance',
     to: '/attendance',
@@ -248,6 +255,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
       STAFF_NAV_ITEMS['academics.academicYears'],
       STAFF_NAV_ITEMS['academics.classes'],
       STAFF_NAV_ITEMS['academics.routineSetup'],
+      STAFF_NAV_ITEMS['academics.routineBuilder'],
     ],
   },
   {

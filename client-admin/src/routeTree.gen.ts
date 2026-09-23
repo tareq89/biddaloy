@@ -62,6 +62,8 @@ import { Route as StaffPaymentsIndexRouteImport } from './routes/_staff/payments
 import { Route as StaffPaymentsIdRouteImport } from './routes/_staff/payments/$id'
 import { Route as StaffPaymentsRecordRouteImport } from './routes/_staff/payments/record'
 import { Route as StaffReportsCollectionsRouteImport } from './routes/_staff/reports/collections'
+import { Route as StaffRoutinesIndexRouteImport } from './routes/_staff/routines/index'
+import { Route as StaffRoutinesSectionIdRouteImport } from './routes/_staff/routines/$sectionId'
 import { Route as StaffRoutinesSetupRouteImport } from './routes/_staff/routines/setup'
 import { Route as StaffStaffIndexRouteImport } from './routes/_staff/staff/index'
 import { Route as StaffStaffUserIdRouteImport } from './routes/_staff/staff/$userId'
@@ -345,6 +347,16 @@ const StaffReportsCollectionsRoute = StaffReportsCollectionsRouteImport.update({
   path: '/reports/collections',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffRoutinesIndexRoute = StaffRoutinesIndexRouteImport.update({
+  id: '/routines/',
+  path: '/routines/',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffRoutinesSectionIdRoute = StaffRoutinesSectionIdRouteImport.update({
+  id: '/routines/$sectionId',
+  path: '/routines/$sectionId',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffRoutinesSetupRoute = StaffRoutinesSetupRouteImport.update({
   id: '/routines/setup',
   path: '/routines/setup',
@@ -448,6 +460,7 @@ export interface FileRoutesByFullPath {
   '/payments/$id': typeof StaffPaymentsIdRoute
   '/payments/record': typeof StaffPaymentsRecordRoute
   '/reports/collections': typeof StaffReportsCollectionsRoute
+  '/routines/$sectionId': typeof StaffRoutinesSectionIdRoute
   '/routines/setup': typeof StaffRoutinesSetupRoute
   '/staff/$userId': typeof StaffStaffUserIdRoute
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
@@ -466,6 +479,7 @@ export interface FileRoutesByFullPath {
   '/guardians/': typeof StaffGuardiansIndexRoute
   '/invoices/': typeof StaffInvoicesIndexRoute
   '/payments/': typeof StaffPaymentsIndexRoute
+  '/routines/': typeof StaffRoutinesIndexRoute
   '/staff/': typeof StaffStaffIndexRoute
   '/students/': typeof StaffStudentsIndexRoute
   '/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
@@ -511,6 +525,7 @@ export interface FileRoutesByTo {
   '/payments/$id': typeof StaffPaymentsIdRoute
   '/payments/record': typeof StaffPaymentsRecordRoute
   '/reports/collections': typeof StaffReportsCollectionsRoute
+  '/routines/$sectionId': typeof StaffRoutinesSectionIdRoute
   '/routines/setup': typeof StaffRoutinesSetupRoute
   '/staff/$userId': typeof StaffStaffUserIdRoute
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
@@ -529,6 +544,7 @@ export interface FileRoutesByTo {
   '/guardians': typeof StaffGuardiansIndexRoute
   '/invoices': typeof StaffInvoicesIndexRoute
   '/payments': typeof StaffPaymentsIndexRoute
+  '/routines': typeof StaffRoutinesIndexRoute
   '/staff': typeof StaffStaffIndexRoute
   '/students': typeof StaffStudentsIndexRoute
   '/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
@@ -579,6 +595,7 @@ export interface FileRoutesById {
   '/_staff/payments/$id': typeof StaffPaymentsIdRoute
   '/_staff/payments/record': typeof StaffPaymentsRecordRoute
   '/_staff/reports/collections': typeof StaffReportsCollectionsRoute
+  '/_staff/routines/$sectionId': typeof StaffRoutinesSectionIdRoute
   '/_staff/routines/setup': typeof StaffRoutinesSetupRoute
   '/_staff/staff/$userId': typeof StaffStaffUserIdRoute
   '/_staff/students/$studentId': typeof StaffStudentsStudentIdRoute
@@ -597,6 +614,7 @@ export interface FileRoutesById {
   '/_staff/guardians/': typeof StaffGuardiansIndexRoute
   '/_staff/invoices/': typeof StaffInvoicesIndexRoute
   '/_staff/payments/': typeof StaffPaymentsIndexRoute
+  '/_staff/routines/': typeof StaffRoutinesIndexRoute
   '/_staff/staff/': typeof StaffStaffIndexRoute
   '/_staff/students/': typeof StaffStudentsIndexRoute
   '/_staff/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
@@ -646,6 +664,7 @@ export interface FileRouteTypes {
     | '/payments/$id'
     | '/payments/record'
     | '/reports/collections'
+    | '/routines/$sectionId'
     | '/routines/setup'
     | '/staff/$userId'
     | '/students/$studentId'
@@ -664,6 +683,7 @@ export interface FileRouteTypes {
     | '/guardians/'
     | '/invoices/'
     | '/payments/'
+    | '/routines/'
     | '/staff/'
     | '/students/'
     | '/communications/batches/$batchId'
@@ -709,6 +729,7 @@ export interface FileRouteTypes {
     | '/payments/$id'
     | '/payments/record'
     | '/reports/collections'
+    | '/routines/$sectionId'
     | '/routines/setup'
     | '/staff/$userId'
     | '/students/$studentId'
@@ -727,6 +748,7 @@ export interface FileRouteTypes {
     | '/guardians'
     | '/invoices'
     | '/payments'
+    | '/routines'
     | '/staff'
     | '/students'
     | '/communications/batches/$batchId'
@@ -776,6 +798,7 @@ export interface FileRouteTypes {
     | '/_staff/payments/$id'
     | '/_staff/payments/record'
     | '/_staff/reports/collections'
+    | '/_staff/routines/$sectionId'
     | '/_staff/routines/setup'
     | '/_staff/staff/$userId'
     | '/_staff/students/$studentId'
@@ -794,6 +817,7 @@ export interface FileRouteTypes {
     | '/_staff/guardians/'
     | '/_staff/invoices/'
     | '/_staff/payments/'
+    | '/_staff/routines/'
     | '/_staff/staff/'
     | '/_staff/students/'
     | '/_staff/communications/batches/$batchId'
@@ -1190,6 +1214,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffReportsCollectionsRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/routines/': {
+      id: '/_staff/routines/'
+      path: '/routines'
+      fullPath: '/routines/'
+      preLoaderRoute: typeof StaffRoutinesIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/routines/$sectionId': {
+      id: '/_staff/routines/$sectionId'
+      path: '/routines/$sectionId'
+      fullPath: '/routines/$sectionId'
+      preLoaderRoute: typeof StaffRoutinesSectionIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/routines/setup': {
       id: '/_staff/routines/setup'
       path: '/routines/setup'
@@ -1337,6 +1375,7 @@ interface StaffRouteChildren {
   StaffPaymentsIdRoute: typeof StaffPaymentsIdRoute
   StaffPaymentsRecordRoute: typeof StaffPaymentsRecordRoute
   StaffReportsCollectionsRoute: typeof StaffReportsCollectionsRoute
+  StaffRoutinesSectionIdRoute: typeof StaffRoutinesSectionIdRoute
   StaffRoutinesSetupRoute: typeof StaffRoutinesSetupRoute
   StaffStaffUserIdRoute: typeof StaffStaffUserIdRoute
   StaffStudentsStudentIdRoute: typeof StaffStudentsStudentIdRoute
@@ -1352,6 +1391,7 @@ interface StaffRouteChildren {
   StaffGuardiansIndexRoute: typeof StaffGuardiansIndexRoute
   StaffInvoicesIndexRoute: typeof StaffInvoicesIndexRoute
   StaffPaymentsIndexRoute: typeof StaffPaymentsIndexRoute
+  StaffRoutinesIndexRoute: typeof StaffRoutinesIndexRoute
   StaffStaffIndexRoute: typeof StaffStaffIndexRoute
   StaffStudentsIndexRoute: typeof StaffStudentsIndexRoute
   StaffCommunicationsBatchesBatchIdRoute: typeof StaffCommunicationsBatchesBatchIdRoute
@@ -1379,6 +1419,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffPaymentsIdRoute: StaffPaymentsIdRoute,
   StaffPaymentsRecordRoute: StaffPaymentsRecordRoute,
   StaffReportsCollectionsRoute: StaffReportsCollectionsRoute,
+  StaffRoutinesSectionIdRoute: StaffRoutinesSectionIdRoute,
   StaffRoutinesSetupRoute: StaffRoutinesSetupRoute,
   StaffStaffUserIdRoute: StaffStaffUserIdRoute,
   StaffStudentsStudentIdRoute: StaffStudentsStudentIdRoute,
@@ -1394,6 +1435,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffGuardiansIndexRoute: StaffGuardiansIndexRoute,
   StaffInvoicesIndexRoute: StaffInvoicesIndexRoute,
   StaffPaymentsIndexRoute: StaffPaymentsIndexRoute,
+  StaffRoutinesIndexRoute: StaffRoutinesIndexRoute,
   StaffStaffIndexRoute: StaffStaffIndexRoute,
   StaffStudentsIndexRoute: StaffStudentsIndexRoute,
   StaffCommunicationsBatchesBatchIdRoute:

@@ -87,6 +87,11 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // view offered here, same "blanket refusal matching nav visibility"
   // rule as every other route in this file.
   '/_staff/routines/setup': Permission.ROUTINE_MANAGE,
+  // [21.8.1] The grid builder is a write surface (cell save/clear, fill
+  // assist), same blanket ADMIN-only gate as setup above — no reduced
+  // read-only view of the builder exists.
+  '/_staff/routines/': Permission.ROUTINE_MANAGE,
+  '/_staff/routines/$sectionId': Permission.ROUTINE_MANAGE,
   '/_staff/audit-logs/': Permission.AUDIT_LOG_READ,
   '/_staff/settings': Permission.SETTINGS_MANAGE,
   // [9.6] Both gated on ATTENDANCE_READ, not ATTENDANCE_MARK — this table
