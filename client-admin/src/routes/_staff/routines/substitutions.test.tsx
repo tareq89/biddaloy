@@ -76,12 +76,12 @@ describe('/routines/substitutions', () => {
     await within(coveringTeacherSelect).findByRole('option', { name: 'Ms Nahar' });
     await user.selectOptions(coveringTeacherSelect, TEACHER_1_ID);
 
-    await waitFor(() => expect(router.state.location.search).toMatchObject({
-      substitute_teacher_id: TEACHER_1_ID,
-    }));
     await waitFor(() =>
-      expect(lastQuery?.get('substitute_teacher_id')).toBe(TEACHER_1_ID),
+      expect(router.state.location.search).toMatchObject({
+        substitute_teacher_id: TEACHER_1_ID,
+      }),
     );
+    await waitFor(() => expect(lastQuery?.get('substitute_teacher_id')).toBe(TEACHER_1_ID));
   });
 
   it('opens the add-substitution dialog', async () => {

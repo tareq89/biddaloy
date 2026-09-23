@@ -15460,7 +15460,7 @@ export interface operations {
                 student_id?: string;
                 from: string;
                 to: string;
-                include_breaks?: boolean;
+                include_breaks?: true | false;
             };
             header: {
                 /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */

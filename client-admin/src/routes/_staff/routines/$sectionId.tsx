@@ -115,9 +115,7 @@ function RoutineBuilderPage() {
   const [fillAssistOpen, setFillAssistOpen] = React.useState(false);
 
   if (!classId) {
-    return (
-      <p className="p-4 text-sm text-muted-foreground">{t('builder.noClassIdExplanation')}</p>
-    );
+    return <p className="p-4 text-sm text-muted-foreground">{t('builder.noClassIdExplanation')}</p>;
   }
 
   if (sectionsQuery.isPending || routinesQuery.isPending) return null;
@@ -157,8 +155,8 @@ function RoutineBuilderPage() {
     cells[cellKey(entry.slot.weekday, entry.slot.period_slot_id)] = {
       slotId: entry.slot.id,
       subjectLabel:
-        subjectsQuery.data?.data.find((subject) => subject.id === entry.slot.subject_id)
-          ?.name_en ?? entry.slot.subject_id,
+        subjectsQuery.data?.data.find((subject) => subject.id === entry.slot.subject_id)?.name_en ??
+        entry.slot.subject_id,
       teacherLabels: entry.teacher_ids.map(
         (id) => teachersQuery.data?.data.find((teacher) => teacher.id === id)?.user.full_name ?? id,
       ),
