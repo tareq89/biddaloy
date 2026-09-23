@@ -1,4 +1,14 @@
-import { Controller, Get, Put, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Put,
+  Body,
+  Param,
+  ParseUUIDPipe,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
@@ -26,7 +36,7 @@ export class SubjectChoicesController {
   @RequirePermissions(Permission.STUDENT_UPDATE)
   @ApiOperation({ summary: "List a student's optional-subject choices for an academic year." })
   listOptions(
-    @Param('studentId') studentId: string,
+    @Param('studentId', ParseUUIDPipe) studentId: string,
     @Query() query: QuerySubjectChoiceDto,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
@@ -38,7 +48,7 @@ export class SubjectChoicesController {
   @RequirePermissions(Permission.STUDENT_UPDATE)
   @ApiOperation({ summary: "Set (create or update) a student's optional-subject choice." })
   setChoice(
-    @Param('studentId') studentId: string,
+    @Param('studentId', ParseUUIDPipe) studentId: string,
     @Body() dto: SetSubjectChoiceDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
