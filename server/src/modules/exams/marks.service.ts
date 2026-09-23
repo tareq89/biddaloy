@@ -5,7 +5,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In } from 'typeorm';
+import { Repository, IsNull, In, QueryFailedError } from 'typeorm';
 import {
   AuditAction,
   ExamComponentSource,
@@ -22,6 +22,17 @@ import { BatchMarksDto } from './dto/marks.dto';
 import { MarksAuthorizationService } from './marks-authorization.util';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
+
+/** Postgres unique-violation code — same pattern as exams.service.ts's
+ * own `isUniqueViolation`. Two concurrent first-writes of the same cell
+ * (autosave + a retry, or two open tabs) can both miss on findOne and
+ * both attempt an insert; the second must be retried as an update rather
+ * than 500ing, to keep the class's documented last-write-wins promise. */
+const PG_UNIQUE_VIOLATION = '23505';
+
+function isUniqueViolation(err: unknown): boolean {
+  return err instanceof QueryFailedError && (err as any).code === PG_UNIQUE_VIOLATION;
+}
 
 export interface SavedMarkCell {
   student_id: string;
@@ -170,7 +181,17 @@ export class MarksService {
             entered_by: userId,
             tenant_id: tenantId,
           });
-          await repo.save(entity);
+          try {
+            await repo.save(entity);
+          } catch (err) {
+            if (!isUniqueViolation(err)) throw err;
+            // Lost the insert race to a concurrent request — the row now
+            // exists, so finish as an update instead of 500ing.
+            await repo.update(
+              { exam_id: examId, student_id: cell.student_id, component_id: cell.component_id },
+              { value: cell.value ?? null, status: cell.status, entered_by: userId },
+            );
+          }
         }
       }
 
