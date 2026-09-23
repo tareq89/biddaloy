@@ -27,6 +27,8 @@ export const AUDIT_ENTITY_TYPES = [
   'ClassSection',
   'DiscountRule',
   'Enrollment',
+  'Exam',
+  'ExamComponent',
   'FeeGeneration',
   'FeeStructure',
   'GradingScale',
@@ -45,6 +47,7 @@ export const AUDIT_ENTITY_TYPES = [
   // entity_type still validate — no new write ever uses it.
   'SchoolHoliday',
   'Student',
+  'StudentSubjectChoice',
   'User',
 ] as const;
 
