@@ -73,6 +73,15 @@
       "retry": "Try again"
     }
   },
+  "examSchedule": {
+    "title": "Exam schedule",
+    "loading": "Loading exam schedule",
+    "empty": "No exam schedule yet. It appears here once the school publishes a complete schedule.",
+    "error": {
+      "message": "Could not load the exam schedule. Something went wrong reaching the school's records — check your connection and try again.",
+      "retry": "Try again"
+    }
+  },
   "attendance": {
     "title": "Attendance",
     "loading": "Loading attendance",
