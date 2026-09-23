@@ -14,13 +14,20 @@ import { Class } from '../academics/entities/class.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { AcademicTerm } from '../calendar/entities/academic-term.entity';
 import { Subject } from '../academics/entities/subject.entity';
+import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { AuditModule } from '../audit/audit.module';
+import { AttendanceModule } from '../attendance/attendance.module';
 import { ExamsService } from './exams.service';
 import { ExamsController } from './exams.controller';
 import { ExamComponentsService } from './exam-components.service';
 import { ExamComponentsController } from './exam-components.controller';
 import { SubjectChoicesService } from '../students/subject-choices.service';
 import { SubjectChoicesController } from '../students/subject-choices.controller';
+import { MarksService } from './marks.service';
+import { MarkGridService } from './mark-grid.service';
+import { MarksController } from './marks.controller';
+import { AttendanceComponentService } from './attendance-component.service';
+import { MarksAuthorizationService } from './marks-authorization.util';
 
 /**
  * [19.2.1]/[19.3.1] Registers the seven exam/marks/results tables plus the
@@ -48,11 +55,26 @@ import { SubjectChoicesController } from '../students/subject-choices.controller
       AcademicYear,
       AcademicTerm,
       Subject,
+      TeacherClassSection,
     ]),
     AuditModule,
+    AttendanceModule,
   ],
-  controllers: [ExamsController, ExamComponentsController, SubjectChoicesController],
-  providers: [ExamsService, ExamComponentsService, SubjectChoicesService],
+  controllers: [
+    ExamsController,
+    ExamComponentsController,
+    SubjectChoicesController,
+    MarksController,
+  ],
+  providers: [
+    ExamsService,
+    ExamComponentsService,
+    SubjectChoicesService,
+    MarksService,
+    MarkGridService,
+    AttendanceComponentService,
+    MarksAuthorizationService,
+  ],
   exports: [TypeOrmModule],
 })
 export class ExamsModule {}

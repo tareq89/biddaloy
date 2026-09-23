@@ -35,6 +35,8 @@ export const AUDIT_ENTITY_TYPES = [
   'Guardian',
   'InvitationBatch',
   'Invoice',
+  'Mark',
+  'MarkGrid',
   'Payment',
   'PublicHolidaySet',
   'RecurringSchedule',
