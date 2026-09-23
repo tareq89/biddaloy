@@ -128,6 +128,13 @@ export class MarkGridService {
       }),
     ]);
 
+    // Mark has no section column, so the query above pulls every mark
+    // ever entered for this exam+subject across ALL sections — filter to
+    // this section's own students or a cross-section leak reaches the
+    // response (a data leak, not just noisy cells the UI can't place).
+    const sectionStudentIds = new Set(students.map((s) => s.id));
+    const sectionMarks = marks.filter((m) => sectionStudentIds.has(m.student_id));
+
     const derivedComponents = components.filter((c) => c.source === ExamComponentSource.DERIVED);
     const derived: GridResponse['derived'] = {};
     for (const component of derivedComponents) {
@@ -164,7 +171,7 @@ export class MarkGridService {
         pass_marks: c.pass_marks,
         sequence: c.sequence,
       })),
-      cells: marks.map((m) => ({
+      cells: sectionMarks.map((m) => ({
         student_id: m.student_id,
         component_id: m.component_id,
         value: m.value,

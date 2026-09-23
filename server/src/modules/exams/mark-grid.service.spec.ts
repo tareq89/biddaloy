@@ -142,6 +142,34 @@ describe('MarkGridService.getGrid', () => {
 
     expect(grid.derived['comp-att']).toEqual({ reason: null, values: { 'stu-1': '9.50' } });
   });
+  it('never returns a mark belonging to a student in another section (cross-section leak)', async () => {
+    const { service } = await buildService({
+      students: [{ id: 'stu-1', roll_number: 1, full_name: 'A' }],
+      components: [
+        {
+          id: 'comp-1',
+          name: 'Written',
+          kind: 'WRITTEN',
+          source: 'MANUAL',
+          full_marks: '100',
+          pass_marks: null,
+          sequence: 1,
+        },
+      ],
+      // Mark has no section column, so the repo returns marks for every
+      // section sharing this exam+subject — stu-2 is not in this section.
+      marks: [
+        { student_id: 'stu-1', component_id: 'comp-1', value: '80.00', status: 'PRESENT' },
+        { student_id: 'stu-2', component_id: 'comp-1', value: '55.00', status: 'PRESENT' },
+      ],
+    });
+
+    const grid = await service.getGrid(EXAM_ID, SECTION_ID, SUBJECT_ID, TENANT_ID);
+
+    expect(grid.cells).toEqual([
+      { student_id: 'stu-1', component_id: 'comp-1', value: '80.00', status: 'PRESENT' },
+    ]);
+  });
 });
 
 describe('MarkGridService.submit (D12)', () => {
