@@ -12,11 +12,13 @@
  * `content?: never` — hand-typed here against the service's actual return
  * shape, same gap `PaginatedClasses` documents for `/classes`.
  */
+import { ApprovalScope } from '@biddaloy/shared';
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
 
+import { type ApprovedMutationResult, useApprovedMutation } from './approval';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
@@ -400,5 +402,146 @@ export function useReopenMarkGrid(examId: string, sectionId: string, subjectId: 
     },
     onSuccess: () =>
       void queryClient.invalidateQueries({ queryKey: markGridKey(examId, sectionId, subjectId) }),
+  });
+}
+
+// --- Results [19.8.1] ---
+// Hand-typed against `ResultsService.list`/`getStudentResult` — no
+// `@ApiResponse` decoration server-side yet, same gap `ExamProgress`
+// above documents.
+
+export interface ResultRow {
+  student_id: string;
+  roll_number: number;
+  full_name: string;
+  total_marks: number;
+  gpa: number;
+  grade: string;
+  position: number | null;
+  is_fail: boolean;
+}
+
+export interface ResultSubjectDetail {
+  subject_id: string;
+  subject_name: string;
+  obtained: number;
+  grade: string;
+  gpa: number;
+  is_fail: boolean;
+  is_fourth_subject: boolean;
+  components: Array<{ name: string; full_marks: number; obtained: number | null }>;
+}
+
+export interface ResultDetail {
+  student: { id: string; full_name: string; roll_number: number };
+  result: {
+    total_marks: number;
+    gpa: number;
+    grade: string;
+    position: number | null;
+    is_fail: boolean;
+    grading_scale_id: string;
+  };
+  subjects: ResultSubjectDetail[];
+}
+
+export function resultsKey(examId: string | undefined) {
+  return [...examKeys.all, 'results', examId] as const;
+}
+
+export function resultsQueryOptions(examId: string | undefined) {
+  return queryOptions({
+    queryKey: resultsKey(examId),
+    queryFn: async ({ signal }) =>
+      (await apiClient.get<ResultRow[]>(`/exams/${examId}/results`, { signal })).data,
+    enabled: examId !== undefined,
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useResults(examId: string | undefined) {
+  return useQuery(resultsQueryOptions(examId));
+}
+
+export function resultDetailKey(examId: string | undefined, studentId: string | undefined) {
+  return [...examKeys.all, 'results', examId, studentId] as const;
+}
+
+export function resultDetailQueryOptions(
+  examId: string | undefined,
+  studentId: string | undefined,
+) {
+  return queryOptions({
+    queryKey: resultDetailKey(examId, studentId),
+    queryFn: async ({ signal }) =>
+      (await apiClient.get<ResultDetail>(`/exams/${examId}/results/${studentId}`, { signal })).data,
+    enabled: examId !== undefined && studentId !== undefined,
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useResultDetail(examId: string | undefined, studentId: string | undefined) {
+  return useQuery(resultDetailQueryOptions(examId, studentId));
+}
+
+/** [19.8.1] step 2: if any grid is still DRAFT the server refuses with a
+ * 409 unless `force` is set — the process dialog lists those and offers
+ * "process anyway" (audited server-side via `forced: true`). */
+export function useProcessResults(examId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (force: boolean) =>
+      (await apiClient.post<{ processed: number }>(`/exams/${examId}/results/process`, { force }))
+        .data,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resultsKey(examId) });
+      void queryClient.invalidateQueries({ queryKey: examKeys.detail(examId) });
+    },
+  });
+}
+
+export function usePublishResults(examId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      await apiClient.post(`/exams/${examId}/results/publish`);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resultsKey(examId) });
+      void queryClient.invalidateQueries({ queryKey: examKeys.detail(examId) });
+    },
+  });
+}
+
+/** Step-up approval-gated (`ApprovalScope.RESULTS_REOPEN`) — the server's
+ * `@RequireApproval` on `POST /exams/:examId/results/reopen`.
+ * `useApprovedMutation` (`ui/src/hooks/approval.tsx`) opens the existing
+ * step-up modal on the first `403 APPROVAL_REQUIRED`; callers never drive
+ * that modal themselves. */
+export function useReopenResults(examId: string): ApprovedMutationResult<void, void> {
+  const queryClient = useQueryClient();
+  return useApprovedMutation<void, void>(
+    async (_variables, options) => {
+      await apiClient.post(`/exams/${examId}/results/reopen`, undefined, options);
+    },
+    {
+      approvalScope: ApprovalScope.RESULTS_REOPEN,
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: resultsKey(examId) });
+        void queryClient.invalidateQueries({ queryKey: examKeys.detail(examId) });
+      },
+    },
+  );
+}
+
+export interface ResultSmsOutcome {
+  queued: number;
+  skipped: Array<{ student_id: string; reason: string }>;
+}
+
+export function useSendResultSms(examId: string) {
+  return useMutation({
+    mutationFn: async () =>
+      (await apiClient.post<ResultSmsOutcome>(`/exams/${examId}/results/sms`)).data,
   });
 }
