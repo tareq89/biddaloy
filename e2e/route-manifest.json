@@ -362,6 +362,11 @@
       "archetype": "list"
     },
     {
+      "path": "/portal/results",
+      "role": "parent",
+      "archetype": "list"
+    },
+    {
       "path": "/portal/account",
       "role": "parent",
       "archetype": "form"

@@ -30,6 +30,7 @@ import { Route as PortalAccountRouteImport } from './routes/portal/account'
 import { Route as PortalAttendanceRouteImport } from './routes/portal/attendance'
 import { Route as PortalCalendarRouteImport } from './routes/portal/calendar'
 import { Route as PortalFeesRouteImport } from './routes/portal/fees'
+import { Route as PortalResultsRouteImport } from './routes/portal/results'
 import { Route as PlatformHolidaySetsIndexRouteImport } from './routes/_platform/holiday-sets/index'
 import { Route as PlatformHolidaySetsSetIdRouteImport } from './routes/_platform/holiday-sets/$setId'
 import { Route as PlatformSchoolsIndexRouteImport } from './routes/_platform/schools/index'
@@ -181,6 +182,11 @@ const PortalCalendarRoute = PortalCalendarRouteImport.update({
 const PortalFeesRoute = PortalFeesRouteImport.update({
   id: '/fees',
   path: '/fees',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalResultsRoute = PortalResultsRouteImport.update({
+  id: '/results',
+  path: '/results',
   getParentRoute: () => PortalRoute,
 } as any)
 const PlatformHolidaySetsIndexRoute =
@@ -460,6 +466,7 @@ export interface FileRoutesByFullPath {
   '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/calendar': typeof PortalCalendarRoute
   '/portal/fees': typeof PortalFeesRoute
+  '/portal/results': typeof PortalResultsRoute
   '/portal/': typeof PortalIndexRoute
   '/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
   '/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
@@ -528,6 +535,7 @@ export interface FileRoutesByTo {
   '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/calendar': typeof PortalCalendarRoute
   '/portal/fees': typeof PortalFeesRoute
+  '/portal/results': typeof PortalResultsRoute
   '/portal': typeof PortalIndexRoute
   '/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
   '/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
@@ -601,6 +609,7 @@ export interface FileRoutesById {
   '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/calendar': typeof PortalCalendarRoute
   '/portal/fees': typeof PortalFeesRoute
+  '/portal/results': typeof PortalResultsRoute
   '/portal/': typeof PortalIndexRoute
   '/_platform/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
   '/_platform/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
@@ -673,6 +682,7 @@ export interface FileRouteTypes {
     | '/portal/attendance'
     | '/portal/calendar'
     | '/portal/fees'
+    | '/portal/results'
     | '/portal/'
     | '/holiday-sets/$setId'
     | '/schools/$schoolId'
@@ -741,6 +751,7 @@ export interface FileRouteTypes {
     | '/portal/attendance'
     | '/portal/calendar'
     | '/portal/fees'
+    | '/portal/results'
     | '/portal'
     | '/holiday-sets/$setId'
     | '/schools/$schoolId'
@@ -813,6 +824,7 @@ export interface FileRouteTypes {
     | '/portal/attendance'
     | '/portal/calendar'
     | '/portal/fees'
+    | '/portal/results'
     | '/portal/'
     | '/_platform/holiday-sets/$setId'
     | '/_platform/schools/$schoolId'
@@ -1026,6 +1038,13 @@ declare module '@tanstack/react-router' {
       path: '/fees'
       fullPath: '/portal/fees'
       preLoaderRoute: typeof PortalFeesRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/results': {
+      id: '/portal/results'
+      path: '/results'
+      fullPath: '/portal/results'
+      preLoaderRoute: typeof PortalResultsRouteImport
       parentRoute: typeof PortalRoute
     }
     '/_platform/holiday-sets/': {
@@ -1517,6 +1536,7 @@ interface PortalRouteChildren {
   PortalAttendanceRoute: typeof PortalAttendanceRoute
   PortalCalendarRoute: typeof PortalCalendarRoute
   PortalFeesRoute: typeof PortalFeesRoute
+  PortalResultsRoute: typeof PortalResultsRoute
   PortalIndexRoute: typeof PortalIndexRoute
 }
 
@@ -1525,6 +1545,7 @@ const PortalRouteChildren: PortalRouteChildren = {
   PortalAttendanceRoute: PortalAttendanceRoute,
   PortalCalendarRoute: PortalCalendarRoute,
   PortalFeesRoute: PortalFeesRoute,
+  PortalResultsRoute: PortalResultsRoute,
   PortalIndexRoute: PortalIndexRoute,
 }
 

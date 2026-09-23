@@ -29,6 +29,7 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/portal/attendance': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/calendar': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/fees': 'guardian portal page, has its own portal nav, not the staff sidebar',
+  '/portal/results': 'guardian portal page, has its own portal nav, not the staff sidebar',
 
   // Platform admin — its own nav, out of scope for the staff sidebar.
   '/_platform/holiday-sets/': 'platform admin page, has its own nav, not the staff sidebar',
