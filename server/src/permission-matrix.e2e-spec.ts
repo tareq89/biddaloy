@@ -499,6 +499,13 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
     reason:
       'school-policy action kept ADMIN-only; ACCOUNTANT holds COMMUNICATION_BULK_SEND for fee reminders, not this',
   },
+  {
+    controller: 'MarksController',
+    method: 'POST',
+    path: '/exams/:examId/marks/reopen',
+    reason:
+      "[19.4.1] D12 — reopening a SUBMITTED grid is deliberately ADMIN-only, although TEACHER also holds MARK_ENTER (which gates entering/submitting marks). A teacher may submit their own grid but must not be able to unlock it again once it's in review — reopening is enforced a second time inside MarkGridService.reopen with an explicit role check, not just this route gate.",
+  },
 ];
 
 function findRoleNarrowing(
@@ -558,8 +565,8 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // these will gate). Remove from this list as each route lands.
   // [19.3.1] EXAM_MANAGE now gates every route on ExamsController and
   // ExamComponentsController — no longer UI-only, removed from this list.
-  Permission.MARK_ENTER,
-  Permission.MARK_VIEW,
+  // [19.4.1] MARK_ENTER/MARK_VIEW now gate MarksController's routes —
+  // no longer UI-only, removed from this list.
   Permission.RESULT_PROCESS,
   Permission.RESULT_PUBLISH,
   Permission.RESULT_READ,

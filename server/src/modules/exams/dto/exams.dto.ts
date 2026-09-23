@@ -35,8 +35,10 @@ class IsPositiveMarksStringConstraint implements ValidatorConstraintInterface {
   }
 }
 
+/** Exported for reuse by marks.dto.ts's cell `value` — same numeric(6,2)
+ * bound applies to an entered mark as to a component's pass_marks. */
 @ValidatorConstraint({ name: 'isNonNegativeMarksString', async: false })
-class IsNonNegativeMarksStringConstraint implements ValidatorConstraintInterface {
+export class IsNonNegativeMarksStringConstraint implements ValidatorConstraintInterface {
   validate(value: unknown): boolean {
     if (value === null || value === undefined) return true;
     const n = Number(value);
