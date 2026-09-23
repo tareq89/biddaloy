@@ -6,6 +6,7 @@ import {
   ManyToOne,
   JoinColumn,
   Index,
+  Check,
 } from 'typeorm';
 import { School } from '../../schools/entities/school.entity';
 import { Exam } from './exam.entity';
@@ -38,6 +39,10 @@ import { MarkStatus } from '@biddaloy/shared';
 @Entity('marks')
 @Index(['tenant_id', 'exam_id'])
 @Index(['exam_id', 'student_id', 'component_id'], { unique: true })
+// Mirrors the migration's own CHK_marks_value_only_when_present — without
+// this, TypeORM's schema builder (synchronize / migration:generate) sees
+// no such check in entity metadata and drops it as "not declared".
+@Check('CHK_marks_value_only_when_present', `"status" = 'PRESENT' OR "value" IS NULL`)
 export class Mark {
   @PrimaryGeneratedColumn('uuid')
   id: string;

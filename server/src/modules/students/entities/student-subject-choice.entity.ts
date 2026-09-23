@@ -36,6 +36,13 @@ import { AcademicYear } from '../../academics/entities/academic-year.entity';
 @Entity('student_subject_choices')
 @Index(['tenant_id', 'student_id'])
 @Index(['student_id', 'class_subject_id'], { unique: true })
+// Mirrors the migration's own IDX_student_subject_choices_one_fourth_per_year
+// (D14) — without this, TypeORM's schema builder sees no such partial
+// index in entity metadata and drops it as "not declared".
+@Index('IDX_student_subject_choices_one_fourth_per_year', ['student_id', 'academic_year_id'], {
+  unique: true,
+  where: '"is_fourth" = true',
+})
 export class StudentSubjectChoice {
   @PrimaryGeneratedColumn('uuid')
   id: string;
