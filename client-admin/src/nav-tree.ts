@@ -98,11 +98,6 @@ export const STAFF_NAV_ITEMS = {
     to: '/grading-scales',
     permission: Permission.GRADING_SCALE_MANAGE,
     label: { key: 'gradingScales' },
-  'academics.routineSetup': {
-    id: 'academics.routineSetup',
-    to: '/routines/setup',
-    permission: Permission.ROUTINE_MANAGE,
-    label: { key: 'routineSetup' },
   },
   // [19.6.1] `EXAM_MANAGE`, matching what `ExamsController.findAll`
   // actually requires server-side (`@Roles(ADMIN)` +
@@ -115,6 +110,19 @@ export const STAFF_NAV_ITEMS = {
     to: '/exams',
     permission: Permission.EXAM_MANAGE,
     label: { entity: 'exam' },
+  },
+  'academics.routineSetup': {
+    id: 'academics.routineSetup',
+    to: '/routines/setup',
+    permission: Permission.ROUTINE_MANAGE,
+    label: { key: 'routineSetup' },
+  },
+  'academics.routineBuilder': {
+    id: 'academics.routineBuilder',
+    to: '/routines',
+    permission: Permission.ROUTINE_MANAGE,
+    label: { key: 'routineBuilder' },
+    synonyms: ['routine', 'timetable', 'grid'],
   },
   'attendance.attendance': {
     id: 'attendance.attendance',
@@ -261,6 +269,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
       STAFF_NAV_ITEMS['academics.academicYears'],
       STAFF_NAV_ITEMS['academics.classes'],
       STAFF_NAV_ITEMS['academics.routineSetup'],
+      STAFF_NAV_ITEMS['academics.routineBuilder'],
     ],
   },
   {

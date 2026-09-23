@@ -198,3 +198,211 @@ export function useDeleteRoom() {
     },
   });
 }
+
+// --- Routine document, slots, greedy-fill, workload [21.8.1] ---
+//
+// `schema.d.ts` has no typed response body for any of `findSlots`/
+// `createSlot`/`updateSlot`/`greedyFill`/`workload` (untyped
+// `Record<string, never>`, same generator gap `ClassWithCounts` above
+// already documents) — hand-typed here against the service's own return
+// interfaces (`RoutineSlotWithWarnings`, `ProposedSlot`, `TeacherWorkload`
+// in `server/src/modules/routines/*.ts`).
+
+export type Routine = components['schemas']['Routine'];
+
+export type ViolationCode =
+  | 'BREAK_SLOT'
+  | 'TEACHER_DOUBLE_BOOKED'
+  | 'SECTION_DOUBLE_BOOKED'
+  | 'ROOM_DOUBLE_BOOKED'
+  | 'TEACHER_OVER_DAILY_LIMIT';
+
+export type WarningCode = 'TEACHER_NOT_ASSIGNED' | 'TEACHER_OVER_CONSECUTIVE_LIMIT';
+
+export interface ConstraintViolation {
+  code: ViolationCode;
+  message: string;
+}
+
+export interface ConstraintWarning {
+  code: WarningCode;
+  message: string;
+}
+
+export type SlotRecurrenceValue = 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY';
+
+export interface RoutineSlot {
+  id: string;
+  tenant_id: string;
+  routine_id: string;
+  section_id: string;
+  period_slot_id: string;
+  weekday: number;
+  subject_id: string;
+  room_id: string | null;
+  recurrence: SlotRecurrenceValue;
+  recurrence_offset: number;
+  valid_from: string;
+  valid_to: string | null;
+}
+
+export interface RoutineSlotWithWarnings {
+  slot: RoutineSlot;
+  teacher_ids: string[];
+  warnings: ConstraintWarning[];
+}
+
+export interface UpsertRoutineSlotInput {
+  section_id: string;
+  period_slot_id: string;
+  weekday: number;
+  subject_id: string;
+  room_id?: string | null;
+  recurrence: SlotRecurrenceValue;
+  recurrence_offset?: number;
+  valid_from: string;
+  valid_to?: string | null;
+  teacher_ids: string[];
+}
+
+export interface ProposedSlot {
+  section_id: string;
+  period_slot_id: string;
+  weekday: number;
+  subject_id: string;
+  teacher_ids: string[];
+  recurrence: SlotRecurrenceValue;
+  recurrence_offset: number;
+  valid_from: string;
+  valid_to: string | null;
+}
+
+export interface TeacherWorkload {
+  teacher_id: string;
+  periods_per_week: number;
+  periods_per_day: Record<number, number>;
+}
+
+export const routineKeys = createEntityKeys('routines');
+
+export function routinesQueryOptions() {
+  return queryOptions({
+    queryKey: routineKeys.list({}),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<Routine[]>('/routines', { signal });
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useRoutines() {
+  return useQuery(routinesQueryOptions());
+}
+
+export function routineSlotsQueryOptions(routineId: string) {
+  return queryOptions({
+    queryKey: [...routineKeys.detail(routineId), 'slots'] as const,
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<RoutineSlotWithWarnings[]>(
+        `/routines/${routineId}/slots`,
+        { signal },
+      );
+      return res.data;
+    },
+    enabled: routineId !== '',
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useRoutineSlots(routineId: string | undefined) {
+  return useQuery({ ...routineSlotsQueryOptions(routineId ?? ''), enabled: Boolean(routineId) });
+}
+
+/** Read-only [1] `errors.ts`'s `ApiError.details` is where
+ * `RoutineSlotsService`'s 409 conflict now lands its `violations` array
+ * (server/src/modules/routines/routine-slots.service.ts, [21.8.1]) — this
+ * pulls it back out with the narrowing every other `.details` consumer
+ * in this codebase does. `undefined` for any other error shape. */
+export function conflictViolations(error: unknown): ConstraintViolation[] | undefined {
+  const candidate = error as { details?: { violations?: unknown } } | null | undefined;
+  const violations = candidate?.details?.violations;
+  return Array.isArray(violations) ? (violations as ConstraintViolation[]) : undefined;
+}
+
+function invalidateRoutineSlots(queryClient: ReturnType<typeof useQueryClient>, routineId: string) {
+  void queryClient.invalidateQueries({ queryKey: [...routineKeys.detail(routineId), 'slots'] });
+  void queryClient.invalidateQueries({ queryKey: [...routineKeys.detail(routineId), 'workload'] });
+}
+
+export function useCreateRoutineSlot(routineId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: UpsertRoutineSlotInput) => {
+      const res = await apiClient.post<RoutineSlotWithWarnings>(
+        `/routines/${routineId}/slots`,
+        input,
+      );
+      return res.data;
+    },
+    onSuccess: () => invalidateRoutineSlots(queryClient, routineId),
+  });
+}
+
+export function useUpdateRoutineSlot(routineId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ slotId, input }: { slotId: string; input: UpsertRoutineSlotInput }) => {
+      const res = await apiClient.patch<RoutineSlotWithWarnings>(
+        `/routines/slots/${slotId}`,
+        input,
+      );
+      return res.data;
+    },
+    onSuccess: () => invalidateRoutineSlots(queryClient, routineId),
+  });
+}
+
+export function useDeleteRoutineSlot(routineId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (slotId: string) => {
+      await apiClient.delete(`/routines/slots/${slotId}`);
+    },
+    onSuccess: () => invalidateRoutineSlots(queryClient, routineId),
+  });
+}
+
+/** Proposal-only — never writes. `-fill-assist-dialog.tsx` calls this,
+ * shows the result as a diff, then re-uses `useCreateRoutineSlot` per
+ * accepted proposal on confirm (D9: the write path is the only authority,
+ * this is a convenience proposer). A mutation, not a query: it's triggered
+ * on demand by opening the dialog, not kept warm in the background. */
+export function useGreedyFill(routineId: string) {
+  return useMutation({
+    mutationFn: async (weekdays?: number[]) => {
+      const res = await apiClient.get<ProposedSlot[]>(`/routines/${routineId}/greedy-fill`, {
+        params: weekdays ? { weekdays } : undefined,
+      });
+      return res.data;
+    },
+  });
+}
+
+export function workloadQueryOptions(routineId: string) {
+  return queryOptions({
+    queryKey: [...routineKeys.detail(routineId), 'workload'] as const,
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<TeacherWorkload[]>(`/routines/${routineId}/workload`, {
+        signal,
+      });
+      return res.data;
+    },
+    enabled: routineId !== '',
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useWorkload(routineId: string | undefined) {
+  return useQuery({ ...workloadQueryOptions(routineId ?? ''), enabled: Boolean(routineId) });
+}
