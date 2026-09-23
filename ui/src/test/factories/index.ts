@@ -19,3 +19,5 @@ export { paymentFactory, type Payment } from './payment.factory';
 export { invoiceFactory, type Invoice } from './invoice.factory';
 export { communicationFactory, type Communication } from './communication.factory';
 export { auditEntryFactory, type AuditEntry } from './audit-log.factory';
+export { examFactory, type Exam } from './exam.factory';
+export { examComponentFactory, type ExamComponent } from './exam-component.factory';
