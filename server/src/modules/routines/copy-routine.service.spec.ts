@@ -14,6 +14,7 @@ const SOURCE_YEAR = {
 };
 
 function buildService(overrides: {
+  sourceYear?: any;
   targetYear?: any;
   existingTargetRoutine?: any;
   sourceSlots?: any[];
@@ -69,9 +70,10 @@ function buildService(overrides: {
       return v;
     }),
   };
+  const sourceYear = overrides.sourceYear ?? SOURCE_YEAR;
   const yearRepo: any = {
     findOne: vi.fn(async ({ where }: any) =>
-      where.id === SOURCE_YEAR.id ? SOURCE_YEAR : targetYear,
+      where.id === SOURCE_YEAR.id ? sourceYear : targetYear,
     ),
   };
   const sectionRepo: any = {
@@ -219,10 +221,17 @@ describe('CopyRoutineService [21.6.1] D19', () => {
   });
 
   it('clamps a remapped valid_to that overruns the target year end, instead of dropping the slot', async () => {
-    // Source year is a leap year (366 days), target is not (365) — a
-    // slot valid through the very last day of the source year maps past
-    // the target year's end by one day.
+    // Source year is a real leap year (2024, 366 days), target is not
+    // (365) — a slot valid through the very last day of the source year
+    // maps past the target year's end by one day.
     const ctx = buildService({
+      sourceYear: {
+        id: 'year-1',
+        tenant_id: TENANT_ID,
+        deleted_at: null,
+        start_date: '2024-01-01',
+        end_date: '2024-12-31',
+      },
       targetYear: {
         id: 'year-2',
         tenant_id: TENANT_ID,
@@ -230,7 +239,7 @@ describe('CopyRoutineService [21.6.1] D19', () => {
         start_date: '2027-01-01',
         end_date: '2027-12-31',
       },
-      sourceSlots: [{ ...SOURCE_SLOT, valid_from: '2025-01-01', valid_to: '2025-12-31' }],
+      sourceSlots: [{ ...SOURCE_SLOT, valid_from: '2024-01-01', valid_to: '2024-12-31' }],
       sourceSections: [{ id: 'section-src', class_id: 'class-src', section_name: 'A' }],
       sourceClasses: [{ id: 'class-src', name: 'Class 6' }],
       targetClasses: [{ id: 'class-tgt', name: 'Class 6', academic_year_id: 'year-2' }],

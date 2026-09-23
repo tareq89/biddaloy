@@ -14,9 +14,10 @@ import {
   ValidatorConstraint,
   ValidatorConstraintInterface,
   Validate,
+  ValidateIf,
   ValidationArguments,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import { SlotRecurrence } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
@@ -57,6 +58,23 @@ class RecurrenceOffsetForTypeConstraint implements ValidatorConstraintInterface 
   }
 }
 
+/** The migration's `CHK_routine_slots_valid_range` rejects an inverted
+ * range at the DB, which `AllExceptionsFilter` then surfaces as a raw
+ * 500 — this catches it here as a clean 400 instead. `null` valid_to
+ * (open-ended) always passes. */
+@ValidatorConstraint({ name: 'validToAfterValidFrom', async: false })
+class ValidToAfterValidFromConstraint implements ValidatorConstraintInterface {
+  validate(value: string | null | undefined, args: ValidationArguments): boolean {
+    if (value == null) return true;
+    const from = (args.object as { valid_from?: string }).valid_from;
+    return typeof from !== 'string' || value >= from;
+  }
+
+  defaultMessage(): string {
+    return 'valid_to must be on or after valid_from';
+  }
+}
+
 export class CreateRoutineDto {
   @IsUUID()
   academic_year_id: string;
@@ -92,7 +110,15 @@ export class UpsertRoutineSlotDto {
   @IsEnum(SlotRecurrence)
   recurrence: SlotRecurrence;
 
-  @IsOptional()
+  // `@IsOptional()` would skip every validator below (including
+  // `@Validate`) when the field is omitted, which is exactly the case
+  // `RecurrenceOffsetForTypeConstraint` exists to catch for MONTHLY —
+  // `@ValidateIf` runs the chain unless the value truly doesn't need
+  // checking (non-MONTHLY and omitted).
+  @ValidateIf(
+    (o: UpsertRoutineSlotDto) =>
+      o.recurrence === SlotRecurrence.MONTHLY || o.recurrence_offset != null,
+  )
   @IsInt()
   @Validate(RecurrenceOffsetForTypeConstraint)
   recurrence_offset?: number;
@@ -104,6 +130,7 @@ export class UpsertRoutineSlotDto {
   @IsOptional()
   @IsDateString()
   @Matches(DATE_ONLY_RE, { message: 'valid_to must be YYYY-MM-DD' })
+  @Validate(ValidToAfterValidFromConstraint)
   valid_to?: string | null;
 
   @IsArray()
@@ -115,9 +142,14 @@ export class UpsertRoutineSlotDto {
 /** `GreedyFillService.fill` request — which routine, which day(s) to fill.
  * `weekdays` omitted means every weekday `0`-`6`. */
 export class GreedyFillQueryDto {
+  // A single `?weekdays=1` arrives as the bare string `'1'`, not `['1']`
+  // — `@Query()` only wraps repeated keys into an array. Normalize before
+  // the array/int validators below ever see it.
   @IsOptional()
+  @Transform(({ value }) =>
+    value === undefined ? undefined : (Array.isArray(value) ? value : [value]).map(Number),
+  )
   @IsArray()
-  @Type(() => Number)
   @IsInt({ each: true })
   @Min(0, { each: true })
   @Max(6, { each: true })
