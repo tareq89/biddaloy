@@ -52,8 +52,26 @@ function buildService(
   };
   const auditService: any = { record: vi.fn(async () => undefined) };
 
-  const service = new ChangeRequestsService(requestRepo, slotRepo, routineRepo, auditService);
-  return { service, requestRepo, slotRepo, routineRepo, auditService, requests };
+  // Resolution + audit run inside `dataSource.transaction` — the fake
+  // manager hands back the same mock repos, since these tests don't
+  // exercise real rollback behavior, just that both calls happen.
+  const manager: any = {
+    getRepository: vi.fn((entity: any) =>
+      entity?.name === 'RoutineChangeRequest' || entity === undefined ? requestRepo : requestRepo,
+    ),
+  };
+  const dataSource: any = {
+    transaction: vi.fn(async (fn: any) => fn(manager)),
+  };
+
+  const service = new ChangeRequestsService(
+    requestRepo,
+    slotRepo,
+    routineRepo,
+    auditService,
+    dataSource,
+  );
+  return { service, requestRepo, slotRepo, routineRepo, auditService, requests, dataSource };
 }
 
 describe('ChangeRequestsService [21.6.1] D11', () => {

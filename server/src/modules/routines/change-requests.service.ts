@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { DataSource, IsNull, Repository } from 'typeorm';
 import { RoutineChangeRequest } from './entities/routine-change-request.entity';
 import { RoutineSlot } from './entities/routine-slot.entity';
 import { Routine } from './entities/routine.entity';
@@ -29,6 +29,7 @@ export class ChangeRequestsService {
     @InjectRepository(RoutineSlot) private readonly slotRepo: Repository<RoutineSlot>,
     @InjectRepository(Routine) private readonly routineRepo: Repository<Routine>,
     private readonly auditService: AuditService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async open(
@@ -83,36 +84,46 @@ export class ChangeRequestsService {
       throw new NotFoundException(`Change request with ID "${id}" not found`);
     }
 
-    // Atomic conditional update: only succeeds while the row is still
-    // OPEN, so two concurrent resolutions can't both win and overwrite
-    // each other's decision. A zero-row update means someone else
-    // resolved it first — surface that as a conflict, not a silent no-op.
-    const result = await this.requestRepo.update(
-      { id, tenant_id: tenantId, state: ChangeRequestState.OPEN },
-      {
-        state: dto.state,
-        resolved_by: userId,
-        resolved_at: new Date(),
-        resolution_note: dto.resolution_note ?? null,
-      },
-    );
-    if (result.affected === 0) {
-      throw new ConflictException(`Change request "${id}" is already resolved`);
-    }
-    const saved = await this.requestRepo.findOneOrFail({ where: { id, tenant_id: tenantId } });
+    // Resolution + its audit row commit atomically: an audit-write failure
+    // rolls back the resolution too, so a request never ends up resolved
+    // with no audit trail.
+    return this.dataSource.transaction(async (manager) => {
+      const requestRepo = manager.getRepository(RoutineChangeRequest);
 
-    await this.auditService.record({
-      action: AuditAction.UPDATE,
-      entity_type: 'RoutineChangeRequest',
-      entity_id: saved.id,
-      tenant_id: tenantId,
-      performed_by_user_id: userId,
-      ip_address: context.ip,
-      user_agent: context.userAgent,
-      old_values: { state: ChangeRequestState.OPEN },
-      new_values: { state: saved.state, resolution_note: saved.resolution_note },
+      // Atomic conditional update: only succeeds while the row is still
+      // OPEN, so two concurrent resolutions can't both win and overwrite
+      // each other's decision. A zero-row update means someone else
+      // resolved it first — surface that as a conflict, not a silent no-op.
+      const result = await requestRepo.update(
+        { id, tenant_id: tenantId, state: ChangeRequestState.OPEN },
+        {
+          state: dto.state,
+          resolved_by: userId,
+          resolved_at: new Date(),
+          resolution_note: dto.resolution_note ?? null,
+        },
+      );
+      if (result.affected === 0) {
+        throw new ConflictException(`Change request "${id}" is already resolved`);
+      }
+      const saved = await requestRepo.findOneOrFail({ where: { id, tenant_id: tenantId } });
+
+      await this.auditService.record(
+        {
+          action: AuditAction.UPDATE,
+          entity_type: 'RoutineChangeRequest',
+          entity_id: saved.id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          old_values: { state: ChangeRequestState.OPEN },
+          new_values: { state: saved.state, resolution_note: saved.resolution_note },
+        },
+        manager,
+      );
+
+      return saved;
     });
-
-    return saved;
   }
 }

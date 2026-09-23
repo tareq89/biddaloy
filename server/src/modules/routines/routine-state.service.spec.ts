@@ -23,8 +23,12 @@ function buildService(state: RoutineState = RoutineState.DRAFT) {
     }),
   };
   const auditService: any = { record: vi.fn(async () => undefined) };
-  const service = new RoutineStateService(routineRepo, auditService);
-  return { service, routineRepo, auditService, routine };
+  // Transition + audit run inside `dataSource.transaction` — the fake
+  // manager hands back the same mock repo.
+  const manager: any = { getRepository: vi.fn(() => routineRepo) };
+  const dataSource: any = { transaction: vi.fn(async (fn: any) => fn(manager)) };
+  const service = new RoutineStateService(routineRepo, auditService, dataSource);
+  return { service, routineRepo, auditService, routine, dataSource };
 }
 
 describe('RoutineStateService [21.6.1] D11 state machine', () => {
@@ -39,6 +43,7 @@ describe('RoutineStateService [21.6.1] D11 state machine', () => {
         old_values: { state: RoutineState.DRAFT },
         new_values: expect.objectContaining({ state: RoutineState.REVIEW }),
       }),
+      expect.anything(),
     );
   });
 

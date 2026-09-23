@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { DataSource, IsNull, Repository } from 'typeorm';
 import { Routine } from './entities/routine.entity';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
@@ -30,6 +30,7 @@ export class RoutineStateService {
   constructor(
     @InjectRepository(Routine) private readonly routineRepo: Repository<Routine>,
     private readonly auditService: AuditService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async submitForReview(
@@ -79,37 +80,47 @@ export class RoutineStateService {
     }
 
     const oldState = routine.state;
-    // Atomic conditional update: only succeeds while the row is still in
-    // `oldState`, so two concurrent transitions (e.g. publish vs.
-    // withdraw, both starting from REVIEW) can't both win — the loser's
-    // zero-row update surfaces as a conflict instead of silently
-    // overwriting the winner's state.
-    const result = await this.routineRepo.update(
-      { id, tenant_id: tenantId, deleted_at: IsNull(), state: oldState },
-      {
-        state: to,
-        published_at: to === RoutineState.PUBLISHED ? new Date() : routine.published_at,
-      },
-    );
-    if (result.affected === 0) {
-      throw new ConflictException(`Cannot move routine from "${oldState}" to "${to}"`);
-    }
-    const saved = await this.routineRepo.findOneOrFail({
-      where: { id, tenant_id: tenantId, deleted_at: IsNull() },
-    });
+    // Transition + its audit row commit atomically: an audit-write
+    // failure rolls back the transition too, so a routine never ends up
+    // e.g. PUBLISHED with no audit trail.
+    return this.dataSource.transaction(async (manager) => {
+      const routineRepo = manager.getRepository(Routine);
 
-    await this.auditService.record({
-      action: AuditAction.UPDATE,
-      entity_type: 'Routine',
-      entity_id: saved.id,
-      tenant_id: tenantId,
-      performed_by_user_id: userId,
-      ip_address: context.ip,
-      user_agent: context.userAgent,
-      old_values: { state: oldState },
-      new_values: { state: saved.state, published_at: saved.published_at },
-    });
+      // Atomic conditional update: only succeeds while the row is still in
+      // `oldState`, so two concurrent transitions (e.g. publish vs.
+      // withdraw, both starting from REVIEW) can't both win — the loser's
+      // zero-row update surfaces as a conflict instead of silently
+      // overwriting the winner's state.
+      const result = await routineRepo.update(
+        { id, tenant_id: tenantId, deleted_at: IsNull(), state: oldState },
+        {
+          state: to,
+          published_at: to === RoutineState.PUBLISHED ? new Date() : routine.published_at,
+        },
+      );
+      if (result.affected === 0) {
+        throw new ConflictException(`Cannot move routine from "${oldState}" to "${to}"`);
+      }
+      const saved = await routineRepo.findOneOrFail({
+        where: { id, tenant_id: tenantId, deleted_at: IsNull() },
+      });
 
-    return saved;
+      await this.auditService.record(
+        {
+          action: AuditAction.UPDATE,
+          entity_type: 'Routine',
+          entity_id: saved.id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          old_values: { state: oldState },
+          new_values: { state: saved.state, published_at: saved.published_at },
+        },
+        manager,
+      );
+
+      return saved;
+    });
   }
 }
