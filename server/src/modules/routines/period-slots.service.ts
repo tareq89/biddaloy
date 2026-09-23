@@ -85,8 +85,15 @@ export class PeriodSlotsService {
 
       // Replacing the set deletes the old rows outright; refuse if a routine
       // slot still points at one of them rather than orphaning it silently.
+      // Locked so a concurrent `RoutineSlotsService.create()`/`update()`
+      // (which takes a `pessimistic_read` lock on the same row via
+      // `getPeriodSlot`) can't insert a new reference between this count
+      // and the `repo.delete(...)` below — without the lock, that insert
+      // could commit after the count-of-0 but before the delete, and
+      // `ON DELETE CASCADE` would silently wipe the row it just created.
       const existing = await repo.find({
         where: { shift_id: shiftId, tenant_id: tenantId },
+        lock: { mode: 'pessimistic_write' },
       });
       if (existing.length > 0) {
         const referencedCount = await manager.getRepository(RoutineSlot).count({

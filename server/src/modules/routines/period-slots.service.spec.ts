@@ -68,6 +68,16 @@ describe('PeriodSlotsService [21.3.1]', () => {
     expect(result).toHaveLength(2);
   });
 
+  it('locks the existing period-slot rows before counting references, to race-proof against a concurrent RoutineSlotsService write', async () => {
+    await ctx.service.replaceForShift('shift-1', { slots: validSlots } as any, TENANT_ID);
+    expect(ctx.repo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { shift_id: 'shift-1', tenant_id: TENANT_ID },
+        lock: { mode: 'pessimistic_write' },
+      }),
+    );
+  });
+
   it('rejects overlapping slots and reports every problem, not just the first', async () => {
     const overlapping = [
       { sequence: 0, kind: PeriodSlotKind.CLASS, starts_at: '08:00', ends_at: '08:40' },
