@@ -12,6 +12,12 @@ import {
   PaymentAllocationType,
   EnrollmentStatus,
   UserRole,
+  ExamKind,
+  ExamStatus,
+  ExamComponentKind,
+  ExamComponentSource,
+  MarkStatus,
+  MarkGridState,
 } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -35,6 +41,15 @@ import { Payment } from '../src/modules/fees/entities/payment.entity';
 import { PaymentAllocation } from '../src/modules/fees/entities/payment-allocation.entity';
 import { GradingScale } from '../src/modules/grading/entities/grading-scale.entity';
 import { GradingBand } from '../src/modules/grading/entities/grading-band.entity';
+import { Subject } from '../src/modules/academics/entities/subject.entity';
+import { ClassSubject } from '../src/modules/academics/entities/class-subject.entity';
+import { Exam } from '../src/modules/exams/entities/exam.entity';
+import { ExamComponent } from '../src/modules/exams/entities/exam-component.entity';
+import { Mark } from '../src/modules/exams/entities/mark.entity';
+import { MarkGrid } from '../src/modules/exams/entities/mark-grid.entity';
+import { Result } from '../src/modules/exams/entities/result.entity';
+import { ResultSubject } from '../src/modules/exams/entities/result-subject.entity';
+import { StudentSubjectChoice } from '../src/modules/students/entities/student-subject-choice.entity';
 import { DEMO_ORGANISATION, ensureDemoStudents, SEED_DEVICE_KEY } from '../src/scripts/seed.util';
 import { ImportStagingService } from '../src/modules/bulk-import/import-staging.service';
 import { ValidationService } from '../src/modules/workbook/import/validation.service';
@@ -625,6 +640,143 @@ describe('workbook round trip (integration)', () => {
         comment: null,
       }),
     ]);
+
+    // --- Exams/marks/results spine (19.10.1, #906) -----------------------
+    // Two students so `marks` carries two rows against the same component,
+    // one PRESENT and one ABSENT (D10).
+    const students = await dataSource
+      .getRepository(Student)
+      .find({ where: { tenant_id: TENANT_A }, take: 2 });
+    expect(
+      students.length,
+      'fixture needs at least 2 students for the marks case',
+    ).toBeGreaterThanOrEqual(2);
+    const [studentOne, studentTwo] = students;
+
+    const subject = await dataSource.getRepository(Subject).save(
+      dataSource.getRepository(Subject).create({
+        tenant_id: TENANT_A,
+        name_en: 'Mathematics',
+        name_bn: 'গণিত',
+        code: `MATH-${TENANT_A.slice(0, 8)}`,
+      }),
+    );
+
+    const classSubject = await dataSource.getRepository(ClassSubject).save(
+      dataSource.getRepository(ClassSubject).create({
+        tenant_id: TENANT_A,
+        class_id: klass.id,
+        subject_id: subject.id,
+        academic_year_id: year.id,
+      }),
+    );
+
+    const exam = await dataSource.getRepository(Exam).save(
+      dataSource.getRepository(Exam).create({
+        tenant_id: TENANT_A,
+        academic_year_id: year.id,
+        class_id: klass.id,
+        academic_term_id: null,
+        name: 'First Term Exam',
+        kind: ExamKind.TERM,
+        status: ExamStatus.PROCESSED,
+        published_at: null,
+      }),
+    );
+
+    const component = await dataSource.getRepository(ExamComponent).save(
+      dataSource.getRepository(ExamComponent).create({
+        tenant_id: TENANT_A,
+        exam_id: exam.id,
+        subject_id: subject.id,
+        name: 'Written',
+        kind: ExamComponentKind.WRITTEN,
+        source: ExamComponentSource.MANUAL,
+        full_marks: '100.00',
+        pass_marks: '33.00',
+        sequence: 1,
+      }),
+    );
+
+    await dataSource.getRepository(MarkGrid).save(
+      dataSource.getRepository(MarkGrid).create({
+        tenant_id: TENANT_A,
+        exam_id: exam.id,
+        section_id: section.id,
+        subject_id: subject.id,
+        state: MarkGridState.SUBMITTED,
+        submitted_by: USER_ID,
+        submitted_at: new Date('2026-02-01T00:00:00.000Z'),
+      }),
+    );
+
+    // D10: a PRESENT mark carries a value; an ABSENT mark's `value` must be
+    // (and must round-trip as) `null` — never a coerced zero.
+    await dataSource.getRepository(Mark).save([
+      dataSource.getRepository(Mark).create({
+        tenant_id: TENANT_A,
+        exam_id: exam.id,
+        student_id: studentOne.id,
+        subject_id: subject.id,
+        component_id: component.id,
+        value: '78.50',
+        status: MarkStatus.PRESENT,
+        entered_by: USER_ID,
+      }),
+      dataSource.getRepository(Mark).create({
+        tenant_id: TENANT_A,
+        exam_id: exam.id,
+        student_id: studentTwo.id,
+        subject_id: subject.id,
+        component_id: component.id,
+        value: null,
+        status: MarkStatus.ABSENT,
+        entered_by: USER_ID,
+      }),
+    ]);
+
+    // D19: a published result pins the scale's revision and the rule
+    // version that produced it — the round trip must preserve both exactly.
+    const result = await dataSource.getRepository(Result).save(
+      dataSource.getRepository(Result).create({
+        tenant_id: TENANT_A,
+        exam_id: exam.id,
+        student_id: studentOne.id,
+        total_marks: '78.50',
+        gpa: '4.50',
+        grade: 'A',
+        position: 1,
+        is_fail: false,
+        grading_scale_id: scale.id,
+        grading_scale_revision: scale.revision,
+        rule_version: 'nctb-2026.1',
+        computed_at: new Date('2026-02-10T00:00:00.000Z'),
+        published_at: new Date('2026-02-11T00:00:00.000Z'),
+      }),
+    );
+
+    await dataSource.getRepository(ResultSubject).save(
+      dataSource.getRepository(ResultSubject).create({
+        tenant_id: TENANT_A,
+        result_id: result.id,
+        subject_id: subject.id,
+        obtained: '78.50',
+        grade: 'A',
+        gpa: '4.50',
+        is_fail: false,
+        is_fourth_subject: false,
+      }),
+    );
+
+    await dataSource.getRepository(StudentSubjectChoice).save(
+      dataSource.getRepository(StudentSubjectChoice).create({
+        tenant_id: TENANT_A,
+        student_id: studentOne.id,
+        class_subject_id: classSubject.id,
+        academic_year_id: year.id,
+        is_fourth: true,
+      }),
+    );
   }
 
   /**
@@ -655,6 +807,13 @@ describe('workbook round trip (integration)', () => {
       'payment_allocations',
       'grading_scales',
       'grading_bands',
+      'exams',
+      'exam_components',
+      'mark_grids',
+      'marks',
+      'results',
+      'result_subjects',
+      'student_subject_choices',
     ];
     const empty = mustBeNonEmpty.filter((tab) => !(rowCounts[tab] ?? 0));
     expect(empty, `fixture produced no rows for: ${empty.join(', ')}`).toEqual([]);
@@ -899,6 +1058,29 @@ describe('workbook round trip (integration)', () => {
       .getRepository(GradingBand)
       .findOneOrFail({ where: { scale_id: restoredScale.id, grade: 'F' } });
     expect(restoredFailBand.gpa).toBeNull();
+
+    // (D10) explicit, beyond the generic diff above: an ABSENT mark's
+    // `value` must restore as `null`, never a coerced zero — a real
+    // data-integrity bug the ticket calls out by name.
+    const restoredAbsentMark = await dataSource
+      .getRepository(Mark)
+      .findOneOrFail({ where: { tenant_id: TENANT_B, status: MarkStatus.ABSENT } });
+    expect(restoredAbsentMark.value).toBeNull();
+    const restoredPresentMark = await dataSource
+      .getRepository(Mark)
+      .findOneOrFail({ where: { tenant_id: TENANT_B, status: MarkStatus.PRESENT } });
+    expect(restoredPresentMark.value).toBe('78.50');
+
+    // (D19) explicit: a published result's pinned `grading_scale_revision`
+    // and `rule_version` must restore exactly, not re-derive from the
+    // referenced scale's current row — losing the pin would let a later
+    // grading-scale edit silently re-grade an already-printed result.
+    const restoredResult = await dataSource
+      .getRepository(Result)
+      .findOneOrFail({ where: { tenant_id: TENANT_B } });
+    expect(restoredResult.grading_scale_revision).toBe(3);
+    expect(restoredResult.rule_version).toBe('nctb-2026.1');
+    expect(restoredResult.published_at).not.toBeNull();
 
     // `_meta` is *expected* to differ — assert that explicitly rather
     // than ignoring it.
