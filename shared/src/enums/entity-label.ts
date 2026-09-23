@@ -28,6 +28,8 @@ export const EntityLabel = {
   shift: 'shift',
   version: 'version',
   group: 'group',
+  // [19.1.1] Epic 19.0's exams/marks/results spine.
+  exam: 'exam',
 } as const;
 
 export type EntityLabel = (typeof EntityLabel)[keyof typeof EntityLabel];

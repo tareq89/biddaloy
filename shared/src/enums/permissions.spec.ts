@@ -106,10 +106,12 @@ describe('family read grants [5.1]', () => {
     Permission.ATTENDANCE_READ,
     // [17.1.1] Calendar read — every tenant role, including family roles.
     Permission.CALENDAR_READ,
+    // [19.1.1] D1 — guardian-visible published results are in scope.
+    Permission.RESULT_READ,
   ] as const;
 
   for (const role of FAMILY_ROLES) {
-    it(`grants ${role} exactly STUDENT_READ, FEE_READ, INVOICE_READ, ATTENDANCE_READ and CALENDAR_READ`, () => {
+    it(`grants ${role} exactly STUDENT_READ, FEE_READ, INVOICE_READ, ATTENDANCE_READ, CALENDAR_READ and RESULT_READ`, () => {
       expect([...ROLE_PERMISSIONS[role]].sort()).toEqual([...FAMILY_PERMISSIONS].sort());
     });
   }

@@ -151,6 +151,24 @@ export enum Permission {
   // ADMIN only — no read permission: teachers/executives see scales
   // implicitly through results, not as a standalone list.
   GRADING_SCALE_MANAGE = 'GRADING_SCALE_MANAGE',
+
+  // Exams (19.x)
+  // [19.1.1] Create/edit/delete Exam, ExamComponent, ExamSchedule.
+  EXAM_MANAGE = 'EXAM_MANAGE',
+  // [19.1.1] Write access to the marks-entry grid. Runtime-scoped further
+  // for TEACHER by `TeacherClassSection` (19.4.1) — a teacher only sees
+  // marks entry for sections/subjects they are assigned to; that narrowing
+  // happens in the marks-entry service, not here.
+  MARK_ENTER = 'MARK_ENTER',
+  // [19.1.1] Read the marks-entry grid (without editing it).
+  MARK_VIEW = 'MARK_VIEW',
+  // [19.1.1] Run NCTB result computation for an exam (DRAFT → PROCESSED).
+  RESULT_PROCESS = 'RESULT_PROCESS',
+  // [19.1.1] Publish a processed result (PROCESSED → PUBLISHED), which
+  // makes it guardian-visible and can trigger result SMS (19.5.1).
+  RESULT_PUBLISH = 'RESULT_PUBLISH',
+  // [19.1.1] Read a published (or, for staff, processed) result.
+  RESULT_READ = 'RESULT_READ',
 }
 
 import { UserRole } from './index';
@@ -230,6 +248,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.CALENDAR_MANAGE,
     // [20.1.1] Grading scales — ADMIN only.
     Permission.GRADING_SCALE_MANAGE,
+    // [19.1.1] Exams/marks/results — ADMIN holds all six.
+    Permission.EXAM_MANAGE,
+    Permission.MARK_ENTER,
+    Permission.MARK_VIEW,
+    Permission.RESULT_PROCESS,
+    Permission.RESULT_PUBLISH,
+    Permission.RESULT_READ,
   ],
 
   [UserRole.ACCOUNTANT]: [
@@ -306,6 +331,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ATTENDANCE_MARK,
     // [17.1.1] School calendar read.
     Permission.CALENDAR_READ,
+    // [19.1.1] Marks entry (scoped further by TeacherClassSection at
+    // runtime, see enum comment) and own-section result reads.
+    Permission.MARK_ENTER,
+    Permission.MARK_VIEW,
+    Permission.RESULT_READ,
   ],
 
   // [5.1] added no permissions to either family role. The widened server
@@ -325,6 +355,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ATTENDANCE_READ,
     // [17.1.1] School calendar read.
     Permission.CALENDAR_READ,
+    // [19.1.1] Guardian-visible published results (D1's spine scope).
+    Permission.RESULT_READ,
   ],
 
   [UserRole.STUDENT]: [
@@ -334,6 +366,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ATTENDANCE_READ,
     // [17.1.1] School calendar read.
     Permission.CALENDAR_READ,
+    // [19.1.1] Own published results (D1's spine scope).
+    Permission.RESULT_READ,
   ],
 
   [UserRole.EXECUTIVE]: [
@@ -368,6 +402,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ATTENDANCE_READ,
     // [17.1.1] School calendar read.
     Permission.CALENDAR_READ,
+    // [19.1.1] Executives see marks/results read-only.
+    Permission.MARK_VIEW,
+    Permission.RESULT_READ,
   ],
 };
 
