@@ -1,4 +1,4 @@
-import { IsUUID, IsOptional, IsDateString, IsIn } from 'class-validator';
+import { IsUUID, IsOptional, IsDateString, IsBoolean } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 /**
@@ -31,7 +31,7 @@ export class ResolveRoutineQueryDto {
    * accepted string values explicitly instead. */
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? value === 'true' : value))
-  @IsIn([true, false])
+  @IsBoolean()
   include_breaks?: boolean;
 }
 
