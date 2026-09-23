@@ -1184,4 +1184,30 @@ describe('ensureGradingDemoSeed', () => {
       expect.objectContaining({ is_graded_only: true }),
     );
   });
+
+  it('preserves an existing scale in scope under a different name instead of creating a demo scale', async () => {
+    const repos = gradingRepos();
+    vi.mocked(repos.gradingScaleRepository.findOne).mockResolvedValue({
+      id: 'scale-custom',
+      name: 'Custom Renamed Scale',
+      deleted_at: null,
+    } as GradingScale);
+    vi.mocked(repos.gradingBandRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.subjectRepository.findOne).mockResolvedValue({
+      id: 'subject-1',
+      deleted_at: null,
+    } as Subject);
+    vi.mocked(repos.classSubjectRepository.findOne).mockResolvedValue({
+      id: 'cs-1',
+      deleted_at: null,
+      is_graded_only: true,
+    } as ClassSubject);
+
+    const result = await ensureGradingDemoSeed(repos, SCHOOL_ID, YEAR_ID, CLASS_ID);
+
+    expect(result.scales).toBe(0);
+    expect(result.bands).toBe(0);
+    expect(vi.mocked(repos.gradingScaleRepository.create)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.gradingBandRepository.create)).not.toHaveBeenCalled();
+  });
 });

@@ -1307,11 +1307,14 @@ async function ensureBdNctbScale(
   classId: string | null,
   name: string,
 ): Promise<{ createdScale: boolean; createdBands: number }> {
+  // Look up by (tenant, academic year, class) only — not name — since the
+  // scope alone is what the one-default-scale-per-scope DB constraint
+  // enforces. Filtering by name too could miss an existing scale in that
+  // scope and attempt a second insert, which the constraint then rejects.
   let scale = await findLivePreferred(repos.gradingScaleRepository, {
     tenant_id: schoolId,
     academic_year_id: academicYearId,
     class_id: classId ?? IsNull(),
-    name,
   });
   let createdScale = false;
   if (!scale) {
@@ -1326,6 +1329,11 @@ async function ensureBdNctbScale(
     createdScale = true;
   } else if (scale.deleted_at) {
     await repos.gradingScaleRepository.save(undelete(scale));
+  } else if (scale.name !== name) {
+    // A scale already occupies this scope under a different name — it's not
+    // the demo scale this helper seeds. Leave it untouched rather than
+    // attaching BD NCTB bands to someone else's scale.
+    return { createdScale: false, createdBands: 0 };
   }
 
   let createdBands = 0;
