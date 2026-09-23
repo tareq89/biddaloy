@@ -25,6 +25,14 @@ export interface SlotLike {
   id?: string;
   section_id: string;
   period_slot_id: string;
+  /** Wall-clock start/end of the `PeriodSlot` this slot uses, `'HH:MM'`.
+   * A routine can hold sections from several shifts, and two different
+   * shifts' `PeriodSlot`s can overlap in wall-clock time (e.g. morning
+   * shift 11:30-12:10 vs day shift 12:00-12:40) despite having different
+   * `period_slot_id`s — teacher/room clashes are checked on this
+   * interval, not on `period_slot_id` equality. */
+  starts_at: string;
+  ends_at: string;
   weekday: number;
   /** `PeriodSlot.sequence` of `period_slot_id` — needed to detect
    * consecutive-period runs for the soft `maxConsecutivePeriods`
@@ -132,8 +140,10 @@ export function dateRangesOverlap(
 
 /** Two slots "coexist" — actually compete for the same weekday-time —
  * only if their weekday, recurrence and effective-date range all
- * intersect. This is the gate every hard-violation check below runs a
- * candidate through before comparing teacher/section/room. */
+ * intersect, and `a.id !== b.id`. Section clashes additionally require
+ * the same `period_slot_id` (a section belongs to one shift, so
+ * same-period is the right test there); teacher/room clashes use
+ * `slotsOverlapInTime` instead, since a routine spans multiple shifts. */
 function slotsCoexist(a: SlotLike, b: SlotLike): boolean {
   return (
     a.weekday === b.weekday &&
@@ -141,6 +151,22 @@ function slotsCoexist(a: SlotLike, b: SlotLike): boolean {
     // the same weekday but different periods (e.g. Monday period 1 and
     // Monday period 2) don't compete for anything.
     a.period_slot_id === b.period_slot_id &&
+    recurrenceIntersects(a, b) &&
+    dateRangesOverlap(a, b) &&
+    a.id !== b.id
+  );
+}
+
+/** Same weekday/recurrence/date-range gate as `slotsCoexist`, but the
+ * time test is wall-clock interval overlap (`a.starts < b.ends &&
+ * b.starts < a.ends`) instead of `period_slot_id` equality — two slots
+ * from different shifts can still clash a teacher or a room even though
+ * they reference different `PeriodSlot` rows. */
+function slotsOverlapInTime(a: SlotLike, b: SlotLike): boolean {
+  return (
+    a.weekday === b.weekday &&
+    a.starts_at < b.ends_at &&
+    b.starts_at < a.ends_at &&
     recurrenceIntersects(a, b) &&
     dateRangesOverlap(a, b) &&
     a.id !== b.id
@@ -170,8 +196,10 @@ export function checkSlot(
   }
 
   const coexisting = existing.filter((s) => slotsCoexist(candidate, s));
+  const timeOverlapping = existing.filter((s) => slotsOverlapInTime(candidate, s));
 
-  // Same section, two subjects at once.
+  // Same section, two subjects at once. A section belongs to one shift,
+  // so same-`period_slot_id` (via `slotsCoexist`) is the right test here.
   const sectionClash = coexisting.some((s) => s.section_id === candidate.section_id);
   if (sectionClash) {
     violations.push({
@@ -180,9 +208,11 @@ export function checkSlot(
     });
   }
 
-  // Same room, two sections at once.
+  // Same room, two sections at once. A teacher/room can be double-booked
+  // across shifts, so this uses wall-clock overlap rather than
+  // `period_slot_id` equality.
   if (candidate.room_id) {
-    const roomClash = coexisting.some((s) => s.room_id === candidate.room_id);
+    const roomClash = timeOverlapping.some((s) => s.room_id === candidate.room_id);
     if (roomClash) {
       violations.push({
         code: 'ROOM_DOUBLE_BOOKED',
@@ -191,8 +221,8 @@ export function checkSlot(
     }
   }
 
-  // Same teacher, two sections at once.
-  const teacherClash = coexisting.some((s) =>
+  // Same teacher, two sections at once (possibly in different shifts).
+  const teacherClash = timeOverlapping.some((s) =>
     s.teacher_ids.some((t) => candidate.teacher_ids.includes(t)),
   );
   if (teacherClash) {

@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
 import { Routine } from './entities/routine.entity';
@@ -77,7 +82,7 @@ export class RoutineSlotsService {
       await this.validateTenantReferences(manager, dto, tenantId);
       const periodSlot = await this.getPeriodSlot(dto.period_slot_id, tenantId, manager);
       const existing = await this.loadExisting(routineId, tenantId, manager);
-      const candidate = this.toSlotLike(dto, periodSlot.sequence);
+      const candidate = this.toSlotLike(dto, periodSlot);
 
       const { violations, warnings } = await this.check(candidate, existing, periodSlot, tenantId);
       if (violations.length > 0) {
@@ -107,6 +112,19 @@ export class RoutineSlotsService {
         throw new NotFoundException(`Routine slot with ID "${id}" not found`);
       }
 
+      // D4 effective dating only makes sense moving forward from the old
+      // row's own `valid_from` — otherwise the new row's `valid_to`
+      // (computed below as the day before `dto.valid_from`) ends up
+      // before its `valid_from`, an empty/invalid range.
+      if (dto.valid_from <= oldSlot.valid_from) {
+        throw new BadRequestException("valid_from must be after the current row's valid_from");
+      }
+      // The old row may already have been closed by an earlier edit
+      // (`valid_to` set) — don't silently reopen/overwrite that.
+      if (oldSlot.valid_to !== null && oldSlot.valid_to < dto.valid_from) {
+        throw new ConflictException(`Routine slot was already superseded on ${oldSlot.valid_to}`);
+      }
+
       await this.validateTenantReferences(manager, dto, tenantId);
       const periodSlot = await this.getPeriodSlot(dto.period_slot_id, tenantId, manager);
       const closeDate = dayBefore(dto.valid_from);
@@ -116,7 +134,7 @@ export class RoutineSlotsService {
       await manager.update(RoutineSlot, { id, tenant_id: tenantId }, { valid_to: closeDate });
 
       const existing = await this.loadExisting(oldSlot.routine_id, tenantId, manager);
-      const candidate = this.toSlotLike(dto, periodSlot.sequence);
+      const candidate = this.toSlotLike(dto, periodSlot);
 
       const { violations, warnings } = await this.check(candidate, existing, periodSlot, tenantId);
       if (violations.length > 0) {
@@ -185,8 +203,14 @@ export class RoutineSlotsService {
     manager?: EntityManager,
   ): Promise<PeriodSlot> {
     const repo = manager ? manager.getRepository(PeriodSlot) : this.periodSlotRepo;
+    // Inside a transaction (`create()`/`update()`), take a read lock on
+    // the period-slot row so it can't be deleted out from under this
+    // transaction by a concurrent `PeriodSlotsService.replaceForShift`,
+    // which takes a `pessimistic_write` lock on the same row before its
+    // own reference count.
     const periodSlot = await repo.findOne({
       where: { id: periodSlotId, tenant_id: tenantId },
+      ...(manager ? { lock: { mode: 'pessimistic_read' as const } } : {}),
     });
     if (!periodSlot) {
       throw new NotFoundException(`Period slot with ID "${periodSlotId}" not found`);
@@ -232,6 +256,9 @@ export class RoutineSlotsService {
       where: { id: In(periodSlotIds), tenant_id: tenantId },
     });
     const sequenceById = new Map(periodSlots.map((p) => [p.id, p.sequence]));
+    const timesById = new Map(
+      periodSlots.map((p) => [p.id, { starts_at: p.starts_at, ends_at: p.ends_at }]),
+    );
     const teacherRows = await this.loadTeacherRows(
       slots.map((s) => s.id),
       tenantId,
@@ -242,6 +269,8 @@ export class RoutineSlotsService {
       section_id: s.section_id,
       period_slot_id: s.period_slot_id,
       period_sequence: sequenceById.get(s.period_slot_id) ?? 0,
+      starts_at: timesById.get(s.period_slot_id)?.starts_at ?? '00:00',
+      ends_at: timesById.get(s.period_slot_id)?.ends_at ?? '00:00',
       weekday: s.weekday,
       subject_id: s.subject_id,
       room_id: s.room_id,
@@ -253,11 +282,13 @@ export class RoutineSlotsService {
     }));
   }
 
-  private toSlotLike(dto: UpsertRoutineSlotDto, periodSequence: number): SlotLike {
+  private toSlotLike(dto: UpsertRoutineSlotDto, periodSlot: PeriodSlot): SlotLike {
     return {
       section_id: dto.section_id,
       period_slot_id: dto.period_slot_id,
-      period_sequence: periodSequence,
+      period_sequence: periodSlot.sequence,
+      starts_at: periodSlot.starts_at,
+      ends_at: periodSlot.ends_at,
       weekday: dto.weekday,
       subject_id: dto.subject_id,
       room_id: dto.room_id ?? null,

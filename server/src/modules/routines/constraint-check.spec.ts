@@ -5,12 +5,26 @@ import { checkSlot, recurrenceIntersects, dateRangesOverlap, SlotLike } from './
 const CLASS_PERIOD = { id: 'period-1', kind: PeriodSlotKind.CLASS };
 const BREAK_PERIOD = { id: 'period-break', kind: PeriodSlotKind.BREAK };
 
+/** 40-minute back-to-back periods, keyed off `period_sequence` — matches
+ * how a real shift lays out `PeriodSlot.starts_at/ends_at`, so a test
+ * that puts two slots at different `period_sequence` values (e.g. the
+ * consecutive-period-run tests) doesn't accidentally also overlap them
+ * in wall-clock time. */
+function timesForSequence(sequence: number): { starts_at: string; ends_at: string } {
+  const startMinutes = 8 * 60 + sequence * 40;
+  const toTime = (m: number) =>
+    `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  return { starts_at: toTime(startMinutes), ends_at: toTime(startMinutes + 40) };
+}
+
 function slot(overrides: Partial<SlotLike> = {}): SlotLike {
+  const period_sequence = overrides.period_sequence ?? 0;
   return {
     id: 'existing-1',
     section_id: 'section-1',
     period_slot_id: 'period-1',
-    period_sequence: 0,
+    period_sequence,
+    ...timesForSequence(period_sequence),
     weekday: 1,
     subject_id: 'subject-1',
     room_id: 'room-1',
@@ -24,10 +38,12 @@ function slot(overrides: Partial<SlotLike> = {}): SlotLike {
 }
 
 function candidate(overrides: Partial<SlotLike> = {}): SlotLike {
+  const period_sequence = overrides.period_sequence ?? 0;
   return {
     section_id: 'section-2',
     period_slot_id: 'period-1',
-    period_sequence: 0,
+    period_sequence,
+    ...timesForSequence(period_sequence),
     weekday: 1,
     subject_id: 'subject-2',
     room_id: 'room-2',
@@ -145,6 +161,47 @@ describe('checkSlot — hard violations', () => {
     const c = candidate({ teacher_ids: ['teacher-x'] });
     const result = checkSlot(c, existing, CLASS_PERIOD, new Set(), {});
     expect(result.violations.map((v) => v.code)).toContain('TEACHER_DOUBLE_BOOKED');
+  });
+
+  it('flags a teacher double-booked across two different shifts whose period slots overlap in wall-clock time', () => {
+    // Morning-shift period ending 12:10, day-shift period starting 12:00 —
+    // different `period_slot_id`s (different shifts), but they overlap by
+    // 10 minutes, so a shared teacher is still double-booked.
+    const existing = [
+      slot({
+        period_slot_id: 'morning-p5',
+        starts_at: '11:30',
+        ends_at: '12:10',
+        teacher_ids: ['teacher-x'],
+      }),
+    ];
+    const c = candidate({
+      period_slot_id: 'day-p3',
+      starts_at: '12:00',
+      ends_at: '12:40',
+      teacher_ids: ['teacher-x'],
+    });
+    const result = checkSlot(c, existing, CLASS_PERIOD, new Set(), {});
+    expect(result.violations.map((v) => v.code)).toContain('TEACHER_DOUBLE_BOOKED');
+  });
+
+  it('does not flag a teacher across two shifts whose periods do not overlap in time', () => {
+    const existing = [
+      slot({
+        period_slot_id: 'morning-p5',
+        starts_at: '11:00',
+        ends_at: '11:40',
+        teacher_ids: ['teacher-x'],
+      }),
+    ];
+    const c = candidate({
+      period_slot_id: 'day-p3',
+      starts_at: '12:00',
+      ends_at: '12:40',
+      teacher_ids: ['teacher-x'],
+    });
+    const result = checkSlot(c, existing, CLASS_PERIOD, new Set(), {});
+    expect(result.violations.map((v) => v.code)).not.toContain('TEACHER_DOUBLE_BOOKED');
   });
 
   it('does not flag teacher clash when effective dates do not overlap', () => {

@@ -112,12 +112,17 @@ export class GreedyFillService {
       teacherIdsBySlot.set(row.routine_slot_id, list);
     }
     const sequenceByPeriodSlotId = new Map(periodSlots.map((p) => [p.id, p.sequence]));
+    const timesByPeriodSlotId = new Map(
+      periodSlots.map((p) => [p.id, { starts_at: p.starts_at, ends_at: p.ends_at }]),
+    );
 
     let existing: SlotLike[] = existingSlots.map((s) => ({
       id: s.id,
       section_id: s.section_id,
       period_slot_id: s.period_slot_id,
       period_sequence: sequenceByPeriodSlotId.get(s.period_slot_id) ?? 0,
+      starts_at: timesByPeriodSlotId.get(s.period_slot_id)?.starts_at ?? '00:00',
+      ends_at: timesByPeriodSlotId.get(s.period_slot_id)?.ends_at ?? '00:00',
       weekday: s.weekday,
       subject_id: s.subject_id,
       room_id: s.room_id,
@@ -196,6 +201,8 @@ export class GreedyFillService {
                 section_id: sectionId,
                 period_slot_id: periodSlot.id,
                 period_sequence: periodSlot.sequence,
+                starts_at: periodSlot.starts_at,
+                ends_at: periodSlot.ends_at,
                 weekday,
                 subject_id: subjectId,
                 room_id: null,
