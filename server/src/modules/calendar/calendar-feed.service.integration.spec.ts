@@ -6,6 +6,7 @@ import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID, SEED_ADMIN_USER_ID } from '@test/constants';
 import { CalendarAudience, CalendarEventType, UserRole, UserStatus } from '@biddaloy/shared';
+import { localToday } from '../attendance/attendance-policy.util';
 import { CalendarModule } from './calendar.module';
 import { AuthModule } from '../auth/auth.module';
 import { CalendarFeedService } from './calendar-feed.service';
@@ -61,8 +62,12 @@ describe('CalendarFeedService (integration)', () => {
     await dataSource.destroy();
   });
 
+  // Matches CalendarEventsService.getToday, which resolves the tenant's
+  // configured timezone (default 'Asia/Dhaka', see tenant-settings-defaults.ts)
+  // via localToday. The previous raw UTC date drifted from tenant-local
+  // "today" near the UTC day boundary, intermittently tripping assertNotPast.
   function today(): string {
-    return new Date().toISOString().slice(0, 10);
+    return localToday('Asia/Dhaka');
   }
 
   describe('getOrCreate / regenerate', () => {
