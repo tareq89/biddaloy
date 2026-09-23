@@ -6842,7 +6842,7 @@ export interface components {
             /** @enum {string} */
             kind: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
             /** @enum {string} */
-            status: "DRAFT" | "PROCESSED" | "PUBLISHED";
+            status: "DRAFT" | "PUBLISHED" | "PROCESSED";
             /** Format: date-time */
             published_at: string | null;
             /** Format: date-time */
