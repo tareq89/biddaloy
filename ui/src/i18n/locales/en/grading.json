@@ -1,0 +1,76 @@
+{
+  "list": {
+    "title": "Grading scales",
+    "caption": "Grading scales",
+    "addScale": "Add scale",
+    "academicYearLabel": "Academic year",
+    "allAcademicYears": "All academic years",
+    "columnName": "Name",
+    "columnAcademicYear": "Academic year",
+    "columnClass": "Class",
+    "columnBands": "Bands",
+    "columnRevision": "Revision",
+    "yearDefault": "Year default",
+    "emptyMessage": "No grading scales found",
+    "errorMessage": "Failed to load grading scales"
+  },
+  "createDialog": {
+    "title": "Add grading scale",
+    "description": "Bands are added on the scale's own page after it's created.",
+    "nameLabel": "Name",
+    "academicYearLabel": "Academic year",
+    "academicYearPlaceholder": "Select an academic year",
+    "classLabel": "Class",
+    "yearDefault": "Year default (no specific class)",
+    "errorMessage": "Failed to create grading scale",
+    "save": "Create",
+    "saving": "Creating…"
+  },
+  "detail": {
+    "copy": "Copy to…",
+    "startFromNctb": "Start from BD NCTB",
+    "problemsHeading": "This scale can't be saved yet:",
+    "save": "Save",
+    "forbidden": "You don't have permission to view this.",
+    "errorMessage": "Failed to load grading scale"
+  },
+  "bandEditor": {
+    "columnFrom": "From %",
+    "columnTo": "To %",
+    "columnGrade": "Grade",
+    "columnGpa": "GPA",
+    "columnFail": "Fail",
+    "columnComment": "Comment",
+    "columnActions": "Actions",
+    "delete": "Delete",
+    "addBand": "Add band"
+  },
+  "coverageBar": {
+    "label": "Coverage from 0 to 100 percent",
+    "hasGaps": "Gaps in red aren't covered by any band.",
+    "hasOverlaps": "Hatched ranges are claimed by more than one band.",
+    "complete": "Covers the full 0–100% range."
+  },
+  "copyDialog": {
+    "title": "Copy grading scale",
+    "description": "Copy \"{{name}}\"'s bands onto another class or academic year.",
+    "academicYearLabel": "Target academic year",
+    "classLabel": "Target class",
+    "yearDefault": "Year default (no specific class)",
+    "willCreate_one": "Creates {{count}} band on the target scale.",
+    "willCreate_other": "Creates {{count}} bands on the target scale.",
+    "occupiedError": "The target already has a grading scale with bands — copy refused.",
+    "errorMessage": "Failed to copy grading scale",
+    "copy": "Copy",
+    "copying": "Copying…"
+  },
+  "recomputePreview": {
+    "title": "Confirm this change?",
+    "impact_one": "{{count}} student's result will be recalculated against the new bands.",
+    "impact_other": "{{count}} students' results will be recalculated against the new bands.",
+    "noImpact": "This scale isn't in use yet — nothing will be recalculated.",
+    "errorMessage": "Failed to save the band change",
+    "confirm": "Confirm",
+    "saving": "Saving…"
+  }
+}

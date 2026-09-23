@@ -29,6 +29,7 @@ export const AUDIT_ENTITY_TYPES = [
   'Enrollment',
   'FeeGeneration',
   'FeeStructure',
+  'GradingScale',
   'Guardian',
   'InvitationBatch',
   'Invoice',

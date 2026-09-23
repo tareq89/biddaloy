@@ -276,6 +276,10 @@ export enum ApprovalScope {
   FEES_DISCOUNT = 'fees.discount',
   PAYMENTS_REVERSE = 'payments.reverse',
   DISCOUNT_RULES_MANAGE = 'discount_rules.manage',
+  // [20.2.1] Editing a grading scale's bands after results have been
+  // computed against it changes those GPAs — money-tier, same as a
+  // discount rule or a payment reversal.
+  GRADING_SCALE_MANAGE = 'grading_scale.manage',
 }
 
 /** How an `ApprovalToken` is verified (16.x). */

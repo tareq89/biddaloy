@@ -20,6 +20,9 @@ import type { TeacherClassSection } from '../modules/academics/entities/teacher-
 import type { AttendanceSession } from '../modules/attendance/entities/attendance-session.entity';
 import type { AttendanceRecord } from '../modules/attendance/entities/attendance-record.entity';
 import type { AttendanceDevice } from '../modules/attendance/entities/attendance-device.entity';
+import type { ClassSubject } from '../modules/academics/entities/class-subject.entity';
+import type { GradingScale } from '../modules/grading/entities/grading-scale.entity';
+import type { GradingBand } from '../modules/grading/entities/grading-band.entity';
 import { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
 import { ensureDemoOrganisation } from './seed.util';
 
@@ -167,6 +170,18 @@ function makeRepos() {
       clock,
       'attendance-device',
     ).asRepository() as unknown as Repository<AttendanceDevice>,
+    classSubjectRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'class-subject',
+    ).asRepository() as unknown as Repository<ClassSubject>,
+    gradingScaleRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'grading-scale',
+    ).asRepository() as unknown as Repository<GradingScale>,
+    gradingBandRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'grading-band',
+    ).asRepository() as unknown as Repository<GradingBand>,
   } satisfies SeedAccountRepositories;
   return { repos, users, schools, userTenants, students };
 }

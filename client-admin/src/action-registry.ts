@@ -40,8 +40,8 @@ import { Permission } from '@biddaloy/shared';
  * silent 404 from the palette, not a compile error `tsc` would catch.
  */
 
-/** The three entity kinds a palette action may be scoped to. */
-export type ActionContext = 'student' | 'guardian' | 'invoice';
+/** The entity kinds a palette action may be scoped to. */
+export type ActionContext = 'student' | 'guardian' | 'invoice' | 'gradingScale';
 
 /** How the palette presents the action once triggered. */
 export type ActionKind = 'modal' | 'navigate' | 'inline';
@@ -117,5 +117,18 @@ export const ACTIONS: readonly PaletteAction[] = [
     permission: Permission.STUDENT_BULK_UPLOAD,
     kind: 'navigate',
     run: (ctx) => ctx.navigate({ to: '/students/import' }),
+  },
+  {
+    id: 'grading.copyScale',
+    label: { en: 'Copy grading scale', bn: 'গ্রেডিং স্কেল কপি করুন' },
+    permission: Permission.GRADING_SCALE_MANAGE,
+    kind: 'modal',
+    context: ['gradingScale'],
+    // `ActionRunContext` carries no entity id ([31.0]'s own retrofit
+    // territory, not this ticket's) — lands on the scales list instead of
+    // a specific scale's editor; its own Copy button opens
+    // `-copy-scale-dialog.tsx` from there (U7: reuse the page, never a
+    // second copy of the dialog).
+    run: (ctx) => ctx.navigate({ to: '/grading-scales' }),
   },
 ];

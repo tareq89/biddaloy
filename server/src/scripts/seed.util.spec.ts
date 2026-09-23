@@ -20,6 +20,9 @@ import type { TeacherClassSection } from '../modules/academics/entities/teacher-
 import type { AttendanceSession } from '../modules/attendance/entities/attendance-session.entity';
 import type { AttendanceRecord } from '../modules/attendance/entities/attendance-record.entity';
 import type { AttendanceDevice } from '../modules/attendance/entities/attendance-device.entity';
+import type { ClassSubject } from '../modules/academics/entities/class-subject.entity';
+import type { GradingScale } from '../modules/grading/entities/grading-scale.entity';
+import type { GradingBand } from '../modules/grading/entities/grading-band.entity';
 import { hashDeviceKey } from '../modules/attendance/devices/device.service';
 import {
   ATTENDANCE_SEED_ABSENT_DATE,
@@ -30,7 +33,9 @@ import {
   ensureCalendarDemoSeed,
   ensureDemoOrganisation,
   ensureDemoStudents,
+  ensureGradingDemoSeed,
   ensurePublicHolidaySet,
+  BD_NCTB_BANDS,
   ensureRoleTestUsers,
   ensureSecondSchoolMembership,
   ROLE_TEST_USERS,
@@ -1073,5 +1078,170 @@ describe('ensureCalendarDemoSeed', () => {
       .mocked(repos.calendarEventRepository.create)
       .mock.calls.map(([payload]) => (payload as Partial<CalendarEvent>).name);
     expect(eventNames).toEqual(expect.arrayContaining(Object.values(SEED_CALENDAR_EVENT_NAMES)));
+  });
+});
+
+describe('ensureGradingDemoSeed', () => {
+  function gradingRepos() {
+    return {
+      gradingScaleRepository: mockRepo<GradingScale>(),
+      gradingBandRepository: mockRepo<GradingBand>(),
+      subjectRepository: mockRepo<Subject>(),
+      classSubjectRepository: mockRepo<ClassSubject>(),
+    };
+  }
+
+  const SCHOOL_ID = 'school-1';
+  const YEAR_ID = 'year-1';
+  const CLASS_ID = 'class-6';
+
+  it('creates the default scale, a class-override scale, and one graded-only subject on an empty database', async () => {
+    const repos = gradingRepos();
+    vi.mocked(repos.gradingScaleRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.gradingBandRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.subjectRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.classSubjectRepository.findOne).mockResolvedValue(null);
+
+    const result = await ensureGradingDemoSeed(repos, SCHOOL_ID, YEAR_ID, CLASS_ID);
+
+    expect(result.scales).toBe(2);
+    expect(result.bands).toBe(BD_NCTB_BANDS.length * 2);
+    expect(result.gradedOnlySubjects).toBe(1);
+
+    const scalePayloads = vi
+      .mocked(repos.gradingScaleRepository.create)
+      .mock.calls.map(([payload]) => payload as Partial<GradingScale>);
+    expect(scalePayloads.map((s) => s.class_id)).toEqual([null, CLASS_ID]);
+    expect(scalePayloads.every((s) => s.revision === 1)).toBe(true);
+
+    const bandPayloads = vi
+      .mocked(repos.gradingBandRepository.create)
+      .mock.calls.map(([payload]) => payload as Partial<GradingBand>);
+    const failBands = bandPayloads.filter((b) => b.grade === 'F');
+    expect(failBands.length).toBe(2);
+    expect(failBands.every((b) => b.gpa === null && b.is_fail === true)).toBe(true);
+
+    const classSubjectPayload = vi.mocked(repos.classSubjectRepository.create).mock
+      .calls[0][0] as Partial<ClassSubject>;
+    expect(classSubjectPayload.is_graded_only).toBe(true);
+    expect(classSubjectPayload.class_id).toBe(CLASS_ID);
+  });
+
+  it('is idempotent: a second run against an already-seeded database creates nothing new', async () => {
+    const repos = gradingRepos();
+    vi.mocked(repos.gradingScaleRepository.findOne).mockResolvedValue({
+      id: 'scale-1',
+      deleted_at: null,
+    } as GradingScale);
+    vi.mocked(repos.gradingBandRepository.findOne).mockResolvedValue({
+      id: 'band-1',
+      deleted_at: null,
+    } as GradingBand);
+    vi.mocked(repos.subjectRepository.findOne).mockResolvedValue({
+      id: 'subject-1',
+      deleted_at: null,
+    } as Subject);
+    vi.mocked(repos.classSubjectRepository.findOne).mockResolvedValue({
+      id: 'cs-1',
+      deleted_at: null,
+      is_graded_only: true,
+    } as ClassSubject);
+
+    const result = await ensureGradingDemoSeed(repos, SCHOOL_ID, YEAR_ID, CLASS_ID);
+
+    expect(result.scales).toBe(0);
+    expect(result.bands).toBe(0);
+    expect(result.gradedOnlySubjects).toBe(0);
+    expect(vi.mocked(repos.gradingScaleRepository.create)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.gradingBandRepository.create)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.classSubjectRepository.create)).not.toHaveBeenCalled();
+  });
+
+  it('flips is_graded_only on a re-run if an existing class_subject row somehow lacks it', async () => {
+    const repos = gradingRepos();
+    vi.mocked(repos.gradingScaleRepository.findOne).mockResolvedValue({
+      id: 'scale-1',
+      deleted_at: null,
+    } as GradingScale);
+    vi.mocked(repos.gradingBandRepository.findOne).mockResolvedValue({
+      id: 'band-1',
+      deleted_at: null,
+    } as GradingBand);
+    vi.mocked(repos.subjectRepository.findOne).mockResolvedValue({
+      id: 'subject-1',
+      deleted_at: null,
+    } as Subject);
+    const staleClassSubject = {
+      id: 'cs-1',
+      deleted_at: null,
+      is_graded_only: false,
+    } as ClassSubject;
+    vi.mocked(repos.classSubjectRepository.findOne).mockResolvedValue(staleClassSubject);
+
+    await ensureGradingDemoSeed(repos, SCHOOL_ID, YEAR_ID, CLASS_ID);
+
+    expect(vi.mocked(repos.classSubjectRepository.save)).toHaveBeenCalledWith(
+      expect.objectContaining({ is_graded_only: true }),
+    );
+  });
+
+  it('preserves an existing scale in scope under a different name instead of creating a demo scale', async () => {
+    const repos = gradingRepos();
+    vi.mocked(repos.gradingScaleRepository.findOne).mockResolvedValue({
+      id: 'scale-custom',
+      name: 'Custom Renamed Scale',
+      deleted_at: null,
+    } as GradingScale);
+    vi.mocked(repos.gradingBandRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.subjectRepository.findOne).mockResolvedValue({
+      id: 'subject-1',
+      deleted_at: null,
+    } as Subject);
+    vi.mocked(repos.classSubjectRepository.findOne).mockResolvedValue({
+      id: 'cs-1',
+      deleted_at: null,
+      is_graded_only: true,
+    } as ClassSubject);
+
+    const result = await ensureGradingDemoSeed(repos, SCHOOL_ID, YEAR_ID, CLASS_ID);
+
+    expect(result.scales).toBe(0);
+    expect(result.bands).toBe(0);
+    expect(vi.mocked(repos.gradingScaleRepository.create)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.gradingBandRepository.create)).not.toHaveBeenCalled();
+  });
+
+  it('leaves an admin-deleted custom scale deleted and creates the demo scale beside it', async () => {
+    const repos = gradingRepos();
+    const deletedCustom = {
+      id: 'scale-custom',
+      name: 'Custom Renamed Scale',
+      deleted_at: new Date('2026-09-01'),
+    } as GradingScale;
+    // Honour the query: the live lookup and the name-filtered deleted lookup
+    // both miss; only a name-blind withDeleted lookup would see the custom row.
+    vi.mocked(repos.gradingScaleRepository.findOne).mockImplementation(async (options) => {
+      const where = options.where as Partial<GradingScale>;
+      if (!options.withDeleted || where.name !== undefined) return null;
+      return deletedCustom;
+    });
+    vi.mocked(repos.gradingBandRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.subjectRepository.findOne).mockResolvedValue({
+      id: 'subject-1',
+      deleted_at: null,
+    } as Subject);
+    vi.mocked(repos.classSubjectRepository.findOne).mockResolvedValue({
+      id: 'cs-1',
+      deleted_at: null,
+      is_graded_only: true,
+    } as ClassSubject);
+
+    const result = await ensureGradingDemoSeed(repos, SCHOOL_ID, YEAR_ID, CLASS_ID);
+
+    // Business-critical: a seed re-run must never revive what an admin deleted.
+    expect(deletedCustom.deleted_at).not.toBeNull();
+    expect(vi.mocked(repos.gradingScaleRepository.save)).not.toHaveBeenCalledWith(deletedCustom);
+    expect(result.scales).toBe(2);
+    expect(result.bands).toBe(BD_NCTB_BANDS.length * 2);
   });
 });

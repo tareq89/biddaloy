@@ -20,11 +20,15 @@ import { TeacherClassSection } from '../modules/academics/entities/teacher-class
 import { AttendanceSession } from '../modules/attendance/entities/attendance-session.entity';
 import { AttendanceRecord } from '../modules/attendance/entities/attendance-record.entity';
 import { AttendanceDevice } from '../modules/attendance/entities/attendance-device.entity';
+import { ClassSubject } from '../modules/academics/entities/class-subject.entity';
+import { GradingScale } from '../modules/grading/entities/grading-scale.entity';
+import { GradingBand } from '../modules/grading/entities/grading-band.entity';
 import {
   DEMO_ACADEMIC_YEAR,
   ensureAttendanceSeed,
   ensureCalendarDemoSeed,
   ensureDemoStudents,
+  ensureGradingDemoSeed,
   ensurePublicHolidaySet,
   ensureRoleTestUsers,
   ensureSecondSchoolMembership,
@@ -70,6 +74,9 @@ export interface SeedAccountRepositories {
   attendanceSessionRepository: Repository<AttendanceSession>;
   attendanceRecordRepository: Repository<AttendanceRecord>;
   attendanceDeviceRepository: Repository<AttendanceDevice>;
+  classSubjectRepository: Repository<ClassSubject>;
+  gradingScaleRepository: Repository<GradingScale>;
+  gradingBandRepository: Repository<GradingBand>;
 }
 
 /** Creates/repairs the seed accounts, their memberships and the demo
@@ -242,6 +249,24 @@ export async function seedAccounts(
         academicYearId: calendarYear.id,
         examClassIds: [examClass6.id, examClass7.id],
       },
+    );
+  }
+
+  // [20.4.1]: BD NCTB grading scale as the demo year's default, plus a
+  // per-class override on "Class 6" (exercises the override path) and one
+  // graded-only subject on that class, so Epic 19.0's screens have real
+  // grading data to render against.
+  if (calendarYear && examClass6) {
+    await ensureGradingDemoSeed(
+      {
+        gradingScaleRepository: repos.gradingScaleRepository,
+        gradingBandRepository: repos.gradingBandRepository,
+        subjectRepository: repos.subjectRepository,
+        classSubjectRepository: repos.classSubjectRepository,
+      },
+      school.id,
+      calendarYear.id,
+      examClass6.id,
     );
   }
 

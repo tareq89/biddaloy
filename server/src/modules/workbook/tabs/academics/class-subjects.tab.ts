@@ -29,6 +29,7 @@ export interface ClassSubjectRow {
   academic_year_id: string;
   subject_id: string;
   is_optional: boolean;
+  is_graded_only: boolean;
   // The referenced tabs' own natural keys, kept alongside the resolved
   // local ids so `keyOf` can build the same key format for a row as for an
   // entity, without a uuid ever appearing in a natural key.
@@ -65,6 +66,18 @@ const columns: readonly ColumnSpec[] = [
     type: 'bool',
     required: true,
     label: { en: 'Is optional', bn: 'ঐচ্ছিক কিনা' },
+  },
+  {
+    key: 'is_graded_only',
+    type: 'bool',
+    // Optional, not required: existing backups predate this column (#910)
+    // and don't carry it. A missing cell defaults to `false` in `fromRow`
+    // below, matching the entity's own `default: false` — required here
+    // would turn every pre-#910 class-subject row into a restore error.
+    // [20.4.1] a graded-only subject is scored but excluded from GPA/result
+    // composition — same "not this ticket" boundary `GradingBand.gpa`'s own
+    // docstring draws.
+    label: { en: 'Graded only (excluded from GPA)', bn: 'শুধু গ্রেড (জিপিএ বহির্ভূত)' },
   },
 ];
 
@@ -108,6 +121,7 @@ export const classSubjectsTab: TabSpec<ClassSubject, ClassSubjectRow> = {
       academic_year: ctx.keyOf('academic_years', entity.academic_year_id),
       subject: ctx.keyOf('subjects', entity.subject_id),
       is_optional: entity.is_optional,
+      is_graded_only: entity.is_graded_only,
     };
   },
 
@@ -212,6 +226,7 @@ export const classSubjectsTab: TabSpec<ClassSubject, ClassSubjectRow> = {
         academic_year_id: academicYearId as string,
         subject_id: subjectId as string,
         is_optional: values.is_optional as boolean,
+        is_graded_only: (values.is_graded_only as boolean | null) ?? false,
         class_key: classKey,
         academic_year_key: academicYearKey,
         subject_key: subjectKey,
@@ -236,6 +251,7 @@ export const classSubjectsTab: TabSpec<ClassSubject, ClassSubjectRow> = {
     if (row.academic_year_id !== existing.academic_year_id) changed.push('academic_year');
     if (row.subject_id !== existing.subject_id) changed.push('subject');
     if (row.is_optional !== existing.is_optional) changed.push('is_optional');
+    if (row.is_graded_only !== existing.is_graded_only) changed.push('is_graded_only');
     return changed;
   },
 
@@ -251,6 +267,7 @@ export const classSubjectsTab: TabSpec<ClassSubject, ClassSubjectRow> = {
     classSubject.academic_year_id = row.academic_year_id;
     classSubject.subject_id = row.subject_id;
     classSubject.is_optional = row.is_optional;
+    classSubject.is_graded_only = row.is_graded_only;
 
     return m.save(ClassSubject, classSubject);
   },

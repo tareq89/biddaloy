@@ -3133,6 +3133,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/grading/scales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List grading scales, optionally filtered by academic year. */
+        get: operations["GradingController_findAll_v1"];
+        put?: never;
+        /** Create a grading scale (no bands yet). */
+        post: operations["GradingController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/grading/scales/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one grading scale with its bands. */
+        get: operations["GradingController_findOne_v1"];
+        put?: never;
+        post?: never;
+        /** Soft-delete a grading scale and its bands. */
+        delete: operations["GradingController_remove_v1"];
+        options?: never;
+        head?: never;
+        /** Rename a grading scale. */
+        patch: operations["GradingController_update_v1"];
+        trace?: never;
+    };
+    "/api/v1/grading/scales/{id}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Copy another scale's bands onto this scale. Refused if this scale already has bands. */
+        post: operations["GradingController_copy_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/grading/scales/{id}/bands/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate a proposed band set and report what would change. Writes nothing. */
+        post: operations["GradingController_previewBands_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/grading/scales/{id}/bands/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Replace the band set, bump revision, and recompute affected results. Requires a fresh X-Approval-Token for "grading_scale.manage". */
+        post: operations["GradingController_confirmBands_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3227,7 +3315,7 @@ export interface components {
             /** @description The approver's password — required when method is PASSWORD. */
             password?: string;
             /** @enum {string} */
-            scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "discount_rules.manage";
+            scope: "fees.duplicate_override" | "fees.edit_paid" | "fees.discount" | "payments.reverse" | "discount_rules.manage" | "grading_scale.manage";
         };
         ActivateVerifyDto: {
             /** @description The raw invite token from the ?token= query param. */
@@ -4974,6 +5062,7 @@ export interface components {
             class_id: string;
             subject: components["schemas"]["Subject"];
             subject_id: string;
+            is_graded_only: boolean;
             academic_year: components["schemas"]["AcademicYear"];
             academic_year_id: string;
             is_optional: boolean;
@@ -5878,6 +5967,61 @@ export interface components {
             staff?: components["schemas"]["SearchStaffResult"][];
             invoices?: components["schemas"]["SearchInvoiceResult"][];
             payments?: components["schemas"]["SearchPaymentResult"][];
+        };
+        CreateGradingScaleDto: {
+            /** Format: uuid */
+            academic_year_id: string;
+            /** Format: uuid */
+            class_id?: string | null;
+            name: string;
+        };
+        GradingBandDto: {
+            id: string;
+            percent_from: number;
+            percent_to: number;
+            grade: string;
+            gpa: number | null;
+            is_fail: boolean;
+            sequence: number;
+            comment: string | null;
+        };
+        GradingScaleDto: {
+            id: string;
+            academic_year_id: string;
+            class_id: string | null;
+            name: string;
+            revision: number;
+            bands: components["schemas"]["GradingBandDto"][];
+        };
+        UpdateGradingScaleDto: {
+            name?: string;
+        };
+        CopyScaleDto: {
+            /** Format: uuid */
+            source_scale_id: string;
+        };
+        BandInputDto: {
+            percent_from: number;
+            percent_to: number;
+            grade: string;
+            gpa?: number | null;
+            is_fail?: boolean;
+            sequence: number;
+            comment?: string | null;
+        };
+        RecomputeBandsDto: {
+            bands: components["schemas"]["BandInputDto"][];
+        };
+        RecomputeProblemDto: {
+            type: string;
+            message: string;
+            index?: number;
+        };
+        RecomputePreviewResult: {
+            valid: boolean;
+            problems: components["schemas"]["RecomputeProblemDto"][];
+            bands_changed: boolean;
+            affected_result_count: number;
         };
     };
     responses: never;
@@ -13908,6 +14052,295 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    GradingController_findAll_v1: {
+        parameters: {
+            query?: {
+                academic_year_id?: unknown;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GradingScaleDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GradingController_create_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateGradingScaleDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GradingScaleDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GradingController_findOne_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GradingScaleDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GradingController_remove_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GradingController_update_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateGradingScaleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GradingScaleDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GradingController_copy_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CopyScaleDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GradingBandDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GradingController_previewBands_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecomputeBandsDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecomputePreviewResult"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    GradingController_confirmBands_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+                /** @description Single-use JWT proving a fresh admin approval for scope "grading_scale.manage" (D9). Obtained via the step-up flow, verified and consumed atomically by ApprovalGuard. */
+                "X-Approval-Token": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecomputeBandsDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing, expired, wrong-scope, wrong-actor, wrong-tenant, or already-used approval token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
             };
         };
     };

@@ -20,6 +20,7 @@ import bnCommunications from '../ui/src/i18n/locales/bn/communications.json';
 import bnFeeGeneration from '../ui/src/i18n/locales/bn/feeGeneration.json';
 import bnFees from '../ui/src/i18n/locales/bn/fees.json';
 import bnFeeStructures from '../ui/src/i18n/locales/bn/feeStructures.json';
+import bnGrading from '../ui/src/i18n/locales/bn/grading.json';
 import bnGuardians from '../ui/src/i18n/locales/bn/guardians.json';
 import bnNav from '../ui/src/i18n/locales/bn/nav.json';
 import bnPayments from '../ui/src/i18n/locales/bn/payments.json';
@@ -42,6 +43,7 @@ import enCommunications from '../ui/src/i18n/locales/en/communications.json';
 import enFeeGeneration from '../ui/src/i18n/locales/en/feeGeneration.json';
 import enFees from '../ui/src/i18n/locales/en/fees.json';
 import enFeeStructures from '../ui/src/i18n/locales/en/feeStructures.json';
+import enGrading from '../ui/src/i18n/locales/en/grading.json';
 import enGuardians from '../ui/src/i18n/locales/en/guardians.json';
 import enNav from '../ui/src/i18n/locales/en/nav.json';
 import enPayments from '../ui/src/i18n/locales/en/payments.json';
@@ -67,6 +69,7 @@ const catalogs = {
     feeGeneration: bnFeeGeneration,
     fees: bnFees,
     feeStructures: bnFeeStructures,
+    grading: bnGrading,
     guardians: bnGuardians,
     nav: bnNav,
     payments: bnPayments,
@@ -91,6 +94,7 @@ const catalogs = {
     feeGeneration: enFeeGeneration,
     fees: enFees,
     feeStructures: enFeeStructures,
+    grading: enGrading,
     guardians: enGuardians,
     nav: enNav,
     payments: enPayments,

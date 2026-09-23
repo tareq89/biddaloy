@@ -22,6 +22,9 @@ import { ClassSection } from '../modules/academics/entities/class-section.entity
 import { Student } from '../modules/students/entities/student.entity';
 import { Guardian } from '../modules/students/entities/guardian.entity';
 import { Subject } from '../modules/academics/entities/subject.entity';
+import { ClassSubject } from '../modules/academics/entities/class-subject.entity';
+import { GradingScale } from '../modules/grading/entities/grading-scale.entity';
+import { GradingBand } from '../modules/grading/entities/grading-band.entity';
 import { CalendarEvent } from '../modules/calendar/entities/calendar-event.entity';
 import { CalendarEventClass } from '../modules/calendar/entities/calendar-event-class.entity';
 import { AcademicTerm } from '../modules/calendar/entities/academic-term.entity';
@@ -1259,6 +1262,207 @@ export async function ensureCalendarDemoSeed(
 
   if (result.terms > 0 || result.events > 0) {
     console.log(`  Calendar demo seed: +${result.terms} terms, +${result.events} events`);
+  }
+  return result;
+}
+
+/** [20.4.1] The standard BD NCTB letter-grade bands, GPA-on-5 scale.
+ * `F` carries `gpa: null` deliberately (D4): a fail band, not a 0.00. */
+export const BD_NCTB_BANDS: readonly {
+  grade: string;
+  gpa: string | null;
+  percent_from: number;
+  percent_to: number;
+  is_fail: boolean;
+}[] = [
+  { grade: 'A+', gpa: '5.00', percent_from: 80, percent_to: 100, is_fail: false },
+  { grade: 'A', gpa: '4.00', percent_from: 70, percent_to: 79, is_fail: false },
+  { grade: 'A-', gpa: '3.50', percent_from: 60, percent_to: 69, is_fail: false },
+  { grade: 'B', gpa: '3.00', percent_from: 50, percent_to: 59, is_fail: false },
+  { grade: 'C', gpa: '2.00', percent_from: 40, percent_to: 49, is_fail: false },
+  { grade: 'D', gpa: '1.00', percent_from: 33, percent_to: 39, is_fail: false },
+  { grade: 'F', gpa: null, percent_from: 0, percent_to: 32, is_fail: true },
+];
+
+export interface GradingDemoSeedRepositories {
+  gradingScaleRepository: Repository<GradingScale>;
+  gradingBandRepository: Repository<GradingBand>;
+  subjectRepository: Repository<Subject>;
+  classSubjectRepository: Repository<ClassSubject>;
+}
+
+export interface GradingDemoSeedResult {
+  scales: number;
+  bands: number;
+  gradedOnlySubjects: number;
+}
+
+/** Find-or-create one scale (by its natural key: name/year/class) with the
+ * BD NCTB bands attached, idempotent the same way every other `ensure*`
+ * helper in this file is. */
+async function ensureBdNctbScale(
+  repos: Pick<GradingDemoSeedRepositories, 'gradingScaleRepository' | 'gradingBandRepository'>,
+  schoolId: string,
+  academicYearId: string,
+  classId: string | null,
+  name: string,
+): Promise<{ createdScale: boolean; createdBands: number }> {
+  // Look up by (tenant, academic year, class) only — not name — since the
+  // scope alone is what the one-default-scale-per-scope DB constraint
+  // enforces. Filtering by name too could miss an existing scale in that
+  // scope and attempt a second insert, which the constraint then rejects.
+  const scope = {
+    tenant_id: schoolId,
+    academic_year_id: academicYearId,
+    class_id: classId ?? IsNull(),
+  };
+  // Only a dead row carrying the demo name may be restored — a deleted
+  // custom scale stays deleted. The unique indexes are partial on
+  // `deleted_at IS NULL`, so a fresh demo row can coexist with it.
+  let scale =
+    (await repos.gradingScaleRepository.findOne({ where: scope })) ??
+    (await repos.gradingScaleRepository.findOne({
+      where: { ...scope, name },
+      withDeleted: true,
+    }));
+  let createdScale = false;
+  if (!scale) {
+    scale = repos.gradingScaleRepository.create({
+      tenant_id: schoolId,
+      academic_year_id: academicYearId,
+      class_id: classId,
+      name,
+      revision: 1,
+    });
+    await repos.gradingScaleRepository.save(scale);
+    createdScale = true;
+  } else if (scale.deleted_at) {
+    await repos.gradingScaleRepository.save(undelete(scale));
+  } else if (scale.name !== name) {
+    // A scale already occupies this scope under a different name — it's not
+    // the demo scale this helper seeds. Leave it untouched rather than
+    // attaching BD NCTB bands to someone else's scale.
+    return { createdScale: false, createdBands: 0 };
+  }
+
+  let createdBands = 0;
+  for (const [index, band] of BD_NCTB_BANDS.entries()) {
+    const sequence = index + 1;
+    let row = await findLivePreferred(repos.gradingBandRepository, {
+      tenant_id: schoolId,
+      scale_id: scale.id,
+      sequence,
+    });
+    if (!row) {
+      row = repos.gradingBandRepository.create({
+        tenant_id: schoolId,
+        scale_id: scale.id,
+        sequence,
+        grade: band.grade,
+        gpa: band.gpa,
+        percent_from: band.percent_from,
+        percent_to: band.percent_to,
+        is_fail: band.is_fail,
+        comment: null,
+      });
+      await repos.gradingBandRepository.save(row);
+      createdBands += 1;
+    } else if (row.deleted_at) {
+      await repos.gradingBandRepository.save(undelete(row));
+    }
+  }
+
+  return { createdScale, createdBands };
+}
+
+/** [20.4.1] Demo grading data for the default tenant/year: the BD NCTB
+ * scale as the year's default (`class_id: null`, D1), the same bands again
+ * as a per-class override (exercising the override path Epic 19.0's screens
+ * need to render), and one graded-only subject ("Physical Education") on
+ * that override class.
+ *
+ * `academicYearId`/`overrideClassId` are passed in rather than looked up
+ * here — same shape `ensureCalendarDemoSeed` takes — so this stays testable
+ * without depending on `ensureDemoStudents`'s own lookup order. */
+export async function ensureGradingDemoSeed(
+  repos: GradingDemoSeedRepositories,
+  schoolId: string,
+  academicYearId: string,
+  overrideClassId: string,
+): Promise<GradingDemoSeedResult> {
+  const defaultResult = await ensureBdNctbScale(repos, schoolId, academicYearId, null, 'BD NCTB');
+  const overrideResult = await ensureBdNctbScale(
+    repos,
+    schoolId,
+    academicYearId,
+    overrideClassId,
+    'BD NCTB (Class override)',
+  );
+
+  // --- one graded-only subject, on the override class -------------------
+  // `subjects(tenant_id, code)` and `class_subjects(class_id, subject_id,
+  // academic_year_id)` are both partial unique indexes — go through
+  // `findLivePreferred`, not a raw `withDeleted` findOne, or a re-run risks
+  // undeleting a dead row into a collision with a live one that already
+  // owns the key (see that helper's own docstring above).
+  let subject = await findLivePreferred(repos.subjectRepository, {
+    tenant_id: schoolId,
+    code: 'PE',
+  });
+  if (!subject) {
+    subject = repos.subjectRepository.create({
+      tenant_id: schoolId,
+      code: 'PE',
+      name_en: 'Physical Education',
+      name_bn: 'শারীরিক শিক্ষা',
+      is_active: true,
+    });
+    await repos.subjectRepository.save(subject);
+  } else if (subject.deleted_at) {
+    await repos.subjectRepository.save(undelete(subject));
+  }
+
+  let gradedOnlySubjects = 0;
+  let classSubject = await findLivePreferred(repos.classSubjectRepository, {
+    tenant_id: schoolId,
+    class_id: overrideClassId,
+    subject_id: subject.id,
+    academic_year_id: academicYearId,
+  });
+  if (!classSubject) {
+    classSubject = repos.classSubjectRepository.create({
+      tenant_id: schoolId,
+      class_id: overrideClassId,
+      subject_id: subject.id,
+      academic_year_id: academicYearId,
+      is_optional: false,
+      is_graded_only: true,
+    });
+    await repos.classSubjectRepository.save(classSubject);
+    gradedOnlySubjects += 1;
+  } else {
+    let dirty = false;
+    if (classSubject.deleted_at) {
+      undelete(classSubject);
+      dirty = true;
+    }
+    if (!classSubject.is_graded_only) {
+      classSubject.is_graded_only = true;
+      dirty = true;
+    }
+    if (dirty) await repos.classSubjectRepository.save(classSubject);
+  }
+
+  const result: GradingDemoSeedResult = {
+    scales: (defaultResult.createdScale ? 1 : 0) + (overrideResult.createdScale ? 1 : 0),
+    bands: defaultResult.createdBands + overrideResult.createdBands,
+    gradedOnlySubjects,
+  };
+  if (result.scales > 0 || result.bands > 0 || result.gradedOnlySubjects > 0) {
+    console.log(
+      `  Grading demo seed: +${result.scales} scales, +${result.bands} bands, ` +
+        `+${result.gradedOnlySubjects} graded-only subjects`,
+    );
   }
   return result;
 }

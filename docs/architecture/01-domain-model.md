@@ -66,6 +66,10 @@ erDiagram
     CalendarEvent ||--o{ CalendarEventClass : "scoped to (empty = all classes)"
     Class ||--o{ CalendarEventClass : "scoped by"
     User ||--o{ CalendarFeedToken : "subscribes via"
+
+    AcademicYear ||--o{ GradingScale : "graded under"
+    Class ||--o{ GradingScale : "overridden by"
+    GradingScale ||--o{ GradingBand : "made of"
 ```
 
 _(This shows the shape of the graph, not every column — see each entity file
@@ -116,6 +120,48 @@ for full field lists.)_
 - **`Teacher`** — a staff profile layered on top of a `User`. Can hold
   multiple designations and be assigned to multiple sections via
   **`TeacherClassSection`**.
+
+### Grading (`modules/grading`)
+
+- **`GradingScale`** — a set of percent-to-grade bands for one
+  `AcademicYear`. `class_id` null means "this year's default scale"; a
+  non-null `class_id` overrides the default for that one class (e.g. a
+  vocational track grading itself pass/fail while the rest of the year
+  uses the default GPA scale). Only one default scale may exist per
+  (tenant, academic year).
+
+  `revision` bumps whenever a scale's bands change after results have
+  already been computed against it, so a past result stays readable
+  against the band set that actually produced it (a later epic wires
+  results to read it back). A workbook restore always writes
+  the backed-up `revision` value, never the entity's own `default: 1`, so
+  restoring a scale that had already been revised does not quietly roll
+  it back to looking untouched.
+
+- **`GradingBand`** — one percent range within a scale, e.g. "80-100% →
+  A+, GPA 5.0". `gpa` is nullable: a scale that only ever grades with
+  letters (no numeric GPA) leaves it `null` on every band, not `0.00`.
+
+```
+GradingScale (2026-2027, class: null)         "the year's default"
+├── GradingBand  80-100  A+  gpa 5.00
+├── GradingBand  70-79   A   gpa 4.00
+└── GradingBand   0-69   F   gpa null   (D4: fail band, not a zero GPA)
+
+GradingScale (2026-2027, class: "Class 9-Vocational")   "an override"
+├── GradingBand  50-100  PASS  gpa null
+└── GradingBand   0-49   FAIL  gpa null   is_fail: true
+```
+
+- **`ClassSubject.is_graded_only`** — marks a subject (e.g. "Physical
+  Education") that only ever gets a pass/fail-style grade and is excluded
+  from GPA computation, even though it still sits under the same
+  `GradingScale` as every other subject in the class.
+
+Result composition — turning a set of subject marks into one grade per
+subject and one GPA for the term — is **out of scope for this epic
+(20.x)**. This doc covers only the scale/band data model and its
+backup/restore path; the composition rules land in a later epic.
 
 ### Calendar (`modules/calendar`) — see [16-academic-calendar.md](16-academic-calendar.md) for the full model
 

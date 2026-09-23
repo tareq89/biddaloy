@@ -58,6 +58,12 @@ export class ClassSubject {
   @Column({ type: 'uuid' })
   subject_id: string;
 
+  // [20.1.1] Marks a subject that only ever gets a pass/fail-style
+  // grade, never a numeric mark, and is excluded from GPA computation —
+  // e.g. "Physical Education".
+  @Column({ type: 'boolean', default: false })
+  is_graded_only: boolean;
+
   @ManyToOne(() => AcademicYear, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'academic_year_id' })
   academic_year: AcademicYear;

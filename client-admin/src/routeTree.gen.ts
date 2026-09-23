@@ -52,6 +52,8 @@ import { Route as StaffFeeStructuresIndexRouteImport } from './routes/_staff/fee
 import { Route as StaffFeesIndexRouteImport } from './routes/_staff/fees/index'
 import { Route as StaffFeesDuesRouteImport } from './routes/_staff/fees/dues'
 import { Route as StaffFeesGenerateRouteImport } from './routes/_staff/fees/generate'
+import { Route as StaffGradingScalesIndexRouteImport } from './routes/_staff/grading-scales/index'
+import { Route as StaffGradingScalesScaleIdRouteImport } from './routes/_staff/grading-scales/$scaleId'
 import { Route as StaffGuardiansIndexRouteImport } from './routes/_staff/guardians/index'
 import { Route as StaffGuardiansGuardianIdRouteImport } from './routes/_staff/guardians/$guardianId'
 import { Route as StaffInvoicesIndexRouteImport } from './routes/_staff/invoices/index'
@@ -290,6 +292,17 @@ const StaffFeesGenerateRoute = StaffFeesGenerateRouteImport.update({
   path: '/generate',
   getParentRoute: () => StaffFeesRoute,
 } as any)
+const StaffGradingScalesIndexRoute = StaffGradingScalesIndexRouteImport.update({
+  id: '/grading-scales/',
+  path: '/grading-scales/',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffGradingScalesScaleIdRoute =
+  StaffGradingScalesScaleIdRouteImport.update({
+    id: '/grading-scales/$scaleId',
+    path: '/grading-scales/$scaleId',
+    getParentRoute: () => StaffRoute,
+  } as any)
 const StaffGuardiansIndexRoute = StaffGuardiansIndexRouteImport.update({
   id: '/guardians/',
   path: '/guardians/',
@@ -423,6 +436,7 @@ export interface FileRoutesByFullPath {
   '/communications/send': typeof StaffCommunicationsSendRoute
   '/fees/dues': typeof StaffFeesDuesRoute
   '/fees/generate': typeof StaffFeesGenerateRoute
+  '/grading-scales/$scaleId': typeof StaffGradingScalesScaleIdRoute
   '/guardians/$guardianId': typeof StaffGuardiansGuardianIdRoute
   '/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
   '/payments/$id': typeof StaffPaymentsIdRoute
@@ -441,6 +455,7 @@ export interface FileRoutesByFullPath {
   '/classes/': typeof StaffClassesIndexRoute
   '/fee-structures/': typeof StaffFeeStructuresIndexRoute
   '/fees/': typeof StaffFeesIndexRoute
+  '/grading-scales/': typeof StaffGradingScalesIndexRoute
   '/guardians/': typeof StaffGuardiansIndexRoute
   '/invoices/': typeof StaffInvoicesIndexRoute
   '/payments/': typeof StaffPaymentsIndexRoute
@@ -483,6 +498,7 @@ export interface FileRoutesByTo {
   '/communications/send': typeof StaffCommunicationsSendRoute
   '/fees/dues': typeof StaffFeesDuesRoute
   '/fees/generate': typeof StaffFeesGenerateRoute
+  '/grading-scales/$scaleId': typeof StaffGradingScalesScaleIdRoute
   '/guardians/$guardianId': typeof StaffGuardiansGuardianIdRoute
   '/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
   '/payments/$id': typeof StaffPaymentsIdRoute
@@ -501,6 +517,7 @@ export interface FileRoutesByTo {
   '/classes': typeof StaffClassesIndexRoute
   '/fee-structures': typeof StaffFeeStructuresIndexRoute
   '/fees': typeof StaffFeesIndexRoute
+  '/grading-scales': typeof StaffGradingScalesIndexRoute
   '/guardians': typeof StaffGuardiansIndexRoute
   '/invoices': typeof StaffInvoicesIndexRoute
   '/payments': typeof StaffPaymentsIndexRoute
@@ -548,6 +565,7 @@ export interface FileRoutesById {
   '/_staff/communications/send': typeof StaffCommunicationsSendRoute
   '/_staff/fees/dues': typeof StaffFeesDuesRoute
   '/_staff/fees/generate': typeof StaffFeesGenerateRoute
+  '/_staff/grading-scales/$scaleId': typeof StaffGradingScalesScaleIdRoute
   '/_staff/guardians/$guardianId': typeof StaffGuardiansGuardianIdRoute
   '/_staff/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
   '/_staff/payments/$id': typeof StaffPaymentsIdRoute
@@ -566,6 +584,7 @@ export interface FileRoutesById {
   '/_staff/classes/': typeof StaffClassesIndexRoute
   '/_staff/fee-structures/': typeof StaffFeeStructuresIndexRoute
   '/_staff/fees/': typeof StaffFeesIndexRoute
+  '/_staff/grading-scales/': typeof StaffGradingScalesIndexRoute
   '/_staff/guardians/': typeof StaffGuardiansIndexRoute
   '/_staff/invoices/': typeof StaffInvoicesIndexRoute
   '/_staff/payments/': typeof StaffPaymentsIndexRoute
@@ -612,6 +631,7 @@ export interface FileRouteTypes {
     | '/communications/send'
     | '/fees/dues'
     | '/fees/generate'
+    | '/grading-scales/$scaleId'
     | '/guardians/$guardianId'
     | '/invoices/$invoiceId'
     | '/payments/$id'
@@ -630,6 +650,7 @@ export interface FileRouteTypes {
     | '/classes/'
     | '/fee-structures/'
     | '/fees/'
+    | '/grading-scales/'
     | '/guardians/'
     | '/invoices/'
     | '/payments/'
@@ -672,6 +693,7 @@ export interface FileRouteTypes {
     | '/communications/send'
     | '/fees/dues'
     | '/fees/generate'
+    | '/grading-scales/$scaleId'
     | '/guardians/$guardianId'
     | '/invoices/$invoiceId'
     | '/payments/$id'
@@ -690,6 +712,7 @@ export interface FileRouteTypes {
     | '/classes'
     | '/fee-structures'
     | '/fees'
+    | '/grading-scales'
     | '/guardians'
     | '/invoices'
     | '/payments'
@@ -736,6 +759,7 @@ export interface FileRouteTypes {
     | '/_staff/communications/send'
     | '/_staff/fees/dues'
     | '/_staff/fees/generate'
+    | '/_staff/grading-scales/$scaleId'
     | '/_staff/guardians/$guardianId'
     | '/_staff/invoices/$invoiceId'
     | '/_staff/payments/$id'
@@ -754,6 +778,7 @@ export interface FileRouteTypes {
     | '/_staff/classes/'
     | '/_staff/fee-structures/'
     | '/_staff/fees/'
+    | '/_staff/grading-scales/'
     | '/_staff/guardians/'
     | '/_staff/invoices/'
     | '/_staff/payments/'
@@ -1083,6 +1108,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffFeesGenerateRouteImport
       parentRoute: typeof StaffFeesRoute
     }
+    '/_staff/grading-scales/': {
+      id: '/_staff/grading-scales/'
+      path: '/grading-scales'
+      fullPath: '/grading-scales/'
+      preLoaderRoute: typeof StaffGradingScalesIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/grading-scales/$scaleId': {
+      id: '/_staff/grading-scales/$scaleId'
+      path: '/grading-scales/$scaleId'
+      fullPath: '/grading-scales/$scaleId'
+      preLoaderRoute: typeof StaffGradingScalesScaleIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/guardians/': {
       id: '/_staff/guardians/'
       path: '/guardians'
@@ -1273,6 +1312,7 @@ interface StaffRouteChildren {
   StaffClassesClassIdRoute: typeof StaffClassesClassIdRoute
   StaffCommunicationsRemindersRoute: typeof StaffCommunicationsRemindersRoute
   StaffCommunicationsSendRoute: typeof StaffCommunicationsSendRoute
+  StaffGradingScalesScaleIdRoute: typeof StaffGradingScalesScaleIdRoute
   StaffGuardiansGuardianIdRoute: typeof StaffGuardiansGuardianIdRoute
   StaffInvoicesInvoiceIdRoute: typeof StaffInvoicesInvoiceIdRoute
   StaffPaymentsIdRoute: typeof StaffPaymentsIdRoute
@@ -1288,6 +1328,7 @@ interface StaffRouteChildren {
   StaffCalendarIndexRoute: typeof StaffCalendarIndexRoute
   StaffClassesIndexRoute: typeof StaffClassesIndexRoute
   StaffFeeStructuresIndexRoute: typeof StaffFeeStructuresIndexRoute
+  StaffGradingScalesIndexRoute: typeof StaffGradingScalesIndexRoute
   StaffGuardiansIndexRoute: typeof StaffGuardiansIndexRoute
   StaffInvoicesIndexRoute: typeof StaffInvoicesIndexRoute
   StaffPaymentsIndexRoute: typeof StaffPaymentsIndexRoute
@@ -1312,6 +1353,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffClassesClassIdRoute: StaffClassesClassIdRoute,
   StaffCommunicationsRemindersRoute: StaffCommunicationsRemindersRoute,
   StaffCommunicationsSendRoute: StaffCommunicationsSendRoute,
+  StaffGradingScalesScaleIdRoute: StaffGradingScalesScaleIdRoute,
   StaffGuardiansGuardianIdRoute: StaffGuardiansGuardianIdRoute,
   StaffInvoicesInvoiceIdRoute: StaffInvoicesInvoiceIdRoute,
   StaffPaymentsIdRoute: StaffPaymentsIdRoute,
@@ -1327,6 +1369,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffCalendarIndexRoute: StaffCalendarIndexRoute,
   StaffClassesIndexRoute: StaffClassesIndexRoute,
   StaffFeeStructuresIndexRoute: StaffFeeStructuresIndexRoute,
+  StaffGradingScalesIndexRoute: StaffGradingScalesIndexRoute,
   StaffGuardiansIndexRoute: StaffGuardiansIndexRoute,
   StaffInvoicesIndexRoute: StaffInvoicesIndexRoute,
   StaffPaymentsIndexRoute: StaffPaymentsIndexRoute,
