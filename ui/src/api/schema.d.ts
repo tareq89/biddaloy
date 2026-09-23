@@ -6191,8 +6191,6 @@ export interface components {
             class_id?: string;
             /** Format: uuid */
             academic_term_id?: string | null;
-            /** @enum {string} */
-            status?: "DRAFT" | "PROCESSED" | "PUBLISHED";
         };
         CreateExamComponentDto: {
             /** Format: uuid */
