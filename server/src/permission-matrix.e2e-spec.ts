@@ -505,6 +505,8 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
     path: '/exams/:examId/marks/reopen',
     reason:
       "[19.4.1] D12 — reopening a SUBMITTED grid is deliberately ADMIN-only, although TEACHER also holds MARK_ENTER (which gates entering/submitting marks). A teacher may submit their own grid but must not be able to unlock it again once it's in review — reopening is enforced a second time inside MarkGridService.reopen with an explicit role check, not just this route gate.",
+  },
+  {
     controller: 'ChangeRequestsController',
     method: 'POST',
     path: '/routines/slots/:slotId/change-requests',
