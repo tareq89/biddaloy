@@ -23,7 +23,7 @@ export class SubstitutionsController {
   ) {}
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
+  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ROUTINE_MANAGE)
   @ApiOperation({ summary: 'Record a cover or a cancellation for one slot on one date.' })
   record(
@@ -35,7 +35,7 @@ export class SubstitutionsController {
   }
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ROUTINE_MANAGE)
   @ApiOperation({ summary: 'Substitution log, filtered by date range, teacher or section.' })
   list(

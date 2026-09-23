@@ -505,6 +505,11 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
     path: '/exams/:examId/marks/reopen',
     reason:
       "[19.4.1] D12 — reopening a SUBMITTED grid is deliberately ADMIN-only, although TEACHER also holds MARK_ENTER (which gates entering/submitting marks). A teacher may submit their own grid but must not be able to unlock it again once it's in review — reopening is enforced a second time inside MarkGridService.reopen with an explicit role check, not just this route gate.",
+    controller: 'ChangeRequestsController',
+    method: 'POST',
+    path: '/routines/slots/:slotId/change-requests',
+    reason:
+      "[21.6.1]/[21.9.1] D11 — raising a change request is the requesting teacher's own action against their own published slot; every other ROUTINE_READ holder (ADMIN, PARENT, STUDENT, EXECUTIVE) reads the routine but has no reason to flag one of a teacher's slots for review",
   },
 ];
 
@@ -570,11 +575,6 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   Permission.RESULT_PROCESS,
   Permission.RESULT_PUBLISH,
   Permission.RESULT_READ,
-  // [21.1.1] Plumbing landed ahead of the routes that will require them:
-  // ROUTINE_READ/ROUTINE_MANAGE will gate the routine-builder endpoints a
-  // later Epic 21.0 ticket adds — remove once those routes exist.
-  Permission.ROUTINE_READ,
-  Permission.ROUTINE_MANAGE,
 ];
 
 describe('Permission matrix (regression)', () => {
