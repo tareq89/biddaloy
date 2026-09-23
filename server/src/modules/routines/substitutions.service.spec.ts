@@ -34,8 +34,15 @@ function buildService() {
   const slotRepo: any = { findOne: vi.fn(async () => SLOT) };
   const routineRepo: any = { findOne: vi.fn(async () => ROUTINE) };
   const yearRepo: any = { findOne: vi.fn(async () => YEAR) };
-  const service = new SubstitutionsService(substitutionRepo, slotRepo, routineRepo, yearRepo);
-  return { service, substitutionRepo, slotRepo, routineRepo, yearRepo, qb };
+  const teacherRepo: any = { findOne: vi.fn(async () => ({ id: 't-2', tenant_id: TENANT_ID })) };
+  const service = new SubstitutionsService(
+    substitutionRepo,
+    slotRepo,
+    routineRepo,
+    yearRepo,
+    teacherRepo,
+  );
+  return { service, substitutionRepo, slotRepo, routineRepo, yearRepo, teacherRepo, qb };
 }
 
 describe('SubstitutionsService [21.5.1]', () => {

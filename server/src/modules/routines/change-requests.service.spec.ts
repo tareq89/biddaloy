@@ -32,6 +32,17 @@ function buildService(
       return v;
     }),
     findOne: vi.fn(async ({ where }: any) => requests.find((r) => r.id === where.id) ?? null),
+    findOneOrFail: vi.fn(async ({ where }: any) => {
+      const found = requests.find((r) => r.id === where.id);
+      if (!found) throw new Error('not found');
+      return found;
+    }),
+    update: vi.fn(async (where: any, patch: any) => {
+      const found = requests.find((r) => r.id === where.id && r.state === where.state);
+      if (!found) return { affected: 0 };
+      Object.assign(found, patch);
+      return { affected: 1 };
+    }),
     createQueryBuilder: vi.fn(() => ({
       where: vi.fn().mockReturnThis(),
       andWhere: vi.fn().mockReturnThis(),

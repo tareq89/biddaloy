@@ -5,6 +5,14 @@ import { CopyRoutineService } from './copy-routine.service';
 
 const TENANT_ID = 'tenant-1';
 
+const SOURCE_YEAR = {
+  id: 'year-1',
+  tenant_id: TENANT_ID,
+  deleted_at: null,
+  start_date: '2025-01-01',
+  end_date: '2025-12-31',
+};
+
 function buildService(overrides: {
   targetYear?: any;
   existingTargetRoutine?: any;
@@ -20,13 +28,20 @@ function buildService(overrides: {
   const source = {
     id: 'routine-src',
     tenant_id: TENANT_ID,
+    academic_year_id: SOURCE_YEAR.id,
     name: 'AY25 routine',
     deleted_at: null,
   };
   const targetYear =
     'targetYear' in overrides
       ? overrides.targetYear
-      : { id: 'year-2', tenant_id: TENANT_ID, deleted_at: null };
+      : {
+          id: 'year-2',
+          tenant_id: TENANT_ID,
+          deleted_at: null,
+          start_date: '2026-01-01',
+          end_date: '2026-12-31',
+        };
 
   const routineRepo: any = {
     findOne: vi.fn(async ({ where }: any) => {
@@ -54,7 +69,11 @@ function buildService(overrides: {
       return v;
     }),
   };
-  const yearRepo: any = { findOne: vi.fn(async () => targetYear) };
+  const yearRepo: any = {
+    findOne: vi.fn(async ({ where }: any) =>
+      where.id === SOURCE_YEAR.id ? SOURCE_YEAR : targetYear,
+    ),
+  };
   const sectionRepo: any = {
     find: vi.fn(async ({ where }: any) =>
       where.class_id ? (overrides.targetSections ?? []) : (overrides.sourceSections ?? []),
@@ -67,6 +86,25 @@ function buildService(overrides: {
   };
   const subjectRepo: any = { find: vi.fn(async () => overrides.subjects ?? []) };
   const tcsRepo: any = { find: vi.fn(async () => overrides.tcsRows ?? []) };
+  const dataSource: any = {
+    transaction: (cb: any) =>
+      cb({
+        getRepository: (entity: any) => {
+          switch (entity?.name) {
+            case 'Routine':
+              return routineRepo;
+            case 'RoutineSlot':
+              return slotRepo;
+            case 'RoutineSlotTeacher':
+              return slotTeacherRepo;
+            case 'TeacherClassSection':
+              return tcsRepo;
+            default:
+              return routineRepo;
+          }
+        },
+      }),
+  };
 
   const service = new CopyRoutineService(
     routineRepo,
@@ -77,6 +115,7 @@ function buildService(overrides: {
     classRepo,
     subjectRepo,
     tcsRepo,
+    dataSource,
   );
   return { service, routineRepo, slotRepo, slotTeacherRepo, savedSlots, savedTeachers };
 }

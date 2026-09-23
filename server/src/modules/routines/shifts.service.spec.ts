@@ -15,6 +15,16 @@ function buildService() {
     softDelete: vi.fn(async () => undefined),
   };
   const periodSlotRepo: any = { count: vi.fn(async () => 0) };
+  // `remove()` runs inside `this.repo.manager.transaction(...)` — the
+  // transaction manager's repos delegate to the same mocks above so
+  // existing `expect(ctx.repo...)` / `expect(ctx.periodSlotRepo...)`
+  // assertions still see the calls.
+  repo.manager = {
+    transaction: (cb: any) =>
+      cb({
+        getRepository: (entity: any) => (entity?.name === 'PeriodSlot' ? periodSlotRepo : repo),
+      }),
+  };
   const service = new ShiftsService(repo, periodSlotRepo);
   return { service, repo, periodSlotRepo };
 }

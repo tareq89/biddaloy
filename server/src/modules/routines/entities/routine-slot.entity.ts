@@ -103,7 +103,7 @@ export class RoutineSlot {
   @Column({ type: 'uuid', nullable: true })
   room_id: string | null;
 
-  @Column({ type: 'enum', enum: Object.values(SlotRecurrence) })
+  @Column({ type: 'enum', enum: Object.values(SlotRecurrence), enumName: 'slot_recurrence_enum' })
   recurrence: SlotRecurrence;
 
   /** Which occurrence in the `recurrence` cycle this slot falls on —

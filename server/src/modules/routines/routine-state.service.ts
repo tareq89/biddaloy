@@ -79,9 +79,24 @@ export class RoutineStateService {
     }
 
     const oldState = routine.state;
-    routine.state = to;
-    routine.published_at = to === RoutineState.PUBLISHED ? new Date() : routine.published_at;
-    const saved = await this.routineRepo.save(routine);
+    // Atomic conditional update: only succeeds while the row is still in
+    // `oldState`, so two concurrent transitions (e.g. publish vs.
+    // withdraw, both starting from REVIEW) can't both win — the loser's
+    // zero-row update surfaces as a conflict instead of silently
+    // overwriting the winner's state.
+    const result = await this.routineRepo.update(
+      { id, tenant_id: tenantId, deleted_at: IsNull(), state: oldState },
+      {
+        state: to,
+        published_at: to === RoutineState.PUBLISHED ? new Date() : routine.published_at,
+      },
+    );
+    if (result.affected === 0) {
+      throw new ConflictException(`Cannot move routine from "${oldState}" to "${to}"`);
+    }
+    const saved = await this.routineRepo.findOneOrFail({
+      where: { id, tenant_id: tenantId, deleted_at: IsNull() },
+    });
 
     await this.auditService.record({
       action: AuditAction.UPDATE,

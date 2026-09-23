@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, IsNull, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
 import { Routine } from './entities/routine.entity';
 import { RoutineSlot } from './entities/routine-slot.entity';
 import { RoutineSlotTeacher } from './entities/routine-slot-teacher.entity';
 import { PeriodSlot } from './entities/period-slot.entity';
+import { Room } from './entities/room.entity';
+import { ClassSection } from '../academics/entities/class-section.entity';
+import { Subject } from '../academics/entities/subject.entity';
+import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
 import { UpsertRoutineSlotDto } from './dto/routine-slots.dto';
@@ -42,6 +46,7 @@ export class RoutineSlotsService {
     @InjectRepository(TeacherClassSection)
     private readonly tcsRepo: Repository<TeacherClassSection>,
     private readonly settingsReader: SchoolSettingsReader,
+    private readonly dataSource: DataSource,
   ) {}
 
   async findForRoutine(routineId: string, tenantId: string): Promise<RoutineSlotWithWarnings[]> {
@@ -67,52 +72,88 @@ export class RoutineSlotsService {
     tenantId: string,
   ): Promise<RoutineSlotWithWarnings> {
     await this.getRoutine(routineId, tenantId);
-    const periodSlot = await this.getPeriodSlot(dto.period_slot_id, tenantId);
-    const existing = await this.loadExisting(routineId, tenantId);
-    const candidate = this.toSlotLike(dto, periodSlot.sequence);
 
-    const { violations, warnings } = await this.check(candidate, existing, periodSlot, tenantId);
-    if (violations.length > 0) {
-      throw new ConflictException({ message: 'Slot violates hard constraints', violations });
-    }
+    return this.dataSource.transaction(async (manager) => {
+      await this.validateTenantReferences(manager, dto, tenantId);
+      const periodSlot = await this.getPeriodSlot(dto.period_slot_id, tenantId, manager);
+      const existing = await this.loadExisting(routineId, tenantId, manager);
+      const candidate = this.toSlotLike(dto, periodSlot.sequence);
 
-    const saved = await this.persist(routineId, tenantId, dto);
-    return { slot: saved, teacher_ids: dto.teacher_ids, warnings };
+      const { violations, warnings } = await this.check(candidate, existing, periodSlot, tenantId);
+      if (violations.length > 0) {
+        throw new ConflictException({ message: 'Slot violates hard constraints', violations });
+      }
+
+      const saved = await this.persist(routineId, tenantId, dto, manager);
+      return { slot: saved, teacher_ids: dto.teacher_ids, warnings };
+    });
   }
 
   /**
    * D4: closes the row being replaced, then inserts a fresh one carrying
-   * the new dto. The old row's id is never reused.
+   * the new dto. The old row's id is never reused. Close, validation,
+   * slot insertion and teacher-row insertion all run in one transaction —
+   * a failure at any step rolls every one of them back together, so
+   * there's no manual "undo the close" path to keep in sync.
    */
   async update(
     id: string,
     dto: UpsertRoutineSlotDto,
     tenantId: string,
   ): Promise<RoutineSlotWithWarnings> {
-    const oldSlot = await this.slotRepo.findOne({ where: { id, tenant_id: tenantId } });
-    if (!oldSlot) {
-      throw new NotFoundException(`Routine slot with ID "${id}" not found`);
+    return this.dataSource.transaction(async (manager) => {
+      const oldSlot = await manager.findOne(RoutineSlot, { where: { id, tenant_id: tenantId } });
+      if (!oldSlot) {
+        throw new NotFoundException(`Routine slot with ID "${id}" not found`);
+      }
+
+      await this.validateTenantReferences(manager, dto, tenantId);
+      const periodSlot = await this.getPeriodSlot(dto.period_slot_id, tenantId, manager);
+      const closeDate = dayBefore(dto.valid_from);
+
+      // Close the old row first so the overlap check below sees it as
+      // already ended.
+      await manager.update(RoutineSlot, { id, tenant_id: tenantId }, { valid_to: closeDate });
+
+      const existing = await this.loadExisting(oldSlot.routine_id, tenantId, manager);
+      const candidate = this.toSlotLike(dto, periodSlot.sequence);
+
+      const { violations, warnings } = await this.check(candidate, existing, periodSlot, tenantId);
+      if (violations.length > 0) {
+        throw new ConflictException({ message: 'Slot violates hard constraints', violations });
+      }
+
+      const saved = await this.persist(oldSlot.routine_id, tenantId, dto, manager);
+      return { slot: saved, teacher_ids: dto.teacher_ids, warnings };
+    });
+  }
+
+  /** IDOR guard: every foreign id in the payload must resolve to a row
+   * in this tenant, not just exist somewhere in the database. */
+  private async validateTenantReferences(
+    manager: EntityManager,
+    dto: UpsertRoutineSlotDto,
+    tenantId: string,
+  ): Promise<void> {
+    const [section, subject, room, teachers] = await Promise.all([
+      manager.findOne(ClassSection, { where: { id: dto.section_id, tenant_id: tenantId } }),
+      manager.findOne(Subject, { where: { id: dto.subject_id, tenant_id: tenantId } }),
+      dto.room_id
+        ? manager.findOne(Room, { where: { id: dto.room_id, tenant_id: tenantId } })
+        : Promise.resolve(null),
+      manager.find(Teacher, { where: { id: In(dto.teacher_ids), tenant_id: tenantId } }),
+    ]);
+
+    if (!section) throw new NotFoundException(`Section with ID "${dto.section_id}" not found`);
+    if (!subject) throw new NotFoundException(`Subject with ID "${dto.subject_id}" not found`);
+    if (dto.room_id && !room) {
+      throw new NotFoundException(`Room with ID "${dto.room_id}" not found`);
     }
 
-    const periodSlot = await this.getPeriodSlot(dto.period_slot_id, tenantId);
-    const closeDate = dayBefore(dto.valid_from);
-
-    // Close the old row first so the overlap check below sees it as
-    // already ended.
-    await this.slotRepo.update({ id, tenant_id: tenantId }, { valid_to: closeDate });
-
-    const existing = await this.loadExisting(oldSlot.routine_id, tenantId);
-    const candidate = this.toSlotLike(dto, periodSlot.sequence);
-
-    const { violations, warnings } = await this.check(candidate, existing, periodSlot, tenantId);
-    if (violations.length > 0) {
-      // Roll the close back — the write as a whole failed.
-      await this.slotRepo.update({ id, tenant_id: tenantId }, { valid_to: oldSlot.valid_to });
-      throw new ConflictException({ message: 'Slot violates hard constraints', violations });
+    const teacherIds = new Set(teachers.map((teacher) => teacher.id));
+    if (dto.teacher_ids.some((teacherId) => !teacherIds.has(teacherId))) {
+      throw new NotFoundException('One or more teacher IDs were not found');
     }
-
-    const saved = await this.persist(oldSlot.routine_id, tenantId, dto);
-    return { slot: saved, teacher_ids: dto.teacher_ids, warnings };
   }
 
   async remove(id: string, tenantId: string): Promise<void> {
@@ -138,8 +179,13 @@ export class RoutineSlotsService {
     return routine;
   }
 
-  private async getPeriodSlot(periodSlotId: string, tenantId: string): Promise<PeriodSlot> {
-    const periodSlot = await this.periodSlotRepo.findOne({
+  private async getPeriodSlot(
+    periodSlotId: string,
+    tenantId: string,
+    manager?: EntityManager,
+  ): Promise<PeriodSlot> {
+    const repo = manager ? manager.getRepository(PeriodSlot) : this.periodSlotRepo;
+    const periodSlot = await repo.findOne({
       where: { id: periodSlotId, tenant_id: tenantId },
     });
     if (!periodSlot) {
@@ -151,10 +197,12 @@ export class RoutineSlotsService {
   private async loadTeacherRows(
     slotIds: string[],
     tenantId: string,
+    manager?: EntityManager,
   ): Promise<Map<string, string[]>> {
     const map = new Map<string, string[]>();
     if (slotIds.length === 0) return map;
-    const rows = await this.slotTeacherRepo.find({
+    const repo = manager ? manager.getRepository(RoutineSlotTeacher) : this.slotTeacherRepo;
+    const rows = await repo.find({
       where: { routine_slot_id: In(slotIds), tenant_id: tenantId },
     });
     for (const row of rows) {
@@ -168,19 +216,26 @@ export class RoutineSlotsService {
   /** Every active-or-future slot in the routine, as `SlotLike`, with
    * teacher assignments and period sequence attached — what a candidate
    * is checked against. */
-  private async loadExisting(routineId: string, tenantId: string): Promise<SlotLike[]> {
-    const slots = await this.slotRepo.find({
+  private async loadExisting(
+    routineId: string,
+    tenantId: string,
+    manager?: EntityManager,
+  ): Promise<SlotLike[]> {
+    const slotRepo = manager ? manager.getRepository(RoutineSlot) : this.slotRepo;
+    const periodSlotRepo = manager ? manager.getRepository(PeriodSlot) : this.periodSlotRepo;
+    const slots = await slotRepo.find({
       where: { routine_id: routineId, tenant_id: tenantId },
     });
     if (slots.length === 0) return [];
     const periodSlotIds = Array.from(new Set(slots.map((s) => s.period_slot_id)));
-    const periodSlots = await this.periodSlotRepo.find({
+    const periodSlots = await periodSlotRepo.find({
       where: { id: In(periodSlotIds), tenant_id: tenantId },
     });
     const sequenceById = new Map(periodSlots.map((p) => [p.id, p.sequence]));
     const teacherRows = await this.loadTeacherRows(
       slots.map((s) => s.id),
       tenantId,
+      manager,
     );
     return slots.map((s) => ({
       id: s.id,
@@ -248,8 +303,11 @@ export class RoutineSlotsService {
     routineId: string,
     tenantId: string,
     dto: UpsertRoutineSlotDto,
+    manager: EntityManager,
   ): Promise<RoutineSlot> {
-    const entity = this.slotRepo.create({
+    const slotRepo = manager.getRepository(RoutineSlot);
+    const slotTeacherRepo = manager.getRepository(RoutineSlotTeacher);
+    const entity = slotRepo.create({
       routine_id: routineId,
       tenant_id: tenantId,
       section_id: dto.section_id,
@@ -262,17 +320,17 @@ export class RoutineSlotsService {
       valid_from: dto.valid_from,
       valid_to: dto.valid_to ?? null,
     });
-    const saved = await this.slotRepo.save(entity);
+    const saved = await slotRepo.save(entity);
 
     // Explicit child-row writes (D16) — never a collection on `saved`.
     const teacherRows = dto.teacher_ids.map((teacherId) =>
-      this.slotTeacherRepo.create({
+      slotTeacherRepo.create({
         routine_slot_id: saved.id,
         tenant_id: tenantId,
         teacher_id: teacherId,
       }),
     );
-    await this.slotTeacherRepo.save(teacherRows);
+    await slotTeacherRepo.save(teacherRows);
 
     return saved;
   }

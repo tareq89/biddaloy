@@ -58,7 +58,12 @@ export class Routine {
   @Column({ type: 'varchar', length: 100 })
   name: string;
 
-  @Column({ type: 'enum', enum: Object.values(RoutineState), default: RoutineState.DRAFT })
+  @Column({
+    type: 'enum',
+    enum: Object.values(RoutineState),
+    enumName: 'routine_state_enum',
+    default: RoutineState.DRAFT,
+  })
   state: RoutineState;
 
   @Column({ type: 'timestamptz', nullable: true })

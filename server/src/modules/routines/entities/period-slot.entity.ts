@@ -64,7 +64,7 @@ export class PeriodSlot {
   @Column({ type: 'smallint' })
   sequence: number;
 
-  @Column({ type: 'enum', enum: Object.values(PeriodSlotKind) })
+  @Column({ type: 'enum', enum: Object.values(PeriodSlotKind), enumName: 'period_slot_kind_enum' })
   kind: PeriodSlotKind;
 
   /** e.g. "Lunch" for a `BREAK` slot. `null` for an ordinary class period. */

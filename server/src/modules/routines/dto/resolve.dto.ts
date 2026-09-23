@@ -1,5 +1,5 @@
-import { IsUUID, IsOptional, IsDateString, IsBoolean } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsUUID, IsOptional, IsDateString, IsIn } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 /**
  * `GET /routines/resolve` query — exactly one of `section_id`,
@@ -26,10 +26,12 @@ export class ResolveRoutineQueryDto {
   to: string;
 
   /** `BREAK` slots are excluded from teaching results by default; set
-   * this to include them for grid display. */
+   * this to include them for grid display. `@Type(() => Boolean)` would
+   * coerce the non-empty string `"false"` to `true` — parse the two
+   * accepted string values explicitly instead. */
   @IsOptional()
-  @Type(() => Boolean)
-  @IsBoolean()
+  @Transform(({ value }) => (typeof value === 'string' ? value === 'true' : value))
+  @IsIn([true, false])
   include_breaks?: boolean;
 }
 

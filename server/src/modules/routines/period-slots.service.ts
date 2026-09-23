@@ -60,33 +60,45 @@ export class PeriodSlotsService {
     dto: ReplacePeriodSlotsDto,
     tenantId: string,
   ): Promise<PeriodSlot[]> {
-    const shift = await this.getShift(shiftId, tenantId);
-
-    // Validate every problem once, rather than failing on the first (Step
-    // 3 of the plan).
-    const errors = this.validateSlots(dto.slots, shift);
-    if (errors.length > 0) {
-      throw new BadRequestException({ message: 'Invalid period slots', errors });
-    }
-
-    // Replacing the set deletes the old rows outright; refuse if a routine
-    // slot still points at one of them rather than orphaning it silently.
-    const existing = await this.repo.find({
-      where: { shift_id: shiftId, tenant_id: tenantId },
-    });
-    if (existing.length > 0) {
-      const referencedCount = await this.routineSlotRepo.count({
-        where: { tenant_id: tenantId, period_slot_id: In(existing.map((slot) => slot.id)) },
-      });
-      if (referencedCount > 0) {
-        throw new ConflictException(
-          `Cannot replace period slots for shift "${shiftId}": ${referencedCount} routine slot(s) still reference its existing slots. Remove them first.`,
-        );
-      }
-    }
-
     return this.repo.manager.transaction(async (manager) => {
+      const shiftRepo = manager.getRepository(Shift);
       const repo = manager.getRepository(PeriodSlot);
+
+      // Lock the shift row for the whole operation — `ShiftsService.remove`
+      // locks the same row before its own reference check, so the two
+      // can't interleave (one validating against a state the other is
+      // about to change).
+      const shift = await shiftRepo.findOne({
+        where: { id: shiftId, tenant_id: tenantId, deleted_at: IsNull() },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!shift) {
+        throw new NotFoundException(`Shift with ID "${shiftId}" not found`);
+      }
+
+      // Validate every problem once, rather than failing on the first (Step
+      // 3 of the plan).
+      const errors = this.validateSlots(dto.slots, shift);
+      if (errors.length > 0) {
+        throw new BadRequestException({ message: 'Invalid period slots', errors });
+      }
+
+      // Replacing the set deletes the old rows outright; refuse if a routine
+      // slot still points at one of them rather than orphaning it silently.
+      const existing = await repo.find({
+        where: { shift_id: shiftId, tenant_id: tenantId },
+      });
+      if (existing.length > 0) {
+        const referencedCount = await manager.getRepository(RoutineSlot).count({
+          where: { tenant_id: tenantId, period_slot_id: In(existing.map((slot) => slot.id)) },
+        });
+        if (referencedCount > 0) {
+          throw new ConflictException(
+            `Cannot replace period slots for shift "${shiftId}": ${referencedCount} routine slot(s) still reference its existing slots. Remove them first.`,
+          );
+        }
+      }
+
       await repo.delete({ shift_id: shiftId, tenant_id: tenantId });
       const entities = dto.slots.map((slot) =>
         repo.create({
@@ -118,12 +130,22 @@ export class PeriodSlotsService {
     const shift = await this.getShift(shiftId, tenantId);
     const routineSettings = await this.settingsReader.routineSettings(tenantId);
     const changeoverMinutes = routineSettings.defaultChangeoverMinutes;
+    const dayEnd = timeToMinutes(shift.day_ends_at);
 
     const suggestions: { sequence: number; starts_at: string; ends_at: string }[] = [];
     let cursor = timeToMinutes(shift.day_starts_at);
     for (let i = 0; i < query.periodCount; i++) {
       const starts = cursor;
       const ends = starts + query.periodDurationMinutes;
+      // `minutesToTime` wraps past midnight — a suggestion that runs past
+      // the shift's own window would come back looking valid and then
+      // get rejected by `replaceForShift`'s day-window check. Fail here
+      // instead, before wrapping hides the real problem.
+      if (ends > dayEnd) {
+        throw new BadRequestException(
+          `Period ${i} would end at ${minutesToTime(ends)}, past the shift's day_ends_at (${shift.day_ends_at}).`,
+        );
+      }
       suggestions.push({
         sequence: i,
         starts_at: minutesToTime(starts),

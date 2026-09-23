@@ -68,6 +68,7 @@ export class RoutineChangeRequest {
   @Column({
     type: 'enum',
     enum: Object.values(ChangeRequestState),
+    enumName: 'change_request_state_enum',
     default: ChangeRequestState.OPEN,
   })
   state: ChangeRequestState;

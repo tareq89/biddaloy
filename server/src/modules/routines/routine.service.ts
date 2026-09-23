@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { Routine } from './entities/routine.entity';
+import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { RoutineState } from '@biddaloy/shared';
 import { CreateRoutineDto } from './dto/routine-slots.dto';
 
@@ -15,9 +16,21 @@ export class RoutineService {
   constructor(
     @InjectRepository(Routine)
     private readonly repo: Repository<Routine>,
+    @InjectRepository(AcademicYear)
+    private readonly academicYearRepo: Repository<AcademicYear>,
   ) {}
 
   async create(dto: CreateRoutineDto, tenantId: string): Promise<Routine> {
+    // The FK only checks `academic_years.id` — without this, a caller
+    // could hand in another tenant's academic-year UUID and have it
+    // silently accepted (IDOR).
+    const academicYear = await this.academicYearRepo.findOne({
+      where: { id: dto.academic_year_id, tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    if (!academicYear) {
+      throw new NotFoundException(`Academic year with ID "${dto.academic_year_id}" not found`);
+    }
+
     const existing = await this.repo.findOne({
       where: { tenant_id: tenantId, academic_year_id: dto.academic_year_id, deleted_at: IsNull() },
     });

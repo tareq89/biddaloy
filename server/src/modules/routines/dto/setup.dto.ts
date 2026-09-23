@@ -3,6 +3,7 @@ import {
   IsOptional,
   IsInt,
   Min,
+  Max,
   MaxLength,
   IsNotEmpty,
   Matches,
@@ -10,6 +11,7 @@ import {
   IsArray,
   ArrayMinSize,
   ValidateNested,
+  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PeriodSlotKind } from '@biddaloy/shared';
@@ -18,6 +20,10 @@ import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator
 /** Postgres `time` columns come back as `'HH:mm:ss'`; accept `HH:mm` too
  * since that is what a client `<input type="time">` sends. */
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
+
+// `Shift.sequence`/`PeriodSlot.sequence` are `smallint` columns — reject
+// anything Postgres would bounce anyway.
+const SMALLINT_MAX = 32767;
 
 export class CreateShiftDto {
   @IsNotEmpty()
@@ -34,27 +40,29 @@ export class CreateShiftDto {
 
   @IsInt()
   @Min(0)
+  @Max(SMALLINT_MAX)
   sequence: number;
 }
 
 export class UpdateShiftDto {
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsString()
   @MaxLength(100)
   @SanitizeText()
   name?: string;
 
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @Matches(TIME_RE, { message: 'day_starts_at must be HH:mm' })
   day_starts_at?: string;
 
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @Matches(TIME_RE, { message: 'day_ends_at must be HH:mm' })
   day_ends_at?: string;
 
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsInt()
   @Min(0)
+  @Max(SMALLINT_MAX)
   sequence?: number;
 }
 
@@ -100,7 +108,7 @@ export class UpdateRoomDto {
   @SanitizeText()
   building?: string | null;
 
-  @IsOptional()
+  @ValidateIf((_, value) => value !== undefined)
   @IsString()
   @MaxLength(50)
   @SanitizeText()
@@ -132,6 +140,7 @@ export class QueryRoomDto {
 export class PeriodSlotItemDto {
   @IsInt()
   @Min(0)
+  @Max(SMALLINT_MAX)
   sequence: number;
 
   @IsEnum(PeriodSlotKind)
@@ -168,6 +177,7 @@ export class ChangeoverSuggestionQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(50)
   periodCount: number;
 
   @Type(() => Number)

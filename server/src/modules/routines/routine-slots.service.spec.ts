@@ -2,6 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { PeriodSlotKind, SlotRecurrence } from '@biddaloy/shared';
 import { RoutineSlotsService } from './routine-slots.service';
+import { RoutineSlot } from './entities/routine-slot.entity';
+import { RoutineSlotTeacher } from './entities/routine-slot-teacher.entity';
+import { PeriodSlot } from './entities/period-slot.entity';
+import { Room } from './entities/room.entity';
+import { ClassSection } from '../academics/entities/class-section.entity';
+import { Subject } from '../academics/entities/subject.entity';
+import { Teacher } from '../academics/entities/teacher.entity';
 
 const TENANT_ID = 'tenant-1';
 const ROUTINE_ID = 'routine-1';
@@ -52,6 +59,36 @@ function buildService() {
   const tcsRepo: any = { find: vi.fn(async () => []) };
   const settingsReader: any = { routineSettings: vi.fn(async () => ({})) };
 
+  // Every foreign id in `baseDto` resolves in this tenant by default.
+  const sectionRepo: any = {
+    findOne: vi.fn(async () => ({ id: 'section-1', tenant_id: TENANT_ID })),
+  };
+  const subjectRepo: any = {
+    findOne: vi.fn(async () => ({ id: 'subject-1', tenant_id: TENANT_ID })),
+  };
+  const roomRepo: any = { findOne: vi.fn(async () => null) };
+  const teacherRepo: any = {
+    find: vi.fn(async () => [{ id: 'teacher-1', tenant_id: TENANT_ID }]),
+  };
+
+  const reposByEntity = new Map<unknown, any>([
+    [RoutineSlot, slotRepo],
+    [RoutineSlotTeacher, slotTeacherRepo],
+    [PeriodSlot, periodSlotRepo],
+    [ClassSection, sectionRepo],
+    [Subject, subjectRepo],
+    [Room, roomRepo],
+    [Teacher, teacherRepo],
+  ]);
+  const manager: any = {
+    getRepository: (entity: unknown) => reposByEntity.get(entity),
+    findOne: (entity: unknown, opts: any) => reposByEntity.get(entity).findOne(opts),
+    find: (entity: unknown, opts: any) => reposByEntity.get(entity).find(opts),
+    update: (entity: unknown, where: any, patch: any) =>
+      reposByEntity.get(entity).update(where, patch),
+  };
+  const dataSource: any = { transaction: (cb: any) => cb(manager) };
+
   const service = new RoutineSlotsService(
     routineRepo,
     slotRepo,
@@ -59,6 +96,7 @@ function buildService() {
     periodSlotRepo,
     tcsRepo,
     settingsReader,
+    dataSource,
   );
   return {
     service,
@@ -68,6 +106,10 @@ function buildService() {
     periodSlotRepo,
     tcsRepo,
     settingsReader,
+    sectionRepo,
+    subjectRepo,
+    roomRepo,
+    teacherRepo,
     slots,
   };
 }

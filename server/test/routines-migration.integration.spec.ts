@@ -92,16 +92,23 @@ describe('AddRoutines1789800011000 (integration)', () => {
     });
 
     await migration.down(queryRunner);
-    expect(await existingRoutineTables()).toEqual([]);
-    expect(await classesShiftIdExists()).toBe(false);
-    // `down()` only drops `shift_id` — the free-text `shift` column it was
-    // promoted from must survive so `up()` can re-derive it.
-    const [{ shift }] = await dataSource.query('SELECT shift FROM classes WHERE id = $1', [
-      klass.id,
-    ]);
-    expect(shift).toBe('Morning');
+    // Restore the schema in `finally` — if an assertion below throws, the
+    // shared test database must not stay stuck without the routine
+    // tables and `classes.shift_id`, which would break every later
+    // integration file that runs against this same database.
+    try {
+      expect(await existingRoutineTables()).toEqual([]);
+      expect(await classesShiftIdExists()).toBe(false);
+      // `down()` only drops `shift_id` — the free-text `shift` column it
+      // was promoted from must survive so `up()` can re-derive it.
+      const [{ shift }] = await dataSource.query('SELECT shift FROM classes WHERE id = $1', [
+        klass.id,
+      ]);
+      expect(shift).toBe('Morning');
+    } finally {
+      await migration.up(queryRunner);
+    }
 
-    await migration.up(queryRunner);
     expect(await existingRoutineTables()).toEqual(TABLES);
     expect(await classesShiftIdExists()).toBe(true);
 

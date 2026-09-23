@@ -10,10 +10,48 @@ import {
   IsDateString,
   IsString,
   MaxLength,
+  Matches,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
+  Validate,
+  ValidationArguments,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { SlotRecurrence } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
+
+/** `IsDateString()` also accepts full ISO timestamps; every caller here
+ * treats `valid_from`/`valid_to` as date-only strings (recurrence/range
+ * comparisons split or compare them lexically), so restrict to that. */
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Valid `recurrence_offset` ranges depend on `recurrence`: WEEKLY only
+ * ever means "every week" (0), BIWEEKLY picks which of the two
+ * alternating weeks (0 or 1), MONTHLY picks the nth weekday-in-month
+ * (1-5) or "last" (-1). See `occursOn`/`recurrenceIntersects` for how
+ * each is interpreted — an out-of-range offset here would let two slots
+ * that actually occur on the same date pass as non-clashing. */
+@ValidatorConstraint({ name: 'recurrenceOffsetForType', async: false })
+class RecurrenceOffsetForTypeConstraint implements ValidatorConstraintInterface {
+  validate(value: number | undefined, args: ValidationArguments): boolean {
+    if (value === undefined) return true;
+    const recurrence = (args.object as { recurrence?: SlotRecurrence }).recurrence;
+    switch (recurrence) {
+      case SlotRecurrence.WEEKLY:
+        return value === 0;
+      case SlotRecurrence.BIWEEKLY:
+        return value === 0 || value === 1;
+      case SlotRecurrence.MONTHLY:
+        return value === -1 || (value >= 1 && value <= 5);
+      default:
+        return true;
+    }
+  }
+
+  defaultMessage(): string {
+    return 'recurrence_offset is not valid for this recurrence type';
+  }
+}
 
 export class CreateRoutineDto {
   @IsUUID()
@@ -52,14 +90,16 @@ export class UpsertRoutineSlotDto {
 
   @IsOptional()
   @IsInt()
-  @Min(0)
+  @Validate(RecurrenceOffsetForTypeConstraint)
   recurrence_offset?: number;
 
   @IsDateString()
+  @Matches(DATE_ONLY_RE, { message: 'valid_from must be YYYY-MM-DD' })
   valid_from: string;
 
   @IsOptional()
   @IsDateString()
+  @Matches(DATE_ONLY_RE, { message: 'valid_to must be YYYY-MM-DD' })
   valid_to?: string | null;
 
   @IsArray()
@@ -75,5 +115,7 @@ export class GreedyFillQueryDto {
   @IsArray()
   @Type(() => Number)
   @IsInt({ each: true })
+  @Min(0, { each: true })
+  @Max(6, { each: true })
   weekdays?: number[];
 }

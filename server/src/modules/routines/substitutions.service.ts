@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import { RoutineSubstitution } from './entities/routine-substitution.entity';
 import { RoutineSlot } from './entities/routine-slot.entity';
 import { Routine } from './entities/routine.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
+import { Teacher } from '../academics/entities/teacher.entity';
 import { UpsertSubstitutionDto, QuerySubstitutionsDto } from './dto/substitution.dto';
 import { occursOn } from './recurrence';
 
@@ -23,6 +24,7 @@ export class SubstitutionsService {
     @InjectRepository(RoutineSlot) private readonly slotRepo: Repository<RoutineSlot>,
     @InjectRepository(Routine) private readonly routineRepo: Repository<Routine>,
     @InjectRepository(AcademicYear) private readonly yearRepo: Repository<AcademicYear>,
+    @InjectRepository(Teacher) private readonly teacherRepo: Repository<Teacher>,
   ) {}
 
   async record(
@@ -37,11 +39,19 @@ export class SubstitutionsService {
       throw new NotFoundException(`Routine slot with ID "${dto.routine_slot_id}" not found`);
     }
 
-    await this.assertSlotOccursOn(slot, dto.date, tenantId);
+    // IDOR guard: `dto.substitute_teacher_id` is caller-controlled and
+    // otherwise flows straight into the write below — validate it
+    // resolves to a teacher in this tenant, not just anywhere.
+    if (dto.substitute_teacher_id) {
+      const teacher = await this.teacherRepo.findOne({
+        where: { id: dto.substitute_teacher_id, tenant_id: tenantId },
+      });
+      if (!teacher) {
+        throw new NotFoundException(`Teacher with ID "${dto.substitute_teacher_id}" not found`);
+      }
+    }
 
-    const existing = await this.substitutionRepo.findOne({
-      where: { routine_slot_id: dto.routine_slot_id, date: dto.date, tenant_id: tenantId },
-    });
+    await this.assertSlotOccursOn(slot, dto.date, tenantId);
 
     const values = {
       routine_slot_id: dto.routine_slot_id,
@@ -53,12 +63,28 @@ export class SubstitutionsService {
       created_by: userId,
     };
 
-    if (existing) {
-      await this.substitutionRepo.update({ id: existing.id }, values);
-      return (await this.substitutionRepo.findOne({ where: { id: existing.id } }))!;
+    // Concurrent requests for the same (routine_slot_id, date) can both
+    // miss on a separate existence check, then both try to insert and
+    // one hits the unique index — retry that one as an update instead of
+    // surfacing a raw DB error.
+    try {
+      return await this.substitutionRepo.save(this.substitutionRepo.create(values));
+    } catch (err) {
+      if (!this.isUniqueViolation(err)) throw err;
+      await this.substitutionRepo.update(
+        { routine_slot_id: dto.routine_slot_id, date: dto.date, tenant_id: tenantId },
+        values,
+      );
+      return (await this.substitutionRepo.findOne({
+        where: { routine_slot_id: dto.routine_slot_id, date: dto.date, tenant_id: tenantId },
+      }))!;
     }
+  }
 
-    return this.substitutionRepo.save(this.substitutionRepo.create(values));
+  private isUniqueViolation(err: unknown): boolean {
+    return (
+      err instanceof QueryFailedError && (err as unknown as { code?: string }).code === '23505'
+    );
   }
 
   async list(query: QuerySubstitutionsDto, tenantId: string): Promise<RoutineSubstitution[]> {

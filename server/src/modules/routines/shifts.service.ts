@@ -62,21 +62,36 @@ export class ShiftsService {
   }
 
   async remove(id: string, tenantId: string): Promise<void> {
-    await this.findOne(id, tenantId);
+    await this.repo.manager.transaction(async (manager) => {
+      const shiftRepo = manager.getRepository(Shift);
+      const periodSlotRepo = manager.getRepository(PeriodSlot);
 
-    // Refuse rather than let `period_slots`' `FK_period_slots_shift ON
-    // DELETE CASCADE` silently wipe out a class's whole period structure —
-    // the admin must clear the slots first (`PUT .../period-slots` with an
-    // empty set is not offered; slots are removed by editing the shift).
-    const slotCount = await this.periodSlotRepo.count({
-      where: { shift_id: id, tenant_id: tenantId },
+      // Lock the shift row before checking references — matches the lock
+      // `PeriodSlotsService.replaceForShift` takes, so a concurrent
+      // replace can't insert new slots for a shift this call is about to
+      // soft-delete (or vice versa).
+      const shift = await shiftRepo.findOne({
+        where: { id, tenant_id: tenantId, deleted_at: IsNull() },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!shift) {
+        throw new NotFoundException(`Shift with ID "${id}" not found`);
+      }
+
+      // Refuse rather than let `period_slots`' `FK_period_slots_shift ON
+      // DELETE CASCADE` silently wipe out a class's whole period structure —
+      // the admin must clear the slots first (`PUT .../period-slots` with an
+      // empty set is not offered; slots are removed by editing the shift).
+      const slotCount = await periodSlotRepo.count({
+        where: { shift_id: id, tenant_id: tenantId },
+      });
+      if (slotCount > 0) {
+        throw new ConflictException(
+          `Cannot delete shift "${id}": ${slotCount} period slot(s) still reference it. Remove them first.`,
+        );
+      }
+
+      await shiftRepo.softDelete({ id, tenant_id: tenantId });
     });
-    if (slotCount > 0) {
-      throw new ConflictException(
-        `Cannot delete shift "${id}": ${slotCount} period slot(s) still reference it. Remove them first.`,
-      );
-    }
-
-    await this.repo.softDelete({ id, tenant_id: tenantId });
   }
 }

@@ -82,15 +82,24 @@ export class ChangeRequestsService {
     if (!request) {
       throw new NotFoundException(`Change request with ID "${id}" not found`);
     }
-    if (request.state !== ChangeRequestState.OPEN) {
+
+    // Atomic conditional update: only succeeds while the row is still
+    // OPEN, so two concurrent resolutions can't both win and overwrite
+    // each other's decision. A zero-row update means someone else
+    // resolved it first — surface that as a conflict, not a silent no-op.
+    const result = await this.requestRepo.update(
+      { id, tenant_id: tenantId, state: ChangeRequestState.OPEN },
+      {
+        state: dto.state,
+        resolved_by: userId,
+        resolved_at: new Date(),
+        resolution_note: dto.resolution_note ?? null,
+      },
+    );
+    if (result.affected === 0) {
       throw new ConflictException(`Change request "${id}" is already resolved`);
     }
-
-    request.state = dto.state;
-    request.resolved_by = userId;
-    request.resolved_at = new Date();
-    request.resolution_note = dto.resolution_note ?? null;
-    const saved = await this.requestRepo.save(request);
+    const saved = await this.requestRepo.findOneOrFail({ where: { id, tenant_id: tenantId } });
 
     await this.auditService.record({
       action: AuditAction.UPDATE,

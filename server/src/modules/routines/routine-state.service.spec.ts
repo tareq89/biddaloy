@@ -16,9 +16,10 @@ function buildService(state: RoutineState = RoutineState.DRAFT) {
   };
   const routineRepo: any = {
     findOne: vi.fn(async () => routine),
-    save: vi.fn(async (v: any) => {
-      Object.assign(routine, v);
-      return routine;
+    findOneOrFail: vi.fn(async () => routine),
+    update: vi.fn(async (_where: any, patch: any) => {
+      Object.assign(routine, patch);
+      return { affected: 1 };
     }),
   };
   const auditService: any = { record: vi.fn(async () => undefined) };

@@ -119,9 +119,18 @@ describe('dateRangesOverlap', () => {
     expect(
       dateRangesOverlap(
         { valid_from: '2026-01-01', valid_to: '2026-03-01' },
-        { valid_from: '2026-03-01', valid_to: null },
+        { valid_from: '2026-03-02', valid_to: null },
       ),
     ).toBe(false);
+  });
+
+  it('overlaps when one ends on the day the other begins (inclusive endpoints)', () => {
+    expect(
+      dateRangesOverlap(
+        { valid_from: '2026-01-01', valid_to: '2026-03-01' },
+        { valid_from: '2026-03-01', valid_to: null },
+      ),
+    ).toBe(true);
   });
 });
 
@@ -142,7 +151,7 @@ describe('checkSlot — hard violations', () => {
     const existing = [
       slot({ teacher_ids: ['teacher-x'], valid_from: '2026-01-01', valid_to: '2026-03-01' }),
     ];
-    const c = candidate({ teacher_ids: ['teacher-x'], valid_from: '2026-03-01', valid_to: null });
+    const c = candidate({ teacher_ids: ['teacher-x'], valid_from: '2026-03-02', valid_to: null });
     const result = checkSlot(c, existing, CLASS_PERIOD, new Set(), {});
     expect(result.violations.map((v) => v.code)).not.toContain('TEACHER_DOUBLE_BOOKED');
   });

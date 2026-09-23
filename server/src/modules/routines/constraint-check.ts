@@ -116,15 +116,18 @@ export function recurrenceIntersects(
   return a.recurrence_offset === b.recurrence_offset;
 }
 
-/** Half-open `[valid_from, valid_to)` date-range overlap. `null` valid_to
- * means "still in force" — treated as unbounded. */
+/** Inclusive `[valid_from, valid_to]` date-range overlap. `null` valid_to
+ * means "still in force" — treated as unbounded. `valid_to` is the last
+ * day a row is still valid (see `RoutineSlotsService.update`'s
+ * `dayBefore` closing boundary), so two ranges sharing that endpoint do
+ * overlap. */
 export function dateRangesOverlap(
   a: { valid_from: string; valid_to: string | null },
   b: { valid_from: string; valid_to: string | null },
 ): boolean {
   const aEnd = a.valid_to ?? '9999-12-31';
   const bEnd = b.valid_to ?? '9999-12-31';
-  return a.valid_from < bEnd && b.valid_from < aEnd;
+  return a.valid_from <= bEnd && b.valid_from <= aEnd;
 }
 
 /** Two slots "coexist" — actually compete for the same weekday-time —
@@ -210,8 +213,10 @@ export function checkSlot(
       const dailyCount =
         existing.filter(
           (s) =>
+            s.id !== candidate.id &&
             s.weekday === candidate.weekday &&
             s.teacher_ids.includes(teacherId) &&
+            recurrenceIntersects(candidate, s) &&
             dateRangesOverlap(candidate, s),
         ).length + 1;
       if (dailyCount > settings.maxPeriodsPerTeacherPerDay) {
@@ -243,8 +248,10 @@ export function checkSlot(
       const sameDaySequences = existing
         .filter(
           (s) =>
+            s.id !== candidate.id &&
             s.weekday === candidate.weekday &&
             s.teacher_ids.includes(teacherId) &&
+            recurrenceIntersects(candidate, s) &&
             dateRangesOverlap(candidate, s),
         )
         .map((s) => s.period_sequence);

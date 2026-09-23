@@ -151,10 +151,11 @@ export class GreedyFillService {
     // force — same bug class `checkSlot`'s daily-cap/consecutive-period
     // checks had (see constraint-check.ts), fixed there via
     // `dateRangesOverlap`. Here there's no single "candidate" range to
-    // overlap against, just "is this slot live today" — a half-open
-    // `[valid_from, valid_to)` containment check against `today`.
+    // overlap against, just "is this slot live today" — an inclusive
+    // `[valid_from, valid_to]` containment check against `today`, matching
+    // `dateRangesOverlap`'s endpoint-inclusive semantics.
     const isActiveToday = (s: SlotLike) =>
-      s.valid_from <= today && (s.valid_to === null || today < s.valid_to);
+      s.valid_from <= today && (s.valid_to === null || today <= s.valid_to);
     const teacherPeriodCount = new Map<string, number>();
     for (const slot of existing) {
       if (!isActiveToday(slot)) continue;

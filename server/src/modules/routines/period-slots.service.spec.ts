@@ -13,16 +13,27 @@ const SHIFT = {
 
 function buildService() {
   const shiftRepo: any = { findOne: vi.fn(async () => SHIFT) };
+  const routineSlotRepo: any = { count: vi.fn(async () => 0) };
   const repo: any = {
     find: vi.fn(async () => []),
     create: vi.fn((v: any) => v),
     delete: vi.fn(async () => undefined),
     save: vi.fn(async (v: any) => v),
     manager: {
-      transaction: vi.fn(async (cb: any) => cb({ getRepository: () => repo })),
+      // `replaceForShift` now locks the shift row and reads
+      // `RoutineSlot` counts via the transaction manager too — route
+      // each entity to the same mock the rest of this suite asserts on.
+      transaction: vi.fn(async (cb: any) =>
+        cb({
+          getRepository: (entity: any) => {
+            if (entity?.name === 'Shift') return shiftRepo;
+            if (entity?.name === 'RoutineSlot') return routineSlotRepo;
+            return repo;
+          },
+        }),
+      ),
     },
   };
-  const routineSlotRepo: any = { count: vi.fn(async () => 0) };
   const settingsReader: any = {
     routineSettings: vi.fn(async () => ({ defaultChangeoverMinutes: 5 })),
   };

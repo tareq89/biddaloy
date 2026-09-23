@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, IsNull, Repository } from 'typeorm';
+import { In, IsNull, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
 import { Routine } from './entities/routine.entity';
 import { RoutineSlot } from './entities/routine-slot.entity';
 import { RoutineSlotTeacher } from './entities/routine-slot-teacher.entity';
@@ -42,8 +42,26 @@ export class WorkloadService {
       throw new NotFoundException(`Routine ID "${routineId}" not found`);
     }
 
+    // `valid_to IS NULL` alone misses a currently-active row with a
+    // finite `valid_to` (a D4 close scheduled for the future) and would
+    // wrongly include a future replacement row before its `valid_from`.
+    // `valid_to` is inclusive of its own day (see `dateRangesOverlap`).
+    const today = new Date().toISOString().slice(0, 10);
     const activeSlots = await this.slotRepo.find({
-      where: { routine_id: routineId, tenant_id: tenantId, valid_to: IsNull() },
+      where: [
+        {
+          routine_id: routineId,
+          tenant_id: tenantId,
+          valid_from: LessThanOrEqual(today),
+          valid_to: IsNull(),
+        },
+        {
+          routine_id: routineId,
+          tenant_id: tenantId,
+          valid_from: LessThanOrEqual(today),
+          valid_to: MoreThanOrEqual(today),
+        },
+      ],
     });
     if (activeSlots.length === 0) return [];
 
