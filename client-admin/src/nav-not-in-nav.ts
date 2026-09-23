@@ -49,6 +49,10 @@ export const NOT_IN_NAV: Record<string, string> = {
     '[19.7.1] reached from the exam Progress tab’s outstanding-grid links, not its own sidebar item yet',
   '/_staff/marks/$examId/$sectionId/$subjectId':
     'detail route reached from /marks or the exam Progress tab',
+  '/_staff/results/':
+    '[19.8.1] reached from the palette (Process/Publish/Send result SMS actions) or the exam Results tab, not its own sidebar item yet',
+  '/_staff/results/$examId/$studentId':
+    'report card, reached from the exam Results tab or /results, not its own sidebar item',
   '/_staff/grading-scales/$scaleId': 'detail route reached from the grading scales list',
   '/_staff/guardians/$guardianId': 'detail route reached from the guardians list',
   '/_staff/invoices/$invoiceId': 'detail route reached from the invoices list',

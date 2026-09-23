@@ -13,6 +13,7 @@ import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loader
 
 import { ComponentsPanel } from './-detail/components-panel';
 import { ProgressPanel } from './-detail/progress-panel';
+import { ResultsPanel } from './-detail/results-panel';
 
 export const Route = createFileRoute('/_staff/exams/$examId')({
   loader: ({ context: { queryClient }, params }) =>
@@ -74,11 +75,7 @@ function ExamDetailPage() {
             {
               id: 'results',
               label: t('detail.tabs.results'),
-              // [19.8.1] fills this in — process/publish/reopen + the
-              // results table. This ticket only reserves the tab.
-              content: (
-                <p className="text-sm text-muted-foreground">{t('detail.resultsPlaceholder')}</p>
-              ),
+              content: <ResultsPanel examId={examId} examStatus={examQuery.data.status} />,
             },
           ]}
         />
