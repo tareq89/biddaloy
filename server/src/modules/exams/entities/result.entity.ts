@@ -81,7 +81,10 @@ export class Result {
   @Column({ type: 'boolean', default: false })
   is_fail: boolean;
 
-  @ManyToOne(() => GradingScale, { nullable: false, onDelete: 'RESTRICT' })
+  // NO ACTION, not RESTRICT — see the migration's FK_results_grading_scale
+  // comment: RESTRICT can reject a cascaded school/year delete depending on
+  // statement order; NO ACTION defers the check to end-of-statement.
+  @ManyToOne(() => GradingScale, { nullable: false, onDelete: 'NO ACTION' })
   @JoinColumn({ name: 'grading_scale_id' })
   grading_scale: GradingScale;
 

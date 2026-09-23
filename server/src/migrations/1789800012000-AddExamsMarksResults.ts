@@ -237,7 +237,16 @@ export class AddExamsMarksResults1789800012000 implements MigrationInterface {
       `ALTER TABLE "results" ADD CONSTRAINT "FK_results_student" FOREIGN KEY ("student_id") REFERENCES "students"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
     );
     await queryRunner.query(
-      `ALTER TABLE "results" ADD CONSTRAINT "FK_results_grading_scale" FOREIGN KEY ("grading_scale_id") REFERENCES "grading_scales"("id") ON DELETE RESTRICT ON UPDATE NO ACTION`,
+      // NO ACTION, not RESTRICT: a school or academic-year delete cascades
+      // to both grading_scales and results (see FK_results_tenant above and
+      // grading_scales' own tenant FK). RESTRICT checks immediately as each
+      // row is visited, so if Postgres processes the scale's cascade before
+      // a result row that still references it, the delete fails even
+      // though the whole statement would otherwise resolve cleanly.
+      // NO ACTION defers the check to end-of-statement, after every cascade
+      // in the same statement has run, while still blocking a *direct*
+      // scale delete that a result still references.
+      `ALTER TABLE "results" ADD CONSTRAINT "FK_results_grading_scale" FOREIGN KEY ("grading_scale_id") REFERENCES "grading_scales"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
     );
 
     // result_subjects
