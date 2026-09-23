@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { ApprovalMode, OrganisationSettings } from '@biddaloy/shared';
+import type { ApprovalMode, OrganisationSettings, RoutineSettings } from '@biddaloy/shared';
 import { SchoolsService } from '../schools.service';
 
 /**
@@ -37,5 +37,17 @@ export class SchoolSettingsReader {
     // `feesApprovalMode` above (the resolver fills it from
     // `DEFAULT_ORGANISATION_SETTINGS`).
     return settings.organisation!;
+  }
+
+  /** [21.3.1] The tenant's `settings.routine` — scheduling constraints
+   * (changeover minutes, per-teacher/day caps), defaulting via
+   * `DEFAULT_ROUTINE_SETTINGS` when unset. `PeriodSlotsService`'s
+   * changeover-suggestion endpoint (D7) reads this instead of a hardcoded
+   * constant. */
+  async routineSettings(tenantId: string): Promise<RoutineSettings> {
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    // Always present on a resolved `TenantSettings` — same invariant as
+    // `feesApprovalMode`/`organisationVocabulary` above.
+    return settings.routine!;
   }
 }

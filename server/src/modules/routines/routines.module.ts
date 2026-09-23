@@ -8,13 +8,17 @@ import { RoutineSlot } from './entities/routine-slot.entity';
 import { RoutineSlotTeacher } from './entities/routine-slot-teacher.entity';
 import { RoutineSubstitution } from './entities/routine-substitution.entity';
 import { RoutineChangeRequest } from './entities/routine-change-request.entity';
+import { ShiftsService } from './shifts.service';
+import { ShiftsController } from './shifts.controller';
+import { PeriodSlotsService } from './period-slots.service';
+import { RoomsService } from './rooms.service';
+import { RoomsController } from './rooms.controller';
+import { SchoolsModule } from '../schools/schools.module';
 
 /**
- * [21.2.1] entity-only — registers the eight class-routine/timetable
- * tables with TypeORM. Later tickets in Epic 21.0 add the service and
- * controller layers that actually read/write through this module; until
- * then it exists so `server/test/all-entities.ts` and migrations have a
- * home for the schema.
+ * [21.2.1] registers the eight class-routine/timetable tables with
+ * TypeORM. [21.3.1] adds the setup layer — shifts, period slots, rooms —
+ * on top; later Epic 21.0 tickets add routine-building/publishing.
  */
 @Module({
   imports: [
@@ -28,7 +32,13 @@ import { RoutineChangeRequest } from './entities/routine-change-request.entity';
       RoutineSubstitution,
       RoutineChangeRequest,
     ]),
+    // Only `SchoolSettingsReader` is used ([21.3.1]'s changeover-suggestion
+    // reading `TenantSettings.routine`) — same reasoning as
+    // `ClassModule`'s import of `SchoolsModule`.
+    SchoolsModule,
   ],
-  exports: [TypeOrmModule],
+  providers: [ShiftsService, PeriodSlotsService, RoomsService],
+  controllers: [ShiftsController, RoomsController],
+  exports: [TypeOrmModule, ShiftsService, PeriodSlotsService, RoomsService],
 })
 export class RoutinesModule {}
