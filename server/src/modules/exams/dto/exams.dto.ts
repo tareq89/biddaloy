@@ -3,6 +3,7 @@ import {
   IsUUID,
   IsOptional,
   IsInt,
+  IsBoolean,
   Min,
   MaxLength,
   IsNotEmpty,
@@ -10,10 +11,41 @@ import {
   IsNumberString,
   IsArray,
   ArrayNotEmpty,
+  Validate,
+  ValidationArguments,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
-import { ExamKind, ExamStatus, ExamComponentKind, ExamComponentSource } from '@biddaloy/shared';
+import { ExamKind, ExamComponentKind, ExamComponentSource } from '@biddaloy/shared';
+
+/** `numeric(6,2)` column range — a value outside this overflows the
+ * column and 500s instead of 400ing at the DTO. */
+const MAX_MARKS = 9999.99;
+
+@ValidatorConstraint({ name: 'isPositiveMarksString', async: false })
+class IsPositiveMarksStringConstraint implements ValidatorConstraintInterface {
+  validate(value: unknown): boolean {
+    const n = Number(value);
+    return typeof value === 'string' && Number.isFinite(n) && n > 0 && n <= MAX_MARKS;
+  }
+  defaultMessage(): string {
+    return `full_marks must be greater than 0 and at most ${MAX_MARKS}`;
+  }
+}
+
+@ValidatorConstraint({ name: 'isNonNegativeMarksString', async: false })
+class IsNonNegativeMarksStringConstraint implements ValidatorConstraintInterface {
+  validate(value: unknown): boolean {
+    if (value === null || value === undefined) return true;
+    const n = Number(value);
+    return typeof value === 'string' && Number.isFinite(n) && n >= 0 && n <= MAX_MARKS;
+  }
+  defaultMessage(): string {
+    return `pass_marks must be between 0 and ${MAX_MARKS}`;
+  }
+}
 
 // --- Exams ---
 
@@ -66,9 +98,12 @@ export class UpdateExamDto {
   @IsUUID()
   academic_term_id?: string | null;
 
-  @IsOptional()
-  @IsEnum(ExamStatus)
-  status?: ExamStatus;
+  // Deliberately no `status` field here. `ExamsService.update` writes this
+  // DTO straight through to `repo.update` — a status field would let any
+  // EXAM_MANAGE caller skip the D12 lifecycle (DRAFT→PROCESSED→PUBLISHED)
+  // and the `@RequireApproval` gate the entity docstring requires for
+  // reopening a PUBLISHED exam. Status changes belong to dedicated
+  // process/publish/reopen endpoints (19.5.1), not this generic PATCH.
 }
 
 export class QueryExamDto {
@@ -116,10 +151,12 @@ export class CreateExamComponentDto {
 
   @IsNotEmpty()
   @IsNumberString()
+  @Validate(IsPositiveMarksStringConstraint)
   full_marks: string;
 
   @IsOptional()
   @IsNumberString()
+  @Validate(IsNonNegativeMarksStringConstraint)
   pass_marks?: string | null;
 
   @IsNotEmpty()
@@ -145,10 +182,12 @@ export class UpdateExamComponentDto {
 
   @IsOptional()
   @IsNumberString()
+  @Validate(IsPositiveMarksStringConstraint)
   full_marks?: string;
 
   @IsOptional()
   @IsNumberString()
+  @Validate(IsNonNegativeMarksStringConstraint)
   pass_marks?: string | null;
 
   @IsOptional()
@@ -190,6 +229,7 @@ export class SetSubjectChoiceDto {
   class_subject_id: string;
 
   @IsOptional()
+  @IsBoolean()
   is_fourth?: boolean;
 }
 
