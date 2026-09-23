@@ -148,6 +148,13 @@ export function RoutineGrid({
           message replaces it rather than rendering a broken layout. */}
       <p className="text-sm text-muted-foreground md:hidden">{t('grid.tooNarrow')}</p>
       <div className="hidden overflow-x-auto md:block">
+        {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions --
+            Standard WAI-ARIA "composite widget" keydown delegation: the
+            roving-tabIndex cell buttons below are the interactive elements
+            (each independently operable with a real button role); this
+            container-level handler only routes arrow/Enter/Delete/type-ahead
+            keys to whichever cell button currently holds focus, the same
+            pattern `-roster-marker.tsx`'s roving-tabIndex row uses. */}
         <table
           className="w-full min-w-[640px] border-separate border-spacing-0"
           onKeyDown={handleKeyDown}
@@ -155,14 +162,17 @@ export function RoutineGrid({
           <caption className="sr-only">{t('grid.caption')}</caption>
           <thead>
             <tr>
-              <th scope="col" className="w-24 border-b border-border-subtle p-2 text-left text-sm">
+              <th
+                scope="col"
+                className="w-24 border-b border-border-subtle p-2 text-start text-sm"
+              >
                 {t('grid.periodColumn')}
               </th>
               {weekdays.map((weekday) => (
                 <th
                   key={weekday}
                   scope="col"
-                  className="border-b border-border-subtle p-2 text-left text-sm font-medium"
+                  className="border-b border-border-subtle p-2 text-start text-sm font-medium"
                 >
                   {weekdayLabels[weekday]}
                 </th>
@@ -188,7 +198,7 @@ export function RoutineGrid({
                 <tr key={period.id}>
                   <th
                     scope="row"
-                    className="border-b border-border-subtle p-2 text-left text-xs font-normal text-muted-foreground"
+                    className="border-b border-border-subtle p-2 text-start text-xs font-normal text-muted-foreground"
                   >
                     {period.starts_at}–{period.ends_at}
                   </th>
@@ -212,7 +222,7 @@ export function RoutineGrid({
                             cell?.hasViolation ? 'violation' : cell?.hasWarning ? 'warning' : 'ok'
                           }
                           className={cn(
-                            'flex min-h-14 w-full flex-col items-start gap-0.5 rounded-md border px-2 py-1.5 text-left text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                            'flex min-h-14 w-full flex-col items-start gap-0.5 rounded-md border px-2 py-1.5 text-start text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                             cell
                               ? 'border-border-subtle bg-card'
                               : 'border-dashed border-border-subtle bg-transparent text-muted-foreground',
