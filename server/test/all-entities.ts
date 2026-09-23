@@ -50,6 +50,7 @@ import { Mark } from '../src/modules/exams/entities/mark.entity';
 import { MarkGrid } from '../src/modules/exams/entities/mark-grid.entity';
 import { Result } from '../src/modules/exams/entities/result.entity';
 import { ResultSubject } from '../src/modules/exams/entities/result-subject.entity';
+import { ExamSchedule } from '../src/modules/exams/entities/exam-schedule.entity';
 import { StudentSubjectChoice } from '../src/modules/students/entities/student-subject-choice.entity';
 
 export const ALL_ENTITIES = [
@@ -105,5 +106,6 @@ export const ALL_ENTITIES = [
   MarkGrid,
   Result,
   ResultSubject,
+  ExamSchedule,
   StudentSubjectChoice,
 ];
