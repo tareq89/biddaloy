@@ -567,8 +567,10 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // ExamComponentsController — no longer UI-only, removed from this list.
   // [19.4.1] MARK_ENTER/MARK_VIEW now gate MarksController's routes —
   // no longer UI-only, removed from this list.
-  Permission.RESULT_PROCESS,
-  Permission.RESULT_PUBLISH,
+  // [19.5.1] RESULT_PROCESS/RESULT_PUBLISH now gate ResultsController's
+  // process/publish/reopen/sms routes — no longer UI-only, removed from
+  // this list. RESULT_READ stays: the guardian/student-visible published
+  // result view is 19.8.1/19.9.1's job, not built yet.
   Permission.RESULT_READ,
 ];
 

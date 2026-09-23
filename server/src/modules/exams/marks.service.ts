@@ -14,6 +14,7 @@ import { MarkGrid } from './entities/mark-grid.entity';
 import { Student } from '../students/entities/student.entity';
 import { BatchMarksDto } from './dto/marks.dto';
 import { MarksAuthorizationService } from './marks-authorization.util';
+import { ResultsService } from './results.service';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 
@@ -45,6 +46,7 @@ export class MarksService {
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
     private readonly authz: MarksAuthorizationService,
+    private readonly resultsService: ResultsService,
     private readonly auditService: AuditService,
   ) {}
 
@@ -190,6 +192,16 @@ export class MarksService {
       where: { exam_id: examId, subject_id: dto.subject_id, tenant_id: tenantId },
     });
     const savedByKey = new Map(saved.map((m) => [`${m.student_id}:${m.component_id}`, m]));
+
+    // [19.5.1] D18 step 6 — a mark change while the exam is PROCESSED (not
+    // yet PUBLISHED) invalidates and recomputes the affected students'
+    // results. `recomputeIfProcessed` no-ops for DRAFT (nothing computed
+    // yet) and PUBLISHED (frozen — a change there needs `reopen()` first),
+    // so this call is always safe to make unconditionally. One call per
+    // distinct student in the batch, not per cell.
+    for (const studentId of studentIds) {
+      await this.resultsService.recomputeIfProcessed(examId, studentId, tenantId, userId, context);
+    }
 
     return {
       cells: dto.cells.map((cell) => {

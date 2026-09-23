@@ -112,6 +112,8 @@ export enum CommunicationTrigger {
    * with `••••••`); see `AccountAccessDeliveryService`.
    */
   ACCOUNT_ACCESS = 'ACCOUNT_ACCESS',
+  /** [19.5.1] A published exam result sent to a guardian by SMS. */
+  RESULT_SMS = 'RESULT_SMS',
 }
 
 /** Purpose of a row in `auth_tokens` (12.1's D2). */
@@ -280,6 +282,10 @@ export enum ApprovalScope {
   // computed against it changes those GPAs — money-tier, same as a
   // discount rule or a payment reversal.
   GRADING_SCALE_MANAGE = 'grading_scale.manage',
+  // [19.5.1] Reopening a PUBLISHED result (back to PROCESSED, so marks
+  // can be corrected) rewrites a grade a guardian may already have seen
+  // — same step-up bar as a grading-scale recompute.
+  RESULTS_REOPEN = 'results.reopen',
 }
 
 /** How an `ApprovalToken` is verified (16.x). */

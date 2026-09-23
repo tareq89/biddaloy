@@ -14,6 +14,7 @@ import { MarkGrid } from './entities/mark-grid.entity';
 import { Exam } from './entities/exam.entity';
 import { Student } from '../students/entities/student.entity';
 import { MarksAuthorizationService } from './marks-authorization.util';
+import { ResultsService } from './results.service';
 import { AuditService } from '../audit/audit.service';
 import {
   ExamComponentKind,
@@ -81,6 +82,7 @@ async function buildService(
     count: vi.fn(async ({ where }: any) => enrolledCount ?? (where.id.value as string[]).length),
   };
   const authz = { assertCanWrite: vi.fn(async () => undefined) };
+  const resultsService = { recomputeIfProcessed: vi.fn(async () => undefined) };
   const auditService = { record: vi.fn(async () => undefined) };
 
   const moduleRef = await Test.createTestingModule({
@@ -92,12 +94,14 @@ async function buildService(
       { provide: getRepositoryToken(Exam), useValue: examRepo },
       { provide: getRepositoryToken(Student), useValue: studentRepo },
       { provide: MarksAuthorizationService, useValue: authz },
+      { provide: ResultsService, useValue: resultsService },
       { provide: AuditService, useValue: auditService },
     ],
   }).compile();
 
   return {
     service: moduleRef.get(MarksService),
+    resultsService,
     markRepo,
     componentRepo,
     gridRepo,
@@ -344,5 +348,32 @@ describe('MarksService.upsertBatch', () => {
         'user-1',
       ),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('calls ResultsService.recomputeIfProcessed once per distinct student in the batch (19.5.1 D18)', async () => {
+    const { service, resultsService } = await buildService({
+      existingMarks: [
+        { student_id: 'stu-1', component_id: 'comp-1', value: '75.00', status: MarkStatus.PRESENT },
+      ],
+    });
+
+    await service.upsertBatch(
+      EXAM_ID,
+      batchDto([
+        { student_id: 'stu-1', component_id: 'comp-1', value: '75', status: MarkStatus.PRESENT },
+      ]),
+      TENANT_ID,
+      UserRole.TEACHER,
+      'user-1',
+    );
+
+    expect(resultsService.recomputeIfProcessed).toHaveBeenCalledTimes(1);
+    expect(resultsService.recomputeIfProcessed).toHaveBeenCalledWith(
+      EXAM_ID,
+      'stu-1',
+      TENANT_ID,
+      'user-1',
+      { ip: null, userAgent: null },
+    );
   });
 });
