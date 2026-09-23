@@ -207,8 +207,12 @@ test.describe('organisation structure', () => {
         page.getByRole('heading', { name: t('classes.classForm.createTitle') }),
       ).toBeVisible();
 
-      await tabUntilFocused(page, t('classes.classForm.nameLabel'), 20, { tag: 'INPUT' });
+      // Radix focuses (and selects) the first field on open; typing before that
+      // lands lets the late select() swallow the first keystroke.
+      const nameInput = page.getByLabel(t('classes.classForm.nameLabel'));
+      await expect(nameInput).toBeFocused();
       await page.keyboard.type(className);
+      await expect(nameInput).toHaveValue(className);
 
       await tabUntilFocused(page, t('classes.classForm.academicYearLabel'), 20, {
         tag: 'BUTTON',
