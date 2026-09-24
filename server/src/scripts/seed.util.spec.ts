@@ -9,6 +9,7 @@ import type { Class } from '../modules/academics/entities/class.entity';
 import type { ClassSection } from '../modules/academics/entities/class-section.entity';
 import type { Student } from '../modules/students/entities/student.entity';
 import type { Guardian } from '../modules/students/entities/guardian.entity';
+import type { Enrollment } from '../modules/students/entities/enrollment.entity';
 import type { Subject } from '../modules/academics/entities/subject.entity';
 import type { CalendarEvent } from '../modules/calendar/entities/calendar-event.entity';
 import type { CalendarEventClass } from '../modules/calendar/entities/calendar-event-class.entity';
@@ -386,12 +387,26 @@ describe('ensureDemoOrganisation', () => {
 
 describe('ensureDemoStudents', () => {
   function demoRepos() {
+    const studentRepository = mockRepo<Student>();
+    // [#1020] `ensureDemoStudents` gets the `Enrollment` repository off
+    // `studentRepository.manager` rather than through a new field on
+    // `DemoStudentRepositories` — the production code's own reasoning
+    // (avoids touching `SeedAccountRepositories`/`seed.accounts.ts`, which
+    // aren't in this ticket's territory) applies here too.
+    const enrollmentRepository = mockRepo<Enrollment>();
+    vi.mocked(enrollmentRepository.findOne).mockResolvedValue(null);
+    (
+      studentRepository as unknown as { manager: { getRepository: () => Repository<Enrollment> } }
+    ).manager = {
+      getRepository: () => enrollmentRepository,
+    };
     return {
       academicYearRepository: mockRepo<AcademicYear>(),
       classRepository: mockRepo<Class>(),
       classSectionRepository: mockRepo<ClassSection>(),
-      studentRepository: mockRepo<Student>(),
+      studentRepository,
       guardianRepository: mockRepo<Guardian>(),
+      enrollmentRepository,
     };
   }
 
@@ -426,6 +441,84 @@ describe('ensureDemoStudents', () => {
     expect(repos.classRepository.create).toHaveBeenCalledTimes(DEMO_CLASSES.length);
     expect(repos.classSectionRepository.create).toHaveBeenCalledTimes(EXPECTED_SECTIONS);
     expect(repos.studentRepository.create).toHaveBeenCalledTimes(EXPECTED_STUDENTS);
+    // [#1020] Every ACTIVE demo student gets a matching Enrollment row.
+    expect(repos.enrollmentRepository.create).toHaveBeenCalledTimes(EXPECTED_STUDENTS);
+    expect(repos.enrollmentRepository.save).toHaveBeenCalledTimes(EXPECTED_STUDENTS);
+  });
+
+  it('[#1020] does not duplicate the Enrollment row on a re-run against an already-seeded tenant', async () => {
+    const repos = demoRepos();
+    emptyDatabase(repos);
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
+
+    // Second run: everything already exists (students, sections, classes,
+    // academic year) — only the "existing" branch runs.
+    const repos2 = demoRepos();
+    vi.mocked(repos2.academicYearRepository.findOne).mockResolvedValue({
+      id: 'ay-1',
+      deleted_at: null,
+    } as AcademicYear);
+    vi.mocked(repos2.classRepository.findOne).mockResolvedValue({
+      id: 'class-1',
+      deleted_at: null,
+    } as Class);
+    vi.mocked(repos2.classSectionRepository.findOne).mockResolvedValue({
+      id: 'section-1',
+      deleted_at: null,
+    } as ClassSection);
+    vi.mocked(repos2.studentRepository.findOne).mockResolvedValue({
+      id: 'student-1',
+      deleted_at: null,
+    } as Student);
+    // An Enrollment already exists for every student — find-or-create must
+    // not insert a second row.
+    vi.mocked(repos2.enrollmentRepository.findOne).mockResolvedValue({
+      id: 'enrollment-1',
+      class_id: 'class-1',
+      section_id: 'section-1',
+    } as Enrollment);
+
+    await ensureDemoStudents(repos2, 'school-1', DEMO_ORGANISATION);
+
+    expect(repos2.enrollmentRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('[#1020] never rewrites an existing Enrollment`s class_id/section_id on re-seed, even if it now differs from the roster slot', async () => {
+    // A real write path (PATCH, workbook restore) may have since moved
+    // this student elsewhere — re-seeding must not pull the Enrollment
+    // back to the roster's section and fight that write.
+    const repos = demoRepos();
+    vi.mocked(repos.academicYearRepository.findOne).mockResolvedValue({
+      id: 'year-1',
+      deleted_at: null,
+    } as AcademicYear);
+    vi.mocked(repos.classRepository.findOne).mockResolvedValue({
+      id: 'class-1',
+      deleted_at: null,
+    } as Class);
+    vi.mocked(repos.classSectionRepository.findOne).mockResolvedValue({
+      id: 'section-1',
+      deleted_at: null,
+    } as ClassSection);
+    vi.mocked(repos.studentRepository.findOne).mockResolvedValue({
+      id: 'student-1',
+      deleted_at: null,
+    } as Student);
+    vi.mocked(repos.guardianRepository.findOne).mockResolvedValue({
+      id: 'guardian-1',
+      deleted_at: null,
+      user_id: null,
+    } as Guardian);
+    vi.mocked(repos.enrollmentRepository.findOne).mockResolvedValue({
+      id: 'enrollment-1',
+      class_id: 'class-0',
+      section_id: 'section-0',
+    } as Enrollment);
+
+    await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
+
+    expect(repos.enrollmentRepository.create).not.toHaveBeenCalled();
+    expect(repos.enrollmentRepository.save).not.toHaveBeenCalled();
   });
 
   it('[33.5.1] refuses to write a class whose shift/version/group is missing from the tenant vocabulary', async () => {
@@ -514,6 +607,13 @@ describe('ensureDemoStudents', () => {
       deleted_at: null,
       user_id: null,
     } as Guardian);
+    // [#1020] the existing student already has its Enrollment row — a
+    // second run must not create a duplicate.
+    vi.mocked(repos.enrollmentRepository.findOne).mockResolvedValue({
+      id: 'enrollment-1',
+      class_id: 'class-1',
+      section_id: 'section-1',
+    } as Enrollment);
 
     const result = await ensureDemoStudents(repos, 'school-1', DEMO_ORGANISATION);
 
