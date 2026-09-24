@@ -42,6 +42,11 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { SearchModule } from './modules/search/search.module';
 import { GradingModule } from './modules/grading/grading.module';
 import { ExamsModule } from './modules/exams/exams.module';
+import { HomeworkModule } from './modules/homework/homework.module';
+import { Homework } from './modules/homework/entities/homework.entity';
+import { HomeworkAssignment } from './modules/homework/entities/homework-assignment.entity';
+import { HomeworkSubmission } from './modules/homework/entities/homework-submission.entity';
+import { SyllabusTopic } from './modules/homework/entities/syllabus-topic.entity';
 import { validate } from './config/env.validation';
 
 // Entities for auto-loading
@@ -197,6 +202,10 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
             RoutineSlotTeacher,
             RoutineSubstitution,
             RoutineChangeRequest,
+            Homework,
+            HomeworkAssignment,
+            HomeworkSubmission,
+            SyllabusTopic,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],
@@ -274,6 +283,7 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
     SearchModule,
     GradingModule,
     ExamsModule,
+    HomeworkModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
