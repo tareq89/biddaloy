@@ -141,6 +141,8 @@ describe('SubstitutionDialog', () => {
     await screen.findByRole('option', { name: 'Mon' });
     await user.selectOptions(screen.getByLabelText(/^slot$/i), 'slot-1');
     await user.type(screen.getByLabelText(/date/i), '2026-02-02');
+    await screen.findByRole('option', { name: 'Ms Nahar' });
+    await user.selectOptions(screen.getByLabelText(/substitute teacher/i), 'teacher-1');
 
     await user.click(screen.getByRole('button', { name: /^save$/i }));
 

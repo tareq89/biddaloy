@@ -12,13 +12,26 @@
  * <date>"`) and that `error.message` is shown verbatim, not replaced
  * with an invented client-side validation string.
  */
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Textarea, toast } from '@biddaloy/ui/components';
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Textarea,
+  toast,
+} from '@biddaloy/ui/components';
 import {
   useClasses,
   useClassSections,
+  usePeriodSlotLookup,
   useRecordSubstitution,
   useRoutines,
   useRoutineSlots,
+  useSubjects,
   useTeachers,
   type Routine,
 } from '@biddaloy/ui/hooks';
@@ -33,7 +46,10 @@ export interface SubstitutionDialogProps {
   onDone: () => void;
 }
 
-function currentRoutineForYear(routines: Routine[] | undefined, academicYearId: string | undefined) {
+function currentRoutineForYear(
+  routines: Routine[] | undefined,
+  academicYearId: string | undefined,
+) {
   if (!routines || !academicYearId) return undefined;
   const forYear = routines.filter((routine) => routine.academic_year_id === academicYearId);
   return (
@@ -62,8 +78,17 @@ export function SubstitutionDialog({ open, onOpenChange, onDone }: SubstitutionD
   const routine = currentRoutineForYear(routinesQuery.data, section?.class.academic_year_id);
   const slotsQuery = useRoutineSlots(routine?.id);
   const teachersQuery = useTeachers({});
+  const periodLookup = usePeriodSlotLookup();
+  const subjectsQuery = useSubjects({});
 
-  const sectionSlots = (slotsQuery.data ?? []).filter((entry) => entry.slot.section_id === sectionId);
+  const sectionSlots = (slotsQuery.data ?? [])
+    .filter((entry) => entry.slot.section_id === sectionId)
+    .sort((a, b) => {
+      if (a.slot.weekday !== b.slot.weekday) return a.slot.weekday - b.slot.weekday;
+      const seqA = periodLookup.data?.[a.slot.period_slot_id]?.sequence ?? 0;
+      const seqB = periodLookup.data?.[b.slot.period_slot_id]?.sequence ?? 0;
+      return seqA - seqB;
+    });
 
   React.useEffect(() => {
     if (!open) {
@@ -79,7 +104,7 @@ export function SubstitutionDialog({ open, onOpenChange, onDone }: SubstitutionD
   }, [open]);
 
   function handleSubmit() {
-    if (!slotId || !date) return;
+    if (!slotId || !date || (!isCancelled && !substituteTeacherId)) return;
     setServerError(null);
     recordSubstitution.mutate(
       {
@@ -96,7 +121,9 @@ export function SubstitutionDialog({ open, onOpenChange, onDone }: SubstitutionD
           onOpenChange(false);
         },
         onError: (error) => {
-          setServerError(error instanceof Error ? error.message : t('substitutionDialog.errorToast'));
+          setServerError(
+            error instanceof Error ? error.message : t('substitutionDialog.errorToast'),
+          );
         },
       },
     );
@@ -161,11 +188,21 @@ export function SubstitutionDialog({ open, onOpenChange, onDone }: SubstitutionD
                 onChange={(event) => setSlotId(event.target.value)}
               >
                 <option value="">{t('substitutionDialog.selectSlot')}</option>
-                {sectionSlots.map((entry) => (
-                  <option key={entry.slot.id} value={entry.slot.id}>
-                    {t(`grid.weekday.${WEEKDAY_KEYS[entry.slot.weekday]}`)}
-                  </option>
-                ))}
+                {sectionSlots.map((entry) => {
+                  const period = periodLookup.data?.[entry.slot.period_slot_id];
+                  const subject = subjectsQuery.data?.data.find(
+                    (candidate) => candidate.id === entry.slot.subject_id,
+                  );
+                  return (
+                    <option key={entry.slot.id} value={entry.slot.id}>
+                      {t(`grid.weekday.${WEEKDAY_KEYS[entry.slot.weekday]}`)}
+                      {period
+                        ? ` · ${t('agenda.periodLabel', { sequence: period.sequence })} (${period.starts_at})`
+                        : ''}
+                      {subject ? ` · ${subject.name_en}` : ''}
+                    </option>
+                  );
+                })}
               </select>
             </label>
           )}
@@ -224,7 +261,7 @@ export function SubstitutionDialog({ open, onOpenChange, onDone }: SubstitutionD
           </Button>
           <Button
             type="button"
-            disabled={!slotId || !date}
+            disabled={!slotId || !date || (!isCancelled && !substituteTeacherId)}
             loading={recordSubstitution.isPending}
             onClick={handleSubmit}
           >
