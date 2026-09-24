@@ -79,6 +79,9 @@ async function buildService(
       })),
     ),
   };
+  const examRepo: any = {
+    findOne: vi.fn(async () => ({ id: EXAM_ID, tenant_id: TENANT_ID, status: examStatus })),
+  };
   // lockGrid's locked re-read: the existing row, or the DRAFT row it just
   // inserted for a never-touched grid.
   const gridRepo: any = {
@@ -95,16 +98,14 @@ async function buildService(
   markRepo.manager = {
     transaction: vi.fn(async (cb: any) =>
       cb({
-        getRepository: (entity: unknown) => (entity === MarkGrid ? gridRepo : markRepo),
+        getRepository: (entity: unknown) =>
+          entity === MarkGrid ? gridRepo : entity === Exam ? examRepo : markRepo,
         createQueryBuilder: () => insertQb,
       }),
     ),
   };
 
   const componentRepo: any = { find: vi.fn(async () => components) };
-  const examRepo: any = {
-    findOne: vi.fn(async () => ({ id: EXAM_ID, tenant_id: TENANT_ID, status: examStatus })),
-  };
   const studentIds = ['stu-1', 'stu-2'];
   const studentRepo: any = {
     count: vi.fn(async ({ where }: any) => enrolledCount ?? (where.id.value as string[]).length),

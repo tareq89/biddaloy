@@ -84,9 +84,8 @@ export interface GridResponse {
 
 /**
  * [19.4.1] D12 — the grid's DRAFT/SUBMITTED state machine, and the
- * composed GET that fills the whole entry grid in one request. This is
- * the service `MarksService` also queries (via `MarkGrid` directly) to
- * refuse writes to a SUBMITTED grid.
+ * composed GET that fills the whole entry grid in one request.
+ * `MarksService` refuses writes to a SUBMITTED grid via `lockGrid`.
  */
 @Injectable()
 export class MarkGridService {

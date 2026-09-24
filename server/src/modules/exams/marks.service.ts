@@ -19,7 +19,7 @@ import { ExamComponent } from './entities/exam-component.entity';
 import { Student } from '../students/entities/student.entity';
 import { BatchMarksDto } from './dto/marks.dto';
 import { MarksAuthorizationService } from './marks-authorization.util';
-import { ResultsService } from './results.service';
+import { ResultsService, lockExam } from './results.service';
 import { lockGrid } from './mark-grid.service';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
@@ -198,6 +198,16 @@ export class MarksService {
     context: RequestContext,
   ): Promise<void> {
     await this.repo.manager.transaction(async (manager) => {
+      // Exam first, then grid — the one lock order every path uses. FOR
+      // SHARE lets autosaves on different grids run side by side while
+      // still blocking a publish/process/recompute (FOR UPDATE) until this
+      // commits, so marks can't change after publication.
+      const exam = await lockExam(manager, examId, tenantId, 'pessimistic_read');
+      if (exam.status === ExamStatus.PUBLISHED) {
+        throw new ConflictException(
+          'This exam is already published — its marks can no longer be edited.',
+        );
+      }
       const grid = await lockGrid(manager, {
         tenantId,
         examId,

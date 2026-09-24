@@ -11,13 +11,14 @@ import {
 } from '@test/constants';
 import { MarkGrid } from '../src/modules/exams/entities/mark-grid.entity';
 import { lockGrid } from '../src/modules/exams/mark-grid.service';
+import { lockExam } from '../src/modules/exams/results.service';
 
 /**
  * [pr-fix #945] `lockGrid` against real Postgres — the unit specs mock the
  * query builder, so only this proves the ON CONFLICT insert and the
  * FOR UPDATE re-read actually serialize two writers on one grid.
  */
-describe('lockGrid (integration)', () => {
+describe('lockGrid / lockExam (integration)', () => {
   let dataSource: DataSource;
   let key: { tenantId: string; examId: string; sectionId: string; subjectId: string };
 
@@ -95,5 +96,40 @@ describe('lockGrid (integration)', () => {
     releaseFirst();
     await submit;
     expect(await autosaveCheck).toBe(MarkGridState.SUBMITTED);
+  });
+
+  it('lets two mark writers share the exam lock, but makes a publish wait for both', async () => {
+    let releaseWriters!: () => void;
+    const writersHold = new Promise<void>((r) => (releaseWriters = r));
+    let sharedCount = 0;
+    let bothShared!: () => void;
+    const bothHaveShare = new Promise<void>((r) => (bothShared = r));
+
+    // Two autosaves on different grids: FOR SHARE must not block each other.
+    const writer = () =>
+      dataSource.transaction(async (m) => {
+        await lockExam(m, key.examId, key.tenantId, 'pessimistic_read');
+        sharedCount += 1;
+        if (sharedCount === 2) bothShared();
+        await writersHold;
+      });
+    const writers = Promise.all([writer(), writer()]);
+    await bothHaveShare;
+
+    // A publish (FOR UPDATE) arriving mid-write must queue behind them —
+    // this is what stops marks changing after publication.
+    let publishLocked = false;
+    const publish = dataSource.transaction(async (m) => {
+      await lockExam(m, key.examId, key.tenantId);
+      publishLocked = true;
+    });
+
+    await new Promise((r) => setTimeout(r, 300));
+    expect(publishLocked).toBe(false);
+
+    releaseWriters();
+    await writers;
+    await publish;
+    expect(publishLocked).toBe(true);
   });
 });

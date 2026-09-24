@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In } from 'typeorm';
+import { EntityManager, Repository, IsNull, In } from 'typeorm';
 import {
   AuditAction,
   EnrollmentStatus,
@@ -41,6 +41,31 @@ import type { ApprovalContext } from '../auth/guards/approval.guard';
  * whenever `computeSubjectTotal`/`combineSubjects`'s actual arithmetic
  * changes, not for a comment or a refactor. */
 export const RULE_VERSION = 'nctb-v2';
+
+/**
+ * [pr-fix #945] The exam-level lock every result-changing path shares.
+ * `process`, `publish`, `reopen` and the mark-change recompute take it
+ * FOR UPDATE and re-check `status` under it, so none of them can act on
+ * a status another has just changed. Mark writes take it FOR SHARE
+ * (`MarksService`): autosaves on different grids don't block each other,
+ * but a publish can't commit while a mark write is mid-transaction.
+ * Lock order is always exam, then grid (`lockGrid`).
+ */
+export async function lockExam(
+  manager: EntityManager,
+  examId: string,
+  tenantId: string,
+  mode: 'pessimistic_write' | 'pessimistic_read' = 'pessimistic_write',
+): Promise<Exam> {
+  const exam = await manager.getRepository(Exam).findOne({
+    where: { id: examId, tenant_id: tenantId, deleted_at: IsNull() },
+    lock: { mode },
+  });
+  if (!exam) {
+    throw new NotFoundException(`Exam with ID "${examId}" not found`);
+  }
+  return exam;
+}
 
 interface ComputedStudentResult {
   student_id: string;
@@ -291,89 +316,66 @@ export class ResultsService {
     return computed.map((c) => ({ ...c, position: positions.get(c.student_id) ?? null }) as any);
   }
 
-  private async writeResults(
+  /** Soft-deletes every active result for the exam — including students
+   * no longer in `computed` (e.g. since made INACTIVE), whose old row would
+   * otherwise survive to be published and texted — then inserts `computed`. */
+  private async replaceResults(
+    manager: EntityManager,
     exam: Exam,
     computed: ComputedStudentResult[],
     scaleId: string,
     scaleRevision: number,
     tenantId: string,
-    userId: string,
-    context: RequestContext,
-    forced: boolean,
   ): Promise<void> {
-    await this.resultRepo.manager.transaction(async (manager) => {
-      const resultRepo = manager.getRepository(Result);
-      const resultSubjectRepo = manager.getRepository(ResultSubject);
+    const resultRepo = manager.getRepository(Result);
+    const resultSubjectRepo = manager.getRepository(ResultSubject);
 
-      const existing = await resultRepo.find({
-        where: { exam_id: exam.id, tenant_id: tenantId, deleted_at: IsNull() },
+    const existing = await resultRepo.find({
+      where: { exam_id: exam.id, tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    if (existing.length > 0) {
+      await resultSubjectRepo.softDelete({
+        result_id: In(existing.map((r) => r.id)),
+        tenant_id: tenantId,
       });
-      if (existing.length > 0) {
-        await resultSubjectRepo.softDelete({
-          result_id: In(existing.map((r) => r.id)),
-          tenant_id: tenantId,
-        });
-        await resultRepo.softDelete({ id: In(existing.map((r) => r.id)), tenant_id: tenantId });
-      }
+      await resultRepo.softDelete({ id: In(existing.map((r) => r.id)), tenant_id: tenantId });
+    }
 
-      const now = new Date();
-      for (const c of computed as Array<ComputedStudentResult & { position: number | null }>) {
-        const result = await resultRepo.save(
-          resultRepo.create({
-            exam_id: exam.id,
-            student_id: c.student_id,
-            total_marks: c.total_marks.toFixed(2),
-            gpa: c.gpa.toFixed(2),
-            grade: c.grade,
-            position: c.position,
-            is_fail: c.is_fail,
-            grading_scale_id: scaleId,
-            grading_scale_revision: scaleRevision,
-            rule_version: RULE_VERSION,
-            computed_at: now,
-            published_at: null,
+    const now = new Date();
+    for (const c of computed as Array<ComputedStudentResult & { position: number | null }>) {
+      const result = await resultRepo.save(
+        resultRepo.create({
+          exam_id: exam.id,
+          student_id: c.student_id,
+          total_marks: c.total_marks.toFixed(2),
+          gpa: c.gpa.toFixed(2),
+          grade: c.grade,
+          position: c.position,
+          is_fail: c.is_fail,
+          grading_scale_id: scaleId,
+          grading_scale_revision: scaleRevision,
+          rule_version: RULE_VERSION,
+          computed_at: now,
+          published_at: null,
+          tenant_id: tenantId,
+        }),
+      );
+
+      for (const s of c.subjects) {
+        await resultSubjectRepo.save(
+          resultSubjectRepo.create({
+            result_id: result.id,
+            subject_id: s.subject_id,
+            obtained: s.obtained.toFixed(2),
+            grade: s.grade,
+            gpa: (s.gpa ?? 0).toFixed(2), // stored as 0.00 placeholder; excluded from the average regardless (see result-rules.ts)
+            is_fail: s.is_fail,
+            is_fourth_subject: s.is_fourth_subject,
             tenant_id: tenantId,
           }),
         );
-
-        for (const s of c.subjects) {
-          await resultSubjectRepo.save(
-            resultSubjectRepo.create({
-              result_id: result.id,
-              subject_id: s.subject_id,
-              obtained: s.obtained.toFixed(2),
-              grade: s.grade,
-              gpa: (s.gpa ?? 0).toFixed(2), // stored as 0.00 placeholder; excluded from the average regardless (see result-rules.ts)
-              is_fail: s.is_fail,
-              is_fourth_subject: s.is_fourth_subject,
-              tenant_id: tenantId,
-            }),
-          );
-        }
       }
-
-      await this.auditService.record(
-        {
-          action: AuditAction.UPDATE,
-          entity_type: 'Exam',
-          entity_id: exam.id,
-          tenant_id: tenantId,
-          performed_by_user_id: userId,
-          ip_address: context.ip,
-          user_agent: context.userAgent,
-          old_values: { status: exam.status },
-          new_values: { status: ExamStatus.PROCESSED, student_count: computed.length, forced },
-        },
-        manager,
-      );
-
-      await manager.getRepository(Exam).update(
-        { id: exam.id, tenant_id: tenantId },
-        {
-          status: ExamStatus.PROCESSED,
-        },
-      );
-    });
+    }
   }
 
   /** Issue step 4: computes and stores every enrolled student's result,
@@ -415,24 +417,46 @@ export class ResultsService {
       );
     }
 
-    const computed = await this.computeAll(exam, tenantId);
-    await this.writeResults(
-      exam,
-      computed,
-      scale.id,
-      scale.revision,
-      tenantId,
-      userId,
-      context,
-      force,
-    );
+    const computed = await this.examRepo.manager.transaction(async (manager) => {
+      // Re-checked under the exam lock: a publish that committed since the
+      // check above must win, not be overwritten by unpublished rows.
+      const locked = await lockExam(manager, examId, tenantId);
+      if (locked.status === ExamStatus.PUBLISHED) {
+        throw new ConflictException(
+          `Exam "${examId}" is already published — reopen it (step-up approval) before reprocessing.`,
+        );
+      }
+      // Computed after the lock: mark writes hold it FOR SHARE, so none
+      // can commit between this read and the write below.
+      const rows = await this.computeAll(locked, tenantId);
+      await this.replaceResults(manager, locked, rows, scale.id, scale.revision, tenantId);
+
+      await this.auditService.record(
+        {
+          action: AuditAction.UPDATE,
+          entity_type: 'Exam',
+          entity_id: examId,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          old_values: { status: locked.status },
+          new_values: { status: ExamStatus.PROCESSED, student_count: rows.length, forced: force },
+        },
+        manager,
+      );
+      await manager
+        .getRepository(Exam)
+        .update({ id: examId, tenant_id: tenantId }, { status: ExamStatus.PROCESSED });
+      return rows;
+    });
     return { processed: computed.length };
   }
 
   /** Issue step 6: a mark change while the exam is PROCESSED (not yet
-   * PUBLISHED) invalidates and recomputes that one student's result.
-   * Called by `MarksService` after a batch write commits. A no-op once
-   * PUBLISHED — marks are frozen there; a change requires `reopen()`. */
+   * PUBLISHED) invalidates and recomputes the class's results. Called by
+   * `MarksService` after a batch write commits. A no-op once PUBLISHED —
+   * marks are frozen there; a change requires `reopen()`. */
   /** [pr-fix #945] Takes the whole batch's distinct student IDs, not one —
    * `computeAll` ranks the *entire class* internally regardless of how
    * many students changed, so calling this once per student in a batch
@@ -449,99 +473,26 @@ export class ResultsService {
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<void> {
     if (studentIds.length === 0) return;
-    const exam = await this.examRepo.findOne({
-      where: { id: examId, tenant_id: tenantId, deleted_at: IsNull() },
-    });
-    if (!exam || exam.status !== ExamStatus.PROCESSED) return;
 
-    const scales = await this.scaleRepo.find({
-      where: { tenant_id: tenantId, deleted_at: IsNull() },
-    });
-    const scale = resolveScale(scales, exam.academic_year_id, exam.class_id);
-    if (!scale) return;
+    await this.examRepo.manager.transaction(async (manager) => {
+      // Status re-checked under the exam lock, not before it — otherwise a
+      // publish committing in between would have its published rows
+      // replaced by unpublished ones. Concurrent recomputes queue here too
+      // instead of racing on the active (exam_id, student_id) index.
+      const exam = await lockExam(manager, examId, tenantId);
+      if (exam.status !== ExamStatus.PROCESSED) return;
 
-    const computed = await this.computeAll(exam, tenantId);
-    // Rewrite every student's row, not just the batch's — a mark change
-    // for one student can shift another's `position` (D18) even though
-    // that other student's own marks never changed. Only rewriting the
-    // triggering student(s) left every other student in the class with a
-    // stale or duplicate position after any rank change.
-    await this.writeResultsForStudents(
-      exam,
-      computed,
-      scale.id,
-      scale.revision,
-      tenantId,
-      userId,
-      context,
-    );
-  }
-
-  private async writeResultsForStudents(
-    exam: Exam,
-    computed: ComputedStudentResult[],
-    scaleId: string,
-    scaleRevision: number,
-    tenantId: string,
-    userId: string,
-    context: RequestContext,
-  ): Promise<void> {
-    if (computed.length === 0) return;
-    await this.resultRepo.manager.transaction(async (manager) => {
-      const resultRepo = manager.getRepository(Result);
-      const resultSubjectRepo = manager.getRepository(ResultSubject);
-
-      const studentIds = computed.map((c) => c.student_id);
-      const existing = await resultRepo.find({
-        where: {
-          exam_id: exam.id,
-          student_id: In(studentIds),
-          tenant_id: tenantId,
-          deleted_at: IsNull(),
-        },
+      const scales = await this.scaleRepo.find({
+        where: { tenant_id: tenantId, deleted_at: IsNull() },
       });
-      if (existing.length > 0) {
-        await resultSubjectRepo.softDelete({
-          result_id: In(existing.map((r) => r.id)),
-          tenant_id: tenantId,
-        });
-        await resultRepo.softDelete({ id: In(existing.map((r) => r.id)), tenant_id: tenantId });
-      }
+      const scale = resolveScale(scales, exam.academic_year_id, exam.class_id);
+      if (!scale) return;
 
-      const now = new Date();
-      for (const c of computed as Array<ComputedStudentResult & { position: number | null }>) {
-        const result = await resultRepo.save(
-          resultRepo.create({
-            exam_id: exam.id,
-            student_id: c.student_id,
-            total_marks: c.total_marks.toFixed(2),
-            gpa: c.gpa.toFixed(2),
-            grade: c.grade,
-            position: c.position,
-            is_fail: c.is_fail,
-            grading_scale_id: scaleId,
-            grading_scale_revision: scaleRevision,
-            rule_version: RULE_VERSION,
-            computed_at: now,
-            published_at: null,
-            tenant_id: tenantId,
-          }),
-        );
-        for (const s of c.subjects) {
-          await resultSubjectRepo.save(
-            resultSubjectRepo.create({
-              result_id: result.id,
-              subject_id: s.subject_id,
-              obtained: s.obtained.toFixed(2),
-              grade: s.grade,
-              gpa: (s.gpa ?? 0).toFixed(2), // stored as 0.00 placeholder; excluded from the average regardless (see result-rules.ts)
-              is_fail: s.is_fail,
-              is_fourth_subject: s.is_fourth_subject,
-              tenant_id: tenantId,
-            }),
-          );
-        }
-      }
+      // Rewrite every student's row, not just the batch's — a mark change
+      // for one student can shift another's `position` (D18) even though
+      // that other student's own marks never changed.
+      const computed = await this.computeAll(exam, tenantId);
+      await this.replaceResults(manager, exam, computed, scale.id, scale.revision, tenantId);
 
       await this.auditService.record(
         {
@@ -576,6 +527,12 @@ export class ResultsService {
     }
 
     await this.examRepo.manager.transaction(async (manager) => {
+      const locked = await lockExam(manager, examId, tenantId);
+      if (locked.status !== ExamStatus.PROCESSED) {
+        throw new ConflictException(
+          `Exam "${examId}" must be PROCESSED before it can be published (current: ${locked.status}).`,
+        );
+      }
       const now = new Date();
       await manager
         .getRepository(Exam)
@@ -620,6 +577,12 @@ export class ResultsService {
     }
 
     await this.examRepo.manager.transaction(async (manager) => {
+      const locked = await lockExam(manager, examId, tenantId);
+      if (locked.status !== ExamStatus.PUBLISHED) {
+        throw new ConflictException(
+          `Exam "${examId}" is not published (current: ${locked.status}).`,
+        );
+      }
       await manager
         .getRepository(Exam)
         .update(
