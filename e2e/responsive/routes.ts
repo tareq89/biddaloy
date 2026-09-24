@@ -95,7 +95,12 @@ export async function resolvePath(
     // renders (just with an empty/unmarked roster), which is all the
     // responsive-layout check below needs.
     const chain = await createClassSection(request, session);
-    return route.path.replace('$sectionId', chain.sectionId);
+    const path = route.path.replace('$sectionId', chain.sectionId);
+    // [21.8.1] `/routines/$sectionId` also needs `?classId=` — the route
+    // has no other way to find the section's class (see `$sectionId.tsx`'s
+    // own doc comment) and renders `noClassIdExplanation` without it. The
+    // manifest itself can't carry query params, so it's added here instead.
+    return path.startsWith('/routines/') ? `${path}?classId=${chain.classId}` : path;
   }
   throw new Error(`no resolver for ${route.path}`);
 }
