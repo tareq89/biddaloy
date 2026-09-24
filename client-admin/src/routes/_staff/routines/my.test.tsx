@@ -24,7 +24,9 @@ function mockCommonLookups() {
   server.use(
     http.get('/api/v1/subjects', () =>
       HttpResponse.json({
-        data: [{ id: 'subject-en', name_en: 'English', name_bn: null, code: 'ENG', is_active: true }],
+        data: [
+          { id: 'subject-en', name_en: 'English', name_bn: null, code: 'ENG', is_active: true },
+        ],
         total: 1,
         page: 1,
         limit: 100,
@@ -51,6 +53,18 @@ function mockCommonLookups() {
     ),
     http.get('/api/v1/calendar/events', () =>
       HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 0 }),
+    ),
+    // ROUTINE.academic_year_id is 'year-1' — my.tsx only shows a routine
+    // whose year is the one the server marks current, so the default
+    // factory's random-uuid "current" year would hide it.
+    http.get('/api/v1/academic-years', () =>
+      HttpResponse.json({
+        data: [{ id: 'year-1', name: '2026', is_current: true }],
+        total: 1,
+        page: 1,
+        limit: 100,
+        totalPages: 1,
+      }),
     ),
   );
 }

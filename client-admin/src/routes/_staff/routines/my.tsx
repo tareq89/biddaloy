@@ -20,6 +20,7 @@ import {
   type RoutineAgendaItem,
 } from '@biddaloy/ui/components';
 import {
+  useAcademicYears,
   useCalendarEvents,
   useCalendarSettings,
   useCurrentUserId,
@@ -66,18 +67,16 @@ function agendaDates(): string[] {
   });
 }
 
-/** `PUBLISHED` > `REVIEW`, most recent first — a `DRAFT` routine is
- * builder-only and invisible to a teacher, same rule `review.tsx`'s
- * `pickCurrentRoutine` documents (this is that same pick, restricted to
- * the states a teacher may ever see). */
-function pickVisibleRoutine(routines: Routine[] | undefined): Routine | undefined {
-  const visible = (routines ?? []).filter((r) => r.state !== 'DRAFT');
-  if (visible.length === 0) return undefined;
-  const rank: Record<Routine['state'], number> = { PUBLISHED: 0, REVIEW: 1, DRAFT: 2 };
-  return [...visible].sort((a, b) => {
-    if (rank[a.state] !== rank[b.state]) return rank[a.state] - rank[b.state];
-    return a.created_at < b.created_at ? 1 : -1;
-  })[0];
+/** A `DRAFT` routine is builder-only and invisible to a teacher, same
+ * rule `review.tsx` applies once scoped to the current academic year —
+ * `Routine`'s unique `(tenant_id, academic_year_id)` index means at most
+ * one routine can match once scoped, so no PUBLISHED/REVIEW ranking is
+ * needed on top. */
+function pickVisibleRoutine(
+  routines: Routine[] | undefined,
+  currentYearId: string | undefined,
+): Routine | undefined {
+  return (routines ?? []).find((r) => r.academic_year_id === currentYearId && r.state !== 'DRAFT');
 }
 
 export const Route = createFileRoute('/_staff/routines/my')({
@@ -93,11 +92,16 @@ function MyRoutinePage() {
   const from = dates[0]!;
   const to = dates[dates.length - 1]!;
 
+  const academicYearsQuery = useAcademicYears({});
+  const currentYearId = academicYearsQuery.data?.data.find((year) => year.is_current)?.id;
   const routinesQuery = useRoutines();
-  const routine = pickVisibleRoutine(routinesQuery.data);
+  const routine = pickVisibleRoutine(routinesQuery.data, currentYearId);
 
   const teachersQuery = useTeachers({});
-  const ownTeacher = teachersQuery.data?.data.find((teacher) => teacher.user.id === currentUserId);
+  const ownTeacherQuery = useTeachers({ user_id: currentUserId ?? undefined, limit: 1 });
+  const ownTeacher = ownTeacherQuery.data?.data.find(
+    (teacher) => teacher.user.id === currentUserId,
+  );
 
   const resolveQuery = useResolveRoutine(
     ownTeacher ? { teacher_id: ownTeacher.id, from, to } : undefined,
@@ -109,29 +113,33 @@ function MyRoutinePage() {
   const calendarSettingsQuery = useCalendarSettings();
   const calendarEventsQuery = useCalendarEvents({ from, to });
 
-  if (routinesQuery.isPending || teachersQuery.isPending) {
+  if (routinesQuery.isPending || ownTeacherQuery.isPending || academicYearsQuery.isPending) {
     return <MyRoutineSkeleton label={t('myRoutine.loading')} />;
   }
 
-  if (routinesQuery.isError || teachersQuery.isError) {
+  if (routinesQuery.isError || ownTeacherQuery.isError) {
     return (
       <ErrorState
         message={t('myRoutine.error.message')}
         retryLabel={t('myRoutine.error.retry')}
         onRetry={() => {
           void routinesQuery.refetch();
-          void teachersQuery.refetch();
+          void ownTeacherQuery.refetch();
         }}
       />
     );
   }
 
   if (!ownTeacher) {
-    return <p className="p-4 text-sm text-muted-foreground">{t('myRoutine.notATeacherExplanation')}</p>;
+    return (
+      <p className="p-4 text-sm text-muted-foreground">{t('myRoutine.notATeacherExplanation')}</p>
+    );
   }
 
   if (!routine) {
-    return <p className="p-4 text-sm text-muted-foreground">{t('myRoutine.noRoutineExplanation')}</p>;
+    return (
+      <p className="p-4 text-sm text-muted-foreground">{t('myRoutine.noRoutineExplanation')}</p>
+    );
   }
 
   if (
@@ -193,7 +201,8 @@ function MyRoutinePage() {
   const weeklyOffDays = new Set(calendarSettingsQuery.data?.weeklyOffDays ?? []);
   const holidayFor = (date: string) =>
     (calendarEventsQuery.data?.data ?? []).find(
-      (event) => event.counts_as_working_day === false && event.start_date <= date && event.end_date >= date,
+      (event) =>
+        event.counts_as_working_day === false && event.start_date <= date && event.end_date >= date,
     );
 
   const slotsByDate = new Map<string, ResolvedSlot[]>();

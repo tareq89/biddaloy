@@ -1,9 +1,11 @@
 /**
- * [21.9.1] D11: the review screen for the tenant's current routine —
- * whichever one is `PUBLISHED`, else the most recently created `REVIEW`,
- * else the most recently created `DRAFT` (this codebase has no per-class
- * routine picker yet, same one-active-routine assumption `$sectionId.tsx`
- * makes when it can't find a section-scoped one).
+ * [21.9.1] D11: the review screen for the current academic year's
+ * routine (`Routine`'s unique `(tenant_id, academic_year_id)` index means
+ * there is at most one, so no PUBLISHED/REVIEW/DRAFT ranking is needed
+ * once scoped to the year — same year-scoping `ResolveRoutineService`
+ * already does server-side). No per-class routine picker exists yet,
+ * same one-active-routine assumption `$sectionId.tsx` makes when it
+ * can't find a section-scoped one.
  *
  * Two audiences share this page:
  * - `ROUTINE_MANAGE` holders (ADMIN/EXECUTIVE) see every slot, the state
@@ -19,7 +21,16 @@
  * says, in words, who can see the routine right now.
  */
 import { Permission } from '@biddaloy/shared';
-import { toast } from '@biddaloy/ui/components';
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  toast,
+} from '@biddaloy/ui/components';
 import {
   useAcademicYears,
   useChangeRequests,
@@ -32,7 +43,6 @@ import {
   useSubmitForReview,
   useTeachers,
   useWithdrawRoutine,
-  type Routine,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute } from '@tanstack/react-router';
@@ -51,46 +61,40 @@ export const Route = createFileRoute('/_staff/routines/review')({
   component: RoutineReviewPage,
 });
 
-/** `PUBLISHED` > `REVIEW` > `DRAFT`, most recent first within a state —
- * the one routine everyone in this ticket's flows means by "the current
- * routine" when there is no explicit selection. */
-function pickCurrentRoutine(routines: Routine[] | undefined): Routine | undefined {
-  if (!routines || routines.length === 0) return undefined;
-  const rank: Record<Routine['state'], number> = { PUBLISHED: 0, REVIEW: 1, DRAFT: 2 };
-  return [...routines].sort((a, b) => {
-    if (rank[a.state] !== rank[b.state]) return rank[a.state] - rank[b.state];
-    return a.created_at < b.created_at ? 1 : -1;
-  })[0];
-}
-
 function RoutineReviewPage() {
   const { t } = useTranslation('routines');
   const canManage = useHasPermission(Permission.ROUTINE_MANAGE);
   const currentUserId = useCurrentUserId();
 
+  const academicYearsQuery = useAcademicYears({});
+  const currentYearId = academicYearsQuery.data?.data.find((year) => year.is_current)?.id;
   const routinesQuery = useRoutines();
-  const routine = pickCurrentRoutine(routinesQuery.data);
+  const routine = routinesQuery.data?.find(
+    (candidate) => candidate.academic_year_id === currentYearId,
+  );
   const slotsQuery = useRoutineSlots(routine?.id);
   const changeRequestsQuery = useChangeRequests(canManage ? routine?.id : undefined);
   const subjectsQuery = useSubjects({});
   const teachersQuery = useTeachers({});
+  const ownTeacherQuery = useTeachers({ user_id: currentUserId ?? undefined, limit: 1 });
 
   const submitForReview = useSubmitForReview(routine?.id ?? '');
   const withdraw = useWithdrawRoutine(routine?.id ?? '');
   const copyYear = useCopyRoutineYear(routine?.id ?? '');
-  const academicYearsQuery = useAcademicYears({});
   const [publishOpen, setPublishOpen] = React.useState(false);
   const [changeRequestSlotId, setChangeRequestSlotId] = React.useState<string | null>(null);
   const [copyYearOpen, setCopyYearOpen] = React.useState(false);
   const [targetAcademicYearId, setTargetAcademicYearId] = React.useState('');
 
-  if (routinesQuery.isPending) return null;
+  if (routinesQuery.isPending || academicYearsQuery.isPending) return null;
 
   if (!routine) {
     return <p className="p-4 text-sm text-muted-foreground">{t('review.noRoutineExplanation')}</p>;
   }
 
-  const ownTeacher = teachersQuery.data?.data.find((teacher) => teacher.user.id === currentUserId);
+  const ownTeacher = ownTeacherQuery.data?.data.find(
+    (teacher) => teacher.user.id === currentUserId,
+  );
   const subjectName = (id: string) =>
     subjectsQuery.data?.data.find((subject) => subject.id === id)?.name_en ?? id;
 
@@ -240,63 +244,57 @@ function RoutineReviewPage() {
 
       <PublishDialog open={publishOpen} onOpenChange={setPublishOpen} routineId={routine.id} />
 
-      {copyYearOpen && (
-        <div
-          role="dialog"
-          aria-label={t('review.copyYearAction')}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-        >
-          <div className="flex w-full max-w-sm flex-col gap-3 rounded-lg border border-border-subtle bg-card p-4">
-            <h2 className="text-sm font-semibold">{t('review.copyYearDialogTitle')}</h2>
-            <p className="text-sm text-muted-foreground">{t('review.copyYearDialogExplanation')}</p>
-            <label className="flex flex-col gap-1 text-sm">
-              {t('review.copyYearTargetLabel')}
-              <select
-                className="h-9 rounded-md border border-input bg-card px-2.5 text-sm"
-                value={targetAcademicYearId}
-                onChange={(event) => setTargetAcademicYearId(event.target.value)}
-              >
-                <option value="">{t('review.copyYearSelectTarget')}</option>
-                {(academicYearsQuery.data?.data ?? []).map((year) => (
-                  <option key={year.id} value={year.id}>
-                    {year.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                className="h-9 rounded-md px-3 text-sm"
-                onClick={() => setCopyYearOpen(false)}
-              >
-                {t('review.copyYearCancel')}
-              </button>
-              <button
-                type="button"
-                disabled={!targetAcademicYearId || copyYear.isPending}
-                className="h-9 rounded-md bg-primary px-3 text-sm text-primary-foreground disabled:opacity-50"
-                onClick={() =>
-                  copyYear.mutate(
-                    { target_academic_year_id: targetAcademicYearId },
-                    {
-                      onSuccess: (result) => {
-                        toast.success(
-                          t('review.copyYearSuccessToast', { count: result.skipped_slot_count }),
-                        );
-                        setCopyYearOpen(false);
-                      },
-                      onError: () => toast.error(t('review.copyYearErrorToast')),
+      <Dialog open={copyYearOpen} onOpenChange={setCopyYearOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('review.copyYearDialogTitle')}</DialogTitle>
+            <DialogDescription>{t('review.copyYearDialogExplanation')}</DialogDescription>
+          </DialogHeader>
+
+          <label className="flex flex-col gap-1 text-sm">
+            {t('review.copyYearTargetLabel')}
+            <select
+              className="h-9 rounded-md border border-input bg-card px-2.5 text-sm"
+              value={targetAcademicYearId}
+              onChange={(event) => setTargetAcademicYearId(event.target.value)}
+            >
+              <option value="">{t('review.copyYearSelectTarget')}</option>
+              {(academicYearsQuery.data?.data ?? []).map((year) => (
+                <option key={year.id} value={year.id}>
+                  {year.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setCopyYearOpen(false)}>
+              {t('review.copyYearCancel')}
+            </Button>
+            <Button
+              type="button"
+              disabled={!targetAcademicYearId}
+              loading={copyYear.isPending}
+              onClick={() =>
+                copyYear.mutate(
+                  { target_academic_year_id: targetAcademicYearId },
+                  {
+                    onSuccess: (result) => {
+                      toast.success(
+                        t('review.copyYearSuccessToast', { count: result.skipped_slot_count }),
+                      );
+                      setCopyYearOpen(false);
                     },
-                  )
-                }
-              >
-                {t('review.copyYearConfirm')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                    onError: () => toast.error(t('review.copyYearErrorToast')),
+                  },
+                )
+              }
+            >
+              {t('review.copyYearConfirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

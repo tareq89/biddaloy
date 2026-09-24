@@ -1,8 +1,9 @@
+import { toast } from '@biddaloy/ui/components';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -49,6 +50,18 @@ function mockLookups() {
         data: [
           { id: 'subject-math', name_en: 'Math', name_bn: null, code: 'MATH', is_active: true },
         ],
+        total: 1,
+        page: 1,
+        limit: 100,
+        totalPages: 1,
+      }),
+    ),
+    // ROUTINE.academic_year_id is 'year-1' — review.tsx only shows a
+    // routine whose year is the one the server marks current, so the
+    // default factory's random-uuid "current" year would hide it.
+    http.get('/api/v1/academic-years', () =>
+      HttpResponse.json({
+        data: [{ id: 'year-1', name: '2026', is_current: true }],
         total: 1,
         page: 1,
         limit: 100,
@@ -256,45 +269,54 @@ describe('/routines/review', () => {
 
   it('an admin can open the copy-year dialog, cancel it, then reopen and confirm', async () => {
     mockLookups();
-    server.use(
-      http.get('/api/v1/routines', () => HttpResponse.json([{ ...ROUTINE, state: 'DRAFT' }])),
-      http.get('/api/v1/routines/routine-1/slots', () => HttpResponse.json([SLOT])),
-      http.get('/api/v1/teachers', () =>
-        HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 1 }),
-      ),
-      http.get('/api/v1/academic-years', () =>
-        HttpResponse.json({
-          data: [{ id: 'year-2', name: '2027' }],
-          total: 1,
-          page: 1,
-          limit: 100,
-          totalPages: 1,
-        }),
-      ),
-      http.post('/api/v1/routines/routine-1/copy-to-year', () =>
-        HttpResponse.json({ skipped_slot_count: 2 }),
-      ),
-    );
+    const successSpy = vi.spyOn(toast, 'success').mockImplementation(() => '');
+    try {
+      server.use(
+        http.get('/api/v1/routines', () => HttpResponse.json([{ ...ROUTINE, state: 'DRAFT' }])),
+        http.get('/api/v1/routines/routine-1/slots', () => HttpResponse.json([SLOT])),
+        http.get('/api/v1/teachers', () =>
+          HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 1 }),
+        ),
+        http.get('/api/v1/academic-years', () =>
+          HttpResponse.json({
+            data: [
+              { id: 'year-1', name: '2026', is_current: true },
+              { id: 'year-2', name: '2027' },
+            ],
+            total: 2,
+            page: 1,
+            limit: 100,
+            totalPages: 1,
+          }),
+        ),
+        http.post('/api/v1/routines/routine-1/copy-year', () =>
+          HttpResponse.json({ skipped_slot_count: 2 }),
+        ),
+      );
 
-    renderWithRouter(routeTree, {
-      initialEntries: ['/routines/review'],
-      tenantId: 'tenant-1',
-      role: 'ADMIN',
-      locale: 'en',
-    });
+      renderWithRouter(routeTree, {
+        initialEntries: ['/routines/review'],
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+        locale: 'en',
+      });
 
-    const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: /copy.*year/i }));
-    await screen.findByRole('dialog');
-    await user.click(screen.getByRole('button', { name: /cancel/i }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole('button', { name: /copy.*year/i }));
+      await screen.findByRole('dialog');
+      await user.click(screen.getByRole('button', { name: /cancel/i }));
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 
-    await user.click(screen.getByRole('button', { name: /copy.*year/i }));
-    await screen.findByRole('dialog');
-    const select = screen.getByRole('combobox');
-    await user.selectOptions(select, '2027');
-    await user.click(screen.getByRole('button', { name: 'Copy' }));
+      await user.click(screen.getByRole('button', { name: /copy.*year/i }));
+      await screen.findByRole('dialog');
+      const select = screen.getByRole('combobox');
+      await user.selectOptions(select, '2027');
+      await user.click(screen.getByRole('button', { name: 'Copy' }));
 
-    await waitFor(() => expect(screen.getByText(/2/)).toBeTruthy());
+      await waitFor(() => expect(successSpy).toHaveBeenCalledWith('Copied — 2 slots skipped'));
+      expect(screen.queryByRole('dialog')).toBeNull();
+    } finally {
+      successSpy.mockRestore();
+    }
   });
 });
