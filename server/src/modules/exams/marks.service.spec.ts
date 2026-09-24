@@ -361,7 +361,7 @@ describe('MarksService.upsertBatch', () => {
     ).rejects.toThrow(NotFoundException);
   });
 
-  it('calls ResultsService.recomputeIfProcessed once per distinct student in the batch (19.5.1 D18)', async () => {
+  it('calls ResultsService.recomputeIfProcessed once with every distinct student ID in the batch (19.5.1 D18, pr-fix #945)', async () => {
     const { service, resultsService } = await buildService({
       existingMarks: [
         { student_id: 'stu-1', component_id: 'comp-1', value: '75.00', status: MarkStatus.PRESENT },
@@ -378,10 +378,13 @@ describe('MarksService.upsertBatch', () => {
       'user-1',
     );
 
+    // One call for the whole batch, not once per student — computeAll
+    // ranks the whole class regardless, so a per-student loop repeated
+    // that full-class computation on the request thread for nothing.
     expect(resultsService.recomputeIfProcessed).toHaveBeenCalledTimes(1);
     expect(resultsService.recomputeIfProcessed).toHaveBeenCalledWith(
       EXAM_ID,
-      'stu-1',
+      ['stu-1'],
       TENANT_ID,
       'user-1',
       { ip: null, userAgent: null },

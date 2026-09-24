@@ -286,7 +286,7 @@ describe('ResultsService.recomputeIfProcessed (D18 step 6)', () => {
       ],
     });
 
-    await service.recomputeIfProcessed(EXAM_ID, 'stu-1', TENANT_ID, 'user-1');
+    await service.recomputeIfProcessed(EXAM_ID, ['stu-1'], TENANT_ID, 'user-1');
 
     expect(resultRepo.save).toHaveBeenCalled();
   });
@@ -294,7 +294,7 @@ describe('ResultsService.recomputeIfProcessed (D18 step 6)', () => {
   it('is a no-op once PUBLISHED — marks are frozen', async () => {
     const { service, resultRepo } = await buildService({ exam: { status: ExamStatus.PUBLISHED } });
 
-    await service.recomputeIfProcessed(EXAM_ID, 'stu-1', TENANT_ID, 'user-1');
+    await service.recomputeIfProcessed(EXAM_ID, ['stu-1'], TENANT_ID, 'user-1');
 
     expect(resultRepo.save).not.toHaveBeenCalled();
   });
@@ -302,7 +302,7 @@ describe('ResultsService.recomputeIfProcessed (D18 step 6)', () => {
   it('is a no-op while still DRAFT — nothing computed yet', async () => {
     const { service, resultRepo } = await buildService({ exam: { status: ExamStatus.DRAFT } });
 
-    await service.recomputeIfProcessed(EXAM_ID, 'stu-1', TENANT_ID, 'user-1');
+    await service.recomputeIfProcessed(EXAM_ID, ['stu-1'], TENANT_ID, 'user-1');
 
     expect(resultRepo.save).not.toHaveBeenCalled();
   });

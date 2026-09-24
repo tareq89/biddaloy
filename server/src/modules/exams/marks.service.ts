@@ -226,14 +226,15 @@ export class MarksService {
     const savedByKey = new Map(saved.map((m) => [`${m.student_id}:${m.component_id}`, m]));
 
     // [19.5.1] D18 step 6 — a mark change while the exam is PROCESSED (not
-    // yet PUBLISHED) invalidates and recomputes the affected students'
-    // results. `recomputeIfProcessed` no-ops for DRAFT (nothing computed
-    // yet) and PUBLISHED (frozen — a change there needs `reopen()` first),
-    // so this call is always safe to make unconditionally. One call per
-    // distinct student in the batch, not per cell.
-    for (const studentId of studentIds) {
-      await this.resultsService.recomputeIfProcessed(examId, studentId, tenantId, userId, context);
-    }
+    // yet PUBLISHED) invalidates and recomputes results. `recomputeIfProcessed`
+    // no-ops for DRAFT (nothing computed yet) and PUBLISHED (frozen — a
+    // change there needs `reopen()` first), so this call is always safe to
+    // make unconditionally. [pr-fix #945] One call for the whole batch, not
+    // one per student — `computeAll` inside it ranks the whole class either
+    // way, so a per-student loop ran that full-class computation N times
+    // and, worse, only rewrote one student's row per call, leaving every
+    // other student's position stale after a rank shift.
+    await this.resultsService.recomputeIfProcessed(examId, studentIds, tenantId, userId, context);
 
     return {
       cells: dto.cells.map((cell) => {

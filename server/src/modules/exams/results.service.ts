@@ -40,7 +40,7 @@ import type { ApprovalContext } from '../auth/guards/approval.guard';
  * old computation without touching the row's other fields. Bump this
  * whenever `computeSubjectTotal`/`combineSubjects`'s actual arithmetic
  * changes, not for a comment or a refactor. */
-export const RULE_VERSION = 'nctb-v1';
+export const RULE_VERSION = 'nctb-v2';
 
 interface ComputedStudentResult {
   student_id: string;
@@ -433,13 +433,22 @@ export class ResultsService {
    * PUBLISHED) invalidates and recomputes that one student's result.
    * Called by `MarksService` after a batch write commits. A no-op once
    * PUBLISHED — marks are frozen there; a change requires `reopen()`. */
+  /** [pr-fix #945] Takes the whole batch's distinct student IDs, not one —
+   * `computeAll` ranks the *entire class* internally regardless of how
+   * many students changed, so calling this once per student in a batch
+   * (as `MarksService.upsertBatch` used to) ran the full-class computation
+   * N times on the request thread and, worse, only ever persisted one
+   * student's row per call — every other student whose rank shifted as a
+   * side effect kept a stale `position`. One call, one `computeAll`, one
+   * transaction rewriting every affected row. */
   async recomputeIfProcessed(
     examId: string,
-    studentId: string,
+    studentIds: string[],
     tenantId: string,
     userId: string,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<void> {
+    if (studentIds.length === 0) return;
     const exam = await this.examRepo.findOne({
       where: { id: examId, tenant_id: tenantId, deleted_at: IsNull() },
     });
@@ -452,13 +461,14 @@ export class ResultsService {
     if (!scale) return;
 
     const computed = await this.computeAll(exam, tenantId);
-    const forStudent = computed.filter((c) => c.student_id === studentId);
-    // computeAll ranks the whole class — recomputing one student still
-    // needs everyone's GPA to know where they now land, but only this
-    // student's row actually needs rewriting.
+    // Rewrite every student's row, not just the batch's — a mark change
+    // for one student can shift another's `position` (D18) even though
+    // that other student's own marks never changed. Only rewriting the
+    // triggering student(s) left every other student in the class with a
+    // stale or duplicate position after any rank change.
     await this.writeResultsForStudents(
       exam,
-      forStudent,
+      computed,
       scale.id,
       scale.revision,
       tenantId,
