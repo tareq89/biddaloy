@@ -59,7 +59,10 @@ async function buildService(
   const attendanceComponentService = {
     computeForSection: vi.fn(async () => ({ reason: null, valuesByStudent: new Map() })),
   };
-  const authz = { assertCanWrite: vi.fn(async () => undefined) };
+  const authz = {
+    assertCanWrite: vi.fn(async () => undefined),
+    assertCanRead: vi.fn(async () => undefined),
+  };
   const auditService = { record: vi.fn(async () => undefined) };
 
   const moduleRef = await Test.createTestingModule({
@@ -109,7 +112,14 @@ describe('MarkGridService.getGrid', () => {
       marks: [{ student_id: 'stu-1', component_id: 'comp-1', value: '80.00', status: 'PRESENT' }],
     });
 
-    const grid = await service.getGrid(EXAM_ID, SECTION_ID, SUBJECT_ID, TENANT_ID);
+    const grid = await service.getGrid(
+      EXAM_ID,
+      SECTION_ID,
+      SUBJECT_ID,
+      TENANT_ID,
+      UserRole.ADMIN,
+      'user-1',
+    );
 
     expect(grid.state).toBe(MarkGridState.DRAFT);
     expect(grid.students).toEqual([{ id: 'stu-1', roll_number: 1, full_name: 'A' }]);
@@ -138,7 +148,14 @@ describe('MarkGridService.getGrid', () => {
       valuesByStudent: new Map([['stu-1', '9.50']]),
     }));
 
-    const grid = await service.getGrid(EXAM_ID, SECTION_ID, SUBJECT_ID, TENANT_ID);
+    const grid = await service.getGrid(
+      EXAM_ID,
+      SECTION_ID,
+      SUBJECT_ID,
+      TENANT_ID,
+      UserRole.ADMIN,
+      'user-1',
+    );
 
     expect(grid.derived['comp-att']).toEqual({ reason: null, values: { 'stu-1': '9.50' } });
   });
@@ -164,7 +181,14 @@ describe('MarkGridService.getGrid', () => {
       ],
     });
 
-    const grid = await service.getGrid(EXAM_ID, SECTION_ID, SUBJECT_ID, TENANT_ID);
+    const grid = await service.getGrid(
+      EXAM_ID,
+      SECTION_ID,
+      SUBJECT_ID,
+      TENANT_ID,
+      UserRole.ADMIN,
+      'user-1',
+    );
 
     expect(grid.cells).toEqual([
       { student_id: 'stu-1', component_id: 'comp-1', value: '80.00', status: 'PRESENT' },

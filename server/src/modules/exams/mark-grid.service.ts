@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In } from 'typeorm';
 import {
   AuditAction,
+  EnrollmentStatus,
   ExamComponentSource,
   ExamStatus,
   MarkGridState,
@@ -97,13 +98,21 @@ export class MarkGridService {
     sectionId: string,
     subjectId: string,
     tenantId: string,
+    role: string,
+    userId: string,
   ): Promise<GridResponse> {
     await this.findExam(examId, tenantId);
     await this.findSection(sectionId, tenantId);
+    await this.authz.assertCanRead({ role, userId, tenantId, sectionId, subjectId });
 
     const [students, components, marks, grid] = await Promise.all([
       this.studentRepo.find({
-        where: { class_section_id: sectionId, tenant_id: tenantId, deleted_at: IsNull() },
+        where: {
+          class_section_id: sectionId,
+          tenant_id: tenantId,
+          deleted_at: IsNull(),
+          enrollment_status: EnrollmentStatus.ACTIVE,
+        },
         order: { roll_number: 'ASC' },
       }),
       this.componentRepo.find({
