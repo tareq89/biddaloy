@@ -112,7 +112,12 @@ export function SubmissionGrid({
         const changed = entry.status !== row.status || entry.marks !== row.marks;
         if (!changed) return null;
         const update: SubmissionUpdate = { id: row.id };
-        if (entry.status !== row.status) update.status = entry.status;
+        // SUBMITTED is student-set, never a teacher override (D9) — the toggle
+        // handlers above never produce it, but `entry.status` is typed as the
+        // full enum since it's seeded from `row.status` for untouched rows.
+        if (entry.status !== row.status && entry.status !== HomeworkSubmissionStatus.SUBMITTED) {
+          update.status = entry.status;
+        }
         if (entry.marks !== row.marks) update.marks = entry.marks;
         return update;
       })
