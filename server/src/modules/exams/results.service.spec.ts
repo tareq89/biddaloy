@@ -57,6 +57,7 @@ function makeRepos(overrides: Record<string, any> = {}) {
           getRepository: (entity: any) => {
             if (entity === Exam) return examRepo;
             if (entity === Result) return resultRepo;
+            if (entity === ResultSubject) return resultSubjectRepo;
             return { update: vi.fn(async () => undefined) };
           },
         }),
@@ -325,7 +326,7 @@ describe('ResultsService.recomputeIfProcessed (D18 step 6)', () => {
       ],
     });
 
-    await service.recomputeIfProcessed(EXAM_ID, 'stu-1', TENANT_ID, 'user-1');
+    await service.recomputeIfProcessed(EXAM_ID, ['stu-1'], TENANT_ID, 'user-1');
 
     expect(resultRepo.save).toHaveBeenCalled();
   });
@@ -333,15 +334,61 @@ describe('ResultsService.recomputeIfProcessed (D18 step 6)', () => {
   it('is a no-op once PUBLISHED — marks are frozen', async () => {
     const { service, resultRepo } = await buildService({ exam: { status: ExamStatus.PUBLISHED } });
 
-    await service.recomputeIfProcessed(EXAM_ID, 'stu-1', TENANT_ID, 'user-1');
+    await service.recomputeIfProcessed(EXAM_ID, ['stu-1'], TENANT_ID, 'user-1');
 
+    expect(resultRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('removes a stale result for a student no longer computed (e.g. made INACTIVE) — pr-fix #945', async () => {
+    const { service, resultRepo } = await buildService({
+      exam: { status: ExamStatus.PROCESSED },
+      existingResults: [
+        { id: 'result-stu-1', student_id: 'stu-1' },
+        { id: 'result-gone', student_id: 'stu-gone' },
+      ],
+    });
+
+    await service.recomputeIfProcessed(EXAM_ID, ['stu-1'], TENANT_ID, 'user-1');
+
+    // Looked up by exam, not by the recomputed students' IDs — so the
+    // student who dropped out of computeAll has their old row removed too,
+    // instead of it surviving to be published and texted.
+    expect(resultRepo.find).toHaveBeenCalledWith({
+      where: { exam_id: EXAM_ID, tenant_id: TENANT_ID, deleted_at: expect.anything() },
+    });
+    expect(resultRepo.softDelete).toHaveBeenCalledWith({
+      id: expect.objectContaining({ value: ['result-stu-1', 'result-gone'] }),
+      tenant_id: TENANT_ID,
+    });
+  });
+
+  it('re-checks status under the exam lock — a publish that landed first makes it a no-op (pr-fix #945)', async () => {
+    const { service, examRepo, resultRepo } = await buildService({
+      exam: { status: ExamStatus.PROCESSED },
+    });
+    // The locked read (inside the transaction) sees the publish that
+    // committed while this request was on its way in.
+    examRepo.findOne = vi.fn(async () => ({
+      id: EXAM_ID,
+      tenant_id: TENANT_ID,
+      class_id: CLASS_ID,
+      academic_year_id: YEAR_ID,
+      status: ExamStatus.PUBLISHED,
+    }));
+
+    await service.recomputeIfProcessed(EXAM_ID, ['stu-1'], TENANT_ID, 'user-1');
+
+    expect(examRepo.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ lock: { mode: 'pessimistic_write' } }),
+    );
+    expect(resultRepo.softDelete).not.toHaveBeenCalled();
     expect(resultRepo.save).not.toHaveBeenCalled();
   });
 
   it('is a no-op while still DRAFT — nothing computed yet', async () => {
     const { service, resultRepo } = await buildService({ exam: { status: ExamStatus.DRAFT } });
 
-    await service.recomputeIfProcessed(EXAM_ID, 'stu-1', TENANT_ID, 'user-1');
+    await service.recomputeIfProcessed(EXAM_ID, ['stu-1'], TENANT_ID, 'user-1');
 
     expect(resultRepo.save).not.toHaveBeenCalled();
   });
@@ -363,6 +410,25 @@ describe('ResultsService.publish / reopen', () => {
       { exam_id: EXAM_ID, tenant_id: TENANT_ID },
       expect.objectContaining({ published_at: expect.any(Date) }),
     );
+  });
+
+  it('publish re-checks status under the exam lock, refusing if it changed since the first read (pr-fix #945)', async () => {
+    const { service, examRepo, resultRepo } = await buildService({
+      exam: { status: ExamStatus.PROCESSED },
+    });
+    const base = {
+      id: EXAM_ID,
+      tenant_id: TENANT_ID,
+      class_id: CLASS_ID,
+      academic_year_id: YEAR_ID,
+    };
+    examRepo.findOne = vi
+      .fn()
+      .mockResolvedValueOnce({ ...base, status: ExamStatus.PROCESSED }) // unlocked pre-check
+      .mockResolvedValueOnce({ ...base, status: ExamStatus.PUBLISHED }); // locked re-read
+
+    await expect(service.publish(EXAM_ID, TENANT_ID, 'admin-1')).rejects.toThrow(ConflictException);
+    expect(resultRepo.update).not.toHaveBeenCalled();
   });
 
   it('refuses to publish an exam that is not PROCESSED', async () => {

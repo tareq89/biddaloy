@@ -17,7 +17,14 @@
 import { MarkStatus } from '@biddaloy/shared';
 
 export function roundHalfUp2(value: number): number {
-  return Math.floor(value * 100 + 0.5) / 100;
+  // Decimal exponent shifting (`Number(\`${m}e2\`)`), not `value * 100` —
+  // plain float multiplication can land just under the boundary (e.g.
+  // 8.005 * 100 === 800.4999999999999), rounding 8.005 down to 8.00
+  // instead of up to 8.01. `toFixed` handles the shift correctly since it
+  // operates on the decimal string representation.
+  const shifted = Math.floor(Number(`${value}e2`) + 0.5);
+  const result = Number(`${shifted}e-2`);
+  return result === 0 ? 0 : result;
 }
 
 // --- Subject total from component marks (D10) ---
@@ -167,11 +174,15 @@ export function combineSubjects(
   const countableAll = subjects.filter((s) => s.is_countable && !s.is_fourth_subject);
   const fourth = subjects.find((s) => s.is_fourth_subject && s.is_countable) ?? null;
 
+  // [pr-fix #945] A failed fourth subject removes only its own bonus, not
+  // the whole result — the BD NCTB rule the fourth subject exists under
+  // (D14) never fails a student over their *optional* subject. Only the
+  // compulsory (non-fourth) countable subjects can fail the result.
   // Checked over every countable subject, including one with no GPA (an
   // ABSENT subject's `gpa` is null too) — a failed-but-ungraded subject
   // must still fail the result, so this check runs before the GPA-average
   // filter below drops it for having nothing to average.
-  const anyFail = countableAll.some((s) => s.is_fail) || (fourth?.is_fail ?? false);
+  const anyFail = countableAll.some((s) => s.is_fail);
   if (anyFail) {
     return { total_marks, gpa: 0, grade: 'F', is_fail: true };
   }
@@ -185,13 +196,17 @@ export function combineSubjects(
     return { total_marks, gpa: 0, grade: '-', is_fail: false };
   }
 
-  const baseAverage = countable.reduce((sum, s) => sum + (s.gpa ?? 0), 0) / countable.length;
-  // The fourth subject's bonus is added to the average itself, not
-  // folded into the sum before dividing — a bonus split across every
-  // countable subject would shrink as more subjects are taken, which is
-  // backwards from what D14 intends.
-  const bonus = fourth ? fourthSubjectContribution(fourth.gpa) : 0;
-  const gpa = roundHalfUp2(baseAverage + bonus);
+  const mainSum = countable.reduce((sum, s) => sum + (s.gpa ?? 0), 0);
+  // The fourth subject's bonus is added to the sum before dividing by the
+  // *compulsory* subject count, not averaged in as its own addend — a
+  // bonus that shrinks as more compulsory subjects are taken would be
+  // backwards from what D14 intends. A failing fourth subject (checked
+  // directly, not inferred from its GPA) contributes no bonus at all,
+  // rather than relying on a failing band's `gpa` happening to be 0.
+  const bonus = fourth && !fourth.is_fail ? fourthSubjectContribution(fourth.gpa) : 0;
+  // BD NCTB has no GPA above 5.00 — the fourth-subject bonus can otherwise
+  // push a near-perfect compulsory average over the scale's own ceiling.
+  const gpa = Math.min(5, roundHalfUp2((mainSum + bonus) / countable.length));
 
   const band = gradeForGpa(gpa);
   return { total_marks, gpa, grade: band?.grade ?? 'F', is_fail: false };

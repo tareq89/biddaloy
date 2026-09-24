@@ -7,6 +7,7 @@ import type {
   FeesSettings,
   OrganisationSettings,
   RegionSettings,
+  RoutineSettings,
   TenantSettings,
 } from '@biddaloy/shared';
 
@@ -104,10 +105,17 @@ export const DEFAULT_FEES_SETTINGS: FeesSettings = {
   notifyOnScheduleDefault: true,
 };
 
+/** [21.1.1] D7 — 5-minute changeover between periods by default; no cap
+ * on daily/consecutive periods until a school opts in. */
+export const DEFAULT_ROUTINE_SETTINGS: RoutineSettings = {
+  defaultChangeoverMinutes: 5,
+};
+
 export const DEFAULT_TENANT_SETTINGS: TenantSettings = {
   version: TENANT_SETTINGS_SCHEMA_VERSION,
   region: DEFAULT_REGION_SETTINGS,
   attendance: DEFAULT_ATTENDANCE_SETTINGS,
+  routine: DEFAULT_ROUTINE_SETTINGS,
   organisation: DEFAULT_ORGANISATION_SETTINGS,
   auth: DEFAULT_AUTH_SETTINGS,
   backup: DEFAULT_BACKUP_SETTINGS,

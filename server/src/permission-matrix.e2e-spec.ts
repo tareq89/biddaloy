@@ -519,6 +519,13 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
     path: '/exams/:examId/results/:studentId',
     reason: '[19.8.1] Same narrowing as GET /exams/:examId/results.',
   },
+  {
+    controller: 'ChangeRequestsController',
+    method: 'POST',
+    path: '/routines/slots/:slotId/change-requests',
+    reason:
+      "[21.6.1]/[21.9.1] D11 — raising a change request is the requesting teacher's own action against their own published slot; every other ROUTINE_READ holder (ADMIN, PARENT, STUDENT, EXECUTIVE) reads the routine but has no reason to flag one of a teacher's slots for review",
+  },
 ];
 
 function findRoleNarrowing(

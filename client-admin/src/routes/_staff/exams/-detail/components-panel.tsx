@@ -48,8 +48,8 @@ export function ComponentsPanel({ examId, classId, academicYearId }: ComponentsP
   const activeSubjectId = selectedSubjectId ?? subjects[0]?.subject_id;
 
   const componentsQuery = useExamComponents(examId, activeSubjectId);
-  const createComponent = useCreateExamComponent(examId, activeSubjectId);
-  const deleteComponent = useDeleteExamComponent(examId, activeSubjectId);
+  const createComponent = useCreateExamComponent(examId);
+  const deleteComponent = useDeleteExamComponent(examId);
 
   const [name, setName] = React.useState('');
   const [kind, setKind] = React.useState<string>(ExamComponentKind.WRITTEN);

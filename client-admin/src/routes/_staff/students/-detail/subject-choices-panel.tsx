@@ -28,13 +28,31 @@ export function SubjectChoicesPanel({ studentId }: SubjectChoicesPanelProps) {
   const subjectsQuery = useSubjects({ limit: 100 });
   const setChoice = useSetSubjectChoice(studentId, currentYearId);
 
-  if (optionsQuery.isLoading || subjectsQuery.isLoading)
+  // `optionsQuery` is disabled until `currentYearId` resolves, so its own
+  // isLoading is false while academicYearsQuery is still in flight — check
+  // that one explicitly, or the panel would flash "no options" instead of
+  // staying in the loading state.
+  if (academicYearsQuery.isLoading || optionsQuery.isLoading || subjectsQuery.isLoading)
     return <Skeleton className="h-24 w-full" />;
-  if (optionsQuery.isError)
+  if (academicYearsQuery.isError || optionsQuery.isError)
     return (
       <ErrorState
         message={t('subjectChoicesPanel.loadError')}
-        onRetry={() => void optionsQuery.refetch()}
+        onRetry={() => {
+          if (academicYearsQuery.isError) void academicYearsQuery.refetch();
+          if (optionsQuery.isError) void optionsQuery.refetch();
+        }}
+      />
+    );
+  // Subject names come from this query — surfacing a raw subject_id
+  // instead of a name (the `?? option.subject_id` fallback below) after a
+  // failure isn't acceptable UX for a radio group the student's guardian
+  // may act on, so this failure gets the same retry treatment.
+  if (subjectsQuery.isError)
+    return (
+      <ErrorState
+        message={t('subjectChoicesPanel.loadError')}
+        onRetry={() => void subjectsQuery.refetch()}
       />
     );
 

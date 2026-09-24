@@ -53,8 +53,16 @@ export class MarksController {
     @Param('examId', ParseUUIDPipe) examId: string,
     @Query() query: GridQueryDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.gridService.getGrid(examId, query.section_id, query.subject_id, tenant.id);
+    return this.gridService.getGrid(
+      examId,
+      query.section_id,
+      query.subject_id,
+      tenant.id,
+      tenant.role,
+      user.sub,
+    );
   }
 
   @Patch()

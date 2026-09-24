@@ -90,6 +90,20 @@ export function CopyComponentsDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close
   }, [open]);
 
+  // Only 'subject' mode's source can also be checked as a target (in
+  // 'exam' mode the source subject lives in a different exam, so it never
+  // collides) — clear it from targetSubjectIds if it's already checked, or
+  // handleConfirm would send a subject as both its own source and target.
+  React.useEffect(() => {
+    if (sourceMode !== 'subject' || !sourceSubjectId) return;
+    setTargetSubjectIds((prev) => {
+      if (!prev.has(sourceSubjectId)) return prev;
+      const next = new Set(prev);
+      next.delete(sourceSubjectId);
+      return next;
+    });
+  }, [sourceMode, sourceSubjectId]);
+
   function toggleTarget(subjectId: string) {
     setTargetSubjectIds((prev) => {
       const next = new Set(prev);
@@ -223,7 +237,7 @@ export function CopyComponentsDialog({
           <fieldset className="flex flex-col gap-2">
             <legend className="text-sm font-medium">{t('copyDialog.targetsLabel')}</legend>
             {subjects
-              .filter((s) => s.subject_id !== effectiveSourceSubjectId)
+              .filter((s) => sourceMode === 'exam' || s.subject_id !== effectiveSourceSubjectId)
               .map((s) => (
                 <label key={s.subject_id} className="flex items-center gap-2 text-sm">
                   <Checkbox

@@ -52,6 +52,14 @@ import { Result } from '../src/modules/exams/entities/result.entity';
 import { ResultSubject } from '../src/modules/exams/entities/result-subject.entity';
 import { ExamSchedule } from '../src/modules/exams/entities/exam-schedule.entity';
 import { StudentSubjectChoice } from '../src/modules/students/entities/student-subject-choice.entity';
+import { Shift } from '../src/modules/routines/entities/shift.entity';
+import { PeriodSlot } from '../src/modules/routines/entities/period-slot.entity';
+import { Room } from '../src/modules/routines/entities/room.entity';
+import { Routine } from '../src/modules/routines/entities/routine.entity';
+import { RoutineSlot } from '../src/modules/routines/entities/routine-slot.entity';
+import { RoutineSlotTeacher } from '../src/modules/routines/entities/routine-slot-teacher.entity';
+import { RoutineSubstitution } from '../src/modules/routines/entities/routine-substitution.entity';
+import { RoutineChangeRequest } from '../src/modules/routines/entities/routine-change-request.entity';
 
 export const ALL_ENTITIES = [
   AcademicYear,
@@ -108,4 +116,12 @@ export const ALL_ENTITIES = [
   ResultSubject,
   ExamSchedule,
   StudentSubjectChoice,
+  Shift,
+  PeriodSlot,
+  Room,
+  Routine,
+  RoutineSlot,
+  RoutineSlotTeacher,
+  RoutineSubstitution,
+  RoutineChangeRequest,
 ];
