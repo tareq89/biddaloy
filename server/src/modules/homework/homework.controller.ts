@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permission, UserRole } from '@biddaloy/shared';
@@ -88,7 +98,7 @@ export class HomeworkController {
   @RequirePermissions(Permission.HOMEWORK_READ)
   @ApiOperation({ summary: 'Completion/defaulter rollup for one student (D13).' })
   async studentRollup(
-    @Param('studentId') studentId: string,
+    @Param('studentId', ParseUUIDPipe) studentId: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
   ) {
@@ -110,7 +120,7 @@ export class HomeworkController {
   @RequirePermissions(Permission.HOMEWORK_READ)
   @ApiOperation({ summary: 'Completion/defaulter rollup for one section (D13).' })
   async sectionRollup(
-    @Param('sectionId') sectionId: string,
+    @Param('sectionId', ParseUUIDPipe) sectionId: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
   ) {
@@ -134,7 +144,7 @@ export class HomeworkController {
     summary: 'Completion/defaulter + syllabus-completion rollup for one class (D13/D29).',
   })
   async classRollup(
-    @Param('classId') classId: string,
+    @Param('classId', ParseUUIDPipe) classId: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
   ) {
@@ -152,7 +162,7 @@ export class HomeworkController {
   @ApiOperation({ summary: 'One Homework by id.' })
   @ApiOkResponse({ type: HomeworkResponseDto })
   async findOne(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
   ) {
@@ -169,7 +179,7 @@ export class HomeworkController {
   @ApiOperation({ summary: 'Assign a Homework to a section or a single student (D24).' })
   @ApiOkResponse({ type: HomeworkAssignmentResponseDto })
   async assign(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: AssignHomeworkDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
@@ -190,7 +200,7 @@ export class HomeworkController {
   })
   @ApiOkResponse({ type: HomeworkAssignmentResponseDto })
   async reassign(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: AssignHomeworkDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
@@ -208,7 +218,7 @@ export class HomeworkController {
   @ApiOperation({ summary: 'Deactivate or reactivate an assignment (Q10 D22).' })
   @ApiOkResponse({ type: HomeworkAssignmentResponseDto })
   async updateAssignment(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateHomeworkAssignmentDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: { sub: string },
