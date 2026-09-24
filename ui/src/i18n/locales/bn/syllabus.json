@@ -1,0 +1,38 @@
+{
+  "list": {
+    "title": "সিলেবাস",
+    "caption": "নির্বাচিত ক্লাস ও বিষয়ের সিলেবাস বিষয়সমূহ",
+    "classLabel": "ক্লাস",
+    "selectClass": "একটি ক্লাস নির্বাচন করুন",
+    "subjectLabel": "বিষয়",
+    "selectSubject": "একটি বিষয় নির্বাচন করুন",
+    "columnName": "বিষয়বস্তু",
+    "columnStatus": "অবস্থা",
+    "columnDescription": "বিবরণ",
+    "columnActions": "কার্যক্রম",
+    "addTopic": "বিষয়বস্তু যোগ করুন",
+    "moveUp": "{{name}} উপরে সরান",
+    "moveDown": "{{name}} নিচে সরান",
+    "edit": "{{name}} সম্পাদনা করুন",
+    "delete": "{{name}} মুছুন",
+    "emptyMessage": "এখনও কোনো সিলেবাস বিষয়বস্তু নেই।",
+    "pickToStart": "সিলেবাস দেখতে একটি ক্লাস ও বিষয় নির্বাচন করুন।",
+    "errorMessage": "সিলেবাস বিষয়বস্তু লোড করা যায়নি।",
+    "deleteConfirmTitle": "বিষয়বস্তু মুছুন",
+    "deleteConfirmBody": "\"{{name}}\" মুছবেন? এটি পূর্বাবস্থায় ফেরানো যাবে না।",
+    "deleteConfirmAction": "মুছুন",
+    "reorderFailed": "বিষয়বস্তু পুনর্বিন্যাস করা যায়নি। আবার চেষ্টা করুন।"
+  },
+  "form": {
+    "addTitle": "বিষয়বস্তু যোগ করুন",
+    "editTitle": "বিষয়বস্তু সম্পাদনা করুন",
+    "nameLabel": "নাম",
+    "descriptionLabel": "বিবরণ",
+    "statusLabel": "অবস্থা",
+    "submit": "সংরক্ষণ করুন",
+    "submitting": "সংরক্ষণ হচ্ছে…",
+    "cancel": "বাতিল",
+    "errorRequired": "একটি বিষয়বস্তুর নাম লিখুন।",
+    "genericError": "কিছু ভুল হয়েছে। আবার চেষ্টা করুন।"
+  }
+}

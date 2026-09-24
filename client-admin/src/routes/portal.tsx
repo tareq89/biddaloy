@@ -13,6 +13,7 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 import { RequireRole } from '@biddaloy/ui/routes';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
 import {
+  BookOpenIcon,
   CalendarDaysIcon,
   CreditCardIcon,
   GraduationCapIcon,
@@ -157,6 +158,13 @@ function PortalLayout() {
       // [19.11.1] `StudentExamScheduleController` gates on `RESULT_READ`,
       // same as `/portal/results` above.
       permission: Permission.RESULT_READ,
+    },
+    {
+      to: '/portal/syllabus',
+      label: t('items.portalSyllabus'),
+      icon: <BookOpenIcon className="size-5" aria-hidden="true" />,
+      // [22.4.5] PARENT and STUDENT both hold `SYLLABUS_READ`.
+      permission: Permission.SYLLABUS_READ,
     },
     {
       to: '/portal/account',

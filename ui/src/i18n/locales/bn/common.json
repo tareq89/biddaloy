@@ -76,6 +76,11 @@
       "EXPIRED": "আমন্ত্রণের মেয়াদ শেষ",
       "REVOKED": "আমন্ত্রণ প্রত্যাহার করা হয়েছে",
       "ACTIVATED": "সক্রিয় করা হয়েছে"
+    },
+    "syllabusTopic": {
+      "PLANNED": "পরিকল্পিত",
+      "IN_PROGRESS": "চলমান",
+      "DONE": "সম্পন্ন"
     }
   },
   "walletTransactionKind": {

@@ -1,0 +1,38 @@
+{
+  "list": {
+    "title": "Syllabus",
+    "caption": "Syllabus topics for the selected class and subject",
+    "classLabel": "Class",
+    "selectClass": "Select a class",
+    "subjectLabel": "Subject",
+    "selectSubject": "Select a subject",
+    "columnName": "Topic",
+    "columnStatus": "Status",
+    "columnDescription": "Description",
+    "columnActions": "Actions",
+    "addTopic": "Add topic",
+    "moveUp": "Move {{name}} up",
+    "moveDown": "Move {{name}} down",
+    "edit": "Edit {{name}}",
+    "delete": "Delete {{name}}",
+    "emptyMessage": "No syllabus topics yet.",
+    "pickToStart": "Pick a class and subject to see its syllabus.",
+    "errorMessage": "Couldn't load syllabus topics.",
+    "deleteConfirmTitle": "Delete topic",
+    "deleteConfirmBody": "Delete \"{{name}}\"? This can't be undone.",
+    "deleteConfirmAction": "Delete",
+    "reorderFailed": "Couldn't reorder topics. Try again."
+  },
+  "form": {
+    "addTitle": "Add topic",
+    "editTitle": "Edit topic",
+    "nameLabel": "Name",
+    "descriptionLabel": "Description",
+    "statusLabel": "Status",
+    "submit": "Save",
+    "submitting": "Saving…",
+    "cancel": "Cancel",
+    "errorRequired": "Enter a topic name.",
+    "genericError": "Something went wrong. Please try again."
+  }
+}

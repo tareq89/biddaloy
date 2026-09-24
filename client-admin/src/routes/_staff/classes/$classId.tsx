@@ -12,6 +12,7 @@ import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loader
 import { ClassFormDialog } from './-class-form-dialog';
 import { DeleteClassDialog } from './-delete-class-dialog';
 import { FeeStructuresTab } from './-detail/fee-structures-tab';
+import { HomeworkTab } from './-detail/homework-tab';
 import { SectionsTab } from './-detail/sections-tab';
 import { StudentsTab } from './-detail/students-tab';
 import { SubjectsTab } from './-detail/subjects-tab';
@@ -29,7 +30,14 @@ export const Route = createFileRoute('/_staff/classes/$classId')({
   component: ClassDetailPage,
 });
 
-const TAB_IDS = ['sections', 'students', 'feeStructures', 'teachers', 'subjects'] as const;
+const TAB_IDS = [
+  'sections',
+  'students',
+  'feeStructures',
+  'teachers',
+  'subjects',
+  'homework',
+] as const;
 
 function ClassDetailPage() {
   const { classId } = Route.useParams();
@@ -124,6 +132,11 @@ function ClassDetailPage() {
             id: 'subjects',
             label: t('detail.tabSubjects'),
             content: <SubjectsTab classId={klass.id} academicYearId={klass.academic_year.id} />,
+          },
+          {
+            id: 'homework',
+            label: t('detail.tabHomework'),
+            content: <HomeworkTab classId={klass.id} />,
           },
         ]}
         activeTab={activeTab}
