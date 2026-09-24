@@ -1,0 +1,27 @@
+{
+  "upload": {
+    "dropHint": "ফাইল টেনে এনে ছাড়ুন, অথবা নিচে থেকে ফাইল বেছে নিন। PDF, JPG, PNG বা WEBP, প্রতিটি সর্বোচ্চ 5MB, সর্বোচ্চ {{maxFiles}}টি ফাইল।",
+    "wrongType": "শুধুমাত্র PDF, JPG, PNG বা WEBP ফাইল অনুমোদিত।",
+    "tooLarge": "প্রতিটি ফাইল অবশ্যই 5MB বা তার কম হতে হবে।",
+    "tooMany": "সর্বোচ্চ {{maxFiles}}টি ফাইল অনুমোদিত।",
+    "chooseFiles": "ফাইল বেছে নিন",
+    "chooseFilesLabel": "সংযুক্তি ফাইল বেছে নিন",
+    "removeFile": "{{filename}} সরান"
+  },
+  "grid": {
+    "markDone": "{{name}} কে সম্পন্ন হিসেবে চিহ্নিত করুন",
+    "completionFor": "{{name}}-এর সম্পন্নতা",
+    "notDone": "সম্পন্ন হয়নি",
+    "partial": "আংশিক",
+    "done": "সম্পন্ন",
+    "marksFor": "{{name}}-এর নম্বর",
+    "save": "সংরক্ষণ করুন",
+    "saving": "সংরক্ষণ হচ্ছে…",
+    "status": {
+      "NOT_SUBMITTED": "জমা দেওয়া হয়নি",
+      "SUBMITTED": "জমা দেওয়া হয়েছে",
+      "PARTIAL": "আংশিক",
+      "DONE": "সম্পন্ন"
+    }
+  }
+}

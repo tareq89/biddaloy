@@ -1,0 +1,27 @@
+{
+  "upload": {
+    "dropHint": "Drag and drop files here, or choose files below. PDF, JPG, PNG or WEBP, up to 5MB each, {{maxFiles}} files max.",
+    "wrongType": "Only PDF, JPG, PNG or WEBP files are allowed.",
+    "tooLarge": "Each file must be 5MB or smaller.",
+    "tooMany": "Only {{maxFiles}} files are allowed in total.",
+    "chooseFiles": "Choose files",
+    "chooseFilesLabel": "Choose attachment files",
+    "removeFile": "Remove {{filename}}"
+  },
+  "grid": {
+    "markDone": "Mark {{name}} done",
+    "completionFor": "{{name}}'s completion",
+    "notDone": "Not done",
+    "partial": "Partial",
+    "done": "Done",
+    "marksFor": "{{name}}'s marks",
+    "save": "Save",
+    "saving": "Saving…",
+    "status": {
+      "NOT_SUBMITTED": "Not submitted",
+      "SUBMITTED": "Submitted",
+      "PARTIAL": "Partial",
+      "DONE": "Done"
+    }
+  }
+}
