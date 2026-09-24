@@ -85,6 +85,7 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/academics/homework/': Permission.HOMEWORK_READ,
   '/_staff/academics/homework/new': Permission.HOMEWORK_ASSIGN,
   '/_staff/academics/homework/$homeworkId': Permission.HOMEWORK_READ,
+  '/_staff/academics/homework/import': Permission.HOMEWORK_IMPORT,
   '/_staff/academics/syllabus/': Permission.SYLLABUS_READ,
   '/_staff/grading-scales/': Permission.GRADING_SCALE_MANAGE,
   '/_staff/grading-scales/$scaleId': Permission.GRADING_SCALE_MANAGE,

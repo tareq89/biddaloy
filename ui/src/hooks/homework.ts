@@ -3,8 +3,10 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 
 import { apiClient } from '../api/client';
 
+import { withHttpStatusShape } from './bulk-upload';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
+import type { BulkImportError, PreviewResult } from './use-bulk-upload-preview';
 
 // TODO(schema): swap for components['schemas'][...] once schema.d.ts is regenerated for 22.3.x
 export interface Homework {
@@ -117,6 +119,100 @@ export function useAssignHomework() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: homeworkKeys.lists() });
+    },
+  });
+}
+
+// TODO(schema): hand-declared to mirror `HomeworkBulkUploadPreviewRowDto` /
+// `HomeworkBulkUploadResultDto` at
+// `server/src/modules/homework/dto/homework-bulk-upload.dto.ts` — swap for
+// the generated `components['schemas'][...]` type once `schema.d.ts` is
+// regenerated for these routes, same convention `bulk-upload.ts`'s
+// `StudentUploadPreviewRow` follows.
+export interface HomeworkUploadPreviewRow {
+  row: number;
+  class: string;
+  section: string;
+  subject: string;
+  assigned_date: string;
+  due_date: string;
+}
+
+export interface HomeworkUploadSummary {
+  rows_to_create: number;
+  preview: HomeworkUploadPreviewRow[];
+}
+
+export interface HomeworkUploadResult {
+  total_rows: number;
+  success_count: number;
+  error_count: number;
+  created_homework_ids: string[];
+  errors: { row: number; field?: string; value?: string; reason: string }[];
+}
+
+/** [22.4.4] — `POST /homework/bulk/validate`, multipart field `file`. */
+export function useValidateHomeworkUpload() {
+  return useMutation({
+    mutationFn: async ({
+      file,
+      onProgress,
+    }: {
+      file: File;
+      onProgress?: (percent: number) => void;
+    }): Promise<PreviewResult<HomeworkUploadSummary>> => {
+      const formData = new FormData();
+      formData.append('file', file);
+      try {
+        const res = await apiClient.post<{
+          staging_id: string;
+          expires_at: string;
+          rows_to_create: number;
+          preview: HomeworkUploadPreviewRow[];
+          errors: BulkImportError[];
+          hard_error_count: number;
+        }>('/homework/bulk/validate', formData, {
+          onUploadProgress: (event) => {
+            if (onProgress && event.total) {
+              onProgress(Math.round((event.loaded / event.total) * 100));
+            }
+          },
+        });
+        const body = res.data;
+        return {
+          staging_id: body.staging_id,
+          expires_at: body.expires_at,
+          errors: body.errors,
+          hard_error_count: body.hard_error_count,
+          summary: { rows_to_create: body.rows_to_create, preview: body.preview },
+        };
+      } catch (error) {
+        throw withHttpStatusShape(error);
+      }
+    },
+    retry: false,
+  });
+}
+
+/** [22.4.4] — `POST /homework/bulk/commit`. */
+export function useCommitHomeworkUpload() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (stagingId: string): Promise<HomeworkUploadResult> => {
+      try {
+        const res = await apiClient.post<HomeworkUploadResult>('/homework/bulk/commit', {
+          staging_id: stagingId,
+        });
+        return res.data;
+      } catch (error) {
+        throw withHttpStatusShape(error);
+      }
+    },
+    retry: false,
+    onSuccess: (result) => {
+      if (result.success_count > 0) {
+        void queryClient.invalidateQueries({ queryKey: homeworkKeys.lists() });
+      }
     },
   });
 }

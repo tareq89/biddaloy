@@ -139,6 +139,13 @@ export const ACTIONS: readonly PaletteAction[] = [
     run: (ctx) => ctx.navigate({ to: '/academics/homework/new' }),
   },
   {
+    id: 'homework.import',
+    label: { en: 'Upload homework (CSV)', bn: 'বাড়ির কাজ আপলোড করুন (CSV)' },
+    permission: Permission.HOMEWORK_IMPORT,
+    kind: 'navigate',
+    run: (ctx) => ctx.navigate({ to: '/academics/homework/import' }),
+  },
+  {
     id: 'syllabus.markTopic',
     // Gated on SYLLABUS_READ (must match the target route's own gate, see
     // route-permissions.ts), so the label promises only what a read-only

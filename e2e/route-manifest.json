@@ -132,6 +132,11 @@
       "archetype": "detail"
     },
     {
+      "path": "/academics/homework/import",
+      "role": "admin",
+      "archetype": "bespoke"
+    },
+    {
       "path": "/academics/syllabus",
       "role": "admin",
       "archetype": "list"

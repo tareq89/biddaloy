@@ -88,6 +88,7 @@ function HomeworkListPage() {
   const filters = state.filters as HomeworkSearchFilters;
 
   const canAssign = useHasPermission(Permission.HOMEWORK_ASSIGN);
+  const canImport = useHasPermission(Permission.HOMEWORK_IMPORT);
 
   const homeworkQuery = useHomeworkList(toHomeworkFilters(filters));
   const classesQuery = useClasses();
@@ -197,11 +198,20 @@ function HomeworkListPage() {
     <ListShell
       title={t('list.title')}
       primaryAction={
-        canAssign && (
-          <Button asChild>
-            <Link to="/academics/homework/new">{t('list.assignHomework')}</Link>
-          </Button>
-        )
+        canImport || canAssign ? (
+          <div className="flex items-center gap-2">
+            {canImport && (
+              <Button asChild variant="outline">
+                <Link to="/academics/homework/import">{t('list.importHomework')}</Link>
+              </Button>
+            )}
+            {canAssign && (
+              <Button asChild>
+                <Link to="/academics/homework/new">{t('list.assignHomework')}</Link>
+              </Button>
+            )}
+          </div>
+        ) : undefined
       }
       filters={{ fields: filterFields, values: state.filters, onChange: handleFilterChange }}
       tableId="homework-list"
