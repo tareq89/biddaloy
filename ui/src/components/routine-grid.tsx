@@ -56,7 +56,7 @@ export interface RoutineGridProps {
   disabled?: boolean;
 }
 
-export function cellKey(weekday: number, periodSlotId: string): string {
+export function routineCellKey(weekday: number, periodSlotId: string): string {
   return `${weekday}:${periodSlotId}`;
 }
 
@@ -89,7 +89,7 @@ export function RoutineGrid({
     const period = classRows[clampedRow];
     const weekday = weekdays[clampedCol];
     if (period && weekday !== undefined) {
-      cellRefs.current.get(cellKey(weekday, period.id))?.focus();
+      cellRefs.current.get(routineCellKey(weekday, period.id))?.focus();
     }
   }
 
@@ -132,7 +132,7 @@ export function RoutineGrid({
       case 'Delete':
       case 'Backspace':
         event.preventDefault();
-        if (cells[cellKey(weekday, period.id)]) onClearCell(weekday, period.id);
+        if (cells[routineCellKey(weekday, period.id)]) onClearCell(weekday, period.id);
         return;
       default: {
         if (event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey) {
@@ -162,10 +162,7 @@ export function RoutineGrid({
           <caption className="sr-only">{t('grid.caption')}</caption>
           <thead>
             <tr>
-              <th
-                scope="col"
-                className="w-24 border-b border-border-subtle p-2 text-start text-sm"
-              >
+              <th scope="col" className="w-24 border-b border-border-subtle p-2 text-start text-sm">
                 {t('grid.periodColumn')}
               </th>
               {weekdays.map((weekday) => (
@@ -203,7 +200,7 @@ export function RoutineGrid({
                     {period.starts_at}–{period.ends_at}
                   </th>
                   {weekdays.map((weekday, colIndex) => {
-                    const key = cellKey(weekday, period.id);
+                    const key = routineCellKey(weekday, period.id);
                     const cell = cells[key];
                     const isFocusTarget = rowIndex === focused[0] && colIndex === focused[1];
                     return (

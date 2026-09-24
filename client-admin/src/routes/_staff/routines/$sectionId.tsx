@@ -18,7 +18,12 @@
  */
 import { getActiveTenant } from '@biddaloy/ui/api';
 import { toast } from '@biddaloy/ui/components';
-import { RoutineGrid, cellKey, RoutePending, type RoutineGridCell } from '@biddaloy/ui/components';
+import {
+  RoutineGrid,
+  routineCellKey,
+  RoutePending,
+  type RoutineGridCell,
+} from '@biddaloy/ui/components';
 import {
   useClassSections,
   useCalendarSettings,
@@ -162,7 +167,7 @@ function RoutineBuilderPage() {
   );
   const cells: Record<string, RoutineGridCell> = {};
   for (const entry of sectionSlots) {
-    cells[cellKey(entry.slot.weekday, entry.slot.period_slot_id)] = {
+    cells[routineCellKey(entry.slot.weekday, entry.slot.period_slot_id)] = {
       slotId: entry.slot.id,
       subjectLabel:
         subjectsQuery.data?.data.find((subject) => subject.id === entry.slot.subject_id)?.name_en ??

@@ -49,7 +49,7 @@ export { DatePicker, Calendar, type DatePickerProps } from './date-picker';
 export { Combobox, type ComboboxOption, type ComboboxProps } from './combobox';
 export {
   RoutineGrid,
-  cellKey,
+  routineCellKey,
   type RoutineGridProps,
   type RoutineGridPeriodRow,
   type RoutineGridCell,
