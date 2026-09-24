@@ -20,6 +20,7 @@ import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants
 // injectable without this — imported anyway for visibility (same note as
 // students/students.module.ts).
 import { BulkImportModule } from '../bulk-import/bulk-import.module';
+import { AuditModule } from '../audit/audit.module';
 import { HomeworkController } from './homework.controller';
 import { HomeworkService } from './homework.service';
 import { HomeworkAccessService } from './homework-access.service';
@@ -32,6 +33,8 @@ import {
 } from './homework-defaulter.scheduler';
 import { HomeworkBulkUploadService } from './homework-bulk-upload.service';
 import { HomeworkBulkUploadController } from './homework-bulk-upload.controller';
+import { SyllabusService } from './syllabus.service';
+import { SyllabusController } from './syllabus.controller';
 
 /**
  * [22.2.1] Entities. [22.3.1] added the controller/service/access-service
@@ -45,6 +48,8 @@ import { HomeworkBulkUploadController } from './homework-bulk-upload.controller'
  * `AttendanceModule`'s `AbsenceNoticeService`/`AbsenceNoticeScheduler`.
  * [22.3.3/bulk-import] adds `HomeworkBulkUploadService`/`Controller` —
  * `Class`/`AcademicYear`/`Subject` for name-to-id resolution.
+ * [22.3.4] adds `SyllabusService`/`Controller` — `AuditModule` for audit
+ * logging on topic create/edit/delete/reorder.
  */
 @Module({
   imports: [
@@ -65,6 +70,7 @@ import { HomeworkBulkUploadController } from './homework-bulk-upload.controller'
     StorageModule,
     SchoolsModule,
     BulkImportModule,
+    AuditModule,
     BullModule.registerQueue({
       name: COMMUNICATIONS_QUEUE,
       defaultJobOptions: {
@@ -74,7 +80,12 @@ import { HomeworkBulkUploadController } from './homework-bulk-upload.controller'
     }),
     BullModule.registerQueue({ name: HOMEWORK_DEFAULTER_SWEEP_QUEUE }),
   ],
-  controllers: [HomeworkController, HomeworkSubmissionController, HomeworkBulkUploadController],
+  controllers: [
+    HomeworkController,
+    HomeworkSubmissionController,
+    HomeworkBulkUploadController,
+    SyllabusController,
+  ],
   providers: [
     HomeworkService,
     HomeworkAccessService,
@@ -82,6 +93,7 @@ import { HomeworkBulkUploadController } from './homework-bulk-upload.controller'
     HomeworkNoticeService,
     HomeworkDefaulterScheduler,
     HomeworkBulkUploadService,
+    SyllabusService,
   ],
 })
 export class HomeworkModule {}
