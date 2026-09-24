@@ -176,6 +176,20 @@ export enum Permission {
   // is ADMIN only.
   ROUTINE_READ = 'ROUTINE_READ',
   ROUTINE_MANAGE = 'ROUTINE_MANAGE',
+
+  // Homework/Syllabus (22.x)
+  // [22.1.1] D26 — read a Homework/HomeworkAssignment/HomeworkSubmission.
+  HOMEWORK_READ = 'HOMEWORK_READ',
+  // [22.1.1] Create/reassign a HomeworkAssignment.
+  HOMEWORK_ASSIGN = 'HOMEWORK_ASSIGN',
+  // [22.1.1] Grade a HomeworkSubmission.
+  HOMEWORK_GRADE = 'HOMEWORK_GRADE',
+  // [22.1.1] CSV bulk-create of HomeworkAssignment rows (D21).
+  HOMEWORK_IMPORT = 'HOMEWORK_IMPORT',
+  // [22.1.1] Read a SyllabusTopic.
+  SYLLABUS_READ = 'SYLLABUS_READ',
+  // [22.1.1] Create/edit/mark a SyllabusTopic's status.
+  SYLLABUS_MANAGE = 'SYLLABUS_MANAGE',
 }
 
 import { UserRole } from './index';
@@ -265,6 +279,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // [21.1.1] Class routine — ADMIN builds/publishes, everyone else reads.
     Permission.ROUTINE_READ,
     Permission.ROUTINE_MANAGE,
+    // [22.1.1] D26 — ADMIN holds all six homework/syllabus permissions.
+    Permission.HOMEWORK_READ,
+    Permission.HOMEWORK_ASSIGN,
+    Permission.HOMEWORK_GRADE,
+    Permission.HOMEWORK_IMPORT,
+    Permission.SYLLABUS_READ,
+    Permission.SYLLABUS_MANAGE,
   ],
 
   [UserRole.ACCOUNTANT]: [
@@ -348,6 +369,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.RESULT_READ,
     // [21.1.1] Class routine read.
     Permission.ROUTINE_READ,
+    // [22.1.1] D26 — TEACHER is the relevant teacher role, holds all six.
+    Permission.HOMEWORK_READ,
+    Permission.HOMEWORK_ASSIGN,
+    Permission.HOMEWORK_GRADE,
+    Permission.HOMEWORK_IMPORT,
+    Permission.SYLLABUS_READ,
+    Permission.SYLLABUS_MANAGE,
   ],
 
   // [5.1] added no permissions to either family role. The widened server
@@ -371,6 +399,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.RESULT_READ,
     // [21.1.1] Class routine read.
     Permission.ROUTINE_READ,
+    // [22.1.1] D26 — PARENT/STUDENT get only the two _READ permissions.
+    Permission.HOMEWORK_READ,
+    Permission.SYLLABUS_READ,
   ],
 
   [UserRole.STUDENT]: [
@@ -384,6 +415,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.RESULT_READ,
     // [21.1.1] Class routine read.
     Permission.ROUTINE_READ,
+    // [22.1.1] D26 — PARENT/STUDENT get only the two _READ permissions.
+    Permission.HOMEWORK_READ,
+    Permission.SYLLABUS_READ,
   ],
 
   [UserRole.EXECUTIVE]: [

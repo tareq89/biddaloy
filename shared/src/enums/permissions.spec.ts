@@ -110,10 +110,13 @@ describe('family read grants [5.1]', () => {
     Permission.RESULT_READ,
     // [21.1.1] Routine read — families need to see the published timetable.
     Permission.ROUTINE_READ,
+    // [22.1.1] D26 — families get only the two homework/syllabus reads.
+    Permission.HOMEWORK_READ,
+    Permission.SYLLABUS_READ,
   ] as const;
 
   for (const role of FAMILY_ROLES) {
-    it(`grants ${role} exactly STUDENT_READ, FEE_READ, INVOICE_READ, ATTENDANCE_READ, CALENDAR_READ, RESULT_READ and ROUTINE_READ`, () => {
+    it(`grants ${role} exactly STUDENT_READ, FEE_READ, INVOICE_READ, ATTENDANCE_READ, CALENDAR_READ, RESULT_READ, ROUTINE_READ, HOMEWORK_READ and SYLLABUS_READ`, () => {
       expect([...ROLE_PERMISSIONS[role]].sort()).toEqual([...FAMILY_PERMISSIONS].sort());
     });
   }
@@ -148,6 +151,38 @@ describe('family read grants [5.1]', () => {
   for (const [role, expected] of STAFF_EXAM_EXPECTATIONS) {
     it(`grants ${role} exactly the D20 exam permission set`, () => {
       const actual = EXAM_PERMISSIONS.filter((permission) =>
+        ROLE_PERMISSIONS[role].includes(permission),
+      );
+      expect([...actual].sort()).toEqual([...expected].sort());
+    });
+  }
+
+  /**
+   * [22.1.1] D26's role table, pinned exactly — ADMIN and TEACHER hold all
+   * six homework/syllabus permissions; STUDENT/PARENT hold exactly the two
+   * `_READ` permissions and nothing else in this group.
+   */
+  const HOMEWORK_PERMISSIONS = [
+    Permission.HOMEWORK_READ,
+    Permission.HOMEWORK_ASSIGN,
+    Permission.HOMEWORK_GRADE,
+    Permission.HOMEWORK_IMPORT,
+    Permission.SYLLABUS_READ,
+    Permission.SYLLABUS_MANAGE,
+  ] as const;
+
+  const STAFF_HOMEWORK_EXPECTATIONS: ReadonlyArray<readonly [UserRole, readonly Permission[]]> = [
+    [UserRole.ADMIN, [...HOMEWORK_PERMISSIONS]],
+    [UserRole.ACCOUNTANT, []],
+    [UserRole.EXECUTIVE, []],
+    [UserRole.TEACHER, [...HOMEWORK_PERMISSIONS]],
+    [UserRole.STUDENT, [Permission.HOMEWORK_READ, Permission.SYLLABUS_READ]],
+    [UserRole.PARENT, [Permission.HOMEWORK_READ, Permission.SYLLABUS_READ]],
+  ];
+
+  for (const [role, expected] of STAFF_HOMEWORK_EXPECTATIONS) {
+    it(`grants ${role} exactly the D26 homework/syllabus permission set`, () => {
+      const actual = HOMEWORK_PERMISSIONS.filter((permission) =>
         ROLE_PERMISSIONS[role].includes(permission),
       );
       expect([...actual].sort()).toEqual([...expected].sort());
