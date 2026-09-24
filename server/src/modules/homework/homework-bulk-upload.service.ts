@@ -51,6 +51,18 @@ interface ClassLookup {
   classIdByKey: Map<string, string>;
   /** Every class name of the year, sections or not. */
   classNames: Set<string>;
+  /** Keys matched by more than one section — `Class.name` has no unique
+   * constraint within a year (two classes can share a name across
+   * different shifts/versions), so a naive last-write-wins map would
+   * silently attach a row to an arbitrary one of them. */
+  ambiguousSectionKeys: Set<string>;
+}
+
+interface SubjectLookup {
+  idByName: Map<string, string>;
+  /** Names matched by more than one subject — `Subject` is unique only on
+   * `(tenant_id, code)`, so `name_en`/`name_bn` can repeat. */
+  ambiguousNames: Set<string>;
 }
 
 /**
@@ -124,7 +136,7 @@ export class HomeworkBulkUploadService {
     }
 
     const classLookup = await this.buildClassLookup(tenantId);
-    const subjectIdByName = await this.buildSubjectLookup(tenantId);
+    const subjectLookup = await this.buildSubjectLookup(tenantId);
     // Access is checked here, in validate — never in commit — because the
     // staged payload can only ever be consumed by the same (tenant, user,
     // staging_id) that created it (ImportStagingService's key shape), so a
@@ -141,7 +153,7 @@ export class HomeworkBulkUploadService {
 
     for (const parsed of rows) {
       try {
-        const row = await this.validateRow(parsed, classLookup, subjectIdByName);
+        const row = await this.validateRow(parsed, classLookup, subjectLookup);
         await this.assertRowAccess(row, role, userId, tenantId, accessCache);
         staged.push(row);
         preview.push({
@@ -278,7 +290,7 @@ export class HomeworkBulkUploadService {
   private async validateRow(
     parsed: ParsedRow,
     classLookup: ClassLookup,
-    subjectIdByName: Map<string, string>,
+    subjectLookup: SubjectLookup,
   ): Promise<ValidatedBulkUploadRow> {
     const dto = plainToInstance(HomeworkBulkUploadRowDto, this.toDtoInput(parsed.values));
     const validationErrors = await validate(dto);
@@ -297,6 +309,13 @@ export class HomeworkBulkUploadService {
     }
 
     const sectionKey = `${dto.class}::${dto.section}`;
+    if (classLookup.ambiguousSectionKeys.has(sectionKey)) {
+      throw new BulkRowError(
+        `Class '${dto.class}' / Section '${dto.section}' matches more than one section in the current academic year — rename one of the classes to disambiguate`,
+        'class',
+        dto.class,
+      );
+    }
     const sectionId = classLookup.sectionIdByKey.get(sectionKey);
     if (!sectionId) {
       const classExists = classLookup.classNames.has(dto.class);
@@ -308,7 +327,14 @@ export class HomeworkBulkUploadService {
     }
     const classId = classLookup.classIdByKey.get(sectionKey) as string;
 
-    const subjectId = subjectIdByName.get(dto.subject);
+    if (subjectLookup.ambiguousNames.has(dto.subject)) {
+      throw new BulkRowError(
+        `Subject '${dto.subject}' matches more than one subject — use a unique subject name`,
+        'subject',
+        dto.subject,
+      );
+    }
+    const subjectId = subjectLookup.idByName.get(dto.subject);
     if (!subjectId) {
       throw new BulkRowError(`Subject '${dto.subject}' not found`, 'subject', dto.subject);
     }
@@ -395,26 +421,45 @@ export class HomeworkBulkUploadService {
     const classById = new Map(classes.map((c) => [c.id, c]));
     const sectionIdByKey = new Map<string, string>();
     const classIdByKey = new Map<string, string>();
+    const ambiguousSectionKeys = new Set<string>();
     for (const section of sections) {
       const cls = classById.get(section.class_id);
       if (!cls) continue;
       const key = `${cls.name}::${section.section_name}`;
+      if (sectionIdByKey.has(key)) {
+        ambiguousSectionKeys.add(key);
+        continue;
+      }
       sectionIdByKey.set(key, section.id);
       classIdByKey.set(key, cls.id);
     }
-    return { sectionIdByKey, classIdByKey, classNames: new Set(classes.map((c) => c.name)) };
+    return {
+      sectionIdByKey,
+      classIdByKey,
+      ambiguousSectionKeys,
+      classNames: new Set(classes.map((c) => c.name)),
+    };
   }
 
-  private async buildSubjectLookup(tenantId: string): Promise<Map<string, string>> {
+  private async buildSubjectLookup(tenantId: string): Promise<SubjectLookup> {
     const subjects = await this.subjectRepo.find({
       where: { tenant_id: tenantId, deleted_at: IsNull() },
     });
-    const map = new Map<string, string>();
+    const idByName = new Map<string, string>();
+    const ambiguousNames = new Set<string>();
+    const addName = (name: string, id: string) => {
+      const existing = idByName.get(name);
+      if (existing !== undefined && existing !== id) {
+        ambiguousNames.add(name);
+        return;
+      }
+      idByName.set(name, id);
+    };
     for (const s of subjects) {
-      map.set(s.name_en, s.id);
-      if (s.name_bn) map.set(s.name_bn, s.id);
+      addName(s.name_en, s.id);
+      if (s.name_bn) addName(s.name_bn, s.id);
     }
-    return map;
+    return { idByName, ambiguousNames };
   }
 
   private describeError(err: unknown): string {

@@ -210,7 +210,7 @@ describe('Homework Bulk Upload E2E', () => {
       );
     });
 
-    it('returns 401 for ACCOUNTANT (no HOMEWORK_IMPORT)', async () => {
+    it('returns 401 for ACCOUNTANT (role not allowed)', async () => {
       const buffer = await buildXlsxBuffer([rowValues(REQUIRED_HEADERS)]);
 
       const res = await validate(buffer, { role: UserRole.ACCOUNTANT, as: accountantToken }).expect(

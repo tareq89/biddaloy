@@ -229,6 +229,47 @@ describe('HomeworkBulkUploadService', () => {
       );
     });
 
+    it('rejects a class/section name that matches more than one section', async () => {
+      const AMBIGUOUS_CLASS_ID = '00000000-0000-4000-8000-000000000099';
+      const AMBIGUOUS_SECTION_ID = '00000000-0000-4000-8000-00000000009a';
+      service = new HomeworkBulkUploadService(
+        {
+          find: vi.fn().mockResolvedValue([
+            { id: CLASS_ID, name: 'Class One', tenant_id: TENANT_ID, academic_year_id: ACADEMIC_YEAR_ID },
+            {
+              id: AMBIGUOUS_CLASS_ID,
+              name: 'Class One',
+              tenant_id: TENANT_ID,
+              academic_year_id: ACADEMIC_YEAR_ID,
+            },
+          ]),
+        } as never,
+        {
+          find: vi.fn().mockResolvedValue([
+            { id: SECTION_ID, class_id: CLASS_ID, section_name: 'Section A' },
+            { id: AMBIGUOUS_SECTION_ID, class_id: AMBIGUOUS_CLASS_ID, section_name: 'Section A' },
+          ]),
+        } as never,
+        {
+          findOne: vi.fn().mockResolvedValue({ id: ACADEMIC_YEAR_ID, is_current: true }),
+        } as never,
+        {
+          find: vi.fn().mockResolvedValue([{ id: SUBJECT_ID, name_en: 'Mathematics' }]),
+        } as never,
+        { manager: { transaction: (fn: (manager: unknown) => unknown) => fn(fakeTransactionManager()) } } as never,
+        {} as never,
+        staging as never,
+        access as never,
+      );
+      staging.stage.mockResolvedValue({ stagingId: 'stage-7', expiresAt: '2026-01-01T00:00:00Z' });
+      const file = await buildXlsxFile([...REQUIRED_HEADERS], [rowValues(REQUIRED_HEADERS)]);
+
+      const result = await service.validate(file, TENANT_ID, USER_ID, UserRole.ADMIN);
+
+      expect(result.hard_error_count).toBe(1);
+      expect(result.errors[0]).toMatchObject({ column: 'class' });
+    });
+
     it('reports a row-level access error for a teacher not mapped to the section', async () => {
       access.isTenantWide.mockReturnValue(false);
       access.assertCanManageSection.mockRejectedValue(new ForbiddenException('not linked'));
