@@ -604,14 +604,9 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   Permission.RESULT_PROCESS,
   Permission.RESULT_PUBLISH,
   Permission.RESULT_READ,
-  // [22.x] Epic 22 (homework & syllabus) plumbing landed ahead of the
-  // routes that will require it: HOMEWORK_IMPORT gates the not-yet-built
-  // CSV import endpoint, SYLLABUS_READ/SYLLABUS_MANAGE gate the not-yet-built
-  // syllabus module's routes (a separate wave-3 lane). Remove each as its
-  // route lands.
-  Permission.HOMEWORK_IMPORT,
-  Permission.SYLLABUS_READ,
-  Permission.SYLLABUS_MANAGE,
+  // [22.3.3] HOMEWORK_IMPORT now gates HomeworkBulkUploadController's routes,
+  // [22.3.4] SYLLABUS_READ/SYLLABUS_MANAGE now gate SyllabusController's
+  // routes — no longer UI-only, removed from this list at wave-3 integration.
 ];
 
 describe('Permission matrix (regression)', () => {
