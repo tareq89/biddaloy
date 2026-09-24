@@ -82,7 +82,11 @@ test.describe('teacher: My routine, phone viewport', () => {
     // but when the badge IS found, it must be attached to a struck
     // through subject label, never a plain unmarked one.
     if (found) {
-      await expect(page.getByText(t('routines.agenda.cancelledLabel'))).toBeVisible();
+      const item = page
+        .getByRole('listitem')
+        .filter({ hasText: t('routines.agenda.cancelledLabel') })
+        .first();
+      await expect(item.locator('.line-through').first()).toBeVisible();
     }
   });
 });
