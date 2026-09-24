@@ -62,7 +62,11 @@ test('Ctrl+K -> Assign homework action -> create+assign form -> save, mouse-free
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
 
-    const sectionPicker = page.getByLabel(t('homework.form.sectionLabel'));
+    // Exact match: the target RadioGroup's section item carries its own
+    // aria-label "<targetLabel>: <sectionLabel>" (a valid a11y pattern —
+    // it describes what picking this radio does), which contains
+    // sectionLabel as a substring and would otherwise also match here.
+    const sectionPicker = page.getByLabel(t('homework.form.sectionLabel'), { exact: true });
     await sectionPicker.click();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');

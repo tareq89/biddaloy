@@ -19,10 +19,11 @@ test('keyboard-only: move the second topic above the first with the up button', 
   request,
 }) => {
   const session = await adminApiSession(request);
-  const { classId } = await createClassSection(request, session);
+  const { classId, className } = await createClassSection(request, session);
   const suffix = `${Date.now()}`;
+  const subjectName = `E2E Subject ${suffix}`;
   const subject = await post<{ id: string }>(request, session, '/subjects', {
-    name_en: `E2E Subject ${suffix}`,
+    name_en: subjectName,
     code: `E2E${suffix}`.slice(0, 20),
   });
 
@@ -43,10 +44,14 @@ test('keyboard-only: move the second topic above the first with the up button', 
   await expect(page.getByRole('heading', { name: t('syllabus.list.title') })).toBeVisible();
 
   await test.step('pick class and subject', async () => {
+    // Match this test's own class/subject by their unique, timestamped
+    // names — the e2e run shares a persistent database across runs, so a
+    // generic "E2E" substring can match another run's leftover row and
+    // silently select the wrong id (empty topic list, no visible error).
     await page.getByLabel(t('syllabus.list.classLabel')).click();
-    await page.getByRole('option', { name: 'E2E' }).first().click();
+    await page.getByRole('option', { name: className }).click();
     await page.getByLabel(t('syllabus.list.subjectLabel')).click();
-    await page.getByRole('option', { name: 'E2E' }).first().click();
+    await page.getByRole('option', { name: subjectName }).click();
   });
 
   await expect(page.getByText('First topic')).toBeVisible();
