@@ -69,9 +69,18 @@ function agendaDates(): string[] {
 
 /** PARENT/STUDENT never see DRAFT or REVIEW slots — `resolveRoutine`
  * already returns nothing for them in either state — so a routine reads
- * as "not published yet" for a family unless it's actually PUBLISHED. */
-function hasPublishableRoutine(routines: Routine[] | undefined): boolean {
-  return (routines ?? []).some((r) => r.state === 'PUBLISHED');
+ * as "not published yet" for a family unless it's actually PUBLISHED for
+ * the selected child's own year. `GET /academic-years` 403s for
+ * PARENT/STUDENT, so unlike the staff routes this can't ask the server
+ * which year is current — the selected student's own class year
+ * (`GET /students/mine` already returns `class_section.class`) is the
+ * closest family-readable stand-in, same as `resolveRoutine`'s own
+ * enrolment-derived year lookup does server-side. */
+function hasPublishableRoutine(
+  routines: Routine[] | undefined,
+  yearId: string | undefined,
+): boolean {
+  return (routines ?? []).some((r) => r.state === 'PUBLISHED' && r.academic_year_id === yearId);
 }
 
 const searchSchema = z.object({
@@ -180,7 +189,7 @@ function PortalRoutine() {
     );
   }
 
-  if (!hasPublishableRoutine(routinesQuery.data)) {
+  if (!hasPublishableRoutine(routinesQuery.data, selected.class_section?.class?.academic_year_id)) {
     return (
       <div className="flex max-w-2xl flex-col gap-3">
         <h1 className="text-lg font-semibold">{t('routine.title')}</h1>

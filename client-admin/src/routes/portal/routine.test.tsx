@@ -30,7 +30,13 @@ function child(name: string, id: string, className: string, section: string, rol
     id,
     full_name: name,
     roll_number: roll,
-    class_section: classSectionFactory({ section_name: section, class: classFactory({ name: className }) }),
+    // academic_year_id 'year-1' matches ROUTINE's own year below —
+    // hasPublishableRoutine now scopes to the selected child's class
+    // year, so a mismatched random factory year would hide the routine.
+    class_section: classSectionFactory({
+      section_name: section,
+      class: classFactory({ name: className, academic_year_id: 'year-1' }),
+    }),
   });
 }
 
@@ -38,7 +44,9 @@ function mockCommonLookups() {
   server.use(
     http.get('/api/v1/subjects', () =>
       HttpResponse.json({
-        data: [{ id: 'subject-en', name_en: 'English', name_bn: null, code: 'ENG', is_active: true }],
+        data: [
+          { id: 'subject-en', name_en: 'English', name_bn: null, code: 'ENG', is_active: true },
+        ],
         total: 1,
         page: 1,
         limit: 100,
