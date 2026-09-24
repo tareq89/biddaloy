@@ -1,13 +1,25 @@
 import { describe, it, expect } from 'vitest';
 import { PlacementAlgorithm, PromotionOutcome } from '@biddaloy/shared';
-import { suggestOutcome, meritOrder, place, assignRolls, type PlacementStudent, type PlacementSection } from './placement';
+import {
+  suggestOutcome,
+  meritOrder,
+  place,
+  assignRolls,
+  type PlacementStudent,
+  type PlacementSection,
+} from './placement';
 
 function students(n: number, group: string | null = null): PlacementStudent[] {
   return Array.from({ length: n }, (_, i) => ({ student_id: `s${i + 1}`, group_name: group }));
 }
 
 function sections(
-  defs: Array<{ id: string; section_name: string; capacity: number | null; group_name?: string | null }>,
+  defs: Array<{
+    id: string;
+    section_name: string;
+    capacity: number | null;
+    group_name?: string | null;
+  }>,
 ): PlacementSection[] {
   return defs.map((d) => ({ group_name: null, ...d }));
 }
@@ -131,6 +143,52 @@ describe('place', () => {
     const { assignments, errors } = place(s, sec, PlacementAlgorithm.BLOCK);
     expect(errors).toEqual({});
     expect(assignments['s1']).toBe('A');
+  });
+
+  // M3 — a section with existing occupants (renumbered, not evicted, at
+  // commit) must not accept more incoming students than its remaining seats.
+  it('subtracts existing occupants from an explicit capacity', () => {
+    const s = students(2);
+    const sec: PlacementSection[] = [
+      { id: 'A', section_name: 'A', capacity: 3, group_name: null, occupied_count: 2 },
+    ];
+    const { assignments, errors } = place(s, sec, PlacementAlgorithm.BLOCK);
+    expect(assignments['s1']).toBe('A'); // 1 seat left
+    expect(assignments['s2']).toBeNull();
+    expect(errors['s2']).toBe('OVER_CAPACITY');
+  });
+
+  it('does not subtract occupants from a null (uncapped) section — evenSplit only divides the incoming cohort', () => {
+    const s = students(4);
+    const sec: PlacementSection[] = [
+      { id: 'A', section_name: 'A', capacity: null, group_name: null, occupied_count: 5 },
+      { id: 'B', section_name: 'B', capacity: null, group_name: null, occupied_count: 0 },
+    ];
+    // null capacity is uncapped by definition; an existing occupant there
+    // doesn't block the incoming cohort's even split.
+    const { assignments, errors } = place(s, sec, PlacementAlgorithm.BLOCK);
+    expect(errors).toEqual({});
+    const countA = Object.values(assignments).filter((v) => v === 'A').length;
+    expect(countA).toBe(2); // ceil(4/2) = 2, unaffected by occupied_count
+  });
+
+  // L1 — an unevenly-sized cohort (some students eligible for very few
+  // sections, others for many) must not exhaust a shared attempt budget
+  // before every real seat is checked.
+  it('SNAKE places a full cohort across very unevenly-sized eligible groups without a false OVER_CAPACITY', () => {
+    // 10 sections, one huge cohort with no group constraint — many students,
+    // few sections relative to student count, forcing many bounces.
+    const s = students(40);
+    const sec = sections(
+      Array.from({ length: 10 }, (_, i) => ({
+        id: `S${i}`,
+        section_name: `S${i}`,
+        capacity: 4,
+      })),
+    );
+    const { assignments, errors } = place(s, sec, PlacementAlgorithm.SNAKE);
+    expect(errors).toEqual({});
+    expect(Object.values(assignments).every((v) => v !== null)).toBe(true);
   });
 });
 

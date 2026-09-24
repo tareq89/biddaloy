@@ -135,10 +135,17 @@ describe('PromotionsService (unit)', () => {
           };
         },
       };
-      runRepo.manager.transaction.mockImplementation(async (cb: (m: unknown) => unknown) => cb(manager));
+      runRepo.manager.transaction.mockImplementation(async (cb: (m: unknown) => unknown) =>
+        cb(manager),
+      );
 
       await expect(
-        service.patchEntries('run-1', [{ student_id: 's1', final_outcome: PromotionOutcome.RETAIN }], TENANT_ID, 'user-1'),
+        service.patchEntries(
+          'run-1',
+          [{ student_id: 's1', final_outcome: PromotionOutcome.RETAIN }],
+          TENANT_ID,
+          'user-1',
+        ),
       ).rejects.toThrow(ConflictException);
     });
   });
@@ -156,8 +163,23 @@ describe('PromotionsService (unit)', () => {
 
     it('deletes a DRAFT run', async () => {
       runRepo.findOne.mockResolvedValue({ id: 'run-1', status: PromotionRunStatus.DRAFT });
+      runRepo.delete.mockResolvedValue({ affected: 1, raw: [] });
       await service.remove('run-1', TENANT_ID);
-      expect(runRepo.delete).toHaveBeenCalledWith({ id: 'run-1', tenant_id: TENANT_ID });
+      expect(runRepo.delete).toHaveBeenCalledWith({
+        id: 'run-1',
+        tenant_id: TENANT_ID,
+        status: PromotionRunStatus.DRAFT,
+      });
+    });
+
+    // B6 — the read-then-check-then-delete pattern raced a concurrent
+    // commit: status is now part of the DELETE's own WHERE clause, so a
+    // run that flipped to COMMITTED between the initial read and the
+    // delete deletes zero rows instead of destroying a committed run.
+    it('throws ConflictException when the run changes status between the read and the delete (B6 race)', async () => {
+      runRepo.findOne.mockResolvedValue({ id: 'run-1', status: PromotionRunStatus.DRAFT });
+      runRepo.delete.mockResolvedValue({ affected: 0, raw: [] });
+      await expect(service.remove('run-1', TENANT_ID)).rejects.toThrow(ConflictException);
     });
   });
 

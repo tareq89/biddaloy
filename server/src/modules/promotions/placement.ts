@@ -41,6 +41,10 @@ export interface PlacementSection {
   section_name: string;
   capacity: number | null;
   group_name: string | null;
+  /** M3 — students already enrolled in this section who aren't part of the
+   * incoming cohort (they get renumbered, not evicted, at commit). Counts
+   * against capacity so a full section doesn't silently overflow. */
+  occupied_count?: number;
 }
 
 export type PlacementErrorCode = 'OVER_CAPACITY' | 'NO_ELIGIBLE_SECTION';
@@ -123,7 +127,15 @@ export function place(
     const cohortSections = cohort.sections;
     const n = cohort.students.length;
     const evenSplit = Math.ceil(n / cohortSections.length);
-    const remaining = cohortSections.map((s) => s.capacity ?? evenSplit);
+    // M3 — subtract existing occupants (renumbered, not evicted, at commit)
+    // from an EXPLICIT capacity only: a `capacity: 40` section with 10
+    // occupants really only has 30 free seats. A `capacity: null` section
+    // is uncapped by definition — evenSplit only heuristically divides the
+    // INCOMING cohort across it and isn't a real limit, so occupants there
+    // don't take budget away from it (they're just also present).
+    const remaining = cohortSections.map((s) =>
+      s.capacity !== null ? s.capacity - (s.occupied_count ?? 0) : evenSplit,
+    );
 
     if (algorithm === PlacementAlgorithm.BLOCK) {
       let idx = 0;
@@ -139,13 +151,18 @@ export function place(
       }
     } else {
       const generator = snakeIndices(cohortSections.length);
-      let guard = 0;
-      const maxAttempts = cohortSections.reduce((sum, _, i) => sum + Math.max(remaining[i], 0), 0) * 4 + 100;
+      // L1 — a bounded-but-generous budget per student, not a counter
+      // shared across the whole cohort: a shared counter can be exhausted
+      // by uneven section sizes long before every seat is actually
+      // checked, producing a false OVER_CAPACITY. snakeIndices repeats
+      // its endpoint index on the turnaround (…,n-1,n-1,…,0,0,…), so a
+      // window has to cover a full bounce (2n) rather than just n to be
+      // guaranteed to visit every index at least once.
+      const maxAttemptsPerStudent = cohortSections.length * 2;
       for (const student of cohort.students) {
         let placed = false;
-        while (guard < maxAttempts) {
+        for (let attempt = 0; attempt < maxAttemptsPerStudent; attempt++) {
           const { value } = generator.next();
-          guard++;
           if (value === undefined) break;
           if (remaining[value] > 0) {
             assignments[student.student_id] = cohortSections[value].id;
