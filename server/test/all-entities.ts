@@ -60,6 +60,10 @@ import { RoutineSlot } from '../src/modules/routines/entities/routine-slot.entit
 import { RoutineSlotTeacher } from '../src/modules/routines/entities/routine-slot-teacher.entity';
 import { RoutineSubstitution } from '../src/modules/routines/entities/routine-substitution.entity';
 import { RoutineChangeRequest } from '../src/modules/routines/entities/routine-change-request.entity';
+import { Homework } from '../src/modules/homework/entities/homework.entity';
+import { HomeworkAssignment } from '../src/modules/homework/entities/homework-assignment.entity';
+import { HomeworkSubmission } from '../src/modules/homework/entities/homework-submission.entity';
+import { SyllabusTopic } from '../src/modules/homework/entities/syllabus-topic.entity';
 
 export const ALL_ENTITIES = [
   AcademicYear,
@@ -124,4 +128,8 @@ export const ALL_ENTITIES = [
   RoutineSlotTeacher,
   RoutineSubstitution,
   RoutineChangeRequest,
+  Homework,
+  HomeworkAssignment,
+  HomeworkSubmission,
+  SyllabusTopic,
 ];
