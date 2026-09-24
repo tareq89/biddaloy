@@ -30,6 +30,8 @@
     "portalFees": "Fees and invoices",
     "portalAttendance": "Attendance",
     "portalCalendar": "Calendar",
+    "portalResults": "Results",
+    "portalExamSchedule": "Exam schedule",
     "portalAccount": "Account",
     "academicYears": "Academic Years",
     "classes": "Classes",
@@ -38,6 +40,10 @@
     "feeReminders": "Fee Reminders",
     "reminderHistory": "Reminder History",
     "collectionsReport": "Collections Report",
+    "marksEntry": "Marks entry",
+    "marksEntryGrid": "Grid",
+    "results": "Results",
+    "reportCard": "Report card",
     "more": "More"
   },
   "groups": {

@@ -28,7 +28,9 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/portal/account': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/attendance': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/calendar': 'guardian portal page, has its own portal nav, not the staff sidebar',
+  '/portal/exam-schedule': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/fees': 'guardian portal page, has its own portal nav, not the staff sidebar',
+  '/portal/results': 'guardian portal page, has its own portal nav, not the staff sidebar',
 
   // Platform admin — its own nav, out of scope for the staff sidebar.
   '/_platform/holiday-sets/': 'platform admin page, has its own nav, not the staff sidebar',
@@ -45,6 +47,14 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/calendar/import': 'action reached from the calendar page, not its own nav item',
   '/_staff/classes/$classId': 'detail route reached from the classes list',
   '/_staff/exams/$examId': 'detail route reached from the exams list',
+  '/_staff/marks/':
+    '[19.7.1] reached from the exam Progress tab’s outstanding-grid links, not its own sidebar item yet',
+  '/_staff/marks/$examId/$sectionId/$subjectId':
+    'detail route reached from /marks or the exam Progress tab',
+  '/_staff/results/':
+    '[19.8.1] reached from the palette (Process/Publish/Send result SMS actions) or the exam Results tab, not its own sidebar item yet',
+  '/_staff/results/$examId/$studentId':
+    'report card, reached from the exam Results tab or /results, not its own sidebar item',
   '/_staff/grading-scales/$scaleId': 'detail route reached from the grading scales list',
   '/_staff/guardians/$guardianId': 'detail route reached from the guardians list',
   '/_staff/invoices/$invoiceId': 'detail route reached from the invoices list',

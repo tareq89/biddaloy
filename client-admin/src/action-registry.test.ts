@@ -25,6 +25,9 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/students/new': '/_staff/students/new',
   '/students/import': '/_staff/students/import',
   '/grading-scales': '/_staff/grading-scales/',
+  '/marks': '/_staff/marks/',
+  '/results': '/_staff/results/',
+  '/exams': '/_staff/exams/',
 };
 
 /**
@@ -44,6 +47,11 @@ const REGISTERED_ACTION_FILES: Record<string, string> = {
   'students.add': 'client-admin/src/routes/_staff/students/new.tsx',
   'students.import': 'client-admin/src/routes/_staff/students/import.tsx',
   'grading.copyScale': 'client-admin/src/routes/_staff/grading-scales/-copy-scale-dialog.tsx',
+  'results.enterMarks': 'client-admin/src/routes/_staff/marks/index.tsx',
+  'results.process': 'client-admin/src/routes/_staff/results/-process-dialog.tsx',
+  'results.publish': 'client-admin/src/routes/_staff/results/-publish-dialog.tsx',
+  'results.sendSms': 'client-admin/src/routes/_staff/results/-send-result-sms-dialog.tsx',
+  'exams.copyComponents': 'client-admin/src/routes/_staff/exams/-copy-components-dialog.tsx',
 };
 
 /**

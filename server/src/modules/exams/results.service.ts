@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In } from 'typeorm';
+import { Repository, IsNull, In, Not } from 'typeorm';
 import { AuditAction, ExamComponentSource, ExamStatus, MarkStatus } from '@biddaloy/shared';
 import { Exam } from './entities/exam.entity';
 import { Result } from './entities/result.entity';
@@ -9,9 +9,13 @@ import { Mark } from './entities/mark.entity';
 import { ExamComponent } from './entities/exam-component.entity';
 import { ClassSubject } from '../academics/entities/class-subject.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
+import { Subject } from '../academics/entities/subject.entity';
 import { Student } from '../students/entities/student.entity';
 import { StudentSubjectChoice } from '../students/entities/student-subject-choice.entity';
 import { GradingScale } from '../grading/entities/grading-scale.entity';
+import { School } from '../schools/entities/school.entity';
+import { buildIssuerSnapshot, type IssuerSnapshot } from '../schools/profile/issuer-snapshot';
+import { buildLogoUrl } from '../schools/profile/logo-key';
 import { GradingBand } from '../grading/entities/grading-band.entity';
 import { resolveScale, gradeFor } from '../grading/scale-lookup';
 import {
@@ -69,6 +73,8 @@ export class ResultsService {
     private readonly classSubjectRepo: Repository<ClassSubject>,
     @InjectRepository(ClassSection)
     private readonly sectionRepo: Repository<ClassSection>,
+    @InjectRepository(Subject)
+    private readonly subjectRepo: Repository<Subject>,
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
     @InjectRepository(StudentSubjectChoice)
@@ -77,6 +83,8 @@ export class ResultsService {
     private readonly scaleRepo: Repository<GradingScale>,
     @InjectRepository(GradingBand)
     private readonly bandRepo: Repository<GradingBand>,
+    @InjectRepository(School)
+    private readonly schoolRepo: Repository<School>,
     private readonly attendanceComponentService: AttendanceComponentService,
     private readonly gridService: MarkGridService,
     private readonly auditService: AuditService,
@@ -626,5 +634,292 @@ export class ResultsService {
         manager,
       );
     });
+  }
+
+  /** [19.8.1] The results panel's per-student rows — not in the plan's own
+   * `## Files` list, but nothing upstream of this ticket ever added a read
+   * path for `results`/`result_subjects` (`process`/`publish`/`reopen`/`sms`
+   * are all write-only), so the panel has nothing to fetch without it.
+   * Reported as a plan divergence. Ordered by `position` (nulls last) so a
+   * fresh page load already reads top-to-bottom. */
+  async list(
+    examId: string,
+    tenantId: string,
+  ): Promise<
+    Array<{
+      student_id: string;
+      roll_number: number;
+      full_name: string;
+      total_marks: number;
+      gpa: number;
+      grade: string;
+      position: number | null;
+      is_fail: boolean;
+    }>
+  > {
+    const results = await this.resultRepo.find({
+      where: { exam_id: examId, tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    if (results.length === 0) return [];
+    const students = await this.studentRepo.find({
+      where: { id: In(results.map((r) => r.student_id)), tenant_id: tenantId },
+    });
+    const studentById = new Map(students.map((s) => [s.id, s]));
+
+    return results
+      .map((r) => {
+        const student = studentById.get(r.student_id);
+        return {
+          student_id: r.student_id,
+          roll_number: student?.roll_number ?? 0,
+          full_name: student?.full_name ?? '',
+          total_marks: Number(r.total_marks),
+          gpa: Number(r.gpa),
+          grade: r.grade,
+          position: r.position,
+          is_fail: r.is_fail,
+        };
+      })
+      .sort((a, b) => (a.position ?? Infinity) - (b.position ?? Infinity));
+  }
+
+  /** [19.8.1] One student's result for the report card — the subject
+   * breakdown plus each subject's component contributions (`obtained`
+   * marks a `ResultSubject` row never stores per-component, so those come
+   * from `Mark`/`ExamComponent` directly, same sources `computeAll` reads
+   * from). The grading scale's legend is fetched separately by the client
+   * (`useGradingScale(result.grading_scale_id)`) — no need to duplicate it
+   * here. */
+  async getStudentResult(
+    examId: string,
+    studentId: string,
+    tenantId: string,
+  ): Promise<{
+    student: { id: string; full_name: string; roll_number: number };
+    result: {
+      total_marks: number;
+      gpa: number;
+      grade: string;
+      position: number | null;
+      is_fail: boolean;
+      grading_scale_id: string;
+    };
+    subjects: Array<{
+      subject_id: string;
+      subject_name: string;
+      obtained: number;
+      grade: string;
+      gpa: number;
+      is_fail: boolean;
+      is_fourth_subject: boolean;
+      components: Array<{ name: string; full_marks: number; obtained: number | null }>;
+    }>;
+  } | null> {
+    const result = await this.resultRepo.findOne({
+      where: { exam_id: examId, student_id: studentId, tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    if (!result) return null;
+
+    const student = await this.studentRepo.findOne({
+      where: { id: studentId, tenant_id: tenantId },
+    });
+    const resultSubjects = await this.resultSubjectRepo.find({
+      where: { result_id: result.id, tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    const subjectIds = resultSubjects.map((s) => s.subject_id);
+    const subjects =
+      subjectIds.length === 0
+        ? []
+        : await this.subjectRepo.find({ where: { id: In(subjectIds), tenant_id: tenantId } });
+    const subjectNameById = new Map(subjects.map((s) => [s.id, s.name_en]));
+
+    const components = await this.componentRepo.find({
+      where: {
+        exam_id: examId,
+        subject_id: In(subjectIds.length ? subjectIds : ['']),
+        tenant_id: tenantId,
+        deleted_at: IsNull(),
+      },
+    });
+    const marks = await this.markRepo.find({
+      where: { exam_id: examId, student_id: studentId, tenant_id: tenantId },
+    });
+    const markByComponent = new Map(marks.map((m) => [m.component_id, m]));
+
+    return {
+      student: {
+        id: studentId,
+        full_name: student?.full_name ?? '',
+        roll_number: student?.roll_number ?? 0,
+      },
+      result: {
+        total_marks: Number(result.total_marks),
+        gpa: Number(result.gpa),
+        grade: result.grade,
+        position: result.position,
+        is_fail: result.is_fail,
+        grading_scale_id: result.grading_scale_id,
+      },
+      subjects: resultSubjects.map((rs) => ({
+        subject_id: rs.subject_id,
+        subject_name: subjectNameById.get(rs.subject_id) ?? '',
+        obtained: Number(rs.obtained),
+        grade: rs.grade,
+        gpa: Number(rs.gpa),
+        is_fail: rs.is_fail,
+        is_fourth_subject: rs.is_fourth_subject,
+        components: components
+          .filter((c) => c.subject_id === rs.subject_id)
+          .map((c) => {
+            const mark = markByComponent.get(c.id);
+            return {
+              name: c.name,
+              full_marks: Number(c.full_marks),
+              obtained: mark && mark.value !== null ? Number(mark.value) : null,
+            };
+          }),
+      })),
+    };
+  }
+
+  /** [19.9.1] The report-card data for one student/exam, for the family
+   * portal (`StudentResultsController`) — `getStudentResult` plus the exam
+   * name, the grading scale's legend, and the school's own identity
+   * (`IssuerSnapshot`, live — not frozen — since a result has none of its
+   * own the way an invoice/payment does), none of which `getStudentResult`
+   * provides (staff already has `GET /grading/scales/:id` and `GET
+   * /schools/me/profile`; a PARENT/STUDENT has neither, both ADMIN-only,
+   * so this route bakes both in rather than requiring calls it could never
+   * make).
+   *
+   * `publishedOnly` mirrors `listForStudent`'s gate: a PARENT/STUDENT
+   * caller passes `true` and gets `null` for an unpublished (or
+   * nonexistent) exam's result — same "absent, not greyed" contract
+   * (D19) as the list. Staff pass `false`.
+   */
+  async getStudentResultCard(
+    examId: string,
+    studentId: string,
+    tenantId: string,
+    publishedOnly: boolean,
+  ): Promise<{
+    exam_name: string;
+    student: { full_name: string; roll_number: number };
+    result: {
+      total_marks: number;
+      gpa: number;
+      grade: string;
+      position: number | null;
+      is_fail: boolean;
+    };
+    subjects: Array<{
+      subject_name: string;
+      obtained: number;
+      grade: string;
+      gpa: number;
+      is_fail: boolean;
+      is_fourth_subject: boolean;
+      components: Array<{ name: string; full_marks: number; obtained: number | null }>;
+    }>;
+    legend: Array<{ grade: string; gpa: number | null; comment: string | null }>;
+    issuer: IssuerSnapshot;
+    logo_url: string | null;
+  } | null> {
+    const detail = await this.getStudentResult(examId, studentId, tenantId);
+    if (!detail) return null;
+
+    const exam = await this.examRepo.findOne({
+      where: { id: examId, tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    if (!exam) return null;
+    if (publishedOnly && exam.status !== ExamStatus.PUBLISHED) return null;
+
+    const bandRows = await this.bandRepo.find({
+      where: {
+        scale_id: detail.result.grading_scale_id,
+        tenant_id: tenantId,
+        deleted_at: IsNull(),
+      },
+      order: { sequence: 'ASC' },
+    });
+    const school = await this.schoolRepo.findOne({ where: { id: tenantId } });
+    if (!school) return null;
+
+    return {
+      exam_name: exam.name,
+      student: detail.student,
+      result: detail.result,
+      subjects: detail.subjects,
+      legend: bandRows.map((b) => ({
+        grade: b.grade,
+        gpa: b.gpa === null ? null : Number(b.gpa),
+        comment: b.comment,
+      })),
+      issuer: buildIssuerSnapshot(school),
+      logo_url: buildLogoUrl(school.id, school.logo_key),
+    };
+  }
+
+  /** [19.9.1] Every exam this student has a `Result` row for, newest first
+   * (`Exam.published_at` for a published exam, falling back to
+   * `computed_at` for a processed-but-unpublished one a staff caller is
+   * viewing). `publishedOnly` is the ONE gate between this and the family
+   * portal: a guardian/student caller must never see an unpublished exam
+   * in the list at all — not greyed out, absent (D19) — so it is filtered
+   * here, server-side, rather than trusted to the client. Staff (the
+   * results panel on student detail) pass `publishedOnly: false` and get
+   * every exam including unpublished ones, so the panel can label each
+   * one itself. */
+  async listForStudent(
+    studentId: string,
+    tenantId: string,
+    publishedOnly: boolean,
+  ): Promise<
+    Array<{
+      exam_id: string;
+      exam_name: string;
+      exam_kind: string;
+      published: boolean;
+      total_marks: number;
+      gpa: number;
+      grade: string;
+      position: number | null;
+      is_fail: boolean;
+    }>
+  > {
+    const where: Record<string, unknown> = {
+      student_id: studentId,
+      tenant_id: tenantId,
+      deleted_at: IsNull(),
+    };
+    if (publishedOnly) {
+      where.published_at = Not(IsNull());
+    }
+    const results = await this.resultRepo.find({ where: where as never });
+    if (results.length === 0) return [];
+
+    const exams = await this.examRepo.find({
+      where: { id: In(results.map((r) => r.exam_id)), tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    const examById = new Map(exams.map((e) => [e.id, e]));
+
+    return results
+      .map((r) => {
+        const exam = examById.get(r.exam_id);
+        return {
+          exam_id: r.exam_id,
+          exam_name: exam?.name ?? '',
+          exam_kind: exam?.kind ?? '',
+          published: r.published_at !== null,
+          total_marks: Number(r.total_marks),
+          gpa: Number(r.gpa),
+          grade: r.grade,
+          position: r.position,
+          is_fail: r.is_fail,
+          _sortDate: (r.published_at ?? r.computed_at).getTime(),
+        };
+      })
+      .sort((a, b) => b._sortDate - a._sortDate)
+      .map(({ _sortDate: _drop, ...row }) => row);
   }
 }

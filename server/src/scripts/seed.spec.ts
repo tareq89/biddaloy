@@ -23,6 +23,13 @@ import type { AttendanceDevice } from '../modules/attendance/entities/attendance
 import type { ClassSubject } from '../modules/academics/entities/class-subject.entity';
 import type { GradingScale } from '../modules/grading/entities/grading-scale.entity';
 import type { GradingBand } from '../modules/grading/entities/grading-band.entity';
+import type { Exam } from '../modules/exams/entities/exam.entity';
+import type { ExamComponent } from '../modules/exams/entities/exam-component.entity';
+import type { Mark } from '../modules/exams/entities/mark.entity';
+import type { MarkGrid } from '../modules/exams/entities/mark-grid.entity';
+import type { Result } from '../modules/exams/entities/result.entity';
+import type { ResultSubject } from '../modules/exams/entities/result-subject.entity';
+import type { ExamSchedule } from '../modules/exams/entities/exam-schedule.entity';
 import { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
 import { ensureDemoOrganisation } from './seed.util';
 
@@ -182,6 +189,34 @@ function makeRepos() {
       clock,
       'grading-band',
     ).asRepository() as unknown as Repository<GradingBand>,
+    examRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'exam',
+    ).asRepository() as unknown as Repository<Exam>,
+    examComponentRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'exam-component',
+    ).asRepository() as unknown as Repository<ExamComponent>,
+    markGridRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'mark-grid',
+    ).asRepository() as unknown as Repository<MarkGrid>,
+    markRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'mark',
+    ).asRepository() as unknown as Repository<Mark>,
+    resultRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'result',
+    ).asRepository() as unknown as Repository<Result>,
+    resultSubjectRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'result-subject',
+    ).asRepository() as unknown as Repository<ResultSubject>,
+    examScheduleRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'exam-schedule',
+    ).asRepository() as unknown as Repository<ExamSchedule>,
   } satisfies SeedAccountRepositories;
   return { repos, users, schools, userTenants, students };
 }

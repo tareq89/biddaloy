@@ -5,11 +5,9 @@
  * it links straight into that section-subject's grid rather than
  * requiring a second click through a summary.
  *
- * The marks-entry grid page itself is #903 (19.7.1), not yet built on
- * this branch — the link below is a plain anchor (not a typed router
- * `Link`) carrying `section`/`subject` search params at the conventional
- * `/exams/:examId/marks` path 19.7.1 will mount, so this ships without
- * depending on a route that doesn't exist yet.
+ * [19.7.1] The marks-entry grid page landed at `/marks/$examId/$sectionId
+ * /$subjectId` (not `/exams/:examId/marks` as originally sketched here) —
+ * a typed router `Link` now, matching that route's real path segments.
  */
 import {
   ErrorState,
@@ -22,6 +20,7 @@ import {
 } from '@biddaloy/ui/components';
 import { useExamProgress } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { Link } from '@tanstack/react-router';
 import * as React from 'react';
 
 export interface ProgressPanelProps {
@@ -91,12 +90,13 @@ export function ProgressPanel({ examId }: ProgressPanelProps) {
           {outstanding.map((row) => (
             <tr key={`${row.section_id}:${row.subject_id}`} className="border-b">
               <td className="py-2">
-                <a
-                  href={`/exams/${examId}/marks?section=${row.section_id}&subject=${row.subject_id}`}
+                <Link
+                  to="/marks/$examId/$sectionId/$subjectId"
+                  params={{ examId, sectionId: row.section_id, subjectId: row.subject_id }}
                   className="font-medium text-primary underline"
                 >
                   {row.section_name}
-                </a>
+                </Link>
               </td>
               <td className="py-2">{t(`progressPanel.state${row.state}`)}</td>
             </tr>

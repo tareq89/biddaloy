@@ -131,4 +131,46 @@ export const ACTIONS: readonly PaletteAction[] = [
     // second copy of the dialog).
     run: (ctx) => ctx.navigate({ to: '/grading-scales' }),
   },
+  {
+    id: 'results.enterMarks',
+    label: { en: 'Enter marks', bn: 'নম্বর প্রবেশ করান' },
+    permission: Permission.MARK_VIEW,
+    kind: 'navigate',
+    run: (ctx) => ctx.navigate({ to: '/marks' }),
+  },
+  {
+    id: 'results.process',
+    label: { en: 'Process result', bn: 'ফলাফল প্রক্রিয়া করুন' },
+    permission: Permission.RESULT_PROCESS,
+    kind: 'modal',
+    // Same "no entity id" pattern as `grading.copyScale` above — lands on
+    // the exam picker (`/results`) rather than a specific exam's dialog.
+    run: (ctx) => ctx.navigate({ to: '/results' }),
+  },
+  {
+    id: 'results.publish',
+    label: { en: 'Publish result', bn: 'ফলাফল প্রকাশ করুন' },
+    // Matches `/_staff/results/`'s own gate (`RESULT_PROCESS`), not
+    // `RESULT_PUBLISH` — see `route-permissions.ts`'s comment on why the
+    // whole route shares one permission.
+    permission: Permission.RESULT_PROCESS,
+    kind: 'modal',
+    run: (ctx) => ctx.navigate({ to: '/results' }),
+  },
+  {
+    id: 'results.sendSms',
+    label: { en: 'Send result SMS', bn: 'ফলাফল এসএমএস পাঠান' },
+    permission: Permission.RESULT_PROCESS,
+    kind: 'modal',
+    run: (ctx) => ctx.navigate({ to: '/results' }),
+  },
+  {
+    id: 'exams.copyComponents',
+    label: { en: 'Copy exam components', bn: 'পরীক্ষার উপাদান কপি করুন' },
+    permission: Permission.EXAM_MANAGE,
+    kind: 'modal',
+    // The dialog itself (`-copy-components-dialog.tsx`) shipped with
+    // #902 on the exam Setup tab; this only registers the palette entry.
+    run: (ctx) => ctx.navigate({ to: '/exams' }),
+  },
 ];

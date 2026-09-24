@@ -7,6 +7,7 @@ import { Mark } from './entities/mark.entity';
 import { MarkGrid } from './entities/mark-grid.entity';
 import { Result } from './entities/result.entity';
 import { ResultSubject } from './entities/result-subject.entity';
+import { ExamSchedule } from './entities/exam-schedule.entity';
 import { StudentSubjectChoice } from '../students/entities/student-subject-choice.entity';
 import { Student } from '../students/entities/student.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
@@ -19,6 +20,7 @@ import { TeacherClassSection } from '../academics/entities/teacher-class-section
 import { GradingScale } from '../grading/entities/grading-scale.entity';
 import { GradingBand } from '../grading/entities/grading-band.entity';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
+import { School } from '../schools/entities/school.entity';
 import { AuditModule } from '../audit/audit.module';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { CreditsModule } from '../communications/credits/credits.module';
@@ -35,8 +37,14 @@ import { MarksController } from './marks.controller';
 import { AttendanceComponentService } from './attendance-component.service';
 import { MarksAuthorizationService } from './marks-authorization.util';
 import { ResultsService } from './results.service';
-import { ResultsController } from './results.controller';
+import { ResultsController, StudentResultsController } from './results.controller';
 import { ResultSmsService } from './result-sms.service';
+import { FamilyAccessService } from '../students/family-access.service';
+import { ExamSchedulesService } from './exam-schedules.service';
+import {
+  ExamSchedulesController,
+  StudentExamScheduleController,
+} from './exam-schedules.controller';
 
 /**
  * [19.2.1]/[19.3.1] Registers the seven exam/marks/results tables plus the
@@ -56,6 +64,7 @@ import { ResultSmsService } from './result-sms.service';
       MarkGrid,
       Result,
       ResultSubject,
+      ExamSchedule,
       StudentSubjectChoice,
       Student,
       ClassSection,
@@ -68,6 +77,7 @@ import { ResultSmsService } from './result-sms.service';
       GradingScale,
       GradingBand,
       CommunicationLog,
+      School,
     ]),
     AuditModule,
     AttendanceModule,
@@ -84,6 +94,9 @@ import { ResultSmsService } from './result-sms.service';
     SubjectChoicesController,
     MarksController,
     ResultsController,
+    StudentResultsController,
+    ExamSchedulesController,
+    StudentExamScheduleController,
   ],
   providers: [
     ExamsService,
@@ -95,6 +108,8 @@ import { ResultSmsService } from './result-sms.service';
     MarksAuthorizationService,
     ResultsService,
     ResultSmsService,
+    FamilyAccessService,
+    ExamSchedulesService,
   ],
   exports: [TypeOrmModule],
 })
