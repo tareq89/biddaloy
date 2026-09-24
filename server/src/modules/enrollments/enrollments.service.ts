@@ -39,8 +39,36 @@ export class EnrollmentService {
     userId: string | null = null,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<Enrollment> {
+    return this.repo.manager.transaction((manager) =>
+      this.createInTransaction(manager, dto, tenantId, userId, context),
+    );
+  }
+
+  /**
+   * Same as `create()` but runs inside a caller-supplied transaction manager
+   * instead of opening its own — so a caller (e.g. a promotion batch) can
+   * compose several enrollment writes into one atomic transaction.
+   */
+  async createInTransaction(
+    manager: EntityManager,
+    dto: CreateEnrollmentDto,
+    tenantId: string,
+    userId: string | null = null,
+    context: RequestContext = { ip: null, userAgent: null },
+    opts?: { rollNumber?: number },
+  ): Promise<Enrollment> {
+    // Reads use the caller-supplied `manager` (not the injected repos) so a
+    // caller composing several `createInTransaction` calls in one external
+    // transaction (e.g. a promotion batch) sees its own uncommitted writes
+    // from earlier in that same transaction — including the duplicate-active
+    // check below.
+    const studentRepo = manager.getRepository(Student);
+    const classRepo = manager.getRepository(Class);
+    const sectionRepo = manager.getRepository(ClassSection);
+    const academicYearRepo = manager.getRepository(AcademicYear);
+
     // Verify student exists and belongs to tenant via class_section -> class chain
-    const student = await this.studentRepo.findOne({
+    const student = await studentRepo.findOne({
       where: { id: dto.student_id, deleted_at: IsNull() },
       relations: ['class_section', 'class_section.class'],
     });
@@ -52,7 +80,7 @@ export class EnrollmentService {
     }
 
     // Verify class belongs to tenant
-    const cls = await this.classRepo.findOne({
+    const cls = await classRepo.findOne({
       where: { id: dto.class_id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!cls) {
@@ -60,7 +88,7 @@ export class EnrollmentService {
     }
 
     // Verify academic year exists for tenant
-    const academicYear = await this.academicYearRepo.findOne({
+    const academicYear = await academicYearRepo.findOne({
       where: { id: dto.academic_year_id, tenant_id: tenantId, deleted_at: IsNull() },
     });
     if (!academicYear) {
@@ -69,7 +97,7 @@ export class EnrollmentService {
 
     // Verify section exists and belongs to tenant/class when provided
     if (dto.section_id) {
-      const section = await this.sectionRepo.findOne({
+      const section = await sectionRepo.findOne({
         where: {
           id: dto.section_id,
           class_id: dto.class_id,
@@ -83,7 +111,7 @@ export class EnrollmentService {
     }
 
     // Check for duplicate active enrollment
-    const existing = await this.repo.findOne({
+    const existing = await manager.getRepository(Enrollment).findOne({
       where: {
         student_id: dto.student_id,
         academic_year_id: dto.academic_year_id,
@@ -101,47 +129,51 @@ export class EnrollmentService {
     // student is physically placed there — sync `Student.class_section_id`
     // (and reassign the target section's roll number) inside the same
     // transaction as the insert, so a rollback undoes both.
-    return this.repo.manager.transaction(async (manager) => {
-      const repo = manager.getRepository(Enrollment);
-      const entity = repo.create({
-        student_id: dto.student_id,
-        class_id: dto.class_id,
-        section_id: dto.section_id ?? null,
-        academic_year_id: dto.academic_year_id,
-        tenant_id: tenantId,
-      });
-      const saved = await repo.save(entity);
-
-      if (saved.section_id) {
-        await this.syncStudentPlacement(manager, saved.student_id, saved.section_id, tenantId);
-      }
-
-      // Enrollment is its own audited entity — never written as a Student
-      // entry. Metadata carries the ids a reader needs (student/class/
-      // section/academic year); no nested student snapshot.
-      await this.auditService.record(
-        {
-          action: AuditAction.CREATE,
-          entity_type: 'Enrollment',
-          entity_id: saved.id,
-          tenant_id: tenantId,
-          performed_by_user_id: userId,
-          ip_address: context.ip,
-          user_agent: context.userAgent,
-          old_values: null,
-          new_values: {
-            student_id: saved.student_id,
-            class_id: saved.class_id,
-            section_id: saved.section_id,
-            academic_year_id: saved.academic_year_id,
-            enrollment_status: saved.enrollment_status,
-          },
-        },
-        manager,
-      );
-
-      return saved;
+    const repo = manager.getRepository(Enrollment);
+    const entity = repo.create({
+      student_id: dto.student_id,
+      class_id: dto.class_id,
+      section_id: dto.section_id ?? null,
+      academic_year_id: dto.academic_year_id,
+      tenant_id: tenantId,
     });
+    const saved = await repo.save(entity);
+
+    if (saved.section_id) {
+      await this.syncStudentPlacement(
+        manager,
+        saved.student_id,
+        saved.section_id,
+        tenantId,
+        opts?.rollNumber,
+      );
+    }
+
+    // Enrollment is its own audited entity — never written as a Student
+    // entry. Metadata carries the ids a reader needs (student/class/
+    // section/academic year); no nested student snapshot.
+    await this.auditService.record(
+      {
+        action: AuditAction.CREATE,
+        entity_type: 'Enrollment',
+        entity_id: saved.id,
+        tenant_id: tenantId,
+        performed_by_user_id: userId,
+        ip_address: context.ip,
+        user_agent: context.userAgent,
+        old_values: null,
+        new_values: {
+          student_id: saved.student_id,
+          class_id: saved.class_id,
+          section_id: saved.section_id,
+          academic_year_id: saved.academic_year_id,
+          enrollment_status: saved.enrollment_status,
+        },
+      },
+      manager,
+    );
+
+    return saved;
   }
 
   async findByStudent(studentId: string, tenantId: string) {
@@ -177,6 +209,7 @@ export class EnrollmentService {
       throw new NotFoundException(`Student with ID "${studentId}" not found`);
     }
 
+    // a promoted student has one ACTIVE enrollment per year
     return this.repo.findOne({
       where: {
         student_id: studentId,
@@ -184,6 +217,9 @@ export class EnrollmentService {
         enrollment_status: EnrollmentStatus.ACTIVE,
       },
       relations: ['class', 'section', 'academic_year'],
+      // `nulls: 'LAST'` so a row whose academic_year was soft-deleted (join
+      // drops it, leaving `academic_year: null`) never outranks a live year.
+      order: { academic_year: { start_date: { direction: 'DESC', nulls: 'LAST' } } },
     });
   }
 
@@ -339,6 +375,7 @@ export class EnrollmentService {
     studentId: string,
     targetSectionId: string,
     tenantId: string,
+    rollNumber?: number,
   ): Promise<void> {
     const studentRepo = manager.getRepository(Student);
     const student = await studentRepo.findOne({ where: { id: studentId, tenant_id: tenantId } });
@@ -346,10 +383,11 @@ export class EnrollmentService {
       return;
     }
 
-    const rollNumber = await nextRollNumber(manager, targetSectionId, tenantId);
+    const resolvedRollNumber =
+      rollNumber ?? (await nextRollNumber(manager, targetSectionId, tenantId));
     await studentRepo.update(
       { id: studentId, tenant_id: tenantId },
-      { class_section_id: targetSectionId, roll_number: rollNumber },
+      { class_section_id: targetSectionId, roll_number: resolvedRollNumber },
     );
   }
 }
