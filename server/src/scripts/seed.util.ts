@@ -1809,6 +1809,11 @@ export async function ensureExamsDemoSeed(
       `  Exams demo seed: +${result.exams} exams, +${result.components} components, ` +
         `+${result.grids} grids, +${result.marks} marks, +${result.results} results, ` +
         `+${result.schedules} schedules`,
+    );
+  }
+  return result;
+}
+
 // ===========================================================================
 // [22.3.6] Homework/syllabus demo data
 // ===========================================================================
