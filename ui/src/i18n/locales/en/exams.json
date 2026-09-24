@@ -48,9 +48,25 @@
     "tabs": {
       "progress": "Progress",
       "setup": "Setup",
+      "schedule": "Schedule",
       "results": "Results",
       "fourthSubject": "Subject choices"
     }
+  },
+  "schedulePanel": {
+    "loadError": "Couldn't load the schedule.",
+    "tableCaption": "This exam's schedule, sorted by date and start time",
+    "columnSubject": "Subject",
+    "columnDate": "Date",
+    "columnStartsAt": "Starts at",
+    "columnEndsAt": "Ends at",
+    "columnVenue": "Venue",
+    "columnActions": "Actions",
+    "remove": "Remove",
+    "empty": "No subjects scheduled yet.",
+    "addSubjectLabel": "Subject",
+    "addSubjectPlaceholder": "Select a subject",
+    "add": "Add"
   },
   "progressPanel": {
     "loadError": "Couldn't load submission progress.",
@@ -124,6 +140,18 @@
     "label": "Fourth subject",
     "errorMessage": "Couldn't save the choice."
   },
+  "studentResultsPanel": {
+    "loadError": "Couldn't load results.",
+    "empty": "No results yet for this student.",
+    "caption": "Every exam this student has a result for",
+    "columnExam": "Exam",
+    "columnGrade": "Grade",
+    "columnGpa": "GPA",
+    "columnStatus": "Status",
+    "failTag": "Fail",
+    "published": "Published",
+    "notPublished": "Not yet published"
+  },
   "marksList": {
     "title": "Marks entry",
     "examLabel": "Exam",
@@ -173,5 +201,79 @@
     "cancel": "Cancel",
     "confirm": "Submit",
     "shortcutHint": "Ctrl+Enter"
+  },
+  "resultsPanel": {
+    "loadError": "Couldn't load results.",
+    "process": "Process result",
+    "publish": "Publish",
+    "reopen": "Reopen",
+    "sendSms": "Send result SMS",
+    "failFilter": "Fails only",
+    "tableCaption": "Per-student results for this exam",
+    "columnPosition": "Position",
+    "columnStudent": "Roll · Name",
+    "columnTotal": "Total",
+    "columnGpa": "GPA",
+    "columnGrade": "Grade",
+    "columnStatus": "Status",
+    "fail": "Fail",
+    "pass": "Pass",
+    "empty": "No results yet — process this exam first."
+  },
+  "processDialog": {
+    "title": "Process this exam's results?",
+    "description": "Every enrolled student's result is computed from the currently submitted marks.",
+    "outstandingCount": "{{count}} grid(s) are still Draft and haven't been submitted:",
+    "forceWarning": "Processing anyway includes unsubmitted grids as-is. This override is recorded in the audit log.",
+    "processAnyway": "Process anyway",
+    "confirm": "Process",
+    "errorMessage": "Couldn't process this exam."
+  },
+  "publishDialog": {
+    "title": "Publish these results?",
+    "description": "{{count}} student result(s) become visible to guardians.",
+    "confirm": "Publish",
+    "errorMessage": "Couldn't publish these results."
+  },
+  "reopenDialog": {
+    "title": "Reopen this exam's results?",
+    "impact": "{{count}} published result(s) will be unpublished and marks become editable again. This needs step-up approval.",
+    "confirm": "Reopen",
+    "errorMessage": "Couldn't reopen this exam."
+  },
+  "smsDialog": {
+    "title": "Send result SMS",
+    "description": "Up to {{count}} guardian(s) will be sent their child's result by SMS. Each message uses one SMS credit.",
+    "disabledUnpublished": "Results must be published before an SMS can be sent.",
+    "queued": "{{count}} message(s) queued.",
+    "send": "Send",
+    "errorMessage": "Couldn't send the result SMS."
+  },
+  "resultsRoute": {
+    "title": "Results",
+    "examLabel": "Exam",
+    "examPlaceholder": "Select an exam",
+    "loadError": "Couldn't load exams.",
+    "selectExamHint": "Select an exam to see its results."
+  },
+  "reportCard": {
+    "back": "Back to exam",
+    "print": "Print",
+    "loadError": "Couldn't load this report card.",
+    "examLabel": "Exam",
+    "rollLabel": "Roll",
+    "subject": "Subject",
+    "obtained": "Obtained",
+    "grade": "Grade",
+    "gpa": "GPA",
+    "totalMarks": "Total marks",
+    "totalGpa": "Total GPA",
+    "overallGrade": "Overall grade",
+    "position": "Position",
+    "positionValue": "{{position}}",
+    "fail": "Fail",
+    "fourthSubject": "4th subject",
+    "absent": "Absent",
+    "legendTitle": "Grade legend"
   }
 }

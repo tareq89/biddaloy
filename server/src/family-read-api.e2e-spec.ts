@@ -131,6 +131,12 @@ describe('[5.1] Family-facing read API', () => {
       name: 'GET /students/:id/schedules',
       path: (id: string) => `${API}/students/${id}/schedules`,
     },
+    // [19.9.1] The portal results route — inherits every cross-family,
+    // cross-tenant and soft-delete case this table already drives.
+    {
+      name: 'GET /students/:id/results',
+      path: (id: string) => `${API}/students/${id}/results`,
+    },
   ];
 
   beforeAll(async () => {

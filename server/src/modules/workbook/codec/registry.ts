@@ -4,6 +4,7 @@ import { academicsTabs } from '../tabs/academics';
 import { peopleTabs } from '../tabs/people';
 import { feesTabs } from '../tabs/fees';
 import { gradingTabs } from '../tabs/grading';
+import { examsTabs } from '../tabs/exams';
 
 /**
  * Every tab name a backup workbook may contain, in apply order (epic 14.0
@@ -35,6 +36,14 @@ export const EXPECTED_TABS = [
   'payment_allocations',
   'grading_scales',
   'grading_bands',
+  'exams',
+  'exam_components',
+  'exam_schedules',
+  'mark_grids',
+  'marks',
+  'results',
+  'result_subjects',
+  'student_subject_choices',
 ] as const;
 
 export type ExpectedTabName = (typeof EXPECTED_TABS)[number];
@@ -50,6 +59,7 @@ export const ALL_TABS: readonly TabSpec<any, any>[] = [
   ...peopleTabs,
   ...feesTabs,
   ...gradingTabs,
+  ...examsTabs,
 ];
 
 export class RegistryError extends Error {

@@ -25,13 +25,6 @@ import { WalletTransaction } from '../../fees/entities/wallet-transaction.entity
 import { InvoiceShareToken } from '../../invoices/entities/invoice-share-token.entity';
 import { PushSubscription } from '../../push/entities/push-subscription.entity';
 import { WorkbookJob } from '../jobs/workbook-job.entity';
-import { Exam } from '../../exams/entities/exam.entity';
-import { ExamComponent } from '../../exams/entities/exam-component.entity';
-import { Mark } from '../../exams/entities/mark.entity';
-import { MarkGrid } from '../../exams/entities/mark-grid.entity';
-import { Result } from '../../exams/entities/result.entity';
-import { ResultSubject } from '../../exams/entities/result-subject.entity';
-import { StudentSubjectChoice } from '../../students/entities/student-subject-choice.entity';
 
 /**
  * Entities that `registry.completeness.spec.ts` allows to have no workbook
@@ -93,27 +86,4 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   ],
   [StudentWallet, 'Tenant-scoped student wallet balance, no tab yet — tracked in #856.'],
   [WalletTransaction, 'Tenant-scoped wallet transaction history, no tab yet — tracked in #856.'],
-
-  // [19.2.1] Epic 19.0's exams/marks/results spine — workbook tabs are
-  // 19.10.1's job (#906) by design, per the epic's "Backup & restore
-  // coverage" section, so these land here until that ticket adds them.
-  [Exam, 'Tenant-scoped exam sitting, workbook tab lands in 19.10.1 — tracked in #906.'],
-  [
-    ExamComponent,
-    'Tenant-scoped exam-subject component, workbook tab lands in 19.10.1 — tracked in #906.',
-  ],
-  [Mark, 'Tenant-scoped student mark, workbook tab lands in 19.10.1 — tracked in #906.'],
-  [
-    MarkGrid,
-    'Tenant-scoped marks-entry grid state, workbook tab lands in 19.10.1 — tracked in #906.',
-  ],
-  [Result, 'Tenant-scoped computed result, workbook tab lands in 19.10.1 — tracked in #906.'],
-  [
-    ResultSubject,
-    'Tenant-scoped per-subject result line, workbook tab lands in 19.10.1 — tracked in #906.',
-  ],
-  [
-    StudentSubjectChoice,
-    'Tenant-scoped fourth-subject choice, workbook tab lands in 19.10.1 — tracked in #906.',
-  ],
 ]);
