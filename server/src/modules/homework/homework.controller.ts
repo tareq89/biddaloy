@@ -11,6 +11,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { HomeworkService } from './homework.service';
 import { HomeworkAnalyticsService } from './homework-analytics.service';
+import { HomeworkAccessService } from './homework-access.service';
 import {
   AssignHomeworkDto,
   CreateHomeworkDto,
@@ -32,6 +33,7 @@ export class HomeworkController {
   constructor(
     private readonly homeworkService: HomeworkService,
     private readonly homeworkAnalyticsService: HomeworkAnalyticsService,
+    private readonly homeworkAccessService: HomeworkAccessService,
   ) {}
 
   @Post('homework')
@@ -80,8 +82,15 @@ export class HomeworkController {
   @ApiOperation({ summary: 'Completion/defaulter rollup for one student (D13).' })
   async studentRollup(
     @Param('studentId') studentId: string,
-    @CurrentTenant() tenant: { id: string },
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: { sub: string },
   ) {
+    await this.homeworkAccessService.assertCanViewStudent(
+      tenant.role,
+      user.sub,
+      studentId,
+      tenant.id,
+    );
     return this.homeworkAnalyticsService.getStudentRollup(studentId, tenant.id);
   }
 
@@ -91,8 +100,15 @@ export class HomeworkController {
   @ApiOperation({ summary: 'Completion/defaulter rollup for one section (D13).' })
   async sectionRollup(
     @Param('sectionId') sectionId: string,
-    @CurrentTenant() tenant: { id: string },
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: { sub: string },
   ) {
+    await this.homeworkAccessService.assertCanViewSection(
+      tenant.role,
+      user.sub,
+      sectionId,
+      tenant.id,
+    );
     return this.homeworkAnalyticsService.getSectionRollup(sectionId, tenant.id);
   }
 
@@ -102,7 +118,12 @@ export class HomeworkController {
   @ApiOperation({
     summary: 'Completion/defaulter + syllabus-completion rollup for one class (D13/D29).',
   })
-  async classRollup(@Param('classId') classId: string, @CurrentTenant() tenant: { id: string }) {
+  async classRollup(
+    @Param('classId') classId: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: { sub: string },
+  ) {
+    await this.homeworkAccessService.assertCanViewClass(tenant.role, user.sub, classId, tenant.id);
     return this.homeworkAnalyticsService.getClassRollup(classId, tenant.id);
   }
 

@@ -196,4 +196,89 @@ describe('HomeworkAccessService', () => {
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
+
+  // Analytics rollups (D13) are subject-agnostic — a TEACHER may view a
+  // section/class rollup off *any* teacher_class_sections row for it, not
+  // just one matching a specific subject. Regression coverage for the
+  // security gap found during wave-4 integration: the analytics routes
+  // originally had no object-level scoping at all, so any TEACHER in the
+  // tenant could read any other section's/class's rollup.
+  describe('assertCanViewSection', () => {
+    it('allows ADMIN for any section in the tenant', async () => {
+      sectionRepo.findOne.mockResolvedValue({ id: SECTION_ID, tenant_id: TENANT_ID });
+      await expect(
+        service.assertCanViewSection(UserRole.ADMIN, USER_ID, SECTION_ID, TENANT_ID),
+      ).resolves.toBeUndefined();
+    });
+
+    it('throws for ADMIN when the section does not exist in this tenant', async () => {
+      sectionRepo.findOne.mockResolvedValue(null);
+      await expect(
+        service.assertCanViewSection(UserRole.ADMIN, USER_ID, SECTION_ID, TENANT_ID),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('allows a TEACHER with any teacher_class_sections row for the section, subject-agnostic', async () => {
+      getOne.mockResolvedValue({ id: 'tcs-1' });
+      await expect(
+        service.assertCanViewSection(UserRole.TEACHER, USER_ID, SECTION_ID, TENANT_ID),
+      ).resolves.toBeUndefined();
+    });
+
+    it('denies a TEACHER with no teacher_class_sections row for the section', async () => {
+      getOne.mockResolvedValue(null);
+      await expect(
+        service.assertCanViewSection(UserRole.TEACHER, 'unrelated-teacher', SECTION_ID, TENANT_ID),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('denies any other role', async () => {
+      await expect(
+        service.assertCanViewSection(UserRole.PARENT, USER_ID, SECTION_ID, TENANT_ID),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  describe('assertCanViewClass', () => {
+    it('allows ADMIN unconditionally', async () => {
+      await expect(
+        service.assertCanViewClass(UserRole.ADMIN, USER_ID, 'class-1', TENANT_ID),
+      ).resolves.toBeUndefined();
+    });
+
+    it('allows a TEACHER with any teacher_class_sections row in a section of the class', async () => {
+      getOne.mockResolvedValue({ id: 'tcs-1' });
+      await expect(
+        service.assertCanViewClass(UserRole.TEACHER, USER_ID, 'class-1', TENANT_ID),
+      ).resolves.toBeUndefined();
+    });
+
+    it('denies a TEACHER with no section in the class', async () => {
+      getOne.mockResolvedValue(null);
+      await expect(
+        service.assertCanViewClass(UserRole.TEACHER, 'unrelated-teacher', 'class-1', TENANT_ID),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  describe('assertCanViewStudent', () => {
+    it('resolves the student section and delegates to assertCanViewSection', async () => {
+      studentRepo.findOne.mockResolvedValue({
+        id: 'student-1',
+        class_section_id: SECTION_ID,
+        tenant_id: TENANT_ID,
+      });
+      getOne.mockResolvedValue({ id: 'tcs-1' });
+      await expect(
+        service.assertCanViewStudent(UserRole.TEACHER, USER_ID, 'student-1', TENANT_ID),
+      ).resolves.toBeUndefined();
+    });
+
+    it('throws when the student does not exist in this tenant', async () => {
+      studentRepo.findOne.mockResolvedValue(null);
+      await expect(
+        service.assertCanViewStudent(UserRole.TEACHER, USER_ID, 'student-1', TENANT_ID),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
 });
