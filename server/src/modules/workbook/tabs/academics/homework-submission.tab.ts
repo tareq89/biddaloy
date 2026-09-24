@@ -180,6 +180,9 @@ export const homeworkSubmissionTab: TabSpec<HomeworkSubmission, HomeworkSubmissi
     const changed: string[] = [];
     if (row.status !== existing.status) changed.push('status');
     if (row.marks !== existing.marks) changed.push('marks');
+    if (JSON.stringify(row.attachments) !== JSON.stringify(existing.attachments)) {
+      changed.push('attachments');
+    }
     return changed;
   },
 

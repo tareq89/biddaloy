@@ -173,6 +173,9 @@ export const homeworkTab: TabSpec<Homework, HomeworkRow> = {
     if (row.subject_id !== existing.subject_id) changed.push('subject');
     if (row.class_id !== existing.class_id) changed.push('class');
     if (row.grading_mode !== existing.grading_mode) changed.push('grading_mode');
+    if (JSON.stringify(row.attachments) !== JSON.stringify(existing.attachments)) {
+      changed.push('attachments');
+    }
     return changed;
   },
 
