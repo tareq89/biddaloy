@@ -26,6 +26,7 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/students/import': '/_staff/students/import',
   '/grading-scales': '/_staff/grading-scales/',
   '/academics/homework/new': '/_staff/academics/homework/new',
+  '/academics/syllabus': '/_staff/academics/syllabus/',
 };
 
 /**
@@ -46,6 +47,7 @@ const REGISTERED_ACTION_FILES: Record<string, string> = {
   'students.import': 'client-admin/src/routes/_staff/students/import.tsx',
   'grading.copyScale': 'client-admin/src/routes/_staff/grading-scales/-copy-scale-dialog.tsx',
   'homework.assign': 'client-admin/src/routes/_staff/academics/homework/new.tsx',
+  'syllabus.markTopic': 'client-admin/src/routes/_staff/academics/syllabus/index.tsx',
 };
 
 /**

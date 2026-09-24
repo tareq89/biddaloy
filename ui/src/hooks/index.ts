@@ -736,6 +736,20 @@ export {
   type HomeworkListFilters,
 } from './homework';
 export {
+  syllabusTopicKeys,
+  syllabusTopicListQueryOptions,
+  useCreateSyllabusTopic,
+  useDeleteSyllabusTopic,
+  useReorderSyllabusTopics,
+  useSyllabusTopicList,
+  useUpdateSyllabusTopic,
+  type CreateSyllabusTopicInput,
+  type ReorderSyllabusTopicItem,
+  type SyllabusTopic,
+  type SyllabusTopicListFilters,
+  type UpdateSyllabusTopicInput,
+} from './syllabus';
+export {
   smsCreditsKeys,
   smsCreditsQueryOptions,
   useGrantSmsCredits,

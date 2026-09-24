@@ -132,6 +132,11 @@
       "archetype": "detail"
     },
     {
+      "path": "/academics/syllabus",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
       "path": "/grading-scales",
       "role": "admin",
       "archetype": "list"

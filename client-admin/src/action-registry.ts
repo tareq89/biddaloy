@@ -138,4 +138,21 @@ export const ACTIONS: readonly PaletteAction[] = [
     kind: 'modal',
     run: (ctx) => ctx.navigate({ to: '/academics/homework/new' }),
   },
+  {
+    id: 'syllabus.markTopic',
+    // Gated on SYLLABUS_READ (must match the target route's own gate, see
+    // route-permissions.ts), so the label promises only what a read-only
+    // user can actually do here — open the syllabus screen. Mark/edit/
+    // reorder controls on that screen are separately gated on
+    // SYLLABUS_MANAGE (index.tsx), same as every other inline control.
+    label: { en: 'Open syllabus', bn: 'সিলেবাস খুলুন' },
+    permission: Permission.SYLLABUS_READ,
+    kind: 'inline',
+    // No standalone route for one topic's status change — same reasoning
+    // this file's header gives for the five actions kept out of
+    // `ACTIONS` entirely, except this one DOES have a route to land on:
+    // the syllabus list page itself, where status is an inline control
+    // per topic (U7: reuse the page, never a second copy of the edit UI).
+    run: (ctx) => ctx.navigate({ to: '/academics/syllabus' }),
+  },
 ];

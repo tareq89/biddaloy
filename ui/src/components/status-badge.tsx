@@ -27,6 +27,7 @@ import {
   InvoiceStatus,
   PaymentStatus,
   ReminderBatchStatus,
+  SyllabusTopicStatus,
   UserStatus,
 } from '@biddaloy/shared';
 import { AlertTriangle, CheckCircle2, CircleDashed, Clock, MinusCircle } from 'lucide-react';
@@ -234,6 +235,16 @@ const FEE_GENERATION_STATUS_TONE: Record<FeeGenerationCollectionStatus, StatusTo
   FULL: 'success',
 };
 
+/** [22.4.3] `SyllabusTopic.status` — a real `shared/src/enums` lifecycle
+ * (`homework.ts`'s `SyllabusTopicStatus`). `PLANNED` is `neutral` (not
+ * started yet), `IN_PROGRESS` is `info`, `DONE` is `success` —
+ * same three-stage progression `reminderBatch` uses. */
+const SYLLABUS_TOPIC_STATUS_TONE: Record<SyllabusTopicStatus, StatusTone> = {
+  [SyllabusTopicStatus.PLANNED]: 'neutral',
+  [SyllabusTopicStatus.IN_PROGRESS]: 'info',
+  [SyllabusTopicStatus.DONE]: 'success',
+};
+
 export type StatusBadgeProps =
   | { domain: 'fee'; status: FeeStatus }
   | { domain: 'feeGeneration'; status: FeeGenerationCollectionStatus }
@@ -248,7 +259,8 @@ export type StatusBadgeProps =
   | { domain: 'user'; status: UserStatusValue }
   | { domain: 'attendance'; status: AttendanceLowStatus }
   | { domain: 'invitation'; status: InvitationStatus }
-  | { domain: 'school'; status: SchoolStatusValue };
+  | { domain: 'school'; status: SchoolStatusValue }
+  | { domain: 'syllabusTopic'; status: SyllabusTopicStatus };
 
 function resolveTone(props: StatusBadgeProps): StatusTone {
   switch (props.domain) {
@@ -280,6 +292,8 @@ function resolveTone(props: StatusBadgeProps): StatusTone {
       return INVITATION_STATUS_TONE[props.status];
     case 'school':
       return SCHOOL_STATUS_TONE[props.status];
+    case 'syllabusTopic':
+      return SYLLABUS_TOPIC_STATUS_TONE[props.status];
   }
 }
 

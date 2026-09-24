@@ -100,6 +100,12 @@ export const STAFF_NAV_ITEMS = {
     label: { key: 'homework' },
     synonyms: ['assignment', 'classwork'],
   },
+  'academics.syllabus': {
+    id: 'academics.syllabus',
+    to: '/academics/syllabus',
+    permission: Permission.SYLLABUS_READ,
+    label: { key: 'syllabus' },
+  },
   'examsResults.gradingScales': {
     id: 'examsResults.gradingScales',
     to: '/grading-scales',
@@ -250,6 +256,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
       STAFF_NAV_ITEMS['academics.academicYears'],
       STAFF_NAV_ITEMS['academics.classes'],
       STAFF_NAV_ITEMS['academics.homework'],
+      STAFF_NAV_ITEMS['academics.syllabus'],
     ],
   },
   {
