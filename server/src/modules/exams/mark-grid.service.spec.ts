@@ -47,9 +47,22 @@ async function buildService(
     save: vi.fn(async (v: any) => ({ id: 'grid-1', ...v })),
     update: vi.fn(async () => undefined),
     find: vi.fn(async () => (grid ? [grid] : [])),
+    // lockGrid's locked re-read: the existing row, or the DRAFT row it
+    // just inserted for a never-touched grid.
+    findOneOrFail: vi.fn(async () => ({ id: 'grid-1', state: MarkGridState.DRAFT, ...grid })),
+    createQueryBuilder: () => insertQb,
+  };
+  const insertQb: any = {
+    insert: () => insertQb,
+    into: () => insertQb,
+    values: () => insertQb,
+    orIgnore: () => insertQb,
+    execute: vi.fn(async () => undefined),
   };
   gridRepo.manager = {
-    transaction: vi.fn(async (cb: any) => cb({ getRepository: () => gridRepo })),
+    transaction: vi.fn(async (cb: any) =>
+      cb({ getRepository: () => gridRepo, createQueryBuilder: () => insertQb }),
+    ),
   };
   const sectionRepo: any = {
     findOne: vi.fn(async () => section),

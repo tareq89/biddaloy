@@ -79,12 +79,29 @@ async function buildService(
       })),
     ),
   };
+  // lockGrid's locked re-read: the existing row, or the DRAFT row it just
+  // inserted for a never-touched grid.
+  const gridRepo: any = {
+    findOneOrFail: vi.fn(async () => ({ id: 'grid-1', state: MarkGridState.DRAFT, ...grid })),
+    createQueryBuilder: () => insertQb,
+  };
+  const insertQb: any = {
+    insert: () => insertQb,
+    into: () => insertQb,
+    values: () => insertQb,
+    orIgnore: () => insertQb,
+    execute: vi.fn(async () => undefined),
+  };
   markRepo.manager = {
-    transaction: vi.fn(async (cb: any) => cb({ getRepository: () => markRepo })),
+    transaction: vi.fn(async (cb: any) =>
+      cb({
+        getRepository: (entity: unknown) => (entity === MarkGrid ? gridRepo : markRepo),
+        createQueryBuilder: () => insertQb,
+      }),
+    ),
   };
 
   const componentRepo: any = { find: vi.fn(async () => components) };
-  const gridRepo: any = { findOne: vi.fn(async () => grid) };
   const examRepo: any = {
     findOne: vi.fn(async () => ({ id: EXAM_ID, tenant_id: TENANT_ID, status: examStatus })),
   };
@@ -407,15 +424,32 @@ describe('MarksService.upsertBatch', () => {
     ).rejects.toThrow(ConflictException);
   });
 
-  it('a concurrent first-write race on the same cell does not 500 (last write wins)', async () => {
-    const { service, markRepo } = await buildService({
+  it('takes the grid row lock inside the write transaction before checking SUBMITTED (pr-fix #945)', async () => {
+    const { service, gridRepo } = await buildService({
       existingMarks: [
         { student_id: 'stu-1', component_id: 'comp-1', value: '75.00', status: MarkStatus.PRESENT },
       ],
     });
-    // Both requests see no existing row (the race), so both take the
-    // insert branch; the DB rejects the second with a unique violation.
-    markRepo.findOne = vi.fn(async () => null);
+
+    await service.upsertBatch(
+      EXAM_ID,
+      batchDto([
+        { student_id: 'stu-1', component_id: 'comp-1', value: '75', status: MarkStatus.PRESENT },
+      ]),
+      TENANT_ID,
+      UserRole.TEACHER,
+      'user-1',
+    );
+
+    // The SUBMITTED check reads the grid under FOR UPDATE, so a concurrent
+    // submit can't commit between that check and the mark writes.
+    expect(gridRepo.findOneOrFail).toHaveBeenCalledWith(
+      expect.objectContaining({ lock: { mode: 'pessimistic_write' } }),
+    );
+  });
+
+  it('maps a unique violation the grid lock could not prevent to a clean 409, not a 500', async () => {
+    const { service, markRepo } = await buildService();
     markRepo.save = vi.fn(async () => {
       throw new QueryFailedError('insert', [], {
         code: '23505',
@@ -423,6 +457,8 @@ describe('MarksService.upsertBatch', () => {
       } as any);
     });
 
+    // Postgres aborts the transaction on the failed insert, so nothing can
+    // be retried inside it — the client's autosave retries on the 409.
     await expect(
       service.upsertBatch(
         EXAM_ID,
@@ -433,13 +469,7 @@ describe('MarksService.upsertBatch', () => {
         UserRole.TEACHER,
         'user-1',
       ),
-    ).resolves.toBeDefined();
-
-    // Falls back to an update keyed on the natural key, not the row id
-    // it never got back from the failed insert.
-    expect(markRepo.update).toHaveBeenCalledWith(
-      { exam_id: EXAM_ID, student_id: 'stu-1', component_id: 'comp-1' },
-      { value: '75', status: MarkStatus.PRESENT, entered_by: 'user-1' },
-    );
+    ).rejects.toThrow(ConflictException);
+    expect(markRepo.update).not.toHaveBeenCalled();
   });
 });
