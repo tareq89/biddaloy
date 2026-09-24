@@ -55,6 +55,7 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/portal/account': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/attendance': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/calendar': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
+  '/portal/exam-schedule': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/fees': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/results': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
 

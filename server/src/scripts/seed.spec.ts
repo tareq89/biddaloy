@@ -29,6 +29,7 @@ import type { Mark } from '../modules/exams/entities/mark.entity';
 import type { MarkGrid } from '../modules/exams/entities/mark-grid.entity';
 import type { Result } from '../modules/exams/entities/result.entity';
 import type { ResultSubject } from '../modules/exams/entities/result-subject.entity';
+import type { ExamSchedule } from '../modules/exams/entities/exam-schedule.entity';
 import { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
 import { ensureDemoOrganisation } from './seed.util';
 
@@ -212,6 +213,10 @@ function makeRepos() {
       clock,
       'result-subject',
     ).asRepository() as unknown as Repository<ResultSubject>,
+    examScheduleRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'exam-schedule',
+    ).asRepository() as unknown as Repository<ExamSchedule>,
   } satisfies SeedAccountRepositories;
   return { repos, users, schools, userTenants, students };
 }
