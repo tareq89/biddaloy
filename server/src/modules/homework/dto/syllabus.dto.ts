@@ -7,11 +7,19 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   MaxLength,
+  Min,
   MinLength,
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
+
+// PostgreSQL `int` range — `sequence` is a plain `int` column, and
+// `@IsInt()` alone accepts values the DB can't store (a 2147483648 request
+// would otherwise reach Postgres and fail with a raw error, not a 400).
+const PG_INT_MIN = -2147483648;
+const PG_INT_MAX = 2147483647;
 import { Type } from 'class-transformer';
 import { SyllabusTopicStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
@@ -37,6 +45,8 @@ export class CreateSyllabusTopicDto {
   description?: string | null;
 
   @IsInt()
+  @Min(PG_INT_MIN)
+  @Max(PG_INT_MAX)
   sequence: number;
 
   @IsOptional()
@@ -64,6 +74,8 @@ export class UpdateSyllabusTopicDto {
 
   @ValidateIf((_, v) => v !== undefined)
   @IsInt()
+  @Min(PG_INT_MIN)
+  @Max(PG_INT_MAX)
   sequence?: number;
 
   @ValidateIf((_, v) => v !== undefined)
@@ -76,6 +88,8 @@ export class ReorderSyllabusTopicItemDto {
   id: string;
 
   @IsInt()
+  @Min(PG_INT_MIN)
+  @Max(PG_INT_MAX)
   sequence: number;
 }
 
