@@ -1,0 +1,149 @@
+{
+  "list": {
+    "title": "Homework",
+    "caption": "Homework assigned across classes and sections",
+    "classLabel": "Class",
+    "allClasses": "All classes",
+    "sectionLabel": "Section",
+    "allSections": "All sections",
+    "subjectLabel": "Subject",
+    "allSubjects": "All subjects",
+    "statusLabel": "Status",
+    "allStatuses": "All statuses",
+    "columnTitle": "Title",
+    "columnSubject": "Subject",
+    "columnClass": "Class",
+    "columnGradingMode": "Grading mode",
+    "columnCreated": "Created",
+    "assignHomework": "Assign homework",
+    "importHomework": "Import homework",
+    "emptyMessage": "No homework found.",
+    "errorMessage": "Couldn't load homework.",
+    "announceResults": "Showing {{visible}} of {{total}} homework, {{count}} total"
+  },
+  "detail": {
+    "tabSummary": "Summary",
+    "subjectLabel": "Subject",
+    "classLabel": "Class",
+    "gradingModeLabel": "Grading mode",
+    "createdLabel": "Created",
+    "descriptionLabel": "Description",
+    "assignAgain": "Assign to section or student",
+    "assigned": "Assigned. Due {{date}}.",
+    "notFound": "Homework not found.",
+    "forbidden": "You don't have permission to view this homework."
+  },
+  "form": {
+    "createTitle": "Create homework",
+    "classLabel": "Class",
+    "subjectLabel": "Subject",
+    "titleLabel": "Title",
+    "descriptionLabel": "Description",
+    "gradingModeLabel": "Grading mode",
+    "targetLabel": "Assign to",
+    "target": {
+      "section": "Section",
+      "student": "Student"
+    },
+    "sectionLabel": "Section",
+    "studentLabel": "Student",
+    "assignedDateLabel": "Assigned date",
+    "dueDateLabel": "Due date",
+    "gradingMode": {
+      "TICK": "Tick (done / not done)",
+      "PARTIAL": "Partial completion",
+      "MARKS": "Marks"
+    },
+    "status": {
+      "ACTIVE": "Active",
+      "DEACTIVATED": "Deactivated",
+      "SUPERSEDED": "Superseded"
+    },
+    "submit": "Save",
+    "submitting": "Saving…",
+    "errorRequired": "Please fill in all required fields.",
+    "dueBeforeAssigned": "Due date must be on or after the assigned date.",
+    "assignFailedAfterCreate": "Homework was created, but assigning it failed. Try again from its detail page:",
+    "viewCreatedHomework": "Go to homework",
+    "genericError": "Something went wrong. Please try again."
+  },
+  "upload": {
+    "dropHint": "Drag and drop files here, or choose files below. PDF, JPG, PNG or WEBP, up to 5MB each, {{maxFiles}} files max.",
+    "wrongType": "Only PDF, JPG, PNG or WEBP files are allowed.",
+    "tooLarge": "Each file must be 5MB or smaller.",
+    "tooMany": "Only {{maxFiles}} files are allowed in total.",
+    "chooseFiles": "Choose files",
+    "chooseFilesLabel": "Choose attachment files",
+    "removeFile": "Remove {{filename}}"
+  },
+  "grid": {
+    "markDone": "Mark {{name}} done",
+    "completionFor": "{{name}}'s completion",
+    "notDone": "Not done",
+    "partial": "Partial",
+    "done": "Done",
+    "marksFor": "{{name}}'s marks",
+    "save": "Save",
+    "saving": "Saving…",
+    "status": {
+      "NOT_SUBMITTED": "Not submitted",
+      "SUBMITTED": "Submitted",
+      "PARTIAL": "Partial",
+      "DONE": "Done"
+    }
+  },
+  "import": {
+    "title": "Import homework",
+    "template": {
+      "title": "1. Download the template",
+      "explanation": "Fill in the template with one homework assignment per row, then upload it below. Keep the first row of headers exactly as it is. Row 2 is a filled-in example — delete it before you upload, or that homework will be imported too.",
+      "download": "Download template"
+    },
+    "reference": {
+      "caption": "Column reference",
+      "column": "Column",
+      "required": "Required?",
+      "format": "What goes here",
+      "requiredYes": "Required",
+      "requiredNo": "Optional",
+      "columns": {
+        "class": "A class name that already exists for the current academic year, e.g. Class 5.",
+        "section": "A section of that class, e.g. A.",
+        "subject": "A subject name that already exists, e.g. Mathematics.",
+        "assigned_date": "The date homework is assigned, in YYYY-MM-DD format.",
+        "due_date": "The date homework is due, in YYYY-MM-DD format. Must be on or after the assigned date.",
+        "description": "Optional notes about the homework. Leave empty to skip."
+      }
+    },
+    "upload": {
+      "title": "2. Upload your file",
+      "explanation": "CSV or XLSX, up to 5 MB."
+    },
+    "preview": {
+      "willCreate_one": "{{count}} homework will be created.",
+      "willCreate_other": "{{count}} homework will be created.",
+      "previewCaption_one": "First {{count}} row",
+      "previewCaption_other": "First {{count}} rows",
+      "columns": {
+        "class": "Class",
+        "section": "Section",
+        "subject": "Subject",
+        "assignedDate": "Assigned date",
+        "dueDate": "Due date"
+      }
+    },
+    "result": {
+      "title": "3. Result",
+      "created_one": "{{count}} homework created.",
+      "created_other": "{{count}} homework created.",
+      "partialSummary": "{{success}} of {{total}} homework imported. {{errors}} rows had problems.",
+      "importAnother": "Import another file",
+      "backToList": "Back to homework"
+    },
+    "notifications": {
+      "imported": "{{success}} of {{total}} homework imported.",
+      "partial": "{{success}} of {{total}} homework imported, {{errors}} failed.",
+      "failed": "Import failed."
+    }
+  }
+}

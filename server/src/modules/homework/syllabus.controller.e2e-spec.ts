@@ -103,6 +103,11 @@ describe('Syllabus Topics E2E (22.3.4)', () => {
       .expect(200);
 
     expect(listRes.body.some((t: { id: string }) => t.id === createRes.body.id)).toBe(true);
+
+    // [22.4.5] the list response embeds the subject name so a PARENT/STUDENT
+    // portal can group topics without a second, staff-only subjects call.
+    const created = listRes.body.find((t: { id: string }) => t.id === createRes.body.id);
+    expect(created.subject_name_en).toBe('Syllabus E2E Subject');
   });
 
   it('a STUDENT can read syllabus topics but cannot create one (401, RolesGuard)', async () => {

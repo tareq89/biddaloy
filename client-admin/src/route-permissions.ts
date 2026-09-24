@@ -78,6 +78,15 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/academic-years/$academicYearId': Permission.ACADEMIC_YEAR_MANAGE,
   '/_staff/classes/': Permission.CLASS_MANAGE,
   '/_staff/classes/$classId': Permission.CLASS_MANAGE,
+  // [22.4.1] ADMIN/TEACHER only. EXECUTIVE lacks HOMEWORK_READ
+  // (`shared/src/enums/permissions.ts:423+`) despite `15-ux-principles.md`
+  // §3.1 listing Homework as `A E T` — a doc/code gap flagged for a
+  // product decision, not fixed here.
+  '/_staff/academics/homework/': Permission.HOMEWORK_READ,
+  '/_staff/academics/homework/new': Permission.HOMEWORK_ASSIGN,
+  '/_staff/academics/homework/$homeworkId': Permission.HOMEWORK_READ,
+  '/_staff/academics/homework/import': Permission.HOMEWORK_IMPORT,
+  '/_staff/academics/syllabus/': Permission.SYLLABUS_READ,
   '/_staff/grading-scales/': Permission.GRADING_SCALE_MANAGE,
   '/_staff/grading-scales/$scaleId': Permission.GRADING_SCALE_MANAGE,
   '/_staff/audit-logs/': Permission.AUDIT_LOG_READ,

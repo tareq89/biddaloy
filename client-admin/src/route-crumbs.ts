@@ -55,6 +55,7 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/portal/account': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/attendance': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/calendar': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
+  '/portal/syllabus': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/fees': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
 
   // --- Platform (SUPER_ADMIN) area ---
@@ -80,6 +81,17 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/staff/': [{ label: { entity: 'staff' } }],
   '/_staff/academic-years/': [{ label: { entity: 'academicYear' } }],
   '/_staff/classes/': [{ label: { entity: 'class' } }],
+  '/_staff/academics/homework/': [{ label: { key: 'homework' } }],
+  '/_staff/academics/homework/new': [{ label: { key: 'homework' } }, { label: { key: 'new' } }],
+  '/_staff/academics/homework/$homeworkId': [
+    { label: { key: 'homework' } },
+    { label: { key: 'homeworkDetail' }, dynamic: 'entity' },
+  ],
+  '/_staff/academics/homework/import': [
+    { label: { key: 'homework' } },
+    { label: { key: 'import' } },
+  ],
+  '/_staff/academics/syllabus/': [{ label: { key: 'syllabus' } }],
   '/_staff/grading-scales/': [{ label: { key: 'gradingScales' } }],
   '/_staff/attendance/': [{ label: { key: 'attendance' } }],
   '/_staff/attendance/reports': [{ label: { key: 'attendanceReports' } }],

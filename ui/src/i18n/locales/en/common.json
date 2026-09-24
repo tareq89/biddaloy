@@ -76,6 +76,11 @@
       "EXPIRED": "Invitation expired",
       "REVOKED": "Invitation revoked",
       "ACTIVATED": "Activated"
+    },
+    "syllabusTopic": {
+      "PLANNED": "Planned",
+      "IN_PROGRESS": "In progress",
+      "DONE": "Done"
     }
   },
   "walletTransactionKind": {

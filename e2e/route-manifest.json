@@ -114,6 +114,34 @@
       "archetype": "detail"
     },
     {
+      "path": "/academics/homework",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/academics/homework/new",
+      "role": "admin",
+      "archetype": "form"
+    },
+    {
+      "path": "/academics/homework/$homeworkId",
+      "params": {
+        "homeworkId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
+      "path": "/academics/homework/import",
+      "role": "admin",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/academics/syllabus",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
       "path": "/grading-scales",
       "role": "admin",
       "archetype": "list"
@@ -316,6 +344,11 @@
     },
     {
       "path": "/portal/calendar",
+      "role": "parent",
+      "archetype": "list"
+    },
+    {
+      "path": "/portal/syllabus",
       "role": "parent",
       "archetype": "list"
     },

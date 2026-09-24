@@ -12,7 +12,14 @@ import { useDensity } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { RequireRole } from '@biddaloy/ui/routes';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
-import { CalendarDaysIcon, CreditCardIcon, HomeIcon, UserRoundIcon } from 'lucide-react';
+import {
+  BookOpenIcon,
+  CalendarDaysIcon,
+  CreditCardIcon,
+  HomeIcon,
+  MoreHorizontalIcon,
+  UserRoundIcon,
+} from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces } from '../route-loaders';
@@ -90,49 +97,64 @@ function PortalLayout() {
   // `[STUDENT]` actually hold, so `AppShell`'s own `visibleItems()` filter
   // keeps this honest without a second list of "guardian links".
   //
-  // [5.2]: one array, two renderings — the sidebar at >=768px and the
-  // `BottomNav` below it. Icons are only ever decorative here; the label
-  // is always real text, so an item is never an unlabelled glyph.
+  // [5.2]/[22.4.5]: one array (`navItems`) feeds the sidebar at >=768px
+  // and the drawer `more` opens; the mobile bottom bar below 768px gets
+  // its own 4-item subset (see the `BottomNav` call) to stay within its
+  // 5-cell cap. Icons are only ever decorative here; the label is always
+  // real text, so an item is never an unlabelled glyph.
+  const overviewItem = {
+    to: '/portal',
+    label: t('items.portalOverview'),
+    icon: <HomeIcon className="size-5" aria-hidden="true" />,
+    permission: Permission.FEE_READ,
+  };
+  const feesItem = {
+    to: '/portal/fees',
+    label: t('items.portalFees'),
+    icon: <CreditCardIcon className="size-5" aria-hidden="true" />,
+    permission: Permission.INVOICE_READ,
+  };
+  const attendanceItem = {
+    to: '/portal/attendance',
+    label: t('items.portalAttendance'),
+    icon: <CalendarDaysIcon className="size-5" aria-hidden="true" />,
+    // [9.9] No `permission`: attendance's family-facing reads
+    // (`AttendanceSummaryController`) are gated with `@Roles(...,
+    // PARENT, STUDENT)` directly, not a `Permission` — there is no
+    // `ATTENDANCE_READ` in `ROLE_PERMISSIONS` to key off, same "every
+    // signed-in role in this shell owns it" case `/portal/account`
+    // documents above.
+  };
+  const syllabusItem = {
+    to: '/portal/syllabus',
+    label: t('items.portalSyllabus'),
+    icon: <BookOpenIcon className="size-5" aria-hidden="true" />,
+    // [22.4.5] PARENT and STUDENT both hold `SYLLABUS_READ`.
+    permission: Permission.SYLLABUS_READ,
+  };
+  const calendarItem = {
+    to: '/portal/calendar',
+    label: t('items.portalCalendar'),
+    icon: <CalendarDaysIcon className="size-5" aria-hidden="true" />,
+    // [17.5.2] Same reasoning as `/portal/attendance` above: family
+    // visibility is role-gated server-side (`@Roles(..., PARENT,
+    // STUDENT)`), not behind a `Permission`, so no `permission` here.
+  };
+  const accountItem = {
+    to: '/portal/account',
+    label: t('items.portalAccount'),
+    icon: <UserRoundIcon className="size-5" aria-hidden="true" />,
+    // [8.14.4] No `permission`: every signed-in role in this shell owns
+    // its own account — this is the exact "everyone in the shell sees
+    // it" case `app-shell.tsx`'s `NavItem.permission` documents.
+  };
   const navItems = [
-    {
-      to: '/portal',
-      label: t('items.portalOverview'),
-      icon: <HomeIcon className="size-5" aria-hidden="true" />,
-      permission: Permission.FEE_READ,
-    },
-    {
-      to: '/portal/fees',
-      label: t('items.portalFees'),
-      icon: <CreditCardIcon className="size-5" aria-hidden="true" />,
-      permission: Permission.INVOICE_READ,
-    },
-    {
-      to: '/portal/attendance',
-      label: t('items.portalAttendance'),
-      icon: <CalendarDaysIcon className="size-5" aria-hidden="true" />,
-      // [9.9] No `permission`: attendance's family-facing reads
-      // (`AttendanceSummaryController`) are gated with `@Roles(...,
-      // PARENT, STUDENT)` directly, not a `Permission` — there is no
-      // `ATTENDANCE_READ` in `ROLE_PERMISSIONS` to key off, same "every
-      // signed-in role in this shell owns it" case `/portal/account`
-      // documents above.
-    },
-    {
-      to: '/portal/calendar',
-      label: t('items.portalCalendar'),
-      icon: <CalendarDaysIcon className="size-5" aria-hidden="true" />,
-      // [17.5.2] Same reasoning as `/portal/attendance` above: family
-      // visibility is role-gated server-side (`@Roles(..., PARENT,
-      // STUDENT)`), not behind a `Permission`, so no `permission` here.
-    },
-    {
-      to: '/portal/account',
-      label: t('items.portalAccount'),
-      icon: <UserRoundIcon className="size-5" aria-hidden="true" />,
-      // [8.14.4] No `permission`: every signed-in role in this shell owns
-      // its own account — this is the exact "everyone in the shell sees
-      // it" case `app-shell.tsx`'s `NavItem.permission` documents.
-    },
+    overviewItem,
+    feesItem,
+    attendanceItem,
+    syllabusItem,
+    calendarItem,
+    accountItem,
   ];
 
   return (
@@ -155,7 +177,26 @@ function PortalLayout() {
         closeMenuLabel={t('closeMenuLabel')}
         navLabel={t('navLabel')}
         skipLinkLabel={t('skipToContent')}
-        bottomNav={<BottomNav items={navItems} label={t('bottomNavLabel')} />}
+        // [22.4.5] An empty fragment (not `undefined`) keeps the `<768px`
+        // drawer rendered — `AppShell` only mounts it when
+        // `mobileHeaderActions !== undefined` — so the bottom bar's `more`
+        // cell has somewhere to open. No `drawerHeader`: the portal's
+        // `topBar` keeps `TenantBar` visible at every width already.
+        mobileHeaderActions={<></>}
+        bottomNav={
+          <BottomNav
+            // [9.6 fix] pattern: `BottomNav` caps `items` at 4 when `more`
+            // is present — a 6-item portal nav would overflow the bar past
+            // 320px (WCAG 1.4.10 reflow). Syllabus and Account stay
+            // reachable through the drawer `more` opens instead.
+            items={[overviewItem, feesItem, attendanceItem, calendarItem]}
+            label={t('bottomNavLabel')}
+            more={{
+              label: t('items.more'),
+              icon: <MoreHorizontalIcon className="size-5" aria-hidden="true" />,
+            }}
+          />
+        }
       >
         {breadcrumbItems.length > 0 && (
           <Breadcrumbs

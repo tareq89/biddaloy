@@ -1,0 +1,149 @@
+{
+  "list": {
+    "title": "বাড়ির কাজ",
+    "caption": "শ্রেণি ও শাখা অনুযায়ী দেওয়া বাড়ির কাজ",
+    "classLabel": "শ্রেণি",
+    "allClasses": "সকল শ্রেণি",
+    "sectionLabel": "শাখা",
+    "allSections": "সকল শাখা",
+    "subjectLabel": "বিষয়",
+    "allSubjects": "সকল বিষয়",
+    "statusLabel": "অবস্থা",
+    "allStatuses": "সকল অবস্থা",
+    "columnTitle": "শিরোনাম",
+    "columnSubject": "বিষয়",
+    "columnClass": "শ্রেণি",
+    "columnGradingMode": "মূল্যায়ন পদ্ধতি",
+    "columnCreated": "তৈরি হয়েছে",
+    "assignHomework": "বাড়ির কাজ দিন",
+    "importHomework": "বাড়ির কাজ আমদানি করুন",
+    "emptyMessage": "কোনো বাড়ির কাজ পাওয়া যায়নি।",
+    "errorMessage": "বাড়ির কাজ লোড করা যায়নি।",
+    "announceResults": "{{total}}টির মধ্যে {{visible}}টি বাড়ির কাজ দেখানো হচ্ছে, মোট {{count}}টি"
+  },
+  "detail": {
+    "tabSummary": "সারসংক্ষেপ",
+    "subjectLabel": "বিষয়",
+    "classLabel": "শ্রেণি",
+    "gradingModeLabel": "মূল্যায়ন পদ্ধতি",
+    "createdLabel": "তৈরি হয়েছে",
+    "descriptionLabel": "বিবরণ",
+    "assignAgain": "শাখা বা শিক্ষার্থীকে দিন",
+    "assigned": "দেওয়া হয়েছে। শেষ তারিখ {{date}}।",
+    "notFound": "বাড়ির কাজ পাওয়া যায়নি।",
+    "forbidden": "এই বাড়ির কাজ দেখার অনুমতি আপনার নেই।"
+  },
+  "form": {
+    "createTitle": "বাড়ির কাজ তৈরি করুন",
+    "classLabel": "শ্রেণি",
+    "subjectLabel": "বিষয়",
+    "titleLabel": "শিরোনাম",
+    "descriptionLabel": "বিবরণ",
+    "gradingModeLabel": "মূল্যায়ন পদ্ধতি",
+    "targetLabel": "কাকে দেওয়া হবে",
+    "target": {
+      "section": "শাখা",
+      "student": "শিক্ষার্থী"
+    },
+    "sectionLabel": "শাখা",
+    "studentLabel": "শিক্ষার্থী",
+    "assignedDateLabel": "দেওয়ার তারিখ",
+    "dueDateLabel": "শেষ তারিখ",
+    "gradingMode": {
+      "TICK": "টিক (সম্পন্ন / অসম্পন্ন)",
+      "PARTIAL": "আংশিক সম্পন্নতা",
+      "MARKS": "নম্বর"
+    },
+    "status": {
+      "ACTIVE": "সক্রিয়",
+      "DEACTIVATED": "নিষ্ক্রিয়",
+      "SUPERSEDED": "প্রতিস্থাপিত"
+    },
+    "submit": "সংরক্ষণ করুন",
+    "submitting": "সংরক্ষণ হচ্ছে…",
+    "errorRequired": "অনুগ্রহ করে সকল প্রয়োজনীয় তথ্য পূরণ করুন।",
+    "dueBeforeAssigned": "শেষ তারিখ অবশ্যই দেওয়ার তারিখের সমান বা তার পরে হতে হবে।",
+    "assignFailedAfterCreate": "বাড়ির কাজ তৈরি হয়েছে, কিন্তু দেওয়া যায়নি। এর বিস্তারিত পাতা থেকে আবার চেষ্টা করুন:",
+    "viewCreatedHomework": "বাড়ির কাজে যান",
+    "genericError": "কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।"
+  },
+  "upload": {
+    "dropHint": "ফাইল টেনে এনে ছাড়ুন, অথবা নিচে থেকে ফাইল বেছে নিন। PDF, JPG, PNG বা WEBP, প্রতিটি সর্বোচ্চ 5MB, সর্বোচ্চ {{maxFiles}}টি ফাইল।",
+    "wrongType": "শুধুমাত্র PDF, JPG, PNG বা WEBP ফাইল অনুমোদিত।",
+    "tooLarge": "প্রতিটি ফাইল অবশ্যই 5MB বা তার কম হতে হবে।",
+    "tooMany": "সর্বোচ্চ {{maxFiles}}টি ফাইল অনুমোদিত।",
+    "chooseFiles": "ফাইল বেছে নিন",
+    "chooseFilesLabel": "সংযুক্তি ফাইল বেছে নিন",
+    "removeFile": "{{filename}} সরান"
+  },
+  "grid": {
+    "markDone": "{{name}} কে সম্পন্ন হিসেবে চিহ্নিত করুন",
+    "completionFor": "{{name}}-এর সম্পন্নতা",
+    "notDone": "সম্পন্ন হয়নি",
+    "partial": "আংশিক",
+    "done": "সম্পন্ন",
+    "marksFor": "{{name}}-এর নম্বর",
+    "save": "সংরক্ষণ করুন",
+    "saving": "সংরক্ষণ হচ্ছে…",
+    "status": {
+      "NOT_SUBMITTED": "জমা দেওয়া হয়নি",
+      "SUBMITTED": "জমা দেওয়া হয়েছে",
+      "PARTIAL": "আংশিক",
+      "DONE": "সম্পন্ন"
+    }
+  },
+  "import": {
+    "title": "বাড়ির কাজ আমদানি করুন",
+    "template": {
+      "title": "১. টেমপ্লেট ডাউনলোড করুন",
+      "explanation": "প্রতি সারিতে একটি করে বাড়ির কাজ দিয়ে টেমপ্লেট পূরণ করুন, তারপর নিচে আপলোড করুন। প্রথম সারির শিরোনাম অপরিবর্তিত রাখুন। ২য় সারিতে একটি পূরণকৃত উদাহরণ আছে — আপলোডের আগে এটি মুছে ফেলুন, নাহলে সেই বাড়ির কাজটিও আমদানি হয়ে যাবে।",
+      "download": "টেমপ্লেট ডাউনলোড করুন"
+    },
+    "reference": {
+      "caption": "কলাম নির্দেশিকা",
+      "column": "কলাম",
+      "required": "আবশ্যক?",
+      "format": "এখানে কী দিতে হবে",
+      "requiredYes": "আবশ্যক",
+      "requiredNo": "ঐচ্ছিক",
+      "columns": {
+        "class": "বর্তমান শিক্ষাবর্ষে বিদ্যমান একটি শ্রেণির নাম, যেমন Class 5।",
+        "section": "সেই শ্রেণির একটি শাখা, যেমন A।",
+        "subject": "বিদ্যমান একটি বিষয়ের নাম, যেমন Mathematics।",
+        "assigned_date": "বাড়ির কাজ দেওয়ার তারিখ, YYYY-MM-DD ফরম্যাটে।",
+        "due_date": "বাড়ির কাজ জমা দেওয়ার শেষ তারিখ, YYYY-MM-DD ফরম্যাটে। এটি অবশ্যই দেওয়ার তারিখের সমান বা তার পরে হতে হবে।",
+        "description": "বাড়ির কাজ সম্পর্কে ঐচ্ছিক নোট। খালি রাখতে পারেন।"
+      }
+    },
+    "upload": {
+      "title": "২. আপনার ফাইল আপলোড করুন",
+      "explanation": "CSV বা XLSX, সর্বোচ্চ 5 MB।"
+    },
+    "preview": {
+      "willCreate_one": "{{count}}টি বাড়ির কাজ তৈরি হবে।",
+      "willCreate_other": "{{count}}টি বাড়ির কাজ তৈরি হবে।",
+      "previewCaption_one": "প্রথম {{count}}টি সারি",
+      "previewCaption_other": "প্রথম {{count}}টি সারি",
+      "columns": {
+        "class": "শ্রেণি",
+        "section": "শাখা",
+        "subject": "বিষয়",
+        "assignedDate": "দেওয়ার তারিখ",
+        "dueDate": "শেষ তারিখ"
+      }
+    },
+    "result": {
+      "title": "৩. ফলাফল",
+      "created_one": "{{count}}টি বাড়ির কাজ তৈরি হয়েছে।",
+      "created_other": "{{count}}টি বাড়ির কাজ তৈরি হয়েছে।",
+      "partialSummary": "{{total}}টির মধ্যে {{success}}টি বাড়ির কাজ আমদানি হয়েছে। {{errors}}টি সারিতে সমস্যা ছিল।",
+      "importAnother": "আরেকটি ফাইল আমদানি করুন",
+      "backToList": "বাড়ির কাজে ফিরে যান"
+    },
+    "notifications": {
+      "imported": "{{total}}টির মধ্যে {{success}}টি বাড়ির কাজ আমদানি হয়েছে।",
+      "partial": "{{total}}টির মধ্যে {{success}}টি বাড়ির কাজ আমদানি হয়েছে, {{errors}}টি ব্যর্থ হয়েছে।",
+      "failed": "আমদানি ব্যর্থ হয়েছে।"
+    }
+  }
+}
