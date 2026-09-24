@@ -20,6 +20,7 @@ import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants
 // injectable without this — imported anyway for visibility (same note as
 // students/students.module.ts).
 import { BulkImportModule } from '../bulk-import/bulk-import.module';
+import { AuditModule } from '../audit/audit.module';
 import { HomeworkController } from './homework.controller';
 import { HomeworkService } from './homework.service';
 import { HomeworkAccessService } from './homework-access.service';
@@ -32,6 +33,8 @@ import {
 } from './homework-defaulter.scheduler';
 import { HomeworkBulkUploadService } from './homework-bulk-upload.service';
 import { HomeworkBulkUploadController } from './homework-bulk-upload.controller';
+import { SyllabusService } from './syllabus.service';
+import { SyllabusController } from './syllabus.controller';
 
 /**
  * [22.2.1] Entities. [22.3.1] added the controller/service/access-service
@@ -43,6 +46,8 @@ import { HomeworkBulkUploadController } from './homework-bulk-upload.controller'
  * `CommunicationLog` registered directly (not via `CommunicationsModule`)
  * and `COMMUNICATIONS_QUEUE` registered as a producer, same pattern as
  * `AttendanceModule`'s `AbsenceNoticeService`/`AbsenceNoticeScheduler`.
+ * [22.3.4] adds `SyllabusService`/`Controller` — `AuditModule` for audit
+ * logging on topic create/edit/delete/reorder.
  */
 @Module({
   imports: [
@@ -63,6 +68,7 @@ import { HomeworkBulkUploadController } from './homework-bulk-upload.controller'
     StorageModule,
     SchoolsModule,
     BulkImportModule,
+    AuditModule,
     BullModule.registerQueue({
       name: COMMUNICATIONS_QUEUE,
       defaultJobOptions: {
@@ -76,6 +82,7 @@ import { HomeworkBulkUploadController } from './homework-bulk-upload.controller'
     HomeworkController,
     HomeworkSubmissionController,
     HomeworkBulkUploadController,
+    SyllabusController,
   ],
   providers: [
     HomeworkService,
@@ -84,6 +91,7 @@ import { HomeworkBulkUploadController } from './homework-bulk-upload.controller'
     HomeworkNoticeService,
     HomeworkDefaulterScheduler,
     HomeworkBulkUploadService,
+    SyllabusService,
   ],
 })
 export class HomeworkModule {}
