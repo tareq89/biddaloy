@@ -11,6 +11,7 @@
 import { Permission, UserRole } from '@biddaloy/shared';
 import {
   Button,
+  cellKey,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -85,12 +86,43 @@ function MarksEntryPage() {
   const reopenGrid = useReopenMarkGrid(examId, sectionId, subjectId);
 
   const [submitOpen, setSubmitOpen] = React.useState(false);
+  const [flushing, setFlushing] = React.useState(false);
 
   const autosave = useAutosave<MarkGridCell>({
     save: async (batch) => {
       await saveMarkBatch(examId, sectionId, subjectId, [...batch.values()]);
     },
   });
+
+  // Every cell edited on this page, newest value wins. `grid.cells` is the
+  // page-load snapshot and autosave never patches it, so the submit
+  // dialog's blank count reads these edits over it.
+  const [edits, setEdits] = React.useState<ReadonlyMap<string, MarkGridCell>>(new Map());
+  const { stage: autosaveStage } = autosave;
+  const stage = React.useCallback(
+    (key: string, cell: MarkGridCell) => {
+      setEdits((prev) => new Map(prev).set(key, cell));
+      autosaveStage(key, cell);
+    },
+    [autosaveStage],
+  );
+
+  // Submit locks the grid server-side, so any mark still staged (in the
+  // debounce window, in flight, or failed) would be rejected afterwards and
+  // lost. Save everything first; if that fails, close the dialog so the
+  // save-state line's error is visible, and don't submit.
+  async function confirmSubmit() {
+    setFlushing(true);
+    const saved = await autosave.flush();
+    setFlushing(false);
+    if (!saved) {
+      setSubmitOpen(false);
+      return;
+    }
+    submitGrid.mutate(undefined, {
+      onSuccess: () => setSubmitOpen(false),
+    });
+  }
 
   // A blocking `Dialog`, not `window.confirm` — `no-window-alert` forbids
   // the native dialog, and `withResolver: true` gives us `resolver.proceed`
@@ -125,9 +157,9 @@ function MarksEntryPage() {
     const missing = grid.components
       .filter((c) => c.source !== 'DERIVED')
       .some((component) => {
-        const cell = grid.cells.find(
-          (c) => c.student_id === student.id && c.component_id === component.id,
-        );
+        const cell =
+          edits.get(cellKey(student.id, component.id)) ??
+          grid.cells.find((c) => c.student_id === student.id && c.component_id === component.id);
         return !cell || (cell.value === null && cell.status === 'PRESENT');
       });
     return missing ? count + 1 : count;
@@ -198,7 +230,7 @@ function MarksEntryPage() {
           cells={grid.cells}
           derived={grid.derived}
           readOnly={readOnly}
-          onStage={autosave.stage}
+          onStage={stage}
           pendingKeys={autosave.pendingKeys}
           failedKeys={autosave.failedKeys}
         />
@@ -209,7 +241,7 @@ function MarksEntryPage() {
           cells={grid.cells}
           derived={grid.derived}
           readOnly={readOnly}
-          onStage={autosave.stage}
+          onStage={stage}
           pendingKeys={autosave.pendingKeys}
           failedKeys={autosave.failedKeys}
         />
@@ -219,12 +251,8 @@ function MarksEntryPage() {
         open={submitOpen}
         onOpenChange={setSubmitOpen}
         blankCount={blankCount}
-        confirming={submitGrid.isPending}
-        onConfirm={() => {
-          submitGrid.mutate(undefined, {
-            onSuccess: () => setSubmitOpen(false),
-          });
-        }}
+        confirming={flushing || submitGrid.isPending}
+        onConfirm={() => void confirmSubmit()}
       />
 
       <Dialog

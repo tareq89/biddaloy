@@ -172,6 +172,55 @@ describe('useAutosave — edge cases', () => {
     expect(result.current.state).toBe('saved');
   });
 
+  // Submit awaits flush() and then locks the grid server-side, so flush
+  // must not resolve while anything is still unsaved.
+  it('flush waits out an in-flight batch, then sends edits made mid-flight, and resolves true', async () => {
+    const { save, resolveCall } = deferredSave();
+    const { result } = renderHook(() => useAutosave<TestCell>({ save }));
+
+    act(() => result.current.stage('a', { value: '1' }));
+    act(() => void result.current.flush());
+    act(() => result.current.stage('b', { value: '2' }));
+
+    let flushed: boolean | undefined;
+    act(() => {
+      void result.current.flush().then((ok) => {
+        flushed = ok;
+      });
+    });
+
+    await act(async () => {
+      resolveCall(0);
+      await Promise.resolve();
+    });
+    // First batch done, but 'b' is still unsaved — flush has not resolved.
+    expect(flushed).toBeUndefined();
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save.mock.calls[1]![0].get('b')).toEqual({ value: '2' });
+
+    await act(async () => {
+      resolveCall(1);
+      await Promise.resolve();
+    });
+    expect(flushed).toBe(true);
+    expect(result.current.pendingCount).toBe(0);
+  });
+
+  it('flush resolves false when the save fails, so a caller knows not to submit', async () => {
+    const save = vi.fn().mockRejectedValue(new Error('offline'));
+    const { result } = renderHook(() => useAutosave<TestCell>({ save }));
+
+    act(() => result.current.stage('a', { value: '1' }));
+    let flushed: boolean | undefined;
+    await act(async () => {
+      flushed = await result.current.flush();
+    });
+
+    expect(flushed).toBe(false);
+    expect(result.current.state).toBe('error');
+    expect(result.current.failedKeys.has('a')).toBe(true);
+  });
+
   it('keeps an edit made while a save is in flight and sends it next', async () => {
     const { save, resolveCall } = deferredSave();
     const { result } = renderHook(() => useAutosave<TestCell>({ save }));

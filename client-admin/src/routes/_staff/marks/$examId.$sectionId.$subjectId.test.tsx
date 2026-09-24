@@ -169,6 +169,82 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
     expect(submittedCell.disabled).toBe(true);
   });
 
+  // Submit locks the grid, so a mark typed just before it must be saved
+  // first — and the blank count must reflect it, not the page-load grid.
+  it('submitting right after typing saves the mark first and counts it as filled', async () => {
+    const user = userEvent.setup();
+    const calls: string[] = [];
+    let state: 'DRAFT' | 'SUBMITTED' = 'DRAFT';
+    server.use(
+      http.get(GRID_URL, () => HttpResponse.json({ ...baseGrid, state })),
+      http.patch(GRID_URL, async ({ request }) => {
+        calls.push('save');
+        const body = (await request.json()) as { cells: Array<Record<string, unknown>> };
+        return HttpResponse.json({
+          cells: body.cells.map((cell) => ({ ...cell, saved_at: new Date().toISOString() })),
+        });
+      }),
+      http.post(`${GRID_URL}/submit`, () => {
+        calls.push('submit');
+        state = 'SUBMITTED';
+        return HttpResponse.json({
+          ...baseGrid,
+          state: 'SUBMITTED',
+          submitted_by: 'user-1',
+          submitted_at: new Date().toISOString(),
+        });
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/marks/exam-1/sec-1/subj-1'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    await user.type(await screen.findByLabelText('Rafi Ahmed — Written'), '90');
+    // Well inside the 600ms debounce — nothing has been saved yet.
+    await user.click(screen.getByRole('button', { name: /Submit/ }));
+    await screen.findByRole('heading', { name: 'Submit this grid?' });
+    expect(screen.queryByText(/blank cells will be submitted/)).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Submit' }));
+
+    await screen.findByText(/submitted by/i);
+    expect(calls).toEqual(['save', 'submit']);
+  });
+
+  it('does not submit when saving the pending marks fails', async () => {
+    const user = userEvent.setup();
+    let submitted = false;
+    server.use(
+      http.get(GRID_URL, () => HttpResponse.json(baseGrid)),
+      http.patch(GRID_URL, () => HttpResponse.json({ message: 'boom' }, { status: 500 })),
+      http.post(`${GRID_URL}/submit`, () => {
+        submitted = true;
+        return HttpResponse.json({ ...baseGrid, state: 'SUBMITTED' });
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/marks/exam-1/sec-1/subj-1'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    await user.type(await screen.findByLabelText('Rafi Ahmed — Written'), '90');
+    await user.click(screen.getByRole('button', { name: /Submit/ }));
+    await screen.findByRole('heading', { name: 'Submit this grid?' });
+    await user.click(screen.getByRole('button', { name: 'Submit' }));
+
+    // The dialog closes so the header's "not saved" line is visible.
+    await within(screen.getByTestId('save-state-line')).findByText(/not saved/);
+    expect(screen.queryByRole('heading', { name: 'Submit this grid?' })).toBeNull();
+    expect(submitted).toBe(false);
+  });
+
   it('a submitted grid a teacher opens is read-only from the start', async () => {
     server.use(
       http.get(GRID_URL, () =>

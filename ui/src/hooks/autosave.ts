@@ -15,8 +15,12 @@ export interface AutosaveResult<TCell> {
   /** Stage (or overwrite) one cell's pending value. Resets the debounce
    * timer so a burst of fast edits collapses into one request. */
   stage: (key: string, cell: TCell) => void;
-  /** Force an immediate flush of whatever's pending — used by "submit". */
-  flush: () => Promise<void>;
+  /** Force an immediate flush of whatever's pending — used by "submit".
+   * Waits out any in-flight batch, then sends whatever is still staged
+   * (including edits made mid-flight) until nothing is left. Resolves
+   * `true` once every staged cell is saved, `false` as soon as a save
+   * fails — a caller must not submit on `false`. */
+  flush: () => Promise<boolean>;
   state: SaveState;
   lastSavedAt: Date | null;
   pendingCount: number;
@@ -61,7 +65,9 @@ export function useAutosave<TCell>({
   const debounceTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryAttempt = React.useRef(0);
-  const savingRef = React.useRef(false);
+  // The in-flight batch, if any — resolves `true` if it saved, `false` if
+  // it failed. Doubles as the "one batch at a time" lock.
+  const inFlightRef = React.useRef<Promise<boolean> | null>(null);
 
   const clearTimers = React.useCallback(() => {
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
@@ -72,15 +78,28 @@ export function useAutosave<TCell>({
 
   React.useEffect(() => clearTimers, [clearTimers]);
 
-  const runSave = React.useCallback(async () => {
-    if (savingRef.current) return; // one in-flight batch at a time
+  const runSave = React.useCallback((): Promise<boolean> => {
+    // One in-flight batch at a time — a caller arriving mid-flight gets
+    // that batch's outcome instead of starting a second request.
+    if (inFlightRef.current) return inFlightRef.current;
     const batch = new Map(stagedRef.current);
-    if (batch.size === 0) return;
+    if (batch.size === 0) return Promise.resolve(true);
 
-    savingRef.current = true;
     setState('saving');
-    try {
-      await save(batch);
+    const attempt = (async () => {
+      try {
+        // Wrapped so even a `save` that throws synchronously settles only
+        // after `inFlightRef` is assigned below, never before.
+        await (async () => save(batch))();
+      } catch {
+        inFlightRef.current = null;
+        setFailedKeys(new Set(batch.keys()));
+        setState('error');
+        const delay = Math.min(retryBaseMs * 2 ** retryAttempt.current, maxRetryMs);
+        retryAttempt.current += 1;
+        retryTimer.current = setTimeout(() => void runSave(), delay);
+        return false;
+      }
       // Only cells still staged with the SAME value we just sent may be
       // cleared — a newer edit that landed mid-flight must survive.
       for (const [key, cell] of batch) {
@@ -93,19 +112,15 @@ export function useAutosave<TCell>({
       setPendingKeys(new Set(stagedRef.current.keys()));
       setLastSavedAt(new Date());
       setState(stagedRef.current.size > 0 ? 'saving' : 'saved');
-      savingRef.current = false;
+      inFlightRef.current = null;
       if (stagedRef.current.size > 0) {
         // More edits arrived while this batch was in flight — go again.
         void runSave();
       }
-    } catch {
-      savingRef.current = false;
-      setFailedKeys(new Set(batch.keys()));
-      setState('error');
-      const delay = Math.min(retryBaseMs * 2 ** retryAttempt.current, maxRetryMs);
-      retryAttempt.current += 1;
-      retryTimer.current = setTimeout(() => void runSave(), delay);
-    }
+      return true;
+    })();
+    inFlightRef.current = attempt;
+    return attempt;
   }, [save, retryBaseMs, maxRetryMs]);
 
   const stage = React.useCallback(
@@ -137,7 +152,10 @@ export function useAutosave<TCell>({
     if (retryTimer.current) clearTimeout(retryTimer.current);
     debounceTimer.current = null;
     retryTimer.current = null;
-    await runSave();
+    while (stagedRef.current.size > 0 || inFlightRef.current) {
+      if (!(await runSave())) return false;
+    }
+    return true;
   }, [runSave]);
 
   return {
