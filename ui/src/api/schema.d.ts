@@ -7337,6 +7337,8 @@ export interface components {
             id: string;
             class_id: string;
             subject_id: string;
+            subject_name_en: string | null;
+            subject_name_bn: string | null;
             name: string;
             description: string | null;
             sequence: number;
