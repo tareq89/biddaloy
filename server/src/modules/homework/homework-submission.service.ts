@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { HomeworkGradingMode, HomeworkSubmissionStatus } from '@biddaloy/shared';
+import { HomeworkAssignmentStatus, HomeworkGradingMode, HomeworkSubmissionStatus } from '@biddaloy/shared';
 import { Homework } from './entities/homework.entity';
 import { HomeworkAssignment } from './entities/homework-assignment.entity';
 import { HomeworkSubmission } from './entities/homework-submission.entity';
@@ -16,6 +16,8 @@ import { FamilyAccessService } from '../students/family-access.service';
 import { StorageService } from '../storage/storage.service';
 import { tenantObjectKey } from '../storage/storage-key';
 import { UpdateHomeworkSubmissionDto } from './dto/homework-submission.dto';
+import { SchoolsService } from '../schools/schools.service';
+import { localToday } from '../attendance/attendance-policy.util';
 
 interface CallerContext {
   role: string;
@@ -64,6 +66,7 @@ export class HomeworkSubmissionService {
     private readonly access: HomeworkAccessService,
     private readonly familyAccess: FamilyAccessService,
     private readonly storage: StorageService,
+    private readonly schoolsService: SchoolsService,
   ) {}
 
   private async loadAssignment(
@@ -104,7 +107,7 @@ export class HomeworkSubmissionService {
   }
 
   private validateFiles(files: Express.Multer.File[]): void {
-    if (files.length === 0) {
+    if (!Array.isArray(files) || files.length === 0) {
       throw new BadRequestException('At least one file is required');
     }
     if (files.length > HOMEWORK_SUBMISSION_MAX_FILES) {
@@ -138,11 +141,18 @@ export class HomeworkSubmissionService {
     await this.familyAccess.assertLinked(ctx.role, ctx.userId, studentId, ctx.tenantId);
     await this.assertStudentInScope(assignment, studentId);
 
-    // due_date is a DATE column (no time-of-day) — end-of-day in the
-    // server's local representation, same convention as
-    // HomeworkAssignmentStatus checks elsewhere in this module.
-    const dueDateEnd = new Date(`${assignment.due_date}T23:59:59.999`);
-    if (new Date() > dueDateEnd) {
+    if (assignment.status !== HomeworkAssignmentStatus.ACTIVE) {
+      throw new BadRequestException('This assignment is no longer active');
+    }
+
+    // due_date is a DATE column (no time-of-day) — the cutoff is evaluated
+    // in the tenant's own timezone (same as HomeworkDefaulterScheduler and
+    // HomeworkAnalyticsService), not the server's, so a submission near
+    // midnight isn't accepted or rejected based on where the server happens
+    // to run.
+    const settings = await this.schoolsService.getResolvedSettings(ctx.tenantId);
+    const timezone = settings.region?.timezone ?? 'UTC';
+    if (localToday(timezone) > assignment.due_date) {
       throw new BadRequestException('The due date for this assignment has passed');
     }
 

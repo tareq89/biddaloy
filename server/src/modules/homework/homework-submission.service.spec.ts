@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { HomeworkGradingMode, HomeworkSubmissionStatus, UserRole } from '@biddaloy/shared';
+import {
+  HomeworkAssignmentStatus,
+  HomeworkGradingMode,
+  HomeworkSubmissionStatus,
+  UserRole,
+} from '@biddaloy/shared';
 import { HomeworkSubmissionService } from './homework-submission.service';
 
 describe('HomeworkSubmissionService', () => {
@@ -17,6 +22,7 @@ describe('HomeworkSubmissionService', () => {
     section_id: 'section-1',
     student_id: null,
     due_date: FUTURE_DUE_DATE,
+    status: HomeworkAssignmentStatus.ACTIVE,
     tenant_id: TENANT_ID,
   };
 
@@ -49,6 +55,7 @@ describe('HomeworkSubmissionService', () => {
   };
   let familyAccess: { assertLinked: ReturnType<typeof vi.fn> };
   let storage: { put: ReturnType<typeof vi.fn> };
+  let schoolsService: { getResolvedSettings: ReturnType<typeof vi.fn> };
   let service: HomeworkSubmissionService;
 
   beforeEach(() => {
@@ -73,6 +80,9 @@ describe('HomeworkSubmissionService', () => {
     };
     familyAccess = { assertLinked: vi.fn(async () => undefined) };
     storage = { put: vi.fn(async () => undefined) };
+    schoolsService = {
+      getResolvedSettings: vi.fn(async () => ({ region: { timezone: 'UTC' } })),
+    };
 
     service = new HomeworkSubmissionService(
       homeworkRepo as never,
@@ -82,6 +92,7 @@ describe('HomeworkSubmissionService', () => {
       access as never,
       familyAccess as never,
       storage as never,
+      schoolsService as never,
     );
   });
 
@@ -154,6 +165,25 @@ describe('HomeworkSubmissionService', () => {
       await expect(
         service.upload('missing', 'student-1', [FILE], studentCtx),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects an upload to a DEACTIVATED assignment', async () => {
+      assignmentRepo.findOne.mockResolvedValue({
+        ...SECTION_ASSIGNMENT,
+        status: HomeworkAssignmentStatus.DEACTIVATED,
+      });
+      await expect(
+        service.upload('assign-1', 'student-1', [FILE], studentCtx),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(storage.put).not.toHaveBeenCalled();
+    });
+
+    it('evaluates the due-date cutoff in the tenant timezone', async () => {
+      schoolsService.getResolvedSettings.mockResolvedValue({
+        region: { timezone: 'Asia/Dhaka' },
+      });
+      await service.upload('assign-1', 'student-1', [FILE], studentCtx);
+      expect(schoolsService.getResolvedSettings).toHaveBeenCalledWith(TENANT_ID);
     });
   });
 

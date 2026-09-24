@@ -12,6 +12,7 @@ import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator
 import { HomeworkService } from './homework.service';
 import { HomeworkAnalyticsService } from './homework-analytics.service';
 import { HomeworkAccessService } from './homework-access.service';
+import { SchoolsService } from '../schools/schools.service';
 import {
   AssignHomeworkDto,
   CreateHomeworkDto,
@@ -34,7 +35,13 @@ export class HomeworkController {
     private readonly homeworkService: HomeworkService,
     private readonly homeworkAnalyticsService: HomeworkAnalyticsService,
     private readonly homeworkAccessService: HomeworkAccessService,
+    private readonly schoolsService: SchoolsService,
   ) {}
+
+  private async resolveTimezone(tenantId: string): Promise<string> {
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    return settings.region?.timezone ?? 'UTC';
+  }
 
   @Post('homework')
   @Roles(UserRole.ADMIN, UserRole.TEACHER)
@@ -91,7 +98,11 @@ export class HomeworkController {
       studentId,
       tenant.id,
     );
-    return this.homeworkAnalyticsService.getStudentRollup(studentId, tenant.id);
+    return this.homeworkAnalyticsService.getStudentRollup(
+      studentId,
+      tenant.id,
+      await this.resolveTimezone(tenant.id),
+    );
   }
 
   @Get('homework/analytics/section/:sectionId')
@@ -109,7 +120,11 @@ export class HomeworkController {
       sectionId,
       tenant.id,
     );
-    return this.homeworkAnalyticsService.getSectionRollup(sectionId, tenant.id);
+    return this.homeworkAnalyticsService.getSectionRollup(
+      sectionId,
+      tenant.id,
+      await this.resolveTimezone(tenant.id),
+    );
   }
 
   @Get('homework/analytics/class/:classId')
@@ -124,7 +139,11 @@ export class HomeworkController {
     @CurrentUser() user: { sub: string },
   ) {
     await this.homeworkAccessService.assertCanViewClass(tenant.role, user.sub, classId, tenant.id);
-    return this.homeworkAnalyticsService.getClassRollup(classId, tenant.id);
+    return this.homeworkAnalyticsService.getClassRollup(
+      classId,
+      tenant.id,
+      await this.resolveTimezone(tenant.id),
+    );
   }
 
   @Get('homework/:id')
