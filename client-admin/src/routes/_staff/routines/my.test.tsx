@@ -1,9 +1,21 @@
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
+
+// Same "frozen clock at collection time" reasoning `portal/routine.test.tsx`
+// documents for its own fixtures — `agendaDates()` builds its 7-day window
+// from the real `new Date()`, and 2026-09-23 is a Wednesday (weekday 3,
+// matching the mocked resolve data below), not the mocked `weeklyOffDays: [5]`
+// Friday — an unpinned clock intermittently lands "today" on a weekly-off
+// day and the agenda shows that instead of the mocked slots.
+vi.useFakeTimers({ toFake: ['Date'] });
+afterAll(() => {
+  vi.useRealTimers();
+});
+vi.setSystemTime(new Date('2026-09-23T09:00:00.000Z'));
 
 afterEach(async () => {
   await cleanupTestState();
