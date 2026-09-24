@@ -43,6 +43,7 @@ export const AUDIT_ENTITY_TYPES = [
   'RefreshToken',
   'ReminderBatch',
   'ReminderBatchPreview',
+  'Result',
   'Routine',
   'RoutineChangeRequest',
   'School',

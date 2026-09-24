@@ -1,0 +1,127 @@
+{
+  "list": {
+    "title": "পরীক্ষা",
+    "addExam": "পরীক্ষা যোগ করুন",
+    "academicYearLabel": "শিক্ষাবর্ষ",
+    "allAcademicYears": "সব শিক্ষাবর্ষ",
+    "caption": "বর্তমান প্রতিষ্ঠানের পরীক্ষাসমূহ",
+    "columnName": "নাম",
+    "columnKind": "ধরন",
+    "columnStatus": "অবস্থা",
+    "errorMessage": "পরীক্ষার তালিকা লোড করা যায়নি।",
+    "emptyMessage": "এখনো কোনো পরীক্ষা নেই।",
+    "announceResults": "{{total}} টির মধ্যে {{visible}} টি পরীক্ষা দেখানো হচ্ছে"
+  },
+  "kind": {
+    "TERM": "টার্ম",
+    "MONTHLY": "মাসিক",
+    "MODEL": "মডেল টেস্ট",
+    "OTHER": "অন্যান্য"
+  },
+  "status": {
+    "DRAFT": "খসড়া",
+    "PROCESSED": "প্রক্রিয়াকৃত",
+    "PUBLISHED": "প্রকাশিত"
+  },
+  "examForm": {
+    "createTitle": "পরীক্ষা যোগ করুন",
+    "editTitle": "পরীক্ষা সম্পাদনা করুন",
+    "description": "একটি পরীক্ষা একটি ক্লাস ও একটি শিক্ষাবর্ষের অন্তর্গত।",
+    "nameLabel": "নাম",
+    "namePlaceholder": "যেমন: অর্ধ-বার্ষিক ২০২৬",
+    "kindLabel": "ধরন",
+    "academicYearLabel": "শিক্ষাবর্ষ",
+    "academicYearPlaceholder": "একটি শিক্ষাবর্ষ নির্বাচন করুন",
+    "classLabel": "ক্লাস",
+    "classPlaceholder": "একটি ক্লাস নির্বাচন করুন",
+    "errorNameRequired": "নাম আবশ্যক।",
+    "errorAcademicYearClassRequired": "শিক্ষাবর্ষ ও ক্লাস আবশ্যক।",
+    "errorMessage": "পরীক্ষা সংরক্ষণ করা যায়নি।",
+    "saving": "সংরক্ষণ হচ্ছে…",
+    "save": "সংরক্ষণ করুন"
+  },
+  "detail": {
+    "back": "পরীক্ষার তালিকায় ফিরে যান",
+    "loadError": "এই পরীক্ষা লোড করা যায়নি।",
+    "identifiers": "{{kind}} · {{status}}",
+    "resultsPlaceholder": "পরীক্ষা প্রক্রিয়াকরণের পর ফলাফল পাওয়া যাবে। পরবর্তী একটি টিকিটে আসছে।",
+    "tabs": {
+      "progress": "অগ্রগতি",
+      "setup": "সেটআপ",
+      "results": "ফলাফল",
+      "fourthSubject": "বিষয় নির্বাচন"
+    }
+  },
+  "progressPanel": {
+    "loadError": "জমাদানের অগ্রগতি লোড করা যায়নি।",
+    "submittedOf": "{{total}} টির মধ্যে {{submitted}} টি গ্রিড জমা হয়েছে",
+    "stateFilterLabel": "অবস্থা অনুযায়ী ফিল্টার করুন",
+    "stateAll": "সব",
+    "stateDraft": "খসড়া",
+    "stateSubmitted": "জমাকৃত",
+    "stateDRAFT": "খসড়া",
+    "stateSUBMITTED": "জমাকৃত",
+    "tableCaption": "বাকি থাকা সেকশন-বিষয় গ্রিডসমূহ",
+    "columnSection": "সেকশন · বিষয়",
+    "columnState": "অবস্থা",
+    "empty": "এই ফিল্টারে কিছু বাকি নেই।"
+  },
+  "componentsPanel": {
+    "subjectLabel": "বিষয়",
+    "subjectPlaceholder": "একটি বিষয় নির্বাচন করুন",
+    "copyComponents": "কম্পোনেন্ট কপি করুন…",
+    "loadError": "কম্পোনেন্ট লোড করা যায়নি।",
+    "tableCaption": "এই বিষয়ের পরীক্ষার কম্পোনেন্টসমূহ",
+    "columnName": "নাম",
+    "columnKind": "ধরন",
+    "columnFullMarks": "পূর্ণমান",
+    "columnPassMarks": "পাশ মার্ক",
+    "columnSequence": "ক্রম",
+    "columnActions": "কার্যক্রম",
+    "derived": "স্বয়ংক্রিয়",
+    "remove": "মুছুন",
+    "empty": "এখনো কোনো কম্পোনেন্ট নেই।",
+    "nameLabel": "নাম",
+    "kindLabel": "ধরন",
+    "add": "যোগ করুন",
+    "attendanceHint": "উপস্থিতি কম্পোনেন্ট স্বয়ংক্রিয়ভাবে গণনা হয় — এর জন্য মার্ক দেওয়া হয় না।",
+    "errorNameRequired": "নাম আবশ্যক।",
+    "errorFullMarksInvalid": "পূর্ণমান অবশ্যই একটি ধনাত্মক সংখ্যা হতে হবে।",
+    "errorMessage": "কম্পোনেন্ট সংরক্ষণ করা যায়নি।"
+  },
+  "componentKind": {
+    "WRITTEN": "লিখিত",
+    "MCQ": "এমসিকিউ",
+    "VIVA": "মৌখিক",
+    "LAB": "ল্যাব",
+    "PRACTICAL": "ব্যবহারিক",
+    "MONTHLY_TEST": "মাসিক পরীক্ষা",
+    "ATTENDANCE": "উপস্থিতি",
+    "OTHER": "অন্যান্য"
+  },
+  "copyDialog": {
+    "title": "কম্পোনেন্ট কপি করুন",
+    "description": "একটি উৎস বিষয়ের সব কম্পোনেন্ট এক বা একাধিক লক্ষ্য বিষয়ে কপি করুন। নিশ্চিত না করা পর্যন্ত কিছুই তৈরি হবে না।",
+    "sourceLabel": "উৎস",
+    "sourceModeSubject": "এই পরীক্ষার অন্য একটি বিষয়",
+    "sourceModeExam": "একই বিষয়, ভিন্ন পরীক্ষা",
+    "sourceSubjectLabel": "বিষয়",
+    "sourceSubjectPlaceholder": "একটি বিষয় নির্বাচন করুন",
+    "sourceExamLabel": "পরীক্ষা",
+    "sourceExamPlaceholder": "একটি পরীক্ষা নির্বাচন করুন",
+    "targetsLabel": "যেখানে কপি হবে",
+    "previewTitle": "পূর্বরূপ",
+    "previewCreated": "{{count}} টি তৈরি হবে: {{names}}",
+    "previewNothing": "কপি করার কিছু নেই।",
+    "reasonNameExists": "এই নামে একটি কম্পোনেন্ট ইতিমধ্যে আছে",
+    "reasonAttendanceExists": "এই বিষয়ে ইতিমধ্যে একটি উপস্থিতি কম্পোনেন্ট আছে",
+    "confirm": "কপি করুন",
+    "errorMessage": "কম্পোনেন্ট কপি করা যায়নি।"
+  },
+  "subjectChoicesPanel": {
+    "loadError": "বিষয় নির্বাচন লোড করা যায়নি।",
+    "empty": "এই শিক্ষার্থীর ক্লাসের জন্য কোনো ঐচ্ছিক বিষয় নেই।",
+    "label": "চতুর্থ বিষয়",
+    "errorMessage": "নির্বাচন সংরক্ষণ করা যায়নি।"
+  }
+}

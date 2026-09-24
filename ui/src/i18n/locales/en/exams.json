@@ -1,0 +1,127 @@
+{
+  "list": {
+    "title": "Exams",
+    "addExam": "Add exam",
+    "academicYearLabel": "Academic year",
+    "allAcademicYears": "All academic years",
+    "caption": "Exams for the current tenant",
+    "columnName": "Name",
+    "columnKind": "Kind",
+    "columnStatus": "Status",
+    "errorMessage": "Couldn't load exams.",
+    "emptyMessage": "No exams yet.",
+    "announceResults": "Showing {{visible}} of {{total}} exams"
+  },
+  "kind": {
+    "TERM": "Term",
+    "MONTHLY": "Monthly",
+    "MODEL": "Model",
+    "OTHER": "Other"
+  },
+  "status": {
+    "DRAFT": "Draft",
+    "PROCESSED": "Processed",
+    "PUBLISHED": "Published"
+  },
+  "examForm": {
+    "createTitle": "Add exam",
+    "editTitle": "Edit exam",
+    "description": "An exam belongs to one class and one academic year.",
+    "nameLabel": "Name",
+    "namePlaceholder": "e.g. Half Yearly 2026",
+    "kindLabel": "Kind",
+    "academicYearLabel": "Academic year",
+    "academicYearPlaceholder": "Select an academic year",
+    "classLabel": "Class",
+    "classPlaceholder": "Select a class",
+    "errorNameRequired": "Name is required.",
+    "errorAcademicYearClassRequired": "Academic year and class are required.",
+    "errorMessage": "Couldn't save the exam.",
+    "saving": "Saving…",
+    "save": "Save"
+  },
+  "detail": {
+    "back": "Back to exams",
+    "loadError": "Couldn't load this exam.",
+    "identifiers": "{{kind}} · {{status}}",
+    "resultsPlaceholder": "Results will be available once this exam is processed. Coming in a later ticket.",
+    "tabs": {
+      "progress": "Progress",
+      "setup": "Setup",
+      "results": "Results",
+      "fourthSubject": "Subject choices"
+    }
+  },
+  "progressPanel": {
+    "loadError": "Couldn't load submission progress.",
+    "submittedOf": "{{submitted}} of {{total}} grids submitted",
+    "stateFilterLabel": "Filter by state",
+    "stateAll": "All",
+    "stateDraft": "Draft",
+    "stateSubmitted": "Submitted",
+    "stateDRAFT": "Draft",
+    "stateSUBMITTED": "Submitted",
+    "tableCaption": "Outstanding section-subject grids",
+    "columnSection": "Section · Subject",
+    "columnState": "State",
+    "empty": "Nothing outstanding for this filter."
+  },
+  "componentsPanel": {
+    "subjectLabel": "Subject",
+    "subjectPlaceholder": "Select a subject",
+    "copyComponents": "Copy components…",
+    "loadError": "Couldn't load components.",
+    "tableCaption": "Exam components for this subject",
+    "columnName": "Name",
+    "columnKind": "Kind",
+    "columnFullMarks": "Full marks",
+    "columnPassMarks": "Pass marks",
+    "columnSequence": "Sequence",
+    "columnActions": "Actions",
+    "derived": "Derived",
+    "remove": "Remove",
+    "empty": "No components yet.",
+    "nameLabel": "Name",
+    "kindLabel": "Kind",
+    "add": "Add",
+    "attendanceHint": "Attendance components are computed automatically — marks aren't entered for them.",
+    "errorNameRequired": "Name is required.",
+    "errorFullMarksInvalid": "Full marks must be a positive number.",
+    "errorMessage": "Couldn't save the component."
+  },
+  "componentKind": {
+    "WRITTEN": "Written",
+    "MCQ": "MCQ",
+    "VIVA": "Viva",
+    "LAB": "Lab",
+    "PRACTICAL": "Practical",
+    "MONTHLY_TEST": "Monthly test",
+    "ATTENDANCE": "Attendance",
+    "OTHER": "Other"
+  },
+  "copyDialog": {
+    "title": "Copy components",
+    "description": "Copy every component from a source subject into one or more target subjects. Nothing is created until you confirm.",
+    "sourceLabel": "Source",
+    "sourceModeSubject": "Another subject in this exam",
+    "sourceModeExam": "The same subject in a different exam",
+    "sourceSubjectLabel": "Subject",
+    "sourceSubjectPlaceholder": "Select a subject",
+    "sourceExamLabel": "Exam",
+    "sourceExamPlaceholder": "Select an exam",
+    "targetsLabel": "Copy into",
+    "previewTitle": "Preview",
+    "previewCreated": "{{count}} to create: {{names}}",
+    "previewNothing": "Nothing to copy.",
+    "reasonNameExists": "a component with this name already exists",
+    "reasonAttendanceExists": "this subject already has an attendance component",
+    "confirm": "Copy",
+    "errorMessage": "Couldn't copy the components."
+  },
+  "subjectChoicesPanel": {
+    "loadError": "Couldn't load subject choices.",
+    "empty": "No optional subjects are offered for this student's class.",
+    "label": "Fourth subject",
+    "errorMessage": "Couldn't save the choice."
+  }
+}
