@@ -131,35 +131,43 @@ export class SubjectChoicesService {
     }
 
     const isFourth = dto.is_fourth ?? false;
-    if (isFourth) {
-      const otherFourth = await this.choiceRepo.findOne({
-        where: {
-          student_id: studentId,
-          academic_year_id: classSubject.academic_year_id,
-          is_fourth: true,
-          tenant_id: tenantId,
-        },
-      });
-      if (otherFourth && otherFourth.class_subject_id !== dto.class_subject_id) {
-        throw new ConflictException(
-          `Student already has a fourth subject set for this academic year.`,
-        );
-      }
-    }
 
     const existing = await this.choiceRepo.findOne({
       where: { student_id: studentId, class_subject_id: dto.class_subject_id, tenant_id: tenantId },
     });
 
-    // The is_fourth pre-check and the `existing` lookup above run outside
-    // any lock, so two concurrent PUTs can both pass them and then race
-    // on the DB's own unique indexes (IDX_student_subject_choices_one_
-    // fourth_per_year, or the student_id+class_subject_id unique index).
-    // Whichever loses that race must surface as a clear 409, not a raw
-    // 23505-driven 500.
+    // The `existing` lookup above runs outside any lock, so two concurrent
+    // PUTs can both pass it and then race on the DB's own unique indexes
+    // (IDX_student_subject_choices_one_fourth_per_year, or the
+    // student_id+class_subject_id unique index). Whichever loses that
+    // race must surface as a clear 409, not a raw 23505-driven 500.
     try {
       return await this.choiceRepo.manager.transaction(async (manager) => {
         const repo = manager.getRepository(StudentSubjectChoice);
+
+        // [pr-fix #945] Replace, not reject: a PUT for a *different*
+        // fourth subject than the student's current one used to 409
+        // unconditionally, even though this is the panel's normal
+        // "change your mind" path (see subject-choices-panel.tsx —
+        // selecting a radio button just re-PUTs). Demote the old
+        // fourth-subject row to is_fourth:false first, inside this same
+        // transaction, before setting the new one — that keeps at most
+        // one is_fourth:true row committed at any statement boundary, so
+        // the partial unique index never sees two true rows at once.
+        if (isFourth) {
+          const otherFourth = await repo.findOne({
+            where: {
+              student_id: studentId,
+              academic_year_id: classSubject.academic_year_id,
+              is_fourth: true,
+              tenant_id: tenantId,
+            },
+          });
+          if (otherFourth && otherFourth.class_subject_id !== dto.class_subject_id) {
+            await repo.update({ id: otherFourth.id }, { is_fourth: false });
+          }
+        }
+
         let saved: StudentSubjectChoice;
         if (existing) {
           await repo.update({ id: existing.id }, { is_fourth: isFourth });

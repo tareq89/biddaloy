@@ -99,6 +99,18 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.GRADING_SCALE_MANAGE,
     label: { key: 'gradingScales' },
   },
+  // [19.6.1] `EXAM_MANAGE`, matching what `ExamsController.findAll`
+  // actually requires server-side (`@Roles(ADMIN)` +
+  // `@RequirePermissions(EXAM_MANAGE)`) — there is no separate "read a
+  // bare exam" permission, unlike marks (`MARK_VIEW`) below. A route-level
+  // gate looser than this would land a non-ADMIN role on a list page that
+  // 403s on its very first request.
+  'examsResults.exams': {
+    id: 'examsResults.exams',
+    to: '/exams',
+    permission: Permission.EXAM_MANAGE,
+    label: { entity: 'exam' },
+  },
   'attendance.attendance': {
     id: 'attendance.attendance',
     to: '/attendance',
@@ -204,9 +216,10 @@ export const STAFF_NAV_ITEMS = {
  * group `id`s (so saved collapse preferences survive) but shed the items
  * the three new domain groups now own; **Academics**, **Attendance** and
  * **Reports** are new groups carved out of Administration/People/Finance;
- * **Exams & Results** is declared with zero items on purpose — `AppShell`
- * already auto-hides an empty group (`app-shell.tsx`'s
- * `NavGroupSection`), so it renders nothing until [19.0] gives it a route.
+ * **Exams & Results** started with zero items ([30.1.3]) — `AppShell`
+ * auto-hides an empty group (`app-shell.tsx`'s `NavGroupSection`) — and
+ * gained its first two, `examsResults.gradingScales` and (19.6.1)
+ * `examsResults.exams`, as Epic 19.0 landed routes for it.
  */
 /** [30.5.1] `CommandPalette`'s Page-tab match predicate: does `query`
  * appear in the item's already-resolved display `label`, or in one of
@@ -253,7 +266,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
   {
     id: 'examsResults',
     label: { key: 'examsResults' },
-    items: [STAFF_NAV_ITEMS['examsResults.gradingScales']],
+    items: [STAFF_NAV_ITEMS['examsResults.exams'], STAFF_NAV_ITEMS['examsResults.gradingScales']],
   },
   {
     id: 'finance',

@@ -162,7 +162,7 @@ describe('SubjectChoicesService.setChoice', () => {
     ).resolves.toMatchObject({ is_fourth: true });
   });
 
-  it('rejects a second is_fourth choice for the same student/year (enforced at the service, not just the DB index)', async () => {
+  it('replaces a different existing fourth-subject choice atomically, rather than rejecting the PUT', async () => {
     const { service, classSubjectRepo, choiceRepo } = await buildService();
     classSubjectRepo.findOne = vi.fn(async () => ({
       id: 'cs-2',
@@ -170,7 +170,9 @@ describe('SubjectChoicesService.setChoice', () => {
       academic_year_id: YEAR_ID,
       is_optional: true,
     }));
-    // An existing is_fourth choice already set on a *different* class_subject.
+    // An existing is_fourth choice already set on a *different* class_subject
+    // — this is the panel's normal "change your mind" path (re-PUT with a
+    // different class_subject_id), not a conflict to reject.
     choiceRepo.findOne = vi.fn(async (opts: any) => {
       if (opts?.where?.is_fourth) {
         return { id: 'choice-existing', class_subject_id: 'cs-1', is_fourth: true };
@@ -178,13 +180,15 @@ describe('SubjectChoicesService.setChoice', () => {
       return null;
     });
 
-    await expect(
-      service.setChoice(
-        STUDENT_ID,
-        { class_subject_id: 'cs-2', is_fourth: true } as any,
-        TENANT_ID,
-      ),
-    ).rejects.toThrow(ConflictException);
+    const result = await service.setChoice(
+      STUDENT_ID,
+      { class_subject_id: 'cs-2', is_fourth: true } as any,
+      TENANT_ID,
+    );
+
+    expect(result).toMatchObject({ class_subject_id: 'cs-2', is_fourth: true });
+    // The old fourth-subject row is demoted, not left dangling at is_fourth:true.
+    expect(choiceRepo.update).toHaveBeenCalledWith({ id: 'choice-existing' }, { is_fourth: false });
   });
 
   it('re-setting is_fourth on the same class_subject that already holds it is not a conflict', async () => {

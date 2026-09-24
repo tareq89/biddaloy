@@ -14,14 +14,17 @@ import { MarkGrid } from './entities/mark-grid.entity';
 import { Exam } from './entities/exam.entity';
 import { Student } from '../students/entities/student.entity';
 import { MarksAuthorizationService } from './marks-authorization.util';
+import { ResultsService } from './results.service';
 import { AuditService } from '../audit/audit.service';
 import {
   ExamComponentKind,
   ExamComponentSource,
+  ExamStatus,
   MarkGridState,
   MarkStatus,
   UserRole,
 } from '@biddaloy/shared';
+import { QueryFailedError } from 'typeorm';
 
 const TENANT_ID = 'tenant-1';
 const EXAM_ID = 'exam-1';
@@ -51,9 +54,16 @@ async function buildService(
     grid?: Partial<MarkGrid> | null;
     existingMarks?: Partial<Mark>[];
     enrolledCount?: number;
+    examStatus?: string;
   } = {},
 ) {
-  const { components = [component()], grid = null, existingMarks = [], enrolledCount } = opts;
+  const {
+    components = [component()],
+    grid = null,
+    existingMarks = [],
+    enrolledCount,
+    examStatus,
+  } = opts;
 
   const markRepo: any = {
     create: vi.fn((v: any) => v),
@@ -69,18 +79,39 @@ async function buildService(
       })),
     ),
   };
+  const examRepo: any = {
+    findOne: vi.fn(async () => ({ id: EXAM_ID, tenant_id: TENANT_ID, status: examStatus })),
+  };
+  // lockGrid's locked re-read: the existing row, or the DRAFT row it just
+  // inserted for a never-touched grid.
+  const gridRepo: any = {
+    findOneOrFail: vi.fn(async () => ({ id: 'grid-1', state: MarkGridState.DRAFT, ...grid })),
+    createQueryBuilder: () => insertQb,
+  };
+  const insertQb: any = {
+    insert: () => insertQb,
+    into: () => insertQb,
+    values: () => insertQb,
+    orIgnore: () => insertQb,
+    execute: vi.fn(async () => undefined),
+  };
   markRepo.manager = {
-    transaction: vi.fn(async (cb: any) => cb({ getRepository: () => markRepo })),
+    transaction: vi.fn(async (cb: any) =>
+      cb({
+        getRepository: (entity: unknown) =>
+          entity === MarkGrid ? gridRepo : entity === Exam ? examRepo : markRepo,
+        createQueryBuilder: () => insertQb,
+      }),
+    ),
   };
 
   const componentRepo: any = { find: vi.fn(async () => components) };
-  const gridRepo: any = { findOne: vi.fn(async () => grid) };
-  const examRepo: any = { findOne: vi.fn(async () => ({ id: EXAM_ID, tenant_id: TENANT_ID })) };
   const studentIds = ['stu-1', 'stu-2'];
   const studentRepo: any = {
     count: vi.fn(async ({ where }: any) => enrolledCount ?? (where.id.value as string[]).length),
   };
   const authz = { assertCanWrite: vi.fn(async () => undefined) };
+  const resultsService = { recomputeIfProcessed: vi.fn(async () => undefined) };
   const auditService = { record: vi.fn(async () => undefined) };
 
   const moduleRef = await Test.createTestingModule({
@@ -92,12 +123,14 @@ async function buildService(
       { provide: getRepositoryToken(Exam), useValue: examRepo },
       { provide: getRepositoryToken(Student), useValue: studentRepo },
       { provide: MarksAuthorizationService, useValue: authz },
+      { provide: ResultsService, useValue: resultsService },
       { provide: AuditService, useValue: auditService },
     ],
   }).compile();
 
   return {
     service: moduleRef.get(MarksService),
+    resultsService,
     markRepo,
     componentRepo,
     gridRepo,
@@ -344,5 +377,100 @@ describe('MarksService.upsertBatch', () => {
         'user-1',
       ),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('calls ResultsService.recomputeIfProcessed once with every distinct student ID in the batch (19.5.1 D18, pr-fix #945)', async () => {
+    const { service, resultsService } = await buildService({
+      existingMarks: [
+        { student_id: 'stu-1', component_id: 'comp-1', value: '75.00', status: MarkStatus.PRESENT },
+      ],
+    });
+
+    await service.upsertBatch(
+      EXAM_ID,
+      batchDto([
+        { student_id: 'stu-1', component_id: 'comp-1', value: '75', status: MarkStatus.PRESENT },
+      ]),
+      TENANT_ID,
+      UserRole.TEACHER,
+      'user-1',
+    );
+
+    // One call for the whole batch, not once per student — computeAll
+    // ranks the whole class regardless, so a per-student loop repeated
+    // that full-class computation on the request thread for nothing.
+    expect(resultsService.recomputeIfProcessed).toHaveBeenCalledTimes(1);
+    expect(resultsService.recomputeIfProcessed).toHaveBeenCalledWith(
+      EXAM_ID,
+      ['stu-1'],
+      TENANT_ID,
+      'user-1',
+      { ip: null, userAgent: null },
+    );
+  });
+
+  it('refuses a write when the exam is already PUBLISHED', async () => {
+    const { service } = await buildService({ examStatus: ExamStatus.PUBLISHED });
+
+    await expect(
+      service.upsertBatch(
+        EXAM_ID,
+        batchDto([
+          { student_id: 'stu-1', component_id: 'comp-1', value: '75', status: MarkStatus.PRESENT },
+        ]),
+        TENANT_ID,
+        UserRole.TEACHER,
+        'user-1',
+      ),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('takes the grid row lock inside the write transaction before checking SUBMITTED (pr-fix #945)', async () => {
+    const { service, gridRepo } = await buildService({
+      existingMarks: [
+        { student_id: 'stu-1', component_id: 'comp-1', value: '75.00', status: MarkStatus.PRESENT },
+      ],
+    });
+
+    await service.upsertBatch(
+      EXAM_ID,
+      batchDto([
+        { student_id: 'stu-1', component_id: 'comp-1', value: '75', status: MarkStatus.PRESENT },
+      ]),
+      TENANT_ID,
+      UserRole.TEACHER,
+      'user-1',
+    );
+
+    // The SUBMITTED check reads the grid under FOR UPDATE, so a concurrent
+    // submit can't commit between that check and the mark writes.
+    expect(gridRepo.findOneOrFail).toHaveBeenCalledWith(
+      expect.objectContaining({ lock: { mode: 'pessimistic_write' } }),
+    );
+  });
+
+  it('maps a unique violation the grid lock could not prevent to a clean 409, not a 500', async () => {
+    const { service, markRepo } = await buildService();
+    markRepo.save = vi.fn(async () => {
+      throw new QueryFailedError('insert', [], {
+        code: '23505',
+        message: 'duplicate key',
+      } as any);
+    });
+
+    // Postgres aborts the transaction on the failed insert, so nothing can
+    // be retried inside it — the client's autosave retries on the 409.
+    await expect(
+      service.upsertBatch(
+        EXAM_ID,
+        batchDto([
+          { student_id: 'stu-1', component_id: 'comp-1', value: '75', status: MarkStatus.PRESENT },
+        ]),
+        TENANT_ID,
+        UserRole.TEACHER,
+        'user-1',
+      ),
+    ).rejects.toThrow(ConflictException);
+    expect(markRepo.update).not.toHaveBeenCalled();
   });
 });
