@@ -1627,9 +1627,9 @@ export async function ensureRoutineSeed(
   };
 
   // --- shift + period slots ------------------------------------------
-  let shift = await repos.shiftRepository.findOne({
-    where: { tenant_id: schoolId, name: 'Morning' },
-    withDeleted: true,
+  let shift = await findLivePreferred(repos.shiftRepository, {
+    tenant_id: schoolId,
+    name: 'Morning',
   });
   if (!shift) {
     shift = repos.shiftRepository.create({
@@ -1675,9 +1675,10 @@ export async function ensureRoutineSeed(
   ];
   const rooms: Room[] = [];
   for (const r of roomSeeds) {
-    let room = await repos.roomRepository.findOne({
-      where: { tenant_id: schoolId, building: r.building, room_no: r.room_no },
-      withDeleted: true,
+    let room = await findLivePreferred(repos.roomRepository, {
+      tenant_id: schoolId,
+      building: r.building,
+      room_no: r.room_no,
     });
     if (!room) {
       room = repos.roomRepository.create({ ...r, tenant_id: schoolId });
@@ -1692,6 +1693,7 @@ export async function ensureRoutineSeed(
   // --- a second teacher, for the co-taught slot -------------------------
   let secondTeacherUser = await repos.userRepository.findOne({
     where: { email: 'routine-teacher2@biddaloy.test' },
+    withDeleted: true,
   });
   if (!secondTeacherUser) {
     secondTeacherUser = repos.userRepository.create({
@@ -1703,6 +1705,12 @@ export async function ensureRoutineSeed(
       password_hash: 'seed-only-not-a-real-login',
     });
     await repos.userRepository.save(secondTeacherUser);
+  } else if (secondTeacherUser.deleted_at) {
+    // `users.email` is a plain unique index (covers deleted rows too), so a
+    // soft-deleted match still owns this email — restore it rather than
+    // re-insert, same reasoning `findLivePreferred`'s docblock gives for
+    // plain-unique-index entities.
+    await repos.userRepository.save(undelete(secondTeacherUser));
   }
   let secondTeacher = await repos.teacherRepository.findOne({
     where: { user_id: secondTeacherUser.id },
@@ -1736,9 +1744,9 @@ export async function ensureRoutineSeed(
   }
 
   // --- routine -----------------------------------------------------------
-  let routine = await repos.routineRepository.findOne({
-    where: { tenant_id: schoolId, academic_year_id: academicYearId },
-    withDeleted: true,
+  let routine = await findLivePreferred(repos.routineRepository, {
+    tenant_id: schoolId,
+    academic_year_id: academicYearId,
   });
   if (!routine) {
     routine = repos.routineRepository.create({
