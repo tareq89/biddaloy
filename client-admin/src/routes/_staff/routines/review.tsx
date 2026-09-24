@@ -37,6 +37,7 @@ import {
   useCopyRoutineYear,
   useCurrentUserId,
   useHasPermission,
+  usePeriodSlotLookup,
   useRoutines,
   useRoutineSlots,
   useSubjects,
@@ -79,6 +80,7 @@ function RoutineReviewPage() {
   const ownTeacherQuery = useTeachers(
     currentUserId ? { user_id: currentUserId, limit: 1 } : { limit: 1 },
   );
+  const periodLookupQuery = usePeriodSlotLookup();
 
   const submitForReview = useSubmitForReview(routine?.id ?? '');
   const withdraw = useWithdrawRoutine(routine?.id ?? '');
@@ -99,6 +101,17 @@ function RoutineReviewPage() {
   );
   const subjectName = (id: string) =>
     subjectsQuery.data?.data.find((subject) => subject.id === id)?.name_en ?? id;
+  // Weekday + subject alone can't tell two same-day periods of the same
+  // subject apart — same gap `-substitution-dialog.tsx` fixed for its own
+  // slot picker, using the same period lookup.
+  const slotLabel = (slot: { weekday: number; period_slot_id: string; subject_id: string }) => {
+    const period = periodLookupQuery.data?.[slot.period_slot_id];
+    const parts = [t(`grid.weekday.${WEEKDAY_KEYS[slot.weekday]}`)];
+    if (period)
+      parts.push(`${t('agenda.periodLabel', { sequence: period.sequence })} (${period.starts_at})`);
+    parts.push(subjectName(slot.subject_id));
+    return parts.join(' · ');
+  };
 
   const allSlots = slotsQuery.data ?? [];
   const visibleSlots = canManage
@@ -140,23 +153,25 @@ function RoutineReviewPage() {
               {t('review.copyYearAction')}
             </button>
             {routine.state === 'DRAFT' && (
-              <button
+              <Button
                 type="button"
-                className="h-9 rounded-md border border-border-subtle px-3 text-sm"
+                variant="outline"
+                loading={submitForReview.isPending}
                 onClick={handleSubmitForReview}
               >
                 {t('review.submitForReviewAction')}
-              </button>
+              </Button>
             )}
             {routine.state === 'REVIEW' && (
               <>
-                <button
+                <Button
                   type="button"
-                  className="h-9 rounded-md border border-border-subtle px-3 text-sm"
+                  variant="outline"
+                  loading={withdraw.isPending}
                   onClick={handleWithdraw}
                 >
                   {t('review.withdrawAction')}
-                </button>
+                </Button>
                 <button
                   type="button"
                   className="h-9 rounded-md bg-primary px-3 text-sm text-primary-foreground"
@@ -194,12 +209,7 @@ function RoutineReviewPage() {
             key={entry.slot.id}
             className="flex items-center justify-between gap-3 rounded-lg border border-border-subtle bg-card px-4 py-2"
           >
-            <span>
-              <span className="font-medium">
-                {t(`grid.weekday.${WEEKDAY_KEYS[entry.slot.weekday]}`)}
-              </span>{' '}
-              · {subjectName(entry.slot.subject_id)}
-            </span>
+            <span>{slotLabel(entry.slot)}</span>
             {!canManage && ownTeacher && (
               <button
                 type="button"
@@ -225,7 +235,7 @@ function RoutineReviewPage() {
           routineId={routine.id}
           slotLabel={(slotId) => {
             const entry = allSlots.find((candidate) => candidate.slot.id === slotId);
-            return entry ? subjectName(entry.slot.subject_id) : slotId;
+            return entry ? slotLabel(entry.slot) : slotId;
           }}
           requesterLabel={(userId) =>
             teachersQuery.data?.data.find((teacher) => teacher.user.id === userId)?.user
