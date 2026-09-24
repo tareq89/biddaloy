@@ -52,15 +52,22 @@ test('Ctrl+K -> Assign homework action -> create+assign form -> save, mouse-free
 
     // Class picker: a `@biddaloy/ui` combobox, keyboard-operable like the
     // palette's own combobox — type to filter, Enter to pick the first hit.
+    // Radix's close animation leaves the listbox in the DOM and
+    // pointer-events-intercepting for a few hundred ms after Enter — the
+    // next picker's `.click()` can land on it instead of its own trigger,
+    // so wait for it to actually close first (clone of the same wait in
+    // organisation-structure.spec.ts's `selectByTypeahead` helper).
     const classPicker = page.getByLabel(t('homework.form.classLabel'));
     await classPicker.click();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
+    await expect(page.getByRole('listbox')).toBeHidden();
 
     const subjectPicker = page.getByLabel(t('homework.form.subjectLabel'));
     await subjectPicker.click();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
+    await expect(page.getByRole('listbox')).toBeHidden();
 
     // Exact match: the target RadioGroup's section item carries its own
     // aria-label "<targetLabel>: <sectionLabel>" (a valid a11y pattern —
@@ -70,6 +77,7 @@ test('Ctrl+K -> Assign homework action -> create+assign form -> save, mouse-free
     await sectionPicker.click();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
+    await expect(page.getByRole('listbox')).toBeHidden();
 
     await page.getByRole('button', { name: t('homework.form.submit') }).focus();
     await page.keyboard.press('Enter');

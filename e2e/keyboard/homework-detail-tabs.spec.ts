@@ -27,13 +27,18 @@ test('keyboard-only: student detail Homework tab shows the completion rollup', a
   await page.goto(`/students/${student.id}`);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
+  // ArrowRight to the Homework tab rather than `End`: this page also has
+  // an exams-module tab after it (subject-choices, [19.6.1]), so Homework
+  // is no longer necessarily the last tab in the strip.
   const tablist = page.getByRole('tablist');
+  const homeworkTab = page.getByRole('tab', { name: t('students.detail.tabs.homework') });
+  const tabCount = await tablist.locator('[role="tab"]').count();
   await tablist.locator('[role="tab"]').first().focus();
-  await page.keyboard.press('End');
-  await expect(page.getByRole('tab', { name: t('students.detail.tabs.homework') })).toHaveAttribute(
-    'aria-selected',
-    'true',
-  );
+  for (let i = 0; i < tabCount; i += 1) {
+    if ((await homeworkTab.getAttribute('aria-selected')) === 'true') break;
+    await page.keyboard.press('ArrowRight');
+  }
+  await expect(homeworkTab).toHaveAttribute('aria-selected', 'true');
   await page.keyboard.press('Enter');
 
   await expect(page.getByText(t('students.detail.homeworkTab.emptyMessage'))).toBeVisible();

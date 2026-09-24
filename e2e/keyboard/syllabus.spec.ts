@@ -50,8 +50,14 @@ test('keyboard-only: move the second topic above the first with the up button', 
     // silently select the wrong id (empty topic list, no visible error).
     await page.getByLabel(t('syllabus.list.classLabel')).click();
     await page.getByRole('option', { name: className }).click();
+    // Radix's close animation leaves the listbox in the DOM and
+    // pointer-events-intercepting for a few hundred ms after the click —
+    // the subject picker's own `.click()` can land on it instead of its
+    // trigger, so wait for it to actually close first.
+    await expect(page.getByRole('listbox')).toBeHidden();
     await page.getByLabel(t('syllabus.list.subjectLabel')).click();
     await page.getByRole('option', { name: subjectName }).click();
+    await expect(page.getByRole('listbox')).toBeHidden();
   });
 
   await expect(page.getByText('First topic')).toBeVisible();
