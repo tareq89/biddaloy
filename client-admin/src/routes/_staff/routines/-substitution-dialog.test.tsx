@@ -34,7 +34,12 @@ function mockPickerData() {
     ),
     http.get('/api/v1/routines', () =>
       HttpResponse.json([
-        { id: 'routine-1', academic_year_id: 'year-1', state: 'PUBLISHED', created_at: '2026-01-01T00:00:00Z' },
+        {
+          id: 'routine-1',
+          academic_year_id: 'year-1',
+          state: 'PUBLISHED',
+          created_at: '2026-01-01T00:00:00Z',
+        },
       ]),
     ),
     http.get('/api/v1/routines/routine-1/slots', () =>

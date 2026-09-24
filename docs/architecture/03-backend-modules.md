@@ -28,6 +28,9 @@ flowchart LR
         audit["audit\nread-only log viewer"]
         health["health\n/api/health"]
     end
+    subgraph Timetabling
+        routines["routines\nshifts, rooms, routine slots,\nsubstitutions, change requests"]
+    end
 
     auth --> users
     students --> classes
@@ -38,6 +41,9 @@ flowchart LR
     attendance --> communications
     calendar --> attendance
     calendar --> communications
+    routines --> classes
+    routines --> academics
+    routines --> attendance
 ```
 
 ## Module reference
@@ -59,6 +65,84 @@ flowchart LR
 | `grading`        | `GradingScale`, `GradingBand`, band-validation, recompute preview/confirm — see [01-domain-model.md](01-domain-model.md#grading-modulesgrading)         | `POST/GET/PATCH/DELETE grading/scales`, `POST grading/scales/:id/copy`, `POST grading/scales/:id/bands/preview`, `POST grading/scales/:id/bands/confirm` (approval-gated)                                           |
 | `audit`          | Read access to `AuditLog`                                                                                                                               | `GET audit`                                                                                                                                                                                                         |
 | `health`         | Liveness check, version-neutral                                                                                                                         | `GET /api/health`                                                                                                                                                                                                   |
+| `routines`       | `Shift`, `PeriodSlot`, `Room`, `Routine`, `RoutineSlot`, `RoutineSlotTeacher`, `RoutineSubstitution`, `RoutineChangeRequest` — see below                | `POST/GET/PATCH/DELETE routines/shifts`, `PUT routines/shifts/:id/period-slots`, `POST/GET routines/rooms`, `POST/GET routines`, `POST/GET routines/:id/slots`, `PATCH/DELETE routines/slots/:slotId`, `POST routines/:id/submit-for-review`, `POST routines/:id/publish`, `GET routines/resolve`, `POST routines/substitutions`, `POST routines/slots/:slotId/change-requests` |
+
+## Routines module
+
+`server/src/modules/routines/` (Epic 21.0, class routine/timetable). Owns
+the eight entities in
+[01-domain-model.md](01-domain-model.md#class-routines--timetables-modulesroutines)
+and one service per concern rather than one god-service:
+
+```mermaid
+flowchart TD
+    shiftsSvc["ShiftsService\n+ PeriodSlotsService"] -->|"day layout"| slotsSvc
+    roomsSvc["RoomsService"] -->|"optional room per slot"| slotsSvc
+    slotsSvc["RoutineSlotsService\n(create/update/delete a slot)"] -->|"every write"| constraintCheck["ConstraintCheckService\n(hard-constraint validation)"]
+    constraintCheck -->|"blocks a save on violation"| slotsSvc
+    greedyFill["GreedyFillService\n(fills empty slots)"] --> slotsSvc
+    stateSvc["RoutineStateService\n(DRAFT to REVIEW to PUBLISHED)"] --> slotsSvc
+    resolveSvc["ResolveRoutineService\n(GET /routines/resolve)"] -->|"reads"| slotsSvc
+    resolveSvc -->|"applies dated overrides"| subsSvc["SubstitutionsService"]
+    changeReqSvc["ChangeRequestsService"] -->|"targets a published slot"| slotsSvc
+    workloadSvc["WorkloadService\n(periods/teacher/day)"] -->|"reads"| slotsSvc
+    copySvc["CopyRoutineService\n(copy a routine to a new year)"] --> slotsSvc
+```
+
+- **`ConstraintCheckService`** is the hard-constraint gate (D1 below): a
+  teacher can't be in two places at once, a section can't have two subjects
+  in one slot. It runs on every slot write and blocks the save with a 409
+  rather than silently overwriting.
+- **`ResolveRoutineService`** (`GET routines/resolve`) is the one place
+  recurrence (weekly/biweekly/monthly), effective dating
+  (`valid_from`/`valid_to`), weekly-off/holiday exclusion, and dated
+  substitutions all get resolved into "what actually happens on this date" —
+  every agenda view (`/routines/my`, `/portal/routine`) calls this instead
+  of re-deriving any of that logic client-side.
+- **`RoutineStateService`** enforces the one-way-ish lifecycle: a change on
+  a _published_ routine must go through a `RoutineChangeRequest`, never a
+  direct edit — see `RoutineChangeRequest`'s entry in the domain-model doc.
+
+### Deferred, with context
+
+Copied from Epic 21.0's own tracking issue (#783) so a future reader doesn't
+need to open GitHub to find out why something obviously useful isn't here
+yet.
+
+- **Auto-generating the routine (a real constraint solver).** Deliberately
+  not built (D1). The pain in a 30-teacher school is errors, not typing, and
+  the binding constraints are political and invisible to a model — senior
+  teacher gets mornings, these two must never be adjacent. Schools that run
+  solvers hand-fix a large slice of the output. What ships instead:
+  hard-constraint validation plus a greedy fill for empty slots. **Trigger
+  to revisit:** a school with 40+ sections says manual entry is unworkable.
+  **Hooks left:** the constraint values already live in
+  `TenantSettings.routine` (D19), and the greedy fill is its own service, so
+  a solver replaces one function rather than a subsystem.
+- **Drag-and-drop grid editing.** Deferred, not rejected (D17). The keyboard
+  model has to exist first because it is the accessibility gate; drag layers
+  on top of it cleanly and the reverse never happens.
+- **Projecting routine slots into `calendar_events`.** #701 left
+  `external_refs jsonb` for exactly this and forbade RRULE on the calendar
+  side. Additive later. Note `calendar_event_classes` is class-level —
+  projecting a section-level routine needs the nullable `section_id` #701
+  already flagged as additive.
+- **Google Calendar push.** #701 claims routine depends on it; backwards
+  (D5) — it is a consumer. Needs a Google Cloud project, OAuth consent, a
+  Workspace admin decision and guardian emails, which many BD guardians do
+  not have.
+- **Period attendance auto-created from the routine.**
+  `AttendanceSession.period_no` and `subject_id` already exist and nothing
+  populates them meaningfully. This epic ships the resolver (D14) that
+  makes it possible; whether attendance auto-creates sessions is a policy
+  call belonging to **Epic 41.0**.
+- **Online class links per slot** (Epic 37.0) and **homework note per slot**
+  (Epic 22.0). Both hang off a routine slot; the resolver returns slot ids,
+  which is all either needs.
+- **Printing routine sheets** — Epic 32.0's document service.
+- **"Your first class is at 10" notifications.** #701 deferred reminders
+  generally, pending demand; same call here.
+- **Exam routine** — D13; its own issue on Epic 19.0 once `Exam` exists.
 
 ## Cross-cutting `common/`
 

@@ -4,6 +4,7 @@ import { academicsTabs } from '../tabs/academics';
 import { peopleTabs } from '../tabs/people';
 import { feesTabs } from '../tabs/fees';
 import { gradingTabs } from '../tabs/grading';
+import { routinesTabs } from '../tabs/routines';
 
 /**
  * Every tab name a backup workbook may contain, in apply order (epic 14.0
@@ -35,6 +36,17 @@ export const EXPECTED_TABS = [
   'payment_allocations',
   'grading_scales',
   'grading_bands',
+  // Epic 21.0 (class routine/timetable), appended at the end: no other
+  // tab depends on these, and they depend on tabs already earlier in
+  // this list (academic_years, sections, subjects, teachers, users).
+  'shifts',
+  'period_slots',
+  'rooms',
+  'routines',
+  'routine_slots',
+  'routine_slot_teachers',
+  'routine_substitutions',
+  'routine_change_requests',
 ] as const;
 
 export type ExpectedTabName = (typeof EXPECTED_TABS)[number];
@@ -50,6 +62,7 @@ export const ALL_TABS: readonly TabSpec<any, any>[] = [
   ...peopleTabs,
   ...feesTabs,
   ...gradingTabs,
+  ...routinesTabs,
 ];
 
 export class RegistryError extends Error {
