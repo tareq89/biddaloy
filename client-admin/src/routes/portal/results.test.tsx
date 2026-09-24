@@ -172,8 +172,13 @@ describe('/portal/results', () => {
     // closes the print target right after, so asserting on the DOM after
     // `waitFor` resolves races against that unmount.
     let bodyTextAtPrintTime = '';
+    let printTargetHiddenInPrint: boolean | undefined;
     const printSpy = vi.fn(() => {
       bodyTextAtPrintTime = document.body.textContent ?? '';
+      // A `print:hidden` ancestor would hide the card on paper whatever
+      // the card's own `print:block` says — it must not sit inside one.
+      const target = document.querySelector('.print\\:block');
+      printTargetHiddenInPrint = target ? target.closest('.print\\:hidden') !== null : undefined;
     });
     vi.stubGlobal('print', printSpy);
     renderResults();
@@ -184,6 +189,7 @@ describe('/portal/results', () => {
     await waitFor(() => expect(printSpy).toHaveBeenCalled());
     // `ReportCard` rendered with this exam/student's data.
     expect(bodyTextAtPrintTime).toContain('Mathematics');
+    expect(printTargetHiddenInPrint).toBe(false);
   });
 
   it('expanding a row shows the subject breakdown', async () => {

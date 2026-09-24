@@ -122,45 +122,50 @@ function PortalResults() {
     );
   }
 
+  // `PrintTarget` is a sibling of the `print:hidden` page, not a child —
+  // `display: none` on an ancestor hides it no matter what it sets itself,
+  // and the report card would print blank.
   return (
-    <div className="flex max-w-2xl flex-col gap-3 print:hidden">
-      <div className="flex flex-col gap-0.5">
-        <h1 className="text-lg font-semibold tracking-tight">{t('results.title')}</h1>
-        <p className="text-xs text-muted-foreground">
-          {`${selected.full_name} · ${studentMeta(selected)}`}
-        </p>
-      </div>
-      {students.length > 1 && (
-        <StudentPicker
-          label={t('fees.pickerLabel')}
-          items={students.map((student) => ({
-            id: student.id,
-            name: student.full_name,
-            meta: studentMeta(student),
-          }))}
-          selectedId={selected.id}
-          to="/portal/results"
-        />
-      )}
+    <>
+      <div className="flex max-w-2xl flex-col gap-3 print:hidden">
+        <div className="flex flex-col gap-0.5">
+          <h1 className="text-lg font-semibold tracking-tight">{t('results.title')}</h1>
+          <p className="text-xs text-muted-foreground">
+            {`${selected.full_name} · ${studentMeta(selected)}`}
+          </p>
+        </div>
+        {students.length > 1 && (
+          <StudentPicker
+            label={t('fees.pickerLabel')}
+            items={students.map((student) => ({
+              id: student.id,
+              name: student.full_name,
+              meta: studentMeta(student),
+            }))}
+            selectedId={selected.id}
+            to="/portal/results"
+          />
+        )}
 
-      {resultsQuery.data.length === 0 ? (
-        // Not an error: results appear once the school publishes them
-        // (D19, issue step 5) — plain paragraph, not `EmptyState`, since
-        // this frame already has its `<h1>` above.
-        <p className="p-3.5 text-sm text-muted-foreground">{t('results.empty')}</p>
-      ) : (
-        <Card className="flex flex-col">
-          {resultsQuery.data.map((row, index) => (
-            <ResultRow
-              key={row.exam_id}
-              row={row}
-              studentId={selected.id}
-              bordered={index > 0}
-              onPrint={() => setPrintingExamId(row.exam_id)}
-            />
-          ))}
-        </Card>
-      )}
+        {resultsQuery.data.length === 0 ? (
+          // Not an error: results appear once the school publishes them
+          // (D19, issue step 5) — plain paragraph, not `EmptyState`, since
+          // this frame already has its `<h1>` above.
+          <p className="p-3.5 text-sm text-muted-foreground">{t('results.empty')}</p>
+        ) : (
+          <Card className="flex flex-col">
+            {resultsQuery.data.map((row, index) => (
+              <ResultRow
+                key={row.exam_id}
+                row={row}
+                studentId={selected.id}
+                bordered={index > 0}
+                onPrint={() => setPrintingExamId(row.exam_id)}
+              />
+            ))}
+          </Card>
+        )}
+      </div>
 
       {printingExamId !== null && (
         <PrintTarget
@@ -169,7 +174,7 @@ function PortalResults() {
           onDone={() => setPrintingExamId(null)}
         />
       )}
-    </div>
+    </>
   );
 }
 
