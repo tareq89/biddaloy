@@ -18,6 +18,7 @@ import {
   UserStatus,
 } from '@biddaloy/shared';
 import type { OrganisationSettings } from '@biddaloy/shared';
+import { EnrollmentStatus } from '@biddaloy/shared';
 import { FindOptionsWhere, IsNull, ObjectLiteral, Repository } from 'typeorm';
 import { School } from '../modules/schools/entities/school.entity';
 import { User } from '../modules/users/entities/user.entity';
@@ -27,6 +28,7 @@ import { Class } from '../modules/academics/entities/class.entity';
 import { ClassSection } from '../modules/academics/entities/class-section.entity';
 import { Student } from '../modules/students/entities/student.entity';
 import { Guardian } from '../modules/students/entities/guardian.entity';
+import { Enrollment } from '../modules/students/entities/enrollment.entity';
 import { Subject } from '../modules/academics/entities/subject.entity';
 import { ClassSubject } from '../modules/academics/entities/class-subject.entity';
 import { GradingScale } from '../modules/grading/entities/grading-scale.entity';
@@ -615,12 +617,51 @@ export async function ensureDemoStudents(
         const guardian = guardians[rosterIndex % guardians.length];
         rosterIndex += 1;
 
+        // [#1020] `Enrollment` is a separate table (not derived from
+        // `Student`), so it needs its own find-or-create beside the
+        // student's — a repo obtained off `studentRepository`'s own
+        // manager rather than threading a new repository through
+        // `DemoStudentRepositories`/every caller. A real injected
+        // TypeORM `Repository` always has `.manager`; only a fake repo
+        // stub built for a test unrelated to `Enrollment` (e.g.
+        // `seed.spec.ts`'s `seedAccounts` fixtures) wouldn't — skip
+        // rather than throw in that case.
+        // Plain find-or-create, keyed on (student, year, ACTIVE) — this
+        // never rewrites an existing row's class_id/section_id. Seeding
+        // doesn't move an existing student's `class_section_id` either, so
+        // resyncing here would only pull the Enrollment away from wherever
+        // a real write path (PATCH, workbook restore) has since moved the
+        // student, reintroducing the drift this ticket closes.
+        const ensureEnrollment = async (studentId: string) => {
+          if (!studentRepository.manager) return;
+          const enrollmentRepository = studentRepository.manager.getRepository(Enrollment);
+          const existingEnrollment = await enrollmentRepository.findOne({
+            where: {
+              student_id: studentId,
+              academic_year_id: year.id,
+              tenant_id: schoolId,
+              enrollment_status: EnrollmentStatus.ACTIVE,
+            },
+          });
+          if (existingEnrollment) return;
+          await enrollmentRepository.save(
+            enrollmentRepository.create({
+              student_id: studentId,
+              class_id: klass.id,
+              section_id: section.id,
+              academic_year_id: year.id,
+              tenant_id: schoolId,
+            }),
+          );
+        };
+
         const existing = await studentRepository.findOne({
           where: { registration_number: registrationNumber, tenant_id: schoolId },
           withDeleted: true,
         });
         if (existing) {
           if (existing.deleted_at) await studentRepository.save(undelete(existing));
+          await ensureEnrollment(existing.id);
           continue;
         }
 
@@ -642,6 +683,7 @@ export async function ensureDemoStudents(
         });
         await studentRepository.save(student);
         result.students += 1;
+        await ensureEnrollment(student.id);
       }
     }
   }
