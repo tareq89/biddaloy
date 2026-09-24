@@ -119,7 +119,7 @@ function MyRoutinePage() {
     return <MyRoutineSkeleton label={t('myRoutine.loading')} />;
   }
 
-  if (routinesQuery.isError || ownTeacherQuery.isError) {
+  if (routinesQuery.isError || ownTeacherQuery.isError || academicYearsQuery.isError) {
     return (
       <ErrorState
         message={t('myRoutine.error.message')}
@@ -127,6 +127,7 @@ function MyRoutinePage() {
         onRetry={() => {
           void routinesQuery.refetch();
           void ownTeacherQuery.refetch();
+          void academicYearsQuery.refetch();
         }}
       />
     );
