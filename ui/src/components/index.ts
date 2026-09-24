@@ -47,6 +47,13 @@ export { MoneyInput, type MoneyInputProps } from './money-input';
 export { PhoneInput, formatValidPhone, type PhoneInputProps } from './phone-input';
 export { DatePicker, Calendar, type DatePickerProps } from './date-picker';
 export { Combobox, type ComboboxOption, type ComboboxProps } from './combobox';
+export {
+  RoutineGrid,
+  routineCellKey,
+  type RoutineGridProps,
+  type RoutineGridPeriodRow,
+  type RoutineGridCell,
+} from './routine-grid';
 export { FileUpload, type FileUploadItem, type FileUploadProps } from './file-upload';
 export { BulkUploadPreview, type BulkUploadPreviewProps } from './bulk-upload-preview';
 export { BulkImportErrorTable, type BulkImportErrorTableProps } from './bulk-import-error-table';

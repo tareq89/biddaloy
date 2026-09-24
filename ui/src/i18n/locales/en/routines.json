@@ -1,0 +1,128 @@
+{
+  "save": {
+    "action": "Save",
+    "success": "Saved"
+  },
+  "delete": {
+    "action": "Delete"
+  },
+  "setupPage": {
+    "title": "Routine setup"
+  },
+  "shiftsPanel": {
+    "legend": "Shifts",
+    "name": "Name",
+    "dayStartsAt": "Day starts at",
+    "dayEndsAt": "Day ends at",
+    "addAction": "Add shift"
+  },
+  "roomsPanel": {
+    "legend": "Rooms",
+    "building": "Building",
+    "roomNo": "Room no.",
+    "capacity": "Capacity",
+    "addAction": "Add room"
+  },
+  "periodSlotsPanel": {
+    "legend": "Period slots — {{shiftName}}",
+    "selectShift": "Add a shift above, then pick it to edit its period slots.",
+    "sequence": "#",
+    "kind": "Kind",
+    "kindClass": "Class",
+    "kindBreak": "Break",
+    "name": "Name",
+    "startsAt": "Starts at",
+    "endsAt": "Ends at",
+    "breakNoName": "—",
+    "addRowAction": "Add period",
+    "timelineLabel": "Day timeline for this shift"
+  },
+  "settingsPanel": {
+    "legend": "Routine settings",
+    "defaultChangeoverMinutes": "Changeover gap (minutes)",
+    "maxPeriodsPerTeacherPerDay": "Max periods per teacher per day",
+    "maxConsecutivePeriods": "Max consecutive periods",
+    "noCap": "No cap"
+  },
+  "grid": {
+    "tooNarrow": "This grid needs a wider screen — try landscape or a bigger window.",
+    "caption": "Weekly routine grid",
+    "periodColumn": "Period",
+    "breakUnnamed": "Break",
+    "emptyCell": "Empty",
+    "recurrence": {
+      "WEEKLY": "Weekly",
+      "BIWEEKLY": "Biweekly",
+      "MONTHLY": "Monthly"
+    },
+    "weekday": {
+      "sun": "Sun",
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat"
+    }
+  },
+  "builderList": {
+    "title": "Routine builder",
+    "classLabel": "Class",
+    "selectClass": "Select a class",
+    "emptyTitle": "No sections",
+    "emptyExplanation": "This class has no sections yet.",
+    "pickAnotherClass": "Pick another class",
+    "enrolledCount": "{{count}} student",
+    "enrolledCount_other": "{{count}} students"
+  },
+  "builder": {
+    "title": "{{className}} {{sectionName}} — routine",
+    "noClassIdExplanation": "Open this page from Routine builder's section list — a direct link needs to know which class the section belongs to.",
+    "sectionNotFound": "Section not found.",
+    "noShiftExplanation": "This class has no shift assigned yet — set one on the class before building its routine.",
+    "noRoutineExplanation": "No routine exists yet for this academic year.",
+    "fillAssistAction": "Fill assist",
+    "savedToast": "Saved",
+    "saveErrorToast": "Could not save — try again."
+  },
+  "cellPicker": {
+    "title": "Assign a period",
+    "description": "Pick a subject, one or more teachers, and how often this repeats.",
+    "subjectLabel": "Subject",
+    "subjectFilterPlaceholder": "Filter subjects",
+    "teacherLabel": "Teacher(s)",
+    "teacherFilterPlaceholder": "Filter teachers",
+    "noResults": "No results",
+    "recurrenceLabel": "Recurrence",
+    "recurrenceWeekly": "Weekly",
+    "recurrenceBiweekly": "Biweekly",
+    "recurrenceMonthly": "Monthly",
+    "recurrenceOffsetLabel": "Which occurrence",
+    "recurrenceWeekA": "Week A",
+    "recurrenceWeekB": "Week B",
+    "recurrenceOccurrence": "Occurrence {{n}}",
+    "cancel": "Cancel",
+    "save": "Save"
+  },
+  "conflictList": {
+    "violationsTitle": "This can't be saved",
+    "warningsTitle": "Heads up"
+  },
+  "workloadPanel": {
+    "legend": "Teacher workload",
+    "empty": "No periods assigned yet.",
+    "periodsPerWeek": "{{count}} period/week",
+    "periodsPerWeek_other": "{{count}} periods/week",
+    "overLimit": "over daily limit",
+    "underloaded": "{{count}} teacher has no periods assigned",
+    "underloaded_other": "{{count}} teachers have no periods assigned"
+  },
+  "fillAssist": {
+    "title": "Fill remaining periods",
+    "description": "Preview only — nothing is saved until you confirm. Already-filled cells are never touched.",
+    "empty": "Nothing left to fill.",
+    "cancel": "Cancel",
+    "confirm": "Fill {{count}} period",
+    "confirm_other": "Fill {{count}} periods"
+  }
+}

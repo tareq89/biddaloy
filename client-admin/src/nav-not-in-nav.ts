@@ -57,6 +57,7 @@ export const NOT_IN_NAV: Record<string, string> = {
     'report card, reached from the exam Results tab or /results, not its own sidebar item',
   '/_staff/grading-scales/$scaleId': 'detail route reached from the grading scales list',
   '/_staff/guardians/$guardianId': 'detail route reached from the guardians list',
+  '/_staff/routines/$sectionId': 'detail route reached from the routine builder section list',
   '/_staff/invoices/$invoiceId': 'detail route reached from the invoices list',
   '/_staff/payments/':
     '[16.4.4] placeholder page for the Record Payment modal, reached via /payments/record, not its own nav item',
