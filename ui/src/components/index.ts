@@ -58,6 +58,17 @@ export {
   type DataTableSort,
 } from './data-table';
 export {
+  MarksGrid,
+  cellKey,
+  type MarksGridCell,
+  type MarksGridCellValue,
+  type MarksGridComponent,
+  type MarksGridProps,
+  type MarksGridStatus,
+  type MarksGridStudent,
+} from './marks-grid';
+export { MarksStepper, type MarksStepperProps } from './marks-stepper';
+export {
   RadioGroup,
   RadioGroupItem,
   type RadioGroupProps,
@@ -293,6 +304,14 @@ export {
   type InvoiceReceiptProps,
   type InvoiceReceiptStudent,
 } from './print/invoice-receipt';
+export {
+  ReportCard,
+  type ReportCardComponent,
+  type ReportCardData,
+  type ReportCardLegendRow,
+  type ReportCardProps,
+  type ReportCardSubject,
+} from './print/report-card';
 export { EventTypeBadge, type EventTypeBadgeProps } from './calendar/event-type-badge';
 export {
   MonthGrid,

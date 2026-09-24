@@ -48,9 +48,25 @@
     "tabs": {
       "progress": "অগ্রগতি",
       "setup": "সেটআপ",
+      "schedule": "সময়সূচি",
       "results": "ফলাফল",
       "fourthSubject": "বিষয় নির্বাচন"
     }
+  },
+  "schedulePanel": {
+    "loadError": "সময়সূচি লোড করা যায়নি।",
+    "tableCaption": "তারিখ ও শুরুর সময় অনুযায়ী সাজানো এই পরীক্ষার সময়সূচি",
+    "columnSubject": "বিষয়",
+    "columnDate": "তারিখ",
+    "columnStartsAt": "শুরু",
+    "columnEndsAt": "শেষ",
+    "columnVenue": "স্থান",
+    "columnActions": "কার্যক্রম",
+    "remove": "সরান",
+    "empty": "এখনো কোনো বিষয়ের সময়সূচি নির্ধারণ করা হয়নি।",
+    "addSubjectLabel": "বিষয়",
+    "addSubjectPlaceholder": "একটি বিষয় নির্বাচন করুন",
+    "add": "যোগ করুন"
   },
   "progressPanel": {
     "loadError": "জমাদানের অগ্রগতি লোড করা যায়নি।",
@@ -123,5 +139,141 @@
     "empty": "এই শিক্ষার্থীর ক্লাসের জন্য কোনো ঐচ্ছিক বিষয় নেই।",
     "label": "চতুর্থ বিষয়",
     "errorMessage": "নির্বাচন সংরক্ষণ করা যায়নি।"
+  },
+  "studentResultsPanel": {
+    "loadError": "ফলাফল লোড করা যায়নি।",
+    "empty": "এই শিক্ষার্থীর জন্য এখনও কোনো ফলাফল নেই।",
+    "caption": "এই শিক্ষার্থীর ফলাফল আছে এমন প্রতিটি পরীক্ষা",
+    "columnExam": "পরীক্ষা",
+    "columnGrade": "গ্রেড",
+    "columnGpa": "জিপিএ",
+    "columnStatus": "অবস্থা",
+    "failTag": "অকৃতকার্য",
+    "published": "প্রকাশিত",
+    "notPublished": "এখনও প্রকাশিত হয়নি"
+  },
+  "marksList": {
+    "title": "মার্ক এন্ট্রি",
+    "examLabel": "পরীক্ষা",
+    "examPlaceholder": "একটি পরীক্ষা নির্বাচন করুন",
+    "stateFilterLabel": "অবস্থা অনুযায়ী ফিল্টার করুন",
+    "stateAll": "সব",
+    "stateDraft": "খসড়া",
+    "stateSubmitted": "জমাকৃত",
+    "tableCaption": "আপনি যেসব গ্রিডে মার্ক দিতে পারবেন",
+    "columnSection": "সেকশন · বিষয়",
+    "columnState": "অবস্থা",
+    "loadError": "গ্রিড লোড করা যায়নি।",
+    "empty": "এই পরীক্ষার জন্য এখনো কোনো গ্রিড নেই — কম্পোনেন্ট সেটআপ হওয়ার পর আবার দেখুন।",
+    "selectExamHint": "গ্রিড দেখতে একটি পরীক্ষা নির্বাচন করুন।"
+  },
+  "marksGrid": {
+    "caption": "মার্ক এন্ট্রি গ্রিড",
+    "columnStudent": "রোল · নাম",
+    "fullMarks": "/ {{max}}",
+    "cellMax": "সর্বোচ্চ {{max}}",
+    "cellLabel": "{{name}} — {{component}}",
+    "derivedCellLabel": "{{name}} (স্বয়ংক্রিয়, শুধু পঠনযোগ্য)",
+    "rowSaved": "সংরক্ষিত",
+    "absentShort": "অনু",
+    "exemptShort": "মওকুফ",
+    "empty": "এই সেকশনে কোনো শিক্ষার্থী নেই।",
+    "readOnlyBanner": "{{name}} দ্বারা {{time}} তারিখে জমা দেওয়া হয়েছে — শুধু পঠনযোগ্য।",
+    "reopenAction": "পুনরায় খুলুন"
+  },
+  "marksStepper": {
+    "previous": "পূর্ববর্তী",
+    "next": "পরবর্তী",
+    "progress": "{{total}} টির মধ্যে {{current}} টি"
+  },
+  "saveState": {
+    "idle": "এখনো কোনো পরিবর্তন নেই",
+    "saving": "সংরক্ষণ হচ্ছে…",
+    "saved": "সব পরিবর্তন সংরক্ষিত হয়েছে · {{time}}",
+    "error": "{{count}} টি পরিবর্তন সংরক্ষিত হয়নি — পুনরায় চেষ্টা করা হচ্ছে",
+    "navigationBlocked": "আপনার অসংরক্ষিত পরিবর্তন আছে। তবুও চলে যাবেন?",
+    "leaveAnyway": "তবুও চলে যান"
+  },
+  "submitDialog": {
+    "title": "এই গ্রিড জমা দেবেন?",
+    "description": "একবার জমা দিলে, একজন অ্যাডমিন পুনরায় না খোলা পর্যন্ত এই গ্রিড শুধু পঠনযোগ্য থাকবে।",
+    "blankCount": "{{count}} টি খালি সেল যেমন আছে তেমনই জমা হবে।",
+    "cancel": "বাতিল",
+    "confirm": "জমা দিন",
+    "shortcutHint": "Ctrl+Enter"
+  },
+  "resultsPanel": {
+    "loadError": "ফলাফল লোড করা যায়নি।",
+    "process": "ফলাফল প্রক্রিয়া করুন",
+    "publish": "প্রকাশ করুন",
+    "reopen": "পুনরায় খুলুন",
+    "sendSms": "ফলাফল এসএমএস পাঠান",
+    "failFilter": "শুধু অকৃতকার্য",
+    "tableCaption": "এই পরীক্ষার শিক্ষার্থীভিত্তিক ফলাফল",
+    "columnPosition": "অবস্থান",
+    "columnStudent": "রোল · নাম",
+    "columnTotal": "মোট",
+    "columnGpa": "জিপিএ",
+    "columnGrade": "গ্রেড",
+    "columnStatus": "অবস্থা",
+    "fail": "অকৃতকার্য",
+    "pass": "কৃতকার্য",
+    "empty": "এখনো কোনো ফলাফল নেই — প্রথমে এই পরীক্ষা প্রক্রিয়া করুন।"
+  },
+  "processDialog": {
+    "title": "এই পরীক্ষার ফলাফল প্রক্রিয়া করবেন?",
+    "description": "বর্তমানে জমাকৃত মার্ক থেকে প্রতিটি শিক্ষার্থীর ফলাফল গণনা করা হবে।",
+    "outstandingCount": "{{count}} টি গ্রিড এখনো খসড়া অবস্থায় আছে এবং জমা দেওয়া হয়নি:",
+    "forceWarning": "তবুও প্রক্রিয়া করলে অজমাকৃত গ্রিডগুলো যেমন আছে তেমনই অন্তর্ভুক্ত হবে। এই ওভাররাইড অডিট লগে রেকর্ড হবে।",
+    "processAnyway": "তবুও প্রক্রিয়া করুন",
+    "confirm": "প্রক্রিয়া করুন",
+    "errorMessage": "এই পরীক্ষা প্রক্রিয়া করা যায়নি।"
+  },
+  "publishDialog": {
+    "title": "এই ফলাফল প্রকাশ করবেন?",
+    "description": "{{count}} জন শিক্ষার্থীর ফলাফল অভিভাবকদের কাছে দৃশ্যমান হবে।",
+    "confirm": "প্রকাশ করুন",
+    "errorMessage": "এই ফলাফল প্রকাশ করা যায়নি।"
+  },
+  "reopenDialog": {
+    "title": "এই পরীক্ষার ফলাফল পুনরায় খুলবেন?",
+    "impact": "{{count}} টি প্রকাশিত ফলাফল অপ্রকাশিত হবে এবং মার্ক পুনরায় সম্পাদনাযোগ্য হবে। এর জন্য অতিরিক্ত অনুমোদন প্রয়োজন।",
+    "confirm": "পুনরায় খুলুন",
+    "errorMessage": "এই পরীক্ষা পুনরায় খোলা যায়নি।"
+  },
+  "smsDialog": {
+    "title": "ফলাফল এসএমএস পাঠান",
+    "description": "{{count}} জন পর্যন্ত অভিভাবককে তাদের সন্তানের ফলাফল এসএমএসে পাঠানো হবে। প্রতিটি বার্তায় একটি এসএমএস ক্রেডিট খরচ হবে।",
+    "disabledUnpublished": "এসএমএস পাঠানোর আগে ফলাফল প্রকাশ করতে হবে।",
+    "queued": "{{count}} টি বার্তা সারিবদ্ধ হয়েছে।",
+    "send": "পাঠান",
+    "errorMessage": "ফলাফল এসএমএস পাঠানো যায়নি।"
+  },
+  "resultsRoute": {
+    "title": "ফলাফল",
+    "examLabel": "পরীক্ষা",
+    "examPlaceholder": "একটি পরীক্ষা নির্বাচন করুন",
+    "loadError": "পরীক্ষার তালিকা লোড করা যায়নি।",
+    "selectExamHint": "ফলাফল দেখতে একটি পরীক্ষা নির্বাচন করুন।"
+  },
+  "reportCard": {
+    "back": "পরীক্ষায় ফিরে যান",
+    "print": "প্রিন্ট করুন",
+    "loadError": "এই ফলাফলপত্র লোড করা যায়নি।",
+    "examLabel": "পরীক্ষা",
+    "rollLabel": "রোল",
+    "subject": "বিষয়",
+    "obtained": "প্রাপ্ত",
+    "grade": "গ্রেড",
+    "gpa": "জিপিএ",
+    "totalMarks": "মোট নম্বর",
+    "totalGpa": "মোট জিপিএ",
+    "overallGrade": "সামগ্রিক গ্রেড",
+    "position": "অবস্থান",
+    "positionValue": "{{position}}",
+    "fail": "অকৃতকার্য",
+    "fourthSubject": "চতুর্থ বিষয়",
+    "absent": "অনুপস্থিত",
+    "legendTitle": "গ্রেড বিবরণী"
   }
 }

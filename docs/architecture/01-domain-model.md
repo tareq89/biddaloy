@@ -70,6 +70,24 @@ erDiagram
     AcademicYear ||--o{ GradingScale : "graded under"
     Class ||--o{ GradingScale : "overridden by"
     GradingScale ||--o{ GradingBand : "made of"
+
+    AcademicYear ||--o{ Exam : "held in"
+    Class ||--o{ Exam : "sits"
+    Exam ||--o{ ExamComponent : "made of"
+    Subject ||--o{ ExamComponent : measures
+    Exam ||--o{ MarkGrid : "entry grid per"
+    ClassSection ||--o{ MarkGrid : "graded by"
+    Subject ||--o{ MarkGrid : "graded in"
+    Exam ||--o{ Mark : "marks for"
+    Student ||--o{ Mark : "marked in"
+    ExamComponent ||--o{ Mark : "values for"
+    Exam ||--o{ Result : "computed result per"
+    Student ||--o{ Result : "has a"
+    GradingScale ||--o{ Result : "pinned against"
+    Result ||--o{ ResultSubject : "breaks down into"
+    Subject ||--o{ ResultSubject : "line for"
+    Student ||--o{ StudentSubjectChoice : "picks a"
+    ClassSubject ||--o{ StudentSubjectChoice : "chosen offering"
 ```
 
 _(This shows the shape of the graph, not every column — see each entity file
@@ -162,6 +180,67 @@ Result composition — turning a set of subject marks into one grade per
 subject and one GPA for the term — is **out of scope for this epic
 (20.x)**. This doc covers only the scale/band data model and its
 backup/restore path; the composition rules land in a later epic.
+
+### Exams, marks & results (`modules/exams`) — Epic 19.0
+
+```
+Exam (First Term Exam, Class 6, 2026-2027)   status: DRAFT -> PROCESSED -> PUBLISHED
+├── ExamComponent  Math / Written    full_marks 100   source: MANUAL
+├── ExamComponent  Math / Attendance full_marks 10    source: DERIVED  (D11, read-only)
+├── ExamComponent  English / Written full_marks 100   source: MANUAL
+│
+├── MarkGrid  Section A × Math      state: SUBMITTED
+├── MarkGrid  Section B × Math      state: DRAFT        ← progress screen shows this
+│
+├── Mark  student=Karim  component=Math/Written    value 78.50  status PRESENT
+├── Mark  student=Rahim  component=Math/Written    value null   status ABSENT   (D10)
+│
+└── Result  student=Karim   total 167.00  grade A  ── pinned: grading_scale_id, grading_scale_revision, rule_version
+    └── ResultSubject  Math      obtained 89.00  grade A
+    └── ResultSubject  English   obtained 78.00  grade A
+```
+
+- **`Exam`** — one sitting (e.g. "First Term Exam") for one `Class` in one
+  `AcademicYear`. `kind` (TERM/MONTHLY/MODEL/OTHER) is a label only, no
+  behaviour keys off it. `status` is the D12 lifecycle: `DRAFT` (marks being
+  entered) → `PROCESSED` (results computed) → `PUBLISHED` (visible to
+  guardians in the portal).
+- **`ExamComponent`** — one markable part of one exam-subject, e.g. "Written"
+  and "MCQ" for Math. `full_marks`/`pass_marks` are per component; a
+  subject's total is the sum of its components. `source` distinguishes
+  `MANUAL` (typed on the marks grid) from `DERIVED` (computed server-side —
+  currently only `ATTENDANCE`, D11 — never accepts direct grid entry).
+- **`MarkGrid`** — one section-subject's entry state for one exam (D12):
+  `DRAFT` is editable, `SUBMITTED` locks it. One row per (exam, section,
+  subject).
+- **`Mark`** — one student's value for one component. **D10**: `value` is
+  `NULL` whenever `status` isn't `PRESENT`, enforced by a database CHECK
+  constraint — an `ABSENT` mark can never be misread as a zero, on the grid
+  or after a workbook restore.
+- **`Result`** — one student's computed outcome for an exam: total marks,
+  GPA, grade, class position, pass/fail. **D19**: pins
+  `grading_scale_id` + `grading_scale_revision` + `rule_version` at the
+  moment it's computed — the same "snapshot, don't re-derive" pattern
+  `Invoice.snapshot` uses for money. A later edit to the grading scale
+  (Epic 20.0 D6 makes scales editable) bumps the scale's own `revision` and
+  triggers a recompute of dependent results; comparing an old result's
+  `grading_scale_revision` against the scale's current `revision` is how a
+  caller notices a printed card has gone stale.
+- **`ResultSubject`** — one subject's line within a `Result` — what a report
+  card actually prints. `is_fourth_subject` records whether this line
+  counted as the student's chosen fourth/optional subject for this result.
+- **`StudentSubjectChoice`** — a student's fourth/optional subject pick
+  (D14), per student rather than per class, since two students in the same
+  class can pick different fourth subjects. `academic_year_id` is
+  denormalised from the chosen `ClassSubject` so "one `is_fourth` choice per
+  student per year" can be enforced by a database index.
+
+**Out of scope, on purpose:** composing several exams' results into one
+term/annual outcome — averaging or weighting marks across TERM + MONTHLY +
+MODEL exams — is deliberately **not** part of this epic (decision D3). Every
+entity above is scoped to a single `Exam`; nothing here reads across exams.
+A future epic owns that composition, so a reader who notices its absence
+should not read it as a gap left behind by accident.
 
 ### Calendar (`modules/calendar`) — see [16-academic-calendar.md](16-academic-calendar.md) for the full model
 

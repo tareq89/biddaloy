@@ -12,7 +12,14 @@ import { useDensity } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { RequireRole } from '@biddaloy/ui/routes';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
-import { CalendarDaysIcon, CreditCardIcon, HomeIcon, UserRoundIcon } from 'lucide-react';
+import {
+  CalendarDaysIcon,
+  CreditCardIcon,
+  GraduationCapIcon,
+  HomeIcon,
+  MoreHorizontalIcon,
+  UserRoundIcon,
+} from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces } from '../route-loaders';
@@ -52,6 +59,15 @@ export const Route = createFileRoute('/portal')({
   loader: () => loadRouteNamespaces('nav', 'portal'),
   component: PortalLayout,
 });
+
+/** The four destinations `BottomNav` shows directly below `md`; every other
+ * one is reachable through its `more` drawer. */
+const BOTTOM_NAV_PATHS = new Set([
+  '/portal',
+  '/portal/fees',
+  '/portal/attendance',
+  '/portal/results',
+]);
 
 function PortalLayout() {
   const { t } = useTranslation('nav');
@@ -126,6 +142,23 @@ function PortalLayout() {
       // STUDENT)`), not behind a `Permission`, so no `permission` here.
     },
     {
+      to: '/portal/results',
+      label: t('items.portalResults'),
+      icon: <GraduationCapIcon className="size-5" aria-hidden="true" />,
+      // [19.9.1] `StudentResultsController` gates on `RESULT_READ`, which
+      // `ROLE_PERMISSIONS[PARENT]`/`[STUDENT]` both hold — same pattern as
+      // `/portal/fees`'s `INVOICE_READ` above.
+      permission: Permission.RESULT_READ,
+    },
+    {
+      to: '/portal/exam-schedule',
+      label: t('items.portalExamSchedule'),
+      icon: <GraduationCapIcon className="size-5" aria-hidden="true" />,
+      // [19.11.1] `StudentExamScheduleController` gates on `RESULT_READ`,
+      // same as `/portal/results` above.
+      permission: Permission.RESULT_READ,
+    },
+    {
       to: '/portal/account',
       label: t('items.portalAccount'),
       icon: <UserRoundIcon className="size-5" aria-hidden="true" />,
@@ -155,7 +188,22 @@ function PortalLayout() {
         closeMenuLabel={t('closeMenuLabel')}
         navLabel={t('navLabel')}
         skipLinkLabel={t('skipToContent')}
-        bottomNav={<BottomNav items={navItems} label={t('bottomNavLabel')} />}
+        // [19.11.1] Seven destinations overflow `BottomNav`'s 5-cell cap at
+        // 320px (WCAG 1.4.10), so the bar keeps the four a parent opens most
+        // plus `more`, which opens the drawer holding the full list — the
+        // staff shell's pattern. An empty `mobileHeaderActions` is what
+        // makes `AppShell` render that drawer at all (see its own comment).
+        mobileHeaderActions={<></>}
+        bottomNav={
+          <BottomNav
+            items={navItems.filter((item) => BOTTOM_NAV_PATHS.has(item.to))}
+            label={t('bottomNavLabel')}
+            more={{
+              label: t('items.more'),
+              icon: <MoreHorizontalIcon className="size-5" aria-hidden="true" />,
+            }}
+          />
+        }
       >
         {breadcrumbItems.length > 0 && (
           <Breadcrumbs

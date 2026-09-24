@@ -99,6 +99,7 @@ import { GradingScale } from './modules/grading/entities/grading-scale.entity';
 import { GradingBand } from './modules/grading/entities/grading-band.entity';
 import { Exam } from './modules/exams/entities/exam.entity';
 import { ExamComponent } from './modules/exams/entities/exam-component.entity';
+import { ExamSchedule } from './modules/exams/entities/exam-schedule.entity';
 import { Mark } from './modules/exams/entities/mark.entity';
 import { MarkGrid } from './modules/exams/entities/mark-grid.entity';
 import { Result } from './modules/exams/entities/result.entity';
@@ -188,6 +189,7 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
             MarkGrid,
             Result,
             ResultSubject,
+            ExamSchedule,
             StudentSubjectChoice,
             Shift,
             PeriodSlot,

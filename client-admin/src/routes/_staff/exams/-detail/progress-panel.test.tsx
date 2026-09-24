@@ -49,9 +49,7 @@ describe('exams/$examId Progress tab', () => {
 
     await screen.findByText('1 of 2 grids submitted');
     const sectionARow = await screen.findByRole('link', { name: 'Section A' });
-    expect(sectionARow.getAttribute('href')).toBe(
-      '/exams/exam-1/marks?section=section-a&subject=subject-math',
-    );
+    expect(sectionARow.getAttribute('href')).toBe('/marks/exam-1/section-a/subject-math');
     expect(screen.getByRole('link', { name: 'Section B' })).toBeTruthy();
 
     // Filter to Draft only — Section B (SUBMITTED) drops out of the list.

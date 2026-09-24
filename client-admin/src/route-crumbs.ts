@@ -55,7 +55,9 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/portal/account': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/attendance': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/calendar': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
+  '/portal/exam-schedule': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/fees': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
+  '/portal/results': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
 
   // --- Platform (SUPER_ADMIN) area ---
   '/_platform/holiday-sets/': [{ label: { key: 'holidaySets' } }],
@@ -81,6 +83,8 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/academic-years/': [{ label: { entity: 'academicYear' } }],
   '/_staff/classes/': [{ label: { entity: 'class' } }],
   '/_staff/exams/': [{ label: { entity: 'exam' } }],
+  '/_staff/marks/': [{ label: { key: 'marksEntry' } }],
+  '/_staff/results/': [{ label: { key: 'results' } }],
   '/_staff/grading-scales/': [{ label: { key: 'gradingScales' } }],
   '/_staff/attendance/': [{ label: { key: 'attendance' } }],
   '/_staff/attendance/reports': [{ label: { key: 'attendanceReports' } }],
@@ -131,6 +135,14 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/exams/$examId': [
     { label: { entity: 'exam' } },
     { label: { entity: 'exam' }, dynamic: 'entity' },
+  ],
+  '/_staff/marks/$examId/$sectionId/$subjectId': [
+    { label: { key: 'marksEntry' } },
+    { label: { key: 'marksEntryGrid' }, dynamic: 'entity' },
+  ],
+  '/_staff/results/$examId/$studentId': [
+    { label: { key: 'results' } },
+    { label: { key: 'reportCard' }, dynamic: 'entity' },
   ],
   '/_staff/grading-scales/$scaleId': [
     { label: { key: 'gradingScales' } },
