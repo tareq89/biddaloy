@@ -1,7 +1,13 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In } from 'typeorm';
-import { AuditAction, ExamComponentSource, ExamStatus, MarkStatus } from '@biddaloy/shared';
+import {
+  AuditAction,
+  EnrollmentStatus,
+  ExamComponentSource,
+  ExamStatus,
+  MarkStatus,
+} from '@biddaloy/shared';
 import { Exam } from './entities/exam.entity';
 import { Result } from './entities/result.entity';
 import { ResultSubject } from './entities/result-subject.entity';
@@ -27,6 +33,7 @@ import { AttendanceComponentService } from './attendance-component.service';
 import { MarkGridService } from './mark-grid.service';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
+import type { ApprovalContext } from '../auth/guards/approval.guard';
 
 /** The rule engine's own version — stamped on every `Result` row (D19) so
  * a later change to `result-rules.ts` can be told apart from an
@@ -141,6 +148,7 @@ export class ResultsService {
         class_section_id: In(sections.map((s) => s.id)),
         tenant_id: tenantId,
         deleted_at: IsNull(),
+        enrollment_status: EnrollmentStatus.ACTIVE,
       },
     });
     const sectionByStudent = new Map(students.map((s) => [s.id, s.class_section_id]));
@@ -594,6 +602,7 @@ export class ResultsService {
     tenantId: string,
     userId: string,
     context: RequestContext = { ip: null, userAgent: null },
+    approval?: ApprovalContext,
   ): Promise<void> {
     const exam = await this.findExam(examId, tenantId);
     if (exam.status !== ExamStatus.PUBLISHED) {
@@ -611,6 +620,25 @@ export class ResultsService {
         .getRepository(Result)
         .update({ exam_id: examId, tenant_id: tenantId }, { published_at: null });
 
+      if (approval) {
+        await this.auditService.recordApproved(
+          {
+            action: AuditAction.UPDATE,
+            entity_type: 'Exam',
+            entity_id: examId,
+            tenant_id: tenantId,
+            performed_by_user_id: userId,
+            approved_by_user_id: approval.approverId,
+            approval_scope: approval.scope,
+            ip_address: context.ip,
+            user_agent: context.userAgent,
+            old_values: { status: ExamStatus.PUBLISHED },
+            new_values: { status: ExamStatus.PROCESSED },
+          },
+          manager,
+        );
+        return;
+      }
       await this.auditService.record(
         {
           action: AuditAction.UPDATE,

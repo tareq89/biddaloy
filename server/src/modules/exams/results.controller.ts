@@ -95,8 +95,14 @@ export class ResultsController {
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
   ) {
-    this.requireApproval(request);
-    await this.resultsService.reopen(examId, tenant.id, user.sub, requestContext(request));
+    const approval = this.requireApproval(request);
+    await this.resultsService.reopen(
+      examId,
+      tenant.id,
+      user.sub,
+      requestContext(request),
+      approval,
+    );
     return { reopened: true };
   }
 
