@@ -1,10 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HomeworkAssignmentStatus } from '@biddaloy/shared';
 import { Homework } from './entities/homework.entity';
 import { HomeworkAssignment } from './entities/homework-assignment.entity';
 import { HomeworkAccessService } from './homework-access.service';
+import { HomeworkNoticeService } from './homework-notice.service';
 import {
   AssignHomeworkDto,
   CreateHomeworkDto,
@@ -25,12 +26,15 @@ interface CallerContext {
  */
 @Injectable()
 export class HomeworkService {
+  private readonly logger = new Logger(HomeworkService.name);
+
   constructor(
     @InjectRepository(Homework)
     private readonly homeworkRepo: Repository<Homework>,
     @InjectRepository(HomeworkAssignment)
     private readonly assignmentRepo: Repository<HomeworkAssignment>,
     private readonly access: HomeworkAccessService,
+    private readonly notice: HomeworkNoticeService,
   ) {}
 
   async create(dto: CreateHomeworkDto, ctx: CallerContext): Promise<Homework> {
@@ -161,7 +165,25 @@ export class HomeworkService {
       status: HomeworkAssignmentStatus.ACTIVE,
       tenant_id: ctx.tenantId,
     });
-    return this.assignmentRepo.save(assignment);
+    const saved = await this.assignmentRepo.save(assignment);
+
+    // [22.3.3] Fire-and-forget would risk a silently-lost notice on a
+    // transient error with no caller to see it; awaiting keeps it on the
+    // request but must never turn a successful assignment into a 500 just
+    // because a guardian's CommunicationLog insert failed.
+    try {
+      await this.notice.notifyAssignment(saved, homework);
+    } catch (err) {
+      // HomeworkNoticeService already logs internally per-guardian; this
+      // catches a failure *before* that (e.g. loading target students), so
+      // it still needs its own trace. The assignment itself is the source
+      // of truth and must not be rolled back for a notification failure.
+      this.logger.warn(
+        `Failed to send assignment notice for assignment ${saved.id}: ${(err as Error).message}`,
+      );
+    }
+
+    return saved;
   }
 
   /** D20 — reassignment always creates a new row rather than mutating the
