@@ -23,6 +23,10 @@ import type { AttendanceDevice } from '../modules/attendance/entities/attendance
 import type { ClassSubject } from '../modules/academics/entities/class-subject.entity';
 import type { GradingScale } from '../modules/grading/entities/grading-scale.entity';
 import type { GradingBand } from '../modules/grading/entities/grading-band.entity';
+import type { Homework } from '../modules/homework/entities/homework.entity';
+import type { HomeworkAssignment } from '../modules/homework/entities/homework-assignment.entity';
+import type { HomeworkSubmission } from '../modules/homework/entities/homework-submission.entity';
+import type { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.entity';
 import { hashDeviceKey } from '../modules/attendance/devices/device.service';
 import {
   ATTENDANCE_SEED_ABSENT_DATE,
@@ -34,6 +38,7 @@ import {
   ensureDemoOrganisation,
   ensureDemoStudents,
   ensureGradingDemoSeed,
+  ensureHomeworkDemoSeed,
   ensurePublicHolidaySet,
   BD_NCTB_BANDS,
   ensureRoleTestUsers,
@@ -1243,5 +1248,79 @@ describe('ensureGradingDemoSeed', () => {
     expect(vi.mocked(repos.gradingScaleRepository.save)).not.toHaveBeenCalledWith(deletedCustom);
     expect(result.scales).toBe(2);
     expect(result.bands).toBe(BD_NCTB_BANDS.length * 2);
+  });
+});
+
+describe('ensureHomeworkDemoSeed', () => {
+  function homeworkRepos() {
+    return {
+      homeworkRepository: mockRepo<Homework>(),
+      homeworkAssignmentRepository: mockRepo<HomeworkAssignment>(),
+      homeworkSubmissionRepository: mockRepo<HomeworkSubmission>(),
+      syllabusTopicRepository: mockRepo<SyllabusTopic>(),
+    };
+  }
+
+  const PARAMS = {
+    schoolId: 'school-1',
+    classId: 'class-6',
+    subjectId: 'subject-math',
+    sectionId: 'section-a',
+    studentIds: ['student-1', 'student-2', 'student-3'],
+  };
+
+  it('creates one homework, one section-wide assignment, one submission per student in every status, and a sample syllabus', async () => {
+    const repos = homeworkRepos();
+    vi.mocked(repos.homeworkRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.homeworkAssignmentRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.homeworkSubmissionRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.syllabusTopicRepository.findOne).mockResolvedValue(null);
+
+    const result = await ensureHomeworkDemoSeed(repos, PARAMS);
+
+    expect(result).toEqual({ homework: 1, assignments: 1, submissions: 3, syllabusTopics: 3 });
+
+    // Referential integrity: every submission/assignment/topic is scoped to
+    // the same tenant and points at ids this call was actually given.
+    const assignmentPayload = vi.mocked(repos.homeworkAssignmentRepository.create).mock
+      .calls[0][0] as Partial<HomeworkAssignment>;
+    expect(assignmentPayload.section_id).toBe(PARAMS.sectionId);
+    expect(assignmentPayload.student_id).toBeNull();
+    expect(assignmentPayload.tenant_id).toBe(PARAMS.schoolId);
+
+    const submissionPayloads = vi
+      .mocked(repos.homeworkSubmissionRepository.create)
+      .mock.calls.map(([payload]) => payload as Partial<HomeworkSubmission>);
+    expect(submissionPayloads.map((s) => s.student_id)).toEqual(PARAMS.studentIds);
+    // D13: 2 completed (DONE/SUBMITTED), 1 left NOT_SUBMITTED against a past
+    // due date — exactly the "2 submitted, 1 defaulter" fixture the
+    // analytics spec's rollup math is built against.
+    expect(submissionPayloads.map((s) => s.status)).toEqual(['DONE', 'SUBMITTED', 'NOT_SUBMITTED']);
+    expect(submissionPayloads.every((s) => s.tenant_id === PARAMS.schoolId)).toBe(true);
+
+    const topicPayloads = vi
+      .mocked(repos.syllabusTopicRepository.create)
+      .mock.calls.map(([payload]) => payload as Partial<SyllabusTopic>);
+    expect(topicPayloads.map((t) => t.status).sort()).toEqual(['DONE', 'DONE', 'PLANNED'].sort());
+  });
+
+  it('is idempotent: a second run against an already-seeded database creates nothing new', async () => {
+    const repos = homeworkRepos();
+    vi.mocked(repos.homeworkRepository.findOne).mockResolvedValue({ id: 'hw-1' } as Homework);
+    vi.mocked(repos.homeworkAssignmentRepository.findOne).mockResolvedValue({
+      id: 'assign-1',
+    } as HomeworkAssignment);
+    vi.mocked(repos.homeworkSubmissionRepository.findOne).mockResolvedValue({
+      id: 'sub-1',
+    } as HomeworkSubmission);
+    vi.mocked(repos.syllabusTopicRepository.findOne).mockResolvedValue({
+      id: 'topic-1',
+    } as SyllabusTopic);
+
+    const result = await ensureHomeworkDemoSeed(repos, PARAMS);
+
+    expect(result).toEqual({ homework: 0, assignments: 0, submissions: 0, syllabusTopics: 0 });
+    expect(vi.mocked(repos.homeworkRepository.create)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.homeworkSubmissionRepository.create)).not.toHaveBeenCalled();
   });
 });

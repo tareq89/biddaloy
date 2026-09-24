@@ -10,6 +10,7 @@ import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { HomeworkService } from './homework.service';
+import { HomeworkAnalyticsService } from './homework-analytics.service';
 import {
   AssignHomeworkDto,
   CreateHomeworkDto,
@@ -28,7 +29,10 @@ import {
 @Controller()
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class HomeworkController {
-  constructor(private readonly homeworkService: HomeworkService) {}
+  constructor(
+    private readonly homeworkService: HomeworkService,
+    private readonly homeworkAnalyticsService: HomeworkAnalyticsService,
+  ) {}
 
   @Post('homework')
   @Roles(UserRole.ADMIN, UserRole.TEACHER)
@@ -62,6 +66,44 @@ export class HomeworkController {
       userId: user.sub,
       tenantId: tenant.id,
     });
+  }
+
+  // [22.3.6] D25 — the controller stays thin, all rollup math lives in
+  // `HomeworkAnalyticsService`. Read-only, same `HOMEWORK_READ` permission
+  // as `findAll`/`findOne`. Registered BEFORE `homework/:id` below: Nest
+  // matches routes in declaration order, and `:id` would otherwise swallow
+  // `homework/analytics/...` by matching "analytics" as the id param.
+
+  @Get('homework/analytics/student/:studentId')
+  @Roles(UserRole.ADMIN, UserRole.TEACHER)
+  @RequirePermissions(Permission.HOMEWORK_READ)
+  @ApiOperation({ summary: 'Completion/defaulter rollup for one student (D13).' })
+  async studentRollup(
+    @Param('studentId') studentId: string,
+    @CurrentTenant() tenant: { id: string },
+  ) {
+    return this.homeworkAnalyticsService.getStudentRollup(studentId, tenant.id);
+  }
+
+  @Get('homework/analytics/section/:sectionId')
+  @Roles(UserRole.ADMIN, UserRole.TEACHER)
+  @RequirePermissions(Permission.HOMEWORK_READ)
+  @ApiOperation({ summary: 'Completion/defaulter rollup for one section (D13).' })
+  async sectionRollup(
+    @Param('sectionId') sectionId: string,
+    @CurrentTenant() tenant: { id: string },
+  ) {
+    return this.homeworkAnalyticsService.getSectionRollup(sectionId, tenant.id);
+  }
+
+  @Get('homework/analytics/class/:classId')
+  @Roles(UserRole.ADMIN, UserRole.TEACHER)
+  @RequirePermissions(Permission.HOMEWORK_READ)
+  @ApiOperation({
+    summary: 'Completion/defaulter + syllabus-completion rollup for one class (D13/D29).',
+  })
+  async classRollup(@Param('classId') classId: string, @CurrentTenant() tenant: { id: string }) {
+    return this.homeworkAnalyticsService.getClassRollup(classId, tenant.id);
   }
 
   @Get('homework/:id')

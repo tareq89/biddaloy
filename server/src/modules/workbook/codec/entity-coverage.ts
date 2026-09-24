@@ -40,10 +40,6 @@ import { RoutineSlot } from '../../routines/entities/routine-slot.entity';
 import { RoutineSlotTeacher } from '../../routines/entities/routine-slot-teacher.entity';
 import { RoutineSubstitution } from '../../routines/entities/routine-substitution.entity';
 import { RoutineChangeRequest } from '../../routines/entities/routine-change-request.entity';
-import { Homework } from '../../homework/entities/homework.entity';
-import { HomeworkAssignment } from '../../homework/entities/homework-assignment.entity';
-import { HomeworkSubmission } from '../../homework/entities/homework-submission.entity';
-import { SyllabusTopic } from '../../homework/entities/syllabus-topic.entity';
 
 /**
  * Entities that `registry.completeness.spec.ts` allows to have no workbook
@@ -150,11 +146,4 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
     RoutineChangeRequest,
     'Tenant-scoped routine change request, no tab yet — tracked in Epic 21.0 [21.11.1].',
   ],
-
-  // --- Epic 22.0 (homework & syllabus): entities land wave-by-wave,
-  // the workbook tab ships in 22.3.6.
-  [Homework, 'workbook tab ships in 22.3.6'],
-  [HomeworkAssignment, 'workbook tab ships in 22.3.6'],
-  [HomeworkSubmission, 'workbook tab ships in 22.3.6'],
-  [SyllabusTopic, 'workbook tab ships in 22.3.6'],
 ]);

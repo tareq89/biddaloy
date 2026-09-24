@@ -23,6 +23,10 @@ import type { AttendanceDevice } from '../modules/attendance/entities/attendance
 import type { ClassSubject } from '../modules/academics/entities/class-subject.entity';
 import type { GradingScale } from '../modules/grading/entities/grading-scale.entity';
 import type { GradingBand } from '../modules/grading/entities/grading-band.entity';
+import type { Homework } from '../modules/homework/entities/homework.entity';
+import type { HomeworkAssignment } from '../modules/homework/entities/homework-assignment.entity';
+import type { HomeworkSubmission } from '../modules/homework/entities/homework-submission.entity';
+import type { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.entity';
 import { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
 import { ensureDemoOrganisation } from './seed.util';
 
@@ -182,6 +186,22 @@ function makeRepos() {
       clock,
       'grading-band',
     ).asRepository() as unknown as Repository<GradingBand>,
+    homeworkRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'homework',
+    ).asRepository() as unknown as Repository<Homework>,
+    homeworkAssignmentRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'homework-assignment',
+    ).asRepository() as unknown as Repository<HomeworkAssignment>,
+    homeworkSubmissionRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'homework-submission',
+    ).asRepository() as unknown as Repository<HomeworkSubmission>,
+    syllabusTopicRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'syllabus-topic',
+    ).asRepository() as unknown as Repository<SyllabusTopic>,
   } satisfies SeedAccountRepositories;
   return { repos, users, schools, userTenants, students };
 }
