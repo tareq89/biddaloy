@@ -1,5 +1,6 @@
 import { loggedIn, expect, test } from '../fixtures/test';
 import { t } from '../i18n';
+import { escapeRegExp } from '../regex';
 
 /**
  * [21.11.1] Epic close journey: the two phone-first agenda views D18
@@ -43,13 +44,19 @@ test.describe('teacher: My routine, phone viewport', () => {
     await expect(todayTab).toBeVisible();
     await todayTab.click();
 
-    // Either a populated list of periods, or the documented empty-day
-    // message — both are valid depending on which weekday "today"
-    // happens to be when this spec runs (the seed only schedules
-    // Monday/Tuesday periods).
-    const emptyDay = page.getByText(t('routines.agenda.emptyDay'));
-    const anyItem = page.locator('li', { hasText: t('routines.agenda.cancelledLabel') }).first();
-    await expect(emptyDay.or(anyItem)).toBeVisible();
+    // Any of: a populated list of periods, the documented empty-day
+    // message, a weekly-off day, or a holiday — which one is valid
+    // depends on which weekday "today" happens to be when this spec runs
+    // (the seed only schedules Monday/Tuesday periods) and whether it
+    // lands on a weekly-off day or a seeded holiday.
+    const main = page.getByRole('main');
+    const emptyDay = main.getByText(t('routines.agenda.emptyDay'));
+    const anyItem = main.getByRole('listitem').first();
+    const weeklyOff = main.getByText(t('routines.agenda.weeklyOffReason'));
+    const holiday = main.getByText(
+      new RegExp('^' + escapeRegExp(t('routines.agenda.holidayReason', { name: '' }))),
+    );
+    await expect(emptyDay.or(anyItem).or(weeklyOff).or(holiday).first()).toBeVisible();
   });
 
   test('a cancelled period, when visible in the 7-day window, is labelled and struck through', async ({
