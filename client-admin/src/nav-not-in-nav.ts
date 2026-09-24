@@ -60,7 +60,7 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/guardians/$guardianId': 'detail route reached from the guardians list',
   '/_staff/routines/$sectionId': 'detail route reached from the routine builder section list',
   '/_staff/routines/review':
-    '[21.9.1] reached via the "Open my routine"/"Copy last year\'s routine" palette actions and from the routine builder, not its own sidebar item',
+    '[21.9.1] reached via the "Copy last year\'s routine" palette action and from the routine builder, not its own sidebar item',
   '/_staff/routines/substitutions':
     '[21.9.1] reached via the "Add substitution" palette action, not its own sidebar item',
   '/_staff/invoices/$invoiceId': 'detail route reached from the invoices list',

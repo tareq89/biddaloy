@@ -144,7 +144,7 @@ export const ACTIONS: readonly PaletteAction[] = [
     label: { en: 'Open my routine', bn: 'আমার রুটিন খুলুন' },
     permission: Permission.ROUTINE_READ,
     kind: 'navigate',
-    run: (ctx) => ctx.navigate({ to: '/routines/review' }),
+    run: (ctx) => ctx.navigate({ to: '/routines/my' }),
   },
   {
     id: 'routines.addSubstitution',
