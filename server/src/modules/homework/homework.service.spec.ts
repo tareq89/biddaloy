@@ -23,6 +23,7 @@ describe('HomeworkService', () => {
     assertCanManageSection: ReturnType<typeof vi.fn>;
     assertCanManageStudent: ReturnType<typeof vi.fn>;
   };
+  let notice: { notifyAssignment: ReturnType<typeof vi.fn> };
   let service: HomeworkService;
 
   const HOMEWORK = {
@@ -52,7 +53,13 @@ describe('HomeworkService', () => {
       assertCanManageSection: vi.fn(async () => undefined),
       assertCanManageStudent: vi.fn(async () => undefined),
     };
-    service = new HomeworkService(homeworkRepo as never, assignmentRepo as never, access as never);
+    notice = { notifyAssignment: vi.fn(async () => undefined) };
+    service = new HomeworkService(
+      homeworkRepo as never,
+      assignmentRepo as never,
+      access as never,
+      notice as never,
+    );
   });
 
   describe('create', () => {
@@ -102,6 +109,16 @@ describe('HomeworkService', () => {
         status: HomeworkAssignmentStatus.ACTIVE,
         section_id: 'section-1',
       });
+      // [22.3.3] Assignment triggers a guardian notice with the saved
+      // assignment row and its parent homework.
+      expect(notice.notifyAssignment).toHaveBeenCalledWith(result, HOMEWORK);
+    });
+
+    it('does not fail the assignment when the notice send throws', async () => {
+      notice.notifyAssignment.mockRejectedValueOnce(new Error('sms provider down'));
+      const dto = { section_id: 'section-1', assigned_date: '2026-01-01', due_date: '2026-01-08' };
+      const result = await service.assign('hw-1', dto, ctx);
+      expect(result).toMatchObject({ status: HomeworkAssignmentStatus.ACTIVE });
     });
 
     it('rejects both section_id and student_id given together (D24)', async () => {

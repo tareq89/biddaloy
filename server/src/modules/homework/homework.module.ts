@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { BullModule } from '@nestjs/bullmq';
 import { Homework } from './entities/homework.entity';
 import { HomeworkAssignment } from './entities/homework-assignment.entity';
 import { HomeworkSubmission } from './entities/homework-submission.entity';
@@ -9,11 +10,19 @@ import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
 import { StudentModule } from '../students/students.module';
 import { StorageModule } from '../storage/storage.module';
+import { SchoolsModule } from '../schools/schools.module';
+import { CommunicationLog } from '../communications/entities/communication-log.entity';
+import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
 import { HomeworkController } from './homework.controller';
 import { HomeworkService } from './homework.service';
 import { HomeworkAccessService } from './homework-access.service';
 import { HomeworkSubmissionController } from './homework-submission.controller';
 import { HomeworkSubmissionService } from './homework-submission.service';
+import { HomeworkNoticeService } from './homework-notice.service';
+import {
+  HomeworkDefaulterScheduler,
+  HOMEWORK_DEFAULTER_SWEEP_QUEUE,
+} from './homework-defaulter.scheduler';
 
 /**
  * [22.2.1] Entities. [22.3.1] added the controller/service/access-service
@@ -21,6 +30,10 @@ import { HomeworkSubmissionService } from './homework-submission.service';
  * [22.3.2] added the submission controller/service — `StudentModule` for
  * `FamilyAccessService` (D26 ownership scoping) and `StorageModule` for
  * `StorageService` (attachment uploads, same pattern as `logo.controller.ts`).
+ * [22.3.3] adds `HomeworkNoticeService`/`HomeworkDefaulterScheduler` —
+ * `CommunicationLog` registered directly (not via `CommunicationsModule`)
+ * and `COMMUNICATIONS_QUEUE` registered as a producer, same pattern as
+ * `AttendanceModule`'s `AbsenceNoticeService`/`AbsenceNoticeScheduler`.
  */
 @Module({
   imports: [
@@ -32,11 +45,27 @@ import { HomeworkSubmissionService } from './homework-submission.service';
       TeacherClassSection,
       ClassSection,
       Student,
+      CommunicationLog,
     ]),
     StudentModule,
     StorageModule,
+    SchoolsModule,
+    BullModule.registerQueue({
+      name: COMMUNICATIONS_QUEUE,
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+      },
+    }),
+    BullModule.registerQueue({ name: HOMEWORK_DEFAULTER_SWEEP_QUEUE }),
   ],
   controllers: [HomeworkController, HomeworkSubmissionController],
-  providers: [HomeworkService, HomeworkAccessService, HomeworkSubmissionService],
+  providers: [
+    HomeworkService,
+    HomeworkAccessService,
+    HomeworkSubmissionService,
+    HomeworkNoticeService,
+    HomeworkDefaulterScheduler,
+  ],
 })
 export class HomeworkModule {}
