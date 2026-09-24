@@ -70,6 +70,18 @@ erDiagram
     AcademicYear ||--o{ GradingScale : "graded under"
     Class ||--o{ GradingScale : "overridden by"
     GradingScale ||--o{ GradingBand : "made of"
+    Class ||--o| Shift : "shift_id (promoted from classes.shift)"
+    Shift ||--o{ PeriodSlot : "lays out"
+    AcademicYear ||--o| Routine : "one timetable per year"
+    Routine ||--o{ RoutineSlot : "scheduled classes"
+    ClassSection ||--o{ RoutineSlot : "taught in"
+    PeriodSlot ||--o{ RoutineSlot : "fills grid cell"
+    RoutineSlot ||--o{ RoutineSlotTeacher : "covered by"
+    Teacher ||--o{ RoutineSlotTeacher : covers
+    RoutineSlot ||--o{ RoutineSubstitution : "dated override"
+    Teacher ||--o{ RoutineSubstitution : substitutes
+    RoutineSlot ||--o{ RoutineChangeRequest : "requested change"
+    Room ||--o{ RoutineSlot : "fixed room (optional)"
 ```
 
 _(This shows the shape of the graph, not every column — see each entity file
@@ -224,6 +236,48 @@ backup/restore path; the composition rules land in a later epic.
 - **`AttendanceDevice`** — a biometric/face/RFID reader that can post attendance events for a tenant.
 - **`AttendanceDeviceEvent`** — one raw scan a device sent, the forensic trail behind an `AttendanceRecord`.
 - **`CalendarEvent`** (`modules/calendar`, [16-academic-calendar.md](16-academic-calendar.md)) — a holiday, exam, event, meeting, or deadline attendance reads to compute working-day math. Renamed from `SchoolHoliday` in [17.1.2] to reflect the wider set of `type`s the calendar module now owns; a `calendar` concern, not an `academics` one.
+
+### Class routines / timetables (`modules/routines`) — see [03-backend-modules.md](03-backend-modules.md#routines-module) for the module's services
+
+Eight entities, all school-scoped. Concrete example: "Class 6 A has Math,
+period 1, every Monday, taught by Ms Rahman" is one `RoutineSlot` row
+pointing at a `Routine`, a `ClassSection`, a `PeriodSlot`, and (via
+`RoutineSlotTeacher`) a `Teacher`.
+
+- **`Shift`** — a tenant's named daily window ("Morning", "Day"). [21.2.1]
+  promotes `classes.shift` (a free-text column) into this table —
+  `Class.shift_id` is the new pointer, `Class.shift` (the string) stays for
+  one release as a rollback path.
+- **`PeriodSlot`** — one grid cell within a shift's day: a numbered class
+  period, or a `BREAK` (e.g. "Lunch"). `sequence` orders slots independent
+  of `starts_at`, so periods can be reordered without renumbering every row.
+- **`Room`** — a physical room a class can be scheduled into. `building` is
+  nullable (a small school may not name its one building).
+- **`Routine`** — one timetable document per `(tenant, academic_year)`.
+  Lifecycle: `DRAFT` → `REVIEW` → `PUBLISHED`.
+- **`RoutineSlot`** — one scheduled class: section + period slot + weekday +
+  subject, effective for `[valid_from, valid_to)`. Two rows can share the
+  same section/period/weekday with disjoint date ranges — that's how a
+  mid-year subject swap is represented, not a schema bug.
+- **`RoutineSlotTeacher`** — join table: which teacher(s) cover a slot.
+  Usually one row; a co-taught period adds a second.
+- **`RoutineSubstitution`** — a dated override of one `RoutineSlot`: a
+  substitute teacher covering it, or the period cancelled outright, without
+  touching the slot's own effective-dated row.
+- **`RoutineChangeRequest`** — a teacher's request to change a _published_
+  slot, tracked separately so a coordinator can accept/reject it rather than
+  the request silently mutating the live timetable.
+
+```mermaid
+flowchart LR
+    Shift -->|day_starts_at..day_ends_at, sequence| PeriodSlot
+    PeriodSlot -->|period_slot_id| RoutineSlot
+    Routine -->|routine_id| RoutineSlot
+    ClassSection -->|section_id| RoutineSlot
+    RoutineSlot -->|routine_slot_id, 1..N rows| RoutineSlotTeacher
+    RoutineSlot -->|routine_slot_id, one row per date differing from plan| RoutineSubstitution
+    RoutineSlot -->|routine_slot_id| RoutineChangeRequest
+```
 
 ### Audit & auth internals (`modules/audit`, `modules/auth`)
 

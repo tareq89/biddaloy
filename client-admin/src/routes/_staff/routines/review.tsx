@@ -168,7 +168,7 @@ function RoutineReviewPage() {
         role="status"
         className="flex items-center gap-2 rounded-md border-2 border-primary bg-muted p-3 text-sm font-medium"
       >
-        <span className="rounded-full bg-primary px-2 py-0.5 text-xs uppercase text-primary-foreground">
+        <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground uppercase">
           {t(`review.stateLabel.${routine.state}`)}
         </span>
         <span>{t(bannerKey)}</span>
@@ -199,7 +199,11 @@ function RoutineReviewPage() {
                 type="button"
                 className="h-8 rounded-md border border-border-subtle px-2.5 text-sm disabled:opacity-50"
                 disabled={routine.state !== 'PUBLISHED'}
-                title={routine.state !== 'PUBLISHED' ? t('review.requestChangeDisabledExplanation') : undefined}
+                title={
+                  routine.state !== 'PUBLISHED'
+                    ? t('review.requestChangeDisabledExplanation')
+                    : undefined
+                }
                 onClick={() => setChangeRequestSlotId(entry.slot.id)}
               >
                 {t('review.requestChangeAction')}
@@ -218,8 +222,8 @@ function RoutineReviewPage() {
             return entry ? subjectName(entry.slot.subject_id) : slotId;
           }}
           requesterLabel={(userId) =>
-            teachersQuery.data?.data.find((teacher) => teacher.user.id === userId)?.user.full_name ??
-            userId
+            teachersQuery.data?.data.find((teacher) => teacher.user.id === userId)?.user
+              .full_name ?? userId
           }
         />
       )}
@@ -234,11 +238,7 @@ function RoutineReviewPage() {
         />
       )}
 
-      <PublishDialog
-        open={publishOpen}
-        onOpenChange={setPublishOpen}
-        routineId={routine.id}
-      />
+      <PublishDialog open={publishOpen} onOpenChange={setPublishOpen} routineId={routine.id} />
 
       {copyYearOpen && (
         <div

@@ -5,7 +5,6 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
-
 import { ChangeRequestList } from './-change-request-list';
 
 afterEach(async () => {

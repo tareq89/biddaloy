@@ -112,6 +112,17 @@ export const STAFF_NAV_ITEMS = {
     label: { key: 'routineBuilder' },
     synonyms: ['routine', 'timetable', 'grid'],
   },
+  // [21.10.1] A teacher's own phone-first agenda — `ROUTINE_READ`
+  // (`READ_ROLES` on `ResolveRoutineController`), not `ROUTINE_MANAGE`,
+  // so every staff role that can see a routine at all sees this link,
+  // not just the builder.
+  'academics.myRoutine': {
+    id: 'academics.myRoutine',
+    to: '/routines/my',
+    permission: Permission.ROUTINE_READ,
+    label: { key: 'myRoutine' },
+    synonyms: ['routine', 'timetable', 'agenda'],
+  },
   'attendance.attendance': {
     id: 'attendance.attendance',
     to: '/attendance',
@@ -257,6 +268,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
       STAFF_NAV_ITEMS['academics.classes'],
       STAFF_NAV_ITEMS['academics.routineSetup'],
       STAFF_NAV_ITEMS['academics.routineBuilder'],
+      STAFF_NAV_ITEMS['academics.myRoutine'],
     ],
   },
   {

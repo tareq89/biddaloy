@@ -207,6 +207,28 @@
     "coveredByLabel": "{{name}} দ্বারা প্রতিনিধিত্ব করা হয়েছে",
     "unknownTeacher": "অজানা"
   },
+  "agenda": {
+    "daySwitcherLabel": "একটি দিন নির্বাচন করুন",
+    "todayLabel": "আজ",
+    "weekViewOn": "সাপ্তাহিক দৃশ্য",
+    "weekViewOff": "দৈনিক দৃশ্য",
+    "emptyDay": "কোনো ক্লাস নেই।",
+    "cancelledLabel": "বাতিল",
+    "coveringForLabel": "{{name}}-এর প্রতিনিধিত্ব করছেন",
+    "periodLabel": "পিরিয়ড {{sequence}}",
+    "holidayReason": "ছুটির দিন — {{name}}",
+    "weeklyOffReason": "সাপ্তাহিক ছুটির দিন"
+  },
+  "myRoutine": {
+    "title": "আমার রুটিন",
+    "loading": "আপনার রুটিন লোড হচ্ছে",
+    "notATeacherExplanation": "আপনার অ্যাকাউন্টের জন্য কোনো শিক্ষক রেকর্ড পাওয়া যায়নি — এখানে দেখানোর কিছু নেই।",
+    "noRoutineExplanation": "স্কুল এখনও কোনো রুটিন প্রকাশ করেনি।",
+    "error": {
+      "message": "আপনার রুটিন লোড করা যায়নি। আপনার সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।",
+      "retry": "আবার চেষ্টা করুন"
+    }
+  },
   "substitutionDialog": {
     "title": "একটি প্রতিনিধিত্ব রেকর্ড করুন",
     "description": "একটি স্লটের জন্য একটি তারিখে প্রতিনিধিত্ব বা বাতিলকরণ রেকর্ড করে — সাপ্তাহিক রুটিন কখনও পরিবর্তিত হয় না।",
