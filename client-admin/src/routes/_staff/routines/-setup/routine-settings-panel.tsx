@@ -43,10 +43,20 @@ import { z } from 'zod';
 
 import { MutationErrorMessage } from '../../../../components/MutationErrorMessage';
 
+// [21.8.1] `RoutineSettingsDto` requires `@IsInt() @Min(1)` for both caps —
+// bare `z.string()` let 0/negative/decimal values through client-side, so
+// the server rejected the PATCH with a generic 400 instead of an inline
+// field error.
+const optionalCap = z
+  .string()
+  .refine((value) => value === '' || (/^\d+$/.test(value) && Number(value) >= 1), {
+    message: 'Must be a whole number of at least 1, or empty for no cap',
+  });
+
 const routineSettingsSchema = z.object({
   defaultChangeoverMinutes: boundedNumericString(0, 120),
-  maxPeriodsPerTeacherPerDay: z.string(),
-  maxConsecutivePeriods: z.string(),
+  maxPeriodsPerTeacherPerDay: optionalCap,
+  maxConsecutivePeriods: optionalCap,
 });
 
 type RoutineSettingsFormValues = z.infer<typeof routineSettingsSchema>;
@@ -143,7 +153,7 @@ export function RoutineSettingsPanel({ schoolId }: RoutineSettingsPanelProps) {
                   <Input
                     id="routine-settings-maxPeriodsPerTeacherPerDay"
                     type="number"
-                    min={0}
+                    min={1}
                     placeholder={t('settingsPanel.noCap')}
                     {...field}
                   />
@@ -164,7 +174,7 @@ export function RoutineSettingsPanel({ schoolId }: RoutineSettingsPanelProps) {
                   <Input
                     id="routine-settings-maxConsecutivePeriods"
                     type="number"
-                    min={0}
+                    min={1}
                     placeholder={t('settingsPanel.noCap')}
                     {...field}
                   />

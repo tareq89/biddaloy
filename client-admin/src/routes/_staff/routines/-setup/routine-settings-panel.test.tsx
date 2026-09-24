@@ -79,4 +79,41 @@ describe('RoutineSettingsPanel', () => {
     expect(Object.keys(body)).toEqual(['version', 'routine']);
     expect(body.routine.defaultChangeoverMinutes).toBe(15);
   });
+
+  it('rejects a cap of 0 inline instead of sending it to the server', async () => {
+    server.use(
+      http.get('/api/v1/schools/:id/settings', () =>
+        HttpResponse.json({
+          version: 1,
+          region: { locale: 'en', numerals: 'LATIN', timezone: 'Asia/Dhaka' },
+          routine: { defaultChangeoverMinutes: 5 },
+        }),
+      ),
+    );
+    const patchBody = vi.fn();
+    server.use(
+      http.patch('/api/v1/schools/:id/settings', async ({ request }) => {
+        patchBody(await request.json());
+        return HttpResponse.json({ version: 1 });
+      }),
+    );
+
+    const { user } = renderWithProviders(<RoutineSettingsPanel schoolId={SCHOOL_ID} />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: SCHOOL_ID,
+    });
+
+    const input = await screen.findByLabelText('Max periods per teacher per day');
+    await user.clear(input);
+    await user.type(input, '0');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('Must be a whole number of at least 1, or empty for no cap'),
+      ).toBeTruthy(),
+    );
+    expect(patchBody).not.toHaveBeenCalled();
+  });
 });
