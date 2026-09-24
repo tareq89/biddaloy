@@ -75,6 +75,7 @@ function SyllabusListPage() {
   const hasSelection = classId !== '' && subjectId !== '';
   const topicsQuery = useSyllabusTopicList(
     hasSelection ? { class_id: classId, subject_id: subjectId } : {},
+    { enabled: hasSelection },
   );
   const topics = hasSelection ? (topicsQuery.data ?? []) : [];
   const sortedTopics = [...topics].sort((a, b) => a.sequence - b.sequence);
