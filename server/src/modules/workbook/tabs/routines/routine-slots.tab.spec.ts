@@ -26,7 +26,7 @@ const SHIFT_ID = '99999999-9999-4999-8999-999999999999';
 const TENANT_ID = '11111111-1111-4111-8111-111111111111';
 
 const keys: Record<string, Record<string, string>> = {
-  routines: { [ROUTINE_ID]: '2026-2027|Main routine' },
+  routines: { [ROUTINE_ID]: '2026-2027' },
   sections: { [SECTION_ID]: 'Class 10|2026-2027||A' },
   period_slots: { [PERIOD_SLOT_ID]: 'Morning|1' },
   subjects: { [SUBJECT_ID]: 'MATH' },
@@ -136,7 +136,7 @@ describe('round trip', () => {
       row: {
         id: SLOT_ID,
         routine_id: ROUTINE_ID,
-        routine_key: '2026-2027|Main routine',
+        routine_key: '2026-2027',
         section_id: SECTION_ID,
         section_key: 'Class 10|2026-2027||A',
         period_slot_id: PERIOD_SLOT_ID,
@@ -205,7 +205,7 @@ describe('diffFields', () => {
     const row: RoutineSlotRow = {
       id: SLOT_ID,
       routine_id: ROUTINE_ID,
-      routine_key: '2026-2027|Main routine',
+      routine_key: '2026-2027',
       section_id: SECTION_ID,
       section_key: 'Class 10|2026-2027||A',
       period_slot_id: PERIOD_SLOT_ID,

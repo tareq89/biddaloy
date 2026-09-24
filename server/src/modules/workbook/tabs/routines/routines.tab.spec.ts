@@ -53,7 +53,7 @@ describe('routinesTab shape', () => {
   it('depends on academic_years, deletes by absence', () => {
     expect(routinesTab.name).toBe('routines');
     expect(routinesTab.dependsOn).toEqual(['academic_years']);
-    expect(routinesTab.naturalKey).toEqual(['academic_year', 'name']);
+    expect(routinesTab.naturalKey).toEqual(['academic_year']);
     expect(routinesTab.deleteByAbsence).toBe(true);
   });
 });

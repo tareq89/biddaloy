@@ -64,7 +64,7 @@ export const routinesTab: TabSpec<Routine, RoutineRow> = {
   excluded,
   dependsOn: ['academic_years'],
   columns,
-  naturalKey: ['academic_year', 'name'],
+  naturalKey: ['academic_year'],
   deleteByAbsence: true,
 
   load(tenantId: string, m: EntityManager): Promise<Routine[]> {
@@ -143,8 +143,7 @@ export const routinesTab: TabSpec<Routine, RoutineRow> = {
   },
 
   keyOf(x: RoutineRow | Routine): string {
-    const yearKey = x instanceof Routine ? (x.academic_year?.name ?? '') : x.academic_year_key;
-    return `${yearKey}|${x.name}`;
+    return x instanceof Routine ? (x.academic_year?.name ?? '') : x.academic_year_key;
   },
 
   diffFields(row: RoutineRow, existing: Routine): string[] {
