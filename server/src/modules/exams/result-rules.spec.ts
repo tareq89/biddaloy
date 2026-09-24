@@ -153,7 +153,7 @@ describe('combineSubjects (D5 fail rule) — hand-written GPA table', () => {
     expect(result).toEqual({ total_marks: 157, gpa: 4.5, grade: 'A', is_fail: false });
   });
 
-  it('a fourth subject above 2.0 adds its excess GPA on top of the average', () => {
+  it('a fourth subject above 2.0 adds its excess GPA on top of the average, capped at 5.00', () => {
     const subjects = [
       gradeSubject('math', [{ full_marks: 100, value: 72, status: MarkStatus.PRESENT }]), // A 4.00
       gradeSubject('eng', [{ full_marks: 100, value: 72, status: MarkStatus.PRESENT }]), // A 4.00
@@ -164,13 +164,9 @@ describe('combineSubjects (D5 fail rule) — hand-written GPA table', () => {
       ),
     ];
     const result = combineSubjects(subjects, gradeForGpa);
-    // base average (4 + 4) / 2 = 4.0, plus fourth's (5.0 - 2.0) = 3.0 bonus = 7.0,
-    // clamped by nothing here (a real scale tops out at 5.0 band lookup,
-    // but the raw GPA number itself is allowed to exceed 5.0 — BD NCTB's
-    // actual published results do show >5.00 before the 5.00 cap some
-    // boards apply; this repo's grading scale doesn't model that cap, so
-    // this function doesn't invent one either).
-    expect(result.gpa).toBe(7.0);
+    // (math 4.00 + eng 4.00 + fourth's (5.00 - 2.00) = 3.00 bonus) / 2
+    // compulsory subjects = 5.5, capped at BD NCTB's 5.00 ceiling.
+    expect(result.gpa).toBe(5.0);
     expect(result.is_fail).toBe(false);
   });
 
@@ -195,13 +191,30 @@ describe('combineSubjects (D5 fail rule) — hand-written GPA table', () => {
     expect(withLowFourth.gpa).toBe(withoutFourth.gpa);
   });
 
-  it('a failed fourth subject fails the whole result too', () => {
+  it('a failed fourth subject removes only its own bonus, not the whole result (D14)', () => {
     const result = combineSubjects(
       [
-        gradeSubject('math', [{ full_marks: 100, value: 85, status: MarkStatus.PRESENT }]),
+        gradeSubject('math', [{ full_marks: 100, value: 85, status: MarkStatus.PRESENT }]), // A+ 5.00
         gradeSubject('extra', [{ full_marks: 100, value: 10, status: MarkStatus.PRESENT }], {
           isFourth: true,
         }), // F
+      ],
+      gradeForGpa,
+    );
+    // A failing *optional* subject never fails the whole result — only
+    // the compulsory (non-fourth) subjects can. Bonus is 0 because the
+    // fourth failed, not because its GPA happens to be 0.
+    expect(result.is_fail).toBe(false);
+    expect(result.gpa).toBe(5.0);
+  });
+
+  it('a failed compulsory subject still fails the whole result, fourth subject or not', () => {
+    const result = combineSubjects(
+      [
+        gradeSubject('math', [{ full_marks: 100, value: 10, status: MarkStatus.PRESENT }]), // F
+        gradeSubject('extra', [{ full_marks: 100, value: 85, status: MarkStatus.PRESENT }], {
+          isFourth: true,
+        }), // A+ 5.00
       ],
       gradeForGpa,
     );
