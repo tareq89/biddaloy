@@ -111,8 +111,8 @@ describe('RoutineSettingsPanel', () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText('Must be a whole number of at least 1, or empty for no cap'),
-      ).toBeTruthy(),
+        screen.getAllByText('Must be a whole number of at least 1, or empty for no cap').length,
+      ).toBeGreaterThan(0),
     );
     expect(patchBody).not.toHaveBeenCalled();
   });

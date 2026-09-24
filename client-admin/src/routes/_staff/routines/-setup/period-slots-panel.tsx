@@ -83,7 +83,11 @@ export function PeriodSlotsPanel({ shift, changeoverGapMinutes }: PeriodSlotsPan
     );
   }, [shift, slotsQuery.data]);
 
-  const ready = Boolean(shift) && slotsQuery.isSuccess && loadedShiftId.current === shift?.id;
+  // `loadedShiftId.current === shift?.id` already proves the data for
+  // this shift arrived — not `slotsQuery.isSuccess`, which flips to
+  // `error` on a failed background refetch even though `rows` still
+  // holds good data, and would wrongly disable Save.
+  const ready = Boolean(shift) && loadedShiftId.current === shift?.id;
 
   function updateRow(index: number, patch: Partial<PeriodSlotItem>) {
     setRows((current) => current.map((row, i) => (i === index ? { ...row, ...patch } : row)));
