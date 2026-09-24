@@ -59,6 +59,7 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/portal/fees': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/routine': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/results': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
+  '/portal/syllabus': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
 
   // --- Platform (SUPER_ADMIN) area ---
   '/_platform/holiday-sets/': [{ label: { key: 'holidaySets' } }],
@@ -83,6 +84,17 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/staff/': [{ label: { entity: 'staff' } }],
   '/_staff/academic-years/': [{ label: { entity: 'academicYear' } }],
   '/_staff/classes/': [{ label: { entity: 'class' } }],
+  '/_staff/academics/homework/': [{ label: { key: 'homework' } }],
+  '/_staff/academics/homework/new': [{ label: { key: 'homework' } }, { label: { key: 'new' } }],
+  '/_staff/academics/homework/$homeworkId': [
+    { label: { key: 'homework' } },
+    { label: { key: 'homeworkDetail' }, dynamic: 'entity' },
+  ],
+  '/_staff/academics/homework/import': [
+    { label: { key: 'homework' } },
+    { label: { key: 'import' } },
+  ],
+  '/_staff/academics/syllabus/': [{ label: { key: 'syllabus' } }],
   '/_staff/exams/': [{ label: { entity: 'exam' } }],
   '/_staff/marks/': [{ label: { key: 'marksEntry' } }],
   '/_staff/results/': [{ label: { key: 'results' } }],

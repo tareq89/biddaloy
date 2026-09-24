@@ -84,7 +84,8 @@
       "guardians": "অভিভাবক",
       "communication": "যোগাযোগ",
       "activity": "কার্যক্রম",
-      "attendance": "উপস্থিতি"
+      "attendance": "উপস্থিতি",
+      "homework": "বাড়ির কাজ"
     },
     "overview": {
       "dateOfBirth": "জন্ম তারিখ",
@@ -192,6 +193,15 @@
       "loading": "উপস্থিতি লোড হচ্ছে",
       "errorMessage": "উপস্থিতি লোড করা যায়নি।",
       "noRecordsThisMonth": "এই মাসে কোনো উপস্থিতি রেকর্ড নেই।"
+    },
+    "homeworkTab": {
+      "completionPercent": "সম্পন্নের হার",
+      "totalAssignments": "মোট বাড়ির কাজ",
+      "completed": "সম্পন্ন",
+      "defaulters": "বকেয়া",
+      "loading": "বাড়ির কাজ লোড হচ্ছে",
+      "errorMessage": "বাড়ির কাজ লোড করা যায়নি।",
+      "emptyMessage": "এখনো কোনো বাড়ির কাজ দেওয়া হয়নি।"
     },
     "transferDialog": {
       "title": "স্থানান্তর / অবস্থা পরিবর্তন",

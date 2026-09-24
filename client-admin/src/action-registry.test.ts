@@ -31,6 +31,9 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/marks': '/_staff/marks/',
   '/results': '/_staff/results/',
   '/exams': '/_staff/exams/',
+  '/academics/homework/new': '/_staff/academics/homework/new',
+  '/academics/homework/import': '/_staff/academics/homework/import',
+  '/academics/syllabus': '/_staff/academics/syllabus/',
 };
 
 /**
@@ -58,6 +61,9 @@ const REGISTERED_ACTION_FILES: Record<string, string> = {
   'results.publish': 'client-admin/src/routes/_staff/results/-publish-dialog.tsx',
   'results.sendSms': 'client-admin/src/routes/_staff/results/-send-result-sms-dialog.tsx',
   'exams.copyComponents': 'client-admin/src/routes/_staff/exams/-copy-components-dialog.tsx',
+  'homework.assign': 'client-admin/src/routes/_staff/academics/homework/new.tsx',
+  'homework.import': 'client-admin/src/routes/_staff/academics/homework/import.tsx',
+  'syllabus.markTopic': 'client-admin/src/routes/_staff/academics/syllabus/index.tsx',
 };
 
 /**

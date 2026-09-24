@@ -51,7 +51,7 @@ export interface BulkUploadResult {
  * 404/410 (expired/consumed stage) would be treated as a generic failure
  * instead of `reason: 'expired'`.
  */
-function withHttpStatusShape(error: unknown): unknown {
+export function withHttpStatusShape(error: unknown): unknown {
   if (error instanceof ApiError) {
     return Object.assign(new Error(error.message), { status: error.statusCode });
   }

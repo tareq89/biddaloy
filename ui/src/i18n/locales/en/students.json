@@ -84,7 +84,8 @@
       "guardians": "Guardians",
       "communication": "Communication",
       "activity": "Activity",
-      "attendance": "Attendance"
+      "attendance": "Attendance",
+      "homework": "Homework"
     },
     "overview": {
       "dateOfBirth": "Date of birth",
@@ -192,6 +193,15 @@
       "loading": "Loading attendance",
       "errorMessage": "Couldn't load attendance.",
       "noRecordsThisMonth": "No attendance records for this month."
+    },
+    "homeworkTab": {
+      "completionPercent": "Completion",
+      "totalAssignments": "Assignments",
+      "completed": "Completed",
+      "defaulters": "Defaulters",
+      "loading": "Loading homework",
+      "errorMessage": "Couldn't load homework.",
+      "emptyMessage": "No homework assigned yet."
     },
     "transferDialog": {
       "title": "Transfer / change status",

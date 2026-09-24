@@ -126,6 +126,7 @@
     "tabFeeStructures": "Fee Structures",
     "tabTeachers": "Teachers",
     "tabSubjects": "Subjects",
+    "tabHomework": "Homework",
     "forbidden": "You don't have permission to view this.",
     "grade": "Grade {{grade}}",
     "students": {
@@ -135,6 +136,17 @@
       "columnStatus": "Status",
       "emptyMessage": "No students in this class",
       "errorMessage": "Failed to load students"
+    },
+    "homework": {
+      "loading": "Loading homework",
+      "completionPercent": "Completion",
+      "totalAssignments": "Assignments",
+      "completed": "Completed",
+      "defaulters": "Defaulters",
+      "syllabusCompletionPercent": "Syllabus completion",
+      "syllabusTopics": "{{done}} of {{total}} topics done",
+      "errorMessage": "Couldn't load homework.",
+      "emptyMessage": "No homework or syllabus data yet."
     },
     "feeStructures": {
       "columnName": "Name",

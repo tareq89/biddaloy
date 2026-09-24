@@ -32,6 +32,7 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/portal/fees': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/routine': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/results': 'guardian portal page, has its own portal nav, not the staff sidebar',
+  '/portal/syllabus': 'guardian portal page, has its own portal nav, not the staff sidebar',
 
   // Platform admin — its own nav, out of scope for the staff sidebar.
   '/_platform/holiday-sets/': 'platform admin page, has its own nav, not the staff sidebar',
@@ -47,6 +48,11 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/attendance/$sectionId': 'detail route reached from the attendance list',
   '/_staff/calendar/import': 'action reached from the calendar page, not its own nav item',
   '/_staff/classes/$classId': 'detail route reached from the classes list',
+  '/_staff/academics/homework/new':
+    'action reached from the homework list and the command palette, not its own nav item',
+  '/_staff/academics/homework/$homeworkId': 'detail route reached from the homework list',
+  '/_staff/academics/homework/import':
+    'action reached from the homework list and the command palette, not its own nav item',
   '/_staff/exams/$examId': 'detail route reached from the exams list',
   '/_staff/marks/':
     '[19.7.1] reached from the exam Progress tab’s outstanding-grid links, not its own sidebar item yet',

@@ -33,6 +33,7 @@ import { Route as PortalExamScheduleRouteImport } from './routes/portal/exam-sch
 import { Route as PortalFeesRouteImport } from './routes/portal/fees'
 import { Route as PortalResultsRouteImport } from './routes/portal/results'
 import { Route as PortalRoutineRouteImport } from './routes/portal/routine'
+import { Route as PortalSyllabusRouteImport } from './routes/portal/syllabus'
 import { Route as PlatformHolidaySetsIndexRouteImport } from './routes/_platform/holiday-sets/index'
 import { Route as PlatformHolidaySetsSetIdRouteImport } from './routes/_platform/holiday-sets/$setId'
 import { Route as PlatformSchoolsIndexRouteImport } from './routes/_platform/schools/index'
@@ -81,6 +82,11 @@ import { Route as StaffStudentsIndexRouteImport } from './routes/_staff/students
 import { Route as StaffStudentsStudentIdRouteImport } from './routes/_staff/students/$studentId'
 import { Route as StaffStudentsImportRouteImport } from './routes/_staff/students/import'
 import { Route as StaffStudentsNewRouteImport } from './routes/_staff/students/new'
+import { Route as StaffAcademicsHomeworkIndexRouteImport } from './routes/_staff/academics/homework/index'
+import { Route as StaffAcademicsHomeworkHomeworkIdRouteImport } from './routes/_staff/academics/homework/$homeworkId'
+import { Route as StaffAcademicsHomeworkImportRouteImport } from './routes/_staff/academics/homework/import'
+import { Route as StaffAcademicsHomeworkNewRouteImport } from './routes/_staff/academics/homework/new'
+import { Route as StaffAcademicsSyllabusIndexRouteImport } from './routes/_staff/academics/syllabus/index'
 import { Route as StaffCommunicationsBatchesIndexRouteImport } from './routes/_staff/communications/batches/index'
 import { Route as StaffCommunicationsBatchesBatchIdRouteImport } from './routes/_staff/communications/batches/$batchId'
 import { Route as StaffFeesSchedulesIndexRouteImport } from './routes/_staff/fees/schedules/index'
@@ -205,6 +211,11 @@ const PortalResultsRoute = PortalResultsRouteImport.update({
 const PortalRoutineRoute = PortalRoutineRouteImport.update({
   id: '/routine',
   path: '/routine',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalSyllabusRoute = PortalSyllabusRouteImport.update({
+  id: '/syllabus',
+  path: '/syllabus',
   getParentRoute: () => PortalRoute,
 } as any)
 const PlatformHolidaySetsIndexRoute =
@@ -455,6 +466,36 @@ const StaffStudentsNewRoute = StaffStudentsNewRouteImport.update({
   path: '/students/new',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffAcademicsHomeworkIndexRoute =
+  StaffAcademicsHomeworkIndexRouteImport.update({
+    id: '/academics/homework/',
+    path: '/academics/homework/',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffAcademicsHomeworkHomeworkIdRoute =
+  StaffAcademicsHomeworkHomeworkIdRouteImport.update({
+    id: '/academics/homework/$homeworkId',
+    path: '/academics/homework/$homeworkId',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffAcademicsHomeworkImportRoute =
+  StaffAcademicsHomeworkImportRouteImport.update({
+    id: '/academics/homework/import',
+    path: '/academics/homework/import',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffAcademicsHomeworkNewRoute =
+  StaffAcademicsHomeworkNewRouteImport.update({
+    id: '/academics/homework/new',
+    path: '/academics/homework/new',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffAcademicsSyllabusIndexRoute =
+  StaffAcademicsSyllabusIndexRouteImport.update({
+    id: '/academics/syllabus/',
+    path: '/academics/syllabus/',
+    getParentRoute: () => StaffRoute,
+  } as any)
 const StaffCommunicationsBatchesIndexRoute =
   StaffCommunicationsBatchesIndexRouteImport.update({
     id: '/communications/batches/',
@@ -518,6 +559,7 @@ export interface FileRoutesByFullPath {
   '/portal/fees': typeof PortalFeesRoute
   '/portal/results': typeof PortalResultsRoute
   '/portal/routine': typeof PortalRoutineRoute
+  '/portal/syllabus': typeof PortalSyllabusRoute
   '/portal/': typeof PortalIndexRoute
   '/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
   '/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
@@ -567,10 +609,15 @@ export interface FileRoutesByFullPath {
   '/routines/': typeof StaffRoutinesIndexRoute
   '/staff/': typeof StaffStaffIndexRoute
   '/students/': typeof StaffStudentsIndexRoute
+  '/academics/homework/$homeworkId': typeof StaffAcademicsHomeworkHomeworkIdRoute
+  '/academics/homework/import': typeof StaffAcademicsHomeworkImportRoute
+  '/academics/homework/new': typeof StaffAcademicsHomeworkNewRoute
   '/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
   '/fees/schedules/$id': typeof StaffFeesSchedulesIdRoute
   '/results/$examId/$studentId': typeof StaffResultsExamIdStudentIdRoute
   '/students/$studentId/edit': typeof StaffStudentsStudentIdEditRoute
+  '/academics/homework/': typeof StaffAcademicsHomeworkIndexRoute
+  '/academics/syllabus/': typeof StaffAcademicsSyllabusIndexRoute
   '/communications/batches/': typeof StaffCommunicationsBatchesIndexRoute
   '/fees/schedules/': typeof StaffFeesSchedulesIndexRoute
   '/marks/$examId/$sectionId/$subjectId': typeof StaffMarksExamIdSectionIdSubjectIdRoute
@@ -595,6 +642,7 @@ export interface FileRoutesByTo {
   '/portal/fees': typeof PortalFeesRoute
   '/portal/results': typeof PortalResultsRoute
   '/portal/routine': typeof PortalRoutineRoute
+  '/portal/syllabus': typeof PortalSyllabusRoute
   '/portal': typeof PortalIndexRoute
   '/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
   '/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
@@ -644,10 +692,15 @@ export interface FileRoutesByTo {
   '/routines': typeof StaffRoutinesIndexRoute
   '/staff': typeof StaffStaffIndexRoute
   '/students': typeof StaffStudentsIndexRoute
+  '/academics/homework/$homeworkId': typeof StaffAcademicsHomeworkHomeworkIdRoute
+  '/academics/homework/import': typeof StaffAcademicsHomeworkImportRoute
+  '/academics/homework/new': typeof StaffAcademicsHomeworkNewRoute
   '/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
   '/fees/schedules/$id': typeof StaffFeesSchedulesIdRoute
   '/results/$examId/$studentId': typeof StaffResultsExamIdStudentIdRoute
   '/students/$studentId/edit': typeof StaffStudentsStudentIdEditRoute
+  '/academics/homework': typeof StaffAcademicsHomeworkIndexRoute
+  '/academics/syllabus': typeof StaffAcademicsSyllabusIndexRoute
   '/communications/batches': typeof StaffCommunicationsBatchesIndexRoute
   '/fees/schedules': typeof StaffFeesSchedulesIndexRoute
   '/marks/$examId/$sectionId/$subjectId': typeof StaffMarksExamIdSectionIdSubjectIdRoute
@@ -677,6 +730,7 @@ export interface FileRoutesById {
   '/portal/fees': typeof PortalFeesRoute
   '/portal/results': typeof PortalResultsRoute
   '/portal/routine': typeof PortalRoutineRoute
+  '/portal/syllabus': typeof PortalSyllabusRoute
   '/portal/': typeof PortalIndexRoute
   '/_platform/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
   '/_platform/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
@@ -726,10 +780,15 @@ export interface FileRoutesById {
   '/_staff/routines/': typeof StaffRoutinesIndexRoute
   '/_staff/staff/': typeof StaffStaffIndexRoute
   '/_staff/students/': typeof StaffStudentsIndexRoute
+  '/_staff/academics/homework/$homeworkId': typeof StaffAcademicsHomeworkHomeworkIdRoute
+  '/_staff/academics/homework/import': typeof StaffAcademicsHomeworkImportRoute
+  '/_staff/academics/homework/new': typeof StaffAcademicsHomeworkNewRoute
   '/_staff/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
   '/_staff/fees/schedules/$id': typeof StaffFeesSchedulesIdRoute
   '/_staff/results/$examId/$studentId': typeof StaffResultsExamIdStudentIdRoute
   '/_staff/students/$studentId_/edit': typeof StaffStudentsStudentIdEditRoute
+  '/_staff/academics/homework/': typeof StaffAcademicsHomeworkIndexRoute
+  '/_staff/academics/syllabus/': typeof StaffAcademicsSyllabusIndexRoute
   '/_staff/communications/batches/': typeof StaffCommunicationsBatchesIndexRoute
   '/_staff/fees/schedules/': typeof StaffFeesSchedulesIndexRoute
   '/_staff/marks/$examId/$sectionId/$subjectId': typeof StaffMarksExamIdSectionIdSubjectIdRoute
@@ -758,6 +817,7 @@ export interface FileRouteTypes {
     | '/portal/fees'
     | '/portal/results'
     | '/portal/routine'
+    | '/portal/syllabus'
     | '/portal/'
     | '/holiday-sets/$setId'
     | '/schools/$schoolId'
@@ -807,10 +867,15 @@ export interface FileRouteTypes {
     | '/routines/'
     | '/staff/'
     | '/students/'
+    | '/academics/homework/$homeworkId'
+    | '/academics/homework/import'
+    | '/academics/homework/new'
     | '/communications/batches/$batchId'
     | '/fees/schedules/$id'
     | '/results/$examId/$studentId'
     | '/students/$studentId/edit'
+    | '/academics/homework/'
+    | '/academics/syllabus/'
     | '/communications/batches/'
     | '/fees/schedules/'
     | '/marks/$examId/$sectionId/$subjectId'
@@ -835,6 +900,7 @@ export interface FileRouteTypes {
     | '/portal/fees'
     | '/portal/results'
     | '/portal/routine'
+    | '/portal/syllabus'
     | '/portal'
     | '/holiday-sets/$setId'
     | '/schools/$schoolId'
@@ -884,10 +950,15 @@ export interface FileRouteTypes {
     | '/routines'
     | '/staff'
     | '/students'
+    | '/academics/homework/$homeworkId'
+    | '/academics/homework/import'
+    | '/academics/homework/new'
     | '/communications/batches/$batchId'
     | '/fees/schedules/$id'
     | '/results/$examId/$studentId'
     | '/students/$studentId/edit'
+    | '/academics/homework'
+    | '/academics/syllabus'
     | '/communications/batches'
     | '/fees/schedules'
     | '/marks/$examId/$sectionId/$subjectId'
@@ -916,6 +987,7 @@ export interface FileRouteTypes {
     | '/portal/fees'
     | '/portal/results'
     | '/portal/routine'
+    | '/portal/syllabus'
     | '/portal/'
     | '/_platform/holiday-sets/$setId'
     | '/_platform/schools/$schoolId'
@@ -965,10 +1037,15 @@ export interface FileRouteTypes {
     | '/_staff/routines/'
     | '/_staff/staff/'
     | '/_staff/students/'
+    | '/_staff/academics/homework/$homeworkId'
+    | '/_staff/academics/homework/import'
+    | '/_staff/academics/homework/new'
     | '/_staff/communications/batches/$batchId'
     | '/_staff/fees/schedules/$id'
     | '/_staff/results/$examId/$studentId'
     | '/_staff/students/$studentId_/edit'
+    | '/_staff/academics/homework/'
+    | '/_staff/academics/syllabus/'
     | '/_staff/communications/batches/'
     | '/_staff/fees/schedules/'
     | '/_staff/marks/$examId/$sectionId/$subjectId'
@@ -1156,6 +1233,13 @@ declare module '@tanstack/react-router' {
       path: '/routine'
       fullPath: '/portal/routine'
       preLoaderRoute: typeof PortalRoutineRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/syllabus': {
+      id: '/portal/syllabus'
+      path: '/syllabus'
+      fullPath: '/portal/syllabus'
+      preLoaderRoute: typeof PortalSyllabusRouteImport
       parentRoute: typeof PortalRoute
     }
     '/_platform/holiday-sets/': {
@@ -1494,6 +1578,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffStudentsNewRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/academics/homework/': {
+      id: '/_staff/academics/homework/'
+      path: '/academics/homework'
+      fullPath: '/academics/homework/'
+      preLoaderRoute: typeof StaffAcademicsHomeworkIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/academics/homework/$homeworkId': {
+      id: '/_staff/academics/homework/$homeworkId'
+      path: '/academics/homework/$homeworkId'
+      fullPath: '/academics/homework/$homeworkId'
+      preLoaderRoute: typeof StaffAcademicsHomeworkHomeworkIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/academics/homework/import': {
+      id: '/_staff/academics/homework/import'
+      path: '/academics/homework/import'
+      fullPath: '/academics/homework/import'
+      preLoaderRoute: typeof StaffAcademicsHomeworkImportRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/academics/homework/new': {
+      id: '/_staff/academics/homework/new'
+      path: '/academics/homework/new'
+      fullPath: '/academics/homework/new'
+      preLoaderRoute: typeof StaffAcademicsHomeworkNewRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/academics/syllabus/': {
+      id: '/_staff/academics/syllabus/'
+      path: '/academics/syllabus'
+      fullPath: '/academics/syllabus/'
+      preLoaderRoute: typeof StaffAcademicsSyllabusIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/communications/batches/': {
       id: '/_staff/communications/batches/'
       path: '/communications/batches'
@@ -1632,9 +1751,14 @@ interface StaffRouteChildren {
   StaffRoutinesIndexRoute: typeof StaffRoutinesIndexRoute
   StaffStaffIndexRoute: typeof StaffStaffIndexRoute
   StaffStudentsIndexRoute: typeof StaffStudentsIndexRoute
+  StaffAcademicsHomeworkHomeworkIdRoute: typeof StaffAcademicsHomeworkHomeworkIdRoute
+  StaffAcademicsHomeworkImportRoute: typeof StaffAcademicsHomeworkImportRoute
+  StaffAcademicsHomeworkNewRoute: typeof StaffAcademicsHomeworkNewRoute
   StaffCommunicationsBatchesBatchIdRoute: typeof StaffCommunicationsBatchesBatchIdRoute
   StaffResultsExamIdStudentIdRoute: typeof StaffResultsExamIdStudentIdRoute
   StaffStudentsStudentIdEditRoute: typeof StaffStudentsStudentIdEditRoute
+  StaffAcademicsHomeworkIndexRoute: typeof StaffAcademicsHomeworkIndexRoute
+  StaffAcademicsSyllabusIndexRoute: typeof StaffAcademicsSyllabusIndexRoute
   StaffCommunicationsBatchesIndexRoute: typeof StaffCommunicationsBatchesIndexRoute
   StaffMarksExamIdSectionIdSubjectIdRoute: typeof StaffMarksExamIdSectionIdSubjectIdRoute
 }
@@ -1685,10 +1809,15 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffRoutinesIndexRoute: StaffRoutinesIndexRoute,
   StaffStaffIndexRoute: StaffStaffIndexRoute,
   StaffStudentsIndexRoute: StaffStudentsIndexRoute,
+  StaffAcademicsHomeworkHomeworkIdRoute: StaffAcademicsHomeworkHomeworkIdRoute,
+  StaffAcademicsHomeworkImportRoute: StaffAcademicsHomeworkImportRoute,
+  StaffAcademicsHomeworkNewRoute: StaffAcademicsHomeworkNewRoute,
   StaffCommunicationsBatchesBatchIdRoute:
     StaffCommunicationsBatchesBatchIdRoute,
   StaffResultsExamIdStudentIdRoute: StaffResultsExamIdStudentIdRoute,
   StaffStudentsStudentIdEditRoute: StaffStudentsStudentIdEditRoute,
+  StaffAcademicsHomeworkIndexRoute: StaffAcademicsHomeworkIndexRoute,
+  StaffAcademicsSyllabusIndexRoute: StaffAcademicsSyllabusIndexRoute,
   StaffCommunicationsBatchesIndexRoute: StaffCommunicationsBatchesIndexRoute,
   StaffMarksExamIdSectionIdSubjectIdRoute:
     StaffMarksExamIdSectionIdSubjectIdRoute,
@@ -1704,6 +1833,7 @@ interface PortalRouteChildren {
   PortalFeesRoute: typeof PortalFeesRoute
   PortalResultsRoute: typeof PortalResultsRoute
   PortalRoutineRoute: typeof PortalRoutineRoute
+  PortalSyllabusRoute: typeof PortalSyllabusRoute
   PortalIndexRoute: typeof PortalIndexRoute
 }
 
@@ -1715,6 +1845,7 @@ const PortalRouteChildren: PortalRouteChildren = {
   PortalFeesRoute: PortalFeesRoute,
   PortalResultsRoute: PortalResultsRoute,
   PortalRoutineRoute: PortalRoutineRoute,
+  PortalSyllabusRoute: PortalSyllabusRoute,
   PortalIndexRoute: PortalIndexRoute,
 }
 

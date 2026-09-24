@@ -93,6 +93,8 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/communications/batches': '/_staff/communications/batches/',
   '/academic-years': '/_staff/academic-years/',
   '/classes': '/_staff/classes/',
+  '/academics/homework': '/_staff/academics/homework/',
+  '/academics/syllabus': '/_staff/academics/syllabus/',
   '/exams': '/_staff/exams/',
   '/grading-scales': '/_staff/grading-scales/',
   '/routines/setup': '/_staff/routines/setup',
