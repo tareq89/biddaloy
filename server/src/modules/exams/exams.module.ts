@@ -10,6 +10,7 @@ import { ResultSubject } from './entities/result-subject.entity';
 import { ExamSchedule } from './entities/exam-schedule.entity';
 import { StudentSubjectChoice } from '../students/entities/student-subject-choice.entity';
 import { Student } from '../students/entities/student.entity';
+import { Enrollment } from '../students/entities/enrollment.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { ClassSubject } from '../academics/entities/class-subject.entity';
 import { Class } from '../academics/entities/class.entity';
@@ -67,6 +68,7 @@ import {
       ExamSchedule,
       StudentSubjectChoice,
       Student,
+      Enrollment,
       ClassSection,
       ClassSubject,
       Class,

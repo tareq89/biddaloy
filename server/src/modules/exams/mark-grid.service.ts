@@ -20,6 +20,7 @@ import { Mark } from './entities/mark.entity';
 import { MarkGrid } from './entities/mark-grid.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
+import { Enrollment } from '../students/entities/enrollment.entity';
 import { GridStateActionDto } from './dto/marks.dto';
 import { AttendanceComponentService } from './attendance-component.service';
 import { MarksAuthorizationService } from './marks-authorization.util';
@@ -102,6 +103,8 @@ export class MarkGridService {
     private readonly sectionRepo: Repository<ClassSection>,
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
+    @InjectRepository(Enrollment)
+    private readonly enrollmentRepo: Repository<Enrollment>,
     private readonly attendanceComponentService: AttendanceComponentService,
     private readonly authz: MarksAuthorizationService,
     private readonly auditService: AuditService,
@@ -135,20 +138,33 @@ export class MarkGridService {
     role: string,
     userId: string,
   ): Promise<GridResponse> {
-    await this.findExam(examId, tenantId);
+    const exam = await this.findExam(examId, tenantId);
     await this.findSection(sectionId, tenantId);
     await this.authz.assertCanRead({ role, userId, tenantId, sectionId, subjectId });
 
-    const [students, components, marks, grid] = await Promise.all([
-      this.studentRepo.find({
-        where: {
-          class_section_id: sectionId,
-          tenant_id: tenantId,
-          deleted_at: IsNull(),
-          enrollment_status: EnrollmentStatus.ACTIVE,
-        },
-        order: { roll_number: 'ASC' },
-      }),
+    // D17: the grid's roster is whoever holds an ACTIVE enrollment for this
+    // exam's own (academic_year_id, class_id) with section_id = sectionId —
+    // not `Student.class_section_id`, which is the student's CURRENT
+    // placement and can point elsewhere for an old exam after promotion.
+    const enrollments = await this.enrollmentRepo.find({
+      where: {
+        tenant_id: tenantId,
+        academic_year_id: exam.academic_year_id,
+        class_id: exam.class_id,
+        section_id: sectionId,
+        enrollment_status: EnrollmentStatus.ACTIVE,
+      },
+    });
+    const [studentsUnsorted, components, marks, grid] = await Promise.all([
+      enrollments.length === 0
+        ? Promise.resolve([])
+        : this.studentRepo.find({
+            where: {
+              id: In(enrollments.map((e) => e.student_id)),
+              tenant_id: tenantId,
+              deleted_at: IsNull(),
+            },
+          }),
       this.componentRepo.find({
         where: {
           exam_id: examId,
@@ -170,6 +186,7 @@ export class MarkGridService {
         },
       }),
     ]);
+    const students = [...studentsUnsorted].sort((a, b) => a.roll_number - b.roll_number);
 
     // Mark has no section column, so the query above pulls every mark
     // ever entered for this exam+subject across ALL sections — filter to

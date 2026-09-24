@@ -9,6 +9,7 @@ import { Mark } from './entities/mark.entity';
 import { MarkGrid } from './entities/mark-grid.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
+import { Enrollment } from '../students/entities/enrollment.entity';
 import { AttendanceComponentService } from './attendance-component.service';
 import { MarksAuthorizationService } from './marks-authorization.util';
 import { AuditService } from '../audit/audit.service';
@@ -30,7 +31,13 @@ async function buildService(
   } = {},
 ) {
   const {
-    exam = { id: EXAM_ID, tenant_id: TENANT_ID, class_id: 'class-1', status: ExamStatus.DRAFT },
+    exam = {
+      id: EXAM_ID,
+      tenant_id: TENANT_ID,
+      class_id: 'class-1',
+      academic_year_id: 'year-1',
+      status: ExamStatus.DRAFT,
+    },
     section = { id: SECTION_ID, tenant_id: TENANT_ID, section_name: 'A' },
     students = [],
     components = [],
@@ -69,6 +76,13 @@ async function buildService(
     find: vi.fn(async () => [section]),
   };
   const studentRepo: any = { find: vi.fn(async () => students) };
+  // D17: getGrid's roster comes from Enrollment (exam's year/class,
+  // section_id = sectionId), not studentRepo.find directly.
+  const enrollmentRepo: any = {
+    find: vi.fn(async () =>
+      students.map((s: any) => ({ student_id: s.id, section_id: SECTION_ID })),
+    ),
+  };
   const attendanceComponentService = {
     computeForSection: vi.fn(async () => ({ reason: null, valuesByStudent: new Map() })),
   };
@@ -87,6 +101,7 @@ async function buildService(
       { provide: getRepositoryToken(MarkGrid), useValue: gridRepo },
       { provide: getRepositoryToken(ClassSection), useValue: sectionRepo },
       { provide: getRepositoryToken(Student), useValue: studentRepo },
+      { provide: getRepositoryToken(Enrollment), useValue: enrollmentRepo },
       { provide: AttendanceComponentService, useValue: attendanceComponentService },
       { provide: MarksAuthorizationService, useValue: authz },
       { provide: AuditService, useValue: auditService },
@@ -101,6 +116,7 @@ async function buildService(
     gridRepo,
     sectionRepo,
     studentRepo,
+    enrollmentRepo,
     attendanceComponentService,
     authz,
     auditService,
