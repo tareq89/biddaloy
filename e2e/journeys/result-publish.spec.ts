@@ -37,11 +37,11 @@ async function findSeededRollOne(
   request: Parameters<typeof adminApiSession>[0],
   session: Awaited<ReturnType<typeof adminApiSession>>,
 ): Promise<SeededStudent> {
-  const classes = await get<{ id: string; name: string; academic_year_id: string }[]>(
-    request,
-    session,
-    '/classes',
-  );
+  // `/classes` and `/students` are paginated (`{ data, total, ... }`);
+  // `/classes/:id/sections` is a plain array.
+  const { data: classes } = await get<{
+    data: { id: string; name: string; academic_year_id: string }[];
+  }>(request, session, '/classes?limit=100');
   const classMatches = classes.filter((c) => c.name === SEEDED_CLASS_NAME);
   for (const klass of classMatches) {
     const sections = await get<{ id: string; section_name: string }[]>(
@@ -51,9 +51,9 @@ async function findSeededRollOne(
     );
     const section = sections.find((s) => s.section_name === SEEDED_SECTION_NAME);
     if (!section) continue;
-    const students = await get<
-      Omit<SeededStudent, 'class_section_id' | 'class_id' | 'academic_year_id'>[]
-    >(request, session, `/students?class_section_id=${section.id}`);
+    const { data: students } = await get<{
+      data: Omit<SeededStudent, 'class_section_id' | 'class_id' | 'academic_year_id'>[];
+    }>(request, session, `/students?section_id=${section.id}&limit=100`);
     const rollOne = students.find((s) => s.roll_number === 1);
     if (rollOne) {
       return {
