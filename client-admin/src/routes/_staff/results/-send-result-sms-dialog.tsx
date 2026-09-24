@@ -81,7 +81,9 @@ export function SendResultSmsDialog({
           </DialogClose>
           <Button
             type="button"
-            disabled={!isPublished}
+            // Once queued, a second click would queue (and bill) every SMS
+            // again — closing and reopening the dialog resets this.
+            disabled={!isPublished || sendSms.isSuccess}
             loading={sendSms.isPending}
             onClick={() => sendSms.mutate()}
           >

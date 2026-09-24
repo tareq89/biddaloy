@@ -75,6 +75,8 @@ describe('SendResultSmsDialog', () => {
 
     await waitFor(() => expect(sent).toBe(true));
     expect(await screen.findByText('10 message(s) queued.')).toBeTruthy();
+    // A second click would queue — and bill — every SMS again.
+    expect(sendButton.hasAttribute('disabled')).toBe(true);
   });
 
   it('shows an error when sending fails, and Cancel clears it', async () => {
