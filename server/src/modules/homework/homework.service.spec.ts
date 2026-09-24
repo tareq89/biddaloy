@@ -22,6 +22,8 @@ describe('HomeworkService', () => {
     assertCanManageClass: ReturnType<typeof vi.fn>;
     assertCanManageSection: ReturnType<typeof vi.fn>;
     assertCanManageStudent: ReturnType<typeof vi.fn>;
+    assertClassAndSubjectInTenant: ReturnType<typeof vi.fn>;
+    assertTargetInClass: ReturnType<typeof vi.fn>;
   };
   let notice: { notifyAssignment: ReturnType<typeof vi.fn> };
   let service: HomeworkService;
@@ -52,6 +54,8 @@ describe('HomeworkService', () => {
       assertCanManageClass: vi.fn(async () => undefined),
       assertCanManageSection: vi.fn(async () => undefined),
       assertCanManageStudent: vi.fn(async () => undefined),
+      assertClassAndSubjectInTenant: vi.fn(async () => undefined),
+      assertTargetInClass: vi.fn(async () => undefined),
     };
     notice = { notifyAssignment: vi.fn(async () => undefined) };
     service = new HomeworkService(
@@ -141,6 +145,22 @@ describe('HomeworkService', () => {
       const dto = { section_id: 'section-1', assigned_date: '2026-01-01', due_date: '2026-01-08' };
       await expect(service.assign('missing', dto, ctx)).rejects.toBeInstanceOf(NotFoundException);
     });
+
+    it('rejects a due_date earlier than assigned_date', async () => {
+      const dto = { section_id: 'section-1', assigned_date: '2026-01-08', due_date: '2026-01-01' };
+      await expect(service.assign('hw-1', dto, ctx)).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('checks the target belongs to the homework class', async () => {
+      const dto = { section_id: 'section-1', assigned_date: '2026-01-01', due_date: '2026-01-08' };
+      await service.assign('hw-1', dto, ctx);
+      expect(access.assertTargetInClass).toHaveBeenCalledWith(
+        'section-1',
+        undefined,
+        HOMEWORK.class_id,
+        TENANT_ID,
+      );
+    });
   });
 
   describe('reassign', () => {
@@ -178,6 +198,32 @@ describe('HomeworkService', () => {
       const dto = { section_id: 'section-2', assigned_date: '2026-02-01', due_date: '2026-02-08' };
       await expect(service.reassign('missing', dto, ctx)).rejects.toBeInstanceOf(NotFoundException);
     });
+
+    it('rejects reassigning an already-SUPERSEDED row', async () => {
+      assignmentRepo.findOne.mockResolvedValue({
+        ...OLD_ASSIGNMENT,
+        status: HomeworkAssignmentStatus.SUPERSEDED,
+      });
+      const dto = { section_id: 'section-2', assigned_date: '2026-02-01', due_date: '2026-02-08' };
+      await expect(service.reassign('assign-1', dto, ctx)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
+
+    it('checks access to the OLD target before creating the new row (IDOR)', async () => {
+      assignmentRepo.findOne.mockResolvedValue({ ...OLD_ASSIGNMENT });
+      access.assertCanManageSection.mockRejectedValueOnce(new Error('forbidden'));
+      const dto = { section_id: 'section-2', assigned_date: '2026-02-01', due_date: '2026-02-08' };
+      await expect(service.reassign('assign-1', dto, ctx)).rejects.toThrow('forbidden');
+      // The old target's section (section-1) was checked, not just the new one.
+      expect(access.assertCanManageSection).toHaveBeenCalledWith(
+        ctx.role,
+        ctx.userId,
+        'section-1',
+        HOMEWORK.subject_id,
+        TENANT_ID,
+      );
+    });
   });
 
   describe('updateAssignment', () => {
@@ -203,6 +249,20 @@ describe('HomeworkService', () => {
       await expect(
         service.updateAssignment('missing', { status: HomeworkAssignmentStatus.DEACTIVATED }, ctx),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects updating an already-SUPERSEDED row', async () => {
+      assignmentRepo.findOne.mockResolvedValue({
+        id: 'assign-1',
+        homework_id: 'hw-1',
+        section_id: 'section-1',
+        student_id: null,
+        status: HomeworkAssignmentStatus.SUPERSEDED,
+        tenant_id: TENANT_ID,
+      });
+      await expect(
+        service.updateAssignment('assign-1', { status: HomeworkAssignmentStatus.ACTIVE }, ctx),
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 });

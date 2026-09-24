@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, BadRequestException } from '@nestjs/common';
 import { UserRole } from '@biddaloy/shared';
 import { HomeworkAccessService } from './homework-access.service';
 
@@ -14,8 +14,10 @@ describe('HomeworkAccessService', () => {
   const SUBJECT_ID = 'subject-1';
   const USER_ID = 'user-1';
 
-  let sectionRepo: { findOne: ReturnType<typeof vi.fn> };
+  let sectionRepo: { findOne: ReturnType<typeof vi.fn>; exist: ReturnType<typeof vi.fn> };
   let studentRepo: { findOne: ReturnType<typeof vi.fn> };
+  let classRepo: { exist: ReturnType<typeof vi.fn> };
+  let subjectRepo: { exist: ReturnType<typeof vi.fn> };
   let tcsRepo: { createQueryBuilder: ReturnType<typeof vi.fn> };
   let getOne: ReturnType<typeof vi.fn<() => unknown>>;
   let service: HomeworkAccessService;
@@ -29,8 +31,10 @@ describe('HomeworkAccessService', () => {
   let tcsRows: Array<{ userId: string; sectionId: string; subjectId: string | null }>;
 
   beforeEach(() => {
-    sectionRepo = { findOne: vi.fn() };
+    sectionRepo = { findOne: vi.fn(), exist: vi.fn() };
     studentRepo = { findOne: vi.fn() };
+    classRepo = { exist: vi.fn() };
+    subjectRepo = { exist: vi.fn() };
     tcsRows = [];
     getOne = vi.fn<() => unknown>(); // still settable directly by tests that don't need real filtering
     let params: Record<string, unknown> = {};
@@ -63,6 +67,8 @@ describe('HomeworkAccessService', () => {
       tcsRepo as never,
       sectionRepo as never,
       studentRepo as never,
+      classRepo as never,
+      subjectRepo as never,
     );
   });
 
@@ -279,6 +285,63 @@ describe('HomeworkAccessService', () => {
       await expect(
         service.assertCanViewStudent(UserRole.TEACHER, USER_ID, 'student-1', TENANT_ID),
       ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  describe('assertClassAndSubjectInTenant', () => {
+    it('resolves when both class and subject belong to this tenant', async () => {
+      classRepo.exist.mockResolvedValue(true);
+      subjectRepo.exist.mockResolvedValue(true);
+      await expect(
+        service.assertClassAndSubjectInTenant('class-1', SUBJECT_ID, TENANT_ID),
+      ).resolves.toBeUndefined();
+    });
+
+    it('throws when the class does not belong to this tenant', async () => {
+      classRepo.exist.mockResolvedValue(false);
+      subjectRepo.exist.mockResolvedValue(true);
+      await expect(
+        service.assertClassAndSubjectInTenant('class-1', SUBJECT_ID, TENANT_ID),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('throws when the subject does not belong to this tenant', async () => {
+      classRepo.exist.mockResolvedValue(true);
+      subjectRepo.exist.mockResolvedValue(false);
+      await expect(
+        service.assertClassAndSubjectInTenant('class-1', SUBJECT_ID, TENANT_ID),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  describe('assertTargetInClass', () => {
+    it('resolves when the section belongs to the homework class', async () => {
+      sectionRepo.exist.mockResolvedValue(true);
+      await expect(
+        service.assertTargetInClass(SECTION_ID, null, 'class-1', TENANT_ID),
+      ).resolves.toBeUndefined();
+    });
+
+    it('throws when the section belongs to another class', async () => {
+      sectionRepo.exist.mockResolvedValue(false);
+      await expect(
+        service.assertTargetInClass(SECTION_ID, null, 'class-1', TENANT_ID),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('resolves a student target via the student own section', async () => {
+      studentRepo.findOne.mockResolvedValue({ id: 'student-1', class_section_id: SECTION_ID });
+      sectionRepo.exist.mockResolvedValue(true);
+      await expect(
+        service.assertTargetInClass(null, 'student-1', 'class-1', TENANT_ID),
+      ).resolves.toBeUndefined();
+    });
+
+    it('throws when neither section nor student resolves to a section', async () => {
+      studentRepo.findOne.mockResolvedValue(null);
+      await expect(
+        service.assertTargetInClass(null, 'student-1', 'class-1', TENANT_ID),
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 });

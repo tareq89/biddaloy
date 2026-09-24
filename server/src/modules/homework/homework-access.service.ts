@@ -1,9 +1,11 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import { Injectable, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { UserRole } from '@biddaloy/shared';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
+import { Class } from '../academics/entities/class.entity';
+import { Subject } from '../academics/entities/subject.entity';
 import { Student } from '../students/entities/student.entity';
 
 /** Roles that may manage homework for every section in the tenant, without
@@ -28,6 +30,10 @@ export class HomeworkAccessService {
     private readonly sectionRepo: Repository<ClassSection>,
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
+    @InjectRepository(Class)
+    private readonly classRepo: Repository<Class>,
+    @InjectRepository(Subject)
+    private readonly subjectRepo: Repository<Subject>,
   ) {}
 
   /** True for roles that manage homework tenant-wide without a
@@ -229,5 +235,56 @@ export class HomeworkAccessService {
       throw new ForbiddenException('You do not have access to this student');
     }
     await this.assertCanViewSection(role, userId, student.class_section_id, tenantId);
+  }
+
+  /** `Homework.create` takes class_id/subject_id straight from the DTO —
+   * confirm both actually belong to this tenant before any teacher-scoping
+   * check runs against them, since `assertCanManageClass` short-circuits
+   * without a lookup for TENANT_WIDE_ROLES and would otherwise let an ADMIN
+   * create homework pointing at another tenant's class/subject id. */
+  async assertClassAndSubjectInTenant(
+    classId: string,
+    subjectId: string,
+    tenantId: string,
+  ): Promise<void> {
+    const [classOk, subjectOk] = await Promise.all([
+      this.classRepo.exist({ where: { id: classId, tenant_id: tenantId, deleted_at: IsNull() } }),
+      this.subjectRepo.exist({
+        where: { id: subjectId, tenant_id: tenantId, deleted_at: IsNull() },
+      }),
+    ]);
+    if (!classOk) {
+      throw new ForbiddenException('You do not have access to this class');
+    }
+    if (!subjectOk) {
+      throw new ForbiddenException('You do not have access to this subject');
+    }
+  }
+
+  /** 400 when the assign target (a section, or a student's own section)
+   * isn't actually in the given homework's class — the analytics rollups
+   * key on `homework.class_id`, so a target from a different class would
+   * silently corrupt them rather than fail loudly. */
+  async assertTargetInClass(
+    sectionId: string | null | undefined,
+    studentId: string | null | undefined,
+    classId: string,
+    tenantId: string,
+  ): Promise<void> {
+    let targetSectionId = sectionId ?? null;
+    if (!targetSectionId && studentId) {
+      const student = await this.studentRepo.findOne({
+        where: { id: studentId, tenant_id: tenantId },
+      });
+      targetSectionId = student?.class_section_id ?? null;
+    }
+    const inClass =
+      !!targetSectionId &&
+      (await this.sectionRepo.exist({
+        where: { id: targetSectionId, class_id: classId, tenant_id: tenantId },
+      }));
+    if (!inClass) {
+      throw new BadRequestException("The assignment target is not in this homework's class");
+    }
   }
 }

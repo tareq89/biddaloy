@@ -37,7 +37,62 @@ export class HomeworkService {
     private readonly notice: HomeworkNoticeService,
   ) {}
 
+  /** Shared by assign/reassign/updateAssignment — the section-or-student
+   * access check, dispatched on whichever target the row actually has. */
+  private async assertCanManageTarget(
+    target: { section_id?: string | null; student_id?: string | null },
+    homework: Homework,
+    ctx: CallerContext,
+  ): Promise<void> {
+    if (target.section_id) {
+      await this.access.assertCanManageSection(
+        ctx.role,
+        ctx.userId,
+        target.section_id,
+        homework.subject_id,
+        ctx.tenantId,
+      );
+    } else {
+      await this.access.assertCanManageStudent(
+        ctx.role,
+        ctx.userId,
+        target.student_id as string,
+        homework.subject_id,
+        ctx.tenantId,
+      );
+    }
+  }
+
+  /** Shared by assign + reassign: exactly-one-target shape (D24), due_date
+   * on/after assigned_date, object-level access, and the target actually
+   * belongs to this homework's class (a rollup keys on homework.class_id,
+   * so a target from a different class would silently corrupt it). */
+  private async assertValidNewTarget(
+    dto: AssignHomeworkDto,
+    homework: Homework,
+    ctx: CallerContext,
+  ): Promise<void> {
+    if (!!dto.section_id === !!dto.student_id) {
+      throw new BadRequestException('Assign exactly one of section_id or student_id');
+    }
+    if (new Date(dto.due_date) < new Date(dto.assigned_date)) {
+      throw new BadRequestException('due_date must be on or after assigned_date');
+    }
+    await this.assertCanManageTarget(dto, homework, ctx);
+    await this.access.assertTargetInClass(
+      dto.section_id,
+      dto.student_id,
+      homework.class_id,
+      ctx.tenantId,
+    );
+  }
+
   async create(dto: CreateHomeworkDto, ctx: CallerContext): Promise<Homework> {
+    // class_id/subject_id must belong to this tenant before any access
+    // check runs against them — assertCanManageClass short-circuits without
+    // a lookup for TENANT_WIDE_ROLES, so an ADMIN could otherwise create
+    // homework pointing at another tenant's class/subject id.
+    await this.access.assertClassAndSubjectInTenant(dto.class_id, dto.subject_id, ctx.tenantId);
     // Creation is scoped to a class/subject, not a section/student yet, so
     // the access check here is the class-teacher-or-tenant-role variant:
     // reuse assertCanManageSection with a null section check via the class's
@@ -130,31 +185,7 @@ export class HomeworkService {
   ): Promise<HomeworkAssignment> {
     const homework = await this.findOne(homeworkId, ctx);
 
-    // D24: exactly one of section_id/student_id. DTO's ValidateIf covers the
-    // "both missing" and "both present" shapes are still worth a defensive
-    // check here since the DB CHECK constraint firing would be a 500, not a
-    // clean 400.
-    if (!!dto.section_id === !!dto.student_id) {
-      throw new BadRequestException('Assign exactly one of section_id or student_id');
-    }
-
-    if (dto.section_id) {
-      await this.access.assertCanManageSection(
-        ctx.role,
-        ctx.userId,
-        dto.section_id,
-        homework.subject_id,
-        ctx.tenantId,
-      );
-    } else {
-      await this.access.assertCanManageStudent(
-        ctx.role,
-        ctx.userId,
-        dto.student_id as string,
-        homework.subject_id,
-        ctx.tenantId,
-      );
-    }
+    await this.assertValidNewTarget(dto, homework, ctx);
 
     const assignment = this.assignmentRepo.create({
       homework_id: homework.id,
@@ -200,29 +231,17 @@ export class HomeworkService {
     if (!old) {
       throw new NotFoundException('Homework assignment not found');
     }
+    if (old.status === HomeworkAssignmentStatus.SUPERSEDED) {
+      throw new BadRequestException('This assignment has already been reassigned');
+    }
     const homework = await this.findOne(old.homework_id, ctx);
 
-    if (!!dto.section_id === !!dto.student_id) {
-      throw new BadRequestException('Assign exactly one of section_id or student_id');
-    }
-
-    if (dto.section_id) {
-      await this.access.assertCanManageSection(
-        ctx.role,
-        ctx.userId,
-        dto.section_id,
-        homework.subject_id,
-        ctx.tenantId,
-      );
-    } else {
-      await this.access.assertCanManageStudent(
-        ctx.role,
-        ctx.userId,
-        dto.student_id as string,
-        homework.subject_id,
-        ctx.tenantId,
-      );
-    }
+    // The caller must be able to manage the OLD target too, not just the
+    // new one — otherwise any teacher on the tenant could reassign (and so
+    // supersede) another teacher's assignment by naming their own section
+    // as the new target.
+    await this.assertCanManageTarget(old, homework, ctx);
+    await this.assertValidNewTarget(dto, homework, ctx);
 
     const created = this.assignmentRepo.create({
       homework_id: old.homework_id,
@@ -255,22 +274,10 @@ export class HomeworkService {
     }
     const homework = await this.findOne(assignment.homework_id, ctx);
 
-    if (assignment.section_id) {
-      await this.access.assertCanManageSection(
-        ctx.role,
-        ctx.userId,
-        assignment.section_id,
-        homework.subject_id,
-        ctx.tenantId,
-      );
-    } else {
-      await this.access.assertCanManageStudent(
-        ctx.role,
-        ctx.userId,
-        assignment.student_id as string,
-        homework.subject_id,
-        ctx.tenantId,
-      );
+    await this.assertCanManageTarget(assignment, homework, ctx);
+
+    if (assignment.status === HomeworkAssignmentStatus.SUPERSEDED) {
+      throw new BadRequestException('A superseded assignment cannot be changed');
     }
 
     assignment.status = dto.status;
