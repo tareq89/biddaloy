@@ -5,9 +5,11 @@ import {
   IsEnum,
   IsInt,
   IsOptional,
+  IsString,
   IsUUID,
   MaxLength,
   MinLength,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -22,13 +24,16 @@ export class CreateSyllabusTopicDto {
   @IsUUID()
   subject_id: string;
 
+  @IsString()
   @SanitizeText()
   @MinLength(1)
   @MaxLength(200)
   name: string;
 
   @IsOptional()
+  @IsString()
   @SanitizeText()
+  @MaxLength(2000)
   description?: string | null;
 
   @IsInt()
@@ -40,21 +45,28 @@ export class CreateSyllabusTopicDto {
 }
 
 export class UpdateSyllabusTopicDto {
-  @IsOptional()
+  // `@IsOptional()` skips validation for both `undefined` AND `null` — a
+  // body like `{ name: null }` would pass and reach the service. These
+  // fields are non-nullable, so validate whenever the key is present at
+  // all, `null` included; only genuinely absent (`undefined`) is skipped.
+  @ValidateIf((_, v) => v !== undefined)
+  @IsString()
   @SanitizeText()
   @MinLength(1)
   @MaxLength(200)
   name?: string;
 
   @IsOptional()
+  @IsString()
   @SanitizeText()
+  @MaxLength(2000)
   description?: string | null;
 
-  @IsOptional()
+  @ValidateIf((_, v) => v !== undefined)
   @IsInt()
   sequence?: number;
 
-  @IsOptional()
+  @ValidateIf((_, v) => v !== undefined)
   @IsEnum(SyllabusTopicStatus)
   status?: SyllabusTopicStatus;
 }

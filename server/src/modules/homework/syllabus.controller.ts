@@ -55,8 +55,8 @@ export class SyllabusController {
   @RequirePermissions(Permission.SYLLABUS_READ)
   @ApiOperation({ summary: 'List syllabus topics, optionally filtered by class/subject.' })
   async list(
-    @Query('class_id') classId: string | undefined,
-    @Query('subject_id') subjectId: string | undefined,
+    @Query('class_id', new ParseUUIDPipe({ optional: true })) classId: string | undefined,
+    @Query('subject_id', new ParseUUIDPipe({ optional: true })) subjectId: string | undefined,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     const topics = await this.service.findAll(tenant.id, classId, subjectId);
