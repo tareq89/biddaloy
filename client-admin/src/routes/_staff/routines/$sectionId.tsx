@@ -115,9 +115,7 @@ function RoutineBuilderPage() {
   const [fillAssistOpen, setFillAssistOpen] = React.useState(false);
 
   if (!classId) {
-    return (
-      <p className="p-4 text-sm text-muted-foreground">{t('builder.noClassIdExplanation')}</p>
-    );
+    return <p className="p-4 text-sm text-muted-foreground">{t('builder.noClassIdExplanation')}</p>;
   }
 
   if (sectionsQuery.isPending || routinesQuery.isPending) return null;
@@ -149,16 +147,26 @@ function RoutineBuilderPage() {
     ends_at: slot.ends_at,
   }));
 
+  // [21.8.1] `update()` closes an edited row rather than deleting it (D4),
+  // so after one edit two rows can share the same weekday/period_slot_id —
+  // one active, one superseded. Filtering to rows effective today keeps
+  // the grid (and `activeCellSlot`/`handleClearCell` below, which both
+  // read `sectionSlots`) pointed at the live row, not the historical one —
+  // same predicate `greedy-fill.service.ts` already uses server-side.
+  const today = todayIso();
   const sectionSlots = (slotsQuery.data ?? []).filter(
-    (entry) => entry.slot.section_id === sectionId,
+    (entry) =>
+      entry.slot.section_id === sectionId &&
+      entry.slot.valid_from <= today &&
+      (entry.slot.valid_to === null || entry.slot.valid_to >= today),
   );
   const cells: Record<string, RoutineGridCell> = {};
   for (const entry of sectionSlots) {
     cells[cellKey(entry.slot.weekday, entry.slot.period_slot_id)] = {
       slotId: entry.slot.id,
       subjectLabel:
-        subjectsQuery.data?.data.find((subject) => subject.id === entry.slot.subject_id)
-          ?.name_en ?? entry.slot.subject_id,
+        subjectsQuery.data?.data.find((subject) => subject.id === entry.slot.subject_id)?.name_en ??
+        entry.slot.subject_id,
       teacherLabels: entry.teacher_ids.map(
         (id) => teachersQuery.data?.data.find((teacher) => teacher.id === id)?.user.full_name ?? id,
       ),

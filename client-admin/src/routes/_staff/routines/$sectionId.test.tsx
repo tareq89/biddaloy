@@ -225,6 +225,65 @@ describe('/routines/$sectionId', () => {
     await waitFor(() => expect(screen.getByLabelText('Subject')).toBeTruthy());
   });
 
+  it('picks the effective row (not a superseded one) when a cell has two rows for the same weekday/period', async () => {
+    mockCommonRoutes();
+    server.use(
+      http.get('/api/v1/routines/routine-1/slots', () =>
+        HttpResponse.json([
+          {
+            // Superseded by an earlier edit — closed before today, must
+            // not be the row the grid/picker/clear act on.
+            slot: {
+              id: 'slot-old',
+              section_id: 'section-1',
+              weekday: 0,
+              period_slot_id: 'p1',
+              subject_id: 'subject-old',
+              recurrence: 'WEEKLY',
+              recurrence_offset: 0,
+              valid_from: '2020-01-01',
+              valid_to: '2020-06-30',
+            },
+            teacher_ids: ['teacher-1'],
+            warnings: [],
+          },
+          {
+            // The active row.
+            slot: {
+              id: 'slot-1',
+              section_id: 'section-1',
+              weekday: 0,
+              period_slot_id: 'p1',
+              subject_id: 'subject-math',
+              recurrence: 'WEEKLY',
+              recurrence_offset: 0,
+              valid_from: '2020-07-01',
+              valid_to: null,
+            },
+            teacher_ids: ['teacher-1'],
+            warnings: [],
+          },
+        ]),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/routines/section-1?classId=11111111-1111-4111-8111-111111111111'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    // The grid renders the active row's subject, not the superseded one.
+    await waitFor(() => expect(screen.getByText('Math')).toBeTruthy());
+    expect(screen.queryByText('subject-old')).toBeNull();
+
+    // Editing the cell prefills from the active row, not the closed one.
+    const table = await screen.findByRole('table');
+    fireEvent.keyDown(table, { key: 'Enter' });
+    await waitFor(() => expect(screen.getByLabelText('Subject')).toBeTruthy());
+  });
+
   it('shows the noClassId explanation when opened without ?classId=', async () => {
     renderWithRouter(routeTree, {
       initialEntries: ['/routines/section-1'],
