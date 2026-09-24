@@ -142,7 +142,7 @@ export function AssignHomeworkForm({
       setValidationError(t('form.errorRequired'));
       return;
     }
-    if (dueDate < assignedDate) {
+    if (toLocalDateString(dueDate) < toLocalDateString(assignedDate)) {
       setValidationError(t('form.dueBeforeAssigned'));
       return;
     }
