@@ -78,7 +78,9 @@ function notFound(path: string) {
 }
 
 /** Every endpoint answers successfully unless a test overrides it. */
-function mockReportCard(overrides: { profile?: typeof PROFILE } = {}) {
+function mockReportCard(
+  overrides: { profile?: Omit<typeof PROFILE, 'logo_url'> & { logo_url: string | null } } = {},
+) {
   server.use(
     http.get(EXAM_URL, () => HttpResponse.json(EXAM)),
     http.get(DETAIL_URL, () => HttpResponse.json(DETAIL)),
