@@ -8,7 +8,7 @@
 import { ApiError } from '@biddaloy/ui/api';
 import { RoutePending } from '@biddaloy/ui/components';
 import { useAssignHomework, useCreateHomework } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
@@ -37,6 +37,7 @@ function NewHomeworkPage() {
 
   const createHomework = useCreateHomework();
   const assignHomework = useAssignHomework();
+  const regionConfig = useTenantRegionConfig();
 
   const [createdId, setCreatedId] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | undefined>(undefined);
@@ -58,34 +59,36 @@ function NewHomeworkPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-semibold">{t('form.createTitle')}</h1>
+    <RegionConfigProvider value={regionConfig}>
+      <div className="flex flex-col gap-4">
+        <h1 className="text-lg font-semibold">{t('form.createTitle')}</h1>
 
-      {createdId !== null && (assignHomework.isError || errorMessage !== undefined) && (
-        <p role="alert" className="text-sm text-destructive">
-          {t('form.assignFailedAfterCreate')}{' '}
-          <Link
-            to="/academics/homework/$homeworkId"
-            params={{ homeworkId: createdId }}
-            className="underline"
-          >
-            {t('form.viewCreatedHomework')}
-          </Link>
-        </p>
-      )}
+        {createdId !== null && (assignHomework.isError || errorMessage !== undefined) && (
+          <p role="alert" className="text-sm text-destructive">
+            {t('form.assignFailedAfterCreate')}{' '}
+            <Link
+              to="/academics/homework/$homeworkId"
+              params={{ homeworkId: createdId }}
+              className="underline"
+            >
+              {t('form.viewCreatedHomework')}
+            </Link>
+          </p>
+        )}
 
-      <AssignHomeworkForm
-        mode="create"
-        initial={{
-          ...(search.class_id !== undefined ? { classId: search.class_id } : {}),
-          ...(search.section_id !== undefined ? { sectionId: search.section_id } : {}),
-          ...(search.subject_id !== undefined ? { subjectId: search.subject_id } : {}),
-        }}
-        isPending={createHomework.isPending || assignHomework.isPending}
-        {...(createdId === null && errorMessage !== undefined ? { error: errorMessage } : {})}
-        onSubmit={(payload) => void handleSubmit(payload)}
-      />
-    </div>
+        <AssignHomeworkForm
+          mode="create"
+          initial={{
+            ...(search.class_id !== undefined ? { classId: search.class_id } : {}),
+            ...(search.section_id !== undefined ? { sectionId: search.section_id } : {}),
+            ...(search.subject_id !== undefined ? { subjectId: search.subject_id } : {}),
+          }}
+          isPending={createHomework.isPending || assignHomework.isPending}
+          {...(createdId === null && errorMessage !== undefined ? { error: errorMessage } : {})}
+          onSubmit={(payload) => void handleSubmit(payload)}
+        />
+      </div>
+    </RegionConfigProvider>
   );
 }
 

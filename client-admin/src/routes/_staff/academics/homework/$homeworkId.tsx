@@ -24,7 +24,7 @@ import {
   homeworkQueryOptions,
   useSubjects,
 } from '@biddaloy/ui/hooks';
-import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell } from '@biddaloy/ui/shells';
 import { formatDate, parseServerDate } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
@@ -103,83 +103,89 @@ function HomeworkDetailPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <DetailShell
-        name={homework.title}
-        identifiers={<>{classQuery.data?.name ?? '—'}</>}
-        actions={[
-          {
-            id: 'assign',
-            label: t('detail.assignAgain'),
-            onClick: () => setAssignOpen(true),
-            allowed: canAssign,
-            priority: 'primary',
-          },
-        ]}
-        tabs={[
-          {
-            id: 'summary',
-            label: t('detail.tabSummary'),
-            content: (
-              <dl className="grid grid-cols-2 gap-4">
-                <div>
-                  <dt className="text-sm text-muted-foreground">{t('detail.subjectLabel')}</dt>
-                  <dd>{subjectName ?? '—'}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-muted-foreground">{t('detail.classLabel')}</dt>
-                  <dd>{classQuery.data?.name ?? '—'}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-muted-foreground">{t('detail.gradingModeLabel')}</dt>
-                  <dd>{t(`form.gradingMode.${homework.grading_mode}`)}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-muted-foreground">{t('detail.createdLabel')}</dt>
-                  <dd>{formatDate(parseServerDate(homework.created_at), regionConfig)}</dd>
-                </div>
-                <div className="col-span-2">
-                  <dt className="text-sm text-muted-foreground">{t('detail.descriptionLabel')}</dt>
-                  <dd>{homework.description ?? '—'}</dd>
-                </div>
-              </dl>
-            ),
-          },
-        ]}
-        activeTab="summary"
-        onTabChange={() => undefined}
-      />
+    <RegionConfigProvider value={regionConfig}>
+      <div className="flex flex-col gap-4">
+        <DetailShell
+          name={homework.title}
+          identifiers={<>{classQuery.data?.name ?? '—'}</>}
+          actions={[
+            {
+              id: 'assign',
+              label: t('detail.assignAgain'),
+              onClick: () => setAssignOpen(true),
+              allowed: canAssign,
+              priority: 'primary',
+            },
+          ]}
+          tabs={[
+            {
+              id: 'summary',
+              label: t('detail.tabSummary'),
+              content: (
+                <dl className="grid grid-cols-2 gap-4">
+                  <div>
+                    <dt className="text-sm text-muted-foreground">{t('detail.subjectLabel')}</dt>
+                    <dd>{subjectName ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm text-muted-foreground">{t('detail.classLabel')}</dt>
+                    <dd>{classQuery.data?.name ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm text-muted-foreground">
+                      {t('detail.gradingModeLabel')}
+                    </dt>
+                    <dd>{t(`form.gradingMode.${homework.grading_mode}`)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm text-muted-foreground">{t('detail.createdLabel')}</dt>
+                    <dd>{formatDate(parseServerDate(homework.created_at), regionConfig)}</dd>
+                  </div>
+                  <div className="col-span-2">
+                    <dt className="text-sm text-muted-foreground">
+                      {t('detail.descriptionLabel')}
+                    </dt>
+                    <dd>{homework.description ?? '—'}</dd>
+                  </div>
+                </dl>
+              ),
+            },
+          ]}
+          activeTab="summary"
+          onTabChange={() => undefined}
+        />
 
-      {assignedMessage !== null && (
-        <p role="status" className="text-sm text-primary">
-          {assignedMessage}
-        </p>
-      )}
+        {assignedMessage !== null && (
+          <p role="status" className="text-sm text-primary">
+            {assignedMessage}
+          </p>
+        )}
 
-      {canAssign && (
-        <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t('detail.assignAgain')}</DialogTitle>
-            </DialogHeader>
-            <AssignHomeworkForm
-              mode="assign"
-              initial={{ classId: homework.class_id }}
-              isPending={assignHomework.isPending}
-              {...(assignHomework.isError
-                ? {
-                    error:
-                      assignHomework.error instanceof ApiError
-                        ? assignHomework.error.message
-                        : t('form.genericError'),
-                  }
-                : {})}
-              onSubmit={handleAssign}
-            />
-          </DialogContent>
-        </Dialog>
-      )}
-    </div>
+        {canAssign && (
+          <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t('detail.assignAgain')}</DialogTitle>
+              </DialogHeader>
+              <AssignHomeworkForm
+                mode="assign"
+                initial={{ classId: homework.class_id }}
+                isPending={assignHomework.isPending}
+                {...(assignHomework.isError
+                  ? {
+                      error:
+                        assignHomework.error instanceof ApiError
+                          ? assignHomework.error.message
+                          : t('form.genericError'),
+                    }
+                  : {})}
+                onSubmit={handleAssign}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+    </RegionConfigProvider>
   );
 }
 
