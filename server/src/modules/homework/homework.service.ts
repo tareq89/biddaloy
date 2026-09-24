@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { HomeworkAssignmentStatus } from '@biddaloy/shared';
 import { Homework } from './entities/homework.entity';
 import { HomeworkAssignment } from './entities/homework-assignment.entity';
@@ -243,21 +243,34 @@ export class HomeworkService {
     await this.assertCanManageTarget(old, homework, ctx);
     await this.assertValidNewTarget(dto, homework, ctx);
 
-    const created = this.assignmentRepo.create({
-      homework_id: old.homework_id,
-      section_id: dto.section_id ?? null,
-      student_id: dto.student_id ?? null,
-      assigned_date: dto.assigned_date,
-      due_date: dto.due_date,
-      status: HomeworkAssignmentStatus.ACTIVE,
-      tenant_id: ctx.tenantId,
+    // Both writes in one transaction, and the old row's supersede is a
+    // conditional UPDATE (not a save() of the already-fetched entity): a
+    // crash between the two writes must never leave the homework with two
+    // live ACTIVE rows, and two concurrent reassign calls for the same
+    // assignmentId must not both pass the earlier SUPERSEDED check and each
+    // create a new row — whichever loses the race gets 0 affected rows here
+    // and aborts instead.
+    return this.assignmentRepo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(HomeworkAssignment);
+      const result = await repo.update(
+        { id: old.id, tenant_id: ctx.tenantId, status: Not(HomeworkAssignmentStatus.SUPERSEDED) },
+        { status: HomeworkAssignmentStatus.SUPERSEDED },
+      );
+      if (!result.affected) {
+        throw new BadRequestException('This assignment has already been reassigned');
+      }
+      return repo.save(
+        repo.create({
+          homework_id: old.homework_id,
+          section_id: dto.section_id ?? null,
+          student_id: dto.student_id ?? null,
+          assigned_date: dto.assigned_date,
+          due_date: dto.due_date,
+          status: HomeworkAssignmentStatus.ACTIVE,
+          tenant_id: ctx.tenantId,
+        }),
+      );
     });
-    const saved = await this.assignmentRepo.save(created);
-
-    old.status = HomeworkAssignmentStatus.SUPERSEDED;
-    await this.assignmentRepo.save(old);
-
-    return saved;
   }
 
   /** `PATCH /homework-assignments/:id` — deactivate/reactivate only (Q10 D22). */

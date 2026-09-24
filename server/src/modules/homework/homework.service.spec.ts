@@ -17,6 +17,8 @@ describe('HomeworkService', () => {
     create: ReturnType<typeof vi.fn>;
     save: ReturnType<typeof vi.fn>;
     findOne: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    manager: { transaction: ReturnType<typeof vi.fn> };
   };
   let access: {
     assertCanManageClass: ReturnType<typeof vi.fn>;
@@ -49,6 +51,19 @@ describe('HomeworkService', () => {
       // entity yet) while preserving the id on an update to an existing row.
       save: vi.fn(async (v) => (v.id ? v : { id: `new-assign-${++nextAssignmentId}`, ...v })),
       findOne: vi.fn(),
+      // `reassign`'s conditional supersede — 1 affected row by default
+      // (the happy path); tests exercising the "already superseded"/race
+      // case override this to return 0.
+      update: vi.fn(async () => ({ affected: 1 })),
+      manager: {
+        // `reassign` runs both writes through `manager.getRepository(...)`
+        // inside a transaction — reuse this same repo's create/save/update
+        // mocks so assertions written against `assignmentRepo.save` etc.
+        // still see the calls made through the transaction.
+        transaction: vi.fn((fn: (manager: unknown) => unknown) =>
+          fn({ getRepository: () => assignmentRepo }),
+        ),
+      },
     };
     access = {
       assertCanManageClass: vi.fn(async () => undefined),
@@ -186,11 +201,21 @@ describe('HomeworkService', () => {
       });
       expect(result.id).not.toBe('assign-1');
 
-      // The old row was saved a second time with SUPERSEDED, not left ACTIVE.
-      const oldRowSaveCall = assignmentRepo.save.mock.calls.find(
-        (call) => call[0].id === 'assign-1',
+      // The old row was superseded via a conditional UPDATE, not left ACTIVE.
+      expect(assignmentRepo.update).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'assign-1' }),
+        { status: HomeworkAssignmentStatus.SUPERSEDED },
       );
-      expect(oldRowSaveCall?.[0].status).toBe(HomeworkAssignmentStatus.SUPERSEDED);
+    });
+
+    it('aborts when the old row was already superseded concurrently (0 rows affected)', async () => {
+      assignmentRepo.findOne.mockResolvedValue({ ...OLD_ASSIGNMENT });
+      assignmentRepo.update.mockResolvedValueOnce({ affected: 0 });
+      const dto = { section_id: 'section-2', assigned_date: '2026-02-01', due_date: '2026-02-08' };
+
+      await expect(service.reassign('assign-1', dto, ctx)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
     });
 
     it('throws NotFoundException when the old assignment does not exist', async () => {
