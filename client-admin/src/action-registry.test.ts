@@ -25,6 +25,7 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/students/new': '/_staff/students/new',
   '/students/import': '/_staff/students/import',
   '/grading-scales': '/_staff/grading-scales/',
+  '/academics/homework/new': '/_staff/academics/homework/new',
 };
 
 /**
@@ -44,6 +45,7 @@ const REGISTERED_ACTION_FILES: Record<string, string> = {
   'students.add': 'client-admin/src/routes/_staff/students/new.tsx',
   'students.import': 'client-admin/src/routes/_staff/students/import.tsx',
   'grading.copyScale': 'client-admin/src/routes/_staff/grading-scales/-copy-scale-dialog.tsx',
+  'homework.assign': 'client-admin/src/routes/_staff/academics/homework/new.tsx',
 };
 
 /**

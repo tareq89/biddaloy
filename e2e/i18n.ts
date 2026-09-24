@@ -22,6 +22,7 @@ import bnFees from '../ui/src/i18n/locales/bn/fees.json';
 import bnFeeStructures from '../ui/src/i18n/locales/bn/feeStructures.json';
 import bnGrading from '../ui/src/i18n/locales/bn/grading.json';
 import bnGuardians from '../ui/src/i18n/locales/bn/guardians.json';
+import bnHomework from '../ui/src/i18n/locales/bn/homework.json';
 import bnNav from '../ui/src/i18n/locales/bn/nav.json';
 import bnPayments from '../ui/src/i18n/locales/bn/payments.json';
 import bnPlatform from '../ui/src/i18n/locales/bn/platform.json';
@@ -45,6 +46,7 @@ import enFees from '../ui/src/i18n/locales/en/fees.json';
 import enFeeStructures from '../ui/src/i18n/locales/en/feeStructures.json';
 import enGrading from '../ui/src/i18n/locales/en/grading.json';
 import enGuardians from '../ui/src/i18n/locales/en/guardians.json';
+import enHomework from '../ui/src/i18n/locales/en/homework.json';
 import enNav from '../ui/src/i18n/locales/en/nav.json';
 import enPayments from '../ui/src/i18n/locales/en/payments.json';
 import enPlatform from '../ui/src/i18n/locales/en/platform.json';
@@ -71,6 +73,7 @@ const catalogs = {
     feeStructures: bnFeeStructures,
     grading: bnGrading,
     guardians: bnGuardians,
+    homework: bnHomework,
     nav: bnNav,
     payments: bnPayments,
     platform: bnPlatform,
@@ -96,6 +99,7 @@ const catalogs = {
     feeStructures: enFeeStructures,
     grading: enGrading,
     guardians: enGuardians,
+    homework: enHomework,
     nav: enNav,
     payments: enPayments,
     platform: enPlatform,

@@ -131,4 +131,11 @@ export const ACTIONS: readonly PaletteAction[] = [
     // second copy of the dialog).
     run: (ctx) => ctx.navigate({ to: '/grading-scales' }),
   },
+  {
+    id: 'homework.assign',
+    label: { en: 'Assign homework', bn: 'বাড়ির কাজ দিন' },
+    permission: Permission.HOMEWORK_ASSIGN,
+    kind: 'modal',
+    run: (ctx) => ctx.navigate({ to: '/academics/homework/new' }),
+  },
 ];

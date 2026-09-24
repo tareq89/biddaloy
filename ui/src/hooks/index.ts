@@ -722,6 +722,20 @@ export {
   type UpdateGradingScaleInput,
 } from './grading';
 export {
+  homeworkKeys,
+  homeworkListQueryOptions,
+  homeworkQueryOptions,
+  useAssignHomework,
+  useCreateHomework,
+  useHomework,
+  useHomeworkList,
+  type AssignHomeworkInput,
+  type CreateHomeworkInput,
+  type Homework,
+  type HomeworkAssignment,
+  type HomeworkListFilters,
+} from './homework';
+export {
   smsCreditsKeys,
   smsCreditsQueryOptions,
   useGrantSmsCredits,

@@ -114,6 +114,24 @@
       "archetype": "detail"
     },
     {
+      "path": "/academics/homework",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/academics/homework/new",
+      "role": "admin",
+      "archetype": "form"
+    },
+    {
+      "path": "/academics/homework/$homeworkId",
+      "params": {
+        "homeworkId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
       "path": "/grading-scales",
       "role": "admin",
       "archetype": "list"

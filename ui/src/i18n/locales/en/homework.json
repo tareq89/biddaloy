@@ -1,4 +1,71 @@
 {
+  "list": {
+    "title": "Homework",
+    "caption": "Homework assigned across classes and sections",
+    "classLabel": "Class",
+    "allClasses": "All classes",
+    "sectionLabel": "Section",
+    "allSections": "All sections",
+    "subjectLabel": "Subject",
+    "allSubjects": "All subjects",
+    "statusLabel": "Status",
+    "allStatuses": "All statuses",
+    "columnTitle": "Title",
+    "columnSubject": "Subject",
+    "columnClass": "Class",
+    "columnGradingMode": "Grading mode",
+    "columnCreated": "Created",
+    "assignHomework": "Assign homework",
+    "emptyMessage": "No homework found.",
+    "errorMessage": "Couldn't load homework.",
+    "announceResults": "Showing {{visible}} of {{total}} homework, {{count}} total"
+  },
+  "detail": {
+    "tabSummary": "Summary",
+    "subjectLabel": "Subject",
+    "classLabel": "Class",
+    "gradingModeLabel": "Grading mode",
+    "createdLabel": "Created",
+    "descriptionLabel": "Description",
+    "assignAgain": "Assign to section or student",
+    "assigned": "Assigned. Due {{date}}.",
+    "notFound": "Homework not found.",
+    "forbidden": "You don't have permission to view this homework."
+  },
+  "form": {
+    "createTitle": "Create homework",
+    "classLabel": "Class",
+    "subjectLabel": "Subject",
+    "titleLabel": "Title",
+    "descriptionLabel": "Description",
+    "gradingModeLabel": "Grading mode",
+    "targetLabel": "Assign to",
+    "target": {
+      "section": "Section",
+      "student": "Student"
+    },
+    "sectionLabel": "Section",
+    "studentLabel": "Student",
+    "assignedDateLabel": "Assigned date",
+    "dueDateLabel": "Due date",
+    "gradingMode": {
+      "TICK": "Tick (done / not done)",
+      "PARTIAL": "Partial completion",
+      "MARKS": "Marks"
+    },
+    "status": {
+      "ACTIVE": "Active",
+      "DEACTIVATED": "Deactivated",
+      "SUPERSEDED": "Superseded"
+    },
+    "submit": "Save",
+    "submitting": "Saving…",
+    "errorRequired": "Please fill in all required fields.",
+    "dueBeforeAssigned": "Due date must be on or after the assigned date.",
+    "assignFailedAfterCreate": "Homework was created, but assigning it failed. Try again from its detail page:",
+    "viewCreatedHomework": "Go to homework",
+    "genericError": "Something went wrong. Please try again."
+  },
   "upload": {
     "dropHint": "Drag and drop files here, or choose files below. PDF, JPG, PNG or WEBP, up to 5MB each, {{maxFiles}} files max.",
     "wrongType": "Only PDF, JPG, PNG or WEBP files are allowed.",

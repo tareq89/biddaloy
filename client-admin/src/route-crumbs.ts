@@ -80,6 +80,12 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/staff/': [{ label: { entity: 'staff' } }],
   '/_staff/academic-years/': [{ label: { entity: 'academicYear' } }],
   '/_staff/classes/': [{ label: { entity: 'class' } }],
+  '/_staff/academics/homework/': [{ label: { key: 'homework' } }],
+  '/_staff/academics/homework/new': [{ label: { key: 'homework' } }, { label: { key: 'new' } }],
+  '/_staff/academics/homework/$homeworkId': [
+    { label: { key: 'homework' } },
+    { label: { key: 'homeworkDetail' }, dynamic: 'entity' },
+  ],
   '/_staff/grading-scales/': [{ label: { key: 'gradingScales' } }],
   '/_staff/attendance/': [{ label: { key: 'attendance' } }],
   '/_staff/attendance/reports': [{ label: { key: 'attendanceReports' } }],

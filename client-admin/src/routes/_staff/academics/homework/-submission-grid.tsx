@@ -96,7 +96,9 @@ export function SubmissionGrid({
         status:
           marks !== null
             ? HomeworkSubmissionStatus.DONE
-            : (prev[id]?.status ?? HomeworkSubmissionStatus.NOT_SUBMITTED),
+            : prev[id]?.status === HomeworkSubmissionStatus.DONE
+              ? HomeworkSubmissionStatus.NOT_SUBMITTED
+              : (prev[id]?.status ?? HomeworkSubmissionStatus.NOT_SUBMITTED),
         marks,
       },
     }));

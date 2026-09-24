@@ -93,6 +93,13 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.CLASS_MANAGE,
     label: { entity: 'class' },
   },
+  'academics.homework': {
+    id: 'academics.homework',
+    to: '/academics/homework',
+    permission: Permission.HOMEWORK_READ,
+    label: { key: 'homework' },
+    synonyms: ['assignment', 'classwork'],
+  },
   'examsResults.gradingScales': {
     id: 'examsResults.gradingScales',
     to: '/grading-scales',
@@ -239,7 +246,11 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
   {
     id: 'academics',
     label: { key: 'academics' },
-    items: [STAFF_NAV_ITEMS['academics.academicYears'], STAFF_NAV_ITEMS['academics.classes']],
+    items: [
+      STAFF_NAV_ITEMS['academics.academicYears'],
+      STAFF_NAV_ITEMS['academics.classes'],
+      STAFF_NAV_ITEMS['academics.homework'],
+    ],
   },
   {
     id: 'attendance',

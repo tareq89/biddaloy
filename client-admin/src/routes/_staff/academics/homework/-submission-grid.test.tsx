@@ -84,7 +84,9 @@ describe('SubmissionGrid', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
-    expect(onSave).toHaveBeenCalledWith([{ id: 'sub-1', marks: null }]);
+    expect(onSave).toHaveBeenCalledWith([
+      { id: 'sub-1', marks: null, status: HomeworkSubmissionStatus.NOT_SUBMITTED },
+    ]);
   });
 
   it('does not call onSave when nothing changed', async () => {
