@@ -5,7 +5,7 @@ import {
   gradeSubjectTotal,
   fourthSubjectContribution,
   combineSubjects,
-  rankByGpa,
+  rankByMerit,
   roundHalfUp2,
   Band,
   SubjectResult,
@@ -256,24 +256,35 @@ describe('combineSubjects (D5 fail rule) — hand-written GPA table', () => {
   });
 });
 
-describe('rankByGpa (D18)', () => {
+describe('rankByMerit (D2/D18)', () => {
   it('ranks strictly descending with no ties', () => {
-    const positions = rankByGpa([
-      { student_id: 's1', gpa: 5.0, is_fail: false },
-      { student_id: 's2', gpa: 4.0, is_fail: false },
-      { student_id: 's3', gpa: 3.0, is_fail: false },
+    const positions = rankByMerit([
+      { student_id: 's1', gpa: 5.0, total_marks: 480, is_fail: false },
+      { student_id: 's2', gpa: 4.0, total_marks: 400, is_fail: false },
+      { student_id: 's3', gpa: 3.0, total_marks: 300, is_fail: false },
     ]);
     expect(positions.get('s1')).toBe(1);
     expect(positions.get('s2')).toBe(2);
     expect(positions.get('s3')).toBe(3);
   });
 
-  it('ties share a position and the next position skips (1, 2, 2, 4)', () => {
-    const positions = rankByGpa([
-      { student_id: 's1', gpa: 5.0, is_fail: false },
-      { student_id: 's2', gpa: 4.0, is_fail: false },
-      { student_id: 's3', gpa: 4.0, is_fail: false },
-      { student_id: 's4', gpa: 3.0, is_fail: false },
+  it('same GPA but different total marks breaks the tie — no shared position', () => {
+    const positions = rankByMerit([
+      { student_id: 's1', gpa: 4.0, total_marks: 420, is_fail: false },
+      { student_id: 's2', gpa: 4.0, total_marks: 410, is_fail: false },
+      { student_id: 's3', gpa: 3.0, total_marks: 300, is_fail: false },
+    ]);
+    expect(positions.get('s1')).toBe(1);
+    expect(positions.get('s2')).toBe(2);
+    expect(positions.get('s3')).toBe(3);
+  });
+
+  it('GPA and total marks both tie: shared position, next position skips (1, 2, 2, 4)', () => {
+    const positions = rankByMerit([
+      { student_id: 's1', gpa: 5.0, total_marks: 480, is_fail: false },
+      { student_id: 's2', gpa: 4.0, total_marks: 400, is_fail: false },
+      { student_id: 's3', gpa: 4.0, total_marks: 400, is_fail: false },
+      { student_id: 's4', gpa: 3.0, total_marks: 300, is_fail: false },
     ]);
     expect(positions.get('s1')).toBe(1);
     expect(positions.get('s2')).toBe(2);
@@ -282,12 +293,28 @@ describe('rankByGpa (D18)', () => {
   });
 
   it('a failed student has no position', () => {
-    const positions = rankByGpa([
-      { student_id: 's1', gpa: 5.0, is_fail: false },
-      { student_id: 's2', gpa: 0, is_fail: true },
+    const positions = rankByMerit([
+      { student_id: 's1', gpa: 5.0, total_marks: 480, is_fail: false },
+      { student_id: 's2', gpa: 0, total_marks: 120, is_fail: true },
     ]);
     expect(positions.get('s1')).toBe(1);
     expect(positions.get('s2')).toBeNull();
+  });
+
+  it('a class of one gets position 1', () => {
+    const positions = rankByMerit([
+      { student_id: 's1', gpa: 4.5, total_marks: 450, is_fail: false },
+    ]);
+    expect(positions.get('s1')).toBe(1);
+  });
+
+  it('same GPA, totals that display equal after rounding (33.1+33.2 vs 33.3+33.0, both 66.30) share a position', () => {
+    const positions = rankByMerit([
+      { student_id: 's1', gpa: 4.0, total_marks: 33.1 + 33.2, is_fail: false },
+      { student_id: 's2', gpa: 4.0, total_marks: 33.3 + 33.0, is_fail: false },
+    ]);
+    expect(positions.get('s1')).toBe(1);
+    expect(positions.get('s2')).toBe(1);
   });
 });
 
