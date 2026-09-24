@@ -147,7 +147,14 @@ export class RoutineSlotsService {
 
       const { violations, warnings } = await this.check(candidate, existing, periodSlot, tenantId);
       if (violations.length > 0) {
-        throw new ConflictException({ message: 'Slot violates hard constraints', violations });
+        // [21.8.1] Same fix as `create()` above — `details` (not a bare
+        // top-level `violations` key) is what `resolveDetails` forwards
+        // to the client, so an edit's conflict list rendered nothing
+        // without this.
+        throw new ConflictException({
+          message: 'Slot violates hard constraints',
+          details: { violations },
+        });
       }
 
       const saved = await this.persist(oldSlot.routine_id, tenantId, dto, manager);
