@@ -67,13 +67,11 @@ function agendaDates(): string[] {
   });
 }
 
-/** Same "no non-DRAFT routine" test `my.tsx`'s `pickVisibleRoutine` and
- * `review.tsx`'s `pickCurrentRoutine` use — PARENT/STUDENT never see
- * DRAFT anyway, but a routine still `REVIEW` (not yet published) reads as
- * "not published yet" for a family the same as no routine at all, since
- * `resolveRoutine` already returns nothing for them in that state. */
+/** PARENT/STUDENT never see DRAFT or REVIEW slots — `resolveRoutine`
+ * already returns nothing for them in either state — so a routine reads
+ * as "not published yet" for a family unless it's actually PUBLISHED. */
 function hasPublishableRoutine(routines: Routine[] | undefined): boolean {
-  return (routines ?? []).some((r) => r.state !== 'DRAFT');
+  return (routines ?? []).some((r) => r.state === 'PUBLISHED');
 }
 
 const searchSchema = z.object({
@@ -154,12 +152,15 @@ function PortalRoutine() {
     );
   }
 
+  // subjectsQuery and teachersQuery are excluded: PARENT/STUDENT get 403 on
+  // both `/subjects` and `/teachers` server-side, so waiting on them would
+  // permanently break this page for every family. Their `?? id` fallbacks
+  // below cover the gap, though subject/teacher names still render as raw
+  // ids for families until the server exposes them or the permission opens.
   const pending = [
     routinesQuery,
     resolveQuery,
-    subjectsQuery,
     roomsQuery,
-    teachersQuery,
     periodLookupQuery,
     calendarSettingsQuery,
     calendarEventsQuery,
