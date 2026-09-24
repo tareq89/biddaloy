@@ -1,0 +1,257 @@
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { HomeworkAssignmentStatus } from '@biddaloy/shared';
+import { Homework } from './entities/homework.entity';
+import { HomeworkAssignment } from './entities/homework-assignment.entity';
+import { HomeworkAccessService } from './homework-access.service';
+import {
+  AssignHomeworkDto,
+  CreateHomeworkDto,
+  QueryHomeworkDto,
+  UpdateHomeworkAssignmentDto,
+} from './dto/homework.dto';
+
+interface CallerContext {
+  role: string;
+  userId: string;
+  tenantId: string;
+}
+
+/**
+ * [22.3.1] Homework CRUD + assign/reassign. `HomeworkAccessService` is the
+ * object-level gate on every mutating call — `@RequirePermissions` on the
+ * controller is only the coarse "may attempt this at all" gate.
+ */
+@Injectable()
+export class HomeworkService {
+  constructor(
+    @InjectRepository(Homework)
+    private readonly homeworkRepo: Repository<Homework>,
+    @InjectRepository(HomeworkAssignment)
+    private readonly assignmentRepo: Repository<HomeworkAssignment>,
+    private readonly access: HomeworkAccessService,
+  ) {}
+
+  async create(dto: CreateHomeworkDto, ctx: CallerContext): Promise<Homework> {
+    // Creation is scoped to a class/subject, not a section/student yet, so
+    // the access check here is the class-teacher-or-tenant-role variant:
+    // reuse assertCanManageSection with a null section check via the class's
+    // own sections would over-fetch — instead a TEACHER must have SOME
+    // TeacherClassSection row for this class_id/subject_id pair.
+    await this.access.assertCanManageClass(
+      ctx.role,
+      ctx.userId,
+      dto.class_id,
+      dto.subject_id,
+      ctx.tenantId,
+    );
+
+    const homework = this.homeworkRepo.create({
+      subject_id: dto.subject_id,
+      class_id: dto.class_id,
+      title: dto.title,
+      description: dto.description ?? null,
+      grading_mode: dto.grading_mode,
+      attachments: dto.attachments ?? [],
+      tenant_id: ctx.tenantId,
+    });
+    return this.homeworkRepo.save(homework);
+  }
+
+  async findAll(query: QueryHomeworkDto, ctx: CallerContext): Promise<Homework[]> {
+    const qb = this.homeworkRepo
+      .createQueryBuilder('h')
+      .where('h.tenant_id = :tenantId', { tenantId: ctx.tenantId });
+
+    if (query.class_id) {
+      qb.andWhere('h.class_id = :classId', { classId: query.class_id });
+    }
+    if (query.subject_id) {
+      qb.andWhere('h.subject_id = :subjectId', { subjectId: query.subject_id });
+    }
+    if (query.section_id || query.status) {
+      qb.innerJoin('homework_assignments', 'ha', 'ha.homework_id = h.id');
+      if (query.section_id) {
+        qb.andWhere('ha.section_id = :sectionId', { sectionId: query.section_id });
+      }
+      if (query.status) {
+        qb.andWhere('ha.status = :status', { status: query.status });
+      }
+    }
+
+    // Same object-level gate as mutations: TENANT_WIDE_ROLES see everything
+    // in tenant, a TEACHER only sees homework for classes they're linked to
+    // via teacher_class_sections (any section, any subject they teach).
+    if (!this.access.isTenantWide(ctx.role)) {
+      qb.innerJoin(
+        'teacher_class_sections',
+        'tcs',
+        'tcs.tenant_id = :tenantId AND tcs.section_id IN ' +
+          '(SELECT id FROM class_sections WHERE class_id = h.class_id AND tenant_id = :tenantId) ' +
+          'AND (tcs.subject_id IS NULL OR tcs.subject_id = h.subject_id)',
+      );
+      qb.innerJoin(
+        'teachers',
+        't',
+        't.id = tcs.teacher_id AND t.tenant_id = :tenantId AND t.user_id = :userId',
+        { userId: ctx.userId },
+      );
+    }
+
+    return qb.orderBy('h.created_at', 'DESC').getMany();
+  }
+
+  async findOne(id: string, ctx: CallerContext): Promise<Homework> {
+    const homework = await this.homeworkRepo.findOne({
+      where: { id, tenant_id: ctx.tenantId },
+    });
+    if (!homework) {
+      throw new NotFoundException('Homework not found');
+    }
+    await this.access.assertCanManageClass(
+      ctx.role,
+      ctx.userId,
+      homework.class_id,
+      homework.subject_id,
+      ctx.tenantId,
+    );
+    return homework;
+  }
+
+  async assign(
+    homeworkId: string,
+    dto: AssignHomeworkDto,
+    ctx: CallerContext,
+  ): Promise<HomeworkAssignment> {
+    const homework = await this.findOne(homeworkId, ctx);
+
+    // D24: exactly one of section_id/student_id. DTO's ValidateIf covers the
+    // "both missing" and "both present" shapes are still worth a defensive
+    // check here since the DB CHECK constraint firing would be a 500, not a
+    // clean 400.
+    if (!!dto.section_id === !!dto.student_id) {
+      throw new BadRequestException('Assign exactly one of section_id or student_id');
+    }
+
+    if (dto.section_id) {
+      await this.access.assertCanManageSection(
+        ctx.role,
+        ctx.userId,
+        dto.section_id,
+        homework.subject_id,
+        ctx.tenantId,
+      );
+    } else {
+      await this.access.assertCanManageStudent(
+        ctx.role,
+        ctx.userId,
+        dto.student_id as string,
+        homework.subject_id,
+        ctx.tenantId,
+      );
+    }
+
+    const assignment = this.assignmentRepo.create({
+      homework_id: homework.id,
+      section_id: dto.section_id ?? null,
+      student_id: dto.student_id ?? null,
+      assigned_date: dto.assigned_date,
+      due_date: dto.due_date,
+      status: HomeworkAssignmentStatus.ACTIVE,
+      tenant_id: ctx.tenantId,
+    });
+    return this.assignmentRepo.save(assignment);
+  }
+
+  /** D20 — reassignment always creates a new row rather than mutating the
+   * old one. The old row is marked SUPERSEDED (shared/src/enums/homework.ts),
+   * not left ACTIVE, so it stops showing up as a live assignment. */
+  async reassign(
+    assignmentId: string,
+    dto: AssignHomeworkDto,
+    ctx: CallerContext,
+  ): Promise<HomeworkAssignment> {
+    const old = await this.assignmentRepo.findOne({
+      where: { id: assignmentId, tenant_id: ctx.tenantId },
+    });
+    if (!old) {
+      throw new NotFoundException('Homework assignment not found');
+    }
+    const homework = await this.findOne(old.homework_id, ctx);
+
+    if (!!dto.section_id === !!dto.student_id) {
+      throw new BadRequestException('Assign exactly one of section_id or student_id');
+    }
+
+    if (dto.section_id) {
+      await this.access.assertCanManageSection(
+        ctx.role,
+        ctx.userId,
+        dto.section_id,
+        homework.subject_id,
+        ctx.tenantId,
+      );
+    } else {
+      await this.access.assertCanManageStudent(
+        ctx.role,
+        ctx.userId,
+        dto.student_id as string,
+        homework.subject_id,
+        ctx.tenantId,
+      );
+    }
+
+    const created = this.assignmentRepo.create({
+      homework_id: old.homework_id,
+      section_id: dto.section_id ?? null,
+      student_id: dto.student_id ?? null,
+      assigned_date: dto.assigned_date,
+      due_date: dto.due_date,
+      status: HomeworkAssignmentStatus.ACTIVE,
+      tenant_id: ctx.tenantId,
+    });
+    const saved = await this.assignmentRepo.save(created);
+
+    old.status = HomeworkAssignmentStatus.SUPERSEDED;
+    await this.assignmentRepo.save(old);
+
+    return saved;
+  }
+
+  /** `PATCH /homework-assignments/:id` — deactivate/reactivate only (Q10 D22). */
+  async updateAssignment(
+    assignmentId: string,
+    dto: UpdateHomeworkAssignmentDto,
+    ctx: CallerContext,
+  ): Promise<HomeworkAssignment> {
+    const assignment = await this.assignmentRepo.findOne({
+      where: { id: assignmentId, tenant_id: ctx.tenantId },
+    });
+    if (!assignment) {
+      throw new NotFoundException('Homework assignment not found');
+    }
+    const homework = await this.findOne(assignment.homework_id, ctx);
+
+    if (assignment.section_id) {
+      await this.access.assertCanManageSection(
+        ctx.role,
+        ctx.userId,
+        assignment.section_id,
+        homework.subject_id,
+        ctx.tenantId,
+      );
+    } else {
+      await this.access.assertCanManageStudent(
+        ctx.role,
+        ctx.userId,
+        assignment.student_id as string,
+        homework.subject_id,
+        ctx.tenantId,
+      );
+    }
+
+    assignment.status = dto.status;
+    return this.assignmentRepo.save(assignment);
+  }
+}
