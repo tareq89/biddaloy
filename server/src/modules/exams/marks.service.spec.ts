@@ -13,6 +13,7 @@ import { ExamComponent } from './entities/exam-component.entity';
 import { MarkGrid } from './entities/mark-grid.entity';
 import { Exam } from './entities/exam.entity';
 import { Student } from '../students/entities/student.entity';
+import { Enrollment } from '../students/entities/enrollment.entity';
 import { MarksAuthorizationService } from './marks-authorization.util';
 import { ResultsService } from './results.service';
 import { AuditService } from '../audit/audit.service';
@@ -80,7 +81,13 @@ async function buildService(
     ),
   };
   const examRepo: any = {
-    findOne: vi.fn(async () => ({ id: EXAM_ID, tenant_id: TENANT_ID, status: examStatus })),
+    findOne: vi.fn(async () => ({
+      id: EXAM_ID,
+      tenant_id: TENANT_ID,
+      class_id: 'class-1',
+      academic_year_id: 'year-1',
+      status: examStatus,
+    })),
   };
   // lockGrid's locked re-read: the existing row, or the DRAFT row it just
   // inserted for a never-touched grid.
@@ -107,8 +114,14 @@ async function buildService(
 
   const componentRepo: any = { find: vi.fn(async () => components) };
   const studentIds = ['stu-1', 'stu-2'];
-  const studentRepo: any = {
-    count: vi.fn(async ({ where }: any) => enrolledCount ?? (where.id.value as string[]).length),
+  const studentRepo: any = {};
+  // D17: the "student belongs to this section" IDOR guard now checks
+  // Enrollment (exam's year/class/section, ACTIVE), not
+  // Student.class_section_id.
+  const enrollmentRepo: any = {
+    count: vi.fn(
+      async ({ where }: any) => enrolledCount ?? (where.student_id.value as string[]).length,
+    ),
   };
   const authz = { assertCanWrite: vi.fn(async () => undefined) };
   const resultsService = { recomputeIfProcessed: vi.fn(async () => undefined) };
@@ -122,6 +135,7 @@ async function buildService(
       { provide: getRepositoryToken(MarkGrid), useValue: gridRepo },
       { provide: getRepositoryToken(Exam), useValue: examRepo },
       { provide: getRepositoryToken(Student), useValue: studentRepo },
+      { provide: getRepositoryToken(Enrollment), useValue: enrollmentRepo },
       { provide: MarksAuthorizationService, useValue: authz },
       { provide: ResultsService, useValue: resultsService },
       { provide: AuditService, useValue: auditService },
@@ -136,6 +150,7 @@ async function buildService(
     gridRepo,
     examRepo,
     studentRepo,
+    enrollmentRepo,
     authz,
     auditService,
     studentIds,

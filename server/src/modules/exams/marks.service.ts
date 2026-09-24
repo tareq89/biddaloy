@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In, QueryFailedError } from 'typeorm';
 import {
   AuditAction,
+  EnrollmentStatus,
   ExamComponentSource,
   ExamStatus,
   MarkGridState,
@@ -17,6 +18,7 @@ import { Exam } from './entities/exam.entity';
 import { Mark } from './entities/mark.entity';
 import { ExamComponent } from './entities/exam-component.entity';
 import { Student } from '../students/entities/student.entity';
+import { Enrollment } from '../students/entities/enrollment.entity';
 import { BatchMarksDto } from './dto/marks.dto';
 import { MarksAuthorizationService } from './marks-authorization.util';
 import { ResultsService, lockExam } from './results.service';
@@ -57,6 +59,8 @@ export class MarksService {
     private readonly examRepo: Repository<Exam>,
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
+    @InjectRepository(Enrollment)
+    private readonly enrollmentRepo: Repository<Enrollment>,
     private readonly authz: MarksAuthorizationService,
     private readonly resultsService: ResultsService,
     private readonly auditService: AuditService,
@@ -109,12 +113,23 @@ export class MarksService {
       throw new BadRequestException('One or more components were not found for this exam-subject.');
     }
 
-    // IDOR guard: every student must be enrolled in this tenant's section
-    // — a Mark row has no FK back to a section, so nothing else stops a
-    // cell from naming a student who was never on this grid.
+    // IDOR guard: every student must hold an ACTIVE enrollment for this
+    // exam's own (academic_year_id, class_id) with section_id = this grid's
+    // section — a Mark row has no FK back to a section, so nothing else
+    // stops a cell from naming a student who was never on this grid. D17:
+    // this checks `Enrollment`, not `Student.class_section_id` — the
+    // latter is the student's CURRENT placement and drifts away from an
+    // old exam's year/class after promotion.
     const studentIds = [...new Set(dto.cells.map((c) => c.student_id))];
-    const enrolledCount = await this.studentRepo.count({
-      where: { id: In(studentIds), tenant_id: tenantId, class_section_id: dto.section_id },
+    const enrolledCount = await this.enrollmentRepo.count({
+      where: {
+        student_id: In(studentIds),
+        tenant_id: tenantId,
+        academic_year_id: exam.academic_year_id,
+        class_id: exam.class_id,
+        section_id: dto.section_id,
+        enrollment_status: EnrollmentStatus.ACTIVE,
+      },
     });
     if (enrolledCount !== studentIds.length) {
       throw new BadRequestException('One or more students are not enrolled in this section.');

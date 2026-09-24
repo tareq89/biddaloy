@@ -14,9 +14,9 @@ import { ResultSubject } from './entities/result-subject.entity';
 import { Mark } from './entities/mark.entity';
 import { ExamComponent } from './entities/exam-component.entity';
 import { ClassSubject } from '../academics/entities/class-subject.entity';
-import { ClassSection } from '../academics/entities/class-section.entity';
 import { Subject } from '../academics/entities/subject.entity';
 import { Student } from '../students/entities/student.entity';
+import { Enrollment } from '../students/entities/enrollment.entity';
 import { StudentSubjectChoice } from '../students/entities/student-subject-choice.entity';
 import { GradingScale } from '../grading/entities/grading-scale.entity';
 import { School } from '../schools/entities/school.entity';
@@ -103,12 +103,12 @@ export class ResultsService {
     private readonly componentRepo: Repository<ExamComponent>,
     @InjectRepository(ClassSubject)
     private readonly classSubjectRepo: Repository<ClassSubject>,
-    @InjectRepository(ClassSection)
-    private readonly sectionRepo: Repository<ClassSection>,
     @InjectRepository(Subject)
     private readonly subjectRepo: Repository<Subject>,
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
+    @InjectRepository(Enrollment)
+    private readonly enrollmentRepo: Repository<Enrollment>,
     @InjectRepository(StudentSubjectChoice)
     private readonly choiceRepo: Repository<StudentSubjectChoice>,
     @InjectRepository(GradingScale)
@@ -173,18 +173,30 @@ export class ResultsService {
     });
     const bands = bandRows.map((b) => this.toRuleBand(b));
 
-    const sections = await this.sectionRepo.find({
-      where: { class_id: exam.class_id, tenant_id: tenantId, deleted_at: IsNull() },
-    });
-    const students = await this.studentRepo.find({
+    // D17: the exam's cohort is whoever holds an ACTIVE enrollment for its
+    // own (academic_year_id, class_id) — not `Student.class_section_id`,
+    // which is the student's CURRENT placement and drifts away from an old
+    // exam's year/class after promotion. Reprocessing an old exam must keep
+    // finding the same students it was processed for originally.
+    const enrollments = await this.enrollmentRepo.find({
       where: {
-        class_section_id: In(sections.map((s) => s.id)),
         tenant_id: tenantId,
-        deleted_at: IsNull(),
+        academic_year_id: exam.academic_year_id,
+        class_id: exam.class_id,
         enrollment_status: EnrollmentStatus.ACTIVE,
       },
     });
-    const sectionByStudent = new Map(students.map((s) => [s.id, s.class_section_id]));
+    const students =
+      enrollments.length === 0
+        ? []
+        : await this.studentRepo.find({
+            where: {
+              id: In(enrollments.map((e) => e.student_id)),
+              tenant_id: tenantId,
+              deleted_at: IsNull(),
+            },
+          });
+    const sectionByStudent = new Map(enrollments.map((e) => [e.student_id, e.section_id]));
 
     const classSubjects = await this.classSubjectRepo.find({
       where: {
@@ -195,13 +207,16 @@ export class ResultsService {
       },
     });
 
-    const choices = await this.choiceRepo.find({
-      where: {
-        student_id: In(students.map((s) => s.id)),
-        academic_year_id: exam.academic_year_id,
-        tenant_id: tenantId,
-      },
-    });
+    const choices =
+      students.length === 0
+        ? []
+        : await this.choiceRepo.find({
+            where: {
+              student_id: In(students.map((s) => s.id)),
+              academic_year_id: exam.academic_year_id,
+              tenant_id: tenantId,
+            },
+          });
     const choiceByStudentAndSubject = new Map(
       choices.map((c) => [`${c.student_id}:${c.class_subject_id}`, c]),
     );

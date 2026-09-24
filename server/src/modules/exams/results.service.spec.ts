@@ -9,8 +9,8 @@ import { ResultSubject } from './entities/result-subject.entity';
 import { Mark } from './entities/mark.entity';
 import { ExamComponent } from './entities/exam-component.entity';
 import { ClassSubject } from '../academics/entities/class-subject.entity';
-import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
+import { Enrollment } from '../students/entities/enrollment.entity';
 import { StudentSubjectChoice } from '../students/entities/student-subject-choice.entity';
 import { GradingScale } from '../grading/entities/grading-scale.entity';
 import { GradingBand } from '../grading/entities/grading-band.entity';
@@ -114,6 +114,17 @@ function makeRepos(overrides: Record<string, any> = {}) {
         ])[0],
     ),
   };
+  // D17: computeAll's cohort comes from Enrollment (tenant_id,
+  // academic_year_id, class_id, ACTIVE), not from studentRepo directly.
+  const enrollmentRepo: any = {
+    find: vi.fn(
+      async () =>
+        overrides.enrollments ?? [
+          { student_id: 'stu-1', section_id: SECTION_ID },
+          { student_id: 'stu-2', section_id: SECTION_ID },
+        ],
+    ),
+  };
   const classSubjectRepo: any = {
     find: vi.fn(
       async () =>
@@ -201,6 +212,7 @@ function makeRepos(overrides: Record<string, any> = {}) {
     resultSubjectRepo,
     sectionRepo,
     studentRepo,
+    enrollmentRepo,
     classSubjectRepo,
     choiceRepo,
     componentRepo,
@@ -227,8 +239,8 @@ async function buildService(overrides: Record<string, any> = {}) {
       { provide: getRepositoryToken(Mark), useValue: repos.markRepo },
       { provide: getRepositoryToken(ExamComponent), useValue: repos.componentRepo },
       { provide: getRepositoryToken(ClassSubject), useValue: repos.classSubjectRepo },
-      { provide: getRepositoryToken(ClassSection), useValue: repos.sectionRepo },
       { provide: getRepositoryToken(Student), useValue: repos.studentRepo },
+      { provide: getRepositoryToken(Enrollment), useValue: repos.enrollmentRepo },
       { provide: getRepositoryToken(StudentSubjectChoice), useValue: repos.choiceRepo },
       { provide: getRepositoryToken(GradingScale), useValue: repos.scaleRepo },
       { provide: getRepositoryToken(GradingBand), useValue: repos.bandRepo },
