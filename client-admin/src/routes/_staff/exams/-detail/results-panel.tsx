@@ -40,12 +40,14 @@ export function ResultsPanel({ examId, examStatus }: ResultsPanelProps) {
   const sorted = [...filtered].sort((a, b) => {
     const av = a[sortColumn];
     const bv = b[sortColumn];
-    let cmp: number;
-    if (av === null) cmp = bv === null ? 0 : 1;
-    else if (bv === null) cmp = -1;
-    else if (typeof av === 'string' || typeof bv === 'string')
-      cmp = String(av).localeCompare(String(bv));
-    else cmp = av - bv;
+    // Rows with no value (e.g. no position yet) sort last in BOTH
+    // directions — only real values flip when the order is reversed.
+    if (av === null) return bv === null ? 0 : 1;
+    if (bv === null) return -1;
+    const cmp =
+      typeof av === 'string' || typeof bv === 'string'
+        ? String(av).localeCompare(String(bv))
+        : av - bv;
     return sortDesc ? -cmp : cmp;
   });
 

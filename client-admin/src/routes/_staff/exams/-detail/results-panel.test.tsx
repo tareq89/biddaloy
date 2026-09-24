@@ -161,6 +161,33 @@ describe('exams/$examId Results tab', () => {
     expect(screen.getAllByRole('cell', { name: '—' })).toHaveLength(2);
   });
 
+  it('keeps unranked students last when position is sorted descending', async () => {
+    const unranked = {
+      ...ROWS[0]!,
+      student_id: 'stu-4',
+      full_name: 'Unranked One',
+      position: null,
+    };
+    server.use(
+      http.get('/api/v1/exams/:id', () => HttpResponse.json(mockExam())),
+      http.get('/api/v1/exams/:examId/results', () => HttpResponse.json([unranked, ...ROWS])),
+    );
+    renderResultsTab();
+
+    await screen.findByRole('link', { name: /Amina Khatun/ });
+    const user = userEvent.setup();
+    // Position is the default (ascending) sort — one click flips it.
+    await user.click(screen.getByRole('button', { name: 'Position' }));
+    expect(screen.getByRole('columnheader', { name: 'Position' }).getAttribute('aria-sort')).toBe(
+      'descending',
+    );
+
+    const names = namesInOrder();
+    // Ranked rows reverse (rank 2 before rank 1); "no rank yet" stays at the bottom.
+    expect(names[names.length - 2]).toContain('Amina Khatun');
+    expect(names[names.length - 1]).toContain('Unranked One');
+  });
+
   it('flips to descending when the same header is clicked twice', async () => {
     server.use(
       http.get('/api/v1/exams/:id', () => HttpResponse.json(mockExam())),
