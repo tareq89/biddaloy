@@ -198,7 +198,7 @@ export function SchedulePanel({ examId, classId, academicYearId }: SchedulePanel
       {warnings.length > 0 && (
         <div
           role="alert"
-          className="rounded-md border border-amber-400 bg-amber-50 p-3 text-sm text-amber-900"
+          className="rounded-md border border-status-due-fg bg-status-due-bg p-3 text-sm text-status-due-fg"
         >
           {warnings.map((w, i) => (
             <p key={i}>{w}</p>
