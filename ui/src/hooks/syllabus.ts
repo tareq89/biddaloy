@@ -12,6 +12,8 @@ export interface SyllabusTopic {
   id: string;
   class_id: string;
   subject_id: string;
+  subject_name_en: string | null;
+  subject_name_bn: string | null;
   name: string;
   description: string | null;
   sequence: number;
@@ -61,8 +63,11 @@ export function syllabusTopicListQueryOptions(filters: SyllabusTopicListFilters 
   });
 }
 
-export function useSyllabusTopicList(filters: SyllabusTopicListFilters = {}) {
-  return useQuery(syllabusTopicListQueryOptions(filters));
+export function useSyllabusTopicList(
+  filters: SyllabusTopicListFilters = {},
+  options: { enabled?: boolean } = {},
+) {
+  return useQuery({ ...syllabusTopicListQueryOptions(filters), enabled: options.enabled ?? true });
 }
 
 export function useCreateSyllabusTopic() {

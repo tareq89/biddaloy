@@ -88,7 +88,7 @@ export class SyllabusService {
     const where: Record<string, unknown> = { tenant_id: tenantId };
     if (classId) where.class_id = classId;
     if (subjectId) where.subject_id = subjectId;
-    return this.repo.find({ where, order: { sequence: 'ASC' } });
+    return this.repo.find({ where, order: { sequence: 'ASC' }, relations: { subject: true } });
   }
 
   async findOne(id: string, tenantId: string): Promise<SyllabusTopic> {

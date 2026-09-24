@@ -348,6 +348,11 @@
       "archetype": "list"
     },
     {
+      "path": "/portal/syllabus",
+      "role": "parent",
+      "archetype": "list"
+    },
+    {
       "path": "/portal/account",
       "role": "parent",
       "archetype": "form"
