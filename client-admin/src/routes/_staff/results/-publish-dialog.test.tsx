@@ -84,6 +84,81 @@ describe('PublishDialog', () => {
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
     expect(called).toBe(true);
   });
+  it('shows an error message when publishing fails, and keeps the dialog open', async () => {
+    server.use(
+      http.post('/api/v1/exams/exam-1/results/publish', () =>
+        HttpResponse.json(
+          apiErrorBody(409, 'Results are not processed', '/exams/exam-1/results/publish'),
+          { status: 409 },
+        ),
+      ),
+    );
+    const onOpenChange = vi.fn();
+    const user = userEvent.setup();
+    await renderWithProviders(
+      <PublishDialog open onOpenChange={onOpenChange} examId="exam-1" resultCount={5} />,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Publish' }));
+
+    expect(await screen.findByText("Couldn't publish these results.")).toBeTruthy();
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it('clears the previous error when the dialog is cancelled', async () => {
+    server.use(
+      http.post('/api/v1/exams/exam-1/results/publish', () =>
+        HttpResponse.json(
+          apiErrorBody(409, 'Results are not processed', '/exams/exam-1/results/publish'),
+          { status: 409 },
+        ),
+      ),
+    );
+    const onOpenChange = vi.fn();
+    const user = userEvent.setup();
+    await renderWithProviders(
+      <PublishDialog open onOpenChange={onOpenChange} examId="exam-1" resultCount={5} />,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Publish' }));
+    await screen.findByText("Couldn't publish these results.");
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    // `open` is still true here (the parent owns it), so the dialog stays
+    // mounted — proving the error line is gone because of `reset()`.
+    await waitFor(() => expect(screen.queryByText("Couldn't publish these results.")).toBeNull());
+  });
+
+  it('ignores Cancel while the publish request is still in flight', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.post('/api/v1/exams/exam-1/results/publish', async () => {
+        await gate;
+        return HttpResponse.json({ published: true });
+      }),
+    );
+    const onOpenChange = vi.fn();
+    const user = userEvent.setup();
+    await renderWithProviders(
+      <PublishDialog open onOpenChange={onOpenChange} examId="exam-1" resultCount={5} />,
+    );
+
+    const publishButton = await screen.findByRole('button', { name: 'Publish' });
+    await user.click(publishButton);
+    await waitFor(() => expect(publishButton.getAttribute('aria-busy')).toBe('true'));
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(onOpenChange).not.toHaveBeenCalled();
+
+    // Once the request finishes, the success handler closes the dialog.
+    release();
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+  });
 });
 
 describe('ReopenPreviewDialog', () => {
@@ -147,5 +222,61 @@ describe('ReopenPreviewDialog', () => {
 
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
     expect(attempt).toBe(2);
+  });
+
+  it('shows an error message when reopening fails for a reason other than approval', async () => {
+    server.use(
+      http.post('/api/v1/exams/exam-1/results/reopen', () =>
+        HttpResponse.json(
+          apiErrorBody(409, 'Results are not published', '/exams/exam-1/results/reopen'),
+          { status: 409 },
+        ),
+      ),
+    );
+    const onOpenChange = vi.fn();
+    const user = userEvent.setup();
+    await renderWithProviders(
+      <ReopenPreviewDialog open onOpenChange={onOpenChange} examId="exam-1" resultCount={3} />,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Reopen' }));
+
+    expect(await screen.findByText("Couldn't reopen this exam.")).toBeTruthy();
+    // A plain 409 never opens the approval modal.
+    expect(screen.queryByLabelText('Email or phone')).toBeNull();
+    expect(onOpenChange).not.toHaveBeenCalled();
+
+    // Cancelling closes the dialog and wipes the stale error.
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    await waitFor(() => expect(screen.queryByText("Couldn't reopen this exam.")).toBeNull());
+  });
+
+  it('ignores Cancel while the reopen request is still in flight', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.post('/api/v1/exams/exam-1/results/reopen', async () => {
+        await gate;
+        return HttpResponse.json({ reopened: true });
+      }),
+    );
+    const onOpenChange = vi.fn();
+    const user = userEvent.setup();
+    await renderWithProviders(
+      <ReopenPreviewDialog open onOpenChange={onOpenChange} examId="exam-1" resultCount={3} />,
+    );
+
+    const reopenButton = await screen.findByRole('button', { name: 'Reopen' });
+    await user.click(reopenButton);
+    await waitFor(() => expect(reopenButton.getAttribute('aria-busy')).toBe('true'));
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(onOpenChange).not.toHaveBeenCalled();
+
+    release();
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
   });
 });
