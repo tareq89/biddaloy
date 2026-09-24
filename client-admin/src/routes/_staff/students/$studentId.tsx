@@ -17,6 +17,7 @@ import { DeleteStudentDialog } from './-detail/delete-student-dialog';
 import { EnrollmentTab } from './-detail/enrollment-tab';
 import { FeesTab } from './-detail/fees-tab';
 import { GuardiansTab } from './-detail/guardians-tab';
+import { HomeworkTab } from './-detail/homework-tab';
 import { InvoicesTab } from './-detail/invoices-tab';
 import { OverviewTab } from './-detail/overview-tab';
 import { PaymentsTab } from './-detail/payments-tab';
@@ -74,6 +75,7 @@ const TAB_IDS = [
   'communication',
   'activity',
   'attendance',
+  'homework',
 ] as const;
 
 function StudentDetailPage() {
@@ -231,6 +233,11 @@ function StudentDetailPage() {
                   id: 'attendance',
                   label: t('detail.tabs.attendance'),
                   content: <AttendanceTab studentId={studentId} />,
+                },
+                {
+                  id: 'homework',
+                  label: t('detail.tabs.homework'),
+                  content: <HomeworkTab studentId={studentId} />,
                 },
               ]}
             />
