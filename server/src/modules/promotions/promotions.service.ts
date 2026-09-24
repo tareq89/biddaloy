@@ -518,14 +518,22 @@ export class PromotionsService {
     studentRepo: Repository<Student>,
   ): Promise<Map<string, number>> {
     if (sectionIds.length === 0) return new Map();
-    const occupants = await studentRepo.find({
-      where: { class_section_id: In(sectionIds), tenant_id: tenantId },
-    });
-    const counts = new Map<string, number>();
-    for (const occupant of occupants) {
-      counts.set(occupant.class_section_id, (counts.get(occupant.class_section_id) ?? 0) + 1);
-    }
-    return counts;
+    // Only ACTIVE, non-soft-deleted students actually hold a seat —
+    // `class_section_id` is never cleared on soft-delete or on a
+    // TRANSFERRED/GRADUATED/INACTIVE status change, so counting every row
+    // would over-count and could wrongly reject a placement as OVER_CAPACITY.
+    // A grouped COUNT avoids hydrating full Student rows just to tally them.
+    const rows: Array<{ class_section_id: string; count: string }> = await studentRepo
+      .createQueryBuilder('student')
+      .select('student.class_section_id', 'class_section_id')
+      .addSelect('COUNT(*)', 'count')
+      .where('student.class_section_id IN (:...sectionIds)', { sectionIds })
+      .andWhere('student.tenant_id = :tenantId', { tenantId })
+      .andWhere('student.enrollment_status = :status', { status: EnrollmentStatus.ACTIVE })
+      .andWhere('student.deleted_at IS NULL')
+      .groupBy('student.class_section_id')
+      .getRawMany();
+    return new Map(rows.map((r) => [r.class_section_id, Number(r.count)]));
   }
 
   private async loadTargetSections(
