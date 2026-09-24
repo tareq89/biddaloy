@@ -4,7 +4,7 @@ import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
 
 import type { ClassSectionWithCount } from './classes';
-import { useClasses } from './classes';
+import { classesQueryOptions } from './classes';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
@@ -689,15 +689,21 @@ export interface PeriodSlotLookupEntry {
 }
 
 export function usePeriodSlotLookup() {
-  const shiftsQuery = useShifts();
-  const shifts = shiftsQuery.data?.data ?? [];
+  const queryClient = useQueryClient();
   return useQuery({
-    queryKey: ['routine-period-slot-lookup', shifts.map((shift) => shift.id)],
-    queryFn: async () => {
+    queryKey: ['routine-period-slot-lookup'],
+    // [21.9.1] Fetches shifts through `queryClient.fetchQuery` on the
+    // shared `shiftsQueryOptions` (cache-sharing, throws on error) rather
+    // than gating on `useShifts().isSuccess` — that left this query stuck
+    // `isPending` forever if the shift fetch ever failed, since a
+    // `enabled: false` query never becomes `isError`. Callers that check
+    // isPending/isError (my.tsx, portal/routine.tsx) need the real state.
+    queryFn: async ({ signal }) => {
+      const shifts = (await queryClient.fetchQuery(shiftsQueryOptions())).data;
       const lists = await Promise.all(
         shifts.map((shift) =>
           apiClient
-            .get<PeriodSlot[]>(`/routines/shifts/${shift.id}/period-slots`)
+            .get<PeriodSlot[]>(`/routines/shifts/${shift.id}/period-slots`, { signal })
             .then((res) => res.data),
         ),
       );
@@ -715,7 +721,6 @@ export function usePeriodSlotLookup() {
       }
       return map;
     },
-    enabled: shiftsQuery.isSuccess,
     retry: shouldRetryQuery,
   });
 }
@@ -730,15 +735,17 @@ export interface SectionLookupEntry {
 }
 
 export function useSectionLookup() {
-  const classesQuery = useClasses();
-  const classes = classesQuery.data?.data ?? [];
+  const queryClient = useQueryClient();
   return useQuery({
-    queryKey: ['routine-section-lookup', classes.map((klass) => klass.id)],
-    queryFn: async () => {
+    queryKey: ['routine-section-lookup'],
+    // Same isPending-forever-on-parent-failure fix as usePeriodSlotLookup
+    // above.
+    queryFn: async ({ signal }) => {
+      const classes = (await queryClient.fetchQuery(classesQueryOptions())).data;
       const lists = await Promise.all(
         classes.map((klass) =>
           apiClient
-            .get<ClassSectionWithCount[]>(`/classes/${klass.id}/sections`)
+            .get<ClassSectionWithCount[]>(`/classes/${klass.id}/sections`, { signal })
             .then((res) => res.data.map((section) => ({ section, className: klass.name }))),
         ),
       );
@@ -750,7 +757,6 @@ export function useSectionLookup() {
       }
       return map;
     },
-    enabled: classesQuery.isSuccess,
     retry: shouldRetryQuery,
   });
 }
