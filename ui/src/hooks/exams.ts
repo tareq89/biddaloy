@@ -143,34 +143,42 @@ export function useExamComponentsAll(examId: string | undefined) {
   return useQuery(examComponentsAllQueryOptions(examId));
 }
 
-export function useCreateExamComponent(examId: string, subjectId: string | undefined) {
+// [pr-fix #945] All three mutations below invalidate the exam-level
+// prefix ([...examKeys.all, 'components', examId]) rather than
+// examComponentsKey(examId, subjectId) — examComponentsAllQueryOptions
+// (the CopyComponentsDialog preview) is keyed with subjectId `undefined`,
+// which TanStack Query's prefix matching would otherwise never touch when
+// subjectId is defined here. subjectId params are kept for API stability
+// even though these three no longer read them.
+
+export function useCreateExamComponent(examId: string, _subjectId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: CreateExamComponentInput) =>
       (await apiClient.post<ExamComponent>(`/exams/${examId}/components`, input)).data,
     onSuccess: () =>
-      void queryClient.invalidateQueries({ queryKey: examComponentsKey(examId, subjectId) }),
+      void queryClient.invalidateQueries({ queryKey: [...examKeys.all, 'components', examId] }),
   });
 }
 
-export function useUpdateExamComponent(examId: string, subjectId: string | undefined) {
+export function useUpdateExamComponent(examId: string, _subjectId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, input }: { id: string; input: UpdateExamComponentInput }) =>
       (await apiClient.patch<ExamComponent>(`/exams/${examId}/components/${id}`, input)).data,
     onSuccess: () =>
-      void queryClient.invalidateQueries({ queryKey: examComponentsKey(examId, subjectId) }),
+      void queryClient.invalidateQueries({ queryKey: [...examKeys.all, 'components', examId] }),
   });
 }
 
-export function useDeleteExamComponent(examId: string, subjectId: string | undefined) {
+export function useDeleteExamComponent(examId: string, _subjectId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
       await apiClient.delete(`/exams/${examId}/components/${id}`);
     },
     onSuccess: () =>
-      void queryClient.invalidateQueries({ queryKey: examComponentsKey(examId, subjectId) }),
+      void queryClient.invalidateQueries({ queryKey: [...examKeys.all, 'components', examId] }),
   });
 }
 
