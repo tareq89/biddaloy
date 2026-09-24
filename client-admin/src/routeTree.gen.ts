@@ -29,7 +29,9 @@ import { Route as PortalIndexRouteImport } from './routes/portal/index'
 import { Route as PortalAccountRouteImport } from './routes/portal/account'
 import { Route as PortalAttendanceRouteImport } from './routes/portal/attendance'
 import { Route as PortalCalendarRouteImport } from './routes/portal/calendar'
+import { Route as PortalExamScheduleRouteImport } from './routes/portal/exam-schedule'
 import { Route as PortalFeesRouteImport } from './routes/portal/fees'
+import { Route as PortalResultsRouteImport } from './routes/portal/results'
 import { Route as PlatformHolidaySetsIndexRouteImport } from './routes/_platform/holiday-sets/index'
 import { Route as PlatformHolidaySetsSetIdRouteImport } from './routes/_platform/holiday-sets/$setId'
 import { Route as PlatformSchoolsIndexRouteImport } from './routes/_platform/schools/index'
@@ -178,9 +180,19 @@ const PortalCalendarRoute = PortalCalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => PortalRoute,
 } as any)
+const PortalExamScheduleRoute = PortalExamScheduleRouteImport.update({
+  id: '/exam-schedule',
+  path: '/exam-schedule',
+  getParentRoute: () => PortalRoute,
+} as any)
 const PortalFeesRoute = PortalFeesRouteImport.update({
   id: '/fees',
   path: '/fees',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalResultsRoute = PortalResultsRouteImport.update({
+  id: '/results',
+  path: '/results',
   getParentRoute: () => PortalRoute,
 } as any)
 const PlatformHolidaySetsIndexRoute =
@@ -459,7 +471,9 @@ export interface FileRoutesByFullPath {
   '/portal/account': typeof PortalAccountRoute
   '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/calendar': typeof PortalCalendarRoute
+  '/portal/exam-schedule': typeof PortalExamScheduleRoute
   '/portal/fees': typeof PortalFeesRoute
+  '/portal/results': typeof PortalResultsRoute
   '/portal/': typeof PortalIndexRoute
   '/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
   '/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
@@ -527,7 +541,9 @@ export interface FileRoutesByTo {
   '/portal/account': typeof PortalAccountRoute
   '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/calendar': typeof PortalCalendarRoute
+  '/portal/exam-schedule': typeof PortalExamScheduleRoute
   '/portal/fees': typeof PortalFeesRoute
+  '/portal/results': typeof PortalResultsRoute
   '/portal': typeof PortalIndexRoute
   '/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
   '/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
@@ -600,7 +616,9 @@ export interface FileRoutesById {
   '/portal/account': typeof PortalAccountRoute
   '/portal/attendance': typeof PortalAttendanceRoute
   '/portal/calendar': typeof PortalCalendarRoute
+  '/portal/exam-schedule': typeof PortalExamScheduleRoute
   '/portal/fees': typeof PortalFeesRoute
+  '/portal/results': typeof PortalResultsRoute
   '/portal/': typeof PortalIndexRoute
   '/_platform/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
   '/_platform/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
@@ -672,7 +690,9 @@ export interface FileRouteTypes {
     | '/portal/account'
     | '/portal/attendance'
     | '/portal/calendar'
+    | '/portal/exam-schedule'
     | '/portal/fees'
+    | '/portal/results'
     | '/portal/'
     | '/holiday-sets/$setId'
     | '/schools/$schoolId'
@@ -740,7 +760,9 @@ export interface FileRouteTypes {
     | '/portal/account'
     | '/portal/attendance'
     | '/portal/calendar'
+    | '/portal/exam-schedule'
     | '/portal/fees'
+    | '/portal/results'
     | '/portal'
     | '/holiday-sets/$setId'
     | '/schools/$schoolId'
@@ -812,7 +834,9 @@ export interface FileRouteTypes {
     | '/portal/account'
     | '/portal/attendance'
     | '/portal/calendar'
+    | '/portal/exam-schedule'
     | '/portal/fees'
+    | '/portal/results'
     | '/portal/'
     | '/_platform/holiday-sets/$setId'
     | '/_platform/schools/$schoolId'
@@ -1021,11 +1045,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortalCalendarRouteImport
       parentRoute: typeof PortalRoute
     }
+    '/portal/exam-schedule': {
+      id: '/portal/exam-schedule'
+      path: '/exam-schedule'
+      fullPath: '/portal/exam-schedule'
+      preLoaderRoute: typeof PortalExamScheduleRouteImport
+      parentRoute: typeof PortalRoute
+    }
     '/portal/fees': {
       id: '/portal/fees'
       path: '/fees'
       fullPath: '/portal/fees'
       preLoaderRoute: typeof PortalFeesRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/results': {
+      id: '/portal/results'
+      path: '/results'
+      fullPath: '/portal/results'
+      preLoaderRoute: typeof PortalResultsRouteImport
       parentRoute: typeof PortalRoute
     }
     '/_platform/holiday-sets/': {
@@ -1516,7 +1554,9 @@ interface PortalRouteChildren {
   PortalAccountRoute: typeof PortalAccountRoute
   PortalAttendanceRoute: typeof PortalAttendanceRoute
   PortalCalendarRoute: typeof PortalCalendarRoute
+  PortalExamScheduleRoute: typeof PortalExamScheduleRoute
   PortalFeesRoute: typeof PortalFeesRoute
+  PortalResultsRoute: typeof PortalResultsRoute
   PortalIndexRoute: typeof PortalIndexRoute
 }
 
@@ -1524,7 +1564,9 @@ const PortalRouteChildren: PortalRouteChildren = {
   PortalAccountRoute: PortalAccountRoute,
   PortalAttendanceRoute: PortalAttendanceRoute,
   PortalCalendarRoute: PortalCalendarRoute,
+  PortalExamScheduleRoute: PortalExamScheduleRoute,
   PortalFeesRoute: PortalFeesRoute,
+  PortalResultsRoute: PortalResultsRoute,
   PortalIndexRoute: PortalIndexRoute,
 }
 
