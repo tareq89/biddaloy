@@ -19,7 +19,7 @@ export class AddResultSmsCommunicationTrigger1789800012500 implements MigrationI
       `ALTER TYPE "public"."communication_logs_trigger_enum" RENAME TO "communication_logs_trigger_enum_old"`,
     );
     await queryRunner.query(
-      `CREATE TYPE "public"."communication_logs_trigger_enum" AS ENUM('MANUAL', 'AUTOMATED', 'BULK_REMINDER', 'SINGLE_REMINDER')`,
+      `CREATE TYPE "public"."communication_logs_trigger_enum" AS ENUM('MANUAL', 'AUTOMATED', 'BULK_REMINDER', 'SINGLE_REMINDER', 'ACCOUNT_ACCESS')`,
     );
     await queryRunner.query(
       `ALTER TABLE "communication_logs" ALTER COLUMN "trigger" TYPE "public"."communication_logs_trigger_enum" USING "trigger"::text::"public"."communication_logs_trigger_enum"`,
