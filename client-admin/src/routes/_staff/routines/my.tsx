@@ -98,7 +98,9 @@ function MyRoutinePage() {
   const routine = pickVisibleRoutine(routinesQuery.data, currentYearId);
 
   const teachersQuery = useTeachers({});
-  const ownTeacherQuery = useTeachers({ user_id: currentUserId ?? undefined, limit: 1 });
+  const ownTeacherQuery = useTeachers(
+    currentUserId ? { user_id: currentUserId, limit: 1 } : { limit: 1 },
+  );
   const ownTeacher = ownTeacherQuery.data?.data.find(
     (teacher) => teacher.user.id === currentUserId,
   );

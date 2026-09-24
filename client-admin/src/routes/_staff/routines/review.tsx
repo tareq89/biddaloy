@@ -76,7 +76,9 @@ function RoutineReviewPage() {
   const changeRequestsQuery = useChangeRequests(canManage ? routine?.id : undefined);
   const subjectsQuery = useSubjects({});
   const teachersQuery = useTeachers({});
-  const ownTeacherQuery = useTeachers({ user_id: currentUserId ?? undefined, limit: 1 });
+  const ownTeacherQuery = useTeachers(
+    currentUserId ? { user_id: currentUserId, limit: 1 } : { limit: 1 },
+  );
 
   const submitForReview = useSubmitForReview(routine?.id ?? '');
   const withdraw = useWithdrawRoutine(routine?.id ?? '');
