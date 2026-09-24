@@ -70,6 +70,19 @@ export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'enrollments',
   'class_subjects',
   'teacher_class_sections',
+  // [21.2.1] Routine domain — child-first. `routine_slots` FKs to
+  // `subjects`/`teachers` (via `routine_slot_teachers`) `ON DELETE CASCADE`,
+  // so this whole block must precede both below. `shifts` is deliberately
+  // NOT here — `classes.shift_id` (a reference table, below) FKs to it, so
+  // it moved to `REFERENCE_TABLES_CHILD_FIRST` instead (once-per-file
+  // cadence, positioned after `classes`) to keep the child-first invariant.
+  'routine_change_requests',
+  'routine_substitutions',
+  'routine_slot_teachers',
+  'routine_slots',
+  'routines',
+  'rooms',
+  'period_slots',
   'teachers',
   'subjects',
   'audit_logs',
@@ -124,6 +137,11 @@ export function buildResetSql(): string {
 export const REFERENCE_TABLES_CHILD_FIRST = [
   'class_sections',
   'classes',
+  // [21.2.1] `classes.shift_id` FKs here (`ON DELETE SET NULL`) — must
+  // reset after `classes` (child-first) and therefore live in this
+  // once-per-file list rather than `TRANSACTIONAL_TABLES_CHILD_FIRST`
+  // (see that list's own [21.2.1] comment).
+  'shifts',
   'academic_years',
   'auth_tokens',
   'user_tenants',

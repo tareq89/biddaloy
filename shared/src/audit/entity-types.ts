@@ -43,6 +43,8 @@ export const AUDIT_ENTITY_TYPES = [
   'RefreshToken',
   'ReminderBatch',
   'ReminderBatchPreview',
+  'Routine',
+  'RoutineChangeRequest',
   'School',
   // Deprecated: `school_holidays` was renamed to `calendar_events` (Epic
   // 17). Kept read-compatible so historical audit rows with this

@@ -169,6 +169,13 @@ export enum Permission {
   RESULT_PUBLISH = 'RESULT_PUBLISH',
   // [19.1.1] Read a published (or, for staff, processed) result.
   RESULT_READ = 'RESULT_READ',
+  // Routine (class timetable)
+  // [21.1.1] Read is granted to every tenant role that has a stake in a
+  // published routine (admin, executive, teacher, guardian, student);
+  // write (build/edit/publish a routine, its slots, its change requests)
+  // is ADMIN only.
+  ROUTINE_READ = 'ROUTINE_READ',
+  ROUTINE_MANAGE = 'ROUTINE_MANAGE',
 }
 
 import { UserRole } from './index';
@@ -255,6 +262,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.RESULT_PROCESS,
     Permission.RESULT_PUBLISH,
     Permission.RESULT_READ,
+    // [21.1.1] Class routine — ADMIN builds/publishes, everyone else reads.
+    Permission.ROUTINE_READ,
+    Permission.ROUTINE_MANAGE,
   ],
 
   [UserRole.ACCOUNTANT]: [
@@ -336,6 +346,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.MARK_ENTER,
     Permission.MARK_VIEW,
     Permission.RESULT_READ,
+    // [21.1.1] Class routine read.
+    Permission.ROUTINE_READ,
   ],
 
   // [5.1] added no permissions to either family role. The widened server
@@ -357,6 +369,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.CALENDAR_READ,
     // [19.1.1] Guardian-visible published results (D1's spine scope).
     Permission.RESULT_READ,
+    // [21.1.1] Class routine read.
+    Permission.ROUTINE_READ,
   ],
 
   [UserRole.STUDENT]: [
@@ -368,6 +382,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.CALENDAR_READ,
     // [19.1.1] Own published results (D1's spine scope).
     Permission.RESULT_READ,
+    // [21.1.1] Class routine read.
+    Permission.ROUTINE_READ,
   ],
 
   [UserRole.EXECUTIVE]: [
@@ -405,6 +421,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // [19.1.1] Executives see marks/results read-only.
     Permission.MARK_VIEW,
     Permission.RESULT_READ,
+    // [21.1.1] Class routine read.
+    Permission.ROUTINE_READ,
   ],
 };
 

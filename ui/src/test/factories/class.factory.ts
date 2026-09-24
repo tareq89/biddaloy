@@ -21,6 +21,12 @@ export function classFactory(overrides: Partial<Class> = {}): Class {
     // that need one pass it in via overrides.
     shift: null,
     version: null,
+    // [33.2.1] `shift_id` promotes the free-text `shift` column above;
+    // `shift_ref` is the resolved row it points at. `null` here matches
+    // `shift: null` above — a test that needs one set passes all three
+    // via overrides.
+    shift_id: null,
+    shift_ref: null,
     academic_year: academicYear,
     academic_year_id: academicYear.id,
     tenant,

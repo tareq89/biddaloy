@@ -29,6 +29,7 @@ import { CommunicationsModule } from './modules/communications/communications.mo
 import { AuditModule } from './modules/audit/audit.module';
 import { SchoolsModule } from './modules/schools/schools.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
+import { RoutinesModule } from './modules/routines/routines.module';
 import { AccountAccessModule } from './modules/account-access/account-access.module';
 import { WorkbookModule } from './modules/workbook/workbook.module';
 import { ExportModule } from './modules/workbook/export/export.module';
@@ -84,6 +85,14 @@ import { AttendanceSession } from './modules/attendance/entities/attendance-sess
 import { AttendanceRecord } from './modules/attendance/entities/attendance-record.entity';
 import { AttendanceDevice } from './modules/attendance/entities/attendance-device.entity';
 import { AttendanceDeviceEvent } from './modules/attendance/entities/attendance-device-event.entity';
+import { Shift } from './modules/routines/entities/shift.entity';
+import { PeriodSlot } from './modules/routines/entities/period-slot.entity';
+import { Room } from './modules/routines/entities/room.entity';
+import { Routine } from './modules/routines/entities/routine.entity';
+import { RoutineSlot } from './modules/routines/entities/routine-slot.entity';
+import { RoutineSlotTeacher } from './modules/routines/entities/routine-slot-teacher.entity';
+import { RoutineSubstitution } from './modules/routines/entities/routine-substitution.entity';
+import { RoutineChangeRequest } from './modules/routines/entities/routine-change-request.entity';
 import { AuthToken } from './modules/account-access/entities/auth-token.entity';
 import { WorkbookJob } from './modules/workbook/jobs/workbook-job.entity';
 import { GradingScale } from './modules/grading/entities/grading-scale.entity';
@@ -180,6 +189,14 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
             Result,
             ResultSubject,
             StudentSubjectChoice,
+            Shift,
+            PeriodSlot,
+            Room,
+            Routine,
+            RoutineSlot,
+            RoutineSlotTeacher,
+            RoutineSubstitution,
+            RoutineChangeRequest,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],
@@ -244,6 +261,7 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
     CommunicationsModule,
     SchoolsModule,
     AttendanceModule,
+    RoutinesModule,
     AccountAccessModule,
     WorkbookModule,
     ExportModule,

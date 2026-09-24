@@ -32,6 +32,10 @@ export const EntityLabel = {
   exam: 'exam',
   mark: 'mark',
   result: 'result',
+  // [21.1.1] Epic 21.0's class-routine vocabulary, reserved ahead of Epic
+  // 35.0's tenant label-override table the same way the entries above are.
+  room: 'room',
+  routine: 'routine',
 } as const;
 
 export type EntityLabel = (typeof EntityLabel)[keyof typeof EntityLabel];

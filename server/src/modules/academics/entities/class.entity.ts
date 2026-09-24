@@ -13,6 +13,7 @@ import {
 import { AcademicYear } from './academic-year.entity';
 import { ClassSection } from './class-section.entity';
 import { School } from '../../schools/entities/school.entity';
+import { Shift } from '../../routines/entities/shift.entity';
 
 /**
  * A grade/standard within an academic year (e.g., "Class 10", "Grade 5").
@@ -30,9 +31,19 @@ import { School } from '../../schools/entities/school.entity';
  * `.versions`, [33.1.1]). `NULL` means this tenant does not use that
  * dimension — existing rows are left `NULL`, no backfill.
  *
+ * `shift_id` [21.2.1] promotes the free-text `shift` column above to a
+ * real `Shift` row (`1789800011000-AddRoutines`'s `up()` does
+ * `INSERT INTO shifts ... SELECT DISTINCT tenant_id, shift FROM classes`,
+ * Epic 33.0 D10, then backfills this column by matching name). `shift`
+ * itself is deliberately **not** dropped in that migration — it is kept
+ * for one release as a rollback path — so both columns exist together for
+ * now; readers should prefer `shift_id` and treat `shift` as deprecated.
+ *
  * Relations:
  * - @ManyToOne → School: the tenant this class belongs to
  * - @ManyToOne → AcademicYear: the year this class belongs to
+ * - @ManyToOne → Shift (optional): [21.2.1] promoted from the `shift`
+ *   free-text column; `null` for a tenant/class that doesn't use shifts
  * - @OneToMany → ClassSection: sections under this class
  * - Referenced-by → FeeStructure: fees are configured per class
  */
@@ -55,6 +66,15 @@ export class Class {
   /** [33.2.1] Validated against `TenantSettings.organisation.versions`. `NULL` = tenant doesn't use versions. */
   @Column({ type: 'varchar', length: 50, nullable: true })
   version: string | null;
+
+  /** [21.2.1] Promoted from `shift` (above) — see this entity's
+   * docstring. `null` for a tenant/class that doesn't use shifts. */
+  @ManyToOne(() => Shift, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'shift_id' })
+  shift_ref: Shift | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  shift_id: string | null;
 
   @ManyToOne(() => AcademicYear, { nullable: false })
   @JoinColumn({ name: 'academic_year_id' })
