@@ -48,7 +48,12 @@ type BlockingReason = 'PICK_TARGET_CLASS' | 'TARGET_SECTIONS_MISSING' | 'RETAIN_
 export interface TargetSuggestion {
   target_class: { id: string; name: string } | null;
   retain_class: { id: string; name: string } | null;
-  sections: Array<{ id: string; section_name: string; capacity: number | null; group_name: string | null }>;
+  sections: Array<{
+    id: string;
+    section_name: string;
+    capacity: number | null;
+    group_name: string | null;
+  }>;
   blocking_reason?: BlockingReason;
 }
 
@@ -189,9 +194,15 @@ export class PromotionsService {
     tenantId: string,
     classRepo: Repository<Class>,
   ): Promise<Class | null> {
+    // M1 — a null numeric_grade has no identity signal to match on: an
+    // `IsNull()` lookup would wildcard-match ANY other null-grade class in
+    // the target year (e.g. retaining Playgroup into Nursery). Callers
+    // already treat a missing retain class as RETAIN_CLASS_MISSING, so
+    // force that instead of guessing.
+    if (sourceClass.numeric_grade === null) return null;
     return classRepo.findOne({
       where: {
-        numeric_grade: sourceClass.numeric_grade ?? IsNull(),
+        numeric_grade: sourceClass.numeric_grade,
         shift_id: sourceClass.shift_id ?? IsNull(),
         version: sourceClass.version ?? IsNull(),
         academic_year_id: targetAcademicYearId,
@@ -219,7 +230,12 @@ export class PromotionsService {
 
     const studentIds = enrollments.map((e) => e.student_id);
     const results = await this.resultRepo.find({
-      where: { student_id: In(studentIds), exam_id: In(examIds), tenant_id: tenantId, deleted_at: IsNull() },
+      where: {
+        student_id: In(studentIds),
+        exam_id: In(examIds),
+        tenant_id: tenantId,
+        deleted_at: IsNull(),
+      },
     });
     const resultsByStudent = new Map<string, Result[]>();
     for (const result of results) {
@@ -268,7 +284,8 @@ export class PromotionsService {
     const promoteEntries = entries.filter((e) => e.final_outcome === PromotionOutcome.PROMOTE);
     // Preserve merit-rank order (entries are ranked ascending by merit_rank).
     const ranked = [...promoteEntries].sort(
-      (a, b) => (a.merit_rank ?? Number.MAX_SAFE_INTEGER) - (b.merit_rank ?? Number.MAX_SAFE_INTEGER),
+      (a, b) =>
+        (a.merit_rank ?? Number.MAX_SAFE_INTEGER) - (b.merit_rank ?? Number.MAX_SAFE_INTEGER),
     );
     const placementStudents: PlacementStudent[] = ranked.map((e) => ({
       student_id: e.student_id,
@@ -295,7 +312,11 @@ export class PromotionsService {
   //  Create (step 3)
   // ────────────────────────
 
-  async create(dto: CreatePromotionRunDto, tenantId: string, userId: string): Promise<PromotionRun> {
+  async create(
+    dto: CreatePromotionRunDto,
+    tenantId: string,
+    userId: string,
+  ): Promise<PromotionRun> {
     const sourceClass = await this.classRepo.findOne({
       where: { id: dto.source_class_id, tenant_id: tenantId, deleted_at: IsNull() },
     });
@@ -303,7 +324,12 @@ export class PromotionsService {
       throw new NotFoundException(`Class with ID "${dto.source_class_id}" not found`);
     }
 
-    const suggestion = await this.resolveTarget(sourceClass, dto.target_academic_year_id, dto.target_class_id, tenantId);
+    const suggestion = await this.resolveTarget(
+      sourceClass,
+      dto.target_academic_year_id,
+      dto.target_class_id,
+      tenantId,
+    );
     if (suggestion.blocking_reason === 'PICK_TARGET_CLASS') {
       throw new UnprocessableEntityException({ details: { code: 'PICK_TARGET_CLASS' } });
     }
@@ -338,7 +364,9 @@ export class PromotionsService {
     );
 
     // group_name defaults to the student's current section's group_name.
-    const sectionIds = [...new Set(stats.map((s) => s.section_id).filter((id): id is string => !!id))];
+    const sectionIds = [
+      ...new Set(stats.map((s) => s.section_id).filter((id): id is string => !!id)),
+    ];
     const sourceSections = sectionIds.length
       ? await this.sectionRepo.find({ where: { id: In(sectionIds) } })
       : [];
@@ -346,15 +374,25 @@ export class PromotionsService {
 
     const isGraduationRun = suggestion.target_class === null;
     const ranked = meritOrder(
-      stats.map((s) => ({ student_id: s.student_id, mean_gpa: s.mean_gpa, total_marks_sum: s.total_marks_sum })),
+      stats.map((s) => ({
+        student_id: s.student_id,
+        mean_gpa: s.mean_gpa,
+        total_marks_sum: s.total_marks_sum,
+      })),
     );
     const rankByStudent = new Map(ranked.map((r) => [r.student_id, r.merit_rank]));
 
+    const occupancyById = await this.getSectionOccupancy(
+      suggestion.sections.map((s) => s.id),
+      tenantId,
+      this.studentRepo,
+    );
     const targetSections: PlacementSection[] = suggestion.sections.map((s) => ({
       id: s.id,
       section_name: s.section_name,
       capacity: s.capacity,
       group_name: s.group_name,
+      occupied_count: occupancyById.get(s.id) ?? 0,
     }));
 
     return this.runRepo.manager.transaction(async (manager) => {
@@ -416,55 +454,78 @@ export class PromotionsService {
     tenantId: string,
     userId: string,
   ): Promise<PromotionRun> {
-    return this.runRepo.manager.transaction(async (manager) => {
-      const runRepo = manager.getRepository(PromotionRun);
-      const entryRepo = manager.getRepository(PromotionEntry);
+    return this.runRepo.manager
+      .transaction(async (manager) => {
+        const runRepo = manager.getRepository(PromotionRun);
+        const entryRepo = manager.getRepository(PromotionEntry);
 
-      const run = await runRepo.findOne({
-        where: { id: runId, tenant_id: tenantId },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!run) throw new NotFoundException(`Promotion run "${runId}" not found`);
-      if (run.status !== PromotionRunStatus.DRAFT) {
-        throw new ConflictException('Only DRAFT runs can be edited');
-      }
-
-      const entries = await entryRepo.find({ where: { run_id: run.id, tenant_id: tenantId } });
-      const entryByStudent = new Map(entries.map((e) => [e.student_id, e]));
-
-      for (const patch of dtoEntries) {
-        const entry = entryByStudent.get(patch.student_id);
-        if (!entry) {
-          throw new NotFoundException(`No promotion entry for student "${patch.student_id}" on this run`);
+        const run = await runRepo.findOne({
+          where: { id: runId, tenant_id: tenantId },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!run) throw new NotFoundException(`Promotion run "${runId}" not found`);
+        if (run.status !== PromotionRunStatus.DRAFT) {
+          throw new ConflictException('Only DRAFT runs can be edited');
         }
-        // `final_outcome` unset means "leave this entry's outcome as-is" — a
-        // patch that only changes group_name must not silently clear an
-        // existing override on the same entry.
-        const finalOutcome = patch.final_outcome ?? entry.final_outcome;
-        const isOverride = finalOutcome !== entry.suggested_outcome;
-        const overrideNote = patch.override_note ?? (isOverride ? entry.override_note : null);
-        if (isOverride && (!overrideNote || overrideNote.trim().length === 0)) {
-          throw new UnprocessableEntityException(
-            `Overriding student "${patch.student_id}" requires a non-empty override_note`,
-          );
-        }
-        entry.final_outcome = finalOutcome;
-        entry.is_override = isOverride;
-        entry.override_note = isOverride ? (overrideNote ?? null) : null;
-        entry.overridden_by_user_id = isOverride ? userId : null;
-        if (patch.group_name !== undefined) {
-          entry.group_name = patch.group_name;
-        }
-      }
 
-      const targetSections = await this.loadTargetSections(run, manager, tenantId);
-      this.placePromoteEntries(entries, targetSections, run.algorithm);
-      await entryRepo.save(entries);
-      run.override_count = entries.filter((e) => e.is_override).length;
-      await runRepo.save(run);
+        const entries = await entryRepo.find({ where: { run_id: run.id, tenant_id: tenantId } });
+        const entryByStudent = new Map(entries.map((e) => [e.student_id, e]));
 
-      return runRepo.findOneOrFail({ where: { id: run.id }, relations: [] });
-    }).then(async (run) => this.findOne(run.id, tenantId));
+        for (const patch of dtoEntries) {
+          const entry = entryByStudent.get(patch.student_id);
+          if (!entry) {
+            throw new NotFoundException(
+              `No promotion entry for student "${patch.student_id}" on this run`,
+            );
+          }
+          // `final_outcome` unset means "leave this entry's outcome as-is" — a
+          // patch that only changes group_name must not silently clear an
+          // existing override on the same entry.
+          const finalOutcome = patch.final_outcome ?? entry.final_outcome;
+          const isOverride = finalOutcome !== entry.suggested_outcome;
+          const overrideNote = patch.override_note ?? (isOverride ? entry.override_note : null);
+          if (isOverride && (!overrideNote || overrideNote.trim().length === 0)) {
+            throw new UnprocessableEntityException(
+              `Overriding student "${patch.student_id}" requires a non-empty override_note`,
+            );
+          }
+          entry.final_outcome = finalOutcome;
+          entry.is_override = isOverride;
+          entry.override_note = isOverride ? (overrideNote ?? null) : null;
+          entry.overridden_by_user_id = isOverride ? userId : null;
+          if (patch.group_name !== undefined) {
+            entry.group_name = patch.group_name;
+          }
+        }
+
+        const targetSections = await this.loadTargetSections(run, manager, tenantId);
+        this.placePromoteEntries(entries, targetSections, run.algorithm);
+        await entryRepo.save(entries);
+        run.override_count = entries.filter((e) => e.is_override).length;
+        await runRepo.save(run);
+
+        return runRepo.findOneOrFail({ where: { id: run.id }, relations: [] });
+      })
+      .then(async (run) => this.findOne(run.id, tenantId));
+  }
+
+  /** M3 — counts students already sitting in each target section (they get
+   * renumbered, not evicted, at commit) so placement capacity checks
+   * account for them. */
+  private async getSectionOccupancy(
+    sectionIds: string[],
+    tenantId: string,
+    studentRepo: Repository<Student>,
+  ): Promise<Map<string, number>> {
+    if (sectionIds.length === 0) return new Map();
+    const occupants = await studentRepo.find({
+      where: { class_section_id: In(sectionIds), tenant_id: tenantId },
+    });
+    const counts = new Map<string, number>();
+    for (const occupant of occupants) {
+      counts.set(occupant.class_section_id, (counts.get(occupant.class_section_id) ?? 0) + 1);
+    }
+    return counts;
   }
 
   private async loadTargetSections(
@@ -477,11 +538,17 @@ export class PromotionsService {
       where: { class_id: run.target_class_id, tenant_id: tenantId, deleted_at: IsNull() },
       order: { section_name: 'ASC' },
     });
+    const occupancyById = await this.getSectionOccupancy(
+      sections.map((s) => s.id),
+      tenantId,
+      manager.getRepository(Student),
+    );
     return sections.map((s) => ({
       id: s.id,
       section_name: s.section_name,
       capacity: s.capacity,
       group_name: s.group_name,
+      occupied_count: occupancyById.get(s.id) ?? 0,
     }));
   }
 
@@ -496,9 +563,9 @@ export class PromotionsService {
         const entryRepo = manager.getRepository(PromotionEntry);
 
         const run = await runRepo.findOne({
-        where: { id: runId, tenant_id: tenantId },
-        lock: { mode: 'pessimistic_write' },
-      });
+          where: { id: runId, tenant_id: tenantId },
+          lock: { mode: 'pessimistic_write' },
+        });
         if (!run) throw new NotFoundException(`Promotion run "${runId}" not found`);
         if (run.status !== PromotionRunStatus.DRAFT) {
           throw new ConflictException('Only DRAFT runs can be refreshed');
@@ -513,12 +580,6 @@ export class PromotionsService {
           run.exam_ids,
           tenantId,
         );
-        const sectionIds = [...new Set(stats.map((s) => s.section_id).filter((id): id is string => !!id))];
-        const sourceSections = sectionIds.length
-          ? await manager.getRepository(ClassSection).find({ where: { id: In(sectionIds) } })
-          : [];
-        const sectionGroupById = new Map(sourceSections.map((s) => [s.id, s.group_name]));
-
         const isGraduationRun = run.target_class_id === null;
         const ranked = meritOrder(
           stats.map((s) => ({
@@ -540,8 +601,12 @@ export class PromotionsService {
           entry.suggested_outcome = suggested;
           if (!entry.is_override) {
             entry.final_outcome = suggested;
-            entry.group_name = sectionGroupById.get(stat.section_id ?? '') ?? null;
           }
+          // M2 — group_name is never reset here: a PATCH group-only edit
+          // doesn't set is_override (only outcome changes do, D6/D11), so
+          // resetting it on every non-overridden entry silently discarded
+          // manual group edits. group_name is only ever (re)computed at
+          // create() time; refresh leaves whatever is currently on the row.
           // overridden rows keep final_outcome, override_note, group_name as-is (D24).
         }
 
@@ -567,7 +632,18 @@ export class PromotionsService {
     if (run.status !== PromotionRunStatus.DRAFT) {
       throw new ConflictException('Only DRAFT runs can be deleted');
     }
-    await this.runRepo.delete({ id: runId, tenant_id: tenantId });
+    // B6 — status is part of the DELETE's own WHERE, not just the earlier
+    // read: a commit racing this delete between the check above and here
+    // would otherwise still get deleted, destroying its enrollment audit
+    // trail. Zero rows affected means the run changed status in that gap.
+    const result = await this.runRepo.delete({
+      id: runId,
+      tenant_id: tenantId,
+      status: PromotionRunStatus.DRAFT,
+    });
+    if (!result.affected) {
+      throw new ConflictException('Run status changed before it could be deleted');
+    }
   }
 
   // ────────────────────────
@@ -581,7 +657,10 @@ export class PromotionsService {
     });
   }
 
-  async findOne(runId: string, tenantId: string): Promise<PromotionRun & { entries: PromotionEntryView[] }> {
+  async findOne(
+    runId: string,
+    tenantId: string,
+  ): Promise<PromotionRun & { entries: PromotionEntryView[] }> {
     const run = await this.runRepo.findOne({ where: { id: runId, tenant_id: tenantId } });
     if (!run) throw new NotFoundException(`Promotion run "${runId}" not found`);
 
@@ -665,16 +744,23 @@ export class PromotionsService {
       let approvedByUserId: string | null = null;
       if (overrideCount > 0) {
         if (!roleHasPermission(tenantRole, Permission.PROMOTION_OVERRIDE)) {
-          throw new ForbiddenException('PROMOTION_OVERRIDE permission required to commit overrides');
+          throw new ForbiddenException(
+            'PROMOTION_OVERRIDE permission required to commit overrides',
+          );
         }
-        const approval = await this.approvalService.consume(approvalRequest, ApprovalScope.PROMOTION_OVERRIDE);
+        const approval = await this.approvalService.consume(
+          approvalRequest,
+          ApprovalScope.PROMOTION_OVERRIDE,
+        );
         approvedByUserId = approval.approverId;
       }
 
       // ── PROMOTE: renumber existing occupants of target sections, two-phase (D19) ──
       const promoteEntries = entries.filter((e) => e.final_outcome === PromotionOutcome.PROMOTE);
       const targetSectionIds = [
-        ...new Set(promoteEntries.map((e) => e.target_section_id).filter((id): id is string => !!id)),
+        ...new Set(
+          promoteEntries.map((e) => e.target_section_id).filter((id): id is string => !!id),
+        ),
       ];
 
       if (targetSectionIds.length > 0) {
@@ -690,7 +776,9 @@ export class PromotionsService {
 
         for (const [sectionId, occupantsInSection] of bySection) {
           occupantsInSection.sort((a, b) => a.roll_number - b.roll_number);
-          const incomingCount = promoteEntries.filter((e) => e.target_section_id === sectionId).length;
+          const incomingCount = promoteEntries.filter(
+            (e) => e.target_section_id === sectionId,
+          ).length;
 
           // Phase 1: push every existing occupant out of the way so no
           // intermediate roll_number can collide with a final value below.
@@ -704,7 +792,10 @@ export class PromotionsService {
           for (let i = 0; i < occupantsInSection.length; i++) {
             const occupant = occupantsInSection[i];
             const finalRoll = incomingCount + i + 1;
-            await studentRepo.update({ id: occupant.id, tenant_id: tenantId }, { roll_number: finalRoll });
+            await studentRepo.update(
+              { id: occupant.id, tenant_id: tenantId },
+              { roll_number: finalRoll },
+            );
             await this.auditService.record(
               {
                 action: AuditAction.UPDATE,
@@ -751,7 +842,12 @@ export class PromotionsService {
         if (!sourceClass) {
           throw new NotFoundException(`Class with ID "${run.source_class_id}" not found`);
         }
-        const retainClass = await this.findRetainClass(sourceClass, run.target_academic_year_id, tenantId, classRepo);
+        const retainClass = await this.findRetainClass(
+          sourceClass,
+          run.target_academic_year_id,
+          tenantId,
+          classRepo,
+        );
         if (!retainClass) {
           throw new UnprocessableEntityException({ details: { code: 'RETAIN_CLASS_MISSING' } });
         }
@@ -768,7 +864,8 @@ export class PromotionsService {
             ? await sectionRepo.findOne({ where: { id: entry.source_section_id } })
             : null;
           const matchSection =
-            retainSections.find((s) => s.section_name === sourceSection?.section_name) ?? retainSections[0];
+            retainSections.find((s) => s.section_name === sourceSection?.section_name) ??
+            retainSections[0];
 
           const enrollment = await this.enrollmentService.createInTransaction(
             manager,
@@ -859,7 +956,9 @@ export class PromotionsService {
   // ────────────────────────
 
   async findStudentOverrides(studentId: string, tenantId: string) {
-    const student = await this.studentRepo.findOne({ where: { id: studentId, tenant_id: tenantId } });
+    const student = await this.studentRepo.findOne({
+      where: { id: studentId, tenant_id: tenantId },
+    });
     if (!student) {
       throw new NotFoundException(`Student with ID "${studentId}" not found`);
     }
@@ -876,7 +975,9 @@ export class PromotionsService {
     const runById = new Map(runs.map((r) => [r.id, r]));
 
     const yearIds = [...new Set(runs.map((r) => r.target_academic_year_id))];
-    const years = yearIds.length ? await this.academicYearRepo.find({ where: { id: In(yearIds) } }) : [];
+    const years = yearIds.length
+      ? await this.academicYearRepo.find({ where: { id: In(yearIds) } })
+      : [];
     const yearNameById = new Map(years.map((y) => [y.id, y.name]));
 
     const overriddenUserIds = [

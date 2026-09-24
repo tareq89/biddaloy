@@ -68,7 +68,12 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
   const sectionRepo = ds.getRepository(ClassSection);
 
   await schoolRepo.save(
-    schoolRepo.create({ id: SEED_TENANT_ID, name: 'Test School', slug: 'test-school', tenant_id: SEED_TENANT_ID }),
+    schoolRepo.create({
+      id: SEED_TENANT_ID,
+      name: 'Test School',
+      slug: 'test-school',
+      tenant_id: SEED_TENANT_ID,
+    }),
   );
   await ayRepo.save(
     ayRepo.create({
@@ -252,7 +257,10 @@ describe('PromotionsService (integration)', () => {
     );
   }
 
-  async function addResult(studentId: string, opts: { isFail: boolean; gpa: number; total: number; computedAt?: Date }) {
+  async function addResult(
+    studentId: string,
+    opts: { isFail: boolean; gpa: number; total: number; computedAt?: Date },
+  ) {
     return resultRepo.save(
       resultRepo.create({
         tenant_id: TENANT_ID,
@@ -347,7 +355,13 @@ describe('PromotionsService (integration)', () => {
 
       await service.patchEntries(
         run.id,
-        [{ student_id: student.id, final_outcome: PromotionOutcome.RETAIN, override_note: 'Manual hold' }],
+        [
+          {
+            student_id: student.id,
+            final_outcome: PromotionOutcome.RETAIN,
+            override_note: 'Manual hold',
+          },
+        ],
         TENANT_ID,
         ADMIN_USER_ID,
       );
@@ -384,7 +398,11 @@ describe('PromotionsService (integration)', () => {
       expect(committedRun?.status).toBe(PromotionRunStatus.COMMITTED);
 
       const current = await enrollmentRepo.findOne({
-        where: { student_id: student.id, academic_year_id: TARGET_YEAR_ID, enrollment_status: EnrollmentStatus.ACTIVE },
+        where: {
+          student_id: student.id,
+          academic_year_id: TARGET_YEAR_ID,
+          enrollment_status: EnrollmentStatus.ACTIVE,
+        },
       });
       expect(current).not.toBeNull();
       expect(current?.class_id).toBe(TARGET_CLASS_ID);
@@ -462,7 +480,9 @@ describe('PromotionsService (integration)', () => {
         }),
       );
 
-      await expect(service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} })).rejects.toThrow();
+      await expect(
+        service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} }),
+      ).rejects.toThrow();
 
       const stillDraft = await runRepo.findOne({ where: { id: run.id } });
       expect(stillDraft?.status).toBe(PromotionRunStatus.DRAFT);
@@ -499,9 +519,9 @@ describe('PromotionsService (integration)', () => {
         { gpa: '4.20', total_marks: '410.00', computed_at: new Date(Date.now() + 60_000) },
       );
 
-      await expect(service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} })).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(
+        service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} }),
+      ).rejects.toThrow(ConflictException);
     });
 
     it('a second commit attempt on an already-COMMITTED run returns 409', async () => {
@@ -522,9 +542,9 @@ describe('PromotionsService (integration)', () => {
 
       await service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} });
 
-      await expect(service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} })).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(
+        service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} }),
+      ).rejects.toThrow(ConflictException);
     });
 
     it('sets GRADUATED on both the enrollment and the student for a whole-class graduation run (D18)', async () => {
@@ -544,7 +564,12 @@ describe('PromotionsService (integration)', () => {
         }),
       );
       await sectionRepo.save(
-        sectionRepo.create({ id: gradSectionId, section_name: 'A', class_id: gradClassId, tenant_id: TENANT_ID }),
+        sectionRepo.create({
+          id: gradSectionId,
+          section_name: 'A',
+          class_id: gradClassId,
+          tenant_id: TENANT_ID,
+        }),
       );
       // D20 retain class for grade 12 in the target year, else resolveTarget
       // blocks with RETAIN_CLASS_MISSING before it ever reaches GRADUATE.
@@ -579,7 +604,10 @@ describe('PromotionsService (integration)', () => {
         }),
       );
 
-      const student = await buildStudent({ registration_number: 'REG-GRAD', class_section_id: gradSectionId });
+      const student = await buildStudent({
+        registration_number: 'REG-GRAD',
+        class_section_id: gradSectionId,
+      });
       const enrollment = await enrollmentRepo.save(
         enrollmentRepo.create({
           student_id: student.id,
@@ -658,6 +686,215 @@ describe('PromotionsService (integration)', () => {
       const entry = await entryRepo.findOne({ where: { run_id: run.id, student_id: student.id } });
       expect(committedRun?.status).toBe(PromotionRunStatus.COMMITTED);
       expect(entry?.final_outcome).toBe(PromotionOutcome.PROMOTE);
+    });
+  });
+
+  describe('remove', () => {
+    // B6 — remove() must not delete a run that committed between the read
+    // and the delete: the delete's own WHERE now carries status = DRAFT,
+    // so a run that's already COMMITTED by the time remove() reaches the
+    // delete leaves zero rows affected and throws instead of destroying
+    // the committed run's audit trail.
+    it('refuses to delete a run that is COMMITTED, and leaves its entries intact', async () => {
+      const student = await buildStudent();
+      await enrollActive(student.id);
+      await addResult(student.id, { isFail: false, gpa: 4.0, total: 400 });
+
+      const run = await service.create(
+        {
+          source_class_id: SOURCE_CLASS_ID,
+          target_academic_year_id: TARGET_YEAR_ID,
+          exam_ids: [examId],
+          algorithm: PlacementAlgorithm.BLOCK,
+        },
+        TENANT_ID,
+        ADMIN_USER_ID,
+      );
+
+      await service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} });
+
+      // remove()'s own initial findOne read sees the (now-stale) DRAFT
+      // status it was called with is irrelevant here — commit() already
+      // flipped the row to COMMITTED before remove() is even invoked, so
+      // this exercises the same "status changed under us" path the DELETE
+      // WHERE guards against.
+      await expect(service.remove(run.id, TENANT_ID)).rejects.toThrow(ConflictException);
+
+      const stillThere = await runRepo.findOne({ where: { id: run.id } });
+      expect(stillThere).not.toBeNull();
+      expect(stillThere?.status).toBe(PromotionRunStatus.COMMITTED);
+      const entries = await entryRepo.find({ where: { run_id: run.id } });
+      expect(entries.length).toBeGreaterThan(0);
+    });
+
+    it('deletes a DRAFT run', async () => {
+      const student = await buildStudent();
+      await enrollActive(student.id);
+      await addResult(student.id, { isFail: false, gpa: 4.0, total: 400 });
+
+      const run = await service.create(
+        {
+          source_class_id: SOURCE_CLASS_ID,
+          target_academic_year_id: TARGET_YEAR_ID,
+          exam_ids: [examId],
+          algorithm: PlacementAlgorithm.BLOCK,
+        },
+        TENANT_ID,
+        ADMIN_USER_ID,
+      );
+
+      await service.remove(run.id, TENANT_ID);
+
+      const gone = await runRepo.findOne({ where: { id: run.id } });
+      expect(gone).toBeNull();
+    });
+  });
+
+  describe('findRetainClass (M1 — null-grade source)', () => {
+    // A null numeric_grade has no identity signal to match a retain class
+    // on: an IsNull() lookup would previously wildcard-match ANY other
+    // null-grade class in the target year (e.g. retaining Playgroup into
+    // Nursery). commit()'s RETAIN path must instead refuse with
+    // RETAIN_CLASS_MISSING rather than guess.
+    it('does not wildcard-match an unrelated null-grade class as the retain class on commit', async () => {
+      const classRepo = dataSource.getRepository(Class);
+      const sectionRepo = dataSource.getRepository(ClassSection);
+
+      // Source: a null-grade class (e.g. "Playgroup") with an explicit
+      // target class chosen (so resolveTarget's create-time PICK_TARGET_CLASS
+      // guard doesn't block before we even get to commit).
+      const playgroupId = '00000000-0000-4000-8000-000000010060';
+      const playgroupSectionId = '00000000-0000-4000-8000-000000010061';
+      await classRepo.save(
+        classRepo.create({
+          id: playgroupId,
+          name: 'Playgroup',
+          numeric_grade: null,
+          academic_year_id: SOURCE_YEAR_ID,
+          tenant_id: TENANT_ID,
+        }),
+      );
+      await sectionRepo.save(
+        sectionRepo.create({
+          id: playgroupSectionId,
+          section_name: 'A',
+          class_id: playgroupId,
+          tenant_id: TENANT_ID,
+        }),
+      );
+
+      // An unrelated null-grade class in the target year that must NOT be
+      // picked as the retain class (e.g. "Nursery").
+      const nurseryId = '00000000-0000-4000-8000-000000010062';
+      const nurserySectionId = '00000000-0000-4000-8000-000000010063';
+      await classRepo.save(
+        classRepo.create({
+          id: nurseryId,
+          name: 'Nursery',
+          numeric_grade: null,
+          academic_year_id: TARGET_YEAR_ID,
+          tenant_id: TENANT_ID,
+        }),
+      );
+      await sectionRepo.save(
+        sectionRepo.create({
+          id: nurserySectionId,
+          section_name: 'A',
+          class_id: nurseryId,
+          tenant_id: TENANT_ID,
+        }),
+      );
+
+      // The chosen (explicit) target class for a promoted playgroup student.
+      const targetForPlaygroupId = '00000000-0000-4000-8000-000000010064';
+      const targetForPlaygroupSectionId = '00000000-0000-4000-8000-000000010065';
+      await classRepo.save(
+        classRepo.create({
+          id: targetForPlaygroupId,
+          name: 'Playgroup Next Year',
+          numeric_grade: null,
+          academic_year_id: TARGET_YEAR_ID,
+          tenant_id: TENANT_ID,
+        }),
+      );
+      await sectionRepo.save(
+        sectionRepo.create({
+          id: targetForPlaygroupSectionId,
+          section_name: 'A',
+          class_id: targetForPlaygroupId,
+          tenant_id: TENANT_ID,
+        }),
+      );
+
+      const playgroupExam = await examRepo.save(
+        examRepo.create({
+          tenant_id: TENANT_ID,
+          academic_year_id: SOURCE_YEAR_ID,
+          class_id: playgroupId,
+          name: 'Playgroup Assessment',
+          kind: ExamKind.TERM,
+          status: ExamStatus.PUBLISHED,
+        }),
+      );
+
+      const student = await buildStudent({
+        registration_number: 'REG-PG',
+        class_section_id: playgroupSectionId,
+      });
+      await enrollmentRepo.save(
+        enrollmentRepo.create({
+          student_id: student.id,
+          class_id: playgroupId,
+          section_id: playgroupSectionId,
+          academic_year_id: SOURCE_YEAR_ID,
+          tenant_id: TENANT_ID,
+          enrollment_status: EnrollmentStatus.ACTIVE,
+        }),
+      );
+      // Fails the exam → suggested_outcome RETAIN — this is the path that
+      // exercises findRetainClass() inside commit().
+      await resultRepo.save(
+        resultRepo.create({
+          tenant_id: TENANT_ID,
+          exam_id: playgroupExam.id,
+          student_id: student.id,
+          total_marks: '100.00',
+          gpa: '1.00',
+          grade: 'F',
+          is_fail: true,
+          grading_scale_id: gradingScaleId,
+          grading_scale_revision: 1,
+          rule_version: 'v1',
+          computed_at: new Date(),
+        }),
+      );
+
+      const run = await service.create(
+        {
+          source_class_id: playgroupId,
+          target_academic_year_id: TARGET_YEAR_ID,
+          target_class_id: targetForPlaygroupId,
+          exam_ids: [playgroupExam.id],
+          algorithm: PlacementAlgorithm.BLOCK,
+        },
+        TENANT_ID,
+        ADMIN_USER_ID,
+      );
+
+      const entry = await entryRepo.findOne({ where: { run_id: run.id, student_id: student.id } });
+      expect(entry?.suggested_outcome).toBe(PromotionOutcome.RETAIN);
+
+      // commit() must refuse — not silently retain the student into the
+      // unrelated Nursery class.
+      await expect(
+        service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} }),
+      ).rejects.toThrow(UnprocessableEntityException);
+
+      // Confirm the student was never enrolled into Nursery.
+      const wrongEnrollment = await enrollmentRepo.findOne({
+        where: { student_id: student.id, class_id: nurseryId },
+      });
+      expect(wrongEnrollment).toBeNull();
     });
   });
 
