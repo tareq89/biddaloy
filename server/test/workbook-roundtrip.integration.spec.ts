@@ -18,6 +18,10 @@ import {
   ExamComponentSource,
   MarkStatus,
   MarkGridState,
+  HomeworkAssignmentStatus,
+  HomeworkGradingMode,
+  HomeworkSubmissionStatus,
+  SyllabusTopicStatus,
 } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -51,6 +55,10 @@ import { MarkGrid } from '../src/modules/exams/entities/mark-grid.entity';
 import { Result } from '../src/modules/exams/entities/result.entity';
 import { ResultSubject } from '../src/modules/exams/entities/result-subject.entity';
 import { StudentSubjectChoice } from '../src/modules/students/entities/student-subject-choice.entity';
+import { Homework } from '../src/modules/homework/entities/homework.entity';
+import { HomeworkAssignment } from '../src/modules/homework/entities/homework-assignment.entity';
+import { HomeworkSubmission } from '../src/modules/homework/entities/homework-submission.entity';
+import { SyllabusTopic } from '../src/modules/homework/entities/syllabus-topic.entity';
 import { DEMO_ORGANISATION, ensureDemoStudents, SEED_DEVICE_KEY } from '../src/scripts/seed.util';
 import { ImportStagingService } from '../src/modules/bulk-import/import-staging.service';
 import { ValidationService } from '../src/modules/workbook/import/validation.service';
@@ -811,6 +819,65 @@ describe('workbook round trip (integration)', () => {
         venue: null,
       }),
     ]);
+    // [22.3.6] Homework/syllabus fixture: one Subject, one Homework, one
+    // section-wide HomeworkAssignment, one HomeworkSubmission (DONE) and
+    // one SyllabusTopic — enough to make all four new workbook tabs
+    // non-empty rather than trivially-equal-because-empty.
+    const homeworkSubject = await dataSource.getRepository(Subject).save(
+      dataSource.getRepository(Subject).create({
+        tenant_id: TENANT_A,
+        code: `RT-${TENANT_A.slice(0, 6)}`,
+        name_en: 'Roundtrip Math',
+        name_bn: 'রাউন্ডট্রিপ গণিত',
+      }),
+    );
+
+    const homework = await dataSource.getRepository(Homework).save(
+      dataSource.getRepository(Homework).create({
+        tenant_id: TENANT_A,
+        title: 'Roundtrip Homework',
+        description: null,
+        subject_id: homeworkSubject.id,
+        class_id: klass.id,
+        grading_mode: HomeworkGradingMode.TICK,
+        attachments: [],
+      }),
+    );
+
+    const homeworkAssignment = await dataSource.getRepository(HomeworkAssignment).save(
+      dataSource.getRepository(HomeworkAssignment).create({
+        tenant_id: TENANT_A,
+        homework_id: homework.id,
+        section_id: section.id,
+        student_id: null,
+        assigned_date: '2026-01-10',
+        due_date: '2026-01-20',
+        status: HomeworkAssignmentStatus.ACTIVE,
+      }),
+    );
+
+    await dataSource.getRepository(HomeworkSubmission).save(
+      dataSource.getRepository(HomeworkSubmission).create({
+        tenant_id: TENANT_A,
+        assignment_id: homeworkAssignment.id,
+        student_id: student.id,
+        status: HomeworkSubmissionStatus.DONE,
+        marks: null,
+        attachments: [],
+      }),
+    );
+
+    await dataSource.getRepository(SyllabusTopic).save(
+      dataSource.getRepository(SyllabusTopic).create({
+        tenant_id: TENANT_A,
+        class_id: klass.id,
+        subject_id: homeworkSubject.id,
+        name: 'Roundtrip Topic',
+        description: null,
+        sequence: 1,
+        status: SyllabusTopicStatus.DONE,
+      }),
+    );
   }
 
   /**
@@ -849,6 +916,10 @@ describe('workbook round trip (integration)', () => {
       'results',
       'result_subjects',
       'student_subject_choices',
+      'homework',
+      'homework_assignments',
+      'homework_submissions',
+      'syllabus_topics',
     ];
     const empty = mustBeNonEmpty.filter((tab) => !(rowCounts[tab] ?? 0));
     expect(empty, `fixture produced no rows for: ${empty.join(', ')}`).toEqual([]);

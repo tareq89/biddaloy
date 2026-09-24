@@ -50,6 +50,16 @@ import { AttendanceRecord } from '../modules/attendance/entities/attendance-reco
 import { AttendanceDevice } from '../modules/attendance/entities/attendance-device.entity';
 import { hashDeviceKey } from '../modules/attendance/devices/device.service';
 import { SeedPublicHolidayEntry } from './seed-data/public-holidays-bd';
+import {
+  HomeworkGradingMode,
+  HomeworkAssignmentStatus,
+  HomeworkSubmissionStatus,
+  SyllabusTopicStatus,
+} from '@biddaloy/shared';
+import { Homework } from '../modules/homework/entities/homework.entity';
+import { HomeworkAssignment } from '../modules/homework/entities/homework-assignment.entity';
+import { HomeworkSubmission } from '../modules/homework/entities/homework-submission.entity';
+import { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.entity';
 
 /** [8.9.5] manual-testing aid: gives the seed admin a *second* school
  * membership so `/select-school`'s picker actually has something to show
@@ -1799,6 +1809,164 @@ export async function ensureExamsDemoSeed(
       `  Exams demo seed: +${result.exams} exams, +${result.components} components, ` +
         `+${result.grids} grids, +${result.marks} marks, +${result.results} results, ` +
         `+${result.schedules} schedules`,
+// ===========================================================================
+// [22.3.6] Homework/syllabus demo data
+// ===========================================================================
+
+export interface HomeworkDemoSeedRepositories {
+  homeworkRepository: Repository<Homework>;
+  homeworkAssignmentRepository: Repository<HomeworkAssignment>;
+  homeworkSubmissionRepository: Repository<HomeworkSubmission>;
+  syllabusTopicRepository: Repository<SyllabusTopic>;
+}
+
+export interface HomeworkDemoSeedParams {
+  schoolId: string;
+  classId: string;
+  subjectId: string;
+  sectionId: string;
+  /** Exactly {@link DEMO_STUDENTS_PER_SECTION} ids, roll-number order — same
+   * roster `ensureAttendanceSeed` attaches to. Index 0/1 get a completed
+   * submission, index 2 is left `NOT_SUBMITTED` against a past due date —
+   * the fixture `homework-analytics.service.spec.ts`'s own "2 submitted, 1
+   * defaulter -> 66%" example is drawn from. */
+  studentIds: readonly string[];
+}
+
+export interface HomeworkDemoSeedResult {
+  homework: number;
+  assignments: number;
+  submissions: number;
+  syllabusTopics: number;
+}
+
+/** A fixed, safely-past due date (same "real 2026 date" convention as
+ * `ATTENDANCE_SEED_MONTH`/`DEMO_ACADEMIC_YEAR`) — every seeded assignment is
+ * already overdue, so the one `NOT_SUBMITTED` submission always reads as a
+ * defaulter regardless of when the seed script actually runs. */
+const HOMEWORK_SEED_DUE_DATE = '2026-01-20';
+const HOMEWORK_SEED_ASSIGNED_DATE = '2026-01-10';
+
+/** Idempotent, same find-or-create shape as every other `ensure*` in this
+ * file: one `Homework`, one section-wide `HomeworkAssignment`, one
+ * `HomeworkSubmission` per student (in every status a demo/CI database
+ * should show: DONE, SUBMITTED, NOT_SUBMITTED-past-due), and a small
+ * sample syllabus (DONE/DONE/PLANNED) for the same class/subject. */
+export async function ensureHomeworkDemoSeed(
+  repos: HomeworkDemoSeedRepositories,
+  params: HomeworkDemoSeedParams,
+): Promise<HomeworkDemoSeedResult> {
+  const { schoolId, classId, subjectId, sectionId, studentIds } = params;
+  const result: HomeworkDemoSeedResult = {
+    homework: 0,
+    assignments: 0,
+    submissions: 0,
+    syllabusTopics: 0,
+  };
+
+  const title = 'Chapter 3 Exercises';
+  let homework = await repos.homeworkRepository.findOne({
+    where: { tenant_id: schoolId, class_id: classId, subject_id: subjectId, title },
+  });
+  if (!homework) {
+    homework = repos.homeworkRepository.create({
+      tenant_id: schoolId,
+      class_id: classId,
+      subject_id: subjectId,
+      title,
+      description: 'Complete the odd-numbered problems and show your work.',
+      grading_mode: HomeworkGradingMode.TICK,
+      attachments: [],
+    });
+    await repos.homeworkRepository.save(homework);
+    result.homework += 1;
+  }
+
+  let assignment = await repos.homeworkAssignmentRepository.findOne({
+    where: { tenant_id: schoolId, homework_id: homework.id, section_id: sectionId },
+  });
+  if (!assignment) {
+    assignment = repos.homeworkAssignmentRepository.create({
+      tenant_id: schoolId,
+      homework_id: homework.id,
+      section_id: sectionId,
+      student_id: null,
+      assigned_date: HOMEWORK_SEED_ASSIGNED_DATE,
+      due_date: HOMEWORK_SEED_DUE_DATE,
+      status: HomeworkAssignmentStatus.ACTIVE,
+    });
+    await repos.homeworkAssignmentRepository.save(assignment);
+    result.assignments += 1;
+  }
+
+  // index 0 -> DONE, index 1 -> SUBMITTED, index 2 (and anyone past it) ->
+  // NOT_SUBMITTED (a defaulter, since HOMEWORK_SEED_DUE_DATE is in the past).
+  const statusForSlot = (slot: number): HomeworkSubmissionStatus =>
+    slot === 0
+      ? HomeworkSubmissionStatus.DONE
+      : slot === 1
+        ? HomeworkSubmissionStatus.SUBMITTED
+        : HomeworkSubmissionStatus.NOT_SUBMITTED;
+
+  for (const [slot, studentId] of studentIds.entries()) {
+    const existing = await repos.homeworkSubmissionRepository.findOne({
+      where: { tenant_id: schoolId, assignment_id: assignment.id, student_id: studentId },
+    });
+    if (existing) continue;
+
+    const status = statusForSlot(slot);
+    await repos.homeworkSubmissionRepository.save(
+      repos.homeworkSubmissionRepository.create({
+        tenant_id: schoolId,
+        assignment_id: assignment.id,
+        student_id: studentId,
+        status,
+        marks: null,
+        attachments: [],
+      }),
+    );
+    result.submissions += 1;
+  }
+
+  const topicSeeds: readonly { name: string; sequence: number; status: SyllabusTopicStatus }[] = [
+    { name: 'Introduction', sequence: 1, status: SyllabusTopicStatus.DONE },
+    { name: 'Core Concepts', sequence: 2, status: SyllabusTopicStatus.DONE },
+    { name: 'Advanced Problems', sequence: 3, status: SyllabusTopicStatus.PLANNED },
+  ];
+  for (const topicSeed of topicSeeds) {
+    const existing = await repos.syllabusTopicRepository.findOne({
+      where: {
+        tenant_id: schoolId,
+        class_id: classId,
+        subject_id: subjectId,
+        sequence: topicSeed.sequence,
+      },
+    });
+    if (existing) continue;
+
+    await repos.syllabusTopicRepository.save(
+      repos.syllabusTopicRepository.create({
+        tenant_id: schoolId,
+        class_id: classId,
+        subject_id: subjectId,
+        name: topicSeed.name,
+        description: null,
+        sequence: topicSeed.sequence,
+        status: topicSeed.status,
+      }),
+    );
+    result.syllabusTopics += 1;
+  }
+
+  if (
+    result.homework > 0 ||
+    result.assignments > 0 ||
+    result.submissions > 0 ||
+    result.syllabusTopics > 0
+  ) {
+    console.log(
+      `  Homework demo seed: +${result.homework} homework, +${result.assignments} assignments, ` +
+        `+${result.submissions} submissions, +${result.syllabusTopics} syllabus topics`,
     );
   }
   return result;

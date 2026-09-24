@@ -31,6 +31,10 @@ import { MarkGrid } from '../modules/exams/entities/mark-grid.entity';
 import { Result } from '../modules/exams/entities/result.entity';
 import { ResultSubject } from '../modules/exams/entities/result-subject.entity';
 import { ExamSchedule } from '../modules/exams/entities/exam-schedule.entity';
+import { Homework } from '../modules/homework/entities/homework.entity';
+import { HomeworkAssignment } from '../modules/homework/entities/homework-assignment.entity';
+import { HomeworkSubmission } from '../modules/homework/entities/homework-submission.entity';
+import { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.entity';
 import { DEV_SEED_PLATFORM_TENANT_ID } from '../config/env.validation';
 import { seedAccounts } from './seed.accounts';
 import { ensureDemoOrganisation } from './seed.util';
@@ -146,6 +150,10 @@ export async function seed() {
       resultRepository: dataSource.getRepository(Result),
       resultSubjectRepository: dataSource.getRepository(ResultSubject),
       examScheduleRepository: dataSource.getRepository(ExamSchedule),
+      homeworkRepository: dataSource.getRepository(Homework),
+      homeworkAssignmentRepository: dataSource.getRepository(HomeworkAssignment),
+      homeworkSubmissionRepository: dataSource.getRepository(HomeworkSubmission),
+      syllabusTopicRepository: dataSource.getRepository(SyllabusTopic),
     },
     school,
     adminEmail,

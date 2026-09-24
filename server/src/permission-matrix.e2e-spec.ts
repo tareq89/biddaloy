@@ -293,6 +293,25 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
     reason: '[22.3.1] same narrowing as GET /homework',
   },
   {
+    controller: 'HomeworkController',
+    method: 'GET',
+    path: '/homework/analytics/student/:studentId',
+    reason:
+      "[22.3.6] staff-only rollup dashboard — although PARENT/STUDENT hold HOMEWORK_READ (for their own child's homework view), this analytics endpoint is the teacher/admin completion/defaulter rollup (D13), not a per-family view",
+  },
+  {
+    controller: 'HomeworkController',
+    method: 'GET',
+    path: '/homework/analytics/section/:sectionId',
+    reason: '[22.3.6] same narrowing as the student rollup — staff-only analytics',
+  },
+  {
+    controller: 'HomeworkController',
+    method: 'GET',
+    path: '/homework/analytics/class/:classId',
+    reason: '[22.3.6] same narrowing as the student rollup — staff-only analytics',
+  },
+  {
     controller: 'HomeworkSubmissionController',
     method: 'POST',
     path: '/homework-assignments/:id/submissions',

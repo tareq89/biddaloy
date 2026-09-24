@@ -35,6 +35,7 @@ import { HomeworkBulkUploadService } from './homework-bulk-upload.service';
 import { HomeworkBulkUploadController } from './homework-bulk-upload.controller';
 import { SyllabusService } from './syllabus.service';
 import { SyllabusController } from './syllabus.controller';
+import { HomeworkAnalyticsService } from './homework-analytics.service';
 
 /**
  * [22.2.1] Entities. [22.3.1] added the controller/service/access-service
@@ -92,6 +93,7 @@ import { SyllabusController } from './syllabus.controller';
     HomeworkDefaulterScheduler,
     HomeworkBulkUploadService,
     SyllabusService,
+    HomeworkAnalyticsService,
   ],
 })
 export class HomeworkModule {}
