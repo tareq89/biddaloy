@@ -294,9 +294,63 @@ describe('ResultsService.process', () => {
       { status: ExamStatus.PROCESSED },
     );
     // stu-1 at 85% (A+) outranks stu-2 at 40% (B) — position ties aren't
-    // exercised here (see the dedicated rankByGpa unit tests), just that
+    // exercised here (see the dedicated rankByMerit unit tests), just that
     // process() actually calls through to real grading.
     expect(markRepo.find).toHaveBeenCalled();
+  });
+
+  it('section_position restarts at 1 per section, section_id taken from Enrollment (D2)', async () => {
+    const SECTION_B_ID = 'section-2';
+    const { service, resultRepo } = await buildService({
+      students: [
+        { id: 'stu-1', class_section_id: SECTION_ID, roll_number: 1, full_name: 'Student One' },
+        { id: 'stu-2', class_section_id: SECTION_ID, roll_number: 2, full_name: 'Student Two' },
+        // class_section_id deliberately WRONG (set to section-1) so this
+        // test actually proves section_id is read from Enrollment, not
+        // from Student.class_section_id — if the code read the wrong
+        // field, stu-3 would land in section-1 instead of section-2.
+        { id: 'stu-3', class_section_id: SECTION_ID, roll_number: 1, full_name: 'Student Three' },
+      ],
+      enrollments: [
+        { student_id: 'stu-1', section_id: SECTION_ID },
+        { student_id: 'stu-2', section_id: SECTION_ID },
+        { student_id: 'stu-3', section_id: SECTION_B_ID },
+      ],
+      marks: [
+        {
+          student_id: 'stu-1',
+          component_id: COMPONENT_ID,
+          value: '85.00',
+          status: MarkStatus.PRESENT,
+        },
+        {
+          student_id: 'stu-2',
+          component_id: COMPONENT_ID,
+          value: '40.00',
+          status: MarkStatus.PRESENT,
+        },
+        {
+          student_id: 'stu-3',
+          component_id: COMPONENT_ID,
+          value: '90.00',
+          status: MarkStatus.PRESENT,
+        },
+      ],
+    });
+
+    await service.process(EXAM_ID, TENANT_ID, 'user-1');
+
+    const saved = resultRepo.save.mock.calls.map((c: any) => c[0]);
+    const byStudent = new Map(saved.map((s: any) => [s.student_id, s]));
+
+    // stu-3 is alone in section-2 -> section_position 1, section_id set.
+    expect(byStudent.get('stu-3').section_id).toBe(SECTION_B_ID);
+    expect(byStudent.get('stu-3').section_position).toBe(1);
+    // stu-1 outranks stu-2 within section-1 -> restarts at 1 too.
+    expect(byStudent.get('stu-1').section_id).toBe(SECTION_ID);
+    expect(byStudent.get('stu-1').section_position).toBe(1);
+    expect(byStudent.get('stu-2').section_id).toBe(SECTION_ID);
+    expect(byStudent.get('stu-2').section_position).toBe(2);
   });
 
   it('a forced process is audited with forced: true', async () => {
@@ -487,6 +541,8 @@ describe('ResultsService.list', () => {
           gpa: '4.00',
           grade: 'A',
           position: 2,
+          section_id: SECTION_ID,
+          section_position: 2,
           is_fail: false,
         },
         {
@@ -496,6 +552,8 @@ describe('ResultsService.list', () => {
           gpa: '5.00',
           grade: 'A+',
           position: 1,
+          section_id: SECTION_ID,
+          section_position: 1,
           is_fail: false,
         },
       ],
@@ -505,6 +563,11 @@ describe('ResultsService.list', () => {
 
     expect(rows.map((r) => r.student_id)).toEqual(['stu-1', 'stu-2']);
     expect(rows[0].full_name).toBe('Student One');
+    // Acceptance: list() exposes both section_id and section_position.
+    expect(rows[0].section_id).toBe(SECTION_ID);
+    expect(rows[0].section_position).toBe(1);
+    expect(rows[1].section_id).toBe(SECTION_ID);
+    expect(rows[1].section_position).toBe(2);
   });
 
   it('returns an empty array when nothing has been processed yet', async () => {

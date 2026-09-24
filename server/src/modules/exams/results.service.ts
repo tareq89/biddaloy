@@ -28,7 +28,7 @@ import {
   computeSubjectTotal,
   gradeSubjectTotal,
   combineSubjects,
-  rankByGpa,
+  rankByMerit,
   Band,
   ComponentInput,
   SubjectResult,
@@ -73,6 +73,7 @@ export async function lockExam(
 
 interface ComputedStudentResult {
   student_id: string;
+  section_id: string | null;
   total_marks: number;
   gpa: number;
   grade: string;
@@ -324,6 +325,7 @@ export class ResultsService {
       const overall = combineSubjects(subjectResults, (gpa) => this.gradeForGpa(bands, gpa));
       computed.push({
         student_id: student.id,
+        section_id: sectionByStudent.get(student.id) ?? null,
         total_marks: overall.total_marks,
         gpa: overall.gpa,
         grade: overall.grade,
@@ -332,11 +334,48 @@ export class ResultsService {
       });
     }
 
-    const positions = rankByGpa(
-      computed.map((c) => ({ student_id: c.student_id, gpa: c.gpa, is_fail: c.is_fail })),
+    // Class position (D2/D18): merit rank across the whole class.
+    const positions = rankByMerit(
+      computed.map((c) => ({
+        student_id: c.student_id,
+        gpa: c.gpa,
+        total_marks: c.total_marks,
+        is_fail: c.is_fail,
+      })),
     );
 
-    return computed.map((c) => ({ ...c, position: positions.get(c.student_id) ?? null }) as any);
+    // Section position: merit rank within each section separately —
+    // `sectionByStudent` (sourced from Enrollment) groups the same
+    // `computed` rows by the section each student is actually enrolled
+    // in, so a student's section rank never leaks across sections.
+    const bySection = new Map<string, ComputedStudentResult[]>();
+    for (const c of computed) {
+      if (c.section_id === null) continue;
+      bySection.set(c.section_id, [...(bySection.get(c.section_id) ?? []), c]);
+    }
+    const sectionPositions = new Map<string, number | null>();
+    for (const sectionStudents of bySection.values()) {
+      const ranked = rankByMerit(
+        sectionStudents.map((c) => ({
+          student_id: c.student_id,
+          gpa: c.gpa,
+          total_marks: c.total_marks,
+          is_fail: c.is_fail,
+        })),
+      );
+      for (const [studentId, position] of ranked) {
+        sectionPositions.set(studentId, position);
+      }
+    }
+
+    return computed.map(
+      (c) =>
+        ({
+          ...c,
+          position: positions.get(c.student_id) ?? null,
+          section_position: sectionPositions.get(c.student_id) ?? null,
+        }) as any,
+    );
   }
 
   /** Soft-deletes every active result for the exam — including students
@@ -365,7 +404,9 @@ export class ResultsService {
     }
 
     const now = new Date();
-    for (const c of computed as Array<ComputedStudentResult & { position: number | null }>) {
+    for (const c of computed as Array<
+      ComputedStudentResult & { position: number | null; section_position: number | null }
+    >) {
       const result = await resultRepo.save(
         resultRepo.create({
           exam_id: exam.id,
@@ -374,6 +415,8 @@ export class ResultsService {
           gpa: c.gpa.toFixed(2),
           grade: c.grade,
           position: c.position,
+          section_id: c.section_id,
+          section_position: c.section_position,
           is_fail: c.is_fail,
           grading_scale_id: scaleId,
           grading_scale_revision: scaleRevision,
@@ -670,6 +713,8 @@ export class ResultsService {
       gpa: number;
       grade: string;
       position: number | null;
+      section_id: string | null;
+      section_position: number | null;
       is_fail: boolean;
     }>
   > {
@@ -693,6 +738,8 @@ export class ResultsService {
           gpa: Number(r.gpa),
           grade: r.grade,
           position: r.position,
+          section_id: r.section_id,
+          section_position: r.section_position,
           is_fail: r.is_fail,
         };
       })
