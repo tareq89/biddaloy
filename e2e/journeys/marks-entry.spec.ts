@@ -93,7 +93,9 @@ test('keyboard-only: type marks, mark one absent, watch autosave settle, submit'
   });
 
   await test.step('the save-state line settles to "saved"', async () => {
-    await expect(page.getByTestId('save-state-line')).toContainText(t('exams.saveState.saving'));
+    // No assertion on the transient "saving…" text: the save can finish
+    // before Playwright polls, so it flakes. Starting from "no changes yet",
+    // reaching "saved" already proves the autosave round-tripped.
     await expect(page.getByTestId('save-state-line')).toContainText(
       t('exams.saveState.saved').split('·')[0].trim(),
       { timeout: 15_000 },
