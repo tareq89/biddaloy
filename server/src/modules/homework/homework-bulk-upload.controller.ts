@@ -46,7 +46,7 @@ export class HomeworkBulkUploadController {
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.bulkUploadService.validate(file, tenant.id, user.sub);
+    return this.bulkUploadService.validate(file, tenant.id, user.sub, tenant.role);
   }
 
   @Post('commit')

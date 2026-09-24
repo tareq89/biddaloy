@@ -1,12 +1,13 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In } from 'typeorm';
+import { EntityManager, Repository, IsNull, In } from 'typeorm';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { Class } from '../academics/entities/class.entity';
@@ -15,11 +16,11 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Subject } from '../academics/entities/subject.entity';
 import { Homework } from './entities/homework.entity';
 import { HomeworkAssignment } from './entities/homework-assignment.entity';
+import { HomeworkAccessService } from './homework-access.service';
 import { ImportStagingService } from '../bulk-import/import-staging.service';
 import type { BulkImportErrorDto } from '../bulk-import/dto/bulk-import.dto';
 import { parseSpreadsheet, BulkUploadParseError, ParsedRow } from './homework-bulk-upload.parser';
 import {
-  HomeworkBulkUploadErrorDto,
   HomeworkBulkUploadResultDto,
   HomeworkBulkUploadRowDto,
   HomeworkBulkUploadValidateResultDto,
@@ -93,6 +94,7 @@ export class HomeworkBulkUploadService {
     @InjectRepository(HomeworkAssignment)
     private readonly assignmentRepo: Repository<HomeworkAssignment>,
     @Inject(ImportStagingService) private readonly staging: ImportStagingService,
+    private readonly access: HomeworkAccessService,
   ) {}
 
   /**
@@ -105,6 +107,7 @@ export class HomeworkBulkUploadService {
     file: Express.Multer.File | undefined,
     tenantId: string,
     userId: string | undefined,
+    role: string,
   ): Promise<HomeworkBulkUploadValidateResultDto> {
     if (!file) {
       throw new BadRequestException('No file uploaded');
@@ -122,6 +125,15 @@ export class HomeworkBulkUploadService {
 
     const classLookup = await this.buildClassLookup(tenantId);
     const subjectIdByName = await this.buildSubjectLookup(tenantId);
+    // Access is checked here, in validate — never in commit — because the
+    // staged payload can only ever be consumed by the same (tenant, user,
+    // staging_id) that created it (ImportStagingService's key shape), so a
+    // staged row can't be tampered with between the two calls. Checking
+    // here also surfaces access failures as a per-row validation error in
+    // the preview, rather than a generic commit failure. Memoized per
+    // (section, subject) pair since a large upload can repeat the same
+    // section/subject across many rows.
+    const accessCache = new Map<string, boolean>();
 
     const errors: BulkImportErrorDto[] = [];
     const staged: ValidatedBulkUploadRow[] = [];
@@ -130,6 +142,7 @@ export class HomeworkBulkUploadService {
     for (const parsed of rows) {
       try {
         const row = await this.validateRow(parsed, classLookup, subjectIdByName);
+        await this.assertRowAccess(row, role, userId, tenantId, accessCache);
         staged.push(row);
         preview.push({
           row: row.rowNumber,
@@ -198,34 +211,63 @@ export class HomeworkBulkUploadService {
       );
     }
 
-    const errors: HomeworkBulkUploadErrorDto[] = [];
-    const createdHomeworkIds: string[] = [];
-
-    for (const row of staged.rows) {
-      try {
-        const homeworkId = await this.createRow(row, tenantId);
-        createdHomeworkIds.push(homeworkId);
-      } catch (err) {
-        if (err instanceof BadRequestException) {
-          errors.push({
-            row: row.rowNumber,
-            ...(err instanceof BulkRowError && err.field !== undefined ? { field: err.field } : {}),
-            ...(err instanceof BulkRowError && err.value !== undefined ? { value: err.value } : {}),
-            reason: this.describeError(err),
-          });
-        } else {
-          throw err;
-        }
+    // All-or-nothing: `createRow` never throws `BadRequestException` (every
+    // row was already validated in `validate`), so one transaction for the
+    // whole batch is safe — a mid-batch DB failure rolls back every row
+    // instead of leaving a partial commit that a retry could duplicate
+    // (the staged payload is consumed via GETDEL before the first write,
+    // so there's no going back to a clean "nothing written yet" state
+    // otherwise).
+    const createdHomeworkIds = await this.homeworkRepo.manager.transaction(async (manager) => {
+      const ids: string[] = [];
+      for (const row of staged.rows) {
+        ids.push(await this.createRow(manager, row, tenantId));
       }
-    }
+      return ids;
+    });
 
     return {
       total_rows: staged.rows.length,
       success_count: createdHomeworkIds.length,
-      error_count: errors.length,
+      error_count: 0,
       created_homework_ids: createdHomeworkIds,
-      errors,
+      errors: [],
     };
+  }
+
+  /** Tenant-wide roles skip the check entirely (isTenantWide); a TEACHER
+   * must have a `teacher_class_sections` row for the row's (section,
+   * subject) — same gate `HomeworkService.assign` uses for a single
+   * assignment, applied per row here. */
+  private async assertRowAccess(
+    row: ValidatedBulkUploadRow,
+    role: string,
+    userId: string | undefined,
+    tenantId: string,
+    cache: Map<string, boolean>,
+  ): Promise<void> {
+    if (this.access.isTenantWide(role)) return;
+    const cacheKey = `${row.sectionId}:${row.subjectId}`;
+    if (cache.get(cacheKey)) return;
+    try {
+      await this.access.assertCanManageSection(
+        role,
+        userId ?? '',
+        row.sectionId,
+        row.subjectId,
+        tenantId,
+      );
+      cache.set(cacheKey, true);
+    } catch (err) {
+      if (err instanceof ForbiddenException) {
+        throw new BulkRowError(
+          `You do not have access to Class '${row.class}' / Section '${row.section}' for subject '${row.subject}'`,
+          'section',
+          row.section,
+        );
+      }
+      throw err;
+    }
   }
 
   /**
@@ -293,33 +335,35 @@ export class HomeworkBulkUploadService {
     };
   }
 
-  private async createRow(row: ValidatedBulkUploadRow, tenantId: string): Promise<string> {
-    return this.homeworkRepo.manager.transaction(async (manager) => {
-      const homework = await manager.getRepository(Homework).save(
-        manager.getRepository(Homework).create({
-          title: `${row.subject} — ${row.assigned_date}`,
-          description: row.description ?? null,
-          subject_id: row.subjectId,
-          class_id: row.classId,
-          grading_mode: HomeworkGradingMode.TICK,
-          tenant_id: tenantId,
-        }),
-      );
+  private async createRow(
+    manager: EntityManager,
+    row: ValidatedBulkUploadRow,
+    tenantId: string,
+  ): Promise<string> {
+    const homework = await manager.getRepository(Homework).save(
+      manager.getRepository(Homework).create({
+        title: `${row.subject} — ${row.assigned_date}`,
+        description: row.description ?? null,
+        subject_id: row.subjectId,
+        class_id: row.classId,
+        grading_mode: HomeworkGradingMode.TICK,
+        tenant_id: tenantId,
+      }),
+    );
 
-      await manager.getRepository(HomeworkAssignment).save(
-        manager.getRepository(HomeworkAssignment).create({
-          homework_id: homework.id,
-          section_id: row.sectionId,
-          student_id: null,
-          assigned_date: row.assigned_date,
-          due_date: row.due_date,
-          status: HomeworkAssignmentStatus.ACTIVE,
-          tenant_id: tenantId,
-        }),
-      );
+    await manager.getRepository(HomeworkAssignment).save(
+      manager.getRepository(HomeworkAssignment).create({
+        homework_id: homework.id,
+        section_id: row.sectionId,
+        student_id: null,
+        assigned_date: row.assigned_date,
+        due_date: row.due_date,
+        status: HomeworkAssignmentStatus.ACTIVE,
+        tenant_id: tenantId,
+      }),
+    );
 
-      return homework.id;
-    });
+    return homework.id;
   }
 
   private toDtoInput(raw: Record<string, string>): Record<string, string | undefined> {

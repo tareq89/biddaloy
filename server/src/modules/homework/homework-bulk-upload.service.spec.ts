@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import ExcelJS from 'exceljs';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { HomeworkBulkUploadService } from './homework-bulk-upload.service';
 import { REQUIRED_HEADERS, BulkUploadHeader } from './homework-bulk-upload.parser';
-import { HomeworkGradingMode, HomeworkAssignmentStatus } from '@biddaloy/shared';
+import { HomeworkGradingMode, HomeworkAssignmentStatus, UserRole } from '@biddaloy/shared';
 
 /**
  * Unit tests for HomeworkBulkUploadService, with every repository and
@@ -52,6 +52,10 @@ async function buildXlsxFile(
 describe('HomeworkBulkUploadService', () => {
   let service: HomeworkBulkUploadService;
   let staging: { stage: ReturnType<typeof vi.fn>; consume: ReturnType<typeof vi.fn> };
+  let access: {
+    isTenantWide: ReturnType<typeof vi.fn>;
+    assertCanManageSection: ReturnType<typeof vi.fn>;
+  };
   let savedHomework: unknown[];
   let savedAssignments: unknown[];
 
@@ -104,6 +108,10 @@ describe('HomeworkBulkUploadService', () => {
       manager: { transaction: (fn: (manager: unknown) => unknown) => fn(fakeTransactionManager()) },
     };
     const assignmentRepo = {};
+    access = {
+      isTenantWide: vi.fn((role: string) => role === UserRole.ADMIN),
+      assertCanManageSection: vi.fn(async () => undefined),
+    };
 
     service = new HomeworkBulkUploadService(
       classRepo as never,
@@ -113,6 +121,7 @@ describe('HomeworkBulkUploadService', () => {
       homeworkRepo as never,
       assignmentRepo as never,
       staging as never,
+      access as never,
     );
   });
 
@@ -121,7 +130,7 @@ describe('HomeworkBulkUploadService', () => {
       staging.stage.mockResolvedValue({ stagingId: 'stage-1', expiresAt: '2026-01-01T00:00:00Z' });
       const file = await buildXlsxFile([...REQUIRED_HEADERS], [rowValues(REQUIRED_HEADERS)]);
 
-      const result = await service.validate(file, TENANT_ID, USER_ID);
+      const result = await service.validate(file, TENANT_ID, USER_ID, UserRole.ADMIN);
 
       expect(result.hard_error_count).toBe(0);
       expect(result.rows_to_create).toBe(1);
@@ -149,7 +158,7 @@ describe('HomeworkBulkUploadService', () => {
         [rowValues(REQUIRED_HEADERS, { class: 'No Such Class' })],
       );
 
-      const result = await service.validate(file, TENANT_ID, USER_ID);
+      const result = await service.validate(file, TENANT_ID, USER_ID, UserRole.ADMIN);
 
       expect(result.hard_error_count).toBe(1);
       expect(result.errors[0]).toMatchObject({ row: 2, column: 'class', value: 'No Such Class' });
@@ -162,7 +171,7 @@ describe('HomeworkBulkUploadService', () => {
         [rowValues(REQUIRED_HEADERS, { section: 'No Such Section' })],
       );
 
-      const result = await service.validate(file, TENANT_ID, USER_ID);
+      const result = await service.validate(file, TENANT_ID, USER_ID, UserRole.ADMIN);
 
       expect(result.hard_error_count).toBe(1);
       expect(result.errors[0]).toMatchObject({
@@ -179,7 +188,7 @@ describe('HomeworkBulkUploadService', () => {
         [rowValues(REQUIRED_HEADERS, { subject: 'No Such Subject' })],
       );
 
-      const result = await service.validate(file, TENANT_ID, USER_ID);
+      const result = await service.validate(file, TENANT_ID, USER_ID, UserRole.ADMIN);
 
       expect(result.hard_error_count).toBe(1);
       expect(result.errors[0]).toMatchObject({
@@ -196,7 +205,7 @@ describe('HomeworkBulkUploadService', () => {
         [rowValues(headersMissingSubject as unknown as readonly BulkUploadHeader[])],
       );
 
-      await expect(service.validate(file, TENANT_ID, USER_ID)).rejects.toThrow(
+      await expect(service.validate(file, TENANT_ID, USER_ID, UserRole.ADMIN)).rejects.toThrow(
         'Missing required columns: subject',
       );
     });
@@ -208,16 +217,28 @@ describe('HomeworkBulkUploadService', () => {
         [rowValues(REQUIRED_HEADERS, { assigned_date: 'not-a-date' })],
       );
 
-      const result = await service.validate(file, TENANT_ID, USER_ID);
+      const result = await service.validate(file, TENANT_ID, USER_ID, UserRole.ADMIN);
 
       expect(result.hard_error_count).toBe(1);
       expect(result.errors[0]).toMatchObject({ row: 2, column: 'assigned_date' });
     });
 
     it('throws when no file is uploaded', async () => {
-      await expect(service.validate(undefined, TENANT_ID, USER_ID)).rejects.toThrow(
+      await expect(service.validate(undefined, TENANT_ID, USER_ID, UserRole.ADMIN)).rejects.toThrow(
         'No file uploaded',
       );
+    });
+
+    it('reports a row-level access error for a teacher not mapped to the section', async () => {
+      access.isTenantWide.mockReturnValue(false);
+      access.assertCanManageSection.mockRejectedValue(new ForbiddenException('not linked'));
+      staging.stage.mockResolvedValue({ stagingId: 'stage-6', expiresAt: '2026-01-01T00:00:00Z' });
+      const file = await buildXlsxFile([...REQUIRED_HEADERS], [rowValues(REQUIRED_HEADERS)]);
+
+      const result = await service.validate(file, TENANT_ID, USER_ID, UserRole.TEACHER);
+
+      expect(result.hard_error_count).toBe(1);
+      expect(result.errors[0]).toMatchObject({ row: 2, column: 'section' });
     });
   });
 

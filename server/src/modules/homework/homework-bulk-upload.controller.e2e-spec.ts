@@ -198,13 +198,15 @@ describe('Homework Bulk Upload E2E', () => {
       expect(assignmentRows[0].student_id).toBeNull();
     });
 
-    it('allows TEACHER (also holds HOMEWORK_IMPORT)', async () => {
+    it('holds HOMEWORK_IMPORT but has no teacher_class_sections row for the row (access checked in validate)', async () => {
       const buffer = await buildXlsxBuffer([rowValues(REQUIRED_HEADERS)]);
       const validateRes = await validate(buffer, { role: UserRole.TEACHER, as: teacherToken }).expect(
         201,
       );
+      expect(validateRes.body.hard_error_count).toBe(1);
+      expect(validateRes.body.errors[0]).toMatchObject({ column: 'section' });
       await commit(validateRes.body.staging_id, { role: UserRole.TEACHER, as: teacherToken }).expect(
-        201,
+        409,
       );
     });
 

@@ -62,12 +62,29 @@ async function loadWorksheet(buffer: Buffer, filename: string): Promise<ExcelJS.
   );
 }
 
+/** Excel stores an entered date (e.g. `2026-01-01`) as a date cell, and
+ * ExcelJS returns a JS `Date` for it — not a `{ text }`/`{ result }` object
+ * and not a string, so it fell straight through to `String(value)`'s
+ * locale-dependent, unparseable format. Normalized to `YYYY-MM-DD` here,
+ * same for a plain `Date` value and for a formula whose `result` is a
+ * `Date`. */
 function cellToString(value: ExcelJS.CellValue): string {
   if (value === null || value === undefined) return '';
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
   if (typeof value === 'object') {
-    const obj = value as { text?: unknown; result?: unknown };
+    const obj = value as { text?: unknown; result?: unknown; richText?: { text: string }[] };
+    if (Array.isArray(obj.richText)) {
+      return obj.richText
+        .map((part) => part.text)
+        .join('')
+        .trim();
+    }
+    if ('result' in obj) {
+      return obj.result instanceof Date
+        ? obj.result.toISOString().slice(0, 10)
+        : String(obj.result ?? '').trim();
+    }
     if ('text' in obj) return String(obj.text ?? '').trim();
-    if ('result' in obj) return String(obj.result ?? '').trim();
   }
   return String(value).trim();
 }
