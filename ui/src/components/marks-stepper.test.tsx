@@ -215,6 +215,27 @@ describe('MarksStepper — edge cases', () => {
 
     expect(writtenInput().value).toBe('.');
     expect(screen.queryByText('max 100')).toBeNull();
+    // The server rejects "." — it is staged as a blank, never sent as-is.
+    expect(onStage).toHaveBeenLastCalledWith(
+      cellKey('s1', 'c1'),
+      expect.objectContaining({ value: null, status: 'PRESENT' }),
+    );
+  });
+
+  it('stages "5." as "5" while the cell keeps showing what was typed', async () => {
+    const user = userEvent.setup();
+    const onStage = vi.fn();
+    await renderInEnglish(
+      <MarksStepper students={students} components={components} cells={cells} onStage={onStage} />,
+    );
+
+    await user.type(writtenInput(), '5.');
+
+    expect(writtenInput().value).toBe('5.');
+    expect(onStage).toHaveBeenLastCalledWith(
+      cellKey('s1', 'c1'),
+      expect.objectContaining({ value: '5', status: 'PRESENT' }),
+    );
   });
 
   it('refuses a mark above full marks and shows the max, then clears the error on a valid edit', async () => {

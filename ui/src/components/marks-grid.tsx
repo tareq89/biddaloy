@@ -46,6 +46,15 @@ export function cellKey(studentId: string, componentId: string): string {
   return `${studentId}:${componentId}`;
 }
 
+/** The cell input allows a number-in-progress ("5.", "."), but the server's
+ * `@IsNumberString` rejects both — one such cell would fail its whole
+ * autosave batch on every retry. Stage what the text means instead:
+ * "5." → "5", "." → blank. The cell itself keeps showing what was typed. */
+export function toStagedMark(raw: string): string | null {
+  const complete = raw.endsWith('.') ? raw.slice(0, -1) : raw;
+  return complete === '' ? null : complete;
+}
+
 export interface MarksGridProps {
   students: MarksGridStudent[];
   components: MarksGridComponent[];
@@ -113,14 +122,19 @@ export function MarksGrid({
     inputRefs.current.get(refKey(row, col))?.focus();
   }
 
-  function commit(studentId: string, componentId: string, next: MarksGridCellValue) {
+  function commit(
+    studentId: string,
+    componentId: string,
+    next: MarksGridCellValue,
+    staged: MarksGridCellValue = next,
+  ) {
     const key = cellKey(studentId, componentId);
     setValues((prev) => {
       const copy = new Map(prev);
       copy.set(key, next);
       return copy;
     });
-    onStage(key, { student_id: studentId, component_id: componentId, ...next });
+    onStage(key, { student_id: studentId, component_id: componentId, ...staged });
   }
 
   function handleValueInput(
@@ -155,7 +169,12 @@ export function MarksGrid({
       copy.delete(key);
       return copy;
     });
-    commit(studentId, component.id, { value: raw, status: 'PRESENT' });
+    commit(
+      studentId,
+      component.id,
+      { value: raw, status: 'PRESENT' },
+      { value: toStagedMark(raw), status: 'PRESENT' },
+    );
     void rowIndex;
     void colIndex;
   }

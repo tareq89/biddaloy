@@ -13,6 +13,7 @@ import { cn } from '../primitives/lib/utils';
 import { Button } from './button';
 import {
   cellKey,
+  toStagedMark,
   type MarksGridCell,
   type MarksGridCellValue,
   type MarksGridComponent,
@@ -73,10 +74,14 @@ export function MarksStepper({
   const boundedIndex = Math.min(index, students.length - 1);
   const student = students[boundedIndex]!;
 
-  function commit(componentId: string, next: MarksGridCellValue) {
+  function commit(
+    componentId: string,
+    next: MarksGridCellValue,
+    staged: MarksGridCellValue = next,
+  ) {
     const key = cellKey(student.id, componentId);
     setValues((prev) => new Map(prev).set(key, next));
-    onStage(key, { student_id: student.id, component_id: componentId, ...next });
+    onStage(key, { student_id: student.id, component_id: componentId, ...staged });
   }
 
   function handleValueInput(component: MarksGridComponent, raw: string) {
@@ -105,7 +110,11 @@ export function MarksStepper({
       copy.delete(key);
       return copy;
     });
-    commit(component.id, { value: raw, status: 'PRESENT' });
+    commit(
+      component.id,
+      { value: raw, status: 'PRESENT' },
+      { value: toStagedMark(raw), status: 'PRESENT' },
+    );
   }
 
   const rowSaved = editableComponents.every((component) => {

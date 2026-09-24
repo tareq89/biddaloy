@@ -99,6 +99,34 @@ describe('MarksGrid keyboard model', () => {
   });
 });
 
+describe('MarksGrid — number-in-progress staging', () => {
+  // The server's `@IsNumberString` rejects "." and "5."; one such cell
+  // would fail its whole autosave batch on every retry.
+  it('stages "5." as "5" and a lone "." as blank, keeping the typed text in the cell', async () => {
+    const user = userEvent.setup();
+    const onStage = vi.fn();
+    await renderInEnglish(
+      <MarksGrid students={students} components={components} cells={cells} onStage={onStage} />,
+    );
+    const cell = screen.getByLabelText<HTMLInputElement>('Rafi Ahmed — Written');
+
+    await user.type(cell, '5.');
+    expect(cell.value).toBe('5.');
+    expect(onStage).toHaveBeenLastCalledWith(
+      cellKey('s1', 'c1'),
+      expect.objectContaining({ value: '5', status: 'PRESENT' }),
+    );
+
+    await user.clear(cell);
+    await user.type(cell, '.');
+    expect(cell.value).toBe('.');
+    expect(onStage).toHaveBeenLastCalledWith(
+      cellKey('s1', 'c1'),
+      expect.objectContaining({ value: null, status: 'PRESENT' }),
+    );
+  });
+});
+
 describe('MarksGrid — over-max refusal', () => {
   it('refuses a value above full_marks at the cell, with the limit shown inline', async () => {
     const user = userEvent.setup();
