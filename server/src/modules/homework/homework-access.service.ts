@@ -138,4 +138,96 @@ export class HomeworkAccessService {
     }
     await this.assertCanManageSection(role, userId, student.class_section_id, subjectId, tenantId);
   }
+
+  /**
+   * Read-only counterpart of `assertCanManageSection` for the analytics
+   * rollups (D13) — subject-agnostic, since a section rollup aggregates
+   * every subject's homework, not just one teacher's own subject. A
+   * `TEACHER` may view a section's rollup if they hold *any*
+   * `teacher_class_sections` row for it (class teacher or any subject
+   * teacher), not just the one matching a specific `subjectId`.
+   */
+  async assertCanViewSection(
+    role: string,
+    userId: string,
+    sectionId: string,
+    tenantId: string,
+  ): Promise<void> {
+    if (TENANT_WIDE_ROLES.includes(role)) {
+      const section = await this.sectionRepo.findOne({
+        where: { id: sectionId, tenant_id: tenantId },
+      });
+      if (!section) {
+        throw new ForbiddenException('You do not have access to this section');
+      }
+      return;
+    }
+
+    if (role === UserRole.TEACHER) {
+      const match = await this.tcsRepo
+        .createQueryBuilder('tcs')
+        .innerJoin('teachers', 't', 't.id = tcs.teacher_id AND t.tenant_id = :tenantId', {
+          tenantId,
+        })
+        .where('tcs.section_id = :sectionId', { sectionId })
+        .andWhere('tcs.tenant_id = :tenantId', { tenantId })
+        .andWhere('t.user_id = :userId', { userId })
+        .getOne();
+      if (!match) {
+        throw new ForbiddenException('You do not have access to this section');
+      }
+      return;
+    }
+
+    throw new ForbiddenException('This role cannot view homework analytics');
+  }
+
+  /** Read-only, subject-agnostic counterpart of `assertCanManageClass`. */
+  async assertCanViewClass(
+    role: string,
+    userId: string,
+    classId: string,
+    tenantId: string,
+  ): Promise<void> {
+    if (TENANT_WIDE_ROLES.includes(role)) {
+      return;
+    }
+
+    if (role === UserRole.TEACHER) {
+      const match = await this.tcsRepo
+        .createQueryBuilder('tcs')
+        .innerJoin('teachers', 't', 't.id = tcs.teacher_id AND t.tenant_id = :tenantId', {
+          tenantId,
+        })
+        .innerJoin('class_sections', 'cs', 'cs.id = tcs.section_id AND cs.tenant_id = :tenantId', {
+          tenantId,
+        })
+        .where('cs.class_id = :classId', { classId })
+        .andWhere('tcs.tenant_id = :tenantId', { tenantId })
+        .andWhere('t.user_id = :userId', { userId })
+        .getOne();
+      if (!match) {
+        throw new ForbiddenException('You do not have access to this class');
+      }
+      return;
+    }
+
+    throw new ForbiddenException('This role cannot view homework analytics');
+  }
+
+  /** Resolves a student's section, then defers to `assertCanViewSection`. */
+  async assertCanViewStudent(
+    role: string,
+    userId: string,
+    studentId: string,
+    tenantId: string,
+  ): Promise<void> {
+    const student = await this.studentRepo.findOne({
+      where: { id: studentId, tenant_id: tenantId },
+    });
+    if (!student) {
+      throw new ForbiddenException('You do not have access to this student');
+    }
+    await this.assertCanViewSection(role, userId, student.class_section_id, tenantId);
+  }
 }
