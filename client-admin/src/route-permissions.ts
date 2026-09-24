@@ -89,6 +89,11 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/academics/syllabus/': Permission.SYLLABUS_READ,
   '/_staff/grading-scales/': Permission.GRADING_SCALE_MANAGE,
   '/_staff/grading-scales/$scaleId': Permission.GRADING_SCALE_MANAGE,
+  // [19.6.1] `EXAM_MANAGE` — see `nav-tree.ts`'s `examsResults.exams`
+  // comment for why this matches `ExamsController`'s own gate rather than
+  // `MARK_VIEW`.
+  '/_staff/exams/': Permission.EXAM_MANAGE,
+  '/_staff/exams/$examId': Permission.EXAM_MANAGE,
   '/_staff/audit-logs/': Permission.AUDIT_LOG_READ,
   '/_staff/settings': Permission.SETTINGS_MANAGE,
   // [9.6] Both gated on ATTENDANCE_READ, not ATTENDANCE_MARK — this table

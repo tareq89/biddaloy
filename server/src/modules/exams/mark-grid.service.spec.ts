@@ -47,9 +47,22 @@ async function buildService(
     save: vi.fn(async (v: any) => ({ id: 'grid-1', ...v })),
     update: vi.fn(async () => undefined),
     find: vi.fn(async () => (grid ? [grid] : [])),
+    // lockGrid's locked re-read: the existing row, or the DRAFT row it
+    // just inserted for a never-touched grid.
+    findOneOrFail: vi.fn(async () => ({ id: 'grid-1', state: MarkGridState.DRAFT, ...grid })),
+    createQueryBuilder: () => insertQb,
+  };
+  const insertQb: any = {
+    insert: () => insertQb,
+    into: () => insertQb,
+    values: () => insertQb,
+    orIgnore: () => insertQb,
+    execute: vi.fn(async () => undefined),
   };
   gridRepo.manager = {
-    transaction: vi.fn(async (cb: any) => cb({ getRepository: () => gridRepo })),
+    transaction: vi.fn(async (cb: any) =>
+      cb({ getRepository: () => gridRepo, createQueryBuilder: () => insertQb }),
+    ),
   };
   const sectionRepo: any = {
     findOne: vi.fn(async () => section),
@@ -59,7 +72,10 @@ async function buildService(
   const attendanceComponentService = {
     computeForSection: vi.fn(async () => ({ reason: null, valuesByStudent: new Map() })),
   };
-  const authz = { assertCanWrite: vi.fn(async () => undefined) };
+  const authz = {
+    assertCanWrite: vi.fn(async () => undefined),
+    assertCanRead: vi.fn(async () => undefined),
+  };
   const auditService = { record: vi.fn(async () => undefined) };
 
   const moduleRef = await Test.createTestingModule({
@@ -109,7 +125,14 @@ describe('MarkGridService.getGrid', () => {
       marks: [{ student_id: 'stu-1', component_id: 'comp-1', value: '80.00', status: 'PRESENT' }],
     });
 
-    const grid = await service.getGrid(EXAM_ID, SECTION_ID, SUBJECT_ID, TENANT_ID);
+    const grid = await service.getGrid(
+      EXAM_ID,
+      SECTION_ID,
+      SUBJECT_ID,
+      TENANT_ID,
+      UserRole.ADMIN,
+      'user-1',
+    );
 
     expect(grid.state).toBe(MarkGridState.DRAFT);
     expect(grid.students).toEqual([{ id: 'stu-1', roll_number: 1, full_name: 'A' }]);
@@ -138,9 +161,51 @@ describe('MarkGridService.getGrid', () => {
       valuesByStudent: new Map([['stu-1', '9.50']]),
     }));
 
-    const grid = await service.getGrid(EXAM_ID, SECTION_ID, SUBJECT_ID, TENANT_ID);
+    const grid = await service.getGrid(
+      EXAM_ID,
+      SECTION_ID,
+      SUBJECT_ID,
+      TENANT_ID,
+      UserRole.ADMIN,
+      'user-1',
+    );
 
     expect(grid.derived['comp-att']).toEqual({ reason: null, values: { 'stu-1': '9.50' } });
+  });
+  it('never returns a mark belonging to a student in another section (cross-section leak)', async () => {
+    const { service } = await buildService({
+      students: [{ id: 'stu-1', roll_number: 1, full_name: 'A' }],
+      components: [
+        {
+          id: 'comp-1',
+          name: 'Written',
+          kind: 'WRITTEN',
+          source: 'MANUAL',
+          full_marks: '100',
+          pass_marks: null,
+          sequence: 1,
+        },
+      ],
+      // Mark has no section column, so the repo returns marks for every
+      // section sharing this exam+subject — stu-2 is not in this section.
+      marks: [
+        { student_id: 'stu-1', component_id: 'comp-1', value: '80.00', status: 'PRESENT' },
+        { student_id: 'stu-2', component_id: 'comp-1', value: '55.00', status: 'PRESENT' },
+      ],
+    });
+
+    const grid = await service.getGrid(
+      EXAM_ID,
+      SECTION_ID,
+      SUBJECT_ID,
+      TENANT_ID,
+      UserRole.ADMIN,
+      'user-1',
+    );
+
+    expect(grid.cells).toEqual([
+      { student_id: 'stu-1', component_id: 'comp-1', value: '80.00', status: 'PRESENT' },
+    ]);
   });
 });
 
@@ -243,6 +308,28 @@ describe('MarkGridService.reopen (D12, admin-only, audited)', () => {
         'user-1',
       ),
     ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('refuses to reopen a grid on an exam that is already PUBLISHED', async () => {
+    const { service } = await buildService({
+      exam: { id: EXAM_ID, tenant_id: TENANT_ID, class_id: 'c1', status: ExamStatus.PUBLISHED },
+      grid: {
+        id: 'grid-1',
+        state: MarkGridState.SUBMITTED,
+        submitted_by: 'user-0',
+        submitted_at: new Date(),
+      },
+    });
+
+    await expect(
+      service.reopen(
+        EXAM_ID,
+        { section_id: SECTION_ID, subject_id: SUBJECT_ID } as any,
+        TENANT_ID,
+        UserRole.ADMIN,
+        'admin-1',
+      ),
+    ).rejects.toThrow(ConflictException);
   });
 
   it('rejects reopening a grid that was never submitted', async () => {

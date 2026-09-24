@@ -49,6 +49,8 @@ import { Route as StaffClassesIndexRouteImport } from './routes/_staff/classes/i
 import { Route as StaffClassesClassIdRouteImport } from './routes/_staff/classes/$classId'
 import { Route as StaffCommunicationsRemindersRouteImport } from './routes/_staff/communications/reminders'
 import { Route as StaffCommunicationsSendRouteImport } from './routes/_staff/communications/send'
+import { Route as StaffExamsIndexRouteImport } from './routes/_staff/exams/index'
+import { Route as StaffExamsExamIdRouteImport } from './routes/_staff/exams/$examId'
 import { Route as StaffFeeStructuresIndexRouteImport } from './routes/_staff/fee-structures/index'
 import { Route as StaffFeesIndexRouteImport } from './routes/_staff/fees/index'
 import { Route as StaffFeesDuesRouteImport } from './routes/_staff/fees/dues'
@@ -283,6 +285,16 @@ const StaffCommunicationsSendRoute = StaffCommunicationsSendRouteImport.update({
   path: '/communications/send',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffExamsIndexRoute = StaffExamsIndexRouteImport.update({
+  id: '/exams/',
+  path: '/exams/',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffExamsExamIdRoute = StaffExamsExamIdRouteImport.update({
+  id: '/exams/$examId',
+  path: '/exams/$examId',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffFeeStructuresIndexRoute = StaffFeeStructuresIndexRouteImport.update({
   id: '/fee-structures/',
   path: '/fee-structures/',
@@ -476,6 +488,7 @@ export interface FileRoutesByFullPath {
   '/classes/$classId': typeof StaffClassesClassIdRoute
   '/communications/reminders': typeof StaffCommunicationsRemindersRoute
   '/communications/send': typeof StaffCommunicationsSendRoute
+  '/exams/$examId': typeof StaffExamsExamIdRoute
   '/fees/dues': typeof StaffFeesDuesRoute
   '/fees/generate': typeof StaffFeesGenerateRoute
   '/grading-scales/$scaleId': typeof StaffGradingScalesScaleIdRoute
@@ -495,6 +508,7 @@ export interface FileRoutesByFullPath {
   '/audit-logs/': typeof StaffAuditLogsIndexRoute
   '/calendar/': typeof StaffCalendarIndexRoute
   '/classes/': typeof StaffClassesIndexRoute
+  '/exams/': typeof StaffExamsIndexRoute
   '/fee-structures/': typeof StaffFeeStructuresIndexRoute
   '/fees/': typeof StaffFeesIndexRoute
   '/grading-scales/': typeof StaffGradingScalesIndexRoute
@@ -544,6 +558,7 @@ export interface FileRoutesByTo {
   '/classes/$classId': typeof StaffClassesClassIdRoute
   '/communications/reminders': typeof StaffCommunicationsRemindersRoute
   '/communications/send': typeof StaffCommunicationsSendRoute
+  '/exams/$examId': typeof StaffExamsExamIdRoute
   '/fees/dues': typeof StaffFeesDuesRoute
   '/fees/generate': typeof StaffFeesGenerateRoute
   '/grading-scales/$scaleId': typeof StaffGradingScalesScaleIdRoute
@@ -563,6 +578,7 @@ export interface FileRoutesByTo {
   '/audit-logs': typeof StaffAuditLogsIndexRoute
   '/calendar': typeof StaffCalendarIndexRoute
   '/classes': typeof StaffClassesIndexRoute
+  '/exams': typeof StaffExamsIndexRoute
   '/fee-structures': typeof StaffFeeStructuresIndexRoute
   '/fees': typeof StaffFeesIndexRoute
   '/grading-scales': typeof StaffGradingScalesIndexRoute
@@ -617,6 +633,7 @@ export interface FileRoutesById {
   '/_staff/classes/$classId': typeof StaffClassesClassIdRoute
   '/_staff/communications/reminders': typeof StaffCommunicationsRemindersRoute
   '/_staff/communications/send': typeof StaffCommunicationsSendRoute
+  '/_staff/exams/$examId': typeof StaffExamsExamIdRoute
   '/_staff/fees/dues': typeof StaffFeesDuesRoute
   '/_staff/fees/generate': typeof StaffFeesGenerateRoute
   '/_staff/grading-scales/$scaleId': typeof StaffGradingScalesScaleIdRoute
@@ -636,6 +653,7 @@ export interface FileRoutesById {
   '/_staff/audit-logs/': typeof StaffAuditLogsIndexRoute
   '/_staff/calendar/': typeof StaffCalendarIndexRoute
   '/_staff/classes/': typeof StaffClassesIndexRoute
+  '/_staff/exams/': typeof StaffExamsIndexRoute
   '/_staff/fee-structures/': typeof StaffFeeStructuresIndexRoute
   '/_staff/fees/': typeof StaffFeesIndexRoute
   '/_staff/grading-scales/': typeof StaffGradingScalesIndexRoute
@@ -689,6 +707,7 @@ export interface FileRouteTypes {
     | '/classes/$classId'
     | '/communications/reminders'
     | '/communications/send'
+    | '/exams/$examId'
     | '/fees/dues'
     | '/fees/generate'
     | '/grading-scales/$scaleId'
@@ -708,6 +727,7 @@ export interface FileRouteTypes {
     | '/audit-logs/'
     | '/calendar/'
     | '/classes/'
+    | '/exams/'
     | '/fee-structures/'
     | '/fees/'
     | '/grading-scales/'
@@ -757,6 +777,7 @@ export interface FileRouteTypes {
     | '/classes/$classId'
     | '/communications/reminders'
     | '/communications/send'
+    | '/exams/$examId'
     | '/fees/dues'
     | '/fees/generate'
     | '/grading-scales/$scaleId'
@@ -776,6 +797,7 @@ export interface FileRouteTypes {
     | '/audit-logs'
     | '/calendar'
     | '/classes'
+    | '/exams'
     | '/fee-structures'
     | '/fees'
     | '/grading-scales'
@@ -829,6 +851,7 @@ export interface FileRouteTypes {
     | '/_staff/classes/$classId'
     | '/_staff/communications/reminders'
     | '/_staff/communications/send'
+    | '/_staff/exams/$examId'
     | '/_staff/fees/dues'
     | '/_staff/fees/generate'
     | '/_staff/grading-scales/$scaleId'
@@ -848,6 +871,7 @@ export interface FileRouteTypes {
     | '/_staff/audit-logs/'
     | '/_staff/calendar/'
     | '/_staff/classes/'
+    | '/_staff/exams/'
     | '/_staff/fee-structures/'
     | '/_staff/fees/'
     | '/_staff/grading-scales/'
@@ -1164,6 +1188,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffCommunicationsSendRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/exams/': {
+      id: '/_staff/exams/'
+      path: '/exams'
+      fullPath: '/exams/'
+      preLoaderRoute: typeof StaffExamsIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/exams/$examId': {
+      id: '/_staff/exams/$examId'
+      path: '/exams/$examId'
+      fullPath: '/exams/$examId'
+      preLoaderRoute: typeof StaffExamsExamIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/fee-structures/': {
       id: '/_staff/fee-structures/'
       path: '/fee-structures'
@@ -1431,6 +1469,7 @@ interface StaffRouteChildren {
   StaffClassesClassIdRoute: typeof StaffClassesClassIdRoute
   StaffCommunicationsRemindersRoute: typeof StaffCommunicationsRemindersRoute
   StaffCommunicationsSendRoute: typeof StaffCommunicationsSendRoute
+  StaffExamsExamIdRoute: typeof StaffExamsExamIdRoute
   StaffGradingScalesScaleIdRoute: typeof StaffGradingScalesScaleIdRoute
   StaffGuardiansGuardianIdRoute: typeof StaffGuardiansGuardianIdRoute
   StaffInvoicesInvoiceIdRoute: typeof StaffInvoicesInvoiceIdRoute
@@ -1446,6 +1485,7 @@ interface StaffRouteChildren {
   StaffAuditLogsIndexRoute: typeof StaffAuditLogsIndexRoute
   StaffCalendarIndexRoute: typeof StaffCalendarIndexRoute
   StaffClassesIndexRoute: typeof StaffClassesIndexRoute
+  StaffExamsIndexRoute: typeof StaffExamsIndexRoute
   StaffFeeStructuresIndexRoute: typeof StaffFeeStructuresIndexRoute
   StaffGradingScalesIndexRoute: typeof StaffGradingScalesIndexRoute
   StaffGuardiansIndexRoute: typeof StaffGuardiansIndexRoute
@@ -1477,6 +1517,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffClassesClassIdRoute: StaffClassesClassIdRoute,
   StaffCommunicationsRemindersRoute: StaffCommunicationsRemindersRoute,
   StaffCommunicationsSendRoute: StaffCommunicationsSendRoute,
+  StaffExamsExamIdRoute: StaffExamsExamIdRoute,
   StaffGradingScalesScaleIdRoute: StaffGradingScalesScaleIdRoute,
   StaffGuardiansGuardianIdRoute: StaffGuardiansGuardianIdRoute,
   StaffInvoicesInvoiceIdRoute: StaffInvoicesInvoiceIdRoute,
@@ -1492,6 +1533,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffAuditLogsIndexRoute: StaffAuditLogsIndexRoute,
   StaffCalendarIndexRoute: StaffCalendarIndexRoute,
   StaffClassesIndexRoute: StaffClassesIndexRoute,
+  StaffExamsIndexRoute: StaffExamsIndexRoute,
   StaffFeeStructuresIndexRoute: StaffFeeStructuresIndexRoute,
   StaffGradingScalesIndexRoute: StaffGradingScalesIndexRoute,
   StaffGuardiansIndexRoute: StaffGuardiansIndexRoute,

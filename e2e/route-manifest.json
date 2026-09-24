@@ -142,6 +142,19 @@
       "archetype": "list"
     },
     {
+      "path": "/exams",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/exams/$examId",
+      "params": {
+        "examId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
       "path": "/grading-scales",
       "role": "admin",
       "archetype": "list"

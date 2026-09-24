@@ -92,6 +92,7 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
     { label: { key: 'import' } },
   ],
   '/_staff/academics/syllabus/': [{ label: { key: 'syllabus' } }],
+  '/_staff/exams/': [{ label: { entity: 'exam' } }],
   '/_staff/grading-scales/': [{ label: { key: 'gradingScales' } }],
   '/_staff/attendance/': [{ label: { key: 'attendance' } }],
   '/_staff/attendance/reports': [{ label: { key: 'attendanceReports' } }],
@@ -138,6 +139,10 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/classes/$classId': [
     { label: { entity: 'class' } },
     { label: { entity: 'class' }, dynamic: 'entity' },
+  ],
+  '/_staff/exams/$examId': [
+    { label: { entity: 'exam' } },
+    { label: { entity: 'exam' }, dynamic: 'entity' },
   ],
   '/_staff/grading-scales/$scaleId': [
     { label: { key: 'gradingScales' } },
