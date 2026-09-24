@@ -2,6 +2,7 @@ import { ExamComponentKind, ExamComponentSource, ExamKind } from '@biddaloy/shar
 import { adminApiSession, get, post } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
+import { DetailShellPage } from '../pages/detail-shell';
 
 /**
  * [19.10.1] Process -> review -> publish, cross-role: an admin computes and
@@ -137,6 +138,8 @@ test.describe.serial('exams: admin publishes -> guardian sees it in the portal',
 
       await page.goto(`/exams/${exam.id}`);
       await expect(page.getByRole('heading', { name: examName })).toBeVisible();
+      // The detail page opens on Progress; Process/Publish live on Results.
+      await new DetailShellPage(page).openTab('exams.detail.tabs.results', 'results');
 
       await test.step('process', async () => {
         await page.getByRole('button', { name: t('exams.resultsPanel.process') }).click();
