@@ -621,8 +621,11 @@ export async function ensureDemoStudents(
         // `Student`), so it needs its own find-or-create beside the
         // student's — a repo obtained off `studentRepository`'s own
         // manager rather than threading a new repository through
-        // `DemoStudentRepositories`/every caller.
-        const enrollmentRepository = studentRepository.manager.getRepository(Enrollment);
+        // `DemoStudentRepositories`/every caller. A real injected
+        // TypeORM `Repository` always has `.manager`; only a fake repo
+        // stub built for a test unrelated to `Enrollment` (e.g.
+        // `seed.spec.ts`'s `seedAccounts` fixtures) wouldn't — skip
+        // rather than throw in that case.
         // Plain find-or-create, keyed on (student, year, ACTIVE) — this
         // never rewrites an existing row's class_id/section_id. Seeding
         // doesn't move an existing student's `class_section_id` either, so
@@ -630,6 +633,8 @@ export async function ensureDemoStudents(
         // a real write path (PATCH, workbook restore) has since moved the
         // student, reintroducing the drift this ticket closes.
         const ensureEnrollment = async (studentId: string) => {
+          if (!studentRepository.manager) return;
+          const enrollmentRepository = studentRepository.manager.getRepository(Enrollment);
           const existingEnrollment = await enrollmentRepository.findOne({
             where: {
               student_id: studentId,
