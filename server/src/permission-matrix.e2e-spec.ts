@@ -280,6 +280,33 @@ interface RoleNarrowing {
 
 export const ROLE_NARROWINGS: RoleNarrowing[] = [
   {
+    controller: 'HomeworkController',
+    method: 'GET',
+    path: '/homework',
+    reason:
+      "[22.3.1] staff bulk listing — although PARENT/STUDENT hold HOMEWORK_READ (for their own child's view, not built by this route), this endpoint is the teacher/admin management list, unscoped by student",
+  },
+  {
+    controller: 'HomeworkController',
+    method: 'GET',
+    path: '/homework/:id',
+    reason: '[22.3.1] same narrowing as GET /homework',
+  },
+  {
+    controller: 'HomeworkSubmissionController',
+    method: 'POST',
+    path: '/homework-assignments/:id/submissions',
+    reason:
+      '[22.3.2] uploading a submission is the STUDENT/PARENT-only self-service action (D26 ownership-scoped) — ADMIN/TEACHER also hold HOMEWORK_READ but grade via PATCH /homework-submissions/:id, not this route',
+  },
+  {
+    controller: 'HomeworkSubmissionController',
+    method: 'GET',
+    path: '/homework-assignments/:id/submissions',
+    reason:
+      '[22.3.2] teacher/admin grid view — although PARENT/STUDENT hold HOMEWORK_READ, this endpoint lists every submission for an assignment, not scoped to one guardian/student',
+  },
+  {
     controller: 'RecurringSchedulesController',
     method: 'GET',
     path: '/fees/schedules',
@@ -577,6 +604,14 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   Permission.RESULT_PROCESS,
   Permission.RESULT_PUBLISH,
   Permission.RESULT_READ,
+  // [22.x] Epic 22 (homework & syllabus) plumbing landed ahead of the
+  // routes that will require it: HOMEWORK_IMPORT gates the not-yet-built
+  // CSV import endpoint, SYLLABUS_READ/SYLLABUS_MANAGE gate the not-yet-built
+  // syllabus module's routes (a separate wave-3 lane). Remove each as its
+  // route lands.
+  Permission.HOMEWORK_IMPORT,
+  Permission.SYLLABUS_READ,
+  Permission.SYLLABUS_MANAGE,
 ];
 
 describe('Permission matrix (regression)', () => {

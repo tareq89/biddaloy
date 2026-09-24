@@ -48,7 +48,7 @@ export class HomeworkController {
   }
 
   @Get('homework')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  @Roles(UserRole.ADMIN, UserRole.TEACHER)
   @RequirePermissions(Permission.HOMEWORK_READ)
   @ApiOperation({ summary: 'List homework, filtered by class/section/subject/status.' })
   @ApiOkResponse({ type: HomeworkResponseDto, isArray: true })
@@ -65,7 +65,7 @@ export class HomeworkController {
   }
 
   @Get('homework/:id')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  @Roles(UserRole.ADMIN, UserRole.TEACHER)
   @RequirePermissions(Permission.HOMEWORK_READ)
   @ApiOperation({ summary: 'One Homework by id.' })
   @ApiOkResponse({ type: HomeworkResponseDto })
