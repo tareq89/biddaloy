@@ -82,11 +82,13 @@ test('admin builds a section routine, resolves a teacher clash, fill-assists, an
 
   await test.step('fill an empty period with subject + one teacher, keyboard only', async () => {
     await grid.locator('button[tabindex="0"]').focus();
-    // Move to an empty cell distinct from the seed's already-filled ones
-    // (period 1 Monday, period 2 Tuesday) — one ArrowRight then
-    // ArrowDown lands on period 2's Wednesday column, still empty for
-    // every seeded weekday except the biweekly Tuesday slot.
+    // The grid's initial focus is period 1 Sunday — two ArrowDown presses
+    // reach period 3 (period rows skip the period-4 BREAK row), three
+    // ArrowRight presses reach Wednesday, landing on the empty period 3
+    // Wednesday cell the file docblock targets.
     await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowRight');
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('Enter');
@@ -123,6 +125,8 @@ test('admin builds a section routine, resolves a teacher clash, fill-assists, an
 
     await grid.locator('button[tabindex="0"]').focus();
     await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowRight');
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('Enter');
