@@ -71,8 +71,8 @@ export const ALL_TABS: readonly TabSpec<any, any>[] = [
   ...peopleTabs,
   ...feesTabs,
   ...gradingTabs,
-  ...routinesTabs,
   ...examsTabs,
+  ...routinesTabs,
 ];
 
 export class RegistryError extends Error {
