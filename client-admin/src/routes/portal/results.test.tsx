@@ -1,4 +1,5 @@
 import {
+  apiErrorBody,
   classFactory,
   classSectionFactory,
   renderWithRouter,
@@ -197,5 +198,95 @@ describe('/portal/results', () => {
     await userEvent.click(summary);
 
     expect(await screen.findByText('Mathematics')).toBeTruthy();
+  });
+
+  it('shows an inline message when an expanded row cannot load its breakdown', async () => {
+    // No `cards` entry, so the breakdown request 404s.
+    mockResults({
+      students: [fatima],
+      results: { 'student-1': [resultRow('exam-1', 'First Term Exam', true)] },
+    });
+    renderResults();
+
+    await userEvent.click(await screen.findByText('First Term Exam'));
+
+    expect(await screen.findByText("Could not load this exam's breakdown.")).toBeTruthy();
+    // The rest of the page is untouched — only this row's breakdown failed.
+    expect(screen.getByRole('heading', { name: 'Results' })).toBeTruthy();
+  });
+
+  it('tags only the failed exam with "Fail" when several exams are listed', async () => {
+    mockResults({
+      students: [fatima],
+      results: {
+        'student-1': [
+          resultRow('exam-1', 'First Term Exam', true),
+          resultRow('exam-2', 'Half Yearly Exam', true, { is_fail: true, grade: 'F' }),
+        ],
+      },
+    });
+    renderResults();
+
+    const failedSummary = (await screen.findByText('Half Yearly Exam')).closest('summary')!;
+    const passedSummary = screen.getByText('First Term Exam').closest('summary')!;
+    expect(within(failedSummary).getByText('Fail')).toBeTruthy();
+    expect(within(passedSummary).queryByText('Fail')).toBeNull();
+  });
+
+  it('shows only the roll number for a student with no class', async () => {
+    mockResults({
+      students: [{ ...fatima, class_section: null }],
+      results: { 'student-1': [resultRow('exam-1', 'First Term Exam', true)] },
+    });
+    renderResults();
+
+    expect(await screen.findByText('Fatima Rahman · Roll 14')).toBeTruthy();
+  });
+
+  it('shows the "no students linked" state when the guardian has no children', async () => {
+    mockResults({ students: [], results: {} });
+    renderResults();
+
+    expect(await screen.findByText('No students linked to you yet')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Check again' })).toBeTruthy();
+  });
+
+  it('shows a retryable error when the student list fails to load', async () => {
+    server.use(
+      http.get('/api/v1/students/mine', () =>
+        HttpResponse.json(apiErrorBody(403, 'Forbidden', '/api/v1/students/mine'), {
+          status: 403,
+        }),
+      ),
+    );
+    renderResults();
+
+    expect(await screen.findByText(/Could not load your results/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+  });
+
+  it('shows a retryable error when the results list fails to load', async () => {
+    let resultsRequests = 0;
+    server.use(
+      http.get('/api/v1/students/mine', () => HttpResponse.json([fatima])),
+      http.get('/api/v1/students/:studentId/results', () => {
+        resultsRequests += 1;
+        return HttpResponse.json(
+          apiErrorBody(404, 'Not found', '/api/v1/students/student-1/results'),
+          { status: 404 },
+        );
+      }),
+    );
+    renderResults();
+
+    expect(await screen.findByText(/Could not load your results/)).toBeTruthy();
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+
+    // "Try again" re-requests the list (a 404 is never auto-retried, so
+    // the count before the click is exactly one).
+    expect(resultsRequests).toBe(1);
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(resultsRequests).toBe(2));
   });
 });

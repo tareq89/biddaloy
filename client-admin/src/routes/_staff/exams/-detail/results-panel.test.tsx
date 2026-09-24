@@ -1,4 +1,10 @@
-import { cleanupTestState, examFactory, renderWithRouter, server } from '@biddaloy/ui/test';
+import {
+  apiErrorBody,
+  cleanupTestState,
+  examFactory,
+  renderWithRouter,
+  server,
+} from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -114,5 +120,120 @@ describe('exams/$examId Results tab', () => {
     });
 
     await screen.findByText('No results yet — process this exam first.');
+  });
+
+  function renderResultsTab() {
+    renderWithRouter(routeTree, {
+      initialEntries: ['/exams/exam-1?tab=results'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+  }
+
+  /** Student names in the order the table currently shows them. */
+  function namesInOrder(): string[] {
+    return screen
+      .getAllByRole('link', { name: /Khatun|Islam|Rahman|Unranked/ })
+      .map((link) => link.textContent ?? '');
+  }
+
+  it('lists unranked students (no position) after ranked ones, shown as "—"', async () => {
+    const unranked = [
+      { ...ROWS[0]!, student_id: 'stu-4', full_name: 'Unranked One', position: null },
+      { ...ROWS[0]!, student_id: 'stu-5', full_name: 'Unranked Two', position: null },
+    ];
+    server.use(
+      http.get('/api/v1/exams/:id', () => HttpResponse.json(mockExam())),
+      // Ranked and unranked interleaved in the response, so the sort has to
+      // compare them both ways round (and two unranked with each other).
+      http.get('/api/v1/exams/:examId/results', () =>
+        HttpResponse.json([ROWS[1], unranked[0], ROWS[0], unranked[1]]),
+      ),
+    );
+    renderResultsTab();
+
+    await screen.findByRole('link', { name: /Amina Khatun/ });
+    const names = namesInOrder();
+    expect(names[0]).toContain('Amina Khatun');
+    expect(names[1]).toContain('Zahid Islam');
+    expect(names.slice(2).every((n) => n.includes('Unranked'))).toBe(true);
+    expect(screen.getAllByRole('cell', { name: '—' })).toHaveLength(2);
+  });
+
+  it('flips to descending when the same header is clicked twice', async () => {
+    server.use(
+      http.get('/api/v1/exams/:id', () => HttpResponse.json(mockExam())),
+      http.get('/api/v1/exams/:examId/results', () => HttpResponse.json(ROWS)),
+    );
+    renderResultsTab();
+
+    await screen.findByRole('link', { name: /Amina Khatun/ });
+    const user = userEvent.setup();
+    const totalHeader = screen.getByRole('columnheader', { name: 'Total' });
+    expect(totalHeader.getAttribute('aria-sort')).toBe('none');
+
+    await user.click(screen.getByRole('button', { name: 'Total' }));
+    expect(totalHeader.getAttribute('aria-sort')).toBe('ascending');
+    expect(namesInOrder()[0]).toContain('Karim Rahman'); // 100
+
+    await user.click(screen.getByRole('button', { name: 'Total' }));
+    expect(totalHeader.getAttribute('aria-sort')).toBe('descending');
+    expect(namesInOrder()[0]).toContain('Amina Khatun'); // 450
+  });
+
+  it('sorts text columns alphabetically (student name)', async () => {
+    server.use(
+      http.get('/api/v1/exams/:id', () => HttpResponse.json(mockExam())),
+      http.get('/api/v1/exams/:examId/results', () => HttpResponse.json(ROWS)),
+    );
+    renderResultsTab();
+
+    await screen.findByRole('link', { name: /Amina Khatun/ });
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Roll · Name' }));
+
+    const names = namesInOrder();
+    expect(names[0]).toContain('Amina Khatun');
+    expect(names[1]).toContain('Karim Rahman');
+    expect(names[2]).toContain('Zahid Islam');
+  });
+
+  it('offers Publish (not Reopen) for a processed exam', async () => {
+    server.use(
+      http.get('/api/v1/exams/:id', () => HttpResponse.json(mockExam('PROCESSED'))),
+      http.get('/api/v1/exams/:examId/results', () => HttpResponse.json(ROWS)),
+    );
+    renderResultsTab();
+
+    await screen.findByRole('link', { name: /Amina Khatun/ });
+    expect(screen.getByRole('button', { name: 'Publish' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Reopen' })).toBeNull();
+  });
+
+  it('offers Reopen (not Publish) for a published exam', async () => {
+    server.use(
+      http.get('/api/v1/exams/:id', () => HttpResponse.json(mockExam('PUBLISHED'))),
+      http.get('/api/v1/exams/:examId/results', () => HttpResponse.json(ROWS)),
+    );
+    renderResultsTab();
+
+    await screen.findByRole('link', { name: /Amina Khatun/ });
+    expect(screen.getByRole('button', { name: 'Reopen' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Publish' })).toBeNull();
+  });
+
+  it('shows a retryable error when results fail to load', async () => {
+    server.use(
+      http.get('/api/v1/exams/:id', () => HttpResponse.json(mockExam())),
+      http.get('/api/v1/exams/:examId/results', () =>
+        HttpResponse.json(apiErrorBody(404, 'Not found', '/api/v1/exams/exam-1/results'), {
+          status: 404,
+        }),
+      ),
+    );
+    renderResultsTab();
+
+    expect(await screen.findByText("Couldn't load results.")).toBeTruthy();
+    expect(screen.queryByRole('table')).toBeNull();
   });
 });
