@@ -15,8 +15,10 @@ import {
   DialogHeader,
   DialogTitle,
   Skeleton,
+  toast,
 } from '@biddaloy/ui/components';
 import {
+  conflictViolations,
   useCreateRoutineSlot,
   useGreedyFill,
   useSubjects,
@@ -74,6 +76,12 @@ export function FillAssistDialog({
   async function handleConfirm() {
     if (!proposals || proposals.length === 0) return;
     setApplying(true);
+    // [21.8.1] The loop writes one proposal at a time — if proposal N of M
+    // fails (e.g. a 409 because the grid changed after the preview),
+    // proposals 1..N-1 already succeeded. Track how many landed so a
+    // failure only leaves the still-unapplied ones in the dialog, and a
+    // retry can't resubmit rows that already went through.
+    let applied = 0;
     try {
       for (const proposal of proposals) {
         await createSlot.mutateAsync({
@@ -87,9 +95,15 @@ export function FillAssistDialog({
           valid_from: proposal.valid_from,
           valid_to: proposal.valid_to,
         });
+        applied += 1;
       }
       onDone();
       onOpenChange(false);
+    } catch (error) {
+      setProposals((current) => current?.slice(applied) ?? null);
+      const violations = conflictViolations(error);
+      toast.error(violations?.map((v) => v.message).join('\n') ?? t('builder.saveErrorToast'));
+      if (applied > 0) onDone();
     } finally {
       setApplying(false);
     }

@@ -44,8 +44,8 @@ export class IsNonNegativeMarksStringConstraint implements ValidatorConstraintIn
     const n = Number(value);
     return typeof value === 'string' && Number.isFinite(n) && n >= 0 && n <= MAX_MARKS;
   }
-  defaultMessage(): string {
-    return `pass_marks must be between 0 and ${MAX_MARKS}`;
+  defaultMessage(args: ValidationArguments): string {
+    return `${args.property} must be between 0 and ${MAX_MARKS}`;
   }
 }
 

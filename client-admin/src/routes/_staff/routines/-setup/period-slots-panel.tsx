@@ -59,9 +59,18 @@ export function PeriodSlotsPanel({ shift, changeoverGapMinutes }: PeriodSlotsPan
   const [rows, setRows] = React.useState<PeriodSlotItem[]>([]);
   const loadedShiftId = React.useRef<string | undefined>(undefined);
 
+  // [21.8.1] On a shift switch, `slotsQuery.data` is `undefined` until the
+  // new shift's fetch resolves — clear `rows` for that window instead of
+  // leaving the old shift's rows on screen. `ready` (below) blocks Save
+  // for the same window, so a click there can never PUT the old shift's
+  // rows onto the new shift's period-slots endpoint.
   React.useEffect(() => {
-    if (!shift || slotsQuery.data === undefined) return;
-    if (loadedShiftId.current === shift.id) return;
+    if (!shift) return;
+    if (loadedShiftId.current !== shift.id && slotsQuery.data === undefined) {
+      setRows([]);
+      return;
+    }
+    if (slotsQuery.data === undefined || loadedShiftId.current === shift.id) return;
     loadedShiftId.current = shift.id;
     setRows(
       slotsQuery.data.map((slot) => ({
@@ -73,6 +82,12 @@ export function PeriodSlotsPanel({ shift, changeoverGapMinutes }: PeriodSlotsPan
       })),
     );
   }, [shift, slotsQuery.data]);
+
+  // `loadedShiftId.current === shift?.id` already proves the data for
+  // this shift arrived — not `slotsQuery.isSuccess`, which flips to
+  // `error` on a failed background refetch even though `rows` still
+  // holds good data, and would wrongly disable Save.
+  const ready = Boolean(shift) && loadedShiftId.current === shift?.id;
 
   function updateRow(index: number, patch: Partial<PeriodSlotItem>) {
     setRows((current) => current.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -108,7 +123,7 @@ export function PeriodSlotsPanel({ shift, changeoverGapMinutes }: PeriodSlotsPan
   }
 
   function handleSave() {
-    if (!shift) return;
+    if (!ready) return;
     replaceSlots.mutate(rows);
   }
 
@@ -224,7 +239,7 @@ export function PeriodSlotsPanel({ shift, changeoverGapMinutes }: PeriodSlotsPan
         })}
       </div>
 
-      <Button type="button" onClick={handleSave} loading={replaceSlots.isPending}>
+      <Button type="button" onClick={handleSave} disabled={!ready} loading={replaceSlots.isPending}>
         {t('save.action')}
       </Button>
       {replaceSlots.isSuccess && <p role="status">{t('save.success')}</p>}

@@ -70,7 +70,9 @@ export function useCreateShift() {
       const res = await apiClient.post<Shift>('/routines/shifts', input);
       return res.data;
     },
-    retry: shouldRetryQuery,
+    // [21.8.1] No retry on create — if the server already committed the
+    // POST before the response reached the client (network blip, timeout),
+    // a retry resends a non-idempotent create and risks a duplicate.
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: shiftKeys.lists() });
     },
@@ -168,7 +170,7 @@ export function useCreateRoom() {
       const res = await apiClient.post<Room>('/routines/rooms', input);
       return res.data;
     },
-    retry: shouldRetryQuery,
+    // [21.8.1] No retry on create — same reasoning as `useCreateShift`.
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: roomKeys.lists() });
     },
@@ -306,10 +308,9 @@ export function routineSlotsQueryOptions(routineId: string) {
   return queryOptions({
     queryKey: [...routineKeys.detail(routineId), 'slots'] as const,
     queryFn: async ({ signal }) => {
-      const res = await apiClient.get<RoutineSlotWithWarnings[]>(
-        `/routines/${routineId}/slots`,
-        { signal },
-      );
+      const res = await apiClient.get<RoutineSlotWithWarnings[]>(`/routines/${routineId}/slots`, {
+        signal,
+      });
       return res.data;
     },
     enabled: routineId !== '',
@@ -525,7 +526,10 @@ export function useChangeRequests(routineId: string | undefined) {
   });
 }
 
-function invalidateChangeRequests(queryClient: ReturnType<typeof useQueryClient>, routineId: string) {
+function invalidateChangeRequests(
+  queryClient: ReturnType<typeof useQueryClient>,
+  routineId: string,
+) {
   void queryClient.invalidateQueries({ queryKey: changeRequestKeys.detail(routineId) });
 }
 
@@ -550,13 +554,7 @@ export function useOpenChangeRequest(routineId: string, slotId: string) {
 export function useResolveChangeRequest(routineId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({
-      id,
-      input,
-    }: {
-      id: string;
-      input: ResolveChangeRequestInput;
-    }) => {
+    mutationFn: async ({ id, input }: { id: string; input: ResolveChangeRequestInput }) => {
       const res = await apiClient.patch<RoutineChangeRequest>(
         `/routines/change-requests/${id}`,
         input,

@@ -225,6 +225,87 @@ describe('/routines/$sectionId', () => {
     await waitFor(() => expect(screen.getByLabelText('Subject')).toBeTruthy());
   });
 
+  it('picks the effective row (not a superseded one) when a cell has two rows for the same weekday/period', async () => {
+    mockCommonRoutes();
+    server.use(
+      http.get('/api/v1/routines/routine-1/slots', () =>
+        HttpResponse.json([
+          {
+            // The active row — listed first so a `cells` map that (without
+            // the effective-dating filter) just keeps "whichever entry
+            // came last" would wrongly end up showing the superseded row
+            // below instead of this one.
+            slot: {
+              id: 'slot-1',
+              section_id: 'section-1',
+              weekday: 0,
+              period_slot_id: 'p1',
+              subject_id: 'subject-math',
+              recurrence: 'WEEKLY',
+              recurrence_offset: 0,
+              valid_from: '2020-07-01',
+              valid_to: null,
+            },
+            teacher_ids: ['teacher-1'],
+            warnings: [],
+          },
+          {
+            // Superseded by an earlier edit — closed before today, must
+            // not be the row the grid/picker/clear act on.
+            slot: {
+              id: 'slot-old',
+              section_id: 'section-1',
+              weekday: 0,
+              period_slot_id: 'p1',
+              subject_id: 'subject-old',
+              recurrence: 'WEEKLY',
+              recurrence_offset: 0,
+              valid_from: '2020-01-01',
+              valid_to: '2020-06-30',
+            },
+            teacher_ids: ['teacher-1'],
+            warnings: [],
+          },
+        ]),
+      ),
+    );
+    const patchedSlotIds: string[] = [];
+    server.use(
+      http.patch('/api/v1/routines/slots/:slotId', ({ params }) => {
+        patchedSlotIds.push(params.slotId as string);
+        return HttpResponse.json({
+          slot: { id: params.slotId, subject_id: 'subject-math' },
+          teacher_ids: ['teacher-1'],
+          warnings: [],
+        });
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/routines/section-1?classId=11111111-1111-4111-8111-111111111111'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    // The grid renders the active row's subject, not the superseded one.
+    await waitFor(() => expect(screen.getByText('Math')).toBeTruthy());
+    expect(screen.queryByText('subject-old')).toBeNull();
+
+    // Editing the cell prefills from the active row and saves against
+    // slot-1, not slot-old — proves `activeCellSlot()` (a `.find`, which
+    // without the filter would return whichever row is listed first) also
+    // resolved to the effective row, not just that some row rendered.
+    const table = await screen.findByRole('table');
+    fireEvent.keyDown(table, { key: 'Enter' });
+    await waitFor(() => expect(screen.getByLabelText('Subject')).toBeTruthy());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(patchedSlotIds).toEqual(['slot-1']));
+  });
+
   it('shows the noClassId explanation when opened without ?classId=', async () => {
     renderWithRouter(routeTree, {
       initialEntries: ['/routines/section-1'],

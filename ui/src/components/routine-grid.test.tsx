@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { i18n } from '../i18n';
 import { renderWithProviders } from '../test';
 
-import { RoutineGrid, cellKey, type RoutineGridPeriodRow } from './routine-grid';
+import { RoutineGrid, routineCellKey, type RoutineGridPeriodRow } from './routine-grid';
 
 async function renderInEnglish(ui: React.ReactElement) {
   const view = renderWithProviders(ui, { locale: 'en' });
@@ -17,7 +17,14 @@ async function renderInEnglish(ui: React.ReactElement) {
 
 const PERIODS: RoutineGridPeriodRow[] = [
   { id: 'p1', sequence: 1, kind: 'CLASS', name: null, starts_at: '08:00', ends_at: '08:40' },
-  { id: 'break1', sequence: 2, kind: 'BREAK', name: 'Tiffin', starts_at: '08:40', ends_at: '09:00' },
+  {
+    id: 'break1',
+    sequence: 2,
+    kind: 'BREAK',
+    name: 'Tiffin',
+    starts_at: '08:40',
+    ends_at: '09:00',
+  },
   { id: 'p2', sequence: 3, kind: 'CLASS', name: null, starts_at: '09:00', ends_at: '09:40' },
 ];
 
@@ -50,7 +57,7 @@ describe('RoutineGrid', () => {
         weekdayLabels={WEEKDAY_LABELS}
         periods={PERIODS}
         cells={{
-          [cellKey(1, 'p1')]: {
+          [routineCellKey(1, 'p1')]: {
             slotId: 's1',
             subjectLabel: 'Math',
             teacherLabels: ['Ms Nahar', 'Mr Karim'],
@@ -111,7 +118,7 @@ describe('RoutineGrid', () => {
         weekdayLabels={WEEKDAY_LABELS}
         periods={PERIODS}
         cells={{
-          [cellKey(0, 'p1')]: {
+          [routineCellKey(0, 'p1')]: {
             slotId: 's1',
             subjectLabel: 'Math',
             teacherLabels: ['Ms Nahar'],

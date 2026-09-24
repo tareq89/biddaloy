@@ -1,6 +1,6 @@
 import { UserRole, UserStatus } from '@biddaloy/shared';
 import * as bcrypt from 'bcrypt';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { User } from '../modules/users/entities/user.entity';
 import { School } from '../modules/schools/entities/school.entity';
 import { UserTenant } from '../modules/auth/entities/user-tenant.entity';
@@ -23,11 +23,19 @@ import { AttendanceDevice } from '../modules/attendance/entities/attendance-devi
 import { ClassSubject } from '../modules/academics/entities/class-subject.entity';
 import { GradingScale } from '../modules/grading/entities/grading-scale.entity';
 import { GradingBand } from '../modules/grading/entities/grading-band.entity';
+import { Exam } from '../modules/exams/entities/exam.entity';
+import { ExamComponent } from '../modules/exams/entities/exam-component.entity';
+import { Mark } from '../modules/exams/entities/mark.entity';
+import { MarkGrid } from '../modules/exams/entities/mark-grid.entity';
+import { Result } from '../modules/exams/entities/result.entity';
+import { ResultSubject } from '../modules/exams/entities/result-subject.entity';
+import { ExamSchedule } from '../modules/exams/entities/exam-schedule.entity';
 import {
   DEMO_ACADEMIC_YEAR,
   ensureAttendanceSeed,
   ensureCalendarDemoSeed,
   ensureDemoStudents,
+  ensureExamsDemoSeed,
   ensureGradingDemoSeed,
   ensurePublicHolidaySet,
   ensureRoleTestUsers,
@@ -94,6 +102,13 @@ export interface SeedAccountRepositories {
   routineSlotTeacherRepository: Repository<RoutineSlotTeacher>;
   routineSubstitutionRepository: Repository<RoutineSubstitution>;
   routineChangeRequestRepository: Repository<RoutineChangeRequest>;
+  examRepository: Repository<Exam>;
+  examComponentRepository: Repository<ExamComponent>;
+  markGridRepository: Repository<MarkGrid>;
+  markRepository: Repository<Mark>;
+  resultRepository: Repository<Result>;
+  resultSubjectRepository: Repository<ResultSubject>;
+  examScheduleRepository: Repository<ExamSchedule>;
 }
 
 /** Creates/repairs the seed accounts, their memberships and the demo
@@ -381,6 +396,58 @@ export async function seedAccounts(
           },
         );
       }
+    }
+  }
+
+  // [19.10.1]: demo exams/marks/results on top of "Class 6"'s two sections
+  // — deliberately after both `ensureGradingDemoSeed` (the BD NCTB scale
+  // this seed's one published result pins against) and `ensureAttendanceSeed`
+  // (whose MATH/ENG subjects this reuses rather than creating duplicates).
+  if (calendarYear && examClass6) {
+    const scale = await repos.gradingScaleRepository.findOne({
+      where: { tenant_id: school.id, academic_year_id: calendarYear.id, class_id: IsNull() },
+    });
+    const sectionA = await repos.classSectionRepository.findOne({
+      where: { class_id: examClass6.id, section_name: 'A', tenant_id: school.id },
+    });
+    const sectionB = await repos.classSectionRepository.findOne({
+      where: { class_id: examClass6.id, section_name: 'B', tenant_id: school.id },
+    });
+    const studentsA = sectionA
+      ? await repos.studentRepository.find({
+          where: { class_section_id: sectionA.id, tenant_id: school.id },
+          order: { roll_number: 'ASC' },
+        })
+      : [];
+    const studentsB = sectionB
+      ? await repos.studentRepository.find({
+          where: { class_section_id: sectionB.id, tenant_id: school.id },
+          order: { roll_number: 'ASC' },
+        })
+      : [];
+
+    if (scale && sectionA && sectionB && studentsA.length > 0 && studentsB.length > 0) {
+      await ensureExamsDemoSeed(
+        {
+          subjectRepository: repos.subjectRepository,
+          examRepository: repos.examRepository,
+          examComponentRepository: repos.examComponentRepository,
+          markGridRepository: repos.markGridRepository,
+          markRepository: repos.markRepository,
+          resultRepository: repos.resultRepository,
+          resultSubjectRepository: repos.resultSubjectRepository,
+          examScheduleRepository: repos.examScheduleRepository,
+        },
+        {
+          schoolId: school.id,
+          academicYearId: calendarYear.id,
+          classId: examClass6.id,
+          sectionIds: [sectionA.id, sectionB.id],
+          sectionStudentIds: [studentsA.map((s) => s.id), studentsB.map((s) => s.id)],
+          gradingScaleId: scale.id,
+          gradingScaleRevision: scale.revision,
+        },
+      );
     }
   }
 }

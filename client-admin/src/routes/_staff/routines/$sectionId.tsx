@@ -18,7 +18,12 @@
  */
 import { getActiveTenant } from '@biddaloy/ui/api';
 import { toast } from '@biddaloy/ui/components';
-import { RoutineGrid, cellKey, RoutePending, type RoutineGridCell } from '@biddaloy/ui/components';
+import {
+  RoutineGrid,
+  routineCellKey,
+  RoutePending,
+  type RoutineGridCell,
+} from '@biddaloy/ui/components';
 import {
   useClassSections,
   useCalendarSettings,
@@ -147,12 +152,22 @@ function RoutineBuilderPage() {
     ends_at: slot.ends_at,
   }));
 
+  // [21.8.1] `update()` closes an edited row rather than deleting it (D4),
+  // so after one edit two rows can share the same weekday/period_slot_id —
+  // one active, one superseded. Filtering to rows effective today keeps
+  // the grid (and `activeCellSlot`/`handleClearCell` below, which both
+  // read `sectionSlots`) pointed at the live row, not the historical one —
+  // same predicate `greedy-fill.service.ts` already uses server-side.
+  const today = todayIso();
   const sectionSlots = (slotsQuery.data ?? []).filter(
-    (entry) => entry.slot.section_id === sectionId,
+    (entry) =>
+      entry.slot.section_id === sectionId &&
+      entry.slot.valid_from <= today &&
+      (entry.slot.valid_to === null || entry.slot.valid_to >= today),
   );
   const cells: Record<string, RoutineGridCell> = {};
   for (const entry of sectionSlots) {
-    cells[cellKey(entry.slot.weekday, entry.slot.period_slot_id)] = {
+    cells[routineCellKey(entry.slot.weekday, entry.slot.period_slot_id)] = {
       slotId: entry.slot.id,
       subjectLabel:
         subjectsQuery.data?.data.find((subject) => subject.id === entry.slot.subject_id)?.name_en ??

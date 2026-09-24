@@ -49,7 +49,7 @@ export { DatePicker, Calendar, type DatePickerProps } from './date-picker';
 export { Combobox, type ComboboxOption, type ComboboxProps } from './combobox';
 export {
   RoutineGrid,
-  cellKey,
+  routineCellKey,
   type RoutineGridProps,
   type RoutineGridPeriodRow,
   type RoutineGridCell,
@@ -70,6 +70,17 @@ export {
   type DataTableProps,
   type DataTableSort,
 } from './data-table';
+export {
+  MarksGrid,
+  cellKey,
+  type MarksGridCell,
+  type MarksGridCellValue,
+  type MarksGridComponent,
+  type MarksGridProps,
+  type MarksGridStatus,
+  type MarksGridStudent,
+} from './marks-grid';
+export { MarksStepper, type MarksStepperProps } from './marks-stepper';
 export {
   RadioGroup,
   RadioGroupItem,
@@ -306,6 +317,14 @@ export {
   type InvoiceReceiptProps,
   type InvoiceReceiptStudent,
 } from './print/invoice-receipt';
+export {
+  ReportCard,
+  type ReportCardComponent,
+  type ReportCardData,
+  type ReportCardLegendRow,
+  type ReportCardProps,
+  type ReportCardSubject,
+} from './print/report-card';
 export { EventTypeBadge, type EventTypeBadgeProps } from './calendar/event-type-badge';
 export {
   MonthGrid,

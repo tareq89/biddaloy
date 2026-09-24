@@ -507,6 +507,19 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
       "[19.4.1] D12 — reopening a SUBMITTED grid is deliberately ADMIN-only, although TEACHER also holds MARK_ENTER (which gates entering/submitting marks). A teacher may submit their own grid but must not be able to unlock it again once it's in review — reopening is enforced a second time inside MarkGridService.reopen with an explicit role check, not just this route gate.",
   },
   {
+    controller: 'ResultsController',
+    method: 'GET',
+    path: '/exams/:examId/results',
+    reason:
+      '[19.8.1] This is the staff results-review console (sorting, fail filter, position) — PARENT/STUDENT also hold RESULT_READ, but for `GET /students/:studentId/results` (19.9.1, `StudentResultsController`), not this staff list across every student in the class.',
+  },
+  {
+    controller: 'ResultsController',
+    method: 'GET',
+    path: '/exams/:examId/results/:studentId',
+    reason: '[19.8.1] Same narrowing as GET /exams/:examId/results.',
+  },
+  {
     controller: 'ChangeRequestsController',
     method: 'POST',
     path: '/routines/slots/:slotId/change-requests',
@@ -574,9 +587,12 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // ExamComponentsController — no longer UI-only, removed from this list.
   // [19.4.1] MARK_ENTER/MARK_VIEW now gate MarksController's routes —
   // no longer UI-only, removed from this list.
-  Permission.RESULT_PROCESS,
-  Permission.RESULT_PUBLISH,
-  Permission.RESULT_READ,
+  // [19.5.1] RESULT_PROCESS/RESULT_PUBLISH now gate ResultsController's
+  // process/publish/reopen/sms routes — no longer UI-only, removed from
+  // this list.
+  // [19.8.1] RESULT_READ now gates ResultsController's GET routes (the
+  // staff results-review console) — no longer UI-only, removed from this
+  // list. The guardian/student-facing portal view is still 19.9.1's job.
 ];
 
 describe('Permission matrix (regression)', () => {

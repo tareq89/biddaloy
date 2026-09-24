@@ -114,6 +114,48 @@
       "archetype": "detail"
     },
     {
+      "path": "/exams",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/exams/$examId",
+      "params": {
+        "examId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
+      "path": "/marks",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/marks/$examId/$sectionId/$subjectId",
+      "params": {
+        "examId": "seeded",
+        "sectionId": "seeded",
+        "subjectId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
+      "path": "/results",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/results/$examId/$studentId",
+      "params": {
+        "examId": "seeded",
+        "studentId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
       "path": "/grading-scales",
       "role": "admin",
       "archetype": "list"
@@ -354,6 +396,16 @@
     },
     {
       "path": "/portal/calendar",
+      "role": "parent",
+      "archetype": "list"
+    },
+    {
+      "path": "/portal/results",
+      "role": "parent",
+      "archetype": "list"
+    },
+    {
+      "path": "/portal/exam-schedule",
       "role": "parent",
       "archetype": "list"
     },

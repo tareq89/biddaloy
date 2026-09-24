@@ -27,7 +27,9 @@ function mockLookups() {
     http.get('/api/v1/routines/routine-1/greedy-fill', () => HttpResponse.json([PROPOSAL])),
     http.get('/api/v1/subjects', () =>
       HttpResponse.json({
-        data: [{ id: 'subject-math', name_en: 'Math', name_bn: null, code: 'MATH', is_active: true }],
+        data: [
+          { id: 'subject-math', name_en: 'Math', name_bn: null, code: 'MATH', is_active: true },
+        ],
         total: 1,
         page: 1,
         limit: 100,
@@ -79,10 +81,94 @@ describe('FillAssistDialog', () => {
     expect(onDone).toHaveBeenCalled();
   });
 
-  it('shows an empty state when there is nothing left to fill', async () => {
+  it('keeps only the un-applied proposals and shows a toast when one fails mid-loop', async () => {
     server.use(
-      http.get('/api/v1/routines/routine-1/greedy-fill', () => HttpResponse.json([])),
+      http.get('/api/v1/routines/routine-1/greedy-fill', () =>
+        HttpResponse.json([
+          PROPOSAL,
+          { ...PROPOSAL, period_slot_id: 'p2', subject_id: 'subject-math' },
+        ]),
+      ),
+      http.get('/api/v1/subjects', () =>
+        HttpResponse.json({
+          data: [
+            { id: 'subject-math', name_en: 'Math', name_bn: null, code: 'MATH', is_active: true },
+          ],
+          total: 1,
+          page: 1,
+          limit: 100,
+          totalPages: 1,
+        }),
+      ),
+      http.get('/api/v1/teachers', () =>
+        HttpResponse.json({
+          data: [{ id: 'teacher-1', user: { full_name: 'Ms Nahar' } }],
+          total: 1,
+          page: 1,
+          limit: 100,
+          totalPages: 1,
+        }),
+      ),
     );
+    let callCount = 0;
+    server.use(
+      http.post('/api/v1/routines/routine-1/slots', () => {
+        callCount += 1;
+        if (callCount === 1) {
+          return HttpResponse.json({
+            slot: { id: 's1' },
+            teacher_ids: ['teacher-1'],
+            warnings: [],
+          });
+        }
+        return HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'Conflict',
+            requestId: 'req-1',
+            details: {
+              violations: [
+                {
+                  code: 'TEACHER_DOUBLE_BOOKED',
+                  message: 'Ms Nahar is already teaching 7B at this time',
+                },
+              ],
+            },
+          },
+          { status: 409 },
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    const onDone = vi.fn();
+    renderWithProviders(
+      <FillAssistDialog
+        open
+        onOpenChange={vi.fn()}
+        routineId="routine-1"
+        sectionId="section-1"
+        weekdayLabels={{ 1: 'Mon' }}
+        onDone={onDone}
+      />,
+      { tenantId: 'tenant-1', locale: 'en' },
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Fill 2 periods/i })).toBeTruthy(),
+    );
+    await user.click(screen.getByRole('button', { name: /Fill 2 periods/i }));
+
+    // Only the first proposal succeeded — the dialog stays open with the
+    // remaining one, and onDone fires because that first write did land.
+    await waitFor(() => expect(callCount).toBe(2));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Fill 1 period/i })).toBeTruthy(),
+    );
+    expect(onDone).toHaveBeenCalled();
+  });
+
+  it('shows an empty state when there is nothing left to fill', async () => {
+    server.use(http.get('/api/v1/routines/routine-1/greedy-fill', () => HttpResponse.json([])));
     renderWithProviders(
       <FillAssistDialog
         open
@@ -96,6 +182,8 @@ describe('FillAssistDialog', () => {
     );
 
     await waitFor(() => expect(screen.getByText(/Nothing left to fill/i)).toBeTruthy());
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: /Fill 0 periods/i }).disabled).toBe(true);
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', { name: /Fill 0 periods/i }).disabled,
+    ).toBe(true);
   });
 });

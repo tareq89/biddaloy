@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { RoutineGrid, cellKey } from './routine-grid';
+import { RoutineGrid, routineCellKey } from './routine-grid';
 
 /**
  * [21.8.1] Stories the ticket calls out: empty week, full week, conflict
@@ -14,7 +14,14 @@ export default meta;
 type Story = StoryObj<typeof RoutineGrid>;
 
 const PERIODS = [
-  { id: 'p1', sequence: 1, kind: 'CLASS' as const, name: null, starts_at: '08:00', ends_at: '08:40' },
+  {
+    id: 'p1',
+    sequence: 1,
+    kind: 'CLASS' as const,
+    name: null,
+    starts_at: '08:00',
+    ends_at: '08:40',
+  },
   {
     id: 'break1',
     sequence: 2,
@@ -23,8 +30,22 @@ const PERIODS = [
     starts_at: '08:40',
     ends_at: '09:00',
   },
-  { id: 'p2', sequence: 3, kind: 'CLASS' as const, name: null, starts_at: '09:00', ends_at: '09:40' },
-  { id: 'p3', sequence: 4, kind: 'CLASS' as const, name: null, starts_at: '09:40', ends_at: '10:20' },
+  {
+    id: 'p2',
+    sequence: 3,
+    kind: 'CLASS' as const,
+    name: null,
+    starts_at: '09:00',
+    ends_at: '09:40',
+  },
+  {
+    id: 'p3',
+    sequence: 4,
+    kind: 'CLASS' as const,
+    name: null,
+    starts_at: '09:40',
+    ends_at: '10:20',
+  },
 ];
 
 const WEEKDAYS = [0, 1, 2, 3, 4]; // Sun–Thu, e.g. a tenant with a Fri/Sat weekend
@@ -54,7 +75,7 @@ export const FullWeek: Story = {
     cells: Object.fromEntries(
       WEEKDAYS.flatMap((weekday) =>
         FULL_WEEK_ROWS.map(({ period, subjectLabel, teacherLabels }) => [
-          cellKey(weekday, period.id),
+          routineCellKey(weekday, period.id),
           {
             slotId: `${weekday}-${period.id}`,
             subjectLabel,
@@ -73,7 +94,7 @@ export const ConflictState: Story = {
   args: {
     ...SHARED,
     cells: {
-      [cellKey(0, 'p1')]: {
+      [routineCellKey(0, 'p1')]: {
         slotId: 'a',
         subjectLabel: 'Math',
         teacherLabels: ['Ms Nahar'],
@@ -81,7 +102,7 @@ export const ConflictState: Story = {
         hasViolation: true,
         hasWarning: false,
       },
-      [cellKey(1, 'p1')]: {
+      [routineCellKey(1, 'p1')]: {
         slotId: 'b',
         subjectLabel: 'English',
         teacherLabels: ['Mr Karim'],

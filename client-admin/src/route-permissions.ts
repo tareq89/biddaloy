@@ -80,6 +80,25 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/classes/$classId': Permission.CLASS_MANAGE,
   '/_staff/grading-scales/': Permission.GRADING_SCALE_MANAGE,
   '/_staff/grading-scales/$scaleId': Permission.GRADING_SCALE_MANAGE,
+  // [19.6.1] `EXAM_MANAGE` — see `nav-tree.ts`'s `examsResults.exams`
+  // comment for why this matches `ExamsController`'s own gate rather than
+  // `MARK_VIEW`.
+  '/_staff/exams/': Permission.EXAM_MANAGE,
+  '/_staff/exams/$examId': Permission.EXAM_MANAGE,
+  // [19.7.1] MARK_VIEW (not MARK_ENTER) — same "seeing is weaker than
+  // editing" split `/_staff/attendance/$sectionId` uses above: whether a
+  // signed-in teacher may actually save a cell is decided server-side by
+  // `MarksAuthorizationService`, not this table.
+  '/_staff/marks/': Permission.MARK_VIEW,
+  '/_staff/marks/$examId/$sectionId/$subjectId': Permission.MARK_VIEW,
+  // [19.8.1] `RESULT_PROCESS` — the whole `/results` route is the
+  // process/publish/reopen/SMS console, ADMIN-only the same way
+  // `EXAM_MANAGE` gates `/exams` above (both `RESULT_PROCESS` and
+  // `RESULT_PUBLISH` are ADMIN-only per `permissions.ts`'s role map, so
+  // gating on either would exclude the same set of roles — `RESULT_PROCESS`
+  // is picked since it's the first write step in the flow).
+  '/_staff/results/': Permission.RESULT_PROCESS,
+  '/_staff/results/$examId/$studentId': Permission.RESULT_READ,
   // [21.7.1] Setup screens (shifts, period slots, rooms, routine-wide
   // settings) are all ADMIN-only server-side (`@RequirePermissions
   // (Permission.ROUTINE_MANAGE)` on every write route in

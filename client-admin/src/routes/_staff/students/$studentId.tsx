@@ -21,6 +21,8 @@ import { InvoicesTab } from './-detail/invoices-tab';
 import { OverviewTab } from './-detail/overview-tab';
 import { PaymentsTab } from './-detail/payments-tab';
 import { RecurringFeesTab } from './-detail/recurring-fees-tab';
+import { ResultsPanel } from './-detail/results-panel';
+import { SubjectChoicesPanel } from './-detail/subject-choices-panel';
 import { TransferStatusDialog } from './-detail/transfer-status-dialog';
 import { SendReminderDialog } from './-send-reminder-dialog';
 
@@ -57,7 +59,9 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
       // this comment — check-i18n-keys.mjs's namespace-resolution regex
       // isn't a real parser and would match that text as this file's own
       // useTranslation call, misrouting every t() call below.)
-      loadRouteNamespaces('students', 'common', 'portal', 'payments'),
+      // 'exams' — [19.6.1]'s Subject choices tab (`-detail/subject-choices-
+      // panel.tsx`) reads its copy from that namespace.
+      loadRouteNamespaces('students', 'common', 'portal', 'payments', 'exams'),
     ]),
   pendingComponent: StudentDetailPending,
   component: StudentDetailPage,
@@ -74,6 +78,8 @@ const TAB_IDS = [
   'communication',
   'activity',
   'attendance',
+  'subject-choices',
+  'results',
 ] as const;
 
 function StudentDetailPage() {
@@ -231,6 +237,21 @@ function StudentDetailPage() {
                   id: 'attendance',
                   label: t('detail.tabs.attendance'),
                   content: <AttendanceTab studentId={studentId} />,
+                },
+                {
+                  id: 'subject-choices',
+                  // [19.6.1] — 'exams' namespace, not 'students': this tab
+                  // is the fourth-subject picker, owned by the exams
+                  // feature even though it's mounted on student detail.
+                  label: t('detail.tabs.fourthSubject', { ns: 'exams' }),
+                  content: <SubjectChoicesPanel studentId={studentId} />,
+                },
+                {
+                  id: 'results',
+                  // [19.9.1] — 'exams' namespace, same reasoning as
+                  // 'subject-choices' above: exam-owned, mounted here.
+                  label: t('detail.tabs.results', { ns: 'exams' }),
+                  content: <ResultsPanel studentId={studentId} />,
                 },
               ]}
             />

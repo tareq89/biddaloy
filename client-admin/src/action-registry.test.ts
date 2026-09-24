@@ -27,6 +27,9 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/grading-scales': '/_staff/grading-scales/',
   '/routines/review': '/_staff/routines/review',
   '/routines/substitutions': '/_staff/routines/substitutions',
+  '/marks': '/_staff/marks/',
+  '/results': '/_staff/results/',
+  '/exams': '/_staff/exams/',
 };
 
 /**
@@ -49,6 +52,11 @@ const REGISTERED_ACTION_FILES: Record<string, string> = {
   'routines.openMyRoutine': 'client-admin/src/routes/_staff/routines/review.tsx',
   'routines.addSubstitution': 'client-admin/src/routes/_staff/routines/substitutions.tsx',
   'routines.copyLastYearRoutine': 'client-admin/src/routes/_staff/routines/review.tsx',
+  'results.enterMarks': 'client-admin/src/routes/_staff/marks/index.tsx',
+  'results.process': 'client-admin/src/routes/_staff/results/-process-dialog.tsx',
+  'results.publish': 'client-admin/src/routes/_staff/results/-publish-dialog.tsx',
+  'results.sendSms': 'client-admin/src/routes/_staff/results/-send-result-sms-dialog.tsx',
+  'exams.copyComponents': 'client-admin/src/routes/_staff/exams/-copy-components-dialog.tsx',
 };
 
 /**

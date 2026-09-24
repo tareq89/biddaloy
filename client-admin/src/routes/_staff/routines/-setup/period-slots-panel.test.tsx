@@ -85,6 +85,56 @@ describe('PeriodSlotsPanel', () => {
     expect(inputValue(startsAtInputs[1]!)).toBe('09:00');
   });
 
+  it('clears stale rows and disables Save while a newly selected shift is still loading', async () => {
+    const SHIFT_B = { ...SHIFT, id: 'shift-2', name: 'Evening' };
+    server.use(
+      http.get('*/routines/shifts/shift-1/period-slots', () =>
+        HttpResponse.json([
+          {
+            id: 's1',
+            shift_id: 'shift-1',
+            sequence: 0,
+            kind: 'CLASS',
+            name: 'Math',
+            starts_at: '08:00',
+            ends_at: '08:40',
+          },
+        ]),
+      ),
+    );
+    let resolveShiftB: (() => void) | undefined;
+    server.use(
+      http.get(
+        '*/routines/shifts/shift-2/period-slots',
+        () =>
+          new Promise((resolve) => {
+            resolveShiftB = () => resolve(HttpResponse.json([]));
+          }),
+      ),
+    );
+
+    const { rerender } = renderWithProviders(
+      <PeriodSlotsPanel shift={SHIFT} changeoverGapMinutes={5} />,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+
+    await screen.findAllByLabelText('Starts at');
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled).toBe(false);
+
+    rerender(<PeriodSlotsPanel shift={SHIFT_B} changeoverGapMinutes={5} />);
+
+    // Shift B's fetch hasn't resolved yet — shift A's row must not still be
+    // on screen, and Save must be disabled so a click can't PUT shift A's
+    // rows onto shift B's period-slots endpoint.
+    await waitFor(() => expect(screen.queryByLabelText('Starts at')).toBeNull());
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled).toBe(true);
+
+    resolveShiftB?.();
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled).toBe(false),
+    );
+  });
+
   it('BREAK rows hide the name field', async () => {
     server.use(
       http.get('*/routines/shifts/shift-1/period-slots', () =>

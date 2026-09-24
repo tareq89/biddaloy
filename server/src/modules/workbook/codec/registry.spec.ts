@@ -45,7 +45,7 @@ function fakeTab(overrides: Partial<TabSpec<unknown, unknown>> = {}): TabSpec<un
 }
 
 describe('EXPECTED_TABS', () => {
-  it('lists the tab names in epic decision D2 order, plus Epic 21.0 appended at the end', () => {
+  it('lists the tab names in epic decision D2 order, plus Epics 19.0 and 21.0 appended at the end', () => {
     expect(EXPECTED_TABS).toEqual([
       'school',
       'academic_years',
@@ -67,6 +67,16 @@ describe('EXPECTED_TABS', () => {
       'payment_allocations',
       'grading_scales',
       'grading_bands',
+      // [19.10.1] Epic 19.0's exams/marks/results spine (#906).
+      'exams',
+      'exam_components',
+      // [19.11.1] Exam routine — one subject's sitting within an exam (#928).
+      'exam_schedules',
+      'mark_grids',
+      'marks',
+      'results',
+      'result_subjects',
+      'student_subject_choices',
       'shifts',
       'period_slots',
       'rooms',
