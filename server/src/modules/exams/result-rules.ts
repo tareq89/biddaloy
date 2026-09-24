@@ -17,7 +17,14 @@
 import { MarkStatus } from '@biddaloy/shared';
 
 export function roundHalfUp2(value: number): number {
-  return Math.floor(value * 100 + 0.5) / 100;
+  // Decimal exponent shifting (`Number(\`${m}e2\`)`), not `value * 100` —
+  // plain float multiplication can land just under the boundary (e.g.
+  // 8.005 * 100 === 800.4999999999999), rounding 8.005 down to 8.00
+  // instead of up to 8.01. `toFixed` handles the shift correctly since it
+  // operates on the decimal string representation.
+  const shifted = Math.floor(Number(`${value}e2`) + 0.5);
+  const result = Number(`${shifted}e-2`);
+  return result === 0 ? 0 : result;
 }
 
 // --- Subject total from component marks (D10) ---

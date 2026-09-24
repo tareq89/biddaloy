@@ -3,14 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Exam } from './entities/exam.entity';
 import { AttendanceSummaryService } from '../attendance/attendance-summary.service';
-
-/** Half-up rounding to 2 decimal places — the same spelled-out
- * `Math.floor(x + 0.5)` shape as grading/scale-lookup.ts's `roundHalfUp`
- * (D5's rounding convention), just at the numeric(6,2) `marks` grain
- * instead of an integer percentage. */
-function roundHalfUp2(value: number): number {
-  return Math.floor(value * 100 + 0.5) / 100;
-}
+import { roundHalfUp2 } from './result-rules';
 
 export interface AttendanceComponentResult {
   /** studentId -> computed value, or null when unmeasurable for that

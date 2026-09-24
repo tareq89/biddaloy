@@ -284,4 +284,15 @@ describe('roundHalfUp2', () => {
     expect(roundHalfUp2(3.144)).toBe(3.14);
     expect(roundHalfUp2(0)).toBe(0);
   });
+
+  it('is not fooled by plain float multiplication landing just under the boundary (pr-fix #945)', () => {
+    // 8.005 * 100 === 800.4999999999999 in plain JS float arithmetic —
+    // decimal exponent shifting must round this up to 8.01, not down.
+    expect(roundHalfUp2(8.005)).toBe(8.01);
+  });
+
+  it('normalizes a negative-zero result to plain zero', () => {
+    expect(Object.is(roundHalfUp2(-0.001), -0)).toBe(false);
+    expect(roundHalfUp2(-0.001)).toBe(0);
+  });
 });
