@@ -13,7 +13,7 @@ import {
   useSyllabusTopicList,
   type Student,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useLocale, useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';
 
@@ -131,6 +131,8 @@ function SyllabusBody({
   topicsQuery: ReturnType<typeof useSyllabusTopicList>;
   t: ReturnType<typeof useTranslation>['t'];
 }) {
+  const { locale } = useLocale();
+
   if (topicsQuery.isPending) {
     return (
       <div className="flex flex-col gap-3" aria-busy="true" aria-live="polite">
@@ -173,7 +175,10 @@ function SyllabusBody({
     } else {
       bySubject.set(topic.subject_id, {
         subjectId: topic.subject_id,
-        heading: topic.subject_name_en ?? t('syllabus.unknownSubject'),
+        heading:
+          (locale === 'bn'
+            ? (topic.subject_name_bn ?? topic.subject_name_en)
+            : (topic.subject_name_en ?? topic.subject_name_bn)) ?? t('syllabus.unknownSubject'),
         topics: [topic],
       });
     }
