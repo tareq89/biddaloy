@@ -280,6 +280,52 @@ interface RoleNarrowing {
 
 export const ROLE_NARROWINGS: RoleNarrowing[] = [
   {
+    controller: 'HomeworkController',
+    method: 'GET',
+    path: '/homework',
+    reason:
+      "[22.3.1] staff bulk listing — although PARENT/STUDENT hold HOMEWORK_READ (for their own child's view, not built by this route), this endpoint is the teacher/admin management list, unscoped by student",
+  },
+  {
+    controller: 'HomeworkController',
+    method: 'GET',
+    path: '/homework/:id',
+    reason: '[22.3.1] same narrowing as GET /homework',
+  },
+  {
+    controller: 'HomeworkController',
+    method: 'GET',
+    path: '/homework/analytics/student/:studentId',
+    reason:
+      "[22.3.6] staff-only rollup dashboard — although PARENT/STUDENT hold HOMEWORK_READ (for their own child's homework view), this analytics endpoint is the teacher/admin completion/defaulter rollup (D13), not a per-family view",
+  },
+  {
+    controller: 'HomeworkController',
+    method: 'GET',
+    path: '/homework/analytics/section/:sectionId',
+    reason: '[22.3.6] same narrowing as the student rollup — staff-only analytics',
+  },
+  {
+    controller: 'HomeworkController',
+    method: 'GET',
+    path: '/homework/analytics/class/:classId',
+    reason: '[22.3.6] same narrowing as the student rollup — staff-only analytics',
+  },
+  {
+    controller: 'HomeworkSubmissionController',
+    method: 'POST',
+    path: '/homework-assignments/:id/submissions',
+    reason:
+      '[22.3.2] uploading a submission is the STUDENT/PARENT-only self-service action (D26 ownership-scoped) — ADMIN/TEACHER also hold HOMEWORK_READ but grade via PATCH /homework-submissions/:id, not this route',
+  },
+  {
+    controller: 'HomeworkSubmissionController',
+    method: 'GET',
+    path: '/homework-assignments/:id/submissions',
+    reason:
+      '[22.3.2] teacher/admin grid view — although PARENT/STUDENT hold HOMEWORK_READ, this endpoint lists every submission for an assignment, not scoped to one guardian/student',
+  },
+  {
     controller: 'RecurringSchedulesController',
     method: 'GET',
     path: '/fees/schedules',
@@ -593,6 +639,9 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // [19.8.1] RESULT_READ now gates ResultsController's GET routes (the
   // staff results-review console) — no longer UI-only, removed from this
   // list. The guardian/student-facing portal view is still 19.9.1's job.
+  // [22.3.3] HOMEWORK_IMPORT now gates HomeworkBulkUploadController's routes,
+  // [22.3.4] SYLLABUS_READ/SYLLABUS_MANAGE now gate SyllabusController's
+  // routes — no longer UI-only, removed from this list at wave-3 integration.
 ];
 
 describe('Permission matrix (regression)', () => {

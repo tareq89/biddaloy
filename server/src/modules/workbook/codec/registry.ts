@@ -6,6 +6,10 @@ import { feesTabs } from '../tabs/fees';
 import { gradingTabs } from '../tabs/grading';
 import { routinesTabs } from '../tabs/routines';
 import { examsTabs } from '../tabs/exams';
+import { homeworkTab } from '../tabs/academics/homework.tab';
+import { homeworkAssignmentTab } from '../tabs/academics/homework-assignment.tab';
+import { homeworkSubmissionTab } from '../tabs/academics/homework-submission.tab';
+import { syllabusTopicTab } from '../tabs/academics/syllabus-topic.tab';
 
 /**
  * Every tab name a backup workbook may contain, in apply order (epic 14.0
@@ -56,6 +60,15 @@ export const EXPECTED_TABS = [
   'routine_slot_teachers',
   'routine_substitutions',
   'routine_change_requests',
+  // [22.3.6] Epic 22.0's homework/syllabus tabs. Appended at the end rather
+  // than interleaved into the academics block above: `homework_assignments`
+  // depends on `sections`/`students` (people lane, registered after
+  // academics), and a dependency must appear earlier in this list than its
+  // dependent — appending here keeps every dependency already satisfied.
+  'homework',
+  'homework_assignments',
+  'homework_submissions',
+  'syllabus_topics',
 ] as const;
 
 export type ExpectedTabName = (typeof EXPECTED_TABS)[number];
@@ -73,6 +86,13 @@ export const ALL_TABS: readonly TabSpec<any, any>[] = [
   ...gradingTabs,
   ...examsTabs,
   ...routinesTabs,
+  // [22.3.6] Appended after every lane's own barrel, not folded into
+  // `academicsTabs` — see the `EXPECTED_TABS` comment above on why these
+  // four must come last.
+  homeworkTab,
+  homeworkAssignmentTab,
+  homeworkSubmissionTab,
+  syllabusTopicTab,
 ];
 
 export class RegistryError extends Error {

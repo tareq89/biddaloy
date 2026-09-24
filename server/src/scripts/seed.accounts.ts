@@ -30,6 +30,10 @@ import { MarkGrid } from '../modules/exams/entities/mark-grid.entity';
 import { Result } from '../modules/exams/entities/result.entity';
 import { ResultSubject } from '../modules/exams/entities/result-subject.entity';
 import { ExamSchedule } from '../modules/exams/entities/exam-schedule.entity';
+import { Homework } from '../modules/homework/entities/homework.entity';
+import { HomeworkAssignment } from '../modules/homework/entities/homework-assignment.entity';
+import { HomeworkSubmission } from '../modules/homework/entities/homework-submission.entity';
+import { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.entity';
 import {
   DEMO_ACADEMIC_YEAR,
   ensureAttendanceSeed,
@@ -37,6 +41,7 @@ import {
   ensureDemoStudents,
   ensureExamsDemoSeed,
   ensureGradingDemoSeed,
+  ensureHomeworkDemoSeed,
   ensurePublicHolidaySet,
   ensureRoleTestUsers,
   ensureRoutineSeed,
@@ -109,6 +114,10 @@ export interface SeedAccountRepositories {
   resultRepository: Repository<Result>;
   resultSubjectRepository: Repository<ResultSubject>;
   examScheduleRepository: Repository<ExamSchedule>;
+  homeworkRepository: Repository<Homework>;
+  homeworkAssignmentRepository: Repository<HomeworkAssignment>;
+  homeworkSubmissionRepository: Repository<HomeworkSubmission>;
+  syllabusTopicRepository: Repository<SyllabusTopic>;
 }
 
 /** Creates/repairs the seed accounts, their memberships and the demo
@@ -396,6 +405,33 @@ export async function seedAccounts(
           },
         );
       }
+    }
+
+    // [22.3.6]: one Homework, one section-wide assignment, three
+    // submissions (one per seeded student, every completion status) and a
+    // sample syllabus — reuses the exact "Class 6" / section "A" roster
+    // `ensureAttendanceSeed` just attached to, and the MATH subject it just
+    // seeded, so the demo data for Epic 22.0's workbook tabs/analytics has
+    // real class/section/subject/student ids to hang off.
+    const mathSubject = await repos.subjectRepository.findOne({
+      where: { tenant_id: school.id, code: 'MATH' },
+    });
+    if (attendanceClass && attendanceSection && mathSubject && attendanceStudents.length > 0) {
+      await ensureHomeworkDemoSeed(
+        {
+          homeworkRepository: repos.homeworkRepository,
+          homeworkAssignmentRepository: repos.homeworkAssignmentRepository,
+          homeworkSubmissionRepository: repos.homeworkSubmissionRepository,
+          syllabusTopicRepository: repos.syllabusTopicRepository,
+        },
+        {
+          schoolId: school.id,
+          classId: attendanceClass.id,
+          subjectId: mathSubject.id,
+          sectionId: attendanceSection.id,
+          studentIds: attendanceStudents.map((s) => s.id),
+        },
+      );
     }
   }
 

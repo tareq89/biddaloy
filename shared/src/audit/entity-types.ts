@@ -54,6 +54,7 @@ export const AUDIT_ENTITY_TYPES = [
   'SchoolHoliday',
   'Student',
   'StudentSubjectChoice',
+  'SyllabusTopic',
   'User',
 ] as const;
 
