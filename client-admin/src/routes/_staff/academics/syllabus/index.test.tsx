@@ -167,7 +167,11 @@ describe('/academics/syllabus', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() =>
-      expect(updateBody).toEqual({ name: 'Algebra basics', status: SyllabusTopicStatus.DONE }),
+      expect(updateBody).toEqual({
+        name: 'Algebra basics',
+        description: null,
+        status: SyllabusTopicStatus.DONE,
+      }),
     );
   });
 

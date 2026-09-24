@@ -28,7 +28,7 @@ import * as React from 'react';
 
 export interface SyllabusTopicFormPayload {
   name: string;
-  description?: string;
+  description?: string | null;
   status: SyllabusTopicStatus;
 }
 
@@ -93,7 +93,11 @@ export function SyllabusTopicFormDialog({
     setValidationError(null);
     onSubmit({
       name: name.trim(),
-      ...(description.trim() !== '' ? { description: description.trim() } : {}),
+      ...(description.trim() !== ''
+        ? { description: description.trim() }
+        : mode === 'edit'
+          ? { description: null }
+          : {}),
       status,
     });
   }

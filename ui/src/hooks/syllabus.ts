@@ -29,14 +29,14 @@ export interface CreateSyllabusTopicInput {
   class_id: string;
   subject_id: string;
   name: string;
-  description?: string;
+  description?: string | null;
   sequence: number;
   status?: SyllabusTopicStatus;
 }
 
 export interface UpdateSyllabusTopicInput {
   name?: string;
-  description?: string;
+  description?: string | null;
   sequence?: number;
   status?: SyllabusTopicStatus;
 }
