@@ -27,12 +27,12 @@ import { tabUntilFocused } from '../keyboard/keyboard-utils';
  * filled by `ensureRoutineSeed`.
  */
 
+test.use(loggedIn('admin'));
+
 test('admin builds a section routine, resolves a teacher clash, fill-assists, and publishes — keyboard only', async ({
   page,
   request,
 }) => {
-  test.use(loggedIn('admin'));
-
   const admin = await adminApiSession(request);
   const subjects = await get<{ data: { id: string; code: string }[] }>(request, admin, '/subjects');
   const mathSubject = subjects.data.find((s) => s.code === 'MATH');
@@ -73,12 +73,6 @@ test('admin builds a section routine, resolves a teacher clash, fill-assists, an
   const routine = routines.find((r) => r.academic_year_id === class6.academic_year_id);
   if (!routine) throw new Error('seeded routine not found — run the seed script first');
 
-  const slots = await get<{ slot: { id: string; period_slot_id: string; weekday: number } }[]>(
-    request,
-    admin,
-    `/routines/${routine.id}/slots`,
-  );
-
   await test.step('open the section grid from /routines', async () => {
     await page.goto(`/routines/${sectionA.id}?classId=${class6.id}`);
     await expect(page.getByRole('table', { name: t('routines.grid.caption') })).toBeVisible();
@@ -110,20 +104,27 @@ test('admin builds a section routine, resolves a teacher clash, fill-assists, an
     await expect(page.getByText(t('routines.builder.savedToast'))).toBeVisible();
   });
 
-  await test.step('a second period assigned to the same, now-busy teacher at a clashing weekday/period is blocked', async () => {
-    // Manufacture the clash server-side against a second section on the
-    // exact same weekday/period as the cell just filled, then try to
-    // reuse the same teacher in the UI for a *different* empty cell
-    // whose weekday/period is engineered to collide via a parallel
-    // section — `constraint-check.ts`'s teacher-double-booking rule is
-    // keyed on (teacher, weekday, period_slot), not section.
+  await test.step('the same teacher assigned to a second section at the same weekday/period is blocked', async () => {
+    // Section A and B share Class 6's shift, so their grids have the same
+    // shape (same weekday/period columns). Repeat the exact keystrokes
+    // from the first step on section B's grid, at the same cell — that
+    // picks up the same "first matching teacher" as before, which
+    // `constraint-check.ts`'s teacher-double-booking rule (keyed on
+    // teacher, weekday, period_slot — not section) then blocks.
     const sectionB = sections.find((s) => s.section_name === 'B');
     if (!sectionB) throw new Error('seeded "Class 6" section B not found');
-    const busySlot = slots.find((entry) => entry.slot.weekday === 1);
-    if (!busySlot) throw new Error('expected a seeded Monday slot to build the clash against');
+
+    // Wait for the first step's saved toast to clear before navigating —
+    // otherwise a leftover toast could be mistaken for this step's own.
+    await expect(page.getByText(t('routines.builder.savedToast'))).toBeHidden({ timeout: 10_000 });
+
+    await page.goto(`/routines/${sectionB.id}?classId=${class6.id}`);
+    await expect(page.getByRole('table', { name: t('routines.grid.caption') })).toBeVisible();
 
     await grid.locator('button[tabindex="0"]').focus();
-    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
     await page.keyboard.press('Enter');
     await tabUntilFocused(page, t('routines.cellPicker.subjectFilterPlaceholder'));
     await page.keyboard.type('Math');
@@ -136,9 +137,13 @@ test('admin builds a section routine, resolves a teacher clash, fill-assists, an
     await tabUntilFocused(page, t('routines.cellPicker.save'));
     await page.keyboard.press('Enter');
 
-    // Blocked: a conflict is surfaced and the "saved" toast never
-    // appears.
-    await expect(page.getByText(t('routines.builder.saveErrorToast'))).not.toBeVisible();
+    // Blocked: the conflict list is surfaced and the "saved" toast never
+    // appears for this attempt.
+    await expect(
+      page.getByRole('alert').filter({ hasText: t('routines.conflictList.violationsTitle') }),
+    ).toBeVisible();
+    await expect(page.getByText(t('routines.builder.savedToast'))).not.toBeVisible();
+    await page.keyboard.press('Escape');
   });
 
   await test.step('run fill assist for the section’s remaining empty cells', async () => {
@@ -150,10 +155,11 @@ test('admin builds a section routine, resolves a teacher clash, fill-assists, an
 
   await test.step('publish the routine', async () => {
     if (routine.state === 'PUBLISHED') {
-      // Already published by the seed — nothing left to do; the point
-      // of this step is that the publish control exists and is
-      // keyboard-reachable, which the earlier steps already exercised
-      // by landing on this same routine's review surface.
+      // The seed publishes this routine, and this spec deliberately edits
+      // it directly rather than through a change request — see the file
+      // docblock's Class 6/section-B setup for why. Publish itself (the
+      // control existing and being keyboard-reachable) is covered by
+      // `review.test.tsx` and `-publish-dialog.test.tsx` instead.
       return;
     }
     await page.goto('/routines/review');
