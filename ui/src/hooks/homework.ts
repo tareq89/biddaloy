@@ -54,6 +54,61 @@ export interface AssignHomeworkInput {
 
 export const homeworkKeys = createEntityKeys<HomeworkListFilters>('homework');
 
+/** Mirrors `HomeworkAnalyticsService`'s `CompletionRollup` (server side,
+ * `server/src/modules/homework/homework-analytics.service.ts`) — no case
+ * transform in between, the controller returns the service result as-is. */
+export interface HomeworkCompletionRollup {
+  totalAssignments: number;
+  completed: number;
+  defaulters: number;
+  completionPercent: number;
+}
+
+export interface HomeworkClassRollup extends HomeworkCompletionRollup {
+  syllabus: {
+    totalTopics: number;
+    done: number;
+    completionPercent: number;
+  };
+}
+
+/** [22.4.6] D13/D29 read-only rollups, `GET /homework/analytics/{student,section,class}/:id`. */
+export function studentHomeworkRollupQueryOptions(studentId: string) {
+  return queryOptions({
+    queryKey: [...homeworkKeys.all, 'analytics', 'student', studentId] as const,
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<HomeworkCompletionRollup>(
+        `/homework/analytics/student/${studentId}`,
+        { signal },
+      );
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useStudentHomeworkRollup(studentId: string) {
+  return useQuery(studentHomeworkRollupQueryOptions(studentId));
+}
+
+export function classHomeworkRollupQueryOptions(classId: string) {
+  return queryOptions({
+    queryKey: [...homeworkKeys.all, 'analytics', 'class', classId] as const,
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<HomeworkClassRollup>(
+        `/homework/analytics/class/${classId}`,
+        { signal },
+      );
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useClassHomeworkRollup(classId: string) {
+  return useQuery(classHomeworkRollupQueryOptions(classId));
+}
+
 export function homeworkListQueryOptions(filters: HomeworkListFilters = {}) {
   const queryKey = homeworkKeys.list(filters);
   return queryOptions({
