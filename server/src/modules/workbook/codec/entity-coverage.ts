@@ -32,6 +32,14 @@ import { MarkGrid } from '../../exams/entities/mark-grid.entity';
 import { Result } from '../../exams/entities/result.entity';
 import { ResultSubject } from '../../exams/entities/result-subject.entity';
 import { StudentSubjectChoice } from '../../students/entities/student-subject-choice.entity';
+import { Shift } from '../../routines/entities/shift.entity';
+import { PeriodSlot } from '../../routines/entities/period-slot.entity';
+import { Room } from '../../routines/entities/room.entity';
+import { Routine } from '../../routines/entities/routine.entity';
+import { RoutineSlot } from '../../routines/entities/routine-slot.entity';
+import { RoutineSlotTeacher } from '../../routines/entities/routine-slot-teacher.entity';
+import { RoutineSubstitution } from '../../routines/entities/routine-substitution.entity';
+import { RoutineChangeRequest } from '../../routines/entities/routine-change-request.entity';
 
 /**
  * Entities that `registry.completeness.spec.ts` allows to have no workbook
@@ -115,5 +123,27 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   [
     StudentSubjectChoice,
     'Tenant-scoped fourth-subject choice, workbook tab lands in 19.10.1 — tracked in #906.',
+  ],
+  // --- Epic 21.0 (class routine/timetable): entities land wave-by-wave,
+  // the workbook tab lands in [21.11.1]. Same deferral pattern as #856 above.
+  [Shift, 'Tenant-scoped shift definition, no tab yet — tracked in Epic 21.0 [21.11.1].'],
+  [
+    PeriodSlot,
+    'Tenant-scoped period-slot definition, no tab yet — tracked in Epic 21.0 [21.11.1].',
+  ],
+  [Room, 'Tenant-scoped room definition, no tab yet — tracked in Epic 21.0 [21.11.1].'],
+  [Routine, 'Tenant-scoped routine document, no tab yet — tracked in Epic 21.0 [21.11.1].'],
+  [RoutineSlot, 'Tenant-scoped routine slot, no tab yet — tracked in Epic 21.0 [21.11.1].'],
+  [
+    RoutineSlotTeacher,
+    'Tenant-scoped routine-slot teacher assignment, no tab yet — tracked in Epic 21.0 [21.11.1].',
+  ],
+  [
+    RoutineSubstitution,
+    'Tenant-scoped routine substitution record, no tab yet — tracked in Epic 21.0 [21.11.1].',
+  ],
+  [
+    RoutineChangeRequest,
+    'Tenant-scoped routine change request, no tab yet — tracked in Epic 21.0 [21.11.1].',
   ],
 ]);

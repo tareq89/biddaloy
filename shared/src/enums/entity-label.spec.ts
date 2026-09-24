@@ -46,4 +46,14 @@ describe('EntityLabel', () => {
       expect(value).toBe(key);
     }
   });
+
+  it('includes the Epic 21.0 class-routine keys (room, routine)', () => {
+    const expectedKeys = ['room', 'routine'] as const;
+
+    for (const key of expectedKeys) {
+      expect(keys).toContain(key);
+      const value: EntityLabel = EntityLabel[key];
+      expect(value).toBe(key);
+    }
+  });
 });

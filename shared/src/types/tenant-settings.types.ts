@@ -111,6 +111,27 @@ export interface AttendancePolicySettings {
 }
 
 /**
+ * `routine.*` (21.1.1) — class-timetable generation constraints. Every
+ * later routine-builder ticket (Epic 21.0) reads these instead of
+ * hardcoding scheduling defaults.
+ */
+export interface RoutineSettings {
+  /** Minutes reserved between two consecutive periods for changeover
+   * (D7). */
+  defaultChangeoverMinutes: number;
+  /** Cap on periods one teacher may teach in a day. `null`/unset = no
+   * cap. */
+  maxPeriodsPerTeacherPerDay?: number | null;
+  /** Cap on periods in a row without a break. `null`/unset = no cap. */
+  maxConsecutivePeriods?: number | null;
+  /** Target periods/week for a subject, keyed by subject id. The
+   * routine-builder's greedy fill (Epic 21.0 wave 4) reads this to know how
+   * many slots to place per subject; omitted subject = builder doesn't
+   * enforce a target for it. */
+  subjectPeriodsPerWeek?: Record<string, number>;
+}
+
+/**
  * `organisation.{shifts,versions,groups}` (33.1.1) — a tenant's own
  * vocabulary for shift/version/group, e.g. `shifts: ['Morning', 'Day']`.
  * These are settings values, not entities (Epic 33.0 D2/D3): a school picks
@@ -215,6 +236,7 @@ export interface TenantSettings {
   region?: RegionSettings;
   communications?: CommunicationsSettings;
   attendance?: AttendancePolicySettings;
+  routine?: RoutineSettings;
   organisation?: OrganisationSettings;
   auth?: AuthSettings;
   backup?: BackupSettings;

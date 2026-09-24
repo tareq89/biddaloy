@@ -746,4 +746,120 @@ describe('TenantSettingsDto', () => {
       expect(orgError?.children?.some((e) => e.property === 'versions')).toBe(true);
     });
   });
+
+  describe('routine', () => {
+    it('accepts a fully-specified routine block', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        routine: {
+          defaultChangeoverMinutes: 5,
+          maxPeriodsPerTeacherPerDay: 6,
+          maxConsecutivePeriods: 3,
+        },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      expect(errors.find((e) => e.property === 'routine')).toBeUndefined();
+    });
+
+    it('accepts a routine block with the caps left unset', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        routine: { defaultChangeoverMinutes: 5 },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      expect(errors.find((e) => e.property === 'routine')).toBeUndefined();
+    });
+
+    it('accepts a routine block with the caps explicitly null', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        routine: {
+          defaultChangeoverMinutes: 5,
+          maxPeriodsPerTeacherPerDay: null,
+          maxConsecutivePeriods: null,
+        },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      expect(errors.find((e) => e.property === 'routine')).toBeUndefined();
+    });
+
+    it('rejects a negative changeover', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        routine: { defaultChangeoverMinutes: -1 },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      const routineError = errors.find((e) => e.property === 'routine');
+      expect(routineError?.children?.some((e) => e.property === 'defaultChangeoverMinutes')).toBe(
+        true,
+      );
+    });
+
+    it('rejects a zero or negative maxPeriodsPerTeacherPerDay', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        routine: { defaultChangeoverMinutes: 5, maxPeriodsPerTeacherPerDay: 0 },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      const routineError = errors.find((e) => e.property === 'routine');
+      expect(routineError?.children?.some((e) => e.property === 'maxPeriodsPerTeacherPerDay')).toBe(
+        true,
+      );
+    });
+
+    it('accepts a subjectPeriodsPerWeek map', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        routine: {
+          defaultChangeoverMinutes: 5,
+          subjectPeriodsPerWeek: { 'subject-math': 6, 'subject-english': 5 },
+        },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      expect(errors.find((e) => e.property === 'routine')).toBeUndefined();
+    });
+
+    it('rejects a non-positive subjectPeriodsPerWeek value', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        routine: {
+          defaultChangeoverMinutes: 5,
+          subjectPeriodsPerWeek: { 'subject-math': 0 },
+        },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      const routineError = errors.find((e) => e.property === 'routine');
+      expect(routineError?.children?.some((e) => e.property === 'subjectPeriodsPerWeek')).toBe(
+        true,
+      );
+    });
+
+    it('rejects a subjectPeriodsPerWeek that is an array, not a map', async () => {
+      const dto = toDto({
+        version: TENANT_SETTINGS_SCHEMA_VERSION,
+        routine: { defaultChangeoverMinutes: 5, subjectPeriodsPerWeek: [1, 2, 3] },
+      });
+
+      const errors = await validate(dto, VALIDATION_OPTIONS);
+
+      const routineError = errors.find((e) => e.property === 'routine');
+      expect(routineError?.children?.some((e) => e.property === 'subjectPeriodsPerWeek')).toBe(
+        true,
+      );
+    });
+  });
 });
