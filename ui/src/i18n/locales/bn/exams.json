@@ -48,9 +48,25 @@
     "tabs": {
       "progress": "অগ্রগতি",
       "setup": "সেটআপ",
+      "schedule": "সময়সূচি",
       "results": "ফলাফল",
       "fourthSubject": "বিষয় নির্বাচন"
     }
+  },
+  "schedulePanel": {
+    "loadError": "সময়সূচি লোড করা যায়নি।",
+    "tableCaption": "তারিখ ও শুরুর সময় অনুযায়ী সাজানো এই পরীক্ষার সময়সূচি",
+    "columnSubject": "বিষয়",
+    "columnDate": "তারিখ",
+    "columnStartsAt": "শুরু",
+    "columnEndsAt": "শেষ",
+    "columnVenue": "স্থান",
+    "columnActions": "কার্যক্রম",
+    "remove": "সরান",
+    "empty": "এখনো কোনো বিষয়ের সময়সূচি নির্ধারণ করা হয়নি।",
+    "addSubjectLabel": "বিষয়",
+    "addSubjectPlaceholder": "একটি বিষয় নির্বাচন করুন",
+    "add": "যোগ করুন"
   },
   "progressPanel": {
     "loadError": "জমাদানের অগ্রগতি লোড করা যায়নি।",

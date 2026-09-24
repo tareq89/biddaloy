@@ -7,6 +7,7 @@ import { Mark } from './entities/mark.entity';
 import { MarkGrid } from './entities/mark-grid.entity';
 import { Result } from './entities/result.entity';
 import { ResultSubject } from './entities/result-subject.entity';
+import { ExamSchedule } from './entities/exam-schedule.entity';
 import { StudentSubjectChoice } from '../students/entities/student-subject-choice.entity';
 import { Student } from '../students/entities/student.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
@@ -39,6 +40,11 @@ import { ResultsService } from './results.service';
 import { ResultsController, StudentResultsController } from './results.controller';
 import { ResultSmsService } from './result-sms.service';
 import { FamilyAccessService } from '../students/family-access.service';
+import { ExamSchedulesService } from './exam-schedules.service';
+import {
+  ExamSchedulesController,
+  StudentExamScheduleController,
+} from './exam-schedules.controller';
 
 /**
  * [19.2.1]/[19.3.1] Registers the seven exam/marks/results tables plus the
@@ -58,6 +64,7 @@ import { FamilyAccessService } from '../students/family-access.service';
       MarkGrid,
       Result,
       ResultSubject,
+      ExamSchedule,
       StudentSubjectChoice,
       Student,
       ClassSection,
@@ -88,6 +95,8 @@ import { FamilyAccessService } from '../students/family-access.service';
     MarksController,
     ResultsController,
     StudentResultsController,
+    ExamSchedulesController,
+    StudentExamScheduleController,
   ],
   providers: [
     ExamsService,
@@ -100,6 +109,7 @@ import { FamilyAccessService } from '../students/family-access.service';
     ResultsService,
     ResultSmsService,
     FamilyAccessService,
+    ExamSchedulesService,
   ],
   exports: [TypeOrmModule],
 })

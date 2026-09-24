@@ -141,6 +141,14 @@ function PortalLayout() {
       permission: Permission.RESULT_READ,
     },
     {
+      to: '/portal/exam-schedule',
+      label: t('items.portalExamSchedule'),
+      icon: <GraduationCapIcon className="size-5" aria-hidden="true" />,
+      // [19.11.1] `StudentExamScheduleController` gates on `RESULT_READ`,
+      // same as `/portal/results` above.
+      permission: Permission.RESULT_READ,
+    },
+    {
       to: '/portal/account',
       label: t('items.portalAccount'),
       icon: <UserRoundIcon className="size-5" aria-hidden="true" />,

@@ -48,9 +48,25 @@
     "tabs": {
       "progress": "Progress",
       "setup": "Setup",
+      "schedule": "Schedule",
       "results": "Results",
       "fourthSubject": "Subject choices"
     }
+  },
+  "schedulePanel": {
+    "loadError": "Couldn't load the schedule.",
+    "tableCaption": "This exam's schedule, sorted by date and start time",
+    "columnSubject": "Subject",
+    "columnDate": "Date",
+    "columnStartsAt": "Starts at",
+    "columnEndsAt": "Ends at",
+    "columnVenue": "Venue",
+    "columnActions": "Actions",
+    "remove": "Remove",
+    "empty": "No subjects scheduled yet.",
+    "addSubjectLabel": "Subject",
+    "addSubjectPlaceholder": "Select a subject",
+    "add": "Add"
   },
   "progressPanel": {
     "loadError": "Couldn't load submission progress.",
