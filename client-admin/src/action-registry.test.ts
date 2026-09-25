@@ -28,6 +28,7 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/marks': '/_staff/marks/',
   '/results': '/_staff/results/',
   '/exams': '/_staff/exams/',
+  '/analysis': '/_staff/analysis/',
 };
 
 /**

@@ -1,0 +1,45 @@
+/**
+ * [26.5.1] Printable Analysis sheet — clones
+ * `attendance/-register-print.css`'s "hide everything, reveal the print
+ * area via `visibility`" approach. Scoped by `#analysis-print-area`
+ * (shared id across the three tabs — only one tab is ever mounted at a
+ * time, since Radix `Tabs` unmounts inactive `TabsContent` by default).
+ */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #analysis-print-area,
+  #analysis-print-area * {
+    visibility: visible;
+  }
+
+  #analysis-print-area {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+  }
+
+  #analysis-print-area table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  #analysis-print-area th,
+  #analysis-print-area td {
+    border: 1px solid #000;
+    color: #000;
+    background: #fff;
+    padding: 2px 4px;
+    font-size: 10px;
+  }
+
+  #analysis-print-area thead {
+    display: table-header-group;
+  }
+
+  @page {
+    margin: 10mm;
+  }
+}

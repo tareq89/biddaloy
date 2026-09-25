@@ -85,6 +85,11 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/exams/': [{ label: { entity: 'exam' } }],
   '/_staff/marks/': [{ label: { key: 'marksEntry' } }],
   '/_staff/results/': [{ label: { key: 'results' } }],
+  // [26.5.1] The tab (`?tab=`) isn't a route-tree segment — `ROUTE_CRUMBS`
+  // only resolves path params via `dynamic: 'entity'`, not search state —
+  // so the trail stops at "Analysis"; the route itself sets
+  // `document.title` to `<tab label> · <exam name>` directly.
+  '/_staff/analysis/': [{ label: { key: 'analysis' } }],
   '/_staff/grading-scales/': [{ label: { key: 'gradingScales' } }],
   '/_staff/routines/setup': [{ label: { key: 'routineSetup' } }],
   '/_staff/routines/': [{ label: { key: 'routineBuilder' } }],
