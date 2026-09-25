@@ -1601,7 +1601,16 @@ const ROUTINE_SEED_PERIODS: readonly {
  *
  * Idempotent like every other `ensure*` helper here: every entity is
  * found-or-created by its own natural key before being written.
+ *
+ * Bails out entirely if the academic year already has a *live* routine
+ * this helper didn't create (identified by name, `SEED_ROUTINE_NAME`
+ * below) — `Routine`'s unique `(tenant_id, academic_year_id)` index means
+ * there is at most one, so grafting fixture slots/teachers/substitutions/
+ * change-requests onto someone else's real routine would silently
+ * corrupt it rather than seed a fixture.
  */
+const SEED_ROUTINE_NAME = 'Main routine';
+
 export async function ensureRoutineSeed(
   repos: RoutineSeedRepositories,
   params: RoutineSeedParams,
@@ -1625,6 +1634,16 @@ export async function ensureRoutineSeed(
     substitutions: 0,
     changeRequests: 0,
   };
+
+  const liveRoutine = await repos.routineRepository.findOne({
+    where: { tenant_id: schoolId, academic_year_id: academicYearId },
+  });
+  if (liveRoutine && liveRoutine.name !== SEED_ROUTINE_NAME) {
+    console.warn(
+      `  Routine seed: academic year already has a non-seed routine "${liveRoutine.name}", skipping.`,
+    );
+    return result;
+  }
 
   // --- shift + period slots ------------------------------------------
   let shift = await findLivePreferred(repos.shiftRepository, {
@@ -1744,15 +1763,21 @@ export async function ensureRoutineSeed(
   }
 
   // --- routine -----------------------------------------------------------
+  // Keyed by name too, not just (tenant, year) — the early guard above
+  // already ensures any live routine here is either absent or ours, but
+  // a *soft-deleted* row for this year could still belong to someone
+  // else, and `findLivePreferred`'s withDeleted fallback must not
+  // undelete a stranger's routine into our fixture's identity.
   let routine = await findLivePreferred(repos.routineRepository, {
     tenant_id: schoolId,
     academic_year_id: academicYearId,
+    name: SEED_ROUTINE_NAME,
   });
   if (!routine) {
     routine = repos.routineRepository.create({
       tenant_id: schoolId,
       academic_year_id: academicYearId,
-      name: 'Main routine',
+      name: SEED_ROUTINE_NAME,
       state: RoutineState.PUBLISHED,
       published_at: new Date(),
     });
@@ -1871,11 +1896,13 @@ export async function ensureRoutineSeed(
   }
 
   // --- one open change request -------------------------------------------
+  // No `state` filter — once an admin resolves this seeded request, a
+  // rerun must still recognize it as "already seeded" rather than
+  // creating a duplicate OPEN one for the same slot/requester.
   const existingRequest = await repos.routineChangeRequestRepository.findOne({
     where: {
       routine_slot_id: mainSlot.id,
       requested_by: requestedByUserId,
-      state: ChangeRequestState.OPEN,
     },
   });
   if (!existingRequest) {
