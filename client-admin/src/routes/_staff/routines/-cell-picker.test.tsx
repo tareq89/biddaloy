@@ -76,4 +76,23 @@ describe('CellPicker', () => {
     await waitFor(() => expect(screen.getByText('English')).toBeTruthy());
     expect(screen.queryByText('Math')).toBeNull();
   });
+
+  it('[1047] renders conflict violations inside the still-open dialog', async () => {
+    mockLookups();
+    renderWithProviders(
+      <CellPicker
+        open
+        onOpenChange={vi.fn()}
+        onSave={vi.fn()}
+        violations={[{ code: 'TEACHER_DOUBLE_BOOKED', message: 'Ms Nahar is already booked.' }]}
+      />,
+      { tenantId: 'tenant-1', locale: 'en' },
+    );
+
+    await waitFor(() => expect(screen.getByText('Math')).toBeTruthy());
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain('Ms Nahar is already booked.');
+    // Still inside the dialog, not the page behind it.
+    expect(screen.getByRole('dialog').contains(alert)).toBe(true);
+  });
 });

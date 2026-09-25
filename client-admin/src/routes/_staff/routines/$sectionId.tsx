@@ -254,7 +254,11 @@ function RoutineBuilderPage() {
         </button>
       </div>
 
-      <ConflictList violations={violations} warnings={warnings} />
+      {/* [1047] Violations render inside the still-open CellPicker instead —
+          see that component's own `violations` prop doc. This page-level
+          list is warnings only: those only arrive on a *successful* save,
+          after the dialog has already closed. */}
+      <ConflictList violations={[]} warnings={warnings} />
 
       <RoutineGrid
         weekdays={weekdays}
@@ -276,7 +280,12 @@ function RoutineBuilderPage() {
       {activeCell && (
         <CellPicker
           open
-          onOpenChange={(open) => !open && setActiveCell(null)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setActiveCell(null);
+              setViolations([]);
+            }
+          }}
           initialFilter={activeCell.initialFilter}
           initialValue={
             activeCellSlot()
@@ -290,6 +299,7 @@ function RoutineBuilderPage() {
           }
           onSave={handleSave}
           saving={createSlot.isPending || updateSlot.isPending}
+          violations={violations}
         />
       )}
 
