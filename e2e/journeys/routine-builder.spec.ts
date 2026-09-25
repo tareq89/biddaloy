@@ -107,7 +107,12 @@ test('admin builds a section routine, resolves a teacher clash, fill-assists, an
     await page.keyboard.press('Space'); // check the first matching teacher
     await tabUntilFocused(page, t('routines.cellPicker.save'));
     await page.keyboard.press('Enter');
-    await expect(page.getByText(t('routines.builder.savedToast'))).toBeVisible();
+    // Matches the 10s timeout the second step's own savedToast wait
+    // already uses below — the default 5s is tight for this save's
+    // round trip under CI's parallel load.
+    await expect(page.getByText(t('routines.builder.savedToast'))).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   await test.step('the same teacher assigned to a second section at the same weekday/period is blocked', async () => {
