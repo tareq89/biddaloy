@@ -15,6 +15,45 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+/**
+ * [1047] Read-side guard for `routine`'s optional caps, mirroring the
+ * `backup.schedule`/`fees.approvalMode` guards below — `RoutineSettingsDto`
+ * rejects a malformed cap on write, but a row can still get here some
+ * other way (predates the schema, hand-edited, restored from a backup). A
+ * bad value for one field falls back to the default (or is dropped, for
+ * the optional caps) rather than passing through as-is or discarding the
+ * whole section.
+ */
+function overlayRoutineSettings(stored: unknown): RoutineSettings {
+  if (!isPlainObject(stored)) return DEFAULT_ROUTINE_SETTINGS;
+
+  const result: RoutineSettings = { ...DEFAULT_ROUTINE_SETTINGS };
+
+  if (isNonNegativeInteger(stored.defaultChangeoverMinutes)) {
+    result.defaultChangeoverMinutes = stored.defaultChangeoverMinutes;
+  }
+  if (isNonNegativeInteger(stored.maxPeriodsPerTeacherPerDay)) {
+    result.maxPeriodsPerTeacherPerDay = stored.maxPeriodsPerTeacherPerDay;
+  }
+  if (isNonNegativeInteger(stored.maxConsecutivePeriods)) {
+    result.maxConsecutivePeriods = stored.maxConsecutivePeriods;
+  }
+  if (isPlainObject(stored.subjectPeriodsPerWeek)) {
+    const entries = Object.entries(stored.subjectPeriodsPerWeek).filter(([, value]) =>
+      isNonNegativeInteger(value),
+    );
+    if (entries.length > 0) {
+      result.subjectPeriodsPerWeek = Object.fromEntries(entries) as Record<string, number>;
+    }
+  }
+
+  return result;
+}
+
 /**
  * Overlays whatever a school actually stored on top of `defaults`,
  * field by field, all the way down.
@@ -90,10 +129,9 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
   // `defaultChangeoverMinutes` — its other fields are optional-and-absent
   // by design (no cap until a school opts in), so overlaying would silently
   // drop a stored `maxPeriodsPerTeacherPerDay`/`maxConsecutivePeriods`/
-  // `subjectPeriodsPerWeek`.
-  const routine: RoutineSettings = isPlainObject(stored?.routine)
-    ? { ...DEFAULT_ROUTINE_SETTINGS, ...(stored.routine as Partial<RoutineSettings>) }
-    : DEFAULT_ROUTINE_SETTINGS;
+  // `subjectPeriodsPerWeek`. `overlayRoutineSettings` (above) is the
+  // field-by-field guard doing that merge instead.
+  const routine: RoutineSettings = overlayRoutineSettings(stored?.routine);
   // `overlayOnDefaults` only type-checks (a string is a string), so a
   // stored `{ schedule: 'NONSENSE' }` would otherwise come back typed as a
   // `BackupScheduleMode` and reach `BACKUP_SCHEDULE_CRON[mode]` as

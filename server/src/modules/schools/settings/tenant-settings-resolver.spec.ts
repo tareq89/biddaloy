@@ -52,6 +52,48 @@ describe('resolveTenantSettings', () => {
         maxPeriodsPerTeacherPerDay: 4,
       });
     });
+
+    // [1047]: `RoutineSettingsDto` rejects these on write, but a row can
+    // still get here some other way (predates the schema, hand-edited,
+    // restored from a backup) — every other settings section already
+    // guards against this on read; `routine` didn't.
+    it('drops a malformed cap instead of passing it through', () => {
+      const resolved = resolveTenantSettings({
+        routine: { maxPeriodsPerTeacherPerDay: 'abc', maxConsecutivePeriods: -1 },
+      });
+
+      expect(resolved.routine).toEqual(DEFAULT_ROUTINE_SETTINGS);
+    });
+
+    it('keeps a valid cap', () => {
+      const resolved = resolveTenantSettings({
+        routine: { maxConsecutivePeriods: 3 },
+      });
+
+      expect(resolved.routine).toEqual({
+        defaultChangeoverMinutes: DEFAULT_ROUTINE_SETTINGS.defaultChangeoverMinutes,
+        maxConsecutivePeriods: 3,
+      });
+    });
+
+    it('drops a malformed subjectPeriodsPerWeek map entirely', () => {
+      const resolved = resolveTenantSettings({
+        routine: { subjectPeriodsPerWeek: 'not-a-map' },
+      });
+
+      expect(resolved.routine).toEqual(DEFAULT_ROUTINE_SETTINGS);
+    });
+
+    it('keeps only the numeric entries of a partially malformed subjectPeriodsPerWeek map', () => {
+      const resolved = resolveTenantSettings({
+        routine: { subjectPeriodsPerWeek: { math: 5, science: 'lots' } },
+      });
+
+      expect(resolved.routine).toEqual({
+        defaultChangeoverMinutes: DEFAULT_ROUTINE_SETTINGS.defaultChangeoverMinutes,
+        subjectPeriodsPerWeek: { math: 5 },
+      });
+    });
   });
 
   describe('organisation (33.2.1)', () => {
