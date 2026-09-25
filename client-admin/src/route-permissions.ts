@@ -87,6 +87,10 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // any route missing from this map by design, so it's added anyway.
   '/_staff/admissions/intakes/': Permission.ADMISSION_REVIEW,
   '/_staff/admissions/intakes/$intakeId': Permission.ADMISSION_REVIEW,
+  // [27.10] Staff applicants screen — same blanket ADMISSION_REVIEW gate as
+  // the intakes screen above.
+  '/_staff/admissions/applicants/': Permission.ADMISSION_REVIEW,
+  '/_staff/admissions/applicants/$applicantId': Permission.ADMISSION_REVIEW,
   // [19.6.1] `EXAM_MANAGE` — see `nav-tree.ts`'s `examsResults.exams`
   // comment for why this matches `ExamsController`'s own gate rather than
   // `MARK_VIEW`.
