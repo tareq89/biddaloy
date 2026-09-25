@@ -97,12 +97,21 @@ describe('AnalysisService', () => {
         is_fail: false,
       },
     ];
-    const service = makeService({ resultQbQueue: [makeQb(raw)] });
+    const qb = makeQb(raw);
+    const service = makeService({ resultQbQueue: [qb] });
     const result = await service.getMerit(EXAM_ID, TENANT_ID, SECTION_ID);
     expect(result.status).toBe(ExamStatus.PROCESSED);
     expect(result.rows.map((r) => r.student_id)).toEqual(['s1', 's2']);
     expect(result.rows[0].section_position).toBe(1);
     expect(result.rows[0].total_marks).toBe(450);
+    // The stub returns rows in seeded order regardless of what's asked for,
+    // so without these assertions this test would still pass even if the
+    // service dropped the section filter or the ORDER BY.
+    expect(qb.andWhere).toHaveBeenCalledWith('r.section_id = :sectionId', {
+      sectionId: SECTION_ID,
+    });
+    expect(qb.orderBy).toHaveBeenCalledWith('r.section_position', 'ASC', 'NULLS LAST');
+    expect(qb.addOrderBy).toHaveBeenCalledWith('s.full_name', 'ASC');
   });
 
   it('defaulted: an ABS-only (not is_fail) student is still included with an absent reason', async () => {
