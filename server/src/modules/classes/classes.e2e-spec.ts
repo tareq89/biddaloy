@@ -584,25 +584,36 @@ describe('Classes & Sections E2E', () => {
     it('returns 401 for a non-ADMIN role (permission-denied)', async () => {
       const { classId, sectionId, teacherId, cleanup } = await seedClassSectionTeacher();
 
-      await dataSource.query(
+      const inserted = await dataSource.query(
         `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
-         VALUES ('${SEED_ADMIN_USER_ID}', '${TENANT_ID}', '${UserRole.TEACHER}', NOW(), NOW())
-         ON CONFLICT DO NOTHING`,
+         VALUES ($1, $2, $3, NOW(), NOW())
+         ON CONFLICT DO NOTHING RETURNING id`,
+        [SEED_ADMIN_USER_ID, TENANT_ID, UserRole.TEACHER],
       );
-      const loginRes = await supertest(app.getHttpServer())
-        .post('/api/v1/auth/login')
-        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
-        .expect(200);
-      const teacherRoleToken = loginRes.body.access_token;
 
-      const res = await supertest(app.getHttpServer())
-        .post(`/api/v1/classes/${classId}/sections/${sectionId}/teachers`)
-        .set('Authorization', `Bearer ${teacherRoleToken}`)
-        .set('X-Tenant-ID', TENANT_ID)
-        .set('X-Role', UserRole.TEACHER)
-        .send({ teacher_id: teacherId })
-        .expect(401);
-      expect(res.body.message).toContain('Requires one of roles');
+      try {
+        const loginRes = await supertest(app.getHttpServer())
+          .post('/api/v1/auth/login')
+          .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+          .expect(200);
+        const teacherRoleToken = loginRes.body.access_token;
+
+        const res = await supertest(app.getHttpServer())
+          .post(`/api/v1/classes/${classId}/sections/${sectionId}/teachers`)
+          .set('Authorization', `Bearer ${teacherRoleToken}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .set('X-Role', UserRole.TEACHER)
+          .send({ teacher_id: teacherId })
+          .expect(401);
+        expect(res.body.message).toContain('Requires one of roles');
+      } finally {
+        // [pr-fix #1035] `ON CONFLICT DO NOTHING` means `inserted` is empty
+        // when the seed admin already had a TEACHER membership — only
+        // delete the row this test itself created.
+        if (inserted[0]) {
+          await dataSource.query(`DELETE FROM user_tenants WHERE id = $1`, [inserted[0].id]);
+        }
+      }
 
       await cleanup();
     });
