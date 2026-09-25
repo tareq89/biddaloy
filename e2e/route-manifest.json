@@ -182,6 +182,19 @@
       "archetype": "detail"
     },
     {
+      "path": "/admissions/applicants",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/admissions/applicants/$applicantId",
+      "params": {
+        "applicantId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
       "path": "/routines/setup",
       "role": "admin",
       "archetype": "form"

@@ -17,6 +17,8 @@
     "calendar": "ক্যালেন্ডার",
     "staff": "কর্মী",
     "admissionIntakes": "ভর্তি গ্রহণ",
+    "admissionApplicants": "ভর্তি আবেদনকারী",
+    "admissionApplicantDetail": "আবেদনকারী",
     "fees": "ফি",
     "feeStructures": "ফি কাঠামো",
     "generateFees": "ফি তৈরি",

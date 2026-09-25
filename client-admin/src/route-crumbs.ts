@@ -87,6 +87,7 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/results/': [{ label: { key: 'results' } }],
   '/_staff/grading-scales/': [{ label: { key: 'gradingScales' } }],
   '/_staff/admissions/intakes/': [{ label: { key: 'admissionIntakes' } }],
+  '/_staff/admissions/applicants/': [{ label: { key: 'admissionApplicants' } }],
   '/_staff/routines/setup': [{ label: { key: 'routineSetup' } }],
   '/_staff/routines/': [{ label: { key: 'routineBuilder' } }],
   '/_staff/routines/$sectionId': [
@@ -158,6 +159,10 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/admissions/intakes/$intakeId': [
     { label: { key: 'admissionIntakes' } },
     { label: { key: 'admissionIntakeDetail' }, dynamic: 'entity' },
+  ],
+  '/_staff/admissions/applicants/$applicantId': [
+    { label: { key: 'admissionApplicants' } },
+    { label: { key: 'admissionApplicantDetail' }, dynamic: 'entity' },
   ],
   '/_staff/attendance/$sectionId': [
     { label: { key: 'attendance' } },

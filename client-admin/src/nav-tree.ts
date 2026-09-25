@@ -89,6 +89,14 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.ADMISSION_REVIEW,
     label: { key: 'admissionIntakes' },
   },
+  // [27.10] Staff admission applicants list — same gate as the intakes
+  // nav item above.
+  'people.admissionApplicants': {
+    id: 'people.admissionApplicants',
+    to: '/admissions/applicants',
+    permission: Permission.ADMISSION_REVIEW,
+    label: { key: 'admissionApplicants' },
+  },
   'academics.academicYears': {
     id: 'academics.academicYears',
     to: '/academic-years',
@@ -269,6 +277,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
       STAFF_NAV_ITEMS['people.calendar'],
       STAFF_NAV_ITEMS['people.staff'],
       STAFF_NAV_ITEMS['people.admissionIntakes'],
+      STAFF_NAV_ITEMS['people.admissionApplicants'],
     ],
   },
   {
