@@ -688,7 +688,7 @@ export class SectionService {
       if (subjectId === null) {
         // D3 — a section has at most one class-teacher row; replace it.
         const replaced = await repo.findOne({
-          where: { section_id: sectionId, subject_id: IsNull() },
+          where: { section_id: sectionId, subject_id: IsNull(), tenant_id: tenantId },
         });
         if (replaced) {
           await repo.delete({ id: replaced.id });
@@ -715,7 +715,12 @@ export class SectionService {
         // D8 — explicit conflict check ahead of insert, not a DB
         // unique-violation catch.
         const duplicate = await repo.findOne({
-          where: { teacher_id: dto.teacher_id, section_id: sectionId, subject_id: subjectId },
+          where: {
+            teacher_id: dto.teacher_id,
+            section_id: sectionId,
+            subject_id: subjectId,
+            tenant_id: tenantId,
+          },
         });
         if (duplicate) {
           throw new ConflictException(
