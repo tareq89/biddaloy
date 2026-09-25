@@ -97,9 +97,17 @@ erDiagram
     Student ||--o{ Result : "has a"
     GradingScale ||--o{ Result : "pinned against"
     Result ||--o{ ResultSubject : "breaks down into"
+    ClassSection ||--o{ Result : "sat in (section_id/section_position, D17)"
     Subject ||--o{ ResultSubject : "line for"
     Student ||--o{ StudentSubjectChoice : "picks a"
     ClassSubject ||--o{ StudentSubjectChoice : "chosen offering"
+
+    Class ||--o{ PromotionRun : "source class of"
+    School ||--o{ PromotionRun : scopes
+    PromotionRun ||--o{ PromotionEntry : "one row per student"
+    Student ||--o{ PromotionEntry : "decided for"
+    Enrollment ||--o{ PromotionEntry : "carried forward from (source_enrollment_id)"
+    Enrollment ||--o| PromotionEntry : "creates on commit (target_enrollment_id)"
 ```
 
 _(This shows the shape of the graph, not every column — see each entity file
@@ -253,6 +261,63 @@ MODEL exams — is deliberately **not** part of this epic (decision D3). Every
 entity above is scoped to a single `Exam`; nothing here reads across exams.
 A future epic owns that composition, so a reader who notices its absence
 should not read it as a gap left behind by accident.
+
+**D17 — the exam cohort comes from `Enrollment`, not `Student.class_section`.**
+`ResultsService.computeAll`, `MarkGridService`'s roster, and the marks IDOR
+guard all resolve "who sits this exam" by querying the student's **ACTIVE
+`Enrollment`** row for the exam's `(academic_year, class)`, not the
+student's live `class_section` pointer. This matters once a student has
+moved sections mid-year, or a promotion run has advanced them into next
+year's class: an exam processed for last year's class still finds exactly
+the roster that actually sat it, because `Enrollment` is the historical
+record and `Student.class_section` only ever reflects _today_.
+
+`Result.section_id` / `Result.section_position` (added alongside D17) pin
+which section a student actually sat the exam in and their merit rank
+within that `(exam, section)` pair — computed once, at process time, so it
+stays correct even if the student is later moved or promoted out of that
+section.
+
+### Promotions (`modules/promotions`) — Epic 26.6–26.8
+
+```
+PromotionRun (Class 6 -> Class 7, 2026-2027)   status: DRAFT -> COMMITTED
+├── algorithm: BLOCK | SNAKE                    (how next-year sections are filled)
+├── exam_ids: [First Term, Second Term]         (which published exams feed the mean GPA)
+│
+├── PromotionEntry  student=Karim
+│   ├── suggested_outcome: PROMOTE   final_outcome: PROMOTE   is_override: false
+│   └── target_section_id, new_roll_number   (set once placement runs)
+└── PromotionEntry  student=Rahim
+    ├── suggested_outcome: PROMOTE   final_outcome: RETAIN   is_override: true
+    └── override_note: "Repeating — attendance"   (required by a DB CHECK when is_override)
+```
+
+- **`PromotionRun`** — one end-of-year promotion attempt for a source
+  `Class`: which published exams feed the decision (a plain mean across
+  them — see the composition caveat below), which placement algorithm
+  (`BLOCK` fills sections in merit-rank blocks, `SNAKE` interleaves them for
+  even ability spread) assigns next-year sections, and whether it's been
+  committed. `DRAFT` runs are freely re-runnable and re-computable;
+  `COMMITTED` is final. `target_class_id: null` means this run **graduates**
+  the whole class out of the school rather than promoting it. Hard-deleted
+  (no `deleted_at`) when discarded — a draft carries no history worth
+  keeping.
+- **`PromotionEntry`** — one student's decision within a run: merit stats
+  (`mean_gpa`, `total_marks_sum`), the algorithm's `suggested_outcome`, and
+  the possibly human-`override`n `final_outcome` actually applied on
+  commit. `is_override: true` requires a non-blank `override_note`,
+  enforced by a DB CHECK, not just app validation. `source_enrollment_id`
+  points at the `Enrollment` row (D17) this entry was computed from;
+  `target_enrollment_id` is filled in on commit once placement has created
+  the student's next-year `Enrollment`.
+
+**Composition caveat, stated plainly:** a promotion run's `mean_gpa` is a
+**plain mean** of the selected exams' GPAs (D7) — not a weighted average
+(e.g. "Second Term counts double"). Weighted cross-exam composition is the
+same gap already called out above for report cards (D3): still absent, on
+purpose, not forgotten. A future epic that adds per-exam weights to result
+composition should extend the promotion mean the same way.
 
 ### Calendar (`modules/calendar`) — see [16-academic-calendar.md](16-academic-calendar.md) for the full model
 
