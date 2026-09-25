@@ -34,6 +34,9 @@ export interface ResultRow {
   gpa: string;
   grade: string;
   position: number | null;
+  section_id: string | null;
+  section_key: string | null;
+  section_position: number | null;
   is_fail: boolean;
   grading_scale_id: string;
   grading_scale_key: string;
@@ -62,6 +65,20 @@ const columns: readonly ColumnSpec[] = [
   { key: 'gpa', type: 'money', required: true, label: { en: 'GPA', bn: 'জিপিএ' } },
   { key: 'grade', type: 'string', required: true, label: { en: 'Grade', bn: 'গ্রেড' } },
   { key: 'position', type: 'int', label: { en: 'Position', bn: 'অবস্থান' } },
+  {
+    // Optional: the entity's `section_id` is nullable (a result computed
+    // with no section snapshot, same pattern as `enrollments.tab.ts`'s
+    // `section`).
+    key: 'section',
+    type: 'ref',
+    ref: 'sections',
+    label: { en: 'Section', bn: 'শাখা' },
+  },
+  {
+    key: 'section_position',
+    type: 'int',
+    label: { en: 'Section position', bn: 'শাখায় অবস্থান' },
+  },
   { key: 'is_fail', type: 'bool', required: true, label: { en: 'Failed', bn: 'ফেল' } },
   {
     key: 'grading_scale',
@@ -96,6 +113,7 @@ const excluded: readonly string[] = [
   'exam_id', // exported instead as the `exam` ref column
   'student_id', // exported instead as the `student` ref column
   'grading_scale_id', // exported instead as the `grading_scale` ref column
+  'section_id', // exported instead as the `section` ref column, keyed by the referenced tab's natural key
 ];
 
 const MAX_LENGTHS: Record<string, number> = {
@@ -107,7 +125,7 @@ export const resultsTab: TabSpec<Result, ResultRow> = {
   name: 'results',
   entity: Result,
   excluded,
-  dependsOn: ['exams', 'students', 'grading_scales'],
+  dependsOn: ['exams', 'students', 'grading_scales', 'sections'],
   columns,
   naturalKey: ['exam', 'student'],
   deleteByAbsence: true,
@@ -138,6 +156,8 @@ export const resultsTab: TabSpec<Result, ResultRow> = {
       gpa: entity.gpa,
       grade: entity.grade,
       position: entity.position,
+      section: entity.section_id ? ctx.keyOf('sections', entity.section_id) : null,
+      section_position: entity.section_position,
       is_fail: entity.is_fail,
       grading_scale: ctx.keyOf('grading_scales', entity.grading_scale_id),
       // Pinned values, exported as-is (D19) — never the scale's current
@@ -231,6 +251,26 @@ export const resultsTab: TabSpec<Result, ResultRow> = {
       }
     }
 
+    // `section` is optional: an empty cell means `section_id: null`, same
+    // pattern as `enrollments.tab.ts`'s `section`.
+    const sectionKey = (values.section as string | null) ?? '';
+    let sectionId: string | null = null;
+    if (sectionKey) {
+      const resolved = ctx.ref('sections', sectionKey);
+      if (!resolved) {
+        errors.push({
+          tab: 'results',
+          row: rowNo,
+          column: 'section',
+          message: `Column "section": no section with the key "${sectionKey}" was found.`,
+          severity: 'error',
+          value: sectionKey,
+        });
+      } else {
+        sectionId = resolved;
+      }
+    }
+
     if (errors.length > 0) return { errors };
 
     return {
@@ -244,6 +284,9 @@ export const resultsTab: TabSpec<Result, ResultRow> = {
         gpa: values.gpa as string,
         grade: values.grade as string,
         position: (values.position as number | null) ?? null,
+        section_id: sectionId,
+        section_key: sectionKey ? sectionKey : null,
+        section_position: (values.section_position as number | null) ?? null,
         is_fail: values.is_fail as boolean,
         grading_scale_id: gradingScaleId as string,
         grading_scale_key: gradingScaleKey,
@@ -272,6 +315,10 @@ export const resultsTab: TabSpec<Result, ResultRow> = {
     if (String(row.gpa) !== String(existing.gpa)) changed.push('gpa');
     if (row.grade !== existing.grade) changed.push('grade');
     if ((row.position ?? null) !== (existing.position ?? null)) changed.push('position');
+    if ((row.section_id ?? null) !== (existing.section_id ?? null)) changed.push('section');
+    if ((row.section_position ?? null) !== (existing.section_position ?? null)) {
+      changed.push('section_position');
+    }
     if (row.is_fail !== existing.is_fail) changed.push('is_fail');
     if (row.grading_scale_id !== existing.grading_scale_id) changed.push('grading_scale');
     if (row.grading_scale_revision !== existing.grading_scale_revision) {
@@ -299,6 +346,8 @@ export const resultsTab: TabSpec<Result, ResultRow> = {
     result.gpa = row.gpa;
     result.grade = row.grade;
     result.position = row.position;
+    result.section_id = row.section_id;
+    result.section_position = row.section_position;
     result.is_fail = row.is_fail;
     result.grading_scale_id = row.grading_scale_id;
     // Written explicitly: these two must never be re-derived from the
