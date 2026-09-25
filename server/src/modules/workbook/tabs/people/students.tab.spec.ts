@@ -112,10 +112,14 @@ describe('studentsTab shape', () => {
   it('is registered through the people barrel, after guardians', () => {
     expect(peopleTabs).toContain(studentsTab);
     expect(peopleTabs.indexOf(guardiansTab)).toBeLessThan(peopleTabs.indexOf(studentsTab));
-    expect(peopleTabs.map((t) => t.name).slice(-3)).toEqual([
+    expect(peopleTabs.map((t) => t.name).slice(-6)).toEqual([
       'guardians',
       'students',
       'enrollments',
+      // [27.6] admission tabs appended after enrollments.
+      'admission_intakes',
+      'admission_applicants',
+      'admission_evaluations',
     ]);
   });
 

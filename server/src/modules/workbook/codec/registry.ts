@@ -33,6 +33,15 @@ export const EXPECTED_TABS = [
   'guardians',
   'students',
   'enrollments',
+  // [27.6] Epic 27.0's admission tabs. Placed here rather than at the very
+  // end of this list (unlike [22.3.6]'s homework tabs): `peopleTabs`
+  // (`tabs/people/index.ts`) appends them physically right after
+  // `enrollments`, and `ALL_TABS` must be a strict subsequence of this list
+  // (`assertRegistryValid` below) — every dependency (`sections`, `users`)
+  // is already earlier here either way.
+  'admission_intakes',
+  'admission_applicants',
+  'admission_evaluations',
   'fee_structures',
   'student_fees',
   'invoices',
