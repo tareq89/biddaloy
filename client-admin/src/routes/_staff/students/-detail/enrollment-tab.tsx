@@ -106,7 +106,7 @@ export function EnrollmentTab({ studentId, studentName }: EnrollmentTabProps) {
                       {override && (
                         <TableRow>
                           <TableCell colSpan={5} className="text-xs text-muted-foreground">
-                            {t('badge', {
+                            {t(`badge.${override.final_outcome.toLowerCase()}`, {
                               ns: 'promotions',
                               year: override.target_academic_year_name ?? '',
                               note: override.override_note ?? '',

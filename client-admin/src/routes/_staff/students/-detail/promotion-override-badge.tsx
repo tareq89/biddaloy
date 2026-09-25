@@ -26,7 +26,7 @@ export function PromotionOverrideBadge({ studentId }: PromotionOverrideBadgeProp
 
   return (
     <span className="inline-flex items-center rounded-full bg-status-due-bg px-2 py-0.5 text-xs font-medium text-status-due-fg">
-      {t('badge', {
+      {t(`badge.${latest.final_outcome.toLowerCase()}`, {
         year: latest.target_academic_year_name ?? '',
         note: latest.override_note ?? '',
         user: latest.overridden_by_name ?? '',

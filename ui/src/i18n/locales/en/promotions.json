@@ -62,5 +62,9 @@
     "graduate": "Graduate"
   },
   "overrideNote": "Overridden from the algorithm's suggestion — a note is required.",
-  "badge": "Promoted by override, {{year}}: {{note}} — by {{user}}"
+  "badge": {
+    "promote": "Promoted by override, {{year}}: {{note}} — by {{user}}",
+    "retain": "Retained by override, {{year}}: {{note}} — by {{user}}",
+    "graduate": "Graduated by override, {{year}}: {{note}} — by {{user}}"
+  }
 }

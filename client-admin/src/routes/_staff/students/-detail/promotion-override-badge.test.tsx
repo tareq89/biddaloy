@@ -52,6 +52,51 @@ describe('PromotionOverrideBadge', () => {
 
     const badge = await screen.findByText(/2025-2026.*Repeated failure in Math.*Jane Admin/);
     expect(badge).not.toBeNull();
+    expect(badge.textContent).toMatch(/^Retained by override/);
+  });
+
+  it('uses outcome-specific text for GRADUATE, not always "Promoted"', async () => {
+    server.use(
+      http.get('/api/v1/students/:studentId/promotion-overrides', () =>
+        HttpResponse.json([
+          {
+            run_id: 'run-1',
+            target_academic_year_name: '2026-2027',
+            final_outcome: 'GRADUATE',
+            override_note: 'Graduated early',
+            overridden_by_name: 'Jane Admin',
+            committed_at: '2026-06-01T00:00:00.000Z',
+          },
+        ]),
+      ),
+    );
+
+    renderBadge();
+
+    const badge = await screen.findByText(/Graduated early/);
+    expect(badge.textContent).toMatch(/^Graduated by override/);
+  });
+
+  it('uses outcome-specific text for PROMOTE', async () => {
+    server.use(
+      http.get('/api/v1/students/:studentId/promotion-overrides', () =>
+        HttpResponse.json([
+          {
+            run_id: 'run-1',
+            target_academic_year_name: '2026-2027',
+            final_outcome: 'PROMOTE',
+            override_note: 'Manual review, promoted',
+            overridden_by_name: 'Jane Admin',
+            committed_at: '2026-06-01T00:00:00.000Z',
+          },
+        ]),
+      ),
+    );
+
+    renderBadge();
+
+    const badge = await screen.findByText(/Manual review, promoted/);
+    expect(badge.textContent).toMatch(/^Promoted by override/);
   });
 
   it('shows the most recently committed override when there are several', async () => {

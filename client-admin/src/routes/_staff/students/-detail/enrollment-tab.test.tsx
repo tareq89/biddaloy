@@ -81,6 +81,6 @@ describe('EnrollmentTab', () => {
     renderTab();
 
     await waitFor(() => expect(screen.getByText('Class 6')).not.toBeNull());
-    expect(screen.queryByText(/Promoted by override/)).toBeNull();
+    expect(screen.queryByText(/by override/)).toBeNull();
   });
 });
