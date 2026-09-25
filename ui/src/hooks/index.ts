@@ -232,6 +232,7 @@ export {
   type UpdateSubjectInput,
 } from './subjects';
 export {
+  allClassesQueryOptions,
   classKeys,
   classesQueryOptions,
   classQueryOptions,
@@ -240,6 +241,7 @@ export {
   classTeachersQueryOptions,
   organisationVocabularyQueryOptions,
   sectionTeachersQueryOptions,
+  useAllClasses,
   useAssignTeacher,
   useAssignTeacherAssignment,
   useClass,

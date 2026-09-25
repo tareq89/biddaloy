@@ -11,7 +11,7 @@ import { apiClient } from '../api/client';
 import { offlineCachedQueryFn } from '../api/offline-cache';
 import type { components } from '../api/schema';
 
-import { createEntityKeys } from './query-keys';
+import { createEntityKeys, fetchAllPages } from './query-keys';
 import { shouldRetryQuery } from './retry';
 import { teacherKeys } from './teachers';
 
@@ -136,6 +136,32 @@ export function classesQueryOptions(filters: ClassListFilters = {}) {
 
 export function useClasses(filters: ClassListFilters = {}, options: { enabled?: boolean } = {}) {
   return useQuery({ ...classesQueryOptions(filters), ...options });
+}
+
+/** [pr-fix #1035] `CLASS_FILTER_LIMIT`'s "whole list fits one page"
+ * assumption breaks for a large school — this fetches every page instead
+ * of relying on a single 100-row request. For a filter picker that
+ * genuinely needs every class (the People bulk teaching-assignments view),
+ * not a paged list screen; skips the offline cache `classesQueryOptions`
+ * uses, since these all-pages callers only work online anyway. */
+export function allClassesQueryOptions() {
+  return queryOptions({
+    queryKey: [...classKeys.lists(), 'all-pages'] as const,
+    queryFn: ({ signal }) =>
+      fetchAllPages((page) =>
+        apiClient
+          .get<PaginatedClasses>('/classes', {
+            params: { limit: CLASS_FILTER_LIMIT, page },
+            signal,
+          })
+          .then((res) => res.data),
+      ),
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useAllClasses(options: { enabled?: boolean } = {}) {
+  return useQuery({ ...allClassesQueryOptions(), ...options });
 }
 
 export function classQueryOptions(id: string) {
@@ -299,7 +325,10 @@ export function useUnassignTeacher(classId: string, sectionId: string) {
  * classes/sections. Same endpoints, `classId`/`sectionId` per call
  * instead. Invalidates the section/class lists above *and* the teacher's
  * own assignments list (`teacherAssignmentsQueryOptions`, `teachers.ts`) —
- * the only caller that reads all three. */
+ * the only caller that reads all three. Broad-prefix invalidation, not one
+ * exact `teacher_id`, matching `useAssignTeacher`'s same reasoning: D3's
+ * auto-replace can silently drop a *different* teacher's class-teacher
+ * row, whose Staff-detail cache would otherwise go stale too. */
 export function useAssignTeacherAssignment() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -316,12 +345,10 @@ export function useAssignTeacherAssignment() {
       );
       return res.data;
     },
-    onSuccess: (_data, { classId, sectionId, teacher_id }) => {
+    onSuccess: (_data, { classId, sectionId }) => {
       void queryClient.invalidateQueries({ queryKey: sectionTeachersKey(classId, sectionId) });
       void queryClient.invalidateQueries({ queryKey: classTeachersQueryOptions(classId).queryKey });
-      void queryClient.invalidateQueries({
-        queryKey: [...teacherKeys.all, 'assignments', teacher_id] as const,
-      });
+      void queryClient.invalidateQueries({ queryKey: [...teacherKeys.all, 'assignments'] });
     },
   });
 }

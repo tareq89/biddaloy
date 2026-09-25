@@ -361,7 +361,9 @@ describe('useAssignTeacherAssignment (unbound) — [#1026 gap fix]', () => {
     const invalidatedKeys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
     expect(invalidatedKeys).toContainEqual(['classes', 'section-teachers', 'class-1', 'section-1']);
     expect(invalidatedKeys).toContainEqual(['classes', 'teachers', 'class-1']);
-    expect(invalidatedKeys).toContainEqual(['teachers', 'assignments', 'teacher-1']);
+    // Broad prefix, not one exact teacher_id — D3 auto-replace can silently
+    // drop a *different* teacher's class-teacher row too.
+    expect(invalidatedKeys).toContainEqual(['teachers', 'assignments']);
   });
 });
 
