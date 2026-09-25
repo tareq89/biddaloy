@@ -120,6 +120,23 @@
     "removing": "Removing…",
     "errorMessage": "Failed to remove subject"
   },
+  "assignTeacherForm": {
+    "title": "Assign teacher",
+    "description": "Assign a teacher to this section, as class-teacher or subject-teacher.",
+    "teacherLabel": "Teacher",
+    "teacherPlaceholder": "Select a teacher",
+    "modeLabel": "Assignment type",
+    "classTeacherOption": "Class teacher",
+    "subjectTeacherOption": "Subject teacher",
+    "subjectLabel": "Subject",
+    "subjectPlaceholder": "Select a subject",
+    "errorTeacherRequired": "Teacher is required",
+    "errorSubjectRequired": "Subject is required",
+    "errorDuplicateAssignment": "This teacher is already assigned to this section for this subject",
+    "errorMessage": "Failed to assign teacher",
+    "save": "Assign",
+    "saving": "Assigning…"
+  },
   "detail": {
     "tabSections": "Sections",
     "tabStudents": "Students",
