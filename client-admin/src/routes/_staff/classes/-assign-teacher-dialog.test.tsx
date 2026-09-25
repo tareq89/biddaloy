@@ -161,7 +161,7 @@ describe('AssignTeacherDialog', () => {
         http.post(
           '/api/v1/classes/:classId/sections/:sectionId/teachers',
           async ({ request, params }) => {
-            capturedUrl = `${params.classId}/${params.sectionId}`;
+            capturedUrl = `${params.classId as string}/${params.sectionId as string}`;
             submittedBody = (await request.json()) as Record<string, unknown>;
             return HttpResponse.json(
               { id: 'assignment-1', teacher_id: 'teacher-1', section_id: 'section-1' },
