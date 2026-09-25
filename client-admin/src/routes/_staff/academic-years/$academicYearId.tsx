@@ -36,7 +36,12 @@ export const Route = createFileRoute('/_staff/academic-years/$academicYearId')({
       queryClient
         .ensureQueryData(academicYearQueryOptions(params.academicYearId))
         .catch(swallowUnlessOffline),
-      loadRouteNamespaces('academicYears', 'common'),
+      // 'feeStructures' — `-detail/fee-structures-tab.tsx` reads its copy
+      // from that namespace; without this, the first visit to it suspends
+      // the whole page (i18n's useSuspense: true) instead of just that
+      // tab, taking keyboard focus with it — same failure mode
+      // `students/$studentId.tsx`'s loader comment documents.
+      loadRouteNamespaces('academicYears', 'common', 'feeStructures'),
     ]),
   pendingComponent: AcademicYearDetailPending,
   component: AcademicYearDetailPage,

@@ -99,10 +99,17 @@ import { Enrollment } from '../students/entities/enrollment.entity';
   controllers: [
     ShiftsController,
     RoomsController,
-    RoutineSlotsController,
+    // RoutineSlotsController's `@Get(':id')` is a catch-all under
+    // `routines/`. Nest registers Express routes in this array's order,
+    // so it must come last, after every other `routines/<literal>`
+    // route (ResolveRoutineController's `resolve`,
+    // SubstitutionsController's `substitutions`, ChangeRequestsController's
+    // `:id/change-requests`) — otherwise `:id` matches those literals
+    // first and `ParseUUIDPipe` rejects them with a 400.
     ResolveRoutineController,
     SubstitutionsController,
     ChangeRequestsController,
+    RoutineSlotsController,
   ],
   exports: [
     TypeOrmModule,

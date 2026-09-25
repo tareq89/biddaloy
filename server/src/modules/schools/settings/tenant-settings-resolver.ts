@@ -6,9 +6,10 @@ import {
   DEFAULT_FEES_SETTINGS,
   DEFAULT_ORGANISATION_SETTINGS,
   DEFAULT_REGION_SETTINGS,
+  DEFAULT_ROUTINE_SETTINGS,
 } from './tenant-settings-defaults';
 import { ApprovalMode } from '@biddaloy/shared';
-import type { TenantSettings } from '@biddaloy/shared';
+import type { RoutineSettings, TenantSettings } from '@biddaloy/shared';
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -84,6 +85,15 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
   const attendance = overlayOnDefaults(DEFAULT_ATTENDANCE_SETTINGS, stored?.attendance);
   const organisation = overlayOnDefaults(DEFAULT_ORGANISATION_SETTINGS, stored?.organisation);
   const auth = overlayOnDefaults(DEFAULT_AUTH_SETTINGS, stored?.auth);
+  // Not `overlayOnDefaults`: it only copies a stored key that also exists
+  // in `defaults`, and `DEFAULT_ROUTINE_SETTINGS` only declares
+  // `defaultChangeoverMinutes` — its other fields are optional-and-absent
+  // by design (no cap until a school opts in), so overlaying would silently
+  // drop a stored `maxPeriodsPerTeacherPerDay`/`maxConsecutivePeriods`/
+  // `subjectPeriodsPerWeek`.
+  const routine: RoutineSettings = isPlainObject(stored?.routine)
+    ? { ...DEFAULT_ROUTINE_SETTINGS, ...(stored.routine as Partial<RoutineSettings>) }
+    : DEFAULT_ROUTINE_SETTINGS;
   // `overlayOnDefaults` only type-checks (a string is a string), so a
   // stored `{ schedule: 'NONSENSE' }` would otherwise come back typed as a
   // `BackupScheduleMode` and reach `BACKUP_SCHEDULE_CRON[mode]` as
@@ -108,6 +118,7 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
     version: TENANT_SETTINGS_SCHEMA_VERSION,
     region,
     attendance,
+    routine,
     organisation,
     auth,
     backup,

@@ -62,8 +62,12 @@ test('keyboard-only: move the second topic above the first with the up button', 
     await expect(page.getByRole('listbox')).toBeHidden();
   });
 
-  await expect(page.getByText('First topic')).toBeVisible();
-  await expect(page.getByText('Second topic')).toBeVisible();
+  // Exact cell match, not `getByText`: the row's Edit/Delete buttons are
+  // labelled with the topic name too (`t('list.edit'/'list.delete', { name })`),
+  // so a substring match resolves to three elements — the name cell plus
+  // both buttons.
+  await expect(page.getByRole('cell', { name: 'First topic', exact: true })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'Second topic', exact: true })).toBeVisible();
 
   await test.step("tab to the second topic's move-up button, Enter moves it above the first", async () => {
     const moveUpSecond = page.getByLabel(t('syllabus.list.moveUp', { name: 'Second topic' }));

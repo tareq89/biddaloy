@@ -90,13 +90,13 @@ describe('Workbook Backup E2E', () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
-      // No S3/MinIO guaranteed reachable in this environment — stub
+      // No S3 guaranteed reachable in this environment — stub
       // StorageService.get to return a known buffer as a Readable, per
       // the plan's fallback, so the byte-equality assertion still runs.
       .overrideProvider(StorageService)
       .useValue({
         get: async () => ({ body: Readable.from(FIXTURE_BYTES), contentType: XLSX_MIME }),
-        // No S3/MinIO guaranteed reachable here either — the retention
+        // No S3 guaranteed reachable here either — the retention
         // sweep tests below only assert on the `workbook_jobs` row, never
         // on the object store.
         delete: async () => undefined,

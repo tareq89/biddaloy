@@ -30,7 +30,7 @@ vi.mock('@sentry/node', () => ({
 
 /** In-memory stand-in for `StorageService` — mirrors the pattern
  * `export.integration.spec.ts` already uses for the same reason: no
- * S3/MinIO needed to exercise the real read/write round trip. */
+ * S3 needed to exercise the real read/write round trip. */
 class FakeStorageService {
   readonly objects = new Map<string, Buffer>();
 

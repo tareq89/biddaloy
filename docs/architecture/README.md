@@ -21,10 +21,10 @@ at hand instead of loading the whole set.
 | [07-deployment.md](07-deployment.md) | Working on Docker, nginx, CI, or production deploys |
 | [08-security.md](08-security.md) | Working on login, tokens, CSRF, audit logging, or PII/data-protection handling |
 | [09-design-direction.md](09-design-direction.md) | Touching design tokens — type, colour, elevation, borders, density, motion — or the interaction contract built on top of them: focus vocabulary, action hierarchy, table→card responsive grammar, `ui/` i18n defaults, access states. Decided in 8.13 (#343–#354), recorded from 8.14 (#365–#377, #457–#461) |
-| [10-third-party-services.md](10-third-party-services.md) | Need to know what external services/APIs SchoolManager depends on (Postgres, Redis, BullMQ, S3/MinIO object storage, SMS/WhatsApp/email providers, Sentry) — and what it deliberately doesn't use (no payment gateway) |
+| [10-third-party-services.md](10-third-party-services.md) | Need to know what external services/APIs SchoolManager depends on (Postgres, Redis, BullMQ, S3/SeaweedFS object storage, SMS/WhatsApp/email providers, Sentry) — and what it deliberately doesn't use (no payment gateway) |
 | [11-attendance.md](11-attendance.md) | Working on attendance, registers, the teacher marking flow, or integrating a scanner |
 | [12-operations.md](12-operations.md) | On call, debugging a production incident, or need alert thresholds / runbooks for 5xx spikes, readiness failures, or failed communication jobs |
-| [13-backup-restore.md](13-backup-restore.md) | Working on backups, restores, disaster recovery, object storage retention, or the `backup`/`minio` docker-compose services |
+| [13-backup-restore.md](13-backup-restore.md) | Working on backups, restores, disaster recovery, object storage retention, or the `backup`/`seaweedfs` docker-compose services |
 | [14-school-workbook.md](14-school-workbook.md) | Working on per-school workbook export/import, the `/backup/*` routes, the tab registry, or restore/retention semantics for one tenant's data |
 | [15-ux-principles.md](15-ux-principles.md) | Planning or building any screen: where it lives in the nav tree, the `Ctrl+K` palette and its action registry, breadcrumbs, keyboard/a11y gates, the "no silent gaps" registry guards, and the three sections every epic must carry |
 | [16-academic-calendar.md](16-academic-calendar.md) | Working on `modules/calendar` — calendar events, terms, import/export, the ICS feed, public holidays, or reminders for a calendar event |

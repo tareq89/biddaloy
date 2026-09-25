@@ -22,7 +22,7 @@ import {
 /** This spec is about the route's auth/ownership behavior (D26), not S3
  * mechanics — `StorageService` is already covered directly by
  * `storage.service.spec.ts` and exercised end-to-end by `logo.e2e-spec.ts`.
- * Overriding it here avoids depending on a real S3/MinIO endpoint being
+ * Overriding it here avoids depending on a real S3 endpoint being
  * reachable from wherever this suite runs. */
 class FakeStorageService {
   async put(): Promise<void> {

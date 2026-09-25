@@ -50,7 +50,7 @@
     "prepare": "husky",
     "check": "node scripts/check.mjs",
     "test:server": "yarn db:test:up && yarn test:unit && yarn test:integration && yarn test:e2e",
-    "db:test:up": "docker compose -f docker-compose.test.yml up -d --wait postgres redis minio && docker compose -f docker-compose.test.yml run --rm minio-init",
+    "db:test:up": "docker compose -f docker-compose.test.yml up -d --wait postgres redis seaweedfs",
     "db:test:down": "docker compose -f docker-compose.test.yml down",
     "e2e:changed": "playwright test --only-changed=origin/main"
   },

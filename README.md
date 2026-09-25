@@ -497,8 +497,8 @@ has drifted.
 yarn run check
 
 # Full server suite (unit + integration + e2e) against real Postgres,
-# Redis and MinIO — only Docker required
-yarn db:test:up      # start postgres/redis/minio via docker-compose.test.yml
+# Redis and SeaweedFS — only Docker required
+yarn db:test:up      # start postgres/redis/seaweedfs via docker-compose.test.yml
 yarn test:server      # runs db:test:up itself, then unit/integration/e2e
 yarn db:test:down    # tear the stack down when done
 
