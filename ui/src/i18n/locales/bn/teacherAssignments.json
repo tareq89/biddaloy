@@ -1,0 +1,30 @@
+{
+  "list": {
+    "title": "শিক্ষক নিয়োগ",
+    "caption": "নির্বাচিত শ্রেণির শাখা-শিক্ষক নিয়োগ",
+    "classLabel": "শ্রেণি",
+    "classPlaceholder": "একটি শ্রেণি নির্বাচন করুন",
+    "sectionLabel": "নিয়োগের শাখা",
+    "selectClassPrompt": "শিক্ষক নিয়োগ দেখতে একটি শ্রেণি নির্বাচন করুন।",
+    "columnTeacher": "শিক্ষক",
+    "columnSection": "শাখা",
+    "columnRole": "ভূমিকা",
+    "columnSubject": "বিষয়",
+    "columnActions": "কার্যক্রম",
+    "roleClassTeacher": "শ্রেণি শিক্ষক",
+    "roleSubjectTeacher": "বিষয় শিক্ষক",
+    "assign": "শিক্ষক নিয়োগ করুন",
+    "unassign": "নিয়োগ বাতিল করুন",
+    "emptyMessage": "এই শ্রেণির জন্য এখনও কোনো শিক্ষক নিয়োগ করা হয়নি।",
+    "errorMessage": "শিক্ষক নিয়োগ লোড করতে ব্যর্থ হয়েছে।",
+    "announceResults": "{{total}}টির মধ্যে {{count}}টি নিয়োগ"
+  },
+  "unassignDialog": {
+    "title": "শিক্ষক নিয়োগ বাতিল করুন",
+    "description": "{{sectionName}} থেকে {{teacherName}} কে সরিয়ে দেবেন?",
+    "confirm": "নিয়োগ বাতিল করুন",
+    "cancel": "বাতিল",
+    "unassigning": "বাতিল করা হচ্ছে…",
+    "errorMessage": "শিক্ষক নিয়োগ বাতিল করতে ব্যর্থ হয়েছে"
+  }
+}

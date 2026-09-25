@@ -36,6 +36,7 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/academics/syllabus': '/_staff/academics/syllabus/',
   '/analysis': '/_staff/analysis/',
   '/promotions/new': '/_staff/promotions/new',
+  '/staff/teaching-assignments': '/_staff/staff/teaching-assignments',
 };
 
 /**
@@ -67,6 +68,7 @@ const REGISTERED_ACTION_FILES: Record<string, string> = {
   'homework.import': 'client-admin/src/routes/_staff/academics/homework/import.tsx',
   'syllabus.markTopic': 'client-admin/src/routes/_staff/academics/syllabus/index.tsx',
   'promotions.promote': 'client-admin/src/routes/_staff/promotions/new.tsx',
+  'staff.assignTeacher': 'client-admin/src/routes/_staff/staff/teaching-assignments.tsx',
 };
 
 /**
