@@ -43,18 +43,49 @@
     "columnSuggested": "Suggested",
     "columnFinal": "Final",
     "columnGroup": "Group",
+    "columnTargetSection": "Target section",
+    "columnNewRoll": "New roll",
     "columnOverrideNote": "Override note",
+    "columnPlacementError": "Placement error",
+    "groupNone": "No group",
+    "groupClearUnsupported": "Clearing a group is not yet supported",
+    "noteRequired": "A note is required for an override.",
+    "overrideChip": "Override",
     "refresh": "Refresh",
+    "refreshing": "Refreshing…",
     "delete": "Delete run",
+    "deleteConfirm": {
+      "title": "Delete this promotion draft?",
+      "body": "This removes every entry in the run. This cannot be undone.",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    },
     "commit": "Commit",
+    "commitShortcutHint": "Ctrl+Enter",
     "overflowWarning": "This section is over capacity by {{count}}.",
-    "staleResultsPrompt": "Results changed since this run was last refreshed — refresh before committing.",
+    "staleResultsPrompt": "Results changed since this preview — refresh",
+    "readOnlyBanner": "Committed {{date}} by {{committedBy}}, approved by {{approvedBy}}",
+    "counts": {
+      "promoted": "Promoted",
+      "retained": "Retained",
+      "graduated": "Graduated",
+      "overrides": "Overrides",
+      "errors": "Errors"
+    },
+    "runSummary": "{{source}} → {{target}} · {{exams}} exams · {{algorithm}}",
     "commitConfirm": {
       "title": "Commit this promotion run?",
       "body": "{{promoted}} promoted, {{retained}} retained, {{graduated}} graduated. This cannot be undone.",
+      "blockedByErrors": "Fix every placement error before committing.",
+      "blockedByNotes": "Every override needs a note before committing.",
       "confirm": "Commit",
       "cancel": "Cancel"
     }
+  },
+  "stepper": {
+    "previous": "Previous",
+    "next": "Next",
+    "progress": "{{current}} of {{total}}"
   },
   "outcome": {
     "promote": "Promote",
