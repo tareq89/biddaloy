@@ -1,4 +1,4 @@
-import { adminApiSession, createClassSection, createTeacherForSection } from '../api';
+import { adminApiSession, createClassSection, createTeacher } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { tabUntilFocused } from './keyboard-utils';
@@ -19,11 +19,13 @@ test('keyboard-only: assign a class/section from the staff detail Teaching assig
   request,
 }) => {
   const session = await adminApiSession(request);
-  const { sectionId, className } = await createClassSection(request, session);
+  const { className } = await createClassSection(request, session);
   // `createClassSection` always names its one section "A".
   const sectionName = 'A';
   const teacherName = `E2E Teacher ${Date.now()}`;
-  const teacher = await createTeacherForSection(request, session, teacherName, sectionId);
+  // `createTeacher`, not `createTeacherForSection` — this test's empty-state
+  // assertion below needs a teacher with zero assignments to start.
+  const teacher = await createTeacher(request, session, teacherName);
 
   await page.goto(`/staff/${teacher.userId}`);
   await expect(page.getByRole('heading', { name: teacherName })).toBeVisible();
