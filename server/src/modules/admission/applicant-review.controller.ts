@@ -1,4 +1,13 @@
-import { Body, Controller, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permission, UserRole } from '@biddaloy/shared';
@@ -13,6 +22,7 @@ import type { JwtPayload } from '@biddaloy/shared';
 import { ApplicantReviewService } from './applicant-review.service';
 import { EvaluateApplicantDto } from './dto/evaluate-applicant.dto';
 import { AdmitApplicantDto } from './dto/admit-applicant.dto';
+import { ListApplicantsDto } from './dto/list-applicants.dto';
 
 /** [27.5] Staff review/evaluate/admit/reject over `admission_applicants` —
  * same guard stack as `IntakeController` (#27.3). */
@@ -24,6 +34,26 @@ import { AdmitApplicantDto } from './dto/admit-applicant.dto';
 @RequirePermissions(Permission.ADMISSION_REVIEW)
 export class ApplicantReviewController {
   constructor(private readonly review: ApplicantReviewService) {}
+
+  @Get()
+  @ApiOperation({
+    summary: 'List admission applicants, optionally filtered by intake and/or status.',
+  })
+  findAll(
+    @Query() filters: ListApplicantsDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.review.list(tenant.id, filters);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Read one applicant plus its evaluation history.' })
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.review.findWithHistory(id, tenant.id);
+  }
 
   @Post(':id/evaluate')
   @ApiOperation({ summary: 'Record an evaluation note, optionally shortlisting or rejecting.' })

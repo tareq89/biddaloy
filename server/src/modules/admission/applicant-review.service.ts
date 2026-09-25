@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, EntityManager } from 'typeorm';
 import { AdmissionApplicantStatus, AdmissionEvaluationDecision } from '@biddaloy/shared';
@@ -8,6 +13,7 @@ import { AdmissionIntake } from './entities/admission-intake.entity';
 import { StudentService, GuardianService } from '../students/students.service';
 import { EvaluateApplicantDto } from './dto/evaluate-applicant.dto';
 import { AdmitApplicantDto } from './dto/admit-applicant.dto';
+import { ListApplicantsDto } from './dto/list-applicants.dto';
 
 const DECISION_TO_STATUS: Record<AdmissionEvaluationDecision, AdmissionApplicantStatus> = {
   SHORTLIST: AdmissionApplicantStatus.SHORTLISTED,
@@ -22,8 +28,10 @@ const DECISION_TO_STATUS: Record<AdmissionEvaluationDecision, AdmissionApplicant
 @Injectable()
 export class ApplicantReviewService {
   constructor(
-    @InjectRepository(AdmissionApplicant) private readonly applicants: Repository<AdmissionApplicant>,
-    @InjectRepository(AdmissionEvaluation) private readonly evaluations: Repository<AdmissionEvaluation>,
+    @InjectRepository(AdmissionApplicant)
+    private readonly applicants: Repository<AdmissionApplicant>,
+    @InjectRepository(AdmissionEvaluation)
+    private readonly evaluations: Repository<AdmissionEvaluation>,
     private readonly studentService: StudentService,
     private readonly guardianService: GuardianService,
   ) {}
@@ -58,7 +66,9 @@ export class ApplicantReviewService {
     this.assertMutable(applicant);
 
     if (dto.decision === 'ADMIT') {
-      throw new BadRequestException('Use POST /admission/applicants/:id/admit to admit an applicant');
+      throw new BadRequestException(
+        'Use POST /admission/applicants/:id/admit to admit an applicant',
+      );
     }
 
     await this.evaluations.save(
@@ -80,7 +90,12 @@ export class ApplicantReviewService {
     return this.findOne(id, tenantId);
   }
 
-  async reject(id: string, tenantId: string, reviewerUserId: string, notes?: string): Promise<AdmissionApplicant> {
+  async reject(
+    id: string,
+    tenantId: string,
+    reviewerUserId: string,
+    notes?: string,
+  ): Promise<AdmissionApplicant> {
     const applicant = await this.findOne(id, tenantId);
     this.assertMutable(applicant);
 
@@ -93,7 +108,10 @@ export class ApplicantReviewService {
         decision: 'REJECT',
       }),
     );
-    await this.applicants.update({ id, tenant_id: tenantId }, { status: AdmissionApplicantStatus.REJECTED });
+    await this.applicants.update(
+      { id, tenant_id: tenantId },
+      { status: AdmissionApplicantStatus.REJECTED },
+    );
     return this.findOne(id, tenantId);
   }
 
@@ -132,7 +150,11 @@ export class ApplicantReviewService {
         existingGuardian?.id ??
         (
           await this.guardianService.create(
-            { full_name: applicant.guardian_name, phone: applicant.guardian_phone, email: applicant.guardian_email ?? undefined },
+            {
+              full_name: applicant.guardian_name,
+              phone: applicant.guardian_phone,
+              email: applicant.guardian_email ?? undefined,
+            },
             tenantId,
             manager,
             reviewerUserId,
@@ -153,17 +175,15 @@ export class ApplicantReviewService {
         manager,
       );
 
-      await manager
-        .getRepository(AdmissionEvaluation)
-        .save(
-          manager.getRepository(AdmissionEvaluation).create({
-            tenant_id: tenantId,
-            applicant_id: id,
-            reviewer_user_id: reviewerUserId,
-            notes: dto.notes ?? 'Admitted',
-            decision: 'ADMIT',
-          }),
-        );
+      await manager.getRepository(AdmissionEvaluation).save(
+        manager.getRepository(AdmissionEvaluation).create({
+          tenant_id: tenantId,
+          applicant_id: id,
+          reviewer_user_id: reviewerUserId,
+          notes: dto.notes ?? 'Admitted',
+          decision: 'ADMIT',
+        }),
+      );
 
       await manager
         .getRepository(AdmissionApplicant)
@@ -174,8 +194,38 @@ export class ApplicantReviewService {
   }
 
   private async intakeClassSectionId(intakeId: string, manager: EntityManager): Promise<string> {
-    const intake = await manager.getRepository(AdmissionIntake).findOne({ where: { id: intakeId } });
+    const intake = await manager
+      .getRepository(AdmissionIntake)
+      .findOne({ where: { id: intakeId } });
     if (!intake) throw new NotFoundException('Admission intake not found');
     return intake.class_section_id;
+  }
+
+  /** [27.10] Tenant-scoped applicant list for the staff screen, optionally
+   * filtered by intake and/or status. */
+  async list(tenantId: string, filters: ListApplicantsDto): Promise<AdmissionApplicant[]> {
+    return this.applicants.find({
+      where: {
+        tenant_id: tenantId,
+        deleted_at: IsNull(),
+        ...(filters.intakeId ? { intake_id: filters.intakeId } : {}),
+        ...(filters.status ? { status: filters.status } : {}),
+      },
+      order: { created_at: 'DESC' },
+    });
+  }
+
+  /** [27.10] One applicant plus its evaluation history, newest first, for
+   * the staff detail screen. */
+  async findWithHistory(
+    id: string,
+    tenantId: string,
+  ): Promise<{ applicant: AdmissionApplicant; evaluations: AdmissionEvaluation[] }> {
+    const applicant = await this.findOne(id, tenantId);
+    const evaluations = await this.evaluations.find({
+      where: { applicant_id: id, tenant_id: tenantId },
+      order: { created_at: 'DESC' },
+    });
+    return { applicant, evaluations };
   }
 }
