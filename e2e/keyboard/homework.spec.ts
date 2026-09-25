@@ -1,27 +1,13 @@
-import type { Page } from '@playwright/test';
-
 import { adminApiSession, createClassSection, post } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
+import { selectByTypeahead } from './keyboard-utils';
 
 /**
  * [22.4.1] Keyboard-only journey: Ctrl+K -> Action tab -> "Assign homework"
  * -> create+assign form -> save. Clones `command-palette.spec.ts`'s
  * Ctrl+3-jumps-to-Action-tab pattern. No mouse calls anywhere in this file.
  */
-
-/** Opens a focused Radix `Select` trigger and picks `value` by typeahead —
- * same helper `organisation-structure.spec.ts`/`syllabus.spec.ts` use.
- * Picking by unique name rather than "ArrowDown, Enter" matters here: the
- * class/subject pickers list every class/subject in the shared e2e
- * database, so a positional pick lands on whichever row another run left
- * behind, not on data this test created. */
-async function selectByTypeahead(page: Page, value: string): Promise<void> {
-  await page.keyboard.press('Enter');
-  await page.keyboard.type(value);
-  await page.keyboard.press('Enter');
-  await expect(page.getByRole('listbox')).toBeHidden();
-}
 
 test.use(loggedIn('admin'));
 
