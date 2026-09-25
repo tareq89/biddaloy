@@ -24,6 +24,12 @@ import {
  */
 export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'workbook_jobs',
+  // [27.1] admission_evaluations references admission_applicants;
+  // admission_applicants references admission_intakes; admission_intakes
+  // references class_sections. All must clear before class_sections below.
+  'admission_evaluations',
+  'admission_applicants',
+  'admission_intakes',
   // [22.2.1] homework_submissions/homework_assignments reference
   // homework+students+class_sections; homework references subjects+classes;
   // syllabus_topics references subjects+classes. All must clear before

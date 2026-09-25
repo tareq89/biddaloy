@@ -341,3 +341,4 @@ export * from './entity-label';
 export * from './exams';
 export * from './routines';
 export * from './homework';
+export * from './admission';

@@ -642,6 +642,10 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // [22.3.3] HOMEWORK_IMPORT now gates HomeworkBulkUploadController's routes,
   // [22.3.4] SYLLABUS_READ/SYLLABUS_MANAGE now gate SyllabusController's
   // routes — no longer UI-only, removed from this list at wave-3 integration.
+  // [27.1] Plumbing landed ahead of the admission review routes (27.4/27.5,
+  // not yet built): ADMISSION_REVIEW gates the future shortlist/admit/reject
+  // endpoints. Remove from this list once those routes land.
+  Permission.ADMISSION_REVIEW,
 ];
 
 describe('Permission matrix (regression)', () => {

@@ -43,6 +43,7 @@ import { SearchModule } from './modules/search/search.module';
 import { GradingModule } from './modules/grading/grading.module';
 import { ExamsModule } from './modules/exams/exams.module';
 import { HomeworkModule } from './modules/homework/homework.module';
+import { AdmissionModule } from './modules/admission/admission.module';
 import { Homework } from './modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from './modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from './modules/homework/entities/homework-submission.entity';
@@ -110,6 +111,9 @@ import { MarkGrid } from './modules/exams/entities/mark-grid.entity';
 import { Result } from './modules/exams/entities/result.entity';
 import { ResultSubject } from './modules/exams/entities/result-subject.entity';
 import { StudentSubjectChoice } from './modules/students/entities/student-subject-choice.entity';
+import { AdmissionIntake } from './modules/admission/entities/admission-intake.entity';
+import { AdmissionApplicant } from './modules/admission/entities/admission-applicant.entity';
+import { AdmissionEvaluation } from './modules/admission/entities/admission-evaluation.entity';
 
 @Module({
   imports: [
@@ -208,6 +212,9 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
             HomeworkAssignment,
             HomeworkSubmission,
             SyllabusTopic,
+            AdmissionIntake,
+            AdmissionApplicant,
+            AdmissionEvaluation,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],
@@ -286,6 +293,7 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
     GradingModule,
     ExamsModule,
     HomeworkModule,
+    AdmissionModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

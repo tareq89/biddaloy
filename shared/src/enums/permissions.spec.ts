@@ -190,6 +190,18 @@ describe('family read grants [5.1]', () => {
   }
 
   /**
+   * [27.1] ADMISSION_REVIEW is schema-only plumbing ahead of the review
+   * routes (27.4/27.5) — pinned to ADMIN only so another role can't
+   * silently gain it before those routes and their own role table land.
+   */
+  it('grants ADMISSION_REVIEW to ADMIN only', () => {
+    for (const role of Object.values(UserRole)) {
+      const expected = role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN;
+      expect(ROLE_PERMISSIONS[role].includes(Permission.ADMISSION_REVIEW)).toBe(expected);
+    }
+  });
+
+  /**
    * `GET /payments/student/{studentId}` admits PARENT and STUDENT since
    * [5.1], and already admitted TEACHER and EXECUTIVE. None of them hold
    * PAYMENT_READ, because that permission means the *tenant-wide ledger*
