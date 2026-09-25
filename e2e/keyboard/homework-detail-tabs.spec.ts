@@ -32,10 +32,15 @@ test('keyboard-only: student detail Homework tab shows the completion rollup', a
   // is no longer necessarily the last tab in the strip.
   const tablist = page.getByRole('tablist');
   const homeworkTab = page.getByRole('tab', { name: t('students.detail.tabs.homework') });
+  // Selection comes from the `?tab=` search param (`useDetailShellTab`), set
+  // by a router navigation that lands a tick after the keypress moves
+  // focus — so the loop has to break on focus, not on `aria-selected`,
+  // or it steps past Homework before the attribute updates and wraps
+  // around the whole strip.
   const tabCount = await tablist.locator('[role="tab"]').count();
   await tablist.locator('[role="tab"]').first().focus();
   for (let i = 0; i < tabCount; i += 1) {
-    if ((await homeworkTab.getAttribute('aria-selected')) === 'true') break;
+    if (await homeworkTab.evaluate((el) => el === document.activeElement)) break;
     await page.keyboard.press('ArrowRight');
   }
   await expect(homeworkTab).toHaveAttribute('aria-selected', 'true');

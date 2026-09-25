@@ -1,3 +1,6 @@
+import type { Page } from '@playwright/test';
+
+import { adminApiSession, createClassSection, post } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 
@@ -7,11 +10,38 @@ import { t } from '../i18n';
  * Ctrl+3-jumps-to-Action-tab pattern. No mouse calls anywhere in this file.
  */
 
+/** Opens a focused Radix `Select` trigger and picks `value` by typeahead —
+ * same helper `organisation-structure.spec.ts`/`syllabus.spec.ts` use.
+ * Picking by unique name rather than "ArrowDown, Enter" matters here: the
+ * class/subject pickers list every class/subject in the shared e2e
+ * database, so a positional pick lands on whichever row another run left
+ * behind, not on data this test created. */
+async function selectByTypeahead(page: Page, value: string): Promise<void> {
+  await page.keyboard.press('Enter');
+  await page.keyboard.type(value);
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('listbox')).toBeHidden();
+}
+
 test.use(loggedIn('admin'));
 
 test('Ctrl+K -> Assign homework action -> create+assign form -> save, mouse-free', async ({
   page,
+  request,
 }) => {
+  const session = await adminApiSession(request);
+  const { classId, className, academicYearId } = await createClassSection(request, session);
+  const suffix = `${Date.now()}`;
+  const subjectName = `E2E Homework Subject ${suffix}`;
+  const subject = await post<{ id: string }>(request, session, '/subjects', {
+    name_en: subjectName,
+    code: `E2EHW${suffix}`.slice(0, 20),
+  });
+  await post(request, session, `/classes/${classId}/subjects`, {
+    subject_id: subject.id,
+    academic_year_id: academicYearId,
+  });
+
   await page.goto('/dashboard');
   await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
 
@@ -50,35 +80,28 @@ test('Ctrl+K -> Assign homework action -> create+assign form -> save, mouse-free
     await page.getByLabel(t('homework.form.titleLabel')).fill('Kbd Homework Assign');
     await page.keyboard.press('Tab');
 
-    // Class picker: a `@biddaloy/ui` combobox, keyboard-operable like the
-    // palette's own combobox — Enter opens it (Radix `Select` also accepts
-    // Space/ArrowDown), ArrowDown then Enter picks the first hit. Radix's
-    // close animation leaves the listbox in the DOM and pointer-events-
-    // intercepting for a few hundred ms after Enter — the next picker's
-    // `.press('Enter')` can land on it instead of its own trigger, so wait
-    // for it to actually close first (clone of the same wait in
-    // organisation-structure.spec.ts's `selectByTypeahead` helper).
+    // Class/subject pickers: `@biddaloy/ui` comboboxes, keyboard-operable
+    // like the palette's own combobox. Pick by this test's own unique,
+    // timestamped names rather than "ArrowDown, Enter" — the pickers list
+    // every class/subject in the shared e2e database, so a positional pick
+    // lands on whichever row another run left behind, which may have no
+    // subjects/sections at all (same fix `syllabus.spec.ts` already needed).
     const classPicker = page.getByLabel(t('homework.form.classLabel'));
-    await classPicker.press('Enter');
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('Enter');
-    await expect(page.getByRole('listbox')).toBeHidden();
+    await classPicker.focus();
+    await selectByTypeahead(page, className);
 
     const subjectPicker = page.getByLabel(t('homework.form.subjectLabel'));
-    await subjectPicker.press('Enter');
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('Enter');
-    await expect(page.getByRole('listbox')).toBeHidden();
+    await subjectPicker.focus();
+    await selectByTypeahead(page, subjectName);
 
     // Exact match: the target RadioGroup's section item carries its own
     // aria-label "<targetLabel>: <sectionLabel>" (a valid a11y pattern —
     // it describes what picking this radio does), which contains
     // sectionLabel as a substring and would otherwise also match here.
     const sectionPicker = page.getByLabel(t('homework.form.sectionLabel'), { exact: true });
-    await sectionPicker.press('Enter');
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('Enter');
-    await expect(page.getByRole('listbox')).toBeHidden();
+    await sectionPicker.focus();
+    // `createClassSection` always names its one section "A".
+    await selectByTypeahead(page, 'A');
 
     await page.getByRole('button', { name: t('homework.form.submit') }).focus();
     await page.keyboard.press('Enter');
