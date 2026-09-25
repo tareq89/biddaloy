@@ -32,15 +32,19 @@ test('keyboard-only: student detail Homework tab shows the completion rollup', a
   // is no longer necessarily the last tab in the strip.
   const tablist = page.getByRole('tablist');
   const homeworkTab = page.getByRole('tab', { name: t('students.detail.tabs.homework') });
-  // Selection comes from the `?tab=` search param (`useDetailShellTab`), set
-  // by a router navigation that lands a tick after the keypress moves
-  // focus — so the loop has to break on focus, not on `aria-selected`,
-  // or it steps past Homework before the attribute updates and wraps
-  // around the whole strip.
-  const tabCount = await tablist.locator('[role="tab"]').count();
-  await tablist.locator('[role="tab"]').first().focus();
-  for (let i = 0; i < tabCount; i += 1) {
-    if (await homeworkTab.evaluate((el) => el === document.activeElement)) break;
+  // Press ArrowRight exactly as many times as Homework's DOM position
+  // requires, rather than polling focus/selection mid-loop: selection is
+  // a controlled prop driven by a `?tab=` router push
+  // (`useDetailShellTab`), which lands asynchronously, so any read of
+  // `aria-selected` or `document.activeElement` taken between keypresses
+  // can be stale relative to Radix's own roving-tabindex state and either
+  // stop one tab short or overshoot.
+  const tabButtons = tablist.locator('[role="tab"]');
+  const tabIds = await tabButtons.evaluateAll((els) => els.map((el) => el.id));
+  const homeworkId = await homeworkTab.evaluate((el) => el.id);
+  const homeworkIndex = tabIds.indexOf(homeworkId);
+  await tabButtons.first().focus();
+  for (let i = 0; i < homeworkIndex; i += 1) {
     await page.keyboard.press('ArrowRight');
   }
   await expect(homeworkTab).toHaveAttribute('aria-selected', 'true');
