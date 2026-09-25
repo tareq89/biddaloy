@@ -66,7 +66,19 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
       // namespace; without this, the first visit to Recurring fees
       // suspends the whole page (i18n's useSuspense: true) instead of just
       // that tab, which also drops keyboard focus off the tab strip.
-      loadRouteNamespaces('students', 'common', 'portal', 'payments', 'exams', 'fees'),
+      // 'feeGeneration' — that same tab always mounts `GenerateFeesModal`
+      // (closed) when the caller can manage fees, and the modal reads its
+      // own copy from that namespace even while closed — same suspend-the-
+      // whole-page failure one level down.
+      loadRouteNamespaces(
+        'students',
+        'common',
+        'portal',
+        'payments',
+        'exams',
+        'fees',
+        'feeGeneration',
+      ),
     ]),
   pendingComponent: StudentDetailPending,
   component: StudentDetailPage,

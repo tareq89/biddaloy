@@ -24,7 +24,13 @@ export const Route = createFileRoute('/_staff/classes/$classId')({
       // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
       // identical comment for why.
       queryClient.ensureQueryData(classQueryOptions(params.classId)).catch(swallowUnlessOffline),
-      loadRouteNamespaces('classes', 'common'),
+      // 'feeStructures' — `-detail/fee-structures-tab.tsx` reads its copy
+      // from that namespace; 'staff' — `-detail/teachers-tab.tsx` does the
+      // same. Without these, the first visit to either tab suspends the
+      // whole page (i18n's useSuspense: true) instead of just that tab,
+      // taking keyboard focus with it — same failure mode
+      // `students/$studentId.tsx`'s loader comment documents.
+      loadRouteNamespaces('classes', 'common', 'feeStructures', 'staff'),
     ]),
   pendingComponent: ClassDetailPending,
   component: ClassDetailPage,
