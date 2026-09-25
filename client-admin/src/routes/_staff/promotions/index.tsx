@@ -4,10 +4,7 @@
  * server doesn't paginate `/promotions` (`ui/src/hooks/promotions.ts`), so
  * pagination here is sliced client-side over the full array.
  *
- * See the `## Plan — #1003` GitHub comment for the full design, including
- * why the row link is a plain `string` path rather than a typed
- * `to="/promotions/$runId"`: that route doesn't exist yet, it arrives in
- * #1004.
+ * See the `## Plan — #1003` GitHub comment for the full design.
  */
 import { Button, RoutePending } from '@biddaloy/ui/components';
 import {
@@ -69,9 +66,11 @@ function PromotionsListPage() {
               row.target_class_id === null
                 ? t('outcome.graduate')
                 : (classNames.get(row.target_class_id) ?? row.target_class_id);
-            // #1004 adds /promotions/$runId; swap to typed to/params there.
-            // Until then there's no route to link to, so this cell is text.
-            return `${sourceName} → ${targetName}`;
+            return (
+              <Link to="/promotions/$runId" params={{ runId: row.id }} className="underline">
+                {sourceName} → {targetName}
+              </Link>
+            );
           },
         },
         {

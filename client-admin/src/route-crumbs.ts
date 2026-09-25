@@ -108,6 +108,17 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
     { label: { key: 'promotion' } },
     { label: { key: 'promotionNewRun' } },
   ],
+  // [26.7.1] A dynamic segment's `label` is only ever the loading
+  // fallback — `use-breadcrumbs.ts` shows the resolved entity name (or,
+  // absent an `ENTITY_RESOLVERS` entry, the raw run id) once the route's
+  // params are known, same precedent as `/exams/$examId` below (`exam`
+  // isn't registered there either). No `EntityLabel` member exists for a
+  // promotion run and `shared/src/enums/entity-label.ts` is outside this
+  // route's territory, so this uses a plain `key` rather than `entity`.
+  '/_staff/promotions/$runId': [
+    { label: { key: 'promotion' } },
+    { label: { key: 'promotionRunDetail' }, dynamic: 'entity' },
+  ],
   '/_staff/grading-scales/': [{ label: { key: 'gradingScales' } }],
   '/_staff/routines/setup': [{ label: { key: 'routineSetup' } }],
   '/_staff/routines/': [{ label: { key: 'routineBuilder' } }],
