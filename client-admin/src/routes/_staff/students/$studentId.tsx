@@ -62,7 +62,11 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
       // useTranslation call, misrouting every t() call below.)
       // 'exams' — [19.6.1]'s Subject choices tab (`-detail/subject-choices-
       // panel.tsx`) reads its copy from that namespace.
-      loadRouteNamespaces('students', 'common', 'portal', 'payments', 'exams'),
+      // 'fees' — `-detail/recurring-fees-tab.tsx` reads its copy from that
+      // namespace; without this, the first visit to Recurring fees
+      // suspends the whole page (i18n's useSuspense: true) instead of just
+      // that tab, which also drops keyboard focus off the tab strip.
+      loadRouteNamespaces('students', 'common', 'portal', 'payments', 'exams', 'fees'),
     ]),
   pendingComponent: StudentDetailPending,
   component: StudentDetailPage,
