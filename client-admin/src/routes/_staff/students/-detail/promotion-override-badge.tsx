@@ -22,6 +22,7 @@ export function PromotionOverrideBadge({ studentId }: PromotionOverrideBadgeProp
   const latest = [...data].sort((a, b) =>
     (b.committed_at ?? '').localeCompare(a.committed_at ?? ''),
   )[0];
+  if (!latest) return null;
 
   return (
     <span className="inline-flex items-center rounded-full bg-status-due-bg px-2 py-0.5 text-xs font-medium text-status-due-fg">
