@@ -437,9 +437,37 @@ These three overrides deviate from `implement-issue` deliberately. Anyone
    dependency/merge order. Agents push branches and report ready; the
    orchestrator opens PRs serially, one after another, in step 6.
 2. **No regenerating committed generated artifacts** (`schema.d.ts`,
-   `routeTree.gen.ts`). Two branches regenerating the same committed artifact
-   conflict on every merge. Regenerated once, at integration. If a ticket's
-   tests need current types, generate them locally and leave them unstaged.
+   `routeTree.gen.ts`) — **but only while a wave actually has more than one
+   lane.** The reason is conflict, not hygiene: two branches regenerating the
+   same committed artifact conflict on every merge. So when a wave runs two or
+   more lanes, they leave the artifact alone and it is regenerated once, at
+   integration; if a ticket's tests need current types, generate them locally
+   and leave them unstaged.
+
+   **When a wave has exactly ONE lane, invert this: the ticket regenerates its
+   own artifacts in its own PR.** There is no second branch to conflict with,
+   and the artifact is stale *because of that ticket's own change* — a DTO,
+   controller or route it moved. Deferring it to a later ticket does not defer
+   the breakage: `ui/scripts/check-api-types.mjs` compares `schema.d.ts`
+   byte-for-byte against a fresh generation and fails the "Integration & e2e
+   tests" job on the PR that moved the surface, not on the one that was
+   supposed to regenerate later. Epic 33's wave 1 (#889 / PR #895) failed
+   exactly this way: the orchestrator applied the multi-lane rule to a
+   single-lane wave and sent a red PR for a DTO addition.
+
+   The test is "could another branch in this wave touch this file?", not "is
+   this file generated?". If the answer is no, regenerate it here. Use the
+   repo's own script (`yarn workspace @biddaloy/ui api:types`) — never a hand
+   edit, since the check is byte-exact — and stop and report if regeneration
+   sweeps in unrelated drift that was already sitting on `main`, rather than
+   letting someone else's change ride in on the ticket's diff.
+
+   **Nothing local runs that check.** `.husky/pre-push` runs `check.mjs
+   --affected` (typecheck, lint, tests) and never `check-api-types.mjs`; it
+   exists only as a CI step. Any ticket that touches a DTO, controller or
+   route must run `node ui/scripts/check-api-types.mjs` by hand before
+   pushing — Epic 33 paid two red CI rounds learning that a clean pre-push
+   hook proves nothing about the schema.
 3. **No merging to `main`,** ever.
 
 `graphify update .` is the opposite case: **run it freely.** `graphify-out/` is
@@ -675,14 +703,48 @@ Present the ordered merge list and stop. **Merge only the PR(s) the user
 explicitly approves, only when they explicitly say so — never on assumed or
 standing approval, even if every prior PR in the same run was approved and
 merged the same way.** Green CI is not approval. On approval for a given PR,
-merge it, then rebase and retarget whatever was stacked on it. Then delete
-merged branches and remove their worktrees.
+merge it, then rebase and retarget whatever was stacked on it.
 
 After each merge to `main`, close every GitHub issue that landed in it: check
 every box under that issue's `## Acceptance` section (`- [ ]` → `- [x]`) and
 close the issue with a comment naming the merged PR and merge date. Do this
 per issue, not once per wave — a wave-close task doesn't get this treatment
 (it isn't a sub-issue), but every ticket sub-issue that shipped does.
+
+### Then clean up — not optional, not "later"
+
+Only once a lane's **final PR is merged and its tickets are closed**, tear that
+lane down. Do it immediately, in the same turn as the merge, not at epic close:
+a lane whose cleanup is deferred is a lane whose cleanup never happens. This
+repo reached 109 live worktrees before anyone noticed, and a worktree carries a
+full `node_modules` — the cost is tens of GB and a measurably slower `git` for
+every later command in every later session.
+
+```bash
+git worktree remove <path>        # refuses if the tree is dirty — good
+git branch -d <branch>            # lowercase -d: refuses if unmerged — good
+git worktree prune
+```
+
+Use plain `-d` and plain `remove`. Both refuse when work would be lost, and
+that refusal is the safety check — it is the whole point. **Never reach for
+`--force` or `-D` to make a refusal go away.** A refusal means the lane still
+holds something `main` does not: read it, land it or report it, then remove.
+The one exception: a worktree from a subagent that died before its first
+commit (usage limit, crash) holds nothing — verify zero commits and zero
+uncommitted files, then `--force` is honest.
+
+Before removing, confirm the work is genuinely on `main` — ancestry alone lies
+when a PR was squash-merged, so check patch-equivalence:
+
+```bash
+git status --porcelain            # must be empty
+git cherry main <branch> | grep '^+'   # must be empty: no unique commits left
+```
+
+At epic close, sweep: every branch and worktree the run created is gone, or is
+listed in the final report with the reason it survived. Say which in the report
+— "cleaned up" is a claim, so make it a checked one.
 
 ## Resuming
 
@@ -698,7 +760,8 @@ session model and report it. Never re-plan a ticket that already has a current
 - Groups are disjoint or they are not groups. If two lanes need the same file,
   they are one lane.
 - Never spawn a group agent without `isolation: "worktree"`.
-- Never let a group agent regenerate committed artifacts, open a PR, or merge
+- Never let a group agent in a MULTI-LANE wave regenerate committed artifacts,
+  open a PR, or merge
   to `main`.
 - No pacing wait between opening PRs — open the next one as soon as its
   branch is ready. Don't sit idle; while one PR's CI/CodeRabbit runs, keep
