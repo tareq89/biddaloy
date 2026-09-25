@@ -29,6 +29,7 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/results': '/_staff/results/',
   '/exams': '/_staff/exams/',
   '/analysis': '/_staff/analysis/',
+  '/promotions/new': '/_staff/promotions/new',
 };
 
 /**
@@ -53,6 +54,7 @@ const REGISTERED_ACTION_FILES: Record<string, string> = {
   'results.publish': 'client-admin/src/routes/_staff/results/-publish-dialog.tsx',
   'results.sendSms': 'client-admin/src/routes/_staff/results/-send-result-sms-dialog.tsx',
   'exams.copyComponents': 'client-admin/src/routes/_staff/exams/-copy-components-dialog.tsx',
+  'promotions.promote': 'client-admin/src/routes/_staff/promotions/new.tsx',
 };
 
 /**

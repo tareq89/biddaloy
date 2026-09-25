@@ -67,6 +67,8 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/students/$studentId_/edit': 'action reached from the student detail page',
   '/_staff/students/import': 'action reached from the students list, not its own nav item',
   '/_staff/students/new': 'action reached from the students list, not its own nav item',
+  '/_staff/promotions/new':
+    'action reached from the promotions list or the palette, not its own nav item',
   '/_staff/communications/batches/$batchId': 'detail route reached from the batches list',
   '/_staff/fees/schedules/$id': 'detail route reached from the schedules list',
 };

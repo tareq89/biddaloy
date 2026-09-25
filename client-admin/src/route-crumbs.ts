@@ -90,6 +90,11 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   // so the trail stops at "Analysis"; the route itself sets
   // `document.title` to `<tab label> · <exam name>` directly.
   '/_staff/analysis/': [{ label: { key: 'analysis' } }],
+  '/_staff/promotions/': [{ label: { key: 'promotion' } }],
+  '/_staff/promotions/new': [
+    { label: { key: 'promotion' } },
+    { label: { key: 'promotionNewRun' } },
+  ],
   '/_staff/grading-scales/': [{ label: { key: 'gradingScales' } }],
   '/_staff/routines/setup': [{ label: { key: 'routineSetup' } }],
   '/_staff/routines/': [{ label: { key: 'routineBuilder' } }],
