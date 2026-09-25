@@ -39,9 +39,9 @@ import {
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
-  classesQueryOptions,
+  allClassesQueryOptions,
   sectionTeachersQueryOptions,
-  useClasses,
+  useAllClasses,
   useClassSections,
   useHasPermission,
   useUnassignTeacherAssignment,
@@ -59,7 +59,7 @@ import { AssignTeacherDialog } from '../classes/-assign-teacher-dialog';
 export const Route = createFileRoute('/_staff/staff/teaching-assignments')({
   loader: ({ context: { queryClient } }) =>
     Promise.all([
-      queryClient.ensureQueryData(classesQueryOptions({})).catch(swallowUnlessOffline),
+      queryClient.ensureQueryData(allClassesQueryOptions()).catch(swallowUnlessOffline),
       loadRouteNamespaces('teacherAssignments', 'classes'),
     ]),
   pendingComponent: TeachingAssignmentsPending,
@@ -79,7 +79,7 @@ function TeachingAssignmentsPage() {
   const canManage = useHasPermission(Permission.CLASS_MANAGE);
   const [state, actions] = useListShellState({ limit: 50 });
 
-  const classesQuery = useClasses({});
+  const classesQuery = useAllClasses();
   const selectedClassId = state.filters['classId'];
   const effectiveClassId =
     selectedClassId && selectedClassId !== NO_CLASS ? selectedClassId : undefined;
@@ -110,7 +110,10 @@ function TeachingAssignmentsPage() {
   const isFetching =
     effectiveClassId !== undefined &&
     (sectionsQuery.isFetching || sectionTeacherQueries.some((query) => query.isFetching));
-  const isError = sectionsQuery.isError || sectionTeacherQueries.some((query) => query.isError);
+  const isError =
+    classesQuery.isError ||
+    sectionsQuery.isError ||
+    sectionTeacherQueries.some((query) => query.isError);
 
   const [assignOpen, setAssignOpen] = React.useState(false);
   const [assignSectionId, setAssignSectionId] = React.useState<string | null>(null);
@@ -203,7 +206,7 @@ function TeachingAssignmentsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={NO_CLASS}>{t('list.classPlaceholder')}</SelectItem>
-                {classesQuery.data?.data.map((klass) => (
+                {classesQuery.data?.map((klass) => (
                   <SelectItem key={klass.id} value={klass.id}>
                     {klass.name}
                   </SelectItem>
