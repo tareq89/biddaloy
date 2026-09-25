@@ -49,6 +49,10 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/calendar/import': Permission.CALENDAR_MANAGE,
   '/_staff/staff/': Permission.USER_READ,
   '/_staff/staff/$userId': Permission.USER_READ,
+  // [29.0] Teaching-assignments bulk view — gated on CLASS_MANAGE per D5,
+  // matching `/_staff/classes/$classId`'s own Teachers tab (the same
+  // assign/unassign mutations, just a cross-section view of them).
+  '/_staff/staff/teaching-assignments': Permission.CLASS_MANAGE,
   '/_staff/fees/': Permission.FEE_STRUCTURE_READ,
   '/_staff/fees/dues': Permission.FEE_COLLECT,
   '/_staff/fees/generate': Permission.FEE_GENERATE,

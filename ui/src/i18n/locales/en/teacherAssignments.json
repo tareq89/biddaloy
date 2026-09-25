@@ -1,0 +1,30 @@
+{
+  "list": {
+    "title": "Teaching assignments",
+    "caption": "Section-teacher assignments for the selected class",
+    "classLabel": "Class",
+    "classPlaceholder": "Select a class",
+    "sectionLabel": "Section to assign",
+    "selectClassPrompt": "Select a class to see its teaching assignments.",
+    "columnTeacher": "Teacher",
+    "columnSection": "Section",
+    "columnRole": "Role",
+    "columnSubject": "Subject",
+    "columnActions": "Actions",
+    "roleClassTeacher": "Class teacher",
+    "roleSubjectTeacher": "Subject teacher",
+    "assign": "Assign teacher",
+    "unassign": "Unassign",
+    "emptyMessage": "No teachers assigned yet for this class.",
+    "errorMessage": "Failed to load teaching assignments.",
+    "announceResults": "{{count}} of {{total}} assignments"
+  },
+  "unassignDialog": {
+    "title": "Unassign teacher",
+    "description": "Remove {{teacherName}} from {{sectionName}}?",
+    "confirm": "Unassign",
+    "cancel": "Cancel",
+    "unassigning": "Unassigning…",
+    "errorMessage": "Failed to unassign teacher"
+  }
+}
