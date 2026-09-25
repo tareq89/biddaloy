@@ -13,6 +13,7 @@ import type { components } from '../api/schema';
 
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
+import { teacherKeys } from './teachers';
 
 export type Class = components['schemas']['Class'];
 export type ClassSection = components['schemas']['ClassSection'];
@@ -133,8 +134,8 @@ export function classesQueryOptions(filters: ClassListFilters = {}) {
   });
 }
 
-export function useClasses(filters: ClassListFilters = {}) {
-  return useQuery(classesQueryOptions(filters));
+export function useClasses(filters: ClassListFilters = {}, options: { enabled?: boolean } = {}) {
+  return useQuery({ ...classesQueryOptions(filters), ...options });
 }
 
 export function classQueryOptions(id: string) {
@@ -281,6 +282,59 @@ export function useUnassignTeacher(classId: string, sectionId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: sectionTeachersKey(classId, sectionId) });
       void queryClient.invalidateQueries({ queryKey: classTeachersQueryOptions(classId).queryKey });
+    },
+  });
+}
+
+/** [#1026 gap fix] Unbound counterparts of `useAssignTeacher`/
+ * `useUnassignTeacher` above — those take `classId`/`sectionId` at hook
+ * construction, fine for a section-scoped screen, but unusable from the
+ * Staff detail tab where a teacher's assignments span multiple
+ * classes/sections. Same endpoints, `classId`/`sectionId` per call
+ * instead. Invalidates the section/class lists above *and* the teacher's
+ * own assignments list (`teacherAssignmentsQueryOptions`, `teachers.ts`) —
+ * the only caller that reads all three. */
+export function useAssignTeacherAssignment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      classId: string;
+      sectionId: string;
+      teacher_id: string;
+      subject_id?: string;
+    }) => {
+      const { classId, sectionId, ...body } = input;
+      const res = await apiClient.post<SectionTeacherAssignment>(
+        `/classes/${classId}/sections/${sectionId}/teachers`,
+        body,
+      );
+      return res.data;
+    },
+    onSuccess: (_data, { classId, sectionId, teacher_id }) => {
+      void queryClient.invalidateQueries({ queryKey: sectionTeachersKey(classId, sectionId) });
+      void queryClient.invalidateQueries({ queryKey: classTeachersQueryOptions(classId).queryKey });
+      void queryClient.invalidateQueries({
+        queryKey: [...teacherKeys.all, 'assignments', teacher_id] as const,
+      });
+    },
+  });
+}
+
+export function useUnassignTeacherAssignment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { classId: string; sectionId: string; assignmentId: string }) => {
+      await apiClient.delete(
+        `/classes/${input.classId}/sections/${input.sectionId}/teachers/${input.assignmentId}`,
+      );
+    },
+    retry: shouldRetryQuery,
+    onSuccess: (_data, { classId, sectionId }) => {
+      void queryClient.invalidateQueries({ queryKey: sectionTeachersKey(classId, sectionId) });
+      void queryClient.invalidateQueries({ queryKey: classTeachersQueryOptions(classId).queryKey });
+      // No teacher_id on unassign's input — invalidate broadly by matching
+      // key prefix instead of one exact teacher.
+      void queryClient.invalidateQueries({ queryKey: [...teacherKeys.all, 'assignments'] });
     },
   });
 }

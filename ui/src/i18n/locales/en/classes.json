@@ -135,7 +135,13 @@
     "errorDuplicateAssignment": "This teacher is already assigned to this section for this subject",
     "errorMessage": "Failed to assign teacher",
     "save": "Assign",
-    "saving": "Assigning…"
+    "saving": "Assigning…",
+    "classLabel": "Class",
+    "classPlaceholder": "Select a class",
+    "sectionLabel": "Section",
+    "sectionPlaceholder": "Select a section",
+    "errorClassRequired": "Class is required",
+    "errorSectionRequired": "Section is required"
   },
   "detail": {
     "tabSections": "Sections",

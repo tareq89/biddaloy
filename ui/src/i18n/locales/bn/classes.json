@@ -183,6 +183,12 @@
     "errorDuplicateAssignment": "এই শিক্ষক ইতিমধ্যে এই শাখায় এই বিষয়ের জন্য নিয়োজিত আছেন",
     "errorMessage": "শিক্ষক নিয়োগ করতে ব্যর্থ হয়েছে",
     "save": "নিয়োগ করুন",
-    "saving": "নিয়োগ করা হচ্ছে…"
+    "saving": "নিয়োগ করা হচ্ছে…",
+    "classLabel": "শ্রেণি",
+    "classPlaceholder": "একটি শ্রেণি নির্বাচন করুন",
+    "sectionLabel": "শাখা",
+    "sectionPlaceholder": "একটি শাখা নির্বাচন করুন",
+    "errorClassRequired": "শ্রেণি আবশ্যক",
+    "errorSectionRequired": "শাখা আবশ্যক"
   }
 }

@@ -10,6 +10,16 @@
  * to clone — `-edit-teacher-dialog.tsx` edits an already-known teacher and
  * never picks one — so it reuses the same `Combobox` + list-query shape,
  * backed by `useTeachers` instead of `useSubjects`.
+ *
+ * [#1026 gap fix] `classId`/`sectionId` are now optional. Omitted (the
+ * Staff detail tab's teacher-centric mode, no fixed class/section in
+ * scope): a `teacherId` prop prefills/hides the teacher picker, an inline
+ * class→section `Combobox` picker appears instead (same two-step pattern
+ * `teaching-assignments.tsx` uses, Select there vs Combobox here to match
+ * this dialog's other pickers), and the unbound
+ * `useAssignTeacherAssignment`/`useUnassignTeacherAssignment` hooks are
+ * used instead of the bound ones. Provided (g1/g3's existing usage):
+ * behavior is unchanged — same bound hooks, same fixed section.
  */
 import { ApiError } from '@biddaloy/ui/api';
 import {
@@ -25,15 +35,26 @@ import {
   RadioGroup,
   RadioGroupItem,
 } from '@biddaloy/ui/components';
-import { useAssignTeacher, useSubjects, useTeachers } from '@biddaloy/ui/hooks';
+import {
+  useAssignTeacher,
+  useAssignTeacherAssignment,
+  useClasses,
+  useClassSections,
+  useSubjects,
+  useTeachers,
+} from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
 export interface AssignTeacherDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  classId: string;
-  sectionId: string;
+  /** Omit together with `sectionId` for teacher-centric mode (a class→
+   * section picker renders inline instead). */
+  classId?: string;
+  sectionId?: string;
+  /** Teacher-centric mode: prefills and hides the teacher picker. */
+  teacherId?: string;
   onAssigned: () => void;
 }
 
@@ -42,27 +63,47 @@ type AssignmentMode = 'class-teacher' | 'subject-teacher';
 export function AssignTeacherDialog({
   open,
   onOpenChange,
-  classId,
-  sectionId,
+  classId: fixedClassId,
+  sectionId: fixedSectionId,
+  teacherId: fixedTeacherId,
   onAssigned,
 }: AssignTeacherDialogProps) {
   const { t } = useTranslation('classes');
+  // Teacher-centric mode has no fixed section to scope `useTeachers`'s
+  // caller list by, so it always fetches the reference list — same as the
+  // section-scoped mode below, just gated off when the teacher is already
+  // known via `fixedTeacherId`.
   const teachersQuery = useTeachers({ limit: 100 });
   const subjectsQuery = useSubjects({ is_active: true, limit: 100 });
-  const assignTeacher = useAssignTeacher(classId, sectionId);
+
+  const pickerMode = fixedClassId === undefined || fixedSectionId === undefined;
+  const [pickedClassId, setPickedClassId] = React.useState<string | null>(null);
+  const [pickedSectionId, setPickedSectionId] = React.useState<string | null>(null);
+
+  const classesQuery = useClasses({}, { enabled: pickerMode });
+  const sectionsQuery = useClassSections(pickerMode ? (pickedClassId ?? undefined) : undefined);
+
+  const classId = pickerMode ? pickedClassId : fixedClassId;
+  const sectionId = pickerMode ? pickedSectionId : fixedSectionId;
+
+  const boundAssignTeacher = useAssignTeacher(fixedClassId ?? '', fixedSectionId ?? '');
+  const unboundAssignTeacher = useAssignTeacherAssignment();
 
   const [mode, setMode] = React.useState<AssignmentMode>('class-teacher');
-  const [teacherId, setTeacherId] = React.useState<string | null>(null);
+  const [teacherId, setTeacherId] = React.useState<string | null>(fixedTeacherId ?? null);
   const [subjectId, setSubjectId] = React.useState<string | null>(null);
   const [validationError, setValidationError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!open) return;
     setMode('class-teacher');
-    setTeacherId(null);
+    setTeacherId(fixedTeacherId ?? null);
     setSubjectId(null);
+    setPickedClassId(null);
+    setPickedSectionId(null);
     setValidationError(null);
-    assignTeacher.reset();
+    boundAssignTeacher.reset();
+    unboundAssignTeacher.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
   }, [open]);
 
@@ -74,10 +115,26 @@ export function AssignTeacherDialog({
     value: subject.id,
     label: `${subject.name_en} (${subject.code})`,
   }));
+  const classOptions = (classesQuery.data?.data ?? []).map((klass) => ({
+    value: klass.id,
+    label: klass.name,
+  }));
+  const sectionOptions = (sectionsQuery.data ?? []).map((section) => ({
+    value: section.id,
+    label: section.section_name,
+  }));
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
 
+    if (pickerMode && !classId) {
+      setValidationError(t('assignTeacherForm.errorClassRequired'));
+      return;
+    }
+    if (pickerMode && !sectionId) {
+      setValidationError(t('assignTeacherForm.errorSectionRequired'));
+      return;
+    }
     if (!teacherId) {
       setValidationError(t('assignTeacherForm.errorTeacherRequired'));
       return;
@@ -88,7 +145,20 @@ export function AssignTeacherDialog({
     }
     setValidationError(null);
 
-    assignTeacher.mutate(
+    if (pickerMode) {
+      unboundAssignTeacher.mutate(
+        {
+          classId: classId!,
+          sectionId: sectionId!,
+          teacher_id: teacherId,
+          ...(mode === 'subject-teacher' && subjectId ? { subject_id: subjectId } : {}),
+        },
+        { onSuccess: onAssigned },
+      );
+      return;
+    }
+
+    boundAssignTeacher.mutate(
       {
         teacher_id: teacherId,
         ...(mode === 'subject-teacher' && subjectId ? { subject_id: subjectId } : {}),
@@ -97,6 +167,7 @@ export function AssignTeacherDialog({
     );
   }
 
+  const assignTeacher = pickerMode ? unboundAssignTeacher : boundAssignTeacher;
   const conflict =
     assignTeacher.isError &&
     assignTeacher.error instanceof ApiError &&
@@ -111,16 +182,47 @@ export function AssignTeacherDialog({
             <DialogDescription>{t('assignTeacherForm.description')}</DialogDescription>
           </DialogHeader>
 
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('assignTeacherForm.teacherLabel')}</span>
-            <Combobox
-              aria-label={t('assignTeacherForm.teacherLabel')}
-              options={teacherOptions}
-              value={teacherId}
-              onValueChange={setTeacherId}
-              placeholder={t('assignTeacherForm.teacherPlaceholder')}
-            />
-          </div>
+          {pickerMode && (
+            <>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-sm font-medium">{t('assignTeacherForm.classLabel')}</span>
+                <Combobox
+                  aria-label={t('assignTeacherForm.classLabel')}
+                  options={classOptions}
+                  value={pickedClassId}
+                  onValueChange={(value) => {
+                    setPickedClassId(value);
+                    setPickedSectionId(null);
+                  }}
+                  placeholder={t('assignTeacherForm.classPlaceholder')}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-sm font-medium">{t('assignTeacherForm.sectionLabel')}</span>
+                <Combobox
+                  aria-label={t('assignTeacherForm.sectionLabel')}
+                  options={sectionOptions}
+                  value={pickedSectionId}
+                  onValueChange={setPickedSectionId}
+                  placeholder={t('assignTeacherForm.sectionPlaceholder')}
+                  disabled={!pickedClassId}
+                />
+              </div>
+            </>
+          )}
+
+          {fixedTeacherId === undefined && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium">{t('assignTeacherForm.teacherLabel')}</span>
+              <Combobox
+                aria-label={t('assignTeacherForm.teacherLabel')}
+                options={teacherOptions}
+                value={teacherId}
+                onValueChange={setTeacherId}
+                placeholder={t('assignTeacherForm.teacherPlaceholder')}
+              />
+            </div>
+          )}
 
           <RadioGroup
             aria-label={t('assignTeacherForm.modeLabel')}
