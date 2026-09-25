@@ -31,6 +31,7 @@ import bnReports from '../ui/src/i18n/locales/bn/reports.json';
 import bnSettings from '../ui/src/i18n/locales/bn/settings.json';
 import bnStaff from '../ui/src/i18n/locales/bn/staff.json';
 import bnStudents from '../ui/src/i18n/locales/bn/students.json';
+import bnTeacherAssignments from '../ui/src/i18n/locales/bn/teacherAssignments.json';
 import enAcademicYears from '../ui/src/i18n/locales/en/academicYears.json';
 import enApproval from '../ui/src/i18n/locales/en/approval.json';
 import enAttendance from '../ui/src/i18n/locales/en/attendance.json';
@@ -55,6 +56,7 @@ import enReports from '../ui/src/i18n/locales/en/reports.json';
 import enSettings from '../ui/src/i18n/locales/en/settings.json';
 import enStaff from '../ui/src/i18n/locales/en/staff.json';
 import enStudents from '../ui/src/i18n/locales/en/students.json';
+import enTeacherAssignments from '../ui/src/i18n/locales/en/teacherAssignments.json';
 
 const catalogs = {
   bn: {
@@ -82,6 +84,7 @@ const catalogs = {
     settings: bnSettings,
     staff: bnStaff,
     students: bnStudents,
+    teacherAssignments: bnTeacherAssignments,
   },
   en: {
     academicYears: enAcademicYears,
@@ -108,6 +111,7 @@ const catalogs = {
     settings: enSettings,
     staff: enStaff,
     students: enStudents,
+    teacherAssignments: enTeacherAssignments,
   },
 } as const;
 

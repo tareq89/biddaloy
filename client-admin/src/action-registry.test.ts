@@ -28,6 +28,7 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/marks': '/_staff/marks/',
   '/results': '/_staff/results/',
   '/exams': '/_staff/exams/',
+  '/staff/teaching-assignments': '/_staff/staff/teaching-assignments',
 };
 
 /**
@@ -52,6 +53,7 @@ const REGISTERED_ACTION_FILES: Record<string, string> = {
   'results.publish': 'client-admin/src/routes/_staff/results/-publish-dialog.tsx',
   'results.sendSms': 'client-admin/src/routes/_staff/results/-send-result-sms-dialog.tsx',
   'exams.copyComponents': 'client-admin/src/routes/_staff/exams/-copy-components-dialog.tsx',
+  'staff.assignTeacher': 'client-admin/src/routes/_staff/staff/teaching-assignments.tsx',
 };
 
 /**

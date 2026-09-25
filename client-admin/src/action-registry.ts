@@ -165,6 +165,21 @@ export const ACTIONS: readonly PaletteAction[] = [
     run: (ctx) => ctx.navigate({ to: '/results' }),
   },
   {
+    id: 'staff.assignTeacher',
+    label: { en: 'Assign class/subject teacher', bn: 'শ্রেণি/বিষয় শিক্ষক নিয়োগ করুন' },
+    // Matches `/_staff/staff/teaching-assignments`'s own gate
+    // (`route-permissions.ts`).
+    permission: Permission.CLASS_MANAGE,
+    kind: 'modal',
+    // No entity id in `ActionRunContext` yet ([31.0]'s retrofit territory,
+    // not this ticket's) — same "land on the list/picker, no prefill"
+    // pattern as `grading.copyScale`/`results.process` above. Lands on the
+    // teaching-assignments list; its own row action opens
+    // `-assign-teacher-dialog.tsx` from there (U7: reuse the page, never a
+    // second copy of the dialog).
+    run: (ctx) => ctx.navigate({ to: '/staff/teaching-assignments' }),
+  },
+  {
     id: 'exams.copyComponents',
     label: { en: 'Copy exam components', bn: 'পরীক্ষার উপাদান কপি করুন' },
     permission: Permission.EXAM_MANAGE,
