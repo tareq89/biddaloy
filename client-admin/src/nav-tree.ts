@@ -81,6 +81,14 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.USER_READ,
     label: { entity: 'staff' },
   },
+  // [27.9] Staff admission intakes list — gated same as the route itself
+  // (`route-permissions.ts`), `admission:review`.
+  'people.admissionIntakes': {
+    id: 'people.admissionIntakes',
+    to: '/admissions/intakes',
+    permission: Permission.ADMISSION_REVIEW,
+    label: { key: 'admissionIntakes' },
+  },
   'academics.academicYears': {
     id: 'academics.academicYears',
     to: '/academic-years',
@@ -260,6 +268,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
       STAFF_NAV_ITEMS['people.guardians'],
       STAFF_NAV_ITEMS['people.calendar'],
       STAFF_NAV_ITEMS['people.staff'],
+      STAFF_NAV_ITEMS['people.admissionIntakes'],
     ],
   },
   {

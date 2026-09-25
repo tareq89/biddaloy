@@ -169,6 +169,19 @@
       "archetype": "detail"
     },
     {
+      "path": "/admissions/intakes",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/admissions/intakes/$intakeId",
+      "params": {
+        "intakeId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
       "path": "/routines/setup",
       "role": "admin",
       "archetype": "form"
