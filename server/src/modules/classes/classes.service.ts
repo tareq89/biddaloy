@@ -11,6 +11,7 @@ import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
+import { Subject } from '../academics/entities/subject.entity';
 import { Student } from '../students/entities/student.entity';
 import {
   CreateClassDto,
@@ -394,6 +395,8 @@ export class SectionService {
     private readonly teacherRepo: Repository<Teacher>,
     @InjectRepository(TeacherClassSection)
     private readonly teacherClassSectionRepo: Repository<TeacherClassSection>,
+    @InjectRepository(Subject)
+    private readonly subjectRepo: Repository<Subject>,
     private readonly auditService: AuditService,
     private readonly settingsReader: SchoolSettingsReader,
   ) {}
@@ -685,6 +688,15 @@ export class SectionService {
     }
 
     const subjectId = dto.subject_id ?? null;
+
+    if (subjectId !== null) {
+      const subject = await this.subjectRepo.findOne({
+        where: { id: subjectId, tenant_id: tenantId, deleted_at: IsNull() },
+      });
+      if (!subject) {
+        throw new NotFoundException(`Subject with ID "${subjectId}" not found`);
+      }
+    }
 
     return this.teacherClassSectionRepo.manager.transaction(async (manager) => {
       const repo = manager.getRepository(TeacherClassSection);

@@ -8,6 +8,7 @@ import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
+import { Subject } from '../academics/entities/subject.entity';
 import { Student } from '../students/entities/student.entity';
 import { AuditService } from '../audit/audit.service';
 import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
@@ -78,6 +79,7 @@ async function buildSectionService(vocabulary: { groups: string[] }, existingSec
       { provide: getRepositoryToken(Student), useValue: {} },
       { provide: getRepositoryToken(Teacher), useValue: {} },
       { provide: getRepositoryToken(TeacherClassSection), useValue: {} },
+      { provide: getRepositoryToken(Subject), useValue: {} },
       { provide: AuditService, useValue: auditService },
       { provide: SchoolSettingsReader, useValue: settingsReader },
     ],
@@ -226,6 +228,7 @@ describe('SectionService group vocabulary [33.2.1]', () => {
 async function buildTeacherAssignmentService(opts: {
   section?: any;
   teacher?: any;
+  subject?: any;
   existingClassTeacherRow?: any;
   duplicateSubjectRow?: any;
   assignment?: any;
@@ -238,6 +241,9 @@ async function buildTeacherAssignmentService(opts: {
   const classRepo: any = { findOne: vi.fn(async () => ({ id: 'c1' })) };
   const teacherRepo: any = {
     findOne: vi.fn(async () => (opts.teacher === undefined ? { id: 't1' } : opts.teacher)),
+  };
+  const subjectRepo: any = {
+    findOne: vi.fn(async () => (opts.subject === undefined ? { id: 'subj-1' } : opts.subject)),
   };
   const tcsRepo: any = {
     findOne: vi.fn(async () =>
@@ -261,6 +267,7 @@ async function buildTeacherAssignmentService(opts: {
       { provide: getRepositoryToken(Student), useValue: {} },
       { provide: getRepositoryToken(Teacher), useValue: teacherRepo },
       { provide: getRepositoryToken(TeacherClassSection), useValue: tcsRepo },
+      { provide: getRepositoryToken(Subject), useValue: subjectRepo },
       { provide: AuditService, useValue: auditService },
       { provide: SchoolSettingsReader, useValue: settingsReader },
     ],
@@ -270,6 +277,7 @@ async function buildTeacherAssignmentService(opts: {
     service: moduleRef.get(SectionService),
     sectionRepo,
     teacherRepo,
+    subjectRepo,
     tcsRepo,
     auditService,
   };
@@ -366,6 +374,25 @@ describe('SectionService.assignTeacher [29.0]', () => {
     await expect(
       service.assignTeacher('c1', 's1', { teacher_id: 't1' } as any, TENANT_ID),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('404s assigning a subject that does not resolve under this tenant, before any write', async () => {
+    const { service, subjectRepo, tcsRepo } = await buildTeacherAssignmentService({
+      subject: null,
+    });
+
+    await expect(
+      service.assignTeacher(
+        'c1',
+        's1',
+        { teacher_id: 't1', subject_id: 'foreign-subj' } as any,
+        TENANT_ID,
+      ),
+    ).rejects.toThrow(NotFoundException);
+    expect(subjectRepo.findOne).toHaveBeenCalledWith({
+      where: { id: 'foreign-subj', tenant_id: TENANT_ID, deleted_at: IsNull() },
+    });
+    expect(tcsRepo.save).not.toHaveBeenCalled();
   });
 });
 
