@@ -1,4 +1,13 @@
-import { IsUUID, IsOptional, IsEnum, IsArray, ArrayMinSize, IsString, IsNotEmpty } from 'class-validator';
+import {
+  IsUUID,
+  IsOptional,
+  IsEnum,
+  IsArray,
+  ArrayMinSize,
+  IsString,
+  IsNotEmpty,
+  MaxLength,
+} from 'class-validator';
 import { PlacementAlgorithm, PromotionOutcome } from '@biddaloy/shared';
 
 export class CreatePromotionRunDto {
@@ -31,6 +40,7 @@ export class PatchPromotionEntryDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   group_name?: string;
 
   @IsOptional()
