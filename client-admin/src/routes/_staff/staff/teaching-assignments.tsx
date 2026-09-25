@@ -9,9 +9,16 @@
  * but its `ClassTeacher` rows are grouped by teacher with no per-section
  * assignment id, too thin for this table's per-row unassign action.
  *
- * Row actions reuse `-assign-teacher-dialog.tsx` and `useUnassignTeacher`
- * from wave 2 (`classes/-assign-teacher-dialog.tsx`,
- * `ui/src/hooks/classes.ts`) — no new dialog, no new hook.
+ * Row actions reuse `-assign-teacher-dialog.tsx` and the unbound
+ * `useUnassignTeacherAssignment` from wave 2
+ * (`classes/-assign-teacher-dialog.tsx`, `ui/src/hooks/classes.ts`) — no
+ * new dialog, no new hook. Unbound rather than the render-bound
+ * `useUnassignTeacher(classId, sectionId)`: this table has no single fixed
+ * class/section, and TanStack Query v5 pushes each render's mutation
+ * options onto an in-flight mutation, so a bound hook would invalidate
+ * whatever `classId`/`sectionId` happened to be in state when the DELETE
+ * settles — wrong if the confirm dialog closed or the class filter changed
+ * meanwhile.
  */
 import { Permission } from '@biddaloy/shared';
 import {
@@ -37,7 +44,7 @@ import {
   useClasses,
   useClassSections,
   useHasPermission,
-  useUnassignTeacher,
+  useUnassignTeacherAssignment,
   type SectionTeacherAssignment,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
@@ -109,7 +116,7 @@ function TeachingAssignmentsPage() {
   const [assignSectionId, setAssignSectionId] = React.useState<string | null>(null);
   const [unassigning, setUnassigning] = React.useState<Row | null>(null);
 
-  const unassignTeacher = useUnassignTeacher(effectiveClassId ?? '', unassigning?.section_id ?? '');
+  const unassignTeacher = useUnassignTeacherAssignment();
 
   React.useEffect(() => {
     if (unassigning) unassignTeacher.reset();
@@ -184,9 +191,10 @@ function TeachingAssignmentsPage() {
               onValueChange={(value) => {
                 actions.setFilters({ ...state.filters, classId: value });
                 setAssignSectionId(null);
-                // Class switch invalidates any in-flight unassign confirm —
-                // its section belongs to the old class, and the mutation URL
-                // is built from `effectiveClassId` at confirm time.
+                // Class switch closes any open unassign confirm — its row
+                // belongs to the old class filter, even though the mutation
+                // itself now carries its own classId/sectionId and would
+                // still target the right row if left open.
                 setUnassigning(null);
               }}
             >
@@ -284,9 +292,14 @@ function TeachingAssignmentsPage() {
                 variant="destructive"
                 loading={unassignTeacher.isPending}
                 onClick={() =>
-                  unassignTeacher.mutate(unassigning.id, {
-                    onSuccess: () => setUnassigning(null),
-                  })
+                  unassignTeacher.mutate(
+                    {
+                      classId: unassigning.classId,
+                      sectionId: unassigning.section_id,
+                      assignmentId: unassigning.id,
+                    },
+                    { onSuccess: () => setUnassigning(null) },
+                  )
                 }
               >
                 {unassignTeacher.isPending
