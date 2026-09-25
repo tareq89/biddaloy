@@ -20,6 +20,7 @@ import { GuardiansTab } from './-detail/guardians-tab';
 import { InvoicesTab } from './-detail/invoices-tab';
 import { OverviewTab } from './-detail/overview-tab';
 import { PaymentsTab } from './-detail/payments-tab';
+import { PromotionOverrideBadge } from './-detail/promotion-override-badge';
 import { RecurringFeesTab } from './-detail/recurring-fees-tab';
 import { ResultsPanel } from './-detail/results-panel';
 import { SubjectChoicesPanel } from './-detail/subject-choices-panel';
@@ -61,7 +62,9 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
       // useTranslation call, misrouting every t() call below.)
       // 'exams' — [19.6.1]'s Subject choices tab (`-detail/subject-choices-
       // panel.tsx`) reads its copy from that namespace.
-      loadRouteNamespaces('students', 'common', 'portal', 'payments', 'exams'),
+      // 'promotions' — [26.5.2]'s override badge (header + Enrollment tab)
+      // reads its `badge` copy from that namespace.
+      loadRouteNamespaces('students', 'common', 'portal', 'payments', 'exams', 'promotions'),
     ]),
   pendingComponent: StudentDetailPending,
   component: StudentDetailPage,
@@ -136,10 +139,13 @@ function StudentDetailPage() {
                 roll: studentQuery.data.roll_number,
               })}
               statusBadge={
-                <StatusBadge
-                  domain="enrollment"
-                  status={studentQuery.data.enrollment_status as EnrollmentStatus}
-                />
+                <span className="inline-flex items-center gap-2">
+                  <StatusBadge
+                    domain="enrollment"
+                    status={studentQuery.data.enrollment_status as EnrollmentStatus}
+                  />
+                  <PromotionOverrideBadge studentId={studentId} />
+                </span>
               }
               actions={[
                 {
