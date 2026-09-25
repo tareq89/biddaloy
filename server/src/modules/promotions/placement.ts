@@ -79,11 +79,15 @@ function* snakeIndices(n: number): Generator<number> {
  * D8/D9/D16 — places PROMOTE-bound students (already in merit order) into
  * next-year sections. Students are eligible for sections sharing their
  * `group_name`; if no target section carries a group at all, every
- * section is eligible for everyone. A `capacity: null` section splits its
- * cohort evenly (`ceil(n / eligibleSections)`). BLOCK fills sections in
- * order to capacity before moving to the next; SNAKE round-robins back
- * and forth. Students who don't fit anywhere get `OVER_CAPACITY`;
- * students with no eligible section at all get `NO_ELIGIBLE_SECTION`.
+ * section is eligible for everyone. A `capacity: null` section is
+ * genuinely uncapped: `ceil(n / eligibleSections)` only balances the
+ * first pass across it, and any student the main pass couldn't place is
+ * swept into an uncapped section afterward if one exists. BLOCK fills
+ * sections in order to capacity before moving to the next; SNAKE
+ * round-robins back and forth. Students who don't fit anywhere (no
+ * uncapped section left, once every capped one is full) get
+ * `OVER_CAPACITY`; students with no eligible section at all get
+ * `NO_ELIGIBLE_SECTION`.
  */
 export function place(
   students: PlacementStudent[],
@@ -175,6 +179,24 @@ export function place(
           assignments[student.student_id] = null;
           errors[student.student_id] = 'OVER_CAPACITY';
         }
+      }
+    }
+
+    // Rescue pass — `evenSplit` is a balancing heuristic for uncapped
+    // sections, not a real limit (see the comment above). In a mixed
+    // cohort, capped sections can fill before an uncapped one is anywhere
+    // near full, wrongly flagging the overflow as OVER_CAPACITY even
+    // though an uncapped section exists. Sweep any such student into an
+    // uncapped section, round-robin, clearing the false error.
+    const uncapped = cohortSections.filter((s) => s.capacity === null);
+    if (uncapped.length > 0) {
+      let k = 0;
+      for (const student of cohort.students) {
+        if (errors[student.student_id] !== 'OVER_CAPACITY') continue;
+        const section = uncapped[k % uncapped.length];
+        k++;
+        assignments[student.student_id] = section.id;
+        delete errors[student.student_id];
       }
     }
   }

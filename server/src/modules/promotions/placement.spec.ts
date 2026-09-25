@@ -96,6 +96,34 @@ describe('place', () => {
     expect(errors['s4']).toBe('OVER_CAPACITY');
   });
 
+  it('BLOCK rescues OVER_CAPACITY students into an uncapped section when one exists', () => {
+    const s = students(10);
+    const sec = sections([
+      { id: 'A', section_name: 'A', capacity: 1 },
+      { id: 'B', section_name: 'B', capacity: null },
+    ]);
+    const { assignments, errors } = place(s, sec, PlacementAlgorithm.BLOCK);
+    expect(errors).toEqual({});
+    const countA = Object.values(assignments).filter((v) => v === 'A').length;
+    const countB = Object.values(assignments).filter((v) => v === 'B').length;
+    expect(countA).toBe(1);
+    expect(countB).toBe(9);
+  });
+
+  it('SNAKE rescues OVER_CAPACITY students into an uncapped section when one exists', () => {
+    const s = students(10);
+    const sec = sections([
+      { id: 'A', section_name: 'A', capacity: 1 },
+      { id: 'B', section_name: 'B', capacity: null },
+    ]);
+    const { assignments, errors } = place(s, sec, PlacementAlgorithm.SNAKE);
+    expect(errors).toEqual({});
+    const countA = Object.values(assignments).filter((v) => v === 'A').length;
+    const countB = Object.values(assignments).filter((v) => v === 'B').length;
+    expect(countA).toBe(1);
+    expect(countB).toBe(9);
+  });
+
   it('null capacity splits the cohort evenly (ceil)', () => {
     const s = students(7);
     const sec = sections([
