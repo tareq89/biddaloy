@@ -131,6 +131,40 @@ export const ACTIONS: readonly PaletteAction[] = [
     // second copy of the dialog).
     run: (ctx) => ctx.navigate({ to: '/grading-scales' }),
   },
+  /**
+   * [21.9.1] `run()` only carries `navigate({ to })` — there is no way to
+   * pass the slot/date "context" the ticket names, or to auto-open a
+   * dialog remotely. Both land the caller on the page that has it, one
+   * click away, the same limitation this file's own header comment
+   * already documents for the five actions in `UNREGISTERED_ACTIONS`
+   * (flagged here rather than silently pretending it's context-aware).
+   */
+  {
+    id: 'routines.openMyRoutine',
+    label: { en: 'Open my routine', bn: 'আমার রুটিন খুলুন' },
+    permission: Permission.ROUTINE_READ,
+    kind: 'navigate',
+    run: (ctx) => ctx.navigate({ to: '/routines/my' }),
+  },
+  {
+    id: 'routines.addSubstitution',
+    label: { en: 'Add substitution', bn: 'প্রতিনিধিত্ব যোগ করুন' },
+    permission: Permission.ROUTINE_MANAGE,
+    kind: 'modal',
+    run: (ctx) => ctx.navigate({ to: '/routines/substitutions' }),
+  },
+  {
+    id: 'routines.copyLastYearRoutine',
+    label: { en: "Copy last year's routine", bn: 'গত বছরের রুটিন কপি করুন' },
+    // The copy button itself is `ROUTINE_MANAGE`-gated inside
+    // `review.tsx` — but that route's own blanket gate is `ROUTINE_READ`
+    // (a teacher can open it too, to see their own slots), and this
+    // file's own rule requires the action's permission to match the
+    // *route's* gate, not the narrower in-page control.
+    permission: Permission.ROUTINE_READ,
+    kind: 'modal',
+    run: (ctx) => ctx.navigate({ to: '/routines/review' }),
+  },
   {
     id: 'results.enterMarks',
     label: { en: 'Enter marks', bn: 'নম্বর প্রবেশ করান' },

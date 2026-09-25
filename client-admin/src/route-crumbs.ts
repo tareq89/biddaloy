@@ -57,6 +57,7 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/portal/calendar': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/exam-schedule': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/fees': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
+  '/portal/routine': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/results': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/syllabus': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
 
@@ -104,6 +105,9 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
     { label: { key: 'routineBuilder' } },
     { label: { key: 'section' }, dynamic: 'entity' },
   ],
+  '/_staff/routines/review': [{ label: { key: 'routineReview' } }],
+  '/_staff/routines/substitutions': [{ label: { key: 'routineSubstitutions' } }],
+  '/_staff/routines/my': [{ label: { key: 'myRoutine' } }],
   '/_staff/attendance/': [{ label: { key: 'attendance' } }],
   '/_staff/attendance/reports': [{ label: { key: 'attendanceReports' } }],
   '/_staff/attendance/register': [{ label: { key: 'attendanceRegister' } }],

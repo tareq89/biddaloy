@@ -23,6 +23,14 @@ import type { AttendanceDevice } from '../modules/attendance/entities/attendance
 import type { ClassSubject } from '../modules/academics/entities/class-subject.entity';
 import type { GradingScale } from '../modules/grading/entities/grading-scale.entity';
 import type { GradingBand } from '../modules/grading/entities/grading-band.entity';
+import type { Shift } from '../modules/routines/entities/shift.entity';
+import type { PeriodSlot } from '../modules/routines/entities/period-slot.entity';
+import type { Room } from '../modules/routines/entities/room.entity';
+import type { Routine } from '../modules/routines/entities/routine.entity';
+import type { RoutineSlot } from '../modules/routines/entities/routine-slot.entity';
+import type { RoutineSlotTeacher } from '../modules/routines/entities/routine-slot-teacher.entity';
+import type { RoutineSubstitution } from '../modules/routines/entities/routine-substitution.entity';
+import type { RoutineChangeRequest } from '../modules/routines/entities/routine-change-request.entity';
 import type { Exam } from '../modules/exams/entities/exam.entity';
 import type { ExamComponent } from '../modules/exams/entities/exam-component.entity';
 import type { Mark } from '../modules/exams/entities/mark.entity';
@@ -193,6 +201,38 @@ function makeRepos() {
       clock,
       'grading-band',
     ).asRepository() as unknown as Repository<GradingBand>,
+    shiftRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'shift',
+    ).asRepository() as unknown as Repository<Shift>,
+    periodSlotRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'period-slot',
+    ).asRepository() as unknown as Repository<PeriodSlot>,
+    roomRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'room',
+    ).asRepository() as unknown as Repository<Room>,
+    routineRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'routine',
+    ).asRepository() as unknown as Repository<Routine>,
+    routineSlotRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'routine-slot',
+    ).asRepository() as unknown as Repository<RoutineSlot>,
+    routineSlotTeacherRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'routine-slot-teacher',
+    ).asRepository() as unknown as Repository<RoutineSlotTeacher>,
+    routineSubstitutionRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'routine-substitution',
+    ).asRepository() as unknown as Repository<RoutineSubstitution>,
+    routineChangeRequestRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'routine-change-request',
+    ).asRepository() as unknown as Repository<RoutineChangeRequest>,
     examRepository: new FakeRepo<Record<string, unknown>>(
       clock,
       'exam',

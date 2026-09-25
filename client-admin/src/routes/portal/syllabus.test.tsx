@@ -229,7 +229,7 @@ describe('/portal/syllabus', () => {
     expect(cells.length).toBeLessThanOrEqual(5);
 
     const sidebar = screen.getByRole('navigation', { name: 'Main' });
-    expect(within(sidebar).getAllByRole('link')).toHaveLength(8);
+    expect(within(sidebar).getAllByRole('link')).toHaveLength(9);
     expect(within(sidebar).getByRole('link', { name: 'Syllabus' })).toBeTruthy();
   });
 });

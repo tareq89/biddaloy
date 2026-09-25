@@ -37,6 +37,14 @@ import { HomeworkSubmission } from '../modules/homework/entities/homework-submis
 import { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.entity';
 import { DEV_SEED_PLATFORM_TENANT_ID } from '../config/env.validation';
 import { seedAccounts } from './seed.accounts';
+import { Shift } from '../modules/routines/entities/shift.entity';
+import { PeriodSlot } from '../modules/routines/entities/period-slot.entity';
+import { Room } from '../modules/routines/entities/room.entity';
+import { Routine } from '../modules/routines/entities/routine.entity';
+import { RoutineSlot } from '../modules/routines/entities/routine-slot.entity';
+import { RoutineSlotTeacher } from '../modules/routines/entities/routine-slot-teacher.entity';
+import { RoutineSubstitution } from '../modules/routines/entities/routine-substitution.entity';
+import { RoutineChangeRequest } from '../modules/routines/entities/routine-change-request.entity';
 import { ensureDemoOrganisation } from './seed.util';
 
 export { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
@@ -143,6 +151,14 @@ export async function seed() {
       classSubjectRepository: dataSource.getRepository(ClassSubject),
       gradingScaleRepository: dataSource.getRepository(GradingScale),
       gradingBandRepository: dataSource.getRepository(GradingBand),
+      shiftRepository: dataSource.getRepository(Shift),
+      periodSlotRepository: dataSource.getRepository(PeriodSlot),
+      roomRepository: dataSource.getRepository(Room),
+      routineRepository: dataSource.getRepository(Routine),
+      routineSlotRepository: dataSource.getRepository(RoutineSlot),
+      routineSlotTeacherRepository: dataSource.getRepository(RoutineSlotTeacher),
+      routineSubstitutionRepository: dataSource.getRepository(RoutineSubstitution),
+      routineChangeRequestRepository: dataSource.getRepository(RoutineChangeRequest),
       examRepository: dataSource.getRepository(Exam),
       examComponentRepository: dataSource.getRepository(ExamComponent),
       markGridRepository: dataSource.getRepository(MarkGrid),

@@ -79,6 +79,23 @@ import {
   WorkbookJobSource,
   WorkbookJobStatus,
 } from '../src/modules/workbook/jobs/workbook-job.entity';
+import { Subject } from '../src/modules/academics/entities/subject.entity';
+import { Teacher } from '../src/modules/academics/entities/teacher.entity';
+import { Shift } from '../src/modules/routines/entities/shift.entity';
+import { PeriodSlot } from '../src/modules/routines/entities/period-slot.entity';
+import { Room } from '../src/modules/routines/entities/room.entity';
+import { Routine } from '../src/modules/routines/entities/routine.entity';
+import { RoutineSlot } from '../src/modules/routines/entities/routine-slot.entity';
+import { RoutineSlotTeacher } from '../src/modules/routines/entities/routine-slot-teacher.entity';
+import { RoutineSubstitution } from '../src/modules/routines/entities/routine-substitution.entity';
+import { RoutineChangeRequest } from '../src/modules/routines/entities/routine-change-request.entity';
+import {
+  PeriodSlotKind,
+  SlotRecurrence,
+  RoutineState,
+  ChangeRequestState,
+  TeacherDesignation,
+} from '@biddaloy/shared';
 
 /**
  * The spine test (14.10.4): export a seeded tenant A, tear A's data down,
@@ -649,6 +666,303 @@ describe('workbook round trip (integration)', () => {
         comment: null,
       }),
     ]);
+    // --- Epic 21.0 (class routine/timetable): [21.11.1] round-trip
+    // coverage. Exercises the naive-codec traps a plain flatten would miss:
+    // a biweekly slot (recurrence_offset = 1), a monthly slot on the last
+    // occurrence (offset = -1), a co-taught slot (two `routine_slot_teachers`
+    // rows), a superseded slot (`valid_to` set), and a cancellation
+    // substitution with a null substitute teacher.
+    const secondSection = await dataSource
+      .getRepository(ClassSection)
+      .findOneOrFail({ where: { tenant_id: TENANT_A, class_id: klass.id, section_name: 'B' } });
+
+    const routineSubject = await dataSource.getRepository(Subject).save(
+      dataSource.getRepository(Subject).create({
+        name_en: 'Mathematics',
+        code: 'MATH',
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    const teacherUserOne = await dataSource.getRepository(User).save(
+      dataSource.getRepository(User).create({
+        email: `roundtrip-610-teacher1-${TENANT_A.slice(0, 8)}@test.com`,
+        full_name: 'Roundtrip Teacher One',
+        password_hash: 'not-the-asserted-hash',
+      }),
+    );
+    const teacherUserTwo = await dataSource.getRepository(User).save(
+      dataSource.getRepository(User).create({
+        email: `roundtrip-610-teacher2-${TENANT_A.slice(0, 8)}@test.com`,
+        full_name: 'Roundtrip Teacher Two',
+        password_hash: 'not-the-asserted-hash',
+      }),
+    );
+    // `users` tab loads members via `user_tenants` (see users.tab.ts's
+    // `load`) — a teacher's User needs the same membership row admin/
+    // operator got above, or it exports as zero rows.
+    await dataSource
+      .getRepository(UserTenant)
+      .save([
+        dataSource
+          .getRepository(UserTenant)
+          .create({ user_id: teacherUserOne.id, tenant_id: TENANT_A, role: UserRole.TEACHER }),
+        dataSource
+          .getRepository(UserTenant)
+          .create({ user_id: teacherUserTwo.id, tenant_id: TENANT_A, role: UserRole.TEACHER }),
+      ]);
+
+    const teacherOne = await dataSource.getRepository(Teacher).save(
+      dataSource.getRepository(Teacher).create({
+        user_id: teacherUserOne.id,
+        employee_id: `EMP-610-1-${TENANT_A.slice(0, 6)}`,
+        designations: [TeacherDesignation.SUBJECT_TEACHER],
+        tenant_id: TENANT_A,
+      }),
+    );
+    const teacherTwo = await dataSource.getRepository(Teacher).save(
+      dataSource.getRepository(Teacher).create({
+        user_id: teacherUserTwo.id,
+        employee_id: `EMP-610-2-${TENANT_A.slice(0, 6)}`,
+        designations: [TeacherDesignation.SUBJECT_TEACHER],
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    const shift = await dataSource.getRepository(Shift).save(
+      dataSource.getRepository(Shift).create({
+        name: 'Morning',
+        day_starts_at: '08:00:00',
+        day_ends_at: '13:30:00',
+        sequence: 1,
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    // Six period slots, including one BREAK ("Lunch") — the seed spec's own
+    // shape (D8/D10), reused here for the round-trip fixture.
+    const periodDefs: Array<{
+      sequence: number;
+      kind: PeriodSlotKind;
+      name: string | null;
+      starts_at: string;
+      ends_at: string;
+    }> = [
+      {
+        sequence: 1,
+        kind: PeriodSlotKind.CLASS,
+        name: null,
+        starts_at: '08:00:00',
+        ends_at: '08:40:00',
+      },
+      {
+        sequence: 2,
+        kind: PeriodSlotKind.CLASS,
+        name: null,
+        starts_at: '08:40:00',
+        ends_at: '09:20:00',
+      },
+      {
+        sequence: 3,
+        kind: PeriodSlotKind.CLASS,
+        name: null,
+        starts_at: '09:20:00',
+        ends_at: '10:00:00',
+      },
+      {
+        sequence: 4,
+        kind: PeriodSlotKind.BREAK,
+        name: 'Lunch',
+        starts_at: '10:00:00',
+        ends_at: '10:30:00',
+      },
+      {
+        sequence: 5,
+        kind: PeriodSlotKind.CLASS,
+        name: null,
+        starts_at: '10:30:00',
+        ends_at: '11:10:00',
+      },
+      {
+        sequence: 6,
+        kind: PeriodSlotKind.CLASS,
+        name: null,
+        starts_at: '11:10:00',
+        ends_at: '11:50:00',
+      },
+    ];
+    const periodSlots = await dataSource
+      .getRepository(PeriodSlot)
+      .save(
+        periodDefs.map((p) =>
+          dataSource
+            .getRepository(PeriodSlot)
+            .create({ ...p, shift_id: shift.id, tenant_id: TENANT_A }),
+        ),
+      );
+
+    const room = await dataSource.getRepository(Room).save(
+      dataSource.getRepository(Room).create({
+        building: 'Building A',
+        room_no: '204',
+        capacity: 40,
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    const routine = await dataSource.getRepository(Routine).save(
+      dataSource.getRepository(Routine).create({
+        academic_year_id: year.id,
+        name: 'Main routine',
+        state: RoutineState.PUBLISHED,
+        published_at: new Date('2026-01-01T00:00:00.000Z'),
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    // A superseded row: this slot ended, and a fresh row (created below)
+    // covers the same section/period/weekday from the day after.
+    const supersededSlot = await dataSource.getRepository(RoutineSlot).save(
+      dataSource.getRepository(RoutineSlot).create({
+        routine_id: routine.id,
+        section_id: section.id,
+        period_slot_id: periodSlots[0]!.id,
+        weekday: 1,
+        subject_id: routineSubject.id,
+        room_id: room.id,
+        recurrence: SlotRecurrence.WEEKLY,
+        recurrence_offset: 0,
+        valid_from: '2026-01-01',
+        valid_to: '2026-02-01',
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    const currentSlot = await dataSource.getRepository(RoutineSlot).save(
+      dataSource.getRepository(RoutineSlot).create({
+        routine_id: routine.id,
+        section_id: section.id,
+        period_slot_id: periodSlots[0]!.id,
+        weekday: 1,
+        subject_id: routineSubject.id,
+        room_id: room.id,
+        recurrence: SlotRecurrence.WEEKLY,
+        recurrence_offset: 0,
+        valid_from: '2026-02-02',
+        valid_to: null,
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    // Biweekly slot, occurring on the second week of the cycle.
+    const biweeklySlot = await dataSource.getRepository(RoutineSlot).save(
+      dataSource.getRepository(RoutineSlot).create({
+        routine_id: routine.id,
+        section_id: section.id,
+        period_slot_id: periodSlots[1]!.id,
+        weekday: 2,
+        subject_id: routineSubject.id,
+        room_id: null,
+        recurrence: SlotRecurrence.BIWEEKLY,
+        recurrence_offset: 1,
+        valid_from: '2026-01-01',
+        valid_to: null,
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    // Monthly slot on the last occurrence of the cycle.
+    const monthlySlot = await dataSource.getRepository(RoutineSlot).save(
+      dataSource.getRepository(RoutineSlot).create({
+        routine_id: routine.id,
+        section_id: section.id,
+        period_slot_id: periodSlots[2]!.id,
+        weekday: 3,
+        subject_id: routineSubject.id,
+        room_id: null,
+        recurrence: SlotRecurrence.MONTHLY,
+        recurrence_offset: -1,
+        valid_from: '2026-01-01',
+        valid_to: null,
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    // Co-taught slot, second section: two teachers on the same slot.
+    const coTaughtSlot = await dataSource.getRepository(RoutineSlot).save(
+      dataSource.getRepository(RoutineSlot).create({
+        routine_id: routine.id,
+        section_id: secondSection.id,
+        period_slot_id: periodSlots[4]!.id,
+        weekday: 1,
+        subject_id: routineSubject.id,
+        room_id: room.id,
+        recurrence: SlotRecurrence.WEEKLY,
+        recurrence_offset: 0,
+        valid_from: '2026-01-01',
+        valid_to: null,
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    await dataSource.getRepository(RoutineSlotTeacher).save([
+      dataSource.getRepository(RoutineSlotTeacher).create({
+        routine_slot_id: currentSlot.id,
+        teacher_id: teacherOne.id,
+        tenant_id: TENANT_A,
+      }),
+      dataSource.getRepository(RoutineSlotTeacher).create({
+        routine_slot_id: coTaughtSlot.id,
+        teacher_id: teacherOne.id,
+        tenant_id: TENANT_A,
+      }),
+      dataSource.getRepository(RoutineSlotTeacher).create({
+        routine_slot_id: coTaughtSlot.id,
+        teacher_id: teacherTwo.id,
+        tenant_id: TENANT_A,
+      }),
+      dataSource.getRepository(RoutineSlotTeacher).create({
+        routine_slot_id: biweeklySlot.id,
+        teacher_id: teacherOne.id,
+        tenant_id: TENANT_A,
+      }),
+      dataSource.getRepository(RoutineSlotTeacher).create({
+        routine_slot_id: monthlySlot.id,
+        teacher_id: teacherOne.id,
+        tenant_id: TENANT_A,
+      }),
+      dataSource.getRepository(RoutineSlotTeacher).create({
+        routine_slot_id: supersededSlot.id,
+        teacher_id: teacherOne.id,
+        tenant_id: TENANT_A,
+      }),
+    ]);
+
+    // Cancellation: `is_cancelled = true`, `substitute_teacher_id = null`.
+    await dataSource.getRepository(RoutineSubstitution).save(
+      dataSource.getRepository(RoutineSubstitution).create({
+        routine_slot_id: currentSlot.id,
+        date: '2026-02-09',
+        substitute_teacher_id: null,
+        is_cancelled: true,
+        reason: 'Teacher on leave, period cancelled outright',
+        created_by: USER_ID,
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    await dataSource.getRepository(RoutineChangeRequest).save(
+      dataSource.getRepository(RoutineChangeRequest).create({
+        routine_slot_id: currentSlot.id,
+        requested_by: USER_ID,
+        note: 'Requesting a swap with the next free period',
+        state: ChangeRequestState.OPEN,
+        resolved_by: null,
+        resolved_at: null,
+        resolution_note: null,
+        tenant_id: TENANT_A,
+      }),
+    );
 
     // --- Exams/marks/results spine (19.10.1, #906) -----------------------
     // Two students so `marks` carries two rows against the same component,
@@ -908,6 +1222,15 @@ describe('workbook round trip (integration)', () => {
       'payment_allocations',
       'grading_scales',
       'grading_bands',
+      // Epic 21.0 (class routine/timetable), [21.11.1].
+      'shifts',
+      'period_slots',
+      'rooms',
+      'routines',
+      'routine_slots',
+      'routine_slot_teachers',
+      'routine_substitutions',
+      'routine_change_requests',
       'exams',
       'exam_components',
       'exam_schedules',

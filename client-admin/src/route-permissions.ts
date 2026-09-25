@@ -120,6 +120,20 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // read-only view of the builder exists.
   '/_staff/routines/': Permission.ROUTINE_MANAGE,
   '/_staff/routines/$sectionId': Permission.ROUTINE_MANAGE,
+  // [21.9.1] Review is a shared surface — a teacher only needs
+  // `ROUTINE_READ` to see their own slots and raise a change request
+  // (`ChangeRequestsController.open` is gated on `ROUTINE_READ`
+  // server-side too); the page itself narrows further by role, same
+  // "blanket route gate, finer-grained UI inside" pattern `$sectionId`
+  // uses for its own write actions.
+  '/_staff/routines/review': Permission.ROUTINE_READ,
+  // [21.10.1] The teacher/family agenda — same `ROUTINE_READ` gate as
+  // review above, this route never writes anything.
+  '/_staff/routines/my': Permission.ROUTINE_READ,
+  // Substitution log + recorder — `ROUTINE_MANAGE` server-side
+  // (`SubstitutionsController`), even for the `TEACHER` role entry in its
+  // `@Roles` list.
+  '/_staff/routines/substitutions': Permission.ROUTINE_MANAGE,
   '/_staff/audit-logs/': Permission.AUDIT_LOG_READ,
   '/_staff/settings': Permission.SETTINGS_MANAGE,
   // [9.6] Both gated on ATTENDANCE_READ, not ATTENDANCE_MARK — this table

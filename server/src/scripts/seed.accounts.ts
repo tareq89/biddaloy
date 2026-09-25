@@ -44,8 +44,17 @@ import {
   ensureHomeworkDemoSeed,
   ensurePublicHolidaySet,
   ensureRoleTestUsers,
+  ensureRoutineSeed,
   ensureSecondSchoolMembership,
 } from './seed.util';
+import { Shift } from '../modules/routines/entities/shift.entity';
+import { PeriodSlot } from '../modules/routines/entities/period-slot.entity';
+import { Room } from '../modules/routines/entities/room.entity';
+import { Routine } from '../modules/routines/entities/routine.entity';
+import { RoutineSlot } from '../modules/routines/entities/routine-slot.entity';
+import { RoutineSlotTeacher } from '../modules/routines/entities/routine-slot-teacher.entity';
+import { RoutineSubstitution } from '../modules/routines/entities/routine-substitution.entity';
+import { RoutineChangeRequest } from '../modules/routines/entities/routine-change-request.entity';
 import { BD_PUBLIC_HOLIDAYS_2026, BD_PUBLIC_HOLIDAYS_2027 } from './seed-data/public-holidays-bd';
 
 /**
@@ -90,6 +99,14 @@ export interface SeedAccountRepositories {
   classSubjectRepository: Repository<ClassSubject>;
   gradingScaleRepository: Repository<GradingScale>;
   gradingBandRepository: Repository<GradingBand>;
+  shiftRepository: Repository<Shift>;
+  periodSlotRepository: Repository<PeriodSlot>;
+  roomRepository: Repository<Room>;
+  routineRepository: Repository<Routine>;
+  routineSlotRepository: Repository<RoutineSlot>;
+  routineSlotTeacherRepository: Repository<RoutineSlotTeacher>;
+  routineSubstitutionRepository: Repository<RoutineSubstitution>;
+  routineChangeRequestRepository: Repository<RoutineChangeRequest>;
   examRepository: Repository<Exam>;
   examComponentRepository: Repository<ExamComponent>;
   markGridRepository: Repository<MarkGrid>;
@@ -340,6 +357,54 @@ export async function seedAccounts(
           teacherUserId: teacherTestUser.id,
         },
       );
+
+      // [21.11.1]: a published routine on top of the same "Class 6"
+      // section A/B roster and `teacher@biddaloy.test` — deliberately
+      // after `ensureAttendanceSeed`, whose Teacher row and "MATH"
+      // subject this reuses.
+      const primaryTeacher = await repos.teacherRepository.findOne({
+        where: { user_id: teacherTestUser.id },
+      });
+      const attendanceClassForRoutine = await repos.classRepository.findOne({
+        where: { name: 'Class 6', tenant_id: school.id, academic_year_id: academicYear.id },
+      });
+      const sectionB = attendanceClassForRoutine
+        ? await repos.classSectionRepository.findOne({
+            where: {
+              class_id: attendanceClassForRoutine.id,
+              section_name: 'B',
+              tenant_id: school.id,
+            },
+          })
+        : null;
+
+      if (primaryTeacher && sectionB && attendanceClassForRoutine) {
+        await ensureRoutineSeed(
+          {
+            userRepository: repos.userRepository,
+            teacherRepository: repos.teacherRepository,
+            subjectRepository: repos.subjectRepository,
+            classRepository: repos.classRepository,
+            shiftRepository: repos.shiftRepository,
+            periodSlotRepository: repos.periodSlotRepository,
+            roomRepository: repos.roomRepository,
+            routineRepository: repos.routineRepository,
+            routineSlotRepository: repos.routineSlotRepository,
+            routineSlotTeacherRepository: repos.routineSlotTeacherRepository,
+            routineSubstitutionRepository: repos.routineSubstitutionRepository,
+            routineChangeRequestRepository: repos.routineChangeRequestRepository,
+          },
+          {
+            schoolId: school.id,
+            academicYearId: academicYear.id,
+            classId: attendanceClassForRoutine.id,
+            sectionAId: attendanceSection.id,
+            sectionBId: sectionB.id,
+            primaryTeacherId: primaryTeacher.id,
+            requestedByUserId: teacherTestUser.id,
+          },
+        );
+      }
     }
 
     // [22.3.6]: one Homework, one section-wide assignment, three

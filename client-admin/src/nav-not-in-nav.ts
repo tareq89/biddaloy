@@ -30,6 +30,7 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/portal/calendar': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/exam-schedule': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/fees': 'guardian portal page, has its own portal nav, not the staff sidebar',
+  '/portal/routine': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/results': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/syllabus': 'guardian portal page, has its own portal nav, not the staff sidebar',
 
@@ -64,6 +65,10 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/grading-scales/$scaleId': 'detail route reached from the grading scales list',
   '/_staff/guardians/$guardianId': 'detail route reached from the guardians list',
   '/_staff/routines/$sectionId': 'detail route reached from the routine builder section list',
+  '/_staff/routines/review':
+    '[21.9.1] reached via the "Copy last year\'s routine" palette action and from the routine builder, not its own sidebar item',
+  '/_staff/routines/substitutions':
+    '[21.9.1] reached via the "Add substitution" palette action, not its own sidebar item',
   '/_staff/invoices/$invoiceId': 'detail route reached from the invoices list',
   '/_staff/payments/':
     '[16.4.4] placeholder page for the Record Payment modal, reached via /payments/record, not its own nav item',

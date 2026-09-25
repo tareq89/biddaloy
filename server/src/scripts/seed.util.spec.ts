@@ -27,6 +27,14 @@ import type { Homework } from '../modules/homework/entities/homework.entity';
 import type { HomeworkAssignment } from '../modules/homework/entities/homework-assignment.entity';
 import type { HomeworkSubmission } from '../modules/homework/entities/homework-submission.entity';
 import type { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.entity';
+import type { Shift } from '../modules/routines/entities/shift.entity';
+import type { PeriodSlot } from '../modules/routines/entities/period-slot.entity';
+import type { Room } from '../modules/routines/entities/room.entity';
+import type { Routine } from '../modules/routines/entities/routine.entity';
+import type { RoutineSlot } from '../modules/routines/entities/routine-slot.entity';
+import type { RoutineSlotTeacher } from '../modules/routines/entities/routine-slot-teacher.entity';
+import type { RoutineSubstitution } from '../modules/routines/entities/routine-substitution.entity';
+import type { RoutineChangeRequest } from '../modules/routines/entities/routine-change-request.entity';
 import { hashDeviceKey } from '../modules/attendance/devices/device.service';
 import {
   ATTENDANCE_SEED_ABSENT_DATE,
@@ -40,6 +48,7 @@ import {
   ensureGradingDemoSeed,
   ensureHomeworkDemoSeed,
   ensurePublicHolidaySet,
+  ensureRoutineSeed,
   BD_NCTB_BANDS,
   ensureRoleTestUsers,
   ensureSecondSchoolMembership,
@@ -1322,5 +1331,60 @@ describe('ensureHomeworkDemoSeed', () => {
     expect(result).toEqual({ homework: 0, assignments: 0, submissions: 0, syllabusTopics: 0 });
     expect(vi.mocked(repos.homeworkRepository.create)).not.toHaveBeenCalled();
     expect(vi.mocked(repos.homeworkSubmissionRepository.create)).not.toHaveBeenCalled();
+  });
+});
+
+describe('ensureRoutineSeed', () => {
+  function routineRepos() {
+    return {
+      userRepository: mockRepo<User>(),
+      teacherRepository: mockRepo<Teacher>(),
+      subjectRepository: mockRepo<Subject>(),
+      classRepository: mockRepo<Class>(),
+      shiftRepository: mockRepo<Shift>(),
+      periodSlotRepository: mockRepo<PeriodSlot>(),
+      roomRepository: mockRepo<Room>(),
+      routineRepository: mockRepo<Routine>(),
+      routineSlotRepository: mockRepo<RoutineSlot>(),
+      routineSlotTeacherRepository: mockRepo<RoutineSlotTeacher>(),
+      routineSubstitutionRepository: mockRepo<RoutineSubstitution>(),
+      routineChangeRequestRepository: mockRepo<RoutineChangeRequest>(),
+    };
+  }
+
+  const ROUTINE_PARAMS = {
+    schoolId: 'school-1',
+    academicYearId: 'year-1',
+    classId: 'class-1',
+    sectionAId: 'section-a',
+    sectionBId: 'section-b',
+    primaryTeacherId: 'teacher-1',
+    requestedByUserId: 'user-1',
+  };
+
+  it('skips entirely when the academic year already has a live routine this helper did not create', async () => {
+    const repos = routineRepos();
+    vi.mocked(repos.routineRepository.findOne).mockResolvedValue({
+      id: 'routine-existing',
+      name: "Admin's real routine",
+      deleted_at: null,
+    } as Routine);
+
+    const result = await ensureRoutineSeed(repos, ROUTINE_PARAMS);
+
+    expect(result).toEqual({
+      shifts: 0,
+      periodSlots: 0,
+      rooms: 0,
+      teachers: 0,
+      routines: 0,
+      slots: 0,
+      substitutions: 0,
+      changeRequests: 0,
+    });
+    expect(vi.mocked(repos.shiftRepository.save)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.classRepository.save)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.routineSlotRepository.create)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.routineChangeRequestRepository.create)).not.toHaveBeenCalled();
   });
 });

@@ -14,6 +14,7 @@ import { RequireRole } from '@biddaloy/ui/routes';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
 import {
   BookOpenIcon,
+  CalendarClockIcon,
   CalendarDaysIcon,
   CreditCardIcon,
   GraduationCapIcon,
@@ -133,6 +134,12 @@ function PortalLayout() {
       // `ATTENDANCE_READ` in `ROLE_PERMISSIONS` to key off, same "every
       // signed-in role in this shell owns it" case `/portal/account`
       // documents above.
+    },
+    {
+      to: '/portal/routine',
+      label: t('items.portalRoutine'),
+      icon: <CalendarClockIcon className="size-5" aria-hidden="true" />,
+      permission: Permission.ROUTINE_READ,
     },
     {
       to: '/portal/calendar',

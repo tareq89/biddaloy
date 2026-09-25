@@ -215,6 +215,21 @@
       "archetype": "form"
     },
     {
+      "path": "/routines/review",
+      "role": "admin",
+      "archetype": "form"
+    },
+    {
+      "path": "/routines/substitutions",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/routines/my",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
       "path": "/audit-logs",
       "role": "admin",
       "archetype": "list"
@@ -394,6 +409,11 @@
     },
     {
       "path": "/portal/fees",
+      "role": "parent",
+      "archetype": "list"
+    },
+    {
+      "path": "/portal/routine",
       "role": "parent",
       "archetype": "list"
     },

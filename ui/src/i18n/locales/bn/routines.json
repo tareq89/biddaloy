@@ -124,5 +124,134 @@
     "cancel": "বাতিল",
     "confirm": "{{count}} পিরিয়ড পূরণ করুন",
     "confirm_other": "{{count}} পিরিয়ড পূরণ করুন"
+  },
+  "review": {
+    "title": "রুটিন পর্যালোচনা",
+    "noRoutineExplanation": "এই শিক্ষাবর্ষের জন্য এখনও কোনো রুটিন নেই।",
+    "notATeacherExplanation": "আপনার অ্যাকাউন্টের জন্য কোনো শিক্ষক রেকর্ড পাওয়া যায়নি — এখানে দেখানোর কিছু নেই।",
+    "emptyExplanation": "দেখানোর জন্য কোনো পিরিয়ড নেই।",
+    "error": {
+      "message": "রুটিন লোড করা যায়নি। আপনার সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।",
+      "retry": "আবার চেষ্টা করুন"
+    },
+    "stateLabel": {
+      "DRAFT": "ড্রাফট",
+      "REVIEW": "পর্যালোচনায়",
+      "PUBLISHED": "প্রকাশিত"
+    },
+    "banner": {
+      "draft": "ড্রাফট — শুধু আপনি (রুটিনের নির্মাতা) এটি দেখতে পারেন।",
+      "review": "পর্যালোচনায় — শিক্ষকরা তাদের নিজের পিরিয়ড দেখতে পারেন।",
+      "published": "প্রকাশিত — পরিবারদের কাছে দৃশ্যমান।"
+    },
+    "submitForReviewAction": "পর্যালোচনার জন্য জমা দিন",
+    "withdrawAction": "ড্রাফটে ফিরিয়ে নিন",
+    "publishAction": "প্রকাশ করুন",
+    "copyYearAction": "গত বছরের রুটিন কপি করুন",
+    "stateChangedToast": "আপডেট হয়েছে",
+    "stateChangeErrorToast": "আপডেট করা যায়নি — আবার চেষ্টা করুন।",
+    "requestChangeAction": "পরিবর্তনের অনুরোধ করুন",
+    "requestChangeDisabledExplanation": "রুটিন প্রকাশিত হওয়ার পরই পরিবর্তনের অনুরোধ করা যাবে।",
+    "copyYearDialogTitle": "গত বছরের রুটিন কপি করুন",
+    "copyYearDialogExplanation": "লক্ষ্য শিক্ষাবর্ষের জন্য একটি নতুন ড্রাফট রুটিনে প্রতিটি স্লট কপি করে। লক্ষ্য বছরে না-থাকা সেকশন বা বিষয় নিঃশব্দে বাদ না দিয়ে রিপোর্ট করা হয়।",
+    "copyYearTargetLabel": "লক্ষ্য শিক্ষাবর্ষ",
+    "copyYearSelectTarget": "একটি বছর নির্বাচন করুন",
+    "copyYearCancel": "বাতিল",
+    "copyYearConfirm": "কপি করুন",
+    "copyYearSuccessToast": "কপি হয়েছে — {{count}}টি স্লট বাদ পড়েছে",
+    "copyYearSuccessToast_other": "কপি হয়েছে — {{count}}টি স্লট বাদ পড়েছে",
+    "copyYearErrorToast": "কপি করা যায়নি — আবার চেষ্টা করুন।"
+  },
+  "changeRequestDialog": {
+    "title": "পরিবর্তনের অনুরোধ করুন",
+    "description": "রুটিনের নির্মাতাকে জানান কী পরিবর্তন প্রয়োজন — তারা এটি কীভাবে সমাধান করবেন তা সিদ্ধান্ত নেবেন।",
+    "noteLabel": "নোট",
+    "notePlaceholder": "যেমন: এটি আমার অন্য ক্লাসের সাথে সংঘর্ষ করছে।",
+    "cancel": "বাতিল",
+    "submit": "পাঠান",
+    "submittedToast": "পাঠানো হয়েছে",
+    "errorToast": "পাঠানো যায়নি — আবার চেষ্টা করুন।"
+  },
+  "changeRequestList": {
+    "title": "পরিবর্তনের অনুরোধ",
+    "acceptDoesNotEditExplanation": "একটি অনুরোধ গ্রহণ করলে রুটিন সম্পাদিত হয় না — পুনর্বিন্যাস সাধারণত অন্য স্লটও প্রভাবিত করে, তাই গ্রিড বিল্ডারে সচেতনভাবে এই পরিবর্তন করুন।",
+    "loading": "পরিবর্তনের অনুরোধ লোড হচ্ছে…",
+    "loadError": "পরিবর্তনের অনুরোধ লোড করা যায়নি। আপনার সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।",
+    "empty": "কোনো খোলা পরিবর্তনের অনুরোধ নেই।",
+    "requestedBy": "{{name}} দ্বারা অনুরোধ করা হয়েছে",
+    "resolutionNoteLabel": "সমাধান নোট",
+    "resolutionNotePlaceholder": "অনুরোধকারীর জন্য ঐচ্ছিক নোট",
+    "accept": "গ্রহণ করুন",
+    "reject": "প্রত্যাখ্যান করুন",
+    "resolvedToast": "সমাধান হয়েছে",
+    "errorToast": "সমাধান করা যায়নি — আবার চেষ্টা করুন।"
+  },
+  "publishDialog": {
+    "title": "এই রুটিন প্রকাশ করুন",
+    "oneWayExplanation": "প্রকাশ করা একমুখী — এই সিস্টেমে কোথাও অপ্রকাশ করার কোনো ব্যবস্থা নেই।",
+    "correctionsExplanation": "প্রকাশের পরে কোনো সংশোধন গ্রিড বিল্ডারের মাধ্যমে একটি নতুন, তারিখযুক্ত সম্পাদনা — কোনো রোলব্যাক নয়।",
+    "cancel": "বাতিল",
+    "confirm": "প্রকাশ করুন",
+    "publishedToast": "প্রকাশিত হয়েছে",
+    "errorToast": "প্রকাশ করা যায়নি — আবার চেষ্টা করুন।"
+  },
+  "substitutionsPage": {
+    "title": "প্রতিনিধিত্ব",
+    "addAction": "প্রতিনিধিত্ব যোগ করুন",
+    "fromLabel": "শুরু",
+    "toLabel": "শেষ",
+    "coveringTeacherLabel": "প্রতিনিধিত্বকারী শিক্ষক",
+    "coveredForTeacherLabel": "যার জন্য প্রতিনিধিত্ব",
+    "classLabel": "ক্লাস",
+    "sectionLabel": "সেকশন",
+    "anyTeacher": "কোনো শিক্ষক",
+    "anyClass": "কোনো ক্লাস",
+    "anySection": "কোনো সেকশন",
+    "emptyTitle": "কোনো প্রতিনিধিত্ব নেই",
+    "emptyExplanation": "এই ফিল্টারের জন্য কোনো প্রতিনিধিত্ব বা বাতিলকরণ রেকর্ড করা হয়নি।",
+    "cancelledLabel": "বাতিল",
+    "coveredByLabel": "{{name}} দ্বারা প্রতিনিধিত্ব করা হয়েছে",
+    "unknownTeacher": "অজানা"
+  },
+  "agenda": {
+    "daySwitcherLabel": "একটি দিন নির্বাচন করুন",
+    "todayLabel": "আজ",
+    "weekViewOn": "সাপ্তাহিক দৃশ্য",
+    "weekViewOff": "দৈনিক দৃশ্য",
+    "emptyDay": "কোনো ক্লাস নেই।",
+    "cancelledLabel": "বাতিল",
+    "coveringForLabel": "{{name}}-এর প্রতিনিধিত্ব করছেন",
+    "periodLabel": "পিরিয়ড {{sequence}}",
+    "holidayReason": "ছুটির দিন — {{name}}",
+    "weeklyOffReason": "সাপ্তাহিক ছুটির দিন"
+  },
+  "myRoutine": {
+    "title": "আমার রুটিন",
+    "loading": "আপনার রুটিন লোড হচ্ছে",
+    "notATeacherExplanation": "আপনার অ্যাকাউন্টের জন্য কোনো শিক্ষক রেকর্ড পাওয়া যায়নি — এখানে দেখানোর কিছু নেই।",
+    "noRoutineExplanation": "স্কুল এখনও কোনো রুটিন প্রকাশ করেনি।",
+    "error": {
+      "message": "আপনার রুটিন লোড করা যায়নি। আপনার সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।",
+      "retry": "আবার চেষ্টা করুন"
+    }
+  },
+  "substitutionDialog": {
+    "title": "একটি প্রতিনিধিত্ব রেকর্ড করুন",
+    "description": "একটি স্লটের জন্য একটি তারিখে প্রতিনিধিত্ব বা বাতিলকরণ রেকর্ড করে — সাপ্তাহিক রুটিন কখনও পরিবর্তিত হয় না।",
+    "classLabel": "ক্লাস",
+    "selectClass": "একটি ক্লাস নির্বাচন করুন",
+    "sectionLabel": "সেকশন",
+    "selectSection": "একটি সেকশন নির্বাচন করুন",
+    "slotLabel": "স্লট",
+    "selectSlot": "একটি স্লট নির্বাচন করুন",
+    "dateLabel": "তারিখ",
+    "cancelledLabel": "বাতিল — কোনো প্রতিনিধি নেই",
+    "substituteTeacherLabel": "প্রতিনিধি শিক্ষক",
+    "selectTeacher": "একটি শিক্ষক নির্বাচন করুন",
+    "reasonLabel": "কারণ",
+    "cancel": "বাতিল",
+    "save": "সংরক্ষণ করুন",
+    "savedToast": "সংরক্ষিত হয়েছে",
+    "errorToast": "সংরক্ষণ করা যায়নি — আবার চেষ্টা করুন।"
   }
 }
