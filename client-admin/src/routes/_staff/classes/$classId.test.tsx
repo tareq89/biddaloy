@@ -1,4 +1,10 @@
-import { classFactory, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import {
+  classFactory,
+  classSectionFactory,
+  cleanupTestState,
+  renderWithRouter,
+  server,
+} from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -70,18 +76,25 @@ describe('/classes/$classId', () => {
     expect(screen.getByText('30')).toBeTruthy();
   });
 
-  it('the Teachers tab is read-only — no add/remove controls', async () => {
+  it('the Teachers tab lists section assignments with an assign action [29.0]', async () => {
     const klass = classFactory({ id: 'class-1' });
+    const section = classSectionFactory({ id: 'section-1', class: klass, section_name: 'A' });
     server.use(
       http.get('/api/v1/classes/:id', () => HttpResponse.json(klass)),
-      http.get('/api/v1/classes/:classId/teachers', () =>
+      http.get('/api/v1/classes/:classId/sections', () =>
+        HttpResponse.json([{ ...section, enrolled_count: 0 }]),
+      ),
+      http.get('/api/v1/classes/:classId/sections/:sectionId/teachers', () =>
         HttpResponse.json([
           {
-            id: 'teacher-1',
+            id: 'assignment-1',
+            teacher_id: 'teacher-1',
             employee_id: 'EMP-001',
             full_name: 'Rahim Uddin',
-            designations: ['CLASS_TEACHER'],
-            section_names: ['A', 'B'],
+            section_id: section.id,
+            section_name: section.section_name,
+            subject_id: null,
+            subject_name: null,
           },
         ]),
       ),
@@ -94,10 +107,8 @@ describe('/classes/$classId', () => {
       locale: 'en',
     });
 
-    await screen.findByText('Rahim Uddin');
-    expect(screen.getByText('EMP-001')).toBeTruthy();
-    expect(screen.getByText('A, B')).toBeTruthy();
-    // Read-only — teacher CRUD is #177, not this tab.
+    await screen.findByText(/Rahim Uddin/);
+    // [29.0] Assignment CRUD lives here now (Teacher-entity CRUD stays #177).
     expect(screen.queryByRole('button', { name: /add teacher/i })).toBeNull();
   });
 
