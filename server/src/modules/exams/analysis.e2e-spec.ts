@@ -32,9 +32,9 @@ describe('[997] Exam analysis (merit/defaulted/pass-fail)', () => {
 
   const TENANT_ID = SEED_TENANT_ID;
   const TENANT_B = '00000000-0000-4000-8000-0000009970b0';
-  const TEACHER_USER_ID = '00000000-0000-4000-8000-0000009970t1';
+  const TEACHER_USER_ID = '00000000-0000-4000-8000-0000009970a1';
   const TEACHER_EMAIL = 'analysis-teacher@e2e.example';
-  const GUARDIAN_USER_ID = '00000000-0000-4000-8000-0000009970g1';
+  const GUARDIAN_USER_ID = '00000000-0000-4000-8000-0000009970c1';
   const GUARDIAN_EMAIL = 'analysis-guardian@e2e.example';
 
   let examId: string;
