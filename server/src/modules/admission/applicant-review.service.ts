@@ -8,6 +8,7 @@ import { AdmissionIntake } from './entities/admission-intake.entity';
 import { StudentService, GuardianService } from '../students/students.service';
 import { EvaluateApplicantDto } from './dto/evaluate-applicant.dto';
 import { AdmitApplicantDto } from './dto/admit-applicant.dto';
+import { AdmissionNotificationService } from './admission-notification.service';
 
 const DECISION_TO_STATUS: Record<AdmissionEvaluationDecision, AdmissionApplicantStatus> = {
   SHORTLIST: AdmissionApplicantStatus.SHORTLISTED,
@@ -26,6 +27,7 @@ export class ApplicantReviewService {
     @InjectRepository(AdmissionEvaluation) private readonly evaluations: Repository<AdmissionEvaluation>,
     private readonly studentService: StudentService,
     private readonly guardianService: GuardianService,
+    private readonly notificationService: AdmissionNotificationService,
   ) {}
 
   private async findOne(id: string, tenantId: string): Promise<AdmissionApplicant> {
@@ -77,7 +79,9 @@ export class ApplicantReviewService {
         { status: DECISION_TO_STATUS[dto.decision] },
       );
     }
-    return this.findOne(id, tenantId);
+    const updated = await this.findOne(id, tenantId);
+    if (dto.decision) await this.notifyStatusChange(updated);
+    return updated;
   }
 
   async reject(id: string, tenantId: string, reviewerUserId: string, notes?: string): Promise<AdmissionApplicant> {
@@ -94,7 +98,9 @@ export class ApplicantReviewService {
       }),
     );
     await this.applicants.update({ id, tenant_id: tenantId }, { status: AdmissionApplicantStatus.REJECTED });
-    return this.findOne(id, tenantId);
+    const updated = await this.findOne(id, tenantId);
+    await this.notifyStatusChange(updated);
+    return updated;
   }
 
   /** Admits from PENDING or SHORTLISTED (D6). Resolves/creates the guardian
@@ -170,12 +176,29 @@ export class ApplicantReviewService {
         .update({ id, tenant_id: tenantId }, { status: AdmissionApplicantStatus.ADMITTED });
     });
 
-    return this.findOne(id, tenantId);
+    const updated = await this.findOne(id, tenantId);
+    await this.notifyStatusChange(updated);
+    return updated;
   }
 
   private async intakeClassSectionId(intakeId: string, manager: EntityManager): Promise<string> {
     const intake = await manager.getRepository(AdmissionIntake).findOne({ where: { id: intakeId } });
     if (!intake) throw new NotFoundException('Admission intake not found');
     return intake.class_section_id;
+  }
+
+  /** Best-effort — a notification failure must never fail the review
+   * action itself (the status change already committed). */
+  private async notifyStatusChange(applicant: AdmissionApplicant): Promise<void> {
+    const intake = await this.applicants.manager
+      .getRepository(AdmissionIntake)
+      .findOne({ where: { id: applicant.intake_id } });
+    try {
+      await this.notificationService.notifyStatusChange(applicant, intake?.title ?? 'the admission intake');
+    } catch {
+      // best-effort: notificationService already logs the failure on the
+      // CommunicationLog row; a review action must never fail because a
+      // notification could not be sent.
+    }
   }
 }

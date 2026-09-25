@@ -2,8 +2,8 @@ import { Body, Controller, Get, Param, Post, UploadedFiles, UseInterceptors } fr
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { STRICT_RATE_LIMIT } from '../../rate-limit';
-import { AdmissionApplicantService, PublicIntakeDto } from './admission-applicant.service';
+import { ADMISSION_STATUS_RATE_LIMIT, STRICT_RATE_LIMIT } from '../../rate-limit';
+import { AdmissionApplicantService, ApplicantStatusDto, PublicIntakeDto } from './admission-applicant.service';
 import { SubmitApplicantDto, SubmitApplicantResponseDto } from './dto/submit-applicant.dto';
 
 const MAX_DOCUMENT_FILE_SIZE = 5 * 1024 * 1024; // 5MB per document, same tier as homework uploads
@@ -31,6 +31,21 @@ export class PublicAdmissionController {
   @ApiOkResponse()
   async listOpenIntakes(@Param('slug') slug: string): Promise<PublicIntakeDto[]> {
     return this.applicantService.listOpenIntakes(slug);
+  }
+
+  @Get(':slug/status/:referenceNumber')
+  @Throttle({ default: ADMISSION_STATUS_RATE_LIMIT })
+  @ApiOperation({
+    summary:
+      'Check an admission application status by reference number, no login required. ' +
+      'Returns only status/applicant name/intake title — an unknown or wrong-tenant reference number 404s.',
+  })
+  @ApiOkResponse()
+  async getStatus(
+    @Param('slug') slug: string,
+    @Param('referenceNumber') referenceNumber: string,
+  ): Promise<ApplicantStatusDto> {
+    return this.applicantService.getStatus(slug, referenceNumber);
   }
 
   @Post(':slug/applicants')

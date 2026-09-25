@@ -8,6 +8,7 @@ import { AdmissionEvaluation } from './entities/admission-evaluation.entity';
 import { AdmissionIntake } from './entities/admission-intake.entity';
 import { StudentService, GuardianService } from '../students/students.service';
 import { AdmissionApplicantStatus } from '@biddaloy/shared';
+import { AdmissionNotificationService } from './admission-notification.service';
 
 /**
  * Unit-level coverage. What this spec covers vs a full e2e:
@@ -55,6 +56,7 @@ describe('ApplicantReviewService', () => {
   let intakeRepo: Record<string, ReturnType<typeof vi.fn>>;
   let studentService: { create: ReturnType<typeof vi.fn> };
   let guardianService: { findByPhone: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn> };
+  let notificationService: { notifyStatusChange: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     applicantRepo = {
@@ -71,12 +73,19 @@ describe('ApplicantReviewService', () => {
             },
           }),
         ),
+        // notifyStatusChange (post-decision) looks up the intake title
+        // outside any transaction — same intakeRepo stand-in as above.
+        getRepository: (entity: unknown) => {
+          if (entity === AdmissionIntake) return intakeRepo;
+          throw new Error('unexpected entity');
+        },
       },
     };
     evaluationRepo = { create: vi.fn((dto) => dto), save: vi.fn(async (e) => e) };
-    intakeRepo = { findOne: vi.fn(async () => ({ id: 'intake-1', class_section_id: 'section-1' })) };
+    intakeRepo = { findOne: vi.fn(async () => ({ id: 'intake-1', class_section_id: 'section-1', title: 'Class 1 Admission' })) };
     studentService = { create: vi.fn(async () => ({ id: 'student-1' })) };
     guardianService = { findByPhone: vi.fn(), create: vi.fn() };
+    notificationService = { notifyStatusChange: vi.fn(async () => undefined) };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -85,6 +94,7 @@ describe('ApplicantReviewService', () => {
         { provide: getRepositoryToken(AdmissionEvaluation), useValue: evaluationRepo },
         { provide: StudentService, useValue: studentService },
         { provide: GuardianService, useValue: guardianService },
+        { provide: AdmissionNotificationService, useValue: notificationService },
       ],
     }).compile();
 
@@ -112,6 +122,10 @@ describe('ApplicantReviewService', () => {
         { status: AdmissionApplicantStatus.SHORTLISTED },
       );
       expect(result.status).toBe(AdmissionApplicantStatus.SHORTLISTED);
+      expect(notificationService.notifyStatusChange).toHaveBeenCalledWith(
+        expect.objectContaining({ status: AdmissionApplicantStatus.SHORTLISTED }),
+        'Class 1 Admission',
+      );
     });
 
     it('rejects on decision REJECT', async () => {
@@ -142,6 +156,7 @@ describe('ApplicantReviewService', () => {
       await expect(
         service.evaluate('applicant-1', { notes: 'x' }, TENANT_A, REVIEWER),
       ).rejects.toThrow(ConflictException);
+      expect(notificationService.notifyStatusChange).not.toHaveBeenCalled();
     });
 
     it('rejects evaluate for an applicant in a different tenant', async () => {
@@ -175,6 +190,10 @@ describe('ApplicantReviewService', () => {
       expect(applicantRepo.update).toHaveBeenCalledWith(
         { id: 'applicant-1', tenant_id: TENANT_A },
         { status: AdmissionApplicantStatus.ADMITTED },
+      );
+      expect(notificationService.notifyStatusChange).toHaveBeenCalledWith(
+        expect.objectContaining({ status: AdmissionApplicantStatus.ADMITTED }),
+        'Class 1 Admission',
       );
     });
 
@@ -230,6 +249,10 @@ describe('ApplicantReviewService', () => {
         { status: AdmissionApplicantStatus.REJECTED },
       );
       expect(result.status).toBe(AdmissionApplicantStatus.REJECTED);
+      expect(notificationService.notifyStatusChange).toHaveBeenCalledWith(
+        expect.objectContaining({ status: AdmissionApplicantStatus.REJECTED }),
+        'Class 1 Admission',
+      );
     });
 
     it('blocks reject once already ADMITTED', async () => {

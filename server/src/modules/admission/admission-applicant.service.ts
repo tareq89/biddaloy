@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, QueryFailedError, Repository } from 'typeorm';
+import { EntityManager, IsNull, QueryFailedError, Repository } from 'typeorm';
 import {
   AdmissionApplicantStatus,
   AdmissionApplicantDocument,
@@ -12,6 +12,12 @@ import { SchoolsService } from '../schools/schools.service';
 import { StorageService } from '../storage/storage.service';
 import { tenantObjectKey } from '../storage/storage-key';
 import { SubmitApplicantDto } from './dto/submit-applicant.dto';
+
+export interface ApplicantStatusDto {
+  status: AdmissionApplicantStatus;
+  applicant_name: string;
+  intake_title: string;
+}
 
 export interface PublicIntakeDto {
   id: string;
@@ -109,6 +115,29 @@ export class AdmissionApplicantService {
         close_date: intake.close_date,
         required_document_types: intake.required_document_types,
       }));
+  }
+
+  /** `GET /public/admission/:slug/status/:referenceNumber` — a caller with
+   * only the reference number (no login) can check status. Scoped by the
+   * tenant resolved from `:slug`; an unknown reference number, or one
+   * belonging to a different tenant, both 404 identically so the response
+   * never reveals which field was wrong or that another applicant exists. */
+  async getStatus(slug: string, referenceNumber: string): Promise<ApplicantStatusDto> {
+    const school = await this.schoolsService.findBySlug(slug);
+    if (!school) throw new NotFoundException('Application not found');
+
+    const applicant = await this.applicantRepo.findOne({
+      where: { tenant_id: school.id, reference_number: referenceNumber, deleted_at: IsNull() },
+    });
+    if (!applicant) throw new NotFoundException('Application not found');
+
+    const intake = await this.intakeRepo.findOne({ where: { id: applicant.intake_id } });
+
+    return {
+      status: applicant.status,
+      applicant_name: applicant.applicant_name,
+      intake_title: intake?.title ?? '',
+    };
   }
 
   /**

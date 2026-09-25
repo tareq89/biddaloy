@@ -7,9 +7,11 @@ import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { SEED_TENANT_ID, SEED_SECTION_1_ID } from '@test/constants';
-import { STRICT_RATE_LIMIT } from '../../rate-limit';
+import { ADMISSION_STATUS_RATE_LIMIT, STRICT_RATE_LIMIT } from '../../rate-limit';
 
 const SEED_SLUG = 'test-school';
+const OTHER_TENANT_ID = '00000000-0000-4000-8000-000000000999';
+const OTHER_TENANT_SLUG = 'other-admission-school';
 
 /**
  * E2E coverage for [27.2]'s public admission surface — `GET
@@ -28,7 +30,7 @@ describe('Public Admission Submission E2E', () => {
        VALUES (DEFAULT, $1, $2, $3, $4, $5::date, $6::date, $7::jsonb, NOW(), NOW())
        RETURNING id`,
       [
-        SEED_TENANT_ID,
+        (overrides.tenant_id as string) ?? SEED_TENANT_ID,
         SEED_SECTION_1_ID,
         (overrides.title as string) ?? 'Class 1 Admission 2026',
         (overrides.seat_count as number) ?? 2,
@@ -38,6 +40,27 @@ describe('Public Admission Submission E2E', () => {
       ],
     );
     return res[0].id;
+  }
+
+  async function createApplicant(
+    tenantId: string,
+    intakeId: string,
+    overrides: Partial<Record<string, unknown>> = {},
+  ): Promise<string> {
+    const referenceNumber = (overrides.reference_number as string) ?? `ADM-2026-${Math.floor(Math.random() * 900000 + 100000)}`;
+    await dataSource.query(
+      `INSERT INTO admission_applicants
+         (id, tenant_id, intake_id, reference_number, applicant_name, date_of_birth, gender, guardian_name, guardian_phone, documents, status, created_at, updated_at)
+       VALUES (DEFAULT, $1, $2, $3, $4, '2018-01-01', 'MALE', 'Karim Uddin', '01700000001', '[]'::jsonb, $5, NOW(), NOW())`,
+      [
+        tenantId,
+        intakeId,
+        referenceNumber,
+        (overrides.applicant_name as string) ?? 'Rahim Uddin',
+        (overrides.status as string) ?? 'PENDING',
+      ],
+    );
+    return referenceNumber;
   }
 
   function applicantPayload(intakeId: string, overrides: Record<string, string> = {}) {
@@ -69,6 +92,13 @@ describe('Public Admission Submission E2E', () => {
     await app.init();
 
     dataSource = app.get(DataSource);
+
+    await dataSource.query(
+      `INSERT INTO schools (id, name, slug, created_at, updated_at)
+       VALUES ($1, 'Other Admission School', $2, NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [OTHER_TENANT_ID, OTHER_TENANT_SLUG],
+    );
   }, 60000);
 
   afterAll(async () => {
@@ -76,10 +106,14 @@ describe('Public Admission Submission E2E', () => {
   });
 
   beforeEach(async () => {
-    await dataSource.query(`DELETE FROM admission_applicants WHERE tenant_id = $1`, [
+    await dataSource.query(`DELETE FROM admission_applicants WHERE tenant_id IN ($1, $2)`, [
       SEED_TENANT_ID,
+      OTHER_TENANT_ID,
     ]);
-    await dataSource.query(`DELETE FROM admission_intakes WHERE tenant_id = $1`, [SEED_TENANT_ID]);
+    await dataSource.query(`DELETE FROM admission_intakes WHERE tenant_id IN ($1, $2)`, [
+      SEED_TENANT_ID,
+      OTHER_TENANT_ID,
+    ]);
   });
 
   describe('GET /public/admission/:slug', () => {
@@ -111,6 +145,57 @@ describe('Public Admission Submission E2E', () => {
         .expect(200);
 
       expect(res.body).toEqual([]);
+    });
+  });
+
+  describe('GET /public/admission/:slug/status/:referenceNumber', () => {
+    it('returns status/applicant name/intake title for a valid reference number, no auth needed', async () => {
+      const intakeId = await createIntake({ title: 'Class 1 Admission 2026' });
+      const referenceNumber = await createApplicant(SEED_TENANT_ID, intakeId, {
+        applicant_name: 'Rahim Uddin',
+        status: 'SHORTLISTED',
+      });
+
+      const res = await supertest(app.getHttpServer())
+        .get(`/api/v1/public/admission/${SEED_SLUG}/status/${referenceNumber}`)
+        .expect(200);
+
+      expect(res.body).toEqual({
+        status: 'SHORTLISTED',
+        applicant_name: 'Rahim Uddin',
+        intake_title: 'Class 1 Admission 2026',
+      });
+    });
+
+    it('404s for an unknown reference number without leaking existence of other applicants', async () => {
+      const intakeId = await createIntake();
+      await createApplicant(SEED_TENANT_ID, intakeId);
+
+      await supertest(app.getHttpServer())
+        .get(`/api/v1/public/admission/${SEED_SLUG}/status/ADM-2026-999999`)
+        .expect(404);
+    });
+
+    it("404s for a reference number that belongs to a different tenant", async () => {
+      const otherIntakeId = await createIntake({ tenant_id: OTHER_TENANT_ID });
+      const referenceNumber = await createApplicant(OTHER_TENANT_ID, otherIntakeId);
+
+      await supertest(app.getHttpServer())
+        .get(`/api/v1/public/admission/${SEED_SLUG}/status/${referenceNumber}`)
+        .expect(404);
+    });
+
+    it('404s for an unknown slug', async () => {
+      const intakeId = await createIntake();
+      const referenceNumber = await createApplicant(SEED_TENANT_ID, intakeId);
+
+      await supertest(app.getHttpServer())
+        .get(`/api/v1/public/admission/no-such-school/status/${referenceNumber}`)
+        .expect(404);
+    });
+
+    it('is wired to the ADMISSION_STATUS_RATE_LIMIT tier (30/min)', () => {
+      expect(ADMISSION_STATUS_RATE_LIMIT).toEqual({ limit: 30, ttl: 60_000 });
     });
   });
 

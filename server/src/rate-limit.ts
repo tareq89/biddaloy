@@ -81,3 +81,13 @@ export const PUBLIC_INVOICE_RATE_LIMIT: RateLimitTierOptions = { limit: 30, ttl:
  * a brute-force scan across random 32-byte tokens.
  */
 export const CALENDAR_FEED_RATE_LIMIT: RateLimitTierOptions = { limit: 30, ttl: 60_000 };
+
+/**
+ * Applied to `GET /public/admission/:slug/status/:referenceNumber` (#1042)
+ * — a public, no-auth status-check GET keyed by reference number, same
+ * shape as `PUBLIC_INVOICE_RATE_LIMIT`'s per-token GET rather than the
+ * submit route's `STRICT_RATE_LIMIT` (sized for the expensive write path).
+ * 30/min per IP is generous for a guardian re-checking status while still
+ * bounding a brute-force scan across reference numbers.
+ */
+export const ADMISSION_STATUS_RATE_LIMIT: RateLimitTierOptions = { limit: 30, ttl: 60_000 };
