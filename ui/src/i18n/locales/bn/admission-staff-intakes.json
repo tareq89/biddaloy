@@ -1,0 +1,40 @@
+{
+  "list": {
+    "title": "ভর্তি গ্রহণ পর্ব",
+    "caption": "ভর্তি গ্রহণ পর্ব",
+    "addIntake": "গ্রহণ পর্ব যোগ করুন",
+    "columnTitle": "শিরোনাম",
+    "columnClassSection": "শ্রেণি / শাখা",
+    "columnSeatCount": "আসন",
+    "columnOpenDate": "শুরু",
+    "columnCloseDate": "শেষ",
+    "columnStatus": "অবস্থা",
+    "statusOpen": "চলমান",
+    "statusClosed": "বন্ধ",
+    "emptyMessage": "কোনো ভর্তি গ্রহণ পর্ব পাওয়া যায়নি",
+    "errorMessage": "ভর্তি গ্রহণ পর্ব লোড করা যায়নি"
+  },
+  "createDialog": {
+    "title": "ভর্তি গ্রহণ পর্ব যোগ করুন",
+    "errorMessage": "ভর্তি গ্রহণ পর্ব তৈরি করা যায়নি",
+    "save": "তৈরি করুন",
+    "saving": "তৈরি হচ্ছে…"
+  },
+  "form": {
+    "titleLabel": "শিরোনাম",
+    "classSectionLabel": "শ্রেণি / শাখা",
+    "classSectionPlaceholder": "একটি শ্রেণি ও শাখা নির্বাচন করুন",
+    "seatCountLabel": "আসন সংখ্যা",
+    "openDateLabel": "শুরুর তারিখ",
+    "closeDateLabel": "শেষের তারিখ",
+    "requiredDocumentsLabel": "প্রয়োজনীয় ডকুমেন্ট",
+    "documentPhoto": "ছবি",
+    "documentBirthCertificate": "জন্ম সনদ",
+    "documentTranscript": "একাডেমিক ট্রান্সক্রিপ্ট"
+  },
+  "detail": {
+    "save": "সংরক্ষণ করুন",
+    "saving": "সংরক্ষণ হচ্ছে…",
+    "errorMessage": "ভর্তি গ্রহণ পর্ব সংরক্ষণ করা যায়নি"
+  }
+}

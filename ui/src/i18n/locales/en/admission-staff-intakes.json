@@ -1,0 +1,40 @@
+{
+  "list": {
+    "title": "Admission intakes",
+    "caption": "Admission intakes",
+    "addIntake": "Add intake",
+    "columnTitle": "Title",
+    "columnClassSection": "Class / Section",
+    "columnSeatCount": "Seats",
+    "columnOpenDate": "Opens",
+    "columnCloseDate": "Closes",
+    "columnStatus": "Status",
+    "statusOpen": "Open",
+    "statusClosed": "Closed",
+    "emptyMessage": "No admission intakes found",
+    "errorMessage": "Failed to load admission intakes"
+  },
+  "createDialog": {
+    "title": "Add admission intake",
+    "errorMessage": "Failed to create admission intake",
+    "save": "Create",
+    "saving": "Creating…"
+  },
+  "form": {
+    "titleLabel": "Title",
+    "classSectionLabel": "Class / Section",
+    "classSectionPlaceholder": "Select a class and section",
+    "seatCountLabel": "Seat count",
+    "openDateLabel": "Open date",
+    "closeDateLabel": "Close date",
+    "requiredDocumentsLabel": "Required documents",
+    "documentPhoto": "Photo",
+    "documentBirthCertificate": "Birth certificate",
+    "documentTranscript": "Transcript"
+  },
+  "detail": {
+    "save": "Save",
+    "saving": "Saving…",
+    "errorMessage": "Failed to save admission intake"
+  }
+}
