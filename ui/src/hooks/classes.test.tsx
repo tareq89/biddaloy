@@ -277,6 +277,7 @@ describe('useAssignTeacher invalidates both the section-scoped and class-wide te
     const invalidatedKeys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
     expect(invalidatedKeys).toContainEqual(['classes', 'section-teachers', 'class-1', 'section-1']);
     expect(invalidatedKeys).toContainEqual(['classes', 'teachers', 'class-1']);
+    expect(invalidatedKeys).toContainEqual(['teachers', 'assignments']);
   });
 
   it('surfaces the 409 duplicate-assignment error', async () => {
@@ -324,6 +325,7 @@ describe('useUnassignTeacher invalidates both the section-scoped and class-wide 
     const invalidatedKeys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
     expect(invalidatedKeys).toContainEqual(['classes', 'section-teachers', 'class-1', 'section-1']);
     expect(invalidatedKeys).toContainEqual(['classes', 'teachers', 'class-1']);
+    expect(invalidatedKeys).toContainEqual(['teachers', 'assignments']);
   });
 });
 

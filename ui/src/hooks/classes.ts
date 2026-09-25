@@ -252,9 +252,13 @@ export function useSectionTeachers(classId: string, sectionId: string) {
 }
 
 /** [29.0] Assign a teacher to a section (class-teacher or subject-teacher,
- * per `AssignTeacherDto.subject_id`'s presence). Invalidates both the
- * section-scoped list and the class-wide `classTeachersQueryOptions` list
- * the class detail page's Teachers tab reads. */
+ * per `AssignTeacherDto.subject_id`'s presence). Invalidates the
+ * section-scoped list, the class-wide `classTeachersQueryOptions` list the
+ * class detail page's Teachers tab reads, and the teacher-assignments
+ * prefix (`teacherAssignmentsQueryOptions`, `teachers.ts`) — a broad-prefix
+ * invalidation rather than one exact teacher_id, since D3's auto-replace
+ * can also silently drop a *different* teacher's class-teacher row, whose
+ * Staff-detail cache would otherwise go stale too. */
 export function useAssignTeacher(classId: string, sectionId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -268,6 +272,7 @@ export function useAssignTeacher(classId: string, sectionId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: sectionTeachersKey(classId, sectionId) });
       void queryClient.invalidateQueries({ queryKey: classTeachersQueryOptions(classId).queryKey });
+      void queryClient.invalidateQueries({ queryKey: [...teacherKeys.all, 'assignments'] });
     },
   });
 }
@@ -282,6 +287,7 @@ export function useUnassignTeacher(classId: string, sectionId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: sectionTeachersKey(classId, sectionId) });
       void queryClient.invalidateQueries({ queryKey: classTeachersQueryOptions(classId).queryKey });
+      void queryClient.invalidateQueries({ queryKey: [...teacherKeys.all, 'assignments'] });
     },
   });
 }
