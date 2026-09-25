@@ -753,3 +753,171 @@ export function useStudentResultCard(
 ) {
   return useQuery(studentResultCardQueryOptions(studentId, examId, enabled));
 }
+
+// --- Analysis [26.4.2] ---
+// Hand-typed against `AnalysisService`'s row shapes (`MeritRow`,
+// `DefaultedRow`, `SubjectPassFailRow`/`OverallPassFailRow`,
+// `ComponentPassFailRow`) — same no-`@ApiResponse` gap `ResultRow` above
+// documents. Every endpoint replies `{status, rows}`: `status` is the
+// exam's `ExamStatus` so the screen can render "process results first"
+// while the exam is still DRAFT instead of an empty table.
+
+export interface MeritRow {
+  student_id: string;
+  roll_number: number;
+  full_name: string;
+  section_id: string | null;
+  section_name: string | null;
+  total_marks: number;
+  gpa: number;
+  grade: string;
+  position: number | null;
+  section_position: number | null;
+  is_fail: boolean;
+}
+
+export interface DefaultedRow extends MeritRow {
+  failed_subjects: Array<{ subject_id: string; name: string }>;
+  absent_subjects: Array<{ subject_id: string; name: string }>;
+}
+
+export interface SubjectPassFailRow {
+  subject_id: string;
+  subject_name: string;
+  appeared: number;
+  passed: number;
+  failed: number;
+  absent: number;
+  pass_pct: number;
+  highest: number | null;
+  average: number | null;
+  grade_distribution: Record<string, number>;
+}
+
+export interface OverallPassFailRow {
+  subject_id: null;
+  subject_name: 'Overall';
+  appeared: number;
+  passed: number;
+  failed: number;
+  absent: number;
+  pass_pct: number;
+  highest: number | null;
+  average: number | null;
+  grade_distribution: Record<string, number>;
+}
+
+export interface PassFailResult {
+  status: string;
+  subjects: SubjectPassFailRow[];
+  overall: OverallPassFailRow;
+}
+
+export interface ComponentPassFailRow {
+  subject_id: string;
+  subject_name: string;
+  component_id: string;
+  component_name: string;
+  sequence: number;
+  appeared: number;
+  absent: number;
+  below_pass: number | null;
+  highest: number | null;
+  average: number | null;
+}
+
+export function analysisKey(kind: string, examId: string | undefined, sectionId?: string) {
+  return [...examKeys.all, 'analysis', kind, examId, sectionId] as const;
+}
+
+export function meritListQueryOptions(examId: string | undefined, sectionId?: string) {
+  return queryOptions({
+    queryKey: analysisKey('merit', examId, sectionId),
+    queryFn: async ({ signal }) =>
+      (
+        await apiClient.get<{ status: string; rows: MeritRow[] }>(
+          `/exams/${examId}/analysis/merit`,
+          { params: sectionId ? { section_id: sectionId } : {}, signal },
+        )
+      ).data,
+    enabled: examId !== undefined,
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useMeritList(examId: string | undefined, sectionId?: string) {
+  return useQuery(meritListQueryOptions(examId, sectionId));
+}
+
+export function defaultedListQueryOptions(examId: string | undefined, sectionId?: string) {
+  return queryOptions({
+    queryKey: analysisKey('defaulted', examId, sectionId),
+    queryFn: async ({ signal }) =>
+      (
+        await apiClient.get<{ status: string; rows: DefaultedRow[] }>(
+          `/exams/${examId}/analysis/defaulted`,
+          { params: sectionId ? { section_id: sectionId } : {}, signal },
+        )
+      ).data,
+    enabled: examId !== undefined,
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useDefaultedList(examId: string | undefined, sectionId?: string) {
+  return useQuery(defaultedListQueryOptions(examId, sectionId));
+}
+
+export function passFailQueryOptions(examId: string | undefined, sectionId?: string) {
+  return queryOptions({
+    queryKey: analysisKey('pass-fail', examId, sectionId),
+    queryFn: async ({ signal }) =>
+      (
+        await apiClient.get<{ status: string; subjects: SubjectPassFailRow[]; overall: OverallPassFailRow }>(
+          `/exams/${examId}/analysis/pass-fail`,
+          { params: sectionId ? { section_id: sectionId } : {}, signal },
+        )
+      ).data,
+    enabled: examId !== undefined,
+    retry: shouldRetryQuery,
+  });
+}
+
+export function usePassFail(examId: string | undefined, sectionId?: string) {
+  return useQuery(passFailQueryOptions(examId, sectionId));
+}
+
+export function passFailByComponentQueryOptions(examId: string | undefined, sectionId?: string) {
+  return queryOptions({
+    queryKey: analysisKey('pass-fail-components', examId, sectionId),
+    queryFn: async ({ signal }) =>
+      (
+        await apiClient.get<{ status: string; rows: ComponentPassFailRow[] }>(
+          `/exams/${examId}/analysis/pass-fail/components`,
+          { params: sectionId ? { section_id: sectionId } : {}, signal },
+        )
+      ).data,
+    enabled: examId !== undefined,
+    retry: shouldRetryQuery,
+  });
+}
+
+export function usePassFailByComponent(examId: string | undefined, sectionId?: string) {
+  return useQuery(passFailByComponentQueryOptions(examId, sectionId));
+}
+
+/** Print/CSV buttons link directly to this URL (`<a href>`, not a fetch) —
+ * the server streams a `StreamableFile` with a `Content-Disposition`
+ * attachment header, same pattern `analysisCsvUrl`'s callers already use
+ * for exam schedule exports elsewhere in the app. */
+export function analysisCsvUrl(
+  examId: string,
+  kind: 'merit' | 'defaulted' | 'pass-fail',
+  sectionId?: string,
+): string {
+  const base = apiClient.getUri({
+    url: `/exams/${examId}/analysis/${kind}.csv`,
+    params: sectionId ? { section_id: sectionId } : {},
+  });
+  return base;
+}

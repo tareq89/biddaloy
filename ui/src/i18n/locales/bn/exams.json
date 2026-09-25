@@ -275,5 +275,65 @@
     "fourthSubject": "চতুর্থ বিষয়",
     "absent": "অনুপস্থিত",
     "legendTitle": "গ্রেড বিবরণী"
+  },
+  "analysis": {
+    "tabs": {
+      "merit": "মেধা তালিকা",
+      "defaulted": "অকৃতকার্য/অনুপস্থিত",
+      "passFail": "পাস / ফেল"
+    },
+    "sectionFilter": "শাখা",
+    "allSections": "সকল শাখা",
+    "byComponent": "উপাদান অনুযায়ী",
+    "print": "প্রিন্ট",
+    "downloadCsv": "সিএসভি ডাউনলোড",
+    "empty": {
+      "notProcessed": "প্রথমে ফলাফল প্রসেস করুন।",
+      "noDefaulters": "কোনো অকৃতকার্য/অনুপস্থিত শিক্ষার্থী নেই — সবাই পাস করেছে।"
+    },
+    "reasons": {
+      "failed": "ফেল: {{subjects}}",
+      "absent": "অনুপস্থিত: {{subjects}}"
+    },
+    "merit": {
+      "columnPosition": "অবস্থান",
+      "columnSectionPosition": "শাখা অবস্থান",
+      "columnStudent": "রোল · নাম",
+      "columnSection": "শাখা",
+      "columnTotal": "মোট",
+      "columnGpa": "জিপিএ",
+      "columnGrade": "গ্রেড",
+      "columnStatus": "অবস্থা",
+      "pass": "পাস",
+      "fail": "ফেল"
+    },
+    "defaulted": {
+      "columnStudent": "রোল · নাম",
+      "columnSection": "শাখা",
+      "columnReasons": "কারণ",
+      "columnTotal": "মোট",
+      "columnGpa": "জিপিএ",
+      "columnGrade": "গ্রেড"
+    },
+    "passFail": {
+      "columnSubject": "বিষয়",
+      "columnAppeared": "উপস্থিত",
+      "columnPassed": "পাস",
+      "columnFailed": "ফেল",
+      "columnAbsent": "অনুপস্থিত",
+      "columnPassPct": "পাসের হার %",
+      "columnHighest": "সর্বোচ্চ",
+      "columnAverage": "গড়",
+      "overallRow": "সামগ্রিক"
+    },
+    "passFailComponent": {
+      "columnSubject": "বিষয়",
+      "columnComponent": "উপাদান",
+      "columnAppeared": "উপস্থিত",
+      "columnAbsent": "অনুপস্থিত",
+      "columnBelowPass": "পাস নম্বরের নিচে",
+      "columnHighest": "সর্বোচ্চ",
+      "columnAverage": "গড়"
+    }
   }
 }

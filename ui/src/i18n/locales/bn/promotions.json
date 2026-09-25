@@ -1,0 +1,59 @@
+{
+  "list": {
+    "title": "উত্তরণ",
+    "newRun": "নতুন উত্তরণ রান",
+    "columnSourceClass": "উৎস শ্রেণি",
+    "columnTargetYear": "লক্ষ্য বছর",
+    "columnStatus": "অবস্থা",
+    "columnOverrides": "ওভাররাইড",
+    "columnCommittedAt": "চূড়ান্ত করার সময়",
+    "empty": "এখনো কোনো উত্তরণ রান নেই।",
+    "statusDraft": "খসড়া",
+    "statusCommitted": "চূড়ান্ত"
+  },
+  "newRunForm": {
+    "title": "নতুন উত্তরণ রান",
+    "sourceClassLabel": "উৎস শ্রেণি",
+    "targetYearLabel": "লক্ষ্য শিক্ষাবর্ষ",
+    "targetClassLabel": "লক্ষ্য শ্রেণি",
+    "graduateOption": "উত্তীর্ণ করুন (কোনো লক্ষ্য শ্রেণি নেই)",
+    "examsLabel": "গড় করার পরীক্ষাসমূহ",
+    "algorithmLabel": "বিন্যাস পদ্ধতি",
+    "algorithmBlock": "ব্লক (ক্রমানুসারে শাখা পূরণ)",
+    "algorithmSnake": "স্নেক (শাখাগুলোর মধ্যে ভারসাম্য)",
+    "create": "রান তৈরি করুন",
+    "cancel": "বাতিল"
+  },
+  "blocking": {
+    "pickTargetClass": "একটি লক্ষ্য শ্রেণি নির্বাচন করুন, অথবা উৎস শ্রেণি উত্তীর্ণ করুন।",
+    "targetSectionsMissing": "লক্ষ্য শ্রেণিতে এখনো কোনো শাখা নেই — এটি চালানোর আগে অন্তত একটি তৈরি করুন।",
+    "retainClassMissing": "উত্তীর্ণ না হওয়া শিক্ষার্থীদের রাখার জন্য কোনো শ্রেণি সেট করা নেই — প্রথমে একটি যোগ করুন।"
+  },
+  "grid": {
+    "columnStudent": "রোল · নাম",
+    "columnMeritRank": "মেধাক্রম",
+    "columnMeanGpa": "গড় জিপিএ",
+    "columnSuggested": "প্রস্তাবিত",
+    "columnFinal": "চূড়ান্ত",
+    "columnGroup": "গ্রুপ",
+    "columnOverrideNote": "ওভাররাইড নোট",
+    "refresh": "রিফ্রেশ",
+    "delete": "রান মুছুন",
+    "commit": "চূড়ান্ত করুন",
+    "overflowWarning": "এই শাখাটি ধারণক্ষমতার চেয়ে {{count}} বেশি।",
+    "staleResultsPrompt": "সর্বশেষ রিফ্রেশের পর ফলাফল পরিবর্তিত হয়েছে — চূড়ান্ত করার আগে রিফ্রেশ করুন।",
+    "commitConfirm": {
+      "title": "এই উত্তরণ রানটি চূড়ান্ত করবেন?",
+      "body": "{{promoted}} জন উত্তীর্ণ, {{retained}} জন অপরিবর্তিত, {{graduated}} জন গ্র্যাজুয়েট হবে। এটি পূর্বাবস্থায় ফেরানো যাবে না।",
+      "confirm": "চূড়ান্ত করুন",
+      "cancel": "বাতিল"
+    }
+  },
+  "outcome": {
+    "promote": "উত্তীর্ণ",
+    "retain": "অপরিবর্তিত",
+    "graduate": "গ্র্যাজুয়েট"
+  },
+  "overrideNote": "অ্যালগরিদমের প্রস্তাব থেকে ওভাররাইড করা হয়েছে — একটি নোট আবশ্যক।",
+  "badge": "ওভাররাইডের মাধ্যমে উত্তীর্ণ, {{year}}: {{note}} — {{user}} দ্বারা"
+}

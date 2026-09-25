@@ -275,5 +275,65 @@
     "fourthSubject": "4th subject",
     "absent": "Absent",
     "legendTitle": "Grade legend"
+  },
+  "analysis": {
+    "tabs": {
+      "merit": "Merit list",
+      "defaulted": "Defaulters",
+      "passFail": "Pass / fail"
+    },
+    "sectionFilter": "Section",
+    "allSections": "All sections",
+    "byComponent": "By component",
+    "print": "Print",
+    "downloadCsv": "Download CSV",
+    "empty": {
+      "notProcessed": "Process results first.",
+      "noDefaulters": "No defaulters — everyone passed."
+    },
+    "reasons": {
+      "failed": "Failed: {{subjects}}",
+      "absent": "Absent: {{subjects}}"
+    },
+    "merit": {
+      "columnPosition": "Position",
+      "columnSectionPosition": "Section position",
+      "columnStudent": "Roll · Name",
+      "columnSection": "Section",
+      "columnTotal": "Total",
+      "columnGpa": "GPA",
+      "columnGrade": "Grade",
+      "columnStatus": "Status",
+      "pass": "Pass",
+      "fail": "Fail"
+    },
+    "defaulted": {
+      "columnStudent": "Roll · Name",
+      "columnSection": "Section",
+      "columnReasons": "Reasons",
+      "columnTotal": "Total",
+      "columnGpa": "GPA",
+      "columnGrade": "Grade"
+    },
+    "passFail": {
+      "columnSubject": "Subject",
+      "columnAppeared": "Appeared",
+      "columnPassed": "Passed",
+      "columnFailed": "Failed",
+      "columnAbsent": "Absent",
+      "columnPassPct": "Pass %",
+      "columnHighest": "Highest",
+      "columnAverage": "Average",
+      "overallRow": "Overall"
+    },
+    "passFailComponent": {
+      "columnSubject": "Subject",
+      "columnComponent": "Component",
+      "columnAppeared": "Appeared",
+      "columnAbsent": "Absent",
+      "columnBelowPass": "Below pass",
+      "columnHighest": "Highest",
+      "columnAverage": "Average"
+    }
   }
 }
