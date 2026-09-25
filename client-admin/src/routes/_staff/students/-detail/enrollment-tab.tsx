@@ -9,7 +9,11 @@ import {
   TableHeader,
   TableRow,
 } from '@biddaloy/ui/components';
-import { useHasPermission, useStudentEnrollments } from '@biddaloy/ui/hooks';
+import {
+  useHasPermission,
+  useStudentEnrollments,
+  useStudentPromotionOverrides,
+} from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
@@ -23,7 +27,15 @@ export interface EnrollmentTabProps {
 
 export function EnrollmentTab({ studentId, studentName }: EnrollmentTabProps) {
   const { t } = useTranslation('students');
+  // [26.5.2] Separate binding so `promotions` is actually loaded before
+  // the override line renders — same reasoning `teachers-tab.tsx` gives
+  // for its own `staff` binding: `useTranslation(['students',
+  // 'promotions'])` wouldn't work because `check-i18n-keys.mjs` resolves
+  // this file's namespace from the first single-quoted
+  // `useTranslation('...')` call, and an array argument doesn't match.
+  useTranslation('promotions');
   const query = useStudentEnrollments(studentId);
+  const overridesQuery = useStudentPromotionOverrides(studentId);
   const canUpdate = useHasPermission(Permission.STUDENT_UPDATE);
   const [moveDialogOpen, setMoveDialogOpen] = React.useState(false);
 
@@ -61,26 +73,51 @@ export function EnrollmentTab({ studentId, studentName }: EnrollmentTabProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {enrollments.map((enrollment) => (
-                  <TableRow key={enrollment.id}>
-                    <TableCell>{enrollment.class.name}</TableCell>
-                    <TableCell>
-                      {enrollment.section?.section_name ?? t('list.emptyValue')}
-                    </TableCell>
-                    <TableCell>{enrollment.academic_year.name}</TableCell>
-                    <TableCell>
-                      {/* `schema.d.ts` types this as a string-literal union,
-                          not the real `EnrollmentStatus` enum — same cast
-                          $studentId.tsx's header badge already uses for
-                          Student.enrollment_status. */}
-                      <StatusBadge
-                        domain="enrollment"
-                        status={enrollment.enrollment_status as EnrollmentStatus}
-                      />
-                    </TableCell>
-                    <TableCell>{enrollment.enrolled_at}</TableCell>
-                  </TableRow>
-                ))}
+                {enrollments.map((enrollment) => {
+                  // [26.5.2] D12: one override can match several
+                  // enrollments only if a student was promoted/retained
+                  // more than once into the same target year, which
+                  // doesn't happen in practice — matching on year name is
+                  // enough, and it's the only field `findStudentOverrides`
+                  // gives us to join on (no enrollment id on the DTO).
+                  const override = overridesQuery.data?.find(
+                    (o) => o.target_academic_year_name === enrollment.academic_year.name,
+                  );
+                  return (
+                    <React.Fragment key={enrollment.id}>
+                      <TableRow>
+                        <TableCell>{enrollment.class.name}</TableCell>
+                        <TableCell>
+                          {enrollment.section?.section_name ?? t('list.emptyValue')}
+                        </TableCell>
+                        <TableCell>{enrollment.academic_year.name}</TableCell>
+                        <TableCell>
+                          {/* `schema.d.ts` types this as a string-literal union,
+                              not the real `EnrollmentStatus` enum — same cast
+                              $studentId.tsx's header badge already uses for
+                              Student.enrollment_status. */}
+                          <StatusBadge
+                            domain="enrollment"
+                            status={enrollment.enrollment_status as EnrollmentStatus}
+                          />
+                        </TableCell>
+                        <TableCell>{enrollment.enrolled_at}</TableCell>
+                      </TableRow>
+                      {override && (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-xs text-muted-foreground">
+                            {t('badge', {
+                              ns: 'promotions',
+                              year: override.target_academic_year_name ?? '',
+                              note: override.override_note ?? '',
+                              user: override.overridden_by_name ?? '',
+                            })}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </TableBody>
             </Table>
           )
