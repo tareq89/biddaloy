@@ -29,14 +29,15 @@ import {
   SelectValue,
 } from '@biddaloy/ui/components';
 import {
+  examsQueryOptions,
   useAcademicYears,
   useClasses,
   useCreatePromotionRun,
-  useExams,
   useSuggestPromotionTarget,
   type BlockingReason,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
@@ -120,11 +121,14 @@ function NewPromotionRunPage() {
   const targetClasses = targetYearId ? (targetClassesQuery.data?.data ?? []) : [];
   const targetClassId = targetClassOverride ?? suggestion.data?.target_class?.id;
 
-  const examsQuery = useExams(
-    sourceClass
-      ? { class_id: sourceClass.id, academic_year_id: sourceClass.academic_year_id, limit: 100 }
-      : {},
-  );
+  const examsQuery = useQuery({
+    ...examsQueryOptions(
+      sourceClass
+        ? { class_id: sourceClass.id, academic_year_id: sourceClass.academic_year_id, limit: 100 }
+        : {},
+    ),
+    enabled: sourceClass !== undefined,
+  });
   const published = (examsQuery.data?.data ?? []).filter((exam) => exam.status === 'PUBLISHED');
   const selectedExamIds = published
     .filter((exam) => !deselectedExamIds.has(exam.id))
@@ -293,9 +297,9 @@ function NewPromotionRunPage() {
           <div role="alert" className="text-sm text-destructive">
             <p>{t(BLOCKING_KEY[reason])}</p>
             {targetYearId && (
-              <a href={`/classes?academic_year_id=${targetYearId}`} className="underline">
+              <Link to="/classes" search={{ academic_year_id: targetYearId }} className="underline">
                 {t('newRunForm.openClasses', { year: targetYearName ?? '' })}
-              </a>
+              </Link>
             )}
           </div>
         )}
