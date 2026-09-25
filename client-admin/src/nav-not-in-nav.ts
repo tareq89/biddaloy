@@ -56,6 +56,9 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/results/$examId/$studentId':
     'report card, reached from the exam Results tab or /results, not its own sidebar item',
   '/_staff/grading-scales/$scaleId': 'detail route reached from the grading scales list',
+  '/_staff/admissions/intakes/$intakeId': 'detail route reached from the admission intakes list',
+  '/_staff/admissions/applicants/$applicantId':
+    'detail route reached from the admission applicants list',
   '/_staff/guardians/$guardianId': 'detail route reached from the guardians list',
   '/_staff/routines/$sectionId': 'detail route reached from the routine builder section list',
   '/_staff/invoices/$invoiceId': 'detail route reached from the invoices list',

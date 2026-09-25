@@ -62,6 +62,7 @@ describe('ApplicantReviewService', () => {
     applicantRepo = {
       findOne: vi.fn(),
       update: vi.fn(),
+      find: vi.fn(),
       manager: {
         transaction: vi.fn(async (cb: (manager: unknown) => Promise<unknown>) =>
           cb({
@@ -81,8 +82,14 @@ describe('ApplicantReviewService', () => {
         },
       },
     };
-    evaluationRepo = { create: vi.fn((dto) => dto), save: vi.fn(async (e) => e) };
-    intakeRepo = { findOne: vi.fn(async () => ({ id: 'intake-1', class_section_id: 'section-1', title: 'Class 1 Admission' })) };
+    evaluationRepo = { create: vi.fn((dto) => dto), save: vi.fn(async (e) => e), find: vi.fn() };
+    intakeRepo = {
+      findOne: vi.fn(async () => ({
+        id: 'intake-1',
+        class_section_id: 'section-1',
+        title: 'Class 1 Admission',
+      })),
+    };
     studentService = { create: vi.fn(async () => ({ id: 'student-1' })) };
     guardianService = { findByPhone: vi.fn(), create: vi.fn() };
     notificationService = { notifyStatusChange: vi.fn(async () => undefined) };
@@ -115,7 +122,11 @@ describe('ApplicantReviewService', () => {
       );
 
       expect(evaluationRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ tenant_id: TENANT_A, reviewer_user_id: REVIEWER, decision: 'SHORTLIST' }),
+        expect.objectContaining({
+          tenant_id: TENANT_A,
+          reviewer_user_id: REVIEWER,
+          decision: 'SHORTLIST',
+        }),
       );
       expect(applicantRepo.update).toHaveBeenCalledWith(
         { id: 'applicant-1', tenant_id: TENANT_A },
@@ -133,7 +144,12 @@ describe('ApplicantReviewService', () => {
         .mockResolvedValueOnce(makeApplicant())
         .mockResolvedValueOnce(makeApplicant({ status: AdmissionApplicantStatus.REJECTED }));
 
-      await service.evaluate('applicant-1', { notes: 'Not a fit', decision: 'REJECT' }, TENANT_A, REVIEWER);
+      await service.evaluate(
+        'applicant-1',
+        { notes: 'Not a fit', decision: 'REJECT' },
+        TENANT_A,
+        REVIEWER,
+      );
 
       expect(applicantRepo.update).toHaveBeenCalledWith(
         { id: 'applicant-1', tenant_id: TENANT_A },
@@ -179,11 +195,18 @@ describe('ApplicantReviewService', () => {
 
       await service.admit('applicant-1', {}, TENANT_A, REVIEWER);
 
-      expect(guardianService.findByPhone).toHaveBeenCalledWith('01700000000', TENANT_A, expect.anything());
+      expect(guardianService.findByPhone).toHaveBeenCalledWith(
+        '01700000000',
+        TENANT_A,
+        expect.anything(),
+      );
       expect(guardianService.create).not.toHaveBeenCalled();
       expect(studentService.create).toHaveBeenCalledTimes(1);
       expect(studentService.create).toHaveBeenCalledWith(
-        expect.objectContaining({ guardian_ids: ['guardian-existing'], class_section_id: 'section-1' }),
+        expect.objectContaining({
+          guardian_ids: ['guardian-existing'],
+          class_section_id: 'section-1',
+        }),
         TENANT_A,
         expect.anything(),
       );
@@ -223,7 +246,9 @@ describe('ApplicantReviewService', () => {
       applicantRepo.findOne.mockResolvedValueOnce(
         makeApplicant({ status: AdmissionApplicantStatus.ADMITTED }),
       );
-      await expect(service.admit('applicant-1', {}, TENANT_A, REVIEWER)).rejects.toThrow(ConflictException);
+      await expect(service.admit('applicant-1', {}, TENANT_A, REVIEWER)).rejects.toThrow(
+        ConflictException,
+      );
       expect(studentService.create).not.toHaveBeenCalled();
     });
 
@@ -231,7 +256,9 @@ describe('ApplicantReviewService', () => {
       applicantRepo.findOne.mockResolvedValueOnce(
         makeApplicant({ status: AdmissionApplicantStatus.REJECTED }),
       );
-      await expect(service.admit('applicant-1', {}, TENANT_A, REVIEWER)).rejects.toThrow(ConflictException);
+      await expect(service.admit('applicant-1', {}, TENANT_A, REVIEWER)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
@@ -259,15 +286,83 @@ describe('ApplicantReviewService', () => {
       applicantRepo.findOne.mockResolvedValueOnce(
         makeApplicant({ status: AdmissionApplicantStatus.ADMITTED }),
       );
-      await expect(service.reject('applicant-1', TENANT_A, REVIEWER)).rejects.toThrow(ConflictException);
+      await expect(service.reject('applicant-1', TENANT_A, REVIEWER)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('blocks re-rejecting an already-REJECTED applicant', async () => {
       applicantRepo.findOne.mockResolvedValueOnce(
         makeApplicant({ status: AdmissionApplicantStatus.REJECTED }),
       );
-      await expect(service.reject('applicant-1', TENANT_A, REVIEWER)).rejects.toThrow(ConflictException);
+      await expect(service.reject('applicant-1', TENANT_A, REVIEWER)).rejects.toThrow(
+        ConflictException,
+      );
       expect(evaluationRepo.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('list', () => {
+    it('scopes to tenant and passes through intake/status filters', async () => {
+      applicantRepo.find.mockResolvedValueOnce([makeApplicant()]);
+
+      await service.list(TENANT_A, {
+        intakeId: 'intake-1',
+        status: AdmissionApplicantStatus.SHORTLISTED,
+      });
+
+      expect(applicantRepo.find).toHaveBeenCalledWith({
+        where: {
+          tenant_id: TENANT_A,
+          deleted_at: expect.anything(),
+          intake_id: 'intake-1',
+          status: AdmissionApplicantStatus.SHORTLISTED,
+        },
+        order: { created_at: 'DESC' },
+      });
+    });
+
+    it('does not leak a tenant-B applicant into tenant-A results', async () => {
+      applicantRepo.find.mockResolvedValueOnce([]);
+
+      const result = await service.list(TENANT_A, {});
+
+      expect(applicantRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ tenant_id: TENANT_A }) }),
+      );
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('findWithHistory', () => {
+    it('returns the applicant plus its evaluation history, tenant-scoped', async () => {
+      applicantRepo.findOne.mockResolvedValueOnce(makeApplicant());
+      evaluationRepo.find.mockResolvedValueOnce([
+        {
+          id: 'eval-1',
+          reviewer_user_id: REVIEWER,
+          notes: 'Looks good',
+          decision: 'SHORTLIST',
+          created_at: new Date(),
+        },
+      ]);
+
+      const result = await service.findWithHistory('applicant-1', TENANT_A);
+
+      expect(evaluationRepo.find).toHaveBeenCalledWith({
+        where: { applicant_id: 'applicant-1', tenant_id: TENANT_A },
+        order: { created_at: 'DESC' },
+      });
+      expect(result.applicant.id).toBe('applicant-1');
+      expect(result.evaluations).toHaveLength(1);
+    });
+
+    it('404s for an applicant in a different tenant', async () => {
+      applicantRepo.findOne.mockResolvedValueOnce(null);
+      await expect(service.findWithHistory('applicant-1', TENANT_B)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(evaluationRepo.find).not.toHaveBeenCalled();
     });
   });
 });
