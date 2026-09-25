@@ -93,11 +93,15 @@ test('admin builds a section routine, resolves a teacher clash, fill-assists, an
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('Enter');
 
-    await tabUntilFocused(page, t('routines.cellPicker.subjectFilterPlaceholder'));
+    // The dialog's `onOpenAutoFocus` already puts focus on the subject
+    // filter input when it opens — no Tab needed, and `tabUntilFocused`
+    // matches accessible text via the field's <Label>/aria-label, never
+    // its placeholder, so it could never have found this field by its
+    // placeholder string anyway.
     await page.keyboard.type('Math');
     await page.keyboard.press('Tab');
     await page.keyboard.press('Enter'); // pick the filtered subject
-    await tabUntilFocused(page, t('routines.cellPicker.teacherFilterPlaceholder'));
+    await tabUntilFocused(page, t('routines.cellPicker.teacherLabel'));
     await page.keyboard.type('Routine Teacher');
     await page.keyboard.press('Tab');
     await page.keyboard.press('Space'); // check the first matching teacher
@@ -130,11 +134,11 @@ test('admin builds a section routine, resolves a teacher clash, fill-assists, an
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('Enter');
-    await tabUntilFocused(page, t('routines.cellPicker.subjectFilterPlaceholder'));
+    // Same autofocus as the first step's cell picker.
     await page.keyboard.type('Math');
     await page.keyboard.press('Tab');
     await page.keyboard.press('Enter');
-    await tabUntilFocused(page, t('routines.cellPicker.teacherFilterPlaceholder'));
+    await tabUntilFocused(page, t('routines.cellPicker.teacherLabel'));
     await page.keyboard.type('Routine Teacher');
     await page.keyboard.press('Tab');
     await page.keyboard.press('Space');
