@@ -165,8 +165,12 @@
       "columnEmployeeId": "Employee ID",
       "columnDesignations": "Designations",
       "columnSections": "Sections",
-      "emptyMessage": "No teachers assigned to this class",
-      "errorMessage": "Failed to load teachers"
+      "emptyMessage": "This class has no sections yet",
+      "emptySectionMessage": "No teachers assigned to this section",
+      "errorMessage": "Failed to load teachers",
+      "assign": "Assign",
+      "remove": "Remove",
+      "removeError": "Failed to remove teacher"
     }
   }
 }
