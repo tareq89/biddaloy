@@ -127,8 +127,12 @@
       "columnEmployeeId": "কর্মচারী আইডি",
       "columnDesignations": "পদবি",
       "columnSections": "শাখা",
-      "emptyMessage": "এই শ্রেণিতে কোনো শিক্ষক নিয়োজিত নেই",
-      "errorMessage": "শিক্ষক লোড করতে ব্যর্থ হয়েছে"
+      "emptyMessage": "এই শ্রেণিতে এখনও কোনো শাখা নেই",
+      "emptySectionMessage": "এই শাখায় কোনো শিক্ষক নিয়োজিত নেই",
+      "errorMessage": "শিক্ষক লোড করতে ব্যর্থ হয়েছে",
+      "assign": "নিয়োগ",
+      "remove": "অপসারণ",
+      "removeError": "শিক্ষক অপসারণ করতে ব্যর্থ হয়েছে"
     },
     "tabSubjects": "বিষয়",
     "tabHomework": "বাড়ির কাজ"
