@@ -34,6 +34,9 @@ import { Homework } from '../modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from '../modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from '../modules/homework/entities/homework-submission.entity';
 import { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.entity';
+import { Enrollment } from '../modules/students/entities/enrollment.entity';
+import { PromotionRun } from '../modules/promotions/entities/promotion-run.entity';
+import { PromotionEntry } from '../modules/promotions/entities/promotion-entry.entity';
 import {
   DEMO_ACADEMIC_YEAR,
   ensureAttendanceSeed,
@@ -42,6 +45,7 @@ import {
   ensureExamsDemoSeed,
   ensureGradingDemoSeed,
   ensureHomeworkDemoSeed,
+  ensurePromotionDemoSeed,
   ensurePublicHolidaySet,
   ensureRoleTestUsers,
   ensureSecondSchoolMembership,
@@ -101,6 +105,9 @@ export interface SeedAccountRepositories {
   homeworkAssignmentRepository: Repository<HomeworkAssignment>;
   homeworkSubmissionRepository: Repository<HomeworkSubmission>;
   syllabusTopicRepository: Repository<SyllabusTopic>;
+  enrollmentRepository: Repository<Enrollment>;
+  promotionRunRepository: Repository<PromotionRun>;
+  promotionEntryRepository: Repository<PromotionEntry>;
 }
 
 /** Creates/repairs the seed accounts, their memberships and the demo
@@ -419,6 +426,41 @@ export async function seedAccounts(
           gradingScaleRevision: scale.revision,
         },
       );
+
+      // [788] One COMMITTED promotion run for "Class 6", with one override
+      // — deliberately after `ensureExamsDemoSeed` (whose exam this run's
+      // `exam_ids` pins) and after `adminTestUser` is resolved above (the
+      // run's `created_by`/`committed_by`/`approved_by`/override actor).
+      if (adminTestUser) {
+        await ensurePromotionDemoSeed(
+          {
+            academicYearRepository: repos.academicYearRepository,
+            classRepository: repos.classRepository,
+            classSectionRepository: repos.classSectionRepository,
+            enrollmentRepository: repos.enrollmentRepository,
+            promotionRunRepository: repos.promotionRunRepository,
+            promotionEntryRepository: repos.promotionEntryRepository,
+          },
+          {
+            schoolId: school.id,
+            sourceClassId: examClass6.id,
+            sourceAcademicYearId: calendarYear.id,
+            examIds: [
+              (
+                await repos.examRepository.findOneOrFail({
+                  where: {
+                    tenant_id: school.id,
+                    academic_year_id: calendarYear.id,
+                    class_id: examClass6.id,
+                  },
+                })
+              ).id,
+            ],
+            createdByUserId: adminTestUser.id,
+            sectionStudentIds: [studentsA.map((s) => s.id), studentsB.map((s) => s.id)],
+          },
+        );
+      }
     }
   }
 }

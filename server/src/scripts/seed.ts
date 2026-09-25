@@ -35,6 +35,9 @@ import { Homework } from '../modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from '../modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from '../modules/homework/entities/homework-submission.entity';
 import { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.entity';
+import { Enrollment } from '../modules/students/entities/enrollment.entity';
+import { PromotionRun } from '../modules/promotions/entities/promotion-run.entity';
+import { PromotionEntry } from '../modules/promotions/entities/promotion-entry.entity';
 import { DEV_SEED_PLATFORM_TENANT_ID } from '../config/env.validation';
 import { seedAccounts } from './seed.accounts';
 import { ensureDemoOrganisation } from './seed.util';
@@ -154,6 +157,9 @@ export async function seed() {
       homeworkAssignmentRepository: dataSource.getRepository(HomeworkAssignment),
       homeworkSubmissionRepository: dataSource.getRepository(HomeworkSubmission),
       syllabusTopicRepository: dataSource.getRepository(SyllabusTopic),
+      enrollmentRepository: dataSource.getRepository(Enrollment),
+      promotionRunRepository: dataSource.getRepository(PromotionRun),
+      promotionEntryRepository: dataSource.getRepository(PromotionEntry),
     },
     school,
     adminEmail,
