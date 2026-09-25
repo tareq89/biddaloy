@@ -68,6 +68,7 @@ import { Route as StaffPaymentsIndexRouteImport } from './routes/_staff/payments
 import { Route as StaffPaymentsIdRouteImport } from './routes/_staff/payments/$id'
 import { Route as StaffPaymentsRecordRouteImport } from './routes/_staff/payments/record'
 import { Route as StaffPromotionsIndexRouteImport } from './routes/_staff/promotions/index'
+import { Route as StaffPromotionsRunIdRouteImport } from './routes/_staff/promotions/$runId'
 import { Route as StaffPromotionsNewRouteImport } from './routes/_staff/promotions/new'
 import { Route as StaffReportsCollectionsRouteImport } from './routes/_staff/reports/collections'
 import { Route as StaffResultsIndexRouteImport } from './routes/_staff/results/index'
@@ -388,6 +389,11 @@ const StaffPromotionsIndexRoute = StaffPromotionsIndexRouteImport.update({
   path: '/promotions/',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffPromotionsRunIdRoute = StaffPromotionsRunIdRouteImport.update({
+  id: '/promotions/$runId',
+  path: '/promotions/$runId',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffPromotionsNewRoute = StaffPromotionsNewRouteImport.update({
   id: '/promotions/new',
   path: '/promotions/new',
@@ -530,6 +536,7 @@ export interface FileRoutesByFullPath {
   '/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
   '/payments/$id': typeof StaffPaymentsIdRoute
   '/payments/record': typeof StaffPaymentsRecordRoute
+  '/promotions/$runId': typeof StaffPromotionsRunIdRoute
   '/promotions/new': typeof StaffPromotionsNewRoute
   '/reports/collections': typeof StaffReportsCollectionsRoute
   '/routines/$sectionId': typeof StaffRoutinesSectionIdRoute
@@ -606,6 +613,7 @@ export interface FileRoutesByTo {
   '/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
   '/payments/$id': typeof StaffPaymentsIdRoute
   '/payments/record': typeof StaffPaymentsRecordRoute
+  '/promotions/$runId': typeof StaffPromotionsRunIdRoute
   '/promotions/new': typeof StaffPromotionsNewRoute
   '/reports/collections': typeof StaffReportsCollectionsRoute
   '/routines/$sectionId': typeof StaffRoutinesSectionIdRoute
@@ -687,6 +695,7 @@ export interface FileRoutesById {
   '/_staff/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
   '/_staff/payments/$id': typeof StaffPaymentsIdRoute
   '/_staff/payments/record': typeof StaffPaymentsRecordRoute
+  '/_staff/promotions/$runId': typeof StaffPromotionsRunIdRoute
   '/_staff/promotions/new': typeof StaffPromotionsNewRoute
   '/_staff/reports/collections': typeof StaffReportsCollectionsRoute
   '/_staff/routines/$sectionId': typeof StaffRoutinesSectionIdRoute
@@ -767,6 +776,7 @@ export interface FileRouteTypes {
     | '/invoices/$invoiceId'
     | '/payments/$id'
     | '/payments/record'
+    | '/promotions/$runId'
     | '/promotions/new'
     | '/reports/collections'
     | '/routines/$sectionId'
@@ -843,6 +853,7 @@ export interface FileRouteTypes {
     | '/invoices/$invoiceId'
     | '/payments/$id'
     | '/payments/record'
+    | '/promotions/$runId'
     | '/promotions/new'
     | '/reports/collections'
     | '/routines/$sectionId'
@@ -923,6 +934,7 @@ export interface FileRouteTypes {
     | '/_staff/invoices/$invoiceId'
     | '/_staff/payments/$id'
     | '/_staff/payments/record'
+    | '/_staff/promotions/$runId'
     | '/_staff/promotions/new'
     | '/_staff/reports/collections'
     | '/_staff/routines/$sectionId'
@@ -1390,6 +1402,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffPromotionsIndexRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/promotions/$runId': {
+      id: '/_staff/promotions/$runId'
+      path: '/promotions/$runId'
+      fullPath: '/promotions/$runId'
+      preLoaderRoute: typeof StaffPromotionsRunIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/promotions/new': {
       id: '/_staff/promotions/new'
       path: '/promotions/new'
@@ -1586,6 +1605,7 @@ interface StaffRouteChildren {
   StaffInvoicesInvoiceIdRoute: typeof StaffInvoicesInvoiceIdRoute
   StaffPaymentsIdRoute: typeof StaffPaymentsIdRoute
   StaffPaymentsRecordRoute: typeof StaffPaymentsRecordRoute
+  StaffPromotionsRunIdRoute: typeof StaffPromotionsRunIdRoute
   StaffPromotionsNewRoute: typeof StaffPromotionsNewRoute
   StaffReportsCollectionsRoute: typeof StaffReportsCollectionsRoute
   StaffRoutinesSectionIdRoute: typeof StaffRoutinesSectionIdRoute
@@ -1639,6 +1659,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffInvoicesInvoiceIdRoute: StaffInvoicesInvoiceIdRoute,
   StaffPaymentsIdRoute: StaffPaymentsIdRoute,
   StaffPaymentsRecordRoute: StaffPaymentsRecordRoute,
+  StaffPromotionsRunIdRoute: StaffPromotionsRunIdRoute,
   StaffPromotionsNewRoute: StaffPromotionsNewRoute,
   StaffReportsCollectionsRoute: StaffReportsCollectionsRoute,
   StaffRoutinesSectionIdRoute: StaffRoutinesSectionIdRoute,
