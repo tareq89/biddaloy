@@ -51,10 +51,10 @@ export interface AssignTeacherDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Omit together with `sectionId` for teacher-centric mode (a class→
    * section picker renders inline instead). */
-  classId?: string;
-  sectionId?: string;
+  classId?: string | undefined;
+  sectionId?: string | undefined;
   /** Teacher-centric mode: prefills and hides the teacher picker. */
-  teacherId?: string;
+  teacherId?: string | undefined;
   onAssigned: () => void;
 }
 
