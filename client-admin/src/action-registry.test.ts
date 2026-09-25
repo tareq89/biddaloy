@@ -34,6 +34,7 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/academics/homework/new': '/_staff/academics/homework/new',
   '/academics/homework/import': '/_staff/academics/homework/import',
   '/academics/syllabus': '/_staff/academics/syllabus/',
+  '/analysis': '/_staff/analysis/',
 };
 
 /**

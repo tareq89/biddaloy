@@ -124,6 +124,15 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.EXAM_MANAGE,
     label: { entity: 'exam' },
   },
+  // [26.5.1] `MARK_VIEW` — same "seeing is weaker than editing" gate
+  // `/marks` already uses; analysis is a read-only view over processed
+  // results, not a write action like `/results`'s `RESULT_PROCESS`.
+  'examsResults.analysis': {
+    id: 'examsResults.analysis',
+    to: '/analysis',
+    permission: Permission.MARK_VIEW,
+    label: { key: 'analysis' },
+  },
   'academics.routineSetup': {
     id: 'academics.routineSetup',
     to: '/routines/setup',
@@ -311,7 +320,11 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
   {
     id: 'examsResults',
     label: { key: 'examsResults' },
-    items: [STAFF_NAV_ITEMS['examsResults.exams'], STAFF_NAV_ITEMS['examsResults.gradingScales']],
+    items: [
+      STAFF_NAV_ITEMS['examsResults.exams'],
+      STAFF_NAV_ITEMS['examsResults.gradingScales'],
+      STAFF_NAV_ITEMS['examsResults.analysis'],
+    ],
   },
   {
     id: 'finance',

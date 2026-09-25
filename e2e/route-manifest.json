@@ -184,6 +184,11 @@
       "archetype": "detail"
     },
     {
+      "path": "/analysis",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
       "path": "/grading-scales",
       "role": "admin",
       "archetype": "list"
