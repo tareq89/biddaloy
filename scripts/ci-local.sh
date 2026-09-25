@@ -268,20 +268,13 @@ section_done() {
 # Dedicated DB name so this never clobbers a dev database. Env values
 # mirror ci.yml's throwaway CI-only secrets — safe in a checked-in script.
 provision_stack() {
-  # [15.5] `minio`/`minio-init` too — `StorageModule` is a boot-time
+  # [15.5] `seaweedfs` too — `StorageModule` is a boot-time
   # dependency of `AppModule` now (`docs:generate`/`seed` below both boot
   # it), and the logo e2e spec needs real object storage, same reasoning
-  # as ci.yml's "integration" job.
-  docker compose up -d db redis minio
-  # `minio-init` is a one-shot `mc mb --ignore-existing`. Run it in the
-  # foreground rather than via `up -d`, which returns once it has *started*,
-  # not finished: `run` waits for `minio` to be healthy (its `depends_on`),
-  # blocks until `mc` exits, and propagates a non-zero exit through `set -e`,
-  # so the bucket exists before anything uploads to it. (Not `docker compose
-  # wait` — on Compose v2.20 that reports "no containers for project" and
-  # exits 1 when the one-shot container has already finished, a false
-  # negative on every fast machine.)
-  docker compose run --rm minio-init
+  # as ci.yml's "integration" job. `mini` creates its bucket on boot and
+  # only reports healthy once that bucket exists, so `--wait` alone is the
+  # bucket-ready signal — no separate init step needed.
+  docker compose up -d --wait db redis seaweedfs
   until docker compose exec -T db pg_isready -U postgres >/dev/null 2>&1; do sleep 1; done
   docker compose exec -T db psql -U postgres -tc \
     "SELECT 1 FROM pg_database WHERE datname = 'biddaloy_ci_local'" | grep -q 1 ||
@@ -292,8 +285,8 @@ provision_stack() {
   export NODE_ENV=test
   export SEED_ADMIN_PASSWORD=ci-integration-seed-password-123
   export SETTINGS_ENCRYPTION_KEY=YmSqNpwxzusjAF12JSD+JNe+3LXrbNJiQza2yTnQyR0=
-  # docker-compose.yml's own S3_* — the compose `minio` service listens on
-  # the compose network as `minio:9000`, exposed to the host at
+  # docker-compose.yml's own S3_* — the compose `seaweedfs` service listens
+  # on the compose network as `seaweedfs:8333`, exposed to the host at
   # localhost:9000 (see that file's own port mapping comment).
   export S3_ENDPOINT=http://localhost:9000
   export S3_REGION=us-east-1

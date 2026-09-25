@@ -32,6 +32,19 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      seaweedfs:
+        image: chrislusf/seaweedfs:4.47
+        env:
+          AWS_ACCESS_KEY_ID: drill-access-key
+          AWS_SECRET_ACCESS_KEY: drill-secret-key
+          S3_BUCKET: biddaloy-drill
+        ports:
+          - 9000:8333
+        options: >-
+          --health-cmd "curl -sf -o /dev/null http://localhost:8888/buckets/biddaloy-drill/"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
     env:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/biddaloy_drill
       RESTORE_DATABASE_URL: postgres://postgres:postgres@localhost:5432/biddaloy_drill_restored
@@ -39,6 +52,7 @@ jobs:
       NODE_ENV: test
       SEED_ADMIN_PASSWORD: ci-restore-drill-seed-password-123
       S3_ENDPOINT: http://localhost:9000
+      S3_ALLOW_INSECURE_HTTP: "true"
       S3_REGION: us-east-1
       S3_BUCKET: biddaloy-drill
       S3_ACCESS_KEY_ID: drill-access-key
@@ -75,24 +89,6 @@ jobs:
       # aws-cli ships preinstalled on GitHub-hosted ubuntu runners.
       - name: Verify aws-cli is available
         run: aws --version
-
-      - name: Start MinIO
-        # Not a `services:` entry — the minio image needs a custom command
-        # (`server /data`), which the services: block can't override.
-        run: |
-          docker run -d --name minio \
-            -p 9000:9000 \
-            -e MINIO_ROOT_USER="$S3_ACCESS_KEY_ID" \
-            -e MINIO_ROOT_PASSWORD="$S3_SECRET_ACCESS_KEY" \
-            quay.io/minio/minio:RELEASE.2025-04-08T15-41-24Z server /data
-          until curl -sf http://localhost:9000/minio/health/live; do sleep 1; done
-
-      - name: Create MinIO bucket
-        run: |
-          AWS_ACCESS_KEY_ID="$S3_ACCESS_KEY_ID" \
-          AWS_SECRET_ACCESS_KEY="$S3_SECRET_ACCESS_KEY" \
-          AWS_DEFAULT_REGION="$S3_REGION" \
-            aws s3 mb --endpoint-url "$S3_ENDPOINT" "s3://$S3_BUCKET"
 
       - name: Generate a throwaway age keypair
         run: |

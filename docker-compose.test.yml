@@ -1,11 +1,10 @@
 # [18.4.2] Local mirror of ci.yml's `integration` job services, so
 # `yarn test:server` runs the full server suite against real Postgres,
-# Redis and MinIO with only Docker installed — no manual setup.
+# Redis and SeaweedFS with only Docker installed — no manual setup.
 #
 # Images, ports and env values are kept in lockstep with
-# .github/workflows/ci.yml's `integration` job (postgres/redis service
-# blocks + the "Start MinIO" / "Create MinIO bucket" steps). If those
-# change, update both.
+# .github/workflows/ci.yml's `integration` job (postgres/redis/seaweedfs
+# service blocks). If those change, update both.
 services:
   postgres:
     image: postgres:16-alpine
@@ -35,41 +34,23 @@ services:
       timeout: 5s
       retries: 10
 
-  minio:
-    image: quay.io/minio/minio:RELEASE.2025-04-08T15-41-24Z
-    command: server /data
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.47
     environment:
-      MINIO_ROOT_USER: ci-access-key
-      MINIO_ROOT_PASSWORD: ci-secret-key
+      AWS_ACCESS_KEY_ID: ci-access-key
+      AWS_SECRET_ACCESS_KEY: ci-secret-key
+      S3_BUCKET: biddaloy-ci
     ports:
-      - '9000:9000'
+      - '9000:8333'
     volumes:
-      - biddaloy-test-minio:/data
+      - biddaloy-test-seaweedfs:/data
     healthcheck:
-      test: ['CMD', 'curl', '--fail', '--silent', 'http://localhost:9000/minio/health/live']
-      interval: 5s
+      test: ['CMD', 'curl', '-sf', '-o', '/dev/null', 'http://localhost:8888/buckets/biddaloy-ci/']
+      interval: 2s
       timeout: 5s
-      retries: 10
-
-  # One-shot: creates the bucket integration tests expect (biddaloy-ci,
-  # same name as ci.yml's `S3_BUCKET`), then exits. `db:test:up` runs this
-  # via `docker compose run --rm` (not `up --wait`, which doesn't reliably
-  # track a one-shot container's completion/exit code) after the
-  # long-running services are healthy, so callers don't have to create the
-  # bucket by hand.
-  minio-init:
-    image: minio/mc:latest
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      sh -c "
-      mc alias set local http://minio:9000 ci-access-key ci-secret-key &&
-      mc mb --ignore-existing local/biddaloy-ci &&
-      exit 0
-      "
+      retries: 30
 
 volumes:
   biddaloy-test-postgres:
   biddaloy-test-redis:
-  biddaloy-test-minio:
+  biddaloy-test-seaweedfs:
