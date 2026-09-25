@@ -748,6 +748,29 @@ export class PromotionsService {
         throw new ConflictException({ details: { code: 'STALE_RESULTS' } });
       }
 
+      // `refresh()` only re-derives suggestions and re-places — it never
+      // drops an entry whose student left the cohort after `create()` (see
+      // its own "cohort membership changed — out of scope" comment). Commit
+      // must not silently act on a stale entry: PROMOTE/RETAIN would create
+      // a spurious new ACTIVE target-year enrollment for a student who was
+      // transferred or made inactive in the meantime, and GRADUATE would
+      // overwrite a TRANSFERRED/INACTIVE status with GRADUATED (and audit a
+      // wrong old_values: 'ACTIVE'). A distinct code from STALE_RESULTS —
+      // refresh() can't fix this by re-running, since it never removes the
+      // stale entry; the caller has to delete the run and start over.
+      const sourceEnrollmentIds = entries.map((e) => e.source_enrollment_id);
+      if (sourceEnrollmentIds.length > 0) {
+        const sourceEnrollments = await enrollmentRepo.find({
+          where: { id: In(sourceEnrollmentIds), tenant_id: tenantId },
+        });
+        const allStillActive =
+          sourceEnrollments.length === sourceEnrollmentIds.length &&
+          sourceEnrollments.every((e) => e.enrollment_status === EnrollmentStatus.ACTIVE);
+        if (!allStillActive) {
+          throw new ConflictException({ details: { code: 'COHORT_CHANGED' } });
+        }
+      }
+
       const overrideCount = entries.filter((e) => e.is_override).length;
       let approvedByUserId: string | null = null;
       if (overrideCount > 0) {
@@ -772,8 +795,14 @@ export class PromotionsService {
       ];
 
       if (targetSectionIds.length > 0) {
+        // `withDeleted: true` — the unique index on (class_section_id,
+        // roll_number) is NOT partial, so a soft-deleted student still
+        // holds their roll number as far as Postgres is concerned. Leaving
+        // them out here would let an incoming student collide with a roll
+        // a soft-deleted row still occupies.
         const occupants = await studentRepo.find({
           where: { class_section_id: In(targetSectionIds), tenant_id: tenantId },
+          withDeleted: true,
         });
         const bySection = new Map<string, Student[]>();
         for (const occupant of occupants) {
