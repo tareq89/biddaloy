@@ -29,6 +29,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  ErrorState,
   toast,
 } from '@biddaloy/ui/components';
 import {
@@ -91,6 +92,19 @@ function RoutineReviewPage() {
   const [targetAcademicYearId, setTargetAcademicYearId] = React.useState('');
 
   if (routinesQuery.isPending || academicYearsQuery.isPending) return null;
+
+  if (routinesQuery.isError || academicYearsQuery.isError) {
+    return (
+      <ErrorState
+        message={t('review.error.message')}
+        retryLabel={t('review.error.retry')}
+        onRetry={() => {
+          void routinesQuery.refetch();
+          void academicYearsQuery.refetch();
+        }}
+      />
+    );
+  }
 
   if (!routine) {
     return <p className="p-4 text-sm text-muted-foreground">{t('review.noRoutineExplanation')}</p>;
@@ -229,20 +243,29 @@ function RoutineReviewPage() {
         ))}
       </ul>
 
-      {canManage && (
-        <ChangeRequestList
-          requests={changeRequestsQuery.data ?? []}
-          routineId={routine.id}
-          slotLabel={(slotId) => {
-            const entry = allSlots.find((candidate) => candidate.slot.id === slotId);
-            return entry ? slotLabel(entry.slot) : slotId;
-          }}
-          requesterLabel={(userId) =>
-            teachersQuery.data?.data.find((teacher) => teacher.user.id === userId)?.user
-              .full_name ?? userId
-          }
-        />
-      )}
+      {canManage &&
+        (changeRequestsQuery.isPending ? (
+          <p className="text-sm text-muted-foreground">{t('changeRequestList.loading')}</p>
+        ) : changeRequestsQuery.isError ? (
+          <ErrorState
+            message={t('changeRequestList.loadError')}
+            retryLabel={t('review.error.retry')}
+            onRetry={() => void changeRequestsQuery.refetch()}
+          />
+        ) : (
+          <ChangeRequestList
+            requests={changeRequestsQuery.data}
+            routineId={routine.id}
+            slotLabel={(slotId) => {
+              const entry = allSlots.find((candidate) => candidate.slot.id === slotId);
+              return entry ? slotLabel(entry.slot) : slotId;
+            }}
+            requesterLabel={(userId) =>
+              teachersQuery.data?.data.find((teacher) => teacher.user.id === userId)?.user
+                .full_name ?? userId
+            }
+          />
+        ))}
 
       {changeRequestSlotId && (
         <ChangeRequestDialog

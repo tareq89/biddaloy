@@ -130,6 +130,10 @@
     "noRoutineExplanation": "No routine exists yet for this academic year.",
     "notATeacherExplanation": "No teacher record found for your account — nothing to show here.",
     "emptyExplanation": "No periods to show.",
+    "error": {
+      "message": "Could not load the routine. Check your connection and try again.",
+      "retry": "Try again"
+    },
     "stateLabel": {
       "DRAFT": "Draft",
       "REVIEW": "In review",
@@ -171,6 +175,8 @@
   "changeRequestList": {
     "title": "Change requests",
     "acceptDoesNotEditExplanation": "Accepting a request does not edit the routine — the reshuffle usually touches other slots too, so make that change deliberately in the grid builder.",
+    "loading": "Loading change requests…",
+    "loadError": "Could not load change requests. Check your connection and try again.",
     "empty": "No open change requests.",
     "requestedBy": "requested by {{name}}",
     "resolutionNoteLabel": "Resolution note",
