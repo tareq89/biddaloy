@@ -190,4 +190,15 @@ export const ACTIONS: readonly PaletteAction[] = [
     // #902 on the exam Setup tab; this only registers the palette entry.
     run: (ctx) => ctx.navigate({ to: '/exams' }),
   },
+  {
+    id: 'promotions.promote',
+    label: { en: 'Promote students', bn: 'শিক্ষার্থী উত্তরণ করুন' },
+    permission: Permission.PROMOTION_MANAGE,
+    kind: 'navigate',
+    // Same "no entity id" pattern as `analysis.meritList` above — lands on
+    // the empty new-run form; the user picks the source class there.
+    // `/promotions/new?classId=` prefill exists for direct links, but
+    // `ActionRunContext` can't supply a class ([31.0]'s retrofit).
+    run: (ctx) => ctx.navigate({ to: '/promotions/new' }),
+  },
 ];

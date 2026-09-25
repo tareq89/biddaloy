@@ -120,6 +120,13 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.MARK_VIEW,
     label: { key: 'analysis' },
   },
+  // [26.6.1] D22: PROMOTION_MANAGE (admin).
+  'examsResults.promotion': {
+    id: 'examsResults.promotion',
+    to: '/promotions',
+    permission: Permission.PROMOTION_MANAGE,
+    label: { key: 'promotion' },
+  },
   'academics.routineSetup': {
     id: 'academics.routineSetup',
     to: '/routines/setup',
@@ -297,6 +304,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
       STAFF_NAV_ITEMS['examsResults.exams'],
       STAFF_NAV_ITEMS['examsResults.gradingScales'],
       STAFF_NAV_ITEMS['examsResults.analysis'],
+      STAFF_NAV_ITEMS['examsResults.promotion'],
     ],
   },
   {
