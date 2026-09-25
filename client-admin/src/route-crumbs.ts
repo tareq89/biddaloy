@@ -49,6 +49,8 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/verify-email': 'pre-auth screen, no shell',
   '/select-school': 'post-auth, pre-tenant-selection — no tenant nav to trail into yet',
   '/i/$token': 'public invite-accept link, opened signed-out',
+  '/admission/$slug/': 'public admission form, opened signed-out',
+  '/admission/$slug/status': 'public admission status-check page, opened signed-out',
 
   // --- Guardian portal: tab nav, no breadcrumb chrome ---
   '/portal/': 'guardian portal uses bottom tab nav, no breadcrumb chrome',

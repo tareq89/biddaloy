@@ -21,6 +21,10 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/verify-email': 'auth route reached via an email link, not signed-in nav',
   '/select-school': 'tenant/role switcher, reached before the staff sidebar itself renders',
   '/i/$token': 'invitation-accept route reached via a tokenized email link, not signed-in nav',
+  '/admission/$slug/':
+    '[27.11] public admission-form route, opened signed-out via a school-specific link',
+  '/admission/$slug/status':
+    '[27.11] public status-check route, opened signed-out via a school-specific link',
 
   // Guardian portal — its own nav (`ui`'s portal shell), not the staff
   // sidebar `nav-tree.ts` describes.

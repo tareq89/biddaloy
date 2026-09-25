@@ -298,6 +298,22 @@
       "archetype": "bespoke"
     },
     {
+      "path": "/admission/$slug",
+      "params": {
+        "slug": "seeded"
+      },
+      "role": "guest",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/admission/$slug/status",
+      "params": {
+        "slug": "seeded"
+      },
+      "role": "guest",
+      "archetype": "bespoke"
+    },
+    {
       "path": "/invoices",
       "role": "accountant",
       "archetype": "list"

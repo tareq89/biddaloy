@@ -35,6 +35,9 @@ import { Homework } from '../modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from '../modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from '../modules/homework/entities/homework-submission.entity';
 import { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.entity';
+import { AdmissionIntake } from '../modules/admission/entities/admission-intake.entity';
+import { AdmissionApplicant } from '../modules/admission/entities/admission-applicant.entity';
+import { AdmissionApplicantStatus } from '@biddaloy/shared';
 import { DEV_SEED_PLATFORM_TENANT_ID } from '../config/env.validation';
 import { seedAccounts } from './seed.accounts';
 import { ensureDemoOrganisation } from './seed.util';
@@ -160,7 +163,81 @@ export async function seed() {
     passwordHash,
   );
 
+  // [27.11] Sample admission intake + applicants, so local dev has
+  // something to look at on the new People › Admissions screens without
+  // manually submitting a public application first. Idempotent on
+  // `title`, same "find-or-create" shape as the school block above.
+  await ensureAdmissionSeed(dataSource, school);
+
   await app.close();
+}
+
+/** [27.11] One open intake against the first class section this school has
+ * (created by `seedAccounts`' `DEMO_CLASSES`), plus a handful of applicants
+ * spanning every status — PENDING/SHORTLISTED/ADMITTED/REJECTED — so the
+ * admissions screens aren't empty on a fresh `yarn seed`. */
+async function ensureAdmissionSeed(dataSource: DataSource, school: School) {
+  const intakeRepository = dataSource.getRepository(AdmissionIntake);
+  const applicantRepository = dataSource.getRepository(AdmissionApplicant);
+  const classSectionRepository = dataSource.getRepository(ClassSection);
+
+  const title = 'Class 1 Admission 2026';
+  let intake = await intakeRepository.findOne({ where: { tenant_id: school.id, title } });
+  if (!intake) {
+    const section = await classSectionRepository.findOne({ where: { tenant_id: school.id } });
+    if (!section) {
+      console.warn('No class section found — skipping admission intake seed.');
+      return;
+    }
+    intake = intakeRepository.create({
+      tenant_id: school.id,
+      class_section_id: section.id,
+      title,
+      seat_count: 30,
+      open_date: '2026-01-01',
+      close_date: '2026-12-31',
+      required_document_types: ['PHOTO'],
+    });
+    await intakeRepository.save(intake);
+    console.log(`Created admission intake "${title}" (${intake.id}).`);
+  }
+
+  const applicants: Array<{
+    name: string;
+    phone: string;
+    status: AdmissionApplicantStatus;
+  }> = [
+    { name: 'Rahim Ahmed', phone: '01711000001', status: AdmissionApplicantStatus.PENDING },
+    { name: 'Karim Hossain', phone: '01711000002', status: AdmissionApplicantStatus.SHORTLISTED },
+    { name: 'Fatema Begum', phone: '01711000003', status: AdmissionApplicantStatus.ADMITTED },
+    { name: 'Nusrat Jahan', phone: '01711000004', status: AdmissionApplicantStatus.REJECTED },
+  ];
+
+  for (const [index, a] of applicants.entries()) {
+    const existing = await applicantRepository.findOne({
+      where: { tenant_id: school.id, intake_id: intake.id, guardian_phone: a.phone },
+    });
+    if (existing) continue;
+
+    const referenceNumber = `ADM-2026-${String(index + 1).padStart(6, '0')}`;
+    await applicantRepository.save(
+      applicantRepository.create({
+        tenant_id: school.id,
+        intake_id: intake.id,
+        reference_number: referenceNumber,
+        applicant_name: a.name,
+        date_of_birth: '2019-03-15',
+        gender: 'MALE',
+        guardian_name: `Guardian of ${a.name}`,
+        guardian_phone: a.phone,
+        guardian_email: null,
+        home_address: null,
+        documents: [],
+        status: a.status,
+      }),
+    );
+    console.log(`Created admission applicant "${a.name}" (${a.status}).`);
+  }
 }
 
 // Only self-execute when run as a script (`yarn seed`). `seed.spec.ts`

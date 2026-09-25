@@ -8,6 +8,9 @@
 // `{{var}}` interpolation, nothing more.
 
 import bnAcademicYears from '../ui/src/i18n/locales/bn/academicYears.json';
+import bnAdmissionPublic from '../ui/src/i18n/locales/bn/admission-public.json';
+import bnAdmissionStaffApplicants from '../ui/src/i18n/locales/bn/admission-staff-applicants.json';
+import bnAdmissionStaffIntakes from '../ui/src/i18n/locales/bn/admission-staff-intakes.json';
 import bnApproval from '../ui/src/i18n/locales/bn/approval.json';
 import bnAttendance from '../ui/src/i18n/locales/bn/attendance.json';
 import bnAuth from '../ui/src/i18n/locales/bn/auth.json';
@@ -32,6 +35,9 @@ import bnSettings from '../ui/src/i18n/locales/bn/settings.json';
 import bnStaff from '../ui/src/i18n/locales/bn/staff.json';
 import bnStudents from '../ui/src/i18n/locales/bn/students.json';
 import enAcademicYears from '../ui/src/i18n/locales/en/academicYears.json';
+import enAdmissionPublic from '../ui/src/i18n/locales/en/admission-public.json';
+import enAdmissionStaffApplicants from '../ui/src/i18n/locales/en/admission-staff-applicants.json';
+import enAdmissionStaffIntakes from '../ui/src/i18n/locales/en/admission-staff-intakes.json';
 import enApproval from '../ui/src/i18n/locales/en/approval.json';
 import enAttendance from '../ui/src/i18n/locales/en/attendance.json';
 import enAuth from '../ui/src/i18n/locales/en/auth.json';
@@ -59,6 +65,9 @@ import enStudents from '../ui/src/i18n/locales/en/students.json';
 const catalogs = {
   bn: {
     academicYears: bnAcademicYears,
+    'admission-public': bnAdmissionPublic,
+    'admission-staff-applicants': bnAdmissionStaffApplicants,
+    'admission-staff-intakes': bnAdmissionStaffIntakes,
     approval: bnApproval,
     attendance: bnAttendance,
     auth: bnAuth,
@@ -85,6 +94,9 @@ const catalogs = {
   },
   en: {
     academicYears: enAcademicYears,
+    'admission-public': enAdmissionPublic,
+    'admission-staff-applicants': enAdmissionStaffApplicants,
+    'admission-staff-intakes': enAdmissionStaffIntakes,
     approval: enApproval,
     attendance: enAttendance,
     auth: enAuth,
