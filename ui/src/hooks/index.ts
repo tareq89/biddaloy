@@ -76,9 +76,11 @@ export {
   type InviteSkippedEntry,
 } from './invitations';
 export {
+  allTeachersQueryOptions,
   teacherAssignmentsQueryOptions,
   teacherKeys,
   teachersQueryOptions,
+  useAllTeachers,
   useCreateTeacher,
   useTeacherAssignments,
   useTeachers,
@@ -208,10 +210,12 @@ export {
 } from './audit-logs';
 export { hasPermission, useHasPermission } from './permissions';
 export {
+  allSubjectsQueryOptions,
   classSubjectsKey,
   classSubjectsQueryOptions,
   subjectKeys,
   subjectsQueryOptions,
+  useAllSubjects,
   useAttachClassSubject,
   useClassSubjects,
   useCreateSubject,

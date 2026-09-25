@@ -6,10 +6,12 @@
  * mutation directly via `useAssignTeacher`).
  *
  * The subject picklist mirrors `-attach-subject-dialog.tsx`'s `Combobox`
- * + `useSubjects` pattern. The teacher picklist has no existing precedent
- * to clone — `-edit-teacher-dialog.tsx` edits an already-known teacher and
- * never picks one — so it reuses the same `Combobox` + list-query shape,
- * backed by `useTeachers` instead of `useSubjects`.
+ * pattern, backed by `useAllSubjects` rather than `useSubjects` (see
+ * `query-keys.ts`'s `fetchAllPages` — the server caps `limit` at 100, so a
+ * single-page fetch silently drops options past that). The teacher
+ * picklist has no existing precedent to clone — `-edit-teacher-dialog.tsx`
+ * edits an already-known teacher and never picks one — so it reuses the
+ * same `Combobox` + all-pages shape, backed by `useAllTeachers`.
  *
  * [#1026 gap fix] `classId`/`sectionId` are now optional. Omitted (the
  * Staff detail tab's teacher-centric mode, no fixed class/section in
@@ -36,12 +38,12 @@ import {
   RadioGroupItem,
 } from '@biddaloy/ui/components';
 import {
+  useAllSubjects,
+  useAllTeachers,
   useAssignTeacher,
   useAssignTeacherAssignment,
   useClasses,
   useClassSections,
-  useSubjects,
-  useTeachers,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
@@ -69,12 +71,15 @@ export function AssignTeacherDialog({
   onAssigned,
 }: AssignTeacherDialogProps) {
   const { t } = useTranslation('classes');
-  // Teacher-centric mode has no fixed section to scope `useTeachers`'s
-  // caller list by, so it always fetches the reference list — same as the
-  // section-scoped mode below, just gated off when the teacher is already
-  // known via `fixedTeacherId`.
-  const teachersQuery = useTeachers({ limit: 100 });
-  const subjectsQuery = useSubjects({ is_active: true, limit: 100 });
+  // [pr-fix #1035] `useAllTeachers`/`useAllSubjects` fetch every page, not
+  // just the first 100 — the server caps `limit` at 100, so a tenant with
+  // more teachers/subjects than that would otherwise have options missing
+  // from these pickers. `enabled: fixedTeacherId === undefined` actually
+  // gates the teachers fetch off when the teacher is already known — the
+  // picker itself is hidden either way (guarded below), this also skips
+  // the request.
+  const teachersQuery = useAllTeachers({ enabled: fixedTeacherId === undefined });
+  const subjectsQuery = useAllSubjects({ is_active: true });
 
   const pickerMode = fixedClassId === undefined || fixedSectionId === undefined;
   const [pickedClassId, setPickedClassId] = React.useState<string | null>(null);
@@ -107,11 +112,11 @@ export function AssignTeacherDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
   }, [open]);
 
-  const teacherOptions = (teachersQuery.data?.data ?? []).map((teacher) => ({
+  const teacherOptions = (teachersQuery.data ?? []).map((teacher) => ({
     value: teacher.id,
     label: `${teacher.user.full_name} (${teacher.employee_id})`,
   }));
-  const subjectOptions = (subjectsQuery.data?.data ?? []).map((subject) => ({
+  const subjectOptions = (subjectsQuery.data ?? []).map((subject) => ({
     value: subject.id,
     label: `${subject.name_en} (${subject.code})`,
   }));
