@@ -3023,6 +3023,92 @@ export interface paths {
         patch: operations["RoomsController_update_v1"];
         trace?: never;
     };
+    "/api/v1/routines/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resolve concrete, dated slots for a section, teacher or student. */
+        get: operations["ResolveRoutineController_resolve_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/routines/substitutions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Substitution log, filtered by date range, teacher or section. */
+        get: operations["SubstitutionsController_list_v1"];
+        put?: never;
+        /** Record a cover or a cancellation for one slot on one date. */
+        post: operations["SubstitutionsController_record_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/routines/slots/{slotId}/change-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Teacher flags a published slot for the builder. */
+        post: operations["ChangeRequestsController_open_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/routines/{id}/change-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a routine's change requests. */
+        get: operations["ChangeRequestsController_findForRoutine_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/routines/change-requests/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Accept or reject a change request. Any ROUTINE_MANAGE holder may resolve it. */
+        patch: operations["ChangeRequestsController_resolve_v1"];
+        trace?: never;
+    };
     "/api/v1/routines": {
         parameters: {
             query?: never;
@@ -3194,92 +3280,6 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
-        trace?: never;
-    };
-    "/api/v1/routines/resolve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Resolve concrete, dated slots for a section, teacher or student. */
-        get: operations["ResolveRoutineController_resolve_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/routines/substitutions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Substitution log, filtered by date range, teacher or section. */
-        get: operations["SubstitutionsController_list_v1"];
-        put?: never;
-        /** Record a cover or a cancellation for one slot on one date. */
-        post: operations["SubstitutionsController_record_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/routines/slots/{slotId}/change-requests": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Teacher flags a published slot for the builder. */
-        post: operations["ChangeRequestsController_open_v1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/routines/{id}/change-requests": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List a routine's change requests. */
-        get: operations["ChangeRequestsController_findForRoutine_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/routines/change-requests/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Accept or reject a change request. Any ROUTINE_MANAGE holder may resolve it. */
-        patch: operations["ChangeRequestsController_resolve_v1"];
         trace?: never;
     };
     "/api/v1/backup/export": {
@@ -6848,10 +6848,14 @@ export interface components {
             room_no?: string;
             capacity?: number | null;
         };
-        CreateRoutineDto: {
+        UpsertSubstitutionDto: {
             /** Format: uuid */
-            academic_year_id: string;
-            name: string;
+            routine_slot_id: string;
+            date: string;
+            /** Format: uuid */
+            substitute_teacher_id?: string | null;
+            is_cancelled?: boolean;
+            reason?: string | null;
         };
         Routine: {
             id: string;
@@ -6870,36 +6874,6 @@ export interface components {
             updated_at: string;
             /** Format: date-time */
             deleted_at: string | null;
-        };
-        UpsertRoutineSlotDto: {
-            /** Format: uuid */
-            section_id: string;
-            /** Format: uuid */
-            period_slot_id: string;
-            weekday: number;
-            /** Format: uuid */
-            subject_id: string;
-            /** Format: uuid */
-            room_id?: string | null;
-            /** @enum {string} */
-            recurrence: "WEEKLY" | "MONTHLY" | "BIWEEKLY";
-            recurrence_offset?: number;
-            valid_from: string;
-            valid_to?: string | null;
-            teacher_ids: string[];
-        };
-        CopyRoutineDto: {
-            /** Format: uuid */
-            target_academic_year_id: string;
-        };
-        UpsertSubstitutionDto: {
-            /** Format: uuid */
-            routine_slot_id: string;
-            date: string;
-            /** Format: uuid */
-            substitute_teacher_id?: string | null;
-            is_cancelled?: boolean;
-            reason?: string | null;
         };
         RoutineSlot: {
             id: string;
@@ -6990,6 +6964,32 @@ export interface components {
             /** @enum {string} */
             state: "ACCEPTED" | "REJECTED";
             resolution_note?: string;
+        };
+        CreateRoutineDto: {
+            /** Format: uuid */
+            academic_year_id: string;
+            name: string;
+        };
+        UpsertRoutineSlotDto: {
+            /** Format: uuid */
+            section_id: string;
+            /** Format: uuid */
+            period_slot_id: string;
+            weekday: number;
+            /** Format: uuid */
+            subject_id: string;
+            /** Format: uuid */
+            room_id?: string | null;
+            /** @enum {string} */
+            recurrence: "WEEKLY" | "MONTHLY" | "BIWEEKLY";
+            recurrence_offset?: number;
+            valid_from: string;
+            valid_to?: string | null;
+            teacher_ids: string[];
+        };
+        CopyRoutineDto: {
+            /** Format: uuid */
+            target_academic_year_id: string;
         };
         RequestExportDto: {
             /**
@@ -15627,6 +15627,223 @@ export interface operations {
             };
         };
     };
+    ResolveRoutineController_resolve_v1: {
+        parameters: {
+            query: {
+                section_id?: string;
+                teacher_id?: string;
+                student_id?: string;
+                from: string;
+                to: string;
+                include_breaks?: boolean;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>[];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SubstitutionsController_list_v1: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+                substitute_teacher_id?: string;
+                covered_for_teacher_id?: string;
+                section_id?: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoutineSubstitution"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SubstitutionsController_record_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertSubstitutionDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoutineSubstitution"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ChangeRequestsController_open_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                slotId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateChangeRequestDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoutineChangeRequest"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ChangeRequestsController_findForRoutine_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoutineChangeRequest"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ChangeRequestsController_resolve_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveChangeRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoutineChangeRequest"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     RoutineSlotsController_findAll_v1: {
         parameters: {
             query?: never;
@@ -16057,223 +16274,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": Record<string, never>[];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    ResolveRoutineController_resolve_v1: {
-        parameters: {
-            query: {
-                section_id?: string;
-                teacher_id?: string;
-                student_id?: string;
-                from: string;
-                to: string;
-                include_breaks?: boolean;
-            };
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>[];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SubstitutionsController_list_v1: {
-        parameters: {
-            query?: {
-                from?: string;
-                to?: string;
-                substitute_teacher_id?: string;
-                covered_for_teacher_id?: string;
-                section_id?: string;
-            };
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoutineSubstitution"][];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    SubstitutionsController_record_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpsertSubstitutionDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoutineSubstitution"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    ChangeRequestsController_open_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                slotId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateChangeRequestDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoutineChangeRequest"];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    ChangeRequestsController_findForRoutine_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoutineChangeRequest"][];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    ChangeRequestsController_resolve_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ResolveChangeRequestDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoutineChangeRequest"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
