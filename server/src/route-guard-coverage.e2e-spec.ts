@@ -228,6 +228,20 @@ const ALLOWLIST: AllowlistEntry[] = [
     reason:
       '[17.4.1] D13 — per-user feed token itself is the credential and carries its own tenant scope (CalendarFeedService.render resolves tenant + user from the token row, 404s on unknown/revoked/deactivated); the link is opened by a phone calendar app with no login, so there is no JWT, no user and no X-Tenant-ID on this path at all — same no-guards rationale as /public/invoices/:token. Throttled instead via CALENDAR_FEED_RATE_LIMIT.',
   },
+  {
+    controller: 'PublicAdmissionController',
+    method: 'GET',
+    path: '/public/admission/:slug',
+    reason:
+      "[27.2] Anyone can view a school's open admission intakes without logging in — the `:slug` in the URL is the sole tenant signal (AdmissionApplicantService.listOpenIntakes resolves and scopes by it), same no-guards rationale as /public/invoices/:token.",
+  },
+  {
+    controller: 'PublicAdmissionController',
+    method: 'POST',
+    path: '/public/admission/:slug/applicants',
+    reason:
+      '[27.2] D9/D14 — public unauthenticated admission submission, tenant resolved from `:slug` inside AdmissionApplicantService.submit, same no-guards rationale as GET /public/admission/:slug. Throttled via STRICT_RATE_LIMIT (5/min).',
+  },
 ];
 
 function findAllowlistEntry(

@@ -101,6 +101,17 @@ export class SchoolsService {
   }
 
   /**
+   * [27.2] Resolve a school by its public `slug` — the only lookup the
+   * unauthenticated public admission route is allowed (no `id`, no
+   * `X-Tenant-ID`; the slug in the URL is the sole tenant signal). Returns
+   * `null` rather than throwing so the caller can 404 without leaking
+   * whether the slug ever existed.
+   */
+  async findBySlug(slug: string): Promise<School | null> {
+    return this.repo.findOne({ where: { slug } });
+  }
+
+  /**
    * Resolved settings with secret fields still in their stored,
    * *encrypted* form. Internal building block for `getMaskedSettings`
    * (the HTTP-safe view) and `getDecryptedSettings` (the trusted-internal
