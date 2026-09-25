@@ -92,19 +92,16 @@ describe('AnalysisController', () => {
         })),
       },
     });
-    const res: any = { setHeader: vi.fn() };
+    const res: any = { setHeader: vi.fn(), attachment: vi.fn() };
     const file = await controller.getMeritCsv(EXAM_ID, {}, TENANT, res);
+    expect(res.attachment).toHaveBeenCalledWith('Term Exam-merit.csv');
     expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'text/csv; charset=utf-8');
-    expect(res.setHeader).toHaveBeenCalledWith(
-      'Content-Disposition',
-      expect.stringContaining('Term Exam-merit.csv'),
-    );
     expect(file).toBeDefined();
   });
 
   it('404s the CSV route when the exam is not in the tenant', async () => {
     const { controller } = makeController({ examRepo: { findOne: vi.fn(async () => null) } });
-    const res: any = { setHeader: vi.fn() };
+    const res: any = { setHeader: vi.fn(), attachment: vi.fn() };
     await expect(controller.getMeritCsv(EXAM_ID, {}, TENANT, res)).rejects.toBeInstanceOf(
       NotFoundException,
     );

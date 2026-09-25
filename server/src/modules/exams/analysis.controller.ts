@@ -199,8 +199,15 @@ export class AnalysisController {
       this.examName(examId, tenant.id),
       this.analysisService.getMerit(examId, tenant.id, query.section_id),
     ]);
+    // `res.attachment` (Express, via the `content-disposition` package) emits
+    // an ASCII-safe `filename` fallback plus an RFC 5987 `filename*` value
+    // and escapes quotes — a raw `name` here would otherwise throw
+    // `ERR_INVALID_CHAR` for any Bengali exam name (this app ships a `bn`
+    // locale). Must come before the Content-Type header: `attachment()` also
+    // sets Content-Type, so the explicit charset header has to win by going
+    // second.
+    res.attachment(`${name}-merit.csv`);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${name}-merit.csv"`);
     return new StreamableFile(Readable.from(Buffer.from(meritToCsv(rows), 'utf-8')));
   }
 
@@ -218,8 +225,10 @@ export class AnalysisController {
       this.examName(examId, tenant.id),
       this.analysisService.getDefaulted(examId, tenant.id, query.section_id),
     ]);
+    // See getMeritCsv's comment: attachment() first for the ASCII-safe
+    // filename fallback, then the explicit Content-Type.
+    res.attachment(`${name}-defaulted.csv`);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${name}-defaulted.csv"`);
     return new StreamableFile(Readable.from(Buffer.from(defaultedToCsv(rows), 'utf-8')));
   }
 
@@ -237,8 +246,10 @@ export class AnalysisController {
       this.examName(examId, tenant.id),
       this.analysisService.getPassFail(examId, tenant.id, query.section_id),
     ]);
+    // See getMeritCsv's comment: attachment() first for the ASCII-safe
+    // filename fallback, then the explicit Content-Type.
+    res.attachment(`${name}-pass-fail.csv`);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${name}-pass-fail.csv"`);
     return new StreamableFile(
       Readable.from(Buffer.from(passFailToCsv(subjects, overall), 'utf-8')),
     );
