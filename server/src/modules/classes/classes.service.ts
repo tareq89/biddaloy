@@ -18,6 +18,7 @@ import {
   QueryClassDto,
   CreateSectionDto,
   UpdateSectionDto,
+  AssignTeacherDto,
 } from './dto/classes.dto';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
@@ -364,6 +365,22 @@ export class ClassService {
   }
 }
 
+/** [29.0] One row of `SectionService.listSectionTeachers` /
+ * `UserService.getTeacherAssignments` — a section's class-teacher or
+ * subject-teacher assignment, shaped for display (Staff detail tab,
+ * section teacher list). `subject_name === null` means the class-teacher
+ * row. */
+export interface SectionTeacherAssignment {
+  id: string;
+  teacher_id: string;
+  employee_id: string;
+  full_name: string;
+  section_id: string;
+  section_name: string;
+  subject_id: string | null;
+  subject_name: string | null;
+}
+
 @Injectable()
 export class SectionService {
   constructor(
@@ -373,6 +390,8 @@ export class SectionService {
     private classRepo: Repository<Class>,
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
+    @InjectRepository(Teacher)
+    private readonly teacherRepo: Repository<Teacher>,
     @InjectRepository(TeacherClassSection)
     private readonly teacherClassSectionRepo: Repository<TeacherClassSection>,
     private readonly auditService: AuditService,
@@ -629,5 +648,195 @@ export class SectionService {
         manager,
       );
     });
+  }
+
+  /** [29.0] Assign a teacher to a section, either as the class-teacher
+   * (`dto.subject_id` omitted) or a subject-teacher (`dto.subject_id`
+   * set). D3: assigning a new class-teacher auto-replaces any existing
+   * class-teacher row for the section rather than erroring — a section
+   * only ever has one class-teacher. D8: a duplicate subject-teacher
+   * assignment is checked explicitly before insert and rejected with a
+   * clear `ConflictException`, rather than relying on the DB's unique-
+   * violation (which would surface as an opaque 500). */
+  async assignTeacher(
+    classId: string,
+    sectionId: string,
+    dto: AssignTeacherDto,
+    tenantId: string,
+    userId: string | null = null,
+    context: RequestContext = { ip: null, userAgent: null },
+  ): Promise<TeacherClassSection> {
+    const section = await this.repo.findOne({
+      where: { id: sectionId, class_id: classId, tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    if (!section) {
+      throw new NotFoundException(`Section with ID "${sectionId}" not found in class "${classId}"`);
+    }
+
+    const teacher = await this.teacherRepo.findOne({
+      where: { id: dto.teacher_id, tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    if (!teacher) {
+      throw new NotFoundException(`Teacher with ID "${dto.teacher_id}" not found`);
+    }
+
+    const subjectId = dto.subject_id ?? null;
+
+    return this.teacherClassSectionRepo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(TeacherClassSection);
+
+      if (subjectId === null) {
+        // D3 — a section has at most one class-teacher row; replace it.
+        const replaced = await repo.findOne({
+          where: { section_id: sectionId, subject_id: IsNull() },
+        });
+        if (replaced) {
+          await repo.delete({ id: replaced.id });
+          await this.auditService.record(
+            {
+              action: AuditAction.DELETE,
+              entity_type: 'TeacherClassSection',
+              entity_id: replaced.id,
+              tenant_id: tenantId,
+              performed_by_user_id: userId,
+              ip_address: context.ip,
+              user_agent: context.userAgent,
+              old_values: {
+                teacher_id: replaced.teacher_id,
+                section_id: replaced.section_id,
+                subject_id: replaced.subject_id,
+              },
+              new_values: null,
+            },
+            manager,
+          );
+        }
+      } else {
+        // D8 — explicit conflict check ahead of insert, not a DB
+        // unique-violation catch.
+        const duplicate = await repo.findOne({
+          where: { teacher_id: dto.teacher_id, section_id: sectionId, subject_id: subjectId },
+        });
+        if (duplicate) {
+          throw new ConflictException(
+            `Teacher "${dto.teacher_id}" is already the subject-teacher for subject "${subjectId}" in section "${sectionId}"`,
+          );
+        }
+      }
+
+      const entity = repo.create({
+        teacher_id: dto.teacher_id,
+        section_id: sectionId,
+        subject_id: subjectId,
+        tenant_id: tenantId,
+      });
+      const saved = await repo.save(entity);
+
+      await this.auditService.record(
+        {
+          action: AuditAction.CREATE,
+          entity_type: 'TeacherClassSection',
+          entity_id: saved.id,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          old_values: null,
+          new_values: {
+            teacher_id: saved.teacher_id,
+            section_id: saved.section_id,
+            subject_id: saved.subject_id,
+          },
+        },
+        manager,
+      );
+
+      return saved;
+    });
+  }
+
+  /** [29.0] Removes one class-teacher or subject-teacher assignment. */
+  async unassignTeacher(
+    classId: string,
+    sectionId: string,
+    assignmentId: string,
+    tenantId: string,
+    userId: string | null = null,
+    context: RequestContext = { ip: null, userAgent: null },
+  ): Promise<void> {
+    const section = await this.repo.findOne({
+      where: { id: sectionId, class_id: classId, tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    if (!section) {
+      throw new NotFoundException(`Section with ID "${sectionId}" not found in class "${classId}"`);
+    }
+
+    const assignment = await this.teacherClassSectionRepo.findOne({
+      where: { id: assignmentId, section_id: sectionId, tenant_id: tenantId },
+    });
+    if (!assignment) {
+      throw new NotFoundException(`Assignment with ID "${assignmentId}" not found`);
+    }
+
+    await this.teacherClassSectionRepo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(TeacherClassSection);
+      await repo.delete({ id: assignmentId, section_id: sectionId, tenant_id: tenantId });
+
+      await this.auditService.record(
+        {
+          action: AuditAction.DELETE,
+          entity_type: 'TeacherClassSection',
+          entity_id: assignmentId,
+          tenant_id: tenantId,
+          performed_by_user_id: userId,
+          ip_address: context.ip,
+          user_agent: context.userAgent,
+          old_values: {
+            teacher_id: assignment.teacher_id,
+            section_id: assignment.section_id,
+            subject_id: assignment.subject_id,
+          },
+          new_values: null,
+        },
+        manager,
+      );
+    });
+  }
+
+  /** [29.0] Lists a section's teacher assignments (class-teacher and
+   * subject-teachers), for the class detail page. */
+  async listSectionTeachers(
+    classId: string,
+    sectionId: string,
+    tenantId: string,
+  ): Promise<SectionTeacherAssignment[]> {
+    const section = await this.repo.findOne({
+      where: { id: sectionId, class_id: classId, tenant_id: tenantId, deleted_at: IsNull() },
+    });
+    if (!section) {
+      throw new NotFoundException(`Section with ID "${sectionId}" not found in class "${classId}"`);
+    }
+
+    const rows = await this.teacherClassSectionRepo
+      .createQueryBuilder('tcs')
+      .innerJoinAndSelect('tcs.teacher', 'teacher')
+      .innerJoinAndSelect('teacher.user', 'user')
+      .innerJoinAndSelect('tcs.section', 'section')
+      .leftJoinAndSelect('tcs.subject', 'subject')
+      .where('tcs.section_id = :sectionId', { sectionId })
+      .andWhere('tcs.tenant_id = :tenantId', { tenantId })
+      .orderBy('subject.name_en', 'ASC', 'NULLS FIRST')
+      .getMany();
+
+    return rows.map((row) => ({
+      id: row.id,
+      teacher_id: row.teacher_id,
+      employee_id: row.teacher.employee_id,
+      full_name: row.teacher.user.full_name,
+      section_id: row.section_id,
+      section_name: row.section.section_name,
+      subject_id: row.subject_id,
+      subject_name: row.subject?.name_en ?? null,
+    }));
   }
 }

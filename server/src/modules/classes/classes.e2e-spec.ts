@@ -503,4 +503,154 @@ describe('Classes & Sections E2E', () => {
         .expect(404);
     });
   });
+
+  describe('Section teacher assignments [29.0]', () => {
+    async function seedClassSectionTeacher() {
+      const classRes = await supertest(app.getHttpServer())
+        .post('/api/v1/classes')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({
+          name: `Assignment Class ${Math.random().toString(36).slice(2, 10)}`,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        })
+        .expect(201);
+      const sectionRes = await supertest(app.getHttpServer())
+        .post(`/api/v1/classes/${classRes.body.id}/sections`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ section_name: 'G', capacity: 30 })
+        .expect(201);
+
+      const userRepo = dataSource.getRepository(User);
+      const teacherRepo = dataSource.getRepository(Teacher);
+      const user = await userRepo.save({
+        full_name: 'Assignment Teacher',
+        email: `assignment-teacher-${Math.random().toString(36).slice(2, 10)}@test.com`,
+      });
+      const teacher = await teacherRepo.save({
+        user_id: user.id,
+        employee_id: `EMP-ASN-${Math.random().toString(36).slice(2, 8)}`,
+        designations: [TeacherDesignation.CLASS_TEACHER],
+        tenant_id: TENANT_ID,
+      });
+
+      return {
+        classId: classRes.body.id,
+        sectionId: sectionRes.body.id,
+        teacherId: teacher.id,
+        cleanup: async () => {
+          await teacherRepo.delete({ id: teacher.id });
+          await userRepo.delete({ id: user.id });
+        },
+      };
+    }
+
+    it('full round trip: POST assigns, GET lists, DELETE removes', async () => {
+      const { classId, sectionId, teacherId, cleanup } = await seedClassSectionTeacher();
+
+      const assignRes = await supertest(app.getHttpServer())
+        .post(`/api/v1/classes/${classId}/sections/${sectionId}/teachers`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ teacher_id: teacherId })
+        .expect(201);
+      expect(assignRes.body.teacher_id).toBe(teacherId);
+      expect(assignRes.body.subject_id).toBeNull();
+
+      const listRes = await supertest(app.getHttpServer())
+        .get(`/api/v1/classes/${classId}/sections/${sectionId}/teachers`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+      expect(listRes.body.some((row: any) => row.id === assignRes.body.id)).toBe(true);
+
+      await supertest(app.getHttpServer())
+        .delete(`/api/v1/classes/${classId}/sections/${sectionId}/teachers/${assignRes.body.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+
+      const listAfterDelete = await supertest(app.getHttpServer())
+        .get(`/api/v1/classes/${classId}/sections/${sectionId}/teachers`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+      expect(listAfterDelete.body.some((row: any) => row.id === assignRes.body.id)).toBe(false);
+
+      await cleanup();
+    });
+
+    it('returns 401 for a non-ADMIN role (permission-denied)', async () => {
+      const { classId, sectionId, teacherId, cleanup } = await seedClassSectionTeacher();
+
+      await dataSource.query(
+        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+         VALUES ('${SEED_ADMIN_USER_ID}', '${TENANT_ID}', '${UserRole.TEACHER}', NOW(), NOW())
+         ON CONFLICT DO NOTHING`,
+      );
+      const loginRes = await supertest(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+        .expect(200);
+      const teacherRoleToken = loginRes.body.access_token;
+
+      const res = await supertest(app.getHttpServer())
+        .post(`/api/v1/classes/${classId}/sections/${sectionId}/teachers`)
+        .set('Authorization', `Bearer ${teacherRoleToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.TEACHER)
+        .send({ teacher_id: teacherId })
+        .expect(401);
+      expect(res.body.message).toContain('Requires one of roles');
+
+      await cleanup();
+    });
+
+    it('[migration] DB rejects two different teachers both class-teacher for the same section', async () => {
+      const { sectionId, teacherId, cleanup } = await seedClassSectionTeacher();
+
+      const userRepo = dataSource.getRepository(User);
+      const teacherRepo = dataSource.getRepository(Teacher);
+      const secondUser = await userRepo.save({
+        full_name: 'Second Class Teacher',
+        email: `second-teacher-${Math.random().toString(36).slice(2, 10)}@test.com`,
+      });
+      const secondTeacher = await teacherRepo.save({
+        user_id: secondUser.id,
+        employee_id: `EMP-2ND-${Math.random().toString(36).slice(2, 8)}`,
+        designations: [TeacherDesignation.CLASS_TEACHER],
+        tenant_id: TENANT_ID,
+      });
+
+      // First teacher takes the class-teacher slot for this section.
+      await dataSource.query(
+        `INSERT INTO teacher_class_sections (teacher_id, section_id, tenant_id) VALUES ($1, $2, $3)`,
+        [teacherId, sectionId, TENANT_ID],
+      );
+
+      // A *different* teacher for the same section, still `subject_id IS
+      // NULL` — the pre-existing `UQ_tcs_teacher_section_no_subject` index
+      // (keyed on `(teacher_id, section_id)`) does not stop this; only
+      // this migration's `UQ_tcs_section_no_subject` (keyed on
+      // `section_id` alone) does. Bypasses `SectionService.assignTeacher`'s
+      // D3 auto-replace on purpose — this asserts the DB constraint itself,
+      // the actual enforcement backstop, independent of the service guard.
+      await expect(
+        dataSource.query(
+          `INSERT INTO teacher_class_sections (teacher_id, section_id, tenant_id) VALUES ($1, $2, $3)`,
+          [secondTeacher.id, sectionId, TENANT_ID],
+        ),
+      ).rejects.toThrow(
+        /duplicate key value violates unique constraint "UQ_tcs_section_no_subject"/,
+      );
+
+      await dataSource.query(`DELETE FROM teacher_class_sections WHERE section_id = $1`, [
+        sectionId,
+      ]);
+      await teacherRepo.delete({ id: secondTeacher.id });
+      await userRepo.delete({ id: secondUser.id });
+      await cleanup();
+    });
+  });
 });
