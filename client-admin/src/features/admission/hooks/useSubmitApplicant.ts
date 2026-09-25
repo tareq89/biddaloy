@@ -51,7 +51,7 @@ export interface SubmitApplicantResult {
 async function fetchOpenIntakes(slug: string, signal?: AbortSignal): Promise<PublicIntake[]> {
   try {
     const response = await axios.get<PublicIntake[]>(`${API_BASE_URL}/public/admission/${slug}`, {
-      signal,
+      ...(signal ? { signal } : {}),
     });
     return response.data;
   } catch (error) {

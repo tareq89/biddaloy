@@ -30,7 +30,7 @@ async function fetchStatus(
   try {
     const response = await axios.get<AdmissionStatusResult>(
       `${API_BASE_URL}/public/admission/${slug}/status/${referenceNumber}`,
-      { signal },
+      { ...(signal ? { signal } : {}) },
     );
     return response.data;
   } catch (error) {
