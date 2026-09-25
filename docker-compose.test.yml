@@ -40,12 +40,17 @@ services:
       AWS_ACCESS_KEY_ID: ci-access-key
       AWS_SECRET_ACCESS_KEY: ci-secret-key
       S3_BUCKET: biddaloy-ci
+    # Loopback only — see docker-compose.yml's seaweedfs service for why.
     ports:
-      - '9000:8333'
+      - '127.0.0.1:9000:8333'
     volumes:
       - biddaloy-test-seaweedfs:/data
     healthcheck:
-      test: ['CMD', 'curl', '-sf', '-o', '/dev/null', 'http://localhost:8888/buckets/biddaloy-ci/']
+      test:
+        [
+          'CMD-SHELL',
+          'curl -sf -o /dev/null http://localhost:8333/status && curl -sf -o /dev/null http://localhost:8888/buckets/biddaloy-ci/',
+        ]
       interval: 2s
       timeout: 5s
       retries: 30

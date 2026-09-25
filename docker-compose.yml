@@ -88,17 +88,15 @@ services:
     # container; 9000 on the host keeps every local S3_ENDPOINT unchanged.
     ports:
       - '127.0.0.1:9000:8333'
-    # Healthy = S3 up AND the bucket exists: the filer returns 404 for
-    # /buckets/<name>/ until `mini` has created it.
+    # Healthy = S3 up AND the bucket exists. /status on 8333 is
+    # unauthenticated and proves the S3 listener itself is serving — the
+    # filer's /buckets/<name>/ alone can return 200 before 8333 is ready,
+    # which would let app/backup start against a not-yet-serving S3.
     healthcheck:
       test:
         [
-          'CMD',
-          'curl',
-          '-sf',
-          '-o',
-          '/dev/null',
-          'http://localhost:8888/buckets/${S3_BUCKET:-biddaloy}/',
+          'CMD-SHELL',
+          'curl -sf -o /dev/null http://localhost:8333/status && curl -sf -o /dev/null http://localhost:8888/buckets/${S3_BUCKET:-biddaloy}/',
         ]
       interval: 5s
       timeout: 5s

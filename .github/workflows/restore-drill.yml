@@ -41,7 +41,7 @@ jobs:
         ports:
           - 9000:8333
         options: >-
-          --health-cmd "curl -sf -o /dev/null http://localhost:8888/buckets/biddaloy-drill/"
+          --health-cmd "curl -sf -o /dev/null http://localhost:8333/status && curl -sf -o /dev/null http://localhost:8888/buckets/biddaloy-drill/"
           --health-interval 2s
           --health-timeout 5s
           --health-retries 30

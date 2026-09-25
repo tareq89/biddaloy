@@ -468,7 +468,7 @@ jobs:
         ports:
           - 9000:8333
         options: >-
-          --health-cmd "curl -sf -o /dev/null http://localhost:8888/buckets/biddaloy-ci/"
+          --health-cmd "curl -sf -o /dev/null http://localhost:8333/status && curl -sf -o /dev/null http://localhost:8888/buckets/biddaloy-ci/"
           --health-interval 2s
           --health-timeout 5s
           --health-retries 30
@@ -651,7 +651,7 @@ jobs:
         ports:
           - 9000:8333
         options: >-
-          --health-cmd "curl -sf -o /dev/null http://localhost:8888/buckets/biddaloy-ci/"
+          --health-cmd "curl -sf -o /dev/null http://localhost:8333/status && curl -sf -o /dev/null http://localhost:8888/buckets/biddaloy-ci/"
           --health-interval 2s
           --health-timeout 5s
           --health-retries 30
