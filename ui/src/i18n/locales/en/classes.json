@@ -187,7 +187,9 @@
       "emptySectionMessage": "No teachers assigned to this section",
       "errorMessage": "Failed to load teachers",
       "assign": "Assign",
+      "assignAria": "Assign teacher to section {{section}}",
       "remove": "Remove",
+      "removeAria": "Remove {{name}} ({{role}})",
       "removeError": "Failed to remove teacher"
     }
   }

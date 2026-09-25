@@ -74,7 +74,7 @@ describe('classes/$classId Teachers tab', () => {
     });
 
     await screen.findByText('A');
-    expect(screen.getByRole('button', { name: 'Assign' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Assign teacher to section A' })).toBeTruthy();
     await screen.findByText(new RegExp(teacher.user.full_name));
   });
 
@@ -131,7 +131,7 @@ describe('classes/$classId Teachers tab', () => {
     });
 
     await screen.findByText('No teachers assigned to this section');
-    await user.click(screen.getByRole('button', { name: 'Assign' }));
+    await user.click(screen.getByRole('button', { name: 'Assign teacher to section A' }));
 
     const dialog = await screen.findByRole('dialog', { name: 'Assign teacher' });
     const combo = within(dialog).getByRole('combobox', { name: 'Teacher' });
@@ -188,7 +188,9 @@ describe('classes/$classId Teachers tab', () => {
     });
 
     await screen.findByText(new RegExp(teacher.user.full_name));
-    await user.click(screen.getByRole('button', { name: 'Remove' }));
+    await user.click(
+      screen.getByRole('button', { name: `Remove ${teacher.user.full_name} (Class teacher)` }),
+    );
 
     await waitFor(() => expect(screen.queryByText(new RegExp(teacher.user.full_name))).toBeNull());
     await screen.findByText('No teachers assigned to this section');

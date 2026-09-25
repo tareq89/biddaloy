@@ -79,7 +79,12 @@ interface SectionTeachersPanelProps {
   onAssign: () => void;
 }
 
-function SectionTeachersPanel({ classId, section, canManage, onAssign }: SectionTeachersPanelProps) {
+function SectionTeachersPanel({
+  classId,
+  section,
+  canManage,
+  onAssign,
+}: SectionTeachersPanelProps) {
   const { t } = useTranslation('classes');
   const { t: tStaff } = useTranslation('staff');
   const query = useSectionTeachers(classId, section.id);
@@ -90,7 +95,13 @@ function SectionTeachersPanel({ classId, section, canManage, onAssign }: Section
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">{section.section_name}</h3>
         {canManage && (
-          <Button type="button" variant="outline" size="sm" onClick={onAssign}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onAssign}
+            aria-label={t('detail.teachers.assignAria', { section: section.section_name })}
+          >
             {t('detail.teachers.assign')}
           </Button>
         )}
@@ -111,7 +122,9 @@ function SectionTeachersPanel({ classId, section, canManage, onAssign }: Section
       )}
 
       {unassignTeacher.isError && (
-        <p className="text-sm text-destructive">{t('detail.teachers.removeError')}</p>
+        <p role="alert" className="text-sm text-destructive">
+          {t('detail.teachers.removeError')}
+        </p>
       )}
 
       {query.data &&
@@ -122,10 +135,7 @@ function SectionTeachersPanel({ classId, section, canManage, onAssign }: Section
         ) : (
           <ul className="flex flex-col gap-1">
             {query.data.map((assignment: SectionTeacherAssignment) => (
-              <li
-                key={assignment.id}
-                className="flex items-center justify-between gap-2 text-sm"
-              >
+              <li key={assignment.id} className="flex items-center justify-between gap-2 text-sm">
                 <span>
                   {assignment.full_name}
                   {' — '}
@@ -142,6 +152,13 @@ function SectionTeachersPanel({ classId, section, canManage, onAssign }: Section
                       unassignTeacher.isPending && unassignTeacher.variables === assignment.id
                     }
                     onClick={() => unassignTeacher.mutate(assignment.id)}
+                    aria-label={t('detail.teachers.removeAria', {
+                      name: assignment.full_name,
+                      role: assignment.subject_name
+                        ? tStaff('teacherForm.designations.SUBJECT_TEACHER') +
+                          ` (${assignment.subject_name})`
+                        : tStaff('teacherForm.designations.CLASS_TEACHER'),
+                    })}
                   >
                     {t('detail.teachers.remove')}
                   </button>

@@ -131,7 +131,9 @@
       "emptySectionMessage": "এই শাখায় কোনো শিক্ষক নিয়োজিত নেই",
       "errorMessage": "শিক্ষক লোড করতে ব্যর্থ হয়েছে",
       "assign": "নিয়োগ",
+      "assignAria": "{{section}} শাখায় শিক্ষক নিয়োগ করুন",
       "remove": "অপসারণ",
+      "removeAria": "{{name}} ({{role}}) অপসারণ করুন",
       "removeError": "শিক্ষক অপসারণ করতে ব্যর্থ হয়েছে"
     },
     "tabSubjects": "বিষয়",
