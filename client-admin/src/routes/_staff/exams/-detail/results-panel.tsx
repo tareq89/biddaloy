@@ -26,6 +26,7 @@ type SortColumn = 'position' | 'total_marks' | 'gpa' | 'grade' | 'full_name';
 
 export function ResultsPanel({ examId, examStatus }: ResultsPanelProps) {
   const { t } = useTranslation('exams');
+  const { t: tNav } = useTranslation('nav');
   const resultsQuery = useResults(examId);
   const [sortColumn, setSortColumn] = React.useState<SortColumn>('position');
   const [sortDesc, setSortDesc] = React.useState(false);
@@ -104,6 +105,11 @@ export function ResultsPanel({ examId, examStatus }: ResultsPanelProps) {
         )}
         <Button type="button" variant="outline" onClick={() => setSmsOpen(true)}>
           {t('resultsPanel.sendSms')}
+        </Button>
+        <Button type="button" variant="outline" asChild>
+          <Link to="/analysis" search={{ examId, tab: 'merit' as const }}>
+            {tNav('items.analysis', { ns: 'nav' })}
+          </Link>
         </Button>
 
         <label className="ms-auto flex items-center gap-2 text-sm">

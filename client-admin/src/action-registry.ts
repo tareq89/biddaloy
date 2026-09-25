@@ -165,6 +165,23 @@ export const ACTIONS: readonly PaletteAction[] = [
     run: (ctx) => ctx.navigate({ to: '/results' }),
   },
   {
+    id: 'analysis.meritList',
+    label: { en: 'Analysis: merit list', bn: 'বিশ্লেষণ: মেধা তালিকা' },
+    permission: Permission.MARK_VIEW,
+    kind: 'navigate',
+    // Same "no entity id" pattern as `results.process` above — lands on
+    // the exam/section picker rather than a specific exam (the palette's
+    // `ActionRunContext` carries no exam id to prefill, D12).
+    run: (ctx) => ctx.navigate({ to: '/analysis' }),
+  },
+  {
+    id: 'analysis.defaultedList',
+    label: { en: 'Analysis: defaulters', bn: 'বিশ্লেষণ: অকৃতকার্য/অনুপস্থিত' },
+    permission: Permission.MARK_VIEW,
+    kind: 'navigate',
+    run: (ctx) => ctx.navigate({ to: '/analysis' }),
+  },
+  {
     id: 'exams.copyComponents',
     label: { en: 'Copy exam components', bn: 'পরীক্ষার উপাদান কপি করুন' },
     permission: Permission.EXAM_MANAGE,
