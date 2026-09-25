@@ -58,8 +58,12 @@ const PUBLIC_PATHS = new Set([
  * still fire a cold-boot `POST /auth/refresh`
  * (`ui/src/api/session.ts:196-200`) for nothing before this guard ever
  * got to redirect-or-not.
+ *
+ * [27.8] `/admission/` added the same way: `/admission/<slug>` and
+ * `/admission/<slug>/status` are a family of public routes, one per
+ * school, with no session and no auth call — same shape as `/i/<token>`.
  */
-const PUBLIC_PATH_PREFIXES = ['/i/'];
+const PUBLIC_PATH_PREFIXES = ['/i/', '/admission/'];
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   // Protected-route guard, runs before every route in the tree including
