@@ -25,6 +25,7 @@ import {
   UpdateTeacherDto,
   QueryTeacherDto,
 } from './dto/users.dto';
+import type { SectionTeacherAssignment } from '../classes/classes.service';
 
 @Injectable()
 export class UserService {
@@ -581,5 +582,38 @@ export class TeacherService {
       where: { id, tenant_id: tenantId, deleted_at: IsNull() },
       relations: ['user'],
     }) as Promise<Teacher>;
+  }
+
+  /** [29.0] Every section this teacher is assigned to, class-teacher and
+   * subject-teacher rows alike — same join/shape as
+   * `SectionService.listSectionTeachers`, keyed by `teacher_id` instead
+   * of `section_id`, for the Staff detail tab. */
+  async getTeacherAssignments(
+    teacherId: string,
+    tenantId: string,
+  ): Promise<SectionTeacherAssignment[]> {
+    await this.findOne(teacherId, tenantId);
+
+    const rows = await this.tcsRepo
+      .createQueryBuilder('tcs')
+      .innerJoinAndSelect('tcs.teacher', 'teacher')
+      .innerJoinAndSelect('teacher.user', 'user')
+      .innerJoinAndSelect('tcs.section', 'section')
+      .leftJoinAndSelect('tcs.subject', 'subject')
+      .where('tcs.teacher_id = :teacherId', { teacherId })
+      .andWhere('tcs.tenant_id = :tenantId', { tenantId })
+      .orderBy('subject.name_en', 'ASC', 'NULLS FIRST')
+      .getMany();
+
+    return rows.map((row) => ({
+      id: row.id,
+      teacher_id: row.teacher_id,
+      employee_id: row.teacher.employee_id,
+      full_name: row.teacher.user.full_name,
+      section_id: row.section_id,
+      section_name: row.section.section_name,
+      subject_id: row.subject_id,
+      subject_name: row.subject?.name_en ?? null,
+    }));
   }
 }

@@ -10,6 +10,7 @@ import {
   UseGuards,
   HttpCode,
   Req,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
@@ -458,5 +459,17 @@ export class UserController {
   ) {
     const teacher = await this.teacherService.update(id, dto, tenant.id);
     return TeacherResponseDto.fromEntity(teacher);
+  }
+
+  @Get('teachers/:teacherId/assignments')
+  // [29.0] Same guard stack as `GET('teachers')` above (D5).
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @RequirePermissions(Permission.ACADEMIC_STRUCTURE_READ)
+  @ApiOperation({ summary: "List a teacher's section/subject assignments." })
+  getTeacherAssignments(
+    @Param('teacherId', ParseUUIDPipe) teacherId: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.teacherService.getTeacherAssignments(teacherId, tenant.id);
   }
 }
