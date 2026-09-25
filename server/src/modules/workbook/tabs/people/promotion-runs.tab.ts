@@ -14,11 +14,12 @@ import type {
  * The `promotion_runs` tab: one end-of-year promotion attempt for a source
  * class — `PromotionRun` (788, D12/D16).
  *
- * `exam_ids` (a `uuid[]` on the entity) is exported as a comma-joined string
- * of the referenced `exams` tab's own natural keys, and parsed back the same
- * way on restore — not as the codec's built-in `ref-list` type, which
- * ';'-joins (`cell-format.ts`); this tab deliberately uses ',' instead, same
- * reasoning as `teachers.tab.ts`'s `designations` column.
+ * `exam_ids` (a `uuid[]` on the entity) is exported via the codec's built-in
+ * `ref-list` type — `';'`-joined natural keys of the referenced `exams` tab,
+ * parsed back the same way on restore, same pattern as `calendar-events.tab
+ * .ts`'s `classes` column. A plain comma-joined string was tried first, but
+ * an exam name containing a comma (a realistic free-text value) would split
+ * into fragments that never resolve back to a real exam.
  *
  * `target_class_id` is nullable (a `null` run graduates the source class out
  * of the school rather than promoting it forward) — exported as an optional
@@ -79,10 +80,9 @@ const columns: readonly ColumnSpec[] = [
     label: { en: 'Target class', bn: 'লক্ষ্য শ্রেণী' },
   },
   {
-    // Comma-joined `exams` natural keys — see docstring for why this is a
-    // plain `string` column rather than the built-in `ref-list` type.
     key: 'exams',
-    type: 'string',
+    type: 'ref-list',
+    ref: 'exams',
     required: true,
     label: { en: 'Exams', bn: 'পরীক্ষা' },
   },
@@ -145,7 +145,7 @@ const excluded: readonly string[] = [
   'source_academic_year_id', // exported instead as the `source_academic_year` ref column
   'target_academic_year_id', // exported instead as the `target_academic_year` ref column
   'target_class_id', // exported instead as the `target_class` ref column
-  'exam_ids', // exported instead as the comma-joined `exams` column (see docstring)
+  'exam_ids', // exported instead as the `exams` ref-list column
   'committed_by_user_id', // exported instead as the `committed_by` uuid column, not resolved via a `users` ref: a user's own natural key round-trips through the `users` tab already, and this is just bookkeeping about *who*, not a relation another tab keys against
   'approved_by_user_id', // same as committed_by_user_id
   'created_by_user_id', // same as committed_by_user_id
@@ -176,7 +176,7 @@ export const promotionRunsTab: TabSpec<PromotionRun, PromotionRunRow> = {
       source_academic_year: ctx.keyOf('academic_years', entity.source_academic_year_id),
       target_academic_year: ctx.keyOf('academic_years', entity.target_academic_year_id),
       target_class: entity.target_class_id ? ctx.keyOf('classes', entity.target_class_id) : null,
-      exams: entity.exam_ids.map((examId) => ctx.keyOf('exams', examId)).join(','),
+      exams: entity.exam_ids.map((examId) => ctx.keyOf('exams', examId)),
       algorithm: entity.algorithm,
       status: entity.status,
       refreshed_at: entity.refreshed_at,
@@ -267,11 +267,22 @@ export const promotionRunsTab: TabSpec<PromotionRun, PromotionRunRow> = {
       }
     }
 
-    const examsText = (values.exams as string | null) ?? '';
-    const examKeys = examsText
-      .split(',')
-      .map((k) => k.trim())
-      .filter((k) => k !== '');
+    // `fromCell` already rejects a wholly-empty cell for this required
+    // column (cell-format.ts's required-check runs before any split). A
+    // cell of just ';' isn't empty by that check, but still splits to an
+    // empty list — catch that case explicitly, since a promotion run with
+    // no exams to decide on is meaningless.
+    const examKeys = (values.exams as string[]) ?? [];
+    if (examKeys.length === 0) {
+      errors.push({
+        tab: 'promotion_runs',
+        row: rowNo,
+        column: 'exams',
+        message: 'Column "exams": at least one exam is required.',
+        severity: 'error',
+        value: '',
+      });
+    }
     const examIds: string[] = [];
     for (const examKey of examKeys) {
       const resolved = ctx.ref('exams', examKey);
@@ -282,7 +293,7 @@ export const promotionRunsTab: TabSpec<PromotionRun, PromotionRunRow> = {
           column: 'exams',
           message: `Column "exams": no exam "${examKey}" was found.`,
           severity: 'error',
-          value: examsText,
+          value: examKeys.join(';'),
         });
         continue;
       }

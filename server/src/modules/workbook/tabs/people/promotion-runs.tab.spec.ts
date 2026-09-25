@@ -116,10 +116,10 @@ describe('promotionRunsTab shape', () => {
 });
 
 describe('round-trip', () => {
-  it('fromRow(toRow(entity)) round-trips exam_ids as a comma-joined list', () => {
+  it('fromRow(toRow(entity)) round-trips exam_ids as a ref-list', () => {
     const run = makeRun();
     const cells = toCells(run);
-    expect(cells.exams).toBe('First Term Exam|2026-2027|Class 6|2026-2027||,Second Exam');
+    expect(cells.exams).toBe('First Term Exam|2026-2027|Class 6|2026-2027||;Second Exam');
 
     const row = fromRowOrThrow(cells);
     expect(row.exam_ids).toEqual([EXAM_ID_1, EXAM_ID_2]);
