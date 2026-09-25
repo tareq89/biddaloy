@@ -24,6 +24,13 @@ import {
  */
 export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'workbook_jobs',
+  // [788] promotion_entries references promotion_runs (`ON DELETE CASCADE`);
+  // promotion_runs references classes/schools. Neither has an incoming FK
+  // from anything else here, so this pair only needs to clear before
+  // `classes`/`schools` — reset separately, per-file, by
+  // `buildReferenceResetSql()` below — and entries before its own run.
+  'promotion_entries',
+  'promotion_runs',
   // [22.2.1] homework_submissions/homework_assignments reference
   // homework+students+class_sections; homework references subjects+classes;
   // syllabus_topics references subjects+classes. All must clear before

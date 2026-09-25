@@ -57,11 +57,16 @@ import {
   HomeworkAssignmentStatus,
   HomeworkSubmissionStatus,
   SyllabusTopicStatus,
+  PromotionRunStatus,
+  PlacementAlgorithm,
+  PromotionOutcome,
 } from '@biddaloy/shared';
 import { Homework } from '../modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from '../modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from '../modules/homework/entities/homework-submission.entity';
 import { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.entity';
+import { PromotionRun } from '../modules/promotions/entities/promotion-run.entity';
+import { PromotionEntry } from '../modules/promotions/entities/promotion-entry.entity';
 
 /** [8.9.5] manual-testing aid: gives the seed admin a *second* school
  * membership so `/select-school`'s picker actually has something to show
@@ -1771,6 +1776,8 @@ export async function ensureExamsDemoSeed(
         gpa: '4.50',
         grade: 'A',
         position: 1,
+        section_id: sectionIds[0],
+        section_position: 1,
         is_fail: false,
         grading_scale_id: params.gradingScaleId,
         grading_scale_revision: params.gradingScaleRevision,
@@ -2015,6 +2022,213 @@ export async function ensureHomeworkDemoSeed(
       `  Homework demo seed: +${result.homework} homework, +${result.assignments} assignments, ` +
         `+${result.submissions} submissions, +${result.syllabusTopics} syllabus topics`,
     );
+  }
+  return result;
+}
+
+// ===========================================================================
+// [788] Promotion demo data
+// ===========================================================================
+
+/** [788] The year the demo's one promotion run promotes students *into* —
+ * one year after `DEMO_ACADEMIC_YEAR`, same "real 2027 date" convention. */
+export const DEMO_NEXT_ACADEMIC_YEAR = {
+  name: '2027-2028',
+  start_date: '2027-01-01',
+  end_date: '2027-12-31',
+} as const;
+
+/** The class the demo's promotion run moves "Class 6" students into, seeded
+ * under `DEMO_NEXT_ACADEMIC_YEAR` rather than reusing the current year's own
+ * "Class 7" (a different physical class, in a different academic year). */
+const DEMO_NEXT_CLASS_NAME = 'Class 7';
+
+export interface PromotionDemoSeedRepositories {
+  academicYearRepository: Repository<AcademicYear>;
+  classRepository: Repository<Class>;
+  classSectionRepository: Repository<ClassSection>;
+  enrollmentRepository: Repository<Enrollment>;
+  promotionRunRepository: Repository<PromotionRun>;
+  promotionEntryRepository: Repository<PromotionEntry>;
+}
+
+export interface PromotionDemoSeedParams {
+  schoolId: string;
+  sourceClassId: string;
+  sourceAcademicYearId: string;
+  examIds: readonly string[];
+  createdByUserId: string;
+  /** Section-order lists of student ids — same shape as
+   * `ExamsDemoSeedParams.sectionStudentIds` (section A first, section B
+   * second), reused here so the promoted-with-override student is the same
+   * "section A, roll 1" the exams seed already published a `Result` for. */
+  sectionStudentIds: readonly (readonly string[])[];
+}
+
+export interface PromotionDemoSeedResult {
+  runs: number;
+  entries: number;
+}
+
+/** Idempotent, same find-or-create shape as every other `ensure*` in this
+ * file: one next academic year, one target class with two sections, one
+ * COMMITTED `PromotionRun` from `params.sourceClassId`, and one
+ * `PromotionEntry` per seeded student — section A roll 1 carries the one
+ * override (D6/D11), matching the ticket's own note text exactly.
+ *
+ * No DRAFT run: the demo only ever seeds one class's exam
+ * (`ensureExamsDemoSeed`), so there is no second class with a published exam
+ * to build a draft against (see this ticket's plan comment). */
+export async function ensurePromotionDemoSeed(
+  repos: PromotionDemoSeedRepositories,
+  params: PromotionDemoSeedParams,
+): Promise<PromotionDemoSeedResult> {
+  const {
+    schoolId,
+    sourceClassId,
+    sourceAcademicYearId,
+    examIds,
+    createdByUserId,
+    sectionStudentIds,
+  } = params;
+  const result: PromotionDemoSeedResult = { runs: 0, entries: 0 };
+
+  // --- next academic year ------------------------------------------------
+  let nextYear = await findLivePreferred(repos.academicYearRepository, {
+    name: DEMO_NEXT_ACADEMIC_YEAR.name,
+    tenant_id: schoolId,
+  });
+  if (!nextYear) {
+    nextYear = repos.academicYearRepository.create({
+      name: DEMO_NEXT_ACADEMIC_YEAR.name,
+      start_date: new Date(DEMO_NEXT_ACADEMIC_YEAR.start_date),
+      end_date: new Date(DEMO_NEXT_ACADEMIC_YEAR.end_date),
+      is_current: false,
+      tenant_id: schoolId,
+    });
+    await repos.academicYearRepository.save(nextYear);
+  } else if (nextYear.deleted_at) {
+    await repos.academicYearRepository.save(undelete(nextYear));
+  }
+
+  // --- target class + two sections ---------------------------------------
+  let targetClass = await repos.classRepository.findOne({
+    where: { name: DEMO_NEXT_CLASS_NAME, tenant_id: schoolId, academic_year_id: nextYear.id },
+    withDeleted: true,
+  });
+  if (!targetClass) {
+    targetClass = repos.classRepository.create({
+      name: DEMO_NEXT_CLASS_NAME,
+      numeric_grade: 7,
+      shift: null,
+      version: null,
+      academic_year_id: nextYear.id,
+      tenant_id: schoolId,
+    });
+    await repos.classRepository.save(targetClass);
+  } else if (targetClass.deleted_at) {
+    await repos.classRepository.save(undelete(targetClass));
+  }
+
+  const targetSections: ClassSection[] = [];
+  for (const sectionName of ['A', 'B']) {
+    let section = await repos.classSectionRepository.findOne({
+      where: { class_id: targetClass.id, section_name: sectionName, tenant_id: schoolId },
+      withDeleted: true,
+    });
+    if (!section) {
+      section = repos.classSectionRepository.create({
+        class_id: targetClass.id,
+        section_name: sectionName,
+        capacity: 30,
+        group_name: null,
+        tenant_id: schoolId,
+      });
+      await repos.classSectionRepository.save(section);
+    } else if (section.deleted_at) {
+      await repos.classSectionRepository.save(undelete(section));
+    }
+    targetSections.push(section);
+  }
+
+  // --- one COMMITTED run --------------------------------------------------
+  let run = await repos.promotionRunRepository.findOne({
+    where: {
+      tenant_id: schoolId,
+      source_class_id: sourceClassId,
+      target_academic_year_id: nextYear.id,
+      status: PromotionRunStatus.COMMITTED,
+    },
+  });
+  if (!run) {
+    run = repos.promotionRunRepository.create({
+      tenant_id: schoolId,
+      source_class_id: sourceClassId,
+      source_academic_year_id: sourceAcademicYearId,
+      target_academic_year_id: nextYear.id,
+      target_class_id: targetClass.id,
+      exam_ids: [...examIds],
+      algorithm: PlacementAlgorithm.BLOCK,
+      status: PromotionRunStatus.COMMITTED,
+      refreshed_at: new Date('2026-03-01T00:00:00.000Z'),
+      committed_at: new Date('2026-03-02T00:00:00.000Z'),
+      committed_by_user_id: createdByUserId,
+      approved_by_user_id: createdByUserId,
+      override_count: 1,
+      created_by_user_id: createdByUserId,
+    });
+    await repos.promotionRunRepository.save(run);
+    result.runs += 1;
+
+    // --- one entry per seeded student, section A roll 1 overridden -------
+    let studentIndex = 0;
+    for (const [sectionIndex, studentIds] of sectionStudentIds.entries()) {
+      for (const [rollIndex, studentId] of studentIds.entries()) {
+        const enrollment = await repos.enrollmentRepository.findOne({
+          where: {
+            student_id: studentId,
+            academic_year_id: sourceAcademicYearId,
+            tenant_id: schoolId,
+            enrollment_status: EnrollmentStatus.ACTIVE,
+          },
+        });
+        if (!enrollment) continue;
+
+        const isOverride = sectionIndex === 0 && rollIndex === 0;
+        await repos.promotionEntryRepository.save(
+          repos.promotionEntryRepository.create({
+            tenant_id: schoolId,
+            run_id: run.id,
+            student_id: studentId,
+            source_enrollment_id: enrollment.id,
+            source_section_id: enrollment.section_id,
+            merit_rank: studentIndex + 1,
+            mean_gpa: '4.50',
+            total_marks_sum: '167.00',
+            passed_all: true,
+            suggested_outcome: PromotionOutcome.PROMOTE,
+            final_outcome: isOverride ? PromotionOutcome.RETAIN : PromotionOutcome.PROMOTE,
+            is_override: isOverride,
+            override_note: isOverride
+              ? 'Medical absence during annual exam — approved by head teacher'
+              : null,
+            overridden_by_user_id: isOverride ? createdByUserId : null,
+            group_name: null,
+            target_class_id: isOverride ? null : targetClass.id,
+            target_section_id: isOverride ? null : targetSections[sectionIndex].id,
+            new_roll_number: isOverride ? null : rollIndex + 1,
+            placement_error: null,
+            target_enrollment_id: null,
+          }),
+        );
+        result.entries += 1;
+        studentIndex += 1;
+      }
+    }
+  }
+
+  if (result.runs > 0 || result.entries > 0) {
+    console.log(`  Promotion demo seed: +${result.runs} runs, +${result.entries} entries`);
   }
   return result;
 }
