@@ -7,11 +7,13 @@ import {
   DataTable,
   ErrorState,
   Skeleton,
+  toast,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
-import { analysisCsvUrl, useDefaultedList, type DefaultedRow } from '@biddaloy/ui/hooks';
+import { downloadAnalysisCsv, useDefaultedList, type DefaultedRow } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { Printer } from 'lucide-react';
+import * as React from 'react';
 
 import type { AnalysisTabProps } from './-merit-tab';
 
@@ -25,6 +27,18 @@ export function DefaultedTab({
   const { t } = useTranslation('exams');
   const defaultedQuery = useDefaultedList(examId, sectionId);
   const rows = defaultedQuery.data?.rows ?? [];
+
+  const [csvBusy, setCsvBusy] = React.useState(false);
+  async function handleDownloadCsv() {
+    setCsvBusy(true);
+    try {
+      await downloadAnalysisCsv(examId, 'defaulted', sectionId, examName);
+    } catch {
+      toast.error(t('analysis.downloadCsvError'));
+    } finally {
+      setCsvBusy(false);
+    }
+  }
 
   if (defaultedQuery.isLoading) return <Skeleton className="h-32 w-full" />;
   if (defaultedQuery.isError)
@@ -102,8 +116,14 @@ export function DefaultedTab({
           <Printer className="size-4" />
           {t('analysis.print')}
         </Button>
-        <Button type="button" variant="outline" asChild>
-          <a href={analysisCsvUrl(examId, 'defaulted', sectionId)}>{t('analysis.downloadCsv')}</a>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => void handleDownloadCsv()}
+          disabled={csvBusy}
+          loading={csvBusy}
+        >
+          {t('analysis.downloadCsv')}
         </Button>
       </div>
       <DataTable

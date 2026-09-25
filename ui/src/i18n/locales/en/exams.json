@@ -334,6 +334,7 @@
       "columnBelowPass": "Below pass",
       "columnHighest": "Highest",
       "columnAverage": "Average"
-    }
+    },
+    "downloadCsvError": "Could not download the CSV. Please try again."
   }
 }

@@ -334,6 +334,7 @@
       "columnBelowPass": "পাস নম্বরের নিচে",
       "columnHighest": "সর্বোচ্চ",
       "columnAverage": "গড়"
-    }
+    },
+    "downloadCsvError": "CSV ডাউনলোড করা যায়নি। আবার চেষ্টা করুন।"
   }
 }

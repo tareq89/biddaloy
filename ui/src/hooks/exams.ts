@@ -906,18 +906,33 @@ export function usePassFailByComponent(examId: string | undefined, sectionId?: s
   return useQuery(passFailByComponentQueryOptions(examId, sectionId));
 }
 
-/** Print/CSV buttons link directly to this URL (`<a href>`, not a fetch) —
- * the server streams a `StreamableFile` with a `Content-Disposition`
- * attachment header, same pattern `analysisCsvUrl`'s callers already use
- * for exam schedule exports elsewhere in the app. */
-export function analysisCsvUrl(
+/** A plain `<a href>` never runs `apiClient`'s interceptor, so a request
+ * built that way carries no `Authorization` bearer token and no
+ * `X-Tenant-ID` — `AuthGuard('jwt')`/`ContextGuard` reject it. Fetch the
+ * CSV through `apiClient` as a blob instead and trigger the download from
+ * a temporary object URL, same pattern as `downloadCollectionsReportCsv`
+ * (`reports.ts`). */
+export async function downloadAnalysisCsv(
   examId: string,
   kind: 'merit' | 'defaulted' | 'pass-fail',
   sectionId?: string,
-): string {
-  const base = apiClient.getUri({
-    url: `/exams/${examId}/analysis/${kind}.csv`,
+  examName?: string,
+): Promise<void> {
+  const res = await apiClient.get<Blob>(`/exams/${examId}/analysis/${kind}.csv`, {
     params: sectionId ? { section_id: sectionId } : {},
+    responseType: 'blob',
   });
-  return base;
+  const blob = res.data instanceof Blob ? res.data : new Blob([res.data], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  // The server's `res.attachment()` filename is set for a direct-navigation
+  // download, but an SPA blob download always names the file from `.download`
+  // instead — name it the same way so a fetched CSV isn't just "merit.csv".
+  anchor.download = examName ? `${examName}-${kind}.csv` : `${kind}.csv`;
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }

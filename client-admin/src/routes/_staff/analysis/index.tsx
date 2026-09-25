@@ -64,11 +64,6 @@ export const Route = createFileRoute('/_staff/analysis/')({
   component: AnalysisPage,
 });
 
-function AnalysisPending() {
-  const { t } = useTranslation('nav');
-  return <RoutePending variant="list" label={t('routePending.label', { ns: 'nav' })} />;
-}
-
 function AnalysisPage() {
   const { t } = useTranslation('exams');
   const { t: tNav } = useTranslation('nav');
@@ -210,4 +205,9 @@ function AnalysisPage() {
       )}
     </div>
   );
+}
+
+function AnalysisPending() {
+  const { t } = useTranslation('nav');
+  return <RoutePending variant="list" label={t('routePending.label', { ns: 'nav' })} />;
 }

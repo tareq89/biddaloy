@@ -257,7 +257,7 @@ export {
   type UpdateSectionInput,
 } from './classes';
 export {
-  analysisCsvUrl,
+  downloadAnalysisCsv,
   analysisKey,
   defaultedListQueryOptions,
   examComponentsAllQueryOptions,

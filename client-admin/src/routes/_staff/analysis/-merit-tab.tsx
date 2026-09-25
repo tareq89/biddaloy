@@ -9,11 +9,13 @@ import {
   DataTable,
   ErrorState,
   Skeleton,
+  toast,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
-import { analysisCsvUrl, useMeritList, type MeritRow } from '@biddaloy/ui/hooks';
+import { downloadAnalysisCsv, useMeritList, type MeritRow } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { Printer } from 'lucide-react';
+import * as React from 'react';
 
 export interface AnalysisTabProps {
   examId: string;
@@ -33,6 +35,18 @@ export function MeritTab({
   const { t } = useTranslation('exams');
   const meritQuery = useMeritList(examId, sectionId);
   const rows = meritQuery.data?.rows ?? [];
+
+  const [csvBusy, setCsvBusy] = React.useState(false);
+  async function handleDownloadCsv() {
+    setCsvBusy(true);
+    try {
+      await downloadAnalysisCsv(examId, 'merit', sectionId, examName);
+    } catch {
+      toast.error(t('analysis.downloadCsvError'));
+    } finally {
+      setCsvBusy(false);
+    }
+  }
 
   if (meritQuery.isLoading) return <Skeleton className="h-32 w-full" />;
   if (meritQuery.isError)
@@ -97,8 +111,14 @@ export function MeritTab({
           <Printer className="size-4" />
           {t('analysis.print')}
         </Button>
-        <Button type="button" variant="outline" asChild>
-          <a href={analysisCsvUrl(examId, 'merit', sectionId)}>{t('analysis.downloadCsv')}</a>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => void handleDownloadCsv()}
+          disabled={csvBusy}
+          loading={csvBusy}
+        >
+          {t('analysis.downloadCsv')}
         </Button>
       </div>
       <DataTable

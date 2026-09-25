@@ -13,10 +13,11 @@ import {
   DataTable,
   ErrorState,
   Skeleton,
+  toast,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
-  analysisCsvUrl,
+  downloadAnalysisCsv,
   passFailByComponentQueryOptions,
   passFailQueryOptions,
   type ComponentPassFailRow,
@@ -26,6 +27,7 @@ import {
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { useQuery } from '@tanstack/react-query';
 import { Printer } from 'lucide-react';
+import * as React from 'react';
 
 import type { AnalysisTabProps } from './-merit-tab';
 
@@ -60,6 +62,19 @@ export function PassFailTab({
   onByComponentChange,
 }: PassFailTabProps) {
   const { t } = useTranslation('exams');
+
+  const [csvBusy, setCsvBusy] = React.useState(false);
+  async function handleDownloadCsv() {
+    setCsvBusy(true);
+    try {
+      await downloadAnalysisCsv(examId, 'pass-fail', sectionId, examName);
+    } catch {
+      toast.error(t('analysis.downloadCsvError'));
+    } finally {
+      setCsvBusy(false);
+    }
+  }
+
   // Only the visible tab's query is enabled — the toggle used to fetch both
   // subject- and component-level pass/fail data on every render regardless
   // of which table was shown (code review finding on #1001).
@@ -210,8 +225,14 @@ export function PassFailTab({
             <Printer className="size-4" />
             {t('analysis.print')}
           </Button>
-          <Button type="button" variant="outline" asChild>
-            <a href={analysisCsvUrl(examId, 'pass-fail', sectionId)}>{t('analysis.downloadCsv')}</a>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void handleDownloadCsv()}
+            disabled={csvBusy}
+            loading={csvBusy}
+          >
+            {t('analysis.downloadCsv')}
           </Button>
         </div>
       </div>
