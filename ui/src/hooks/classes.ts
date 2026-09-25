@@ -189,8 +189,26 @@ export function useClassSections(classId: string | undefined) {
   return useQuery(classSectionsQueryOptions(classId));
 }
 
-/** [8.11.2] — class detail page's Teachers tab. Read-only (teacher CRUD is
- * #177), so no mutations alongside it. */
+/** [29.0] `SectionService.listSectionTeachers`'s response shape, mirrored
+ * from `classes.service.ts`'s own `SectionTeacherAssignment` — same
+ * "no `@ApiResponse` decoration" gap `ClassTeacher` above documents.
+ * `subject_id`/`subject_name` are `null` for a class-teacher row. */
+export interface SectionTeacherAssignment {
+  id: string;
+  teacher_id: string;
+  employee_id: string;
+  full_name: string;
+  section_id: string;
+  section_name: string;
+  subject_id: string | null;
+  subject_name: string | null;
+}
+
+export type AssignTeacherInput = components['schemas']['AssignTeacherDto'];
+
+/** [8.11.2] — class detail page's Teachers tab. Now also backs the
+ * assign-teacher dialog's mutations below (invalidated on
+ * assign/unassign). */
 export function classTeachersQueryOptions(classId: string | undefined) {
   return queryOptions({
     queryKey: [...classKeys.all, 'teachers', classId] as const,
@@ -205,6 +223,66 @@ export function classTeachersQueryOptions(classId: string | undefined) {
 
 export function useClassTeachers(classId: string | undefined) {
   return useQuery(classTeachersQueryOptions(classId));
+}
+
+/** [29.0] Own key branch, same reasoning as `classSectionsKey` — a
+ * section's teacher assignments are invalidated independently of (but
+ * alongside) `classTeachersQueryOptions(classId)`'s class-wide list. */
+function sectionTeachersKey(classId: string, sectionId: string) {
+  return [...classKeys.all, 'section-teachers', classId, sectionId] as const;
+}
+
+export function sectionTeachersQueryOptions(classId: string, sectionId: string) {
+  return queryOptions({
+    queryKey: sectionTeachersKey(classId, sectionId),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<SectionTeacherAssignment[]>(
+        `/classes/${classId}/sections/${sectionId}/teachers`,
+        { signal },
+      );
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useSectionTeachers(classId: string, sectionId: string) {
+  return useQuery(sectionTeachersQueryOptions(classId, sectionId));
+}
+
+/** [29.0] Assign a teacher to a section (class-teacher or subject-teacher,
+ * per `AssignTeacherDto.subject_id`'s presence). Invalidates both the
+ * section-scoped list and the class-wide `classTeachersQueryOptions` list
+ * the class detail page's Teachers tab reads. */
+export function useAssignTeacher(classId: string, sectionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: AssignTeacherInput) => {
+      const res = await apiClient.post<SectionTeacherAssignment>(
+        `/classes/${classId}/sections/${sectionId}/teachers`,
+        input,
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: sectionTeachersKey(classId, sectionId) });
+      void queryClient.invalidateQueries({ queryKey: classTeachersQueryOptions(classId).queryKey });
+    },
+  });
+}
+
+export function useUnassignTeacher(classId: string, sectionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (assignmentId: string) => {
+      await apiClient.delete(`/classes/${classId}/sections/${sectionId}/teachers/${assignmentId}`);
+    },
+    retry: shouldRetryQuery,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: sectionTeachersKey(classId, sectionId) });
+      void queryClient.invalidateQueries({ queryKey: classTeachersQueryOptions(classId).queryKey });
+    },
+  });
 }
 
 export function useCreateClass() {

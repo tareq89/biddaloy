@@ -41,6 +41,39 @@ export function useTeachers(filters: TeacherListFilters) {
   return useQuery(teachersQueryOptions(filters));
 }
 
+/** [29.0] `UserService.getTeacherAssignments`'s response shape, mirrored
+ * from `users.service.ts`'s own `SectionTeacherAssignment` re-export (same
+ * shape `classes.ts`'s `SectionTeacherAssignment` documents — no
+ * `@ApiResponse` decoration on this list endpoint either). */
+export interface TeacherAssignment {
+  id: string;
+  teacher_id: string;
+  employee_id: string;
+  full_name: string;
+  section_id: string;
+  section_name: string;
+  subject_id: string | null;
+  subject_name: string | null;
+}
+
+export function teacherAssignmentsQueryOptions(teacherId: string | undefined) {
+  return queryOptions({
+    queryKey: [...teacherKeys.all, 'assignments', teacherId] as const,
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<TeacherAssignment[]>(`/teachers/${teacherId}/assignments`, {
+        signal,
+      });
+      return res.data;
+    },
+    enabled: teacherId !== undefined,
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useTeacherAssignments(teacherId: string | undefined) {
+  return useQuery(teacherAssignmentsQueryOptions(teacherId));
+}
+
 /** "Promote an existing tenant member to a teacher profile" — the server's
  * own framing of `POST /teachers`. 400 = user isn't a member of this
  * tenant; 409 = `employee_id` already exists (globally unique, across

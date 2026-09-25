@@ -6,7 +6,7 @@ import { teacherFactory } from '../test/factories';
 import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 
-import { useCreateTeacher, useTeachers, useUpdateTeacher } from './teachers';
+import { useCreateTeacher, useTeacherAssignments, useTeachers, useUpdateTeacher } from './teachers';
 
 describe('useTeachers', () => {
   it('sends search and user_id as query params', async () => {
@@ -87,6 +87,51 @@ describe('useCreateTeacher (promote a member)', () => {
     result.current.mutate({ user_id: 'user-1', employee_id: 'EMP-42' });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+});
+
+describe('useTeacherAssignments', () => {
+  it('resolves with the teacher’s section/subject assignments', async () => {
+    server.use(
+      http.get('/api/v1/teachers/:teacherId/assignments', () =>
+        HttpResponse.json([
+          {
+            id: 'assignment-1',
+            teacher_id: 'teacher-1',
+            employee_id: 'EMP-00001',
+            full_name: 'Rahim Uddin',
+            section_id: 'section-1',
+            section_name: 'A',
+            subject_id: null,
+            subject_name: null,
+          },
+        ]),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => useTeacherAssignments('teacher-1'), {
+      tenantId: 'tenant-1',
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.[0]?.section_name).toBe('A');
+  });
+
+  it('stays disabled and issues no request when teacherId is undefined', () => {
+    let requested = false;
+    server.use(
+      http.get('/api/v1/teachers/:teacherId/assignments', () => {
+        requested = true;
+        return HttpResponse.json([]);
+      }),
+    );
+
+    const { result } = renderHookWithProviders(() => useTeacherAssignments(undefined), {
+      tenantId: 'tenant-1',
+    });
+
+    expect(result.current.fetchStatus).toBe('idle');
+    expect(requested).toBe(false);
   });
 });
 
