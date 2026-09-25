@@ -77,8 +77,11 @@ function NewPromotionRunPage() {
   const [deselectedExamIds, setDeselectedExamIds] = React.useState<ReadonlySet<string>>(new Set());
   const [algorithm, setAlgorithm] = React.useState<PlacementAlgorithm>(PlacementAlgorithm.BLOCK);
 
+  const mutation = useCreatePromotionRun();
+
   function changeSource(id: string) {
     if (!id) return;
+    mutation.reset();
     setSourceClassId(id);
     setTargetYearOverride(undefined);
     setTargetClassOverride(undefined);
@@ -90,12 +93,14 @@ function NewPromotionRunPage() {
     // with `''` while syncing to a controlled value that starts empty
     // (before classes/years have loaded) — never treat that as a real pick.
     if (!id) return;
+    mutation.reset();
     setTargetYearOverride(id);
     setTargetClassOverride(undefined);
   }
 
   function changeTargetClass(id: string) {
     if (!id) return;
+    mutation.reset();
     setTargetClassOverride(id);
   }
 
@@ -135,6 +140,7 @@ function NewPromotionRunPage() {
     .map((exam) => exam.id);
 
   function toggleExam(examId: string, checked: boolean) {
+    mutation.reset();
     setDeselectedExamIds((prev) => {
       const next = new Set(prev);
       if (checked) next.delete(examId);
@@ -142,8 +148,6 @@ function NewPromotionRunPage() {
       return next;
     });
   }
-
-  const mutation = useCreatePromotionRun();
 
   const suggestionReason = suggestion.data?.blocking_reason;
   const mutationErrorRawCode =
