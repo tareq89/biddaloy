@@ -52,6 +52,11 @@ export interface TeacherAssignment {
   full_name: string;
   section_id: string;
   section_name: string;
+  /** [#1026 gap fix] Not on `classes.ts`'s `SectionTeacherAssignment` — a
+   * teacher-centric row has no fixed class in scope, so the DataTable
+   * needs its own class column. */
+  class_id: string;
+  class_name: string;
   subject_id: string | null;
   subject_name: string | null;
 }

@@ -12,6 +12,7 @@ import { createTestQueryClient } from '../test/render-with-providers';
 import {
   classKeys,
   useAssignTeacher,
+  useAssignTeacherAssignment,
   useClass,
   useClasses,
   useClassSections,
@@ -22,6 +23,7 @@ import {
   useDeleteSection,
   useSectionTeachers,
   useUnassignTeacher,
+  useUnassignTeacherAssignment,
   useUpdateClass,
   useUpdateSection,
 } from './classes';
@@ -322,6 +324,78 @@ describe('useUnassignTeacher invalidates both the section-scoped and class-wide 
     const invalidatedKeys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
     expect(invalidatedKeys).toContainEqual(['classes', 'section-teachers', 'class-1', 'section-1']);
     expect(invalidatedKeys).toContainEqual(['classes', 'teachers', 'class-1']);
+  });
+});
+
+describe('useAssignTeacherAssignment (unbound) — [#1026 gap fix]', () => {
+  it('posts to the classId/sectionId given per-call and invalidates section, class and teacher-assignments keys', async () => {
+    let postedBody: unknown = null;
+    server.use(
+      http.post('/api/v1/classes/:classId/sections/:sectionId/teachers', async ({ request }) => {
+        postedBody = await request.json();
+        return HttpResponse.json(
+          { id: 'assignment-1', teacher_id: 'teacher-1', section_id: 'section-1' },
+          { status: 201 },
+        );
+      }),
+    );
+
+    const queryClient = createTestQueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const { result } = renderHookWithProviders(() => useAssignTeacherAssignment(), {
+      tenantId: 'tenant-1',
+      queryClient,
+    });
+
+    result.current.mutate({
+      classId: 'class-1',
+      sectionId: 'section-1',
+      teacher_id: 'teacher-1',
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(postedBody).toEqual({ teacher_id: 'teacher-1' });
+    const invalidatedKeys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
+    expect(invalidatedKeys).toContainEqual(['classes', 'section-teachers', 'class-1', 'section-1']);
+    expect(invalidatedKeys).toContainEqual(['classes', 'teachers', 'class-1']);
+    expect(invalidatedKeys).toContainEqual(['teachers', 'assignments', 'teacher-1']);
+  });
+});
+
+describe('useUnassignTeacherAssignment (unbound) — [#1026 gap fix]', () => {
+  it('deletes at the classId/sectionId/assignmentId given per-call and invalidates the same three keys', async () => {
+    let deletedAssignmentId: string | null = null;
+    server.use(
+      http.delete(
+        '/api/v1/classes/:classId/sections/:sectionId/teachers/:assignmentId',
+        ({ params }) => {
+          deletedAssignmentId = params.assignmentId as string;
+          return new HttpResponse(null, { status: 200 });
+        },
+      ),
+    );
+
+    const queryClient = createTestQueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const { result } = renderHookWithProviders(() => useUnassignTeacherAssignment(), {
+      tenantId: 'tenant-1',
+      queryClient,
+    });
+
+    result.current.mutate({
+      classId: 'class-1',
+      sectionId: 'section-1',
+      assignmentId: 'assignment-1',
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(deletedAssignmentId).toBe('assignment-1');
+    const invalidatedKeys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
+    expect(invalidatedKeys).toContainEqual(['classes', 'section-teachers', 'class-1', 'section-1']);
+    expect(invalidatedKeys).toContainEqual(['classes', 'teachers', 'class-1']);
+    expect(invalidatedKeys).toContainEqual(['teachers', 'assignments']);
   });
 });
 

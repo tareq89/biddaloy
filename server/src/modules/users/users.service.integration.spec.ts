@@ -1580,6 +1580,10 @@ describe('TeacherService (integration)', () => {
       expect(rows[0]).toMatchObject({
         teacher_id: teacher.id,
         section_id: SEED_SECTION_1_ID,
+        // [#1026 gap fix] class_id/class_name now come through the
+        // section→class join, for the Staff detail tab's class column.
+        class_id: SEED_CLASS_1_ID,
+        class_name: 'Class One',
         subject_id: null,
         subject_name: null,
       });
