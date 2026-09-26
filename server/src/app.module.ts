@@ -39,6 +39,7 @@ import { RestoreModule } from './modules/workbook/restore/restore.module';
 import { ImportModule } from './modules/workbook/import/import.module';
 import { TemplateModule } from './modules/workbook/template/template.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { StaffHrModule } from './modules/staff-hr/staff-hr.module';
 import { SearchModule } from './modules/search/search.module';
 import { GradingModule } from './modules/grading/grading.module';
 import { ExamsModule } from './modules/exams/exams.module';
@@ -52,6 +53,16 @@ import { SeatPlan } from './modules/seat-plans/entities/seat-plan.entity';
 import { SeatPlanSchedule } from './modules/seat-plans/entities/seat-plan-schedule.entity';
 import { SeatAllocation } from './modules/seat-plans/entities/seat-allocation.entity';
 import { SyllabusTopic } from './modules/homework/entities/syllabus-topic.entity';
+import { Designation } from './modules/staff-hr/entities/designation.entity';
+import { StaffHrRecord } from './modules/staff-hr/entities/staff-hr-record.entity';
+import { StaffDesignationHistory } from './modules/staff-hr/entities/staff-designation-history.entity';
+import { StaffFamilyMember } from './modules/staff-hr/entities/staff-family-member.entity';
+import { StaffAddress } from './modules/staff-hr/entities/staff-address.entity';
+import { StaffExperience } from './modules/staff-hr/entities/staff-experience.entity';
+import { StaffEducation } from './modules/staff-hr/entities/staff-education.entity';
+import { StaffTraining } from './modules/staff-hr/entities/staff-training.entity';
+import { StaffAchievement } from './modules/staff-hr/entities/staff-achievement.entity';
+import { StaffLanguage } from './modules/staff-hr/entities/staff-language.entity';
 import { validate } from './config/env.validation';
 
 // Entities for auto-loading
@@ -220,6 +231,16 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             SeatPlan,
             SeatPlanSchedule,
             SeatAllocation,
+            Designation,
+            StaffHrRecord,
+            StaffDesignationHistory,
+            StaffFamilyMember,
+            StaffAddress,
+            StaffExperience,
+            StaffEducation,
+            StaffTraining,
+            StaffAchievement,
+            StaffLanguage,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],
@@ -300,6 +321,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     HomeworkModule,
     SeatPlansModule,
     PromotionsModule,
+    StaffHrModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

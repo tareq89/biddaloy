@@ -198,6 +198,13 @@ export enum Permission {
   SYLLABUS_READ = 'SYLLABUS_READ',
   // [22.1.1] Create/edit/mark a SyllabusTopic's status.
   SYLLABUS_MANAGE = 'SYLLABUS_MANAGE',
+
+  // Staff HR (23.x)
+  // [23.2.1] Read a Designation/StaffHrRecord/StaffDesignationHistory.
+  STAFF_HR_READ = 'STAFF_HR_READ',
+  // [23.2.1] Create/edit a Designation/StaffHrRecord and promote a staff
+  // member's designation — ADMIN only (D9).
+  STAFF_HR_MANAGE = 'STAFF_HR_MANAGE',
 }
 
 import { UserRole } from './index';
@@ -299,6 +306,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.HOMEWORK_IMPORT,
     Permission.SYLLABUS_READ,
     Permission.SYLLABUS_MANAGE,
+    // [23.2.1] Staff HR — ADMIN only (D9).
+    Permission.STAFF_HR_READ,
+    Permission.STAFF_HR_MANAGE,
   ],
 
   [UserRole.ACCOUNTANT]: [

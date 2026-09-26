@@ -69,6 +69,16 @@ import { SeatPlanSchedule } from '../src/modules/seat-plans/entities/seat-plan-s
 import { SeatAllocation } from '../src/modules/seat-plans/entities/seat-allocation.entity';
 import { PromotionRun } from '../src/modules/promotions/entities/promotion-run.entity';
 import { PromotionEntry } from '../src/modules/promotions/entities/promotion-entry.entity';
+import { Designation } from '../src/modules/staff-hr/entities/designation.entity';
+import { StaffHrRecord } from '../src/modules/staff-hr/entities/staff-hr-record.entity';
+import { StaffDesignationHistory } from '../src/modules/staff-hr/entities/staff-designation-history.entity';
+import { StaffFamilyMember } from '../src/modules/staff-hr/entities/staff-family-member.entity';
+import { StaffAddress } from '../src/modules/staff-hr/entities/staff-address.entity';
+import { StaffExperience } from '../src/modules/staff-hr/entities/staff-experience.entity';
+import { StaffEducation } from '../src/modules/staff-hr/entities/staff-education.entity';
+import { StaffTraining } from '../src/modules/staff-hr/entities/staff-training.entity';
+import { StaffAchievement } from '../src/modules/staff-hr/entities/staff-achievement.entity';
+import { StaffLanguage } from '../src/modules/staff-hr/entities/staff-language.entity';
 
 export const ALL_ENTITIES = [
   AcademicYear,
@@ -142,4 +152,14 @@ export const ALL_ENTITIES = [
   SeatAllocation,
   PromotionRun,
   PromotionEntry,
+  Designation,
+  StaffHrRecord,
+  StaffDesignationHistory,
+  StaffFamilyMember,
+  StaffAddress,
+  StaffExperience,
+  StaffEducation,
+  StaffTraining,
+  StaffAchievement,
+  StaffLanguage,
 ];
