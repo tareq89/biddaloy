@@ -51,15 +51,17 @@ test('public submit → staff shortlist/admit → student created → public sta
 
     // The intake picker only renders when the school has more than one open
     // intake — default-school always has at least the seed script's own
-    // "Class 1 Admission 2026", so this select is not optional in practice.
-    // Select by our own intake's title rather than relying on "there's only
-    // one" auto-selection, which the seed data already breaks.
-    const intakeSelect = guestPage.getByLabel(t('admission-public.form.fields.intake'), {
-      exact: true,
-    });
-    if (await intakeSelect.isVisible()) {
-      await intakeSelect.selectOption({ label: `E2E Intake ${suffix}` });
-    }
+    // "Class 1 Admission 2026", so with our own intake added there are
+    // always ≥2 and this select always renders in practice. Select by our
+    // own intake's title rather than relying on "there's only one"
+    // auto-selection, which the seed data already breaks. Waiting on the
+    // locator itself (not a non-waiting isVisible() check) matters here —
+    // the intake list is still loading right after goto(), so a check made
+    // before it resolves always reads as "not visible" regardless of how
+    // many intakes exist.
+    await guestPage
+      .getByLabel(t('admission-public.form.fields.intake'), { exact: true })
+      .selectOption({ label: `E2E Intake ${suffix}` });
 
     await guestPage
       .getByLabel(t('admission-public.form.fields.applicantName'), { exact: true })
