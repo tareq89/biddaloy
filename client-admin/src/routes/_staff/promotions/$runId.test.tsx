@@ -91,7 +91,9 @@ function stubCommon() {
         totalPages: 1,
       }),
     ),
-    http.get('/api/v1/classes/vocabulary', () => HttpResponse.json({ groups: ['Science', 'Arts'] })),
+    http.get('/api/v1/classes/vocabulary', () =>
+      HttpResponse.json({ groups: ['Science', 'Arts'] }),
+    ),
     http.get('/api/v1/classes/class-7/sections', () =>
       HttpResponse.json([{ id: 'sec-a', section_name: 'A', capacity: 40, enrolled_count: 10 }]),
     ),
@@ -99,24 +101,37 @@ function stubCommon() {
 }
 
 type Entry = ReturnType<typeof entry>;
-type EntryPatch = { student_id: string; final_outcome?: string; group_name?: string; override_note?: string };
+type EntryPatch = {
+  student_id: string;
+  final_outcome?: string;
+  group_name?: string;
+  override_note?: string;
+};
 
 /** A run server that validates entry PATCHes the way `patchEntries` does:
  * 400 on a blank note (DTO), 422 on an override with no note, a
  * non-override's note nulled, the whole batch applied or none of it. It
  * records every PATCH body and the stored run at the moment of commit. */
 function statefulRun(initial: ReturnType<typeof baseRun> = baseRun()) {
-  let entries = (initial.entries as Entry[]).map((row) => ({ ...row }));
+  let entries = initial.entries.map((row) => ({ ...row }));
   let status = 'DRAFT';
-  const record = { patches: [] as EntryPatch[][], entries: () => entries, committed: null as Entry[] | null };
+  const record = {
+    patches: [] as EntryPatch[][],
+    entries: () => entries,
+    committed: null as Entry[] | null,
+  };
   const current = () => ({ ...initial, status, entries });
   server.use(
     http.get(RUN_URL, () => HttpResponse.json(current())),
     http.patch(`${RUN_URL}/entries`, async ({ request }) => {
       const body = (await request.json()) as EntryPatch[];
       record.patches.push(body);
-      if (body.some((patch) => patch.override_note !== undefined && patch.override_note.trim() === '')) {
-        return HttpResponse.json(apiErrorBody(400, 'Bad Request', `${RUN_URL}/entries`), { status: 400 });
+      if (
+        body.some((patch) => patch.override_note !== undefined && patch.override_note.trim() === '')
+      ) {
+        return HttpResponse.json(apiErrorBody(400, 'Bad Request', `${RUN_URL}/entries`), {
+          status: 400,
+        });
       }
       const next = entries.map((row) => ({ ...row }));
       for (const patch of body) {
@@ -126,9 +141,12 @@ function statefulRun(initial: ReturnType<typeof baseRun> = baseRun()) {
         const override = finalOutcome !== row.suggested_outcome;
         const note = override ? (patch.override_note ?? row.override_note) : null;
         if (override && !note) {
-          return HttpResponse.json(apiErrorBody(422, 'Unprocessable Entity', `${RUN_URL}/entries`), {
-            status: 422,
-          });
+          return HttpResponse.json(
+            apiErrorBody(422, 'Unprocessable Entity', `${RUN_URL}/entries`),
+            {
+              status: 422,
+            },
+          );
         }
         Object.assign(row, {
           final_outcome: finalOutcome,
@@ -208,7 +226,10 @@ describe('/promotions/$runId', () => {
     expect(record.patches[0]).toEqual([
       { student_id: 's1', final_outcome: 'RETAIN', override_note: 'Weak in maths' },
     ]);
-    expect(record.entries()[0]).toMatchObject({ final_outcome: 'RETAIN', override_note: 'Weak in maths' });
+    expect(record.entries()[0]).toMatchObject({
+      final_outcome: 'RETAIN',
+      override_note: 'Weak in maths',
+    });
   });
 
   it('reverting to the suggested outcome drops the pending note save', async () => {
@@ -239,14 +260,19 @@ describe('/promotions/$runId', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Commit' }));
 
     await waitFor(() => expect(record.committed).not.toBeNull());
-    expect(record.committed?.[0]).toMatchObject({ final_outcome: 'RETAIN', override_note: 'Weak in maths' });
+    expect(record.committed?.[0]).toMatchObject({
+      final_outcome: 'RETAIN',
+      override_note: 'Weak in maths',
+    });
   });
 
   it('keeps the stored note when an overridden row switches to another override', async () => {
     const user = userEvent.setup();
     stubCommon();
     const record = statefulRun(
-      baseRun({ entries: [entry({ final_outcome: 'RETAIN', is_override: true, override_note: 'old' })] }),
+      baseRun({
+        entries: [entry({ final_outcome: 'RETAIN', is_override: true, override_note: 'old' })],
+      }),
     );
     renderRun();
 
@@ -309,9 +335,7 @@ describe('/promotions/$runId', () => {
     await user.click(await screen.findByLabelText('Group'));
     await user.click(await screen.findByText('Science'));
 
-    await waitFor(() =>
-      expect(patchedBody).toEqual([{ student_id: 's1', group_name: 'Science' }]),
-    );
+    await waitFor(() => expect(patchedBody).toEqual([{ student_id: 's1', group_name: 'Science' }]));
   });
 
   // Only the commit endpoint returns these codes — so drive a real commit
@@ -416,7 +440,9 @@ describe('/promotions/$runId', () => {
     stubCommon();
     server.use(
       http.get(RUN_URL, () =>
-        HttpResponse.json(baseRun({ status: 'COMMITTED', committed_at: '2026-02-01T00:00:00.000Z' })),
+        HttpResponse.json(
+          baseRun({ status: 'COMMITTED', committed_at: '2026-02-01T00:00:00.000Z' }),
+        ),
       ),
     );
     renderRun();
