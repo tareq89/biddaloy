@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { EnrollmentStatus, SeatOrderMode, SeatPlanStatus } from '@biddaloy/shared';
 import { Reflector } from '@nestjs/core';
 import { Permission } from '@biddaloy/shared';
@@ -65,6 +70,7 @@ describe('SeatPlansService', () => {
   let roomRepo: any;
   let sectionRepo: any;
   let enrollmentRepo: any;
+  let userTenantRepo: any;
   let dataSource: any;
   let service: SeatPlansService;
 
@@ -95,6 +101,9 @@ describe('SeatPlansService', () => {
     enrollmentRepo = {
       find: vi.fn(async () => []),
     };
+    userTenantRepo = {
+      findOne: vi.fn(async () => ({ tenant_id: TENANT, user_id: 'invigilator-1' })),
+    };
     dataSource = {
       transaction: vi.fn(async (cb: any) => cb(fakeManager())),
     };
@@ -107,6 +116,7 @@ describe('SeatPlansService', () => {
       roomRepo,
       sectionRepo,
       enrollmentRepo,
+      userTenantRepo,
       dataSource,
     );
   });
@@ -196,6 +206,31 @@ describe('SeatPlansService', () => {
           }),
         }),
       });
+    });
+
+    it('tolerates a duplicate id in exam_schedule_ids/room_ids without a false "not found"', async () => {
+      // TypeORM's In() dedups internally, so a duplicate in the caller's
+      // array must not be compared against the raw (still-duplicated) input
+      // length, or a genuinely-found row gets reported as missing.
+      const schedule = makeSchedule(SCHEDULE_A, 'class-1');
+      examScheduleRepo.find.mockResolvedValue([schedule]);
+      roomRepo.find.mockResolvedValue([{ id: ROOM_1, capacity: 5, tenant_id: TENANT }]);
+      sectionRepo.find.mockResolvedValue([{ id: SECTION_1, class_id: 'class-1' }]);
+      enrollmentRepo.find.mockResolvedValue([makeEnrollment('s1', 1, 'class-1', SECTION_1)]);
+      seatPlanRepo.findOne.mockResolvedValue({
+        id: 'SeatPlan-1',
+        tenant_id: TENANT,
+        status: SeatPlanStatus.DRAFT,
+      });
+
+      await expect(
+        service.generate(TENANT, {
+          name: 'Duplicate ids',
+          exam_schedule_ids: [SCHEDULE_A, SCHEDULE_A],
+          room_ids: [ROOM_1, ROOM_1],
+          seat_order_mode: SeatOrderMode.SEQUENTIAL,
+        }),
+      ).resolves.toBeTruthy();
     });
 
     it("does not leak one class's students onto another class's schedule when generating across classes", async () => {
@@ -685,6 +720,161 @@ describe('SeatPlansService', () => {
       );
 
       await expect(service.publish(TENANT, 'plan-1')).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('updateInvigilator', () => {
+    it('rejects once the plan is no longer a draft', async () => {
+      seatPlanRepo.findOne.mockResolvedValue({
+        id: 'plan-1',
+        tenant_id: TENANT,
+        status: SeatPlanStatus.PUBLISHED,
+      });
+
+      await expect(
+        service.updateInvigilator(TENANT, 'plan-1', ROOM_1, { invigilator_user_id: 'user-1' }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('404s when the invigilator does not belong to the tenant', async () => {
+      seatPlanRepo.findOne.mockResolvedValue({
+        id: 'plan-1',
+        tenant_id: TENANT,
+        status: SeatPlanStatus.DRAFT,
+      });
+      userTenantRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.updateInvigilator(TENANT, 'plan-1', ROOM_1, { invigilator_user_id: 'user-1' }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('404s instead of silently no-oping when roomId matches nothing in the plan', async () => {
+      seatPlanRepo.findOne.mockResolvedValue({
+        id: 'plan-1',
+        tenant_id: TENANT,
+        status: SeatPlanStatus.DRAFT,
+      });
+      allocationRepo.update = vi.fn(async () => ({ affected: 0 }));
+
+      await expect(
+        service.updateInvigilator(TENANT, 'plan-1', 'room-does-not-exist', {
+          invigilator_user_id: 'user-1',
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('sets the invigilator when the room exists and belongs to the tenant', async () => {
+      seatPlanRepo.findOne.mockResolvedValue({
+        id: 'plan-1',
+        tenant_id: TENANT,
+        status: SeatPlanStatus.DRAFT,
+      });
+      allocationRepo.update = vi.fn(async () => ({ affected: 2 }));
+
+      await service.updateInvigilator(TENANT, 'plan-1', ROOM_1, { invigilator_user_id: 'user-1' });
+
+      expect(allocationRepo.update).toHaveBeenCalledWith(
+        { tenant_id: TENANT, seat_plan_id: 'plan-1', room_id: ROOM_1 },
+        { invigilator_user_id: 'user-1' },
+      );
+    });
+  });
+
+  // MUST FIX (server/CLAUDE.md): every School-scoped endpoint needs a test
+  // proving tenant A cannot read/generate/edit/publish/reshuffle a seat plan
+  // belonging to tenant B. Every code path below goes through a repo
+  // `findOne`/`find` called with `{ tenant_id, ... }` in its `where` — these
+  // mocks simulate a real tenant-scoped query by only "finding" the row when
+  // the caller's tenant_id matches the row's actual tenant, so a wrong
+  // tenant_id gets exactly what Postgres would give it: nothing.
+  describe('tenant isolation', () => {
+    const OWNER_TENANT = TENANT;
+    const OTHER_TENANT = 'tenant-2';
+
+    it('findOne 404s instead of leaking a plan owned by another tenant', async () => {
+      seatPlanRepo.findOne.mockImplementation(async ({ where }: any) =>
+        where.tenant_id === OWNER_TENANT ? { id: 'plan-1', tenant_id: OWNER_TENANT } : null,
+      );
+
+      await expect(service.findOne(OTHER_TENANT, 'plan-1')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('generate 404s when the exam schedules/rooms belong to another tenant', async () => {
+      examScheduleRepo.find.mockImplementation(async ({ where }: any) =>
+        where.tenant_id === OWNER_TENANT ? [makeSchedule(SCHEDULE_A, 'class-1')] : [],
+      );
+
+      await expect(
+        service.generate(OTHER_TENANT, {
+          name: 'Cross-tenant attempt',
+          exam_schedule_ids: [SCHEDULE_A],
+          room_ids: [ROOM_1],
+          seat_order_mode: SeatOrderMode.SEQUENTIAL,
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('updateAllocation 404s when the plan belongs to another tenant', async () => {
+      seatPlanRepo.findOne.mockImplementation(async ({ where }: any) =>
+        where.tenant_id === OWNER_TENANT
+          ? { id: 'plan-1', tenant_id: OWNER_TENANT, status: SeatPlanStatus.DRAFT }
+          : null,
+      );
+
+      await expect(
+        service.updateAllocation(OTHER_TENANT, 'plan-1', 'alloc-1', {
+          room_id: ROOM_1,
+          seat_number: '1',
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('reshuffleRoom 404s when the plan belongs to another tenant', async () => {
+      seatPlanRepo.findOne.mockImplementation(async ({ where }: any) =>
+        where.tenant_id === OWNER_TENANT
+          ? { id: 'plan-1', tenant_id: OWNER_TENANT, status: SeatPlanStatus.DRAFT }
+          : null,
+      );
+
+      await expect(service.reshuffleRoom(OTHER_TENANT, 'plan-1', ROOM_1)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('updateInvigilator 404s when the plan belongs to another tenant', async () => {
+      seatPlanRepo.findOne.mockImplementation(async ({ where }: any) =>
+        where.tenant_id === OWNER_TENANT
+          ? { id: 'plan-1', tenant_id: OWNER_TENANT, status: SeatPlanStatus.DRAFT }
+          : null,
+      );
+
+      await expect(
+        service.updateInvigilator(OTHER_TENANT, 'plan-1', ROOM_1, {
+          invigilator_user_id: 'user-1',
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('publish 404s when the plan belongs to another tenant', async () => {
+      dataSource.transaction = vi.fn(async (cb: any) =>
+        cb({
+          findOne: vi.fn(async (_entityClass: any, { where }: any) =>
+            where.tenant_id === OWNER_TENANT
+              ? { id: 'plan-1', tenant_id: OWNER_TENANT, status: SeatPlanStatus.DRAFT }
+              : null,
+          ),
+          find: vi.fn(async () => []),
+          save: vi.fn(async (_e: any, v: any) => v),
+          createQueryBuilder: vi.fn(() => qb([])),
+        }),
+      );
+
+      await expect(service.publish(OTHER_TENANT, 'plan-1')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
 

@@ -96,13 +96,56 @@ export interface CapacityOk {
   seats_available: number;
 }
 
+/**
+ * A room can be reused across subject-sittings that don't overlap in time
+ * (e.g. morning and afternoon slots), so the real capacity requirement is
+ * the largest seats-needed among schedules that DO overlap each other, not
+ * the sum across every selected schedule. `schedules` lets the caller opt
+ * into that grouping; when omitted (or empty), every schedule is treated as
+ * one group and seats sum lump-sum, same as before.
+ */
 export function checkCapacity(
   roster: RosterEntry[],
   selectedRooms: RoomInput[],
   allRooms: RoomInput[],
+  schedules: ScheduleInput[] = [],
 ): CapacityOk | CapacityShortfall {
-  const seats_needed = roster.length;
   const seats_available = selectedRooms.reduce((sum, r) => sum + r.capacity, 0);
+
+  const neededByScheduleId = new Map<string, number>();
+  for (const entry of roster) {
+    neededByScheduleId.set(
+      entry.exam_schedule_id,
+      (neededByScheduleId.get(entry.exam_schedule_id) ?? 0) + 1,
+    );
+  }
+  const scheduleIds = [...neededByScheduleId.keys()];
+  const scheduleById = new Map(schedules.map((s) => [s.id, s]));
+
+  // Group schedule ids into overlap-connected clusters. Two schedules
+  // without timing info (not in `scheduleById`) are conservatively assumed
+  // to overlap with everything, preserving the old lump-sum behavior.
+  const visited = new Set<string>();
+  const clusterNeeds: number[] = [];
+  for (const id of scheduleIds) {
+    if (visited.has(id)) continue;
+    const cluster = [id];
+    visited.add(id);
+    for (let i = 0; i < cluster.length; i++) {
+      const current = scheduleById.get(cluster[i]);
+      for (const other of scheduleIds) {
+        if (visited.has(other)) continue;
+        const otherSchedule = scheduleById.get(other);
+        const bothTimed = current && otherSchedule;
+        if (!bothTimed || overlaps(current, otherSchedule)) {
+          visited.add(other);
+          cluster.push(other);
+        }
+      }
+    }
+    clusterNeeds.push(cluster.reduce((sum, cid) => sum + (neededByScheduleId.get(cid) ?? 0), 0));
+  }
+  const seats_needed = clusterNeeds.length ? Math.max(...clusterNeeds) : 0;
 
   if (seats_available >= seats_needed) {
     return { ok: true, seats_needed, seats_available };

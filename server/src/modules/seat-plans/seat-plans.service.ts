@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, QueryFailedError, Repository } from 'typeorm';
 import { EnrollmentStatus, SeatOrderMode, SeatPlanStatus } from '@biddaloy/shared';
 import { SeatPlan } from './entities/seat-plan.entity';
 import { SeatPlanSchedule } from './entities/seat-plan-schedule.entity';
@@ -14,6 +14,7 @@ import { ExamSchedule } from '../exams/entities/exam-schedule.entity';
 import { Room } from '../routines/entities/room.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Enrollment } from '../students/entities/enrollment.entity';
+import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { GenerateSeatPlanDto } from './dto/generate-seat-plan.dto';
 import { UpdateAllocationDto, UpdateInvigilatorDto } from './dto/update-allocation.dto';
 import {
@@ -45,6 +46,7 @@ export class SeatPlansService {
     @InjectRepository(Room) private readonly roomRepo: Repository<Room>,
     @InjectRepository(ClassSection) private readonly sectionRepo: Repository<ClassSection>,
     @InjectRepository(Enrollment) private readonly enrollmentRepo: Repository<Enrollment>,
+    @InjectRepository(UserTenant) private readonly userTenantRepo: Repository<UserTenant>,
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
@@ -174,7 +176,13 @@ export class SeatPlansService {
   }
 
   async generate(tenantId: string, dto: GenerateSeatPlanDto) {
-    const alreadyClaimed = await this.findPublishedClaims(tenantId, dto.exam_schedule_ids);
+    // TypeORM's In() dedups internally, so a caller-supplied duplicate id
+    // must not be compared against the raw (possibly-duplicated) input
+    // length — that would falsely report a found row as "not found".
+    const examScheduleIds = [...new Set(dto.exam_schedule_ids)];
+    const roomIds = [...new Set(dto.room_ids)];
+
+    const alreadyClaimed = await this.findPublishedClaims(tenantId, examScheduleIds);
     if (alreadyClaimed.length > 0) {
       throw new ConflictException({
         message: 'One or more exam schedules are already part of a published seat plan',
@@ -183,17 +191,17 @@ export class SeatPlansService {
     }
 
     const schedules = await this.examScheduleRepo.find({
-      where: { tenant_id: tenantId, id: In(dto.exam_schedule_ids) },
+      where: { tenant_id: tenantId, id: In(examScheduleIds) },
       relations: ['exam'],
     });
-    if (schedules.length !== dto.exam_schedule_ids.length) {
+    if (schedules.length !== examScheduleIds.length) {
       throw new NotFoundException('One or more exam schedules were not found');
     }
 
     const rooms = await this.roomRepo.find({
-      where: { tenant_id: tenantId, id: In(dto.room_ids) },
+      where: { tenant_id: tenantId, id: In(roomIds) },
     });
-    if (rooms.length !== dto.room_ids.length) {
+    if (rooms.length !== roomIds.length) {
       throw new NotFoundException('One or more rooms were not found');
     }
     const roomInputs: RoomInput[] = rooms.map((r) => ({ id: r.id, capacity: r.capacity ?? 0 }));
@@ -215,22 +223,22 @@ export class SeatPlansService {
     }));
     const roster = computeRoster(scheduleInputs, enrollments);
 
-    const capacity = checkCapacity(roster, roomInputs, allRoomInputs);
-    if (!capacity.ok) {
-      throw new BadRequestException({
-        message: 'Not enough room capacity for the selected subject sittings',
-        details: { code: 'SEAT_CAPACITY_SHORTFALL', ...capacity },
-      });
-    }
-
     const scheduleTimings: ScheduleInput[] = schedules.map((s) => ({
       id: s.id,
       date: s.date,
       starts_at: s.starts_at,
       ends_at: s.ends_at,
     }));
-    const existingPublished = await this.loadPublishedAllocationsForRooms(tenantId, dto.room_ids);
-    const conflicts = checkRoomConflicts(dto.room_ids, scheduleTimings, existingPublished);
+
+    const capacity = checkCapacity(roster, roomInputs, allRoomInputs, scheduleTimings);
+    if (!capacity.ok) {
+      throw new BadRequestException({
+        message: 'Not enough room capacity for the selected subject sittings',
+        details: { code: 'SEAT_CAPACITY_SHORTFALL', ...capacity },
+      });
+    }
+    const existingPublished = await this.loadPublishedAllocationsForRooms(tenantId, roomIds);
+    const conflicts = checkRoomConflicts(roomIds, scheduleTimings, existingPublished);
 
     const { assignments } = allocateSeats(roster, roomInputs, dto.seat_order_mode);
 
@@ -434,7 +442,28 @@ export class SeatPlansService {
 
     allocation.room_id = dto.room_id;
     allocation.seat_number = dto.seat_number;
-    return this.allocationRepo.save(allocation);
+    try {
+      return await this.allocationRepo.save(allocation);
+    } catch (err) {
+      // Concurrent request won the race between the check above and this
+      // write — the DB's unique index (IDX_seat_allocations_room_seat)
+      // catches what the check-then-write couldn't. Postgres unique
+      // violation is error code 23505.
+      if (
+        err instanceof QueryFailedError &&
+        (err as unknown as { code?: string }).code === '23505'
+      ) {
+        throw new ConflictException({
+          message: 'That seat in the target room is already assigned to another student',
+          details: {
+            code: 'SEAT_ALREADY_TAKEN',
+            room_id: dto.room_id,
+            seat_number: dto.seat_number,
+          },
+        });
+      }
+      throw err;
+    }
   }
 
   async reshuffleRoom(tenantId: string, planId: string, roomId: string, orderMode?: SeatOrderMode) {
@@ -443,6 +472,9 @@ export class SeatPlansService {
     const allocations = await this.allocationRepo.find({
       where: { tenant_id: tenantId, seat_plan_id: planId },
     });
+    if (!allocations.some((a) => a.room_id === roomId)) {
+      throw new NotFoundException('Room not found in this seat plan');
+    }
 
     // reshuffleRoomAllocation() needs each allocation's section_id/roll_number
     // (D2/D3 — interleave-by-section and order-by-roll survive a reshuffle),
@@ -505,14 +537,17 @@ export class SeatPlansService {
     // reshuffleRoomAllocation() only ever reassigns seats within `roomId`
     // (that's the whole point — other rooms are untouched), so matching
     // back by (exam_schedule_id, student_id) among that room's own rows is enough.
+    // Build the lookup once (was a per-row `.find()` — O(n^2) on room size).
+    const byExamAndStudent = new Map(
+      allocations
+        .filter((a) => a.room_id === roomId)
+        .map((a) => [`${a.exam_schedule_id}:${a.student_id}`, a] as const),
+    );
     return this.dataSource.transaction(async (manager) => {
       for (const assignment of reassigned) {
         if (assignment.room_id !== roomId) continue;
-        const existing = allocations.find(
-          (a) =>
-            a.room_id === roomId &&
-            a.exam_schedule_id === assignment.exam_schedule_id &&
-            a.student_id === assignment.student_id,
+        const existing = byExamAndStudent.get(
+          `${assignment.exam_schedule_id}:${assignment.student_id}`,
         );
         if (!existing) continue;
         existing.seat_number = assignment.seat_number;
@@ -528,14 +563,20 @@ export class SeatPlansService {
     roomId: string,
     dto: UpdateInvigilatorDto,
   ) {
-    await this.seatPlanRepo.findOne({ where: { tenant_id: tenantId, id: planId } }).then((plan) => {
-      if (!plan) throw new NotFoundException('Seat plan not found');
-    });
+    await this.getDraftPlanOrThrow(tenantId, planId);
 
-    await this.allocationRepo.update(
+    if (dto.invigilator_user_id) {
+      const membership = await this.userTenantRepo.findOne({
+        where: { tenant_id: tenantId, user_id: dto.invigilator_user_id },
+      });
+      if (!membership) throw new NotFoundException('Invigilator not found');
+    }
+
+    const result = await this.allocationRepo.update(
       { tenant_id: tenantId, seat_plan_id: planId, room_id: roomId },
       { invigilator_user_id: dto.invigilator_user_id },
     );
+    if (!result.affected) throw new NotFoundException('Room not found in this seat plan');
     return this.findOne(tenantId, planId);
   }
 

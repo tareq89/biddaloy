@@ -78,6 +78,64 @@ describe('checkCapacity', () => {
       { room_id: 'r2', capacity: 3 },
     ]);
   });
+
+  it('reuses room capacity across non-overlapping schedules instead of summing them', () => {
+    // Two subject-sittings, morning and afternoon, each needing all 5 seats
+    // of the one selected room. They don't overlap in time, so the room can
+    // legitimately be reused — this must NOT report a shortfall just
+    // because 5 + 5 > 5.
+    const morning = { id: 'sch-am', date: '2026-10-01', starts_at: '09:00', ends_at: '11:00' };
+    const afternoon = { id: 'sch-pm', date: '2026-10-01', starts_at: '13:00', ends_at: '15:00' };
+    const roster = [
+      ...Array.from({ length: 5 }, (_, i) => ({
+        exam_schedule_id: morning.id,
+        student_id: `am-${i}`,
+        roll_number: i,
+        section_id: 's1',
+      })),
+      ...Array.from({ length: 5 }, (_, i) => ({
+        exam_schedule_id: afternoon.id,
+        student_id: `pm-${i}`,
+        roll_number: i,
+        section_id: 's1',
+      })),
+    ];
+    const result = checkCapacity(
+      roster,
+      [{ id: 'r1', capacity: 5 }],
+      [{ id: 'r1', capacity: 5 }],
+      [morning, afternoon],
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it('still reports a shortfall when overlapping schedules together exceed capacity', () => {
+    const first = { id: 'sch-1', date: '2026-10-01', starts_at: '09:00', ends_at: '11:00' };
+    const second = { id: 'sch-2', date: '2026-10-01', starts_at: '10:00', ends_at: '12:00' };
+    const roster = [
+      ...Array.from({ length: 3 }, (_, i) => ({
+        exam_schedule_id: first.id,
+        student_id: `a-${i}`,
+        roll_number: i,
+        section_id: 's1',
+      })),
+      ...Array.from({ length: 3 }, (_, i) => ({
+        exam_schedule_id: second.id,
+        student_id: `b-${i}`,
+        roll_number: i,
+        section_id: 's1',
+      })),
+    ];
+    const result = checkCapacity(
+      roster,
+      [{ id: 'r1', capacity: 5 }],
+      [{ id: 'r1', capacity: 5 }],
+      [first, second],
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('expected shortfall');
+    expect(result.shortfall).toBe(1); // 6 needed (overlap group), 5 available
+  });
 });
 
 describe('checkRoomConflicts', () => {
