@@ -90,6 +90,10 @@ describe('EXPECTED_TABS', () => {
       'homework_assignments',
       'homework_submissions',
       'syllabus_topics',
+      // [25.5] Wave 2 close — seat-plan tabs, in dependency order (#1054).
+      'seat_plans',
+      'seat_plan_schedules',
+      'seat_allocations',
     ]);
   });
 
