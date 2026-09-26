@@ -1,9 +1,8 @@
 import { ExamComponentKind, ExamComponentSource, ExamKind } from '@biddaloy/shared';
-import { adminApiSession, createClassSection, post } from '../api';
+import { adminApiSession, createClassSection, ensureGradingScale, patch, post } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { ApprovalModalPage } from '../pages';
-import { tabUntilFocused } from './keyboard-utils';
 
 /**
  * [26.8.1] Promotion, KEYBOARD ONLY: palette → new-run form → grid
@@ -41,17 +40,30 @@ test('keyboard-only: palette to new run, fill the form, R-override a row, commit
 
   const session = await adminApiSession(request);
   const source = await createClassSection(request, session);
+  await ensureGradingScale(request, session, source.academicYearId);
 
+  const targetYearName = `E2E Target Year ${Date.now()}`;
   const targetYear = await post<{ id: string }>(request, session, '/academic-years', {
-    name: `E2E Target Year ${Date.now()}`,
+    name: targetYearName,
     start_date: '2099-01-01',
     end_date: '2099-12-31',
   });
   const targetClass = await post<{ id: string }>(request, session, '/classes', {
     name: `${source.className} Target`,
     academic_year_id: targetYear.id,
+    numeric_grade: 7,
   });
   await post(request, session, `/classes/${targetClass.id}/sections`, { section_name: 'A' });
+  // The R-override below retains a student, and commit places them in the
+  // target year's class with the source's `numeric_grade` (D20) — so the
+  // source needs a grade and the target year needs that same-grade class.
+  await patch(request, session, `/classes/${source.classId}`, { numeric_grade: 6 });
+  const retainClass = await post<{ id: string }>(request, session, '/classes', {
+    name: `${source.className} Retain`,
+    academic_year_id: targetYear.id,
+    numeric_grade: 6,
+  });
+  await post(request, session, `/classes/${retainClass.id}/sections`, { section_name: 'A' });
 
   const student1 = await post<{ id: string; full_name: string }>(request, session, '/students', {
     full_name: `E2E Promo A ${Date.now()}`,
@@ -66,6 +78,12 @@ test('keyboard-only: palette to new run, fill the form, R-override a row, commit
     code: `E2EPR-${Date.now().toString(36).toUpperCase()}`,
     name_en: 'E2E Promotion Subject',
     name_bn: 'ই২ই উত্তরণ বিষয়',
+  });
+  // Results only count subjects assigned to the class. Without this both
+  // students total 0, tie on merit, and the first grid row isn't student1.
+  await post(request, session, `/classes/${source.classId}/subjects`, {
+    subject_id: subject.id,
+    academic_year_id: source.academicYearId,
   });
   const examName = `E2E Promotion Exam ${Date.now()}`;
   const exam = await post<{ id: string }>(request, session, '/exams', {
@@ -124,37 +142,50 @@ test('keyboard-only: palette to new run, fill the form, R-override a row, commit
     await expect(page).toHaveURL(/\/promotions\/new$/);
   });
 
+  // Each control is reached with `.focus()` and driven with real keys,
+  // not by counting Tab presses from wherever the palette left focus —
+  // `command-palette.spec.ts` documents why a Tab count through the
+  // sidebar is too environment-dependent to assert on. Pickers go through
+  // `selectByTypeahead` with this run's own unique names.
   await test.step('fill the new-run form mouse-free', async () => {
-    await tabUntilFocused(page, t('promotions.newRunForm.sourceClassLabel'), 30, {
-      tag: 'BUTTON',
-    });
-    await page.keyboard.press('Enter');
-    await page.keyboard.type(source.className);
-    await page.keyboard.press('Enter');
+    await expect(page.getByRole('dialog')).toBeHidden();
+    // `useRouteFocus` focuses the new page's <h1> once the navigation and
+    // its view transition settle — the signal that the form is ready.
+    await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
 
-    await tabUntilFocused(page, t('promotions.newRunForm.targetYearLabel'), 15, { tag: 'BUTTON' });
-    await page.keyboard.press('Enter');
-    await page.keyboard.type('E2E Target Year');
-    await page.keyboard.press('Enter');
+    // `selectByTypeahead`'s flow, but the option may carry a " (<year>)"
+    // suffix: the form adds it only when that year is on the first page of
+    // `GET /academic-years`, which other specs' new years can push it off.
+    async function pick(label: string, value: string) {
+      const picker = page.getByRole('combobox', { name: label });
+      await expect(picker).toBeEnabled();
+      await picker.focus();
+      await page.keyboard.press('Enter');
+      await page.keyboard.type(value);
+      const option = page.getByRole('option', { name: new RegExp(`^${value}( \\(.*\\))?$`) });
+      await expect(option).toBeVisible();
+      await option.focus();
+      await page.keyboard.press('Enter');
+      await expect(page.getByRole('listbox')).toBeHidden();
+    }
+    await pick(t('promotions.newRunForm.sourceClassLabel'), source.className);
+    await pick(t('promotions.newRunForm.targetYearLabel'), targetYearName);
+    await pick(t('promotions.newRunForm.targetClassLabel'), `${source.className} Target`);
 
-    await tabUntilFocused(page, t('promotions.newRunForm.targetClassLabel'), 15, {
-      tag: 'BUTTON',
-    });
-    await page.keyboard.press('Enter');
-    await page.keyboard.type(`${source.className} Target`);
-    await page.keyboard.press('Enter');
-
-    await tabUntilFocused(page, t('promotions.newRunForm.create'), 30, { tag: 'BUTTON' });
+    await page.getByRole('button', { name: t('promotions.newRunForm.create') }).focus();
     await page.keyboard.press('Enter');
 
     await expect(page).toHaveURL(/\/promotions\/[^/]+$/);
   });
 
   await test.step('R on the first row, note, Ctrl+Enter opens the commit dialog', async () => {
-    await tabUntilFocused(page, t('promotions.outcome.promote'), 30, { tag: 'DIV' });
+    await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
+    await page.getByLabel(t('promotions.grid.columnFinal')).first().focus();
     await page.keyboard.press('r');
-    // `setOutcome` moves focus to that row's note input the moment the
-    // outcome becomes an override — no extra Tab needed.
+    // `setOutcome` moves focus to that row's note input on the next frame —
+    // no extra Tab needed, but wait for it: keys typed before then land on
+    // the outcome cell, where `r` in the note text is itself a shortcut.
+    await expect(page.getByLabel(t('promotions.grid.columnOverrideNote')).first()).toBeFocused();
     await page.keyboard.type('E2E keyboard override note');
     await page.keyboard.press('ControlOrMeta+Enter');
 
@@ -171,7 +202,9 @@ test('keyboard-only: palette to new run, fill the form, R-override a row, commit
           if (!/\/promotions\/[^/]+\/commit$/.test(response.url())) return false;
           return (await response.request().headerValue('X-Approval-Token')) !== null;
         },
-        { timeout: 30_000 },
+        // `ApprovalModalPage` may wait out the 65 s OTP cooldown when another
+        // spec just used the same approver.
+        { timeout: 90_000 },
       ),
       (async () => {
         await page
@@ -185,7 +218,11 @@ test('keyboard-only: palette to new run, fill the form, R-override a row, commit
     await expect(
       page.getByRole('heading', { name: t('promotions.grid.commitConfirm.title') }),
     ).toBeHidden();
-    await expect(page.getByText(source.className, { exact: false })).toBeVisible();
+    // The class name also appears in the target/retain class names, so
+    // pin the run's own heading.
+    await expect(
+      page.getByRole('heading', { level: 1, name: new RegExp(`^${source.className} → `) }),
+    ).toBeVisible();
   });
 
   await test.step('the overridden student carries the override badge', async () => {

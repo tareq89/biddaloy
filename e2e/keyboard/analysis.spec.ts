@@ -1,8 +1,8 @@
 import { ExamComponentKind, ExamComponentSource, ExamKind } from '@biddaloy/shared';
-import { adminApiSession, createClassSection, post } from '../api';
+import { adminApiSession, createClassSection, ensureGradingScale, post } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
-import { tabUntilFocused } from './keyboard-utils';
+import { selectByTypeahead, tabUntilFocused } from './keyboard-utils';
 
 /**
  * [26.8.1] Exams & Results › Analysis, KEYBOARD ONLY — no `page.mouse` and
@@ -30,6 +30,7 @@ test('keyboard-only: pick exam and section, arrow to Defaulted, toggle by compon
 }) => {
   const session = await adminApiSession(request);
   const { academicYearId, classId, sectionId } = await createClassSection(request, session);
+  await ensureGradingScale(request, session, academicYearId);
 
   const student = await post<{ id: string; roll_number: number; full_name: string }>(
     request,
@@ -56,6 +57,14 @@ test('keyboard-only: pick exam and section, arrow to Defaulted, toggle by compon
     name_en: 'E2E Absent Subject',
     name_bn: 'ই২ই অনুপস্থিত বিষয়',
   });
+  // Result processing only counts subjects assigned to the class; without
+  // this the student gets an empty result that neither fails nor is absent.
+  for (const subject of [failedSubject, absentSubject]) {
+    await post(request, session, `/classes/${classId}/subjects`, {
+      subject_id: subject.id,
+      academic_year_id: academicYearId,
+    });
+  }
 
   const failedComponent = await post<{ id: string }>(
     request,
@@ -113,28 +122,27 @@ test('keyboard-only: pick exam and section, arrow to Defaulted, toggle by compon
   await page.goto('/dashboard');
   await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
 
+  // Controls are reached with `.focus()` and driven with real keys rather
+  // than by counting Tab presses through the sidebar — see
+  // `command-palette.spec.ts` for why a Tab count is environment-dependent.
   await test.step('open Analysis from the nav, keyboard only', async () => {
-    await tabUntilFocused(page, t('nav.items.analysis'), 60, { tag: 'A' });
+    await page
+      .getByRole('navigation')
+      .getByRole('link', { name: t('nav.items.analysis'), exact: true })
+      .focus();
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('heading', { name: t('nav.items.analysis') })).toBeVisible();
+    // `useRouteFocus` focuses the new page's <h1> once the navigation and
+    // its view transition settle — the signal that the page is ready.
+    await expect(page.getByRole('heading', { level: 1, name: t('nav.items.analysis') })).toBeFocused();
   });
 
   await test.step('pick the seeded exam and section', async () => {
-    await tabUntilFocused(page, t('exams.resultsRoute.examLabel'), 30, { tag: 'BUTTON' });
-    await page.keyboard.press('Enter');
-    await page.keyboard.type(examName);
-    await page.keyboard.press('Enter');
-    // The trigger's `aria-label` is the field label (`examLabel`), not the
-    // selected value, so the real proof this landed is the section select
-    // for `selectedExam.class_id` becoming reachable next.
-    await expect(page.getByText(examName)).toBeVisible();
+    await page.getByRole('combobox', { name: t('exams.resultsRoute.examLabel') }).focus();
+    await selectByTypeahead(page, examName);
 
-    await tabUntilFocused(page, t('exams.analysis.sectionFilter'), 30, { tag: 'BUTTON' });
-    await page.keyboard.press('Enter');
-    // Only one section ("A") exists on this fresh class — typeahead on
-    // its first letter is enough to select it.
-    await page.keyboard.type('A');
-    await page.keyboard.press('Enter');
+    // Only one section ("A") exists on this fresh class.
+    await page.getByRole('combobox', { name: t('exams.analysis.sectionFilter') }).focus();
+    await selectByTypeahead(page, 'A');
   });
 
   await test.step('arrow from Merit to Defaulted, assert a reason cell', async () => {
@@ -155,7 +163,9 @@ test('keyboard-only: pick exam and section, arrow to Defaulted, toggle by compon
       page.getByRole('tab', { name: t('exams.analysis.tabs.passFail') }),
     ).toHaveAttribute('aria-selected', 'true');
 
-    await tabUntilFocused(page, t('exams.analysis.byComponent'), 30);
+    // A Radix checkbox is a <button> named by its sibling label, so
+    // `tabUntilFocused`'s text match can't see it — focus it by role.
+    await page.getByRole('checkbox', { name: t('exams.analysis.byComponent') }).focus();
     await page.keyboard.press('Space');
     await expect(
       page.getByRole('columnheader', {
