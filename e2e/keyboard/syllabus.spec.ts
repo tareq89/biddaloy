@@ -1,6 +1,7 @@
 import { adminApiSession, createClassSection, post } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
+import { selectByTypeahead } from './keyboard-utils';
 
 /**
  * [22.4.3] Keyboard-only reorder journey: two syllabus topics seeded via
@@ -48,18 +49,17 @@ test('keyboard-only: move the second topic above the first with the up button', 
     // names — the e2e run shares a persistent database across runs, so a
     // generic "E2E" substring can match another run's leftover row and
     // silently select the wrong id (empty topic list, no visible error).
-    await page.getByLabel(t('syllabus.list.classLabel')).press('Enter');
-    await page.keyboard.type(className);
-    await page.keyboard.press('Enter');
-    // Radix's close animation leaves the listbox in the DOM and
-    // pointer-events-intercepting for a few hundred ms after Enter — the
-    // subject picker's own `.press('Enter')` can land on it instead of its
-    // trigger, so wait for it to actually close first.
-    await expect(page.getByRole('listbox')).toBeHidden();
-    await page.getByLabel(t('syllabus.list.subjectLabel')).press('Enter');
-    await page.keyboard.type(subjectName);
-    await page.keyboard.press('Enter');
-    await expect(page.getByRole('listbox')).toBeHidden();
+    //
+    // `selectByTypeahead` rather than a blind type-then-Enter: it waits
+    // for the exact option to render before committing, so a keystroke
+    // lost to the listbox's open animation can no longer leave a partial
+    // prefix ("E2E ") whose first match is a *parallel* spec's subject.
+    // It also waits for the listbox to close, which the subject picker
+    // below needs before it can open its own.
+    await page.getByLabel(t('syllabus.list.classLabel')).focus();
+    await selectByTypeahead(page, className);
+    await page.getByLabel(t('syllabus.list.subjectLabel')).focus();
+    await selectByTypeahead(page, subjectName);
   });
 
   // Exact cell match, not `getByText`: the row's Edit/Delete buttons are
