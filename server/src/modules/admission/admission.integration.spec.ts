@@ -139,8 +139,10 @@ describe('Admission flow (integration)', () => {
     ]);
 
     const [guardianRow] = await dataSource.query(
+      // Canonical (880...), not the raw '01700000123' submitted — see the
+      // storage-side note in admission-applicant.service.ts.
       `SELECT id, tenant_id, phone FROM guardians WHERE tenant_id = $1 AND phone = $2`,
-      [SEED_TENANT_ID, '01700000123'],
+      [SEED_TENANT_ID, '8801700000123'],
     );
     expect(guardianRow).toBeDefined();
     expect(guardianRow.tenant_id).toBe(SEED_TENANT_ID);

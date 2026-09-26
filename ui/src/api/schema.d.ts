@@ -8278,6 +8278,12 @@ export interface components {
             reference_number: string;
             guardian_phone: string;
         };
+        ApplicantStatusDto: {
+            /** @enum {string} */
+            status: "PENDING" | "SHORTLISTED" | "ADMITTED" | "REJECTED";
+            applicant_name: string;
+            intake_title: string;
+        };
         SubmitApplicantResponseDto: {
             reference_number: string;
             status: string;
@@ -20287,7 +20293,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ApplicantStatusDto"];
+                };
             };
         };
     };

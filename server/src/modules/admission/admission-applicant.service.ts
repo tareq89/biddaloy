@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
+import { ApiProperty } from '@nestjs/swagger';
 import {
   AdmissionApplicantStatus,
   AdmissionApplicantDocument,
@@ -21,9 +22,18 @@ import { SubmitApplicantDto } from './dto/submit-applicant.dto';
 import { CheckApplicantStatusDto } from './dto/check-applicant-status.dto';
 import { normalizeBdPhoneNumber } from '../communications/providers/shared/phone-number.util';
 
-export interface ApplicantStatusDto {
+// A class, not a plain interface — @ApiOkResponse({ type: ApplicantStatusDto })
+// on the controller needs a real constructor to introspect properties from;
+// an interface has no runtime representation and would leave the response
+// body undocumented (content?: never in the generated schema).
+export class ApplicantStatusDto {
+  @ApiProperty({ enum: AdmissionApplicantStatus })
   status: AdmissionApplicantStatus;
+
+  @ApiProperty()
   applicant_name: string;
+
+  @ApiProperty()
   intake_title: string;
 }
 
@@ -285,6 +295,9 @@ export class AdmissionApplicantService {
           existing.date_of_birth = dto.date_of_birth;
           existing.gender = dto.gender;
           existing.guardian_name = dto.guardian_name;
+          // Canonical, not the raw value the resubmission happened to use —
+          // see the same note on the insert path below for why.
+          existing.guardian_phone = normalizedPhone;
           existing.guardian_email = dto.guardian_email ?? null;
           existing.home_address = dto.home_address ?? null;
           existing.documents = merged;
@@ -313,7 +326,14 @@ export class AdmissionApplicantService {
             date_of_birth: dto.date_of_birth,
             gender: dto.gender,
             guardian_name: dto.guardian_name,
-            guardian_phone: dto.guardian_phone,
+            // Canonical (880...), not whatever raw format the guardian
+            // typed — admit() passes this straight to
+            // GuardianService.findByPhone/.create, which compares/stores
+            // Guardian.phone by raw exact match; storing it canonical here
+            // is what keeps that lookup able to find (or consistently
+            // create) the same guardian across admissions regardless of
+            // which format they type on a given visit.
+            guardian_phone: normalizedPhone,
             guardian_email: dto.guardian_email ?? null,
             home_address: dto.home_address ?? null,
             documents: merged,

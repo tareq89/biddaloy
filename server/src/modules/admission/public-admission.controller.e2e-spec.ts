@@ -247,7 +247,9 @@ describe('Public Admission Submission E2E', () => {
         [SEED_TENANT_ID, intakeId],
       );
       expect(rows).toHaveLength(1);
-      expect(rows[0].guardian_phone).toBe('01700000001');
+      // Stored canonical (880...), not the raw '01700000001' the request
+      // sent — see the storage-side note in admission-applicant.service.ts.
+      expect(rows[0].guardian_phone).toBe('8801700000001');
     });
 
     it('resubmitting with the reference_number updates the PENDING row in place', async () => {

@@ -58,7 +58,7 @@ export class PublicAdmissionController {
       'reference, a wrong phone, or a wrong-tenant reference number all 404 identically. POST (not ' +
       'GET) so the phone number never lands in a URL/access log.',
   })
-  @ApiOkResponse()
+  @ApiOkResponse({ type: ApplicantStatusDto })
   async getStatus(
     @Param('slug') slug: string,
     @Body() dto: CheckApplicantStatusDto,
