@@ -6923,8 +6923,11 @@ export interface components {
         };
         UpdateEnrollmentDto: {
             /** @enum {string} */
-            status: "ACTIVE" | "COMPLETED" | "WITHDRAWN";
-            ended_on?: string;
+            enrollment_status?: "ACTIVE" | "INACTIVE" | "TRANSFERRED" | "GRADUATED";
+            /** Format: uuid */
+            class_id?: string;
+            /** Format: uuid */
+            section_id?: string;
         };
         CreateUserDto: {
             /** Format: email */
@@ -8231,6 +8234,11 @@ export interface components {
             score?: number;
             grade?: string;
             remark?: string;
+        };
+        UpdateProgramEnrollmentDto: {
+            /** @enum {string} */
+            status: "ACTIVE" | "COMPLETED" | "WITHDRAWN";
+            ended_on?: string;
         };
         CreatePromotionRunDto: {
             /** Format: uuid */
@@ -20327,7 +20335,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateEnrollmentDto"];
+                "application/json": components["schemas"]["UpdateProgramEnrollmentDto"];
             };
         };
         responses: {

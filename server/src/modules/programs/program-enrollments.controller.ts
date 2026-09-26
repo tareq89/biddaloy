@@ -29,7 +29,7 @@ import {
   EnrolStudentsDto,
   ListEnrollmentsQuery,
   RecordAchievementsDto,
-  UpdateEnrollmentDto,
+  UpdateProgramEnrollmentDto,
 } from './dto/program-enrollments.dto';
 
 /**
@@ -131,7 +131,7 @@ export class ProgramEnrollmentStatusController {
   })
   async updateStatus(
     @Param('id', ParseUUIDPipe) enrollmentId: string,
-    @Body() dto: UpdateEnrollmentDto,
+    @Body() dto: UpdateProgramEnrollmentDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,

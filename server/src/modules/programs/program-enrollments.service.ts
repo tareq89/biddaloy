@@ -12,7 +12,7 @@ import { RequestContext } from '../../common/request-context.util';
 import {
   EnrolStudentsDto,
   RecordAchievementsDto,
-  UpdateEnrollmentDto,
+  UpdateProgramEnrollmentDto,
 } from './dto/program-enrollments.dto';
 
 const NO_CONTEXT: RequestContext = { ip: null, userAgent: null };
@@ -188,7 +188,7 @@ export class ProgramEnrollmentsService {
     tenantId: string,
     enrollmentId: string,
     userId: string | null,
-    dto: UpdateEnrollmentDto,
+    dto: UpdateProgramEnrollmentDto,
     context: RequestContext = NO_CONTEXT,
   ): Promise<ProgramEnrollment> {
     const existing = await this.enrollmentRepo.findOne({

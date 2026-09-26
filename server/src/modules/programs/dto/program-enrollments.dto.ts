@@ -30,7 +30,7 @@ export class EnrolStudentsDto {
   started_on?: string;
 }
 
-export class UpdateEnrollmentDto {
+export class UpdateProgramEnrollmentDto {
   @IsEnum(ProgramEnrollmentStatus)
   status: ProgramEnrollmentStatus;
 
