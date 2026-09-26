@@ -201,9 +201,7 @@ function NewPromotionRunPage() {
       },
       {
         onSuccess: (run) => {
-          // #1004 adds /promotions/$runId; swap to typed to/params there.
-          const runPath: string = `/promotions/${run.id}`;
-          void navigate({ to: runPath });
+          void navigate({ to: '/promotions/$runId', params: { runId: run.id } });
         },
       },
     );

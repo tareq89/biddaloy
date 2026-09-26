@@ -183,6 +183,10 @@ export function useCreatePromotionRun() {
 export function useUpdatePromotionEntries(runId: string) {
   const queryClient = useQueryClient();
   return useMutation({
+    // Serialize one run's entry saves: without it, a revert sent while a
+    // note save is still in flight can land first, leaving the server with
+    // the override the grid no longer shows. Same pattern as `students.ts`.
+    scope: { id: `promotion-entries-${runId}` },
     mutationFn: async (entries: PatchPromotionEntryInput[]) =>
       (await apiClient.patch<PromotionRunDetail>(`/promotions/${runId}/entries`, entries)).data,
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: promotionKeys.detail(runId) }),

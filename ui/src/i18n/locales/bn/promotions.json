@@ -43,18 +43,53 @@
     "columnSuggested": "প্রস্তাবিত",
     "columnFinal": "চূড়ান্ত",
     "columnGroup": "গ্রুপ",
+    "columnTargetSection": "লক্ষ্য শাখা",
+    "columnNewRoll": "নতুন রোল",
     "columnOverrideNote": "ওভাররাইড নোট",
+    "columnPlacementError": "বিন্যাস ত্রুটি",
+    "groupNone": "কোনো গ্রুপ নেই",
+    "groupClearUnsupported": "গ্রুপ মুছে ফেলার সুবিধা এখনো নেই",
+    "noteRequired": "ওভাররাইডের জন্য একটি নোট আবশ্যক।",
+    "overrideChip": "ওভাররাইড",
     "refresh": "রিফ্রেশ",
+    "refreshing": "রিফ্রেশ হচ্ছে…",
     "delete": "রান মুছুন",
+    "deleteConfirm": {
+      "title": "এই খসড়া উত্তরণ রানটি মুছবেন?",
+      "body": "এটি রানের প্রতিটি এন্ট্রি মুছে ফেলবে। এটি পূর্বাবস্থায় ফেরানো যাবে না।",
+      "confirm": "মুছুন",
+      "cancel": "বাতিল"
+    },
     "commit": "চূড়ান্ত করুন",
+    "commitShortcutHint": "Ctrl+Enter",
     "overflowWarning": "এই শাখাটি ধারণক্ষমতার চেয়ে {{count}} বেশি।",
-    "staleResultsPrompt": "সর্বশেষ রিফ্রেশের পর ফলাফল পরিবর্তিত হয়েছে — চূড়ান্ত করার আগে রিফ্রেশ করুন।",
+    "staleResultsPrompt": "সর্বশেষ প্রিভিউয়ের পর ফলাফল পরিবর্তিত হয়েছে — রিফ্রেশ করুন",
+    "readOnlyBanner": "{{date}} তারিখে চূড়ান্ত করেছেন {{committedBy}}, অনুমোদন করেছেন {{approvedBy}}",
+    "counts": {
+      "promoted": "উত্তীর্ণ",
+      "retained": "অপরিবর্তিত",
+      "graduated": "গ্র্যাজুয়েট",
+      "overrides": "ওভাররাইড",
+      "errors": "ত্রুটি"
+    },
+    "runSummary": "{{source}} → {{target}} · {{exams}}টি পরীক্ষা · {{algorithm}}",
     "commitConfirm": {
       "title": "এই উত্তরণ রানটি চূড়ান্ত করবেন?",
       "body": "{{promoted}} জন উত্তীর্ণ, {{retained}} জন অপরিবর্তিত, {{graduated}} জন গ্র্যাজুয়েট হবে। এটি পূর্বাবস্থায় ফেরানো যাবে না।",
+      "blockedByErrors": "চূড়ান্ত করার আগে প্রতিটি বিন্যাস ত্রুটি ঠিক করুন।",
+      "blockedByNotes": "চূড়ান্ত করার আগে প্রতিটি ওভাররাইডের জন্য নোট প্রয়োজন।",
       "confirm": "চূড়ান্ত করুন",
       "cancel": "বাতিল"
-    }
+    },
+    "cohortChangedPrompt": "এই রানটি তৈরির পর কিছু শিক্ষার্থী শ্রেণি ছেড়ে গেছে বা তাদের অবস্থা বদলেছে। এই খসড়াটি মুছে একটি নতুন রান তৈরি করুন।",
+    "commitFailed": "রানটি কমিট করা যায়নি। আবার চেষ্টা করুন।",
+    "saveFailed": "এই পরিবর্তনটি সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।",
+    "refreshFailed": "রানটি রিফ্রেশ করা যায়নি। আবার চেষ্টা করুন।"
+  },
+  "stepper": {
+    "previous": "পূর্ববর্তী",
+    "next": "পরবর্তী",
+    "progress": "{{total}}-এর মধ্যে {{current}}"
   },
   "outcome": {
     "promote": "উত্তীর্ণ",

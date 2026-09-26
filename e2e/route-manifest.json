@@ -199,6 +199,15 @@
       "archetype": "form"
     },
     {
+      "path": "/promotions/$runId",
+      "params": {
+        "runId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail",
+      "overlays": ["commit"]
+    },
+    {
       "path": "/grading-scales",
       "role": "admin",
       "archetype": "list"
