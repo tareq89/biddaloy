@@ -42,6 +42,11 @@ import { SeatPlanSchedule } from '../modules/seat-plans/entities/seat-plan-sched
 import { SeatAllocation } from '../modules/seat-plans/entities/seat-allocation.entity';
 import { Program } from '../modules/programs/entities/program.entity';
 import { ProgramMilestone } from '../modules/programs/entities/program-milestone.entity';
+import { ProgramEnrollment } from '../modules/programs/entities/program-enrollment.entity';
+import { MilestoneAchievement } from '../modules/programs/entities/milestone-achievement.entity';
+import { FeeStructure } from '../modules/fees/entities/fee-structure.entity';
+import { RecurringSchedule } from '../modules/fees/entities/recurring-schedule.entity';
+import { RecurringScheduleStructure } from '../modules/fees/entities/recurring-schedule-structure.entity';
 import {
   DEMO_ACADEMIC_YEAR,
   ensureAttendanceSeed,
@@ -51,6 +56,7 @@ import {
   ensureGradingDemoSeed,
   ensureHomeworkDemoSeed,
   ensureProgramsDemoSeed,
+  ensureProgramParticipationDemoSeed,
   ensurePromotionDemoSeed,
   ensurePublicHolidaySet,
   ensureRoleTestUsers,
@@ -137,6 +143,11 @@ export interface SeedAccountRepositories {
   seatAllocationRepository: Repository<SeatAllocation>;
   programRepository: Repository<Program>;
   programMilestoneRepository: Repository<ProgramMilestone>;
+  programEnrollmentRepository: Repository<ProgramEnrollment>;
+  milestoneAchievementRepository: Repository<MilestoneAchievement>;
+  feeStructureRepository: Repository<FeeStructure>;
+  recurringScheduleRepository: Repository<RecurringSchedule>;
+  recurringScheduleStructureRepository: Repository<RecurringScheduleStructure>;
 }
 
 /** Creates/repairs the seed accounts, their memberships and the demo
@@ -513,6 +524,28 @@ export async function seedAccounts(
           sectionStudentIds: [studentsA.map((s) => s.id), studentsB.map((s) => s.id)],
           gradingScaleId: scale.id,
           gradingScaleRevision: scale.revision,
+        },
+      );
+
+      // [34.2.4]: Hifz/Debate enrolments, Hifz achievements and a
+      // program-targeted "Hifz monthly fee" schedule on the Class 6 A+B
+      // roster — needs the roster above, so it can't live in
+      // ensureProgramsDemoSeed.
+      await ensureProgramParticipationDemoSeed(
+        {
+          programRepository: repos.programRepository,
+          programMilestoneRepository: repos.programMilestoneRepository,
+          programEnrollmentRepository: repos.programEnrollmentRepository,
+          milestoneAchievementRepository: repos.milestoneAchievementRepository,
+          feeStructureRepository: repos.feeStructureRepository,
+          recurringScheduleRepository: repos.recurringScheduleRepository,
+          recurringScheduleStructureRepository: repos.recurringScheduleStructureRepository,
+        },
+        {
+          schoolId: school.id,
+          academicYearId: calendarYear.id,
+          studentIds: [...studentsA, ...studentsB].map((s) => s.id),
+          recordedByUserId: adminTestUser?.id ?? null,
         },
       );
 

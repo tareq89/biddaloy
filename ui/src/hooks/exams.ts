@@ -18,6 +18,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
 import type { IssuerSnapshot } from '../components/print/issuer-header';
+import type { ReportCardProgramRow } from '../components/print/report-card';
 
 import { type ApprovedMutationResult, useApprovedMutation } from './approval';
 import { createEntityKeys } from './query-keys';
@@ -722,6 +723,8 @@ export interface StudentResultCard {
   legend: Array<{ grade: string; gpa: number | null; comment: string | null }>;
   issuer: IssuerSnapshot;
   logo_url: string | null;
+  /** [34.2.3/D22] Opted-in programs; omitted/empty when none. */
+  programs?: ReportCardProgramRow[];
 }
 
 export function studentResultCardKey(studentId: string | undefined, examId: string | undefined) {
@@ -873,10 +876,14 @@ export function passFailQueryOptions(examId: string | undefined, sectionId?: str
     queryKey: analysisKey('pass-fail', examId, sectionId),
     queryFn: async ({ signal }) =>
       (
-        await apiClient.get<{ status: string; subjects: SubjectPassFailRow[]; overall: OverallPassFailRow }>(
-          `/exams/${examId}/analysis/pass-fail`,
-          { params: sectionId ? { section_id: sectionId } : {}, signal },
-        )
+        await apiClient.get<{
+          status: string;
+          subjects: SubjectPassFailRow[];
+          overall: OverallPassFailRow;
+        }>(`/exams/${examId}/analysis/pass-fail`, {
+          params: sectionId ? { section_id: sectionId } : {},
+          signal,
+        })
       ).data,
     enabled: examId !== undefined,
     retry: shouldRetryQuery,

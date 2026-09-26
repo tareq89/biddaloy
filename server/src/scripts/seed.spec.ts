@@ -50,6 +50,11 @@ import type { SeatPlanSchedule } from '../modules/seat-plans/entities/seat-plan-
 import type { SeatAllocation } from '../modules/seat-plans/entities/seat-allocation.entity';
 import type { Program } from '../modules/programs/entities/program.entity';
 import type { ProgramMilestone } from '../modules/programs/entities/program-milestone.entity';
+import type { ProgramEnrollment } from '../modules/programs/entities/program-enrollment.entity';
+import type { MilestoneAchievement } from '../modules/programs/entities/milestone-achievement.entity';
+import type { FeeStructure } from '../modules/fees/entities/fee-structure.entity';
+import type { RecurringSchedule } from '../modules/fees/entities/recurring-schedule.entity';
+import type { RecurringScheduleStructure } from '../modules/fees/entities/recurring-schedule-structure.entity';
 import { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
 import { ensureDemoOrganisation } from './seed.util';
 
@@ -317,6 +322,26 @@ function makeRepos() {
       clock,
       'program-milestone',
     ).asRepository() as unknown as Repository<ProgramMilestone>,
+    programEnrollmentRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'program-enrollment',
+    ).asRepository() as unknown as Repository<ProgramEnrollment>,
+    milestoneAchievementRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'milestone-achievement',
+    ).asRepository() as unknown as Repository<MilestoneAchievement>,
+    feeStructureRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'fee-structure',
+    ).asRepository() as unknown as Repository<FeeStructure>,
+    recurringScheduleRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'recurring-schedule',
+    ).asRepository() as unknown as Repository<RecurringSchedule>,
+    recurringScheduleStructureRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'recurring-schedule-structure',
+    ).asRepository() as unknown as Repository<RecurringScheduleStructure>,
   } satisfies SeedAccountRepositories;
   return { repos, users, schools, userTenants, students };
 }

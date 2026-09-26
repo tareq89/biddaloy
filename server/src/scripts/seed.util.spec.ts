@@ -30,6 +30,11 @@ import type { HomeworkSubmission } from '../modules/homework/entities/homework-s
 import type { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.entity';
 import type { Program } from '../modules/programs/entities/program.entity';
 import type { ProgramMilestone } from '../modules/programs/entities/program-milestone.entity';
+import type { ProgramEnrollment } from '../modules/programs/entities/program-enrollment.entity';
+import type { MilestoneAchievement } from '../modules/programs/entities/milestone-achievement.entity';
+import type { FeeStructure } from '../modules/fees/entities/fee-structure.entity';
+import type { RecurringSchedule } from '../modules/fees/entities/recurring-schedule.entity';
+import type { RecurringScheduleStructure } from '../modules/fees/entities/recurring-schedule-structure.entity';
 import type { Shift } from '../modules/routines/entities/shift.entity';
 import type { PeriodSlot } from '../modules/routines/entities/period-slot.entity';
 import type { Room } from '../modules/routines/entities/room.entity';
@@ -51,6 +56,7 @@ import {
   ensureGradingDemoSeed,
   ensureHomeworkDemoSeed,
   ensureProgramsDemoSeed,
+  ensureProgramParticipationDemoSeed,
   ensurePublicHolidaySet,
   ensureRoutineSeed,
   BD_NCTB_BANDS,
@@ -1489,6 +1495,161 @@ describe('ensureProgramsDemoSeed', () => {
     expect(result).toEqual({ programs: 0, milestones: 0 });
     expect(vi.mocked(repos.programRepository.create)).not.toHaveBeenCalled();
     expect(vi.mocked(repos.programMilestoneRepository.create)).not.toHaveBeenCalled();
+  });
+});
+
+describe('ensureProgramParticipationDemoSeed', () => {
+  function participationRepos() {
+    return {
+      programRepository: mockRepo<Program>(),
+      programMilestoneRepository: mockRepo<ProgramMilestone>(),
+      programEnrollmentRepository: mockRepo<ProgramEnrollment>(),
+      milestoneAchievementRepository: mockRepo<MilestoneAchievement>(),
+      feeStructureRepository: mockRepo<FeeStructure>(),
+      recurringScheduleRepository: mockRepo<RecurringSchedule>(),
+      recurringScheduleStructureRepository: mockRepo<RecurringScheduleStructure>(),
+    };
+  }
+
+  const STUDENT_IDS = ['s0', 's1', 's2', 's3', 's4', 's5'];
+  const PARAMS = {
+    schoolId: 'school-1',
+    academicYearId: 'year-1',
+    studentIds: STUDENT_IDS,
+    recordedByUserId: 'user-1',
+  };
+
+  function stubEmptyLookups(repos: ReturnType<typeof participationRepos>) {
+    vi.mocked(repos.programRepository.findOne).mockImplementation(async (options) => {
+      const where = options.where as Partial<Program>;
+      if (where.name === 'Hifz') return { id: 'hifz' } as Program;
+      if (where.name === 'Debate club') return { id: 'debate' } as Program;
+      return null;
+    });
+    vi.mocked(repos.programMilestoneRepository.findOne).mockImplementation(async (options) => {
+      const where = options.where as Partial<ProgramMilestone>;
+      return { id: `m-${where.sequence}` } as ProgramMilestone;
+    });
+    vi.mocked(repos.programEnrollmentRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.milestoneAchievementRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.feeStructureRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.recurringScheduleRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.recurringScheduleStructureRepository.findOne).mockResolvedValue(null);
+  }
+
+  it('creates everything on an empty database', async () => {
+    const repos = participationRepos();
+    stubEmptyLookups(repos);
+
+    const result = await ensureProgramParticipationDemoSeed(repos, PARAMS);
+
+    expect(result).toEqual({
+      enrollments: 10,
+      achievements: 25,
+      feeStructures: 1,
+      schedules: 1,
+      scheduleStructures: 1,
+    });
+
+    const enrollmentPayloads = vi
+      .mocked(repos.programEnrollmentRepository.create)
+      .mock.calls.map(([payload]) => payload as Partial<ProgramEnrollment>);
+    const hifzPayloads = enrollmentPayloads.filter((p) => p.program_id === 'hifz');
+    expect(hifzPayloads).toHaveLength(6);
+    expect(
+      hifzPayloads.slice(0, 5).every((p) => p.status === 'ACTIVE' && p.ended_on === null),
+    ).toBe(true);
+    expect(hifzPayloads[5]).toMatchObject({ status: 'WITHDRAWN', ended_on: '2026-06-30' });
+
+    const debatePayloads = enrollmentPayloads.filter((p) => p.program_id === 'debate');
+    expect(debatePayloads).toHaveLength(4);
+    expect(debatePayloads.map((p) => p.student_id)).toEqual(['s0', 's1', 's3', 's4']);
+    expect(debatePayloads.every((p) => p.status === 'ACTIVE')).toBe(true);
+
+    const achievementPayloads = vi
+      .mocked(repos.milestoneAchievementRepository.create)
+      .mock.calls.map(([payload]) => payload as Partial<MilestoneAchievement>);
+    expect(achievementPayloads).toHaveLength(25);
+    const scored = achievementPayloads.filter((a) => a.score !== null);
+    expect(scored).toHaveLength(3);
+    expect(scored.every((a) => a.grade === 'A+' && a.score === '95.00')).toBe(true);
+
+    const structurePayload = vi.mocked(repos.feeStructureRepository.create).mock
+      .calls[0][0] as Partial<FeeStructure>;
+    expect(structurePayload).toMatchObject({
+      academic_year_id: 'year-1',
+      class_id: null,
+      name: 'Hifz monthly fee',
+    });
+
+    const schedulePayload = vi.mocked(repos.recurringScheduleRepository.create).mock
+      .calls[0][0] as Partial<RecurringSchedule>;
+    expect(schedulePayload.audience).toEqual({ program_id: 'hifz', enrollment_status: 'ACTIVE' });
+    expect(schedulePayload.notify_families).toBe(false);
+    expect(schedulePayload.period_type).toBe('MONTH');
+    expect(schedulePayload.academic_year_id).toBe('year-1');
+
+    const linkPayload = vi.mocked(repos.recurringScheduleStructureRepository.create).mock
+      .calls[0][0] as Partial<RecurringScheduleStructure>;
+    expect(linkPayload.schedule_id).toBeDefined();
+    expect(linkPayload.fee_structure_id).toBeDefined();
+  });
+
+  it('is idempotent: a second run creates nothing new', async () => {
+    const repos = participationRepos();
+    vi.mocked(repos.programRepository.findOne).mockImplementation(async (options) => {
+      const where = options.where as Partial<Program>;
+      return { id: where.name === 'Hifz' ? 'hifz' : 'debate' } as Program;
+    });
+    vi.mocked(repos.programMilestoneRepository.findOne).mockResolvedValue({
+      id: 'milestone-1',
+    } as ProgramMilestone);
+    vi.mocked(repos.programEnrollmentRepository.findOne).mockResolvedValue({
+      id: 'enrollment-1',
+    } as ProgramEnrollment);
+    vi.mocked(repos.milestoneAchievementRepository.findOne).mockResolvedValue({
+      id: 'achievement-1',
+    } as MilestoneAchievement);
+    vi.mocked(repos.feeStructureRepository.findOne).mockResolvedValue({
+      id: 'structure-1',
+    } as FeeStructure);
+    vi.mocked(repos.recurringScheduleRepository.findOne).mockResolvedValue({
+      id: 'schedule-1',
+    } as RecurringSchedule);
+    vi.mocked(repos.recurringScheduleStructureRepository.findOne).mockResolvedValue({
+      id: 'link-1',
+    } as RecurringScheduleStructure);
+
+    const result = await ensureProgramParticipationDemoSeed(repos, PARAMS);
+
+    expect(result).toEqual({
+      enrollments: 0,
+      achievements: 0,
+      feeStructures: 0,
+      schedules: 0,
+      scheduleStructures: 0,
+    });
+    expect(vi.mocked(repos.programEnrollmentRepository.create)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.milestoneAchievementRepository.create)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.feeStructureRepository.create)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.recurringScheduleRepository.create)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.recurringScheduleStructureRepository.create)).not.toHaveBeenCalled();
+  });
+
+  it('throws when the programs are missing', async () => {
+    const repos = participationRepos();
+    vi.mocked(repos.programRepository.findOne).mockResolvedValue(null);
+
+    await expect(ensureProgramParticipationDemoSeed(repos, PARAMS)).rejects.toThrow();
+  });
+
+  it('throws on a short roster', async () => {
+    const repos = participationRepos();
+    stubEmptyLookups(repos);
+
+    await expect(
+      ensureProgramParticipationDemoSeed(repos, { ...PARAMS, studentIds: STUDENT_IDS.slice(0, 5) }),
+    ).rejects.toThrow();
   });
 });
 
