@@ -93,6 +93,12 @@ describe('EXPECTED_TABS', () => {
       'homework_assignments',
       'homework_submissions',
       'syllabus_topics',
+      // [34.1.4] Epic 34.0's programs spine — see EXPECTED_TABS's own
+      // comment in registry.ts.
+      'programs',
+      'program_milestones',
+      'program_enrollments',
+      'milestone_achievements',
     ]);
   });
 
