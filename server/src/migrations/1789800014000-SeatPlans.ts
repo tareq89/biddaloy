@@ -29,13 +29,14 @@ export class SeatPlans1789800014000 implements MigrationInterface {
     // out of multiple matches.
     await queryRunner.query(`
       UPDATE "exam_schedules" es
-      SET "room_id" = matched."id"
+      SET "room_id" = matched."room_id"
       FROM (
-        SELECT r."tenant_id", lower(trim(r."room_no")) AS normalized_room_no, r."id"
+        SELECT r."tenant_id", lower(trim(r."room_no")) AS normalized_room_no,
+               (array_agg(r."id"))[1] AS "room_id"
         FROM "rooms" r
         WHERE r."deleted_at" IS NULL
-        GROUP BY r."tenant_id", lower(trim(r."room_no")), r."id"
-        HAVING count(*) OVER (PARTITION BY r."tenant_id", lower(trim(r."room_no"))) = 1
+        GROUP BY r."tenant_id", lower(trim(r."room_no"))
+        HAVING count(*) = 1
       ) matched
       WHERE matched."tenant_id" = es."tenant_id"
         AND es."venue" IS NOT NULL
