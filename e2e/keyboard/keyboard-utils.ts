@@ -21,15 +21,20 @@ export async function focusedText(page: Page): Promise<string> {
 
 /** Presses Tab until the focused element's accessible text contains
  * `text`. Throws after `max` presses — a spec that can't reach its
- * target by keyboard has found a real reachability bug. */
+ * target by keyboard has found a real reachability bug.
+ *
+ * `shift: true` walks backwards (`Shift+Tab`) instead, for a target that
+ * sits *before* the current focus in DOM order — going forwards from,
+ * say, a page's main content to a header action wraps through the whole
+ * sidebar nav first, which is both slow and prone to blowing `max`. */
 export async function tabUntilFocused(
   page: Page,
   text: string,
   max = 60,
-  options: { tag?: string } = {},
+  options: { tag?: string; shift?: boolean } = {},
 ): Promise<void> {
   for (let i = 0; i < max; i += 1) {
-    await page.keyboard.press('Tab');
+    await page.keyboard.press(options.shift ? 'Shift+Tab' : 'Tab');
     if (!(await focusedText(page)).includes(text)) continue;
     if (options.tag) {
       const tag = await page.evaluate(() => document.activeElement?.tagName ?? '');
@@ -40,7 +45,9 @@ export async function tabUntilFocused(
     }
     return;
   }
-  throw new Error(`could not reach "${text}" within ${max} Tab presses`);
+  throw new Error(
+    `could not reach "${text}" within ${max} ${options.shift ? 'Shift+Tab' : 'Tab'} presses`,
+  );
 }
 
 /** Opens a focused Radix `Select` trigger and picks `value` by typeahead.

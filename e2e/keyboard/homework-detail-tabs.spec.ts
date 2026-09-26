@@ -30,22 +30,23 @@ test('keyboard-only: student detail Homework tab shows the completion rollup', a
   // ArrowRight to the Homework tab rather than `End`: this page also has
   // an exams-module tab after it (subject-choices, [19.6.1]), so Homework
   // is no longer necessarily the last tab in the strip.
-  const tablist = page.getByRole('tablist');
+  // `.first()`: once the Fees tab has been visited its panel mounts a
+  // nested tab strip of its own (open bills), so an unqualified
+  // `getByRole('tablist')` stops being unique part-way through this loop.
+  const tabButtons = page.getByRole('tablist').first().getByRole('tab');
   const homeworkTab = page.getByRole('tab', { name: t('students.detail.tabs.homework') });
-  // Press ArrowRight exactly as many times as Homework's DOM position
-  // requires, rather than polling focus/selection mid-loop: selection is
-  // a controlled prop driven by a `?tab=` router push
-  // (`useDetailShellTab`), which lands asynchronously, so any read of
-  // `aria-selected` or `document.activeElement` taken between keypresses
-  // can be stale relative to Radix's own roving-tabindex state and either
-  // stop one tab short or overshoot.
-  const tabButtons = tablist.locator('[role="tab"]');
   const tabIds = await tabButtons.evaluateAll((els) => els.map((el) => el.id));
   const homeworkId = await homeworkTab.evaluate((el) => el.id);
   const homeworkIndex = tabIds.indexOf(homeworkId);
   await tabButtons.first().focus();
-  for (let i = 0; i < homeworkIndex; i += 1) {
+  // Wait for each press to land before sending the next. Radix's
+  // `RovingFocusGroup` moves focus in a `setTimeout` after keydown, and
+  // every move also pushes `?tab=` through a view transition, so two
+  // presses dispatched inside one macrotask both read the same still-
+  // focused trigger and collapse into a single move.
+  for (let i = 1; i <= homeworkIndex; i += 1) {
     await page.keyboard.press('ArrowRight');
+    await expect(tabButtons.nth(i)).toBeFocused();
   }
   await expect(homeworkTab).toHaveAttribute('aria-selected', 'true');
   await page.keyboard.press('Enter');

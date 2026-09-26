@@ -1,3 +1,5 @@
+import { type Page } from '@playwright/test';
+
 import { adminApiSession, get } from '../api';
 import { loggedIn, expect, test } from '../fixtures/test';
 import { t } from '../i18n';
@@ -28,6 +30,20 @@ import { tabUntilFocused } from '../keyboard/keyboard-utils';
  */
 
 test.use(loggedIn('admin'));
+
+/** Checks the focused teacher checkbox, unless it is already checked.
+ *
+ * A blind `Space` toggles, so on a retry — where the previous attempt
+ * already saved this cell and the picker therefore opens in edit mode
+ * with the teacher pre-checked — it would *un*check the only teacher,
+ * leaving Save disabled and unreachable. Reading `aria-checked` keeps
+ * this file keyboard-only (it is a read, not a click). */
+async function checkFocusedTeacher(page: Page): Promise<void> {
+  const alreadyChecked = await page.evaluate(
+    () => document.activeElement?.getAttribute('aria-checked') === 'true',
+  );
+  if (!alreadyChecked) await page.keyboard.press('Space');
+}
 
 test('admin builds a section routine, resolves a teacher clash, fill-assists, and publishes — keyboard only', async ({
   page,
@@ -104,7 +120,7 @@ test('admin builds a section routine, resolves a teacher clash, fill-assists, an
     await tabUntilFocused(page, t('routines.cellPicker.teacherLabel'));
     await page.keyboard.type('Routine Teacher');
     await page.keyboard.press('Tab');
-    await page.keyboard.press('Space'); // check the first matching teacher
+    await checkFocusedTeacher(page); // check the first matching teacher
     await tabUntilFocused(page, t('routines.cellPicker.save'));
     await page.keyboard.press('Enter');
     // Matches the 10s timeout the second step's own savedToast wait
@@ -146,7 +162,7 @@ test('admin builds a section routine, resolves a teacher clash, fill-assists, an
     await tabUntilFocused(page, t('routines.cellPicker.teacherLabel'));
     await page.keyboard.type('Routine Teacher');
     await page.keyboard.press('Tab');
-    await page.keyboard.press('Space');
+    await checkFocusedTeacher(page);
     await tabUntilFocused(page, t('routines.cellPicker.save'));
     await page.keyboard.press('Enter');
 
@@ -160,7 +176,14 @@ test('admin builds a section routine, resolves a teacher clash, fill-assists, an
   });
 
   await test.step('run fill assist for the section’s remaining empty cells', async () => {
-    await tabUntilFocused(page, t('routines.builder.fillAssistAction'), 40, { tag: 'button' });
+    // Backwards: the Fill assist button sits in the page header, *above*
+    // the grid this step starts focused in. Tabbing forwards from here
+    // wraps through the whole header and sidebar nav before coming back
+    // round to it — far more than any sane `max`.
+    await tabUntilFocused(page, t('routines.builder.fillAssistAction'), 20, {
+      tag: 'button',
+      shift: true,
+    });
     await page.keyboard.press('Enter');
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.keyboard.press('Escape');

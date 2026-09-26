@@ -22,9 +22,16 @@ import {
   Input,
   Label,
 } from '@biddaloy/ui/components';
-import { useSubjects, useTeachers, type SlotRecurrenceValue } from '@biddaloy/ui/hooks';
+import {
+  useSubjects,
+  useTeachers,
+  type ConstraintViolation,
+  type SlotRecurrenceValue,
+} from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
+
+import { ConflictList } from './-conflict-list';
 
 export interface CellPickerValue {
   subjectId: string;
@@ -44,6 +51,13 @@ export interface CellPickerProps {
   initialFilter?: string | undefined;
   onSave: (value: CellPickerValue) => void;
   saving?: boolean;
+  /** [1047] The save's 409 conflict violations, if any. Rendered inside
+   * this dialog rather than on the page behind it — a `role="alert"`
+   * behind an open Radix dialog is `aria-hidden` along with the rest of
+   * the page, unreachable to the test and to a screen reader alike. Also
+   * keeps the user's in-progress subject/teacher picks intact so they can
+   * fix and retry without reopening the picker. */
+  violations?: ConstraintViolation[];
 }
 
 export function CellPicker({
@@ -53,6 +67,7 @@ export function CellPicker({
   initialFilter,
   onSave,
   saving = false,
+  violations = [],
 }: CellPickerProps) {
   const { t } = useTranslation('routines');
   const subjectsQuery = useSubjects({});
@@ -234,6 +249,8 @@ export function CellPicker({
             </label>
           </fieldset>
         </div>
+
+        <ConflictList violations={violations} />
 
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
