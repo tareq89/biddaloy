@@ -45,6 +45,7 @@ import { ExamsModule } from './modules/exams/exams.module';
 import { PromotionsModule } from './modules/promotions/promotions.module';
 import { HomeworkModule } from './modules/homework/homework.module';
 import { AdmissionModule } from './modules/admission/admission.module';
+import { StaffProfilesModule } from './modules/staff-profiles/staff-profiles.module';
 import { Homework } from './modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from './modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from './modules/homework/entities/homework-submission.entity';
@@ -318,6 +319,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     SeatPlansModule,
     ProgramsModule,
     PromotionsModule,
+    StaffProfilesModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

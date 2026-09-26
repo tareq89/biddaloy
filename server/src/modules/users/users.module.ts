@@ -8,11 +8,13 @@ import { ClassSection } from '../academics/entities/class-section.entity';
 import { UserService, TeacherService } from './users.service';
 import { UserController } from './users.controller';
 import { AccountAccessModule } from '../account-access/account-access.module';
+import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, UserTenant, Teacher, TeacherClassSection, ClassSection]),
     AccountAccessModule,
+    StaffProfilesModule,
   ],
   providers: [UserService, TeacherService],
   controllers: [UserController],

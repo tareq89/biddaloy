@@ -16,6 +16,8 @@ import { escapeLikePattern } from '../../common/utils/escape-like.util';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import { BN_COLLATION } from '../../common/constants/collation';
 import { normalizeEmail } from '../auth/normalize-identifier';
+import { UserRole } from '@biddaloy/shared';
+import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
 import {
   CreateUserDto,
   UpdateUserDto,
@@ -42,6 +44,7 @@ export class UserService {
     private readonly userRepo: Repository<User>,
     @InjectRepository(UserTenant)
     private readonly userTenantRepo: Repository<UserTenant>,
+    private readonly staffProfilesService: StaffProfilesService,
   ) {}
 
   async create(
@@ -87,6 +90,18 @@ export class UserService {
           role: dto.role,
         });
         const savedMembership = await userTenantRepo.save(membership);
+
+        // [36.2.1] Every non-teacher staff role gets a generic staff_profiles
+        // row here, in the same transaction as the User/UserTenant insert.
+        // TEACHER is deliberately excluded: TeacherService.create makes its
+        // own staff_profiles row later, reusing the Teacher's own
+        // employee_id (mirrors the [36.1.1] migration backfill, which did
+        // the same for pre-existing teachers) — creating one here too would
+        // hit the `staff_profiles.user_id` unique constraint.
+        const STAFF_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE];
+        if (STAFF_ROLES.includes(dto.role)) {
+          await this.staffProfilesService.createFor(savedUser.id, tenantId, {}, manager);
+        }
 
         return { user: savedUser, membership: savedMembership };
       });
@@ -429,6 +444,7 @@ export class TeacherService {
     private readonly tcsRepo: Repository<TeacherClassSection>,
     @InjectRepository(ClassSection)
     private readonly sectionRepo: Repository<ClassSection>,
+    private readonly staffProfilesService: StaffProfilesService,
   ) {}
 
   async create(dto: CreateTeacherDto, tenantId: string): Promise<Teacher> {
@@ -466,15 +482,33 @@ export class TeacherService {
       throw new ConflictException(`Teacher with employee ID "${dto.employee_id}" already exists`);
     }
 
-    const teacher = this.teacherRepo.create({
-      user_id: dto.user_id,
-      employee_id: dto.employee_id,
-      designations: dto.designations ?? [],
-      subject_specialization: dto.subject_specialization ?? null,
-      joining_date: dto.joining_date ? new Date(dto.joining_date) : null,
-      tenant_id: tenantId,
+    // [36.2.1] Teacher's own employee_id also seeds its staff_profiles row
+    // (attendance/leave key off staff_profile_id, not the Teacher table) —
+    // same reuse the [36.1.1] migration backfill did for pre-existing
+    // teachers. Profile creation + Teacher save run in one transaction so a
+    // failure here (e.g. the section-assignment validation below) can't
+    // leave an orphaned staff_profiles row that then blocks retry via
+    // createFor's "already has a staff profile" guard.
+    const joiningDate = dto.joining_date ? new Date(dto.joining_date) : null;
+    const savedTeacher = await this.userRepo.manager.transaction(async (manager) => {
+      const staffProfile = await this.staffProfilesService.createFor(
+        dto.user_id,
+        tenantId,
+        { employeeId: dto.employee_id, joiningDate },
+        manager,
+      );
+
+      const teacher = manager.create(Teacher, {
+        user_id: dto.user_id,
+        employee_id: dto.employee_id,
+        designations: dto.designations ?? [],
+        subject_specialization: dto.subject_specialization ?? null,
+        joining_date: joiningDate,
+        tenant_id: tenantId,
+        staff_profile_id: staffProfile.id,
+      });
+      return manager.save(teacher);
     });
-    const savedTeacher = await this.teacherRepo.save(teacher);
 
     // Assign sections if provided
     if (dto.assigned_section_ids?.length) {
