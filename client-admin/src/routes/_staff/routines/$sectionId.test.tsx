@@ -9,7 +9,7 @@ import {
 } from '@biddaloy/ui/test';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { delay, http, HttpResponse } from 'msw';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
@@ -177,14 +177,29 @@ describe('/routines/$sectionId', () => {
     expect(screen.getAllByText('Empty').length).toBeGreaterThan(0);
   });
 
-  // [1047] A 409 that arrives *after* the user closed the picker must not
-  // repopulate the violation list — otherwise the next cell opened shows
-  // the previous cell's conflict, over a form that never submitted.
+  // [1047] A 409 that arrives *after* the user moved on must not repopulate
+  // the violation list — the reported symptom is the *next* cell opening
+  // with the previous cell's conflict, over a form that never submitted.
+  //
+  // The second picker is the whole point of the test: violations render
+  // only inside the picker, so asserting "no alert" with nothing open
+  // would pass even with the guard removed. The 409 is held until that
+  // second picker is on screen, so the only way it can surface is by
+  // leaking across cells.
   it('drops a conflict response that lands after its picker was closed', async () => {
     mockCommonRoutes();
+    let releaseConflict = () => {};
+    const conflictReleased = new Promise<void>((resolve) => {
+      releaseConflict = resolve;
+    });
+    let markRequestStarted = () => {};
+    const requestStarted = new Promise<void>((resolve) => {
+      markRequestStarted = resolve;
+    });
     server.use(
       http.post('/api/v1/routines/routine-1/slots', async () => {
-        await delay(200);
+        markRequestStarted();
+        await conflictReleased;
         return HttpResponse.json(
           {
             statusCode: 409,
@@ -218,14 +233,27 @@ describe('/routines/$sectionId', () => {
     await user.click(screen.getByLabelText('Ms Nahar'));
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
-    // Close the picker while that 409 is still in flight.
+    // Close the first cell's picker with its save still in flight.
+    await requestStarted;
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 
-    // Let the response land, then confirm it left nothing behind.
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    // Open a *different* cell, so there is a picker on screen that a
+    // leaked violation could render into.
+    fireEvent.keyDown(table, { key: 'ArrowRight' });
+    fireEvent.keyDown(table, { key: 'Enter' });
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
+
+    // Only now let the first cell's 409 come back.
+    releaseConflict();
+
+    // It must never reach this picker. `waitFor` polls for the full
+    // timeout and rejects if the alert never appears — which is the pass
+    // condition here, and a real wait rather than a fixed sleep.
+    await expect(
+      waitFor(() => expect(screen.getByRole('alert')).toBeTruthy(), { timeout: 500 }),
+    ).rejects.toThrow();
     expect(screen.queryByText('Ms Nahar is already teaching 7B')).toBeNull();
-    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('opens the cell picker prefilled when editing an existing slot, and shows a generic error on a non-conflict failure', async () => {
