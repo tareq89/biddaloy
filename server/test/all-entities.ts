@@ -2,6 +2,7 @@ import { AcademicYear } from '../src/modules/academics/entities/academic-year.en
 import { Class } from '../src/modules/academics/entities/class.entity';
 import { ClassSection } from '../src/modules/academics/entities/class-section.entity';
 import { Teacher } from '../src/modules/academics/entities/teacher.entity';
+import { StaffProfile } from '../src/modules/staff-profiles/entities/staff-profile.entity';
 import { TeacherClassSection } from '../src/modules/academics/entities/teacher-class-section.entity';
 import { Subject } from '../src/modules/academics/entities/subject.entity';
 import { ClassSubject } from '../src/modules/academics/entities/class-subject.entity';
@@ -70,6 +71,7 @@ export const ALL_ENTITIES = [
   Class,
   ClassSection,
   Teacher,
+  StaffProfile,
   TeacherClassSection,
   Subject,
   ClassSubject,

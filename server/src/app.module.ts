@@ -43,6 +43,7 @@ import { SearchModule } from './modules/search/search.module';
 import { GradingModule } from './modules/grading/grading.module';
 import { ExamsModule } from './modules/exams/exams.module';
 import { HomeworkModule } from './modules/homework/homework.module';
+import { StaffProfilesModule } from './modules/staff-profiles/staff-profiles.module';
 import { Homework } from './modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from './modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from './modules/homework/entities/homework-submission.entity';
@@ -286,6 +287,7 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
     GradingModule,
     ExamsModule,
     HomeworkModule,
+    StaffProfilesModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
