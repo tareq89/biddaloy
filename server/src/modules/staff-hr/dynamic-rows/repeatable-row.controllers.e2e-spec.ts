@@ -16,11 +16,12 @@ import {
 } from '@test/constants';
 
 /**
- * E2E tests for [23.3]'s `/staff/:userId/{family,address,experience}`
- * replace-on-save controllers: replace, then GET returns exactly the new
- * set — one `it` per controller, plus tenant isolation on the family
- * endpoint (same shape applies to the other two via the shared base
- * service).
+ * E2E tests for [23.3]/[23.4]'s
+ * `/staff/:userId/{family,address,experience,education,training,
+ * achievement,language}` replace-on-save controllers: replace, then GET
+ * returns exactly the new set — one `it` per controller, plus tenant
+ * isolation on the family endpoint (same shape applies to the rest via the
+ * shared base service).
  */
 const API = '/api/v1';
 const TENANT_A = SEED_TENANT_ID;
@@ -100,6 +101,10 @@ describe('Staff HR repeatable-row E2E (23.3)', () => {
     ]);
     await dataSource.query(`DELETE FROM staff_addresses WHERE tenant_id = $1`, [TENANT_A]);
     await dataSource.query(`DELETE FROM staff_experience WHERE tenant_id = $1`, [TENANT_A]);
+    await dataSource.query(`DELETE FROM staff_education WHERE tenant_id = $1`, [TENANT_A]);
+    await dataSource.query(`DELETE FROM staff_training WHERE tenant_id = $1`, [TENANT_A]);
+    await dataSource.query(`DELETE FROM staff_achievements WHERE tenant_id = $1`, [TENANT_A]);
+    await dataSource.query(`DELETE FROM staff_languages WHERE tenant_id = $1`, [TENANT_A]);
     await dataSource.query(`DELETE FROM user_tenants WHERE user_id = $1 AND tenant_id = $2`, [
       SEED_ADMIN_USER_ID,
       TENANT_B,
@@ -209,5 +214,101 @@ describe('Staff HR repeatable-row E2E (23.3)', () => {
       .expect(200);
 
     expect(listRes.body).toHaveLength(0);
+  });
+
+  it('replaces education rows, then GET returns exactly the new set', async () => {
+    await supertest(app.getHttpServer())
+      .put(`${API}/staff/${STAFF_USER_ID}/education`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .send({
+        rows: [
+          { degree: 'BSc', institution: 'ABC University', passing_year: '2015' },
+          { degree: 'HSC', institution: 'XYZ College' },
+        ],
+      })
+      .expect(200);
+
+    const listRes = await supertest(app.getHttpServer())
+      .get(`${API}/staff/${STAFF_USER_ID}/education`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .expect(200);
+
+    expect(listRes.body).toHaveLength(2);
+    expect(listRes.body.map((r: { degree: string }) => r.degree).sort()).toEqual(['BSc', 'HSC']);
+  });
+
+  it('rejects replacing education rows for a user outside the caller tenant', async () => {
+    await supertest(app.getHttpServer())
+      .put(`${API}/staff/${TENANT_B_USER_ID}/education`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .send({ rows: [{ degree: 'BSc', institution: 'Should Not Save' }] })
+      .expect(403);
+  });
+
+  it('replaces training rows, then GET returns exactly the new set', async () => {
+    await supertest(app.getHttpServer())
+      .put(`${API}/staff/${STAFF_USER_ID}/training`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .send({
+        rows: [{ title: 'Leadership', institution: 'Training Inst', from_date: '2021-01-01' }],
+      })
+      .expect(200);
+
+    const listRes = await supertest(app.getHttpServer())
+      .get(`${API}/staff/${STAFF_USER_ID}/training`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .expect(200);
+
+    expect(listRes.body).toHaveLength(1);
+    expect(listRes.body[0].title).toBe('Leadership');
+  });
+
+  it('replaces achievement rows, then GET returns exactly the new set', async () => {
+    await supertest(app.getHttpServer())
+      .put(`${API}/staff/${STAFF_USER_ID}/achievement`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .send({ rows: [{ title: 'Best Teacher Award', issued_by: 'Ministry' }] })
+      .expect(200);
+
+    const listRes = await supertest(app.getHttpServer())
+      .get(`${API}/staff/${STAFF_USER_ID}/achievement`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .expect(200);
+
+    expect(listRes.body).toHaveLength(1);
+    expect(listRes.body[0].title).toBe('Best Teacher Award');
+  });
+
+  it('replaces language rows, then GET returns exactly the new set', async () => {
+    await supertest(app.getHttpServer())
+      .put(`${API}/staff/${STAFF_USER_ID}/language`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .send({
+        rows: [
+          { language_name: 'Bangla', proficiency: 'Native' },
+          { language_name: 'English', proficiency: 'Fluent' },
+        ],
+      })
+      .expect(200);
+
+    const listRes = await supertest(app.getHttpServer())
+      .get(`${API}/staff/${STAFF_USER_ID}/language`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .expect(200);
+
+    expect(listRes.body).toHaveLength(2);
+    expect(listRes.body.map((r: { language_name: string }) => r.language_name).sort()).toEqual([
+      'Bangla',
+      'English',
+    ]);
   });
 });
