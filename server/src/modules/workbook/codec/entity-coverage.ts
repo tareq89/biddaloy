@@ -25,6 +25,7 @@ import { WalletTransaction } from '../../fees/entities/wallet-transaction.entity
 import { InvoiceShareToken } from '../../invoices/entities/invoice-share-token.entity';
 import { PushSubscription } from '../../push/entities/push-subscription.entity';
 import { WorkbookJob } from '../jobs/workbook-job.entity';
+import { StaffProfile } from '../../staff-profiles/entities/staff-profile.entity';
 
 /**
  * Entities that `registry.completeness.spec.ts` allows to have no workbook
@@ -99,4 +100,9 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   // Epic 34.0's programs spine — Program, ProgramMilestone,
   // ProgramEnrollment, MilestoneAchievement — got a workbook tab in
   // [34.1.4]. No exemption entries left for them.
+
+  // --- Epic 36 (staff attendance & leave): StaffProfile gets its own
+  // workbook tab in wave 5 ([36.5.1]) — exempted here only through this
+  // PR (waves 1-4), which lands before that tab exists.
+  [StaffProfile, 'Tenant-scoped staff HR record (employee_id), no tab yet — Epic 36 [36.5.1].'],
 ]);
