@@ -13,7 +13,12 @@ import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { createTestModule } from '@test/helpers/module.helper';
-import { SEED_TENANT_ID, SEED_SECTION_1_ID, SEED_ACADEMIC_YEAR_ID } from '@test/constants';
+import {
+  SEED_TENANT_ID,
+  SEED_SECTION_1_ID,
+  SEED_SECTION_2_ID,
+  SEED_ACADEMIC_YEAR_ID,
+} from '@test/constants';
 import { EnrollmentStatus, CommunicationMedium, AuditAction } from '@biddaloy/shared';
 import { AuditService } from '../audit/audit.service';
 import { AuditLog } from '../audit/entities/audit-log.entity';
@@ -84,6 +89,16 @@ async function seedReferenceData(ds: DataSource): Promise<void> {
     sectionRepo.create({
       id: SEED_SECTION_1_ID,
       section_name: 'Section A',
+      class_id: SEED_TENANT_ID,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+  // [#1020] A second section on the SAME class/year, purely so `update()`
+  // tests have somewhere to move a student's `class_section_id` to.
+  await sectionRepo.save(
+    sectionRepo.create({
+      id: SEED_SECTION_2_ID,
+      section_name: 'Section B',
       class_id: SEED_TENANT_ID,
       tenant_id: SEED_TENANT_ID,
     }),
@@ -1001,6 +1016,128 @@ describe('StudentService (integration)', () => {
       );
 
       await expect(service.findOne(created.id, TENANT_ID)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('update — Enrollment sync (#1020)', () => {
+    it('updates the existing ACTIVE Enrollment class_id/section_id when class_section_id changes', async () => {
+      const created = await service.create(
+        { full_name: 'Moves Sections', class_section_id: SEED_SECTION_1_ID },
+        TENANT_ID,
+      );
+      const before = await enrollmentRepo.findOne({
+        where: {
+          student_id: created.id,
+          tenant_id: TENANT_ID,
+          enrollment_status: EnrollmentStatus.ACTIVE,
+        },
+      });
+      expect(before?.section_id).toBe(SEED_SECTION_1_ID);
+
+      await service.update(created.id, { class_section_id: SEED_SECTION_2_ID }, TENANT_ID);
+
+      const enrollments = await enrollmentRepo.find({
+        where: { student_id: created.id, tenant_id: TENANT_ID },
+      });
+      // Still exactly one ACTIVE enrollment row for the student — the
+      // existing one was updated in place, not duplicated.
+      expect(enrollments).toHaveLength(1);
+      expect(enrollments[0].section_id).toBe(SEED_SECTION_2_ID);
+      expect(enrollments[0].id).toBe(before?.id);
+    });
+
+    it('creates an Enrollment when the student has none and class_section_id changes', async () => {
+      const created = await service.create(
+        { full_name: 'No Enrollment Yet', class_section_id: SEED_SECTION_1_ID },
+        TENANT_ID,
+      );
+      // Simulate a pre-existing gap the migration would otherwise backfill.
+      await enrollmentRepo.delete({ student_id: created.id });
+      const noneBefore = await enrollmentRepo.findOne({ where: { student_id: created.id } });
+      expect(noneBefore).toBeNull();
+
+      await service.update(created.id, { class_section_id: SEED_SECTION_2_ID }, TENANT_ID);
+
+      const enrollment = await enrollmentRepo.findOne({
+        where: {
+          student_id: created.id,
+          tenant_id: TENANT_ID,
+          enrollment_status: EnrollmentStatus.ACTIVE,
+        },
+      });
+      expect(enrollment).not.toBeNull();
+      expect(enrollment?.section_id).toBe(SEED_SECTION_2_ID);
+    });
+
+    it('touches no Enrollment row when class_section_id is absent from the DTO', async () => {
+      const created = await service.create(
+        { full_name: 'Name Only Update', class_section_id: SEED_SECTION_1_ID },
+        TENANT_ID,
+      );
+      const before = await enrollmentRepo.findOne({ where: { student_id: created.id } });
+
+      await service.update(created.id, { full_name: 'Renamed' }, TENANT_ID);
+
+      const after = await enrollmentRepo.findOne({ where: { student_id: created.id } });
+      expect(after?.id).toBe(before?.id);
+      expect(after?.section_id).toBe(SEED_SECTION_1_ID);
+      expect(after?.updated_at).toEqual(before?.updated_at);
+    });
+
+    it('updates the *current year`s* Enrollment, not an older year`s, when moved to a section in a different academic year', async () => {
+      // A student's newest ACTIVE enrollment can be from a past year (e.g.
+      // seeded/backfilled data) while the section they're being moved to
+      // belongs to a different, current year — the enrollment picked and
+      // updated must be the one for the *target* year, or both years' exam
+      // cohorts end up wrong (#1020 review finding 1).
+      const nextYear = await dataSource.getRepository(AcademicYear).save(
+        dataSource.getRepository(AcademicYear).create({
+          name: '2027-2028',
+          start_date: new Date('2027-01-01'),
+          end_date: new Date('2027-12-31'),
+          is_current: false,
+          tenant_id: TENANT_ID,
+        }),
+      );
+      const nextYearClass = await dataSource.getRepository(Class).save(
+        dataSource.getRepository(Class).create({
+          name: 'Six',
+          numeric_grade: 6,
+          academic_year_id: nextYear.id,
+          tenant_id: TENANT_ID,
+        }),
+      );
+      const nextYearSection = await dataSource.getRepository(ClassSection).save(
+        dataSource.getRepository(ClassSection).create({
+          class_id: nextYearClass.id,
+          section_name: 'A',
+          tenant_id: TENANT_ID,
+        }),
+      );
+
+      const created = await service.create(
+        { full_name: 'Cross Year Move', class_section_id: SEED_SECTION_1_ID },
+        TENANT_ID,
+      );
+      const originalEnrollment = await enrollmentRepo.findOneOrFail({
+        where: { student_id: created.id, tenant_id: TENANT_ID },
+      });
+
+      await service.update(created.id, { class_section_id: nextYearSection.id }, TENANT_ID);
+
+      // The original year's enrollment is untouched...
+      const originalYearEnrollment = await enrollmentRepo.findOneOrFail({
+        where: { id: originalEnrollment.id },
+      });
+      expect(originalYearEnrollment.section_id).toBe(SEED_SECTION_1_ID);
+      expect(originalYearEnrollment.academic_year_id).toBe(SEED_ACADEMIC_YEAR_ID);
+
+      // ...and a separate, new enrollment row exists for the target year.
+      const newYearEnrollment = await enrollmentRepo.findOneOrFail({
+        where: { student_id: created.id, academic_year_id: nextYear.id },
+      });
+      expect(newYearEnrollment.section_id).toBe(nextYearSection.id);
+      expect(newYearEnrollment.class_id).toBe(nextYearClass.id);
     });
   });
 

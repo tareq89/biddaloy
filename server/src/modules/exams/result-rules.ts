@@ -215,26 +215,40 @@ export function combineSubjects(
 // --- Class position (D18) ---
 
 /**
- * Standard competition ranking ("1224") by GPA descending — two students
- * on the same GPA share the same position, and the next position skips
- * to account for them (1, 2, 2, 4, not 1, 2, 2, 3). A failed student has
- * no position (`null`): ranking a fail is meaningless and this repo has
- * no "last place" convention to invent one.
+ * Standard competition ranking ("1224") by GPA descending, total marks
+ * descending as a tie-break (D2) — two students share a position only
+ * when *both* GPA and total marks match, and the next position skips to
+ * account for them (1, 2, 2, 4, not 1, 2, 2, 3). A failed student has no
+ * position (`null`): ranking a fail is meaningless and this repo has no
+ * "last place" convention to invent one.
  */
-export function rankByGpa(
-  students: Array<{ student_id: string; gpa: number; is_fail: boolean }>,
+export function rankByMerit(
+  students: Array<{
+    student_id: string;
+    gpa: number;
+    total_marks: number;
+    is_fail: boolean;
+  }>,
 ): Map<string, number | null> {
   const positions = new Map<string, number | null>();
-  const ranked = students.filter((s) => !s.is_fail).sort((a, b) => b.gpa - a.gpa);
+  // Round total_marks before comparing — it's an unrounded sum of
+  // numeric(6,2) marks, and raw float subtraction/inequality can split
+  // two students who display the same total (e.g. 66.30) into different
+  // positions on float noise alone.
+  const ranked = students
+    .filter((s) => !s.is_fail)
+    .map((s) => ({ ...s, total_marks: roundHalfUp2(s.total_marks) }))
+    .sort((a, b) => b.gpa - a.gpa || b.total_marks - a.total_marks);
 
   let position = 0;
-  let previousGpa: number | null = null;
+  let previous: { gpa: number; total_marks: number } | null = null;
   for (let i = 0; i < ranked.length; i++) {
-    if (ranked[i].gpa !== previousGpa) {
+    const current = ranked[i];
+    if (!previous || current.gpa !== previous.gpa || current.total_marks !== previous.total_marks) {
       position = i + 1;
-      previousGpa = ranked[i].gpa;
+      previous = current;
     }
-    positions.set(ranked[i].student_id, position);
+    positions.set(current.student_id, position);
   }
   for (const student of students) {
     if (student.is_fail) positions.set(student.student_id, null);

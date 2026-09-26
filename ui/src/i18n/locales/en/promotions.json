@@ -1,0 +1,70 @@
+{
+  "list": {
+    "title": "Promotions",
+    "newRun": "New promotion run",
+    "caption": "Promotion runs",
+    "columnSourceClass": "Source class",
+    "columnTargetClass": "Target class",
+    "columnTargetYear": "Target year",
+    "columnStatus": "Status",
+    "columnAlgorithm": "Algorithm",
+    "columnOverrides": "Overrides",
+    "columnCommittedAt": "Committed at",
+    "empty": "No promotion runs yet.",
+    "errorMessage": "Couldn't load promotion runs.",
+    "statusDraft": "Draft",
+    "statusCommitted": "Committed"
+  },
+  "newRunForm": {
+    "title": "New promotion run",
+    "sourceClassLabel": "Source class",
+    "targetYearLabel": "Target academic year",
+    "targetClassLabel": "Target class",
+    "graduateOption": "Graduate (no target class)",
+    "examsLabel": "Exams to average",
+    "examsRequired": "Select at least one exam.",
+    "noPublishedExams": "This class has no published exams yet.",
+    "openClasses": "Open classes for {{year}}",
+    "algorithmLabel": "Placement algorithm",
+    "algorithmBlock": "Block (fill sections in order)",
+    "algorithmSnake": "Snake (balance across sections)",
+    "create": "Create run",
+    "cancel": "Cancel"
+  },
+  "blocking": {
+    "pickTargetClass": "Choose a target class, or graduate the source class.",
+    "targetSectionsMissing": "The target class has no sections yet — create at least one before running this.",
+    "retainClassMissing": "No class is set up to retain students who didn't pass — add one first."
+  },
+  "grid": {
+    "columnStudent": "Roll · Name",
+    "columnMeritRank": "Rank",
+    "columnMeanGpa": "Mean GPA",
+    "columnSuggested": "Suggested",
+    "columnFinal": "Final",
+    "columnGroup": "Group",
+    "columnOverrideNote": "Override note",
+    "refresh": "Refresh",
+    "delete": "Delete run",
+    "commit": "Commit",
+    "overflowWarning": "This section is over capacity by {{count}}.",
+    "staleResultsPrompt": "Results changed since this run was last refreshed — refresh before committing.",
+    "commitConfirm": {
+      "title": "Commit this promotion run?",
+      "body": "{{promoted}} promoted, {{retained}} retained, {{graduated}} graduated. This cannot be undone.",
+      "confirm": "Commit",
+      "cancel": "Cancel"
+    }
+  },
+  "outcome": {
+    "promote": "Promote",
+    "retain": "Retain",
+    "graduate": "Graduate"
+  },
+  "overrideNote": "Overridden from the algorithm's suggestion — a note is required.",
+  "badge": {
+    "promote": "Promoted by override, {{year}}: {{note}} — by {{user}}",
+    "retain": "Retained by override, {{year}}: {{note}} — by {{user}}",
+    "graduate": "Graduated by override, {{year}}: {{note}} — by {{user}}"
+  }
+}

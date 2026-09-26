@@ -34,6 +34,8 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/academics/homework/new': '/_staff/academics/homework/new',
   '/academics/homework/import': '/_staff/academics/homework/import',
   '/academics/syllabus': '/_staff/academics/syllabus/',
+  '/analysis': '/_staff/analysis/',
+  '/promotions/new': '/_staff/promotions/new',
 };
 
 /**
@@ -64,6 +66,7 @@ const REGISTERED_ACTION_FILES: Record<string, string> = {
   'homework.assign': 'client-admin/src/routes/_staff/academics/homework/new.tsx',
   'homework.import': 'client-admin/src/routes/_staff/academics/homework/import.tsx',
   'syllabus.markTopic': 'client-admin/src/routes/_staff/academics/syllabus/index.tsx',
+  'promotions.promote': 'client-admin/src/routes/_staff/promotions/new.tsx',
 };
 
 /**

@@ -14,9 +14,9 @@ import { ResultSubject } from './entities/result-subject.entity';
 import { Mark } from './entities/mark.entity';
 import { ExamComponent } from './entities/exam-component.entity';
 import { ClassSubject } from '../academics/entities/class-subject.entity';
-import { ClassSection } from '../academics/entities/class-section.entity';
 import { Subject } from '../academics/entities/subject.entity';
 import { Student } from '../students/entities/student.entity';
+import { Enrollment } from '../students/entities/enrollment.entity';
 import { StudentSubjectChoice } from '../students/entities/student-subject-choice.entity';
 import { GradingScale } from '../grading/entities/grading-scale.entity';
 import { School } from '../schools/entities/school.entity';
@@ -28,7 +28,7 @@ import {
   computeSubjectTotal,
   gradeSubjectTotal,
   combineSubjects,
-  rankByGpa,
+  rankByMerit,
   Band,
   ComponentInput,
   SubjectResult,
@@ -73,6 +73,7 @@ export async function lockExam(
 
 interface ComputedStudentResult {
   student_id: string;
+  section_id: string | null;
   total_marks: number;
   gpa: number;
   grade: string;
@@ -103,12 +104,12 @@ export class ResultsService {
     private readonly componentRepo: Repository<ExamComponent>,
     @InjectRepository(ClassSubject)
     private readonly classSubjectRepo: Repository<ClassSubject>,
-    @InjectRepository(ClassSection)
-    private readonly sectionRepo: Repository<ClassSection>,
     @InjectRepository(Subject)
     private readonly subjectRepo: Repository<Subject>,
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
+    @InjectRepository(Enrollment)
+    private readonly enrollmentRepo: Repository<Enrollment>,
     @InjectRepository(StudentSubjectChoice)
     private readonly choiceRepo: Repository<StudentSubjectChoice>,
     @InjectRepository(GradingScale)
@@ -173,18 +174,30 @@ export class ResultsService {
     });
     const bands = bandRows.map((b) => this.toRuleBand(b));
 
-    const sections = await this.sectionRepo.find({
-      where: { class_id: exam.class_id, tenant_id: tenantId, deleted_at: IsNull() },
-    });
-    const students = await this.studentRepo.find({
+    // D17: the exam's cohort is whoever holds an ACTIVE enrollment for its
+    // own (academic_year_id, class_id) — not `Student.class_section_id`,
+    // which is the student's CURRENT placement and drifts away from an old
+    // exam's year/class after promotion. Reprocessing an old exam must keep
+    // finding the same students it was processed for originally.
+    const enrollments = await this.enrollmentRepo.find({
       where: {
-        class_section_id: In(sections.map((s) => s.id)),
         tenant_id: tenantId,
-        deleted_at: IsNull(),
+        academic_year_id: exam.academic_year_id,
+        class_id: exam.class_id,
         enrollment_status: EnrollmentStatus.ACTIVE,
       },
     });
-    const sectionByStudent = new Map(students.map((s) => [s.id, s.class_section_id]));
+    const students =
+      enrollments.length === 0
+        ? []
+        : await this.studentRepo.find({
+            where: {
+              id: In(enrollments.map((e) => e.student_id)),
+              tenant_id: tenantId,
+              deleted_at: IsNull(),
+            },
+          });
+    const sectionByStudent = new Map(enrollments.map((e) => [e.student_id, e.section_id]));
 
     const classSubjects = await this.classSubjectRepo.find({
       where: {
@@ -195,13 +208,16 @@ export class ResultsService {
       },
     });
 
-    const choices = await this.choiceRepo.find({
-      where: {
-        student_id: In(students.map((s) => s.id)),
-        academic_year_id: exam.academic_year_id,
-        tenant_id: tenantId,
-      },
-    });
+    const choices =
+      students.length === 0
+        ? []
+        : await this.choiceRepo.find({
+            where: {
+              student_id: In(students.map((s) => s.id)),
+              academic_year_id: exam.academic_year_id,
+              tenant_id: tenantId,
+            },
+          });
     const choiceByStudentAndSubject = new Map(
       choices.map((c) => [`${c.student_id}:${c.class_subject_id}`, c]),
     );
@@ -309,6 +325,7 @@ export class ResultsService {
       const overall = combineSubjects(subjectResults, (gpa) => this.gradeForGpa(bands, gpa));
       computed.push({
         student_id: student.id,
+        section_id: sectionByStudent.get(student.id) ?? null,
         total_marks: overall.total_marks,
         gpa: overall.gpa,
         grade: overall.grade,
@@ -317,11 +334,48 @@ export class ResultsService {
       });
     }
 
-    const positions = rankByGpa(
-      computed.map((c) => ({ student_id: c.student_id, gpa: c.gpa, is_fail: c.is_fail })),
+    // Class position (D2/D18): merit rank across the whole class.
+    const positions = rankByMerit(
+      computed.map((c) => ({
+        student_id: c.student_id,
+        gpa: c.gpa,
+        total_marks: c.total_marks,
+        is_fail: c.is_fail,
+      })),
     );
 
-    return computed.map((c) => ({ ...c, position: positions.get(c.student_id) ?? null }) as any);
+    // Section position: merit rank within each section separately —
+    // `sectionByStudent` (sourced from Enrollment) groups the same
+    // `computed` rows by the section each student is actually enrolled
+    // in, so a student's section rank never leaks across sections.
+    const bySection = new Map<string, ComputedStudentResult[]>();
+    for (const c of computed) {
+      if (c.section_id === null) continue;
+      bySection.set(c.section_id, [...(bySection.get(c.section_id) ?? []), c]);
+    }
+    const sectionPositions = new Map<string, number | null>();
+    for (const sectionStudents of bySection.values()) {
+      const ranked = rankByMerit(
+        sectionStudents.map((c) => ({
+          student_id: c.student_id,
+          gpa: c.gpa,
+          total_marks: c.total_marks,
+          is_fail: c.is_fail,
+        })),
+      );
+      for (const [studentId, position] of ranked) {
+        sectionPositions.set(studentId, position);
+      }
+    }
+
+    return computed.map(
+      (c) =>
+        ({
+          ...c,
+          position: positions.get(c.student_id) ?? null,
+          section_position: sectionPositions.get(c.student_id) ?? null,
+        }) as any,
+    );
   }
 
   /** Soft-deletes every active result for the exam — including students
@@ -350,7 +404,9 @@ export class ResultsService {
     }
 
     const now = new Date();
-    for (const c of computed as Array<ComputedStudentResult & { position: number | null }>) {
+    for (const c of computed as Array<
+      ComputedStudentResult & { position: number | null; section_position: number | null }
+    >) {
       const result = await resultRepo.save(
         resultRepo.create({
           exam_id: exam.id,
@@ -359,6 +415,8 @@ export class ResultsService {
           gpa: c.gpa.toFixed(2),
           grade: c.grade,
           position: c.position,
+          section_id: c.section_id,
+          section_position: c.section_position,
           is_fail: c.is_fail,
           grading_scale_id: scaleId,
           grading_scale_revision: scaleRevision,
@@ -655,6 +713,8 @@ export class ResultsService {
       gpa: number;
       grade: string;
       position: number | null;
+      section_id: string | null;
+      section_position: number | null;
       is_fail: boolean;
     }>
   > {
@@ -678,6 +738,8 @@ export class ResultsService {
           gpa: Number(r.gpa),
           grade: r.grade,
           position: r.position,
+          section_id: r.section_id,
+          section_position: r.section_position,
           is_fail: r.is_fail,
         };
       })

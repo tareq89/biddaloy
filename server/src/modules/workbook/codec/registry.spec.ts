@@ -45,7 +45,7 @@ function fakeTab(overrides: Partial<TabSpec<unknown, unknown>> = {}): TabSpec<un
 }
 
 describe('EXPECTED_TABS', () => {
-  it('lists the tab names in epic decision D2 order, plus Epics 19.0, 21.0 and 22.0 appended at the end', () => {
+  it('lists the tab names in epic decision D2 order, plus Epics 19.0, 21.0, 22.0 and 26.0 appended at the end', () => {
     expect(EXPECTED_TABS).toEqual([
       'school',
       'academic_years',
@@ -85,6 +85,9 @@ describe('EXPECTED_TABS', () => {
       'routine_slot_teachers',
       'routine_substitutions',
       'routine_change_requests',
+      // [788] Promotion tabs — see EXPECTED_TABS's own comment in registry.ts.
+      'promotion_runs',
+      'promotion_entries',
       // [22.3.6] Appended last — see EXPECTED_TABS's own comment in registry.ts.
       'homework',
       'homework_assignments',

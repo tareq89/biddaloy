@@ -89,9 +89,9 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/academics/syllabus/': Permission.SYLLABUS_READ,
   '/_staff/grading-scales/': Permission.GRADING_SCALE_MANAGE,
   '/_staff/grading-scales/$scaleId': Permission.GRADING_SCALE_MANAGE,
-  // [19.6.1] `EXAM_MANAGE` — see `nav-tree.ts`'s `examsResults.exams`
-  // comment for why this matches `ExamsController`'s own gate rather than
-  // `MARK_VIEW`.
+  // [19.6.1] `EXAM_MANAGE` — the management page; see `nav-tree.ts`'s
+  // `examsResults.exams` comment (`GET /exams` itself is `MARK_VIEW`, but
+  // detail and writes are `EXAM_MANAGE`).
   '/_staff/exams/': Permission.EXAM_MANAGE,
   '/_staff/exams/$examId': Permission.EXAM_MANAGE,
   // [19.7.1] MARK_VIEW (not MARK_ENTER) — same "seeing is weaker than
@@ -108,6 +108,12 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // is picked since it's the first write step in the flow).
   '/_staff/results/': Permission.RESULT_PROCESS,
   '/_staff/results/$examId/$studentId': Permission.RESULT_READ,
+  // [26.5.1] `MARK_VIEW` — matches `nav-tree.ts`'s `examsResults.analysis`
+  // comment: analysis is read-only, gated the same as `/marks`.
+  '/_staff/analysis/': Permission.MARK_VIEW,
+  // [26.6.1] D22: PROMOTION_MANAGE (admin).
+  '/_staff/promotions/': Permission.PROMOTION_MANAGE,
+  '/_staff/promotions/new': Permission.PROMOTION_MANAGE,
   // [21.7.1] Setup screens (shifts, period slots, rooms, routine-wide
   // settings) are all ADMIN-only server-side (`@RequirePermissions
   // (Permission.ROUTINE_MANAGE)` on every write route in
