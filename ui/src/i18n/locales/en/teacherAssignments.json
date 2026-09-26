@@ -17,6 +17,7 @@
     "unassign": "Unassign",
     "emptyMessage": "No teachers assigned yet for this class.",
     "errorMessage": "Failed to load teaching assignments.",
+    "classListErrorMessage": "Failed to load the class list.",
     "announceResults": "{{count}} of {{total}} assignments"
   },
   "unassignDialog": {

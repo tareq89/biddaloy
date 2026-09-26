@@ -17,6 +17,7 @@
     "unassign": "নিয়োগ বাতিল করুন",
     "emptyMessage": "এই শ্রেণির জন্য এখনও কোনো শিক্ষক নিয়োগ করা হয়নি।",
     "errorMessage": "শিক্ষক নিয়োগ লোড করতে ব্যর্থ হয়েছে।",
+    "classListErrorMessage": "শ্রেণির তালিকা লোড করতে ব্যর্থ হয়েছে।",
     "announceResults": "{{total}}টির মধ্যে {{count}}টি নিয়োগ"
   },
   "unassignDialog": {

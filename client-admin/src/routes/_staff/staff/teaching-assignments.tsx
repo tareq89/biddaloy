@@ -30,6 +30,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  ErrorState,
   RoutePending,
   Select,
   SelectContent,
@@ -189,6 +190,13 @@ function TeachingAssignmentsPage() {
         }
         filterBar={
           <div className="flex flex-wrap items-center gap-2">
+            {classesQuery.isError && (
+              <ErrorState
+                message={t('list.classListErrorMessage')}
+                retryLabel={t('actions.retry', { ns: 'common' })}
+                onRetry={() => void classesQuery.refetch()}
+              />
+            )}
             <Select
               value={selectedClassId ?? NO_CLASS}
               onValueChange={(value) => {

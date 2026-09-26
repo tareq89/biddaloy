@@ -91,6 +91,45 @@ describe('/staff/teaching-assignments', () => {
     expect(screen.queryByText('Teacher A')).toBeNull();
   });
 
+  it('shows a retry action when the class list fails to load', async () => {
+    const klass = classFactory({ id: 'class-a', name: 'Class 6' });
+    // An explicit "unlock" flag, not a call counter — the route loader's
+    // `ensureQueryData` and the component's own `useAllClasses()` both
+    // request this query, and how many attempts fire before the user's
+    // own retry click is an implementation detail, not something this
+    // test should have to predict.
+    let broken = true;
+    server.use(
+      http.get('/api/v1/classes', () => {
+        if (broken) {
+          // 4xx, not 5xx — `shouldRetryQuery` retries a 5xx twice with
+          // backoff before `isError` flips, which would make this test
+          // either flaky or slow. A 4xx fails immediately.
+          return HttpResponse.json({ statusCode: 400, message: 'boom' }, { status: 400 });
+        }
+        return HttpResponse.json({ data: [klass], total: 1, page: 1, limit: 100, totalPages: 1 });
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff/teaching-assignments'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByRole('heading', { name: 'Teaching assignments' });
+    const retryButton = await screen.findByRole('button', { name: 'Retry' });
+
+    broken = false;
+    const user = userEvent.setup();
+    await user.click(retryButton);
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull());
+    await user.click(screen.getByRole('combobox', { name: 'Class' }));
+    await user.click(await screen.findByRole('option', { name: 'Class 6' }));
+  });
+
   it('unassigns a teacher from a row', async () => {
     const klass = classFactory({ id: 'class-a', name: 'Class 6' });
     const section = classSectionFactory({ id: 'section-a', class_id: klass.id, class: klass });
