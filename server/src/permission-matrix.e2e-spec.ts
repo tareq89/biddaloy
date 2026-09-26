@@ -572,6 +572,13 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
     reason:
       "[21.6.1]/[21.9.1] D11 — raising a change request is the requesting teacher's own action against their own published slot; every other ROUTINE_READ holder (ADMIN, PARENT, STUDENT, EXECUTIVE) reads the routine but has no reason to flag one of a teacher's slots for review",
   },
+  {
+    controller: 'ProgramEnrollmentsController',
+    method: 'GET',
+    path: '/programs/:id/enrollments',
+    reason:
+      '[34.2.1] staff-only program roster — although PARENT/STUDENT hold PROGRAM_READ, this is the whole-program enrollment list across every student, not a family view; families use GET /students/:studentId/programs (StudentProgramsController) instead',
+  },
 ];
 
 function findRoleNarrowing(
@@ -650,12 +657,9 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // `@RequirePermissions` would also block override-free commits, which
   // only need PROMOTION_MANAGE.
   Permission.PROMOTION_OVERRIDE,
-  // [34.1.3] Plumbing landed ahead of the routes that will require it:
-  // PROGRAM_RECORD gates the enrolment/achievement-recording endpoints
-  // (34.2.1, not yet built). PROGRAM_READ/PROGRAM_MANAGE already gate
-  // ProgramsController's routes this ticket adds. Remove from this list
-  // once 34.2.1 lands.
-  Permission.PROGRAM_RECORD,
+  // [34.2.1] PROGRAM_RECORD now gates POST /programs/:id/achievements and
+  // DELETE /milestone-achievements/:id — no longer UI-only, removed from
+  // this list.
 ];
 
 describe('Permission matrix (regression)', () => {
