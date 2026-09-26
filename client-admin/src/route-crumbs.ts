@@ -96,6 +96,10 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   ],
   '/_staff/academics/syllabus/': [{ label: { key: 'syllabus' } }],
   '/_staff/exams/': [{ label: { entity: 'exam' } }],
+  // [25.6] Single-level, same as `/_staff/exams/` above — no separate
+  // "Exams & Results" segment; that's the nav group label, not part of
+  // any sibling route's own crumb trail either.
+  '/_staff/exams/seat-plans/': [{ label: { key: 'seatPlans' } }],
   '/_staff/marks/': [{ label: { key: 'marksEntry' } }],
   '/_staff/results/': [{ label: { key: 'results' } }],
   '/_staff/grading-scales/': [{ label: { key: 'gradingScales' } }],

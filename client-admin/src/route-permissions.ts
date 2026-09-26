@@ -94,6 +94,10 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // `MARK_VIEW`.
   '/_staff/exams/': Permission.EXAM_MANAGE,
   '/_staff/exams/$examId': Permission.EXAM_MANAGE,
+  // [25.6] `SEAT_PLAN_MANAGE` — matches `SeatPlansController`'s own gate
+  // (`@RequirePermissions(Permission.SEAT_PLAN_MANAGE)` on every route,
+  // `seat-plans.controller.ts`). There is no separate read-only permission.
+  '/_staff/exams/seat-plans/': Permission.SEAT_PLAN_MANAGE,
   // [19.7.1] MARK_VIEW (not MARK_ENTER) — same "seeing is weaker than
   // editing" split `/_staff/attendance/$sectionId` uses above: whether a
   // signed-in teacher may actually save a cell is decided server-side by

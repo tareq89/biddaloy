@@ -404,6 +404,17 @@ export {
   type CollectionsReportTotals,
 } from './reports';
 export {
+  seatPlanKeys,
+  seatPlansQueryOptions,
+  useGenerateSeatPlan,
+  useSeatPlans,
+  type GenerateSeatPlanInput,
+  type GenerateSeatPlanResult,
+  type SeatCapacityShortfallDetails,
+  type SeatPlanRoomConflict,
+  type SeatPlanRow,
+} from './seat-plans';
+export {
   collectFailedStudentIds,
   REMINDER_BATCH_POLL_MS,
   reminderBatchKeys,

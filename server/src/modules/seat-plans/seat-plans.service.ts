@@ -178,7 +178,7 @@ export class SeatPlansService {
     if (alreadyClaimed.length > 0) {
       throw new ConflictException({
         message: 'One or more exam schedules are already part of a published seat plan',
-        exam_schedule_ids: alreadyClaimed,
+        details: { code: 'SCHEDULE_ALREADY_CLAIMED', exam_schedule_ids: alreadyClaimed },
       });
     }
 
@@ -218,8 +218,8 @@ export class SeatPlansService {
     const capacity = checkCapacity(roster, roomInputs, allRoomInputs);
     if (!capacity.ok) {
       throw new BadRequestException({
-        code: 'SEAT_CAPACITY_SHORTFALL',
-        ...capacity,
+        message: 'Not enough room capacity for the selected subject sittings',
+        details: { code: 'SEAT_CAPACITY_SHORTFALL', ...capacity },
       });
     }
 
@@ -269,10 +269,49 @@ export class SeatPlansService {
     return { plan: await this.findOne(tenantId, created.id), conflicts };
   }
 
+  /** [25.6] List view needs counts the bare `SeatPlan` row doesn't carry —
+   * covered subject-sittings, distinct rooms, distinct students — so this
+   * runs two grouped counts alongside the plan list rather than the client
+   * calling `findOne` per row (N+1 the staff list screen would otherwise
+   * have to do itself). */
   async findAll(tenantId: string) {
-    return this.seatPlanRepo.find({
+    const plans = await this.seatPlanRepo.find({
       where: { tenant_id: tenantId },
       order: { created_at: 'DESC' },
+    });
+    if (plans.length === 0) return [];
+    const planIds = plans.map((p) => p.id);
+
+    const scheduleCounts = await this.seatPlanScheduleRepo
+      .createQueryBuilder('sps')
+      .select('sps.seat_plan_id', 'seat_plan_id')
+      .addSelect('COUNT(*)', 'count')
+      .where('sps.tenant_id = :tenantId', { tenantId })
+      .andWhere('sps.seat_plan_id IN (:...planIds)', { planIds })
+      .groupBy('sps.seat_plan_id')
+      .getRawMany<{ seat_plan_id: string; count: string }>();
+
+    const allocationCounts = await this.allocationRepo
+      .createQueryBuilder('sa')
+      .select('sa.seat_plan_id', 'seat_plan_id')
+      .addSelect('COUNT(DISTINCT sa.room_id)', 'room_count')
+      .addSelect('COUNT(DISTINCT sa.student_id)', 'student_count')
+      .where('sa.tenant_id = :tenantId', { tenantId })
+      .andWhere('sa.seat_plan_id IN (:...planIds)', { planIds })
+      .groupBy('sa.seat_plan_id')
+      .getRawMany<{ seat_plan_id: string; room_count: string; student_count: string }>();
+
+    const scheduleCountById = new Map(scheduleCounts.map((r) => [r.seat_plan_id, Number(r.count)]));
+    const allocationCountsById = new Map(allocationCounts.map((r) => [r.seat_plan_id, r]));
+
+    return plans.map((plan) => {
+      const alloc = allocationCountsById.get(plan.id);
+      return {
+        ...plan,
+        schedule_count: scheduleCountById.get(plan.id) ?? 0,
+        room_count: alloc ? Number(alloc.room_count) : 0,
+        student_count: alloc ? Number(alloc.student_count) : 0,
+      };
     });
   }
 
@@ -338,9 +377,8 @@ export class SeatPlansService {
     const effectiveOccupied = movingWithinSameRoom ? occupied - 1 : occupied;
     if (effectiveOccupied >= capacity) {
       throw new BadRequestException({
-        code: 'SEAT_CAPACITY_SHORTFALL',
         message: 'Target room has no free capacity for this subject sitting',
-        room_id: dto.room_id,
+        details: { code: 'SEAT_CAPACITY_SHORTFALL', room_id: dto.room_id },
       });
     }
 
@@ -355,10 +393,8 @@ export class SeatPlansService {
     });
     if (seatTaken && seatTaken.id !== allocationId) {
       throw new ConflictException({
-        code: 'SEAT_ALREADY_TAKEN',
         message: 'That seat in the target room is already assigned to another student',
-        room_id: dto.room_id,
-        seat_number: dto.seat_number,
+        details: { code: 'SEAT_ALREADY_TAKEN', room_id: dto.room_id, seat_number: dto.seat_number },
       });
     }
 
@@ -530,7 +566,7 @@ export class SeatPlansService {
       if (conflicts.length > 0) {
         throw new ConflictException({
           message: 'One or more rooms in this plan now conflict with another published plan',
-          conflicts,
+          details: { code: 'ROOM_CONFLICT', conflicts },
         });
       }
 

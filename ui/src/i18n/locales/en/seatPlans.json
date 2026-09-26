@@ -1,0 +1,49 @@
+{
+  "list": {
+    "title": "Seat plans",
+    "caption": "Seat plans for exams at this school",
+    "generateButton": "Generate seat plan",
+    "columnName": "Name",
+    "columnStatus": "Status",
+    "columnScheduleCount": "Subject sittings",
+    "columnRoomCount": "Rooms",
+    "columnStudentCount": "Students",
+    "errorMessage": "Could not load seat plans.",
+    "emptyMessage": "No seat plans yet.",
+    "announceResults_one": "Showing {{visible}} of {{count}} seat plan",
+    "announceResults_other": "Showing {{visible}} of {{count}} seat plans"
+  },
+  "status": {
+    "DRAFT": "Draft",
+    "PUBLISHED": "Published"
+  },
+  "generate": {
+    "title": "Generate seat plan",
+    "description": "Pick the subject sittings and rooms this plan should cover.",
+    "nameLabel": "Plan name",
+    "examLabel": "Exam",
+    "examPlaceholder": "Select an exam",
+    "schedulesLabel": "Subject sittings",
+    "schedulesPickExamFirst": "Select an exam to see its subject sittings.",
+    "schedulesEmpty": "This exam has no subject sittings yet.",
+    "roomsLabel": "Rooms",
+    "roomsEmpty": "No rooms are set up yet.",
+    "roomCapacity": "Capacity {{capacity}}",
+    "loading": "Loading…",
+    "seatOrderLabel": "Seat order",
+    "seatOrderSequential": "Sequential",
+    "seatOrderRandom": "Random",
+    "shortfallMessage": "Not enough seats: {{needed}} students need seats but only {{available}} are available (short by {{shortfall}}). Add a suggested room and try again.",
+    "addSuggestedRoom": "Add",
+    "conflictsNotice_one": "This plan was created, but {{count}} room booking overlaps with another published plan.",
+    "conflictsNotice_other": "This plan was created, but {{count}} room bookings overlap with another published plan.",
+    "conflictLine": "Room {{roomId}} also belongs to plan {{planId}} at an overlapping time.",
+    "acknowledge": "Got it",
+    "success": "Seat plan generated.",
+    "cancel": "Cancel",
+    "submit": "Generate"
+  },
+  "errors": {
+    "unknown": "Something went wrong. Please try again."
+  }
+}

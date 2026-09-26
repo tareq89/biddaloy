@@ -1,0 +1,49 @@
+{
+  "list": {
+    "title": "সিট প্ল্যান",
+    "caption": "এই বিদ্যালয়ের পরীক্ষার সিট প্ল্যান",
+    "generateButton": "সিট প্ল্যান তৈরি করুন",
+    "columnName": "নাম",
+    "columnStatus": "অবস্থা",
+    "columnScheduleCount": "বিষয় পরীক্ষা",
+    "columnRoomCount": "কক্ষ",
+    "columnStudentCount": "শিক্ষার্থী",
+    "errorMessage": "সিট প্ল্যান লোড করা যায়নি।",
+    "emptyMessage": "এখনো কোনো সিট প্ল্যান নেই।",
+    "announceResults_one": "{{count}}টির মধ্যে {{visible}}টি সিট প্ল্যান দেখানো হচ্ছে",
+    "announceResults_other": "{{count}}টির মধ্যে {{visible}}টি সিট প্ল্যান দেখানো হচ্ছে"
+  },
+  "status": {
+    "DRAFT": "খসড়া",
+    "PUBLISHED": "প্রকাশিত"
+  },
+  "generate": {
+    "title": "সিট প্ল্যান তৈরি করুন",
+    "description": "এই প্ল্যানে কোন বিষয় পরীক্ষা এবং কক্ষ অন্তর্ভুক্ত হবে তা নির্বাচন করুন।",
+    "nameLabel": "প্ল্যানের নাম",
+    "examLabel": "পরীক্ষা",
+    "examPlaceholder": "একটি পরীক্ষা নির্বাচন করুন",
+    "schedulesLabel": "বিষয় পরীক্ষা",
+    "schedulesPickExamFirst": "বিষয় পরীক্ষা দেখতে আগে একটি পরীক্ষা নির্বাচন করুন।",
+    "schedulesEmpty": "এই পরীক্ষায় এখনো কোনো বিষয় পরীক্ষা নেই।",
+    "roomsLabel": "কক্ষ",
+    "roomsEmpty": "এখনো কোনো কক্ষ সেট আপ করা হয়নি।",
+    "roomCapacity": "ধারণক্ষমতা {{capacity}}",
+    "loading": "লোড হচ্ছে…",
+    "seatOrderLabel": "আসন ক্রম",
+    "seatOrderSequential": "ক্রমানুসারে",
+    "seatOrderRandom": "এলোমেলো",
+    "shortfallMessage": "পর্যাপ্ত আসন নেই: {{needed}} জন শিক্ষার্থীর আসন প্রয়োজন কিন্তু মাত্র {{available}}টি আসন আছে ({{shortfall}}টি কম)। একটি প্রস্তাবিত কক্ষ যোগ করে আবার চেষ্টা করুন।",
+    "addSuggestedRoom": "যোগ করুন",
+    "conflictsNotice_one": "প্ল্যানটি তৈরি হয়েছে, তবে {{count}}টি কক্ষ বুকিং অন্য একটি প্রকাশিত প্ল্যানের সাথে সময়ে মিলে যাচ্ছে।",
+    "conflictsNotice_other": "প্ল্যানটি তৈরি হয়েছে, তবে {{count}}টি কক্ষ বুকিং অন্য একটি প্রকাশিত প্ল্যানের সাথে সময়ে মিলে যাচ্ছে।",
+    "conflictLine": "কক্ষ {{roomId}} প্ল্যান {{planId}}-এর সাথেও সময়ে মিলে যাচ্ছে।",
+    "acknowledge": "বুঝেছি",
+    "success": "সিট প্ল্যান তৈরি হয়েছে।",
+    "cancel": "বাতিল",
+    "submit": "তৈরি করুন"
+  },
+  "errors": {
+    "unknown": "কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।"
+  }
+}

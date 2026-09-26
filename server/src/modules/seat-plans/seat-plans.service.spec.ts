@@ -21,6 +21,8 @@ function qb(rows: unknown[] = []) {
     where: vi.fn(() => builder),
     andWhere: vi.fn(() => builder),
     select: vi.fn(() => builder),
+    addSelect: vi.fn(() => builder),
+    groupBy: vi.fn(() => builder),
     getRawMany: vi.fn(async () => rows),
   };
   return builder;
@@ -185,10 +187,13 @@ describe('SeatPlansService', () => {
         }),
       ).rejects.toMatchObject({
         response: expect.objectContaining({
-          code: 'SEAT_CAPACITY_SHORTFALL',
-          seats_needed: 2,
-          seats_available: 1,
-          shortfall: 1,
+          message: expect.any(String),
+          details: expect.objectContaining({
+            code: 'SEAT_CAPACITY_SHORTFALL',
+            seats_needed: 2,
+            seats_available: 1,
+            shortfall: 1,
+          }),
         }),
       });
     });
@@ -259,6 +264,58 @@ describe('SeatPlansService', () => {
           seat_order_mode: SeatOrderMode.SEQUENTIAL,
         }),
       ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('findAll', () => {
+    it('attaches schedule/room/student counts per plan for the list screen [25.6]', async () => {
+      seatPlanRepo.find.mockResolvedValue([
+        { id: 'plan-1', name: 'Plan One', status: SeatPlanStatus.DRAFT },
+        { id: 'plan-2', name: 'Plan Two', status: SeatPlanStatus.PUBLISHED },
+      ]);
+      seatPlanScheduleRepo.createQueryBuilder.mockReturnValue(
+        qb([
+          { seat_plan_id: 'plan-1', count: '2' },
+          { seat_plan_id: 'plan-2', count: '1' },
+        ]),
+      );
+      allocationRepo.createQueryBuilder.mockReturnValue(
+        qb([
+          { seat_plan_id: 'plan-1', room_count: '3', student_count: '40' },
+          // plan-2 has no allocations yet (rows omitted, not zero rows).
+        ]),
+      );
+
+      const result = await service.findAll(TENANT);
+
+      expect(result).toEqual([
+        {
+          id: 'plan-1',
+          name: 'Plan One',
+          status: SeatPlanStatus.DRAFT,
+          schedule_count: 2,
+          room_count: 3,
+          student_count: 40,
+        },
+        {
+          id: 'plan-2',
+          name: 'Plan Two',
+          status: SeatPlanStatus.PUBLISHED,
+          schedule_count: 1,
+          room_count: 0,
+          student_count: 0,
+        },
+      ]);
+    });
+
+    it('returns an empty list without querying counts when there are no plans', async () => {
+      seatPlanRepo.find.mockResolvedValue([]);
+
+      const result = await service.findAll(TENANT);
+
+      expect(result).toEqual([]);
+      expect(seatPlanScheduleRepo.createQueryBuilder).not.toHaveBeenCalled();
+      expect(allocationRepo.createQueryBuilder).not.toHaveBeenCalled();
     });
   });
 
