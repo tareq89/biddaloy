@@ -48,6 +48,19 @@ test('public submit → staff shortlist/admit → student created → public sta
     const guestPage = await guestContext.newPage();
 
     await guestPage.goto('/admission/default-school');
+
+    // The intake picker only renders when the school has more than one open
+    // intake — default-school always has at least the seed script's own
+    // "Class 1 Admission 2026", so this select is not optional in practice.
+    // Select by our own intake's title rather than relying on "there's only
+    // one" auto-selection, which the seed data already breaks.
+    const intakeSelect = guestPage.getByLabel(t('admission-public.form.fields.intake'), {
+      exact: true,
+    });
+    if (await intakeSelect.isVisible()) {
+      await intakeSelect.selectOption({ label: `E2E Intake ${suffix}` });
+    }
+
     await guestPage
       .getByLabel(t('admission-public.form.fields.applicantName'), { exact: true })
       .fill(applicantName);

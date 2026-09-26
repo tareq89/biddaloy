@@ -106,6 +106,42 @@ describe('/admissions/applicants', () => {
     await waitFor(() => expect(current.status).toBe('SHORTLISTED'));
   });
 
+  it('shows uploaded documents and evaluation history when present', async () => {
+    mockIntakes();
+    server.use(
+      http.get('/api/v1/admission/applicants/:id', () =>
+        HttpResponse.json({
+          applicant: {
+            ...applicant,
+            documents: [{ type: 'PHOTO', storage_key: 'tenants/t1/admission-documents/x.jpg' }],
+          },
+          evaluations: [
+            {
+              id: 'eval-1',
+              reviewer_user_id: 'reviewer-1',
+              notes: 'Looks good on paper.',
+              decision: 'SHORTLIST',
+              created_at: '2026-01-02T00:00:00.000Z',
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/admissions/applicants/applicant-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByRole('heading', { name: 'Jane Doe' });
+
+    expect(screen.getByText('PHOTO')).toBeTruthy();
+    expect(screen.getByText('Looks good on paper.')).toBeTruthy();
+    expect(screen.getByText('SHORTLIST')).toBeTruthy();
+  });
+
   it('hides Shortlist but still shows Admit for an already-SHORTLISTED applicant', async () => {
     mockIntakes();
     const shortlisted = { ...applicant, status: 'SHORTLISTED' };

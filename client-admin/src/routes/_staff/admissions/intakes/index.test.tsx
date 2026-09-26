@@ -84,6 +84,11 @@ describe('/admissions/intakes', () => {
     await user.type(dialog.getByLabelText('Seat count'), '30');
     await user.type(dialog.getByLabelText('Open date'), '2026-01-01');
     await user.type(dialog.getByLabelText('Close date'), '2026-02-01');
+    // Toggle a required document type on, then off — exercises both branches
+    // of toggleDocumentType, not just the "never touched" default.
+    const photoCheckbox = dialog.getByRole('checkbox', { name: 'Photo' });
+    await user.click(photoCheckbox);
+    await user.click(photoCheckbox);
     await user.click(dialog.getByRole('button', { name: 'Create' }));
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
