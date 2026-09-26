@@ -1,12 +1,13 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository, IsNull, In, Not } from 'typeorm';
+import { EntityManager, Repository, IsNull, In, Not, Brackets } from 'typeorm';
 import {
   AuditAction,
   EnrollmentStatus,
   ExamComponentSource,
   ExamStatus,
   MarkStatus,
+  ProgramEnrollmentStatus,
 } from '@biddaloy/shared';
 import { Exam } from './entities/exam.entity';
 import { Result } from './entities/result.entity';
@@ -20,6 +21,10 @@ import { Enrollment } from '../students/entities/enrollment.entity';
 import { StudentSubjectChoice } from '../students/entities/student-subject-choice.entity';
 import { GradingScale } from '../grading/entities/grading-scale.entity';
 import { School } from '../schools/entities/school.entity';
+import { AcademicYear } from '../academics/entities/academic-year.entity';
+import { ProgramEnrollment } from '../programs/entities/program-enrollment.entity';
+import { ProgramMilestone } from '../programs/entities/program-milestone.entity';
+import { MilestoneAchievement } from '../programs/entities/milestone-achievement.entity';
 import { buildIssuerSnapshot, type IssuerSnapshot } from '../schools/profile/issuer-snapshot';
 import { buildLogoUrl } from '../schools/profile/logo-key';
 import { GradingBand } from '../grading/entities/grading-band.entity';
@@ -71,6 +76,19 @@ export async function lockExam(
   return exam;
 }
 
+/** [34.2.4] One opted-in (D22) program row on a student's report card. */
+export interface ReportCardProgramRow {
+  program_name: string;
+  achieved_count: number;
+  milestone_total: number;
+  latest: {
+    milestone_name: string;
+    achieved_on: string;
+    score: number | null;
+    grade: string | null;
+  } | null;
+}
+
 interface ComputedStudentResult {
   student_id: string;
   section_id: string | null;
@@ -118,6 +136,14 @@ export class ResultsService {
     private readonly bandRepo: Repository<GradingBand>,
     @InjectRepository(School)
     private readonly schoolRepo: Repository<School>,
+    @InjectRepository(AcademicYear)
+    private readonly academicYearRepo: Repository<AcademicYear>,
+    @InjectRepository(ProgramEnrollment)
+    private readonly programEnrollmentRepo: Repository<ProgramEnrollment>,
+    @InjectRepository(ProgramMilestone)
+    private readonly programMilestoneRepo: Repository<ProgramMilestone>,
+    @InjectRepository(MilestoneAchievement)
+    private readonly milestoneAchievementRepo: Repository<MilestoneAchievement>,
     private readonly attendanceComponentService: AttendanceComponentService,
     private readonly gridService: MarkGridService,
     private readonly auditService: AuditService,
@@ -885,6 +911,7 @@ export class ResultsService {
       components: Array<{ name: string; full_marks: number; obtained: number | null }>;
     }>;
     legend: Array<{ grade: string; gpa: number | null; comment: string | null }>;
+    programs: ReportCardProgramRow[];
     issuer: IssuerSnapshot;
     logo_url: string | null;
   } | null> {
@@ -908,6 +935,8 @@ export class ResultsService {
     const school = await this.schoolRepo.findOne({ where: { id: tenantId } });
     if (!school) return null;
 
+    const programs = await this.getReportCardPrograms(exam, studentId, tenantId);
+
     return {
       exam_name: exam.name,
       student: detail.student,
@@ -918,9 +947,84 @@ export class ResultsService {
         gpa: b.gpa === null ? null : Number(b.gpa),
         comment: b.comment,
       })),
+      programs,
       issuer: buildIssuerSnapshot(school),
       logo_url: buildLogoUrl(school.id, school.logo_key),
     };
+  }
+
+  /** [34.2.4] Opted-in (`show_on_report_card`, D22) programs to print
+   * alongside the exam subjects — read-only reuse of the exam's academic
+   * year dates only, no coupling into the exam pipeline (D1). An
+   * enrollment counts when it's still `ACTIVE`, or was `COMPLETED` inside
+   * the exam's academic year (a student who finished the program earlier
+   * in the same year should still see it on that year's report card).
+   * Milestone/achievement counting follows `ProgramsService
+   * .findMilestonesWithAchievementCounts`'s pattern (#1063), just
+   * narrowed to one student's enrollment instead of every enrollment in
+   * the program.
+   */
+  private async getReportCardPrograms(
+    exam: Exam,
+    studentId: string,
+    tenantId: string,
+  ): Promise<ReportCardProgramRow[]> {
+    const academicYear = await this.academicYearRepo.findOne({
+      where: { id: exam.academic_year_id },
+    });
+    if (!academicYear) return [];
+
+    const enrollments = await this.programEnrollmentRepo
+      .createQueryBuilder('pe')
+      .innerJoinAndSelect('pe.program', 'program')
+      .where('pe.tenant_id = :tenantId', { tenantId })
+      .andWhere('pe.student_id = :studentId', { studentId })
+      .andWhere('program.show_on_report_card = true')
+      .andWhere(
+        new Brackets((qb) => {
+          qb.where('pe.status = :active', {
+            active: ProgramEnrollmentStatus.ACTIVE,
+          }).orWhere('pe.status = :completed AND pe.ended_on BETWEEN :yearStart AND :yearEnd', {
+            completed: ProgramEnrollmentStatus.COMPLETED,
+            yearStart: academicYear.start_date,
+            yearEnd: academicYear.end_date,
+          });
+        }),
+      )
+      .getMany();
+    if (enrollments.length === 0) return [];
+
+    return Promise.all(
+      enrollments.map(async (enrollment) => {
+        const [milestoneTotal, achievedCount, latestAchievement] = await Promise.all([
+          this.programMilestoneRepo.count({
+            where: { tenant_id: tenantId, program_id: enrollment.program_id },
+          }),
+          this.milestoneAchievementRepo.count({
+            where: { tenant_id: tenantId, enrollment_id: enrollment.id },
+          }),
+          this.milestoneAchievementRepo.findOne({
+            where: { tenant_id: tenantId, enrollment_id: enrollment.id },
+            order: { achieved_on: 'DESC' },
+            relations: { milestone: true },
+          }),
+        ]);
+
+        return {
+          program_name: enrollment.program.name,
+          achieved_count: achievedCount,
+          milestone_total: milestoneTotal,
+          latest: latestAchievement
+            ? {
+                milestone_name: latestAchievement.milestone.name,
+                achieved_on: latestAchievement.achieved_on,
+                score: latestAchievement.score === null ? null : Number(latestAchievement.score),
+                grade: latestAchievement.grade,
+              }
+            : null,
+        };
+      }),
+    );
   }
 
   /** [19.9.1] Every exam this student has a `Result` row for, newest first

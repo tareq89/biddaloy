@@ -116,4 +116,41 @@ describe('ReportCard', () => {
     render(<ReportCard data={BASE} issuer={ISSUER} labels={LABELS} />);
     expect(screen.getByText(/Excellent/)).toBeTruthy();
   });
+
+  it('hides the programs block when programs is empty or undefined', () => {
+    render(<ReportCard data={BASE} issuer={ISSUER} labels={LABELS} />);
+    expect(screen.queryByText('Programs')).toBeNull();
+
+    render(<ReportCard data={{ ...BASE, programs: [] }} issuer={ISSUER} labels={LABELS} />);
+    expect(screen.queryByText('Programs')).toBeNull();
+  });
+
+  it('renders a program row with name, progress, latest milestone and score', () => {
+    render(
+      <ReportCard
+        data={{
+          ...BASE,
+          programs: [
+            {
+              program_name: 'Hifz Circle',
+              achieved_count: 7,
+              milestone_total: 30,
+              latest: {
+                milestone_name: 'Juz 5',
+                achieved_on: '2026-03-01',
+                score: 92.5,
+                grade: 'A',
+              },
+            },
+          ],
+        }}
+        issuer={ISSUER}
+        labels={LABELS}
+      />,
+    );
+    expect(screen.getByText('Hifz Circle')).toBeTruthy();
+    expect(screen.getByText('7 / 30')).toBeTruthy();
+    expect(screen.getByText(/Juz 5/)).toBeTruthy();
+    expect(screen.getByText(/92\.5/)).toBeTruthy();
+  });
 });
