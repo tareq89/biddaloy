@@ -207,7 +207,11 @@ describe('RecordPaymentModal', () => {
         checkoutBody = (await request.json()) as { lines: unknown[] };
         return HttpResponse.json(
           {
-            payment: { id: 'payment-1', student: { id: 'student-1', full_name: 'Rahim' }, total_amount: 1000 },
+            payment: {
+              id: 'payment-1',
+              student: { id: 'student-1', full_name: 'Rahim' },
+              total_amount: 1000,
+            },
             invoice_id: 'invoice-1',
             invoice_number: 'INV-1',
             change_amount: 0,
@@ -238,6 +242,61 @@ describe('RecordPaymentModal', () => {
     expect(checkoutBody?.lines).toEqual([
       { student_fee_id: 'student-1-fee', amount: 1000, one_off_discount: 500 },
     ]);
+  });
+
+  it('caps the reseeded Pay so it never pushes past the balance with a preserved discount', async () => {
+    // Balance 1,000: the server's suggestion (amount ÷ 1 student = 1,000)
+    // would otherwise land Pay at 1,000 on top of the 500 discount already
+    // typed — 1,500 against a 1,000 balance, an invalid line CodeRabbit
+    // flagged (4110809259).
+    server.use(
+      http.get('/api/v1/payments/cart', ({ request }) => {
+        const url = new URL(request.url);
+        const amount = url.searchParams.get('amount');
+        return HttpResponse.json(
+          cartResponse({
+            students: [
+              {
+                id: 'student-1',
+                full_name: 'student-1',
+                registration_number: 'student-1',
+                class_name: 'Six',
+                section_name: 'A',
+                wallet_balance: 0,
+                bills: [
+                  bill({ student_fee_id: 'student-1-fee', total_amount: 1000, balance: 1000 }),
+                ],
+              },
+            ],
+            suggested:
+              amount === null
+                ? undefined
+                : {
+                    allocations: [{ student_fee_id: 'student-1-fee', amount: Number(amount) }],
+                    wallet_used: 0,
+                    remaining: 0,
+                    to_wallet: 0,
+                  },
+          }),
+        );
+      }),
+    );
+
+    await renderModal({ studentId: 'student-1' });
+    await screen.findByText('Tuition — March');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Unlock to edit discount' }));
+    fireEvent.change(screen.getByLabelText('Discount'), { target: { value: '500' } });
+    fireEvent.change(screen.getByLabelText('Amount received'), { target: { value: '1000' } });
+
+    const payInput = screen.getByLabelText<HTMLInputElement>('Pay');
+    await waitFor(() => expect(payInput.value).toMatch(/[1-9১-৯]/), { timeout: 2000 });
+    // Pay caps at 500 (balance 1,000 minus the 500 discount), not the raw
+    // 1,000 suggestion — "৫০০" (Bengali 500) as a substring rules out ১,০০০.
+    await waitFor(() => expect(payInput.value).toMatch(/৫০০|500/));
+    expect(payInput.value).not.toMatch(/১,?০০০|1,?000/);
+    const submitButton = screen.getByRole<HTMLButtonElement>('button', { name: 'Record payment' });
+    await waitFor(() => expect(submitButton.disabled).toBe(false));
   });
 
   it('a sibling re-added after edits gets a suggested Pay and no old discount', async () => {
