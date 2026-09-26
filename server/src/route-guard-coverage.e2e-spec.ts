@@ -242,6 +242,13 @@ const ALLOWLIST: AllowlistEntry[] = [
     reason:
       '[27.2] D9/D14 — public unauthenticated admission submission, tenant resolved from `:slug` inside AdmissionApplicantService.submit, same no-guards rationale as GET /public/admission/:slug. Throttled via STRICT_RATE_LIMIT (5/min).',
   },
+  {
+    controller: 'PublicAdmissionController',
+    method: 'POST',
+    path: '/public/admission/:slug/status',
+    reason:
+      '[27.7] Reference number + guardian phone is the credential; tenant resolved from `:slug`. Wrong or unknown either one 404s identically. Throttled via ADMISSION_STATUS_RATE_LIMIT.',
+  },
 ];
 
 function findAllowlistEntry(

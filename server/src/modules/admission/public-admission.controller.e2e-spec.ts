@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -8,6 +8,11 @@ import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { SEED_TENANT_ID, SEED_SECTION_1_ID } from '@test/constants';
 import { ADMISSION_STATUS_RATE_LIMIT, STRICT_RATE_LIMIT } from '../../rate-limit';
+import { StorageService } from '../storage/storage.service';
+
+// A real JPEG signature — matchesDeclaredType only inspects the header, so
+// this passes without needing an actual decodable image.
+const VALID_JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0]);
 
 const SEED_SLUG = 'test-school';
 const OTHER_TENANT_ID = '00000000-0000-4000-8000-000000000999';
@@ -47,7 +52,9 @@ describe('Public Admission Submission E2E', () => {
     intakeId: string,
     overrides: Partial<Record<string, unknown>> = {},
   ): Promise<string> {
-    const referenceNumber = (overrides.reference_number as string) ?? `ADM-2026-${Math.floor(Math.random() * 900000 + 100000)}`;
+    const referenceNumber =
+      (overrides.reference_number as string) ??
+      `ADM-2026-${Math.floor(Math.random() * 900000 + 100000)}`;
     await dataSource.query(
       `INSERT INTO admission_applicants
          (id, tenant_id, intake_id, reference_number, applicant_name, date_of_birth, gender, guardian_name, guardian_phone, documents, status, created_at, updated_at)
@@ -148,8 +155,8 @@ describe('Public Admission Submission E2E', () => {
     });
   });
 
-  describe('GET /public/admission/:slug/status/:referenceNumber', () => {
-    it('returns status/applicant name/intake title for a valid reference number, no auth needed', async () => {
+  describe('POST /public/admission/:slug/status', () => {
+    it('returns status/applicant name/intake title for a valid reference number + guardian phone, no auth needed', async () => {
       const intakeId = await createIntake({ title: 'Class 1 Admission 2026' });
       const referenceNumber = await createApplicant(SEED_TENANT_ID, intakeId, {
         applicant_name: 'Rahim Uddin',
@@ -157,7 +164,8 @@ describe('Public Admission Submission E2E', () => {
       });
 
       const res = await supertest(app.getHttpServer())
-        .get(`/api/v1/public/admission/${SEED_SLUG}/status/${referenceNumber}`)
+        .post(`/api/v1/public/admission/${SEED_SLUG}/status`)
+        .send({ reference_number: referenceNumber, guardian_phone: '01700000001' })
         .expect(200);
 
       expect(res.body).toEqual({
@@ -167,21 +175,43 @@ describe('Public Admission Submission E2E', () => {
       });
     });
 
+    it('accepts the same phone in +880 international format', async () => {
+      const intakeId = await createIntake({ title: 'Class 1 Admission 2026' });
+      const referenceNumber = await createApplicant(SEED_TENANT_ID, intakeId);
+
+      await supertest(app.getHttpServer())
+        .post(`/api/v1/public/admission/${SEED_SLUG}/status`)
+        .send({ reference_number: referenceNumber, guardian_phone: '+8801700000001' })
+        .expect(200);
+    });
+
+    it('404s for a wrong guardian phone, same as an unknown reference number', async () => {
+      const intakeId = await createIntake();
+      const referenceNumber = await createApplicant(SEED_TENANT_ID, intakeId);
+
+      await supertest(app.getHttpServer())
+        .post(`/api/v1/public/admission/${SEED_SLUG}/status`)
+        .send({ reference_number: referenceNumber, guardian_phone: '01799999999' })
+        .expect(404);
+    });
+
     it('404s for an unknown reference number without leaking existence of other applicants', async () => {
       const intakeId = await createIntake();
       await createApplicant(SEED_TENANT_ID, intakeId);
 
       await supertest(app.getHttpServer())
-        .get(`/api/v1/public/admission/${SEED_SLUG}/status/ADM-2026-999999`)
+        .post(`/api/v1/public/admission/${SEED_SLUG}/status`)
+        .send({ reference_number: 'ADM-2026-ZZZZZZ', guardian_phone: '01700000001' })
         .expect(404);
     });
 
-    it("404s for a reference number that belongs to a different tenant", async () => {
+    it('404s for a reference number that belongs to a different tenant', async () => {
       const otherIntakeId = await createIntake({ tenant_id: OTHER_TENANT_ID });
       const referenceNumber = await createApplicant(OTHER_TENANT_ID, otherIntakeId);
 
       await supertest(app.getHttpServer())
-        .get(`/api/v1/public/admission/${SEED_SLUG}/status/${referenceNumber}`)
+        .post(`/api/v1/public/admission/${SEED_SLUG}/status`)
+        .send({ reference_number: referenceNumber, guardian_phone: '01700000001' })
         .expect(404);
     });
 
@@ -190,7 +220,8 @@ describe('Public Admission Submission E2E', () => {
       const referenceNumber = await createApplicant(SEED_TENANT_ID, intakeId);
 
       await supertest(app.getHttpServer())
-        .get(`/api/v1/public/admission/no-such-school/status/${referenceNumber}`)
+        .post(`/api/v1/public/admission/no-such-school/status`)
+        .send({ reference_number: referenceNumber, guardian_phone: '01700000001' })
         .expect(404);
     });
 
@@ -208,7 +239,7 @@ describe('Public Admission Submission E2E', () => {
         .field(applicantPayload(intakeId))
         .expect(201);
 
-      expect(res.body.reference_number).toMatch(/^ADM-\d{4}-\d{6}$/);
+      expect(res.body.reference_number).toMatch(/^ADM-\d{4}-[0-9A-HJKMNP-TV-Z]{6}$/);
       expect(res.body.status).toBe('PENDING');
 
       const rows = await dataSource.query(
@@ -249,6 +280,25 @@ describe('Public Admission Submission E2E', () => {
         .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
         .field(applicantPayload(intakeId))
         .expect(400);
+    });
+
+    it('rejects a submission before open_date', async () => {
+      const intakeId = await createIntake({ open_date: '2099-01-01', close_date: '2099-12-31' });
+
+      await supertest(app.getHttpServer())
+        .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
+        .field(applicantPayload(intakeId))
+        .expect(400);
+    });
+
+    it('409s a resubmission from a guardian phone already SHORTLISTED for this intake', async () => {
+      const intakeId = await createIntake();
+      await createApplicant(SEED_TENANT_ID, intakeId, { status: 'SHORTLISTED' });
+
+      await supertest(app.getHttpServer())
+        .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
+        .field(applicantPayload(intakeId))
+        .expect(409);
     });
 
     it('rejects a submission once every seat is ADMITTED (D14)', async () => {
@@ -298,6 +348,76 @@ describe('Public Admission Submission E2E', () => {
     // assert the constant directly rather than a flaky real 429.
     it('is wired to the tightened STRICT_RATE_LIMIT tier (5/min)', () => {
       expect(STRICT_RATE_LIMIT).toEqual({ limit: 5, ttl: 60_000 });
+    });
+  });
+
+  describe('POST /public/admission/:slug/applicants — document uploads', () => {
+    it('stores a valid document with its type and a storage key', async () => {
+      const intakeId = await createIntake({ required_document_types: ['PHOTO'] });
+
+      const res = await supertest(app.getHttpServer())
+        .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
+        .field(applicantPayload(intakeId))
+        .attach('photo', VALID_JPEG, { filename: 'p.jpg', contentType: 'image/jpeg' })
+        .expect(201);
+
+      const rows = await dataSource.query(
+        `SELECT documents FROM admission_applicants WHERE tenant_id = $1 AND intake_id = $2`,
+        [SEED_TENANT_ID, intakeId],
+      );
+      expect(rows[0].documents).toEqual([
+        { type: 'PHOTO', storage_key: expect.stringContaining('tenants/') },
+      ]);
+      expect(res.body.reference_number).toBeDefined();
+    });
+
+    it('400s naming the field when a file does not match its declared type', async () => {
+      const intakeId = await createIntake({ required_document_types: ['PHOTO'] });
+
+      const res = await supertest(app.getHttpServer())
+        .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
+        .field(applicantPayload(intakeId))
+        .attach('photo', Buffer.from('x'), { filename: 'p.jpg', contentType: 'image/jpeg' })
+        .expect(400);
+
+      expect(res.body.message).toContain('photo');
+
+      const rows = await dataSource.query(
+        `SELECT * FROM admission_applicants WHERE tenant_id = $1 AND intake_id = $2`,
+        [SEED_TENANT_ID, intakeId],
+      );
+      expect(rows).toHaveLength(0);
+    });
+
+    it('400s naming the missing type when a required document is absent', async () => {
+      const intakeId = await createIntake({
+        required_document_types: ['PHOTO', 'BIRTH_CERTIFICATE'],
+      });
+
+      const res = await supertest(app.getHttpServer())
+        .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
+        .field(applicantPayload(intakeId))
+        .attach('photo', VALID_JPEG, { filename: 'p.jpg', contentType: 'image/jpeg' })
+        .expect(400);
+
+      expect(res.body.message).toContain('BIRTH_CERTIFICATE');
+    });
+
+    it('deletes the uploaded object when the submission fails after the upload', async () => {
+      const intakeId = await createIntake({ required_document_types: ['PHOTO'] });
+      const storage = app.get(StorageService);
+      const deleteSpy = vi.spyOn(storage, 'delete');
+
+      await createApplicant(SEED_TENANT_ID, intakeId, { status: 'SHORTLISTED' });
+
+      await supertest(app.getHttpServer())
+        .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
+        .field(applicantPayload(intakeId))
+        .attach('photo', VALID_JPEG, { filename: 'p.jpg', contentType: 'image/jpeg' })
+        .expect(409); // duplicate SHORTLISTED phone — the transaction throws after the upload
+
+      expect(deleteSpy).toHaveBeenCalledWith(expect.stringContaining('tenants/'));
+      deleteSpy.mockRestore();
     });
   });
 });

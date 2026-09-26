@@ -1,10 +1,25 @@
-import { Body, Controller, Get, Param, Post, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  UploadedFiles,
+  UseInterceptors,
+} from '@nestjs/common';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import { ApiBody, ApiConsumes, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ADMISSION_STATUS_RATE_LIMIT, STRICT_RATE_LIMIT } from '../../rate-limit';
-import { AdmissionApplicantService, ApplicantStatusDto, PublicIntakeDto } from './admission-applicant.service';
+import {
+  AdmissionApplicantService,
+  ApplicantStatusDto,
+  PublicIntakeDto,
+} from './admission-applicant.service';
 import { SubmitApplicantDto, SubmitApplicantResponseDto } from './dto/submit-applicant.dto';
+import { CheckApplicantStatusDto } from './dto/check-applicant-status.dto';
 
 const MAX_DOCUMENT_FILE_SIZE = 5 * 1024 * 1024; // 5MB per document, same tier as homework uploads
 
@@ -33,19 +48,22 @@ export class PublicAdmissionController {
     return this.applicantService.listOpenIntakes(slug);
   }
 
-  @Get(':slug/status/:referenceNumber')
+  @Post(':slug/status')
+  @HttpCode(HttpStatus.OK)
   @Throttle({ default: ADMISSION_STATUS_RATE_LIMIT })
   @ApiOperation({
     summary:
-      'Check an admission application status by reference number, no login required. ' +
-      'Returns only status/applicant name/intake title — an unknown or wrong-tenant reference number 404s.',
+      'Check an admission application status by reference number plus the guardian phone given on ' +
+      'the form, no login required. Returns only status/applicant name/intake title — an unknown ' +
+      'reference, a wrong phone, or a wrong-tenant reference number all 404 identically. POST (not ' +
+      'GET) so the phone number never lands in a URL/access log.',
   })
   @ApiOkResponse()
   async getStatus(
     @Param('slug') slug: string,
-    @Param('referenceNumber') referenceNumber: string,
+    @Body() dto: CheckApplicantStatusDto,
   ): Promise<ApplicantStatusDto> {
-    return this.applicantService.getStatus(slug, referenceNumber);
+    return this.applicantService.getStatus(slug, dto);
   }
 
   @Post(':slug/applicants')

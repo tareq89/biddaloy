@@ -89,7 +89,7 @@ describe('Admission flow (integration)', () => {
       },
       [],
     );
-    expect(submitted.reference_number).toMatch(/^ADM-\d{4}-\d{6}$/);
+    expect(submitted.reference_number).toMatch(/^ADM-\d{4}-[0-9A-HJKMNP-TV-Z]{6}$/);
     expect(submitted.status).toBe('PENDING');
 
     const [applicantRow] = await dataSource.query(

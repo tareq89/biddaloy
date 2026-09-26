@@ -33,7 +33,7 @@
   },
   "confirmation": {
     "title": "Your application is submitted",
-    "explanation": "Please save this reference number. You'll need it to check your application's status.",
+    "explanation": "Please save this reference number. To check your status you'll need it and the guardian phone number you gave on the form.",
     "copy": "Copy number",
     "copied": "Copied!",
     "checkStatusLink": "Check application status"
@@ -41,11 +41,12 @@
   "status": {
     "title": "Check your application status",
     "fields": {
-      "referenceNumber": "Your reference number"
+      "referenceNumber": "Your reference number",
+      "guardianPhone": "Parent/guardian's phone number (the one you gave on the form)"
     },
     "submit": "Check status",
     "loading": "Checking…",
-    "notFound": "We couldn't find an application with this reference number. Please check the number and try again.",
+    "notFound": "We couldn't find an application with this reference number and phone number. Please check both and try again.",
     "error": "Something went wrong. Please try again.",
     "statuses": {
       "PENDING": "Your application is being reviewed",

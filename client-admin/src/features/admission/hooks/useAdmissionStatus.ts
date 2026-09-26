@@ -1,15 +1,10 @@
 /**
- * [27.8] `GET /public/admission/:slug/status/:referenceNumber`. That route
- * is being added in parallel by a sibling ticket (#1042) and may not exist
- * yet on this branch — `enabled` below only fires the request once a
- * reference number has actually been entered, so this hook compiles and
- * renders cleanly either way; the real response wiring is confirmed at
- * epic integration once #1042 lands. Same bare-`axios` reasoning as
- * `useSubmitApplicant.ts` (no `apiClient`, no active tenant on a public
- * page).
+ * [27.7] `POST /public/admission/:slug/status`. Guardian phone travels as a
+ * second factor in the body, not a query-string param, so it never lands
+ * in an access/proxy log.
  */
 import { ApiError } from '@biddaloy/ui/api';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 
 import { toApiError } from './toApiError';
@@ -22,15 +17,19 @@ export interface AdmissionStatusResult {
   intake_title: string;
 }
 
-async function fetchStatus(
+export interface CheckAdmissionStatusInput {
+  referenceNumber: string;
+  guardianPhone: string;
+}
+
+async function checkStatus(
   slug: string,
-  referenceNumber: string,
-  signal?: AbortSignal,
+  input: CheckAdmissionStatusInput,
 ): Promise<AdmissionStatusResult> {
   try {
-    const response = await axios.get<AdmissionStatusResult>(
-      `${API_BASE_URL}/public/admission/${slug}/status/${referenceNumber}`,
-      { ...(signal ? { signal } : {}) },
+    const response = await axios.post<AdmissionStatusResult>(
+      `${API_BASE_URL}/public/admission/${encodeURIComponent(slug)}/status`,
+      { reference_number: input.referenceNumber, guardian_phone: input.guardianPhone },
     );
     return response.data;
   } catch (error) {
@@ -38,12 +37,9 @@ async function fetchStatus(
   }
 }
 
-export function useAdmissionStatus(slug: string, referenceNumber: string) {
-  return useQuery({
-    queryKey: ['public-admission-status', slug, referenceNumber] as const,
-    queryFn: ({ signal }) => fetchStatus(slug, referenceNumber, signal),
-    enabled: referenceNumber.trim().length > 0,
-    retry: false,
+export function useAdmissionStatus(slug: string) {
+  return useMutation({
+    mutationFn: (input: CheckAdmissionStatusInput) => checkStatus(slug, input),
   });
 }
 

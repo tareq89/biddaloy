@@ -18,6 +18,8 @@ import { SchoolsService } from '../schools/schools.service';
 import { StorageService } from '../storage/storage.service';
 import { tenantObjectKey } from '../storage/storage-key';
 import { SubmitApplicantDto } from './dto/submit-applicant.dto';
+import { CheckApplicantStatusDto } from './dto/check-applicant-status.dto';
+import { normalizeBdPhoneNumber } from '../communications/providers/shared/phone-number.util';
 
 export interface ApplicantStatusDto {
   status: AdmissionApplicantStatus;
@@ -123,19 +125,28 @@ export class AdmissionApplicantService {
       }));
   }
 
-  /** `GET /public/admission/:slug/status/:referenceNumber` — a caller with
-   * only the reference number (no login) can check status. Scoped by the
-   * tenant resolved from `:slug`; an unknown reference number, or one
-   * belonging to a different tenant, both 404 identically so the response
-   * never reveals which field was wrong or that another applicant exists. */
-  async getStatus(slug: string, referenceNumber: string): Promise<ApplicantStatusDto> {
+  /** `POST /public/admission/:slug/status` — the guardian phone given on
+   * the form is a second factor alongside the reference number, so a
+   * caller can't enumerate reference numbers to look up other applicants'
+   * status. Scoped by the tenant resolved from `:slug`; an unknown
+   * reference, a wrong phone, and a wrong-tenant reference number all 404
+   * identically so the response never reveals which field was wrong or
+   * that another applicant exists. */
+  async getStatus(slug: string, dto: CheckApplicantStatusDto): Promise<ApplicantStatusDto> {
     const school = await this.schoolsService.findBySlug(slug);
     if (!school) throw new NotFoundException('Application not found');
 
+    const referenceNumber = normalizeReferenceNumber(dto.reference_number);
     const applicant = await this.applicantRepo.findOne({
       where: { tenant_id: school.id, reference_number: referenceNumber, deleted_at: IsNull() },
     });
-    if (!applicant) throw new NotFoundException('Application not found');
+    if (
+      !applicant ||
+      normalizeBdPhoneNumber(applicant.guardian_phone) !==
+        normalizeBdPhoneNumber(dto.guardian_phone)
+    ) {
+      throw new NotFoundException('Application not found');
+    }
 
     const intake = await this.intakeRepo.findOne({ where: { id: applicant.intake_id } });
 
@@ -366,4 +377,13 @@ function documentTypeForFieldname(fieldname: string): AdmissionDocumentType | un
     (value) => value.toLowerCase() === fieldname.toLowerCase(),
   );
   return match;
+}
+
+/** Forgives the handful of mistakes a guardian retyping a reference number
+ * from an SMS is likely to make: stray case, and the letters the
+ * Crockford-base32 alphabet deliberately excludes (O/I/L) mistyped for the
+ * digits they're easy to confuse with. Safe because "ADM" itself contains
+ * none of those letters. */
+function normalizeReferenceNumber(raw: string): string {
+  return raw.trim().toUpperCase().replace(/O/g, '0').replace(/[IL]/g, '1');
 }

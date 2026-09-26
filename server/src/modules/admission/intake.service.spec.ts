@@ -89,24 +89,45 @@ describe('IntakeService', () => {
   it('updates an intake, scoping both the ownership check and the write to the tenant', async () => {
     repo.findOne.mockResolvedValue(makeIntake({ seat_count: 40 }));
     await service.update('intake-1', { seat_count: 50 }, TENANT_A);
-    expect(repo.update).toHaveBeenCalledWith({ id: 'intake-1', tenant_id: TENANT_A }, { seat_count: 50 });
+    expect(repo.update).toHaveBeenCalledWith(
+      { id: 'intake-1', tenant_id: TENANT_A },
+      { seat_count: 50 },
+    );
   });
 
-  it('closes an intake by pulling close_date back to today', async () => {
+  it('closes an intake by pulling close_date back to yesterday, so it reads CLOSED the same day', async () => {
     repo.findOne.mockResolvedValue(makeIntake());
     await service.close('intake-1', TENANT_A);
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    expect(repo.update).toHaveBeenCalledWith(
+      { id: 'intake-1', tenant_id: TENANT_A },
+      { open_date: '2020-01-01', close_date: yesterday },
+    );
+  });
+
+  it('also pulls open_date back when it would otherwise invert the range', async () => {
     const today = new Date().toISOString().slice(0, 10);
-    expect(repo.update).toHaveBeenCalledWith({ id: 'intake-1', tenant_id: TENANT_A }, { close_date: today });
+    repo.findOne.mockResolvedValue(makeIntake({ open_date: today }));
+    await service.close('intake-1', TENANT_A);
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    expect(repo.update).toHaveBeenCalledWith(
+      { id: 'intake-1', tenant_id: TENANT_A },
+      { open_date: yesterday, close_date: yesterday },
+    );
   });
 
   it('derives status OPEN when today falls within open_date..close_date', async () => {
-    repo.findOne.mockResolvedValue(makeIntake({ open_date: '2020-01-01', close_date: '2099-01-01' }));
+    repo.findOne.mockResolvedValue(
+      makeIntake({ open_date: '2020-01-01', close_date: '2099-01-01' }),
+    );
     const result = await service.findOne('intake-1', TENANT_A);
     expect(result.status).toBe('OPEN');
   });
 
   it('derives status CLOSED when today is past close_date', async () => {
-    repo.findOne.mockResolvedValue(makeIntake({ open_date: '2020-01-01', close_date: '2020-01-02' }));
+    repo.findOne.mockResolvedValue(
+      makeIntake({ open_date: '2020-01-01', close_date: '2020-01-02' }),
+    );
     const result = await service.findOne('intake-1', TENANT_A);
     expect(result.status).toBe('CLOSED');
   });
@@ -129,10 +150,12 @@ describe('IntakeService', () => {
   });
 
   it('rejects update when the patched date range is inverted', async () => {
-    repo.findOne.mockResolvedValue(makeIntake({ open_date: '2020-01-01', close_date: '2099-01-01' }));
-    await expect(service.update('intake-1', { close_date: '2019-01-01' }, TENANT_A)).rejects.toThrow(
-      BadRequestException,
+    repo.findOne.mockResolvedValue(
+      makeIntake({ open_date: '2020-01-01', close_date: '2099-01-01' }),
     );
+    await expect(
+      service.update('intake-1', { close_date: '2019-01-01' }, TENANT_A),
+    ).rejects.toThrow(BadRequestException);
     expect(repo.update).not.toHaveBeenCalled();
   });
 });

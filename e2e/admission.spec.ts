@@ -65,7 +65,14 @@ test('public submit → staff shortlist/admit → student created → public sta
       .fill(guardianPhone);
     await guestPage
       .getByLabel(t('admission-public.form.documents.PHOTO'), { exact: true })
-      .setInputFiles({ name: 'photo.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('x') });
+      .setInputFiles({
+        name: 'photo.jpg',
+        mimeType: 'image/jpeg',
+        // A real JPEG signature — the server's magic-byte check (T10)
+        // rejects anything else with a 400, unlike the old Buffer.from('x')
+        // this journey used to silently drop.
+        buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
+      });
 
     await guestPage.getByRole('button', { name: t('admission-public.form.submit') }).click();
 
@@ -134,6 +141,9 @@ test('public submit → staff shortlist/admit → student created → public sta
     await guestPage
       .getByLabel(t('admission-public.status.fields.referenceNumber'), { exact: true })
       .fill(referenceNumber);
+    await guestPage
+      .getByLabel(t('admission-public.status.fields.guardianPhone'), { exact: true })
+      .fill(guardianPhone);
     await guestPage.getByRole('button', { name: t('admission-public.status.submit') }).click();
 
     await expect(guestPage.getByText(t('admission-public.status.statuses.ADMITTED'))).toBeVisible();

@@ -1,11 +1,9 @@
 /**
  * [27.8] `/admission/<slug>/status` — a guardian enters their reference
- * number (no login) and sees the applicant's current status. Wired against
- * `GET /public/admission/:slug/status/:referenceNumber`, which sibling
- * ticket #1042 adds in parallel on this same branch — see
- * `useAdmissionStatus.ts`'s header comment. `enabled` there means an empty
- * input never fires a request, so this renders fine whether or not that
- * route exists yet.
+ * number plus the guardian phone they gave on the form (no login) and sees
+ * the applicant's current status. Wired against
+ * `POST /public/admission/:slug/status`, whose body carries both fields —
+ * see `useAdmissionStatus.ts`'s header comment for why POST, not GET.
  *
  * Same `PUBLIC_PATH_PREFIXES` note as `index.tsx`.
  */
@@ -15,12 +13,17 @@ import { createFileRoute } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
 
-import { isUnknownReference, useAdmissionStatus } from '../../../features/admission/hooks/useAdmissionStatus';
+import {
+  isUnknownReference,
+  useAdmissionStatus,
+} from '../../../features/admission/hooks/useAdmissionStatus';
 import { loadRouteNamespaces } from '../../../route-loaders';
 
 const statusSearchSchema = z.object({
-  // Pre-fills the input when arriving from the confirmation screen's
-  // "check status" link — a fresh visit with no search param starts blank.
+  // Pre-fills the reference input when arriving from the confirmation
+  // screen's "check status" link — a fresh visit with no search param
+  // starts blank. The guardian phone isn't in the URL, so it's never
+  // pre-filled this way.
   referenceNumber: z.string().optional().catch(undefined),
 });
 
@@ -35,21 +38,16 @@ function AdmissionStatusRoute() {
   const { slug } = Route.useParams();
   const search = Route.useSearch();
   const [referenceNumber, setReferenceNumber] = React.useState(search.referenceNumber ?? '');
-  const [submittedReference, setSubmittedReference] = React.useState(search.referenceNumber ?? '');
+  const [guardianPhone, setGuardianPhone] = React.useState('');
 
-  const statusQuery = useAdmissionStatus(slug, submittedReference);
+  const statusMutation = useAdmissionStatus(slug);
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    const trimmed = referenceNumber.trim();
-    if (trimmed === submittedReference) {
-      // Same reference re-submitted (e.g. retrying after a not-found) —
-      // the query key won't change, so refetch explicitly instead of
-      // relying on React Query to notice a no-op setState.
-      void statusQuery.refetch();
-    } else {
-      setSubmittedReference(trimmed);
-    }
+    statusMutation.mutate({
+      referenceNumber: referenceNumber.trim(),
+      guardianPhone: guardianPhone.trim(),
+    });
   }
 
   return (
@@ -67,28 +65,34 @@ function AdmissionStatusRoute() {
                 required
               />
             </div>
-            <Button type="submit">{t('status.submit')}</Button>
+            <div className="grid gap-1.5">
+              <Label htmlFor="guardian-phone">{t('status.fields.guardianPhone')}</Label>
+              <Input
+                id="guardian-phone"
+                type="tel"
+                value={guardianPhone}
+                onChange={(event) => setGuardianPhone(event.target.value)}
+                required
+              />
+            </div>
+            <Button type="submit" loading={statusMutation.isPending}>
+              {t('status.submit')}
+            </Button>
           </form>
 
-          {statusQuery.isPending && submittedReference && (
-            <p role="status" className="text-sm text-muted-foreground">
-              {t('status.loading')}
-            </p>
-          )}
-
-          {statusQuery.isError && (
+          {statusMutation.isError && (
             <p role="alert" className="text-sm text-destructive">
-              {isUnknownReference(statusQuery.error) ? t('status.notFound') : t('status.error')}
+              {isUnknownReference(statusMutation.error) ? t('status.notFound') : t('status.error')}
             </p>
           )}
 
-          {statusQuery.isSuccess && (
+          {statusMutation.isSuccess && (
             <div role="status" className="flex flex-col gap-1 rounded-md border border-border p-4">
-              <p className="text-sm text-muted-foreground">{statusQuery.data.intake_title}</p>
-              <p className="font-medium">{statusQuery.data.applicant_name}</p>
+              <p className="text-sm text-muted-foreground">{statusMutation.data.intake_title}</p>
+              <p className="font-medium">{statusMutation.data.applicant_name}</p>
               <p className="text-lg font-semibold">
-                {t(`status.statuses.${statusQuery.data.status}`, {
-                  defaultValue: statusQuery.data.status,
+                {t(`status.statuses.${statusMutation.data.status}`, {
+                  defaultValue: statusMutation.data.status,
                 })}
               </p>
             </div>
