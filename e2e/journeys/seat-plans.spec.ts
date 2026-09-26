@@ -40,6 +40,36 @@ async function findSeededClass6(
   return klass;
 }
 
+/** A hardcoded schedule date drifts out of range whenever the seeded
+ * academic year's calendar year changes — derive two dates safely inside
+ * the class's real academic year instead. */
+async function safeScheduleDates(
+  request: Parameters<typeof adminApiSession>[0],
+  session: Awaited<ReturnType<typeof adminApiSession>>,
+  academicYearId: string,
+): Promise<{ math: string; english: string }> {
+  const year = await get<{ start_date: string; end_date: string }>(
+    request,
+    session,
+    `/academic-years/${academicYearId}`,
+  );
+  const start = new Date(year.start_date);
+  const mathDate = new Date(start);
+  mathDate.setUTCDate(mathDate.getUTCDate() + 10);
+  const englishDate = new Date(start);
+  englishDate.setUTCDate(englishDate.getUTCDate() + 11);
+  const end = new Date(year.end_date);
+  if (englishDate > end) {
+    throw new Error(
+      `Seeded academic year ${year.start_date}..${year.end_date} is too short for this test's schedule dates`,
+    );
+  }
+  return {
+    math: mathDate.toISOString().slice(0, 10),
+    english: englishDate.toISOString().slice(0, 10),
+  };
+}
+
 test.describe.serial('seat plans: generate -> reseat -> reshuffle -> publish', () => {
   test.use(loggedIn('admin'));
 
@@ -76,18 +106,19 @@ test.describe.serial('seat plans: generate -> reseat -> reshuffle -> publish', (
       class_id: klass.id,
     });
 
+    const scheduleDates = await safeScheduleDates(request, session, klass.academic_year_id);
     const mathSchedule = await post<{ id: string }>(
       request,
       session,
       `/exams/${exam.id}/schedule`,
-      { subject_id: math.id, date: '2027-01-10', starts_at: '09:00', ends_at: '11:00' },
+      { subject_id: math.id, date: scheduleDates.math, starts_at: '09:00', ends_at: '11:00' },
     );
     mathScheduleId = mathSchedule.id;
     const englishSchedule = await post<{ id: string }>(
       request,
       session,
       `/exams/${exam.id}/schedule`,
-      { subject_id: english.id, date: '2027-01-11', starts_at: '09:00', ends_at: '11:00' },
+      { subject_id: english.id, date: scheduleDates.english, starts_at: '09:00', ends_at: '11:00' },
     );
     englishScheduleId = englishSchedule.id;
 

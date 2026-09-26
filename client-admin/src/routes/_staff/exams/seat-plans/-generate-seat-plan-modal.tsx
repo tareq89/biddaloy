@@ -167,7 +167,7 @@ export function GenerateSeatPlanModal({ open, onOpenChange }: GenerateSeatPlanMo
 
         {result && result.conflicts.length > 0 ? (
           <div className="flex flex-col gap-4">
-            <p role="alert" className="text-sm text-amber-700">
+            <p role="alert" className="text-sm text-destructive">
               {t('generate.conflictsNotice', { count: result.conflicts.length })}
             </p>
             <ul className="flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle p-2 text-sm">

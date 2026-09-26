@@ -328,7 +328,10 @@ describe('SeatPlansService (integration)', () => {
       }),
     ).rejects.toMatchObject({
       response: expect.objectContaining({
-        exam_schedule_ids: [SCHEDULE_1_ID],
+        details: expect.objectContaining({
+          code: 'SCHEDULE_ALREADY_CLAIMED',
+          exam_schedule_ids: [SCHEDULE_1_ID],
+        }),
       }),
     });
   });

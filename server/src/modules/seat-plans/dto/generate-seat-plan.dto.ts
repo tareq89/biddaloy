@@ -1,5 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ArrayMinSize, IsEnum, IsString, IsUUID, Length } from 'class-validator';
+import {
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
+  IsEnum,
+  IsString,
+  IsUUID,
+  Length,
+} from 'class-validator';
 import { SeatOrderMode } from '@biddaloy/shared';
 
 /** Body for `POST /seat-plans/generate` (#25.4). */
@@ -10,13 +18,17 @@ export class GenerateSeatPlanDto {
   name: string;
 
   @ApiProperty({ type: [String] })
-  @IsUUID('4', { each: true })
+  @IsArray()
   @ArrayMinSize(1)
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
   exam_schedule_ids: string[];
 
   @ApiProperty({ type: [String] })
-  @IsUUID('4', { each: true })
+  @IsArray()
   @ArrayMinSize(1)
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
   room_ids: string[];
 
   @ApiProperty({ enum: SeatOrderMode })

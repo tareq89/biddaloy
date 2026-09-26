@@ -17,6 +17,13 @@ import { Enrollment } from '../students/entities/enrollment.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { GenerateSeatPlanDto } from './dto/generate-seat-plan.dto';
 import { UpdateAllocationDto, UpdateInvigilatorDto } from './dto/update-allocation.dto';
+
+// Arbitrary namespace for pg_advisory_xact_lock's two-key form, paired with
+// hashtext(tenantId) — same convention as public-holidays.service.ts,
+// invoice-numbering.util.ts and roll-number.util.ts. Serializes concurrent
+// publish() calls for the same tenant so two drafts can't both pass the
+// room-conflict check for an overlapping schedule/room before either commits.
+const PUBLISH_LOCK_NAMESPACE = 25_014;
 import {
   allocateSeats,
   checkCapacity,
@@ -582,6 +589,11 @@ export class SeatPlansService {
 
   async publish(tenantId: string, planId: string) {
     return this.dataSource.transaction(async (manager) => {
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1), $2)', [
+        tenantId,
+        PUBLISH_LOCK_NAMESPACE,
+      ]);
+
       const plan = await manager.findOne(SeatPlan, { where: { tenant_id: tenantId, id: planId } });
       if (!plan) throw new NotFoundException('Seat plan not found');
       if (plan.status !== SeatPlanStatus.DRAFT) {

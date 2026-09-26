@@ -348,16 +348,34 @@ export function reshuffleRoom(
   const target = existingAllocation.filter((a) => a.room_id === roomId);
   if (target.length === 0) return untouched.map(toSeatAssignment);
 
-  const capacity = target.length;
-  const roster: RosterEntry[] = target.map((a) => ({
-    exam_schedule_id: a.exam_schedule_id,
-    student_id: a.student_id,
-    roll_number: a.roll_number,
-    section_id: a.section_id,
-  }));
+  // A room can be shared by more than one subject-sitting (D1) — each
+  // schedule seats its own students independently, so seat numbering must
+  // restart per schedule rather than spanning the whole room's headcount.
+  const byExamSchedule = new Map<string, ExistingSeatAssignment[]>();
+  for (const a of target) {
+    const group = byExamSchedule.get(a.exam_schedule_id) ?? [];
+    group.push(a);
+    byExamSchedule.set(a.exam_schedule_id, group);
+  }
 
-  const { assignments } = allocateSeats(roster, [{ id: roomId, capacity }], orderMode, seed);
-  return [...untouched.map(toSeatAssignment), ...assignments];
+  const reshuffled: SeatAssignment[] = [];
+  for (const group of byExamSchedule.values()) {
+    const roster: RosterEntry[] = group.map((a) => ({
+      exam_schedule_id: a.exam_schedule_id,
+      student_id: a.student_id,
+      roll_number: a.roll_number,
+      section_id: a.section_id,
+    }));
+    const { assignments } = allocateSeats(
+      roster,
+      [{ id: roomId, capacity: group.length }],
+      orderMode,
+      seed,
+    );
+    reshuffled.push(...assignments);
+  }
+
+  return [...untouched.map(toSeatAssignment), ...reshuffled];
 }
 
 function toSeatAssignment(a: ExistingSeatAssignment): SeatAssignment {

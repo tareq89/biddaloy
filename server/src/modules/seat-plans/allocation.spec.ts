@@ -301,4 +301,40 @@ describe('reshuffleRoom', () => {
     expect(r1.map((a) => a.student_id).sort()).toEqual(['a-1', 'a-2']);
     expect(r1.map((a) => a.seat_number).sort()).toEqual(['1', '2']);
   });
+
+  it('numbers seats per subject-sitting when a room is shared by two schedules (D1)', () => {
+    const existing: ExistingSeatAssignment[] = [
+      {
+        exam_schedule_id: 'sch-math',
+        student_id: 'm-1',
+        section_id: 'sec-a',
+        roll_number: 1,
+        room_id: 'r1',
+        seat_number: '1',
+      },
+      {
+        exam_schedule_id: 'sch-math',
+        student_id: 'm-2',
+        section_id: 'sec-a',
+        roll_number: 2,
+        room_id: 'r1',
+        seat_number: '2',
+      },
+      {
+        exam_schedule_id: 'sch-english',
+        student_id: 'e-1',
+        section_id: 'sec-a',
+        roll_number: 1,
+        room_id: 'r1',
+        seat_number: '1',
+      },
+    ];
+    const result = reshuffleRoom(existing, 'r1', SeatOrderMode.SEQUENTIAL);
+    const mathSeats = result.filter((a) => a.exam_schedule_id === 'sch-math');
+    const englishSeats = result.filter((a) => a.exam_schedule_id === 'sch-english');
+    // Each schedule renumbers from 1 independently — a 2-capacity math
+    // sitting must not treat the room as a 3-seat pool shared with English.
+    expect(mathSeats.map((a) => a.seat_number).sort()).toEqual(['1', '2']);
+    expect(englishSeats.map((a) => a.seat_number)).toEqual(['1']);
+  });
 });

@@ -81,12 +81,14 @@ describe('SeatPlansService', () => {
     };
     seatPlanScheduleRepo = {
       createQueryBuilder: vi.fn(() => qb([])),
+      query: vi.fn(async () => []),
     };
     allocationRepo = {
       find: vi.fn(async () => []),
       count: vi.fn(async () => 0),
       save: vi.fn(async (v: any) => v),
       createQueryBuilder: vi.fn(() => qb([])),
+      query: vi.fn(async () => []),
     };
     examScheduleRepo = {
       find: vi.fn(async () => []),
@@ -139,6 +141,7 @@ describe('SeatPlansService', () => {
       find: vi.fn(async () => []),
       findOne: vi.fn(async () => null),
       createQueryBuilder: vi.fn(() => qb([])),
+      query: vi.fn(async () => []), // publish()'s pg_advisory_xact_lock — no-op in unit tests
     };
   }
 
@@ -268,6 +271,7 @@ describe('SeatPlansService', () => {
           find: vi.fn(async () => []),
           findOne: vi.fn(async () => null),
           createQueryBuilder: vi.fn(() => qb([])),
+          query: vi.fn(async () => []),
         };
         return cb(manager);
       });
@@ -658,6 +662,7 @@ describe('SeatPlansService', () => {
           find: vi.fn(async () => []),
           save: vi.fn(async (_e: any, v: any) => v),
           createQueryBuilder: vi.fn(() => qb([])),
+          query: vi.fn(async () => []),
         }),
       );
       seatPlanRepo.findOne.mockResolvedValue({
@@ -716,6 +721,7 @@ describe('SeatPlansService', () => {
           }),
           save: vi.fn(async (_e: any, v: any) => v),
           createQueryBuilder: vi.fn(() => qb([conflictingRow])),
+          query: vi.fn(async () => []),
         }),
       );
 
@@ -869,6 +875,7 @@ describe('SeatPlansService', () => {
           find: vi.fn(async () => []),
           save: vi.fn(async (_e: any, v: any) => v),
           createQueryBuilder: vi.fn(() => qb([])),
+          query: vi.fn(async () => []),
         }),
       );
 

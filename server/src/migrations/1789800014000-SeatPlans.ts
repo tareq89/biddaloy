@@ -23,16 +23,23 @@ export class SeatPlans1789800014000 implements MigrationInterface {
       `ALTER TABLE "exam_schedules" ADD CONSTRAINT "FK_exam_schedules_room" FOREIGN KEY ("room_id") REFERENCES "rooms"("id") ON DELETE SET NULL ON UPDATE NO ACTION`,
     );
     // Best-effort backfill: match venue text to a room_no in the same
-    // tenant, case-insensitively. Ambiguous (no match, or venue null) rows
-    // are simply left NULL — never fails the migration.
+    // tenant, case-insensitively. Ambiguous (no match, venue null, or more
+    // than one room sharing a normalized room_no) rows are simply left
+    // NULL — never fails the migration, and never picks an arbitrary room
+    // out of multiple matches.
     await queryRunner.query(`
       UPDATE "exam_schedules" es
-      SET "room_id" = r."id"
-      FROM "rooms" r
-      WHERE r."tenant_id" = es."tenant_id"
-        AND r."deleted_at" IS NULL
+      SET "room_id" = matched."id"
+      FROM (
+        SELECT r."tenant_id", lower(trim(r."room_no")) AS normalized_room_no, r."id"
+        FROM "rooms" r
+        WHERE r."deleted_at" IS NULL
+        GROUP BY r."tenant_id", lower(trim(r."room_no")), r."id"
+        HAVING count(*) OVER (PARTITION BY r."tenant_id", lower(trim(r."room_no"))) = 1
+      ) matched
+      WHERE matched."tenant_id" = es."tenant_id"
         AND es."venue" IS NOT NULL
-        AND lower(trim(r."room_no")) = lower(trim(es."venue"))
+        AND matched."normalized_room_no" = lower(trim(es."venue"))
     `);
 
     // --- seat_plans -------------------------------------------------------
