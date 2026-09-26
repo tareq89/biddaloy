@@ -255,6 +255,10 @@ describe('family read grants [5.1]', () => {
       Permission.ATTENDANCE_MARK,
       Permission.ATTENDANCE_CORRECT,
       Permission.ATTENDANCE_DEVICE_MANAGE,
+      // [36.1.1] Staff attendance/leave — no family-role stake in these.
+      Permission.STAFF_ATTENDANCE_READ,
+      Permission.STAFF_ATTENDANCE_MARK,
+      Permission.LEAVE_APPROVE,
     ] as const;
 
     for (const role of FAMILY_ROLES) {
@@ -292,6 +296,43 @@ describe('attendance role grants [9.2]', () => {
       expect(ROLE_PERMISSIONS[role]).not.toContain(Permission.ATTENDANCE_CORRECT);
     }
     expect(ROLE_PERMISSIONS[UserRole.ADMIN]).toContain(Permission.ATTENDANCE_CORRECT);
+  });
+});
+
+describe('staff attendance & leave role grants [36.1.1]', () => {
+  const TENANT_STAFF_ROLES = [
+    UserRole.ADMIN,
+    UserRole.ACCOUNTANT,
+    UserRole.EXECUTIVE,
+    UserRole.TEACHER,
+  ] as const;
+
+  for (const role of TENANT_STAFF_ROLES) {
+    it(`grants STAFF_ATTENDANCE_READ and STAFF_ATTENDANCE_MARK to ${role}`, () => {
+      expect(ROLE_PERMISSIONS[role]).toContain(Permission.STAFF_ATTENDANCE_READ);
+      expect(ROLE_PERMISSIONS[role]).toContain(Permission.STAFF_ATTENDANCE_MARK);
+    });
+  }
+
+  it('withholds STAFF_ATTENDANCE_READ and STAFF_ATTENDANCE_MARK from PARENT and STUDENT', () => {
+    for (const role of [UserRole.PARENT, UserRole.STUDENT]) {
+      expect(ROLE_PERMISSIONS[role]).not.toContain(Permission.STAFF_ATTENDANCE_READ);
+      expect(ROLE_PERMISSIONS[role]).not.toContain(Permission.STAFF_ATTENDANCE_MARK);
+    }
+  });
+
+  it('grants LEAVE_APPROVE to ADMIN and EXECUTIVE only', () => {
+    expect(ROLE_PERMISSIONS[UserRole.ADMIN]).toContain(Permission.LEAVE_APPROVE);
+    expect(ROLE_PERMISSIONS[UserRole.EXECUTIVE]).toContain(Permission.LEAVE_APPROVE);
+  });
+
+  it('withholds LEAVE_APPROVE from TEACHER and ACCOUNTANT', () => {
+    expect(ROLE_PERMISSIONS[UserRole.TEACHER]).not.toContain(Permission.LEAVE_APPROVE);
+    expect(ROLE_PERMISSIONS[UserRole.ACCOUNTANT]).not.toContain(Permission.LEAVE_APPROVE);
+  });
+
+  it('grants LEAVE_APPROVE to SUPER_ADMIN, which holds every permission', () => {
+    expect(ROLE_PERMISSIONS[UserRole.SUPER_ADMIN]).toContain(Permission.LEAVE_APPROVE);
   });
 });
 
