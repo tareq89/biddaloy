@@ -25,6 +25,9 @@ import { WalletTransaction } from '../../fees/entities/wallet-transaction.entity
 import { InvoiceShareToken } from '../../invoices/entities/invoice-share-token.entity';
 import { PushSubscription } from '../../push/entities/push-subscription.entity';
 import { WorkbookJob } from '../jobs/workbook-job.entity';
+import { SeatPlan } from '../../seat-plans/entities/seat-plan.entity';
+import { SeatPlanSchedule } from '../../seat-plans/entities/seat-plan-schedule.entity';
+import { SeatAllocation } from '../../seat-plans/entities/seat-allocation.entity';
 
 /**
  * Entities that `registry.completeness.spec.ts` allows to have no workbook
@@ -86,6 +89,15 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   ],
   [StudentWallet, 'Tenant-scoped student wallet balance, no tab yet — tracked in #856.'],
   [WalletTransaction, 'Tenant-scoped wallet transaction history, no tab yet — tracked in #856.'],
+  [SeatPlan, 'Tenant-scoped exam seat plan, no tab yet — workbook tab lands in #25.5 (Epic 787).'],
+  [
+    SeatPlanSchedule,
+    'Tenant-scoped seat-plan/exam-schedule link, no tab yet — workbook tab lands in #25.5 (Epic 787).',
+  ],
+  [
+    SeatAllocation,
+    'Tenant-scoped per-student seat allocation, no tab yet — workbook tab lands in #25.5 (Epic 787).',
+  ],
 
   // Epic 19.0's exams/marks/results spine got a workbook tab in [19.10.1]
   // (#906). No exemption entries left for them.
