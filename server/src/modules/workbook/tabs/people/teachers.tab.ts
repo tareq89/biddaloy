@@ -88,6 +88,7 @@ const columns: readonly ColumnSpec[] = [
  */
 const excluded: readonly string[] = [
   'user_id', // exported instead as the `user` ref column, keyed by the referenced tab's natural key
+  'staff_profile_id', // [36.1.1] derived FK set by the staff-profiles backfill/module code, not user-editable workbook data
 ];
 
 const MAX_LENGTHS: Record<string, number> = {
