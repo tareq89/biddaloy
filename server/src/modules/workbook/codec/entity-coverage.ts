@@ -33,6 +33,7 @@ import { RoutineSlot } from '../../routines/entities/routine-slot.entity';
 import { RoutineSlotTeacher } from '../../routines/entities/routine-slot-teacher.entity';
 import { RoutineSubstitution } from '../../routines/entities/routine-substitution.entity';
 import { RoutineChangeRequest } from '../../routines/entities/routine-change-request.entity';
+import { StaffProfile } from '../../staff-profiles/entities/staff-profile.entity';
 
 /**
  * Entities that `registry.completeness.spec.ts` allows to have no workbook
@@ -117,4 +118,8 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
     RoutineChangeRequest,
     'Tenant-scoped routine change request, no tab yet — tracked in Epic 21.0 [21.11.1].',
   ],
+
+  // --- Epic 36 (staff attendance & leave): staff HR data, no workbook
+  // tab planned for this epic.
+  [StaffProfile, 'Tenant-scoped staff HR record (employee_id), no tab planned — Epic 36.'],
 ]);
