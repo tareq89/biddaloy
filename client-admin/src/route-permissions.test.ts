@@ -98,6 +98,7 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/exams': '/_staff/exams/',
   '/analysis': '/_staff/analysis/',
   '/promotions': '/_staff/promotions/',
+  '/exams/seat-plans': '/_staff/exams/seat-plans/',
   '/grading-scales': '/_staff/grading-scales/',
   '/admissions/intakes': '/_staff/admissions/intakes/',
   '/admissions/applicants': '/_staff/admissions/applicants/',

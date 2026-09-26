@@ -98,6 +98,19 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   ],
   '/_staff/academics/syllabus/': [{ label: { key: 'syllabus' } }],
   '/_staff/exams/': [{ label: { entity: 'exam' } }],
+  // [25.6] Single-level, same as `/_staff/exams/` above — no separate
+  // "Exams & Results" segment; that's the nav group label, not part of
+  // any sibling route's own crumb trail either.
+  '/_staff/exams/seat-plans/': [{ label: { key: 'seatPlans' } }],
+  // [25.7] No entity resolver registered for seat plans (`use-breadcrumbs.ts`'s
+  // `ENTITY_RESOLVERS` is a deliberate short list — student/guardian/class/
+  // academic year only) — same scope line `results/$examId/$studentId` and
+  // `marks/$examId/.../$subjectId` already accept, so this segment's dynamic
+  // label falls back to the raw plan id, not the plan's name.
+  '/_staff/exams/seat-plans/$planId': [
+    { label: { key: 'seatPlans' } },
+    { label: { key: 'seatPlanDetail' }, dynamic: 'entity' },
+  ],
   '/_staff/marks/': [{ label: { key: 'marksEntry' } }],
   '/_staff/results/': [{ label: { key: 'results' } }],
   // [26.5.1] The tab (`?tab=`) isn't a route-tree segment — `ROUTE_CRUMBS`

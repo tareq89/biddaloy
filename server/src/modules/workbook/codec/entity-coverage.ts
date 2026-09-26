@@ -93,4 +93,7 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   // period_slots, rooms, routines, routine_slots, routine_slot_teachers,
   // routine_substitutions, routine_change_requests — all got a workbook
   // tab in [21.11.1]. No exemption entries left for them.
+  // Epic 787's seat-plan entities (SeatPlan, SeatPlanSchedule,
+  // SeatAllocation) got a workbook tab in [25.5] (#1054). No exemption
+  // entries left for them.
 ]);

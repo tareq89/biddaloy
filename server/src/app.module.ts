@@ -48,6 +48,10 @@ import { AdmissionModule } from './modules/admission/admission.module';
 import { Homework } from './modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from './modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from './modules/homework/entities/homework-submission.entity';
+import { SeatPlansModule } from './modules/seat-plans/seat-plans.module';
+import { SeatPlan } from './modules/seat-plans/entities/seat-plan.entity';
+import { SeatPlanSchedule } from './modules/seat-plans/entities/seat-plan-schedule.entity';
+import { SeatAllocation } from './modules/seat-plans/entities/seat-allocation.entity';
 import { SyllabusTopic } from './modules/homework/entities/syllabus-topic.entity';
 import { validate } from './config/env.validation';
 
@@ -220,6 +224,9 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             AdmissionIntake,
             AdmissionApplicant,
             AdmissionEvaluation,
+            SeatPlan,
+            SeatPlanSchedule,
+            SeatAllocation,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],
@@ -299,6 +306,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     ExamsModule,
     HomeworkModule,
     AdmissionModule,
+    SeatPlansModule,
     PromotionsModule,
   ],
   controllers: [AppController],

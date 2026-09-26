@@ -155,6 +155,15 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.PROMOTION_MANAGE,
     label: { key: 'promotion' },
   },
+  // [25.6] `SEAT_PLAN_MANAGE` — `SeatPlansController`'s own gate, same
+  // "match the controller's real requirement" reasoning `examsResults.exams`
+  // gives above.
+  'examsResults.seatPlans': {
+    id: 'examsResults.seatPlans',
+    to: '/exams/seat-plans',
+    permission: Permission.SEAT_PLAN_MANAGE,
+    label: { key: 'seatPlans' },
+  },
   'academics.routineSetup': {
     id: 'academics.routineSetup',
     to: '/routines/setup',
@@ -346,6 +355,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
     label: { key: 'examsResults' },
     items: [
       STAFF_NAV_ITEMS['examsResults.exams'],
+      STAFF_NAV_ITEMS['examsResults.seatPlans'],
       STAFF_NAV_ITEMS['examsResults.gradingScales'],
       STAFF_NAV_ITEMS['examsResults.analysis'],
       STAFF_NAV_ITEMS['examsResults.promotion'],

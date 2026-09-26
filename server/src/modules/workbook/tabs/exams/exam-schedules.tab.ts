@@ -49,6 +49,7 @@ const columns: readonly ColumnSpec[] = [
 const excluded: readonly string[] = [
   'exam_id', // exported instead as the `exam` ref column
   'subject_id', // exported instead as the `subject` ref column
+  'room_id', // [25.1] derived from `venue` by the seat-plans migration backfill; not a workbook-editable column yet
 ];
 
 const MAX_LENGTHS: Record<string, number> = {
