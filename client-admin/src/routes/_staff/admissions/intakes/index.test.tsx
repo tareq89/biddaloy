@@ -156,9 +156,7 @@ describe('/admissions/intakes', () => {
     await user.type(dialog.getByLabelText('Close date'), '2026-01-01');
 
     expect(dialog.getByText('Close date must not be before open date.')).toBeTruthy();
-    expect((dialog.getByRole('button', { name: 'Create' }) as HTMLButtonElement).disabled).toBe(
-      true,
-    );
+    expect(dialog.getByRole<HTMLButtonElement>('button', { name: 'Create' }).disabled).toBe(true);
   });
 
   it('shows an error state instead of spinning forever when the intake fails to load', async () => {
