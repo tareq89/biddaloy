@@ -1,7 +1,7 @@
 import { adminApiSession, createClassSection, createTeacherForSection, post } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
-import { tabUntilFocused } from './keyboard-utils';
+import { selectByTypeahead, tabUntilFocused } from './keyboard-utils';
 
 /**
  * [29.0] Teaching assignments bulk view, KEYBOARD ONLY for navigation, the
@@ -41,15 +41,24 @@ test('keyboard-only: filter by class, then unassign a teacher', async ({ page, r
   ).toBeVisible();
 
   await test.step('select the class by keyboard', async () => {
-    await tabUntilFocused(page, t('teacherAssignments.list.classLabel'), 40, {
+    // Cold `page.goto` leaves focus on `<body>` (no route-focus target on
+    // first load) — the shell's nav sidebar + header sit between it and
+    // this page's own filter bar, so budget for all of that, not just the
+    // filter itself. Same body-reset preamble as `organisation-structure.spec.ts`.
+    await page.evaluate(() => {
+      document.body.setAttribute('tabindex', '-1');
+      document.body.focus();
+      document.body.removeAttribute('tabindex');
+    });
+    await page.keyboard.press('Tab');
+    await tabUntilFocused(page, t('teacherAssignments.list.classLabel'), 60, {
       tag: 'BUTTON',
     });
-    await page.keyboard.press('Enter');
-    // Radix `Select` supports typeahead once open — typing the class name
-    // jumps the highlighted option straight to it, no arrow-counting
-    // through an unknown-length list.
-    await page.keyboard.type(chain.className);
-    await page.keyboard.press('Enter');
+    // `selectByTypeahead` opens the trigger itself (presses Enter), then
+    // types and waits for the exact option before picking it — typing
+    // right after the Enter that opens the listbox can lose keystrokes to
+    // its open animation.
+    await selectByTypeahead(page, chain.className);
 
     await expect(page.getByText('Keyboard Teacher')).toBeVisible();
   });

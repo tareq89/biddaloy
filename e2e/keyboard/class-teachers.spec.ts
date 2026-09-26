@@ -1,4 +1,4 @@
-import { adminApiSession, createClassSection, createTeacherForSection } from '../api';
+import { adminApiSession, createClassSection, createTeacher } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { tabUntilFocused } from './keyboard-utils';
@@ -18,18 +18,24 @@ test('keyboard-only: assign a teacher from the class detail Teachers tab', async
   request,
 }) => {
   const session = await adminApiSession(request);
-  const { classId, sectionId, className } = await createClassSection(request, session);
+  const { classId, className } = await createClassSection(request, session);
   const teacherName = `E2E Teacher ${Date.now()}`;
-  // `sectionId` here only seeds the teacher's legacy roster field — the
-  // section-teacher *assignment* this spec creates is a separate entity,
-  // made through the dialog below.
-  await createTeacherForSection(request, session, teacherName, sectionId);
+  // `createTeacher`, not `createTeacherForSection` — this spec's own
+  // empty-state assertion below needs a teacher with zero assignments to
+  // start; `createTeacherForSection` always creates a class-teacher row.
+  await createTeacher(request, session, teacherName);
 
   await page.goto(`/classes/${classId}?tab=teachers`);
   await expect(page.getByRole('heading', { name: className })).toBeVisible();
   await expect(page.getByText(t('classes.detail.teachers.emptySectionMessage'))).toBeVisible();
 
   await test.step('tab to Assign, keyboard only', async () => {
+    await page.evaluate(() => {
+      document.body.setAttribute('tabindex', '-1');
+      document.body.focus();
+      document.body.removeAttribute('tabindex');
+    });
+    await page.keyboard.press('Tab');
     await tabUntilFocused(page, t('classes.detail.teachers.assign'), 60, { tag: 'BUTTON' });
     await page.keyboard.press('Enter');
   });
@@ -38,7 +44,9 @@ test('keyboard-only: assign a teacher from the class detail Teachers tab', async
   await expect(dialog).toBeVisible();
 
   await test.step('pick a teacher and submit, keyboard only', async () => {
-    const combo = dialog.getByRole('combobox', { name: t('classes.assignTeacherForm.teacherLabel') });
+    const combo = dialog.getByRole('combobox', {
+      name: t('classes.assignTeacherForm.teacherLabel'),
+    });
     await combo.focus();
     await page.keyboard.type(teacherName);
     await expect(dialog.getByRole('option', { name: new RegExp(teacherName) })).toBeVisible();

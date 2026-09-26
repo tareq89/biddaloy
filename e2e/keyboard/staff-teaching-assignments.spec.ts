@@ -31,14 +31,37 @@ test('keyboard-only: assign a class/section from the staff detail Teaching assig
   await expect(page.getByRole('heading', { name: teacherName })).toBeVisible();
 
   await test.step('tab to the Teaching assignments tab, keyboard only', async () => {
-    await tabUntilFocused(page, t('staff.detail.tabs.teachingAssignments'), 60, { tag: 'BUTTON' });
+    // `DetailShell` tabs are a Radix `RovingFocusGroup` — only the active
+    // tab has `tabindex=0`, the rest are `-1`, so `tabUntilFocused` can
+    // never Tab onto them. Reach it with ArrowRight instead, same pattern
+    // `homework-detail-tabs.spec.ts` uses for a `DetailShell` tab strip.
+    const teachingAssignmentsTab = page.getByRole('tab', {
+      name: t('staff.detail.tabs.teachingAssignments'),
+    });
+    await expect(teachingAssignmentsTab).toBeVisible();
+    const tabButtons = page.getByRole('tablist').first().getByRole('tab');
+    const tabIds = await tabButtons.evaluateAll((els) => els.map((el) => el.id));
+    const targetId = await teachingAssignmentsTab.evaluate((el) => el.id);
+    const targetIndex = tabIds.indexOf(targetId);
+    await tabButtons.first().focus();
+    for (let i = 1; i <= targetIndex; i += 1) {
+      await page.keyboard.press('ArrowRight');
+      await expect(tabButtons.nth(i)).toBeFocused();
+    }
+    await expect(teachingAssignmentsTab).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('Enter');
   });
 
   await expect(page.getByText(t('staff.detail.teachingAssignments.emptyMessage'))).toBeVisible();
 
   await test.step('tab to Assign, keyboard only', async () => {
-    await tabUntilFocused(page, t('staff.detail.teachingAssignments.assign'), 20, {
+    await page.evaluate(() => {
+      document.body.setAttribute('tabindex', '-1');
+      document.body.focus();
+      document.body.removeAttribute('tabindex');
+    });
+    await page.keyboard.press('Tab');
+    await tabUntilFocused(page, t('staff.detail.teachingAssignments.assign'), 60, {
       tag: 'BUTTON',
     });
     await page.keyboard.press('Enter');
