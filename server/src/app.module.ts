@@ -39,6 +39,7 @@ import { RestoreModule } from './modules/workbook/restore/restore.module';
 import { ImportModule } from './modules/workbook/import/import.module';
 import { TemplateModule } from './modules/workbook/template/template.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { StaffHrModule } from './modules/staff-hr/staff-hr.module';
 import { SearchModule } from './modules/search/search.module';
 import { GradingModule } from './modules/grading/grading.module';
 import { ExamsModule } from './modules/exams/exams.module';
@@ -58,6 +59,9 @@ import { Program } from './modules/programs/entities/program.entity';
 import { ProgramMilestone } from './modules/programs/entities/program-milestone.entity';
 import { ProgramEnrollment } from './modules/programs/entities/program-enrollment.entity';
 import { MilestoneAchievement } from './modules/programs/entities/milestone-achievement.entity';
+import { Designation } from './modules/staff-hr/entities/designation.entity';
+import { StaffHrRecord } from './modules/staff-hr/entities/staff-hr-record.entity';
+import { StaffDesignationHistory } from './modules/staff-hr/entities/staff-designation-history.entity';
 import { validate } from './config/env.validation';
 
 // Entities for auto-loading
@@ -236,6 +240,9 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             ProgramMilestone,
             ProgramEnrollment,
             MilestoneAchievement,
+            Designation,
+            StaffHrRecord,
+            StaffDesignationHistory,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],
@@ -318,6 +325,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     SeatPlansModule,
     ProgramsModule,
     PromotionsModule,
+    StaffHrModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

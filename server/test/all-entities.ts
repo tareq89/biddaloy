@@ -76,6 +76,9 @@ import { ProgramEnrollment } from '../src/modules/programs/entities/program-enro
 import { MilestoneAchievement } from '../src/modules/programs/entities/milestone-achievement.entity';
 import { PromotionRun } from '../src/modules/promotions/entities/promotion-run.entity';
 import { PromotionEntry } from '../src/modules/promotions/entities/promotion-entry.entity';
+import { Designation } from '../src/modules/staff-hr/entities/designation.entity';
+import { StaffHrRecord } from '../src/modules/staff-hr/entities/staff-hr-record.entity';
+import { StaffDesignationHistory } from '../src/modules/staff-hr/entities/staff-designation-history.entity';
 
 export const ALL_ENTITIES = [
   AcademicYear,
@@ -156,4 +159,7 @@ export const ALL_ENTITIES = [
   MilestoneAchievement,
   PromotionRun,
   PromotionEntry,
+  Designation,
+  StaffHrRecord,
+  StaffDesignationHistory,
 ];
