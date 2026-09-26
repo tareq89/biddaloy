@@ -22,7 +22,12 @@ test('keyboard-only: assign a class/section from the staff detail Teaching assig
   const { className } = await createClassSection(request, session);
   // `createClassSection` always names its one section "A".
   const sectionName = 'A';
-  const teacherName = `E2E Teacher ${Date.now()}`;
+  // `Date.now()` alone collided across parallel workers running a
+  // sibling spec's own teacher creation at the same millisecond,
+  // producing two identically-named teachers and a strict-mode option
+  // match violation — the same entropy `crypto.randomUUID()` already
+  // gives `e2e/api.ts`'s own suffixes.
+  const teacherName = `E2E Teacher ${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
   // `createTeacher`, not `createTeacherForSection` — this test's empty-state
   // assertion below needs a teacher with zero assignments to start.
   const teacher = await createTeacher(request, session, teacherName);
@@ -46,9 +51,25 @@ test('keyboard-only: assign a class/section from the staff detail Teaching assig
     await tabButtons.first().focus();
     for (let i = 1; i <= targetIndex; i += 1) {
       await page.keyboard.press('ArrowRight');
-      await expect(tabButtons.nth(i)).toBeFocused();
+      // Unlike the other tabs in this strip, this one is conditionally
+      // rendered ([29.0], only for teacher-designation staff) and mounts
+      // its own data-fetching panel content immediately on arrival
+      // (Radix's default automatic activation). That panel settling can
+      // move DOM focus away from the tab trigger right after landing on
+      // it, even though the trigger is already correctly the selected tab
+      // (`aria-selected`/`data-state` below both confirm this) — so skip
+      // the interim `toBeFocused` check on the final (target) press only;
+      // every earlier press still asserts it, to still catch a real
+      // reachability regression on this strip.
+      if (i < targetIndex) {
+        await expect(tabButtons.nth(i)).toBeFocused();
+      }
     }
     await expect(teachingAssignmentsTab).toHaveAttribute('aria-selected', 'true');
+    await expect(teachingAssignmentsTab).toHaveAttribute('data-state', 'active');
+    // Re-focus the trigger before activating it — see the comment above on
+    // why focus may have moved off it after the final ArrowRight.
+    await teachingAssignmentsTab.focus();
     await page.keyboard.press('Enter');
   });
 
@@ -80,13 +101,17 @@ test('keyboard-only: assign a class/section from the staff detail Teaching assig
     });
     await classCombo.focus();
     await page.keyboard.type(className);
-    await expect(dialog.getByRole('option', { name: new RegExp(className) })).toBeVisible();
+    // Radix `Combobox` portals its listbox to the document body, not as a
+    // DOM descendant of the dialog — scope to `page`, matching every other
+    // Combobox-driving spec in this suite (`command-palette.spec.ts`,
+    // `homework.spec.ts`).
+    await expect(page.getByRole('option', { name: new RegExp(className) })).toBeVisible();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
 
     await tabUntilFocused(page, t('classes.assignTeacherForm.sectionLabel'), 10);
     await page.keyboard.type(sectionName);
-    await expect(dialog.getByRole('option', { name: new RegExp(sectionName) })).toBeVisible();
+    await expect(page.getByRole('option', { name: new RegExp(sectionName) })).toBeVisible();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
 

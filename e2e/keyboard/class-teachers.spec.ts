@@ -19,7 +19,12 @@ test('keyboard-only: assign a teacher from the class detail Teachers tab', async
 }) => {
   const session = await adminApiSession(request);
   const { classId, className } = await createClassSection(request, session);
-  const teacherName = `E2E Teacher ${Date.now()}`;
+  // `Date.now()` alone collided across parallel workers running a
+  // sibling spec's own teacher creation at the same millisecond,
+  // producing two identically-named teachers and a strict-mode option
+  // match violation — the same entropy `crypto.randomUUID()` already
+  // gives `e2e/api.ts`'s own suffixes.
+  const teacherName = `E2E Teacher ${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
   // `createTeacher`, not `createTeacherForSection` — this spec's own
   // empty-state assertion below needs a teacher with zero assignments to
   // start; `createTeacherForSection` always creates a class-teacher row.
@@ -49,7 +54,11 @@ test('keyboard-only: assign a teacher from the class detail Teachers tab', async
     });
     await combo.focus();
     await page.keyboard.type(teacherName);
-    await expect(dialog.getByRole('option', { name: new RegExp(teacherName) })).toBeVisible();
+    // Radix `Combobox` portals its listbox to the document body, not as a
+    // DOM descendant of the dialog — scope to `page`, matching every other
+    // Combobox-driving spec in this suite (`command-palette.spec.ts`,
+    // `homework.spec.ts`).
+    await expect(page.getByRole('option', { name: new RegExp(teacherName) })).toBeVisible();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
     await tabUntilFocused(page, t('classes.assignTeacherForm.save'), 20, { tag: 'BUTTON' });

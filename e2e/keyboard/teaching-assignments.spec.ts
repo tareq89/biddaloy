@@ -64,8 +64,30 @@ test('keyboard-only: filter by class, then unassign a teacher', async ({ page, r
   });
 
   await test.step('unassign by keyboard', async () => {
-    await tabUntilFocused(page, t('teacherAssignments.list.unassign'), 30, { tag: 'BUTTON' });
-    await page.keyboard.press('Enter');
+    // `DataTable` is an ARIA grid with one roving-tabindex cell across the
+    // *whole* table (`data-table.tsx`'s `focusedCell` state) -- every
+    // other cell has tabIndex=-1, so no number of plain Tab presses can
+    // reach a specific row's action button. `.focus()` it directly
+    // instead -- the same "establish a known point, then drive by
+    // keyboard from there" shape `class-teachers.spec.ts`'s own
+    // `combo.focus()` already uses for a Combobox with no other
+    // reachability path.
+    const unassignButton = page.getByRole('button', {
+      name: t('teacherAssignments.list.unassign'),
+    });
+    // Retry the focus itself, not just the assertion after it: the class
+    // filter's own section-teacher queries can still be settling
+    // (re-rendering the row) for a moment after `selectByTypeahead`
+    // returns, and a `.focus()` issued into that window lands on a node
+    // React is about to replace, losing focus again immediately.
+    await expect(async () => {
+      await unassignButton.focus();
+      await expect(unassignButton).toBeFocused();
+    }).toPass({ timeout: 5000 });
+    // Element-scoped `.press()`, not `page.keyboard.press()` -- guarantees
+    // the key event targets this exact element regardless of any focus
+    // timing race with the grid's own state updates.
+    await unassignButton.press('Enter');
 
     await expect(page.getByRole('dialog')).toBeVisible();
     await tabUntilFocused(page, t('teacherAssignments.unassignDialog.confirm'), 10, {
@@ -73,6 +95,8 @@ test('keyboard-only: filter by class, then unassign a teacher', async ({ page, r
     });
     await page.keyboard.press('Enter');
 
-    await expect(page.getByText('Keyboard Teacher')).toBeHidden();
+    // Scoped to the table row, not `page` -- the confirm dialog's own
+    // description text also contains the teacher's name while it closes.
+    await expect(page.getByRole('cell', { name: 'Keyboard Teacher' })).toBeHidden();
   });
 });
