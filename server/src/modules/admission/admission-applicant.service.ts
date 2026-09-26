@@ -183,9 +183,15 @@ export class AdmissionApplicantService {
     if (!school) throw new NotFoundException('School not found');
 
     // Honeypot: return a plausible-looking success without persisting
-    // anything, so a bot filling every visible field can't tell it was caught.
+    // anything, so a bot filling every visible field can't tell it was
+    // caught — the reference number must look like a real one (same
+    // format, current year, random code), not a recognizable constant a
+    // bot could diff against a real response.
     if (dto.middle_name_confirm) {
-      return { reference_number: 'ADM-0000-000000', status: AdmissionApplicantStatus.PENDING };
+      return {
+        reference_number: this.randomReferenceCandidate(),
+        status: AdmissionApplicantStatus.PENDING,
+      };
     }
 
     const uploadedKeys: string[] = [];
@@ -217,18 +223,36 @@ export class AdmissionApplicantService {
           throw new BadRequestException('This admission intake is closed');
         }
 
+        // Compared normalized rather than with a raw exact match — the same
+        // guardian typing "01700000001" on one visit and "+8801700000001"
+        // on another must still hit the same row, or the duplicate guard
+        // (and the unique index it backs) is trivially bypassed.
         const applicantRepo = manager.getRepository(AdmissionApplicant);
-        const existing = await applicantRepo.findOne({
-          where: {
-            tenant_id: school.id,
-            intake_id: intake.id,
-            guardian_phone: dto.guardian_phone,
-          },
+        const normalizedPhone = normalizeBdPhoneNumber(dto.guardian_phone);
+        const candidates = await applicantRepo.find({
+          where: { tenant_id: school.id, intake_id: intake.id },
         });
+        const existing = candidates.find(
+          (c) => normalizeBdPhoneNumber(c.guardian_phone) === normalizedPhone,
+        );
 
         if (existing && existing.status !== AdmissionApplicantStatus.PENDING) {
           throw new ConflictException(
             'An application with this phone number has already been reviewed for this intake',
+          );
+        }
+
+        // A phone number isn't secret and intake_id is public (returned by
+        // GET /public/admission/:slug), so matching on those two alone
+        // would let anyone overwrite someone else's pending application.
+        // Updating an existing row requires proving ownership with the
+        // reference_number the original submission got back.
+        if (
+          existing &&
+          normalizeReferenceNumber(dto.reference_number ?? '') !== existing.reference_number
+        ) {
+          throw new ConflictException(
+            'An application already exists for this phone number. Provide its reference number to update it.',
           );
         }
 
@@ -320,16 +344,8 @@ export class AdmissionApplicantService {
     applicantRepo: Repository<AdmissionApplicant>,
     tenantId: string,
   ): Promise<string> {
-    const year = new Date().getFullYear();
     for (let attempt = 0; attempt < AdmissionApplicantService.REFERENCE_MAX_ATTEMPTS; attempt++) {
-      const code = Array.from(
-        { length: AdmissionApplicantService.REFERENCE_CODE_LENGTH },
-        () =>
-          AdmissionApplicantService.REFERENCE_ALPHABET[
-            randomInt(AdmissionApplicantService.REFERENCE_ALPHABET.length)
-          ],
-      ).join('');
-      const candidate = `ADM-${year}-${code}`;
+      const candidate = this.randomReferenceCandidate();
       const taken = await applicantRepo.exists({
         where: { tenant_id: tenantId, reference_number: candidate },
         withDeleted: true,
@@ -337,6 +353,23 @@ export class AdmissionApplicantService {
       if (!taken) return candidate;
     }
     throw new ConflictException('Please try again');
+  }
+
+  /** One `ADM-<year>-<6 random chars>` candidate, with no DB check — used
+   * both by `generateReferenceNumber` (which does check) and the honeypot
+   * path (which must return a real-looking value without touching the
+   * database, so a bot can't tell it was caught by timing or a recognizable
+   * constant). */
+  private randomReferenceCandidate(): string {
+    const year = new Date().getFullYear();
+    const code = Array.from(
+      { length: AdmissionApplicantService.REFERENCE_CODE_LENGTH },
+      () =>
+        AdmissionApplicantService.REFERENCE_ALPHABET[
+          randomInt(AdmissionApplicantService.REFERENCE_ALPHABET.length)
+        ],
+    ).join('');
+    return `ADM-${year}-${code}`;
   }
 
   private async uploadDocuments(

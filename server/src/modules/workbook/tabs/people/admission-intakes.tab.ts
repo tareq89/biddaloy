@@ -1,4 +1,5 @@
 import type { EntityManager } from 'typeorm';
+import { AdmissionDocumentType } from '@biddaloy/shared';
 import { AdmissionIntake } from '../../../admission/entities/admission-intake.entity';
 import { fromCell, formatDateOnly } from '../../codec/cell-format';
 import type {
@@ -72,7 +73,11 @@ export const admissionIntakesTab: TabSpec<AdmissionIntake, AdmissionIntakeRow> =
   excluded,
   dependsOn: ['sections'],
   columns,
-  naturalKey: ['class_section', 'title'],
+  // Includes both dates — `IntakeService.create` allows more than one
+  // intake with the same section+title (e.g. re-running the same admission
+  // window next year), and a natural key on section+title alone would
+  // collide the two, making a workbook with both unrestorable.
+  naturalKey: ['class_section', 'title', 'open_date', 'close_date'],
   deleteByAbsence: true,
 
   load(tenantId: string, m: EntityManager): Promise<AdmissionIntake[]> {
@@ -154,6 +159,21 @@ export const admissionIntakesTab: TabSpec<AdmissionIntake, AdmissionIntakeRow> =
         severity: 'error',
         value: cells.required_document_types ?? '',
       });
+    } else if (Array.isArray(values.required_document_types)) {
+      const validTypes = new Set<string>(Object.values(AdmissionDocumentType));
+      const invalid = values.required_document_types.filter(
+        (value) => typeof value !== 'string' || !validTypes.has(value),
+      );
+      if (invalid.length > 0) {
+        errors.push({
+          tab: 'admission_intakes',
+          row: rowNo,
+          column: 'required_document_types',
+          message: `Column "required_document_types": ${JSON.stringify(invalid)} is not one of PHOTO, BIRTH_CERTIFICATE, TRANSCRIPT.`,
+          severity: 'error',
+          value: cells.required_document_types ?? '',
+        });
+      }
     }
 
     if ((values.open_date as string) > (values.close_date as string)) {
@@ -173,6 +193,17 @@ export const admissionIntakesTab: TabSpec<AdmissionIntake, AdmissionIntakeRow> =
         row: rowNo,
         column: 'seat_count',
         message: 'Column "seat_count": must not be negative.',
+        severity: 'error',
+        value: cells.seat_count ?? '',
+      });
+    } else if (typeof values.seat_count === 'number' && values.seat_count > 2147483647) {
+      // Postgres `int` column max — a larger value would fail at `m.save`
+      // with a raw DB error instead of a reported row error.
+      errors.push({
+        tab: 'admission_intakes',
+        row: rowNo,
+        column: 'seat_count',
+        message: 'Column "seat_count": must not exceed 2147483647.',
         severity: 'error',
         value: cells.seat_count ?? '',
       });
@@ -197,9 +228,9 @@ export const admissionIntakesTab: TabSpec<AdmissionIntake, AdmissionIntakeRow> =
   keyOf(x: AdmissionIntakeRow | AdmissionIntake): string {
     if (x instanceof AdmissionIntake) {
       const classSectionKey = x.class_section ? sectionsTab.keyOf(x.class_section) : '';
-      return `${classSectionKey}|${x.title}`;
+      return `${classSectionKey}|${x.title}|${formatDateOnly(x.open_date)}|${formatDateOnly(x.close_date)}`;
     }
-    return `${x.class_section_key}|${x.title}`;
+    return `${x.class_section_key}|${x.title}|${x.open_date}|${x.close_date}`;
   },
 
   diffFields(row: AdmissionIntakeRow, existing: AdmissionIntake): string[] {

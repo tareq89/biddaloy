@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, EntityManager } from 'typeorm';
+import { Repository, IsNull, EntityManager, Not, In } from 'typeorm';
 import { AdmissionApplicantStatus, AdmissionEvaluationDecision } from '@biddaloy/shared';
 import { AdmissionApplicant } from './entities/admission-applicant.entity';
 import { AdmissionEvaluation } from './entities/admission-evaluation.entity';
@@ -79,6 +79,26 @@ export class ApplicantReviewService {
       throw new ConflictException('Only a pending applicant can be shortlisted');
     }
 
+    if (dto.decision) {
+      // Conditioned on the status this method already verified above,
+      // rather than trusting that read to still hold — otherwise a
+      // concurrent admit() between the read and this write can flip the
+      // applicant to ADMITTED while this update still lands, leaving a
+      // SHORTLISTED/REJECTED status on an applicant a Student record
+      // already exists for.
+      const allowedFrom =
+        dto.decision === 'SHORTLIST'
+          ? AdmissionApplicantStatus.PENDING
+          : Not(In([AdmissionApplicantStatus.ADMITTED, AdmissionApplicantStatus.REJECTED]));
+      const result = await this.applicants.update(
+        { id, tenant_id: tenantId, status: allowedFrom },
+        { status: DECISION_TO_STATUS[dto.decision] },
+      );
+      if (result.affected === 0) {
+        throw new ConflictException('Applicant status changed concurrently — please retry');
+      }
+    }
+
     await this.evaluations.save(
       this.evaluations.create({
         tenant_id: tenantId,
@@ -89,12 +109,6 @@ export class ApplicantReviewService {
       }),
     );
 
-    if (dto.decision) {
-      await this.applicants.update(
-        { id, tenant_id: tenantId },
-        { status: DECISION_TO_STATUS[dto.decision] },
-      );
-    }
     const updated = await this.findOne(id, tenantId);
     if (dto.decision) await this.notifyStatusChange(updated);
     return updated;
@@ -109,6 +123,20 @@ export class ApplicantReviewService {
     const applicant = await this.findOne(id, tenantId);
     this.assertMutable(applicant);
 
+    // Conditioned on the status just verified, not trusted to still hold —
+    // see the matching comment in evaluate().
+    const result = await this.applicants.update(
+      {
+        id,
+        tenant_id: tenantId,
+        status: Not(In([AdmissionApplicantStatus.ADMITTED, AdmissionApplicantStatus.REJECTED])),
+      },
+      { status: AdmissionApplicantStatus.REJECTED },
+    );
+    if (result.affected === 0) {
+      throw new ConflictException('Applicant status changed concurrently — please retry');
+    }
+
     await this.evaluations.save(
       this.evaluations.create({
         tenant_id: tenantId,
@@ -117,10 +145,6 @@ export class ApplicantReviewService {
         notes: notes ?? 'Rejected',
         decision: 'REJECT',
       }),
-    );
-    await this.applicants.update(
-      { id, tenant_id: tenantId },
-      { status: AdmissionApplicantStatus.REJECTED },
     );
     const updated = await this.findOne(id, tenantId);
     await this.notifyStatusChange(updated);

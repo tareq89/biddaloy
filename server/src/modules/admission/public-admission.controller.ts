@@ -72,8 +72,10 @@ export class PublicAdmissionController {
   @ApiOperation({
     summary:
       'Submit an admission application. Multipart form: applicant fields plus one file field per ' +
-      'required document type (photo/birth_certificate/transcript). Resubmitting with the same ' +
-      'guardian_phone against the same intake updates the existing PENDING application in place.',
+      'required document type (photo/birth_certificate/transcript). Updating an existing PENDING ' +
+      'application for the same intake and guardian_phone requires its reference_number as proof ' +
+      'of ownership — a phone number and intake_id are both public, so matching on those two alone ' +
+      "isn't enough.",
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -88,6 +90,12 @@ export class PublicAdmissionController {
         guardian_phone: { type: 'string' },
         guardian_email: { type: 'string', nullable: true },
         home_address: { type: 'string', nullable: true },
+        reference_number: {
+          type: 'string',
+          nullable: true,
+          description:
+            'Proof of ownership when updating an existing PENDING application for the same phone number. Omit on a first submission.',
+        },
         photo: { type: 'string', format: 'binary' },
         birth_certificate: { type: 'string', format: 'binary' },
         transcript: { type: 'string', format: 'binary' },

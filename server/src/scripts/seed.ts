@@ -210,24 +210,43 @@ async function ensureAdmissionSeed(dataSource: DataSource, school: School) {
   const classSectionRepository = dataSource.getRepository(ClassSection);
 
   const title = 'Class 1 Admission 2026';
-  let intake = await intakeRepository.findOne({ where: { tenant_id: school.id, title } });
+  const section = await classSectionRepository.findOne({ where: { tenant_id: school.id } });
+  if (!section) {
+    console.warn('No class section found — skipping admission intake seed.');
+    return;
+  }
+
+  // A window centered on "today" rather than a fixed 2026 range, so the
+  // sample intake stays open (and the public flow stays demoable) no
+  // matter when `yarn seed` actually runs.
+  const openDate = new Date();
+  openDate.setFullYear(openDate.getFullYear() - 1);
+  const closeDate = new Date();
+  closeDate.setFullYear(closeDate.getFullYear() + 1);
+  const toDateOnly = (d: Date) => d.toISOString().slice(0, 10);
+
+  let intake = await intakeRepository.findOne({
+    where: { tenant_id: school.id, class_section_id: section.id, title },
+  });
   if (!intake) {
-    const section = await classSectionRepository.findOne({ where: { tenant_id: school.id } });
-    if (!section) {
-      console.warn('No class section found — skipping admission intake seed.');
-      return;
-    }
     intake = intakeRepository.create({
       tenant_id: school.id,
       class_section_id: section.id,
       title,
       seat_count: 30,
-      open_date: '2026-01-01',
-      close_date: '2026-12-31',
+      open_date: toDateOnly(openDate),
+      close_date: toDateOnly(closeDate),
       required_document_types: ['PHOTO'],
     });
     await intakeRepository.save(intake);
     console.log(`Created admission intake "${title}" (${intake.id}).`);
+  } else if (intake.close_date < toDateOnly(new Date())) {
+    // Re-running the seed against an older, now-expired sample intake —
+    // extend it instead of leaving it permanently closed.
+    intake.open_date = toDateOnly(openDate);
+    intake.close_date = toDateOnly(closeDate);
+    await intakeRepository.save(intake);
+    console.log(`Extended admission intake "${title}" (${intake.id}) — it had expired.`);
   }
 
   const applicants: Array<{

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Test } from '@nestjs/testing';
 import { ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { Not, In } from 'typeorm';
 import { ApplicantReviewService } from './applicant-review.service';
 import { AdmissionApplicant } from './entities/admission-applicant.entity';
 import { AdmissionEvaluation } from './entities/admission-evaluation.entity';
@@ -63,7 +64,7 @@ describe('ApplicantReviewService', () => {
   beforeEach(async () => {
     applicantRepo = {
       findOne: vi.fn(),
-      update: vi.fn(),
+      update: vi.fn(async () => ({ affected: 1 })),
       find: vi.fn(),
       count: vi.fn(async () => 0),
       manager: {
@@ -143,7 +144,7 @@ describe('ApplicantReviewService', () => {
         }),
       );
       expect(applicantRepo.update).toHaveBeenCalledWith(
-        { id: 'applicant-1', tenant_id: TENANT_A },
+        { id: 'applicant-1', tenant_id: TENANT_A, status: AdmissionApplicantStatus.PENDING },
         { status: AdmissionApplicantStatus.SHORTLISTED },
       );
       expect(result.status).toBe(AdmissionApplicantStatus.SHORTLISTED);
@@ -166,7 +167,11 @@ describe('ApplicantReviewService', () => {
       );
 
       expect(applicantRepo.update).toHaveBeenCalledWith(
-        { id: 'applicant-1', tenant_id: TENANT_A },
+        {
+          id: 'applicant-1',
+          tenant_id: TENANT_A,
+          status: Not(In([AdmissionApplicantStatus.ADMITTED, AdmissionApplicantStatus.REJECTED])),
+        },
         { status: AdmissionApplicantStatus.REJECTED },
       );
     });
@@ -213,6 +218,15 @@ describe('ApplicantReviewService', () => {
       expect(applicantRepo.findOne).toHaveBeenCalledWith(
         expect.objectContaining({ where: expect.objectContaining({ tenant_id: TENANT_B }) }),
       );
+    });
+
+    it('surfaces a conflict when the status changed concurrently (e.g. admitted mid-request)', async () => {
+      applicantRepo.findOne.mockResolvedValueOnce(makeApplicant());
+      applicantRepo.update.mockResolvedValueOnce({ affected: 0 });
+      await expect(
+        service.evaluate('applicant-1', { notes: 'x', decision: 'REJECT' }, TENANT_A, REVIEWER),
+      ).rejects.toThrow(ConflictException);
+      expect(evaluationRepo.save).not.toHaveBeenCalled();
     });
   });
 
@@ -317,7 +331,11 @@ describe('ApplicantReviewService', () => {
 
       expect(studentService.create).not.toHaveBeenCalled();
       expect(applicantRepo.update).toHaveBeenCalledWith(
-        { id: 'applicant-1', tenant_id: TENANT_A },
+        {
+          id: 'applicant-1',
+          tenant_id: TENANT_A,
+          status: Not(In([AdmissionApplicantStatus.ADMITTED, AdmissionApplicantStatus.REJECTED])),
+        },
         { status: AdmissionApplicantStatus.REJECTED },
       );
       expect(result.status).toBe(AdmissionApplicantStatus.REJECTED);
@@ -340,6 +358,15 @@ describe('ApplicantReviewService', () => {
       applicantRepo.findOne.mockResolvedValueOnce(
         makeApplicant({ status: AdmissionApplicantStatus.REJECTED }),
       );
+      await expect(service.reject('applicant-1', TENANT_A, REVIEWER)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(evaluationRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('surfaces a conflict when the status changed concurrently (e.g. admitted mid-request)', async () => {
+      applicantRepo.findOne.mockResolvedValueOnce(makeApplicant());
+      applicantRepo.update.mockResolvedValueOnce({ affected: 0 });
       await expect(service.reject('applicant-1', TENANT_A, REVIEWER)).rejects.toThrow(
         ConflictException,
       );

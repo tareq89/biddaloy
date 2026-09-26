@@ -28,11 +28,16 @@ const shared = require('@biddaloy/shared') as typeof import('@biddaloy/shared');
  * quotes to check status). `(tenant_id, intake_id, guardian_phone)` is
  * unique too, across every status — one application per guardian phone per
  * intake, for the life of that intake. `AdmissionApplicantService.submit`'s
- * duplicate lookup matches this: a PENDING row is updated in place, and any
- * other status (SHORTLISTED/ADMITTED/REJECTED) rejects a resubmission with
- * a 409 rather than letting the insert hit this index. A guardian with
- * more than one child applying to the same intake needs a distinct phone
- * number per child.
+ * duplicate lookup matches this: it compares phones through
+ * `normalizeBdPhoneNumber` (so "01712345678" and "+8801712345678" collide
+ * on the same row rather than bypassing this index), and requires the
+ * caller to supply the existing row's `reference_number` before updating a
+ * PENDING one in place — a phone number and `intake_id` are both public,
+ * so matching on those two alone would let anyone overwrite someone else's
+ * pending application. Any other status (SHORTLISTED/ADMITTED/REJECTED)
+ * rejects a resubmission with a 409 rather than letting the insert hit
+ * this index. A guardian with more than one child applying to the same
+ * intake needs a distinct phone number per child.
  *
  * Relations:
  * - @ManyToOne → School: tenant the applicant belongs to

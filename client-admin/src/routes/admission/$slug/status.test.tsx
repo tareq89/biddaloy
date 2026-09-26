@@ -85,4 +85,38 @@ describe('/admission/$slug/status public status check', () => {
       ).toBeTruthy(),
     );
   });
+
+  it('shows a generic error message for a non-404 failure', async () => {
+    server.use(
+      http.post(
+        '/api/v1/public/admission/:slug/status',
+        () =>
+          new HttpResponse(
+            JSON.stringify({
+              statusCode: 500,
+              message: 'Internal server error',
+              timestamp: new Date().toISOString(),
+              path: '/api/v1/public/admission/a-school/status',
+              requestId: 'req-2',
+            }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } },
+          ),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderWithRouter(routeTree, { initialEntries: ['/admission/a-school/status'], locale: 'en' });
+
+    await waitFor(() => expect(screen.getByLabelText('Your reference number')).toBeTruthy());
+    await user.type(screen.getByLabelText('Your reference number'), 'ADM-2026-000001');
+    await user.type(
+      screen.getByLabelText("Parent/guardian's phone number (the one you gave on the form)"),
+      '01700000000',
+    );
+    await user.click(screen.getByRole('button', { name: 'Check status' }));
+
+    await waitFor(() =>
+      expect(screen.getByText('Something went wrong. Please try again.')).toBeTruthy(),
+    );
+  });
 });

@@ -55,6 +55,16 @@ export class SubmitApplicantDto {
   @IsOptional()
   @IsString()
   middle_name_confirm?: string;
+
+  /** Proof of ownership when resubmitting against an existing PENDING
+   * application for the same (intake, guardian_phone) — knowing the phone
+   * number alone must not let a caller overwrite someone else's pending
+   * application (a phone number isn't secret, and `intake_id` is public
+   * via `GET /public/admission/:slug`). Omit on a first submission. */
+  @IsOptional()
+  @IsString()
+  @Length(1, 50)
+  reference_number?: string;
 }
 
 export class SubmitApplicantResponseDto {

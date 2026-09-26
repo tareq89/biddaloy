@@ -250,7 +250,7 @@ describe('Public Admission Submission E2E', () => {
       expect(rows[0].guardian_phone).toBe('01700000001');
     });
 
-    it('resubmitting the same guardian_phone against the same intake updates the PENDING row in place', async () => {
+    it('resubmitting with the reference_number updates the PENDING row in place', async () => {
       const intakeId = await createIntake();
 
       const first = await supertest(app.getHttpServer())
@@ -260,7 +260,12 @@ describe('Public Admission Submission E2E', () => {
 
       const second = await supertest(app.getHttpServer())
         .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
-        .field(applicantPayload(intakeId, { applicant_name: 'Rahim Uddin (corrected)' }))
+        .field(
+          applicantPayload(intakeId, {
+            applicant_name: 'Rahim Uddin (corrected)',
+            reference_number: first.body.reference_number,
+          }),
+        )
         .expect(201);
 
       expect(second.body.reference_number).toBe(first.body.reference_number);
@@ -271,6 +276,20 @@ describe('Public Admission Submission E2E', () => {
       );
       expect(rows).toHaveLength(1);
       expect(rows[0].applicant_name).toBe('Rahim Uddin (corrected)');
+    });
+
+    it('409s a resubmission for the same phone that omits the reference_number (ownership not proven)', async () => {
+      const intakeId = await createIntake();
+
+      await supertest(app.getHttpServer())
+        .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
+        .field(applicantPayload(intakeId))
+        .expect(201);
+
+      await supertest(app.getHttpServer())
+        .post(`/api/v1/public/admission/${SEED_SLUG}/applicants`)
+        .field(applicantPayload(intakeId, { applicant_name: 'Someone else entirely' }))
+        .expect(409);
     });
 
     it('rejects a submission once close_date has passed (D14)', async () => {

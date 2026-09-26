@@ -4512,7 +4512,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Submit an admission application. Multipart form: applicant fields plus one file field per required document type (photo/birth_certificate/transcript). Resubmitting with the same guardian_phone against the same intake updates the existing PENDING application in place. */
+        /** Submit an admission application. Multipart form: applicant fields plus one file field per required document type (photo/birth_certificate/transcript). Updating an existing PENDING application for the same intake and guardian_phone requires its reference_number as proof of ownership — a phone number and intake_id are both public, so matching on those two alone isn't enough. */
         post: operations["PublicAdmissionController_submit_v1"];
         delete?: never;
         options?: never;
@@ -20104,6 +20104,8 @@ export interface operations {
                     guardian_phone?: string;
                     guardian_email?: string | null;
                     home_address?: string | null;
+                    /** @description Proof of ownership when updating an existing PENDING application for the same phone number. Omit on a first submission. */
+                    reference_number?: string | null;
                     /** Format: binary */
                     photo?: string;
                     /** Format: binary */
