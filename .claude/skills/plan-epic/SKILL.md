@@ -254,6 +254,15 @@ sub-issues, adds all of them to the project, and prints `number|title|url`
 lines. Paste the printed table into the scratch file and mark it `done`.
 Do not create issues one `gh` call at a time in chat.
 
+**If the input was an existing epic issue** (e.g. `/plan-epic …/issues/814`),
+the script still creates a *new* epic issue — it cannot update one in place.
+After it runs: `gh issue edit <original> --body-file plan/epic.md`, re-parent
+every sub-issue onto the original (`gh api -X DELETE
+repos/<o/r>/issues/<new>/sub_issue -F sub_issue_id=<id>` then `gh api -X POST
+repos/<o/r>/issues/<original>/sub_issues -F sub_issue_id=<id>` — `-F`, not
+`-f`, the id is an integer), then close the new duplicate with a comment
+pointing at the original. Do this every time, not only when asked.
+
 ## Phase 6 — Hand off
 
 Print the epic URL, the wave table, and the exact next command:
