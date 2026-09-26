@@ -227,6 +227,14 @@ export class AdmissionApplicantService {
         // guardian typing "01700000001" on one visit and "+8801700000001"
         // on another must still hit the same row, or the duplicate guard
         // (and the unique index it backs) is trivially bypassed.
+        //
+        // ponytail: loads every applicant in the intake and compares in JS
+        // rather than an indexed query on a canonical phone column — an
+        // intake is seat-capped (seat_count is realistically tens to a few
+        // hundred), so this is a small, lock-scoped read, not a table scan.
+        // Upgrade to a generated/canonical phone column + index (with a
+        // migration + backfill) if intakes ever grow large enough for this
+        // to show up in profiling.
         const applicantRepo = manager.getRepository(AdmissionApplicant);
         const normalizedPhone = normalizeBdPhoneNumber(dto.guardian_phone);
         const candidates = await applicantRepo.find({
