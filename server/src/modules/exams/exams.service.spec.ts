@@ -119,6 +119,8 @@ describe('ExamsService CRUD', () => {
           academic_year_id: 'y1',
           class_id: 'c1',
         }),
+        // The analysis screen reads `exam.class.name` straight off the list.
+        relations: { class: true },
       }),
     );
   });
