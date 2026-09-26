@@ -48,6 +48,11 @@ import { Homework } from './modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from './modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from './modules/homework/entities/homework-submission.entity';
 import { SyllabusTopic } from './modules/homework/entities/syllabus-topic.entity';
+import { ProgramsModule } from './modules/programs/programs.module';
+import { Program } from './modules/programs/entities/program.entity';
+import { ProgramMilestone } from './modules/programs/entities/program-milestone.entity';
+import { ProgramEnrollment } from './modules/programs/entities/program-enrollment.entity';
+import { MilestoneAchievement } from './modules/programs/entities/milestone-achievement.entity';
 import { validate } from './config/env.validation';
 
 // Entities for auto-loading
@@ -213,6 +218,10 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             HomeworkAssignment,
             HomeworkSubmission,
             SyllabusTopic,
+            Program,
+            ProgramMilestone,
+            ProgramEnrollment,
+            MilestoneAchievement,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],
@@ -291,6 +300,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     GradingModule,
     ExamsModule,
     HomeworkModule,
+    ProgramsModule,
     PromotionsModule,
   ],
   controllers: [AppController],

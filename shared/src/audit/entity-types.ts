@@ -39,6 +39,8 @@ export const AUDIT_ENTITY_TYPES = [
   'Mark',
   'MarkGrid',
   'Payment',
+  'Program',
+  'ProgramMilestone',
   'PublicHolidaySet',
   'RecurringSchedule',
   'RefreshToken',

@@ -650,6 +650,12 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // `@RequirePermissions` would also block override-free commits, which
   // only need PROMOTION_MANAGE.
   Permission.PROMOTION_OVERRIDE,
+  // [34.1.3] Plumbing landed ahead of the routes that will require it:
+  // PROGRAM_RECORD gates the enrolment/achievement-recording endpoints
+  // (34.2.1, not yet built). PROGRAM_READ/PROGRAM_MANAGE already gate
+  // ProgramsController's routes this ticket adds. Remove from this list
+  // once 34.2.1 lands.
+  Permission.PROGRAM_RECORD,
 ];
 
 describe('Permission matrix (regression)', () => {

@@ -64,6 +64,10 @@ import { Homework } from '../src/modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from '../src/modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from '../src/modules/homework/entities/homework-submission.entity';
 import { SyllabusTopic } from '../src/modules/homework/entities/syllabus-topic.entity';
+import { Program } from '../src/modules/programs/entities/program.entity';
+import { ProgramMilestone } from '../src/modules/programs/entities/program-milestone.entity';
+import { ProgramEnrollment } from '../src/modules/programs/entities/program-enrollment.entity';
+import { MilestoneAchievement } from '../src/modules/programs/entities/milestone-achievement.entity';
 import { PromotionRun } from '../src/modules/promotions/entities/promotion-run.entity';
 import { PromotionEntry } from '../src/modules/promotions/entities/promotion-entry.entity';
 
@@ -134,6 +138,10 @@ export const ALL_ENTITIES = [
   HomeworkAssignment,
   HomeworkSubmission,
   SyllabusTopic,
+  Program,
+  ProgramMilestone,
+  ProgramEnrollment,
+  MilestoneAchievement,
   PromotionRun,
   PromotionEntry,
 ];

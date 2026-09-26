@@ -25,6 +25,10 @@ import { WalletTransaction } from '../../fees/entities/wallet-transaction.entity
 import { InvoiceShareToken } from '../../invoices/entities/invoice-share-token.entity';
 import { PushSubscription } from '../../push/entities/push-subscription.entity';
 import { WorkbookJob } from '../jobs/workbook-job.entity';
+import { Program } from '../../programs/entities/program.entity';
+import { ProgramMilestone } from '../../programs/entities/program-milestone.entity';
+import { ProgramEnrollment } from '../../programs/entities/program-enrollment.entity';
+import { MilestoneAchievement } from '../../programs/entities/milestone-achievement.entity';
 
 /**
  * Entities that `registry.completeness.spec.ts` allows to have no workbook
@@ -93,4 +97,20 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   // period_slots, rooms, routines, routine_slots, routine_slot_teachers,
   // routine_substitutions, routine_change_requests — all got a workbook
   // tab in [21.11.1]. No exemption entries left for them.
+
+  // Epic 34.0's programs spine, added in [34.1.3]. A workbook tab is out
+  // of this ticket's scope; tracked as a follow-up for a later 34.x task.
+  [Program, 'Tenant-scoped program, no tab yet — added in [34.1.3], follow-up tracked in #814.'],
+  [
+    ProgramMilestone,
+    'Tenant-scoped program milestone, no tab yet — added in [34.1.3], follow-up tracked in #814.',
+  ],
+  [
+    ProgramEnrollment,
+    'Tenant-scoped program enrolment, no tab yet — added in [34.1.3], follow-up tracked in #814.',
+  ],
+  [
+    MilestoneAchievement,
+    'Tenant-scoped milestone achievement record, no tab yet — added in [34.1.3], follow-up tracked in #814.',
+  ],
 ]);
