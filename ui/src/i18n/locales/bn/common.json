@@ -239,6 +239,12 @@
     "invoice_one": "চালান",
     "invoice_other": "চালান",
     "payment_one": "পেমেন্ট",
-    "payment_other": "পেমেন্ট"
+    "payment_other": "পেমেন্ট",
+    "program_one": "প্রোগ্রাম",
+    "program_other": "প্রোগ্রাম",
+    "programMilestone_one": "মাইলস্টোন",
+    "programMilestone_other": "মাইলস্টোন",
+    "programEnrollment_one": "তালিকাভুক্তি",
+    "programEnrollment_other": "তালিকাভুক্তি"
   }
 }
