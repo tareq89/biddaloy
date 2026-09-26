@@ -239,6 +239,12 @@
     "invoice_one": "Invoice",
     "invoice_other": "Invoices",
     "payment_one": "Payment",
-    "payment_other": "Payments"
+    "payment_other": "Payments",
+    "program_one": "Program",
+    "program_other": "Programs",
+    "programMilestone_one": "Milestone",
+    "programMilestone_other": "Milestones",
+    "programEnrollment_one": "Enrolment",
+    "programEnrollment_other": "Enrolments"
   }
 }

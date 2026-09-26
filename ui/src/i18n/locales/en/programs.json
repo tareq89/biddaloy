@@ -1,0 +1,85 @@
+{
+  "list": {
+    "title": "Programs",
+    "empty": "No programs found",
+    "showArchived": "Show archived",
+    "columns": {
+      "name": "Name",
+      "milestones": "Milestones",
+      "activeStudents": "Active students",
+      "reportCard": "On report card"
+    }
+  },
+  "detail": {
+    "tabs": {
+      "milestones": "Milestones",
+      "students": "Students"
+    }
+  },
+  "milestones": {
+    "add": "Add milestone",
+    "edit": "Edit milestone",
+    "remove": "Remove milestone",
+    "removeConfirm_one": "This milestone has {{count}} recorded achievement. Removing it will delete that record too.",
+    "removeConfirm_other": "This milestone has {{count}} recorded achievements. Removing them will delete those records too.",
+    "reorderHint": "Drag to reorder milestones.",
+    "emptyHint": "Add milestones to track progress"
+  },
+  "students": {
+    "enrol": "Enrol",
+    "record": "Record achievement",
+    "markComplete": "Mark complete",
+    "withdraw": "Withdraw",
+    "reactivate": "Reactivate",
+    "progress": "{{done}} / {{total}}",
+    "completePrompt": "All milestones achieved — mark complete?"
+  },
+  "dialogs": {
+    "enrol": {
+      "title": "Enrol students",
+      "class": "Class",
+      "section": "Section",
+      "students": "Students",
+      "startedOn": "Started on",
+      "skipped_one": "{{count}} student already enrolled, skipped.",
+      "skipped_other": "{{count}} students already enrolled, skipped."
+    },
+    "record": {
+      "title": "Record achievement",
+      "milestone": "Milestone",
+      "students": "Students",
+      "achievedOn": "Achieved on",
+      "score": "Score",
+      "grade": "Grade",
+      "remark": "Remark",
+      "save": "Save"
+    }
+  },
+  "status": {
+    "ACTIVE": "Active",
+    "COMPLETED": "Completed",
+    "WITHDRAWN": "Withdrawn"
+  },
+  "studentTab": {
+    "empty": "No students enrolled in this program yet"
+  },
+  "portal": {
+    "title": "Programs",
+    "empty": "Not enrolled in any programs yet"
+  },
+  "reportCard": {
+    "programs": "Programs",
+    "progress": "Progress",
+    "latestMilestone": "Latest milestone",
+    "scoreGrade": "{{score}} ({{grade}})"
+  },
+  "crumbs": {
+    "programs": "Programs",
+    "programDetail": "{{name}}"
+  },
+  "actions": {
+    "add": "Add program",
+    "enrol": "Enrol students",
+    "record": "Record achievement"
+  }
+}
