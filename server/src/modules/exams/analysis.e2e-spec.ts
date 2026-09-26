@@ -169,7 +169,7 @@ describe('[997] Exam analysis (merit/defaulted/pass-fail)', () => {
       expect(res.body.rows).toHaveLength(1);
     });
 
-    it('a GUARDIAN (PARENT) gets 403 — not staff', async () => {
+    it('a GUARDIAN (PARENT) gets 401 — role not in @Roles, matching the RolesGuard convention', async () => {
       await seedFixture();
 
       await http()
@@ -177,7 +177,7 @@ describe('[997] Exam analysis (merit/defaulted/pass-fail)', () => {
         .set('Authorization', `Bearer ${guardianToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.PARENT)
-        .expect(403);
+        .expect(401);
     });
 
     it("another tenant's exam gets 404", async () => {
