@@ -9,3 +9,5 @@ export * from './sanitize/index';
 export * from './sanitize/csv';
 export * from './audit/entity-types';
 export * from './sms/segments';
+export * from './dto/designation.dto';
+export * from './dto/staff-hr-record.dto';
