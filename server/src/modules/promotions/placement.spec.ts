@@ -52,6 +52,21 @@ describe('meritOrder', () => {
     ]);
     expect(ranked.map((r) => r.student_id)).toEqual(['b', 'a']);
   });
+
+  it('ranks a full tie the same whatever order the rows arrive in', () => {
+    const x = { student_id: 'x', mean_gpa: 4.0, total_marks_sum: 400 };
+    const y = { student_id: 'y', mean_gpa: 4.0, total_marks_sum: 400 };
+    const forward = meritOrder([x, y]);
+    const reverse = meritOrder([y, x]);
+    expect(forward.map((r) => [r.student_id, r.merit_rank])).toEqual([
+      ['x', 1],
+      ['y', 2],
+    ]);
+    expect(reverse.map((r) => [r.student_id, r.merit_rank])).toEqual([
+      ['x', 1],
+      ['y', 2],
+    ]);
+  });
 });
 
 describe('place', () => {

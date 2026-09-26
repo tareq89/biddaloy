@@ -22,11 +22,16 @@ export interface RankedMeritRow extends MeritRow {
   merit_rank: number;
 }
 
-/** D7 — mean GPA desc, then summed total desc as the tie-break. */
+/** D7 — mean GPA desc, then summed total desc as the tie-break, then
+ * `student_id` so a full tie still ranks the same every time. The input
+ * comes from an unordered query, and `merit_rank` drives section
+ * placement and roll numbers, so without the last key a `refresh()` could
+ * swap two tied students' sections or rolls with nothing else changed. */
 export function meritOrder(rows: MeritRow[]): RankedMeritRow[] {
   const sorted = [...rows].sort((a, b) => {
     if (b.mean_gpa !== a.mean_gpa) return b.mean_gpa - a.mean_gpa;
-    return b.total_marks_sum - a.total_marks_sum;
+    if (b.total_marks_sum !== a.total_marks_sum) return b.total_marks_sum - a.total_marks_sum;
+    return a.student_id < b.student_id ? -1 : a.student_id > b.student_id ? 1 : 0;
   });
   return sorted.map((row, index) => ({ ...row, merit_rank: index + 1 }));
 }
