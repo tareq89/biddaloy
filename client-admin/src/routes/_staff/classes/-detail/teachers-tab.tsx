@@ -1,7 +1,17 @@
-import { DataTable, type DataTableColumn } from '@biddaloy/ui/components';
-import { useClassTeachers, type ClassTeacher } from '@biddaloy/ui/hooks';
+import { Permission } from '@biddaloy/shared';
+import { Button, ErrorState, Skeleton } from '@biddaloy/ui/components';
+import {
+  useClassSections,
+  useHasPermission,
+  useSectionTeachers,
+  useUnassignTeacher,
+  type ClassSectionWithCount,
+  type SectionTeacherAssignment,
+} from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
+
+import { AssignTeacherDialog } from '../-assign-teacher-dialog';
 
 import { TabQueryState } from './tab-query-state';
 
@@ -9,78 +19,154 @@ export interface TeachersTabProps {
   classId: string;
 }
 
-const PAGE_SIZE = 20;
-
-/** Read-only — teacher CRUD is #177 ([8.11.7] Manage staff/teachers), so
- * this tab only reads `GET /classes/:classId/teachers`, no add/remove
- * actions here.
- *
- * `useClassTeachers` returns the whole roster unpaginated, so `DataTable`
- * gets a local page slice — same pattern as `ImportErrorTable`, whose
- * data is also fully client-side. Renders through `DataTable` rather
- * than the raw `Table` primitive for the same reason as `StudentsTab`:
- * the plain `<table>` here had no card-mode fallback, so it was the
- * [8.14.7] responsive-reflow gap at `/classes/$classId`. */
+/** [29.0] Was read-only (teacher CRUD is still #177 — this tab never
+ * creates/edits `Teacher` entities). Now assign/remove of section teacher
+ * *assignments* lives here: one section can have one class-teacher and any
+ * number of subject-teachers, so the tab is organized per-section (via
+ * `useClassSections`) rather than as one class-wide roster — each section
+ * gets its own `useSectionTeachers` query and its own Assign button, wired
+ * to the shared `useAssignTeacher`/`useUnassignTeacher` hooks and
+ * `AssignTeacherDialog` from wave 2. */
 export function TeachersTab({ classId }: TeachersTabProps) {
   const { t } = useTranslation('classes');
-  // [8.14.15] Separate binding so `staff` is actually loaded before the
-  // designation cell renders. Kept as its own call, not
-  // `useTranslation(['classes', 'staff'])` — `check-i18n-keys.mjs`
-  // resolves this file's namespace from the *first* single-quoted
-  // `useTranslation('...')` call it finds, and an array argument doesn't
-  // match that regex.
-  useTranslation('staff');
-  const query = useClassTeachers(classId);
-  const [page, setPage] = React.useState(1);
-
-  const columns: DataTableColumn<ClassTeacher>[] = [
-    {
-      id: 'name',
-      header: t('detail.teachers.columnName'),
-      accessorFn: (teacher) => teacher.full_name,
-    },
-    {
-      id: 'employeeId',
-      header: t('detail.teachers.columnEmployeeId'),
-      accessorFn: (teacher) => teacher.employee_id,
-    },
-    {
-      id: 'designations',
-      header: t('detail.teachers.columnDesignations'),
-      accessorFn: (teacher) =>
-        teacher.designations
-          .map((designation) => t(`teacherForm.designations.${designation}`, { ns: 'staff' }))
-          .join(', '),
-    },
-    {
-      id: 'sections',
-      header: t('detail.teachers.columnSections'),
-      accessorFn: (teacher) => teacher.section_names.join(', '),
-    },
-  ];
+  const canManage = useHasPermission(Permission.CLASS_MANAGE);
+  const sectionsQuery = useClassSections(classId);
+  const [assigningSection, setAssigningSection] = React.useState<ClassSectionWithCount | null>(
+    null,
+  );
 
   return (
-    <TabQueryState
-      query={query}
-      forbiddenMessage={t('detail.forbidden')}
-      errorMessage={t('detail.teachers.errorMessage')}
-    >
-      {(teachers) => (
-        <DataTable
-          tableId="class-detail-teachers"
-          caption={t('detail.teachers.columnName')}
-          columns={columns}
-          data={teachers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)}
-          getRowId={(teacher) => teacher.id}
-          sorting={null}
-          onSortingChange={() => {}}
-          page={page}
-          pageSize={PAGE_SIZE}
-          totalCount={teachers.length}
-          onPageChange={setPage}
-          emptyMessage={t('detail.teachers.emptyMessage')}
+    <div className="flex flex-col gap-4 p-4">
+      <TabQueryState
+        query={sectionsQuery}
+        forbiddenMessage={t('detail.forbidden')}
+        errorMessage={t('detail.teachers.errorMessage')}
+      >
+        {(sections) =>
+          sections.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('detail.teachers.emptyMessage')}</p>
+          ) : (
+            sections.map((section) => (
+              <SectionTeachersPanel
+                key={section.id}
+                classId={classId}
+                section={section}
+                canManage={canManage}
+                onAssign={() => setAssigningSection(section)}
+              />
+            ))
+          )
+        }
+      </TabQueryState>
+
+      {canManage && assigningSection && (
+        <AssignTeacherDialog
+          open={assigningSection !== null}
+          onOpenChange={(open) => !open && setAssigningSection(null)}
+          classId={classId}
+          sectionId={assigningSection.id}
+          onAssigned={() => setAssigningSection(null)}
         />
       )}
-    </TabQueryState>
+    </div>
+  );
+}
+
+interface SectionTeachersPanelProps {
+  classId: string;
+  section: ClassSectionWithCount;
+  canManage: boolean;
+  onAssign: () => void;
+}
+
+function SectionTeachersPanel({
+  classId,
+  section,
+  canManage,
+  onAssign,
+}: SectionTeachersPanelProps) {
+  const { t } = useTranslation('classes');
+  const { t: tStaff } = useTranslation('staff');
+  const query = useSectionTeachers(classId, section.id);
+  const unassignTeacher = useUnassignTeacher(classId, section.id);
+
+  return (
+    <div className="flex flex-col gap-2 rounded-md border p-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold">{section.section_name}</h3>
+        {canManage && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onAssign}
+            aria-label={t('detail.teachers.assignAria', { section: section.section_name })}
+          >
+            {t('detail.teachers.assign')}
+          </Button>
+        )}
+      </div>
+
+      {query.isPending && (
+        <div className="flex flex-col gap-2" aria-hidden="true">
+          <Skeleton className="h-6 w-full" />
+        </div>
+      )}
+
+      {query.isError && (
+        <ErrorState
+          message={t('detail.teachers.errorMessage')}
+          retryLabel={t('actions.retry', { ns: 'common' })}
+          onRetry={() => void query.refetch()}
+        />
+      )}
+
+      {unassignTeacher.isError && (
+        <p role="alert" className="text-sm text-destructive">
+          {t('detail.teachers.removeError')}
+        </p>
+      )}
+
+      {query.data &&
+        (query.data.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {t('detail.teachers.emptySectionMessage')}
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-1">
+            {query.data.map((assignment: SectionTeacherAssignment) => (
+              <li key={assignment.id} className="flex items-center justify-between gap-2 text-sm">
+                <span>
+                  {assignment.full_name}
+                  {' — '}
+                  {assignment.subject_name
+                    ? tStaff('teacherForm.designations.SUBJECT_TEACHER') +
+                      ` (${assignment.subject_name})`
+                    : tStaff('teacherForm.designations.CLASS_TEACHER')}
+                </span>
+                {canManage && (
+                  <button
+                    type="button"
+                    className="min-h-6 min-w-6 text-sm font-medium text-destructive underline disabled:opacity-50"
+                    disabled={
+                      unassignTeacher.isPending && unassignTeacher.variables === assignment.id
+                    }
+                    onClick={() => unassignTeacher.mutate(assignment.id)}
+                    aria-label={t('detail.teachers.removeAria', {
+                      name: assignment.full_name,
+                      role: assignment.subject_name
+                        ? tStaff('teacherForm.designations.SUBJECT_TEACHER') +
+                          ` (${assignment.subject_name})`
+                        : tStaff('teacherForm.designations.CLASS_TEACHER'),
+                    })}
+                  >
+                    {t('detail.teachers.remove')}
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        ))}
+    </div>
   );
 }

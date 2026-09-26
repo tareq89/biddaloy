@@ -362,6 +362,11 @@
       "archetype": "list"
     },
     {
+      "path": "/staff/teaching-assignments",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
       "path": "/staff/$userId",
       "params": {
         "userId": "seeded"

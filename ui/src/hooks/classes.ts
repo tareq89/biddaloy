@@ -11,8 +11,9 @@ import { apiClient } from '../api/client';
 import { offlineCachedQueryFn } from '../api/offline-cache';
 import type { components } from '../api/schema';
 
-import { createEntityKeys } from './query-keys';
+import { createEntityKeys, fetchAllPages } from './query-keys';
 import { shouldRetryQuery } from './retry';
+import { teacherKeys } from './teachers';
 
 export type Class = components['schemas']['Class'];
 export type ClassSection = components['schemas']['ClassSection'];
@@ -133,8 +134,34 @@ export function classesQueryOptions(filters: ClassListFilters = {}) {
   });
 }
 
-export function useClasses(filters: ClassListFilters = {}) {
-  return useQuery(classesQueryOptions(filters));
+export function useClasses(filters: ClassListFilters = {}, options: { enabled?: boolean } = {}) {
+  return useQuery({ ...classesQueryOptions(filters), ...options });
+}
+
+/** [pr-fix #1035] `CLASS_FILTER_LIMIT`'s "whole list fits one page"
+ * assumption breaks for a large school — this fetches every page instead
+ * of relying on a single 100-row request. For a filter picker that
+ * genuinely needs every class (the People bulk teaching-assignments view),
+ * not a paged list screen; skips the offline cache `classesQueryOptions`
+ * uses, since these all-pages callers only work online anyway. */
+export function allClassesQueryOptions() {
+  return queryOptions({
+    queryKey: [...classKeys.lists(), 'all-pages'] as const,
+    queryFn: ({ signal }) =>
+      fetchAllPages((page) =>
+        apiClient
+          .get<PaginatedClasses>('/classes', {
+            params: { limit: CLASS_FILTER_LIMIT, page },
+            signal,
+          })
+          .then((res) => res.data),
+      ),
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useAllClasses(options: { enabled?: boolean } = {}) {
+  return useQuery({ ...allClassesQueryOptions(), ...options });
 }
 
 export function classQueryOptions(id: string) {
@@ -189,8 +216,26 @@ export function useClassSections(classId: string | undefined) {
   return useQuery(classSectionsQueryOptions(classId));
 }
 
-/** [8.11.2] — class detail page's Teachers tab. Read-only (teacher CRUD is
- * #177), so no mutations alongside it. */
+/** [29.0] `SectionService.listSectionTeachers`'s response shape, mirrored
+ * from `classes.service.ts`'s own `SectionTeacherAssignment` — same
+ * "no `@ApiResponse` decoration" gap `ClassTeacher` above documents.
+ * `subject_id`/`subject_name` are `null` for a class-teacher row. */
+export interface SectionTeacherAssignment {
+  id: string;
+  teacher_id: string;
+  employee_id: string;
+  full_name: string;
+  section_id: string;
+  section_name: string;
+  subject_id: string | null;
+  subject_name: string | null;
+}
+
+export type AssignTeacherInput = components['schemas']['AssignTeacherDto'];
+
+/** [8.11.2] — class detail page's Teachers tab. Now also backs the
+ * assign-teacher dialog's mutations below (invalidated on
+ * assign/unassign). */
 export function classTeachersQueryOptions(classId: string | undefined) {
   return queryOptions({
     queryKey: [...classKeys.all, 'teachers', classId] as const,
@@ -205,6 +250,126 @@ export function classTeachersQueryOptions(classId: string | undefined) {
 
 export function useClassTeachers(classId: string | undefined) {
   return useQuery(classTeachersQueryOptions(classId));
+}
+
+/** [29.0] Own key branch, same reasoning as `classSectionsKey` — a
+ * section's teacher assignments are invalidated independently of (but
+ * alongside) `classTeachersQueryOptions(classId)`'s class-wide list. */
+function sectionTeachersKey(classId: string, sectionId: string) {
+  return [...classKeys.all, 'section-teachers', classId, sectionId] as const;
+}
+
+export function sectionTeachersQueryOptions(classId: string, sectionId: string) {
+  return queryOptions({
+    queryKey: sectionTeachersKey(classId, sectionId),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<SectionTeacherAssignment[]>(
+        `/classes/${classId}/sections/${sectionId}/teachers`,
+        { signal },
+      );
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useSectionTeachers(classId: string, sectionId: string) {
+  return useQuery(sectionTeachersQueryOptions(classId, sectionId));
+}
+
+/** [29.0] Assign a teacher to a section (class-teacher or subject-teacher,
+ * per `AssignTeacherDto.subject_id`'s presence). Invalidates the
+ * section-scoped list, the class-wide `classTeachersQueryOptions` list the
+ * class detail page's Teachers tab reads, and the teacher-assignments
+ * prefix (`teacherAssignmentsQueryOptions`, `teachers.ts`) — a broad-prefix
+ * invalidation rather than one exact teacher_id, since D3's auto-replace
+ * can also silently drop a *different* teacher's class-teacher row, whose
+ * Staff-detail cache would otherwise go stale too. */
+export function useAssignTeacher(classId: string, sectionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: AssignTeacherInput) => {
+      const res = await apiClient.post<SectionTeacherAssignment>(
+        `/classes/${classId}/sections/${sectionId}/teachers`,
+        input,
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: sectionTeachersKey(classId, sectionId) });
+      void queryClient.invalidateQueries({ queryKey: classTeachersQueryOptions(classId).queryKey });
+      void queryClient.invalidateQueries({ queryKey: [...teacherKeys.all, 'assignments'] });
+    },
+  });
+}
+
+export function useUnassignTeacher(classId: string, sectionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (assignmentId: string) => {
+      await apiClient.delete(`/classes/${classId}/sections/${sectionId}/teachers/${assignmentId}`);
+    },
+    retry: shouldRetryQuery,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: sectionTeachersKey(classId, sectionId) });
+      void queryClient.invalidateQueries({ queryKey: classTeachersQueryOptions(classId).queryKey });
+      void queryClient.invalidateQueries({ queryKey: [...teacherKeys.all, 'assignments'] });
+    },
+  });
+}
+
+/** [#1026 gap fix] Unbound counterparts of `useAssignTeacher`/
+ * `useUnassignTeacher` above — those take `classId`/`sectionId` at hook
+ * construction, fine for a section-scoped screen, but unusable from the
+ * Staff detail tab where a teacher's assignments span multiple
+ * classes/sections. Same endpoints, `classId`/`sectionId` per call
+ * instead. Invalidates the section/class lists above *and* the teacher's
+ * own assignments list (`teacherAssignmentsQueryOptions`, `teachers.ts`) —
+ * the only caller that reads all three. Broad-prefix invalidation, not one
+ * exact `teacher_id`, matching `useAssignTeacher`'s same reasoning: D3's
+ * auto-replace can silently drop a *different* teacher's class-teacher
+ * row, whose Staff-detail cache would otherwise go stale too. */
+export function useAssignTeacherAssignment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      classId: string;
+      sectionId: string;
+      teacher_id: string;
+      subject_id?: string;
+    }) => {
+      const { classId, sectionId, ...body } = input;
+      const res = await apiClient.post<SectionTeacherAssignment>(
+        `/classes/${classId}/sections/${sectionId}/teachers`,
+        body,
+      );
+      return res.data;
+    },
+    onSuccess: (_data, { classId, sectionId }) => {
+      void queryClient.invalidateQueries({ queryKey: sectionTeachersKey(classId, sectionId) });
+      void queryClient.invalidateQueries({ queryKey: classTeachersQueryOptions(classId).queryKey });
+      void queryClient.invalidateQueries({ queryKey: [...teacherKeys.all, 'assignments'] });
+    },
+  });
+}
+
+export function useUnassignTeacherAssignment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { classId: string; sectionId: string; assignmentId: string }) => {
+      await apiClient.delete(
+        `/classes/${input.classId}/sections/${input.sectionId}/teachers/${input.assignmentId}`,
+      );
+    },
+    retry: shouldRetryQuery,
+    onSuccess: (_data, { classId, sectionId }) => {
+      void queryClient.invalidateQueries({ queryKey: sectionTeachersKey(classId, sectionId) });
+      void queryClient.invalidateQueries({ queryKey: classTeachersQueryOptions(classId).queryKey });
+      // No teacher_id on unassign's input — invalidate broadly by matching
+      // key prefix instead of one exact teacher.
+      void queryClient.invalidateQueries({ queryKey: [...teacherKeys.all, 'assignments'] });
+    },
+  });
 }
 
 export function useCreateClass() {

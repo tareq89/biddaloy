@@ -82,6 +82,7 @@ import { Route as StaffRoutinesSetupRouteImport } from './routes/_staff/routines
 import { Route as StaffRoutinesSubstitutionsRouteImport } from './routes/_staff/routines/substitutions'
 import { Route as StaffStaffIndexRouteImport } from './routes/_staff/staff/index'
 import { Route as StaffStaffUserIdRouteImport } from './routes/_staff/staff/$userId'
+import { Route as StaffStaffTeachingAssignmentsRouteImport } from './routes/_staff/staff/teaching-assignments'
 import { Route as StaffStudentsIndexRouteImport } from './routes/_staff/students/index'
 import { Route as StaffStudentsStudentIdRouteImport } from './routes/_staff/students/$studentId'
 import { Route as StaffStudentsImportRouteImport } from './routes/_staff/students/import'
@@ -478,6 +479,12 @@ const StaffStaffUserIdRoute = StaffStaffUserIdRouteImport.update({
   path: '/staff/$userId',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffStaffTeachingAssignmentsRoute =
+  StaffStaffTeachingAssignmentsRouteImport.update({
+    id: '/staff/teaching-assignments',
+    path: '/staff/teaching-assignments',
+    getParentRoute: () => StaffRoute,
+  } as any)
 const StaffStudentsIndexRoute = StaffStudentsIndexRouteImport.update({
   id: '/students/',
   path: '/students/',
@@ -667,6 +674,7 @@ export interface FileRoutesByFullPath {
   '/routines/setup': typeof StaffRoutinesSetupRoute
   '/routines/substitutions': typeof StaffRoutinesSubstitutionsRoute
   '/staff/$userId': typeof StaffStaffUserIdRoute
+  '/staff/teaching-assignments': typeof StaffStaffTeachingAssignmentsRoute
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/students/import': typeof StaffStudentsImportRoute
   '/students/new': typeof StaffStudentsNewRoute
@@ -762,6 +770,7 @@ export interface FileRoutesByTo {
   '/routines/setup': typeof StaffRoutinesSetupRoute
   '/routines/substitutions': typeof StaffRoutinesSubstitutionsRoute
   '/staff/$userId': typeof StaffStaffUserIdRoute
+  '/staff/teaching-assignments': typeof StaffStaffTeachingAssignmentsRoute
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/students/import': typeof StaffStudentsImportRoute
   '/students/new': typeof StaffStudentsNewRoute
@@ -862,6 +871,7 @@ export interface FileRoutesById {
   '/_staff/routines/setup': typeof StaffRoutinesSetupRoute
   '/_staff/routines/substitutions': typeof StaffRoutinesSubstitutionsRoute
   '/_staff/staff/$userId': typeof StaffStaffUserIdRoute
+  '/_staff/staff/teaching-assignments': typeof StaffStaffTeachingAssignmentsRoute
   '/_staff/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/_staff/students/import': typeof StaffStudentsImportRoute
   '/_staff/students/new': typeof StaffStudentsNewRoute
@@ -961,6 +971,7 @@ export interface FileRouteTypes {
     | '/routines/setup'
     | '/routines/substitutions'
     | '/staff/$userId'
+    | '/staff/teaching-assignments'
     | '/students/$studentId'
     | '/students/import'
     | '/students/new'
@@ -1056,6 +1067,7 @@ export interface FileRouteTypes {
     | '/routines/setup'
     | '/routines/substitutions'
     | '/staff/$userId'
+    | '/staff/teaching-assignments'
     | '/students/$studentId'
     | '/students/import'
     | '/students/new'
@@ -1155,6 +1167,7 @@ export interface FileRouteTypes {
     | '/_staff/routines/setup'
     | '/_staff/routines/substitutions'
     | '/_staff/staff/$userId'
+    | '/_staff/staff/teaching-assignments'
     | '/_staff/students/$studentId'
     | '/_staff/students/import'
     | '/_staff/students/new'
@@ -1730,6 +1743,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffStaffUserIdRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/staff/teaching-assignments': {
+      id: '/_staff/staff/teaching-assignments'
+      path: '/staff/teaching-assignments'
+      fullPath: '/staff/teaching-assignments'
+      preLoaderRoute: typeof StaffStaffTeachingAssignmentsRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/students/': {
       id: '/_staff/students/'
       path: '/students'
@@ -1970,6 +1990,7 @@ interface StaffRouteChildren {
   StaffRoutinesSetupRoute: typeof StaffRoutinesSetupRoute
   StaffRoutinesSubstitutionsRoute: typeof StaffRoutinesSubstitutionsRoute
   StaffStaffUserIdRoute: typeof StaffStaffUserIdRoute
+  StaffStaffTeachingAssignmentsRoute: typeof StaffStaffTeachingAssignmentsRoute
   StaffStudentsStudentIdRoute: typeof StaffStudentsStudentIdRoute
   StaffStudentsImportRoute: typeof StaffStudentsImportRoute
   StaffStudentsNewRoute: typeof StaffStudentsNewRoute
@@ -2038,6 +2059,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffRoutinesSetupRoute: StaffRoutinesSetupRoute,
   StaffRoutinesSubstitutionsRoute: StaffRoutinesSubstitutionsRoute,
   StaffStaffUserIdRoute: StaffStaffUserIdRoute,
+  StaffStaffTeachingAssignmentsRoute: StaffStaffTeachingAssignmentsRoute,
   StaffStudentsStudentIdRoute: StaffStudentsStudentIdRoute,
   StaffStudentsImportRoute: StaffStudentsImportRoute,
   StaffStudentsNewRoute: StaffStudentsNewRoute,

@@ -76,14 +76,19 @@ export {
   type InviteSkippedEntry,
 } from './invitations';
 export {
+  allTeachersQueryOptions,
+  teacherAssignmentsQueryOptions,
   teacherKeys,
   teachersQueryOptions,
+  useAllTeachers,
   useCreateTeacher,
+  useTeacherAssignments,
   useTeachers,
   useUpdateTeacher,
   type CreateTeacherInput,
   type PaginatedTeachers,
   type Teacher,
+  type TeacherAssignment,
   type TeacherListFilters,
   type UpdateTeacherInput,
 } from './teachers';
@@ -205,10 +210,12 @@ export {
 } from './audit-logs';
 export { hasPermission, useHasPermission } from './permissions';
 export {
+  allSubjectsQueryOptions,
   classSubjectsKey,
   classSubjectsQueryOptions,
   subjectKeys,
   subjectsQueryOptions,
+  useAllSubjects,
   useAttachClassSubject,
   useClassSubjects,
   useCreateSubject,
@@ -225,6 +232,7 @@ export {
   type UpdateSubjectInput,
 } from './subjects';
 export {
+  allClassesQueryOptions,
   classKeys,
   classesQueryOptions,
   classQueryOptions,
@@ -232,6 +240,10 @@ export {
   classSectionsQueryOptions,
   classTeachersQueryOptions,
   organisationVocabularyQueryOptions,
+  sectionTeachersQueryOptions,
+  useAllClasses,
+  useAssignTeacher,
+  useAssignTeacherAssignment,
   useClass,
   useClasses,
   useClassSections,
@@ -241,8 +253,12 @@ export {
   useDeleteClass,
   useDeleteSection,
   useOrganisationVocabulary,
+  useSectionTeachers,
+  useUnassignTeacher,
+  useUnassignTeacherAssignment,
   useUpdateClass,
   useUpdateSection,
+  type AssignTeacherInput,
   type Class,
   type ClassListFilters,
   type ClassSection,
@@ -253,6 +269,7 @@ export {
   type CreateSectionInput,
   type OrganisationVocabulary,
   type PaginatedClasses,
+  type SectionTeacherAssignment,
   type UpdateClassInput,
   type UpdateSectionInput,
 } from './classes';
