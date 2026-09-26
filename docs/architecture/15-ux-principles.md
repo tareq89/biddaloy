@@ -110,7 +110,9 @@ Exams & Results
   Exam setup [19.0] · Types & heads · Marks distribution · Report-card templates
   Marks entry [19.0+29.0] · Marks view [19.0] · Grading scales [20.0]
   Results [19.0] · Result by student ID
-  Analysis [26.0] · Merit list · Defaulted list · Pass/fail · Segregation & promotion
+  Analysis [have] · Merit list · Defaulted list · Pass/fail (+ by component)
+  Promotion [have] · Draft run · Grid override · Commit                   A E
+  Segregation [26.0, not yet shipped]
   Seat plans [25.0] · Exam printables [Print module]
 
 Finance

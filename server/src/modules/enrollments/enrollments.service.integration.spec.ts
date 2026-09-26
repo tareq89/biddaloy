@@ -674,6 +674,142 @@ describe('EnrollmentService (integration)', () => {
       expect(result!.section).toBeDefined();
       expect(result!.academic_year).toBeDefined();
     });
+
+    // [995] a promoted student keeps last year's ACTIVE row (D18: no new
+    // status, old-year rows stay ACTIVE) — findCurrentByStudent must pick
+    // the one from the most recent academic year, not an arbitrary row.
+    it('returns the enrollment from the latest academic year when the student has ACTIVE enrollments in two years', async () => {
+      const student = await buildStudent();
+
+      const laterYear = await academicYearRepo.save(
+        academicYearRepo.create({
+          name: '2029-2030 (995 test)',
+          start_date: new Date('2029-01-01'),
+          end_date: new Date('2029-12-31'),
+          is_current: false,
+          tenant_id: TENANT_ID,
+        }),
+      );
+
+      await service.create(
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID, // 2026-2027
+        },
+        TENANT_ID,
+      );
+      const latest = await service.create(
+        {
+          student_id: student.id,
+          class_id: SEED_CLASS_1_ID,
+          academic_year_id: laterYear.id, // 2029-2030
+        },
+        TENANT_ID,
+      );
+
+      const result = await service.findCurrentByStudent(student.id, TENANT_ID);
+
+      expect(result).not.toBeNull();
+      expect(result!.id).toBe(latest.id);
+      expect(result!.academic_year_id).toBe(laterYear.id);
+    });
+  });
+
+  // ────────────────────────
+  //  createInTransaction()
+  // ────────────────────────
+  describe('createInTransaction', () => {
+    it('places the student at the given rollNumber instead of appending', async () => {
+      // Seed an occupant at roll 5 so a plain append (nextRollNumber) would
+      // land on 6 — proves the explicit rollNumber below is actually used,
+      // not just coinciding with the default.
+      await buildStudent({
+        registration_number: 'REG-2026-0099',
+        class_section_id: SEED_SECTION_1_ID,
+        roll_number: 5,
+      });
+      // Start the student in a different section so syncStudentPlacement's
+      // "already there" no-op guard doesn't skip the move.
+      const student = await buildStudent({
+        class_section_id: SEED_CLASS_2_SECTION_ID,
+        roll_number: 1,
+      });
+
+      const result = await dataSource.manager.transaction((manager) =>
+        service.createInTransaction(
+          manager,
+          {
+            student_id: student.id,
+            class_id: SEED_CLASS_1_ID,
+            section_id: SEED_SECTION_1_ID,
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          },
+          TENANT_ID,
+          null,
+          undefined,
+          { rollNumber: 2 },
+        ),
+      );
+
+      expect(result).toBeDefined();
+      const updated = await studentRepo.findOne({ where: { id: student.id } });
+      expect(updated!.class_section_id).toBe(SEED_SECTION_1_ID);
+      expect(updated!.roll_number).toBe(2);
+    });
+
+    it('appends the roll number as usual when rollNumber is not given', async () => {
+      const existing = await buildStudent({
+        registration_number: 'REG-2026-0002',
+        roll_number: 5,
+        class_section_id: SEED_SECTION_1_ID,
+      });
+      const student = await buildStudent({
+        registration_number: 'REG-2026-0003',
+        class_section_id: '00000000-0000-4000-8000-000000000043', // seeded elsewhere
+      });
+      void existing;
+
+      const result = await dataSource.manager.transaction((manager) =>
+        service.createInTransaction(
+          manager,
+          {
+            student_id: student.id,
+            class_id: SEED_CLASS_1_ID,
+            section_id: SEED_SECTION_1_ID,
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          },
+          TENANT_ID,
+        ),
+      );
+
+      expect(result).toBeDefined();
+      const updated = await studentRepo.findOne({ where: { id: student.id } });
+      expect(updated!.class_section_id).toBe(SEED_SECTION_1_ID);
+      expect(updated!.roll_number).toBe(6);
+    });
+
+    it('rolls back with the caller-supplied transaction when it throws afterward', async () => {
+      const student = await buildStudent();
+
+      await expect(
+        dataSource.manager.transaction(async (manager) => {
+          await service.createInTransaction(
+            manager,
+            {
+              student_id: student.id,
+              class_id: SEED_CLASS_1_ID,
+              academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            },
+            TENANT_ID,
+          );
+          throw new Error('boom');
+        }),
+      ).rejects.toThrow('boom');
+
+      const rows = await enrollmentRepo.find({ where: { student_id: student.id } });
+      expect(rows).toHaveLength(0);
+    });
   });
 
   // ────────────────────────

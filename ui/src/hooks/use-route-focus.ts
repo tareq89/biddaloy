@@ -332,6 +332,21 @@ export function useRouteFocus({ mainId, appName }: UseRouteFocusOptions): string
       // 4. Suppressing the scroll, or focusing mid-transition while the
       // layout is still a frozen snapshot, breaks it.
       function applyFocus(headingEl: HTMLElement | null, containerEl: HTMLElement | Document) {
+        // Focus already sits on a control inside the new page — the page
+        // focused it itself, or the user got there first while this waited
+        // out a view transition. Moving it to the heading now would pull
+        // focus out of a field mid-typing and drop the keystrokes that follow.
+        const active = document.activeElement;
+        if (
+          containerEl instanceof HTMLElement &&
+          active instanceof HTMLElement &&
+          active !== containerEl &&
+          active !== headingEl &&
+          containerEl.contains(active)
+        ) {
+          return;
+        }
+
         const isReturning =
           lastActionTypeRef.current === 'BACK' || lastActionTypeRef.current === 'FORWARD';
         const anchorId = isReturning ? focusAnchorMemory.get(pathname) : undefined;

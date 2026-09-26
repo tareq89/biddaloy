@@ -22,6 +22,9 @@ import {
   HomeworkGradingMode,
   HomeworkSubmissionStatus,
   SyllabusTopicStatus,
+  PromotionRunStatus,
+  PlacementAlgorithm,
+  PromotionOutcome,
 } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -59,6 +62,8 @@ import { Homework } from '../src/modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from '../src/modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from '../src/modules/homework/entities/homework-submission.entity';
 import { SyllabusTopic } from '../src/modules/homework/entities/syllabus-topic.entity';
+import { PromotionRun } from '../src/modules/promotions/entities/promotion-run.entity';
+import { PromotionEntry } from '../src/modules/promotions/entities/promotion-entry.entity';
 import { DEMO_ORGANISATION, ensureDemoStudents, SEED_DEVICE_KEY } from '../src/scripts/seed.util';
 import { ImportStagingService } from '../src/modules/bulk-import/import-staging.service';
 import { ValidationService } from '../src/modules/workbook/import/validation.service';
@@ -498,19 +503,10 @@ describe('workbook round trip (integration)', () => {
       .getRepository(Student)
       .findOneOrFail({ where: { tenant_id: TENANT_A } });
 
-    // One enrollment, so the `enrollments` tab (which resolves student,
-    // class, section and academic year purely by natural key) is exercised
-    // rather than exported empty.
-    await dataSource.getRepository(Enrollment).save(
-      dataSource.getRepository(Enrollment).create({
-        student_id: student.id,
-        class_id: klass.id,
-        section_id: section.id,
-        academic_year_id: year.id,
-        enrollment_status: EnrollmentStatus.ACTIVE,
-        tenant_id: TENANT_A,
-      }),
-    );
+    // `ensureDemoStudents` already creates an ACTIVE enrollment for this
+    // student (unique `IDX_enr_active_student_year`); the `enrollments` tab
+    // (which resolves student, class, section and academic year purely by
+    // natural key) is exercised through that one, no extra insert needed.
 
     // Minimal fee chain (C2): one FeeStructure -> one StudentFee -> one
     // Invoice -> one Payment -> one PaymentAllocation, enough to make
@@ -1069,6 +1065,10 @@ describe('workbook round trip (integration)', () => {
         gpa: '4.50',
         grade: 'A',
         position: 1,
+        // [788] section snapshot at compute — round-trip coverage for
+        // `results.tab.ts`'s new `section`/`section_position` columns.
+        section_id: section.id,
+        section_position: 1,
         is_fail: false,
         grading_scale_id: scale.id,
         grading_scale_revision: scale.revision,
@@ -1192,6 +1192,145 @@ describe('workbook round trip (integration)', () => {
         status: SyllabusTopicStatus.DONE,
       }),
     );
+
+    // --- [788] Promotion run/entries: one COMMITTED run with one override
+    // entry (note preserved through restore) -----------------------------
+    const nextYear = await dataSource.getRepository(AcademicYear).save(
+      dataSource.getRepository(AcademicYear).create({
+        tenant_id: TENANT_A,
+        name: '2027-2028',
+        start_date: new Date('2027-01-01'),
+        end_date: new Date('2027-12-31'),
+        is_current: false,
+      }),
+    );
+    const nextClass = await dataSource.getRepository(Class).save(
+      dataSource.getRepository(Class).create({
+        tenant_id: TENANT_A,
+        name: 'Class 7',
+        numeric_grade: 7,
+        shift: null,
+        version: null,
+        academic_year_id: nextYear.id,
+      }),
+    );
+    const nextSection = await dataSource.getRepository(ClassSection).save(
+      dataSource.getRepository(ClassSection).create({
+        tenant_id: TENANT_A,
+        class_id: nextClass.id,
+        section_name: 'A',
+        capacity: 30,
+        group_name: null,
+      }),
+    );
+
+    const promotionRun = await dataSource.getRepository(PromotionRun).save(
+      dataSource.getRepository(PromotionRun).create({
+        tenant_id: TENANT_A,
+        source_class_id: klass.id,
+        source_academic_year_id: year.id,
+        target_academic_year_id: nextYear.id,
+        target_class_id: nextClass.id,
+        exam_ids: [exam.id],
+        algorithm: PlacementAlgorithm.BLOCK,
+        status: PromotionRunStatus.COMMITTED,
+        refreshed_at: new Date('2026-03-01T00:00:00.000Z'),
+        committed_at: new Date('2026-03-02T00:00:00.000Z'),
+        committed_by_user_id: USER_ID,
+        approved_by_user_id: USER_ID,
+        override_count: 1,
+        created_by_user_id: USER_ID,
+      }),
+    );
+
+    // A second, DRAFT run for the *same* (source_class, target_academic_year)
+    // pair — the partial unique index only enforces uniqueness for
+    // status='COMMITTED', so this is a legal, realistic sibling of
+    // `promotionRun` above. Exercises `promotionRunsTab`'s id-based `keyOf`:
+    // the old (source_class, target_academic_year) natural key would have
+    // collided between these two rows and broken restore.
+    await dataSource.getRepository(PromotionRun).save(
+      dataSource.getRepository(PromotionRun).create({
+        tenant_id: TENANT_A,
+        source_class_id: klass.id,
+        source_academic_year_id: year.id,
+        target_academic_year_id: nextYear.id,
+        target_class_id: nextClass.id,
+        exam_ids: [exam.id],
+        algorithm: PlacementAlgorithm.BLOCK,
+        status: PromotionRunStatus.DRAFT,
+        refreshed_at: new Date('2026-03-03T00:00:00.000Z'),
+        committed_at: null,
+        committed_by_user_id: null,
+        approved_by_user_id: null,
+        override_count: 0,
+        created_by_user_id: USER_ID,
+      }),
+    );
+
+    const promotionEnrollment = await dataSource
+      .getRepository(Enrollment)
+      .findOneOrFail({ where: { student_id: student.id, academic_year_id: year.id } });
+
+    // One override entry — note preserved through restore (D6/D11).
+    await dataSource.getRepository(PromotionEntry).save(
+      dataSource.getRepository(PromotionEntry).create({
+        tenant_id: TENANT_A,
+        run_id: promotionRun.id,
+        student_id: student.id,
+        source_enrollment_id: promotionEnrollment.id,
+        source_section_id: section.id,
+        merit_rank: 1,
+        mean_gpa: '4.50',
+        total_marks_sum: '167.00',
+        passed_all: true,
+        suggested_outcome: PromotionOutcome.PROMOTE,
+        final_outcome: PromotionOutcome.RETAIN,
+        is_override: true,
+        override_note: 'Medical absence during annual exam — approved by head teacher',
+        overridden_by_user_id: USER_ID,
+        group_name: null,
+        target_class_id: null,
+        target_section_id: null,
+        new_roll_number: null,
+        placement_error: null,
+        target_enrollment_id: null,
+      }),
+    );
+
+    // A second, non-override entry for `studentTwo` — otherwise the
+    // "empty section cell"/"no override" branches of `promotionEntriesTab`
+    // never round-trip in this spine test. `ensureDemoStudents` (#1020)
+    // already gave every demo student an ACTIVE enrollment, so this looks
+    // it up rather than inserting a second one — that would violate
+    // `IDX_enr_active_student_year`.
+    const studentTwoEnrollment = await dataSource
+      .getRepository(Enrollment)
+      .findOneOrFail({ where: { student_id: studentTwo.id, academic_year_id: year.id } });
+    await dataSource.getRepository(PromotionEntry).save(
+      dataSource.getRepository(PromotionEntry).create({
+        tenant_id: TENANT_A,
+        run_id: promotionRun.id,
+        student_id: studentTwo.id,
+        source_enrollment_id: studentTwoEnrollment.id,
+        source_section_id: section.id,
+        merit_rank: 2,
+        mean_gpa: '3.80',
+        total_marks_sum: '140.00',
+        passed_all: true,
+        suggested_outcome: PromotionOutcome.PROMOTE,
+        final_outcome: PromotionOutcome.PROMOTE,
+        is_override: false,
+        override_note: null,
+        overridden_by_user_id: null,
+        group_name: null,
+        target_class_id: nextClass.id,
+        target_section_id: nextSection.id,
+        new_roll_number: 1,
+        placement_error: null,
+        target_enrollment_id: null,
+      }),
+    );
   }
 
   /**
@@ -1243,6 +1382,8 @@ describe('workbook round trip (integration)', () => {
       'homework_assignments',
       'homework_submissions',
       'syllabus_topics',
+      'promotion_runs',
+      'promotion_entries',
     ];
     const empty = mustBeNonEmpty.filter((tab) => !(rowCounts[tab] ?? 0));
     expect(empty, `fixture produced no rows for: ${empty.join(', ')}`).toEqual([]);

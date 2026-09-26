@@ -42,6 +42,9 @@ import type { Homework } from '../modules/homework/entities/homework.entity';
 import type { HomeworkAssignment } from '../modules/homework/entities/homework-assignment.entity';
 import type { HomeworkSubmission } from '../modules/homework/entities/homework-submission.entity';
 import type { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.entity';
+import type { Enrollment } from '../modules/students/entities/enrollment.entity';
+import type { PromotionRun } from '../modules/promotions/entities/promotion-run.entity';
+import type { PromotionEntry } from '../modules/promotions/entities/promotion-entry.entity';
 import { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
 import { ensureDemoOrganisation } from './seed.util';
 
@@ -277,6 +280,18 @@ function makeRepos() {
       clock,
       'syllabus-topic',
     ).asRepository() as unknown as Repository<SyllabusTopic>,
+    enrollmentRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'enrollment',
+    ).asRepository() as unknown as Repository<Enrollment>,
+    promotionRunRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'promotion-run',
+    ).asRepository() as unknown as Repository<PromotionRun>,
+    promotionEntryRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'promotion-entry',
+    ).asRepository() as unknown as Repository<PromotionEntry>,
   } satisfies SeedAccountRepositories;
   return { repos, users, schools, userTenants, students };
 }

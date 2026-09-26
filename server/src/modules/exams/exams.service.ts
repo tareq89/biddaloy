@@ -158,6 +158,9 @@ export class ExamsService {
 
     const [data, total] = await this.repo.findAndCount({
       where,
+      // `Exam.class` is part of the response type; the analysis screen
+      // labels its print header with it.
+      relations: { class: true },
       order: { created_at: 'DESC' },
       skip,
       take: limit,

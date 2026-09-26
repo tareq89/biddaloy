@@ -112,17 +112,32 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.GRADING_SCALE_MANAGE,
     label: { key: 'gradingScales' },
   },
-  // [19.6.1] `EXAM_MANAGE`, matching what `ExamsController.findAll`
-  // actually requires server-side (`@Roles(ADMIN)` +
-  // `@RequirePermissions(EXAM_MANAGE)`) — there is no separate "read a
-  // bare exam" permission, unlike marks (`MARK_VIEW`) below. A route-level
-  // gate looser than this would land a non-ADMIN role on a list page that
-  // 403s on its very first request.
+  // [19.6.1] `EXAM_MANAGE` — `/exams` is the exam management page, and
+  // opening an exam's detail (`ExamsController.findOne`) plus every write
+  // are `@Roles(ADMIN)` + `@RequirePermissions(EXAM_MANAGE)` server-side.
+  // Only the bare list (`findAll`) is looser, on `MARK_VIEW`, so the
+  // marks/analysis exam pickers load for teachers and executives.
   'examsResults.exams': {
     id: 'examsResults.exams',
     to: '/exams',
     permission: Permission.EXAM_MANAGE,
     label: { entity: 'exam' },
+  },
+  // [26.5.1] `MARK_VIEW` — same "seeing is weaker than editing" gate
+  // `/marks` already uses; analysis is a read-only view over processed
+  // results, not a write action like `/results`'s `RESULT_PROCESS`.
+  'examsResults.analysis': {
+    id: 'examsResults.analysis',
+    to: '/analysis',
+    permission: Permission.MARK_VIEW,
+    label: { key: 'analysis' },
+  },
+  // [26.6.1] D22: PROMOTION_MANAGE (admin).
+  'examsResults.promotion': {
+    id: 'examsResults.promotion',
+    to: '/promotions',
+    permission: Permission.PROMOTION_MANAGE,
+    label: { key: 'promotion' },
   },
   'academics.routineSetup': {
     id: 'academics.routineSetup',
@@ -311,7 +326,12 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
   {
     id: 'examsResults',
     label: { key: 'examsResults' },
-    items: [STAFF_NAV_ITEMS['examsResults.exams'], STAFF_NAV_ITEMS['examsResults.gradingScales']],
+    items: [
+      STAFF_NAV_ITEMS['examsResults.exams'],
+      STAFF_NAV_ITEMS['examsResults.gradingScales'],
+      STAFF_NAV_ITEMS['examsResults.analysis'],
+      STAFF_NAV_ITEMS['examsResults.promotion'],
+    ],
   },
   {
     id: 'finance',

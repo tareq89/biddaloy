@@ -196,7 +196,12 @@ export function RecordPaymentModal({
   const prevAmountRef = React.useRef(debouncedAmountReceivedMinorUnits);
   const prevStudentIdsRef = React.useRef<string[]>([]);
   React.useEffect(() => {
-    if (cart.data === undefined) return;
+    // Skip the placeholder (the previous key's cart, shown while the new
+    // one loads) and do NOT advance the refs below: reseeding from it saw
+    // "amount changed" with no `suggested` block, zeroed every line and
+    // cleared `linesTouched`, so a discount typed while the new cart was in
+    // flight was wiped. The real response is what should count as the change.
+    if (cart.data === undefined || cart.isPlaceholderData) return;
 
     const amountChanged = prevAmountRef.current !== debouncedAmountReceivedMinorUnits;
     const newStudentIds = selectedStudentIds.filter(
@@ -237,10 +242,21 @@ export function RecordPaymentModal({
             continue;
           }
           const suggested = suggestions.get(bill.student_fee_id);
+          const discountMinorUnits = prev.get(bill.student_fee_id)?.discountMinorUnits ?? 0;
+          const balanceMinorUnits = serverAmountToMinorUnits(bill.balance, config);
+          const suggestedPayMinorUnits =
+            suggested !== undefined ? serverAmountToMinorUnits(suggested, config) : 0;
           next.set(bill.student_fee_id, {
-            payMinorUnits:
-              suggested !== undefined ? serverAmountToMinorUnits(suggested, config) : 0,
-            discountMinorUnits: 0,
+            // The server's suggestion doesn't know about a discount typed
+            // locally — cap it so Pay + discount never exceeds the balance
+            // (the same rule `DiscountCell.commit` enforces the other way).
+            payMinorUnits: Math.max(
+              0,
+              Math.min(suggestedPayMinorUnits, balanceMinorUnits - discountMinorUnits),
+            ),
+            // A discount is a waiver, not part of how the cash is split, so a
+            // new amount re-suggests Pay but keeps the discount typed.
+            discountMinorUnits,
           });
         }
       }
@@ -248,7 +264,14 @@ export function RecordPaymentModal({
     });
 
     if (amountChanged) setLinesTouched(false);
-  }, [cart.data, debouncedAmountReceivedMinorUnits, selectedStudentIds, linesTouched, config]);
+  }, [
+    cart.data,
+    cart.isPlaceholderData,
+    debouncedAmountReceivedMinorUnits,
+    selectedStudentIds,
+    linesTouched,
+    config,
+  ]);
 
   const checkout = useCheckout();
 
@@ -271,6 +294,17 @@ export function RecordPaymentModal({
 
   function removeStudent(id: string) {
     setSelected((prev) => prev.filter((student) => student.id !== id));
+    // Drop their lines too: a kept line would bring an old Pay/discount back
+    // if the student is re-added, and keep the approval hint on meanwhile.
+    const feeIds =
+      cart.data?.students
+        .find((student) => student.id === id)
+        ?.bills.map((b) => b.student_fee_id) ?? [];
+    setLines((prev) => {
+      const next = new Map(prev);
+      for (const feeId of feeIds) next.delete(feeId);
+      return next;
+    });
   }
 
   const allBills: CartBill[] = React.useMemo(

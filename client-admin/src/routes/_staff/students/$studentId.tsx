@@ -21,6 +21,7 @@ import { HomeworkTab } from './-detail/homework-tab';
 import { InvoicesTab } from './-detail/invoices-tab';
 import { OverviewTab } from './-detail/overview-tab';
 import { PaymentsTab } from './-detail/payments-tab';
+import { PromotionOverrideBadge } from './-detail/promotion-override-badge';
 import { RecurringFeesTab } from './-detail/recurring-fees-tab';
 import { ResultsPanel } from './-detail/results-panel';
 import { SubjectChoicesPanel } from './-detail/subject-choices-panel';
@@ -70,6 +71,8 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
       // (closed) when the caller can manage fees, and the modal reads its
       // own copy from that namespace even while closed — same suspend-the-
       // whole-page failure one level down.
+      // 'promotions' — [26.5.2]'s override badge (header + Enrollment tab)
+      // reads its `badge` copy from that namespace.
       loadRouteNamespaces(
         'students',
         'common',
@@ -78,6 +81,7 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
         'exams',
         'fees',
         'feeGeneration',
+        'promotions',
       ),
     ]),
   pendingComponent: StudentDetailPending,
@@ -154,10 +158,13 @@ function StudentDetailPage() {
                 roll: studentQuery.data.roll_number,
               })}
               statusBadge={
-                <StatusBadge
-                  domain="enrollment"
-                  status={studentQuery.data.enrollment_status as EnrollmentStatus}
-                />
+                <span className="inline-flex items-center gap-2">
+                  <StatusBadge
+                    domain="enrollment"
+                    status={studentQuery.data.enrollment_status as EnrollmentStatus}
+                  />
+                  <PromotionOverrideBadge studentId={studentId} />
+                </span>
               }
               actions={[
                 {

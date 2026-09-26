@@ -1,7 +1,10 @@
 import type { EntityManager } from 'typeorm';
+import { IsNull } from 'typeorm';
 import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
 import { Student } from '../../../students/entities/student.entity';
 import { Guardian } from '../../../students/entities/guardian.entity';
+import { Enrollment } from '../../../students/entities/enrollment.entity';
+import { ClassSection } from '../../../academics/entities/class-section.entity';
 import { fromCell, formatDateOnly } from '../../codec/cell-format';
 import type {
   ColumnSpec,
@@ -506,6 +509,57 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
         .relation(Student, 'guardians')
         .of(saved)
         .addAndRemove(toAdd, toRemove);
+    }
+
+    // [#1020] Keep `Enrollment` in sync with the restored `Student` row —
+    // same reasoning as `StudentService.update()`: exam cohort resolution
+    // reads `Enrollment`, not `Student.class_section_id`. The section is
+    // the authoritative parent (see the class docstring above), so its own
+    // `class_id`/`academic_year_id` are read off it rather than
+    // re-resolving `row.class_key`/`row.academic_year_key`. Runs on the
+    // same `m` the rest of `upsert` used, so it shares the restore
+    // executor's transaction.
+    // Only an ACTIVE student should be in an ACTIVE Enrollment — a restored
+    // row for a GRADUATED/TRANSFERRED/INACTIVE student must not be synced
+    // into (or create) an ACTIVE Enrollment, or they'd reappear in exam
+    // cohorts.
+    const section =
+      saved.class_section_id && saved.enrollment_status === EnrollmentStatus.ACTIVE
+        ? await m.findOne(ClassSection, {
+            where: { id: saved.class_section_id, tenant_id: tenantId, deleted_at: IsNull() },
+            relations: ['class'],
+          })
+        : null;
+    if (section) {
+      // Keyed on the section's own academic year, not "whichever ACTIVE
+      // row is newest" — a restore that changes a student's year must
+      // update that year's enrollment, not repoint an unrelated one.
+      const currentEnrollment = await m.findOne(Enrollment, {
+        where: {
+          student_id: saved.id,
+          tenant_id: tenantId,
+          academic_year_id: section.class.academic_year_id,
+          enrollment_status: EnrollmentStatus.ACTIVE,
+        },
+      });
+      if (currentEnrollment) {
+        await m.update(
+          Enrollment,
+          { id: currentEnrollment.id },
+          { class_id: section.class_id, section_id: section.id },
+        );
+      } else {
+        await m.save(
+          Enrollment,
+          m.create(Enrollment, {
+            student_id: saved.id,
+            class_id: section.class_id,
+            section_id: section.id,
+            academic_year_id: section.class.academic_year_id,
+            tenant_id: tenantId,
+          }),
+        );
+      }
     }
 
     return saved;

@@ -41,6 +41,7 @@ import { Route as PlatformSchoolsSchoolIdRouteImport } from './routes/_platform/
 import { Route as PlatformSchoolsNewRouteImport } from './routes/_platform/schools/new'
 import { Route as StaffAcademicYearsIndexRouteImport } from './routes/_staff/academic-years/index'
 import { Route as StaffAcademicYearsAcademicYearIdRouteImport } from './routes/_staff/academic-years/$academicYearId'
+import { Route as StaffAnalysisIndexRouteImport } from './routes/_staff/analysis/index'
 import { Route as StaffAttendanceIndexRouteImport } from './routes/_staff/attendance/index'
 import { Route as StaffAttendanceSectionIdRouteImport } from './routes/_staff/attendance/$sectionId'
 import { Route as StaffAttendanceRegisterRouteImport } from './routes/_staff/attendance/register'
@@ -68,6 +69,9 @@ import { Route as StaffMarksIndexRouteImport } from './routes/_staff/marks/index
 import { Route as StaffPaymentsIndexRouteImport } from './routes/_staff/payments/index'
 import { Route as StaffPaymentsIdRouteImport } from './routes/_staff/payments/$id'
 import { Route as StaffPaymentsRecordRouteImport } from './routes/_staff/payments/record'
+import { Route as StaffPromotionsIndexRouteImport } from './routes/_staff/promotions/index'
+import { Route as StaffPromotionsRunIdRouteImport } from './routes/_staff/promotions/$runId'
+import { Route as StaffPromotionsNewRouteImport } from './routes/_staff/promotions/new'
 import { Route as StaffReportsCollectionsRouteImport } from './routes/_staff/reports/collections'
 import { Route as StaffResultsIndexRouteImport } from './routes/_staff/results/index'
 import { Route as StaffRoutinesIndexRouteImport } from './routes/_staff/routines/index'
@@ -256,6 +260,11 @@ const StaffAcademicYearsAcademicYearIdRoute =
     path: '/academic-years/$academicYearId',
     getParentRoute: () => StaffRoute,
   } as any)
+const StaffAnalysisIndexRoute = StaffAnalysisIndexRouteImport.update({
+  id: '/analysis/',
+  path: '/analysis/',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffAttendanceIndexRoute = StaffAttendanceIndexRouteImport.update({
   id: '/attendance/',
   path: '/attendance/',
@@ -393,6 +402,21 @@ const StaffPaymentsIdRoute = StaffPaymentsIdRouteImport.update({
 const StaffPaymentsRecordRoute = StaffPaymentsRecordRouteImport.update({
   id: '/payments/record',
   path: '/payments/record',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffPromotionsIndexRoute = StaffPromotionsIndexRouteImport.update({
+  id: '/promotions/',
+  path: '/promotions/',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffPromotionsRunIdRoute = StaffPromotionsRunIdRouteImport.update({
+  id: '/promotions/$runId',
+  path: '/promotions/$runId',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffPromotionsNewRoute = StaffPromotionsNewRouteImport.update({
+  id: '/promotions/new',
+  path: '/promotions/new',
   getParentRoute: () => StaffRoute,
 } as any)
 const StaffReportsCollectionsRoute = StaffReportsCollectionsRouteImport.update({
@@ -580,6 +604,8 @@ export interface FileRoutesByFullPath {
   '/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
   '/payments/$id': typeof StaffPaymentsIdRoute
   '/payments/record': typeof StaffPaymentsRecordRoute
+  '/promotions/$runId': typeof StaffPromotionsRunIdRoute
+  '/promotions/new': typeof StaffPromotionsNewRoute
   '/reports/collections': typeof StaffReportsCollectionsRoute
   '/routines/$sectionId': typeof StaffRoutinesSectionIdRoute
   '/routines/my': typeof StaffRoutinesMyRoute
@@ -593,6 +619,7 @@ export interface FileRoutesByFullPath {
   '/holiday-sets/': typeof PlatformHolidaySetsIndexRoute
   '/schools/': typeof PlatformSchoolsIndexRoute
   '/academic-years/': typeof StaffAcademicYearsIndexRoute
+  '/analysis/': typeof StaffAnalysisIndexRoute
   '/attendance/': typeof StaffAttendanceIndexRoute
   '/audit-logs/': typeof StaffAuditLogsIndexRoute
   '/calendar/': typeof StaffCalendarIndexRoute
@@ -605,6 +632,7 @@ export interface FileRoutesByFullPath {
   '/invoices/': typeof StaffInvoicesIndexRoute
   '/marks/': typeof StaffMarksIndexRoute
   '/payments/': typeof StaffPaymentsIndexRoute
+  '/promotions/': typeof StaffPromotionsIndexRoute
   '/results/': typeof StaffResultsIndexRoute
   '/routines/': typeof StaffRoutinesIndexRoute
   '/staff/': typeof StaffStaffIndexRoute
@@ -663,6 +691,8 @@ export interface FileRoutesByTo {
   '/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
   '/payments/$id': typeof StaffPaymentsIdRoute
   '/payments/record': typeof StaffPaymentsRecordRoute
+  '/promotions/$runId': typeof StaffPromotionsRunIdRoute
+  '/promotions/new': typeof StaffPromotionsNewRoute
   '/reports/collections': typeof StaffReportsCollectionsRoute
   '/routines/$sectionId': typeof StaffRoutinesSectionIdRoute
   '/routines/my': typeof StaffRoutinesMyRoute
@@ -676,6 +706,7 @@ export interface FileRoutesByTo {
   '/holiday-sets': typeof PlatformHolidaySetsIndexRoute
   '/schools': typeof PlatformSchoolsIndexRoute
   '/academic-years': typeof StaffAcademicYearsIndexRoute
+  '/analysis': typeof StaffAnalysisIndexRoute
   '/attendance': typeof StaffAttendanceIndexRoute
   '/audit-logs': typeof StaffAuditLogsIndexRoute
   '/calendar': typeof StaffCalendarIndexRoute
@@ -688,6 +719,7 @@ export interface FileRoutesByTo {
   '/invoices': typeof StaffInvoicesIndexRoute
   '/marks': typeof StaffMarksIndexRoute
   '/payments': typeof StaffPaymentsIndexRoute
+  '/promotions': typeof StaffPromotionsIndexRoute
   '/results': typeof StaffResultsIndexRoute
   '/routines': typeof StaffRoutinesIndexRoute
   '/staff': typeof StaffStaffIndexRoute
@@ -751,6 +783,8 @@ export interface FileRoutesById {
   '/_staff/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
   '/_staff/payments/$id': typeof StaffPaymentsIdRoute
   '/_staff/payments/record': typeof StaffPaymentsRecordRoute
+  '/_staff/promotions/$runId': typeof StaffPromotionsRunIdRoute
+  '/_staff/promotions/new': typeof StaffPromotionsNewRoute
   '/_staff/reports/collections': typeof StaffReportsCollectionsRoute
   '/_staff/routines/$sectionId': typeof StaffRoutinesSectionIdRoute
   '/_staff/routines/my': typeof StaffRoutinesMyRoute
@@ -764,6 +798,7 @@ export interface FileRoutesById {
   '/_platform/holiday-sets/': typeof PlatformHolidaySetsIndexRoute
   '/_platform/schools/': typeof PlatformSchoolsIndexRoute
   '/_staff/academic-years/': typeof StaffAcademicYearsIndexRoute
+  '/_staff/analysis/': typeof StaffAnalysisIndexRoute
   '/_staff/attendance/': typeof StaffAttendanceIndexRoute
   '/_staff/audit-logs/': typeof StaffAuditLogsIndexRoute
   '/_staff/calendar/': typeof StaffCalendarIndexRoute
@@ -776,6 +811,7 @@ export interface FileRoutesById {
   '/_staff/invoices/': typeof StaffInvoicesIndexRoute
   '/_staff/marks/': typeof StaffMarksIndexRoute
   '/_staff/payments/': typeof StaffPaymentsIndexRoute
+  '/_staff/promotions/': typeof StaffPromotionsIndexRoute
   '/_staff/results/': typeof StaffResultsIndexRoute
   '/_staff/routines/': typeof StaffRoutinesIndexRoute
   '/_staff/staff/': typeof StaffStaffIndexRoute
@@ -838,6 +874,8 @@ export interface FileRouteTypes {
     | '/invoices/$invoiceId'
     | '/payments/$id'
     | '/payments/record'
+    | '/promotions/$runId'
+    | '/promotions/new'
     | '/reports/collections'
     | '/routines/$sectionId'
     | '/routines/my'
@@ -851,6 +889,7 @@ export interface FileRouteTypes {
     | '/holiday-sets/'
     | '/schools/'
     | '/academic-years/'
+    | '/analysis/'
     | '/attendance/'
     | '/audit-logs/'
     | '/calendar/'
@@ -863,6 +902,7 @@ export interface FileRouteTypes {
     | '/invoices/'
     | '/marks/'
     | '/payments/'
+    | '/promotions/'
     | '/results/'
     | '/routines/'
     | '/staff/'
@@ -921,6 +961,8 @@ export interface FileRouteTypes {
     | '/invoices/$invoiceId'
     | '/payments/$id'
     | '/payments/record'
+    | '/promotions/$runId'
+    | '/promotions/new'
     | '/reports/collections'
     | '/routines/$sectionId'
     | '/routines/my'
@@ -934,6 +976,7 @@ export interface FileRouteTypes {
     | '/holiday-sets'
     | '/schools'
     | '/academic-years'
+    | '/analysis'
     | '/attendance'
     | '/audit-logs'
     | '/calendar'
@@ -946,6 +989,7 @@ export interface FileRouteTypes {
     | '/invoices'
     | '/marks'
     | '/payments'
+    | '/promotions'
     | '/results'
     | '/routines'
     | '/staff'
@@ -1008,6 +1052,8 @@ export interface FileRouteTypes {
     | '/_staff/invoices/$invoiceId'
     | '/_staff/payments/$id'
     | '/_staff/payments/record'
+    | '/_staff/promotions/$runId'
+    | '/_staff/promotions/new'
     | '/_staff/reports/collections'
     | '/_staff/routines/$sectionId'
     | '/_staff/routines/my'
@@ -1021,6 +1067,7 @@ export interface FileRouteTypes {
     | '/_platform/holiday-sets/'
     | '/_platform/schools/'
     | '/_staff/academic-years/'
+    | '/_staff/analysis/'
     | '/_staff/attendance/'
     | '/_staff/audit-logs/'
     | '/_staff/calendar/'
@@ -1033,6 +1080,7 @@ export interface FileRouteTypes {
     | '/_staff/invoices/'
     | '/_staff/marks/'
     | '/_staff/payments/'
+    | '/_staff/promotions/'
     | '/_staff/results/'
     | '/_staff/routines/'
     | '/_staff/staff/'
@@ -1291,6 +1339,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffAcademicYearsAcademicYearIdRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/analysis/': {
+      id: '/_staff/analysis/'
+      path: '/analysis'
+      fullPath: '/analysis/'
+      preLoaderRoute: typeof StaffAnalysisIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/attendance/': {
       id: '/_staff/attendance/'
       path: '/attendance'
@@ -1478,6 +1533,27 @@ declare module '@tanstack/react-router' {
       path: '/payments/record'
       fullPath: '/payments/record'
       preLoaderRoute: typeof StaffPaymentsRecordRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/promotions/': {
+      id: '/_staff/promotions/'
+      path: '/promotions'
+      fullPath: '/promotions/'
+      preLoaderRoute: typeof StaffPromotionsIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/promotions/$runId': {
+      id: '/_staff/promotions/$runId'
+      path: '/promotions/$runId'
+      fullPath: '/promotions/$runId'
+      preLoaderRoute: typeof StaffPromotionsRunIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/promotions/new': {
+      id: '/_staff/promotions/new'
+      path: '/promotions/new'
+      fullPath: '/promotions/new'
+      preLoaderRoute: typeof StaffPromotionsNewRouteImport
       parentRoute: typeof StaffRoute
     }
     '/_staff/reports/collections': {
@@ -1725,6 +1801,8 @@ interface StaffRouteChildren {
   StaffInvoicesInvoiceIdRoute: typeof StaffInvoicesInvoiceIdRoute
   StaffPaymentsIdRoute: typeof StaffPaymentsIdRoute
   StaffPaymentsRecordRoute: typeof StaffPaymentsRecordRoute
+  StaffPromotionsRunIdRoute: typeof StaffPromotionsRunIdRoute
+  StaffPromotionsNewRoute: typeof StaffPromotionsNewRoute
   StaffReportsCollectionsRoute: typeof StaffReportsCollectionsRoute
   StaffRoutinesSectionIdRoute: typeof StaffRoutinesSectionIdRoute
   StaffRoutinesMyRoute: typeof StaffRoutinesMyRoute
@@ -1736,6 +1814,7 @@ interface StaffRouteChildren {
   StaffStudentsImportRoute: typeof StaffStudentsImportRoute
   StaffStudentsNewRoute: typeof StaffStudentsNewRoute
   StaffAcademicYearsIndexRoute: typeof StaffAcademicYearsIndexRoute
+  StaffAnalysisIndexRoute: typeof StaffAnalysisIndexRoute
   StaffAttendanceIndexRoute: typeof StaffAttendanceIndexRoute
   StaffAuditLogsIndexRoute: typeof StaffAuditLogsIndexRoute
   StaffCalendarIndexRoute: typeof StaffCalendarIndexRoute
@@ -1747,6 +1826,7 @@ interface StaffRouteChildren {
   StaffInvoicesIndexRoute: typeof StaffInvoicesIndexRoute
   StaffMarksIndexRoute: typeof StaffMarksIndexRoute
   StaffPaymentsIndexRoute: typeof StaffPaymentsIndexRoute
+  StaffPromotionsIndexRoute: typeof StaffPromotionsIndexRoute
   StaffResultsIndexRoute: typeof StaffResultsIndexRoute
   StaffRoutinesIndexRoute: typeof StaffRoutinesIndexRoute
   StaffStaffIndexRoute: typeof StaffStaffIndexRoute
@@ -1783,6 +1863,8 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffInvoicesInvoiceIdRoute: StaffInvoicesInvoiceIdRoute,
   StaffPaymentsIdRoute: StaffPaymentsIdRoute,
   StaffPaymentsRecordRoute: StaffPaymentsRecordRoute,
+  StaffPromotionsRunIdRoute: StaffPromotionsRunIdRoute,
+  StaffPromotionsNewRoute: StaffPromotionsNewRoute,
   StaffReportsCollectionsRoute: StaffReportsCollectionsRoute,
   StaffRoutinesSectionIdRoute: StaffRoutinesSectionIdRoute,
   StaffRoutinesMyRoute: StaffRoutinesMyRoute,
@@ -1794,6 +1876,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffStudentsImportRoute: StaffStudentsImportRoute,
   StaffStudentsNewRoute: StaffStudentsNewRoute,
   StaffAcademicYearsIndexRoute: StaffAcademicYearsIndexRoute,
+  StaffAnalysisIndexRoute: StaffAnalysisIndexRoute,
   StaffAttendanceIndexRoute: StaffAttendanceIndexRoute,
   StaffAuditLogsIndexRoute: StaffAuditLogsIndexRoute,
   StaffCalendarIndexRoute: StaffCalendarIndexRoute,
@@ -1805,6 +1888,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffInvoicesIndexRoute: StaffInvoicesIndexRoute,
   StaffMarksIndexRoute: StaffMarksIndexRoute,
   StaffPaymentsIndexRoute: StaffPaymentsIndexRoute,
+  StaffPromotionsIndexRoute: StaffPromotionsIndexRoute,
   StaffResultsIndexRoute: StaffResultsIndexRoute,
   StaffRoutinesIndexRoute: StaffRoutinesIndexRoute,
   StaffStaffIndexRoute: StaffStaffIndexRoute,

@@ -171,6 +171,12 @@ export enum Permission {
   RESULT_READ = 'RESULT_READ',
   // [25.1.1] Create/edit/publish a SeatPlan and its seat allocations.
   SEAT_PLAN_MANAGE = 'SEAT_PLAN_MANAGE',
+  // [26.1.1] Create/edit/run a PromotionRun (D22). ADMIN only — no separate
+  // analysis permission; analysis reuses MARK_VIEW.
+  PROMOTION_MANAGE = 'PROMOTION_MANAGE',
+  // [26.1.1] Commit a run that overrides the suggested outcome for at least
+  // one student (D11, D22) — gated behind ApprovalScope.PROMOTION_OVERRIDE.
+  PROMOTION_OVERRIDE = 'PROMOTION_OVERRIDE',
   // Routine (class timetable)
   // [21.1.1] Read is granted to every tenant role that has a stake in a
   // published routine (admin, executive, teacher, guardian, student);
@@ -280,6 +286,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.RESULT_READ,
     // [25.1.1] Seat plans — ADMIN only.
     Permission.SEAT_PLAN_MANAGE,
+    // [26.1.1] Promotion runs — ADMIN only (D22).
+    Permission.PROMOTION_MANAGE,
+    Permission.PROMOTION_OVERRIDE,
     // [21.1.1] Class routine — ADMIN builds/publishes, everyone else reads.
     Permission.ROUTINE_READ,
     Permission.ROUTINE_MANAGE,

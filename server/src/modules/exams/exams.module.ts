@@ -10,6 +10,7 @@ import { ResultSubject } from './entities/result-subject.entity';
 import { ExamSchedule } from './entities/exam-schedule.entity';
 import { StudentSubjectChoice } from '../students/entities/student-subject-choice.entity';
 import { Student } from '../students/entities/student.entity';
+import { Enrollment } from '../students/entities/enrollment.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { ClassSubject } from '../academics/entities/class-subject.entity';
 import { Class } from '../academics/entities/class.entity';
@@ -38,6 +39,8 @@ import { AttendanceComponentService } from './attendance-component.service';
 import { MarksAuthorizationService } from './marks-authorization.util';
 import { ResultsService } from './results.service';
 import { ResultsController, StudentResultsController } from './results.controller';
+import { AnalysisService } from './analysis.service';
+import { AnalysisController } from './analysis.controller';
 import { ResultSmsService } from './result-sms.service';
 import { FamilyAccessService } from '../students/family-access.service';
 import { ExamSchedulesService } from './exam-schedules.service';
@@ -67,6 +70,7 @@ import {
       ExamSchedule,
       StudentSubjectChoice,
       Student,
+      Enrollment,
       ClassSection,
       ClassSubject,
       Class,
@@ -95,6 +99,7 @@ import {
     MarksController,
     ResultsController,
     StudentResultsController,
+    AnalysisController,
     ExamSchedulesController,
     StudentExamScheduleController,
   ],
@@ -107,6 +112,7 @@ import {
     AttendanceComponentService,
     MarksAuthorizationService,
     ResultsService,
+    AnalysisService,
     ResultSmsService,
     FamilyAccessService,
     ExamSchedulesService,
