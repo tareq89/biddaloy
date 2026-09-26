@@ -30,6 +30,8 @@ import bnPlatform from '../ui/src/i18n/locales/bn/platform.json';
 import bnPortal from '../ui/src/i18n/locales/bn/portal.json';
 import bnReports from '../ui/src/i18n/locales/bn/reports.json';
 import bnRoutines from '../ui/src/i18n/locales/bn/routines.json';
+import bnSeatPlans from '../ui/src/i18n/locales/bn/seatPlans.json';
+import bnSeatPlansDetail from '../ui/src/i18n/locales/bn/seatPlansDetail.json';
 import bnSettings from '../ui/src/i18n/locales/bn/settings.json';
 import bnStaff from '../ui/src/i18n/locales/bn/staff.json';
 import bnStudents from '../ui/src/i18n/locales/bn/students.json';
@@ -57,6 +59,8 @@ import enPlatform from '../ui/src/i18n/locales/en/platform.json';
 import enPortal from '../ui/src/i18n/locales/en/portal.json';
 import enReports from '../ui/src/i18n/locales/en/reports.json';
 import enRoutines from '../ui/src/i18n/locales/en/routines.json';
+import enSeatPlans from '../ui/src/i18n/locales/en/seatPlans.json';
+import enSeatPlansDetail from '../ui/src/i18n/locales/en/seatPlansDetail.json';
 import enSettings from '../ui/src/i18n/locales/en/settings.json';
 import enStaff from '../ui/src/i18n/locales/en/staff.json';
 import enStudents from '../ui/src/i18n/locales/en/students.json';
@@ -87,6 +91,8 @@ const catalogs = {
     portal: bnPortal,
     reports: bnReports,
     routines: bnRoutines,
+    seatPlans: bnSeatPlans,
+    seatPlansDetail: bnSeatPlansDetail,
     settings: bnSettings,
     staff: bnStaff,
     students: bnStudents,
@@ -116,6 +122,8 @@ const catalogs = {
     portal: enPortal,
     reports: enReports,
     routines: enRoutines,
+    seatPlans: enSeatPlans,
+    seatPlansDetail: enSeatPlansDetail,
     settings: enSettings,
     staff: enStaff,
     students: enStudents,

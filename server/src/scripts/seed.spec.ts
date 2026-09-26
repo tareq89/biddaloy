@@ -42,6 +42,9 @@ import type { Homework } from '../modules/homework/entities/homework.entity';
 import type { HomeworkAssignment } from '../modules/homework/entities/homework-assignment.entity';
 import type { HomeworkSubmission } from '../modules/homework/entities/homework-submission.entity';
 import type { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.entity';
+import type { SeatPlan } from '../modules/seat-plans/entities/seat-plan.entity';
+import type { SeatPlanSchedule } from '../modules/seat-plans/entities/seat-plan-schedule.entity';
+import type { SeatAllocation } from '../modules/seat-plans/entities/seat-allocation.entity';
 import { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
 import { ensureDemoOrganisation } from './seed.util';
 
@@ -277,6 +280,18 @@ function makeRepos() {
       clock,
       'syllabus-topic',
     ).asRepository() as unknown as Repository<SyllabusTopic>,
+    seatPlanRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'seat-plan',
+    ).asRepository() as unknown as Repository<SeatPlan>,
+    seatPlanScheduleRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'seat-plan-schedule',
+    ).asRepository() as unknown as Repository<SeatPlanSchedule>,
+    seatAllocationRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'seat-allocation',
+    ).asRepository() as unknown as Repository<SeatAllocation>,
   } satisfies SeedAccountRepositories;
   return { repos, users, schools, userTenants, students };
 }

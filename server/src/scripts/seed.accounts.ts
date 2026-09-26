@@ -34,6 +34,9 @@ import { Homework } from '../modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from '../modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from '../modules/homework/entities/homework-submission.entity';
 import { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.entity';
+import { SeatPlan } from '../modules/seat-plans/entities/seat-plan.entity';
+import { SeatPlanSchedule } from '../modules/seat-plans/entities/seat-plan-schedule.entity';
+import { SeatAllocation } from '../modules/seat-plans/entities/seat-allocation.entity';
 import {
   DEMO_ACADEMIC_YEAR,
   ensureAttendanceSeed,
@@ -45,6 +48,7 @@ import {
   ensurePublicHolidaySet,
   ensureRoleTestUsers,
   ensureRoutineSeed,
+  ensureSeatPlanDemoSeed,
   ensureSecondSchoolMembership,
 } from './seed.util';
 import { Shift } from '../modules/routines/entities/shift.entity';
@@ -118,6 +122,9 @@ export interface SeedAccountRepositories {
   homeworkAssignmentRepository: Repository<HomeworkAssignment>;
   homeworkSubmissionRepository: Repository<HomeworkSubmission>;
   syllabusTopicRepository: Repository<SyllabusTopic>;
+  seatPlanRepository: Repository<SeatPlan>;
+  seatPlanScheduleRepository: Repository<SeatPlanSchedule>;
+  seatAllocationRepository: Repository<SeatAllocation>;
 }
 
 /** Creates/repairs the seed accounts, their memberships and the demo
@@ -484,6 +491,56 @@ export async function seedAccounts(
           gradingScaleRevision: scale.revision,
         },
       );
+
+      // [25.8]: seat plans reuse the "First Term Exam" MATH/ENG schedules
+      // `ensureExamsDemoSeed` just created above.
+      const mathSubject = await repos.subjectRepository.findOne({
+        where: { tenant_id: school.id, code: 'MATH' },
+      });
+      const englishSubject = await repos.subjectRepository.findOne({
+        where: { tenant_id: school.id, code: 'ENG' },
+      });
+      const firstTermExam = await repos.examRepository.findOne({
+        where: {
+          tenant_id: school.id,
+          academic_year_id: calendarYear.id,
+          class_id: examClass6.id,
+          name: 'First Term Exam',
+        },
+      });
+      const mathSchedule =
+        firstTermExam && mathSubject
+          ? await repos.examScheduleRepository.findOne({
+              where: { exam_id: firstTermExam.id, subject_id: mathSubject.id },
+            })
+          : null;
+      const englishSchedule =
+        firstTermExam && englishSubject
+          ? await repos.examScheduleRepository.findOne({
+              where: { exam_id: firstTermExam.id, subject_id: englishSubject.id },
+            })
+          : null;
+      if (mathSubject && mathSchedule && englishSchedule) {
+        await ensureSeatPlanDemoSeed(
+          {
+            roomRepository: repos.roomRepository,
+            examRepository: repos.examRepository,
+            examScheduleRepository: repos.examScheduleRepository,
+            seatPlanRepository: repos.seatPlanRepository,
+            seatPlanScheduleRepository: repos.seatPlanScheduleRepository,
+            seatAllocationRepository: repos.seatAllocationRepository,
+          },
+          {
+            schoolId: school.id,
+            academicYearId: calendarYear.id,
+            classId: examClass6.id,
+            mathSubjectId: mathSubject.id,
+            mathScheduleId: mathSchedule.id,
+            englishScheduleId: englishSchedule.id,
+            studentIds: [...studentsA.map((s) => s.id), ...studentsB.map((s) => s.id)],
+          },
+        );
+      }
     }
   }
 }

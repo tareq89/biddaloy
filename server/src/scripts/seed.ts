@@ -46,6 +46,9 @@ import { RoutineSlotTeacher } from '../modules/routines/entities/routine-slot-te
 import { RoutineSubstitution } from '../modules/routines/entities/routine-substitution.entity';
 import { RoutineChangeRequest } from '../modules/routines/entities/routine-change-request.entity';
 import { ensureDemoOrganisation } from './seed.util';
+import { SeatPlan } from '../modules/seat-plans/entities/seat-plan.entity';
+import { SeatPlanSchedule } from '../modules/seat-plans/entities/seat-plan-schedule.entity';
+import { SeatAllocation } from '../modules/seat-plans/entities/seat-allocation.entity';
 
 export { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
 
@@ -170,6 +173,9 @@ export async function seed() {
       homeworkAssignmentRepository: dataSource.getRepository(HomeworkAssignment),
       homeworkSubmissionRepository: dataSource.getRepository(HomeworkSubmission),
       syllabusTopicRepository: dataSource.getRepository(SyllabusTopic),
+      seatPlanRepository: dataSource.getRepository(SeatPlan),
+      seatPlanScheduleRepository: dataSource.getRepository(SeatPlanSchedule),
+      seatAllocationRepository: dataSource.getRepository(SeatAllocation),
     },
     school,
     adminEmail,
