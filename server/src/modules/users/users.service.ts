@@ -476,10 +476,11 @@ export class TeacherService {
     // [36.2.1] Teacher's own employee_id also seeds its staff_profiles row
     // (attendance/leave key off staff_profile_id, not the Teacher table) —
     // same reuse the [36.1.1] migration backfill did for pre-existing
-    // teachers. Profile creation + Teacher save run in one transaction so a
-    // failure here (e.g. the section-assignment validation below) can't
-    // leave an orphaned staff_profiles row that then blocks retry via
-    // createFor's "already has a staff profile" guard.
+    // teachers. Profile creation, Teacher save, and section assignment all
+    // run in one transaction so a failure anywhere in this method (e.g. the
+    // section-assignment validation) can't leave an orphaned staff_profiles
+    // or Teacher row that then blocks retry via createFor's "already has a
+    // staff profile" / "already has a teacher profile" guards.
     const joiningDate = dto.joining_date ? new Date(dto.joining_date) : null;
     const savedTeacher = await this.userRepo.manager.transaction(async (manager) => {
       const staffProfile = await this.staffProfilesService.createFor(
@@ -498,32 +499,34 @@ export class TeacherService {
         tenant_id: tenantId,
         staff_profile_id: staffProfile.id,
       });
-      return manager.save(teacher);
-    });
+      const teacherSaved = await manager.save(teacher);
 
-    // Assign sections if provided
-    if (dto.assigned_section_ids?.length) {
-      // Validate all sections belong to tenant
-      const sectionCount = await this.sectionRepo.count({
-        where: {
-          id: In(dto.assigned_section_ids),
-          tenant_id: tenantId,
-          deleted_at: IsNull(),
-        },
-      });
-      if (sectionCount !== dto.assigned_section_ids.length) {
-        throw new NotFoundException('One or more assigned sections not found');
+      // Assign sections if provided
+      if (dto.assigned_section_ids?.length) {
+        // Validate all sections belong to tenant
+        const sectionCount = await manager.count(ClassSection, {
+          where: {
+            id: In(dto.assigned_section_ids),
+            tenant_id: tenantId,
+            deleted_at: IsNull(),
+          },
+        });
+        if (sectionCount !== dto.assigned_section_ids.length) {
+          throw new NotFoundException('One or more assigned sections not found');
+        }
+
+        const tcsEntries = dto.assigned_section_ids.map((sectionId) =>
+          manager.create(TeacherClassSection, {
+            teacher_id: teacherSaved.id,
+            section_id: sectionId,
+            tenant_id: tenantId,
+          }),
+        );
+        await manager.save(tcsEntries);
       }
 
-      const tcsEntries = dto.assigned_section_ids.map((sectionId) =>
-        this.tcsRepo.create({
-          teacher_id: savedTeacher.id,
-          section_id: sectionId,
-          tenant_id: tenantId,
-        }),
-      );
-      await this.tcsRepo.save(tcsEntries);
-    }
+      return teacherSaved;
+    });
 
     return this.teacherRepo.findOne({
       where: { id: savedTeacher.id },

@@ -44,6 +44,10 @@ import { GradingModule } from './modules/grading/grading.module';
 import { ExamsModule } from './modules/exams/exams.module';
 import { HomeworkModule } from './modules/homework/homework.module';
 import { StaffProfilesModule } from './modules/staff-profiles/staff-profiles.module';
+import { StaffProfile } from './modules/staff-profiles/entities/staff-profile.entity';
+import { StaffAttendanceModule } from './modules/staff-attendance/staff-attendance.module';
+import { StaffAttendanceSession } from './modules/staff-attendance/entities/staff-attendance-session.entity';
+import { StaffAttendanceRecord } from './modules/staff-attendance/entities/staff-attendance-record.entity';
 import { Homework } from './modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from './modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from './modules/homework/entities/homework-submission.entity';
@@ -209,6 +213,17 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
             HomeworkAssignment,
             HomeworkSubmission,
             SyllabusTopic,
+            // [36.1.1] StaffProfile was missing from this list — the
+            // TypeORM connection built here only knows the entities named
+            // in this array, so `StaffProfilesService` (and anything else
+            // that queries `StaffProfile` through the app's real
+            // `DataSource`, e.g. the e2e suite) hit
+            // `EntityMetadataNotFoundError` despite `StaffProfilesModule`
+            // registering it via `forFeature`. Fixed here as part of
+            // [36.2.2] since it blocked this ticket's own e2e test.
+            StaffProfile,
+            StaffAttendanceSession,
+            StaffAttendanceRecord,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],
@@ -288,6 +303,7 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
     ExamsModule,
     HomeworkModule,
     StaffProfilesModule,
+    StaffAttendanceModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
