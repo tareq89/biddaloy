@@ -96,4 +96,7 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   // Epic 787's seat-plan entities (SeatPlan, SeatPlanSchedule,
   // SeatAllocation) got a workbook tab in [25.5] (#1054). No exemption
   // entries left for them.
+  // Epic 34.0's programs spine — Program, ProgramMilestone,
+  // ProgramEnrollment, MilestoneAchievement — got a workbook tab in
+  // [34.1.4]. No exemption entries left for them.
 ]);

@@ -28,6 +28,8 @@ import type { Homework } from '../modules/homework/entities/homework.entity';
 import type { HomeworkAssignment } from '../modules/homework/entities/homework-assignment.entity';
 import type { HomeworkSubmission } from '../modules/homework/entities/homework-submission.entity';
 import type { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.entity';
+import type { Program } from '../modules/programs/entities/program.entity';
+import type { ProgramMilestone } from '../modules/programs/entities/program-milestone.entity';
 import type { Shift } from '../modules/routines/entities/shift.entity';
 import type { PeriodSlot } from '../modules/routines/entities/period-slot.entity';
 import type { Room } from '../modules/routines/entities/room.entity';
@@ -48,6 +50,7 @@ import {
   ensureDemoStudents,
   ensureGradingDemoSeed,
   ensureHomeworkDemoSeed,
+  ensureProgramsDemoSeed,
   ensurePublicHolidaySet,
   ensureRoutineSeed,
   BD_NCTB_BANDS,
@@ -1431,6 +1434,61 @@ describe('ensureHomeworkDemoSeed', () => {
     expect(result).toEqual({ homework: 0, assignments: 0, submissions: 0, syllabusTopics: 0 });
     expect(vi.mocked(repos.homeworkRepository.create)).not.toHaveBeenCalled();
     expect(vi.mocked(repos.homeworkSubmissionRepository.create)).not.toHaveBeenCalled();
+  });
+});
+
+describe('ensureProgramsDemoSeed', () => {
+  function programsRepos() {
+    return {
+      programRepository: mockRepo<Program>(),
+      programMilestoneRepository: mockRepo<ProgramMilestone>(),
+    };
+  }
+
+  const PARAMS = { schoolId: 'school-1' };
+
+  it('creates "Hifz" with 30 milestones and "Debate club" with none', async () => {
+    const repos = programsRepos();
+    vi.mocked(repos.programRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.programMilestoneRepository.findOne).mockResolvedValue(null);
+
+    const result = await ensureProgramsDemoSeed(repos, PARAMS);
+
+    expect(result).toEqual({ programs: 2, milestones: 30 });
+
+    const programPayloads = vi
+      .mocked(repos.programRepository.create)
+      .mock.calls.map(([payload]) => payload as Partial<Program>);
+    expect(programPayloads.map((p) => p.name)).toEqual(['Hifz', 'Debate club']);
+    expect(programPayloads.find((p) => p.name === 'Hifz')?.show_on_report_card).toBe(true);
+    expect(programPayloads.find((p) => p.name === 'Debate club')?.show_on_report_card).toBe(false);
+    expect(programPayloads.every((p) => p.tenant_id === PARAMS.schoolId)).toBe(true);
+
+    const milestonePayloads = vi
+      .mocked(repos.programMilestoneRepository.create)
+      .mock.calls.map(([payload]) => payload as Partial<ProgramMilestone>);
+    expect(milestonePayloads).toHaveLength(30);
+    expect(milestonePayloads.map((m) => m.name)).toEqual(
+      Array.from({ length: 30 }, (_, i) => `Para ${i + 1}`),
+    );
+    expect(milestonePayloads.map((m) => m.sequence)).toEqual(
+      Array.from({ length: 30 }, (_, i) => i + 1),
+    );
+    expect(milestonePayloads.every((m) => m.tenant_id === PARAMS.schoolId)).toBe(true);
+  });
+
+  it('is idempotent: a second run against an already-seeded database creates nothing new', async () => {
+    const repos = programsRepos();
+    vi.mocked(repos.programRepository.findOne).mockResolvedValue({ id: 'program-1' } as Program);
+    vi.mocked(repos.programMilestoneRepository.findOne).mockResolvedValue({
+      id: 'milestone-1',
+    } as ProgramMilestone);
+
+    const result = await ensureProgramsDemoSeed(repos, PARAMS);
+
+    expect(result).toEqual({ programs: 0, milestones: 0 });
+    expect(vi.mocked(repos.programRepository.create)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.programMilestoneRepository.create)).not.toHaveBeenCalled();
   });
 });
 

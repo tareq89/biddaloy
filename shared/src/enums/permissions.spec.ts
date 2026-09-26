@@ -113,10 +113,12 @@ describe('family read grants [5.1]', () => {
     // [22.1.1] D26 — families get only the two homework/syllabus reads.
     Permission.HOMEWORK_READ,
     Permission.SYLLABUS_READ,
+    // [34.1.1] D4 — families get only PROGRAM_READ.
+    Permission.PROGRAM_READ,
   ] as const;
 
   for (const role of FAMILY_ROLES) {
-    it(`grants ${role} exactly STUDENT_READ, FEE_READ, INVOICE_READ, ATTENDANCE_READ, CALENDAR_READ, RESULT_READ, ROUTINE_READ, HOMEWORK_READ and SYLLABUS_READ`, () => {
+    it(`grants ${role} exactly STUDENT_READ, FEE_READ, INVOICE_READ, ATTENDANCE_READ, CALENDAR_READ, RESULT_READ, ROUTINE_READ, HOMEWORK_READ, SYLLABUS_READ and PROGRAM_READ`, () => {
       expect([...ROLE_PERMISSIONS[role]].sort()).toEqual([...FAMILY_PERMISSIONS].sort());
     });
   }
@@ -210,6 +212,35 @@ describe('family read grants [5.1]', () => {
   for (const [role, expected] of STAFF_HOMEWORK_EXPECTATIONS) {
     it(`grants ${role} exactly the D26 homework/syllabus permission set`, () => {
       const actual = HOMEWORK_PERMISSIONS.filter((permission) =>
+        ROLE_PERMISSIONS[role].includes(permission),
+      );
+      expect([...actual].sort()).toEqual([...expected].sort());
+    });
+  }
+
+  /**
+   * [34.1.1] D4's role table, pinned exactly — ADMIN and EXECUTIVE hold all
+   * three program permissions; TEACHER holds READ+RECORD; STUDENT/PARENT
+   * hold exactly PROGRAM_READ; ACCOUNTANT holds none.
+   */
+  const PROGRAM_PERMISSIONS = [
+    Permission.PROGRAM_READ,
+    Permission.PROGRAM_MANAGE,
+    Permission.PROGRAM_RECORD,
+  ] as const;
+
+  const STAFF_PROGRAM_EXPECTATIONS: ReadonlyArray<readonly [UserRole, readonly Permission[]]> = [
+    [UserRole.ADMIN, [...PROGRAM_PERMISSIONS]],
+    [UserRole.EXECUTIVE, [...PROGRAM_PERMISSIONS]],
+    [UserRole.ACCOUNTANT, []],
+    [UserRole.TEACHER, [Permission.PROGRAM_READ, Permission.PROGRAM_RECORD]],
+    [UserRole.STUDENT, [Permission.PROGRAM_READ]],
+    [UserRole.PARENT, [Permission.PROGRAM_READ]],
+  ];
+
+  for (const [role, expected] of STAFF_PROGRAM_EXPECTATIONS) {
+    it(`grants ${role} exactly the D4 program permission set`, () => {
+      const actual = PROGRAM_PERMISSIONS.filter((permission) =>
         ROLE_PERMISSIONS[role].includes(permission),
       );
       expect([...actual].sort()).toEqual([...expected].sort());

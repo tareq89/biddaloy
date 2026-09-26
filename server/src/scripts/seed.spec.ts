@@ -48,6 +48,8 @@ import type { PromotionEntry } from '../modules/promotions/entities/promotion-en
 import type { SeatPlan } from '../modules/seat-plans/entities/seat-plan.entity';
 import type { SeatPlanSchedule } from '../modules/seat-plans/entities/seat-plan-schedule.entity';
 import type { SeatAllocation } from '../modules/seat-plans/entities/seat-allocation.entity';
+import type { Program } from '../modules/programs/entities/program.entity';
+import type { ProgramMilestone } from '../modules/programs/entities/program-milestone.entity';
 import { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
 import { ensureDemoOrganisation } from './seed.util';
 
@@ -307,6 +309,14 @@ function makeRepos() {
       clock,
       'seat-allocation',
     ).asRepository() as unknown as Repository<SeatAllocation>,
+    programRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'program',
+    ).asRepository() as unknown as Repository<Program>,
+    programMilestoneRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'program-milestone',
+    ).asRepository() as unknown as Repository<ProgramMilestone>,
   } satisfies SeedAccountRepositories;
   return { repos, users, schools, userTenants, students };
 }

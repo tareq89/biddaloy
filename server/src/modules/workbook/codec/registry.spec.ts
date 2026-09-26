@@ -97,6 +97,12 @@ describe('EXPECTED_TABS', () => {
       'seat_plans',
       'seat_plan_schedules',
       'seat_allocations',
+      // [34.1.4] Epic 34.0's programs spine — see EXPECTED_TABS's own
+      // comment in registry.ts.
+      'programs',
+      'program_milestones',
+      'program_enrollments',
+      'milestone_achievements',
     ]);
   });
 

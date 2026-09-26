@@ -25,6 +25,7 @@ import {
   PromotionRunStatus,
   PlacementAlgorithm,
   PromotionOutcome,
+  ProgramEnrollmentStatus,
 } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -64,6 +65,10 @@ import { HomeworkSubmission } from '../src/modules/homework/entities/homework-su
 import { SyllabusTopic } from '../src/modules/homework/entities/syllabus-topic.entity';
 import { PromotionRun } from '../src/modules/promotions/entities/promotion-run.entity';
 import { PromotionEntry } from '../src/modules/promotions/entities/promotion-entry.entity';
+import { Program } from '../src/modules/programs/entities/program.entity';
+import { ProgramMilestone } from '../src/modules/programs/entities/program-milestone.entity';
+import { ProgramEnrollment } from '../src/modules/programs/entities/program-enrollment.entity';
+import { MilestoneAchievement } from '../src/modules/programs/entities/milestone-achievement.entity';
 import { DEMO_ORGANISATION, ensureDemoStudents, SEED_DEVICE_KEY } from '../src/scripts/seed.util';
 import { ImportStagingService } from '../src/modules/bulk-import/import-staging.service';
 import { ValidationService } from '../src/modules/workbook/import/validation.service';
@@ -1193,6 +1198,62 @@ describe('workbook round trip (integration)', () => {
       }),
     );
 
+    // [34.1.4] Programs fixture: one Program with two milestones, one
+    // ProgramEnrollment, and one MilestoneAchievement (with `recorded_by`
+    // set) — enough to make all four new workbook tabs non-empty.
+    const program = await dataSource.getRepository(Program).save(
+      dataSource.getRepository(Program).create({
+        tenant_id: TENANT_A,
+        name: 'Roundtrip Hifz',
+        description: null,
+        is_active: true,
+        show_on_report_card: true,
+      }),
+    );
+    const [milestoneOne, milestoneTwo] = await dataSource.getRepository(ProgramMilestone).save([
+      dataSource.getRepository(ProgramMilestone).create({
+        tenant_id: TENANT_A,
+        program_id: program.id,
+        name: 'Para 1',
+        description: null,
+        sequence: 1,
+      }),
+      dataSource.getRepository(ProgramMilestone).create({
+        tenant_id: TENANT_A,
+        program_id: program.id,
+        name: 'Para 2',
+        description: null,
+        sequence: 2,
+      }),
+    ]);
+    const programEnrollment = await dataSource.getRepository(ProgramEnrollment).save(
+      dataSource.getRepository(ProgramEnrollment).create({
+        tenant_id: TENANT_A,
+        program_id: program.id,
+        student_id: student.id,
+        started_on: '2026-01-05',
+        ended_on: null,
+        status: ProgramEnrollmentStatus.ACTIVE,
+      }),
+    );
+    await dataSource.getRepository(MilestoneAchievement).save(
+      dataSource.getRepository(MilestoneAchievement).create({
+        tenant_id: TENANT_A,
+        enrollment_id: programEnrollment.id,
+        milestone_id: milestoneOne.id,
+        achieved_on: '2026-01-15',
+        recorded_by: USER_ID,
+        score: '95.00',
+        grade: 'A',
+        remark: 'Recited from memory',
+      }),
+    );
+    // A second milestone with no achievement recorded exercises the
+    // "milestone present, achievement absent" branch of `program_milestones`
+    // without also asserting anything about `milestoneTwo` — it just needs
+    // to exist so `program_milestones` has more than one row.
+    void milestoneTwo;
+
     // --- [788] Promotion run/entries: one COMMITTED run with one override
     // entry (note preserved through restore) -----------------------------
     const nextYear = await dataSource.getRepository(AcademicYear).save(
@@ -1384,6 +1445,10 @@ describe('workbook round trip (integration)', () => {
       'syllabus_topics',
       'promotion_runs',
       'promotion_entries',
+      'programs',
+      'program_milestones',
+      'program_enrollments',
+      'milestone_achievements',
     ];
     const empty = mustBeNonEmpty.filter((tab) => !(rowCounts[tab] ?? 0));
     expect(empty, `fixture produced no rows for: ${empty.join(', ')}`).toEqual([]);

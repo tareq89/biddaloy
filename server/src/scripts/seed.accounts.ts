@@ -40,6 +40,8 @@ import { PromotionEntry } from '../modules/promotions/entities/promotion-entry.e
 import { SeatPlan } from '../modules/seat-plans/entities/seat-plan.entity';
 import { SeatPlanSchedule } from '../modules/seat-plans/entities/seat-plan-schedule.entity';
 import { SeatAllocation } from '../modules/seat-plans/entities/seat-allocation.entity';
+import { Program } from '../modules/programs/entities/program.entity';
+import { ProgramMilestone } from '../modules/programs/entities/program-milestone.entity';
 import {
   DEMO_ACADEMIC_YEAR,
   ensureAttendanceSeed,
@@ -48,6 +50,7 @@ import {
   ensureExamsDemoSeed,
   ensureGradingDemoSeed,
   ensureHomeworkDemoSeed,
+  ensureProgramsDemoSeed,
   ensurePromotionDemoSeed,
   ensurePublicHolidaySet,
   ensureRoleTestUsers,
@@ -132,6 +135,8 @@ export interface SeedAccountRepositories {
   seatPlanRepository: Repository<SeatPlan>;
   seatPlanScheduleRepository: Repository<SeatPlanSchedule>;
   seatAllocationRepository: Repository<SeatAllocation>;
+  programRepository: Repository<Program>;
+  programMilestoneRepository: Repository<ProgramMilestone>;
 }
 
 /** Creates/repairs the seed accounts, their memberships and the demo
@@ -448,6 +453,18 @@ export async function seedAccounts(
       );
     }
   }
+
+  // [34.1.4]: two tenant-wide programs ("Hifz" with 30 milestones, "Debate
+  // club" with none) — placed right after the homework block above since
+  // both are simple demo fixtures with no ordering dependency on it, just
+  // grouped near it in the file.
+  await ensureProgramsDemoSeed(
+    {
+      programRepository: repos.programRepository,
+      programMilestoneRepository: repos.programMilestoneRepository,
+    },
+    { schoolId: school.id },
+  );
 
   // [19.10.1]: demo exams/marks/results on top of "Class 6"'s two sections
   // — deliberately after both `ensureGradingDemoSeed` (the BD NCTB scale

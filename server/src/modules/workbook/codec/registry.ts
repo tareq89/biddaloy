@@ -15,6 +15,7 @@ import { promotionEntriesTab } from '../tabs/people/promotion-entries.tab';
 import { seatPlansTab } from '../tabs/exams/seat-plans.tab';
 import { seatPlanSchedulesTab } from '../tabs/exams/seat-plan-schedules.tab';
 import { seatAllocationsTab } from '../tabs/exams/seat-allocations.tab';
+import { programsTabs } from '../tabs/programs';
 
 /**
  * Every tab name a backup workbook may contain, in apply order (epic 14.0
@@ -92,6 +93,15 @@ export const EXPECTED_TABS = [
   'seat_plans',
   'seat_plan_schedules',
   'seat_allocations',
+  // [34.1.4] Epic 34.0's programs spine. Appended at the end: `programs`
+  // has no dependency of its own, but `program_enrollments` depends on
+  // `students` (people lane, registered earlier in ALL_TABS below) and
+  // `milestone_achievements` depends on `program_enrollments` and
+  // `program_milestones`, both of which must precede it in this list.
+  'programs',
+  'program_milestones',
+  'program_enrollments',
+  'milestone_achievements',
 ] as const;
 
 export type ExpectedTabName = (typeof EXPECTED_TABS)[number];
@@ -126,6 +136,10 @@ export const ALL_TABS: readonly TabSpec<any, any>[] = [
   seatPlansTab,
   seatPlanSchedulesTab,
   seatAllocationsTab,
+  // [34.1.4] Appended after every lane's own barrel, not folded into
+  // `peopleTabs` — see the `EXPECTED_TABS` comment above on why these four
+  // must come last.
+  ...programsTabs,
 ];
 
 export class RegistryError extends Error {
