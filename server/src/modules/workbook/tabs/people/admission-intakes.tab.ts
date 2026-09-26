@@ -156,6 +156,28 @@ export const admissionIntakesTab: TabSpec<AdmissionIntake, AdmissionIntakeRow> =
       });
     }
 
+    if ((values.open_date as string) > (values.close_date as string)) {
+      errors.push({
+        tab: 'admission_intakes',
+        row: rowNo,
+        column: 'close_date',
+        message: 'Column "close_date": must not be earlier than "open_date".',
+        severity: 'error',
+        value: cells.close_date ?? '',
+      });
+    }
+
+    if (typeof values.seat_count === 'number' && values.seat_count < 0) {
+      errors.push({
+        tab: 'admission_intakes',
+        row: rowNo,
+        column: 'seat_count',
+        message: 'Column "seat_count": must not be negative.',
+        severity: 'error',
+        value: cells.seat_count ?? '',
+      });
+    }
+
     if (errors.length > 0) return { errors };
 
     return {

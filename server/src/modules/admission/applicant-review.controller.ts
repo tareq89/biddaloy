@@ -81,7 +81,7 @@ export class ApplicantReviewController {
   @ApiOperation({ summary: 'Reject an applicant. No student record is created.' })
   reject(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: EvaluateApplicantDto,
+    @Body() dto: AdmitApplicantDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ) {

@@ -18,7 +18,8 @@ function assertDateRange(openDate: string, closeDate: string): void {
  * `AdmissionIntake` entity docstring for why this isn't a stored column. */
 function withStatus(intake: AdmissionIntake): IntakeWithStatus {
   const today = new Date().toISOString().slice(0, 10);
-  const status: IntakeStatus = today >= intake.open_date && today <= intake.close_date ? 'OPEN' : 'CLOSED';
+  const status: IntakeStatus =
+    today >= intake.open_date && today <= intake.close_date ? 'OPEN' : 'CLOSED';
   return { ...intake, status };
 }
 
@@ -59,13 +60,22 @@ export class IntakeService {
     return this.findOne(id, tenantId);
   }
 
-  /** Closes the intake immediately by pulling `close_date` back to today,
-   * rather than a separate stored flag — keeps status derivation the one
-   * source of truth. */
+  /** Closes the intake immediately by pulling `close_date` back to
+   * yesterday, rather than a separate stored flag — keeps status
+   * derivation the one source of truth. `withStatus` treats today as still
+   * OPEN when `close_date` is today, so yesterday (not today) is what
+   * actually closes it right away. If `open_date` is today or later, pull
+   * it back to the same date too, so the range never inverts. */
   async close(id: string, tenantId: string): Promise<IntakeWithStatus> {
-    await this.findOne(id, tenantId);
+    const current = await this.findOne(id, tenantId);
     const today = new Date().toISOString().slice(0, 10);
-    await this.repo.update({ id, tenant_id: tenantId }, { close_date: today });
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const closeDate = yesterday;
+    const openDate = current.open_date >= today ? closeDate : current.open_date;
+    await this.repo.update(
+      { id, tenant_id: tenantId },
+      { open_date: openDate, close_date: closeDate },
+    );
     return this.findOne(id, tenantId);
   }
 }

@@ -107,8 +107,12 @@ export class SchoolsService {
    * `null` rather than throwing so the caller can 404 without leaking
    * whether the slug ever existed.
    */
+  /** Only an ACTIVE school resolves — mirrors `ContextGuard`'s own
+   * `status !== 'ACTIVE'` check. The public admission routes have no
+   * guards, so this is the only place that keeps a suspended school's
+   * slug from still serving intakes/applications/status checks. */
   async findBySlug(slug: string): Promise<School | null> {
-    return this.repo.findOne({ where: { slug } });
+    return this.repo.findOne({ where: { slug, status: 'ACTIVE' } });
   }
 
   /**

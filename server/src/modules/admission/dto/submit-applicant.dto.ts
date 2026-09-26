@@ -1,5 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsIn, IsOptional, IsString, IsUUID, Length } from 'class-validator';
+import {
+  IsDateString,
+  IsEmail,
+  IsIn,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Length,
+  MaxLength,
+} from 'class-validator';
 
 /**
  * [27.2] `POST /public/admission/:slug/applicants` — multipart body from an
@@ -17,7 +26,7 @@ export class SubmitApplicantDto {
   @Length(1, 200)
   applicant_name: string;
 
-  @IsString()
+  @IsDateString()
   date_of_birth: string;
 
   @IsString()
@@ -34,6 +43,7 @@ export class SubmitApplicantDto {
 
   @IsOptional()
   @IsEmail()
+  @MaxLength(200)
   guardian_email?: string;
 
   @IsOptional()
