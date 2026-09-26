@@ -104,6 +104,45 @@ export interface CapacityOk {
  * into that grouping; when omitted (or empty), every schedule is treated as
  * one group and seats sum lump-sum, same as before.
  */
+/**
+ * Groups schedule ids into overlap-connected clusters — two schedules
+ * without timing info (not in `scheduleById`) are conservatively assumed to
+ * overlap with everything. Schedules in the same cluster compete for the
+ * same room-time window and must be allocated together (one combined
+ * `allocateSeats` pass); schedules in different clusters don't overlap in
+ * time and may each independently reuse a room's full capacity. Shared by
+ * `checkCapacity` (capacity math) and `SeatPlansService.generate` (the
+ * actual seat assignment) so the two stay consistent — see #1059 review:
+ * checkCapacity's clustering without a matching clustered allocation could
+ * silently drop students from non-overlapping sittings into `unassigned`.
+ */
+export function clusterSchedules(
+  scheduleIds: string[],
+  scheduleById: Map<string, ScheduleInput>,
+): string[][] {
+  const visited = new Set<string>();
+  const clusters: string[][] = [];
+  for (const id of scheduleIds) {
+    if (visited.has(id)) continue;
+    const cluster = [id];
+    visited.add(id);
+    for (let i = 0; i < cluster.length; i++) {
+      const current = scheduleById.get(cluster[i]);
+      for (const other of scheduleIds) {
+        if (visited.has(other)) continue;
+        const otherSchedule = scheduleById.get(other);
+        const bothTimed = current && otherSchedule;
+        if (!bothTimed || overlaps(current, otherSchedule)) {
+          visited.add(other);
+          cluster.push(other);
+        }
+      }
+    }
+    clusters.push(cluster);
+  }
+  return clusters;
+}
+
 export function checkCapacity(
   roster: RosterEntry[],
   selectedRooms: RoomInput[],
@@ -122,29 +161,10 @@ export function checkCapacity(
   const scheduleIds = [...neededByScheduleId.keys()];
   const scheduleById = new Map(schedules.map((s) => [s.id, s]));
 
-  // Group schedule ids into overlap-connected clusters. Two schedules
-  // without timing info (not in `scheduleById`) are conservatively assumed
-  // to overlap with everything, preserving the old lump-sum behavior.
-  const visited = new Set<string>();
-  const clusterNeeds: number[] = [];
-  for (const id of scheduleIds) {
-    if (visited.has(id)) continue;
-    const cluster = [id];
-    visited.add(id);
-    for (let i = 0; i < cluster.length; i++) {
-      const current = scheduleById.get(cluster[i]);
-      for (const other of scheduleIds) {
-        if (visited.has(other)) continue;
-        const otherSchedule = scheduleById.get(other);
-        const bothTimed = current && otherSchedule;
-        if (!bothTimed || overlaps(current, otherSchedule)) {
-          visited.add(other);
-          cluster.push(other);
-        }
-      }
-    }
-    clusterNeeds.push(cluster.reduce((sum, cid) => sum + (neededByScheduleId.get(cid) ?? 0), 0));
-  }
+  const clusters = clusterSchedules(scheduleIds, scheduleById);
+  const clusterNeeds = clusters.map((cluster) =>
+    cluster.reduce((sum, cid) => sum + (neededByScheduleId.get(cid) ?? 0), 0),
+  );
   const seats_needed = clusterNeeds.length ? Math.max(...clusterNeeds) : 0;
 
   if (seats_available >= seats_needed) {

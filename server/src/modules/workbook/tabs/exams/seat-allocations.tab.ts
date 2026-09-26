@@ -109,6 +109,7 @@ export const seatAllocationsTab: TabSpec<SeatAllocation, SeatAllocationRow> = {
     return m.find(SeatAllocation, {
       where: { tenant_id: tenantId },
       relations: [
+        'seat_plan',
         'exam_schedule',
         'exam_schedule.exam',
         'exam_schedule.exam.academic_year',

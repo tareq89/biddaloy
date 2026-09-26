@@ -184,12 +184,19 @@ test.describe.serial('seat plans: generate -> reseat -> reshuffle -> publish', (
     });
     await reseatButtons.first().click();
     await expect(page.getByRole('dialog')).toBeVisible();
-    await page.getByRole('combobox', { name: t('seatPlansDetail.reseat.roomLabel') }).click();
-    // Whichever room isn't already selected — the two seeded rooms are the
-    // only two options, so picking "not roomA" always lands on roomB or
-    // vice versa.
-    const roomOptions = page.getByRole('option');
-    await roomOptions.last().click();
+    const roomCombobox = page.getByRole('combobox', {
+      name: t('seatPlansDetail.reseat.roomLabel'),
+    });
+    // The room list is sorted by room_id (a UUID), not name, so this
+    // student's current room can't be predicted at authoring time — and
+    // the tenant has other rooms (seed data, routine rooms) beyond the two
+    // this test created, so `last()` can land on a room this plan never
+    // used. Read the current value, then pick whichever of this test's own
+    // two rooms differs from it.
+    const currentRoom = await roomCombobox.innerText();
+    const targetRoomName = currentRoom.includes(roomAName) ? roomBName : roomAName;
+    await roomCombobox.click();
+    await page.getByRole('option', { name: targetRoomName }).click();
     await page.getByRole('button', { name: t('seatPlansDetail.reseat.submit') }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
 

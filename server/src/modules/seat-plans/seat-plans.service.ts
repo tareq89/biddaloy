@@ -28,12 +28,15 @@ import {
   allocateSeats,
   checkCapacity,
   checkRoomConflicts,
+  clusterSchedules,
   computeRoster,
   reshuffleRoom as reshuffleRoomAllocation,
   type EnrollmentInput,
   type ExistingAllocationRoom,
   type RoomInput,
+  type RosterEntry,
   type ScheduleInput,
+  type SeatAssignment,
   type SectionInput,
 } from './allocation';
 
@@ -247,7 +250,35 @@ export class SeatPlansService {
     const existingPublished = await this.loadPublishedAllocationsForRooms(tenantId, roomIds);
     const conflicts = checkRoomConflicts(roomIds, scheduleTimings, existingPublished);
 
-    const { assignments } = allocateSeats(roster, roomInputs, dto.seat_order_mode);
+    // Non-overlapping schedules may each reuse a room's full capacity
+    // (checkCapacity's clustering above already assumes this) — so
+    // allocation must run per overlap-cluster too, not once across the
+    // combined roster, or a schedule outside the first cluster silently
+    // loses students to `unassigned` with no error (#1059 review).
+    const scheduleById = new Map(scheduleTimings.map((s) => [s.id, s]));
+    const rosterByScheduleId = new Map<string, RosterEntry[]>();
+    for (const entry of roster) {
+      const group = rosterByScheduleId.get(entry.exam_schedule_id) ?? [];
+      group.push(entry);
+      rosterByScheduleId.set(entry.exam_schedule_id, group);
+    }
+    const clusters = clusterSchedules([...rosterByScheduleId.keys()], scheduleById);
+    const assignments: SeatAssignment[] = [];
+    for (const cluster of clusters) {
+      const clusterRoster = cluster.flatMap((id) => rosterByScheduleId.get(id) ?? []);
+      const clusterResult = allocateSeats(clusterRoster, roomInputs, dto.seat_order_mode);
+      if (clusterResult.unassigned.length > 0) {
+        throw new BadRequestException({
+          message: 'Not enough room capacity for the selected subject sittings',
+          details: {
+            code: 'SEAT_CAPACITY_SHORTFALL',
+            seats_needed: capacity.seats_needed,
+            seats_available: capacity.seats_available,
+          },
+        });
+      }
+      assignments.push(...clusterResult.assignments);
+    }
 
     const created = await this.dataSource.transaction(async (manager: EntityManager) => {
       const plan = await manager.save(SeatPlan, {
@@ -350,7 +381,17 @@ export class SeatPlansService {
       order: { room_id: 'ASC', seat_number: 'ASC' },
     });
 
-    const byRoom = new Map<string, typeof allocations>();
+    return this.mapPlanDetail(plan, allocations);
+  }
+
+  /** Shared by `findOne` and `publish` — both need the same display shape
+   * (room label/capacity, student name/roll/section, subject name,
+   * invigilator name), just loaded through different repos/connections.
+   * See #1059 review: `publish` used to build its response from bare
+   * `SeatAllocation` rows without these relations, leaving the client's
+   * post-publish cache write with blank labels until the next refetch. */
+  private mapPlanDetail(plan: SeatPlan, allocations: SeatAllocation[]) {
+    const byRoom = new Map<string, SeatAllocation[]>();
     for (const allocation of allocations) {
       const list = byRoom.get(allocation.room_id) ?? [];
       list.push(allocation);
@@ -666,21 +707,21 @@ export class SeatPlansService {
       // connection — under READ COMMITTED it would run on a different
       // session than the `save` above and see the pre-commit (still DRAFT)
       // row, handing the caller a stale status right after a successful
-      // publish. Build the same `{ ...plan, rooms }` shape from data already
-      // fetched on `manager` in this transaction instead.
-      const byRoom = new Map<string, SeatAllocation[]>();
-      for (const allocation of allocations) {
-        const list = byRoom.get(allocation.room_id) ?? [];
-        list.push(allocation);
-        byRoom.set(allocation.room_id, list);
-      }
-      return {
-        ...publishedPlan,
-        rooms: [...byRoom.entries()].map(([room_id, roomAllocations]) => ({
-          room_id,
-          allocations: roomAllocations,
-        })),
-      };
+      // publish. Re-load allocations WITH the same display relations
+      // `findOne` uses (student/room/subject/invigilator), on `manager` so
+      // it sees the just-published status, then reuse `mapPlanDetail` for
+      // the same shape the client's detail cache expects.
+      const detailAllocations = await manager.getRepository(SeatAllocation).find({
+        where: { tenant_id: tenantId, seat_plan_id: planId },
+        relations: {
+          student: { class_section: true },
+          room: true,
+          exam_schedule: { subject: true },
+          invigilator: true,
+        },
+        order: { room_id: 'ASC', seat_number: 'ASC' },
+      });
+      return this.mapPlanDetail(publishedPlan, detailAllocations);
     });
   }
 }

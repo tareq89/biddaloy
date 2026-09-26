@@ -2372,9 +2372,10 @@ export async function ensureSeatPlanDemoSeed(
 
   // --- rooms ----------------------------------------------------------------
   async function ensureRoom(roomNo: string, capacity: number): Promise<Room> {
-    let room = await repos.roomRepository.findOne({
-      where: { tenant_id: schoolId, room_no: roomNo },
-    });
+    let room = await findLivePreferred(repos.roomRepository, {
+      tenant_id: schoolId,
+      room_no: roomNo,
+    } as FindOptionsWhere<Room>);
     if (!room) {
       room = repos.roomRepository.create({
         tenant_id: schoolId,
@@ -2384,6 +2385,8 @@ export async function ensureSeatPlanDemoSeed(
       });
       await repos.roomRepository.save(room);
       result.rooms += 1;
+    } else if (room.deleted_at) {
+      room = await repos.roomRepository.save(undelete(room));
     }
     return room;
   }

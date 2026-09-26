@@ -142,6 +142,7 @@ describe('SeatPlansService', () => {
       findOne: vi.fn(async () => null),
       createQueryBuilder: vi.fn(() => qb([])),
       query: vi.fn(async () => []), // publish()'s pg_advisory_xact_lock — no-op in unit tests
+      getRepository: vi.fn(() => ({ find: vi.fn(async () => []) })), // publish()'s post-save detail reload
     };
   }
 
@@ -288,6 +289,70 @@ describe('SeatPlansService', () => {
       const forScheduleB = savedAllocations.filter((a) => a.exam_schedule_id === SCHEDULE_B);
       expect(forScheduleA.map((a) => a.student_id)).toEqual(['s1']);
       expect(forScheduleB.map((a) => a.student_id)).toEqual(['s2']);
+    });
+
+    it('seats every student on two non-overlapping schedules reusing the same room (#1059 review)', async () => {
+      // checkCapacity treats non-overlapping schedules as reusable capacity
+      // (each may independently fill the room), so allocation must run per
+      // overlap-cluster too — one combined allocateSeats() call across both
+      // schedules would fill the room from schedule A alone and silently
+      // drop schedule B's students into `unassigned` with no error.
+      const morning = makeSchedule(SCHEDULE_A, 'class-1', {
+        date: '2026-01-01',
+        starts_at: '09:00:00',
+        ends_at: '11:00:00',
+      });
+      const afternoon = makeSchedule(SCHEDULE_B, 'class-1', {
+        date: '2026-01-01',
+        starts_at: '13:00:00',
+        ends_at: '15:00:00',
+      });
+      examScheduleRepo.find.mockResolvedValue([morning, afternoon]);
+      roomRepo.find.mockResolvedValue([{ id: ROOM_1, capacity: 2, tenant_id: TENANT }]);
+      sectionRepo.find.mockResolvedValue([{ id: SECTION_1, class_id: 'class-1' }]);
+      enrollmentRepo.find.mockResolvedValue([
+        makeEnrollment('s1', 1, 'class-1', SECTION_1),
+        makeEnrollment('s2', 2, 'class-1', SECTION_1),
+      ]);
+      seatPlanRepo.findOne.mockResolvedValue({
+        id: 'SeatPlan-1',
+        tenant_id: TENANT,
+        status: SeatPlanStatus.DRAFT,
+      });
+
+      let savedAllocations: any[] = [];
+      dataSource.transaction = vi.fn(async (cb: any) => {
+        const manager = {
+          save: vi.fn(async (entityClass: any, value: any) => {
+            if (entityClass.name === 'SeatAllocation')
+              savedAllocations = Array.isArray(value) ? value : [value];
+            const saved = Array.isArray(value)
+              ? value.map((v) => ({ id: 'x', ...v }))
+              : { id: 'x', ...value };
+            return saved;
+          }),
+          find: vi.fn(async () => []),
+          findOne: vi.fn(async () => null),
+          createQueryBuilder: vi.fn(() => qb([])),
+          query: vi.fn(async () => []),
+        };
+        return cb(manager);
+      });
+
+      await service.generate(TENANT, {
+        name: 'Reused room, two non-overlapping sittings',
+        exam_schedule_ids: [SCHEDULE_A, SCHEDULE_B],
+        room_ids: [ROOM_1],
+        seat_order_mode: SeatOrderMode.SEQUENTIAL,
+      });
+
+      // Both students on morning AND both students on afternoon must be
+      // seated — each schedule independently reuses the room's 2 seats,
+      // not shares one pool of 2 seats across both.
+      const forMorning = savedAllocations.filter((a) => a.exam_schedule_id === SCHEDULE_A);
+      const forAfternoon = savedAllocations.filter((a) => a.exam_schedule_id === SCHEDULE_B);
+      expect(forMorning.map((a) => a.student_id).sort()).toEqual(['s1', 's2']);
+      expect(forAfternoon.map((a) => a.student_id).sort()).toEqual(['s1', 's2']);
     });
 
     it('rejects generation reusing a schedule already in a published plan', async () => {
@@ -663,6 +728,7 @@ describe('SeatPlansService', () => {
           save: vi.fn(async (_e: any, v: any) => v),
           createQueryBuilder: vi.fn(() => qb([])),
           query: vi.fn(async () => []),
+          getRepository: vi.fn(() => ({ find: vi.fn(async () => []) })),
         }),
       );
       seatPlanRepo.findOne.mockResolvedValue({
