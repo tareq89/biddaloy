@@ -72,6 +72,12 @@ export class ApplicantReviewService {
         'Use POST /admission/applicants/:id/admit to admit an applicant',
       );
     }
+    if (dto.decision === 'SHORTLIST' && applicant.status !== AdmissionApplicantStatus.PENDING) {
+      // Otherwise a second SHORTLIST decision on an already-SHORTLISTED
+      // applicant re-saves and re-notifies the guardian for no real status
+      // change.
+      throw new ConflictException('Only a pending applicant can be shortlisted');
+    }
 
     await this.evaluations.save(
       this.evaluations.create({
@@ -140,13 +146,45 @@ export class ApplicantReviewService {
       throw new ConflictException(`Cannot admit an applicant with status ${applicant.status}`);
     }
 
-    // ponytail: read-check-then-write with no row lock — two concurrent
-    // admit calls on the same applicant (or two applicants sharing a
-    // guardian phone) can both pass the check and double-write. Add
-    // `SELECT ... FOR UPDATE` on the applicant/guardian lookups here if
-    // concurrent admits become a real scenario (staff review is low-volume
-    // today).
     await this.applicants.manager.transaction(async (manager: EntityManager) => {
+      // Lock the intake row for the duration of the transaction — same
+      // pattern as the public submission path's seat-count check — so two
+      // concurrent admit calls can't both read "seats left" and both admit.
+      const intake = await manager
+        .getRepository(AdmissionIntake)
+        .createQueryBuilder('intake')
+        .setLock('pessimistic_write')
+        .where('intake.id = :id AND intake.tenant_id = :tenantId', {
+          id: applicant.intake_id,
+          tenantId,
+        })
+        .getOne();
+      if (!intake) throw new NotFoundException('Admission intake not found');
+
+      const admittedCount = await manager.getRepository(AdmissionApplicant).count({
+        where: {
+          tenant_id: tenantId,
+          intake_id: intake.id,
+          status: AdmissionApplicantStatus.ADMITTED,
+        },
+      });
+      if (admittedCount >= intake.seat_count) {
+        throw new ConflictException('This intake has no seats left');
+      }
+
+      // Re-read status under the intake lock, closing the race a second
+      // concurrent admit call on the same applicant could otherwise win.
+      const current = await manager
+        .getRepository(AdmissionApplicant)
+        .findOne({ where: { id, tenant_id: tenantId, deleted_at: IsNull() } });
+      if (!current) throw new NotFoundException('Admission applicant not found');
+      if (
+        current.status !== AdmissionApplicantStatus.PENDING &&
+        current.status !== AdmissionApplicantStatus.SHORTLISTED
+      ) {
+        throw new ConflictException(`Cannot admit an applicant with status ${current.status}`);
+      }
+
       const existingGuardian = await this.guardianService.findByPhone(
         applicant.guardian_phone,
         tenantId,
@@ -167,11 +205,10 @@ export class ApplicantReviewService {
           )
         ).id;
 
-      const classSectionId = await this.intakeClassSectionId(applicant.intake_id, manager);
       await this.studentService.create(
         {
           full_name: applicant.applicant_name,
-          class_section_id: classSectionId,
+          class_section_id: intake.class_section_id,
           date_of_birth: applicant.date_of_birth,
           gender: applicant.gender,
           home_address: applicant.home_address ?? undefined,
@@ -199,14 +236,6 @@ export class ApplicantReviewService {
     const updated = await this.findOne(id, tenantId);
     await this.notifyStatusChange(updated);
     return updated;
-  }
-
-  private async intakeClassSectionId(intakeId: string, manager: EntityManager): Promise<string> {
-    const intake = await manager
-      .getRepository(AdmissionIntake)
-      .findOne({ where: { id: intakeId } });
-    if (!intake) throw new NotFoundException('Admission intake not found');
-    return intake.class_section_id;
   }
 
   /** Best-effort — a notification failure must never fail the review

@@ -57,12 +57,15 @@ describe('ApplicantReviewService', () => {
   let studentService: { create: ReturnType<typeof vi.fn> };
   let guardianService: { findByPhone: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn> };
   let notificationService: { notifyStatusChange: ReturnType<typeof vi.fn> };
+  let setLockMock: ReturnType<typeof vi.fn>;
+  let getOneMock: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
     applicantRepo = {
       findOne: vi.fn(),
       update: vi.fn(),
       find: vi.fn(),
+      count: vi.fn(async () => 0),
       manager: {
         transaction: vi.fn(async (cb: (manager: unknown) => Promise<unknown>) =>
           cb({
@@ -83,11 +86,22 @@ describe('ApplicantReviewService', () => {
       },
     };
     evaluationRepo = { create: vi.fn((dto) => dto), save: vi.fn(async (e) => e), find: vi.fn() };
+    const intake = {
+      id: 'intake-1',
+      class_section_id: 'section-1',
+      title: 'Class 1 Admission',
+      seat_count: 2,
+    };
+    setLockMock = vi.fn().mockReturnThis();
+    getOneMock = vi.fn(async () => intake);
     intakeRepo = {
-      findOne: vi.fn(async () => ({
-        id: 'intake-1',
-        class_section_id: 'section-1',
-        title: 'Class 1 Admission',
+      // notifyStatusChange's plain findOne.
+      findOne: vi.fn(async () => intake),
+      // admit()'s locked lookup.
+      createQueryBuilder: vi.fn(() => ({
+        setLock: setLockMock,
+        where: vi.fn().mockReturnThis(),
+        getOne: getOneMock,
       })),
     };
     studentService = { create: vi.fn(async () => ({ id: 'student-1' })) };
@@ -165,6 +179,22 @@ describe('ApplicantReviewService', () => {
       expect(evaluationRepo.save).not.toHaveBeenCalled();
     });
 
+    it('blocks re-shortlisting an already-SHORTLISTED applicant', async () => {
+      applicantRepo.findOne.mockResolvedValueOnce(
+        makeApplicant({ status: AdmissionApplicantStatus.SHORTLISTED }),
+      );
+      await expect(
+        service.evaluate(
+          'applicant-1',
+          { notes: 'Looks good again', decision: 'SHORTLIST' },
+          TENANT_A,
+          REVIEWER,
+        ),
+      ).rejects.toThrow(ConflictException);
+      expect(evaluationRepo.save).not.toHaveBeenCalled();
+      expect(notificationService.notifyStatusChange).not.toHaveBeenCalled();
+    });
+
     it('blocks evaluate once ADMITTED', async () => {
       applicantRepo.findOne.mockResolvedValueOnce(
         makeApplicant({ status: AdmissionApplicantStatus.ADMITTED }),
@@ -189,6 +219,7 @@ describe('ApplicantReviewService', () => {
   describe('admit', () => {
     it('creates exactly one student and reuses an existing guardian by phone', async () => {
       applicantRepo.findOne
+        .mockResolvedValueOnce(makeApplicant({ status: AdmissionApplicantStatus.SHORTLISTED }))
         .mockResolvedValueOnce(makeApplicant({ status: AdmissionApplicantStatus.SHORTLISTED }))
         .mockResolvedValueOnce(makeApplicant({ status: AdmissionApplicantStatus.ADMITTED }));
       guardianService.findByPhone.mockResolvedValueOnce({ id: 'guardian-existing' });
@@ -218,10 +249,12 @@ describe('ApplicantReviewService', () => {
         expect.objectContaining({ status: AdmissionApplicantStatus.ADMITTED }),
         'Class 1 Admission',
       );
+      expect(setLockMock).toHaveBeenCalledWith('pessimistic_write');
     });
 
     it('creates a new guardian when the phone does not match an existing one', async () => {
       applicantRepo.findOne
+        .mockResolvedValueOnce(makeApplicant())
         .mockResolvedValueOnce(makeApplicant())
         .mockResolvedValueOnce(makeApplicant({ status: AdmissionApplicantStatus.ADMITTED }));
       guardianService.findByPhone.mockResolvedValueOnce(null);
@@ -259,6 +292,18 @@ describe('ApplicantReviewService', () => {
       await expect(service.admit('applicant-1', {}, TENANT_A, REVIEWER)).rejects.toThrow(
         ConflictException,
       );
+    });
+
+    it('blocks admit once the intake has no seats left', async () => {
+      applicantRepo.findOne.mockResolvedValueOnce(
+        makeApplicant({ status: AdmissionApplicantStatus.SHORTLISTED }),
+      );
+      applicantRepo.count.mockResolvedValueOnce(2); // seat_count is 2 on the shared intake fixture
+      await expect(service.admit('applicant-1', {}, TENANT_A, REVIEWER)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(studentService.create).not.toHaveBeenCalled();
+      expect(guardianService.findByPhone).not.toHaveBeenCalled();
     });
   });
 

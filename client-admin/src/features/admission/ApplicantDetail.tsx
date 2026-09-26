@@ -74,6 +74,10 @@ export function ApplicantDetail({ applicantId }: { applicantId: string }) {
   const mutable =
     applicant.status !== AdmissionApplicantStatus.ADMITTED &&
     applicant.status !== AdmissionApplicantStatus.REJECTED;
+  // Shortlist only makes sense from PENDING — the server rejects a second
+  // SHORTLIST decision on an already-SHORTLISTED applicant (it would
+  // re-notify the guardian for no real status change).
+  const shortlistable = applicant.status === AdmissionApplicantStatus.PENDING;
 
   function openEvaluate(decision: EvaluateApplicantInput['decision']) {
     setEvaluateDecision(decision);
@@ -101,7 +105,7 @@ export function ApplicantDetail({ applicantId }: { applicantId: string }) {
             id: 'evaluate',
             label: t('detail.actionShortlist'),
             onClick: () => openEvaluate('SHORTLIST'),
-            allowed: mutable,
+            allowed: shortlistable,
             priority: 'secondary',
           },
           {

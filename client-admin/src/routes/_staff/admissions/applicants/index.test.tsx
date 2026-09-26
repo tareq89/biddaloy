@@ -106,6 +106,28 @@ describe('/admissions/applicants', () => {
     await waitFor(() => expect(current.status).toBe('SHORTLISTED'));
   });
 
+  it('hides Shortlist but still shows Admit for an already-SHORTLISTED applicant', async () => {
+    mockIntakes();
+    const shortlisted = { ...applicant, status: 'SHORTLISTED' };
+    server.use(
+      http.get('/api/v1/admission/applicants/:id', () =>
+        HttpResponse.json({ applicant: shortlisted, evaluations: [] }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/admissions/applicants/applicant-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByRole('heading', { name: 'Jane Doe' });
+
+    expect(screen.queryByRole('button', { name: 'Shortlist' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Admit' })).toBeTruthy();
+  });
+
   it('admits an applicant, creating a student+guardian, via the confirm modal', async () => {
     mockIntakes();
     let current = { ...applicant };
