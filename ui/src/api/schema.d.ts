@@ -7441,6 +7441,8 @@ export interface components {
             starts_at: string;
             ends_at: string;
             venue: string | null;
+            room: components["schemas"]["Room"] | null;
+            room_id: string | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
