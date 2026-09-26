@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { ConflictException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { Brackets } from 'typeorm';
 import { ResultsService } from './results.service';
 import { Exam } from './entities/exam.entity';
 import { Result } from './entities/result.entity';
@@ -16,10 +17,24 @@ import { GradingScale } from '../grading/entities/grading-scale.entity';
 import { GradingBand } from '../grading/entities/grading-band.entity';
 import { Subject } from '../academics/entities/subject.entity';
 import { School } from '../schools/entities/school.entity';
+import { AcademicYear } from '../academics/entities/academic-year.entity';
+import { ProgramEnrollment } from '../programs/entities/program-enrollment.entity';
+import { ProgramMilestone } from '../programs/entities/program-milestone.entity';
+import { MilestoneAchievement } from '../programs/entities/milestone-achievement.entity';
 import { AttendanceComponentService } from './attendance-component.service';
 import { MarkGridService } from './mark-grid.service';
 import { AuditService } from '../audit/audit.service';
 import { ExamComponentKind, ExamComponentSource, ExamStatus, MarkStatus } from '@biddaloy/shared';
+
+function fakeQueryBuilder(result: { many?: unknown[] }) {
+  const qb: any = {
+    innerJoinAndSelect: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    andWhere: vi.fn().mockReturnThis(),
+    getMany: vi.fn().mockResolvedValue(result.many ?? []),
+  };
+  return qb;
+}
 
 const TENANT_ID = 'tenant-1';
 const EXAM_ID = 'exam-1';
@@ -197,6 +212,32 @@ function makeRepos(overrides: Record<string, any> = {}) {
     ),
   };
 
+  const academicYearRepo: any = {
+    findOne: vi.fn(
+      async () =>
+        overrides.academicYear ?? {
+          id: YEAR_ID,
+          start_date: '2026-01-01',
+          end_date: '2026-12-31',
+        },
+    ),
+  };
+  const programEnrollmentQb = fakeQueryBuilder({ many: overrides.programEnrollments ?? [] });
+  const programEnrollmentRepo: any = {
+    createQueryBuilder: vi.fn(() => programEnrollmentQb),
+  };
+  const programMilestoneRepo: any = {
+    count: vi.fn(
+      async ({ where }: any) => (overrides.milestoneCounts ?? {})[where.program_id] ?? 0,
+    ),
+  };
+  const achievedCounts = overrides.achievedCounts ?? {};
+  const latestAchievements = overrides.latestAchievements ?? {};
+  const milestoneAchievementRepo: any = {
+    count: vi.fn(async ({ where }: any) => achievedCounts[where.enrollment_id] ?? 0),
+    findOne: vi.fn(async ({ where }: any) => latestAchievements[where.enrollment_id] ?? null),
+  };
+
   const attendanceComponentService = {
     computeForSection: vi.fn(async () => ({ reason: null, valuesByStudent: new Map() })),
   };
@@ -221,6 +262,11 @@ function makeRepos(overrides: Record<string, any> = {}) {
     bandRepo,
     subjectRepo,
     schoolRepo,
+    academicYearRepo,
+    programEnrollmentRepo,
+    programEnrollmentQb,
+    programMilestoneRepo,
+    milestoneAchievementRepo,
     attendanceComponentService,
     gridService,
     auditService,
@@ -246,6 +292,13 @@ async function buildService(overrides: Record<string, any> = {}) {
       { provide: getRepositoryToken(GradingBand), useValue: repos.bandRepo },
       { provide: getRepositoryToken(Subject), useValue: repos.subjectRepo },
       { provide: getRepositoryToken(School), useValue: repos.schoolRepo },
+      { provide: getRepositoryToken(AcademicYear), useValue: repos.academicYearRepo },
+      { provide: getRepositoryToken(ProgramEnrollment), useValue: repos.programEnrollmentRepo },
+      { provide: getRepositoryToken(ProgramMilestone), useValue: repos.programMilestoneRepo },
+      {
+        provide: getRepositoryToken(MilestoneAchievement),
+        useValue: repos.milestoneAchievementRepo,
+      },
       { provide: AttendanceComponentService, useValue: repos.attendanceComponentService },
       { provide: MarkGridService, useValue: repos.gridService },
       { provide: AuditService, useValue: repos.auditService },
@@ -736,5 +789,158 @@ describe('ResultsService.getStudentResultCard (19.9.1)', () => {
   it('returns null when the student has no result for this exam', async () => {
     const { service } = await buildService({ resultForStudent: null });
     expect(await service.getStudentResultCard(EXAM_ID, 'stu-1', TENANT_ID, false)).toBeNull();
+  });
+});
+
+describe('ResultsService.getStudentResultCard — programs (34.2.4, D1, D22)', () => {
+  const RESULT_FOR_CARD = {
+    id: 'result-1',
+    student_id: 'stu-1',
+    total_marks: '85.00',
+    gpa: '5.00',
+    grade: 'A+',
+    position: 1,
+    is_fail: false,
+    grading_scale_id: SCALE_ID,
+  };
+  const CARD_ARGS = [EXAM_ID, 'stu-1', TENANT_ID, false] as const;
+
+  it('returns an empty array when the student has no qualifying enrollment', async () => {
+    const { service } = await buildService({
+      exam: { status: ExamStatus.PUBLISHED },
+      resultForStudent: RESULT_FOR_CARD,
+      programEnrollments: [],
+    });
+
+    const card = await service.getStudentResultCard(...CARD_ARGS);
+    expect(card?.programs).toEqual([]);
+  });
+
+  // `show_on_report_card = true` and the ACTIVE/COMPLETED-in-year window
+  // are enforced in the SQL `WHERE`, so an opted-out program or an
+  // out-of-window COMPLETED one never reaches `getMany()` at all — this
+  // test asserts the query actually carries those filter values.
+  it('the query passes the tenant/student/status/academic-year-window filter values', async () => {
+    const { service, programEnrollmentQb } = await buildService({
+      exam: { status: ExamStatus.PUBLISHED },
+      resultForStudent: RESULT_FOR_CARD,
+      academicYear: { id: YEAR_ID, start_date: '2026-01-01', end_date: '2026-12-31' },
+      programEnrollments: [],
+    });
+
+    await service.getStudentResultCard(...CARD_ARGS);
+
+    expect(programEnrollmentQb.where).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ tenantId: TENANT_ID }),
+    );
+    const topLevelParams = programEnrollmentQb.andWhere.mock.calls
+      .map((c: any) => c[1])
+      .filter(Boolean);
+    expect(Object.assign({}, ...topLevelParams)).toMatchObject({ studentId: 'stu-1' });
+    expect(programEnrollmentQb.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('show_on_report_card = true'),
+    );
+
+    // The ACTIVE/COMPLETED-in-year condition is wrapped in a `Brackets` —
+    // its factory only runs when a real QueryBuilder processes the WHERE
+    // clause, so it's invoked here with a stub to inspect the params it
+    // built, the same way `new Brackets(...)` is applied to a real qb.
+    const bracketsArg = programEnrollmentQb.andWhere.mock.calls
+      .map((c: any) => c[0])
+      .find((arg: any) => arg instanceof Brackets) as Brackets;
+    expect(bracketsArg).toBeDefined();
+    const bracketQb: any = { where: vi.fn().mockReturnThis(), orWhere: vi.fn().mockReturnThis() };
+    (bracketsArg as any).whereFactory(bracketQb);
+    const bracketParams = [...bracketQb.where.mock.calls, ...bracketQb.orWhere.mock.calls].map(
+      (c: any) => c[1],
+    );
+    expect(Object.assign({}, ...bracketParams)).toMatchObject({
+      active: 'ACTIVE',
+      completed: 'COMPLETED',
+      yearStart: '2026-01-01',
+      yearEnd: '2026-12-31',
+    });
+  });
+
+  it('an ACTIVE enrollment renders achieved/total counts and the latest achievement', async () => {
+    const { service } = await buildService({
+      exam: { status: ExamStatus.PUBLISHED },
+      resultForStudent: RESULT_FOR_CARD,
+      programEnrollments: [
+        {
+          id: 'enr-1',
+          program_id: 'prog-1',
+          program: { id: 'prog-1', name: 'Hifz Circle' },
+          status: 'ACTIVE',
+          ended_on: null,
+        },
+      ],
+      milestoneCounts: { 'prog-1': 30 },
+      achievedCounts: { 'enr-1': 7 },
+      latestAchievements: {
+        'enr-1': {
+          achieved_on: '2026-03-01',
+          score: '92.50',
+          grade: 'A',
+          milestone: { name: 'Juz 5' },
+        },
+      },
+    });
+
+    const card = await service.getStudentResultCard(...CARD_ARGS);
+
+    expect(card?.programs).toEqual([
+      {
+        program_name: 'Hifz Circle',
+        achieved_count: 7,
+        milestone_total: 30,
+        latest: { milestone_name: 'Juz 5', achieved_on: '2026-03-01', score: 92.5, grade: 'A' },
+      },
+    ]);
+  });
+
+  it('a COMPLETED enrollment (already inside the academic year per the SQL filter) is aggregated the same way as ACTIVE', async () => {
+    const { service } = await buildService({
+      exam: { status: ExamStatus.PUBLISHED },
+      resultForStudent: RESULT_FOR_CARD,
+      programEnrollments: [
+        {
+          id: 'enr-2',
+          program_id: 'prog-2',
+          program: { id: 'prog-2', name: 'Scouting' },
+          status: 'COMPLETED',
+          ended_on: '2026-06-01',
+        },
+      ],
+      milestoneCounts: { 'prog-2': 10 },
+      achievedCounts: { 'enr-2': 10 },
+    });
+
+    const card = await service.getStudentResultCard(...CARD_ARGS);
+    expect(card?.programs).toEqual([
+      { program_name: 'Scouting', achieved_count: 10, milestone_total: 10, latest: null },
+    ]);
+  });
+
+  it('a zero-milestone program renders 0 / 0 with latest: null', async () => {
+    const { service } = await buildService({
+      exam: { status: ExamStatus.PUBLISHED },
+      resultForStudent: RESULT_FOR_CARD,
+      programEnrollments: [
+        {
+          id: 'enr-3',
+          program_id: 'prog-3',
+          program: { id: 'prog-3', name: 'New Program' },
+          status: 'ACTIVE',
+          ended_on: null,
+        },
+      ],
+    });
+
+    const card = await service.getStudentResultCard(...CARD_ARGS);
+    expect(card?.programs).toEqual([
+      { program_name: 'New Program', achieved_count: 0, milestone_total: 0, latest: null },
+    ]);
   });
 });
