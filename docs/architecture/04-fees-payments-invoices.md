@@ -140,10 +140,17 @@ pre-existing duplicates:
 
 `RecurringSchedule` runs the same generation logic on a timer (see
 "Daily job" below) instead of a staff click — audience is a filter
-(class/section/enrollment status), evaluated fresh every run day, so a
+(class/section/program/enrollment status), evaluated fresh every run day, so a
 student who joins mid-year starts getting billed automatically and one who
 leaves stops, without editing the schedule (D4). `RecurringScheduleExclusion`
-opts one specific student out of an otherwise-matching schedule.
+opts one specific student out of an otherwise-matching schedule. [34.2.2] A
+`program_id` audience bills students with an ACTIVE `ProgramEnrollment` in
+that program AND an ACTIVE class enrollment in the schedule's academic year —
+combinable with class/section (both filters intersect), e.g.
+`{ "program_id": "…", "enrollment_status": "ACTIVE" }`. One-off generation
+(`POST /fees/generate`, `/fees/generate/preview`) accepts the same
+`program_id`, resolved through the identical join and intersected with any
+explicit `student_ids`.
 
 `DiscountRule` (FLAT or PERCENT, scoped to all fee types or a chosen list,
 optionally dated) auto-applies at generation time and writes to

@@ -25,6 +25,10 @@ export class RecurringScheduleAudienceDto {
   @IsUUID()
   section_id?: string;
 
+  @IsOptional()
+  @IsUUID()
+  program_id?: string;
+
   @IsIn(['ACTIVE'])
   enrollment_status: 'ACTIVE';
 }
