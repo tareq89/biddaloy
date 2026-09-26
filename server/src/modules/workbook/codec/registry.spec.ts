@@ -45,7 +45,7 @@ function fakeTab(overrides: Partial<TabSpec<unknown, unknown>> = {}): TabSpec<un
 }
 
 describe('EXPECTED_TABS', () => {
-  it('lists the 35 tab names in epic decision D2 order', () => {
+  it('lists the tab names in epic decision D2 order, plus Epics 19.0, 21.0, 22.0, 26.0 and 27.0 appended at the end', () => {
     expect(EXPECTED_TABS).toEqual([
       'school',
       'academic_years',
@@ -81,6 +81,17 @@ describe('EXPECTED_TABS', () => {
       'results',
       'result_subjects',
       'student_subject_choices',
+      'shifts',
+      'period_slots',
+      'rooms',
+      'routines',
+      'routine_slots',
+      'routine_slot_teachers',
+      'routine_substitutions',
+      'routine_change_requests',
+      // [788] Promotion tabs — see EXPECTED_TABS's own comment in registry.ts.
+      'promotion_runs',
+      'promotion_entries',
       // [22.3.6] Appended last — see EXPECTED_TABS's own comment in registry.ts.
       'homework',
       'homework_assignments',
@@ -101,7 +112,7 @@ describe('ALL_TABS', () => {
   // design exists to prevent.
   it('is valid', () => {
     // Same partial-to-strict lifecycle as WorkbookModule: strict once all
-    // 18 tabs have landed, tolerant of not-yet-registered tabs until then.
+    // all tabs have landed, tolerant of not-yet-registered tabs until then.
     expect(() =>
       assertRegistryValid(ALL_TABS, { partial: ALL_TABS.length < EXPECTED_TABS.length }),
     ).not.toThrow();
@@ -230,7 +241,7 @@ describe('assertRegistryValid', () => {
   it('throws when a tab name is not in EXPECTED_TABS', () => {
     const tabs = [fakeTab({ name: 'student' })];
 
-    expect(() => assertRegistryValid(tabs)).toThrow(/is not one of the 35 names in EXPECTED_TABS/);
+    expect(() => assertRegistryValid(tabs)).toThrow(/is not one of the \d+ names in EXPECTED_TABS/);
   });
 
   // While epic 14.0 is in flight the four lanes land tabs independently, so

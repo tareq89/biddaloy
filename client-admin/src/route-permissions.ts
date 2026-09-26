@@ -78,6 +78,15 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/academic-years/$academicYearId': Permission.ACADEMIC_YEAR_MANAGE,
   '/_staff/classes/': Permission.CLASS_MANAGE,
   '/_staff/classes/$classId': Permission.CLASS_MANAGE,
+  // [22.4.1] ADMIN/TEACHER only. EXECUTIVE lacks HOMEWORK_READ
+  // (`shared/src/enums/permissions.ts:423+`) despite `15-ux-principles.md`
+  // §3.1 listing Homework as `A E T` — a doc/code gap flagged for a
+  // product decision, not fixed here.
+  '/_staff/academics/homework/': Permission.HOMEWORK_READ,
+  '/_staff/academics/homework/new': Permission.HOMEWORK_ASSIGN,
+  '/_staff/academics/homework/$homeworkId': Permission.HOMEWORK_READ,
+  '/_staff/academics/homework/import': Permission.HOMEWORK_IMPORT,
+  '/_staff/academics/syllabus/': Permission.SYLLABUS_READ,
   '/_staff/grading-scales/': Permission.GRADING_SCALE_MANAGE,
   '/_staff/grading-scales/$scaleId': Permission.GRADING_SCALE_MANAGE,
   // [27.9] Staff intakes screen — blanket-gated on ADMISSION_REVIEW, same
@@ -91,9 +100,9 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // the intakes screen above.
   '/_staff/admissions/applicants/': Permission.ADMISSION_REVIEW,
   '/_staff/admissions/applicants/$applicantId': Permission.ADMISSION_REVIEW,
-  // [19.6.1] `EXAM_MANAGE` — see `nav-tree.ts`'s `examsResults.exams`
-  // comment for why this matches `ExamsController`'s own gate rather than
-  // `MARK_VIEW`.
+  // [19.6.1] `EXAM_MANAGE` — the management page; see `nav-tree.ts`'s
+  // `examsResults.exams` comment (`GET /exams` itself is `MARK_VIEW`, but
+  // detail and writes are `EXAM_MANAGE`).
   '/_staff/exams/': Permission.EXAM_MANAGE,
   '/_staff/exams/$examId': Permission.EXAM_MANAGE,
   // [19.7.1] MARK_VIEW (not MARK_ENTER) — same "seeing is weaker than
@@ -110,6 +119,13 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // is picked since it's the first write step in the flow).
   '/_staff/results/': Permission.RESULT_PROCESS,
   '/_staff/results/$examId/$studentId': Permission.RESULT_READ,
+  // [26.5.1] `MARK_VIEW` — matches `nav-tree.ts`'s `examsResults.analysis`
+  // comment: analysis is read-only, gated the same as `/marks`.
+  '/_staff/analysis/': Permission.MARK_VIEW,
+  // [26.6.1] D22: PROMOTION_MANAGE (admin).
+  '/_staff/promotions/': Permission.PROMOTION_MANAGE,
+  '/_staff/promotions/new': Permission.PROMOTION_MANAGE,
+  '/_staff/promotions/$runId': Permission.PROMOTION_MANAGE,
   // [21.7.1] Setup screens (shifts, period slots, rooms, routine-wide
   // settings) are all ADMIN-only server-side (`@RequirePermissions
   // (Permission.ROUTINE_MANAGE)` on every write route in
@@ -122,6 +138,20 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // read-only view of the builder exists.
   '/_staff/routines/': Permission.ROUTINE_MANAGE,
   '/_staff/routines/$sectionId': Permission.ROUTINE_MANAGE,
+  // [21.9.1] Review is a shared surface — a teacher only needs
+  // `ROUTINE_READ` to see their own slots and raise a change request
+  // (`ChangeRequestsController.open` is gated on `ROUTINE_READ`
+  // server-side too); the page itself narrows further by role, same
+  // "blanket route gate, finer-grained UI inside" pattern `$sectionId`
+  // uses for its own write actions.
+  '/_staff/routines/review': Permission.ROUTINE_READ,
+  // [21.10.1] The teacher/family agenda — same `ROUTINE_READ` gate as
+  // review above, this route never writes anything.
+  '/_staff/routines/my': Permission.ROUTINE_READ,
+  // Substitution log + recorder — `ROUTINE_MANAGE` server-side
+  // (`SubstitutionsController`), even for the `TEACHER` role entry in its
+  // `@Roles` list.
+  '/_staff/routines/substitutions': Permission.ROUTINE_MANAGE,
   '/_staff/audit-logs/': Permission.AUDIT_LOG_READ,
   '/_staff/settings': Permission.SETTINGS_MANAGE,
   // [9.6] Both gated on ATTENDANCE_READ, not ATTENDANCE_MARK — this table

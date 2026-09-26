@@ -23,7 +23,7 @@ import {
   UpdateOwnGuardianDto,
   QueryGuardianDto,
 } from './dto/students.dto';
-import { CommunicationMedium, AuditAction } from '@biddaloy/shared';
+import { CommunicationMedium, AuditAction, EnrollmentStatus } from '@biddaloy/shared';
 import { nextRollNumber } from './roll-number.util';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import { BN_COLLATION } from '../../common/constants/collation';
@@ -403,12 +403,14 @@ export class StudentService {
   }
 
   async update(id: string, dto: UpdateStudentDto, tenantId: string): Promise<Student> {
-    await this.findOne(id, tenantId);
+    const existingStudent = await this.findOne(id, tenantId);
 
     // Validate class_section_id belongs to tenant if provided
+    let section: ClassSection | null = null;
     if (dto.class_section_id) {
-      const section = await this.sectionRepo.findOne({
+      section = await this.sectionRepo.findOne({
         where: { id: dto.class_section_id, tenant_id: tenantId, deleted_at: IsNull() },
+        relations: ['class'],
       });
       if (!section) {
         throw new NotFoundException(`Class section with ID "${dto.class_section_id}" not found`);
@@ -423,7 +425,55 @@ export class StudentService {
       delete updateData.guardian_ids;
     }
 
-    await this.repo.update({ id, tenant_id: tenantId }, updateData);
+    // [#1020] `class_section_id` changing has to keep the student's
+    // current-year `Enrollment` row in sync, or exam cohort resolution
+    // (which reads `Enrollment`, not `Student`) silently uses the stale
+    // section (#994's reviewer finding). Both writes go through one
+    // transaction so a failure on either side rolls back the whole update.
+    const sectionChanged =
+      !!dto.class_section_id && dto.class_section_id !== existingStudent.class_section_id;
+
+    await this.repo.manager.transaction(async (manager) => {
+      const txStudentRepo = manager.getRepository(Student);
+      const txEnrollmentRepo = manager.getRepository(Enrollment);
+
+      await txStudentRepo.update({ id, tenant_id: tenantId }, updateData);
+
+      if (sectionChanged && section) {
+        // Keyed on the *new* section's own academic year — not "whichever
+        // ACTIVE row is newest" — so a move across academic years updates
+        // the enrollment for that year rather than silently repointing a
+        // different year's row (leaves both years' exam cohorts wrong).
+        const currentEnrollment = await txEnrollmentRepo.findOne({
+          where: {
+            student_id: id,
+            tenant_id: tenantId,
+            academic_year_id: section.class.academic_year_id,
+            enrollment_status: EnrollmentStatus.ACTIVE,
+          },
+        });
+
+        if (currentEnrollment) {
+          await txEnrollmentRepo.update(
+            { id: currentEnrollment.id },
+            { class_id: section.class_id, section_id: section.id },
+          );
+        } else {
+          // No ACTIVE enrollment for that year at all (e.g. the backfill
+          // missed this student) — create one, same shape as
+          // `create()`/the migration.
+          await txEnrollmentRepo.save(
+            txEnrollmentRepo.create({
+              student_id: id,
+              class_id: section.class_id,
+              section_id: section.id,
+              academic_year_id: section.class.academic_year_id,
+              tenant_id: tenantId,
+            }),
+          );
+        }
+      }
+    });
 
     // Replace guardian links if provided
     if (dto.guardian_ids !== undefined) {

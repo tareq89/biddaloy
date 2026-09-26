@@ -110,6 +110,18 @@
       "retry": "Try again"
     }
   },
+  "syllabus": {
+    "title": "Syllabus",
+    "loading": "Loading syllabus…",
+    "pickerLabel": "Choose a student",
+    "noClass": "This student isn't assigned to a class yet, so there's no syllabus to show.",
+    "empty": "No syllabus topics have been added for this class yet.",
+    "unknownSubject": "Other subject",
+    "error": {
+      "message": "Couldn't load the syllabus.",
+      "retry": "Try again"
+    }
+  },
   "attendanceGrid": {
     "caption": "{{month}} {{year}}",
     "legendTitle": "Legend",
@@ -145,6 +157,16 @@
       "4": "Thu",
       "5": "Fri",
       "6": "Sat"
+    }
+  },
+  "routine": {
+    "title": "Routine",
+    "loading": "Loading routine",
+    "pickerLabel": "Choose a student",
+    "noRoutineExplanation": "The school hasn't published a routine yet.",
+    "error": {
+      "message": "Could not load this student's routine. Check your connection and try again.",
+      "retry": "Try again"
     }
   },
   "payments": {

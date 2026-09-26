@@ -25,10 +25,18 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/students/new': '/_staff/students/new',
   '/students/import': '/_staff/students/import',
   '/grading-scales': '/_staff/grading-scales/',
+  '/routines/review': '/_staff/routines/review',
+  '/routines/my': '/_staff/routines/my',
+  '/routines/substitutions': '/_staff/routines/substitutions',
   '/marks': '/_staff/marks/',
   '/results': '/_staff/results/',
   '/exams': '/_staff/exams/',
   '/admissions/applicants': '/_staff/admissions/applicants/',
+  '/academics/homework/new': '/_staff/academics/homework/new',
+  '/academics/homework/import': '/_staff/academics/homework/import',
+  '/academics/syllabus': '/_staff/academics/syllabus/',
+  '/analysis': '/_staff/analysis/',
+  '/promotions/new': '/_staff/promotions/new',
 };
 
 /**
@@ -48,11 +56,18 @@ const REGISTERED_ACTION_FILES: Record<string, string> = {
   'students.add': 'client-admin/src/routes/_staff/students/new.tsx',
   'students.import': 'client-admin/src/routes/_staff/students/import.tsx',
   'grading.copyScale': 'client-admin/src/routes/_staff/grading-scales/-copy-scale-dialog.tsx',
+  'routines.openMyRoutine': 'client-admin/src/routes/_staff/routines/my.tsx',
+  'routines.addSubstitution': 'client-admin/src/routes/_staff/routines/substitutions.tsx',
+  'routines.copyLastYearRoutine': 'client-admin/src/routes/_staff/routines/review.tsx',
   'results.enterMarks': 'client-admin/src/routes/_staff/marks/index.tsx',
   'results.process': 'client-admin/src/routes/_staff/results/-process-dialog.tsx',
   'results.publish': 'client-admin/src/routes/_staff/results/-publish-dialog.tsx',
   'results.sendSms': 'client-admin/src/routes/_staff/results/-send-result-sms-dialog.tsx',
   'exams.copyComponents': 'client-admin/src/routes/_staff/exams/-copy-components-dialog.tsx',
+  'homework.assign': 'client-admin/src/routes/_staff/academics/homework/new.tsx',
+  'homework.import': 'client-admin/src/routes/_staff/academics/homework/import.tsx',
+  'syllabus.markTopic': 'client-admin/src/routes/_staff/academics/syllabus/index.tsx',
+  'promotions.promote': 'client-admin/src/routes/_staff/promotions/new.tsx',
 };
 
 /**

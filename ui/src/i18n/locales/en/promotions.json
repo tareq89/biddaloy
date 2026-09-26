@@ -1,0 +1,105 @@
+{
+  "list": {
+    "title": "Promotions",
+    "newRun": "New promotion run",
+    "caption": "Promotion runs",
+    "columnSourceClass": "Source class",
+    "columnTargetClass": "Target class",
+    "columnTargetYear": "Target year",
+    "columnStatus": "Status",
+    "columnAlgorithm": "Algorithm",
+    "columnOverrides": "Overrides",
+    "columnCommittedAt": "Committed at",
+    "empty": "No promotion runs yet.",
+    "errorMessage": "Couldn't load promotion runs.",
+    "statusDraft": "Draft",
+    "statusCommitted": "Committed"
+  },
+  "newRunForm": {
+    "title": "New promotion run",
+    "sourceClassLabel": "Source class",
+    "targetYearLabel": "Target academic year",
+    "targetClassLabel": "Target class",
+    "graduateOption": "Graduate (no target class)",
+    "examsLabel": "Exams to average",
+    "examsRequired": "Select at least one exam.",
+    "noPublishedExams": "This class has no published exams yet.",
+    "openClasses": "Open classes for {{year}}",
+    "algorithmLabel": "Placement algorithm",
+    "algorithmBlock": "Block (fill sections in order)",
+    "algorithmSnake": "Snake (balance across sections)",
+    "create": "Create run",
+    "cancel": "Cancel"
+  },
+  "blocking": {
+    "pickTargetClass": "Choose a target class, or graduate the source class.",
+    "targetSectionsMissing": "The target class has no sections yet — create at least one before running this.",
+    "retainClassMissing": "No class is set up to retain students who didn't pass — add one first."
+  },
+  "grid": {
+    "columnStudent": "Roll · Name",
+    "columnMeritRank": "Rank",
+    "columnMeanGpa": "Mean GPA",
+    "columnSuggested": "Suggested",
+    "columnFinal": "Final",
+    "columnGroup": "Group",
+    "columnTargetSection": "Target section",
+    "columnNewRoll": "New roll",
+    "columnOverrideNote": "Override note",
+    "columnPlacementError": "Placement error",
+    "groupNone": "No group",
+    "groupClearUnsupported": "Clearing a group is not yet supported",
+    "noteRequired": "A note is required for an override.",
+    "overrideChip": "Override",
+    "refresh": "Refresh",
+    "refreshing": "Refreshing…",
+    "delete": "Delete run",
+    "deleteConfirm": {
+      "title": "Delete this promotion draft?",
+      "body": "This removes every entry in the run. This cannot be undone.",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    },
+    "commit": "Commit",
+    "commitShortcutHint": "Ctrl+Enter",
+    "overflowWarning": "This section is over capacity by {{count}}.",
+    "staleResultsPrompt": "Results changed since this preview — refresh",
+    "readOnlyBanner": "Committed {{date}} by {{committedBy}}, approved by {{approvedBy}}",
+    "counts": {
+      "promoted": "Promoted",
+      "retained": "Retained",
+      "graduated": "Graduated",
+      "overrides": "Overrides",
+      "errors": "Errors"
+    },
+    "runSummary": "{{source}} → {{target}} · {{exams}} exams · {{algorithm}}",
+    "commitConfirm": {
+      "title": "Commit this promotion run?",
+      "body": "{{promoted}} promoted, {{retained}} retained, {{graduated}} graduated. This cannot be undone.",
+      "blockedByErrors": "Fix every placement error before committing.",
+      "blockedByNotes": "Every override needs a note before committing.",
+      "confirm": "Commit",
+      "cancel": "Cancel"
+    },
+    "cohortChangedPrompt": "Some students in this run have left the class or changed status since it was created. Delete this draft and create a new run.",
+    "commitFailed": "Could not commit this run. Please try again.",
+    "saveFailed": "Could not save this change. Please try again.",
+    "refreshFailed": "Could not refresh this run. Please try again."
+  },
+  "stepper": {
+    "previous": "Previous",
+    "next": "Next",
+    "progress": "{{current}} of {{total}}"
+  },
+  "outcome": {
+    "promote": "Promote",
+    "retain": "Retain",
+    "graduate": "Graduate"
+  },
+  "overrideNote": "Overridden from the algorithm's suggestion — a note is required.",
+  "badge": {
+    "promote": "Promoted by override, {{year}}: {{note}} — by {{user}}",
+    "retain": "Retained by override, {{year}}: {{note}} — by {{user}}",
+    "graduate": "Graduated by override, {{year}}: {{note}} — by {{user}}"
+  }
+}

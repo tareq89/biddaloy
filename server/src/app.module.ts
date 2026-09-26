@@ -42,6 +42,7 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { SearchModule } from './modules/search/search.module';
 import { GradingModule } from './modules/grading/grading.module';
 import { ExamsModule } from './modules/exams/exams.module';
+import { PromotionsModule } from './modules/promotions/promotions.module';
 import { HomeworkModule } from './modules/homework/homework.module';
 import { AdmissionModule } from './modules/admission/admission.module';
 import { Homework } from './modules/homework/entities/homework.entity';
@@ -114,6 +115,8 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
 import { AdmissionIntake } from './modules/admission/entities/admission-intake.entity';
 import { AdmissionApplicant } from './modules/admission/entities/admission-applicant.entity';
 import { AdmissionEvaluation } from './modules/admission/entities/admission-evaluation.entity';
+import { PromotionRun } from './modules/promotions/entities/promotion-run.entity';
+import { PromotionEntry } from './modules/promotions/entities/promotion-entry.entity';
 
 @Module({
   imports: [
@@ -200,6 +203,8 @@ import { AdmissionEvaluation } from './modules/admission/entities/admission-eval
             ResultSubject,
             ExamSchedule,
             StudentSubjectChoice,
+            PromotionRun,
+            PromotionEntry,
             Shift,
             PeriodSlot,
             Room,
@@ -294,6 +299,7 @@ import { AdmissionEvaluation } from './modules/admission/entities/admission-eval
     ExamsModule,
     HomeworkModule,
     AdmissionModule,
+    PromotionsModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

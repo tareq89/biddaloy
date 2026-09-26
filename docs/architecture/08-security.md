@@ -446,19 +446,22 @@ controls this:
   that's addressed (see [07-deployment.md](07-deployment.md)) — a known gap,
   not an oversight papered over here.
 
-**Transit to MinIO/S3.** Same shape of gap as Postgres above: `StorageService`
+**Transit to SeaweedFS/S3.** Same shape of gap as Postgres above: `StorageService`
 and the `backup`/`restore` scripts reject a plaintext `http://` `S3_ENDPOINT`
 by default and require an explicit `S3_ALLOW_INSECURE_HTTP=true` opt-in to
 accept one (see [`server/src/modules/storage/storage.service.ts`](../../server/src/modules/storage/storage.service.ts)
 and [`scripts/backup/backup.sh`](../../scripts/backup/backup.sh)). The bundled
-`docker-compose.yml` sets that opt-in for its `app`/`backup`/`minio-init`
-services, because the MinIO container there isn't TLS-terminated — it's
-reachable only from other containers on the same Compose network, not
-published to the host or internet, but that network transport is still
-cleartext. Standing up MinIO with TLS (a CA, certs distributed to every
-client container) is tracked as follow-up work, not done here — deploying
-the bundled Compose stack as-is means MinIO traffic stays unencrypted
-between containers, the same trade-off already accepted for `db` above.
+`docker-compose.yml` sets that opt-in for its `app`/`backup` services,
+because the SeaweedFS container there isn't TLS-terminated. SeaweedFS S3 is
+published on host loopback `127.0.0.1:9000` only; its filer (`:8888`) and
+volume HTTP ports are reachable without credentials from other containers on
+the Compose network — the same trust boundary already accepted for the
+unauthenticated `redis` on that network — but are not published to the host
+or internet. That network transport is still cleartext. Standing up
+SeaweedFS with TLS (a CA, certs distributed to every client container) is
+tracked as follow-up work, not done here — deploying the bundled Compose
+stack as-is means SeaweedFS traffic stays unencrypted between containers,
+the same trade-off already accepted for `db` above.
 
 **At rest.** Required as a deployment property, not an optional hardening
 step: the Postgres data volume must sit on encrypted storage — either the

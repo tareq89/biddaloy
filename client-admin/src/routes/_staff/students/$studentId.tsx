@@ -17,9 +17,11 @@ import { DeleteStudentDialog } from './-detail/delete-student-dialog';
 import { EnrollmentTab } from './-detail/enrollment-tab';
 import { FeesTab } from './-detail/fees-tab';
 import { GuardiansTab } from './-detail/guardians-tab';
+import { HomeworkTab } from './-detail/homework-tab';
 import { InvoicesTab } from './-detail/invoices-tab';
 import { OverviewTab } from './-detail/overview-tab';
 import { PaymentsTab } from './-detail/payments-tab';
+import { PromotionOverrideBadge } from './-detail/promotion-override-badge';
 import { RecurringFeesTab } from './-detail/recurring-fees-tab';
 import { ResultsPanel } from './-detail/results-panel';
 import { SubjectChoicesPanel } from './-detail/subject-choices-panel';
@@ -61,7 +63,26 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
       // useTranslation call, misrouting every t() call below.)
       // 'exams' — [19.6.1]'s Subject choices tab (`-detail/subject-choices-
       // panel.tsx`) reads its copy from that namespace.
-      loadRouteNamespaces('students', 'common', 'portal', 'payments', 'exams'),
+      // 'fees' — `-detail/recurring-fees-tab.tsx` reads its copy from that
+      // namespace; without this, the first visit to Recurring fees
+      // suspends the whole page (i18n's useSuspense: true) instead of just
+      // that tab, which also drops keyboard focus off the tab strip.
+      // 'feeGeneration' — that same tab always mounts `GenerateFeesModal`
+      // (closed) when the caller can manage fees, and the modal reads its
+      // own copy from that namespace even while closed — same suspend-the-
+      // whole-page failure one level down.
+      // 'promotions' — [26.5.2]'s override badge (header + Enrollment tab)
+      // reads its `badge` copy from that namespace.
+      loadRouteNamespaces(
+        'students',
+        'common',
+        'portal',
+        'payments',
+        'exams',
+        'fees',
+        'feeGeneration',
+        'promotions',
+      ),
     ]),
   pendingComponent: StudentDetailPending,
   component: StudentDetailPage,
@@ -78,6 +99,7 @@ const TAB_IDS = [
   'communication',
   'activity',
   'attendance',
+  'homework',
   'subject-choices',
   'results',
 ] as const;
@@ -136,10 +158,13 @@ function StudentDetailPage() {
                 roll: studentQuery.data.roll_number,
               })}
               statusBadge={
-                <StatusBadge
-                  domain="enrollment"
-                  status={studentQuery.data.enrollment_status as EnrollmentStatus}
-                />
+                <span className="inline-flex items-center gap-2">
+                  <StatusBadge
+                    domain="enrollment"
+                    status={studentQuery.data.enrollment_status as EnrollmentStatus}
+                  />
+                  <PromotionOverrideBadge studentId={studentId} />
+                </span>
               }
               actions={[
                 {
@@ -237,6 +262,11 @@ function StudentDetailPage() {
                   id: 'attendance',
                   label: t('detail.tabs.attendance'),
                   content: <AttendanceTab studentId={studentId} />,
+                },
+                {
+                  id: 'homework',
+                  label: t('detail.tabs.homework'),
+                  content: <HomeworkTab studentId={studentId} />,
                 },
                 {
                   id: 'subject-choices',

@@ -286,6 +286,10 @@ export enum ApprovalScope {
   // can be corrected) rewrites a grade a guardian may already have seen
   // — same step-up bar as a grading-scale recompute.
   RESULTS_REOPEN = 'results.reopen',
+  // [26.1.1] Committing a run that overrides the suggested outcome moves
+  // students against their results (D11) — same step-up bar as a result
+  // reopen.
+  PROMOTION_OVERRIDE = 'promotion.override',
 }
 
 /** How an `ApprovalToken` is verified (16.x). */

@@ -22,13 +22,21 @@ export interface TeacherListFilters {
 
 export const teacherKeys = createEntityKeys<TeacherListFilters>('teachers');
 
+// ponytail: same "no wire pagination needed" reasoning as `subjects.ts`'s
+// `SUBJECT_FILTER_LIMIT` — a school's whole teacher list comfortably fits
+// one page, so a dropdown/lookup caller can default to a generous limit
+// rather than silently missing a teacher past the server's own default of
+// 10. Ceiling is 100 teachers; page explicitly if a caller ever needs more.
+const TEACHER_FILTER_LIMIT = 100;
+
 /** [8.11.8]'s promote-teacher flow — mirrors `guardians.ts`'s shape. */
 export function teachersQueryOptions(filters: TeacherListFilters) {
+  const params = { limit: TEACHER_FILTER_LIMIT, ...filters };
   return queryOptions({
-    queryKey: teacherKeys.list(filters),
+    queryKey: teacherKeys.list(params),
     queryFn: async ({ signal }) => {
       const res = await apiClient.get<PaginatedTeachers>('/teachers', {
-        params: filters,
+        params,
         signal,
       });
       return res.data;

@@ -444,6 +444,10 @@ export class SectionService {
     const sections = await this.repo.find({
       where: { class_id: classId, tenant_id: tenantId, deleted_at: IsNull() },
       order: { section_name: 'ASC' },
+      // `class` isn't eager, but the entity declares it non-optional and
+      // callers (the routine builder grid) read `section.class.shift_id`
+      // straight off the response.
+      relations: { class: true },
     });
 
     // One grouped query for every section's enrolled count, not N+1 per

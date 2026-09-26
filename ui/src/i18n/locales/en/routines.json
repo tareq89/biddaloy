@@ -124,5 +124,134 @@
     "cancel": "Cancel",
     "confirm": "Fill {{count}} period",
     "confirm_other": "Fill {{count}} periods"
+  },
+  "review": {
+    "title": "Routine review",
+    "noRoutineExplanation": "No routine exists yet for this academic year.",
+    "notATeacherExplanation": "No teacher record found for your account — nothing to show here.",
+    "emptyExplanation": "No periods to show.",
+    "error": {
+      "message": "Could not load the routine. Check your connection and try again.",
+      "retry": "Try again"
+    },
+    "stateLabel": {
+      "DRAFT": "Draft",
+      "REVIEW": "In review",
+      "PUBLISHED": "Published"
+    },
+    "banner": {
+      "draft": "Draft — only you (the routine's builder) can see this.",
+      "review": "In review — teachers can see their own periods.",
+      "published": "Published — visible to families."
+    },
+    "submitForReviewAction": "Submit for review",
+    "withdrawAction": "Withdraw to draft",
+    "publishAction": "Publish",
+    "copyYearAction": "Copy last year's routine",
+    "stateChangedToast": "Updated",
+    "stateChangeErrorToast": "Could not update — try again.",
+    "requestChangeAction": "Request a change",
+    "requestChangeDisabledExplanation": "Change requests can only be raised once the routine is published.",
+    "copyYearDialogTitle": "Copy last year's routine",
+    "copyYearDialogExplanation": "Copies every slot into a new draft routine for the target academic year. Sections or subjects that don't exist in the target year are reported, not silently dropped.",
+    "copyYearTargetLabel": "Target academic year",
+    "copyYearSelectTarget": "Select a year",
+    "copyYearCancel": "Cancel",
+    "copyYearConfirm": "Copy",
+    "copyYearSuccessToast": "Copied — {{count}} slot skipped",
+    "copyYearSuccessToast_other": "Copied — {{count}} slots skipped",
+    "copyYearErrorToast": "Could not copy — try again."
+  },
+  "changeRequestDialog": {
+    "title": "Request a change",
+    "description": "Tell the routine's builder what needs to change — they decide how to resolve it.",
+    "noteLabel": "Note",
+    "notePlaceholder": "e.g. This clashes with my other class.",
+    "cancel": "Cancel",
+    "submit": "Send",
+    "submittedToast": "Sent",
+    "errorToast": "Could not send — try again."
+  },
+  "changeRequestList": {
+    "title": "Change requests",
+    "acceptDoesNotEditExplanation": "Accepting a request does not edit the routine — the reshuffle usually touches other slots too, so make that change deliberately in the grid builder.",
+    "loading": "Loading change requests…",
+    "loadError": "Could not load change requests. Check your connection and try again.",
+    "empty": "No open change requests.",
+    "requestedBy": "requested by {{name}}",
+    "resolutionNoteLabel": "Resolution note",
+    "resolutionNotePlaceholder": "Optional note for the requester",
+    "accept": "Accept",
+    "reject": "Reject",
+    "resolvedToast": "Resolved",
+    "errorToast": "Could not resolve — try again."
+  },
+  "publishDialog": {
+    "title": "Publish this routine",
+    "oneWayExplanation": "Publishing is one-way — there is no unpublish action anywhere in this system.",
+    "correctionsExplanation": "Any correction after publishing is a new, dated edit through the grid builder, not a rollback.",
+    "cancel": "Cancel",
+    "confirm": "Publish",
+    "publishedToast": "Published",
+    "errorToast": "Could not publish — try again."
+  },
+  "substitutionsPage": {
+    "title": "Substitutions",
+    "addAction": "Add substitution",
+    "fromLabel": "From",
+    "toLabel": "To",
+    "coveringTeacherLabel": "Covering teacher",
+    "coveredForTeacherLabel": "Covered-for teacher",
+    "classLabel": "Class",
+    "sectionLabel": "Section",
+    "anyTeacher": "Any teacher",
+    "anyClass": "Any class",
+    "anySection": "Any section",
+    "emptyTitle": "No substitutions",
+    "emptyExplanation": "No cover or cancellation recorded for this filter.",
+    "cancelledLabel": "Cancelled",
+    "coveredByLabel": "Covered by {{name}}",
+    "unknownTeacher": "Unknown"
+  },
+  "agenda": {
+    "daySwitcherLabel": "Choose a day",
+    "todayLabel": "Today",
+    "weekViewOn": "Week view",
+    "weekViewOff": "Day view",
+    "emptyDay": "No classes.",
+    "cancelledLabel": "Cancelled",
+    "coveringForLabel": "Covering for {{name}}",
+    "periodLabel": "Period {{sequence}}",
+    "holidayReason": "Holiday — {{name}}",
+    "weeklyOffReason": "Weekly off day"
+  },
+  "myRoutine": {
+    "title": "My routine",
+    "loading": "Loading your routine",
+    "notATeacherExplanation": "No teacher record found for your account — nothing to show here.",
+    "noRoutineExplanation": "The school hasn't published a routine yet.",
+    "error": {
+      "message": "Could not load your routine. Check your connection and try again.",
+      "retry": "Try again"
+    }
+  },
+  "substitutionDialog": {
+    "title": "Record a substitution",
+    "description": "Records a cover or a cancellation for one slot on one date — the weekly routine itself is never changed.",
+    "classLabel": "Class",
+    "selectClass": "Select a class",
+    "sectionLabel": "Section",
+    "selectSection": "Select a section",
+    "slotLabel": "Slot",
+    "selectSlot": "Select a slot",
+    "dateLabel": "Date",
+    "cancelledLabel": "Cancelled — no substitute",
+    "substituteTeacherLabel": "Substitute teacher",
+    "selectTeacher": "Select a teacher",
+    "reasonLabel": "Reason",
+    "cancel": "Cancel",
+    "save": "Save",
+    "savedToast": "Saved",
+    "errorToast": "Could not save — try again."
   }
 }

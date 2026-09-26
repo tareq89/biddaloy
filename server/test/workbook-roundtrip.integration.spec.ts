@@ -22,6 +22,9 @@ import {
   HomeworkGradingMode,
   HomeworkSubmissionStatus,
   SyllabusTopicStatus,
+  PromotionRunStatus,
+  PlacementAlgorithm,
+  PromotionOutcome,
 } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -59,6 +62,8 @@ import { Homework } from '../src/modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from '../src/modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from '../src/modules/homework/entities/homework-submission.entity';
 import { SyllabusTopic } from '../src/modules/homework/entities/syllabus-topic.entity';
+import { PromotionRun } from '../src/modules/promotions/entities/promotion-run.entity';
+import { PromotionEntry } from '../src/modules/promotions/entities/promotion-entry.entity';
 import { DEMO_ORGANISATION, ensureDemoStudents, SEED_DEVICE_KEY } from '../src/scripts/seed.util';
 import { ImportStagingService } from '../src/modules/bulk-import/import-staging.service';
 import { ValidationService } from '../src/modules/workbook/import/validation.service';
@@ -79,6 +84,23 @@ import {
   WorkbookJobSource,
   WorkbookJobStatus,
 } from '../src/modules/workbook/jobs/workbook-job.entity';
+import { Subject } from '../src/modules/academics/entities/subject.entity';
+import { Teacher } from '../src/modules/academics/entities/teacher.entity';
+import { Shift } from '../src/modules/routines/entities/shift.entity';
+import { PeriodSlot } from '../src/modules/routines/entities/period-slot.entity';
+import { Room } from '../src/modules/routines/entities/room.entity';
+import { Routine } from '../src/modules/routines/entities/routine.entity';
+import { RoutineSlot } from '../src/modules/routines/entities/routine-slot.entity';
+import { RoutineSlotTeacher } from '../src/modules/routines/entities/routine-slot-teacher.entity';
+import { RoutineSubstitution } from '../src/modules/routines/entities/routine-substitution.entity';
+import { RoutineChangeRequest } from '../src/modules/routines/entities/routine-change-request.entity';
+import {
+  PeriodSlotKind,
+  SlotRecurrence,
+  RoutineState,
+  ChangeRequestState,
+  TeacherDesignation,
+} from '@biddaloy/shared';
 
 /**
  * The spine test (14.10.4): export a seeded tenant A, tear A's data down,
@@ -481,19 +503,10 @@ describe('workbook round trip (integration)', () => {
       .getRepository(Student)
       .findOneOrFail({ where: { tenant_id: TENANT_A } });
 
-    // One enrollment, so the `enrollments` tab (which resolves student,
-    // class, section and academic year purely by natural key) is exercised
-    // rather than exported empty.
-    await dataSource.getRepository(Enrollment).save(
-      dataSource.getRepository(Enrollment).create({
-        student_id: student.id,
-        class_id: klass.id,
-        section_id: section.id,
-        academic_year_id: year.id,
-        enrollment_status: EnrollmentStatus.ACTIVE,
-        tenant_id: TENANT_A,
-      }),
-    );
+    // `ensureDemoStudents` already creates an ACTIVE enrollment for this
+    // student (unique `IDX_enr_active_student_year`); the `enrollments` tab
+    // (which resolves student, class, section and academic year purely by
+    // natural key) is exercised through that one, no extra insert needed.
 
     // Minimal fee chain (C2): one FeeStructure -> one StudentFee -> one
     // Invoice -> one Payment -> one PaymentAllocation, enough to make
@@ -649,6 +662,303 @@ describe('workbook round trip (integration)', () => {
         comment: null,
       }),
     ]);
+    // --- Epic 21.0 (class routine/timetable): [21.11.1] round-trip
+    // coverage. Exercises the naive-codec traps a plain flatten would miss:
+    // a biweekly slot (recurrence_offset = 1), a monthly slot on the last
+    // occurrence (offset = -1), a co-taught slot (two `routine_slot_teachers`
+    // rows), a superseded slot (`valid_to` set), and a cancellation
+    // substitution with a null substitute teacher.
+    const secondSection = await dataSource
+      .getRepository(ClassSection)
+      .findOneOrFail({ where: { tenant_id: TENANT_A, class_id: klass.id, section_name: 'B' } });
+
+    const routineSubject = await dataSource.getRepository(Subject).save(
+      dataSource.getRepository(Subject).create({
+        name_en: 'Mathematics',
+        code: 'MATH',
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    const teacherUserOne = await dataSource.getRepository(User).save(
+      dataSource.getRepository(User).create({
+        email: `roundtrip-610-teacher1-${TENANT_A.slice(0, 8)}@test.com`,
+        full_name: 'Roundtrip Teacher One',
+        password_hash: 'not-the-asserted-hash',
+      }),
+    );
+    const teacherUserTwo = await dataSource.getRepository(User).save(
+      dataSource.getRepository(User).create({
+        email: `roundtrip-610-teacher2-${TENANT_A.slice(0, 8)}@test.com`,
+        full_name: 'Roundtrip Teacher Two',
+        password_hash: 'not-the-asserted-hash',
+      }),
+    );
+    // `users` tab loads members via `user_tenants` (see users.tab.ts's
+    // `load`) — a teacher's User needs the same membership row admin/
+    // operator got above, or it exports as zero rows.
+    await dataSource
+      .getRepository(UserTenant)
+      .save([
+        dataSource
+          .getRepository(UserTenant)
+          .create({ user_id: teacherUserOne.id, tenant_id: TENANT_A, role: UserRole.TEACHER }),
+        dataSource
+          .getRepository(UserTenant)
+          .create({ user_id: teacherUserTwo.id, tenant_id: TENANT_A, role: UserRole.TEACHER }),
+      ]);
+
+    const teacherOne = await dataSource.getRepository(Teacher).save(
+      dataSource.getRepository(Teacher).create({
+        user_id: teacherUserOne.id,
+        employee_id: `EMP-610-1-${TENANT_A.slice(0, 6)}`,
+        designations: [TeacherDesignation.SUBJECT_TEACHER],
+        tenant_id: TENANT_A,
+      }),
+    );
+    const teacherTwo = await dataSource.getRepository(Teacher).save(
+      dataSource.getRepository(Teacher).create({
+        user_id: teacherUserTwo.id,
+        employee_id: `EMP-610-2-${TENANT_A.slice(0, 6)}`,
+        designations: [TeacherDesignation.SUBJECT_TEACHER],
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    const shift = await dataSource.getRepository(Shift).save(
+      dataSource.getRepository(Shift).create({
+        name: 'Morning',
+        day_starts_at: '08:00:00',
+        day_ends_at: '13:30:00',
+        sequence: 1,
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    // Six period slots, including one BREAK ("Lunch") — the seed spec's own
+    // shape (D8/D10), reused here for the round-trip fixture.
+    const periodDefs: Array<{
+      sequence: number;
+      kind: PeriodSlotKind;
+      name: string | null;
+      starts_at: string;
+      ends_at: string;
+    }> = [
+      {
+        sequence: 1,
+        kind: PeriodSlotKind.CLASS,
+        name: null,
+        starts_at: '08:00:00',
+        ends_at: '08:40:00',
+      },
+      {
+        sequence: 2,
+        kind: PeriodSlotKind.CLASS,
+        name: null,
+        starts_at: '08:40:00',
+        ends_at: '09:20:00',
+      },
+      {
+        sequence: 3,
+        kind: PeriodSlotKind.CLASS,
+        name: null,
+        starts_at: '09:20:00',
+        ends_at: '10:00:00',
+      },
+      {
+        sequence: 4,
+        kind: PeriodSlotKind.BREAK,
+        name: 'Lunch',
+        starts_at: '10:00:00',
+        ends_at: '10:30:00',
+      },
+      {
+        sequence: 5,
+        kind: PeriodSlotKind.CLASS,
+        name: null,
+        starts_at: '10:30:00',
+        ends_at: '11:10:00',
+      },
+      {
+        sequence: 6,
+        kind: PeriodSlotKind.CLASS,
+        name: null,
+        starts_at: '11:10:00',
+        ends_at: '11:50:00',
+      },
+    ];
+    const periodSlots = await dataSource
+      .getRepository(PeriodSlot)
+      .save(
+        periodDefs.map((p) =>
+          dataSource
+            .getRepository(PeriodSlot)
+            .create({ ...p, shift_id: shift.id, tenant_id: TENANT_A }),
+        ),
+      );
+
+    const room = await dataSource.getRepository(Room).save(
+      dataSource.getRepository(Room).create({
+        building: 'Building A',
+        room_no: '204',
+        capacity: 40,
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    const routine = await dataSource.getRepository(Routine).save(
+      dataSource.getRepository(Routine).create({
+        academic_year_id: year.id,
+        name: 'Main routine',
+        state: RoutineState.PUBLISHED,
+        published_at: new Date('2026-01-01T00:00:00.000Z'),
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    // A superseded row: this slot ended, and a fresh row (created below)
+    // covers the same section/period/weekday from the day after.
+    const supersededSlot = await dataSource.getRepository(RoutineSlot).save(
+      dataSource.getRepository(RoutineSlot).create({
+        routine_id: routine.id,
+        section_id: section.id,
+        period_slot_id: periodSlots[0]!.id,
+        weekday: 1,
+        subject_id: routineSubject.id,
+        room_id: room.id,
+        recurrence: SlotRecurrence.WEEKLY,
+        recurrence_offset: 0,
+        valid_from: '2026-01-01',
+        valid_to: '2026-02-01',
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    const currentSlot = await dataSource.getRepository(RoutineSlot).save(
+      dataSource.getRepository(RoutineSlot).create({
+        routine_id: routine.id,
+        section_id: section.id,
+        period_slot_id: periodSlots[0]!.id,
+        weekday: 1,
+        subject_id: routineSubject.id,
+        room_id: room.id,
+        recurrence: SlotRecurrence.WEEKLY,
+        recurrence_offset: 0,
+        valid_from: '2026-02-02',
+        valid_to: null,
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    // Biweekly slot, occurring on the second week of the cycle.
+    const biweeklySlot = await dataSource.getRepository(RoutineSlot).save(
+      dataSource.getRepository(RoutineSlot).create({
+        routine_id: routine.id,
+        section_id: section.id,
+        period_slot_id: periodSlots[1]!.id,
+        weekday: 2,
+        subject_id: routineSubject.id,
+        room_id: null,
+        recurrence: SlotRecurrence.BIWEEKLY,
+        recurrence_offset: 1,
+        valid_from: '2026-01-01',
+        valid_to: null,
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    // Monthly slot on the last occurrence of the cycle.
+    const monthlySlot = await dataSource.getRepository(RoutineSlot).save(
+      dataSource.getRepository(RoutineSlot).create({
+        routine_id: routine.id,
+        section_id: section.id,
+        period_slot_id: periodSlots[2]!.id,
+        weekday: 3,
+        subject_id: routineSubject.id,
+        room_id: null,
+        recurrence: SlotRecurrence.MONTHLY,
+        recurrence_offset: -1,
+        valid_from: '2026-01-01',
+        valid_to: null,
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    // Co-taught slot, second section: two teachers on the same slot.
+    const coTaughtSlot = await dataSource.getRepository(RoutineSlot).save(
+      dataSource.getRepository(RoutineSlot).create({
+        routine_id: routine.id,
+        section_id: secondSection.id,
+        period_slot_id: periodSlots[4]!.id,
+        weekday: 1,
+        subject_id: routineSubject.id,
+        room_id: room.id,
+        recurrence: SlotRecurrence.WEEKLY,
+        recurrence_offset: 0,
+        valid_from: '2026-01-01',
+        valid_to: null,
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    await dataSource.getRepository(RoutineSlotTeacher).save([
+      dataSource.getRepository(RoutineSlotTeacher).create({
+        routine_slot_id: currentSlot.id,
+        teacher_id: teacherOne.id,
+        tenant_id: TENANT_A,
+      }),
+      dataSource.getRepository(RoutineSlotTeacher).create({
+        routine_slot_id: coTaughtSlot.id,
+        teacher_id: teacherOne.id,
+        tenant_id: TENANT_A,
+      }),
+      dataSource.getRepository(RoutineSlotTeacher).create({
+        routine_slot_id: coTaughtSlot.id,
+        teacher_id: teacherTwo.id,
+        tenant_id: TENANT_A,
+      }),
+      dataSource.getRepository(RoutineSlotTeacher).create({
+        routine_slot_id: biweeklySlot.id,
+        teacher_id: teacherOne.id,
+        tenant_id: TENANT_A,
+      }),
+      dataSource.getRepository(RoutineSlotTeacher).create({
+        routine_slot_id: monthlySlot.id,
+        teacher_id: teacherOne.id,
+        tenant_id: TENANT_A,
+      }),
+      dataSource.getRepository(RoutineSlotTeacher).create({
+        routine_slot_id: supersededSlot.id,
+        teacher_id: teacherOne.id,
+        tenant_id: TENANT_A,
+      }),
+    ]);
+
+    // Cancellation: `is_cancelled = true`, `substitute_teacher_id = null`.
+    await dataSource.getRepository(RoutineSubstitution).save(
+      dataSource.getRepository(RoutineSubstitution).create({
+        routine_slot_id: currentSlot.id,
+        date: '2026-02-09',
+        substitute_teacher_id: null,
+        is_cancelled: true,
+        reason: 'Teacher on leave, period cancelled outright',
+        created_by: USER_ID,
+        tenant_id: TENANT_A,
+      }),
+    );
+
+    await dataSource.getRepository(RoutineChangeRequest).save(
+      dataSource.getRepository(RoutineChangeRequest).create({
+        routine_slot_id: currentSlot.id,
+        requested_by: USER_ID,
+        note: 'Requesting a swap with the next free period',
+        state: ChangeRequestState.OPEN,
+        resolved_by: null,
+        resolved_at: null,
+        resolution_note: null,
+        tenant_id: TENANT_A,
+      }),
+    );
 
     // --- Exams/marks/results spine (19.10.1, #906) -----------------------
     // Two students so `marks` carries two rows against the same component,
@@ -755,6 +1065,10 @@ describe('workbook round trip (integration)', () => {
         gpa: '4.50',
         grade: 'A',
         position: 1,
+        // [788] section snapshot at compute — round-trip coverage for
+        // `results.tab.ts`'s new `section`/`section_position` columns.
+        section_id: section.id,
+        section_position: 1,
         is_fail: false,
         grading_scale_id: scale.id,
         grading_scale_revision: scale.revision,
@@ -878,6 +1192,145 @@ describe('workbook round trip (integration)', () => {
         status: SyllabusTopicStatus.DONE,
       }),
     );
+
+    // --- [788] Promotion run/entries: one COMMITTED run with one override
+    // entry (note preserved through restore) -----------------------------
+    const nextYear = await dataSource.getRepository(AcademicYear).save(
+      dataSource.getRepository(AcademicYear).create({
+        tenant_id: TENANT_A,
+        name: '2027-2028',
+        start_date: new Date('2027-01-01'),
+        end_date: new Date('2027-12-31'),
+        is_current: false,
+      }),
+    );
+    const nextClass = await dataSource.getRepository(Class).save(
+      dataSource.getRepository(Class).create({
+        tenant_id: TENANT_A,
+        name: 'Class 7',
+        numeric_grade: 7,
+        shift: null,
+        version: null,
+        academic_year_id: nextYear.id,
+      }),
+    );
+    const nextSection = await dataSource.getRepository(ClassSection).save(
+      dataSource.getRepository(ClassSection).create({
+        tenant_id: TENANT_A,
+        class_id: nextClass.id,
+        section_name: 'A',
+        capacity: 30,
+        group_name: null,
+      }),
+    );
+
+    const promotionRun = await dataSource.getRepository(PromotionRun).save(
+      dataSource.getRepository(PromotionRun).create({
+        tenant_id: TENANT_A,
+        source_class_id: klass.id,
+        source_academic_year_id: year.id,
+        target_academic_year_id: nextYear.id,
+        target_class_id: nextClass.id,
+        exam_ids: [exam.id],
+        algorithm: PlacementAlgorithm.BLOCK,
+        status: PromotionRunStatus.COMMITTED,
+        refreshed_at: new Date('2026-03-01T00:00:00.000Z'),
+        committed_at: new Date('2026-03-02T00:00:00.000Z'),
+        committed_by_user_id: USER_ID,
+        approved_by_user_id: USER_ID,
+        override_count: 1,
+        created_by_user_id: USER_ID,
+      }),
+    );
+
+    // A second, DRAFT run for the *same* (source_class, target_academic_year)
+    // pair — the partial unique index only enforces uniqueness for
+    // status='COMMITTED', so this is a legal, realistic sibling of
+    // `promotionRun` above. Exercises `promotionRunsTab`'s id-based `keyOf`:
+    // the old (source_class, target_academic_year) natural key would have
+    // collided between these two rows and broken restore.
+    await dataSource.getRepository(PromotionRun).save(
+      dataSource.getRepository(PromotionRun).create({
+        tenant_id: TENANT_A,
+        source_class_id: klass.id,
+        source_academic_year_id: year.id,
+        target_academic_year_id: nextYear.id,
+        target_class_id: nextClass.id,
+        exam_ids: [exam.id],
+        algorithm: PlacementAlgorithm.BLOCK,
+        status: PromotionRunStatus.DRAFT,
+        refreshed_at: new Date('2026-03-03T00:00:00.000Z'),
+        committed_at: null,
+        committed_by_user_id: null,
+        approved_by_user_id: null,
+        override_count: 0,
+        created_by_user_id: USER_ID,
+      }),
+    );
+
+    const promotionEnrollment = await dataSource
+      .getRepository(Enrollment)
+      .findOneOrFail({ where: { student_id: student.id, academic_year_id: year.id } });
+
+    // One override entry — note preserved through restore (D6/D11).
+    await dataSource.getRepository(PromotionEntry).save(
+      dataSource.getRepository(PromotionEntry).create({
+        tenant_id: TENANT_A,
+        run_id: promotionRun.id,
+        student_id: student.id,
+        source_enrollment_id: promotionEnrollment.id,
+        source_section_id: section.id,
+        merit_rank: 1,
+        mean_gpa: '4.50',
+        total_marks_sum: '167.00',
+        passed_all: true,
+        suggested_outcome: PromotionOutcome.PROMOTE,
+        final_outcome: PromotionOutcome.RETAIN,
+        is_override: true,
+        override_note: 'Medical absence during annual exam — approved by head teacher',
+        overridden_by_user_id: USER_ID,
+        group_name: null,
+        target_class_id: null,
+        target_section_id: null,
+        new_roll_number: null,
+        placement_error: null,
+        target_enrollment_id: null,
+      }),
+    );
+
+    // A second, non-override entry for `studentTwo` — otherwise the
+    // "empty section cell"/"no override" branches of `promotionEntriesTab`
+    // never round-trip in this spine test. `ensureDemoStudents` (#1020)
+    // already gave every demo student an ACTIVE enrollment, so this looks
+    // it up rather than inserting a second one — that would violate
+    // `IDX_enr_active_student_year`.
+    const studentTwoEnrollment = await dataSource
+      .getRepository(Enrollment)
+      .findOneOrFail({ where: { student_id: studentTwo.id, academic_year_id: year.id } });
+    await dataSource.getRepository(PromotionEntry).save(
+      dataSource.getRepository(PromotionEntry).create({
+        tenant_id: TENANT_A,
+        run_id: promotionRun.id,
+        student_id: studentTwo.id,
+        source_enrollment_id: studentTwoEnrollment.id,
+        source_section_id: section.id,
+        merit_rank: 2,
+        mean_gpa: '3.80',
+        total_marks_sum: '140.00',
+        passed_all: true,
+        suggested_outcome: PromotionOutcome.PROMOTE,
+        final_outcome: PromotionOutcome.PROMOTE,
+        is_override: false,
+        override_note: null,
+        overridden_by_user_id: null,
+        group_name: null,
+        target_class_id: nextClass.id,
+        target_section_id: nextSection.id,
+        new_roll_number: 1,
+        placement_error: null,
+        target_enrollment_id: null,
+      }),
+    );
   }
 
   /**
@@ -908,6 +1361,15 @@ describe('workbook round trip (integration)', () => {
       'payment_allocations',
       'grading_scales',
       'grading_bands',
+      // Epic 21.0 (class routine/timetable), [21.11.1].
+      'shifts',
+      'period_slots',
+      'rooms',
+      'routines',
+      'routine_slots',
+      'routine_slot_teachers',
+      'routine_substitutions',
+      'routine_change_requests',
       'exams',
       'exam_components',
       'exam_schedules',
@@ -920,6 +1382,8 @@ describe('workbook round trip (integration)', () => {
       'homework_assignments',
       'homework_submissions',
       'syllabus_topics',
+      'promotion_runs',
+      'promotion_entries',
     ];
     const empty = mustBeNonEmpty.filter((tab) => !(rowCounts[tab] ?? 0));
     expect(empty, `fixture produced no rows for: ${empty.join(', ')}`).toEqual([]);

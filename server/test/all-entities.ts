@@ -67,6 +67,8 @@ import { SyllabusTopic } from '../src/modules/homework/entities/syllabus-topic.e
 import { AdmissionIntake } from '../src/modules/admission/entities/admission-intake.entity';
 import { AdmissionApplicant } from '../src/modules/admission/entities/admission-applicant.entity';
 import { AdmissionEvaluation } from '../src/modules/admission/entities/admission-evaluation.entity';
+import { PromotionRun } from '../src/modules/promotions/entities/promotion-run.entity';
+import { PromotionEntry } from '../src/modules/promotions/entities/promotion-entry.entity';
 
 export const ALL_ENTITIES = [
   AcademicYear,
@@ -138,4 +140,6 @@ export const ALL_ENTITIES = [
   AdmissionIntake,
   AdmissionApplicant,
   AdmissionEvaluation,
+  PromotionRun,
+  PromotionEntry,
 ];

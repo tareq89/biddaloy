@@ -388,6 +388,25 @@ describe('ClassService / SectionService (integration)', () => {
       expect(sections[0]?.enrolled_count).toBe(0);
     });
 
+    // Regression: the routine builder grid reads `section.class.shift_id`
+    // straight off this response (client-admin's $sectionId.tsx). `find`
+    // without `relations` left `class` undefined and crashed that page.
+    it('includes the parent class relation on every section', async () => {
+      const year = await createYear();
+      const klass = await classRepo.save({
+        name: 'Class A',
+        academic_year_id: year.id,
+        tenant_id: TENANT_ID,
+        shift_id: null,
+      });
+      const sectionRepo = dataSource.getRepository(ClassSection);
+      await sectionRepo.save({ class_id: klass.id, section_name: 'A', tenant_id: TENANT_ID });
+
+      const sections = await sectionService.findAll(klass.id, TENANT_ID);
+
+      expect(sections[0]?.class?.id).toBe(klass.id);
+    });
+
     it('counts active enrollments per section without N+1, ignoring non-ACTIVE ones', async () => {
       const year = await createYear();
       const klass = await classRepo.save({

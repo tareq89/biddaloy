@@ -70,6 +70,18 @@ erDiagram
     AcademicYear ||--o{ GradingScale : "graded under"
     Class ||--o{ GradingScale : "overridden by"
     GradingScale ||--o{ GradingBand : "made of"
+    Class ||--o| Shift : "shift_id (promoted from classes.shift)"
+    Shift ||--o{ PeriodSlot : "lays out"
+    AcademicYear ||--o| Routine : "one timetable per year"
+    Routine ||--o{ RoutineSlot : "scheduled classes"
+    ClassSection ||--o{ RoutineSlot : "taught in"
+    PeriodSlot ||--o{ RoutineSlot : "fills grid cell"
+    RoutineSlot ||--o{ RoutineSlotTeacher : "covered by"
+    Teacher ||--o{ RoutineSlotTeacher : covers
+    RoutineSlot ||--o{ RoutineSubstitution : "dated override"
+    Teacher ||--o{ RoutineSubstitution : substitutes
+    RoutineSlot ||--o{ RoutineChangeRequest : "requested change"
+    Room ||--o{ RoutineSlot : "fixed room (optional)"
 
     AcademicYear ||--o{ Exam : "held in"
     Class ||--o{ Exam : "sits"
@@ -85,9 +97,17 @@ erDiagram
     Student ||--o{ Result : "has a"
     GradingScale ||--o{ Result : "pinned against"
     Result ||--o{ ResultSubject : "breaks down into"
+    ClassSection ||--o{ Result : "sat in (section_id/section_position, D17)"
     Subject ||--o{ ResultSubject : "line for"
     Student ||--o{ StudentSubjectChoice : "picks a"
     ClassSubject ||--o{ StudentSubjectChoice : "chosen offering"
+
+    Class ||--o{ PromotionRun : "source class of"
+    School ||--o{ PromotionRun : scopes
+    PromotionRun ||--o{ PromotionEntry : "one row per student"
+    Student ||--o{ PromotionEntry : "decided for"
+    Enrollment ||--o{ PromotionEntry : "carried forward from (source_enrollment_id)"
+    Enrollment ||--o| PromotionEntry : "creates on commit (target_enrollment_id)"
 ```
 
 _(This shows the shape of the graph, not every column — see each entity file
@@ -242,6 +262,63 @@ entity above is scoped to a single `Exam`; nothing here reads across exams.
 A future epic owns that composition, so a reader who notices its absence
 should not read it as a gap left behind by accident.
 
+**D17 — the exam cohort comes from `Enrollment`, not `Student.class_section`.**
+`ResultsService.computeAll`, `MarkGridService`'s roster, and the marks IDOR
+guard all resolve "who sits this exam" by querying the student's **ACTIVE
+`Enrollment`** row for the exam's `(academic_year, class)`, not the
+student's live `class_section` pointer. This matters once a student has
+moved sections mid-year, or a promotion run has advanced them into next
+year's class: an exam processed for last year's class still finds exactly
+the roster that actually sat it, because `Enrollment` is the historical
+record and `Student.class_section` only ever reflects _today_.
+
+`Result.section_id` / `Result.section_position` (added alongside D17) pin
+which section a student actually sat the exam in and their merit rank
+within that `(exam, section)` pair — computed once, at process time, so it
+stays correct even if the student is later moved or promoted out of that
+section.
+
+### Promotions (`modules/promotions`) — Epic 26.6–26.8
+
+```
+PromotionRun (Class 6 -> Class 7, 2026-2027)   status: DRAFT -> COMMITTED
+├── algorithm: BLOCK | SNAKE                    (how next-year sections are filled)
+├── exam_ids: [First Term, Second Term]         (which published exams feed the mean GPA)
+│
+├── PromotionEntry  student=Karim
+│   ├── suggested_outcome: PROMOTE   final_outcome: PROMOTE   is_override: false
+│   └── target_section_id, new_roll_number   (set once placement runs)
+└── PromotionEntry  student=Rahim
+    ├── suggested_outcome: PROMOTE   final_outcome: RETAIN   is_override: true
+    └── override_note: "Repeating — attendance"   (required by a DB CHECK when is_override)
+```
+
+- **`PromotionRun`** — one end-of-year promotion attempt for a source
+  `Class`: which published exams feed the decision (a plain mean across
+  them — see the composition caveat below), which placement algorithm
+  (`BLOCK` fills sections in merit-rank blocks, `SNAKE` interleaves them for
+  even ability spread) assigns next-year sections, and whether it's been
+  committed. `DRAFT` runs are freely re-runnable and re-computable;
+  `COMMITTED` is final. `target_class_id: null` means this run **graduates**
+  the whole class out of the school rather than promoting it. Hard-deleted
+  (no `deleted_at`) when discarded — a draft carries no history worth
+  keeping.
+- **`PromotionEntry`** — one student's decision within a run: merit stats
+  (`mean_gpa`, `total_marks_sum`), the algorithm's `suggested_outcome`, and
+  the possibly human-`override`n `final_outcome` actually applied on
+  commit. `is_override: true` requires a non-blank `override_note`,
+  enforced by a DB CHECK, not just app validation. `source_enrollment_id`
+  points at the `Enrollment` row (D17) this entry was computed from;
+  `target_enrollment_id` is filled in on commit once placement has created
+  the student's next-year `Enrollment`.
+
+**Composition caveat, stated plainly:** a promotion run's `mean_gpa` is a
+**plain mean** of the selected exams' GPAs (D7) — not a weighted average
+(e.g. "Second Term counts double"). Weighted cross-exam composition is the
+same gap already called out above for report cards (D3): still absent, on
+purpose, not forgotten. A future epic that adds per-exam weights to result
+composition should extend the promotion mean the same way.
+
 ### Calendar (`modules/calendar`) — see [16-academic-calendar.md](16-academic-calendar.md) for the full model
 
 - **`CalendarEvent`** — see under Attendance below; the one calendar table
@@ -303,6 +380,48 @@ should not read it as a gap left behind by accident.
 - **`AttendanceDevice`** — a biometric/face/RFID reader that can post attendance events for a tenant.
 - **`AttendanceDeviceEvent`** — one raw scan a device sent, the forensic trail behind an `AttendanceRecord`.
 - **`CalendarEvent`** (`modules/calendar`, [16-academic-calendar.md](16-academic-calendar.md)) — a holiday, exam, event, meeting, or deadline attendance reads to compute working-day math. Renamed from `SchoolHoliday` in [17.1.2] to reflect the wider set of `type`s the calendar module now owns; a `calendar` concern, not an `academics` one.
+
+### Class routines / timetables (`modules/routines`) — see [03-backend-modules.md](03-backend-modules.md#routines-module) for the module's services
+
+Eight entities, all school-scoped. Concrete example: "Class 6 A has Math,
+period 1, every Monday, taught by Ms Rahman" is one `RoutineSlot` row
+pointing at a `Routine`, a `ClassSection`, a `PeriodSlot`, and (via
+`RoutineSlotTeacher`) a `Teacher`.
+
+- **`Shift`** — a tenant's named daily window ("Morning", "Day"). [21.2.1]
+  promotes `classes.shift` (a free-text column) into this table —
+  `Class.shift_id` is the new pointer, `Class.shift` (the string) stays for
+  one release as a rollback path.
+- **`PeriodSlot`** — one grid cell within a shift's day: a numbered class
+  period, or a `BREAK` (e.g. "Lunch"). `sequence` orders slots independent
+  of `starts_at`, so periods can be reordered without renumbering every row.
+- **`Room`** — a physical room a class can be scheduled into. `building` is
+  nullable (a small school may not name its one building).
+- **`Routine`** — one timetable document per `(tenant, academic_year)`.
+  Lifecycle: `DRAFT` → `REVIEW` → `PUBLISHED`.
+- **`RoutineSlot`** — one scheduled class: section + period slot + weekday +
+  subject, effective for `[valid_from, valid_to)`. Two rows can share the
+  same section/period/weekday with disjoint date ranges — that's how a
+  mid-year subject swap is represented, not a schema bug.
+- **`RoutineSlotTeacher`** — join table: which teacher(s) cover a slot.
+  Usually one row; a co-taught period adds a second.
+- **`RoutineSubstitution`** — a dated override of one `RoutineSlot`: a
+  substitute teacher covering it, or the period cancelled outright, without
+  touching the slot's own effective-dated row.
+- **`RoutineChangeRequest`** — a teacher's request to change a _published_
+  slot, tracked separately so a coordinator can accept/reject it rather than
+  the request silently mutating the live timetable.
+
+```mermaid
+flowchart LR
+    Shift -->|day_starts_at..day_ends_at, sequence| PeriodSlot
+    PeriodSlot -->|period_slot_id| RoutineSlot
+    Routine -->|routine_id| RoutineSlot
+    ClassSection -->|section_id| RoutineSlot
+    RoutineSlot -->|routine_slot_id, 1..N rows| RoutineSlotTeacher
+    RoutineSlot -->|routine_slot_id, one row per date differing from plan| RoutineSubstitution
+    RoutineSlot -->|routine_slot_id| RoutineChangeRequest
+```
 
 ### Audit & auth internals (`modules/audit`, `modules/auth`)
 

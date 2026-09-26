@@ -207,28 +207,21 @@ test('a discounted bKash checkout needs step-up approval, then settles', async (
   // change-to-wallet fields (`TenderSection`) only render for CASH, so a
   // non-cash method here means no tender step, just a reference number.
   //
-  // Order matters: `DiscountCell.commit` clamps to `balance - pay`, and
-  // `pay` defaults to the full balance until "Amount received" is typed —
-  // discounting first would clamp straight to 0. Amount received has to
-  // land before the discount.
-  //
-  // Typing amount received debounces a `GET /payments/cart` refetch
-  // (`record-payment-modal.tsx`'s `debouncedAmountReceivedMinorUnits`)
-  // that re-seeds every line's pay/discount from the server's suggested
-  // split. `MoneyInput` fires `onValueChange` per keystroke, so a single
-  // `.fill('500')` triggers several debounce cycles in flight at once
-  // (amount 5, then 50, then 500) — editing the discount before the
-  // *last* one's response lands gets clobbered by that response's reseed
-  // the moment it arrives. Waiting for the "Pay" cell to reflect the
-  // final amount isn't enough on its own (an earlier cycle's stale
-  // response can still land after); wait for the network to go quiet too,
-  // so every in-flight cart refetch has resolved before touching discount.
+  // Order matters: `DiscountCell.commit` clamps to `balance - pay`, so the
+  // discount is typed once Pay shows the 500 split out of "Amount
+  // received". That split arrives with a debounced `GET /payments/cart`
+  // (`record-payment-modal.tsx`'s `debouncedAmountReceivedMinorUnits`):
+  // wait for that exact response, then for Pay to show it. MoneyInput
+  // renders the locale's own digits (e.g. "৳৫০০.০০" in Bangla), so the
+  // non-zero check accepts Bengali digits too.
+  const cartForAmount = page.waitForResponse(
+    (response) =>
+      response.url().includes('/payments/cart') &&
+      new URL(response.url()).searchParams.get('amount') === '500.00',
+  );
   await page.getByLabel(t('payments.record.amountReceived.label')).fill('500');
-  // MoneyInput renders in the locale's own digits/currency mark (e.g.
-  // "৳৫০০.০০" in Bangla) — match on the digit run showing up rather than
-  // pinning an exact formatted string.
-  await expect(page.getByLabel(t('payments.record.cart.columnPay'))).not.toHaveValue(/^.?0+\.0+$/);
-  await page.waitForLoadState('networkidle');
+  await cartForAmount;
+  await expect(page.getByLabel(t('payments.record.cart.columnPay'))).toHaveValue(/[1-9১-৯]/);
   await page.getByRole('button', { name: t('payments.record.discount.unlock') }).click();
   await page.getByLabel(t('payments.record.discount.label')).fill('500');
   await page.getByLabel(t('payments.record.method.methods.BKASH')).check();
@@ -236,7 +229,13 @@ test('a discounted bKash checkout needs step-up approval, then settles', async (
 
   const discountSubmit = page.getByRole('button', { name: t('payments.record.submitAction') });
   await expect(discountSubmit).toBeEnabled({ timeout: 10_000 });
+  const checkoutRequest = page.waitForRequest(
+    (req) => req.method() === 'POST' && req.url().includes('/payments/checkout'),
+  );
   await discountSubmit.click();
+  expect((await checkoutRequest).postDataJSON().lines).toEqual([
+    expect.objectContaining({ amount: 500, one_off_discount: 500 }),
+  ]);
 
   // Discount above the threshold trips APPROVAL_REQUIRED — the step-up
   // modal appears mid-submit (`useApprovedMutation`, same contract

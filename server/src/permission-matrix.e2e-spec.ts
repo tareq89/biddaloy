@@ -629,8 +629,11 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // [19.1.1] Plumbing landed ahead of the exam/marks/result routes
   // (19.2.1-19.5.1 build the Exam/ExamComponent/marks/result endpoints
   // these will gate). Remove from this list as each route lands.
-  // [19.3.1] EXAM_MANAGE now gates every route on ExamsController and
-  // ExamComponentsController — no longer UI-only, removed from this list.
+  // [19.3.1] EXAM_MANAGE now gates ExamsController's create/get/update/
+  // delete routes and every ExamComponentsController route — no longer
+  // UI-only, removed from this list. ([26.x] `GET /exams`, the read-only
+  // list, is on MARK_VIEW so the marks/analysis exam pickers load for
+  // teachers and executives.)
   // [19.4.1] MARK_ENTER/MARK_VIEW now gate MarksController's routes —
   // no longer UI-only, removed from this list.
   // [19.5.1] RESULT_PROCESS/RESULT_PUBLISH now gate ResultsController's
@@ -645,6 +648,11 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // [27.3]/[27.5] ADMISSION_REVIEW now gates IntakeController's CRUD routes
   // and ApplicantReviewController's evaluate/admit/reject routes — no
   // longer UI-only, removed from this list at wave-2 integration.
+  // [26.3.3] Checked in-service, never on a route: `PromotionsService.commit()`
+  // requires it only when the run carries overrides (D11). A route-level
+  // `@RequirePermissions` would also block override-free commits, which
+  // only need PROMOTION_MANAGE.
+  Permission.PROMOTION_OVERRIDE,
 ];
 
 describe('Permission matrix (regression)', () => {

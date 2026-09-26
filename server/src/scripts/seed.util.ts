@@ -18,6 +18,7 @@ import {
   UserStatus,
 } from '@biddaloy/shared';
 import type { OrganisationSettings } from '@biddaloy/shared';
+import { EnrollmentStatus } from '@biddaloy/shared';
 import { FindOptionsWhere, IsNull, ObjectLiteral, Repository } from 'typeorm';
 import { School } from '../modules/schools/entities/school.entity';
 import { User } from '../modules/users/entities/user.entity';
@@ -27,6 +28,7 @@ import { Class } from '../modules/academics/entities/class.entity';
 import { ClassSection } from '../modules/academics/entities/class-section.entity';
 import { Student } from '../modules/students/entities/student.entity';
 import { Guardian } from '../modules/students/entities/guardian.entity';
+import { Enrollment } from '../modules/students/entities/enrollment.entity';
 import { Subject } from '../modules/academics/entities/subject.entity';
 import { ClassSubject } from '../modules/academics/entities/class-subject.entity';
 import { GradingScale } from '../modules/grading/entities/grading-scale.entity';
@@ -50,16 +52,33 @@ import { AttendanceRecord } from '../modules/attendance/entities/attendance-reco
 import { AttendanceDevice } from '../modules/attendance/entities/attendance-device.entity';
 import { hashDeviceKey } from '../modules/attendance/devices/device.service';
 import { SeedPublicHolidayEntry } from './seed-data/public-holidays-bd';
+import { Shift } from '../modules/routines/entities/shift.entity';
+import { PeriodSlot } from '../modules/routines/entities/period-slot.entity';
+import { Room } from '../modules/routines/entities/room.entity';
+import { Routine } from '../modules/routines/entities/routine.entity';
+import { RoutineSlot } from '../modules/routines/entities/routine-slot.entity';
+import { RoutineSlotTeacher } from '../modules/routines/entities/routine-slot-teacher.entity';
+import { RoutineSubstitution } from '../modules/routines/entities/routine-substitution.entity';
+import { RoutineChangeRequest } from '../modules/routines/entities/routine-change-request.entity';
 import {
+  PeriodSlotKind,
+  SlotRecurrence,
+  RoutineState,
+  ChangeRequestState,
   HomeworkGradingMode,
   HomeworkAssignmentStatus,
   HomeworkSubmissionStatus,
   SyllabusTopicStatus,
+  PromotionRunStatus,
+  PlacementAlgorithm,
+  PromotionOutcome,
 } from '@biddaloy/shared';
 import { Homework } from '../modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from '../modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from '../modules/homework/entities/homework-submission.entity';
 import { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.entity';
+import { PromotionRun } from '../modules/promotions/entities/promotion-run.entity';
+import { PromotionEntry } from '../modules/promotions/entities/promotion-entry.entity';
 
 /** [8.9.5] manual-testing aid: gives the seed admin a *second* school
  * membership so `/select-school`'s picker actually has something to show
@@ -615,12 +634,51 @@ export async function ensureDemoStudents(
         const guardian = guardians[rosterIndex % guardians.length];
         rosterIndex += 1;
 
+        // [#1020] `Enrollment` is a separate table (not derived from
+        // `Student`), so it needs its own find-or-create beside the
+        // student's — a repo obtained off `studentRepository`'s own
+        // manager rather than threading a new repository through
+        // `DemoStudentRepositories`/every caller. A real injected
+        // TypeORM `Repository` always has `.manager`; only a fake repo
+        // stub built for a test unrelated to `Enrollment` (e.g.
+        // `seed.spec.ts`'s `seedAccounts` fixtures) wouldn't — skip
+        // rather than throw in that case.
+        // Plain find-or-create, keyed on (student, year, ACTIVE) — this
+        // never rewrites an existing row's class_id/section_id. Seeding
+        // doesn't move an existing student's `class_section_id` either, so
+        // resyncing here would only pull the Enrollment away from wherever
+        // a real write path (PATCH, workbook restore) has since moved the
+        // student, reintroducing the drift this ticket closes.
+        const ensureEnrollment = async (studentId: string) => {
+          if (!studentRepository.manager) return;
+          const enrollmentRepository = studentRepository.manager.getRepository(Enrollment);
+          const existingEnrollment = await enrollmentRepository.findOne({
+            where: {
+              student_id: studentId,
+              academic_year_id: year.id,
+              tenant_id: schoolId,
+              enrollment_status: EnrollmentStatus.ACTIVE,
+            },
+          });
+          if (existingEnrollment) return;
+          await enrollmentRepository.save(
+            enrollmentRepository.create({
+              student_id: studentId,
+              class_id: klass.id,
+              section_id: section.id,
+              academic_year_id: year.id,
+              tenant_id: schoolId,
+            }),
+          );
+        };
+
         const existing = await studentRepository.findOne({
           where: { registration_number: registrationNumber, tenant_id: schoolId },
           withDeleted: true,
         });
         if (existing) {
           if (existing.deleted_at) await studentRepository.save(undelete(existing));
+          await ensureEnrollment(existing.id);
           continue;
         }
 
@@ -642,6 +700,7 @@ export async function ensureDemoStudents(
         });
         await studentRepository.save(student);
         result.students += 1;
+        await ensureEnrollment(student.id);
       }
     }
   }
@@ -1490,6 +1549,439 @@ export async function ensureGradingDemoSeed(
   return result;
 }
 
+export interface RoutineSeedRepositories {
+  userRepository: Repository<User>;
+  teacherRepository: Repository<Teacher>;
+  subjectRepository: Repository<Subject>;
+  classRepository: Repository<Class>;
+  shiftRepository: Repository<Shift>;
+  periodSlotRepository: Repository<PeriodSlot>;
+  roomRepository: Repository<Room>;
+  routineRepository: Repository<Routine>;
+  routineSlotRepository: Repository<RoutineSlot>;
+  routineSlotTeacherRepository: Repository<RoutineSlotTeacher>;
+  routineSubstitutionRepository: Repository<RoutineSubstitution>;
+  routineChangeRequestRepository: Repository<RoutineChangeRequest>;
+}
+
+export interface RoutineSeedParams {
+  schoolId: string;
+  academicYearId: string;
+  classId: string; // the class both sections belong to — its shift_id is set here (D8's promotion column)
+  sectionAId: string;
+  sectionBId: string;
+  primaryTeacherId: string; // an existing Teacher row (e.g. `ensureAttendanceSeed`'s teacher@biddaloy.test)
+  requestedByUserId: string; // whoever "files" the substitution and change request
+}
+
+export interface RoutineSeedResult {
+  shifts: number;
+  periodSlots: number;
+  rooms: number;
+  teachers: number;
+  routines: number;
+  slots: number;
+  substitutions: number;
+  changeRequests: number;
+}
+
+/** Six period slots for the seeded "Morning" shift, sequence 1..6 — five
+ * class periods and one `BREAK` ("Lunch") between periods 3 and 4. */
+const ROUTINE_SEED_PERIODS: readonly {
+  sequence: number;
+  kind: PeriodSlotKind;
+  name: string | null;
+  starts_at: string;
+  ends_at: string;
+}[] = [
+  {
+    sequence: 1,
+    kind: PeriodSlotKind.CLASS,
+    name: null,
+    starts_at: '08:00:00',
+    ends_at: '08:40:00',
+  },
+  {
+    sequence: 2,
+    kind: PeriodSlotKind.CLASS,
+    name: null,
+    starts_at: '08:40:00',
+    ends_at: '09:20:00',
+  },
+  {
+    sequence: 3,
+    kind: PeriodSlotKind.CLASS,
+    name: null,
+    starts_at: '09:20:00',
+    ends_at: '10:00:00',
+  },
+  {
+    sequence: 4,
+    kind: PeriodSlotKind.BREAK,
+    name: 'Lunch',
+    starts_at: '10:00:00',
+    ends_at: '10:30:00',
+  },
+  {
+    sequence: 5,
+    kind: PeriodSlotKind.CLASS,
+    name: null,
+    starts_at: '10:30:00',
+    ends_at: '11:10:00',
+  },
+  {
+    sequence: 6,
+    kind: PeriodSlotKind.CLASS,
+    name: null,
+    starts_at: '11:10:00',
+    ends_at: '11:50:00',
+  },
+];
+
+/**
+ * [21.11.1]: a published routine spanning two sections, deterministic
+ * enough for `/routines` demo screens and for the workbook round-trip
+ * fixture to exercise the same shapes real tenants hit — a co-taught
+ * slot (two teachers on one `RoutineSlot`), a biweekly slot, a
+ * cancellation substitution with no substitute, and one open change
+ * request.
+ *
+ * Idempotent like every other `ensure*` helper here: every entity is
+ * found-or-created by its own natural key before being written.
+ *
+ * Bails out entirely if the academic year already has a *live* routine
+ * this helper didn't create (identified by name, `SEED_ROUTINE_NAME`
+ * below) — `Routine`'s unique `(tenant_id, academic_year_id)` index means
+ * there is at most one, so grafting fixture slots/teachers/substitutions/
+ * change-requests onto someone else's real routine would silently
+ * corrupt it rather than seed a fixture.
+ */
+const SEED_ROUTINE_NAME = 'Main routine';
+
+export async function ensureRoutineSeed(
+  repos: RoutineSeedRepositories,
+  params: RoutineSeedParams,
+): Promise<RoutineSeedResult> {
+  const {
+    schoolId,
+    academicYearId,
+    classId,
+    sectionAId,
+    sectionBId,
+    primaryTeacherId,
+    requestedByUserId,
+  } = params;
+  const result: RoutineSeedResult = {
+    shifts: 0,
+    periodSlots: 0,
+    rooms: 0,
+    teachers: 0,
+    routines: 0,
+    slots: 0,
+    substitutions: 0,
+    changeRequests: 0,
+  };
+
+  const liveRoutine = await repos.routineRepository.findOne({
+    where: { tenant_id: schoolId, academic_year_id: academicYearId },
+  });
+  if (liveRoutine && liveRoutine.name !== SEED_ROUTINE_NAME) {
+    console.warn(
+      `  Routine seed: academic year already has a non-seed routine "${liveRoutine.name}", skipping.`,
+    );
+    return result;
+  }
+
+  // --- shift + period slots ------------------------------------------
+  let shift = await findLivePreferred(repos.shiftRepository, {
+    tenant_id: schoolId,
+    name: 'Morning',
+  });
+  if (!shift) {
+    shift = repos.shiftRepository.create({
+      tenant_id: schoolId,
+      name: 'Morning',
+      day_starts_at: '08:00:00',
+      day_ends_at: '13:00:00',
+      sequence: 1,
+    });
+    await repos.shiftRepository.save(shift);
+    result.shifts += 1;
+  } else if (shift.deleted_at) {
+    await repos.shiftRepository.save(undelete(shift));
+  }
+
+  // The client's grid builder (`/routines/$sectionId`) gates on
+  // `section.class.shift_id` being set — without this, [21.2.1]'s
+  // `classes.shift_id` promotion column stays null for every demo class
+  // and the builder shows "no shift" instead of the seeded grid.
+  const routineClass = await repos.classRepository.findOne({ where: { id: classId } });
+  if (routineClass && routineClass.shift_id !== shift.id) {
+    routineClass.shift_id = shift.id;
+    await repos.classRepository.save(routineClass);
+  }
+
+  const periodSlots: PeriodSlot[] = [];
+  for (const p of ROUTINE_SEED_PERIODS) {
+    let slot = await repos.periodSlotRepository.findOne({
+      where: { tenant_id: schoolId, shift_id: shift.id, sequence: p.sequence },
+    });
+    if (!slot) {
+      slot = repos.periodSlotRepository.create({ ...p, shift_id: shift.id, tenant_id: schoolId });
+      await repos.periodSlotRepository.save(slot);
+      result.periodSlots += 1;
+    }
+    periodSlots.push(slot);
+  }
+
+  // --- rooms -----------------------------------------------------------
+  const roomSeeds: readonly { building: string; room_no: string; capacity: number }[] = [
+    { building: 'Building A', room_no: '101', capacity: 35 },
+    { building: 'Building A', room_no: '102', capacity: 35 },
+  ];
+  const rooms: Room[] = [];
+  for (const r of roomSeeds) {
+    let room = await findLivePreferred(repos.roomRepository, {
+      tenant_id: schoolId,
+      building: r.building,
+      room_no: r.room_no,
+    });
+    if (!room) {
+      room = repos.roomRepository.create({ ...r, tenant_id: schoolId });
+      await repos.roomRepository.save(room);
+      result.rooms += 1;
+    } else if (room.deleted_at) {
+      await repos.roomRepository.save(undelete(room));
+    }
+    rooms.push(room);
+  }
+
+  // --- a second teacher, for the co-taught slot -------------------------
+  let secondTeacherUser = await repos.userRepository.findOne({
+    where: { email: 'routine-teacher2@biddaloy.test' },
+    withDeleted: true,
+  });
+  if (!secondTeacherUser) {
+    secondTeacherUser = repos.userRepository.create({
+      email: 'routine-teacher2@biddaloy.test',
+      full_name: 'Second Routine Teacher',
+      // Never logged into directly — this account exists only to give the
+      // co-taught slot a distinct teacher, unlike `teacher@biddaloy.test`
+      // which is a real login fixture elsewhere in this file.
+      password_hash: 'seed-only-not-a-real-login',
+    });
+    await repos.userRepository.save(secondTeacherUser);
+  } else if (secondTeacherUser.deleted_at) {
+    // `users.email` is a plain unique index (covers deleted rows too), so a
+    // soft-deleted match still owns this email — restore it rather than
+    // re-insert, same reasoning `findLivePreferred`'s docblock gives for
+    // plain-unique-index entities.
+    await repos.userRepository.save(undelete(secondTeacherUser));
+  }
+  let secondTeacher = await repos.teacherRepository.findOne({
+    where: { user_id: secondTeacherUser.id },
+    withDeleted: true,
+  });
+  if (!secondTeacher) {
+    secondTeacher = repos.teacherRepository.create({
+      user_id: secondTeacherUser.id,
+      employee_id: 'SEED-TEACHER-0002',
+      designations: [TeacherDesignation.SUBJECT_TEACHER],
+      tenant_id: schoolId,
+    });
+    await repos.teacherRepository.save(secondTeacher);
+    result.teachers += 1;
+  } else if (secondTeacher.deleted_at) {
+    await repos.teacherRepository.save(undelete(secondTeacher));
+  }
+
+  const mathSubject = await repos.subjectRepository.findOne({
+    where: { tenant_id: schoolId, code: 'MATH' },
+  });
+  if (!mathSubject) {
+    // No subject to hang slots off — `ensureAttendanceSeed` (which seeds
+    // MATH) must run before this helper. Same "caller's job to sequence
+    // this" contract as `ensureAttendanceSeed` itself has with
+    // `ensureDemoStudents`.
+    console.warn(
+      '  Routine seed: no "MATH" subject found, skipping (run ensureAttendanceSeed first).',
+    );
+    return result;
+  }
+
+  // --- routine -----------------------------------------------------------
+  // Keyed by name too, not just (tenant, year) — the early guard above
+  // already ensures any live routine here is either absent or ours, but
+  // a *soft-deleted* row for this year could still belong to someone
+  // else, and `findLivePreferred`'s withDeleted fallback must not
+  // undelete a stranger's routine into our fixture's identity.
+  let routine = await findLivePreferred(repos.routineRepository, {
+    tenant_id: schoolId,
+    academic_year_id: academicYearId,
+    name: SEED_ROUTINE_NAME,
+  });
+  if (!routine) {
+    routine = repos.routineRepository.create({
+      tenant_id: schoolId,
+      academic_year_id: academicYearId,
+      name: SEED_ROUTINE_NAME,
+      state: RoutineState.PUBLISHED,
+      published_at: new Date(),
+    });
+    await repos.routineRepository.save(routine);
+    result.routines += 1;
+  } else if (routine.deleted_at) {
+    await repos.routineRepository.save(undelete(routine));
+  }
+
+  async function ensureSlot(spec: {
+    section_id: string;
+    period_slot_id: string;
+    weekday: number;
+    room_id: string | null;
+    recurrence: SlotRecurrence;
+    recurrence_offset: number;
+    valid_from: string;
+    valid_to: string | null;
+  }): Promise<RoutineSlot> {
+    let slot = await repos.routineSlotRepository.findOne({
+      where: {
+        tenant_id: schoolId,
+        routine_id: routine!.id,
+        section_id: spec.section_id,
+        period_slot_id: spec.period_slot_id,
+        weekday: spec.weekday,
+        valid_from: spec.valid_from,
+      },
+    });
+    if (!slot) {
+      slot = repos.routineSlotRepository.create({
+        ...spec,
+        routine_id: routine!.id,
+        subject_id: mathSubject!.id,
+        tenant_id: schoolId,
+      });
+      await repos.routineSlotRepository.save(slot);
+      result.slots += 1;
+    }
+    return slot;
+  }
+
+  async function ensureSlotTeacher(routineSlotId: string, teacherId: string): Promise<void> {
+    const existing = await repos.routineSlotTeacherRepository.findOne({
+      where: { routine_slot_id: routineSlotId, teacher_id: teacherId },
+    });
+    if (!existing) {
+      await repos.routineSlotTeacherRepository.save(
+        repos.routineSlotTeacherRepository.create({
+          routine_slot_id: routineSlotId,
+          teacher_id: teacherId,
+          tenant_id: schoolId,
+        }),
+      );
+    }
+  }
+
+  // A plain weekly slot, section A, period 1, Monday (weekday = 1) —
+  // this is the one the substitution and change request below attach to.
+  const mainSlot = await ensureSlot({
+    section_id: sectionAId,
+    period_slot_id: periodSlots[0]!.id,
+    weekday: 1,
+    room_id: rooms[0]!.id,
+    recurrence: SlotRecurrence.WEEKLY,
+    recurrence_offset: 0,
+    valid_from: '2026-01-01',
+    valid_to: null,
+  });
+  await ensureSlotTeacher(mainSlot.id, primaryTeacherId);
+
+  // A biweekly slot, section A, period 2, Tuesday, second week of the cycle.
+  const biweeklySlot = await ensureSlot({
+    section_id: sectionAId,
+    period_slot_id: periodSlots[1]!.id,
+    weekday: 2,
+    room_id: null,
+    recurrence: SlotRecurrence.BIWEEKLY,
+    recurrence_offset: 1,
+    valid_from: '2026-01-01',
+    valid_to: null,
+  });
+  await ensureSlotTeacher(biweeklySlot.id, primaryTeacherId);
+
+  // Co-taught slot, section B, period 5, Monday: two teachers on one slot.
+  const coTaughtSlot = await ensureSlot({
+    section_id: sectionBId,
+    period_slot_id: periodSlots[4]!.id,
+    weekday: 1,
+    room_id: rooms[1]!.id,
+    recurrence: SlotRecurrence.WEEKLY,
+    recurrence_offset: 0,
+    valid_from: '2026-01-01',
+    valid_to: null,
+  });
+  await ensureSlotTeacher(coTaughtSlot.id, primaryTeacherId);
+  await ensureSlotTeacher(coTaughtSlot.id, secondTeacher.id);
+
+  // --- one substitution: a cancellation, no substitute teacher ----------
+  const existingSub = await repos.routineSubstitutionRepository.findOne({
+    where: { routine_slot_id: mainSlot.id, date: '2026-02-09' },
+  });
+  if (!existingSub) {
+    await repos.routineSubstitutionRepository.save(
+      repos.routineSubstitutionRepository.create({
+        routine_slot_id: mainSlot.id,
+        date: '2026-02-09',
+        substitute_teacher_id: null,
+        is_cancelled: true,
+        reason: 'Teacher on leave, period cancelled outright',
+        created_by: requestedByUserId,
+        tenant_id: schoolId,
+      }),
+    );
+    result.substitutions += 1;
+  }
+
+  // --- one open change request -------------------------------------------
+  // No `state` filter — once an admin resolves this seeded request, a
+  // rerun must still recognize it as "already seeded" rather than
+  // creating a duplicate OPEN one for the same slot/requester.
+  const existingRequest = await repos.routineChangeRequestRepository.findOne({
+    where: {
+      routine_slot_id: mainSlot.id,
+      requested_by: requestedByUserId,
+    },
+  });
+  if (!existingRequest) {
+    await repos.routineChangeRequestRepository.save(
+      repos.routineChangeRequestRepository.create({
+        routine_slot_id: mainSlot.id,
+        requested_by: requestedByUserId,
+        note: 'Requesting a swap with the next free period',
+        state: ChangeRequestState.OPEN,
+        tenant_id: schoolId,
+      }),
+    );
+    result.changeRequests += 1;
+  }
+
+  const total =
+    result.shifts +
+    result.periodSlots +
+    result.rooms +
+    result.teachers +
+    result.routines +
+    result.slots;
+  if (total > 0) {
+    console.log(
+      `  Routine seed: +${result.shifts} shifts, +${result.periodSlots} period slots, ` +
+        `+${result.rooms} rooms, +${result.slots} slots, +${result.substitutions} substitutions, ` +
+        `+${result.changeRequests} change requests`,
+    );
+  }
+  return result;
+}
+
 /** [19.10.1] Demo exams/marks/results data so the marks-entry grid, the
  * progress screen and the guardian portal all have something real to
  * render — see the ticket's step 3:
@@ -1729,6 +2221,8 @@ export async function ensureExamsDemoSeed(
         gpa: '4.50',
         grade: 'A',
         position: 1,
+        section_id: sectionIds[0],
+        section_position: 1,
         is_fail: false,
         grading_scale_id: params.gradingScaleId,
         grading_scale_revision: params.gradingScaleRevision,
@@ -1973,6 +2467,213 @@ export async function ensureHomeworkDemoSeed(
       `  Homework demo seed: +${result.homework} homework, +${result.assignments} assignments, ` +
         `+${result.submissions} submissions, +${result.syllabusTopics} syllabus topics`,
     );
+  }
+  return result;
+}
+
+// ===========================================================================
+// [788] Promotion demo data
+// ===========================================================================
+
+/** [788] The year the demo's one promotion run promotes students *into* —
+ * one year after `DEMO_ACADEMIC_YEAR`, same "real 2027 date" convention. */
+export const DEMO_NEXT_ACADEMIC_YEAR = {
+  name: '2027-2028',
+  start_date: '2027-01-01',
+  end_date: '2027-12-31',
+} as const;
+
+/** The class the demo's promotion run moves "Class 6" students into, seeded
+ * under `DEMO_NEXT_ACADEMIC_YEAR` rather than reusing the current year's own
+ * "Class 7" (a different physical class, in a different academic year). */
+const DEMO_NEXT_CLASS_NAME = 'Class 7';
+
+export interface PromotionDemoSeedRepositories {
+  academicYearRepository: Repository<AcademicYear>;
+  classRepository: Repository<Class>;
+  classSectionRepository: Repository<ClassSection>;
+  enrollmentRepository: Repository<Enrollment>;
+  promotionRunRepository: Repository<PromotionRun>;
+  promotionEntryRepository: Repository<PromotionEntry>;
+}
+
+export interface PromotionDemoSeedParams {
+  schoolId: string;
+  sourceClassId: string;
+  sourceAcademicYearId: string;
+  examIds: readonly string[];
+  createdByUserId: string;
+  /** Section-order lists of student ids — same shape as
+   * `ExamsDemoSeedParams.sectionStudentIds` (section A first, section B
+   * second), reused here so the promoted-with-override student is the same
+   * "section A, roll 1" the exams seed already published a `Result` for. */
+  sectionStudentIds: readonly (readonly string[])[];
+}
+
+export interface PromotionDemoSeedResult {
+  runs: number;
+  entries: number;
+}
+
+/** Idempotent, same find-or-create shape as every other `ensure*` in this
+ * file: one next academic year, one target class with two sections, one
+ * COMMITTED `PromotionRun` from `params.sourceClassId`, and one
+ * `PromotionEntry` per seeded student — section A roll 1 carries the one
+ * override (D6/D11), matching the ticket's own note text exactly.
+ *
+ * No DRAFT run: the demo only ever seeds one class's exam
+ * (`ensureExamsDemoSeed`), so there is no second class with a published exam
+ * to build a draft against (see this ticket's plan comment). */
+export async function ensurePromotionDemoSeed(
+  repos: PromotionDemoSeedRepositories,
+  params: PromotionDemoSeedParams,
+): Promise<PromotionDemoSeedResult> {
+  const {
+    schoolId,
+    sourceClassId,
+    sourceAcademicYearId,
+    examIds,
+    createdByUserId,
+    sectionStudentIds,
+  } = params;
+  const result: PromotionDemoSeedResult = { runs: 0, entries: 0 };
+
+  // --- next academic year ------------------------------------------------
+  let nextYear = await findLivePreferred(repos.academicYearRepository, {
+    name: DEMO_NEXT_ACADEMIC_YEAR.name,
+    tenant_id: schoolId,
+  });
+  if (!nextYear) {
+    nextYear = repos.academicYearRepository.create({
+      name: DEMO_NEXT_ACADEMIC_YEAR.name,
+      start_date: new Date(DEMO_NEXT_ACADEMIC_YEAR.start_date),
+      end_date: new Date(DEMO_NEXT_ACADEMIC_YEAR.end_date),
+      is_current: false,
+      tenant_id: schoolId,
+    });
+    await repos.academicYearRepository.save(nextYear);
+  } else if (nextYear.deleted_at) {
+    await repos.academicYearRepository.save(undelete(nextYear));
+  }
+
+  // --- target class + two sections ---------------------------------------
+  let targetClass = await repos.classRepository.findOne({
+    where: { name: DEMO_NEXT_CLASS_NAME, tenant_id: schoolId, academic_year_id: nextYear.id },
+    withDeleted: true,
+  });
+  if (!targetClass) {
+    targetClass = repos.classRepository.create({
+      name: DEMO_NEXT_CLASS_NAME,
+      numeric_grade: 7,
+      shift: null,
+      version: null,
+      academic_year_id: nextYear.id,
+      tenant_id: schoolId,
+    });
+    await repos.classRepository.save(targetClass);
+  } else if (targetClass.deleted_at) {
+    await repos.classRepository.save(undelete(targetClass));
+  }
+
+  const targetSections: ClassSection[] = [];
+  for (const sectionName of ['A', 'B']) {
+    let section = await repos.classSectionRepository.findOne({
+      where: { class_id: targetClass.id, section_name: sectionName, tenant_id: schoolId },
+      withDeleted: true,
+    });
+    if (!section) {
+      section = repos.classSectionRepository.create({
+        class_id: targetClass.id,
+        section_name: sectionName,
+        capacity: 30,
+        group_name: null,
+        tenant_id: schoolId,
+      });
+      await repos.classSectionRepository.save(section);
+    } else if (section.deleted_at) {
+      await repos.classSectionRepository.save(undelete(section));
+    }
+    targetSections.push(section);
+  }
+
+  // --- one COMMITTED run --------------------------------------------------
+  let run = await repos.promotionRunRepository.findOne({
+    where: {
+      tenant_id: schoolId,
+      source_class_id: sourceClassId,
+      target_academic_year_id: nextYear.id,
+      status: PromotionRunStatus.COMMITTED,
+    },
+  });
+  if (!run) {
+    run = repos.promotionRunRepository.create({
+      tenant_id: schoolId,
+      source_class_id: sourceClassId,
+      source_academic_year_id: sourceAcademicYearId,
+      target_academic_year_id: nextYear.id,
+      target_class_id: targetClass.id,
+      exam_ids: [...examIds],
+      algorithm: PlacementAlgorithm.BLOCK,
+      status: PromotionRunStatus.COMMITTED,
+      refreshed_at: new Date('2026-03-01T00:00:00.000Z'),
+      committed_at: new Date('2026-03-02T00:00:00.000Z'),
+      committed_by_user_id: createdByUserId,
+      approved_by_user_id: createdByUserId,
+      override_count: 1,
+      created_by_user_id: createdByUserId,
+    });
+    await repos.promotionRunRepository.save(run);
+    result.runs += 1;
+
+    // --- one entry per seeded student, section A roll 1 overridden -------
+    let studentIndex = 0;
+    for (const [sectionIndex, studentIds] of sectionStudentIds.entries()) {
+      for (const [rollIndex, studentId] of studentIds.entries()) {
+        const enrollment = await repos.enrollmentRepository.findOne({
+          where: {
+            student_id: studentId,
+            academic_year_id: sourceAcademicYearId,
+            tenant_id: schoolId,
+            enrollment_status: EnrollmentStatus.ACTIVE,
+          },
+        });
+        if (!enrollment) continue;
+
+        const isOverride = sectionIndex === 0 && rollIndex === 0;
+        await repos.promotionEntryRepository.save(
+          repos.promotionEntryRepository.create({
+            tenant_id: schoolId,
+            run_id: run.id,
+            student_id: studentId,
+            source_enrollment_id: enrollment.id,
+            source_section_id: enrollment.section_id,
+            merit_rank: studentIndex + 1,
+            mean_gpa: '4.50',
+            total_marks_sum: '167.00',
+            passed_all: true,
+            suggested_outcome: PromotionOutcome.PROMOTE,
+            final_outcome: isOverride ? PromotionOutcome.RETAIN : PromotionOutcome.PROMOTE,
+            is_override: isOverride,
+            override_note: isOverride
+              ? 'Medical absence during annual exam — approved by head teacher'
+              : null,
+            overridden_by_user_id: isOverride ? createdByUserId : null,
+            group_name: null,
+            target_class_id: isOverride ? null : targetClass.id,
+            target_section_id: isOverride ? null : targetSections[sectionIndex].id,
+            new_roll_number: isOverride ? null : rollIndex + 1,
+            placement_error: null,
+            target_enrollment_id: null,
+          }),
+        );
+        result.entries += 1;
+        studentIndex += 1;
+      }
+    }
+  }
+
+  if (result.runs > 0 || result.entries > 0) {
+    console.log(`  Promotion demo seed: +${result.runs} runs, +${result.entries} entries`);
   }
   return result;
 }

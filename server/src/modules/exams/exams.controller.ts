@@ -46,9 +46,15 @@ export class ExamsController {
     return this.examsService.create(dto, tenant.id, user.sub, requestContext(request));
   }
 
+  // Read-only list on MARK_VIEW, not EXAM_MANAGE: the marks-entry and
+  // analysis screens (both MARK_VIEW routes) use it as their exam picker,
+  // and those serve teachers and executives too. Tenant-scoped exam
+  // metadata only — those roles can already read marks/progress/analysis
+  // for any exam id in the tenant. `findOne` and every write stay
+  // ADMIN + EXAM_MANAGE.
   @Get()
-  @Roles(UserRole.ADMIN)
-  @RequirePermissions(Permission.EXAM_MANAGE)
+  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @RequirePermissions(Permission.MARK_VIEW)
   @ApiOperation({ summary: 'List exams for the current tenant.' })
   findAll(@Query() query: QueryExamDto, @CurrentTenant() tenant: { id: string; role: string }) {
     return this.examsService.findAll(query, tenant.id);

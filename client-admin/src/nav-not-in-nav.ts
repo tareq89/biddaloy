@@ -34,7 +34,9 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/portal/calendar': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/exam-schedule': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/fees': 'guardian portal page, has its own portal nav, not the staff sidebar',
+  '/portal/routine': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/results': 'guardian portal page, has its own portal nav, not the staff sidebar',
+  '/portal/syllabus': 'guardian portal page, has its own portal nav, not the staff sidebar',
 
   // Platform admin — its own nav, out of scope for the staff sidebar.
   '/_platform/holiday-sets/': 'platform admin page, has its own nav, not the staff sidebar',
@@ -50,7 +52,13 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/attendance/$sectionId': 'detail route reached from the attendance list',
   '/_staff/calendar/import': 'action reached from the calendar page, not its own nav item',
   '/_staff/classes/$classId': 'detail route reached from the classes list',
+  '/_staff/academics/homework/new':
+    'action reached from the homework list and the command palette, not its own nav item',
+  '/_staff/academics/homework/$homeworkId': 'detail route reached from the homework list',
+  '/_staff/academics/homework/import':
+    'action reached from the homework list and the command palette, not its own nav item',
   '/_staff/exams/$examId': 'detail route reached from the exams list',
+  '/_staff/promotions/$runId': 'detail route reached from the promotions list',
   '/_staff/marks/':
     '[19.7.1] reached from the exam Progress tab’s outstanding-grid links, not its own sidebar item yet',
   '/_staff/marks/$examId/$sectionId/$subjectId':
@@ -65,6 +73,10 @@ export const NOT_IN_NAV: Record<string, string> = {
     'detail route reached from the admission applicants list',
   '/_staff/guardians/$guardianId': 'detail route reached from the guardians list',
   '/_staff/routines/$sectionId': 'detail route reached from the routine builder section list',
+  '/_staff/routines/review':
+    '[21.9.1] reached via the "Copy last year\'s routine" palette action and from the routine builder, not its own sidebar item',
+  '/_staff/routines/substitutions':
+    '[21.9.1] reached via the "Add substitution" palette action, not its own sidebar item',
   '/_staff/invoices/$invoiceId': 'detail route reached from the invoices list',
   '/_staff/payments/':
     '[16.4.4] placeholder page for the Record Payment modal, reached via /payments/record, not its own nav item',
@@ -74,6 +86,8 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/students/$studentId_/edit': 'action reached from the student detail page',
   '/_staff/students/import': 'action reached from the students list, not its own nav item',
   '/_staff/students/new': 'action reached from the students list, not its own nav item',
+  '/_staff/promotions/new':
+    'action reached from the promotions list or the palette, not its own nav item',
   '/_staff/communications/batches/$batchId': 'detail route reached from the batches list',
   '/_staff/fees/schedules/$id': 'detail route reached from the schedules list',
 };

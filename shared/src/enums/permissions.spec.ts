@@ -158,6 +158,33 @@ describe('family read grants [5.1]', () => {
   }
 
   /**
+   * [26.1.1] D11/D22 — promotion permissions are ADMIN-only. No other role
+   * picks up PROMOTION_MANAGE or PROMOTION_OVERRIDE.
+   */
+  const PROMOTION_PERMISSIONS = [
+    Permission.PROMOTION_MANAGE,
+    Permission.PROMOTION_OVERRIDE,
+  ] as const;
+
+  const PROMOTION_EXPECTATIONS: ReadonlyArray<readonly [UserRole, readonly Permission[]]> = [
+    [UserRole.ADMIN, [...PROMOTION_PERMISSIONS]],
+    [UserRole.EXECUTIVE, []],
+    [UserRole.TEACHER, []],
+    [UserRole.ACCOUNTANT, []],
+    [UserRole.PARENT, []],
+    [UserRole.STUDENT, []],
+  ];
+
+  for (const [role, expected] of PROMOTION_EXPECTATIONS) {
+    it(`grants ${role} exactly the D22 promotion permission set`, () => {
+      const actual = PROMOTION_PERMISSIONS.filter((permission) =>
+        ROLE_PERMISSIONS[role].includes(permission),
+      );
+      expect([...actual].sort()).toEqual([...expected].sort());
+    });
+  }
+
+  /**
    * [22.1.1] D26's role table, pinned exactly — ADMIN and TEACHER hold all
    * six homework/syllabus permissions; STUDENT/PARENT hold exactly the two
    * `_READ` permissions and nothing else in this group.

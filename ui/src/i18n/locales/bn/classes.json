@@ -104,6 +104,17 @@
       "emptyMessage": "এই শ্রেণিতে কোনো শিক্ষার্থী নেই",
       "errorMessage": "শিক্ষার্থী লোড করতে ব্যর্থ হয়েছে"
     },
+    "homework": {
+      "loading": "বাড়ির কাজ লোড হচ্ছে",
+      "completionPercent": "সম্পন্নের হার",
+      "totalAssignments": "মোট বাড়ির কাজ",
+      "completed": "সম্পন্ন",
+      "defaulters": "বকেয়া",
+      "syllabusCompletionPercent": "পাঠ্যক্রম সম্পন্নের হার",
+      "syllabusTopics": "{{total}}টির মধ্যে {{done}}টি বিষয় সম্পন্ন",
+      "errorMessage": "বাড়ির কাজ লোড করা যায়নি।",
+      "emptyMessage": "এখনো কোনো বাড়ির কাজ বা পাঠ্যক্রম তথ্য নেই।"
+    },
     "feeStructures": {
       "columnName": "নাম",
       "columnType": "ধরন",
@@ -119,7 +130,8 @@
       "emptyMessage": "এই শ্রেণিতে কোনো শিক্ষক নিয়োজিত নেই",
       "errorMessage": "শিক্ষক লোড করতে ব্যর্থ হয়েছে"
     },
-    "tabSubjects": "বিষয়"
+    "tabSubjects": "বিষয়",
+    "tabHomework": "বাড়ির কাজ"
   },
   "subjects": {
     "heading": "বিষয়সমূহ",

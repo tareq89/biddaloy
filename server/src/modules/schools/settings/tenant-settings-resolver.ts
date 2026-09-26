@@ -6,12 +6,64 @@ import {
   DEFAULT_FEES_SETTINGS,
   DEFAULT_ORGANISATION_SETTINGS,
   DEFAULT_REGION_SETTINGS,
+  DEFAULT_ROUTINE_SETTINGS,
 } from './tenant-settings-defaults';
 import { ApprovalMode } from '@biddaloy/shared';
-import type { TenantSettings } from '@biddaloy/shared';
+import type { RoutineSettings, TenantSettings } from '@biddaloy/shared';
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return isNonNegativeInteger(value) && value > 0;
+}
+
+/**
+ * [1047] Read-side guard for `routine`'s optional caps, mirroring the
+ * `backup.schedule`/`fees.approvalMode` guards below — `RoutineSettingsDto`
+ * rejects a malformed cap on write, but a row can still get here some
+ * other way (predates the schema, hand-edited, restored from a backup). A
+ * bad value for one field falls back to the default (or is dropped, for
+ * the optional caps) rather than passing through as-is or discarding the
+ * whole section.
+ *
+ * Each field's accepted range mirrors `RoutineSettingsDto`
+ * (`../dto/tenant-settings.dto.ts`) exactly: `@Min(0)` for
+ * `defaultChangeoverMinutes`, where zero legitimately means "no
+ * changeover gap"; `@Min(1)` for both caps and for every
+ * `subjectPeriodsPerWeek` value, where zero would mean a cap permitting
+ * no periods at all — indistinguishable from a misparse, and stricter
+ * than any school could have meant.
+ */
+function overlayRoutineSettings(stored: unknown): RoutineSettings {
+  if (!isPlainObject(stored)) return DEFAULT_ROUTINE_SETTINGS;
+
+  const result: RoutineSettings = { ...DEFAULT_ROUTINE_SETTINGS };
+
+  if (isNonNegativeInteger(stored.defaultChangeoverMinutes)) {
+    result.defaultChangeoverMinutes = stored.defaultChangeoverMinutes;
+  }
+  if (isPositiveInteger(stored.maxPeriodsPerTeacherPerDay)) {
+    result.maxPeriodsPerTeacherPerDay = stored.maxPeriodsPerTeacherPerDay;
+  }
+  if (isPositiveInteger(stored.maxConsecutivePeriods)) {
+    result.maxConsecutivePeriods = stored.maxConsecutivePeriods;
+  }
+  if (isPlainObject(stored.subjectPeriodsPerWeek)) {
+    const entries = Object.entries(stored.subjectPeriodsPerWeek).filter(([, value]) =>
+      isPositiveInteger(value),
+    );
+    if (entries.length > 0) {
+      result.subjectPeriodsPerWeek = Object.fromEntries(entries) as Record<string, number>;
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -84,6 +136,14 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
   const attendance = overlayOnDefaults(DEFAULT_ATTENDANCE_SETTINGS, stored?.attendance);
   const organisation = overlayOnDefaults(DEFAULT_ORGANISATION_SETTINGS, stored?.organisation);
   const auth = overlayOnDefaults(DEFAULT_AUTH_SETTINGS, stored?.auth);
+  // Not `overlayOnDefaults`: it only copies a stored key that also exists
+  // in `defaults`, and `DEFAULT_ROUTINE_SETTINGS` only declares
+  // `defaultChangeoverMinutes` — its other fields are optional-and-absent
+  // by design (no cap until a school opts in), so overlaying would silently
+  // drop a stored `maxPeriodsPerTeacherPerDay`/`maxConsecutivePeriods`/
+  // `subjectPeriodsPerWeek`. `overlayRoutineSettings` (above) is the
+  // field-by-field guard doing that merge instead.
+  const routine: RoutineSettings = overlayRoutineSettings(stored?.routine);
   // `overlayOnDefaults` only type-checks (a string is a string), so a
   // stored `{ schedule: 'NONSENSE' }` would otherwise come back typed as a
   // `BackupScheduleMode` and reach `BACKUP_SCHEDULE_CRON[mode]` as
@@ -108,6 +168,7 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
     version: TENANT_SETTINGS_SCHEMA_VERSION,
     region,
     attendance,
+    routine,
     organisation,
     auth,
     backup,

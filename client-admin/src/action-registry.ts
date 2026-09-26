@@ -131,6 +131,40 @@ export const ACTIONS: readonly PaletteAction[] = [
     // second copy of the dialog).
     run: (ctx) => ctx.navigate({ to: '/grading-scales' }),
   },
+  /**
+   * [21.9.1] `run()` only carries `navigate({ to })` — there is no way to
+   * pass the slot/date "context" the ticket names, or to auto-open a
+   * dialog remotely. Both land the caller on the page that has it, one
+   * click away, the same limitation this file's own header comment
+   * already documents for the five actions in `UNREGISTERED_ACTIONS`
+   * (flagged here rather than silently pretending it's context-aware).
+   */
+  {
+    id: 'routines.openMyRoutine',
+    label: { en: 'Open my routine', bn: 'আমার রুটিন খুলুন' },
+    permission: Permission.ROUTINE_READ,
+    kind: 'navigate',
+    run: (ctx) => ctx.navigate({ to: '/routines/my' }),
+  },
+  {
+    id: 'routines.addSubstitution',
+    label: { en: 'Add substitution', bn: 'প্রতিনিধিত্ব যোগ করুন' },
+    permission: Permission.ROUTINE_MANAGE,
+    kind: 'modal',
+    run: (ctx) => ctx.navigate({ to: '/routines/substitutions' }),
+  },
+  {
+    id: 'routines.copyLastYearRoutine',
+    label: { en: "Copy last year's routine", bn: 'গত বছরের রুটিন কপি করুন' },
+    // The copy button itself is `ROUTINE_MANAGE`-gated inside
+    // `review.tsx` — but that route's own blanket gate is `ROUTINE_READ`
+    // (a teacher can open it too, to see their own slots), and this
+    // file's own rule requires the action's permission to match the
+    // *route's* gate, not the narrower in-page control.
+    permission: Permission.ROUTINE_READ,
+    kind: 'modal',
+    run: (ctx) => ctx.navigate({ to: '/routines/review' }),
+  },
   {
     id: 'results.enterMarks',
     label: { en: 'Enter marks', bn: 'নম্বর প্রবেশ করান' },
@@ -185,6 +219,23 @@ export const ACTIONS: readonly PaletteAction[] = [
     run: (ctx) => ctx.navigate({ to: '/admissions/applicants' }),
   },
   {
+    id: 'analysis.meritList',
+    label: { en: 'Analysis: merit list', bn: 'বিশ্লেষণ: মেধা তালিকা' },
+    permission: Permission.MARK_VIEW,
+    kind: 'navigate',
+    // Same "no entity id" pattern as `results.process` above — lands on
+    // the exam/section picker rather than a specific exam (the palette's
+    // `ActionRunContext` carries no exam id to prefill, D12).
+    run: (ctx) => ctx.navigate({ to: '/analysis' }),
+  },
+  {
+    id: 'analysis.defaultedList',
+    label: { en: 'Analysis: defaulters', bn: 'বিশ্লেষণ: অকৃতকার্য/অনুপস্থিত' },
+    permission: Permission.MARK_VIEW,
+    kind: 'navigate',
+    run: (ctx) => ctx.navigate({ to: '/analysis' }),
+  },
+  {
     id: 'exams.copyComponents',
     label: { en: 'Copy exam components', bn: 'পরীক্ষার উপাদান কপি করুন' },
     permission: Permission.EXAM_MANAGE,
@@ -192,5 +243,47 @@ export const ACTIONS: readonly PaletteAction[] = [
     // The dialog itself (`-copy-components-dialog.tsx`) shipped with
     // #902 on the exam Setup tab; this only registers the palette entry.
     run: (ctx) => ctx.navigate({ to: '/exams' }),
+  },
+  {
+    id: 'homework.assign',
+    label: { en: 'Assign homework', bn: 'বাড়ির কাজ দিন' },
+    permission: Permission.HOMEWORK_ASSIGN,
+    kind: 'modal',
+    run: (ctx) => ctx.navigate({ to: '/academics/homework/new' }),
+  },
+  {
+    id: 'homework.import',
+    label: { en: 'Upload homework (CSV)', bn: 'বাড়ির কাজ আপলোড করুন (CSV)' },
+    permission: Permission.HOMEWORK_IMPORT,
+    kind: 'navigate',
+    run: (ctx) => ctx.navigate({ to: '/academics/homework/import' }),
+  },
+  {
+    id: 'syllabus.markTopic',
+    // Gated on SYLLABUS_READ (must match the target route's own gate, see
+    // route-permissions.ts), so the label promises only what a read-only
+    // user can actually do here — open the syllabus screen. Mark/edit/
+    // reorder controls on that screen are separately gated on
+    // SYLLABUS_MANAGE (index.tsx), same as every other inline control.
+    label: { en: 'Open syllabus', bn: 'সিলেবাস খুলুন' },
+    permission: Permission.SYLLABUS_READ,
+    kind: 'inline',
+    // No standalone route for one topic's status change — same reasoning
+    // this file's header gives for the five actions kept out of
+    // `ACTIONS` entirely, except this one DOES have a route to land on:
+    // the syllabus list page itself, where status is an inline control
+    // per topic (U7: reuse the page, never a second copy of the edit UI).
+    run: (ctx) => ctx.navigate({ to: '/academics/syllabus' }),
+  },
+  {
+    id: 'promotions.promote',
+    label: { en: 'Promote students', bn: 'শিক্ষার্থী উত্তরণ করুন' },
+    permission: Permission.PROMOTION_MANAGE,
+    kind: 'navigate',
+    // Same "no entity id" pattern as `analysis.meritList` above — lands on
+    // the empty new-run form; the user picks the source class there.
+    // `/promotions/new?classId=` prefill exists for direct links, but
+    // `ActionRunContext` can't supply a class ([31.0]'s retrofit).
+    run: (ctx) => ctx.navigate({ to: '/promotions/new' }),
   },
 ];

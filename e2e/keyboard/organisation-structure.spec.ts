@@ -10,25 +10,7 @@ import {
 import { shells } from '../config';
 import { expect, test } from '../fixtures/test';
 import { t } from '../i18n';
-import { focusedText, tabUntilFocused } from './keyboard-utils';
-
-/**
- * Opens a focused Radix `Select` trigger, picks `value` by typeahead, and
- * waits for the listbox to actually finish closing before returning.
- *
- * Radix's close animation leaves the listbox (and the option Enter just
- * landed on) in the DOM and focus-trapped for a few hundred ms after the
- * value has already visibly changed — proceeding to the next `Tab` before
- * that finishes silently keeps cycling inside the closing listbox instead
- * of reaching the field after it. `toBeHidden()` also passes once the
- * listbox has left the DOM entirely, not just when it's visually hidden.
- */
-async function selectByTypeahead(page: Page, value: string): Promise<void> {
-  await page.keyboard.press('Enter');
-  await page.keyboard.type(value);
-  await page.keyboard.press('Enter');
-  await expect(page.getByRole('listbox')).toBeHidden();
-}
+import { focusedText, selectByTypeahead, tabUntilFocused } from './keyboard-utils';
 
 /**
  * [33.5.1] Shift/version/group, KEYBOARD ONLY: add a shift in Settings,

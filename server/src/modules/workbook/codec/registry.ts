@@ -4,11 +4,14 @@ import { academicsTabs } from '../tabs/academics';
 import { peopleTabs } from '../tabs/people';
 import { feesTabs } from '../tabs/fees';
 import { gradingTabs } from '../tabs/grading';
+import { routinesTabs } from '../tabs/routines';
 import { examsTabs } from '../tabs/exams';
 import { homeworkTab } from '../tabs/academics/homework.tab';
 import { homeworkAssignmentTab } from '../tabs/academics/homework-assignment.tab';
 import { homeworkSubmissionTab } from '../tabs/academics/homework-submission.tab';
 import { syllabusTopicTab } from '../tabs/academics/syllabus-topic.tab';
+import { promotionRunsTab } from '../tabs/people/promotion-runs.tab';
+import { promotionEntriesTab } from '../tabs/people/promotion-entries.tab';
 
 /**
  * Every tab name a backup workbook may contain, in apply order (epic 14.0
@@ -57,6 +60,26 @@ export const EXPECTED_TABS = [
   'results',
   'result_subjects',
   'student_subject_choices',
+  // Epic 21.0 (class routine/timetable), appended at the end: no other
+  // tab depends on these, and they depend on tabs already earlier in
+  // this list (academic_years, sections, subjects, teachers, users).
+  'shifts',
+  'period_slots',
+  'rooms',
+  'routines',
+  'routine_slots',
+  'routine_slot_teachers',
+  'routine_substitutions',
+  'routine_change_requests',
+  // [788] Promotion tabs. Depend on `classes`/`academic_years`/`exams`/
+  // `students`/`enrollments`/`sections`, all of which are earlier in this
+  // list by this point, so appending here (rather than inside `peopleTabs`,
+  // which is spread *before* `examsTabs` in `ALL_TABS` below — too early
+  // for a tab that depends on `exams`) keeps every dependency satisfied.
+  // Placed after Epic 21.0's routine tabs (no ordering dependency between
+  // the two groups; routines landed first).
+  'promotion_runs',
+  'promotion_entries',
   // [22.3.6] Epic 22.0's homework/syllabus tabs. Appended at the end rather
   // than interleaved into the academics block above: `homework_assignments`
   // depends on `sections`/`students` (people lane, registered after
@@ -82,6 +105,11 @@ export const ALL_TABS: readonly TabSpec<any, any>[] = [
   ...feesTabs,
   ...gradingTabs,
   ...examsTabs,
+  ...routinesTabs,
+  // [788] Registered here directly (not via `peopleTabs`) so they land
+  // after `examsTabs` in this list — see the `EXPECTED_TABS` comment above.
+  promotionRunsTab,
+  promotionEntriesTab,
   // [22.3.6] Appended after every lane's own barrel, not folded into
   // `academicsTabs` — see the `EXPECTED_TABS` comment above on why these
   // four must come last.

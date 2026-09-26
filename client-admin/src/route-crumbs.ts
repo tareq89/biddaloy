@@ -59,7 +59,9 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/portal/calendar': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/exam-schedule': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/fees': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
+  '/portal/routine': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/results': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
+  '/portal/syllabus': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
 
   // --- Platform (SUPER_ADMIN) area ---
   '/_platform/holiday-sets/': [{ label: { key: 'holidaySets' } }],
@@ -84,9 +86,41 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/staff/': [{ label: { entity: 'staff' } }],
   '/_staff/academic-years/': [{ label: { entity: 'academicYear' } }],
   '/_staff/classes/': [{ label: { entity: 'class' } }],
+  '/_staff/academics/homework/': [{ label: { key: 'homework' } }],
+  '/_staff/academics/homework/new': [{ label: { key: 'homework' } }, { label: { key: 'new' } }],
+  '/_staff/academics/homework/$homeworkId': [
+    { label: { key: 'homework' } },
+    { label: { key: 'homeworkDetail' }, dynamic: 'entity' },
+  ],
+  '/_staff/academics/homework/import': [
+    { label: { key: 'homework' } },
+    { label: { key: 'import' } },
+  ],
+  '/_staff/academics/syllabus/': [{ label: { key: 'syllabus' } }],
   '/_staff/exams/': [{ label: { entity: 'exam' } }],
   '/_staff/marks/': [{ label: { key: 'marksEntry' } }],
   '/_staff/results/': [{ label: { key: 'results' } }],
+  // [26.5.1] The tab (`?tab=`) isn't a route-tree segment — `ROUTE_CRUMBS`
+  // only resolves path params via `dynamic: 'entity'`, not search state —
+  // so the trail stops at "Analysis"; the route itself sets
+  // `document.title` to `<tab label> · <exam name>` directly.
+  '/_staff/analysis/': [{ label: { key: 'analysis' } }],
+  '/_staff/promotions/': [{ label: { key: 'promotion' } }],
+  '/_staff/promotions/new': [
+    { label: { key: 'promotion' } },
+    { label: { key: 'promotionNewRun' } },
+  ],
+  // [26.7.1] A dynamic segment's `label` is only ever the loading
+  // fallback — `use-breadcrumbs.ts` shows the resolved entity name (or,
+  // absent an `ENTITY_RESOLVERS` entry, the raw run id) once the route's
+  // params are known, same precedent as `/exams/$examId` below (`exam`
+  // isn't registered there either). No `EntityLabel` member exists for a
+  // promotion run and `shared/src/enums/entity-label.ts` is outside this
+  // route's territory, so this uses a plain `key` rather than `entity`.
+  '/_staff/promotions/$runId': [
+    { label: { key: 'promotion' } },
+    { label: { key: 'promotionRunDetail' }, dynamic: 'entity' },
+  ],
   '/_staff/grading-scales/': [{ label: { key: 'gradingScales' } }],
   '/_staff/admissions/intakes/': [{ label: { key: 'admissionIntakes' } }],
   '/_staff/admissions/applicants/': [{ label: { key: 'admissionApplicants' } }],
@@ -96,6 +130,9 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
     { label: { key: 'routineBuilder' } },
     { label: { key: 'section' }, dynamic: 'entity' },
   ],
+  '/_staff/routines/review': [{ label: { key: 'routineReview' } }],
+  '/_staff/routines/substitutions': [{ label: { key: 'routineSubstitutions' } }],
+  '/_staff/routines/my': [{ label: { key: 'myRoutine' } }],
   '/_staff/attendance/': [{ label: { key: 'attendance' } }],
   '/_staff/attendance/reports': [{ label: { key: 'attendanceReports' } }],
   '/_staff/attendance/register': [{ label: { key: 'attendanceRegister' } }],

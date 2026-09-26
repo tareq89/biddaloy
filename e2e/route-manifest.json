@@ -114,6 +114,34 @@
       "archetype": "detail"
     },
     {
+      "path": "/academics/homework",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/academics/homework/new",
+      "role": "admin",
+      "archetype": "form"
+    },
+    {
+      "path": "/academics/homework/$homeworkId",
+      "params": {
+        "homeworkId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
+      "path": "/academics/homework/import",
+      "role": "admin",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/academics/syllabus",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
       "path": "/exams",
       "role": "admin",
       "archetype": "list"
@@ -154,6 +182,30 @@
       },
       "role": "admin",
       "archetype": "detail"
+    },
+    {
+      "path": "/analysis",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/promotions",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/promotions/new",
+      "role": "admin",
+      "archetype": "form"
+    },
+    {
+      "path": "/promotions/$runId",
+      "params": {
+        "runId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail",
+      "overlays": ["commit"]
     },
     {
       "path": "/grading-scales",
@@ -211,6 +263,21 @@
       },
       "role": "admin",
       "archetype": "form"
+    },
+    {
+      "path": "/routines/review",
+      "role": "admin",
+      "archetype": "form"
+    },
+    {
+      "path": "/routines/substitutions",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/routines/my",
+      "role": "admin",
+      "archetype": "list"
     },
     {
       "path": "/audit-logs",
@@ -412,6 +479,11 @@
       "archetype": "list"
     },
     {
+      "path": "/portal/routine",
+      "role": "parent",
+      "archetype": "list"
+    },
+    {
       "path": "/portal/attendance",
       "role": "parent",
       "archetype": "list"
@@ -428,6 +500,11 @@
     },
     {
       "path": "/portal/exam-schedule",
+      "role": "parent",
+      "archetype": "list"
+    },
+    {
+      "path": "/portal/syllabus",
       "role": "parent",
       "archetype": "list"
     },

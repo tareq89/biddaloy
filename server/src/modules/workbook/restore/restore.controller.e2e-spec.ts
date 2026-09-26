@@ -33,7 +33,7 @@ const FRESH_SCHOOL_NAME = 'Restore E2E Fresh School';
 const FRESH_ADMIN_USER_ID = '00000000-0000-4000-8000-000000060903';
 const FRESH_ADMIN_EMAIL = 'admin@restore-e2e-fresh.example';
 
-/** In-memory stand-in for `StorageService` — no S3/MinIO is guaranteed
+/** In-memory stand-in for `StorageService` — no S3 is guaranteed
  * reachable in this e2e environment (same reasoning as
  * `workbook.controller.e2e-spec.ts`), and the restore round trip actually
  * needs a working `put`/`get`/`delete` (the snapshot write, the staged
