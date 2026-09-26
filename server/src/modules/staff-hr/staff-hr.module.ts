@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Designation } from './entities/designation.entity';
 import { StaffHrRecord } from './entities/staff-hr-record.entity';
 import { StaffDesignationHistory } from './entities/staff-designation-history.entity';
+import { StaffDocument } from './entities/staff-document.entity';
 import { StaffFamilyMember } from './entities/staff-family-member.entity';
 import { StaffAddress } from './entities/staff-address.entity';
 import { StaffExperience } from './entities/staff-experience.entity';
@@ -12,10 +13,13 @@ import { StaffAchievement } from './entities/staff-achievement.entity';
 import { StaffLanguage } from './entities/staff-language.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { AuditModule } from '../audit/audit.module';
+import { StorageModule } from '../storage/storage.module';
 import { DesignationService } from './designation.service';
 import { DesignationController } from './designation.controller';
 import { StaffHrService } from './staff-hr.service';
 import { StaffHrController } from './staff-hr.controller';
+import { StaffDocumentService } from './staff-document.service';
+import { StaffDocumentController } from './staff-document.controller';
 import { FamilyController, FamilyMemberRowService } from './family.controller';
 import { AddressController, AddressRowService } from './address.controller';
 import { ExperienceController, ExperienceRowService } from './experience.controller';
@@ -44,13 +48,16 @@ import { LanguageController, LanguageRowService } from './language.controller';
       StaffTraining,
       StaffAchievement,
       StaffLanguage,
+      StaffDocument,
       UserTenant,
     ]),
     AuditModule,
+    StorageModule,
   ],
   controllers: [
     DesignationController,
     StaffHrController,
+    StaffDocumentController,
     FamilyController,
     AddressController,
     ExperienceController,
@@ -62,6 +69,7 @@ import { LanguageController, LanguageRowService } from './language.controller';
   providers: [
     DesignationService,
     StaffHrService,
+    StaffDocumentService,
     FamilyMemberRowService,
     AddressRowService,
     ExperienceRowService,

@@ -79,6 +79,7 @@ import { PromotionEntry } from '../src/modules/promotions/entities/promotion-ent
 import { Designation } from '../src/modules/staff-hr/entities/designation.entity';
 import { StaffHrRecord } from '../src/modules/staff-hr/entities/staff-hr-record.entity';
 import { StaffDesignationHistory } from '../src/modules/staff-hr/entities/staff-designation-history.entity';
+import { StaffDocument } from '../src/modules/staff-hr/entities/staff-document.entity';
 import { StaffFamilyMember } from '../src/modules/staff-hr/entities/staff-family-member.entity';
 import { StaffAddress } from '../src/modules/staff-hr/entities/staff-address.entity';
 import { StaffExperience } from '../src/modules/staff-hr/entities/staff-experience.entity';
@@ -169,6 +170,7 @@ export const ALL_ENTITIES = [
   Designation,
   StaffHrRecord,
   StaffDesignationHistory,
+  StaffDocument,
   StaffFamilyMember,
   StaffAddress,
   StaffExperience,

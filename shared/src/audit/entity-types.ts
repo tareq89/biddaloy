@@ -58,6 +58,7 @@ export const AUDIT_ENTITY_TYPES = [
   // entity_type still validate — no new write ever uses it.
   'SchoolHoliday',
   'StaffDesignationHistory',
+  'StaffDocument',
   'StaffHrRecord',
   'Student',
   'StudentSubjectChoice',
