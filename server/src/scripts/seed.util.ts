@@ -13,6 +13,8 @@ import {
   MarkGridState,
   MarkStatus,
   PublicHolidaySource,
+  SeatOrderMode,
+  SeatPlanStatus,
   TeacherDesignation,
   UserRole,
   UserStatus,
@@ -60,6 +62,9 @@ import { RoutineSlot } from '../modules/routines/entities/routine-slot.entity';
 import { RoutineSlotTeacher } from '../modules/routines/entities/routine-slot-teacher.entity';
 import { RoutineSubstitution } from '../modules/routines/entities/routine-substitution.entity';
 import { RoutineChangeRequest } from '../modules/routines/entities/routine-change-request.entity';
+import { SeatPlan } from '../modules/seat-plans/entities/seat-plan.entity';
+import { SeatPlanSchedule } from '../modules/seat-plans/entities/seat-plan-schedule.entity';
+import { SeatAllocation } from '../modules/seat-plans/entities/seat-allocation.entity';
 import {
   PeriodSlotKind,
   SlotRecurrence,
@@ -2304,6 +2309,233 @@ export async function ensureExamsDemoSeed(
         `+${result.grids} grids, +${result.marks} marks, +${result.results} results, ` +
         `+${result.schedules} schedules`,
     );
+  }
+  return result;
+}
+
+// ===========================================================================
+// [25.8] Seat-plan demo data
+// ===========================================================================
+
+export interface SeatPlanDemoSeedRepositories {
+  roomRepository: Repository<Room>;
+  examRepository: Repository<Exam>;
+  examScheduleRepository: Repository<ExamSchedule>;
+  seatPlanRepository: Repository<SeatPlan>;
+  seatPlanScheduleRepository: Repository<SeatPlanSchedule>;
+  seatAllocationRepository: Repository<SeatAllocation>;
+}
+
+export interface SeatPlanDemoSeedParams {
+  schoolId: string;
+  academicYearId: string;
+  classId: string;
+  mathSubjectId: string;
+  mathScheduleId: string;
+  englishScheduleId: string;
+  /** Every student in the class (both sections), roll-number order. */
+  studentIds: readonly string[];
+}
+
+export interface SeatPlanDemoSeedResult {
+  rooms: number;
+  seatPlans: number;
+}
+
+/** Splits `items` across `n` rooms round-robin and returns one
+ * `{ room_id, seat_number }` per item, in item order. */
+function assignSeats<T>(
+  items: readonly T[],
+  roomIds: readonly string[],
+): { item: T; room_id: string; seat_number: string }[] {
+  const seatCounters = new Map<string, number>();
+  return items.map((item, index) => {
+    const room_id = roomIds[index % roomIds.length];
+    const next = (seatCounters.get(room_id) ?? 0) + 1;
+    seatCounters.set(room_id, next);
+    return { item, room_id, seat_number: String(next) };
+  });
+}
+
+/** [25.8] Idempotent: a couple of exam rooms, `room_id` set on the seeded
+ * exam's MATH/ENG schedules, one PUBLISHED seat plan covering both (so the
+ * workbook/invigilator screens have real allocations to show), and one
+ * DRAFT seat plan on a second, later "Half Yearly Exam" so the generate ->
+ * edit -> publish e2e journey has an unpublished plan to work against. */
+export async function ensureSeatPlanDemoSeed(
+  repos: SeatPlanDemoSeedRepositories,
+  params: SeatPlanDemoSeedParams,
+): Promise<SeatPlanDemoSeedResult> {
+  const { schoolId, academicYearId, classId, mathSubjectId, mathScheduleId, englishScheduleId } =
+    params;
+  const result: SeatPlanDemoSeedResult = { rooms: 0, seatPlans: 0 };
+
+  // --- rooms ----------------------------------------------------------------
+  async function ensureRoom(roomNo: string, capacity: number): Promise<Room> {
+    let room = await repos.roomRepository.findOne({
+      where: { tenant_id: schoolId, room_no: roomNo },
+    });
+    if (!room) {
+      room = repos.roomRepository.create({
+        tenant_id: schoolId,
+        room_no: roomNo,
+        building: 'Main Building',
+        capacity,
+      });
+      await repos.roomRepository.save(room);
+      result.rooms += 1;
+    }
+    return room;
+  }
+  const roomA = await ensureRoom('Exam Hall 1', 30);
+  const roomB = await ensureRoom('Exam Hall 2', 30);
+  const roomC = await ensureRoom('Exam Hall 3', 30);
+
+  // room_id on the existing MATH/ENG schedules — [25.8]'s `## Files` asks
+  // for "exam schedules with room_id set" explicitly.
+  const mathSchedule = await repos.examScheduleRepository.findOne({
+    where: { id: mathScheduleId },
+  });
+  if (mathSchedule && mathSchedule.room_id !== roomA.id) {
+    mathSchedule.room_id = roomA.id;
+    await repos.examScheduleRepository.save(mathSchedule);
+  }
+  const englishSchedule = await repos.examScheduleRepository.findOne({
+    where: { id: englishScheduleId },
+  });
+  if (englishSchedule && englishSchedule.room_id !== roomB.id) {
+    englishSchedule.room_id = roomB.id;
+    await repos.examScheduleRepository.save(englishSchedule);
+  }
+
+  // --- one PUBLISHED plan covering both subject-sittings ---------------------
+  let publishedPlan = await repos.seatPlanRepository.findOne({
+    where: { tenant_id: schoolId, name: 'Term Exam Seating (Seeded)' },
+  });
+  if (!publishedPlan) {
+    publishedPlan = await repos.seatPlanRepository.save(
+      repos.seatPlanRepository.create({
+        tenant_id: schoolId,
+        name: 'Term Exam Seating (Seeded)',
+        status: SeatPlanStatus.PUBLISHED,
+        seat_order_mode: SeatOrderMode.SEQUENTIAL,
+        published_at: new Date('2026-02-01T00:00:00.000Z'),
+      }),
+    );
+    await repos.seatPlanScheduleRepository.save(
+      [mathScheduleId, englishScheduleId].map((exam_schedule_id) =>
+        repos.seatPlanScheduleRepository.create({
+          tenant_id: schoolId,
+          seat_plan_id: publishedPlan!.id,
+          exam_schedule_id,
+        }),
+      ),
+    );
+    const rooms = [roomA.id, roomB.id];
+    for (const exam_schedule_id of [mathScheduleId, englishScheduleId]) {
+      const seats = assignSeats(params.studentIds, rooms);
+      await repos.seatAllocationRepository.save(
+        seats.map(({ item: student_id, room_id, seat_number }) =>
+          repos.seatAllocationRepository.create({
+            tenant_id: schoolId,
+            seat_plan_id: publishedPlan!.id,
+            exam_schedule_id,
+            student_id,
+            room_id,
+            seat_number,
+          }),
+        ),
+      );
+    }
+    result.seatPlans += 1;
+  }
+
+  // --- a second exam + one DRAFT plan ----------------------------------------
+  let halfYearlyExam = await repos.examRepository.findOne({
+    where: {
+      tenant_id: schoolId,
+      academic_year_id: academicYearId,
+      class_id: classId,
+      name: 'Half Yearly Exam',
+    },
+    withDeleted: true,
+  });
+  if (!halfYearlyExam) {
+    halfYearlyExam = await repos.examRepository.save(
+      repos.examRepository.create({
+        tenant_id: schoolId,
+        academic_year_id: academicYearId,
+        class_id: classId,
+        academic_term_id: null,
+        name: 'Half Yearly Exam',
+        kind: ExamKind.TERM,
+        status: ExamStatus.DRAFT,
+        published_at: null,
+      }),
+    );
+  } else if (halfYearlyExam.deleted_at) {
+    await repos.examRepository.save(undelete(halfYearlyExam));
+  }
+
+  let halfYearlySchedule = await repos.examScheduleRepository.findOne({
+    where: { exam_id: halfYearlyExam.id, subject_id: mathSubjectId },
+    withDeleted: true,
+  });
+  if (!halfYearlySchedule) {
+    halfYearlySchedule = repos.examScheduleRepository.create({
+      tenant_id: schoolId,
+      exam_id: halfYearlyExam.id,
+      subject_id: mathSubjectId,
+      date: '2026-06-05',
+      starts_at: '09:00:00',
+      ends_at: '11:00:00',
+      venue: 'Main Hall',
+      room_id: roomC.id,
+    });
+    await repos.examScheduleRepository.save(halfYearlySchedule);
+  } else if (halfYearlySchedule.room_id !== roomC.id) {
+    halfYearlySchedule.room_id = roomC.id;
+    await repos.examScheduleRepository.save(halfYearlySchedule);
+  }
+
+  let draftPlan = await repos.seatPlanRepository.findOne({
+    where: { tenant_id: schoolId, name: 'Half Yearly Exam Seating (Seeded)' },
+  });
+  if (!draftPlan) {
+    draftPlan = await repos.seatPlanRepository.save(
+      repos.seatPlanRepository.create({
+        tenant_id: schoolId,
+        name: 'Half Yearly Exam Seating (Seeded)',
+        status: SeatPlanStatus.DRAFT,
+        seat_order_mode: SeatOrderMode.SEQUENTIAL,
+        published_at: null,
+      }),
+    );
+    await repos.seatPlanScheduleRepository.save(
+      repos.seatPlanScheduleRepository.create({
+        tenant_id: schoolId,
+        seat_plan_id: draftPlan.id,
+        exam_schedule_id: halfYearlySchedule.id,
+      }),
+    );
+    const seats = assignSeats(params.studentIds, [roomC.id]);
+    await repos.seatAllocationRepository.save(
+      seats.map(({ item: student_id, room_id, seat_number }) =>
+        repos.seatAllocationRepository.create({
+          tenant_id: schoolId,
+          seat_plan_id: draftPlan!.id,
+          exam_schedule_id: halfYearlySchedule!.id,
+          student_id,
+          room_id,
+          seat_number,
+        }),
+      ),
+    );
+    result.seatPlans += 1;
+  }
+
+  if (result.rooms + result.seatPlans > 0) {
+    console.log(`  Seat plan demo seed: +${result.rooms} rooms, +${result.seatPlans} seat plans`);
   }
   return result;
 }

@@ -7953,6 +7953,11 @@ export interface components {
             /** @enum {string} */
             seat_order_mode: "SEQUENTIAL" | "RANDOM";
         };
+        UpdateAllocationDto: {
+            /** Format: uuid */
+            room_id: string;
+            seat_number: string;
+        };
         SeatPlan: {
             id: string;
             tenant: components["schemas"]["School"];
@@ -7970,11 +7975,6 @@ export interface components {
             updated_at: string;
             /** Format: date-time */
             deleted_at: string | null;
-        };
-        UpdateAllocationDto: {
-            /** Format: uuid */
-            room_id: string;
-            seat_number: string;
         };
         SeatAllocation: {
             id: string;
@@ -19481,9 +19481,7 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": components["schemas"]["SeatPlan"][];
-                };
+                content?: never;
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {

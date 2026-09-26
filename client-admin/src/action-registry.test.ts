@@ -18,6 +18,8 @@ const PERMISSION_VALUES = new Set(Object.values(Permission));
  * small subset here, only the routes seeded actions actually target. */
 const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/payments/record': '/_staff/payments/record',
+  '/exams/seat-plans?generate=1': '/_staff/exams/seat-plans/',
+  '/exams/seat-plans': '/_staff/exams/seat-plans/',
   '/communications/send': '/_staff/communications/send',
   '/communications/reminders': '/_staff/communications/reminders',
   '/attendance': '/_staff/attendance/',
@@ -48,6 +50,8 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
  */
 const REGISTERED_ACTION_FILES: Record<string, string> = {
   'payments.record': 'client-admin/src/routes/_staff/payments/-record/record-payment-modal.tsx',
+  'seatPlans.generate':
+    'client-admin/src/routes/_staff/exams/seat-plans/-generate-seat-plan-modal.tsx',
   'communications.sendMessage': 'client-admin/src/routes/_staff/communications/send.tsx',
   'communications.sendFeeReminder': 'client-admin/src/routes/_staff/communications/reminders.tsx',
   'attendance.take': 'client-admin/src/routes/_staff/attendance/index.tsx',

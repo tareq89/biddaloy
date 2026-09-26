@@ -1,0 +1,40 @@
+{
+  "detail": {
+    "back": "Back to seat plans",
+    "loadError": "Could not load this seat plan.",
+    "publishButton": "Publish seat plan",
+    "publishedBanner": "This seat plan has been published and can no longer be edited.",
+    "noRooms": "This seat plan has no rooms."
+  },
+  "status": {
+    "DRAFT": "Draft",
+    "PUBLISHED": "Published"
+  },
+  "room": {
+    "capacity": "Capacity {{capacity}}",
+    "invigilatorLabel": "Invigilator",
+    "invigilatorPlaceholder": "Assign an invigilator",
+    "invigilatorNone": "Unassigned",
+    "reshuffleButton": "Reshuffle this room",
+    "reseatButton": "Reseat",
+    "columnStudent": "Student",
+    "columnSection": "Section",
+    "columnRoll": "Roll",
+    "columnSeat": "Seat",
+    "tableCaption": "Students seated in room {{room}}",
+    "seatLabel": "Seat {{seat}}",
+    "empty": "No students seated in this room."
+  },
+  "reseat": {
+    "title": "Reseat student",
+    "description": "Move {{name}} to a different room or seat.",
+    "roomLabel": "Room",
+    "seatNumberLabel": "Seat number",
+    "submit": "Save"
+  },
+  "publish": {
+    "title": "Publish seat plan",
+    "description": "Once published this plan becomes read-only: seats, rooms, and invigilators can no longer be changed.",
+    "confirm": "Publish"
+  }
+}

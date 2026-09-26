@@ -1,0 +1,40 @@
+{
+  "detail": {
+    "back": "সিট প্ল্যানে ফিরে যান",
+    "loadError": "এই সিট প্ল্যান লোড করা যায়নি।",
+    "publishButton": "সিট প্ল্যান প্রকাশ করুন",
+    "publishedBanner": "এই সিট প্ল্যান প্রকাশিত হয়েছে এবং আর সম্পাদনা করা যাবে না।",
+    "noRooms": "এই সিট প্ল্যানে কোনো কক্ষ নেই।"
+  },
+  "status": {
+    "DRAFT": "খসড়া",
+    "PUBLISHED": "প্রকাশিত"
+  },
+  "room": {
+    "capacity": "ধারণক্ষমতা {{capacity}}",
+    "invigilatorLabel": "পরিদর্শক",
+    "invigilatorPlaceholder": "একজন পরিদর্শক নির্ধারণ করুন",
+    "invigilatorNone": "নির্ধারিত নয়",
+    "reshuffleButton": "এই কক্ষ পুনর্বিন্যাস করুন",
+    "reseatButton": "আসন পরিবর্তন",
+    "columnStudent": "শিক্ষার্থী",
+    "columnSection": "শাখা",
+    "columnRoll": "রোল",
+    "columnSeat": "আসন",
+    "tableCaption": "{{room}} কক্ষে বসা শিক্ষার্থীরা",
+    "seatLabel": "আসন {{seat}}",
+    "empty": "এই কক্ষে কোনো শিক্ষার্থী বসানো হয়নি।"
+  },
+  "reseat": {
+    "title": "শিক্ষার্থীর আসন পরিবর্তন করুন",
+    "description": "{{name}}-কে অন্য কক্ষ বা আসনে সরান।",
+    "roomLabel": "কক্ষ",
+    "seatNumberLabel": "আসন নম্বর",
+    "submit": "সংরক্ষণ করুন"
+  },
+  "publish": {
+    "title": "সিট প্ল্যান প্রকাশ করুন",
+    "description": "প্রকাশ করার পর এই প্ল্যানটি শুধু পাঠযোগ্য হয়ে যাবে: আসন, কক্ষ এবং পরিদর্শক আর পরিবর্তন করা যাবে না।",
+    "confirm": "প্রকাশ করুন"
+  }
+}
