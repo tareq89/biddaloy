@@ -115,6 +115,14 @@ function RoutineBuilderPage() {
   const deleteSlot = useDeleteRoutineSlot(routine?.id ?? '');
 
   const [activeCell, setActiveCell] = React.useState<ActiveCell | null>(null);
+  // [1047] Identity of the cell whose picker is open right now, readable
+  // from inside an already-in-flight save's `.then`/`.catch`. Each open
+  // creates a fresh `ActiveCell` object, so the object itself is the
+  // token: a response that comes back after the user closed the picker
+  // (or moved to another cell) no longer matches, and is dropped rather
+  // than showing the previous cell's conflict over the new one.
+  const activeCellRef = React.useRef<ActiveCell | null>(activeCell);
+  activeCellRef.current = activeCell;
   const [violations, setViolations] = React.useState<ConstraintViolation[]>([]);
   const [warnings, setWarnings] = React.useState<ConstraintWarning[]>([]);
   const [fillAssistOpen, setFillAssistOpen] = React.useState(false);
@@ -192,6 +200,7 @@ function RoutineBuilderPage() {
 
   function handleSave(value: CellPickerValue) {
     if (!activeCell || !routine) return;
+    const savingCell = activeCell;
     const existing = activeCellSlot();
     const input = {
       section_id: sectionId,
@@ -210,15 +219,19 @@ function RoutineBuilderPage() {
 
     mutation
       .then((result) => {
-        setViolations([]);
         setWarnings(result.warnings);
-        setActiveCell(null);
+        // The save landed either way — only the picker-bound state is
+        // conditional on that picker still being the open one.
+        if (activeCellRef.current === savingCell) {
+          setViolations([]);
+          setActiveCell(null);
+        }
         toast.success(t('builder.savedToast'));
       })
       .catch((error) => {
         const found = conflictViolations(error);
         if (found) {
-          setViolations(found);
+          if (activeCellRef.current === savingCell) setViolations(found);
           return;
         }
         toast.error(t('builder.saveErrorToast'));

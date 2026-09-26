@@ -9,7 +9,7 @@ import {
 } from '@biddaloy/ui/test';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
@@ -175,6 +175,57 @@ describe('/routines/$sectionId', () => {
     );
     // The empty cell placeholder is still there — the failed save never wrote a slot.
     expect(screen.getAllByText('Empty').length).toBeGreaterThan(0);
+  });
+
+  // [1047] A 409 that arrives *after* the user closed the picker must not
+  // repopulate the violation list — otherwise the next cell opened shows
+  // the previous cell's conflict, over a form that never submitted.
+  it('drops a conflict response that lands after its picker was closed', async () => {
+    mockCommonRoutes();
+    server.use(
+      http.post('/api/v1/routines/routine-1/slots', async () => {
+        await delay(200);
+        return HttpResponse.json(
+          {
+            statusCode: 409,
+            message: 'Conflict',
+            requestId: 'req-1',
+            details: {
+              violations: [
+                { code: 'TEACHER_DOUBLE_BOOKED', message: 'Ms Nahar is already teaching 7B' },
+              ],
+            },
+          },
+          { status: 409 },
+        );
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/routines/section-1?classId=11111111-1111-4111-8111-111111111111'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const table = await screen.findByRole('table');
+    await waitFor(() => expect(screen.getByText('08:00–08:40')).toBeTruthy());
+    fireEvent.keyDown(table, { key: 'Enter' });
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText('Math')).toBeTruthy());
+    await user.click(screen.getByText('Math'));
+    await user.click(screen.getByLabelText('Ms Nahar'));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    // Close the picker while that 409 is still in flight.
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    // Let the response land, then confirm it left nothing behind.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(screen.queryByText('Ms Nahar is already teaching 7B')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('opens the cell picker prefilled when editing an existing slot, and shows a generic error on a non-conflict failure', async () => {
