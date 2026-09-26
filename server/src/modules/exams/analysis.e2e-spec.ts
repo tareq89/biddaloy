@@ -192,6 +192,27 @@ describe('[997] Exam analysis (merit/defaulted/pass-fail)', () => {
     });
   });
 
+  // The analysis (and marks-entry) screens pick their exam from `GET /exams`,
+  // so a MARK_VIEW role must be able to list exams, not just read one
+  // exam's analysis — scoped to its own tenant.
+  describe('GET /exams (the analysis exam picker)', () => {
+    it("a TEACHER can list its tenant's exams, and never another tenant's", async () => {
+      await seedFixture();
+
+      const res = await http()
+        .get(`${API}/exams`)
+        .query({ limit: 100 })
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.TEACHER)
+        .expect(200);
+
+      const ids = (res.body.data as Array<{ id: string }>).map((exam) => exam.id);
+      expect(ids).toContain(examId);
+      expect(ids).not.toContain(otherTenantExamId);
+    });
+  });
+
   describe('GET /exams/:examId/analysis/merit.csv', () => {
     it('has a header row and escapes a cell starting with "="', async () => {
       await seedFixture();

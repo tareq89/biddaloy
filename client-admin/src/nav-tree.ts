@@ -112,12 +112,11 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.GRADING_SCALE_MANAGE,
     label: { key: 'gradingScales' },
   },
-  // [19.6.1] `EXAM_MANAGE`, matching what `ExamsController.findAll`
-  // actually requires server-side (`@Roles(ADMIN)` +
-  // `@RequirePermissions(EXAM_MANAGE)`) — there is no separate "read a
-  // bare exam" permission, unlike marks (`MARK_VIEW`) below. A route-level
-  // gate looser than this would land a non-ADMIN role on a list page that
-  // 403s on its very first request.
+  // [19.6.1] `EXAM_MANAGE` — `/exams` is the exam management page, and
+  // opening an exam's detail (`ExamsController.findOne`) plus every write
+  // are `@Roles(ADMIN)` + `@RequirePermissions(EXAM_MANAGE)` server-side.
+  // Only the bare list (`findAll`) is looser, on `MARK_VIEW`, so the
+  // marks/analysis exam pickers load for teachers and executives.
   'examsResults.exams': {
     id: 'examsResults.exams',
     to: '/exams',
