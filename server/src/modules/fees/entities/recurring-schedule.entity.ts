@@ -16,13 +16,20 @@ import { User } from '../../users/entities/user.entity';
 import { PeriodType } from '@biddaloy/shared';
 
 /** Who a schedule bills: an optional class/section label plus enrollment
- * status. `class_id`/`section_id` unset means "every class". */
+ * status. `class_id`/`section_id` unset means "every class". [34.2.2]
+ * `program_id` narrows further to students with an ACTIVE `ProgramEnrollment`
+ * in that program — combinable with class/section (both filters apply,
+ * intersected), not a separate audience "mode". Programs aren't year-scoped
+ * (D2), so `program_id` carries forward unchanged across `clone()`. */
 export class RecurringScheduleAudience {
   @ApiProperty({ required: false })
   class_id?: string;
 
   @ApiProperty({ required: false })
   section_id?: string;
+
+  @ApiProperty({ required: false })
+  program_id?: string;
 
   @ApiProperty()
   enrollment_status: 'ACTIVE';

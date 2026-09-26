@@ -24,15 +24,18 @@ import { StudentFee } from './entities/student-fee.entity';
 import { FeeGeneration } from './entities/fee-generation.entity';
 import { Student } from '../students/entities/student.entity';
 import { School } from '../schools/entities/school.entity';
+import { Program } from '../programs/entities/program.entity';
+import { ProgramEnrollment } from '../programs/entities/program-enrollment.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import {
   SEED_TENANT_ID,
   SEED_ACADEMIC_YEAR_ID,
   SEED_SECTION_1_ID,
+  SEED_SECTION_2_ID,
   SEED_ADMIN_USER_ID,
 } from '@test/constants';
-import { FeeGenerationSource, FeeType } from '@biddaloy/shared';
+import { FeeGenerationSource, FeeType, ProgramEnrollmentStatus } from '@biddaloy/shared';
 import { SCHOOL_TZ, todayInSchoolTz } from '../../common/time';
 
 /**
@@ -65,6 +68,8 @@ describe('FeesDailyScheduler (integration)', () => {
   let studentFeeRepo: Repository<StudentFee>;
   let structureRepo: Repository<FeeStructure>;
   let studentRepo: Repository<Student>;
+  let programRepo: Repository<Program>;
+  let programEnrollmentRepo: Repository<ProgramEnrollment>;
 
   const TENANT_ID = SEED_TENANT_ID;
   const JWT_SECRET = 'test-fees-daily-scheduler-secret';
@@ -174,6 +179,8 @@ describe('FeesDailyScheduler (integration)', () => {
     studentFeeRepo = module.get(getRepositoryToken(StudentFee));
     structureRepo = module.get(getRepositoryToken(FeeStructure));
     studentRepo = module.get(getRepositoryToken(Student));
+    programRepo = module.get(getRepositoryToken(Program));
+    programEnrollmentRepo = module.get(getRepositoryToken(ProgramEnrollment));
     dataSource = module.get(DataSource);
 
     // Baseline school row for SEED_TENANT_ID already exists via
@@ -197,8 +204,29 @@ describe('FeesDailyScheduler (integration)', () => {
     await dataSource.query('DELETE FROM student_fees');
     await dataSource.query('DELETE FROM fee_generations');
     await dataSource.query('DELETE FROM fee_structures');
+    await dataSource.query('DELETE FROM program_enrollments');
+    await dataSource.query('DELETE FROM programs');
     await dataSource.query('DELETE FROM students');
   });
+
+  /** [34.2.2] A tenant-owned program plus one ACTIVE ProgramEnrollment for
+   * `studentId` — the "program audience" fixture every program test below
+   * builds on. */
+  async function enrollInNewProgram(studentId: string, status = ProgramEnrollmentStatus.ACTIVE) {
+    const program = await programRepo.save(
+      programRepo.create({ tenant_id: TENANT_ID, name: `Program ${Date.now()}-${Math.random()}` }),
+    );
+    await programEnrollmentRepo.save(
+      programEnrollmentRepo.create({
+        tenant_id: TENANT_ID,
+        program_id: program.id,
+        student_id: studentId,
+        started_on: '2026-01-01',
+        status,
+      }),
+    );
+    return program;
+  }
 
   /** Builds a scheduler wired to the real DataSource/FeeGenerationService,
    * but a stub queue/schoolsService — `runNow`/`onModuleInit` aren't under
@@ -396,5 +424,159 @@ describe('FeesDailyScheduler (integration)', () => {
       [schedule.id],
     );
     expect(row.last_run_period).not.toBeNull();
+  });
+
+  // [34.2.2] Program-audience targeting — D7/D17/D26.
+  describe('program audience', () => {
+    it('bills only students with an ACTIVE program enrolment', async () => {
+      const structure = await structureRepo.save(makeStructure());
+      const enrolled = await studentRepo.save(makeStudent());
+      const notEnrolled = await studentRepo.save(makeStudent());
+      const program = await enrollInNewProgram(enrolled.id);
+
+      const schedule = await recurringSchedulesService.create(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          name: `Program schedule ${Date.now()}`,
+          audience: { program_id: program.id, enrollment_status: 'ACTIVE' },
+          rule: dueRuleToday(),
+          fee_structure_ids: [structure.id],
+          starts_on: '2026-01-01',
+        } as any,
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      const scheduler = buildScheduler();
+      await scheduler.process({ data: { tenantId: TENANT_ID } } as any);
+
+      const bills = await studentFeeRepo.find();
+      expect(bills).toHaveLength(1);
+      expect(bills[0].student_id).toBe(enrolled.id);
+      void notEnrolled;
+      void schedule;
+    });
+
+    it('stops billing once the program enrolment goes WITHDRAWN, leaving the earlier bill untouched', async () => {
+      const structure = await structureRepo.save(makeStructure());
+      const student = await studentRepo.save(makeStudent());
+      const program = await enrollInNewProgram(student.id);
+
+      const schedule = await recurringSchedulesService.create(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          name: `Program schedule ${Date.now()}`,
+          audience: { program_id: program.id, enrollment_status: 'ACTIVE' },
+          rule: dueRuleToday(),
+          fee_structure_ids: [structure.id],
+          starts_on: '2026-01-01',
+        } as any,
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      await buildScheduler().process({ data: { tenantId: TENANT_ID } } as any);
+      const firstRunBills = await studentFeeRepo.find();
+      expect(firstRunBills).toHaveLength(1);
+      const firstBillId = firstRunBills[0].id;
+
+      await programEnrollmentRepo.update(
+        { student_id: student.id, program_id: program.id },
+        { status: ProgramEnrollmentStatus.WITHDRAWN, ended_on: '2026-02-01' },
+      );
+      // Swap in a second fee structure for the re-run: DuplicateStrategy.SKIP
+      // would silently suppress a second bill against the *same* structure
+      // regardless of whether the WITHDRAWN filter works, making this
+      // assertion pass even if `pe.status = ACTIVE` were dropped from
+      // `applyProgramAudience`. A distinct structure means "no new bill" can
+      // only happen because the audience query actually excluded the student.
+      const structure2 = await structureRepo.save(makeStructure());
+      await dataSource.query(
+        `UPDATE recurring_schedule_structures SET fee_structure_id = $1 WHERE schedule_id = $2`,
+        [structure2.id, schedule.id],
+      );
+      // Force a re-run for a later period: reset last_run_period so the
+      // scheduler's idempotency check doesn't skip a same-day sweep.
+      await dataSource.query(
+        `UPDATE recurring_schedules SET last_run_period = NULL WHERE id = $1`,
+        [schedule.id],
+      );
+
+      await buildScheduler().process({ data: { tenantId: TENANT_ID } } as any);
+
+      const billsAfter = await studentFeeRepo.find();
+      // No new bill for the now-WITHDRAWN student; the first bill stands.
+      expect(billsAfter.map((b) => b.id)).toEqual([firstBillId]);
+    });
+
+    it('skips a student with an ACTIVE program enrolment but no ACTIVE class enrollment (D17: class-enrollment-in-year condition is not relaxed for program audiences)', async () => {
+      const structure = await structureRepo.save(makeStructure());
+      // `enrollment_status: INACTIVE` — no longer counts as an ACTIVE class
+      // enrollment, even though `class_section_id` (a required column) is
+      // still set to some section.
+      const noActiveClassEnrollment = await studentRepo.save(
+        makeStudent({ enrollment_status: 'INACTIVE' } as Partial<Student>),
+      );
+      const program = await enrollInNewProgram(noActiveClassEnrollment.id);
+
+      await recurringSchedulesService.create(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          name: `Program schedule ${Date.now()}`,
+          audience: { program_id: program.id, enrollment_status: 'ACTIVE' },
+          rule: dueRuleToday(),
+          fee_structure_ids: [structure.id],
+          starts_on: '2026-01-01',
+        } as any,
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      await buildScheduler().process({ data: { tenantId: TENANT_ID } } as any);
+
+      const bills = await studentFeeRepo.find();
+      expect(bills).toHaveLength(0);
+    });
+
+    it('program + section combined intersects — only students in both are billed', async () => {
+      const structure = await structureRepo.save(makeStructure());
+      const inBoth = await studentRepo.save(makeStudent({ class_section_id: SEED_SECTION_1_ID }));
+      const programOnlyOtherSection = await studentRepo.save(
+        makeStudent({ class_section_id: SEED_SECTION_2_ID }),
+      );
+      const program = await enrollInNewProgram(inBoth.id);
+      await programEnrollmentRepo.save(
+        programEnrollmentRepo.create({
+          tenant_id: TENANT_ID,
+          program_id: program.id,
+          student_id: programOnlyOtherSection.id,
+          started_on: '2026-01-01',
+          status: ProgramEnrollmentStatus.ACTIVE,
+        }),
+      );
+
+      await recurringSchedulesService.create(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          name: `Program+section schedule ${Date.now()}`,
+          audience: {
+            section_id: SEED_SECTION_1_ID,
+            program_id: program.id,
+            enrollment_status: 'ACTIVE',
+          },
+          rule: dueRuleToday(),
+          fee_structure_ids: [structure.id],
+          starts_on: '2026-01-01',
+        } as any,
+        TENANT_ID,
+        SEED_ADMIN_USER_ID,
+      );
+
+      await buildScheduler().process({ data: { tenantId: TENANT_ID } } as any);
+
+      const bills = await studentFeeRepo.find();
+      expect(bills).toHaveLength(1);
+      expect(bills[0].student_id).toBe(inBoth.id);
+    });
   });
 });

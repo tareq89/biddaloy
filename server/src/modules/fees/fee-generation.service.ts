@@ -10,6 +10,8 @@ import { Repository, IsNull, In, EntityManager } from 'typeorm';
 import { Student } from '../students/entities/student.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { School } from '../schools/entities/school.entity';
+import { Program } from '../programs/entities/program.entity';
+import { applyProgramAudience } from './program-audience';
 import { FeeStructure } from './entities/fee-structure.entity';
 import { StudentFee } from './entities/student-fee.entity';
 import { FeeGeneration } from './entities/fee-generation.entity';
@@ -172,6 +174,8 @@ export class FeeGenerationService {
     private readonly studentFeeRepo: Repository<StudentFee>,
     @InjectRepository(School)
     private readonly schoolRepo: Repository<School>,
+    @InjectRepository(Program)
+    private readonly programRepo: Repository<Program>,
     private readonly feeGenerationsService: FeeGenerationsService,
     private readonly walletService: WalletService,
     private readonly auditService: AuditService,
@@ -209,7 +213,10 @@ export class FeeGenerationService {
     }
 
     return {
-      students_total: dto.student_ids.length,
+      // [34.2.2] `dto.student_ids` alone no longer reflects the target
+      // count once `program_id` can supply/intersect the set — the loaded
+      // context (already validated as the full resolved list) does.
+      students_total: context.activeStudents.length + context.inactiveStudents.length,
       inactive: context.inactiveStudents.map(toInactiveDto),
       duplicates: duplicates.map(
         ({ student_id, fee_structure_id, existing_bill_id, paid_amount }) => ({
@@ -648,6 +655,62 @@ export class FeeGenerationService {
     return settings.fees?.notifyOnManualGenerationDefault ?? false;
   }
 
+  /** [34.2.2] `dto.student_ids` and/or `dto.program_id` → the actual target
+   * student id list, for both `preview()` and `generate()` (same call site,
+   * `loadContext`, below — matches D26's "one shared helper" for the SQL
+   * fragment itself, `applyProgramAudience`). `program_id` resolves via the
+   * *same* join `fees-daily.scheduler.ts` uses for recurring schedules, and
+   * intersects with any explicit `student_ids` rather than replacing them. */
+  private async resolveStudentIds(
+    dto: GenerateFeesPreviewDto,
+    tenantId: string,
+    manager: EntityManager,
+  ): Promise<string[]> {
+    if (!dto.program_id) {
+      if (!dto.student_ids || dto.student_ids.length === 0) {
+        throw new BadRequestException('student_ids or program_id must be provided');
+      }
+      return dto.student_ids;
+    }
+
+    const program = await manager
+      .getRepository(Program)
+      .findOne({ where: { id: dto.program_id, tenant_id: tenantId } });
+    if (!program) {
+      throw new NotFoundException(`Program "${dto.program_id}" not found`);
+    }
+
+    // D17: program audience is ACTIVE-enrolment-only, matching the scheduler
+    // (which never bills a WITHDRAWN/COMPLETED student). `include_inactive`
+    // does not override this — it only controls whether an *explicit*
+    // student_ids list may include inactive students.
+    const qb = manager
+      .getRepository(Student)
+      .createQueryBuilder('s')
+      .innerJoin('s.class_section', 'cs')
+      .where('s.tenant_id = :tenantId', { tenantId })
+      .andWhere('s.deleted_at IS NULL')
+      .andWhere('s.enrollment_status = :status', { status: EnrollmentStatus.ACTIVE });
+    applyProgramAudience(qb, dto.program_id, tenantId);
+    const programStudents = await qb.select('s.id').getMany();
+    const programStudentIds = programStudents.map((s) => s.id);
+
+    const resolved =
+      !dto.student_ids || dto.student_ids.length === 0
+        ? programStudentIds
+        : dto.student_ids.filter((id) => new Set(programStudentIds).has(id));
+
+    if (resolved.length === 0) {
+      throw new BadRequestException('No students matched the given program_id/student_ids');
+    }
+    // Same cap the DTO's @ArrayMaxSize(5000) enforces on an explicit
+    // student_ids list — a program audience must not bypass it.
+    if (resolved.length > 5000) {
+      throw new BadRequestException('Resolved student set exceeds the 5000-student limit');
+    }
+    return resolved;
+  }
+
   /** Shared validation for both `preview` and `generate`: academic year
    * ownership, period alignment/range, every fee structure and student
    * belongs to this tenant. Throws (and, inside a transaction, rolls back)
@@ -695,12 +758,14 @@ export class FeeGenerationService {
       .map((id) => structureById.get(id))
       .filter((s): s is FeeStructure => s !== undefined);
 
+    const studentIds = await this.resolveStudentIds(dto, tenantId, manager);
+
     const students = await manager.getRepository(Student).find({
-      where: { id: In(dto.student_ids), tenant_id: tenantId, deleted_at: IsNull() },
+      where: { id: In(studentIds), tenant_id: tenantId, deleted_at: IsNull() },
     });
-    if (students.length !== new Set(dto.student_ids).size) {
+    if (students.length !== new Set(studentIds).size) {
       const foundIds = new Set(students.map((s) => s.id));
-      const missing = dto.student_ids.filter((id) => !foundIds.has(id));
+      const missing = studentIds.filter((id) => !foundIds.has(id));
       throw new NotFoundException(`Student(s) not found for this tenant: ${missing.join(', ')}`);
     }
 

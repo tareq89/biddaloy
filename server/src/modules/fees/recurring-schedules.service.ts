@@ -10,6 +10,8 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
+import { Program } from '../programs/entities/program.entity';
+import { applyProgramAudience } from './program-audience';
 import { AuditService } from '../audit/audit.service';
 import { localToday } from '../attendance/attendance-policy.util';
 import { nextRunDates, periodFor } from './recurrence.util';
@@ -60,6 +62,8 @@ export class RecurringSchedulesService {
     private readonly classSectionRepo: Repository<ClassSection>,
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
+    @InjectRepository(Program)
+    private readonly programRepo: Repository<Program>,
     private readonly auditService: AuditService,
   ) {}
 
@@ -101,10 +105,19 @@ export class RecurringSchedulesService {
   }
 
   private async validateAudience(
-    audience: { class_id?: string; section_id?: string },
+    audience: { class_id?: string; section_id?: string; program_id?: string },
     academicYearId: string,
     tenantId: string,
   ): Promise<void> {
+    // [34.2.2] Programs aren't year-scoped (D2) — just a tenant check.
+    if (audience.program_id) {
+      const program = await this.programRepo.findOne({
+        where: { id: audience.program_id, tenant_id: tenantId },
+      });
+      if (!program) {
+        throw new NotFoundException(`Program "${audience.program_id}" not found`);
+      }
+    }
     let classId = audience.class_id;
     if (classId) {
       const klass = await this.classRepo.findOne({
@@ -174,13 +187,26 @@ export class RecurringSchedulesService {
    * `(name, fee_type)` and reports misses instead of guessing.
    */
   private async remapAudienceToYear(
-    audience: { class_id?: string; section_id?: string; enrollment_status: 'ACTIVE' },
+    audience: {
+      class_id?: string;
+      section_id?: string;
+      program_id?: string;
+      enrollment_status: 'ACTIVE';
+    },
     targetYearId: string,
     tenantId: string,
   ): Promise<{
-    audience: { class_id?: string; section_id?: string; enrollment_status: 'ACTIVE' };
+    audience: {
+      class_id?: string;
+      section_id?: string;
+      program_id?: string;
+      enrollment_status: 'ACTIVE';
+    };
     unmatchedLabel: string | null;
   }> {
+    // [34.2.2] `program_id` isn't year-scoped (D2) — carries forward
+    // unchanged in every branch below, same program every year.
+    const programId = audience.program_id;
     if (!audience.class_id && !audience.section_id) {
       return { audience, unmatchedLabel: null };
     }
@@ -202,7 +228,7 @@ export class RecurringSchedulesService {
       // The source class/section was itself deleted since — nothing to
       // remap by name; fall back to enrollment_status only.
       return {
-        audience: { enrollment_status: audience.enrollment_status },
+        audience: { enrollment_status: audience.enrollment_status, program_id: programId },
         unmatchedLabel: sourceSectionName ?? audience.class_id ?? audience.section_id ?? 'audience',
       };
     }
@@ -212,7 +238,7 @@ export class RecurringSchedulesService {
     });
     if (!targetClass) {
       return {
-        audience: { enrollment_status: audience.enrollment_status },
+        audience: { enrollment_status: audience.enrollment_status, program_id: programId },
         unmatchedLabel: sourceSectionName
           ? `${sourceClass.name} / ${sourceSectionName}`
           : sourceClass.name,
@@ -221,7 +247,11 @@ export class RecurringSchedulesService {
 
     if (!sourceSectionName) {
       return {
-        audience: { class_id: targetClass.id, enrollment_status: audience.enrollment_status },
+        audience: {
+          class_id: targetClass.id,
+          enrollment_status: audience.enrollment_status,
+          program_id: programId,
+        },
         unmatchedLabel: null,
       };
     }
@@ -231,7 +261,11 @@ export class RecurringSchedulesService {
     });
     if (!targetSection) {
       return {
-        audience: { class_id: targetClass.id, enrollment_status: audience.enrollment_status },
+        audience: {
+          class_id: targetClass.id,
+          enrollment_status: audience.enrollment_status,
+          program_id: programId,
+        },
         unmatchedLabel: `${sourceClass.name} / ${sourceSectionName}`,
       };
     }
@@ -241,6 +275,7 @@ export class RecurringSchedulesService {
         class_id: targetClass.id,
         section_id: targetSection.id,
         enrollment_status: audience.enrollment_status,
+        program_id: programId,
       },
       unmatchedLabel: null,
     };
@@ -611,6 +646,9 @@ export class RecurringSchedulesService {
       qb.andWhere('s.class_section_id = :sectionId', {
         sectionId: schedule.audience.section_id,
       });
+    }
+    if (schedule.audience.program_id) {
+      applyProgramAudience(qb, schedule.audience.program_id, schedule.tenant_id);
     }
     return qb;
   }

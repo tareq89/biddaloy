@@ -25,6 +25,8 @@ import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { School } from '../schools/entities/school.entity';
 import { StudentWallet } from './entities/student-wallet.entity';
+import { Program } from '../programs/entities/program.entity';
+import { ProgramEnrollment } from '../programs/entities/program-enrollment.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID, SEED_ACADEMIC_YEAR_ID } from '@test/constants';
@@ -38,6 +40,7 @@ import {
   ApprovalScope,
   PaymentMethod,
   PaymentAllocationType,
+  ProgramEnrollmentStatus,
 } from '@biddaloy/shared';
 
 const JWT_SECRET = 'test-fee-generation-secret';
@@ -58,6 +61,8 @@ describe('FeeGenerationService (integration)', () => {
   let feeGenerationRepo: Repository<FeeGeneration>;
   let studentRepo: Repository<Student>;
   let walletRepo: Repository<StudentWallet>;
+  let programRepo: Repository<Program>;
+  let programEnrollmentRepo: Repository<ProgramEnrollment>;
   let paymentAllocationService: PaymentAllocationService;
   let dataSource: DataSource;
   let redis: Redis;
@@ -146,6 +151,10 @@ describe('FeeGenerationService (integration)', () => {
     feeGenerationRepo = module.get<Repository<FeeGeneration>>(getRepositoryToken(FeeGeneration));
     studentRepo = module.get<Repository<Student>>(getRepositoryToken(Student));
     walletRepo = module.get<Repository<StudentWallet>>(getRepositoryToken(StudentWallet));
+    programRepo = module.get<Repository<Program>>(getRepositoryToken(Program));
+    programEnrollmentRepo = module.get<Repository<ProgramEnrollment>>(
+      getRepositoryToken(ProgramEnrollment),
+    );
     paymentAllocationService = module.get<PaymentAllocationService>(PaymentAllocationService);
     dataSource = module.get(DataSource);
 
@@ -232,8 +241,32 @@ describe('FeeGenerationService (integration)', () => {
     await dataSource.query('DELETE FROM student_fees');
     await dataSource.query('DELETE FROM fee_generations');
     await dataSource.query('DELETE FROM fee_structures');
+    await dataSource.query('DELETE FROM program_enrollments');
+    await dataSource.query('DELETE FROM programs');
     await dataSource.query('DELETE FROM students');
   });
+
+  /** [34.2.2] A tenant-owned program plus one ACTIVE ProgramEnrollment for
+   * `studentId`. */
+  async function enrollInNewProgram(
+    studentId: string,
+    tenantId: string = TENANT_ID,
+    status = ProgramEnrollmentStatus.ACTIVE,
+  ) {
+    const program = await programRepo.save(
+      programRepo.create({ tenant_id: tenantId, name: `Program ${Date.now()}-${Math.random()}` }),
+    );
+    await programEnrollmentRepo.save(
+      programEnrollmentRepo.create({
+        tenant_id: tenantId,
+        program_id: program.id,
+        student_id: studentId,
+        started_on: '2026-01-01',
+        status,
+      }),
+    );
+    return program;
+  }
 
   it('generates 3 students x 2 fee structures = 6 bills, one batch, correct counters', async () => {
     const students = await studentRepo.save([makeStudent(), makeStudent(), makeStudent()]);
@@ -829,5 +862,192 @@ describe('FeeGenerationService (integration)', () => {
     expect(bills).toHaveLength(0);
     const batches = await feeGenerationRepo.find();
     expect(batches).toHaveLength(0);
+  });
+
+  // [34.2.2] `program_id` one-off generation targeting — resolved through
+  // the same `applyProgramAudience` join the daily scheduler uses (D26).
+  describe('program_id targeting', () => {
+    it('preview() targets exactly the students with an ACTIVE program enrolment (same set the scheduler helper would resolve)', async () => {
+      const enrolled1 = await studentRepo.save(makeStudent());
+      const enrolled2 = await studentRepo.save(makeStudent());
+      const notEnrolled = await studentRepo.save(makeStudent());
+      const program = await programRepo.save(
+        programRepo.create({ tenant_id: TENANT_ID, name: `Program ${Date.now()}` }),
+      );
+      await programEnrollmentRepo.save([
+        programEnrollmentRepo.create({
+          tenant_id: TENANT_ID,
+          program_id: program.id,
+          student_id: enrolled1.id,
+          started_on: '2026-01-01',
+          status: ProgramEnrollmentStatus.ACTIVE,
+        }),
+        programEnrollmentRepo.create({
+          tenant_id: TENANT_ID,
+          program_id: program.id,
+          student_id: enrolled2.id,
+          started_on: '2026-01-01',
+          status: ProgramEnrollmentStatus.ACTIVE,
+        }),
+      ]);
+      const structure = await structureRepo.save(makeStructure());
+
+      const result = await service.preview(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-04-01',
+          period_type: PeriodType.MONTH,
+          program_id: program.id,
+          fee_structure_ids: [structure.id],
+        },
+        TENANT_ID,
+      );
+
+      expect(result.students_total).toBe(2);
+      expect(result.would_generate).toBe(2);
+      void notEnrolled;
+    });
+
+    it('generate() with program_id bills the resolved program students, intersected with explicit student_ids when both are given', async () => {
+      const inBoth = await studentRepo.save(makeStudent());
+      const programOnly = await studentRepo.save(makeStudent());
+      const program = await enrollInNewProgram(inBoth.id);
+      await programEnrollmentRepo.save(
+        programEnrollmentRepo.create({
+          tenant_id: TENANT_ID,
+          program_id: program.id,
+          student_id: programOnly.id,
+          started_on: '2026-01-01',
+          status: ProgramEnrollmentStatus.ACTIVE,
+        }),
+      );
+      const structure = await structureRepo.save(makeStructure());
+
+      // student_ids explicitly names only `inBoth` — intersected with the
+      // program's full ACTIVE-enrolment set (inBoth + programOnly), so only
+      // inBoth is billed.
+      const result = await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-04-01',
+          period_type: PeriodType.MONTH,
+          program_id: program.id,
+          student_ids: [inBoth.id],
+          fee_structure_ids: [structure.id],
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+
+      expect(result.generated_count).toBe(1);
+      const bills = await studentFeeRepo.find();
+      expect(bills.map((b) => b.student_id)).toEqual([inBoth.id]);
+    });
+
+    it('excludes a program-enrolled student whose class enrollment is inactive, even with include_inactive: true (D17)', async () => {
+      const active = await studentRepo.save(makeStudent());
+      const inactive = await studentRepo.save(
+        makeStudent({ enrollment_status: 'INACTIVE' } as Partial<Student>),
+      );
+      const program = await enrollInNewProgram(active.id);
+      await programEnrollmentRepo.save(
+        programEnrollmentRepo.create({
+          tenant_id: TENANT_ID,
+          program_id: program.id,
+          student_id: inactive.id,
+          started_on: '2026-01-01',
+          status: ProgramEnrollmentStatus.ACTIVE,
+        }),
+      );
+      const structure = await structureRepo.save(makeStructure());
+
+      const result = await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-04-01',
+          period_type: PeriodType.MONTH,
+          program_id: program.id,
+          fee_structure_ids: [structure.id],
+          include_inactive: true,
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+
+      // `include_inactive` only widens *explicit* student_ids targeting —
+      // the program-audience resolver stays ACTIVE-only, matching the
+      // scheduler, so the inactive student is never in the resolved set.
+      expect(result.generated_count).toBe(1);
+      const bills = await studentFeeRepo.find();
+      expect(bills.map((b) => b.student_id)).toEqual([active.id]);
+    });
+
+    it('rejects a program_id that matches no ACTIVE-enrolment students', async () => {
+      const program = await programRepo.save(
+        programRepo.create({ tenant_id: TENANT_ID, name: `Empty program ${Date.now()}` }),
+      );
+      const structure = await structureRepo.save(makeStructure());
+
+      await expect(
+        service.preview(
+          {
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            period_start: '2026-04-01',
+            period_type: PeriodType.MONTH,
+            program_id: program.id,
+            fee_structure_ids: [structure.id],
+          },
+          TENANT_ID,
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      const batches = await feeGenerationRepo.find();
+      expect(batches).toHaveLength(0);
+    });
+
+    it('rejects neither student_ids nor program_id given', async () => {
+      const structure = await structureRepo.save(makeStructure());
+
+      await expect(
+        service.preview(
+          {
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            period_start: '2026-04-01',
+            period_type: PeriodType.MONTH,
+            fee_structure_ids: [structure.id],
+          } as any,
+          TENANT_ID,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('a program_id belonging to another tenant is a 404, and nothing is written', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const otherTenantProgram = await programRepo.save(
+        programRepo.create({ tenant_id: OTHER_TENANT_ID, name: 'Other Tenant Program' }),
+      );
+      const structure = await structureRepo.save(makeStructure());
+
+      await expect(
+        service.generate(
+          {
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            period_start: '2026-04-01',
+            period_type: PeriodType.MONTH,
+            program_id: otherTenantProgram.id,
+            student_ids: [student.id],
+            fee_structure_ids: [structure.id],
+          },
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(),
+        ),
+      ).rejects.toThrow(NotFoundException);
+
+      const bills = await studentFeeRepo.find();
+      expect(bills).toHaveLength(0);
+    });
   });
 });

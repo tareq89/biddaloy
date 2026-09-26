@@ -16,6 +16,7 @@ import { Student } from '../students/entities/student.entity';
 import { SCHOOL_TZ, todayInSchoolTz } from '../../common/time';
 import { FEES_DAILY_CRON, FEES_DAILY_JOB_ID, FEES_DAILY_QUEUE } from './fees.constants';
 import { LateFeeService } from './late-fee.service';
+import { applyProgramAudience } from './program-audience';
 
 /**
  * `RecurrenceRule` per #676's documented contract (`rule jsonb` on
@@ -41,7 +42,12 @@ interface RecurringScheduleRow {
   id: string;
   tenant_id: string;
   academic_year_id: string;
-  audience: { class_id?: string; section_id?: string; enrollment_status?: string };
+  audience: {
+    class_id?: string;
+    section_id?: string;
+    program_id?: string;
+    enrollment_status?: string;
+  };
   rule: RecurrenceRule;
   period_type: 'MONTH' | 'WEEK';
   due_days_after_period_start: number;
@@ -324,6 +330,9 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
         qb.andWhere('s.class_section_id = :sectionId', { sectionId: fresh.audience.section_id });
       } else if (fresh.audience.class_id) {
         qb.andWhere('cs.class_id = :classId', { classId: fresh.audience.class_id });
+      }
+      if (fresh.audience.program_id) {
+        applyProgramAudience(qb, fresh.audience.program_id, fresh.tenant_id);
       }
       if (fresh.audience.enrollment_status) {
         qb.andWhere('s.enrollment_status = :status', {
