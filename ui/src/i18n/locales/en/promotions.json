@@ -83,7 +83,8 @@
     },
     "cohortChangedPrompt": "Some students in this run have left the class or changed status since it was created. Delete this draft and create a new run.",
     "commitFailed": "Could not commit this run. Please try again.",
-    "saveFailed": "Could not save this change. Please try again."
+    "saveFailed": "Could not save this change. Please try again.",
+    "refreshFailed": "Could not refresh this run. Please try again."
   },
   "stepper": {
     "previous": "Previous",

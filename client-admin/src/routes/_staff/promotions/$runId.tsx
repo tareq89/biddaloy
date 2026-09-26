@@ -137,7 +137,6 @@ function PromotionRunPage() {
 
   const noteTimers = React.useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const focusRefs = React.useRef(new Map<string, HTMLElement>());
-  const refreshButtonRef = React.useRef<HTMLButtonElement>(null);
 
   React.useEffect(
     () => () => {
@@ -416,8 +415,14 @@ function PromotionRunPage() {
   }
 
   async function refresh() {
-    setStaleBanner(false);
-    await refreshRun.mutateAsync();
+    try {
+      await refreshRun.mutateAsync();
+      setStaleBanner(false);
+    } catch (error) {
+      if (!(error instanceof ApiError && error.statusCode === 403)) {
+        toast.error(t('grid.refreshFailed'));
+      }
+    }
   }
 
   function deleteDraft() {
@@ -456,7 +461,6 @@ function PromotionRunPage() {
           {!readOnly && canManage && (
             <div className="flex gap-2">
               <Button
-                ref={refreshButtonRef}
                 type="button"
                 variant="outline"
                 size="sm"
@@ -516,9 +520,8 @@ function PromotionRunPage() {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => {
-                refreshButtonRef.current?.focus();
-              }}
+              loading={refreshRun.isPending}
+              onClick={() => void refresh()}
             >
               {t('grid.refresh')}
             </Button>

@@ -349,6 +349,26 @@ describe('/promotions/$runId', () => {
     await screen.findByText('Results changed since this preview — refresh');
   });
 
+  it("the stale-results banner's Refresh button refreshes the run", async () => {
+    await commitAndGetConflict('STALE_RESULTS');
+    let refreshed = false;
+    server.use(
+      http.post(`${RUN_URL}/refresh`, () => {
+        refreshed = true;
+        return HttpResponse.json(baseRun());
+      }),
+    );
+
+    const banner = (await screen.findByText('Results changed since this preview — refresh'))
+      .parentElement as HTMLElement;
+    await userEvent.click(within(banner).getByRole('button', { name: 'Refresh' }));
+
+    await waitFor(() => expect(refreshed).toBe(true));
+    await waitFor(() =>
+      expect(screen.queryByText('Results changed since this preview — refresh')).toBeNull(),
+    );
+  });
+
   it('tells the user to start over when commit returns COHORT_CHANGED', async () => {
     await commitAndGetConflict('COHORT_CHANGED');
     await screen.findByText(/Delete this draft and create a new run/);
