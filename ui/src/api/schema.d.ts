@@ -4486,17 +4486,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/public/admission/{slug}/status/{referenceNumber}": {
+    "/api/v1/public/admission/{slug}/status": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Check an admission application status by reference number, no login required. Returns only status/applicant name/intake title — an unknown or wrong-tenant reference number 404s. */
-        get: operations["PublicAdmissionController_getStatus_v1"];
+        get?: never;
         put?: never;
-        post?: never;
+        /** Check an admission application status by reference number plus the guardian phone given on the form, no login required. Returns only status/applicant name/intake title — an unknown reference, a wrong phone, or a wrong-tenant reference number all 404 identically. POST (not GET) so the phone number never lands in a URL/access log. */
+        post: operations["PublicAdmissionController_getStatus_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8081,6 +8081,10 @@ export interface components {
         };
         AdmitApplicantDto: {
             notes?: string;
+        };
+        CheckApplicantStatusDto: {
+            reference_number: string;
+            guardian_phone: string;
         };
         SubmitApplicantResponseDto: {
             reference_number: string;
@@ -19839,7 +19843,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["EvaluateApplicantDto"];
+                "application/json": components["schemas"]["AdmitApplicantDto"];
             };
         };
         responses: {
@@ -19885,11 +19889,14 @@ export interface operations {
             header?: never;
             path: {
                 slug: string;
-                referenceNumber: string;
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckApplicantStatusDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
