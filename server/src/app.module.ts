@@ -39,6 +39,7 @@ import { RestoreModule } from './modules/workbook/restore/restore.module';
 import { ImportModule } from './modules/workbook/import/import.module';
 import { TemplateModule } from './modules/workbook/template/template.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { StaffHrModule } from './modules/staff-hr/staff-hr.module';
 import { SearchModule } from './modules/search/search.module';
 import { GradingModule } from './modules/grading/grading.module';
 import { ExamsModule } from './modules/exams/exams.module';
@@ -47,6 +48,9 @@ import { Homework } from './modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from './modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from './modules/homework/entities/homework-submission.entity';
 import { SyllabusTopic } from './modules/homework/entities/syllabus-topic.entity';
+import { Designation } from './modules/staff-hr/entities/designation.entity';
+import { StaffHrRecord } from './modules/staff-hr/entities/staff-hr-record.entity';
+import { StaffDesignationHistory } from './modules/staff-hr/entities/staff-designation-history.entity';
 import { validate } from './config/env.validation';
 
 // Entities for auto-loading
@@ -208,6 +212,9 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
             HomeworkAssignment,
             HomeworkSubmission,
             SyllabusTopic,
+            Designation,
+            StaffHrRecord,
+            StaffDesignationHistory,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],
@@ -286,6 +293,7 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
     GradingModule,
     ExamsModule,
     HomeworkModule,
+    StaffHrModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
