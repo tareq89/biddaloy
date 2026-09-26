@@ -283,6 +283,116 @@ describe('SchoolsService', () => {
     });
   });
 
+  describe('findBySlug', () => {
+    it('returns the matching school', async () => {
+      const repo = fakeRepo({ id: 's1', settings: null } as any);
+      repo.findOne.mockResolvedValue({ id: 's1', slug: 'test-school' } as any);
+      const service = new SchoolsService(
+        repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
+        encryption,
+        settingsCache,
+        auditService as any,
+        tenantStatus as any,
+      );
+
+      const school = await service.findBySlug('test-school');
+
+      expect(repo.findOne).toHaveBeenCalledWith({
+        where: { slug: 'test-school', status: 'ACTIVE' },
+      });
+      expect(school).toEqual({ id: 's1', slug: 'test-school' });
+    });
+
+    it('returns null for a SUSPENDED school even with a matching slug', async () => {
+      const repo = fakeRepo(null);
+      repo.findOne.mockResolvedValue(null); // the ACTIVE filter excludes it at the query level
+      const service = new SchoolsService(
+        repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
+        encryption,
+        settingsCache,
+        auditService as any,
+        tenantStatus as any,
+      );
+
+      const school = await service.findBySlug('suspended-school');
+
+      expect(repo.findOne).toHaveBeenCalledWith({
+        where: { slug: 'suspended-school', status: 'ACTIVE' },
+      });
+      expect(school).toBeNull();
+    });
+
+    it('returns null for an unknown slug, rather than throwing', async () => {
+      const repo = fakeRepo(null);
+      repo.findOne.mockResolvedValue(null);
+      const service = new SchoolsService(
+        repo as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            innerJoin: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            andWhere: vi.fn().mockReturnThis(),
+            getCount: vi.fn(async () => 0),
+          })),
+        } as any,
+        { count: vi.fn(async () => 0) } as any,
+        { count: vi.fn(async () => 0) } as any,
+        {
+          createQueryBuilder: vi.fn(() => ({
+            select: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            getRawOne: vi.fn(async () => ({ max_created_at: null })),
+          })),
+        } as any,
+        { get: vi.fn(async () => null), set: vi.fn(async () => 'OK') } as any,
+        encryption,
+        settingsCache,
+        auditService as any,
+        tenantStatus as any,
+      );
+
+      const school = await service.findBySlug('no-such-slug');
+
+      expect(school).toBeNull();
+    });
+  });
+
   describe('getResolvedSettings', () => {
     it('resolves defaults for a school with no stored settings', async () => {
       const repo = fakeRepo({ id: 's1', settings: null });

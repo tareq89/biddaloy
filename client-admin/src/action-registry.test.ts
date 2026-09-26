@@ -33,6 +33,7 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/marks': '/_staff/marks/',
   '/results': '/_staff/results/',
   '/exams': '/_staff/exams/',
+  '/admissions/applicants': '/_staff/admissions/applicants/',
   '/academics/homework/new': '/_staff/academics/homework/new',
   '/academics/homework/import': '/_staff/academics/homework/import',
   '/academics/syllabus': '/_staff/academics/syllabus/',

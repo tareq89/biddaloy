@@ -93,6 +93,17 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/academics/syllabus/': Permission.SYLLABUS_READ,
   '/_staff/grading-scales/': Permission.GRADING_SCALE_MANAGE,
   '/_staff/grading-scales/$scaleId': Permission.GRADING_SCALE_MANAGE,
+  // [27.9] Staff intakes screen — blanket-gated on ADMISSION_REVIEW, same
+  // as the rest of this map. Not a route this ticket's own Files list
+  // named (`route-permissions.ts`), but without an entry here the route
+  // is reachable by every staff role: `route-permissions.test.ts` fails
+  // any route missing from this map by design, so it's added anyway.
+  '/_staff/admissions/intakes/': Permission.ADMISSION_REVIEW,
+  '/_staff/admissions/intakes/$intakeId': Permission.ADMISSION_REVIEW,
+  // [27.10] Staff applicants screen — same blanket ADMISSION_REVIEW gate as
+  // the intakes screen above.
+  '/_staff/admissions/applicants/': Permission.ADMISSION_REVIEW,
+  '/_staff/admissions/applicants/$applicantId': Permission.ADMISSION_REVIEW,
   // [19.6.1] `EXAM_MANAGE` — the management page; see `nav-tree.ts`'s
   // `examsResults.exams` comment (`GET /exams` itself is `MARK_VIEW`, but
   // detail and writes are `EXAM_MANAGE`).

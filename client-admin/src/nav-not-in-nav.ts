@@ -21,6 +21,10 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/verify-email': 'auth route reached via an email link, not signed-in nav',
   '/select-school': 'tenant/role switcher, reached before the staff sidebar itself renders',
   '/i/$token': 'invitation-accept route reached via a tokenized email link, not signed-in nav',
+  '/admission/$slug/':
+    '[27.11] public admission-form route, opened signed-out via a school-specific link',
+  '/admission/$slug/status':
+    '[27.11] public status-check route, opened signed-out via a school-specific link',
 
   // Guardian portal — its own nav (`ui`'s portal shell), not the staff
   // sidebar `nav-tree.ts` describes.
@@ -65,6 +69,9 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/results/$examId/$studentId':
     'report card, reached from the exam Results tab or /results, not its own sidebar item',
   '/_staff/grading-scales/$scaleId': 'detail route reached from the grading scales list',
+  '/_staff/admissions/intakes/$intakeId': 'detail route reached from the admission intakes list',
+  '/_staff/admissions/applicants/$applicantId':
+    'detail route reached from the admission applicants list',
   '/_staff/guardians/$guardianId': 'detail route reached from the guardians list',
   '/_staff/routines/$sectionId': 'detail route reached from the routine builder section list',
   '/_staff/routines/review':

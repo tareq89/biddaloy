@@ -216,6 +216,26 @@ export const ACTIONS: readonly PaletteAction[] = [
     run: (ctx) => ctx.navigate({ to: '/results' }),
   },
   {
+    id: 'admissions.reviewApplicant',
+    label: { en: 'Review applicant', bn: 'আবেদনকারী পর্যালোচনা করুন' },
+    permission: Permission.ADMISSION_REVIEW,
+    kind: 'navigate',
+    // No entity id in `ActionRunContext` ([31.0]'s retrofit territory, not
+    // this ticket's) — lands on the applicants list, same "no entity id"
+    // pattern as `grading.copyScale`/`results.process` above.
+    run: (ctx) => ctx.navigate({ to: '/admissions/applicants' }),
+  },
+  {
+    id: 'admissions.admitApplicant',
+    label: { en: 'Admit applicant', bn: 'আবেদনকারী ভর্তি করুন' },
+    permission: Permission.ADMISSION_REVIEW,
+    kind: 'modal',
+    // Same "no entity id" pattern — lands on the applicants list, whose own
+    // row opens the detail screen where `AdmitApplicantModal` actually
+    // lives (#27.10, `ApplicantDetail.tsx`).
+    run: (ctx) => ctx.navigate({ to: '/admissions/applicants' }),
+  },
+  {
     id: 'analysis.meritList',
     label: { en: 'Analysis: merit list', bn: 'বিশ্লেষণ: মেধা তালিকা' },
     permission: Permission.MARK_VIEW,

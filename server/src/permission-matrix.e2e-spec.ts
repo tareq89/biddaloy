@@ -645,6 +645,9 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // [22.3.3] HOMEWORK_IMPORT now gates HomeworkBulkUploadController's routes,
   // [22.3.4] SYLLABUS_READ/SYLLABUS_MANAGE now gate SyllabusController's
   // routes — no longer UI-only, removed from this list at wave-3 integration.
+  // [27.3]/[27.5] ADMISSION_REVIEW now gates IntakeController's CRUD routes
+  // and ApplicantReviewController's evaluate/admit/reject routes — no
+  // longer UI-only, removed from this list at wave-2 integration.
   // [26.3.3] Checked in-service, never on a route: `PromotionsService.commit()`
   // requires it only when the run carries overrides (D11). A route-level
   // `@RequirePermissions` would also block override-free commits, which

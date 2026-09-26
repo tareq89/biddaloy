@@ -234,6 +234,32 @@
       "archetype": "detail"
     },
     {
+      "path": "/admissions/intakes",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/admissions/intakes/$intakeId",
+      "params": {
+        "intakeId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
+      "path": "/admissions/applicants",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/admissions/applicants/$applicantId",
+      "params": {
+        "applicantId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
       "path": "/routines/setup",
       "role": "admin",
       "archetype": "form"
@@ -352,6 +378,22 @@
       "path": "/i/$token",
       "params": {
         "token": "seeded"
+      },
+      "role": "guest",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/admission/$slug",
+      "params": {
+        "slug": "seeded"
+      },
+      "role": "guest",
+      "archetype": "bespoke"
+    },
+    {
+      "path": "/admission/$slug/status",
+      "params": {
+        "slug": "seeded"
       },
       "role": "guest",
       "archetype": "bespoke"

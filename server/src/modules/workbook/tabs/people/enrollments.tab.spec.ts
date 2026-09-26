@@ -107,10 +107,11 @@ function fromRowOrThrow(cells: Record<string, string>): EnrollmentRow {
 }
 
 describe('enrollmentsTab shape', () => {
-  it('is registered through the people barrel, last, after students', () => {
+  it('is registered through the people barrel, after students', () => {
     expect(peopleTabs).toContain(enrollmentsTab);
     expect(peopleTabs.indexOf(studentsTab)).toBeLessThan(peopleTabs.indexOf(enrollmentsTab));
-    expect(peopleTabs[peopleTabs.length - 1]).toBe(enrollmentsTab);
+    // [27.6] No longer last: the admission tabs are appended after it.
+    expect(peopleTabs.indexOf(enrollmentsTab)).toBe(peopleTabs.length - 4);
   });
 
   it('satisfies the registry contract', () => {

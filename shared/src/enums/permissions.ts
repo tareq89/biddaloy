@@ -198,6 +198,12 @@ export enum Permission {
   SYLLABUS_READ = 'SYLLABUS_READ',
   // [22.1.1] Create/edit/mark a SyllabusTopic's status.
   SYLLABUS_MANAGE = 'SYLLABUS_MANAGE',
+
+  // Admission (27.x)
+  // [27.1] Review an AdmissionApplicant — shortlist/admit/reject and read
+  // the intake/applicant/evaluation rows. Schema-only ticket; no route
+  // consumes it yet.
+  ADMISSION_REVIEW = 'ADMISSION_REVIEW',
 }
 
 import { UserRole } from './index';
@@ -299,6 +305,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.HOMEWORK_IMPORT,
     Permission.SYLLABUS_READ,
     Permission.SYLLABUS_MANAGE,
+    // [27.1] Admission review — ADMIN only for now; no route consumes it yet.
+    Permission.ADMISSION_REVIEW,
   ],
 
   [UserRole.ACCOUNTANT]: [

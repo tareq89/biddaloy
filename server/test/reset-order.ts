@@ -31,6 +31,12 @@ export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'seat_plan_schedules',
   'seat_plans',
   'workbook_jobs',
+  // [27.1] admission_evaluations references admission_applicants;
+  // admission_applicants references admission_intakes; admission_intakes
+  // references class_sections. All must clear before class_sections below.
+  'admission_evaluations',
+  'admission_applicants',
+  'admission_intakes',
   // [788] promotion_entries references promotion_runs (`ON DELETE CASCADE`);
   // promotion_runs references classes/schools. Neither has an incoming FK
   // from anything else here, so this pair only needs to clear before
