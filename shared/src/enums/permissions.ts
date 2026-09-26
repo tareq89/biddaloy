@@ -169,6 +169,8 @@ export enum Permission {
   RESULT_PUBLISH = 'RESULT_PUBLISH',
   // [19.1.1] Read a published (or, for staff, processed) result.
   RESULT_READ = 'RESULT_READ',
+  // [25.1.1] Create/edit/publish a SeatPlan and its seat allocations.
+  SEAT_PLAN_MANAGE = 'SEAT_PLAN_MANAGE',
   // [26.1.1] Create/edit/run a PromotionRun (D22). ADMIN only — no separate
   // analysis permission; analysis reuses MARK_VIEW.
   PROMOTION_MANAGE = 'PROMOTION_MANAGE',
@@ -282,6 +284,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.RESULT_PROCESS,
     Permission.RESULT_PUBLISH,
     Permission.RESULT_READ,
+    // [25.1.1] Seat plans — ADMIN only.
+    Permission.SEAT_PLAN_MANAGE,
     // [26.1.1] Promotion runs — ADMIN only (D22).
     Permission.PROMOTION_MANAGE,
     Permission.PROMOTION_OVERRIDE,

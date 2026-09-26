@@ -45,6 +45,9 @@ import type { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.
 import type { Enrollment } from '../modules/students/entities/enrollment.entity';
 import type { PromotionRun } from '../modules/promotions/entities/promotion-run.entity';
 import type { PromotionEntry } from '../modules/promotions/entities/promotion-entry.entity';
+import type { SeatPlan } from '../modules/seat-plans/entities/seat-plan.entity';
+import type { SeatPlanSchedule } from '../modules/seat-plans/entities/seat-plan-schedule.entity';
+import type { SeatAllocation } from '../modules/seat-plans/entities/seat-allocation.entity';
 import { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
 import { ensureDemoOrganisation } from './seed.util';
 
@@ -292,6 +295,18 @@ function makeRepos() {
       clock,
       'promotion-entry',
     ).asRepository() as unknown as Repository<PromotionEntry>,
+    seatPlanRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'seat-plan',
+    ).asRepository() as unknown as Repository<SeatPlan>,
+    seatPlanScheduleRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'seat-plan-schedule',
+    ).asRepository() as unknown as Repository<SeatPlanSchedule>,
+    seatAllocationRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'seat-allocation',
+    ).asRepository() as unknown as Repository<SeatAllocation>,
   } satisfies SeedAccountRepositories;
   return { repos, users, schools, userTenants, students };
 }
