@@ -26,8 +26,21 @@ function qb(rows: unknown[] = []) {
   return builder;
 }
 
-function makeStudent(id: string, roll: number, sectionId: string) {
-  return { id, roll_number: roll, section_id: sectionId };
+function makeStudent(id: string, roll: number) {
+  return { id, roll_number: roll };
+}
+
+/** Shape `enrollmentRepo.find({ relations: ['student'] })` really returns:
+ * the enrollment's own columns (student_id, class_id, section_id,
+ * enrollment_status) plus the joined `student` relation. */
+function makeEnrollment(studentId: string, roll: number, classId: string, sectionId: string) {
+  return {
+    student_id: studentId,
+    class_id: classId,
+    section_id: sectionId,
+    enrollment_status: EnrollmentStatus.ACTIVE,
+    student: makeStudent(studentId, roll),
+  };
 }
 
 function makeSchedule(id: string, classId: string, overrides: Partial<any> = {}) {
@@ -130,10 +143,10 @@ describe('SeatPlansService', () => {
         { id: SECTION_2, class_id: 'class-1' },
       ]);
       enrollmentRepo.find.mockResolvedValue([
-        { section_id: SECTION_1, student: makeStudent('s1', 1, SECTION_1) },
-        { section_id: SECTION_1, student: makeStudent('s2', 2, SECTION_1) },
-        { section_id: SECTION_2, student: makeStudent('s3', 1, SECTION_2) },
-        { section_id: SECTION_2, student: makeStudent('s4', 2, SECTION_2) },
+        makeEnrollment('s1', 1, 'class-1', SECTION_1),
+        makeEnrollment('s2', 2, 'class-1', SECTION_1),
+        makeEnrollment('s3', 1, 'class-1', SECTION_2),
+        makeEnrollment('s4', 2, 'class-1', SECTION_2),
       ]);
       seatPlanRepo.findOne.mockResolvedValue({
         id: 'SeatPlan-1',
@@ -159,8 +172,8 @@ describe('SeatPlansService', () => {
       roomRepo.find.mockResolvedValue([{ id: ROOM_1, capacity: 1, tenant_id: TENANT }]);
       sectionRepo.find.mockResolvedValue([{ id: SECTION_1, class_id: 'class-1' }]);
       enrollmentRepo.find.mockResolvedValue([
-        { section_id: SECTION_1, student: makeStudent('s1', 1, SECTION_1) },
-        { section_id: SECTION_1, student: makeStudent('s2', 2, SECTION_1) },
+        makeEnrollment('s1', 1, 'class-1', SECTION_1),
+        makeEnrollment('s2', 2, 'class-1', SECTION_1),
       ]);
 
       await expect(
@@ -180,7 +193,7 @@ describe('SeatPlansService', () => {
       });
     });
 
-    it('does not leak one class\'s students onto another class\'s schedule when generating across classes', async () => {
+    it("does not leak one class's students onto another class's schedule when generating across classes", async () => {
       // Two schedules for two different classes in one generate call — each schedule
       // must only draw its own class's roster, not the other class's students too.
       const scheduleClass1 = makeSchedule(SCHEDULE_A, 'class-1');
@@ -192,16 +205,21 @@ describe('SeatPlansService', () => {
         { id: SECTION_2, class_id: 'class-2' },
       ]);
       enrollmentRepo.find.mockResolvedValue([
-        { section_id: SECTION_1, student: makeStudent('s1', 1, SECTION_1) },
-        { section_id: SECTION_2, student: makeStudent('s2', 1, SECTION_2) },
+        makeEnrollment('s1', 1, 'class-1', SECTION_1),
+        makeEnrollment('s2', 1, 'class-2', SECTION_2),
       ]);
-      seatPlanRepo.findOne.mockResolvedValue({ id: 'SeatPlan-1', tenant_id: TENANT, status: SeatPlanStatus.DRAFT });
+      seatPlanRepo.findOne.mockResolvedValue({
+        id: 'SeatPlan-1',
+        tenant_id: TENANT,
+        status: SeatPlanStatus.DRAFT,
+      });
 
       let savedAllocations: any[] = [];
       dataSource.transaction = vi.fn(async (cb: any) => {
         const manager = {
           save: vi.fn(async (entityClass: any, value: any) => {
-            if (entityClass.name === 'SeatAllocation') savedAllocations = Array.isArray(value) ? value : [value];
+            if (entityClass.name === 'SeatAllocation')
+              savedAllocations = Array.isArray(value) ? value : [value];
             const saved = Array.isArray(value)
               ? value.map((v) => ({ id: 'x', ...v }))
               : { id: 'x', ...value };
@@ -229,7 +247,9 @@ describe('SeatPlansService', () => {
     });
 
     it('rejects generation reusing a schedule already in a published plan', async () => {
-      seatPlanScheduleRepo.createQueryBuilder.mockReturnValue(qb([{ exam_schedule_id: SCHEDULE_A }]));
+      seatPlanScheduleRepo.createQueryBuilder.mockReturnValue(
+        qb([{ exam_schedule_id: SCHEDULE_A }]),
+      );
 
       await expect(
         service.generate(TENANT, {
@@ -244,7 +264,11 @@ describe('SeatPlansService', () => {
 
   describe('updateAllocation', () => {
     it('rejects a move that would exceed target room capacity', async () => {
-      seatPlanRepo.findOne.mockResolvedValue({ id: 'plan-1', tenant_id: TENANT, status: SeatPlanStatus.DRAFT });
+      seatPlanRepo.findOne.mockResolvedValue({
+        id: 'plan-1',
+        tenant_id: TENANT,
+        status: SeatPlanStatus.DRAFT,
+      });
       allocationRepo.find = undefined;
       (allocationRepo as any).findOne = vi.fn(async () => ({
         id: 'alloc-1',
@@ -259,12 +283,19 @@ describe('SeatPlansService', () => {
       allocationRepo.count.mockResolvedValue(1); // room already full
 
       await expect(
-        service.updateAllocation(TENANT, 'plan-1', 'alloc-1', { room_id: ROOM_2, seat_number: '1' }),
+        service.updateAllocation(TENANT, 'plan-1', 'alloc-1', {
+          room_id: ROOM_2,
+          seat_number: '1',
+        }),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
     it('rejects a move onto a seat already taken by another student in the same schedule', async () => {
-      seatPlanRepo.findOne.mockResolvedValue({ id: 'plan-1', tenant_id: TENANT, status: SeatPlanStatus.DRAFT });
+      seatPlanRepo.findOne.mockResolvedValue({
+        id: 'plan-1',
+        tenant_id: TENANT,
+        status: SeatPlanStatus.DRAFT,
+      });
       roomRepo.findOne.mockResolvedValue({ id: ROOM_2, tenant_id: TENANT, capacity: 10 });
       allocationRepo.count.mockResolvedValue(0); // plenty of capacity
       (allocationRepo as any).findOne = vi
@@ -291,15 +322,25 @@ describe('SeatPlansService', () => {
         });
 
       await expect(
-        service.updateAllocation(TENANT, 'plan-1', 'alloc-1', { room_id: ROOM_2, seat_number: '1' }),
+        service.updateAllocation(TENANT, 'plan-1', 'alloc-1', {
+          room_id: ROOM_2,
+          seat_number: '1',
+        }),
       ).rejects.toBeInstanceOf(ConflictException);
     });
 
     it('rejects editing once the plan is published', async () => {
-      seatPlanRepo.findOne.mockResolvedValue({ id: 'plan-1', tenant_id: TENANT, status: SeatPlanStatus.PUBLISHED });
+      seatPlanRepo.findOne.mockResolvedValue({
+        id: 'plan-1',
+        tenant_id: TENANT,
+        status: SeatPlanStatus.PUBLISHED,
+      });
 
       await expect(
-        service.updateAllocation(TENANT, 'plan-1', 'alloc-1', { room_id: ROOM_2, seat_number: '1' }),
+        service.updateAllocation(TENANT, 'plan-1', 'alloc-1', {
+          room_id: ROOM_2,
+          seat_number: '1',
+        }),
       ).rejects.toBeInstanceOf(ConflictException);
     });
   });
@@ -313,13 +354,40 @@ describe('SeatPlansService', () => {
         seat_order_mode: SeatOrderMode.SEQUENTIAL,
       });
       const roomOneAllocations = [
-        { id: 'a1', room_id: ROOM_1, exam_schedule_id: SCHEDULE_A, student_id: 's1', seat_number: '1' },
-        { id: 'a2', room_id: ROOM_1, exam_schedule_id: SCHEDULE_A, student_id: 's2', seat_number: '2' },
+        {
+          id: 'a1',
+          room_id: ROOM_1,
+          exam_schedule_id: SCHEDULE_A,
+          student_id: 's1',
+          seat_number: '1',
+        },
+        {
+          id: 'a2',
+          room_id: ROOM_1,
+          exam_schedule_id: SCHEDULE_A,
+          student_id: 's2',
+          seat_number: '2',
+        },
       ];
       const roomTwoAllocations = [
-        { id: 'a3', room_id: ROOM_2, exam_schedule_id: SCHEDULE_A, student_id: 's3', seat_number: '1' },
+        {
+          id: 'a3',
+          room_id: ROOM_2,
+          exam_schedule_id: SCHEDULE_A,
+          student_id: 's3',
+          seat_number: '1',
+        },
       ];
       allocationRepo.find.mockResolvedValue([...roomOneAllocations, ...roomTwoAllocations]);
+      // reshuffleRoom() backfills section_id/roll_number per allocation via a join
+      // to the student's current enrollment — give every allocation a match.
+      allocationRepo.createQueryBuilder.mockReturnValue(
+        qb([
+          { id: 'a1', section_id: SECTION_1, roll_number: 1 },
+          { id: 'a2', section_id: SECTION_1, roll_number: 2 },
+          { id: 'a3', section_id: SECTION_2, roll_number: 1 },
+        ]),
+      );
       const saved: any[] = [];
       dataSource.transaction = vi.fn(async (cb: any) =>
         cb({
@@ -336,10 +404,62 @@ describe('SeatPlansService', () => {
       expect(saved).toHaveLength(2);
     });
 
-    it('rejects reshuffle once the plan is published', async () => {
-      seatPlanRepo.findOne.mockResolvedValue({ id: 'plan-1', tenant_id: TENANT, status: SeatPlanStatus.PUBLISHED });
+    it('leaves a seat untouched when its student has no matching ACTIVE enrollment (dropped/transferred since generation)', async () => {
+      seatPlanRepo.findOne.mockResolvedValue({
+        id: 'plan-1',
+        tenant_id: TENANT,
+        status: SeatPlanStatus.DRAFT,
+        seat_order_mode: SeatOrderMode.SEQUENTIAL,
+      });
+      const roomOneAllocations = [
+        {
+          id: 'a1',
+          room_id: ROOM_1,
+          exam_schedule_id: SCHEDULE_A,
+          student_id: 's1',
+          seat_number: '1',
+        },
+        {
+          id: 'a2',
+          room_id: ROOM_1,
+          exam_schedule_id: SCHEDULE_A,
+          student_id: 's2',
+          seat_number: '2',
+        },
+      ];
+      allocationRepo.find.mockResolvedValue(roomOneAllocations);
+      // Only a1 has a matching ACTIVE enrollment row — a2's student has since
+      // left the class (or been marked inactive), so the join drops it.
+      allocationRepo.createQueryBuilder.mockReturnValue(
+        qb([{ id: 'a1', section_id: SECTION_1, roll_number: 1 }]),
+      );
+      const saved: any[] = [];
+      dataSource.transaction = vi.fn(async (cb: any) =>
+        cb({
+          save: vi.fn(async (_entity: any, value: any) => {
+            saved.push({ ...value });
+            return value;
+          }),
+        }),
+      );
 
-      await expect(service.reshuffleRoom(TENANT, 'plan-1', ROOM_1)).rejects.toBeInstanceOf(ConflictException);
+      await service.reshuffleRoom(TENANT, 'plan-1', ROOM_1);
+
+      // a2 (no enrollment match) must never be reassigned — it keeps its
+      // existing seat rather than getting fabricated section/roll data.
+      expect(saved.some((s) => s.id === 'a2')).toBe(false);
+    });
+
+    it('rejects reshuffle once the plan is published', async () => {
+      seatPlanRepo.findOne.mockResolvedValue({
+        id: 'plan-1',
+        tenant_id: TENANT,
+        status: SeatPlanStatus.PUBLISHED,
+      });
+
+      await expect(service.reshuffleRoom(TENANT, 'plan-1', ROOM_1)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
     });
   });
 
@@ -347,19 +467,29 @@ describe('SeatPlansService', () => {
     it('locks the plan so a second generate attempt reusing its schedule is rejected', async () => {
       dataSource.transaction = vi.fn(async (cb: any) =>
         cb({
-          findOne: vi.fn(async () => ({ id: 'plan-1', tenant_id: TENANT, status: SeatPlanStatus.DRAFT })),
+          findOne: vi.fn(async () => ({
+            id: 'plan-1',
+            tenant_id: TENANT,
+            status: SeatPlanStatus.DRAFT,
+          })),
           find: vi.fn(async () => []),
           save: vi.fn(async (_e: any, v: any) => v),
           createQueryBuilder: vi.fn(() => qb([])),
         }),
       );
-      seatPlanRepo.findOne.mockResolvedValue({ id: 'plan-1', tenant_id: TENANT, status: SeatPlanStatus.PUBLISHED });
+      seatPlanRepo.findOne.mockResolvedValue({
+        id: 'plan-1',
+        tenant_id: TENANT,
+        status: SeatPlanStatus.PUBLISHED,
+      });
 
       await service.publish(TENANT, 'plan-1');
 
       // A follow-up generate() referencing the same (now-published) schedule must be rejected —
       // simulate the "already claimed" join returning it.
-      seatPlanScheduleRepo.createQueryBuilder.mockReturnValue(qb([{ exam_schedule_id: SCHEDULE_A }]));
+      seatPlanScheduleRepo.createQueryBuilder.mockReturnValue(
+        qb([{ exam_schedule_id: SCHEDULE_A }]),
+      );
       await expect(
         service.generate(TENANT, {
           name: 'Reuse after publish',
@@ -381,7 +511,11 @@ describe('SeatPlansService', () => {
       };
       dataSource.transaction = vi.fn(async (cb: any) =>
         cb({
-          findOne: vi.fn(async () => ({ id: 'plan-1', tenant_id: TENANT, status: SeatPlanStatus.DRAFT })),
+          findOne: vi.fn(async () => ({
+            id: 'plan-1',
+            tenant_id: TENANT,
+            status: SeatPlanStatus.DRAFT,
+          })),
           find: vi.fn(async (entityClass: any) => {
             if (entityClass.name === 'SeatPlanSchedule') {
               return [{ exam_schedule_id: SCHEDULE_A }];

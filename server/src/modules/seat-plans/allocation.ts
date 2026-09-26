@@ -1,34 +1,40 @@
-// BRIDGING STUB pending #1052's canonical implementation — integration will reconcile with the real allocation.ts from epic/787/w2-g1-01-allocation
-import { SeatOrderMode } from '@biddaloy/shared';
-
 /**
- * Pure allocation helpers for seat-plan generation (#25.3's engine). This
- * is a bridging stub written by #25.4 so its service/tests have something
- * real to call against — #1052 (sibling ticket, parallel branch) owns the
- * canonical implementation and lands with its own `allocation.spec.ts`.
- * The function signatures here match #1052's spec; #25.4's service only
- * depends on these shapes, so integration should be a drop-in swap.
+ * [25.3] Seat allocation engine — pure functions over plain data, no
+ * repository, no DI, no DB/HTTP concerns. Cloned in shape from
+ * `../exams/result-rules.ts`: every function takes data in and returns data
+ * out, and every rule here is tested from hand-built fixtures
+ * (`allocation.spec.ts`). `seat-plans.service.ts` (#25.4, a sibling lane) is
+ * the only caller that touches a database or HTTP.
  */
 
-export interface EnrolledStudent {
-  id: string;
-  roll_number: number;
-  section_id: string | null;
-}
+import { SeatOrderMode } from '@biddaloy/shared';
 
-export interface RosterEntry {
-  exam_schedule_id: string;
-  student: EnrolledStudent;
-}
+// --- Shared input shapes ---
 
 export interface ScheduleInput {
   id: string;
-  section_ids: string[];
+  date: string; // 'YYYY-MM-DD'
+  starts_at: string; // 'HH:mm[:ss]'
+  ends_at: string; // 'HH:mm[:ss]'
 }
 
+/** One eligible student within one class/section, as seen by roster
+ * computation — mirrors `Enrollment` joined to `Student`, not the full
+ * entities. */
+export interface EnrollmentInput {
+  student_id: string;
+  roll_number: number;
+  section_id: string;
+  class_id: string;
+  /** Only `'ACTIVE'` enrollments are seatable — dropped/transferred/graduated
+   * students are excluded regardless of section membership. */
+  enrollment_status: string;
+}
+
+/** A class/section pair covered by one subject-sitting (`ExamSchedule`). */
 export interface SectionInput {
-  id: string;
-  students: EnrolledStudent[];
+  class_id: string;
+  section_id: string;
 }
 
 export interface RoomInput {
@@ -36,36 +42,144 @@ export interface RoomInput {
   capacity: number;
 }
 
+// --- computeRoster (Step 2) ---
+
+export interface RosterEntry {
+  exam_schedule_id: string;
+  student_id: string;
+  roll_number: number;
+  section_id: string;
+}
+
+/**
+ * Flattens every ACTIVE enrollment in a subject-sitting's covered
+ * class/sections into one seatable roster entry per (schedule, student).
+ * Inactive/dropped enrollments never appear — capacity and allocation both
+ * run only over students who are actually still enrolled.
+ */
+export function computeRoster(
+  schedules: Array<{ schedule: ScheduleInput; sections: SectionInput[] }>,
+  enrollments: EnrollmentInput[],
+): RosterEntry[] {
+  const roster: RosterEntry[] = [];
+  for (const { schedule, sections } of schedules) {
+    const coveredSections = new Set(sections.map((s) => `${s.class_id}:${s.section_id}`));
+    for (const e of enrollments) {
+      if (e.enrollment_status !== 'ACTIVE') continue;
+      if (!coveredSections.has(`${e.class_id}:${e.section_id}`)) continue;
+      roster.push({
+        exam_schedule_id: schedule.id,
+        student_id: e.student_id,
+        roll_number: e.roll_number,
+        section_id: e.section_id,
+      });
+    }
+  }
+  return roster;
+}
+
+// --- checkCapacity (Step 3, D4) ---
+
 export interface CapacityShortfall {
   ok: false;
   seats_needed: number;
   seats_available: number;
   shortfall: number;
-  suggested_rooms: { room_id: string; free_capacity: number }[];
+  /** Other rooms (not among `selectedRooms`) that could cover the gap,
+   * largest free capacity first. */
+  suggested_rooms: Array<{ room_id: string; capacity: number }>;
 }
 
-export type CapacityResult = { ok: true } | CapacityShortfall;
+export interface CapacityOk {
+  ok: true;
+  seats_needed: number;
+  seats_available: number;
+}
+
+export function checkCapacity(
+  roster: RosterEntry[],
+  selectedRooms: RoomInput[],
+  allRooms: RoomInput[],
+): CapacityOk | CapacityShortfall {
+  const seats_needed = roster.length;
+  const seats_available = selectedRooms.reduce((sum, r) => sum + r.capacity, 0);
+
+  if (seats_available >= seats_needed) {
+    return { ok: true, seats_needed, seats_available };
+  }
+
+  const shortfall = seats_needed - seats_available;
+  const selectedIds = new Set(selectedRooms.map((r) => r.id));
+  const suggested_rooms = allRooms
+    .filter((r) => !selectedIds.has(r.id) && r.capacity > 0)
+    .sort((a, b) => b.capacity - a.capacity)
+    .map((r) => ({ room_id: r.id, capacity: r.capacity }));
+
+  return { ok: false, seats_needed, seats_available, shortfall, suggested_rooms };
+}
+
+// --- checkRoomConflicts (Step 4, D10) ---
+
+export interface ExistingAllocationRoom {
+  seat_plan_id: string;
+  room_id: string;
+  /** The date/time windows the existing PUBLISHED plan's schedules occupy
+   * that room under. */
+  schedules: ScheduleInput[];
+}
 
 export interface RoomConflict {
   room_id: string;
   conflicting_seat_plan_id: string;
-  exam_schedule_id: string;
+  conflicting_schedule_id: string;
+  schedule_id: string;
 }
 
-export interface ExistingPublishedAllocation {
-  seat_plan_id: string;
-  room_id: string;
-  exam_schedule_id: string;
-  date: string;
-  starts_at: string;
-  ends_at: string;
+function toRange(s: ScheduleInput): { start: number; end: number } {
+  const start = new Date(`${s.date}T${s.starts_at}`).getTime();
+  const end = new Date(`${s.date}T${s.ends_at}`).getTime();
+  return { start, end };
 }
 
-export interface ScheduleWithTiming extends ScheduleInput {
-  date: string;
-  starts_at: string;
-  ends_at: string;
+function overlaps(a: ScheduleInput, b: ScheduleInput): boolean {
+  const ra = toRange(a);
+  const rb = toRange(b);
+  return ra.start < rb.end && rb.start < ra.end;
 }
+
+/**
+ * For each room being planned now, does it already appear in another
+ * PUBLISHED seat plan whose schedules' date/time overlap any schedule being
+ * planned now? Returns structured conflicts — never throws. The caller
+ * (#25.4) decides whether to hard-block or just warn.
+ */
+export function checkRoomConflicts(
+  plannedRoomIds: string[],
+  plannedSchedules: ScheduleInput[],
+  existingPublishedAllocations: ExistingAllocationRoom[],
+): RoomConflict[] {
+  const plannedRoomSet = new Set(plannedRoomIds);
+  const conflicts: RoomConflict[] = [];
+
+  for (const existing of existingPublishedAllocations) {
+    if (!plannedRoomSet.has(existing.room_id)) continue;
+    for (const existingSchedule of existing.schedules) {
+      for (const plannedSchedule of plannedSchedules) {
+        if (overlaps(existingSchedule, plannedSchedule)) {
+          conflicts.push({
+            room_id: existing.room_id,
+            conflicting_seat_plan_id: existing.seat_plan_id,
+            conflicting_schedule_id: existingSchedule.id,
+            schedule_id: plannedSchedule.id,
+          });
+        }
+      }
+    }
+  }
+  return conflicts;
+}
+
+// --- allocateSeats (Step 5, D2/D3) ---
 
 export interface SeatAssignment {
   exam_schedule_id: string;
@@ -74,154 +188,140 @@ export interface SeatAssignment {
   seat_number: string;
 }
 
-/** Flat roster: every active student, per subject-sitting, across the given sections. */
-export function computeRoster(schedules: ScheduleInput[], sections: SectionInput[]): RosterEntry[] {
-  const sectionsById = new Map(sections.map((s) => [s.id, s]));
-  const roster: RosterEntry[] = [];
-  for (const schedule of schedules) {
-    for (const sectionId of schedule.section_ids) {
-      const section = sectionsById.get(sectionId);
-      if (!section) continue;
-      for (const student of section.students) {
-        roster.push({ exam_schedule_id: schedule.id, student });
+/** Deterministic shuffle so RANDOM order is testable without mocking
+ * `Math.random` — Fisher-Yates driven by a simple mulberry32 PRNG. */
+function shuffle<T>(items: T[], seed: number): T[] {
+  const arr = [...items];
+  let state = seed >>> 0;
+  const next = () => {
+    state |= 0;
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(next() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+/** Orders students within one subject-sitting's roster per `orderMode`
+ * (D3): SEQUENTIAL by roll number, RANDOM shuffled. Order mode affects
+ * which student gets which seat, never the seat-number format. */
+function orderRoster(roster: RosterEntry[], orderMode: SeatOrderMode, seed: number): RosterEntry[] {
+  if (orderMode === SeatOrderMode.RANDOM) {
+    return shuffle(roster, seed);
+  }
+  return [...roster].sort((a, b) => a.roll_number - b.roll_number);
+}
+
+/** Groups an ordered roster by section, then round-robins across those
+ * groups so a room is never filled one section at a time (D2 — no room
+ * ends up single-section when 2+ sections and 2+ rooms are involved). */
+function interleaveBySection(ordered: RosterEntry[]): RosterEntry[] {
+  const bySection = new Map<string, RosterEntry[]>();
+  for (const entry of ordered) {
+    const list = bySection.get(entry.section_id) ?? [];
+    list.push(entry);
+    bySection.set(entry.section_id, list);
+  }
+  const groups = [...bySection.values()];
+  const interleaved: RosterEntry[] = [];
+  let remaining = ordered.length;
+  const cursors = groups.map(() => 0);
+  while (remaining > 0) {
+    for (let g = 0; g < groups.length; g++) {
+      if (cursors[g] < groups[g].length) {
+        interleaved.push(groups[g][cursors[g]]);
+        cursors[g]++;
+        remaining--;
       }
     }
   }
-  return roster;
+  return interleaved;
 }
 
-/** Total roster size vs total room capacity; structured shortfall + suggestions on failure. */
-export function checkCapacity(roster: RosterEntry[], rooms: RoomInput[]): CapacityResult {
-  const seatsNeeded = roster.length;
-  const seatsAvailable = rooms.reduce((sum, r) => sum + r.capacity, 0);
-  if (seatsNeeded <= seatsAvailable) {
-    return { ok: true };
-  }
-  return {
-    ok: false,
-    seats_needed: seatsNeeded,
-    seats_available: seatsAvailable,
-    shortfall: seatsNeeded - seatsAvailable,
-    // ponytail: no "other available rooms" pool passed in yet — suggestion
-    // list is empty until #1052's real impl wires in the tenant's spare rooms.
-    suggested_rooms: [],
-  };
-}
-
-/** Rooms already used by another PUBLISHED plan with an overlapping schedule date/time. Never throws. */
-export function checkRoomConflicts(
+/**
+ * Distributes one subject-sitting's roster across the given rooms, filling
+ * each room to capacity, sections interleaved within a room (D2), students
+ * within a room ordered per `orderMode` (D3). `seed` makes RANDOM order
+ * reproducible for tests; callers not testing determinism can pass
+ * `Date.now()`.
+ *
+ * Caller is expected to have already checked capacity — rooms fill in the
+ * order given and any roster overflow beyond total capacity is left
+ * unassigned (returned in `unassigned`).
+ */
+export function allocateSeats(
+  roster: RosterEntry[],
   rooms: RoomInput[],
-  schedules: ScheduleWithTiming[],
-  existingPublishedAllocations: ExistingPublishedAllocation[],
-): RoomConflict[] {
-  const roomIds = new Set(rooms.map((r) => r.id));
-  const conflicts: RoomConflict[] = [];
-  for (const existing of existingPublishedAllocations) {
-    if (!roomIds.has(existing.room_id)) continue;
-    const overlapsAny = schedules.some(
-      (s) => s.date === existing.date && s.starts_at < existing.ends_at && existing.starts_at < s.ends_at,
-    );
-    if (overlapsAny) {
-      conflicts.push({
-        room_id: existing.room_id,
-        conflicting_seat_plan_id: existing.seat_plan_id,
-        exam_schedule_id: existing.exam_schedule_id,
+  orderMode: SeatOrderMode,
+  seed: number = 1,
+): { assignments: SeatAssignment[]; unassigned: RosterEntry[] } {
+  const ordered = orderRoster(roster, orderMode, seed);
+  const interleaved = interleaveBySection(ordered);
+
+  const assignments: SeatAssignment[] = [];
+  let cursor = 0;
+  for (const room of rooms) {
+    for (let seat = 1; seat <= room.capacity && cursor < interleaved.length; seat++) {
+      const entry = interleaved[cursor++];
+      assignments.push({
+        exam_schedule_id: entry.exam_schedule_id,
+        student_id: entry.student_id,
+        room_id: room.id,
+        seat_number: String(seat),
       });
     }
   }
-  return conflicts;
+  const unassigned = interleaved.slice(cursor);
+  return { assignments, unassigned };
 }
 
-function shuffle<T>(items: T[]): T[] {
-  const copy = [...items];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
+// --- reshuffleRoom (Step 6, D9) ---
+
+export interface ExistingSeatAssignment {
+  exam_schedule_id: string;
+  student_id: string;
+  section_id: string;
+  roll_number: number;
+  room_id: string;
+  seat_number: string;
 }
 
-/** Order roster entries by roll number (SEQUENTIAL) or shuffled (RANDOM), interleaved round-robin by section. */
-function orderRoster(roster: RosterEntry[], orderMode: SeatOrderMode): RosterEntry[] {
-  const bySection = new Map<string, RosterEntry[]>();
-  for (const entry of roster) {
-    const key = entry.student.section_id ?? '__none__';
-    const list = bySection.get(key) ?? [];
-    list.push(entry);
-    bySection.set(key, list);
-  }
-  const sectionLists = [...bySection.values()].map((list) =>
-    orderMode === SeatOrderMode.RANDOM
-      ? shuffle(list)
-      : [...list].sort((a, b) => a.student.roll_number - b.student.roll_number),
-  );
-
-  const ordered: RosterEntry[] = [];
-  let remaining = sectionLists.some((list) => list.length > 0);
-  let cursor = 0;
-  while (remaining) {
-    remaining = false;
-    for (const list of sectionLists) {
-      const item = list[cursor];
-      if (item) {
-        ordered.push(item);
-        remaining = true;
-      }
-    }
-    cursor++;
-  }
-  return ordered;
-}
-
-/** Distributes roster across rooms to capacity, interleaving sections round-robin, no room single-section. */
-export function allocateSeats(roster: RosterEntry[], rooms: RoomInput[], orderMode: SeatOrderMode): SeatAssignment[] {
-  const ordered = orderRoster(roster, orderMode);
-  const assignments: SeatAssignment[] = [];
-  let roomIndex = 0;
-  let seatInRoom = 1;
-
-  for (const entry of ordered) {
-    // Move to the next room once the current one is full.
-    while (roomIndex < rooms.length && seatInRoom > rooms[roomIndex].capacity) {
-      roomIndex++;
-      seatInRoom = 1;
-    }
-    if (roomIndex >= rooms.length) {
-      // Should not happen if checkCapacity passed first, but don't silently drop students.
-      throw new Error('Ran out of room capacity during allocation');
-    }
-    assignments.push({
-      exam_schedule_id: entry.exam_schedule_id,
-      student_id: entry.student.id,
-      room_id: rooms[roomIndex].id,
-      seat_number: String(seatInRoom),
-    });
-    seatInRoom++;
-  }
-  return assignments;
-}
-
-/** Re-runs allocation for just one room's students, without touching other rooms. */
+/**
+ * Re-runs allocation for just one room's students (D9's partial reshuffle,
+ * used by #25.4/#25.7), leaving every other room's assignments untouched.
+ */
 export function reshuffleRoom(
-  existingAllocation: SeatAssignment[],
+  existingAllocation: ExistingSeatAssignment[],
   roomId: string,
   orderMode: SeatOrderMode,
+  seed: number = 1,
 ): SeatAssignment[] {
-  const roomAssignments = existingAllocation.filter((a) => a.room_id === roomId);
-  const others = existingAllocation.filter((a) => a.room_id !== roomId);
-  const roster: RosterEntry[] = roomAssignments.map((a) => ({
+  const untouched = existingAllocation.filter((a) => a.room_id !== roomId);
+  const target = existingAllocation.filter((a) => a.room_id === roomId);
+  if (target.length === 0) return untouched.map(toSeatAssignment);
+
+  const capacity = target.length;
+  const roster: RosterEntry[] = target.map((a) => ({
     exam_schedule_id: a.exam_schedule_id,
-    student: { id: a.student_id, roll_number: 0, section_id: null },
+    student_id: a.student_id,
+    roll_number: a.roll_number,
+    section_id: a.section_id,
   }));
-  // Roll number isn't available from a bare allocation row, so RANDOM is the
-  // only meaningfully different reshuffle here; SEQUENTIAL keeps stable
-  // input order. #1052's real impl carries roll numbers through.
-  const ordered = orderMode === SeatOrderMode.RANDOM ? shuffle(roster) : roster;
-  const reassigned = ordered.map((entry, idx) => ({
-    exam_schedule_id: entry.exam_schedule_id,
-    student_id: entry.student.id,
-    room_id: roomId,
-    seat_number: String(idx + 1),
-  }));
-  return [...others, ...reassigned];
+
+  const { assignments } = allocateSeats(roster, [{ id: roomId, capacity }], orderMode, seed);
+  return [...untouched.map(toSeatAssignment), ...assignments];
+}
+
+function toSeatAssignment(a: ExistingSeatAssignment): SeatAssignment {
+  return {
+    exam_schedule_id: a.exam_schedule_id,
+    student_id: a.student_id,
+    room_id: a.room_id,
+    seat_number: a.seat_number,
+  };
 }
