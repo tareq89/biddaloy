@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { SEED_TENANT_ID } from '@test/constants';
 import { School } from '../src/modules/schools/entities/school.entity';
+import { StaffAttendanceLeave1789800014000 } from '../src/migrations/1789800014000-StaffAttendanceLeave';
 
 /**
  * [36.1.1] DB-level invariants the `StaffAttendanceLeave1789800014000`
@@ -187,6 +188,75 @@ describe('StaffAttendanceLeave1789800014000 (integration)', () => {
         [TENANT_ID, '2026-09-28'],
       ),
     ).rejects.toThrow();
+  });
+
+  // The other tests above prove the *schema* the migration leaves behind is
+  // correct, but never actually run the backfill statements (see the file
+  // header note — this suite's fixture users postdate migration time). This
+  // test runs the real `up()`/`down()` in a transaction against fixture
+  // `users`/`user_tenants`/`teachers` rows that predate the migration, then
+  // rolls the whole thing back — Postgres DDL is transactional, so this never
+  // touches the schema the rest of the suite (or other spec files sharing
+  // this worker's database) depend on.
+  it('backfill: gives every staff user a staff_profiles row, reusing a Teacher row employee_id where one exists', async () => {
+    const queryRunner = dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      const migration = new StaffAttendanceLeave1789800014000();
+      // Roll back to pre-migration shape: no staff_profiles table, no
+      // teachers.staff_profile_id column.
+      await migration.down(queryRunner);
+
+      const suffix = Date.now();
+      const [school] = await queryRunner.query(
+        `INSERT INTO "schools" (id, name, slug) VALUES (gen_random_uuid(), 'Backfill Test School', $1) RETURNING id`,
+        [`backfill-test-school-${suffix}`],
+      );
+      const insertUser = async (email: string) => {
+        const [row] = await queryRunner.query(
+          `INSERT INTO "users" (id, email, full_name) VALUES (gen_random_uuid(), $1, 'Backfill Test') RETURNING id`,
+          [email],
+        );
+        return row.id as string;
+      };
+      const teacherUserId = await insertUser(`backfill-teacher-${suffix}@test.local`);
+      const adminUserId = await insertUser(`backfill-admin-${suffix}@test.local`);
+
+      // A Teacher row (pre-migration shape has no staff_profile_id column).
+      await queryRunner.query(
+        `INSERT INTO "teachers" (id, user_id, employee_id, tenant_id, joining_date) VALUES (gen_random_uuid(), $1, $2, $3, '2020-01-01')`,
+        [teacherUserId, `EMP-EXISTING-${suffix}`, school.id],
+      );
+      // An ADMIN with no Teacher row — must get a generated employee_id.
+      await queryRunner.query(
+        `INSERT INTO "user_tenants" (id, user_id, tenant_id, role) VALUES (gen_random_uuid(), $1, $2, 'ADMIN')`,
+        [adminUserId, school.id],
+      );
+
+      await migration.up(queryRunner);
+
+      const profiles = await queryRunner.query(
+        `SELECT id, user_id, employee_id FROM staff_profiles WHERE tenant_id = $1 ORDER BY employee_id`,
+        [school.id],
+      );
+      expect(profiles).toHaveLength(2);
+
+      const teacherProfile = profiles.find((p: any) => p.user_id === teacherUserId);
+      expect(teacherProfile?.employee_id).toBe(`EMP-EXISTING-${suffix}`);
+
+      const adminProfile = profiles.find((p: any) => p.user_id === adminUserId);
+      expect(adminProfile?.employee_id).toMatch(/^EMP-/);
+
+      const [teacherRow] = await queryRunner.query(
+        `SELECT staff_profile_id FROM teachers WHERE user_id = $1`,
+        [teacherUserId],
+      );
+      expect(teacherRow.staff_profile_id).toBe(teacherProfile.id);
+    } finally {
+      await queryRunner.rollbackTransaction();
+      await queryRunner.release();
+    }
   });
 
   it('sets approved_by to null when the approving user is deleted (leave_records)', async () => {

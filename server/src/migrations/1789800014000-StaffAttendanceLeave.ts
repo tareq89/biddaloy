@@ -63,20 +63,13 @@ export class StaffAttendanceLeave1789800014000 implements MigrationInterface {
     await queryRunner.query(`ALTER TABLE "teachers" ADD "staff_profile_id" uuid`);
 
     // 4a. Backfill: every existing Teacher row reuses its own employee_id/joining_date.
-    // A user with several `teachers` rows (multiple tenant memberships, same
-    // user_id) must still get exactly one `staff_profiles` row (its `user_id`
-    // is globally unique), so pick one `teachers` row per user_id
-    // deterministically rather than letting every matching row race the
-    // `NOT EXISTS` guard and either collide on the unique constraint or point
-    // teachers in different tenants at the same profile.
+    // `teachers.user_id` already carries a UNIQUE constraint (InitialSchema),
+    // so this can never see two `teachers` rows for the same user — the
+    // straight `INSERT ... SELECT` is safe as-is.
     await queryRunner.query(`
       INSERT INTO "staff_profiles" ("id", "user_id", "tenant_id", "employee_id", "joining_date", "created_at", "updated_at")
       SELECT gen_random_uuid(), "t"."user_id", "t"."tenant_id", "t"."employee_id", "t"."joining_date", now(), now()
-      FROM (
-        SELECT DISTINCT ON ("user_id") "user_id", "tenant_id", "employee_id", "joining_date"
-        FROM "teachers"
-        ORDER BY "user_id", "tenant_id"
-      ) "t"
+      FROM "teachers" "t"
       WHERE NOT EXISTS (SELECT 1 FROM "staff_profiles" "sp" WHERE "sp"."user_id" = "t"."user_id")
     `);
 
