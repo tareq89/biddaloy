@@ -80,7 +80,9 @@
       "blockedByNotes": "Every override needs a note before committing.",
       "confirm": "Commit",
       "cancel": "Cancel"
-    }
+    },
+    "cohortChangedPrompt": "Some students in this run have left the class or changed status since it was created. Delete this draft and create a new run.",
+    "commitFailed": "Could not commit this run. Please try again."
   },
   "stepper": {
     "previous": "Previous",

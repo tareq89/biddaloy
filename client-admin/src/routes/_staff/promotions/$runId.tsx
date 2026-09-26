@@ -32,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
   Skeleton,
+  toast,
 } from '@biddaloy/ui/components';
 import {
   useAcademicYears,
@@ -100,6 +101,12 @@ interface EntryEdit {
   override_note?: string;
 }
 
+function apiErrorCode(error: unknown): string | undefined {
+  return error instanceof ApiError
+    ? (error.details as { code?: string } | undefined)?.code
+    : undefined;
+}
+
 function PromotionRunPage() {
   const { runId } = Route.useParams();
   const { t } = useTranslation('promotions');
@@ -119,6 +126,7 @@ function PromotionRunPage() {
   const [noteErrors, setNoteErrors] = React.useState<ReadonlySet<string>>(new Set());
   const [commitOpen, setCommitOpen] = React.useState(false);
   const [staleBanner, setStaleBanner] = React.useState(false);
+  const [cohortChangedBanner, setCohortChangedBanner] = React.useState(false);
   const [mobileIndex, setMobileIndex] = React.useState(0);
 
   const noteTimers = React.useRef(new Map<string, ReturnType<typeof setTimeout>>());
@@ -219,17 +227,7 @@ function PromotionRunPage() {
       return next;
     });
     const body: PatchPromotionEntryInput = { student_id: studentId, ...input };
-    updateEntries.mutate([body], {
-      onError: (error: unknown) => {
-        if (
-          error instanceof ApiError &&
-          error.statusCode === 409 &&
-          (error.details as { code?: string } | undefined)?.code === 'STALE_RESULTS'
-        ) {
-          setStaleBanner(true);
-        }
-      },
-    });
+    updateEntries.mutate([body]);
   }
 
   function setOutcome(entry: PromotionEntry, outcome: PromotionOutcome) {
@@ -327,9 +325,27 @@ function PromotionRunPage() {
     }
   }
 
+  // Only commit can fail with these codes — the entries PATCH never checks
+  // result freshness or cohort membership. Without this handler a 409 was
+  // swallowed (the global handler only surfaces 403s) and Commit looked
+  // like it did nothing.
   function confirmCommit() {
     commitRun.mutate(undefined, {
       onSuccess: () => setCommitOpen(false),
+      onError: (error: unknown) => {
+        const code = apiErrorCode(error);
+        if (code === 'STALE_RESULTS') {
+          setCommitOpen(false);
+          setStaleBanner(true);
+        } else if (code === 'COHORT_CHANGED') {
+          // Refresh can't fix this: it never drops a departed student's
+          // entry. The way out is deleting the draft and starting over.
+          setCommitOpen(false);
+          setCohortChangedBanner(true);
+        } else if (error instanceof ApiError && error.statusCode !== 403) {
+          toast.error(t('grid.commitFailed'));
+        }
+      },
     });
   }
 
@@ -440,6 +456,15 @@ function PromotionRunPage() {
             >
               {t('grid.refresh')}
             </Button>
+          </div>
+        )}
+
+        {cohortChangedBanner && !readOnly && (
+          <div
+            role="alert"
+            className="rounded-md border border-destructive p-2 text-sm text-destructive"
+          >
+            {t('grid.cohortChangedPrompt')}
           </div>
         )}
       </div>

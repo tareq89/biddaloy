@@ -158,14 +158,16 @@ describe('/promotions/$runId', () => {
     );
   });
 
-  it('shows the stale-results banner on a 409 from the server', async () => {
+  // Only the commit endpoint returns these codes — so drive a real commit
+  // (Ctrl+Enter → confirm) rather than faking them on the entries PATCH.
+  async function commitAndGetConflict(code: 'STALE_RESULTS' | 'COHORT_CHANGED') {
     const user = userEvent.setup();
     stubCommon();
     server.use(
       http.get(RUN_URL, () => HttpResponse.json(baseRun())),
-      http.patch(`${RUN_URL}/entries`, () =>
+      http.post(`${RUN_URL}/commit`, () =>
         HttpResponse.json(
-          { ...apiErrorBody(409, 'Results changed', `${RUN_URL}/entries`), details: { code: 'STALE_RESULTS' } },
+          { ...apiErrorBody(409, 'Conflict', `${RUN_URL}/commit`), details: { code } },
           { status: 409 },
         ),
       ),
@@ -180,9 +182,21 @@ describe('/promotions/$runId', () => {
 
     const outcomeCell = await screen.findByLabelText('Final');
     outcomeCell.focus();
-    await user.keyboard('g');
+    await user.keyboard('{Control>}{Enter}{/Control}');
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Commit' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  }
 
+  it('shows the stale-results banner when commit returns STALE_RESULTS', async () => {
+    await commitAndGetConflict('STALE_RESULTS');
     await screen.findByText('Results changed since this preview — refresh');
+  });
+
+  it('tells the user to start over when commit returns COHORT_CHANGED', async () => {
+    await commitAndGetConflict('COHORT_CHANGED');
+    await screen.findByText(/Delete this draft and create a new run/);
+    expect(screen.queryByText('Results changed since this preview — refresh')).toBeNull();
   });
 
   it('renders a committed run read-only', async () => {
