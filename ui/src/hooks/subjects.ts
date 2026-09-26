@@ -9,7 +9,7 @@ import {
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
 
-import { createEntityKeys } from './query-keys';
+import { createEntityKeys, fetchAllPages } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
 export type Subject = components['schemas']['Subject'];
@@ -56,6 +56,32 @@ export function subjectsQueryOptions(filters: SubjectListFilters = {}) {
 
 export function useSubjects(filters: SubjectListFilters = {}) {
   return useQuery(subjectsQueryOptions(filters));
+}
+
+/** [pr-fix #1035] `SUBJECT_FILTER_LIMIT`'s "whole list fits one page"
+ * assumption breaks for a large school — this fetches every page instead
+ * of relying on a single 100-row request. For reference-list pickers
+ * (`-assign-teacher-dialog.tsx`'s Combobox), not for a paged list screen.
+ * Keyed under `subjectKeys.lists()` so the create/update/delete mutations'
+ * `lists()` invalidation refreshes this picker too. */
+export function allSubjectsQueryOptions(filters: SubjectListFilters = {}) {
+  return queryOptions({
+    queryKey: [...subjectKeys.lists(), 'all-pages', filters] as const,
+    queryFn: ({ signal }) =>
+      fetchAllPages((page) =>
+        apiClient
+          .get<PaginatedSubjects>('/subjects', {
+            params: { ...filters, limit: SUBJECT_FILTER_LIMIT, page },
+            signal,
+          })
+          .then((res) => res.data),
+      ),
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useAllSubjects(filters: SubjectListFilters = {}) {
+  return useQuery(allSubjectsQueryOptions(filters));
 }
 
 /** `classId`/`academicYearId`-scoped: which subjects a class offers in a

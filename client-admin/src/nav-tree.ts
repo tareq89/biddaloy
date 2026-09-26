@@ -81,6 +81,16 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.USER_READ,
     label: { entity: 'staff' },
   },
+  // [29.0] Class/subject-teacher assignments, bulk-view across a class's
+  // sections — `15-ux-principles.md` §3.1's "Teaching assignments (bulk
+  // view)" line, gated on `CLASS_MANAGE` per D5 (same gate the class
+  // detail page's Teachers tab already uses for the same mutation).
+  'people.teachingAssignments': {
+    id: 'people.teachingAssignments',
+    to: '/staff/teaching-assignments',
+    permission: Permission.CLASS_MANAGE,
+    label: { key: 'teachingAssignments' },
+  },
   'academics.academicYears': {
     id: 'academics.academicYears',
     to: '/academic-years',
@@ -308,6 +318,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
       STAFF_NAV_ITEMS['people.guardians'],
       STAFF_NAV_ITEMS['people.calendar'],
       STAFF_NAV_ITEMS['people.staff'],
+      STAFF_NAV_ITEMS['people.teachingAssignments'],
     ],
   },
   {

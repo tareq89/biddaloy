@@ -120,6 +120,29 @@
     "removing": "Removing…",
     "errorMessage": "Failed to remove subject"
   },
+  "assignTeacherForm": {
+    "title": "Assign teacher",
+    "description": "Assign a teacher to this section, as class-teacher or subject-teacher.",
+    "teacherLabel": "Teacher",
+    "teacherPlaceholder": "Select a teacher",
+    "modeLabel": "Assignment type",
+    "classTeacherOption": "Class teacher",
+    "subjectTeacherOption": "Subject teacher",
+    "subjectLabel": "Subject",
+    "subjectPlaceholder": "Select a subject",
+    "errorTeacherRequired": "Teacher is required",
+    "errorSubjectRequired": "Subject is required",
+    "errorDuplicateAssignment": "This teacher is already assigned to this section for this subject",
+    "errorMessage": "Failed to assign teacher",
+    "save": "Assign",
+    "saving": "Assigning…",
+    "classLabel": "Class",
+    "classPlaceholder": "Select a class",
+    "sectionLabel": "Section",
+    "sectionPlaceholder": "Select a section",
+    "errorClassRequired": "Class is required",
+    "errorSectionRequired": "Section is required"
+  },
   "detail": {
     "tabSections": "Sections",
     "tabStudents": "Students",
@@ -160,8 +183,14 @@
       "columnEmployeeId": "Employee ID",
       "columnDesignations": "Designations",
       "columnSections": "Sections",
-      "emptyMessage": "No teachers assigned to this class",
-      "errorMessage": "Failed to load teachers"
+      "emptyMessage": "This class has no sections yet",
+      "emptySectionMessage": "No teachers assigned to this section",
+      "errorMessage": "Failed to load teachers",
+      "assign": "Assign",
+      "assignAria": "Assign teacher to section {{section}}",
+      "remove": "Remove",
+      "removeAria": "Remove {{name}} ({{role}})",
+      "removeError": "Failed to remove teacher"
     }
   }
 }
