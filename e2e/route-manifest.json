@@ -155,6 +155,19 @@
       "archetype": "detail"
     },
     {
+      "path": "/exams/seat-plans",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/exams/seat-plans/$planId",
+      "params": {
+        "planId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
       "path": "/marks",
       "role": "admin",
       "archetype": "list"

@@ -19,6 +19,7 @@ const PERMISSION_VALUES = new Set(Object.values(Permission));
 const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/payments/record': '/_staff/payments/record',
   '/exams/seat-plans?generate=1': '/_staff/exams/seat-plans/',
+  '/exams/seat-plans': '/_staff/exams/seat-plans/',
   '/communications/send': '/_staff/communications/send',
   '/communications/reminders': '/_staff/communications/reminders',
   '/attendance': '/_staff/attendance/',
