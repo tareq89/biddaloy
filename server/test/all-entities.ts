@@ -82,6 +82,10 @@ import { StaffDesignationHistory } from '../src/modules/staff-hr/entities/staff-
 import { StaffFamilyMember } from '../src/modules/staff-hr/entities/staff-family-member.entity';
 import { StaffAddress } from '../src/modules/staff-hr/entities/staff-address.entity';
 import { StaffExperience } from '../src/modules/staff-hr/entities/staff-experience.entity';
+import { StaffEducation } from '../src/modules/staff-hr/entities/staff-education.entity';
+import { StaffTraining } from '../src/modules/staff-hr/entities/staff-training.entity';
+import { StaffAchievement } from '../src/modules/staff-hr/entities/staff-achievement.entity';
+import { StaffLanguage } from '../src/modules/staff-hr/entities/staff-language.entity';
 
 export const ALL_ENTITIES = [
   AcademicYear,
@@ -168,4 +172,8 @@ export const ALL_ENTITIES = [
   StaffFamilyMember,
   StaffAddress,
   StaffExperience,
+  StaffEducation,
+  StaffTraining,
+  StaffAchievement,
+  StaffLanguage,
 ];

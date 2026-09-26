@@ -6,6 +6,10 @@ import { StaffDesignationHistory } from './entities/staff-designation-history.en
 import { StaffFamilyMember } from './entities/staff-family-member.entity';
 import { StaffAddress } from './entities/staff-address.entity';
 import { StaffExperience } from './entities/staff-experience.entity';
+import { StaffEducation } from './entities/staff-education.entity';
+import { StaffTraining } from './entities/staff-training.entity';
+import { StaffAchievement } from './entities/staff-achievement.entity';
+import { StaffLanguage } from './entities/staff-language.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { AuditModule } from '../audit/audit.module';
 import { DesignationService } from './designation.service';
@@ -15,6 +19,10 @@ import { StaffHrController } from './staff-hr.controller';
 import { FamilyController, FamilyMemberRowService } from './family.controller';
 import { AddressController, AddressRowService } from './address.controller';
 import { ExperienceController, ExperienceRowService } from './experience.controller';
+import { EducationController, EducationRowService } from './education.controller';
+import { TrainingController, TrainingRowService } from './training.controller';
+import { AchievementController, AchievementRowService } from './achievement.controller';
+import { LanguageController, LanguageRowService } from './language.controller';
 
 /**
  * [23.2.1 + 23.3] Designation/StaffHrRecord/StaffDesignationHistory: the
@@ -32,6 +40,10 @@ import { ExperienceController, ExperienceRowService } from './experience.control
       StaffFamilyMember,
       StaffAddress,
       StaffExperience,
+      StaffEducation,
+      StaffTraining,
+      StaffAchievement,
+      StaffLanguage,
       UserTenant,
     ]),
     AuditModule,
@@ -42,6 +54,10 @@ import { ExperienceController, ExperienceRowService } from './experience.control
     FamilyController,
     AddressController,
     ExperienceController,
+    EducationController,
+    TrainingController,
+    AchievementController,
+    LanguageController,
   ],
   providers: [
     DesignationService,
@@ -49,6 +65,10 @@ import { ExperienceController, ExperienceRowService } from './experience.control
     FamilyMemberRowService,
     AddressRowService,
     ExperienceRowService,
+    EducationRowService,
+    TrainingRowService,
+    AchievementRowService,
+    LanguageRowService,
   ],
   exports: [StaffHrService, DesignationService],
 })

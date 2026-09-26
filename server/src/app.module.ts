@@ -65,6 +65,10 @@ import { StaffDesignationHistory } from './modules/staff-hr/entities/staff-desig
 import { StaffFamilyMember } from './modules/staff-hr/entities/staff-family-member.entity';
 import { StaffAddress } from './modules/staff-hr/entities/staff-address.entity';
 import { StaffExperience } from './modules/staff-hr/entities/staff-experience.entity';
+import { StaffEducation } from './modules/staff-hr/entities/staff-education.entity';
+import { StaffTraining } from './modules/staff-hr/entities/staff-training.entity';
+import { StaffAchievement } from './modules/staff-hr/entities/staff-achievement.entity';
+import { StaffLanguage } from './modules/staff-hr/entities/staff-language.entity';
 import { validate } from './config/env.validation';
 
 // Entities for auto-loading
@@ -249,6 +253,10 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             StaffFamilyMember,
             StaffAddress,
             StaffExperience,
+            StaffEducation,
+            StaffTraining,
+            StaffAchievement,
+            StaffLanguage,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],
