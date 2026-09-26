@@ -196,6 +196,14 @@ export enum Permission {
   SYLLABUS_READ = 'SYLLABUS_READ',
   // [22.1.1] Create/edit/mark a SyllabusTopic's status.
   SYLLABUS_MANAGE = 'SYLLABUS_MANAGE',
+
+  // Programs (34.x)
+  // [34.1.1] D4 — read a Program/ProgramMilestone/ProgramEnrollment.
+  PROGRAM_READ = 'PROGRAM_READ',
+  // [34.1.1] D4 — create/edit a Program/ProgramMilestone.
+  PROGRAM_MANAGE = 'PROGRAM_MANAGE',
+  // [34.1.1] D4 — record a student's progress against a ProgramMilestone.
+  PROGRAM_RECORD = 'PROGRAM_RECORD',
 }
 
 import { UserRole } from './index';
@@ -295,6 +303,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.HOMEWORK_IMPORT,
     Permission.SYLLABUS_READ,
     Permission.SYLLABUS_MANAGE,
+    // [34.1.1] D4 — ADMIN holds all three program permissions.
+    Permission.PROGRAM_READ,
+    Permission.PROGRAM_MANAGE,
+    Permission.PROGRAM_RECORD,
   ],
 
   [UserRole.ACCOUNTANT]: [
@@ -385,6 +397,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.HOMEWORK_IMPORT,
     Permission.SYLLABUS_READ,
     Permission.SYLLABUS_MANAGE,
+    // [34.1.1] D4 — TEACHER records milestone progress but doesn't manage
+    // programs/milestones themselves.
+    Permission.PROGRAM_READ,
+    Permission.PROGRAM_RECORD,
   ],
 
   // [5.1] added no permissions to either family role. The widened server
@@ -411,6 +427,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // [22.1.1] D26 — PARENT/STUDENT get only the two _READ permissions.
     Permission.HOMEWORK_READ,
     Permission.SYLLABUS_READ,
+    // [34.1.1] D4 — PARENT/STUDENT get only PROGRAM_READ.
+    Permission.PROGRAM_READ,
   ],
 
   [UserRole.STUDENT]: [
@@ -427,6 +445,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // [22.1.1] D26 — PARENT/STUDENT get only the two _READ permissions.
     Permission.HOMEWORK_READ,
     Permission.SYLLABUS_READ,
+    // [34.1.1] D4 — PARENT/STUDENT get only PROGRAM_READ.
+    Permission.PROGRAM_READ,
   ],
 
   [UserRole.EXECUTIVE]: [
@@ -466,6 +486,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.RESULT_READ,
     // [21.1.1] Class routine read.
     Permission.ROUTINE_READ,
+    // [34.1.1] D4/D24 — EXECUTIVE holds all three program permissions.
+    Permission.PROGRAM_READ,
+    Permission.PROGRAM_MANAGE,
+    Permission.PROGRAM_RECORD,
   ],
 };
 
