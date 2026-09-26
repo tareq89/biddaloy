@@ -83,6 +83,16 @@ export const ACTIONS: readonly PaletteAction[] = [
     run: (ctx) => ctx.navigate({ to: '/exams/seat-plans?generate=1' }),
   },
   {
+    id: 'seatPlans.publish',
+    label: { en: 'Publish seat plan', bn: 'সিট প্ল্যান প্রকাশ করুন' },
+    permission: Permission.SEAT_PLAN_MANAGE,
+    kind: 'modal',
+    // Same "no entity id" limitation as `results.publish`/`grading.copyScale`
+    // above — `ActionRunContext` carries no plan id, so this lands on the
+    // seat plans list, one click from a specific plan's own Publish button.
+    run: (ctx) => ctx.navigate({ to: '/exams/seat-plans' }),
+  },
+  {
     id: 'communications.sendMessage',
     label: { en: 'Send message', bn: 'বার্তা পাঠান' },
     permission: Permission.COMMUNICATION_SEND,

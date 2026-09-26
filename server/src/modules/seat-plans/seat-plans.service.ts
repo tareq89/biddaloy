@@ -319,11 +319,23 @@ export class SeatPlansService {
     const plan = await this.seatPlanRepo.findOne({ where: { tenant_id: tenantId, id } });
     if (!plan) throw new NotFoundException('Seat plan not found');
 
+    // [25.7] The detail screen needs each allocation's student name/roll/
+    // section, room label/capacity, subject-sitting label, and invigilator
+    // name — none of which live on `SeatAllocation` itself. `relations`
+    // (rather than a hand-rolled query builder) keeps this readable; it's
+    // one findOne per plan open, not a hot path.
     const allocations = await this.allocationRepo.find({
       where: { tenant_id: tenantId, seat_plan_id: id },
+      relations: {
+        student: { class_section: true },
+        room: true,
+        exam_schedule: { subject: true },
+        invigilator: true,
+      },
       order: { room_id: 'ASC', seat_number: 'ASC' },
     });
-    const byRoom = new Map<string, SeatAllocation[]>();
+
+    const byRoom = new Map<string, typeof allocations>();
     for (const allocation of allocations) {
       const list = byRoom.get(allocation.room_id) ?? [];
       list.push(allocation);
@@ -332,10 +344,32 @@ export class SeatPlansService {
 
     return {
       ...plan,
-      rooms: [...byRoom.entries()].map(([room_id, roomAllocations]) => ({
-        room_id,
-        allocations: roomAllocations,
-      })),
+      rooms: [...byRoom.entries()].map(([room_id, roomAllocations]) => {
+        const room = roomAllocations[0]?.room ?? null;
+        // `updateInvigilator` writes the same `invigilator_user_id` to every
+        // allocation in the room in one `update()` call, so any row's value
+        // (they're all equal) represents the room's invigilator.
+        const invigilator = roomAllocations[0]?.invigilator ?? null;
+        return {
+          room_id,
+          room_no: room?.room_no ?? null,
+          building: room?.building ?? null,
+          capacity: room?.capacity ?? null,
+          invigilator_user_id: roomAllocations[0]?.invigilator_user_id ?? null,
+          invigilator_name: invigilator?.full_name ?? null,
+          allocations: roomAllocations.map((allocation) => ({
+            id: allocation.id,
+            exam_schedule_id: allocation.exam_schedule_id,
+            student_id: allocation.student_id,
+            student_name: allocation.student?.full_name ?? '',
+            roll_number: allocation.student?.roll_number ?? null,
+            section_name: allocation.student?.class_section?.section_name ?? null,
+            subject_name: allocation.exam_schedule?.subject?.name_en ?? null,
+            room_id: allocation.room_id,
+            seat_number: allocation.seat_number,
+          })),
+        };
+      }),
     };
   }
 

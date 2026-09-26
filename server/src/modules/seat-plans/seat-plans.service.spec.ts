@@ -319,6 +319,97 @@ describe('SeatPlansService', () => {
     });
   });
 
+  describe('findOne', () => {
+    it('groups allocations by room and joins student/room/subject/invigilator display data [25.7]', async () => {
+      seatPlanRepo.findOne.mockResolvedValue({
+        id: 'plan-1',
+        name: 'Plan One',
+        status: SeatPlanStatus.DRAFT,
+      });
+      allocationRepo.find.mockResolvedValue([
+        {
+          id: 'alloc-1',
+          exam_schedule_id: SCHEDULE_A,
+          student_id: 'student-1',
+          room_id: ROOM_1,
+          seat_number: '1',
+          invigilator_user_id: 'user-1',
+          student: {
+            full_name: 'Rahim Uddin',
+            roll_number: 1,
+            class_section: { section_name: 'A' },
+          },
+          room: { room_no: '101', building: 'Main', capacity: 30 },
+          exam_schedule: { subject: { name_en: 'Mathematics' } },
+          invigilator: { full_name: 'Ms. Chowdhury' },
+        },
+        {
+          id: 'alloc-2',
+          exam_schedule_id: SCHEDULE_A,
+          student_id: 'student-2',
+          room_id: ROOM_2,
+          seat_number: '1',
+          invigilator_user_id: null,
+          student: {
+            full_name: 'Karim Sheikh',
+            roll_number: 2,
+            class_section: { section_name: 'B' },
+          },
+          room: { room_no: '102', building: 'Main', capacity: 20 },
+          exam_schedule: { subject: { name_en: 'Mathematics' } },
+          invigilator: null,
+        },
+      ]);
+
+      const result = await service.findOne(TENANT, 'plan-1');
+
+      expect(result.rooms).toEqual([
+        {
+          room_id: ROOM_1,
+          room_no: '101',
+          building: 'Main',
+          capacity: 30,
+          invigilator_user_id: 'user-1',
+          invigilator_name: 'Ms. Chowdhury',
+          allocations: [
+            {
+              id: 'alloc-1',
+              exam_schedule_id: SCHEDULE_A,
+              student_id: 'student-1',
+              student_name: 'Rahim Uddin',
+              roll_number: 1,
+              section_name: 'A',
+              subject_name: 'Mathematics',
+              room_id: ROOM_1,
+              seat_number: '1',
+            },
+          ],
+        },
+        {
+          room_id: ROOM_2,
+          room_no: '102',
+          building: 'Main',
+          capacity: 20,
+          invigilator_user_id: null,
+          invigilator_name: null,
+          allocations: [
+            {
+              id: 'alloc-2',
+              exam_schedule_id: SCHEDULE_A,
+              student_id: 'student-2',
+              student_name: 'Karim Sheikh',
+              roll_number: 2,
+              section_name: 'B',
+              subject_name: 'Mathematics',
+              room_id: ROOM_2,
+              seat_number: '1',
+            },
+          ],
+        },
+      ]);
+    });
+  });
+
   describe('updateAllocation', () => {
     it('rejects a move that would exceed target room capacity', async () => {
       seatPlanRepo.findOne.mockResolvedValue({

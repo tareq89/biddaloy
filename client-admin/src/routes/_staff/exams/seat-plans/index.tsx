@@ -21,7 +21,7 @@ import { Button, RoutePending } from '@biddaloy/ui/components';
 import { seatPlansQueryOptions, useHasPermission, useSeatPlans } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState } from '@biddaloy/ui/shells';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../../route-loaders';
@@ -86,7 +86,18 @@ function SeatPlansListPage() {
           {
             id: 'name',
             header: t('list.columnName'),
-            accessorFn: (row) => row.name,
+            // [25.7] Detail route added this ticket — the list's own name
+            // cell is the only entry point into it, same as
+            // `exams/index.tsx`'s name-links-to-detail pattern.
+            accessorFn: (row) => (
+              <Link
+                to="/exams/seat-plans/$planId"
+                params={{ planId: row.id }}
+                className="font-medium text-primary underline"
+              >
+                {row.name}
+              </Link>
+            ),
           },
           {
             id: 'status',
