@@ -391,4 +391,19 @@ describe('/promotions/$runId', () => {
     await screen.findByText(/Committed .* by Admin One, approved by Admin Two/);
   });
 
+  it('Ctrl+Enter does not open the commit dialog on a committed run', async () => {
+    const user = userEvent.setup();
+    stubCommon();
+    server.use(
+      http.get(RUN_URL, () =>
+        HttpResponse.json(baseRun({ status: 'COMMITTED', committed_at: '2026-02-01T00:00:00.000Z' })),
+      ),
+    );
+    renderRun();
+
+    (await screen.findByLabelText('Final')).focus();
+    await user.keyboard('{Control>}{Enter}{/Control}');
+    await sleep(50);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
 });

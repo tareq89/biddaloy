@@ -153,8 +153,12 @@ function PromotionRunPage() {
   const committedByQuery = useUser(run?.committed_by_user_id ?? undefined);
   const approvedByQuery = useUser(run?.approved_by_user_id ?? undefined);
 
+  // Same rule as the Commit button (`!readOnly && canManage`): the shortcut
+  // must not open the dialog on a committed run or for a role that can't
+  // commit.
+  const canCommit = run?.status === 'DRAFT' && canManage;
   React.useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !canCommit) return;
     function handleKeyDown(event: KeyboardEvent) {
       if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
         event.preventDefault();
@@ -163,7 +167,7 @@ function PromotionRunPage() {
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [canCommit]);
 
   if (runQuery.isPending) return <Skeleton className="h-64 w-full" />;
   if (runQuery.isError || !run) {
