@@ -46,6 +46,10 @@ import { HomeworkModule } from './modules/homework/homework.module';
 import { Homework } from './modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from './modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from './modules/homework/entities/homework-submission.entity';
+import { SeatPlansModule } from './modules/seat-plans/seat-plans.module';
+import { SeatPlan } from './modules/seat-plans/entities/seat-plan.entity';
+import { SeatPlanSchedule } from './modules/seat-plans/entities/seat-plan-schedule.entity';
+import { SeatAllocation } from './modules/seat-plans/entities/seat-allocation.entity';
 import { SyllabusTopic } from './modules/homework/entities/syllabus-topic.entity';
 import { validate } from './config/env.validation';
 
@@ -208,6 +212,9 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
             HomeworkAssignment,
             HomeworkSubmission,
             SyllabusTopic,
+            SeatPlan,
+            SeatPlanSchedule,
+            SeatAllocation,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],
@@ -286,6 +293,7 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
     GradingModule,
     ExamsModule,
     HomeworkModule,
+    SeatPlansModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

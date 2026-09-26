@@ -169,6 +169,8 @@ export enum Permission {
   RESULT_PUBLISH = 'RESULT_PUBLISH',
   // [19.1.1] Read a published (or, for staff, processed) result.
   RESULT_READ = 'RESULT_READ',
+  // [25.1.1] Create/edit/publish a SeatPlan and its seat allocations.
+  SEAT_PLAN_MANAGE = 'SEAT_PLAN_MANAGE',
   // Routine (class timetable)
   // [21.1.1] Read is granted to every tenant role that has a stake in a
   // published routine (admin, executive, teacher, guardian, student);
@@ -276,6 +278,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.RESULT_PROCESS,
     Permission.RESULT_PUBLISH,
     Permission.RESULT_READ,
+    // [25.1.1] Seat plans — ADMIN only.
+    Permission.SEAT_PLAN_MANAGE,
     // [21.1.1] Class routine — ADMIN builds/publishes, everyone else reads.
     Permission.ROUTINE_READ,
     Permission.ROUTINE_MANAGE,
