@@ -45,6 +45,8 @@ import type { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.
 import type { Enrollment } from '../modules/students/entities/enrollment.entity';
 import type { PromotionRun } from '../modules/promotions/entities/promotion-run.entity';
 import type { PromotionEntry } from '../modules/promotions/entities/promotion-entry.entity';
+import type { Program } from '../modules/programs/entities/program.entity';
+import type { ProgramMilestone } from '../modules/programs/entities/program-milestone.entity';
 import { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
 import { ensureDemoOrganisation } from './seed.util';
 
@@ -292,6 +294,14 @@ function makeRepos() {
       clock,
       'promotion-entry',
     ).asRepository() as unknown as Repository<PromotionEntry>,
+    programRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'program',
+    ).asRepository() as unknown as Repository<Program>,
+    programMilestoneRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'program-milestone',
+    ).asRepository() as unknown as Repository<ProgramMilestone>,
   } satisfies SeedAccountRepositories;
   return { repos, users, schools, userTenants, students };
 }

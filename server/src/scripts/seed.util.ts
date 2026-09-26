@@ -79,6 +79,8 @@ import { HomeworkSubmission } from '../modules/homework/entities/homework-submis
 import { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.entity';
 import { PromotionRun } from '../modules/promotions/entities/promotion-run.entity';
 import { PromotionEntry } from '../modules/promotions/entities/promotion-entry.entity';
+import { Program } from '../modules/programs/entities/program.entity';
+import { ProgramMilestone } from '../modules/programs/entities/program-milestone.entity';
 
 /** [8.9.5] manual-testing aid: gives the seed admin a *second* school
  * membership so `/select-school`'s picker actually has something to show
@@ -2466,6 +2468,94 @@ export async function ensureHomeworkDemoSeed(
     console.log(
       `  Homework demo seed: +${result.homework} homework, +${result.assignments} assignments, ` +
         `+${result.submissions} submissions, +${result.syllabusTopics} syllabus topics`,
+    );
+  }
+  return result;
+}
+
+// ===========================================================================
+// [34.1.4] Programs demo data
+// ===========================================================================
+
+export interface ProgramsDemoSeedRepositories {
+  programRepository: Repository<Program>;
+  programMilestoneRepository: Repository<ProgramMilestone>;
+}
+
+export interface ProgramsDemoSeedParams {
+  schoolId: string;
+}
+
+export interface ProgramsDemoSeedResult {
+  programs: number;
+  milestones: number;
+}
+
+/** Idempotent, same find-or-create shape as `ensureHomeworkDemoSeed`: two
+ * `Program`s that show off the two shapes a program can take — "Hifz" with
+ * 30 milestones ("Para 1".."Para 30") and `show_on_report_card: true`, and
+ * "Debate club" with zero milestones and `show_on_report_card: false` (D6).
+ * Enrolment/achievement seed rows are out of this ticket's scope ([34.1.4]);
+ * they land with the recording endpoints in 34.2.4. */
+export async function ensureProgramsDemoSeed(
+  repos: ProgramsDemoSeedRepositories,
+  params: ProgramsDemoSeedParams,
+): Promise<ProgramsDemoSeedResult> {
+  const { schoolId } = params;
+  const result: ProgramsDemoSeedResult = { programs: 0, milestones: 0 };
+
+  let hifz = await repos.programRepository.findOne({
+    where: { tenant_id: schoolId, name: 'Hifz' },
+  });
+  if (!hifz) {
+    hifz = repos.programRepository.create({
+      tenant_id: schoolId,
+      name: 'Hifz',
+      description: null,
+      is_active: true,
+      show_on_report_card: true,
+    });
+    await repos.programRepository.save(hifz);
+    result.programs += 1;
+  }
+
+  for (let sequence = 1; sequence <= 30; sequence += 1) {
+    const existing = await repos.programMilestoneRepository.findOne({
+      where: { tenant_id: schoolId, program_id: hifz.id, sequence },
+    });
+    if (existing) continue;
+
+    await repos.programMilestoneRepository.save(
+      repos.programMilestoneRepository.create({
+        tenant_id: schoolId,
+        program_id: hifz.id,
+        name: `Para ${sequence}`,
+        description: null,
+        sequence,
+      }),
+    );
+    result.milestones += 1;
+  }
+
+  const debateClub = await repos.programRepository.findOne({
+    where: { tenant_id: schoolId, name: 'Debate club' },
+  });
+  if (!debateClub) {
+    await repos.programRepository.save(
+      repos.programRepository.create({
+        tenant_id: schoolId,
+        name: 'Debate club',
+        description: null,
+        is_active: true,
+        show_on_report_card: false,
+      }),
+    );
+    result.programs += 1;
+  }
+
+  if (result.programs > 0 || result.milestones > 0) {
+    console.log(
+      `  Programs demo seed: +${result.programs} programs, +${result.milestones} milestones`,
     );
   }
   return result;
