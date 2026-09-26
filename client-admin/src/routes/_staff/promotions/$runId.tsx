@@ -52,6 +52,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDate } from '@biddaloy/ui/utils';
+import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import * as React from 'react';
 
@@ -122,7 +123,12 @@ function PromotionRunPage() {
   const commitRun = useCommitPromotionRun(runId);
   const vocabulary = useOrganisationVocabulary();
 
+  const queryClient = useQueryClient();
   const [edits, setEdits] = React.useState<ReadonlyMap<string, EntryEdit>>(new Map());
+  // Written synchronously alongside `setEdits` (see `writeEdit`) so a
+  // handler — or a debounce timer firing later — can build a request from
+  // the edit it just made, not the previous render's copy.
+  const editsRef = React.useRef<ReadonlyMap<string, EntryEdit>>(new Map());
   const [noteErrors, setNoteErrors] = React.useState<ReadonlySet<string>>(new Set());
   const [commitOpen, setCommitOpen] = React.useState(false);
   const [staleBanner, setStaleBanner] = React.useState(false);
@@ -220,18 +226,61 @@ function PromotionRunPage() {
     return !note || note.trim() === '';
   });
 
-  function patch(studentId: string, input: EntryEdit) {
-    setEdits((prev) => {
-      const next = new Map(prev);
-      next.set(studentId, { ...next.get(studentId), ...input });
-      return next;
-    });
-    const body: PatchPromotionEntryInput = { student_id: studentId, ...input };
-    updateEntries.mutate([body]);
+  function writeEdit(studentId: string, input: EntryEdit) {
+    const next = new Map(editsRef.current);
+    next.set(studentId, { ...next.get(studentId), ...input });
+    editsRef.current = next;
+    setEdits(next);
+  }
+
+  function cancelNoteTimer(studentId: string) {
+    const timer = noteTimers.current.get(studentId);
+    if (timer) clearTimeout(timer);
+    noteTimers.current.delete(studentId);
+  }
+
+  // The server rejects an override without a note (422) and nulls the note
+  // on a non-override, so an outcome and its note must travel together.
+  // Builds the full intended state of one row, or `null` when there is
+  // nothing valid to send yet (an override still waiting for its note —
+  // `hasUnnotedOverrides` blocks commit meanwhile). Reads the server row
+  // from the query cache, not the render's `run`, because a note debounce
+  // calls this after that render is stale.
+  function buildBody(studentId: string): PatchPromotionEntryInput | null {
+    const entry = queryClient
+      .getQueryData(promotionRunQueryOptions(runId).queryKey)
+      ?.entries.find((candidate) => candidate.student_id === studentId);
+    const edit = editsRef.current.get(studentId);
+    if (!entry || !edit) return null;
+    const finalOutcome = edit.final_outcome ?? entry.final_outcome;
+    const group = edit.group_name !== undefined ? { group_name: edit.group_name } : {};
+    if (finalOutcome === entry.suggested_outcome) {
+      return { student_id: studentId, final_outcome: finalOutcome, ...group };
+    }
+    const note = (edit.override_note ?? entry.override_note ?? '').trim();
+    if (!note) return null;
+    return { student_id: studentId, final_outcome: finalOutcome, override_note: note, ...group };
+  }
+
+  // `mutateAsync`, not `mutate(…, { onError })`: per-call callbacks only
+  // fire for the latest call, so an earlier failed save would go unreported.
+  function send(bodies: PatchPromotionEntryInput[]): Promise<boolean> {
+    return updateEntries.mutateAsync(bodies).then(
+      () => true,
+      (error: unknown) => {
+        if (!(error instanceof ApiError && error.statusCode === 403)) {
+          toast.error(t('grid.saveFailed'));
+        }
+        return false;
+      },
+    );
   }
 
   function setOutcome(entry: PromotionEntry, outcome: PromotionOutcome) {
-    patch(entry.student_id, { final_outcome: outcome });
+    writeEdit(entry.student_id, { final_outcome: outcome });
+    cancelNoteTimer(entry.student_id);
+    const body = buildBody(entry.student_id);
+    if (body) void send([body]);
     if (outcome !== entry.suggested_outcome) {
       // Override: jump focus to this row's note input (D-required note).
       window.requestAnimationFrame(() => {
@@ -247,15 +296,15 @@ function PromotionRunPage() {
     // — there is no "clear the group" operation to call). Picking the
     // placeholder item back is a no-op, not a write.
     if (group === NONE_VALUE) return;
-    patch(entry.student_id, { group_name: group });
+    writeEdit(entry.student_id, { group_name: group });
+    // Group alone, not the merged row: the server re-derives the outcome
+    // from its own copy, and a merged body carrying a not-yet-noted
+    // override would be rejected and take the group change down with it.
+    void send([{ student_id: entry.student_id, group_name: group }]);
   }
 
   function setNote(studentId: string, note: string) {
-    setEdits((prev) => {
-      const next = new Map(prev);
-      next.set(studentId, { ...next.get(studentId), override_note: note });
-      return next;
-    });
+    writeEdit(studentId, { override_note: note });
     setNoteErrors((prev) => {
       if (note.trim() === '') return prev;
       if (!prev.has(studentId)) return prev;
@@ -263,11 +312,13 @@ function PromotionRunPage() {
       next.delete(studentId);
       return next;
     });
-    const existing = noteTimers.current.get(studentId);
-    if (existing) clearTimeout(existing);
+    cancelNoteTimer(studentId);
     const timer = setTimeout(() => {
       noteTimers.current.delete(studentId);
-      updateEntries.mutate([{ student_id: studentId, override_note: note.trim() }]);
+      // Only an override's note is worth a write; a blank note is never
+      // sent (the DTO rejects it).
+      const body = buildBody(studentId);
+      if (body?.override_note) void send([body]);
     }, NOTE_DEBOUNCE_MS);
     noteTimers.current.set(studentId, timer);
   }
@@ -329,7 +380,18 @@ function PromotionRunPage() {
   // result freshness or cohort membership. Without this handler a 409 was
   // swallowed (the global handler only surfaces 403s) and Commit looked
   // like it did nothing.
-  function confirmCommit() {
+  async function confirmCommit() {
+    // Commit reads only what the server has stored, never this grid's local
+    // edits. Resend every edited row first — a note still in its debounce,
+    // or any earlier save that failed — so the run is committed exactly as
+    // shown. A failed flush stops here; `send` has already toasted.
+    for (const timer of noteTimers.current.values()) clearTimeout(timer);
+    noteTimers.current.clear();
+    const bodies = [...editsRef.current.keys()]
+      .map(buildBody)
+      .filter((body): body is PatchPromotionEntryInput => body !== null);
+    if (bodies.length > 0 && !(await send(bodies))) return;
+
     commitRun.mutate(undefined, {
       onSuccess: () => setCommitOpen(false),
       onError: (error: unknown) => {
@@ -620,8 +682,8 @@ function PromotionRunPage() {
         counts={counts}
         hasPlacementErrors={hasPlacementErrors}
         hasUnnotedOverrides={hasUnnotedOverrides}
-        confirming={commitRun.isPending}
-        onConfirm={confirmCommit}
+        confirming={commitRun.isPending || updateEntries.isPending}
+        onConfirm={() => void confirmCommit()}
       />
     </div>
   );
