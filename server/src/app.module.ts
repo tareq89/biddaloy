@@ -51,6 +51,9 @@ import { SyllabusTopic } from './modules/homework/entities/syllabus-topic.entity
 import { Designation } from './modules/staff-hr/entities/designation.entity';
 import { StaffHrRecord } from './modules/staff-hr/entities/staff-hr-record.entity';
 import { StaffDesignationHistory } from './modules/staff-hr/entities/staff-designation-history.entity';
+import { StaffFamilyMember } from './modules/staff-hr/entities/staff-family-member.entity';
+import { StaffAddress } from './modules/staff-hr/entities/staff-address.entity';
+import { StaffExperience } from './modules/staff-hr/entities/staff-experience.entity';
 import { validate } from './config/env.validation';
 
 // Entities for auto-loading
@@ -215,6 +218,9 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
             Designation,
             StaffHrRecord,
             StaffDesignationHistory,
+            StaffFamilyMember,
+            StaffAddress,
+            StaffExperience,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],
