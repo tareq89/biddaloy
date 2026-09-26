@@ -23,6 +23,13 @@ import {
  * why they need their own cadence.
  */
 export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
+  // [25.5, #1054] `seat_allocations` FKs to `seat_plans`, `exam_schedules`,
+  // `students`, and `rooms` (all `ON DELETE CASCADE`); `seat_plan_schedules`
+  // FKs to `seat_plans` and `exam_schedules`. All three appear before every
+  // one of those tables below to keep this list child-first.
+  'seat_allocations',
+  'seat_plan_schedules',
+  'seat_plans',
   'workbook_jobs',
   // [22.2.1] homework_submissions/homework_assignments reference
   // homework+students+class_sections; homework references subjects+classes;

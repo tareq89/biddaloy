@@ -10,6 +10,9 @@ import { homeworkTab } from '../tabs/academics/homework.tab';
 import { homeworkAssignmentTab } from '../tabs/academics/homework-assignment.tab';
 import { homeworkSubmissionTab } from '../tabs/academics/homework-submission.tab';
 import { syllabusTopicTab } from '../tabs/academics/syllabus-topic.tab';
+import { seatPlansTab } from '../tabs/exams/seat-plans.tab';
+import { seatPlanSchedulesTab } from '../tabs/exams/seat-plan-schedules.tab';
+import { seatAllocationsTab } from '../tabs/exams/seat-allocations.tab';
 
 /**
  * Every tab name a backup workbook may contain, in apply order (epic 14.0
@@ -69,6 +72,15 @@ export const EXPECTED_TABS = [
   'homework_assignments',
   'homework_submissions',
   'syllabus_topics',
+  // [25.5, #1054] Epic 787's seat-plan tabs. Appended at the very end rather
+  // than interleaved next to `exam_schedules` (their tab files live in
+  // `tabs/exams/` alongside it): `seat_allocations` depends on `rooms`
+  // (routines lane) and `users` (people lane), both of which appear later in
+  // this list than `exam_schedules` does, and a dependency must appear
+  // earlier in EXPECTED_TABS than its dependent.
+  'seat_plans',
+  'seat_plan_schedules',
+  'seat_allocations',
 ] as const;
 
 export type ExpectedTabName = (typeof EXPECTED_TABS)[number];
@@ -93,6 +105,12 @@ export const ALL_TABS: readonly TabSpec<any, any>[] = [
   homeworkAssignmentTab,
   homeworkSubmissionTab,
   syllabusTopicTab,
+  // [25.5, #1054] Appended last, after `rooms` (routinesTabs) and `users`
+  // (peopleTabs) are both already registered above — see the EXPECTED_TABS
+  // comment for why these three can't live inside `examsTabs` itself.
+  seatPlansTab,
+  seatPlanSchedulesTab,
+  seatAllocationsTab,
 ];
 
 export class RegistryError extends Error {

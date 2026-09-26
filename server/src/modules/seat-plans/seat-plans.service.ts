@@ -536,8 +536,28 @@ export class SeatPlansService {
 
       plan.status = SeatPlanStatus.PUBLISHED;
       plan.published_at = new Date();
-      await manager.save(SeatPlan, plan);
-      return this.findOne(tenantId, planId);
+      const publishedPlan = await manager.save(SeatPlan, plan);
+
+      // Not `this.findOne(tenantId, planId)` here: that reads through
+      // `this.seatPlanRepo`, a repository outside this transaction's own
+      // connection — under READ COMMITTED it would run on a different
+      // session than the `save` above and see the pre-commit (still DRAFT)
+      // row, handing the caller a stale status right after a successful
+      // publish. Build the same `{ ...plan, rooms }` shape from data already
+      // fetched on `manager` in this transaction instead.
+      const byRoom = new Map<string, SeatAllocation[]>();
+      for (const allocation of allocations) {
+        const list = byRoom.get(allocation.room_id) ?? [];
+        list.push(allocation);
+        byRoom.set(allocation.room_id, list);
+      }
+      return {
+        ...publishedPlan,
+        rooms: [...byRoom.entries()].map(([room_id, roomAllocations]) => ({
+          room_id,
+          allocations: roomAllocations,
+        })),
+      };
     });
   }
 }
