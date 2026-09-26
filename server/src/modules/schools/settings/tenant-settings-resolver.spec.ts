@@ -94,6 +94,34 @@ describe('resolveTenantSettings', () => {
         subjectPeriodsPerWeek: { math: 5 },
       });
     });
+
+    // Each field's accepted range mirrors `RoutineSettingsDto`: the caps
+    // and every map value are `@Min(1)` there, so a zero is malformed
+    // data, not a school asking for a cap that permits nothing.
+    it('drops a zero cap — a limit of no periods at all is never intended', () => {
+      const resolved = resolveTenantSettings({
+        routine: { maxPeriodsPerTeacherPerDay: 0, maxConsecutivePeriods: 0 },
+      });
+
+      expect(resolved.routine).toEqual(DEFAULT_ROUTINE_SETTINGS);
+    });
+
+    it('drops a zero subjectPeriodsPerWeek target but keeps its positive siblings', () => {
+      const resolved = resolveTenantSettings({
+        routine: { subjectPeriodsPerWeek: { math: 0, science: 3 } },
+      });
+
+      expect(resolved.routine).toEqual({
+        defaultChangeoverMinutes: DEFAULT_ROUTINE_SETTINGS.defaultChangeoverMinutes,
+        subjectPeriodsPerWeek: { science: 3 },
+      });
+    });
+
+    it('keeps a zero defaultChangeoverMinutes — no changeover gap is a real setting', () => {
+      const resolved = resolveTenantSettings({ routine: { defaultChangeoverMinutes: 0 } });
+
+      expect(resolved.routine).toEqual({ defaultChangeoverMinutes: 0 });
+    });
   });
 
   describe('organisation (33.2.1)', () => {

@@ -19,6 +19,10 @@ function isNonNegativeInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 }
 
+function isPositiveInteger(value: unknown): value is number {
+  return isNonNegativeInteger(value) && value > 0;
+}
+
 /**
  * [1047] Read-side guard for `routine`'s optional caps, mirroring the
  * `backup.schedule`/`fees.approvalMode` guards below — `RoutineSettingsDto`
@@ -27,6 +31,14 @@ function isNonNegativeInteger(value: unknown): value is number {
  * bad value for one field falls back to the default (or is dropped, for
  * the optional caps) rather than passing through as-is or discarding the
  * whole section.
+ *
+ * Each field's accepted range mirrors `RoutineSettingsDto`
+ * (`../dto/tenant-settings.dto.ts`) exactly: `@Min(0)` for
+ * `defaultChangeoverMinutes`, where zero legitimately means "no
+ * changeover gap"; `@Min(1)` for both caps and for every
+ * `subjectPeriodsPerWeek` value, where zero would mean a cap permitting
+ * no periods at all — indistinguishable from a misparse, and stricter
+ * than any school could have meant.
  */
 function overlayRoutineSettings(stored: unknown): RoutineSettings {
   if (!isPlainObject(stored)) return DEFAULT_ROUTINE_SETTINGS;
@@ -36,15 +48,15 @@ function overlayRoutineSettings(stored: unknown): RoutineSettings {
   if (isNonNegativeInteger(stored.defaultChangeoverMinutes)) {
     result.defaultChangeoverMinutes = stored.defaultChangeoverMinutes;
   }
-  if (isNonNegativeInteger(stored.maxPeriodsPerTeacherPerDay)) {
+  if (isPositiveInteger(stored.maxPeriodsPerTeacherPerDay)) {
     result.maxPeriodsPerTeacherPerDay = stored.maxPeriodsPerTeacherPerDay;
   }
-  if (isNonNegativeInteger(stored.maxConsecutivePeriods)) {
+  if (isPositiveInteger(stored.maxConsecutivePeriods)) {
     result.maxConsecutivePeriods = stored.maxConsecutivePeriods;
   }
   if (isPlainObject(stored.subjectPeriodsPerWeek)) {
     const entries = Object.entries(stored.subjectPeriodsPerWeek).filter(([, value]) =>
-      isNonNegativeInteger(value),
+      isPositiveInteger(value),
     );
     if (entries.length > 0) {
       result.subjectPeriodsPerWeek = Object.fromEntries(entries) as Record<string, number>;
