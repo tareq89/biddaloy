@@ -1,7 +1,7 @@
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { RecordPaymentModal } from './record-payment-modal';
@@ -166,6 +166,137 @@ describe('RecordPaymentModal', () => {
     await waitFor(() => expect(lastAmount).toBe('1000.00'));
     const payInput = screen.getByLabelText<HTMLInputElement>('Pay');
     await waitFor(() => expect(payInput.value).not.toBe(''));
+  });
+
+  // Like the real server: `suggested` only comes back when `amount` is sent.
+  function cartFor(request: Request, studentIds: string[]) {
+    const amount = new URL(request.url).searchParams.get('amount');
+    return cartResponse({
+      students: studentIds.map((id, index) => ({
+        id,
+        full_name: id,
+        registration_number: id,
+        class_name: 'Six',
+        section_name: 'A',
+        wallet_balance: 0,
+        bills: [bill({ student_fee_id: `${id}-fee`, fee_name: `Tuition — ${index + 1}` })],
+      })),
+      suggested:
+        amount === null
+          ? undefined
+          : {
+              allocations: studentIds.map((id) => ({
+                student_fee_id: `${id}-fee`,
+                amount: Number(amount) / studentIds.length,
+              })),
+              wallet_used: 0,
+              remaining: 0,
+              to_wallet: 0,
+            },
+    });
+  }
+
+  it('keeps a discount typed while the new amount’s cart is still loading', async () => {
+    let checkoutBody: { lines: unknown[] } | undefined;
+    server.use(
+      http.get('/api/v1/payments/cart', async ({ request }) => {
+        if (new URL(request.url).searchParams.has('amount')) await delay(400);
+        return HttpResponse.json(cartFor(request, ['student-1']));
+      }),
+      http.post('/api/v1/payments/checkout', async ({ request }) => {
+        checkoutBody = (await request.json()) as { lines: unknown[] };
+        return HttpResponse.json(
+          {
+            payment: { id: 'payment-1', student: { id: 'student-1', full_name: 'Rahim' }, total_amount: 1000 },
+            invoice_id: 'invoice-1',
+            invoice_number: 'INV-1',
+            change_amount: 0,
+            wallet_balance_after: 0,
+          },
+          { status: 201 },
+        );
+      }),
+    );
+
+    const user = userEvent.setup();
+    await renderModal({ studentId: 'student-1' });
+    await screen.findByText('Tuition — 1');
+
+    // Amount, then the discount straight away — inside the amount's 300 ms
+    // debounce and the cart request after it.
+    fireEvent.change(screen.getByLabelText('Amount received'), { target: { value: '1000' } });
+    await user.click(screen.getByRole('button', { name: 'Unlock to edit discount' }));
+    fireEvent.change(screen.getByLabelText('Discount'), { target: { value: '500' } });
+
+    const payInput = screen.getByLabelText<HTMLInputElement>('Pay');
+    await waitFor(() => expect(payInput.value).toMatch(/[1-9১-৯]/), { timeout: 2000 });
+    const submitButton = screen.getByRole<HTMLButtonElement>('button', { name: 'Record payment' });
+    await waitFor(() => expect(submitButton.disabled).toBe(false));
+    await user.click(submitButton);
+
+    await waitFor(() => expect(checkoutBody).toBeDefined());
+    expect(checkoutBody?.lines).toEqual([
+      { student_fee_id: 'student-1-fee', amount: 1000, one_off_discount: 500 },
+    ]);
+  });
+
+  it('a sibling re-added after edits gets a suggested Pay and no old discount', async () => {
+    server.use(
+      http.get('/api/v1/guardians/:id', () =>
+        HttpResponse.json({
+          id: 'g-1',
+          full_name: 'Karim Ahmed',
+          students: [
+            { id: 'student-1', full_name: 'Rahim Uddin' },
+            { id: 'student-2', full_name: 'Fatema Begum' },
+          ],
+        }),
+      ),
+      http.get('/api/v1/payments/cart', ({ request }) => {
+        const ids = new URL(request.url).searchParams.get('student_ids') ?? '';
+        return HttpResponse.json(cartFor(request, ids.split(',')));
+      }),
+      http.get('/api/v1/students', () =>
+        HttpResponse.json({
+          data: [
+            {
+              id: 'student-2',
+              full_name: 'Fatema Begum',
+              roll_number: 2,
+              class_section: { section_name: 'A', class: { name: 'Six' } },
+            },
+          ],
+          total: 1,
+          page: 1,
+          limit: 20,
+          totalPages: 1,
+        }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    await renderModal({ guardianId: 'g-1' });
+    await screen.findByText('Tuition — 2');
+
+    fireEvent.change(screen.getByLabelText('Amount received'), { target: { value: '1000' } });
+    await waitFor(() =>
+      expect(screen.getAllByLabelText<HTMLInputElement>('Pay')[1]?.value).toMatch(/[1-9১-৯]/),
+    );
+    await user.click(screen.getAllByRole('button', { name: 'Unlock to edit discount' })[1]!);
+    fireEvent.change(screen.getByLabelText('Discount'), { target: { value: '200' } });
+
+    await user.click(screen.getByRole('button', { name: 'Remove Fatema Begum' }));
+    await waitFor(() => expect(screen.queryByText('Tuition — 2')).toBeNull());
+
+    await user.type(screen.getByLabelText('Search for a student'), 'Fat');
+    await user.click(await screen.findByRole('button', { name: /Fatema Begum/ }));
+
+    await screen.findByText('Tuition — 2');
+    await waitFor(() =>
+      expect(screen.getAllByLabelText<HTMLInputElement>('Pay')[1]?.value).toMatch(/[1-9১-৯]/),
+    );
+    expect(screen.getAllByRole('button', { name: 'Unlock to edit discount' })).toHaveLength(2);
+    expect(screen.queryByLabelText('Discount')).toBeNull();
   });
 
   it('[16.4.4] a 403 APPROVAL_REQUIRED → step-up → retry carries the same idempotency key', async () => {
