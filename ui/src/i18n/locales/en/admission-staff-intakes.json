@@ -30,7 +30,8 @@
     "requiredDocumentsLabel": "Required documents",
     "documentPhoto": "Photo",
     "documentBirthCertificate": "Birth certificate",
-    "documentTranscript": "Transcript"
+    "documentTranscript": "Transcript",
+    "dateRangeError": "Close date must not be before open date."
   },
   "detail": {
     "save": "Save",

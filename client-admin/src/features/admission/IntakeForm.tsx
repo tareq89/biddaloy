@@ -51,7 +51,8 @@ export function isIntakeFormValid(value: IntakeFormValue): boolean {
     value.class_section_id.length > 0 &&
     Number(value.seat_count) > 0 &&
     value.open_date.length > 0 &&
-    value.close_date.length > 0
+    value.close_date.length > 0 &&
+    value.open_date <= value.close_date
   );
 }
 
@@ -149,6 +150,12 @@ export function IntakeForm({
           />
         </div>
       </div>
+
+      {value.open_date.length > 0 &&
+        value.close_date.length > 0 &&
+        value.open_date > value.close_date && (
+          <p className="text-sm text-destructive">{t('form.dateRangeError')}</p>
+        )}
 
       <div className="flex flex-col gap-1.5">
         <span className="text-sm font-medium">{t('form.requiredDocumentsLabel')}</span>

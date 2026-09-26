@@ -55,10 +55,6 @@ function IntakeDetailPage() {
     }
   }, [intakeQuery.data, form]);
 
-  if (intakeQuery.isLoading || form === null) {
-    return <IntakeDetailPending />;
-  }
-
   if (intakeQuery.isError) {
     return (
       <ErrorState
@@ -66,6 +62,10 @@ function IntakeDetailPage() {
         onRetry={() => void intakeQuery.refetch()}
       />
     );
+  }
+
+  if (intakeQuery.isLoading || form === null) {
+    return <IntakeDetailPending />;
   }
 
   function handleSubmit(event: React.FormEvent) {

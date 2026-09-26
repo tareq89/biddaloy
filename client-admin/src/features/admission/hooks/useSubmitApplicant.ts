@@ -50,9 +50,10 @@ export interface SubmitApplicantResult {
 
 async function fetchOpenIntakes(slug: string, signal?: AbortSignal): Promise<PublicIntake[]> {
   try {
-    const response = await axios.get<PublicIntake[]>(`${API_BASE_URL}/public/admission/${slug}`, {
-      ...(signal ? { signal } : {}),
-    });
+    const response = await axios.get<PublicIntake[]>(
+      `${API_BASE_URL}/public/admission/${encodeURIComponent(slug)}`,
+      { ...(signal ? { signal } : {}) },
+    );
     return response.data;
   } catch (error) {
     throw toApiError(error);
@@ -99,7 +100,7 @@ async function submitApplicant(
 
   try {
     const response = await axios.post<SubmitApplicantResult>(
-      `${API_BASE_URL}/public/admission/${slug}/applicants`,
+      `${API_BASE_URL}/public/admission/${encodeURIComponent(slug)}/applicants`,
       formData,
     );
     return response.data;

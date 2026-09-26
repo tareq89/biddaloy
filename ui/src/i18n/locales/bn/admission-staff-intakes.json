@@ -30,7 +30,8 @@
     "requiredDocumentsLabel": "প্রয়োজনীয় ডকুমেন্ট",
     "documentPhoto": "ছবি",
     "documentBirthCertificate": "জন্ম সনদ",
-    "documentTranscript": "একাডেমিক ট্রান্সক্রিপ্ট"
+    "documentTranscript": "একাডেমিক ট্রান্সক্রিপ্ট",
+    "dateRangeError": "শেষের তারিখ শুরুর তারিখের আগে হতে পারবে না।"
   },
   "detail": {
     "save": "সংরক্ষণ করুন",

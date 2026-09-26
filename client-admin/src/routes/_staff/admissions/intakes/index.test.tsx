@@ -131,6 +131,54 @@ describe('/admissions/intakes', () => {
     await waitFor(() => expect(intake.title).toBe('Updated title'));
   });
 
+  it('disables Create when close date is before open date', async () => {
+    mockClassAndSection();
+    server.use(http.get('/api/v1/admission-intakes', () => HttpResponse.json([])));
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/admissions/intakes'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByRole('heading', { name: 'Admission intakes' });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Add intake' }));
+
+    const dialog = within(await screen.findByRole('dialog'));
+    await user.type(dialog.getByLabelText('Title'), 'Class 5 intake 2026');
+    await user.click(dialog.getByLabelText('Class / Section'));
+    await user.click(await screen.findByRole('option', { name: 'Class 5 · A' }));
+    await user.type(dialog.getByLabelText('Seat count'), '30');
+    await user.type(dialog.getByLabelText('Open date'), '2026-02-01');
+    await user.type(dialog.getByLabelText('Close date'), '2026-01-01');
+
+    expect(dialog.getByText('Close date must not be before open date.')).toBeTruthy();
+    expect((dialog.getByRole('button', { name: 'Create' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+  });
+
+  it('shows an error state instead of spinning forever when the intake fails to load', async () => {
+    mockClassAndSection();
+    server.use(
+      http.get('/api/v1/admission-intakes/:id', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/admissions/intakes/intake-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    expect(await screen.findByText('Failed to save admission intake')).toBeTruthy();
+  });
+
   it('refuses the whole route for TEACHER, who lacks ADMISSION_REVIEW', async () => {
     mockClassAndSection();
     server.use(http.get('/api/v1/admission-intakes', () => HttpResponse.json([])));
