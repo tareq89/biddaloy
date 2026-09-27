@@ -38,6 +38,19 @@ export function ProgramsPanel({ studentId }: ProgramsPanelProps) {
 
   const removeAchievement = useRemoveAchievement();
 
+  // MilestoneChecklist's own docstring: recording/undoing swaps the row's
+  // checkbox for a new DOM node, dropping focus to <body> unless the
+  // caller refocuses it — same fix as `-students-tab.tsx`'s
+  // `refocusMilestone`.
+  const milestonesContainerRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
+  function refocusMilestone(enrollmentId: string, milestoneId: string) {
+    requestAnimationFrame(() => {
+      milestonesContainerRefs.current[enrollmentId]
+        ?.querySelector<HTMLElement>(`[data-milestone-id="${milestoneId}"][role="checkbox"]`)
+        ?.focus();
+    });
+  }
+
   if (programsQuery.isPending) return <Skeleton className="h-24 w-full" />;
   if (programsQuery.isError) {
     return (
@@ -109,7 +122,12 @@ export function ProgramsPanel({ studentId }: ProgramsPanelProps) {
               )}
             </div>
 
-            <div className="mt-2">
+            <div
+              className="mt-2"
+              ref={(el) => {
+                milestonesContainerRefs.current[entry.enrollment.id] = el;
+              }}
+            >
               <MilestoneChecklist
                 items={entry.milestones.map((m) => ({
                   id: m.id,
@@ -132,12 +150,18 @@ export function ProgramsPanel({ studentId }: ProgramsPanelProps) {
                   const achievementId = entry.milestones.find((m) => m.id === milestoneId)
                     ?.achievement?.id;
                   if (!achievementId) return;
-                  removeAchievement.mutate({
-                    achievementId,
-                    programId: entry.program.id,
-                    studentId,
-                    milestoneId,
-                  });
+                  removeAchievement.mutate(
+                    {
+                      achievementId,
+                      programId: entry.program.id,
+                      studentId,
+                      milestoneId,
+                    },
+                    {
+                      onSuccess: () => refocusMilestone(entry.enrollment.id, milestoneId),
+                      onError: () => refocusMilestone(entry.enrollment.id, milestoneId),
+                    },
+                  );
                 }}
               />
             </div>
@@ -164,6 +188,9 @@ export function ProgramsPanel({ studentId }: ProgramsPanelProps) {
           enrollmentIdPrefill={recordFor.enrollmentId}
           studentId={studentId}
           onRecorded={() => {
+            if (recordFor.milestoneId) {
+              refocusMilestone(recordFor.enrollmentId, recordFor.milestoneId);
+            }
             setRecordFor(null);
           }}
         />
