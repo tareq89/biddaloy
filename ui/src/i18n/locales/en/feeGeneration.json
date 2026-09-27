@@ -13,6 +13,8 @@
     "allClasses": "All classes",
     "sectionLabel": "Section",
     "allSections": "All sections",
+    "programLabel": "Program",
+    "anyProgram": "Any program",
     "includeInactiveLabel": "Include inactive students",
     "selectAllMatching": "Select all {{count}} matching",
     "loading": "Loading students…",

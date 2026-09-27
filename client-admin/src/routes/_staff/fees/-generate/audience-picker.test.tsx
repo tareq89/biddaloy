@@ -3,7 +3,7 @@ import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import type * as React from 'react';
+import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AudiencePicker } from './audience-picker';
@@ -289,5 +289,50 @@ describe('AudiencePicker', () => {
 
     await screen.findByText('Inactive Student');
     expect(screen.getByRole('checkbox', { name: 'Inactive Student' })).toBeTruthy();
+  });
+
+  it('renders no Program select when onProgramIdChange is not passed', async () => {
+    renderPicker();
+    await screen.findByRole('combobox', { name: 'Class' });
+    expect(screen.queryByRole('combobox', { name: 'Program' })).toBeNull();
+  });
+
+  it('selecting a program emits program_id via onProgramIdChange; clearing removes it', async () => {
+    server.use(
+      http.get('/api/v1/programs', () =>
+        HttpResponse.json([{ id: 'program-1', name: 'Hifz', is_active: true }]),
+      ),
+    );
+
+    const user = userEvent.setup();
+    const onProgramIdChange = vi.fn();
+
+    function Wrapper() {
+      const [programId, setProgramId] = React.useState<string | undefined>(undefined);
+      return (
+        <TooltipProvider>
+          <AudiencePicker
+            academicYearId="year-1"
+            selected={new Map()}
+            onSelectedChange={vi.fn()}
+            programId={programId}
+            onProgramIdChange={(value) => {
+              onProgramIdChange(value);
+              setProgramId(value);
+            }}
+          />
+        </TooltipProvider>
+      );
+    }
+
+    renderWithProviders(<Wrapper />, { tenantId: 'tenant-1', locale: 'en' });
+
+    await user.click(await screen.findByRole('combobox', { name: 'Program' }));
+    await user.click(await screen.findByRole('option', { name: 'Hifz' }));
+    expect(onProgramIdChange).toHaveBeenCalledWith('program-1');
+
+    await user.click(screen.getByRole('combobox', { name: 'Program' }));
+    await user.click(await screen.findByRole('option', { name: 'Any program' }));
+    expect(onProgramIdChange).toHaveBeenLastCalledWith(undefined);
   });
 });
