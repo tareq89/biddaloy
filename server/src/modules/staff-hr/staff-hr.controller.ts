@@ -38,7 +38,10 @@ export class StaffHrController {
   @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.STAFF_HR_READ)
   @ApiOperation({ summary: 'List this tenant’s staff HR records, optionally filtered by user.' })
-  async findAll(@CurrentTenant() tenant: { id: string }, @Query('user_id') userId?: string) {
+  async findAll(
+    @CurrentTenant() tenant: { id: string },
+    @Query('user_id', new ParseUUIDPipe({ optional: true })) userId?: string,
+  ) {
     return this.staffHrService.findAll(tenant.id, userId);
   }
 

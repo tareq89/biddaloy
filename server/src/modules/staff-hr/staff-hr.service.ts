@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -194,6 +195,11 @@ export class StaffHrService {
           where: { user_id: userId, tenant_id: tenantId, end_date: IsNull() },
         });
         if (current) {
+          if (new Date(effectiveDate).getTime() <= new Date(current.effective_date).getTime()) {
+            throw new BadRequestException(
+              "effective_date must be after the current designation's effective_date",
+            );
+          }
           const closedEndDate = new Date(effectiveDate);
           closedEndDate.setUTCDate(closedEndDate.getUTCDate() - 1);
           await historyRepo.update({ id: current.id }, { end_date: closedEndDate });

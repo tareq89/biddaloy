@@ -192,6 +192,24 @@ describe('StaffHrService', () => {
       expect(result.status).toBe(StaffEmploymentStatus.REGULAR);
     });
 
+    it('rejects an effectiveDate on or before the current row’s effective_date', async () => {
+      const open = historyRow({ id: 'open-1', effective_date: new Date('2026-06-01') });
+      const { service } = await buildService([open]);
+
+      await expect(
+        service.promote(USER_ID, TENANT_A, 'new-designation', '2026-03-01', 'admin-1'),
+      ).rejects.toThrow("effective_date must be after the current designation's effective_date");
+    });
+
+    it('rejects an effectiveDate equal to the current row’s effective_date', async () => {
+      const open = historyRow({ id: 'open-1', effective_date: new Date('2026-06-01') });
+      const { service } = await buildService([open]);
+
+      await expect(
+        service.promote(USER_ID, TENANT_A, 'new-designation', '2026-06-01', 'admin-1'),
+      ).rejects.toThrow("effective_date must be after the current designation's effective_date");
+    });
+
     it('inserts a fresh row with no prior close when there is no current designation', async () => {
       const { service, rows } = await buildService([]);
 

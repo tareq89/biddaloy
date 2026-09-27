@@ -1,10 +1,17 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuditAction } from '@biddaloy/shared';
 import { Designation } from './entities/designation.entity';
 import { AuditService } from '../audit/audit.service';
 import { CreateDesignationDto, UpdateDesignationDto } from './dto/designation.dto';
+
+/** True when `err` is a Postgres unique-violation (SQLSTATE 23505) — the
+ * partial unique index on `(tenant_id, title_en) WHERE deleted_at IS NULL`. */
+function isUniqueViolation(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false;
+  return (err as { code?: unknown }).code === '23505';
+}
 
 /** CRUD for the tenant-editable designation (job title) list. 23.2.1. */
 @Injectable()
@@ -30,7 +37,15 @@ export class DesignationService {
     tenantId: string,
     actorUserId: string,
   ): Promise<Designation> {
-    const created = await this.repo.save(this.repo.create({ ...dto, tenant_id: tenantId }));
+    let created: Designation;
+    try {
+      created = await this.repo.save(this.repo.create({ ...dto, tenant_id: tenantId }));
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw new ConflictException('A designation with this title already exists');
+      }
+      throw err;
+    }
     await this.auditService.record({
       action: AuditAction.CREATE,
       entity_type: 'Designation',
@@ -49,7 +64,14 @@ export class DesignationService {
     actorUserId: string,
   ): Promise<Designation> {
     const existing = await this.findOne(id, tenantId);
-    await this.repo.update({ id, tenant_id: tenantId }, dto);
+    try {
+      await this.repo.update({ id, tenant_id: tenantId }, dto);
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw new ConflictException('A designation with this title already exists');
+      }
+      throw err;
+    }
     await this.auditService.record({
       action: AuditAction.UPDATE,
       entity_type: 'Designation',

@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
@@ -88,6 +88,7 @@ export class ExperienceRowInputDto {
   @IsDateString()
   from_date: string;
 
+  @Transform(({ value }) => (value === '' ? undefined : value))
   @IsOptional()
   @IsDateString()
   to_date?: string;
@@ -153,6 +154,7 @@ export class TrainingRowInputDto {
   @IsDateString()
   from_date: string;
 
+  @Transform(({ value }) => (value === '' ? undefined : value))
   @IsOptional()
   @IsDateString()
   to_date?: string;
@@ -182,6 +184,7 @@ export class AchievementRowInputDto {
   @MaxLength(1000)
   description?: string;
 
+  @Transform(({ value }) => (value === '' ? undefined : value))
   @IsOptional()
   @IsDateString()
   date?: string;
