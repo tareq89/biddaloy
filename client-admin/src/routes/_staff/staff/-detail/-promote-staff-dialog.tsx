@@ -48,14 +48,14 @@ export function PromoteStaffDialog({ open, onOpenChange, userId }: PromoteStaffD
   const designationsQuery = useDesignations();
   const promoteStaff = usePromoteStaff(userId);
 
-  const [designationId, setDesignationId] = React.useState<string | undefined>(undefined);
+  const [designationId, setDesignationId] = React.useState('');
   const [effectiveDate, setEffectiveDate] = React.useState<Date | undefined>(undefined);
   const [notes, setNotes] = React.useState('');
   const [validationError, setValidationError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!open) return;
-    setDesignationId(undefined);
+    setDesignationId('');
     setEffectiveDate(undefined);
     setNotes('');
     setValidationError(null);
@@ -65,7 +65,7 @@ export function PromoteStaffDialog({ open, onOpenChange, userId }: PromoteStaffD
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (designationId === undefined) {
+    if (designationId === '') {
       setValidationError(t('hrRecord.promote.errorDesignationRequired'));
       return;
     }
@@ -74,11 +74,12 @@ export function PromoteStaffDialog({ open, onOpenChange, userId }: PromoteStaffD
       return;
     }
     setValidationError(null);
+    const trimmedNotes = notes.trim();
     promoteStaff.mutate(
       {
         designation_id: designationId,
         effective_date: toLocalDateString(effectiveDate),
-        notes: notes.trim() !== '' ? notes.trim() : undefined,
+        ...(trimmedNotes !== '' ? { notes: trimmedNotes } : {}),
       },
       { onSuccess: () => onOpenChange(false) },
     );

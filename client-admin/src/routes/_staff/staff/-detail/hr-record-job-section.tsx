@@ -76,15 +76,19 @@ export function HrRecordJobSection({ userId }: HrRecordJobSectionProps) {
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    const payload = {
-      index_no: form.index_no.trim() || undefined,
-      salary_code: form.salary_code.trim() || undefined,
-      mpo_date: form.mpo_date.trim() || undefined,
-      salary_scale: form.salary_scale.trim() || undefined,
-      department: form.department.trim() || undefined,
-      blood_group: form.blood_group.trim() || undefined,
-      religion: form.religion.trim() || undefined,
+    const trimmed = {
+      index_no: form.index_no.trim(),
+      salary_code: form.salary_code.trim(),
+      mpo_date: form.mpo_date.trim(),
+      salary_scale: form.salary_scale.trim(),
+      department: form.department.trim(),
+      blood_group: form.blood_group.trim(),
+      religion: form.religion.trim(),
     };
+    // exactOptionalPropertyTypes: omit empty fields entirely rather than setting them to undefined.
+    const payload = Object.fromEntries(
+      Object.entries(trimmed).filter(([, value]) => value !== ''),
+    ) as Partial<typeof trimmed>;
     const onSuccess = () => setEditing(false);
     if (record === null) {
       createRecord.mutate({ user_id: userId, ...payload }, { onSuccess });

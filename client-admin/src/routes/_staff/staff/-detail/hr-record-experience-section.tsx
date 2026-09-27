@@ -50,7 +50,7 @@ export function HrRecordExperienceSection({ userId }: HrRecordExperienceSectionP
     <RepeatableRowForm
       fields={fields}
       rows={rowsQuery.data ?? []}
-      onSave={(rows) => replaceRows.mutate(rows as ExperienceRow[])}
+      onSave={(rows) => replaceRows.mutate(rows)}
       emptyExplanation={t('hrRecord.experience.emptyExplanation')}
       addRowLabel={t('hrRecord.addRowAction')}
       saveLabel={t('hrRecord.saveAction')}

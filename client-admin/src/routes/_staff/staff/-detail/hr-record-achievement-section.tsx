@@ -34,7 +34,7 @@ export function HrRecordAchievementSection({ userId }: HrRecordAchievementSectio
     <RepeatableRowForm
       fields={fields}
       rows={rowsQuery.data ?? []}
-      onSave={(rows) => replaceRows.mutate(rows as AchievementRow[])}
+      onSave={(rows) => replaceRows.mutate(rows)}
       emptyExplanation={t('hrRecord.achievement.emptyExplanation')}
       addRowLabel={t('hrRecord.addRowAction')}
       saveLabel={t('hrRecord.saveAction')}

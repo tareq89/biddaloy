@@ -36,7 +36,7 @@ export function HrRecordFamilySection({ userId }: HrRecordFamilySectionProps) {
     <RepeatableRowForm
       fields={fields}
       rows={rowsQuery.data ?? []}
-      onSave={(rows) => replaceRows.mutate(rows as FamilyMemberRow[])}
+      onSave={(rows) => replaceRows.mutate(rows)}
       emptyExplanation={t('hrRecord.family.emptyExplanation')}
       addRowLabel={t('hrRecord.addRowAction')}
       saveLabel={t('hrRecord.saveAction')}

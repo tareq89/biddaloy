@@ -67,7 +67,8 @@ describe('HrRecordDocumentsSection', () => {
     let uploadedType: string | undefined;
     server.use(
       http.post('/api/v1/staff-documents/user-1/PHOTO', ({ params }) => {
-        uploadedType = params['documentType' as never] ?? 'PHOTO';
+        const documentType = params['documentType' as never];
+        uploadedType = typeof documentType === 'string' ? documentType : 'PHOTO';
         return HttpResponse.json(
           {
             id: 'doc-2',
@@ -92,7 +93,9 @@ describe('HrRecordDocumentsSection', () => {
     const user = userEvent.setup({ applyAccept: false });
     const photoUploadButtons = await screen.findAllByRole('button', { name: 'Upload' });
     // Slots render in DOCUMENT_TYPES order: NID, BIRTH_CERTIFICATE, PHOTO, OTHER.
-    await user.click(photoUploadButtons[2]);
+    const photoUploadButton = photoUploadButtons[2];
+    if (!photoUploadButton) throw new Error('expected a PHOTO upload button');
+    await user.click(photoUploadButton);
     const input = screen.getByLabelText('Photo');
     await user.upload(input, makeFile('photo.png'));
 

@@ -37,7 +37,7 @@ export function HrRecordLanguageSection({ userId }: HrRecordLanguageSectionProps
     <RepeatableRowForm
       fields={fields}
       rows={rowsQuery.data ?? []}
-      onSave={(rows) => replaceRows.mutate(rows as LanguageRow[])}
+      onSave={(rows) => replaceRows.mutate(rows)}
       emptyExplanation={t('hrRecord.language.emptyExplanation')}
       addRowLabel={t('hrRecord.addRowAction')}
       saveLabel={t('hrRecord.saveAction')}

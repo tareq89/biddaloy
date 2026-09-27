@@ -40,7 +40,7 @@ export function HrRecordEducationSection({ userId }: HrRecordEducationSectionPro
     <RepeatableRowForm
       fields={fields}
       rows={rowsQuery.data ?? []}
-      onSave={(rows) => replaceRows.mutate(rows as EducationRow[])}
+      onSave={(rows) => replaceRows.mutate(rows)}
       emptyExplanation={t('hrRecord.education.emptyExplanation')}
       addRowLabel={t('hrRecord.addRowAction')}
       saveLabel={t('hrRecord.saveAction')}
