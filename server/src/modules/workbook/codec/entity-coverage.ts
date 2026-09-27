@@ -34,6 +34,8 @@ import { RoutineSlotTeacher } from '../../routines/entities/routine-slot-teacher
 import { RoutineSubstitution } from '../../routines/entities/routine-substitution.entity';
 import { RoutineChangeRequest } from '../../routines/entities/routine-change-request.entity';
 import { StaffProfile } from '../../staff-profiles/entities/staff-profile.entity';
+import { LeaveRecord } from '../../leave/entities/leave-record.entity';
+import { LeavePolicy } from '../../leave/entities/leave-policy.entity';
 import { StaffAttendanceSession } from '../../staff-attendance/entities/staff-attendance-session.entity';
 import { StaffAttendanceRecord } from '../../staff-attendance/entities/staff-attendance-record.entity';
 
@@ -126,4 +128,6 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   [StaffProfile, 'Tenant-scoped staff HR record (employee_id), no tab planned — Epic 36.'],
   [StaffAttendanceSession, 'Tenant-scoped staff attendance day, no tab planned — Epic 36.'],
   [StaffAttendanceRecord, 'Tenant-scoped per-staff attendance mark, no tab planned — Epic 36.'],
+  [LeaveRecord, 'Tenant-scoped staff leave request/decision, no tab planned — Epic 36.'],
+  [LeavePolicy, 'Tenant-scoped leave-type quota, no tab planned — Epic 36.'],
 ]);

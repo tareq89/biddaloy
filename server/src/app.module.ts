@@ -48,6 +48,9 @@ import { StaffProfile } from './modules/staff-profiles/entities/staff-profile.en
 import { StaffAttendanceModule } from './modules/staff-attendance/staff-attendance.module';
 import { StaffAttendanceSession } from './modules/staff-attendance/entities/staff-attendance-session.entity';
 import { StaffAttendanceRecord } from './modules/staff-attendance/entities/staff-attendance-record.entity';
+import { LeaveModule } from './modules/leave/leave.module';
+import { LeaveRecord } from './modules/leave/entities/leave-record.entity';
+import { LeavePolicy } from './modules/leave/entities/leave-policy.entity';
 import { Homework } from './modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from './modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from './modules/homework/entities/homework-submission.entity';
@@ -224,6 +227,8 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
             StaffProfile,
             StaffAttendanceSession,
             StaffAttendanceRecord,
+            LeaveRecord,
+            LeavePolicy,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],
@@ -304,6 +309,7 @@ import { StudentSubjectChoice } from './modules/students/entities/student-subjec
     HomeworkModule,
     StaffProfilesModule,
     StaffAttendanceModule,
+    LeaveModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

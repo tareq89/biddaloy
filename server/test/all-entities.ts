@@ -67,6 +67,8 @@ import { HomeworkSubmission } from '../src/modules/homework/entities/homework-su
 import { SyllabusTopic } from '../src/modules/homework/entities/syllabus-topic.entity';
 import { StaffAttendanceSession } from '../src/modules/staff-attendance/entities/staff-attendance-session.entity';
 import { StaffAttendanceRecord } from '../src/modules/staff-attendance/entities/staff-attendance-record.entity';
+import { LeaveRecord } from '../src/modules/leave/entities/leave-record.entity';
+import { LeavePolicy } from '../src/modules/leave/entities/leave-policy.entity';
 
 export const ALL_ENTITIES = [
   AcademicYear,
@@ -138,4 +140,6 @@ export const ALL_ENTITIES = [
   SyllabusTopic,
   StaffAttendanceSession,
   StaffAttendanceRecord,
+  LeaveRecord,
+  LeavePolicy,
 ];
