@@ -55,6 +55,23 @@ describe('Leave E2E', () => {
 
     dataSource = app.get(DataSource);
 
+    const adminLoginRes = await supertest(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+      .expect(200);
+    adminToken = adminLoginRes.body.access_token;
+  }, 60000);
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(async () => {
+    // `leave_policies`/`staff_profiles`/`users` are all transactional
+    // tables (truncated before every test, `test/reset-order.ts`) — reseed
+    // per test rather than once in `beforeAll`, which would only survive
+    // the first test in this file.
+    //
     // The seed tenant is created by test global-setup after the migration
     // ran, so it never got the migration's per-tenant D9 seed rows — upsert
     // all five here (GET /leave/balance reads every LeaveType) rather than
@@ -71,20 +88,6 @@ describe('Leave E2E', () => {
       [TENANT_ID],
     );
 
-    const adminLoginRes = await supertest(app.getHttpServer())
-      .post('/api/v1/auth/login')
-      .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
-      .expect(200);
-    adminToken = adminLoginRes.body.access_token;
-  }, 60000);
-
-  afterAll(async () => {
-    await app.close();
-  });
-
-  beforeEach(async () => {
-    // `staff_profiles`/`users` are transactional tables (truncated before
-    // every test) — re-seed a staff profile to request leave against.
     const userRes = await dataSource.query(
       `INSERT INTO users (id, email, full_name, created_at, updated_at)
        VALUES (gen_random_uuid(), $1, 'E2E Leave Staff', NOW(), NOW()) RETURNING id`,
