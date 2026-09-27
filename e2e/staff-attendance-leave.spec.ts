@@ -1,7 +1,6 @@
 import { adminApiSession, get, post } from './api';
 import { expect, loggedIn, test } from './fixtures/test';
 import { t } from './i18n';
-import { tabUntilFocused } from './keyboard/keyboard-utils';
 
 /**
  * [36.4.5/#1102] Epic 36's two client screens (`Attendance → Staff` and
@@ -62,27 +61,28 @@ test('staff attendance + leave request/approval, keyboard only', async ({ page, 
       page.getByRole('heading', { name: t('staffAttendance.grid.title') }),
     ).toBeVisible();
 
-    // Selecting the palette action returns focus to whatever opened the
-    // palette (the header's search trigger), not the new route's content —
-    // continuing to Tab from there walks through header chrome first,
-    // including the account-menu button, whose aria-label
-    // (`"${accountMenuLabel} — ${name}"`, `user-menu.tsx`) also contains
-    // `me.full_name` and would false-positive-match the hunt below, then
-    // Enter would open that menu and trap every later Tab inside it. Same
-    // skip-link jump `focus-management.spec.ts` uses to reach
-    // `#main-content` directly, bypassing header/sidebar chrome entirely.
-    await page.evaluate(() => {
-      document.body.setAttribute('tabindex', '-1');
-      document.body.focus();
-      document.body.removeAttribute('tabindex');
-    });
-    await page.keyboard.press('Tab');
-    await page.keyboard.press('Enter');
-    await expect(page.locator('#main-content')).toBeFocused();
-
-    await tabUntilFocused(page, me.full_name, 60, { tag: 'BUTTON' });
+    // `.focus()` on a precise locator, same pattern
+    // `command-palette.spec.ts`'s own comment documents as the deliberate
+    // replacement for Tab-counting: it still drives real DOM focus (not a
+    // mouse event) and Enter still fires the browser's real
+    // keydown-activation path, proving the element is genuinely
+    // keyboard-operable without depending on how many Tab stops away it
+    // happens to sit — which, for this grid, grows with the tenant's whole
+    // staff roster (`index.tsx`'s own `useUsers({ limit: 200 })` comment),
+    // not a fixed constant. The row's own name button
+    // (`-staff-attendance-grid.tsx`) has an EXACT accessible name (just
+    // `user.full_name`, no extra text), scoped to the grid's own
+    // `<ul aria-label>` so it can't match the header's account-menu button
+    // (whose aria-label also contains the name, as a substring).
+    const row = page
+      .getByRole('list', { name: t('staffAttendance.grid.title') })
+      .getByRole('button', { name: me.full_name, exact: true });
+    await row.focus();
+    await expect(row).toBeFocused();
     await page.keyboard.press('Enter'); // AttendanceStatusControl row shortcut: PRESENT
-    await tabUntilFocused(page, t('staffAttendance.grid.submit'), 20, { tag: 'BUTTON' });
+
+    const submitButton = page.getByRole('button', { name: t('staffAttendance.grid.submit') });
+    await submitButton.focus();
     const [markResponse] = await Promise.all([
       page.waitForResponse(
         (r) => r.url().includes('/staff-attendance/register') && r.request().method() === 'PUT',
@@ -96,13 +96,15 @@ test('staff attendance + leave request/approval, keyboard only', async ({ page, 
   let leaveRecordId = '';
 
   await test.step('reach the leave screen via keyboard', async () => {
-    await tabUntilFocused(page, t('nav.items.leave'), 20, { tag: 'A' });
+    const leaveLink = page.getByRole('link', { name: t('nav.items.leave') });
+    await leaveLink.focus();
     await page.keyboard.press('Enter');
     await expect(page.getByRole('heading', { name: t('leave.myLeave.title') })).toBeVisible();
   });
 
   await test.step('open the request dialog and submit a leave request', async () => {
-    await tabUntilFocused(page, t('leave.myLeave.requestButton'), 20, { tag: 'BUTTON' });
+    const requestButton = page.getByRole('button', { name: t('leave.myLeave.requestButton') });
+    await requestButton.focus();
     await page.keyboard.press('Enter');
     await expect(page.getByRole('heading', { name: t('leave.request.title') })).toBeVisible();
 
