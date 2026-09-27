@@ -62,6 +62,9 @@ export function userResponseFactory(
     // catch code rendering the wrong one as "member since".
     member_since: '2025-03-15T00:00:00.000Z',
     invitation_status: 'NONE',
+    // [#1102] `UserResponseDto` carries `staff_profile_id` for real now —
+    // `null` by default (no staff HR record), override per test.
+    staff_profile_id: null,
     ...overrides,
   };
 }

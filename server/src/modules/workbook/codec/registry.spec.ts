@@ -45,7 +45,7 @@ function fakeTab(overrides: Partial<TabSpec<unknown, unknown>> = {}): TabSpec<un
 }
 
 describe('EXPECTED_TABS', () => {
-  it('lists the 32 tab names in epic decision D2 order', () => {
+  it('lists the 37 tab names in epic decision D2 order', () => {
     expect(EXPECTED_TABS).toEqual([
       'school',
       'academic_years',
@@ -55,6 +55,7 @@ describe('EXPECTED_TABS', () => {
       'class_subjects',
       'calendar_events',
       'users',
+      'staff_profiles',
       'teachers',
       'teacher_assignments',
       'guardians',
@@ -82,6 +83,10 @@ describe('EXPECTED_TABS', () => {
       'homework_assignments',
       'homework_submissions',
       'syllabus_topics',
+      'staff_attendance_sessions',
+      'staff_attendance_records',
+      'leave_policies',
+      'leave_records',
     ]);
   });
 
@@ -226,7 +231,7 @@ describe('assertRegistryValid', () => {
   it('throws when a tab name is not in EXPECTED_TABS', () => {
     const tabs = [fakeTab({ name: 'student' })];
 
-    expect(() => assertRegistryValid(tabs)).toThrow(/is not one of the 32 names in EXPECTED_TABS/);
+    expect(() => assertRegistryValid(tabs)).toThrow(/is not one of the 37 names in EXPECTED_TABS/);
   });
 
   // While epic 14.0 is in flight the four lanes land tabs independently, so

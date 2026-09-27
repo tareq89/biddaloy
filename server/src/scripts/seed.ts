@@ -35,6 +35,11 @@ import { Homework } from '../modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from '../modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from '../modules/homework/entities/homework-submission.entity';
 import { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.entity';
+import { StaffProfile } from '../modules/staff-profiles/entities/staff-profile.entity';
+import { StaffAttendanceSession } from '../modules/staff-attendance/entities/staff-attendance-session.entity';
+import { StaffAttendanceRecord } from '../modules/staff-attendance/entities/staff-attendance-record.entity';
+import { LeavePolicy } from '../modules/leave/entities/leave-policy.entity';
+import { LeaveRecord } from '../modules/leave/entities/leave-record.entity';
 import { DEV_SEED_PLATFORM_TENANT_ID } from '../config/env.validation';
 import { seedAccounts } from './seed.accounts';
 import { ensureDemoOrganisation } from './seed.util';
@@ -154,6 +159,11 @@ export async function seed() {
       homeworkAssignmentRepository: dataSource.getRepository(HomeworkAssignment),
       homeworkSubmissionRepository: dataSource.getRepository(HomeworkSubmission),
       syllabusTopicRepository: dataSource.getRepository(SyllabusTopic),
+      staffProfileRepository: dataSource.getRepository(StaffProfile),
+      leavePolicyRepository: dataSource.getRepository(LeavePolicy),
+      staffAttendanceSessionRepository: dataSource.getRepository(StaffAttendanceSession),
+      staffAttendanceRecordRepository: dataSource.getRepository(StaffAttendanceRecord),
+      leaveRecordRepository: dataSource.getRepository(LeaveRecord),
     },
     school,
     adminEmail,

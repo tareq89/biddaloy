@@ -33,11 +33,6 @@ import { RoutineSlot } from '../../routines/entities/routine-slot.entity';
 import { RoutineSlotTeacher } from '../../routines/entities/routine-slot-teacher.entity';
 import { RoutineSubstitution } from '../../routines/entities/routine-substitution.entity';
 import { RoutineChangeRequest } from '../../routines/entities/routine-change-request.entity';
-import { StaffProfile } from '../../staff-profiles/entities/staff-profile.entity';
-import { LeaveRecord } from '../../leave/entities/leave-record.entity';
-import { LeavePolicy } from '../../leave/entities/leave-policy.entity';
-import { StaffAttendanceSession } from '../../staff-attendance/entities/staff-attendance-session.entity';
-import { StaffAttendanceRecord } from '../../staff-attendance/entities/staff-attendance-record.entity';
 
 /**
  * Entities that `registry.completeness.spec.ts` allows to have no workbook
@@ -122,12 +117,4 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
     RoutineChangeRequest,
     'Tenant-scoped routine change request, no tab yet — tracked in Epic 21.0 [21.11.1].',
   ],
-
-  // --- Epic 36 (staff attendance & leave): staff HR data, no workbook
-  // tab planned for this epic.
-  [StaffProfile, 'Tenant-scoped staff HR record (employee_id), no tab planned — Epic 36.'],
-  [StaffAttendanceSession, 'Tenant-scoped staff attendance day, no tab planned — Epic 36.'],
-  [StaffAttendanceRecord, 'Tenant-scoped per-staff attendance mark, no tab planned — Epic 36.'],
-  [LeaveRecord, 'Tenant-scoped staff leave request/decision, no tab planned — Epic 36.'],
-  [LeavePolicy, 'Tenant-scoped leave-type quota, no tab planned — Epic 36.'],
 ]);

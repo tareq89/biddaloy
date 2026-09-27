@@ -1,5 +1,6 @@
 import type { TabSpec } from '../../codec/tab-spec';
 import { usersTab } from './users.tab';
+import { staffProfileTab } from './staff-profile.tab';
 import { teachersTab } from './teachers.tab';
 import { teacherAssignmentsTab } from './teacher-assignments.tab';
 import { guardiansTab } from './guardians.tab';
@@ -11,7 +12,10 @@ import { enrollmentsTab } from './enrollments.tab';
  * separate barrel so that no two lanes ever edit `codec/registry.ts`.
  *
  * Registered in dependency order: `users` first (depends only on `school`),
- * then `teachers` (depends on `users`), then `teacher_assignments`
+ * then `staff_profiles` (depends on `users`; [36.4.5] added this ahead of
+ * `teachers` because `teachers.staff_profile_id` now FKs it, though that
+ * column is excluded from `teachers.tab.ts` as system-derived), then
+ * `teachers` (depends on `users`), then `teacher_assignments`
  * (depends on `teachers` plus the academics lane's `classes`,
  * `academic_years`, `sections`, `subjects`). `guardians` depends only on
  * `users`, but sits after `teacher_assignments` because the registry must be
@@ -24,6 +28,7 @@ import { enrollmentsTab } from './enrollments.tab';
  */
 export const peopleTabs: TabSpec<any, any>[] = [
   usersTab,
+  staffProfileTab,
   teachersTab,
   teacherAssignmentsTab,
   guardiansTab,
@@ -31,8 +36,17 @@ export const peopleTabs: TabSpec<any, any>[] = [
   enrollmentsTab,
 ];
 
-export { usersTab, teachersTab, teacherAssignmentsTab, guardiansTab, studentsTab, enrollmentsTab };
+export {
+  usersTab,
+  staffProfileTab,
+  teachersTab,
+  teacherAssignmentsTab,
+  guardiansTab,
+  studentsTab,
+  enrollmentsTab,
+};
 export type { UserRow } from './users.tab';
+export type { StaffProfileRow } from './staff-profile.tab';
 export type { TeacherRow } from './teachers.tab';
 export type { TeacherAssignmentRow } from './teacher-assignments.tab';
 export type { GuardianRow } from './guardians.tab';
