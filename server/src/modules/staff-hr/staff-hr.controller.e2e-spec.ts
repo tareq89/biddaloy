@@ -223,6 +223,40 @@ describe('Staff HR E2E (23.2.1)', () => {
     expect(auditRow.tenant_id).toBe(TENANT_A);
   });
 
+  it('no-ops a PATCH with an empty body instead of 500ing (staff-hr-record)', async () => {
+    const createRes = await supertest(app.getHttpServer())
+      .post(`${API}/staff-hr-records`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .send({ user_id: STAFF_USER_ID, index_no: 'IDX-002', department: 'Arts' })
+      .expect(201);
+
+    const patchRes = await supertest(app.getHttpServer())
+      .patch(`${API}/staff-hr-records/${createRes.body.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .send({})
+      .expect(200);
+    expect(patchRes.body.department).toBe('Arts');
+  });
+
+  it('no-ops a PATCH with an empty body instead of 500ing (designation)', async () => {
+    const createRes = await supertest(app.getHttpServer())
+      .post(`${API}/designations`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .send({ title_en: 'Lab Assistant', title_bn: 'ল্যাব সহকারী', is_teaching: false })
+      .expect(201);
+
+    const patchRes = await supertest(app.getHttpServer())
+      .patch(`${API}/designations/${createRes.body.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .send({})
+      .expect(200);
+    expect(patchRes.body.title_en).toBe('Lab Assistant');
+  });
+
   it('promotes a staff member: closes the current row, inserts a new one, and audits it', async () => {
     const designationRes = await supertest(app.getHttpServer())
       .post(`${API}/designations`)

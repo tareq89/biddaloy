@@ -64,6 +64,7 @@ export class DesignationService {
     actorUserId: string,
   ): Promise<Designation> {
     const existing = await this.findOne(id, tenantId);
+    if (Object.keys(dto).length === 0) return existing;
     try {
       await this.repo.update({ id, tenant_id: tenantId }, dto);
     } catch (err) {

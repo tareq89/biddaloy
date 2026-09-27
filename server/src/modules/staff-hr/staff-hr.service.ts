@@ -142,6 +142,7 @@ export class StaffHrService {
     actorUserId: string,
   ): Promise<StaffHrRecord> {
     const existing = await this.findOne(id, tenantId);
+    if (Object.keys(dto).length === 0) return existing;
     await this.hrRecordRepo.update({ id, tenant_id: tenantId }, dto);
     await this.auditService.record({
       action: AuditAction.UPDATE,
