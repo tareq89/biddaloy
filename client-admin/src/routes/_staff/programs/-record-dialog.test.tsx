@@ -1,0 +1,143 @@
+/**
+ * [34.4.1], D5 — `RecordDialog`: prefills the milestone and one enrolment
+ * when opened from a Students-tab row, supports multi-select, `Enter`
+ * submits the form, and calls `onRecorded` (which the caller uses to
+ * close and return focus). Same hand-rolled provider stack as
+ * `-copy-scale-dialog.test.tsx`.
+ */
+import { setActiveRole, setActiveTenant } from '@biddaloy/ui/api';
+import { I18nProvider, i18n } from '@biddaloy/ui/i18n';
+import { cleanupTestState, createTestQueryClient, server } from '@biddaloy/ui/test';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { RecordDialog, type RecordDialogProps } from './-record-dialog';
+
+afterEach(async () => {
+  await cleanupTestState();
+});
+
+const PROGRAM = {
+  id: 'p-1',
+  name: 'Reading Club',
+  description: null,
+  is_active: true,
+  show_on_report_card: false,
+  milestones: [
+    { id: 'm-1', name: 'Read 5 books', description: null, sequence: 1, achievement_count: 0 },
+  ],
+};
+
+const ENROLLMENTS = [
+  {
+    id: 'enr-1',
+    status: 'ACTIVE',
+    started_on: '2026-01-01',
+    ended_on: null,
+    student: {
+      id: 'student-1',
+      full_name: 'Anika Rahman',
+      roll_number: '12',
+      class_name: null,
+      section_name: null,
+    },
+    achieved_count: 0,
+    milestone_total: 1,
+  },
+  {
+    id: 'enr-2',
+    status: 'ACTIVE',
+    started_on: '2026-01-01',
+    ended_on: null,
+    student: {
+      id: 'student-2',
+      full_name: 'Bilal Hasan',
+      roll_number: '13',
+      class_name: null,
+      section_name: null,
+    },
+    achieved_count: 0,
+    milestone_total: 1,
+  },
+];
+
+async function renderDialog(props: Partial<RecordDialogProps> = {}) {
+  await i18n.changeLanguage('en');
+  setActiveTenant('tenant-1');
+  setActiveRole('ADMIN');
+
+  server.use(
+    http.get('/api/v1/programs', () => HttpResponse.json([PROGRAM])),
+    http.get('/api/v1/programs/:id', () => HttpResponse.json(PROGRAM)),
+    http.get('/api/v1/programs/:id/enrollments', () => HttpResponse.json(ENROLLMENTS)),
+  );
+
+  const queryClient = createTestQueryClient();
+  const onOpenChange = vi.fn();
+  const onRecorded = vi.fn();
+
+  const view = render(
+    <QueryClientProvider client={queryClient}>
+      <I18nProvider>
+        <RecordDialog
+          open
+          onOpenChange={onOpenChange}
+          programId="p-1"
+          onRecorded={onRecorded}
+          {...props}
+        />
+      </I18nProvider>
+    </QueryClientProvider>,
+  );
+
+  return { ...view, onOpenChange, onRecorded };
+}
+
+describe('RecordDialog', () => {
+  it('prefills the milestone and enrolment from the invoking row', async () => {
+    await renderDialog({
+      milestoneId: 'm-1',
+      enrollmentIdPrefill: 'enr-1',
+      studentId: 'student-1',
+    });
+
+    await screen.findAllByText('Read 5 books');
+    const checkbox = (await screen.findAllByRole('checkbox'))[0]!;
+    expect(checkbox.getAttribute('data-state')).toBe('checked');
+  });
+
+  it('supports multi-selecting students, submits on Enter, and calls onRecorded', async () => {
+    const user = userEvent.setup();
+    let requestBody: unknown;
+    server.use(
+      http.get('/api/v1/programs/:id', () => HttpResponse.json(PROGRAM)),
+      http.get('/api/v1/programs/:id/enrollments', () => HttpResponse.json(ENROLLMENTS)),
+      http.post('/api/v1/programs/:id/achievements', async ({ request }) => {
+        requestBody = await request.json();
+        return HttpResponse.json({ upserted: 2 });
+      }),
+    );
+
+    const { onRecorded } = await renderDialog({
+      milestoneId: 'm-1',
+      enrollmentIdPrefill: 'enr-1',
+      studentId: 'student-1',
+    });
+
+    const checkboxes = await screen.findAllByRole('checkbox');
+    await user.click(checkboxes[1]!);
+
+    const gradeInput = screen.getByLabelText('Grade');
+    await user.click(gradeInput);
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => expect(onRecorded).toHaveBeenCalled());
+    expect(requestBody).toMatchObject({
+      milestone_id: 'm-1',
+      enrollment_ids: expect.arrayContaining(['enr-1', 'enr-2']),
+    });
+  });
+});

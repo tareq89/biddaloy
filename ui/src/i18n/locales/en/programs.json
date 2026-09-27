@@ -3,6 +3,7 @@
     "title": "Programs",
     "empty": "No programs found",
     "showArchived": "Show archived",
+    "errorMessage": "Couldn't load programs",
     "columns": {
       "name": "Name",
       "milestones": "Milestones",
@@ -11,10 +12,30 @@
     }
   },
   "detail": {
+    "forbidden": "You don't have permission to view this program",
+    "archivedBadge": "Archived",
     "tabs": {
       "milestones": "Milestones",
       "students": "Students"
     }
+  },
+  "formDialog": {
+    "createTitle": "Add program",
+    "editTitle": "Edit program",
+    "description": "A program's milestones track a student's progress toward it.",
+    "nameLabel": "Name",
+    "descriptionLabel": "Description",
+    "showOnReportCard": "Show on report card",
+    "errorMessage": "Couldn't save this program",
+    "saving": "Saving…",
+    "save": "Save",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "delete": "Delete",
+    "deleteDisabledHint": "This program has enrolled students — archive it instead of deleting.",
+    "deleteConfirm": "Delete this program? This can't be undone.",
+    "deleteConflict": "This program has enrolled students — archive it instead of deleting.",
+    "deleteConfirmButton": "Delete"
   },
   "milestones": {
     "add": "Add milestone",
@@ -23,7 +44,9 @@
     "removeConfirm_one": "This milestone has {{count}} recorded achievement. Removing it will delete that record too.",
     "removeConfirm_other": "This milestone has {{count}} recorded achievements. Removing them will delete those records too.",
     "reorderHint": "Drag to reorder milestones.",
-    "emptyHint": "Add milestones to track progress"
+    "emptyHint": "Add milestones to track progress",
+    "moveUp": "Move milestone up",
+    "moveDown": "Move milestone down"
   },
   "students": {
     "enrol": "Enrol",
@@ -42,7 +65,8 @@
       "students": "Students",
       "startedOn": "Started on",
       "skipped_one": "{{count}} student already enrolled, skipped.",
-      "skipped_other": "{{count}} students already enrolled, skipped."
+      "skipped_other": "{{count}} students already enrolled, skipped.",
+      "errorMessage": "Couldn't enrol these students"
     },
     "record": {
       "title": "Record achievement",
@@ -52,7 +76,8 @@
       "score": "Score",
       "grade": "Grade",
       "remark": "Remark",
-      "save": "Save"
+      "save": "Save",
+      "errorMessage": "Couldn't record this achievement"
     }
   },
   "status": {
