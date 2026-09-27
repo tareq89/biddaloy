@@ -190,7 +190,12 @@ export const staffProfileTab: TabSpec<StaffProfile, StaffProfileRow> = {
     staffProfile.tenant_id = tenantId;
     staffProfile.user_id = row.user_id;
     staffProfile.employee_id = row.employee_id;
-    staffProfile.joining_date = row.joining_date ? new Date(row.joining_date) : null;
+    // `Date(row.joining_date)` would parse the ISO string as UTC midnight,
+    // then TypeORM's Postgres driver formats a `Date` value via local
+    // calendar getters for a `date` column — on a west-of-UTC server that
+    // shifts to the previous local day. A date *string* passes through
+    // unchanged, so keep it one.
+    staffProfile.joining_date = (row.joining_date ?? null) as unknown as Date | null;
 
     return m.save(StaffProfile, staffProfile);
   },
