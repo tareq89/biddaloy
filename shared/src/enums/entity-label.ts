@@ -41,6 +41,10 @@ export const EntityLabel = {
   homeworkAssignment: 'homeworkAssignment',
   homeworkSubmission: 'homeworkSubmission',
   syllabusTopic: 'syllabusTopic',
+  // [34.1.1] Epic 34.0's programs/milestones vocabulary.
+  program: 'program',
+  programMilestone: 'programMilestone',
+  programEnrollment: 'programEnrollment',
 } as const;
 
 export type EntityLabel = (typeof EntityLabel)[keyof typeof EntityLabel];

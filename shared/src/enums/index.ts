@@ -347,3 +347,4 @@ export * from './routines';
 export * from './homework';
 export * from './admission';
 export * from './seat-plan';
+export * from './programs';

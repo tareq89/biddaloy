@@ -10,8 +10,11 @@ import {
   ExamComponentSource,
   ExamKind,
   ExamStatus,
+  FeeType,
   MarkGridState,
   MarkStatus,
+  PeriodType,
+  ProgramEnrollmentStatus,
   PublicHolidaySource,
   SeatOrderMode,
   SeatPlanStatus,
@@ -84,6 +87,13 @@ import { HomeworkSubmission } from '../modules/homework/entities/homework-submis
 import { SyllabusTopic } from '../modules/homework/entities/syllabus-topic.entity';
 import { PromotionRun } from '../modules/promotions/entities/promotion-run.entity';
 import { PromotionEntry } from '../modules/promotions/entities/promotion-entry.entity';
+import { Program } from '../modules/programs/entities/program.entity';
+import { ProgramMilestone } from '../modules/programs/entities/program-milestone.entity';
+import { ProgramEnrollment } from '../modules/programs/entities/program-enrollment.entity';
+import { MilestoneAchievement } from '../modules/programs/entities/milestone-achievement.entity';
+import { FeeStructure } from '../modules/fees/entities/fee-structure.entity';
+import { RecurringSchedule } from '../modules/fees/entities/recurring-schedule.entity';
+import { RecurringScheduleStructure } from '../modules/fees/entities/recurring-schedule-structure.entity';
 
 /** [8.9.5] manual-testing aid: gives the seed admin a *second* school
  * membership so `/select-school`'s picker actually has something to show
@@ -2701,6 +2711,318 @@ export async function ensureHomeworkDemoSeed(
     console.log(
       `  Homework demo seed: +${result.homework} homework, +${result.assignments} assignments, ` +
         `+${result.submissions} submissions, +${result.syllabusTopics} syllabus topics`,
+    );
+  }
+  return result;
+}
+
+// ===========================================================================
+// [34.1.4] Programs demo data
+// ===========================================================================
+
+export interface ProgramsDemoSeedRepositories {
+  programRepository: Repository<Program>;
+  programMilestoneRepository: Repository<ProgramMilestone>;
+}
+
+export interface ProgramsDemoSeedParams {
+  schoolId: string;
+}
+
+export interface ProgramsDemoSeedResult {
+  programs: number;
+  milestones: number;
+}
+
+/** Idempotent, same find-or-create shape as `ensureHomeworkDemoSeed`: two
+ * `Program`s that show off the two shapes a program can take — "Hifz" with
+ * 30 milestones ("Para 1".."Para 30") and `show_on_report_card: true`, and
+ * "Debate club" with zero milestones and `show_on_report_card: false` (D6).
+ * Enrolment/achievement/fee-schedule rows need a student roster this
+ * function's call site doesn't have — see `ensureProgramParticipationDemoSeed`
+ * below, called separately once Class 6's roster is resolved. */
+export async function ensureProgramsDemoSeed(
+  repos: ProgramsDemoSeedRepositories,
+  params: ProgramsDemoSeedParams,
+): Promise<ProgramsDemoSeedResult> {
+  const { schoolId } = params;
+  const result: ProgramsDemoSeedResult = { programs: 0, milestones: 0 };
+
+  let hifz = await repos.programRepository.findOne({
+    where: { tenant_id: schoolId, name: 'Hifz' },
+  });
+  if (!hifz) {
+    hifz = repos.programRepository.create({
+      tenant_id: schoolId,
+      name: 'Hifz',
+      description: null,
+      is_active: true,
+      show_on_report_card: true,
+    });
+    await repos.programRepository.save(hifz);
+    result.programs += 1;
+  }
+
+  for (let sequence = 1; sequence <= 30; sequence += 1) {
+    const existing = await repos.programMilestoneRepository.findOne({
+      where: { tenant_id: schoolId, program_id: hifz.id, sequence },
+    });
+    if (existing) continue;
+
+    await repos.programMilestoneRepository.save(
+      repos.programMilestoneRepository.create({
+        tenant_id: schoolId,
+        program_id: hifz.id,
+        name: `Para ${sequence}`,
+        description: null,
+        sequence,
+      }),
+    );
+    result.milestones += 1;
+  }
+
+  const debateClub = await repos.programRepository.findOne({
+    where: { tenant_id: schoolId, name: 'Debate club' },
+  });
+  if (!debateClub) {
+    await repos.programRepository.save(
+      repos.programRepository.create({
+        tenant_id: schoolId,
+        name: 'Debate club',
+        description: null,
+        is_active: true,
+        show_on_report_card: false,
+      }),
+    );
+    result.programs += 1;
+  }
+
+  if (result.programs > 0 || result.milestones > 0) {
+    console.log(
+      `  Programs demo seed: +${result.programs} programs, +${result.milestones} milestones`,
+    );
+  }
+  return result;
+}
+
+// [34.2.4] Hifz/Debate enrolments, Hifz achievements and a program-targeted
+// recurring fee schedule.
+
+export interface ProgramParticipationDemoSeedRepositories {
+  programRepository: Repository<Program>;
+  programMilestoneRepository: Repository<ProgramMilestone>;
+  programEnrollmentRepository: Repository<ProgramEnrollment>;
+  milestoneAchievementRepository: Repository<MilestoneAchievement>;
+  feeStructureRepository: Repository<FeeStructure>;
+  recurringScheduleRepository: Repository<RecurringSchedule>;
+  recurringScheduleStructureRepository: Repository<RecurringScheduleStructure>;
+}
+
+export interface ProgramParticipationDemoSeedParams {
+  schoolId: string;
+  academicYearId: string;
+  /** Class 6 section A (roll order) then section B (roll order) — 6 ids. */
+  studentIds: readonly string[];
+  recordedByUserId: string | null;
+}
+
+export interface ProgramParticipationDemoSeedResult {
+  enrollments: number;
+  achievements: number;
+  feeStructures: number;
+  schedules: number;
+  scheduleStructures: number;
+}
+
+const HIFZ_ACHIEVEMENT_SEED: ReadonlyArray<{ studentIndex: number; paras: number[] }> = [
+  { studentIndex: 0, paras: [1, 2, 3, 4, 5, 6, 7, 8] },
+  { studentIndex: 1, paras: [1, 2, 3, 5, 6, 30] },
+  { studentIndex: 2, paras: [1, 2, 4] },
+  { studentIndex: 3, paras: [30, 29, 28, 1] },
+  { studentIndex: 5, paras: [1, 2, 3, 4] },
+];
+
+/** Enrolments/achievements/a fee schedule on top of `ensureProgramsDemoSeed`'s
+ * two programs, laid over the Class 6 A+B roster `ensureExamsDemoSeed` above
+ * already resolved — kept a separate function (rather than folded into
+ * `ensureProgramsDemoSeed`) because that function's call site runs before any
+ * roster lookup exists. Idempotent, same find-or-create shape as the rest of
+ * this file. Billing behaviour itself (who a `program_id` audience bills, and
+ * that WITHDRAWN stops it) is proven by
+ * `fees-daily.scheduler.integration.spec.ts`, not here — this only has to
+ * prove the rows are shaped right. */
+export async function ensureProgramParticipationDemoSeed(
+  repos: ProgramParticipationDemoSeedRepositories,
+  params: ProgramParticipationDemoSeedParams,
+): Promise<ProgramParticipationDemoSeedResult> {
+  const { schoolId, academicYearId, studentIds, recordedByUserId } = params;
+  const result: ProgramParticipationDemoSeedResult = {
+    enrollments: 0,
+    achievements: 0,
+    feeStructures: 0,
+    schedules: 0,
+    scheduleStructures: 0,
+  };
+
+  if (studentIds.length < 6) {
+    throw new Error(
+      `ensureProgramParticipationDemoSeed needs 6 Class 6 A+B student ids, got ${studentIds.length}`,
+    );
+  }
+
+  const hifz = await repos.programRepository.findOne({
+    where: { tenant_id: schoolId, name: 'Hifz' },
+  });
+  const debateClub = await repos.programRepository.findOne({
+    where: { tenant_id: schoolId, name: 'Debate club' },
+  });
+  if (!hifz || !debateClub) {
+    throw new Error(
+      'ensureProgramParticipationDemoSeed requires ensureProgramsDemoSeed to have run first',
+    );
+  }
+
+  async function ensureEnrollment(
+    programId: string,
+    studentId: string,
+    status: ProgramEnrollmentStatus,
+    endedOn: string | null,
+  ): Promise<ProgramEnrollment> {
+    const existing = await repos.programEnrollmentRepository.findOne({
+      where: { tenant_id: schoolId, program_id: programId, student_id: studentId },
+    });
+    if (existing) return existing;
+    const created = await repos.programEnrollmentRepository.save(
+      repos.programEnrollmentRepository.create({
+        tenant_id: schoolId,
+        program_id: programId,
+        student_id: studentId,
+        started_on: '2026-01-10',
+        ended_on: endedOn,
+        status,
+      }),
+    );
+    result.enrollments += 1;
+    return created;
+  }
+
+  const hifzEnrollments: ProgramEnrollment[] = [];
+  for (let i = 0; i < 6; i += 1) {
+    const isWithdrawn = i === 5;
+    hifzEnrollments.push(
+      await ensureEnrollment(
+        hifz.id,
+        studentIds[i],
+        isWithdrawn ? ProgramEnrollmentStatus.WITHDRAWN : ProgramEnrollmentStatus.ACTIVE,
+        isWithdrawn ? '2026-06-30' : null,
+      ),
+    );
+  }
+  for (const i of [0, 1, 3, 4]) {
+    await ensureEnrollment(debateClub.id, studentIds[i], ProgramEnrollmentStatus.ACTIVE, null);
+  }
+
+  for (const { studentIndex, paras } of HIFZ_ACHIEVEMENT_SEED) {
+    const enrollment = hifzEnrollments[studentIndex];
+    for (let i = 0; i < paras.length; i += 1) {
+      const sequence = paras[i];
+      const milestone = await repos.programMilestoneRepository.findOne({
+        where: { tenant_id: schoolId, program_id: hifz.id, sequence },
+      });
+      if (!milestone) {
+        throw new Error(
+          `ensureProgramParticipationDemoSeed: no Hifz milestone at para ${sequence}`,
+        );
+      }
+      const existing = await repos.milestoneAchievementRepository.findOne({
+        where: { enrollment_id: enrollment.id, milestone_id: milestone.id },
+      });
+      if (existing) continue;
+
+      const isScored = i === 0 && [0, 1, 3].includes(studentIndex);
+      await repos.milestoneAchievementRepository.save(
+        repos.milestoneAchievementRepository.create({
+          tenant_id: schoolId,
+          program_id: hifz.id,
+          enrollment_id: enrollment.id,
+          milestone_id: milestone.id,
+          achieved_on: `2026-03-${String(i + 1).padStart(2, '0')}`,
+          recorded_by: recordedByUserId,
+          score: isScored ? '95.00' : null,
+          grade: isScored ? 'A+' : null,
+          remark: isScored ? 'Recited without error' : null,
+        }),
+      );
+      result.achievements += 1;
+    }
+  }
+
+  let feeStructure = await repos.feeStructureRepository.findOne({
+    where: { tenant_id: schoolId, academic_year_id: academicYearId, name: 'Hifz monthly fee' },
+  });
+  if (!feeStructure) {
+    feeStructure = await repos.feeStructureRepository.save(
+      repos.feeStructureRepository.create({
+        tenant_id: schoolId,
+        academic_year_id: academicYearId,
+        name: 'Hifz monthly fee',
+        fee_type: FeeType.OTHER,
+        amount: 800,
+        class_id: null,
+        section_id: null,
+      }),
+    );
+    result.feeStructures += 1;
+  }
+
+  let schedule = await repos.recurringScheduleRepository.findOne({
+    where: { tenant_id: schoolId, academic_year_id: academicYearId, name: 'Hifz monthly fee' },
+  });
+  if (!schedule) {
+    schedule = await repos.recurringScheduleRepository.save(
+      repos.recurringScheduleRepository.create({
+        tenant_id: schoolId,
+        academic_year_id: academicYearId,
+        name: 'Hifz monthly fee',
+        audience: { program_id: hifz.id, enrollment_status: 'ACTIVE' },
+        rule: { kind: 'MONTHLY', day_of_month: 1 },
+        period_type: PeriodType.MONTH,
+        due_days_after_period_start: 9,
+        starts_on: DEMO_ACADEMIC_YEAR.start_date,
+        ends_on: DEMO_ACADEMIC_YEAR.end_date,
+        notify_families: false,
+        is_active: true,
+        last_run_period: null,
+        created_by_user_id: recordedByUserId,
+      }),
+    );
+    result.schedules += 1;
+  }
+
+  const existingLink = await repos.recurringScheduleStructureRepository.findOne({
+    where: { schedule_id: schedule.id, fee_structure_id: feeStructure.id },
+  });
+  if (!existingLink) {
+    await repos.recurringScheduleStructureRepository.save(
+      repos.recurringScheduleStructureRepository.create({
+        schedule_id: schedule.id,
+        fee_structure_id: feeStructure.id,
+      }),
+    );
+    result.scheduleStructures += 1;
+  }
+
+  if (
+    result.enrollments > 0 ||
+    result.achievements > 0 ||
+    result.feeStructures > 0 ||
+    result.schedules > 0 ||
+    result.scheduleStructures > 0
+  ) {
+    console.log(
+      `  Program participation demo seed: +${result.enrollments} enrollments, ` +
+        `+${result.achievements} achievements, +${result.feeStructures} fee structures, ` +
+        `+${result.schedules} schedules, +${result.scheduleStructures} schedule structures`,
     );
   }
   return result;

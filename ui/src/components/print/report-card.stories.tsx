@@ -38,6 +38,10 @@ const LABELS = {
   fourthSubject: '4th subject',
   absent: 'Absent',
   legendTitle: 'Grade legend',
+  programs: 'Programs',
+  progress: 'Progress',
+  latestMilestone: 'Latest milestone',
+  scoreGrade: 'Score/Grade',
 };
 
 const LEGEND = [
@@ -144,4 +148,35 @@ export const FourthSubject: Story = {
 
 export const Bengali: Story = {
   args: { data: DATA, issuer: ISSUER, labels: LABELS, activeLanguage: 'bn' },
+};
+
+// Default `DATA` has no `programs` — confirms the block stays absent when
+// the field is undefined, same as an opted-in-programless student.
+export const WithPrograms: Story = {
+  args: {
+    data: {
+      ...DATA,
+      programs: [
+        {
+          program_name: 'Hifz Circle',
+          achieved_count: 7,
+          milestone_total: 30,
+          latest: { milestone_name: 'Juz 5', achieved_on: '2026-03-01', score: 92.5, grade: 'A' },
+        },
+        {
+          program_name: 'Scouting',
+          achieved_count: 10,
+          milestone_total: 10,
+          latest: {
+            milestone_name: 'Camp Badge',
+            achieved_on: '2026-06-01',
+            score: null,
+            grade: null,
+          },
+        },
+      ],
+    },
+    issuer: ISSUER,
+    labels: LABELS,
+  },
 };

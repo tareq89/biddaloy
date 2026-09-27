@@ -39,6 +39,18 @@ export interface ReportCardLegendRow {
   comment: string | null;
 }
 
+export interface ReportCardProgramRow {
+  program_name: string;
+  achieved_count: number;
+  milestone_total: number;
+  latest: {
+    milestone_name: string;
+    achieved_on: string;
+    score: number | null;
+    grade: string | null;
+  } | null;
+}
+
 export interface ReportCardData {
   exam_name: string;
   student: { full_name: string; roll_number: number };
@@ -51,6 +63,7 @@ export interface ReportCardData {
   };
   subjects: ReportCardSubject[];
   legend: ReportCardLegendRow[];
+  programs?: ReportCardProgramRow[];
 }
 
 export interface ReportCardProps {
@@ -74,6 +87,10 @@ export interface ReportCardProps {
     fourthSubject: string;
     absent: string;
     legendTitle: string;
+    programs: string;
+    progress: string;
+    latestMilestone: string;
+    scoreGrade: string;
   };
 }
 
@@ -173,6 +190,42 @@ export function ReportCard({ data, issuer, logoUrl, activeLanguage, labels }: Re
           </div>
         )}
       </div>
+
+      {data.programs && data.programs.length > 0 && (
+        <table className="w-full border-collapse text-sm">
+          <caption className="sr-only">{labels.programs}</caption>
+          <thead>
+            <tr className="border-b text-start text-muted-foreground">
+              <th className="py-1">{labels.programs}</th>
+              <th className="py-1">{labels.progress}</th>
+              <th className="py-1">{labels.latestMilestone}</th>
+              <th className="py-1">{labels.scoreGrade}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.programs.map((program, index) => (
+              <tr key={`${program.program_name}-${index}`}>
+                <td className="py-1 font-medium">{program.program_name}</td>
+                <td className="py-1">
+                  {program.achieved_count} / {program.milestone_total}
+                </td>
+                <td className="py-1">
+                  {program.latest
+                    ? `${program.latest.milestone_name} (${program.latest.achieved_on})`
+                    : '—'}
+                </td>
+                <td className="py-1">
+                  {program.latest
+                    ? [program.latest.score, program.latest.grade]
+                        .filter((v) => v !== null && v !== undefined)
+                        .join(' / ')
+                    : '—'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
 
       <div className="flex flex-col gap-1 border-t border-border-subtle pt-2 text-xs text-muted-foreground">
         <div className="font-medium">{labels.legendTitle}</div>

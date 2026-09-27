@@ -56,4 +56,14 @@ describe('EntityLabel', () => {
       expect(value).toBe(key);
     }
   });
+
+  it('includes the Epic 34.0 programs/milestones keys', () => {
+    const expectedKeys = ['program', 'programMilestone', 'programEnrollment'] as const;
+
+    for (const key of expectedKeys) {
+      expect(keys).toContain(key);
+      const value: EntityLabel = EntityLabel[key];
+      expect(value).toBe(key);
+    }
+  });
 });

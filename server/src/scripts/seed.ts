@@ -41,6 +41,13 @@ import { AdmissionApplicantStatus } from '@biddaloy/shared';
 import { Enrollment } from '../modules/students/entities/enrollment.entity';
 import { PromotionRun } from '../modules/promotions/entities/promotion-run.entity';
 import { PromotionEntry } from '../modules/promotions/entities/promotion-entry.entity';
+import { Program } from '../modules/programs/entities/program.entity';
+import { ProgramMilestone } from '../modules/programs/entities/program-milestone.entity';
+import { ProgramEnrollment } from '../modules/programs/entities/program-enrollment.entity';
+import { MilestoneAchievement } from '../modules/programs/entities/milestone-achievement.entity';
+import { FeeStructure } from '../modules/fees/entities/fee-structure.entity';
+import { RecurringSchedule } from '../modules/fees/entities/recurring-schedule.entity';
+import { RecurringScheduleStructure } from '../modules/fees/entities/recurring-schedule-structure.entity';
 import { DEV_SEED_PLATFORM_TENANT_ID } from '../config/env.validation';
 import { seedAccounts } from './seed.accounts';
 import { Shift } from '../modules/routines/entities/shift.entity';
@@ -185,6 +192,13 @@ export async function seed() {
       seatPlanRepository: dataSource.getRepository(SeatPlan),
       seatPlanScheduleRepository: dataSource.getRepository(SeatPlanSchedule),
       seatAllocationRepository: dataSource.getRepository(SeatAllocation),
+      programRepository: dataSource.getRepository(Program),
+      programMilestoneRepository: dataSource.getRepository(ProgramMilestone),
+      programEnrollmentRepository: dataSource.getRepository(ProgramEnrollment),
+      milestoneAchievementRepository: dataSource.getRepository(MilestoneAchievement),
+      feeStructureRepository: dataSource.getRepository(FeeStructure),
+      recurringScheduleRepository: dataSource.getRepository(RecurringSchedule),
+      recurringScheduleStructureRepository: dataSource.getRepository(RecurringScheduleStructure),
     },
     school,
     adminEmail,

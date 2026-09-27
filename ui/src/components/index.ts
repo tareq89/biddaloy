@@ -333,3 +333,9 @@ export {
   type MonthGridTermBand,
 } from './calendar/month-grid';
 export { AgendaList, type AgendaEvent, type AgendaListProps } from './calendar/agenda-list';
+export {
+  MilestoneChecklist,
+  type MilestoneChecklistItem,
+  type MilestoneChecklistProps,
+} from './programs/milestone-checklist';
+export { ProgressBar, type ProgressBarProps } from './programs/progress-bar';

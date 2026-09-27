@@ -17,6 +17,7 @@ import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { Invoice } from '../invoices/entities/invoice.entity';
 import { School } from '../schools/entities/school.entity';
+import { Program } from '../programs/entities/program.entity';
 import { AuditModule } from '../audit/audit.module';
 import { StudentModule } from '../students/students.module';
 import { InvoicesModule } from '../invoices/invoices.module';
@@ -65,6 +66,7 @@ import { LateFeeService } from './late-fee.service';
       Invoice,
       School,
       DiscountRule,
+      Program,
     ]),
     BullModule.registerQueue({ name: FEES_DAILY_QUEUE }),
     AuditModule,

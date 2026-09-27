@@ -53,6 +53,8 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // matching `/_staff/classes/$classId`'s own Teachers tab (the same
   // assign/unassign mutations, just a cross-section view of them).
   '/_staff/staff/teaching-assignments': Permission.CLASS_MANAGE,
+  '/_staff/programs/': Permission.PROGRAM_READ,
+  '/_staff/programs/$programId': Permission.PROGRAM_READ,
   '/_staff/fees/': Permission.FEE_STRUCTURE_READ,
   '/_staff/fees/dues': Permission.FEE_COLLECT,
   '/_staff/fees/generate': Permission.FEE_GENERATE,

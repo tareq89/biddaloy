@@ -74,3 +74,12 @@ export const SEED_CALENDAR_EVENT_NAMES = {
   deadline: 'Annual Report Submission Deadline',
   draftEvent: 'Winter Fair (Draft)',
 } as const;
+
+/** [34.2.4] `ensureProgramsDemoSeed`/`ensureProgramParticipationDemoSeed` in
+ * `seed.util.ts` seed a "Hifz" program (and a "Debate club" one) with real
+ * `id`s — generated, not fixed, so unlike `SEED_DEVICE_KEY` above there is
+ * no id to duplicate here. Name only, the same "expose what's stable, look
+ * up the rest at runtime" convention `ensureGradingScale` in `e2e/api.ts`
+ * uses for the seeded grading scale. `programs.spec.ts` finds the program
+ * by this name via the command palette / UI, not by id. */
+export const SEED_PROGRAM_NAME = 'Hifz';

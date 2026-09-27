@@ -274,7 +274,11 @@
     "fail": "অকৃতকার্য",
     "fourthSubject": "চতুর্থ বিষয়",
     "absent": "অনুপস্থিত",
-    "legendTitle": "গ্রেড বিবরণী"
+    "legendTitle": "গ্রেড বিবরণী",
+    "programs": "প্রোগ্রাম",
+    "progress": "অগ্রগতি",
+    "latestMilestone": "সর্বশেষ মাইলফলক",
+    "scoreGrade": "স্কোর/গ্রেড"
   },
   "analysis": {
     "tabs": {

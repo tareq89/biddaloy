@@ -40,6 +40,13 @@ import { PromotionEntry } from '../modules/promotions/entities/promotion-entry.e
 import { SeatPlan } from '../modules/seat-plans/entities/seat-plan.entity';
 import { SeatPlanSchedule } from '../modules/seat-plans/entities/seat-plan-schedule.entity';
 import { SeatAllocation } from '../modules/seat-plans/entities/seat-allocation.entity';
+import { Program } from '../modules/programs/entities/program.entity';
+import { ProgramMilestone } from '../modules/programs/entities/program-milestone.entity';
+import { ProgramEnrollment } from '../modules/programs/entities/program-enrollment.entity';
+import { MilestoneAchievement } from '../modules/programs/entities/milestone-achievement.entity';
+import { FeeStructure } from '../modules/fees/entities/fee-structure.entity';
+import { RecurringSchedule } from '../modules/fees/entities/recurring-schedule.entity';
+import { RecurringScheduleStructure } from '../modules/fees/entities/recurring-schedule-structure.entity';
 import {
   DEMO_ACADEMIC_YEAR,
   ensureAttendanceSeed,
@@ -48,6 +55,8 @@ import {
   ensureExamsDemoSeed,
   ensureGradingDemoSeed,
   ensureHomeworkDemoSeed,
+  ensureProgramsDemoSeed,
+  ensureProgramParticipationDemoSeed,
   ensurePromotionDemoSeed,
   ensurePublicHolidaySet,
   ensureRoleTestUsers,
@@ -132,6 +141,13 @@ export interface SeedAccountRepositories {
   seatPlanRepository: Repository<SeatPlan>;
   seatPlanScheduleRepository: Repository<SeatPlanSchedule>;
   seatAllocationRepository: Repository<SeatAllocation>;
+  programRepository: Repository<Program>;
+  programMilestoneRepository: Repository<ProgramMilestone>;
+  programEnrollmentRepository: Repository<ProgramEnrollment>;
+  milestoneAchievementRepository: Repository<MilestoneAchievement>;
+  feeStructureRepository: Repository<FeeStructure>;
+  recurringScheduleRepository: Repository<RecurringSchedule>;
+  recurringScheduleStructureRepository: Repository<RecurringScheduleStructure>;
 }
 
 /** Creates/repairs the seed accounts, their memberships and the demo
@@ -449,6 +465,18 @@ export async function seedAccounts(
     }
   }
 
+  // [34.1.4]: two tenant-wide programs ("Hifz" with 30 milestones, "Debate
+  // club" with none) — placed right after the homework block above since
+  // both are simple demo fixtures with no ordering dependency on it, just
+  // grouped near it in the file.
+  await ensureProgramsDemoSeed(
+    {
+      programRepository: repos.programRepository,
+      programMilestoneRepository: repos.programMilestoneRepository,
+    },
+    { schoolId: school.id },
+  );
+
   // [19.10.1]: demo exams/marks/results on top of "Class 6"'s two sections
   // — deliberately after both `ensureGradingDemoSeed` (the BD NCTB scale
   // this seed's one published result pins against) and `ensureAttendanceSeed`
@@ -498,6 +526,33 @@ export async function seedAccounts(
           gradingScaleRevision: scale.revision,
         },
       );
+
+      // [34.2.4]: Hifz/Debate enrolments, Hifz achievements and a
+      // program-targeted "Hifz monthly fee" schedule on the Class 6 A+B
+      // roster — needs the roster above, so it can't live in
+      // ensureProgramsDemoSeed. Built once and only run when the roster
+      // has enough students for the seed's own split (2 programs, needs
+      // ≥6 for a non-trivial roster per program).
+      const programParticipationStudentIds = [...studentsA, ...studentsB].map((s) => s.id);
+      if (programParticipationStudentIds.length >= 6) {
+        await ensureProgramParticipationDemoSeed(
+          {
+            programRepository: repos.programRepository,
+            programMilestoneRepository: repos.programMilestoneRepository,
+            programEnrollmentRepository: repos.programEnrollmentRepository,
+            milestoneAchievementRepository: repos.milestoneAchievementRepository,
+            feeStructureRepository: repos.feeStructureRepository,
+            recurringScheduleRepository: repos.recurringScheduleRepository,
+            recurringScheduleStructureRepository: repos.recurringScheduleStructureRepository,
+          },
+          {
+            schoolId: school.id,
+            academicYearId: calendarYear.id,
+            studentIds: programParticipationStudentIds,
+            recordedByUserId: adminTestUser?.id ?? null,
+          },
+        );
+      }
 
       // [788] One COMMITTED promotion run for "Class 6", with one override
       // — deliberately after `ensureExamsDemoSeed` (whose exam this run's

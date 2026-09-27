@@ -366,11 +366,21 @@ export class GenerateFeesPreviewDto {
   @IsEnum(PeriodType)
   period_type: PeriodType;
 
+  // [34.2.2] Optional now that `program_id` can supply the target set
+  // instead — the service rejects the request if neither is given.
+  @IsOptional()
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(5000)
   @IsUUID('4', { each: true })
-  student_ids: string[];
+  student_ids?: string[];
+
+  // [34.2.2] Students with an ACTIVE ProgramEnrollment in this program
+  // (must belong to this tenant — 404 otherwise). Intersected with
+  // `student_ids` when both are given.
+  @IsOptional()
+  @IsUUID()
+  program_id?: string;
 
   @IsArray()
   @ArrayMinSize(1)
