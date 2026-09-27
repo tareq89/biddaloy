@@ -2943,6 +2943,7 @@ export async function ensureProgramParticipationDemoSeed(
       await repos.milestoneAchievementRepository.save(
         repos.milestoneAchievementRepository.create({
           tenant_id: schoolId,
+          program_id: hifz.id,
           enrollment_id: enrollment.id,
           milestone_id: milestone.id,
           achieved_on: `2026-03-${String(i + 1).padStart(2, '0')}`,

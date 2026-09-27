@@ -8553,6 +8553,10 @@ export interface components {
             show_on_report_card?: boolean;
             is_active?: boolean;
         };
+        ProgramDeletedResultDto: {
+            /** @enum {boolean} */
+            deleted: true;
+        };
         CreateMilestoneDto: {
             name: string;
             description?: string | null;
@@ -8561,12 +8565,36 @@ export interface components {
             name?: string;
             description?: string | null;
         };
+        RemoveMilestoneResultDto: {
+            achievements_removed: number;
+        };
         ReorderMilestonesDto: {
             milestone_ids: string[];
+        };
+        EnrollmentStudentSummaryDto: {
+            id: string;
+            full_name: string;
+            roll_number: Record<string, never> | null;
+            class_name: string | null;
+            section_name: string | null;
+        };
+        EnrollmentListItemDto: {
+            id: string;
+            /** @enum {string} */
+            status: "ACTIVE" | "COMPLETED" | "WITHDRAWN";
+            started_on: string;
+            ended_on: string | null;
+            student: components["schemas"]["EnrollmentStudentSummaryDto"];
+            achieved_count: number;
+            milestone_total: number;
         };
         EnrolStudentsDto: {
             student_ids: string[];
             started_on?: string;
+        };
+        EnrolStudentsResultDto: {
+            created: number;
+            skipped: number;
         };
         RecordAchievementsDto: {
             enrollment_ids: string[];
@@ -8577,10 +8605,57 @@ export interface components {
             grade?: string;
             remark?: string;
         };
+        RecordAchievementsResultDto: {
+            upserted: number;
+        };
         UpdateProgramEnrollmentDto: {
             /** @enum {string} */
             status: "ACTIVE" | "COMPLETED" | "WITHDRAWN";
             ended_on?: string;
+        };
+        UpdateProgramEnrollmentResultDto: {
+            id: string;
+            /** @enum {string} */
+            status: "ACTIVE" | "COMPLETED" | "WITHDRAWN";
+            started_on: string;
+            ended_on: string | null;
+        };
+        DeletedResultDto: {
+            /** @enum {boolean} */
+            deleted: true;
+        };
+        StudentProgramInfoDto: {
+            id: string;
+            name: string;
+            is_active: boolean;
+            show_on_report_card: boolean;
+        };
+        StudentProgramEnrollmentInfoDto: {
+            id: string;
+            /** @enum {string} */
+            status: "ACTIVE" | "COMPLETED" | "WITHDRAWN";
+            started_on: string;
+            ended_on: string | null;
+        };
+        StudentProgramMilestoneAchievementDto: {
+            id: string;
+            achieved_on: string;
+            score: string | null;
+            grade: string | null;
+            remark: string | null;
+        };
+        StudentProgramMilestoneDto: {
+            id: string;
+            name: string;
+            sequence: number;
+            achievement: components["schemas"]["StudentProgramMilestoneAchievementDto"] | null;
+        };
+        StudentProgramEntryDto: {
+            program: components["schemas"]["StudentProgramInfoDto"];
+            enrollment: components["schemas"]["StudentProgramEnrollmentInfoDto"];
+            milestones: components["schemas"]["StudentProgramMilestoneDto"][];
+            achieved_count: number;
+            milestone_total: number;
         };
         CreatePromotionRunDto: {
             /** Format: uuid */
@@ -20937,7 +21012,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ProgramDeletedResultDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -21043,7 +21120,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["RemoveMilestoneResultDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -21151,7 +21230,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["EnrollmentListItemDto"][];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -21182,11 +21263,13 @@ export interface operations {
             };
         };
         responses: {
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["EnrolStudentsResultDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -21217,11 +21300,13 @@ export interface operations {
             };
         };
         responses: {
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["RecordAchievementsResultDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -21256,7 +21341,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["UpdateProgramEnrollmentResultDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -21287,7 +21374,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["DeletedResultDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -21318,7 +21407,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["StudentProgramEntryDto"][];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
