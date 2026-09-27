@@ -69,6 +69,7 @@ import { StaffEducation } from './modules/staff-hr/entities/staff-education.enti
 import { StaffTraining } from './modules/staff-hr/entities/staff-training.entity';
 import { StaffAchievement } from './modules/staff-hr/entities/staff-achievement.entity';
 import { StaffLanguage } from './modules/staff-hr/entities/staff-language.entity';
+import { StaffDocument } from './modules/staff-hr/entities/staff-document.entity';
 import { validate } from './config/env.validation';
 
 // Entities for auto-loading
@@ -257,6 +258,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             StaffTraining,
             StaffAchievement,
             StaffLanguage,
+            StaffDocument,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],
