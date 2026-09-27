@@ -62,6 +62,10 @@ export function userResponseFactory(
     // catch code rendering the wrong one as "member since".
     member_since: '2025-03-15T00:00:00.000Z',
     invitation_status: 'NONE',
+    // [36.4.1] staff_profiles.id for this user, null by default (most
+    // factory-built users in existing tests aren't staff) — override when
+    // a scenario needs a real staff profile.
+    staff_profile_id: null,
     ...overrides,
   };
 }

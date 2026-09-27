@@ -4978,6 +4978,125 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/staff-attendance/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Marks/corrects one day's staff attendance in one call. Outside the tenant's correction window a `reason` (>=3 chars) is required, and every correction is audited. */
+        put: operations["StaffAttendanceController_markDay_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff-attendance/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One staff member's attendance counts/percentage over a date range. */
+        get: operations["StaffAttendanceController_getSummary_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request leave for a staff profile. Self-service unless the caller holds LEAVE_APPROVE (then any staff profile in tenant). Rejected if it would exceed the balance for the leave's own year. */
+        post: operations["LeaveController_request_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/requests/{id}/decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve or reject a pending leave request. Both branches re-check status under a transaction + row lock so concurrent decisions on the same record cannot race, and approve additionally re-checks the balance so concurrent approvals cannot double-spend the quota. */
+        post: operations["LeaveController_decide_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Live-computed remaining balance per leave type for one staff member. Self-service unless the caller holds LEAVE_APPROVE (then any staff profile in tenant). */
+        get: operations["LeaveController_balance_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** This tenant's leave-type quotas. */
+        get: operations["LeaveController_policies_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leave/policies/{type}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Edit one leave type's annual quota — same guard as approving. */
+        put: operations["LeaveController_updatePolicy_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6400,6 +6519,7 @@ export interface components {
             updated_at: string;
             /** @enum {string} */
             invitation_status: "NONE" | "PENDING" | "EXPIRED" | "REVOKED" | "ACTIVATED";
+            staff_profile_id: string | null;
         };
         StaffInvoiceDto: {
             id: string;
@@ -7146,6 +7266,7 @@ export interface components {
             subject_specialization: string | null;
             /** Format: date-time */
             joining_date: string | null;
+            staff_profile_id: string;
             tenant: components["schemas"]["School"];
             tenant_id: string;
             /** Format: date-time */
@@ -7559,6 +7680,8 @@ export interface components {
             /** Format: uuid */
             student_id?: string;
             external_ref?: string;
+            /** @enum {string} */
+            subject_type?: "STUDENT" | "STAFF";
         };
         DeviceEventBatchDto: {
             events: components["schemas"]["DeviceEventDto"][];
@@ -7566,7 +7689,7 @@ export interface components {
         DeviceEventResultDto: {
             device_event_id: string;
             /** @enum {string} */
-            outcome: "accepted" | "duplicate" | "unknown_student" | "skipped_teacher_marked" | "out_of_window" | "rejected";
+            outcome: "accepted" | "duplicate" | "unknown_student" | "unknown_staff" | "skipped_teacher_marked" | "out_of_window" | "rejected";
             student_id?: string | null;
             status?: string | null;
             minutes_late?: number | null;
@@ -8694,6 +8817,80 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        StaffAttendanceEntryDto: {
+            /** Format: uuid */
+            staff_profile_id: string;
+            /** @enum {string} */
+            status: "PRESENT" | "ABSENT" | "LATE" | "LEAVE";
+        };
+        PutStaffAttendanceRegisterDto: {
+            date: string;
+            reason?: string;
+            entries: components["schemas"]["StaffAttendanceEntryDto"][];
+        };
+        StaffAttendanceRecordDto: {
+            staff_profile_id: string;
+            record_id: string;
+            /** @enum {string} */
+            status: "PRESENT" | "ABSENT" | "LATE" | "LEAVE";
+        };
+        StaffAttendanceRegisterResponseDto: {
+            date: string;
+            session_id: string;
+            version: number;
+            records: components["schemas"]["StaffAttendanceRecordDto"][];
+        };
+        StaffAttendanceSummaryDto: {
+            working_days: number;
+            present_days: number;
+            late_days: number;
+            absent_days: number;
+            leave_days: number;
+            attendance_percentage: number | null;
+        };
+        CreateLeaveRequestDto: {
+            /** Format: uuid */
+            staff_profile_id: string;
+            /** @enum {string} */
+            leave_type: "CASUAL" | "SICK" | "MATERNITY" | "PATERNITY" | "EARNED";
+            start_date: string;
+            end_date: string;
+            reason?: string;
+        };
+        LeaveRecordDto: {
+            id: string;
+            staff_profile_id: string;
+            /** @enum {string} */
+            leave_type: "CASUAL" | "SICK" | "MATERNITY" | "PATERNITY" | "EARNED";
+            start_date: string;
+            end_date: string;
+            days: number;
+            /** @enum {string} */
+            status: "PENDING" | "APPROVED" | "REJECTED";
+            reason: string | null;
+            approved_by: string | null;
+            /** Format: date-time */
+            decided_at: string | null;
+        };
+        DecideLeaveRequestDto: {
+            approve: boolean;
+            reason?: string;
+        };
+        LeaveBalanceDto: {
+            /** @enum {string} */
+            leave_type: "CASUAL" | "SICK" | "MATERNITY" | "PATERNITY" | "EARNED";
+            annual_quota_days: number;
+            used_days: number;
+            balance: number;
+        };
+        LeavePolicyDto: {
+            /** @enum {string} */
+            leave_type: "CASUAL" | "SICK" | "MATERNITY" | "PATERNITY" | "EARNED";
+            annual_quota_days: number;
+        };
+        UpdateLeavePolicyDto: {
+            annual_quota_days: number;
         };
     };
     responses: never;
@@ -15099,7 +15296,7 @@ export interface operations {
                 invitation_status?: "NONE" | "PENDING" | "EXPIRED" | "REVOKED" | "ACTIVATED";
                 joined_from?: string;
                 joined_to?: string;
-                sort?: "status" | "email" | "full_name" | "joined_at";
+                sort?: "email" | "status" | "full_name" | "joined_at";
                 order?: "asc" | "desc";
                 page?: number;
                 limit?: number;
@@ -21709,6 +21906,249 @@ export interface operations {
                 };
                 content: {
                     "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StaffAttendanceController_markDay_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutStaffAttendanceRegisterDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffAttendanceRegisterResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StaffAttendanceController_getSummary_v1: {
+        parameters: {
+            query: {
+                staff_profile_id: string;
+                from: string;
+                to: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffAttendanceSummaryDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LeaveController_request_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLeaveRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveRecordDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LeaveController_decide_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecideLeaveRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveRecordDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LeaveController_balance_v1: {
+        parameters: {
+            query: {
+                staff_profile_id: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaveBalanceDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LeaveController_policies_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeavePolicyDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LeaveController_updatePolicy_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                type: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLeavePolicyDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeavePolicyDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
