@@ -61,16 +61,17 @@ test('staff attendance + leave request/approval, keyboard only', async ({ page, 
     await expect(
       page.getByRole('heading', { name: t('staffAttendance.grid.title') }),
     ).toBeVisible();
-    await tabUntilFocused(page, me.full_name, 60, { tag: 'BUTTON' });
+    // A bare `me.full_name` also matches the header's account-menu button
+    // (`user-menu.tsx`'s aria-label is `"${accountMenuLabel} — ${name}"`),
+    // which sits earlier in tab order than the grid — the hunt would land
+    // there first, Enter would open that menu, and every subsequent Tab
+    // would be trapped inside it forever, unreachable at any budget.
+    // `attendance-status-control.tsx`'s row trigger's own accessible label
+    // (`"{{name}}, currently {{status}}. Change status"`) starts with
+    // "<name>," — unique to the row, not the header's " — " pattern.
+    await tabUntilFocused(page, `${me.full_name},`, 60, { tag: 'BUTTON' });
     await page.keyboard.press('Enter'); // AttendanceStatusControl row shortcut: PRESENT
-    // The grid has no pagination yet (`index.tsx`'s own `useUsers({ limit:
-    // 200 })` comment) — every seeded staff/teacher account across every
-    // epic's demo data is one row here, so the number of Tab stops between
-    // `me`'s row and Submit grows with the tenant's total staff roster, not
-    // a fixed constant. 200 bounds it at the grid's own row cap plus margin
-    // for the row's own status-control buttons, not an arbitrary "big
-    // enough" guess.
-    await tabUntilFocused(page, t('staffAttendance.grid.submit'), 200, { tag: 'BUTTON' });
+    await tabUntilFocused(page, t('staffAttendance.grid.submit'), 20, { tag: 'BUTTON' });
     const [markResponse] = await Promise.all([
       page.waitForResponse(
         (r) => r.url().includes('/staff-attendance/register') && r.request().method() === 'PUT',
