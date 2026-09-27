@@ -2723,6 +2723,13 @@ export async function ensureHomeworkDemoSeed(
   return result;
 }
 
+// ===========================================================================
+// [34.1.4] Programs demo data
+// ===========================================================================
+
+export interface ProgramsDemoSeedRepositories {
+  programRepository: Repository<Program>;
+  programMilestoneRepository: Repository<ProgramMilestone>;
 }
 
 export interface ProgramsDemoSeedParams {
@@ -3031,7 +3038,6 @@ export async function ensureProgramParticipationDemoSeed(
 // ===========================================================================
 // [36.4.5] Staff attendance/leave demo data
 // ===========================================================================
-
 
 /** D9 default annual quota (days) per `LeaveType`, matching the values the
  * migration (`1789800014000-StaffAttendanceLeave.ts`) seeds for every
