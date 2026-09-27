@@ -16,7 +16,8 @@
     "archivedBadge": "Archived",
     "tabs": {
       "milestones": "Milestones",
-      "students": "Students"
+      "students": "Students",
+      "programs": "Programs"
     }
   },
   "formDialog": {
@@ -87,6 +88,10 @@
   },
   "studentTab": {
     "empty": "No students enrolled in this program yet"
+  },
+  "studentProgramsPanel": {
+    "empty": "Not enrolled in any program",
+    "loadError": "Couldn't load this student's programs"
   },
   "portal": {
     "title": "Programs",

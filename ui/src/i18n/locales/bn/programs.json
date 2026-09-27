@@ -16,7 +16,8 @@
     "archivedBadge": "আর্কাইভড",
     "tabs": {
       "milestones": "মাইলস্টোন",
-      "students": "শিক্ষার্থী"
+      "students": "শিক্ষার্থী",
+      "programs": "প্রোগ্রাম"
     }
   },
   "formDialog": {
@@ -87,6 +88,10 @@
   },
   "studentTab": {
     "empty": "এই প্রোগ্রামে এখনও কোনো শিক্ষার্থী তালিকাভুক্ত নেই"
+  },
+  "studentProgramsPanel": {
+    "empty": "কোনো প্রোগ্রামে তালিকাভুক্ত নন",
+    "loadError": "এই শিক্ষার্থীর প্রোগ্রাম লোড করা যায়নি"
   },
   "portal": {
     "title": "প্রোগ্রাম",
