@@ -110,13 +110,19 @@ test('staff attendance + leave request/approval, keyboard only', async ({ page, 
 
     // Leave type stays the default (CASUAL) — the ticket only asks for a
     // request to exist, not to exercise the type dropdown.
+    //
+    // `.fill()` on a native `<input type="date">` sets the value directly
+    // in its real ISO format, same pattern `calendar.spec.ts`'s
+    // `CREATE_DATE` uses — typing `page.keyboard.type('03/10/2026')`
+    // depends on the browser's locale-specific date-typing segment
+    // order, which silently produced a 32-day span instead of 2 here.
+    // `.fill()` isn't a mouse event, same "keyboard only" bar this file's
+    // own header comment sets for the text inputs below.
     const startInput = page.getByLabel(t('leave.request.startDateLabel'));
-    await startInput.focus();
-    await page.keyboard.type('03/10/2026');
+    await startInput.fill('2026-03-10');
 
     const endInput = page.getByLabel(t('leave.request.endDateLabel'));
-    await endInput.focus();
-    await page.keyboard.type('03/11/2026');
+    await endInput.fill('2026-03-11');
 
     const reasonInput = page.getByLabel(t('leave.request.reasonLabel'));
     await reasonInput.focus();
