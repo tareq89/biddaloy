@@ -483,7 +483,12 @@ export function GenerateFeesModal({
                 : t('summary.line', {
                     students: effectiveStudentCount,
                     fees: feeCount,
-                    bills: effectiveStudentCount * feeCount,
+                    bills:
+                      duplicateAction === 'SKIP' &&
+                      preview !== null &&
+                      previewScopeKey === scopeKey()
+                        ? preview.would_generate
+                        : effectiveStudentCount * feeCount,
                   })}
             </p>
             <div className="flex gap-2">
