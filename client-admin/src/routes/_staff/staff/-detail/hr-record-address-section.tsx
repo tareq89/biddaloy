@@ -4,6 +4,7 @@
  * wrapper, this time over `GET`/`PUT /staff/:userId/address` (23.3).
  */
 import {
+  ErrorState,
   RepeatableRowForm,
   SkeletonFieldList,
   type RepeatableRowField,
@@ -41,10 +42,20 @@ export function HrRecordAddressSection({ userId }: HrRecordAddressSectionProps) 
     return <SkeletonFieldList fields={2} />;
   }
 
+  if (rowsQuery.isError) {
+    return (
+      <ErrorState
+        message={t('hrRecord.loadError')}
+        retryLabel={t('actions.retry', { ns: 'common' })}
+        onRetry={() => void rowsQuery.refetch()}
+      />
+    );
+  }
+
   return (
     <RepeatableRowForm
       fields={fields}
-      rows={rowsQuery.data ?? []}
+      rows={rowsQuery.data}
       onSave={(rows) => replaceRows.mutate(rows)}
       emptyExplanation={t('hrRecord.address.emptyExplanation')}
       addRowLabel={t('hrRecord.addRowAction')}

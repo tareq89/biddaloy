@@ -200,6 +200,7 @@
   },
   "hrRecord": {
     "comingSoon": "Coming soon",
+    "loadError": "Could not load this section. Please try again.",
     "sections": {
       "job": "Job info",
       "promotion": "Promotion / employment history",
@@ -296,6 +297,7 @@
       "uploadAction": "Upload",
       "replaceAction": "Replace",
       "uploadError": "Could not upload this file. Please try again.",
+      "downloadError": "Could not download this file. Please try again.",
       "types": {
         "NID": "National ID",
         "BIRTH_CERTIFICATE": "Birth certificate",

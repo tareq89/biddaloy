@@ -6,9 +6,9 @@
  * visually distinguished from history (acceptance criterion).
  */
 import { Button, EmptyState, SkeletonFieldList } from '@biddaloy/ui/components';
-import { useDesignations, useStaffDesignationHistory } from '@biddaloy/ui/hooks';
-import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatDate } from '@biddaloy/ui/utils';
+import { designationTitle, useDesignations, useStaffDesignationHistory } from '@biddaloy/ui/hooks';
+import { useLocale, useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatDate, parseServerDate } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 import { PromoteStaffDialog } from './-promote-staff-dialog';
@@ -19,14 +19,16 @@ export interface HrRecordPromotionSectionProps {
 
 export function HrRecordPromotionSection({ userId }: HrRecordPromotionSectionProps) {
   const { t } = useTranslation('staff');
+  const { locale } = useLocale();
   const regionConfig = useRegionConfig();
   const historyQuery = useStaffDesignationHistory(userId);
   const designationsQuery = useDesignations();
   const [promoteOpen, setPromoteOpen] = React.useState(false);
 
-  const designationTitle = (designationId: string) =>
-    designationsQuery.data?.find((designation) => designation.id === designationId)?.title_en ??
-    designationId;
+  const designationLabel = (designationId: string) => {
+    const designation = designationsQuery.data?.find((d) => d.id === designationId);
+    return designation ? designationTitle(designation, locale) : designationId;
+  };
 
   if (historyQuery.isPending) {
     return <SkeletonFieldList fields={3} />;
@@ -64,7 +66,7 @@ export function HrRecordPromotionSection({ userId }: HrRecordPromotionSectionPro
                 }
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium">{designationTitle(row.designation_id)}</span>
+                  <span className="font-medium">{designationLabel(row.designation_id)}</span>
                   {current && (
                     <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
                       {t('hrRecord.promotion.current')}
@@ -74,11 +76,11 @@ export function HrRecordPromotionSection({ userId }: HrRecordPromotionSectionPro
                 <p className="text-sm text-muted-foreground">
                   {current
                     ? t('hrRecord.promotion.effectiveSince', {
-                        date: formatDate(new Date(row.effective_date), regionConfig),
+                        date: formatDate(parseServerDate(row.effective_date), regionConfig),
                       })
                     : t('hrRecord.promotion.effectiveRange', {
-                        from: formatDate(new Date(row.effective_date), regionConfig),
-                        to: formatDate(new Date(row.end_date!), regionConfig),
+                        from: formatDate(parseServerDate(row.effective_date), regionConfig),
+                        to: formatDate(parseServerDate(row.end_date!), regionConfig),
                       })}
                 </p>
               </li>

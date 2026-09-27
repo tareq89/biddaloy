@@ -82,6 +82,7 @@ export {
   downloadStaffDocument,
   staffDesignationHistoryQueryOptions,
   staffDocumentKeys,
+  designationTitle,
   staffDocumentsQueryOptions,
   staffHrRecordKeys,
   staffHrRecordQueryOptions,

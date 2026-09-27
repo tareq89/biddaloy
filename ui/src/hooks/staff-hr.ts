@@ -51,6 +51,14 @@ export interface Designation {
   is_teaching: boolean;
 }
 
+/** The designation title in the UI's current locale, falling back to
+ * English when there's no Bengali title (or the locale isn't Bengali). */
+export const designationTitle = (
+  designation: Pick<Designation, 'title_en' | 'title_bn'>,
+  locale: string,
+): string =>
+  locale === 'bn' ? (designation.title_bn ?? designation.title_en) : designation.title_en;
+
 export interface CreateStaffHrRecordInput {
   user_id: string;
   index_no?: string;
@@ -62,7 +70,15 @@ export interface CreateStaffHrRecordInput {
   religion?: string;
 }
 
-export type UpdateStaffHrRecordInput = Omit<CreateStaffHrRecordInput, 'user_id'>;
+export interface UpdateStaffHrRecordInput {
+  index_no?: string | null;
+  salary_code?: string | null;
+  mpo_date?: string | null;
+  salary_scale?: string | null;
+  department?: string | null;
+  blood_group?: string | null;
+  religion?: string | null;
+}
 
 export interface PromoteStaffInput {
   designation_id: string;

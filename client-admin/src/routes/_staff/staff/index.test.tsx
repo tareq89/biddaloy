@@ -99,7 +99,12 @@ describe('/staff', () => {
     server.use(
       http.get('/api/v1/designations', () =>
         HttpResponse.json([
-          { id: 'designation-1', title_en: 'Assistant Teacher', title_bn: null, is_teaching: true },
+          {
+            id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+            title_en: 'Assistant Teacher',
+            title_bn: null,
+            is_teaching: true,
+          },
         ]),
       ),
       http.get('/api/v1/users', ({ request }) => {
@@ -111,7 +116,7 @@ describe('/staff', () => {
     );
 
     renderWithRouter(routeTree, {
-      initialEntries: ['/staff?role=TEACHER&designation_id=designation-1'],
+      initialEntries: ['/staff?role=TEACHER&designation_id=3fa85f64-5717-4562-b3fc-2c963f66afa6'],
       tenantId: 'tenant-1',
       role: 'ADMIN',
       locale: 'en',
@@ -120,7 +125,7 @@ describe('/staff', () => {
     // Both filters are active at once — the designation filter narrows
     // further, it doesn't replace the role filter.
     await waitFor(() => {
-      expect(requestedDesignationId).toBe('designation-1');
+      expect(requestedDesignationId).toBe('3fa85f64-5717-4562-b3fc-2c963f66afa6');
       expect(requestedRole).toBe('TEACHER');
     });
     expect(await screen.findByRole('combobox', { name: 'Designation' })).toBeTruthy();
@@ -131,7 +136,12 @@ describe('/staff', () => {
     server.use(
       http.get('/api/v1/designations', () =>
         HttpResponse.json([
-          { id: 'designation-1', title_en: 'Assistant Teacher', title_bn: null, is_teaching: true },
+          {
+            id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+            title_en: 'Assistant Teacher',
+            title_bn: null,
+            is_teaching: true,
+          },
         ]),
       ),
       http.get('/api/v1/users', ({ request }) => {
@@ -141,13 +151,15 @@ describe('/staff', () => {
     );
 
     renderWithRouter(routeTree, {
-      initialEntries: ['/staff?designation_id=designation-1'],
+      initialEntries: ['/staff?designation_id=3fa85f64-5717-4562-b3fc-2c963f66afa6'],
       tenantId: 'tenant-1',
       role: 'ADMIN',
       locale: 'en',
     });
 
-    await waitFor(() => expect(requestedDesignationIds).toContain('designation-1'));
+    await waitFor(() =>
+      expect(requestedDesignationIds).toContain('3fa85f64-5717-4562-b3fc-2c963f66afa6'),
+    );
 
     const user = userEvent.setup();
     await user.click(await screen.findByRole('combobox', { name: 'Designation' }));

@@ -25,8 +25,8 @@ import {
   SelectValue,
   Textarea,
 } from '@biddaloy/ui/components';
-import { useDesignations, usePromoteStaff } from '@biddaloy/ui/hooks';
-import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { designationTitle, useDesignations, usePromoteStaff } from '@biddaloy/ui/hooks';
+import { useLocale, useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
 export interface PromoteStaffDialogProps {
@@ -44,6 +44,7 @@ function toLocalDateString(date: Date): string {
 
 export function PromoteStaffDialog({ open, onOpenChange, userId }: PromoteStaffDialogProps) {
   const { t } = useTranslation('staff');
+  const { locale } = useLocale();
   const regionConfig = useRegionConfig();
   const designationsQuery = useDesignations();
   const promoteStaff = usePromoteStaff(userId);
@@ -108,7 +109,7 @@ export function PromoteStaffDialog({ open, onOpenChange, userId }: PromoteStaffD
               <SelectContent>
                 {(designationsQuery.data ?? []).map((designation) => (
                   <SelectItem key={designation.id} value={designation.id}>
-                    {designation.title_en}
+                    {designationTitle(designation, locale)}
                   </SelectItem>
                 ))}
               </SelectContent>

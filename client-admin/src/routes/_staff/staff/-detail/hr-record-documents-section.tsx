@@ -10,7 +10,7 @@
  * the picker + per-file progress/error UI rather than building a new
  * upload widget, per this ticket's acceptance criterion.
  */
-import { Button, FileUpload, type FileUploadItem } from '@biddaloy/ui/components';
+import { Button, FileUpload, toast, type FileUploadItem } from '@biddaloy/ui/components';
 import {
   downloadStaffDocument,
   useStaffDocuments,
@@ -71,7 +71,11 @@ function DocumentSlot({
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => void downloadStaffDocument(document)}
+            onClick={() =>
+              void downloadStaffDocument(document).catch(() =>
+                toast.error(t('hrRecord.documents.downloadError')),
+              )
+            }
           >
             {document.original_filename}
           </Button>

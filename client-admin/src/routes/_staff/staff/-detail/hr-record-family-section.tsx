@@ -5,6 +5,7 @@
  * 6 sections this ticket fills in.
  */
 import {
+  ErrorState,
   RepeatableRowForm,
   SkeletonFieldList,
   type RepeatableRowField,
@@ -32,10 +33,20 @@ export function HrRecordFamilySection({ userId }: HrRecordFamilySectionProps) {
     return <SkeletonFieldList fields={2} />;
   }
 
+  if (rowsQuery.isError) {
+    return (
+      <ErrorState
+        message={t('hrRecord.loadError')}
+        retryLabel={t('actions.retry', { ns: 'common' })}
+        onRetry={() => void rowsQuery.refetch()}
+      />
+    );
+  }
+
   return (
     <RepeatableRowForm
       fields={fields}
-      rows={rowsQuery.data ?? []}
+      rows={rowsQuery.data}
       onSave={(rows) => replaceRows.mutate(rows)}
       emptyExplanation={t('hrRecord.family.emptyExplanation')}
       addRowLabel={t('hrRecord.addRowAction')}

@@ -17,6 +17,7 @@ import {
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
+  designationTitle,
   useCurrentUserId,
   useDesignations,
   useHasPermission,
@@ -25,7 +26,12 @@ import {
   type StaffUser,
   type UserRoleFilter,
 } from '@biddaloy/ui/hooks';
-import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import {
+  RegionConfigProvider,
+  useLocale,
+  useTenantRegionConfig,
+  useTranslation,
+} from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
 import { formatDate } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
@@ -72,7 +78,7 @@ const staffSearchSchema = z.object({
   // [23.12] The nav-tree gap: "Staff is ONE register... with staff-type
   // filter and designations" — a `Designation` (23.2) id, alongside the
   // existing `role` filter, not replacing it.
-  designation_id: z.string().optional().catch(undefined),
+  designation_id: z.string().uuid().optional().catch(undefined),
   joined_from: z.string().optional().catch(undefined),
   joined_to: z.string().optional().catch(undefined),
   // Reserved row-selection key — same reasoning as `guardians/index.tsx`.
@@ -155,6 +161,7 @@ export const Route = createFileRoute('/_staff/staff/')({
 
 function StaffListPage() {
   const { t } = useTranslation('staff');
+  const { locale } = useLocale();
   const regionConfig = useTenantRegionConfig();
   const [state, actions] = useListShellState({ limit: 10 });
   const filters = state.filters as StaffFilters;
@@ -228,7 +235,7 @@ function StaffListPage() {
       allLabel: t('list.designationFilterAll'),
       options: (designationsQuery.data ?? []).map((designation) => ({
         value: designation.id,
-        label: designation.title_en,
+        label: designationTitle(designation, locale),
       })),
     },
     {

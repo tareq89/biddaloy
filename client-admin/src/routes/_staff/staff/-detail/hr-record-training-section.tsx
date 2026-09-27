@@ -3,6 +3,7 @@
  * header comment; over `GET`/`PUT /staff/:userId/training` (23.3).
  */
 import {
+  ErrorState,
   RepeatableRowForm,
   SkeletonFieldList,
   type RepeatableRowField,
@@ -36,10 +37,20 @@ export function HrRecordTrainingSection({ userId }: HrRecordTrainingSectionProps
     return <SkeletonFieldList fields={2} />;
   }
 
+  if (rowsQuery.isError) {
+    return (
+      <ErrorState
+        message={t('hrRecord.loadError')}
+        retryLabel={t('actions.retry', { ns: 'common' })}
+        onRetry={() => void rowsQuery.refetch()}
+      />
+    );
+  }
+
   return (
     <RepeatableRowForm
       fields={fields}
-      rows={rowsQuery.data ?? []}
+      rows={rowsQuery.data}
       onSave={(rows) => replaceRows.mutate(rows)}
       emptyExplanation={t('hrRecord.training.emptyExplanation')}
       addRowLabel={t('hrRecord.addRowAction')}

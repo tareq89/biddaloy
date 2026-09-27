@@ -85,14 +85,20 @@ export function HrRecordJobSection({ userId }: HrRecordJobSectionProps) {
       blood_group: form.blood_group.trim(),
       religion: form.religion.trim(),
     };
-    // exactOptionalPropertyTypes: omit empty fields entirely rather than setting them to undefined.
-    const payload = Object.fromEntries(
-      Object.entries(trimmed).filter(([, value]) => value !== ''),
-    ) as Partial<typeof trimmed>;
     const onSuccess = () => setEditing(false);
     if (record === null) {
+      // exactOptionalPropertyTypes: omit empty fields entirely rather than
+      // setting them to undefined — there's no existing value to clear yet.
+      const payload = Object.fromEntries(
+        Object.entries(trimmed).filter(([, value]) => value !== ''),
+      ) as Partial<typeof trimmed>;
       createRecord.mutate({ user_id: userId, ...payload }, { onSuccess });
     } else {
+      // A cleared field must be sent as null so the server actually clears
+      // it — omitting it here would leave the record's current value in place.
+      const payload = Object.fromEntries(
+        Object.entries(trimmed).map(([key, value]) => [key, value === '' ? null : value]),
+      ) as { [K in keyof typeof trimmed]: string | null };
       updateRecord.mutate(payload, { onSuccess });
     }
   }
