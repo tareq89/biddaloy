@@ -18,7 +18,6 @@ import {
   PublicHolidaySource,
   SeatOrderMode,
   SeatPlanStatus,
-  StaffDocumentType,
   StaffEmploymentStatus,
   TeacherDesignation,
   UserRole,
@@ -106,7 +105,6 @@ import { StaffEducation } from '../modules/staff-hr/entities/staff-education.ent
 import { StaffTraining } from '../modules/staff-hr/entities/staff-training.entity';
 import { StaffAchievement } from '../modules/staff-hr/entities/staff-achievement.entity';
 import { StaffLanguage } from '../modules/staff-hr/entities/staff-language.entity';
-import { StaffDocument } from '../modules/staff-hr/entities/staff-document.entity';
 
 /** [8.9.5] manual-testing aid: gives the seed admin a *second* school
  * membership so `/select-school`'s picker actually has something to show
@@ -3265,7 +3263,6 @@ export interface StaffHrDemoSeedRepositories {
   staffTrainingRepository: Repository<StaffTraining>;
   staffAchievementRepository: Repository<StaffAchievement>;
   staffLanguageRepository: Repository<StaffLanguage>;
-  staffDocumentRepository: Repository<StaffDocument>;
 }
 
 export interface StaffHrDemoSeedParams {
@@ -3284,7 +3281,6 @@ export interface StaffHrDemoSeedResult {
   training: number;
   achievements: number;
   languages: number;
-  documents: number;
 }
 
 /** The demo's one non-teaching staff member — an accountant, so 23.5's AC
@@ -3317,7 +3313,6 @@ export async function ensureStaffHrDemoSeed(
     training: 0,
     achievements: 0,
     languages: 0,
-    documents: 0,
   };
 
   let teacherDesignation = await repos.designationRepository.findOne({
@@ -3350,7 +3345,10 @@ export async function ensureStaffHrDemoSeed(
     result.designations += 1;
   }
 
-  let staffUser = await repos.userRepository.findOne({ where: { email: STAFF_HR_DEMO_EMAIL } });
+  let staffUser = await repos.userRepository.findOne({
+    where: { email: STAFF_HR_DEMO_EMAIL },
+    withDeleted: true,
+  });
   if (!staffUser) {
     staffUser = await repos.userRepository.save(
       repos.userRepository.create({
@@ -3361,9 +3359,13 @@ export async function ensureStaffHrDemoSeed(
       }),
     );
     result.staffUsers += 1;
+  } else if (staffUser.deleted_at) {
+    staffUser.deleted_at = null;
+    staffUser.status = UserStatus.ACTIVE;
+    await repos.userRepository.save(staffUser);
   }
   const membership = await repos.userTenantRepository.findOne({
-    where: { user_id: staffUser.id, tenant_id: schoolId },
+    where: { user_id: staffUser.id, tenant_id: schoolId, role: UserRole.ACCOUNTANT },
   });
   if (!membership) {
     await repos.userTenantRepository.save(
@@ -3419,16 +3421,28 @@ export async function ensureStaffHrDemoSeed(
   ];
   for (const seed of familySeeds) {
     const existing = await repos.staffFamilyMemberRepository.findOne({
-      where: { tenant_id: schoolId, staff_user_id: staffUser.id, relation: seed.relation, name: seed.name },
+      where: {
+        tenant_id: schoolId,
+        staff_user_id: staffUser.id,
+        relation: seed.relation,
+        name: seed.name,
+      },
     });
     if (existing) continue;
     await repos.staffFamilyMemberRepository.save(
-      repos.staffFamilyMemberRepository.create({ tenant_id: schoolId, staff_user_id: staffUser.id, ...seed }),
+      repos.staffFamilyMemberRepository.create({
+        tenant_id: schoolId,
+        staff_user_id: staffUser.id,
+        ...seed,
+      }),
     );
     result.familyMembers += 1;
   }
 
-  const addressSeeds: { type: 'PRESENT' | 'PERMANENT' }[] = [{ type: 'PRESENT' }, { type: 'PERMANENT' }];
+  const addressSeeds: { type: 'PRESENT' | 'PERMANENT' }[] = [
+    { type: 'PRESENT' },
+    { type: 'PERMANENT' },
+  ];
   for (const seed of addressSeeds) {
     const existing = await repos.staffAddressRepository.findOne({
       where: { tenant_id: schoolId, staff_user_id: staffUser.id, type: seed.type },
@@ -3468,7 +3482,11 @@ export async function ensureStaffHrDemoSeed(
     });
     if (existing) continue;
     await repos.staffExperienceRepository.save(
-      repos.staffExperienceRepository.create({ tenant_id: schoolId, staff_user_id: staffUser.id, ...seed }),
+      repos.staffExperienceRepository.create({
+        tenant_id: schoolId,
+        staff_user_id: staffUser.id,
+        ...seed,
+      }),
     );
     result.experience += 1;
   }
@@ -3484,11 +3502,20 @@ export async function ensureStaffHrDemoSeed(
   ];
   for (const seed of educationSeeds) {
     const existing = await repos.staffEducationRepository.findOne({
-      where: { tenant_id: schoolId, staff_user_id: staffUser.id, degree: seed.degree, institution: seed.institution },
+      where: {
+        tenant_id: schoolId,
+        staff_user_id: staffUser.id,
+        degree: seed.degree,
+        institution: seed.institution,
+      },
     });
     if (existing) continue;
     await repos.staffEducationRepository.save(
-      repos.staffEducationRepository.create({ tenant_id: schoolId, staff_user_id: staffUser.id, ...seed }),
+      repos.staffEducationRepository.create({
+        tenant_id: schoolId,
+        staff_user_id: staffUser.id,
+        ...seed,
+      }),
     );
     result.education += 1;
   }
@@ -3504,11 +3531,20 @@ export async function ensureStaffHrDemoSeed(
   ];
   for (const seed of trainingSeeds) {
     const existing = await repos.staffTrainingRepository.findOne({
-      where: { tenant_id: schoolId, staff_user_id: staffUser.id, title: seed.title, institution: seed.institution },
+      where: {
+        tenant_id: schoolId,
+        staff_user_id: staffUser.id,
+        title: seed.title,
+        institution: seed.institution,
+      },
     });
     if (existing) continue;
     await repos.staffTrainingRepository.save(
-      repos.staffTrainingRepository.create({ tenant_id: schoolId, staff_user_id: staffUser.id, ...seed }),
+      repos.staffTrainingRepository.create({
+        tenant_id: schoolId,
+        staff_user_id: staffUser.id,
+        ...seed,
+      }),
     );
     result.training += 1;
   }
@@ -3527,7 +3563,11 @@ export async function ensureStaffHrDemoSeed(
     });
     if (existing) continue;
     await repos.staffAchievementRepository.save(
-      repos.staffAchievementRepository.create({ tenant_id: schoolId, staff_user_id: staffUser.id, ...seed }),
+      repos.staffAchievementRepository.create({
+        tenant_id: schoolId,
+        staff_user_id: staffUser.id,
+        ...seed,
+      }),
     );
     result.achievements += 1;
   }
@@ -3538,36 +3578,21 @@ export async function ensureStaffHrDemoSeed(
   ];
   for (const seed of languageSeeds) {
     const existing = await repos.staffLanguageRepository.findOne({
-      where: { tenant_id: schoolId, staff_user_id: staffUser.id, language_name: seed.language_name },
+      where: {
+        tenant_id: schoolId,
+        staff_user_id: staffUser.id,
+        language_name: seed.language_name,
+      },
     });
     if (existing) continue;
     await repos.staffLanguageRepository.save(
-      repos.staffLanguageRepository.create({ tenant_id: schoolId, staff_user_id: staffUser.id, ...seed }),
+      repos.staffLanguageRepository.create({
+        tenant_id: schoolId,
+        staff_user_id: staffUser.id,
+        ...seed,
+      }),
     );
     result.languages += 1;
-  }
-
-  // [23.7] One sample document — a `storage_key` metadata row, same shape
-  // `StaffDocumentService.upload()` writes, but created directly since this
-  // is demo data rather than a real upload: no S3 object needs to exist
-  // behind it for the row itself to seed correctly.
-  const documentSeeds = [
-    {
-      document_type: StaffDocumentType.NID,
-      storage_key: `demo/staff-documents/${staffUser.id}/nid.pdf`,
-      original_filename: 'nid-card.pdf',
-      content_type: 'application/pdf',
-    },
-  ];
-  for (const seed of documentSeeds) {
-    const existing = await repos.staffDocumentRepository.findOne({
-      where: { tenant_id: schoolId, staff_user_id: staffUser.id, document_type: seed.document_type },
-    });
-    if (existing) continue;
-    await repos.staffDocumentRepository.save(
-      repos.staffDocumentRepository.create({ tenant_id: schoolId, staff_user_id: staffUser.id, ...seed }),
-    );
-    result.documents += 1;
   }
 
   const total = Object.values(result).reduce((sum, n) => sum + n, 0);
@@ -3577,7 +3602,7 @@ export async function ensureStaffHrDemoSeed(
         `+${result.hrRecords} HR records, +${result.designationHistory} designation history, ` +
         `+${result.familyMembers} family members, +${result.addresses} addresses, ` +
         `+${result.experience} experience, +${result.education} education, +${result.training} training, ` +
-        `+${result.achievements} achievements, +${result.languages} languages, +${result.documents} documents`,
+        `+${result.achievements} achievements, +${result.languages} languages`,
     );
   }
   return result;

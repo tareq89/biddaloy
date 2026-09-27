@@ -121,6 +121,7 @@ import {
   RoutineState,
   ChangeRequestState,
   TeacherDesignation,
+  StaffDocumentType,
 } from '@biddaloy/shared';
 
 /**
@@ -765,9 +766,25 @@ describe('workbook round trip (integration)', () => {
         staffTrainingRepository: dataSource.getRepository(StaffTraining),
         staffAchievementRepository: dataSource.getRepository(StaffAchievement),
         staffLanguageRepository: dataSource.getRepository(StaffLanguage),
-        staffDocumentRepository: dataSource.getRepository(StaffDocument),
       },
       { schoolId: TENANT_A },
+    );
+
+    // [23.7] `ensureStaffHrDemoSeed` no longer seeds a document row (a
+    // storage_key with no backing object can't be downloaded); insert one
+    // directly here instead, purely so `staff_documents` round-trips.
+    const staffHrDemoUser = await dataSource
+      .getRepository(User)
+      .findOneOrFail({ where: { email: 'accounts.officer@demoschool.example' } });
+    await dataSource.getRepository(StaffDocument).save(
+      dataSource.getRepository(StaffDocument).create({
+        tenant_id: TENANT_A,
+        staff_user_id: staffHrDemoUser.id,
+        document_type: StaffDocumentType.NID,
+        storage_key: `demo/staff-documents/${staffHrDemoUser.id}/nid.pdf`,
+        original_filename: 'nid-card.pdf',
+        content_type: 'application/pdf',
+      }),
     );
 
     const shift = await dataSource.getRepository(Shift).save(
