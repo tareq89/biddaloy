@@ -11,6 +11,7 @@ import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
 import { Program } from '../programs/entities/program.entity';
+import { ProgramEnrollment } from '../programs/entities/program-enrollment.entity';
 import { applyProgramAudience } from './program-audience';
 import { AuditService } from '../audit/audit.service';
 import { localToday } from '../attendance/attendance-policy.util';
@@ -827,6 +828,30 @@ export class RecurringSchedulesService {
       : [];
     const excludedScheduleIds = new Set(exclusions.map((e) => e.schedule_id));
 
+    // [#1066 follow-up] A program-scoped schedule's actual audience is
+    // program-gated (see `applyProgramAudience`, used by the daily
+    // scheduler/generation) — this student-facing list must agree, or a
+    // student outside the program (but matching class/section) sees a fee
+    // here that the scheduler would never actually bill them for. Loaded
+    // once, up front, rather than per-schedule — and only when at least
+    // one of this tenant's currently-open schedules is actually
+    // program-scoped, so a tenant with none (the common case) doesn't pay
+    // an extra round trip on every call to this per-student endpoint.
+    const hasProgramScopedSchedule = schedules.some((s) => s.audience.program_id);
+    const activeProgramIds = hasProgramScopedSchedule
+      ? new Set(
+          (
+            await this.repo.manager
+              .createQueryBuilder(ProgramEnrollment, 'pe')
+              .select('pe.program_id', 'program_id')
+              .where('pe.student_id = :studentId', { studentId })
+              .andWhere('pe.tenant_id = :tenantId', { tenantId })
+              .andWhere('pe.status = :status', { status: 'ACTIVE' })
+              .getRawMany<{ program_id: string }>()
+          ).map((row) => row.program_id),
+        )
+      : new Set<string>();
+
     const results: StudentScheduleItemDto[] = [];
     for (const schedule of schedules) {
       const excluded = excludedScheduleIds.has(schedule.id);
@@ -835,7 +860,8 @@ export class RecurringSchedulesService {
         (!schedule.audience.class_id ||
           schedule.audience.class_id === student.class_section?.class_id) &&
         (!schedule.audience.section_id ||
-          schedule.audience.section_id === student.class_section_id);
+          schedule.audience.section_id === student.class_section_id) &&
+        (!schedule.audience.program_id || activeProgramIds.has(schedule.audience.program_id));
 
       if (matchesAudience || excluded) {
         results.push({

@@ -695,10 +695,11 @@ export class FeeGenerationService {
     const programStudents = await qb.select('s.id').getMany();
     const programStudentIds = programStudents.map((s) => s.id);
 
+    const programStudentIdSet = new Set(programStudentIds);
     const resolved =
       !dto.student_ids || dto.student_ids.length === 0
         ? programStudentIds
-        : dto.student_ids.filter((id) => new Set(programStudentIds).has(id));
+        : dto.student_ids.filter((id) => programStudentIdSet.has(id));
 
     if (resolved.length === 0) {
       throw new BadRequestException('No students matched the given program_id/student_ids');

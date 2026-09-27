@@ -982,8 +982,13 @@ export class ResultsService {
       .andWhere('program.show_on_report_card = true')
       .andWhere(
         new Brackets((qb) => {
-          qb.where('pe.status = :active', {
+          // ACTIVE also needs `started_on <= yearEnd` — otherwise a
+          // student who enrolled *after* this exam's academic year ended
+          // (but is still ACTIVE today) would show up on a report card for
+          // a year they hadn't joined the program in yet.
+          qb.where('pe.status = :active AND pe.started_on <= :yearEnd', {
             active: ProgramEnrollmentStatus.ACTIVE,
+            yearEnd: academicYear.end_date,
           }).orWhere('pe.status = :completed AND pe.ended_on BETWEEN :yearStart AND :yearEnd', {
             completed: ProgramEnrollmentStatus.COMPLETED,
             yearStart: academicYear.start_date,
@@ -996,18 +1001,28 @@ export class ResultsService {
 
     return Promise.all(
       enrollments.map(async (enrollment) => {
+        // Same `yearEnd` cutoff on the achievement rows themselves — an
+        // achievement recorded after this academic year ended (e.g. the
+        // student is still active and progressing today) shouldn't inflate
+        // *this* year's report card count or "latest" milestone.
         const [milestoneTotal, achievedCount, latestAchievement] = await Promise.all([
           this.programMilestoneRepo.count({
             where: { tenant_id: tenantId, program_id: enrollment.program_id },
           }),
-          this.milestoneAchievementRepo.count({
-            where: { tenant_id: tenantId, enrollment_id: enrollment.id },
-          }),
-          this.milestoneAchievementRepo.findOne({
-            where: { tenant_id: tenantId, enrollment_id: enrollment.id },
-            order: { achieved_on: 'DESC' },
-            relations: { milestone: true },
-          }),
+          this.milestoneAchievementRepo
+            .createQueryBuilder('ma')
+            .where('ma.tenant_id = :tenantId', { tenantId })
+            .andWhere('ma.enrollment_id = :enrollmentId', { enrollmentId: enrollment.id })
+            .andWhere('ma.achieved_on <= :yearEnd', { yearEnd: academicYear.end_date })
+            .getCount(),
+          this.milestoneAchievementRepo
+            .createQueryBuilder('ma')
+            .innerJoinAndSelect('ma.milestone', 'milestone')
+            .where('ma.tenant_id = :tenantId', { tenantId })
+            .andWhere('ma.enrollment_id = :enrollmentId', { enrollmentId: enrollment.id })
+            .andWhere('ma.achieved_on <= :yearEnd', { yearEnd: academicYear.end_date })
+            .orderBy('ma.achieved_on', 'DESC')
+            .getOne(),
         ]);
 
         return {

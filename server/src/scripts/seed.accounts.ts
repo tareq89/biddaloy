@@ -530,24 +530,29 @@ export async function seedAccounts(
       // [34.2.4]: Hifz/Debate enrolments, Hifz achievements and a
       // program-targeted "Hifz monthly fee" schedule on the Class 6 A+B
       // roster — needs the roster above, so it can't live in
-      // ensureProgramsDemoSeed.
-      await ensureProgramParticipationDemoSeed(
-        {
-          programRepository: repos.programRepository,
-          programMilestoneRepository: repos.programMilestoneRepository,
-          programEnrollmentRepository: repos.programEnrollmentRepository,
-          milestoneAchievementRepository: repos.milestoneAchievementRepository,
-          feeStructureRepository: repos.feeStructureRepository,
-          recurringScheduleRepository: repos.recurringScheduleRepository,
-          recurringScheduleStructureRepository: repos.recurringScheduleStructureRepository,
-        },
-        {
-          schoolId: school.id,
-          academicYearId: calendarYear.id,
-          studentIds: [...studentsA, ...studentsB].map((s) => s.id),
-          recordedByUserId: adminTestUser?.id ?? null,
-        },
-      );
+      // ensureProgramsDemoSeed. Built once and only run when the roster
+      // has enough students for the seed's own split (2 programs, needs
+      // ≥6 for a non-trivial roster per program).
+      const programParticipationStudentIds = [...studentsA, ...studentsB].map((s) => s.id);
+      if (programParticipationStudentIds.length >= 6) {
+        await ensureProgramParticipationDemoSeed(
+          {
+            programRepository: repos.programRepository,
+            programMilestoneRepository: repos.programMilestoneRepository,
+            programEnrollmentRepository: repos.programEnrollmentRepository,
+            milestoneAchievementRepository: repos.milestoneAchievementRepository,
+            feeStructureRepository: repos.feeStructureRepository,
+            recurringScheduleRepository: repos.recurringScheduleRepository,
+            recurringScheduleStructureRepository: repos.recurringScheduleStructureRepository,
+          },
+          {
+            schoolId: school.id,
+            academicYearId: calendarYear.id,
+            studentIds: programParticipationStudentIds,
+            recordedByUserId: adminTestUser?.id ?? null,
+          },
+        );
+      }
 
       // [788] One COMMITTED promotion run for "Class 6", with one override
       // — deliberately after `ensureExamsDemoSeed` (whose exam this run's

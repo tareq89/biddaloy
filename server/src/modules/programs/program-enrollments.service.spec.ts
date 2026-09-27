@@ -207,6 +207,11 @@ describe('ProgramEnrollmentsService', () => {
         { id: 'enr-1', program_id: PROGRAM_ID, tenant_id: TENANT },
         { id: 'enr-2', program_id: PROGRAM_ID, tenant_id: TENANT },
       ]);
+      // `RETURNING id, enrollment_id, (xmax = 0) AS inserted` — both new.
+      queryMock.mockResolvedValueOnce([
+        { id: 'ach-1', enrollment_id: 'enr-1', inserted: true },
+        { id: 'ach-2', enrollment_id: 'enr-2', inserted: true },
+      ]);
 
       const result = await service.record(TENANT, PROGRAM_ID, 'user-1', {
         enrollment_ids: ['enr-1', 'enr-2'],
@@ -230,6 +235,8 @@ describe('ProgramEnrollmentsService', () => {
       enrollmentRepo.find.mockResolvedValue([
         { id: 'enr-1', program_id: PROGRAM_ID, tenant_id: TENANT },
       ]);
+      queryMock.mockResolvedValueOnce([{ id: 'ach-1', enrollment_id: 'enr-1', inserted: true }]);
+      queryMock.mockResolvedValueOnce([{ id: 'ach-1', enrollment_id: 'enr-1', inserted: false }]);
 
       await service.record(TENANT, PROGRAM_ID, 'user-1', {
         enrollment_ids: ['enr-1'],

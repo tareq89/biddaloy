@@ -12,7 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
@@ -26,10 +26,16 @@ import { requestContext } from '../../common/request-context.util';
 import { FamilyAccessService } from '../students/family-access.service';
 import { ProgramEnrollmentsService } from './program-enrollments.service';
 import {
+  DeletedResultDto,
   EnrolStudentsDto,
+  EnrolStudentsResultDto,
+  EnrollmentListItemDto,
   ListEnrollmentsQuery,
   RecordAchievementsDto,
+  RecordAchievementsResultDto,
+  StudentProgramEntryDto,
   UpdateProgramEnrollmentDto,
+  UpdateProgramEnrollmentResultDto,
 } from './dto/program-enrollments.dto';
 
 /**
@@ -49,6 +55,7 @@ export class ProgramEnrollmentsController {
   @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.PROGRAM_READ)
   @ApiOperation({ summary: "A program's enrolled students with achievement progress." })
+  @ApiOkResponse({ type: EnrollmentListItemDto, isArray: true })
   async listForProgram(
     @Param('id', ParseUUIDPipe) programId: string,
     @Query() query: ListEnrollmentsQuery,
@@ -76,6 +83,7 @@ export class ProgramEnrollmentsController {
   @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.PROGRAM_MANAGE)
   @ApiOperation({ summary: 'Bulk-enrol up to 500 students; already-active students are skipped.' })
+  @ApiOkResponse({ type: EnrolStudentsResultDto })
   async enrol(
     @Param('id', ParseUUIDPipe) programId: string,
     @Body() dto: EnrolStudentsDto,
@@ -98,6 +106,7 @@ export class ProgramEnrollmentsController {
   @ApiOperation({
     summary: "Bulk-record one milestone's achievement across up to 500 enrolments (upsert).",
   })
+  @ApiOkResponse({ type: RecordAchievementsResultDto })
   async record(
     @Param('id', ParseUUIDPipe) programId: string,
     @Body() dto: RecordAchievementsDto,
@@ -129,6 +138,7 @@ export class ProgramEnrollmentStatusController {
     summary:
       'Change an enrolment status (ACTIVE<->COMPLETED/WITHDRAWN). Never touches achievements.',
   })
+  @ApiOkResponse({ type: UpdateProgramEnrollmentResultDto })
   async updateStatus(
     @Param('id', ParseUUIDPipe) enrollmentId: string,
     @Body() dto: UpdateProgramEnrollmentDto,
@@ -163,6 +173,7 @@ export class MilestoneAchievementsController {
   @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.PROGRAM_RECORD)
   @ApiOperation({ summary: 'Untick a recorded achievement.' })
+  @ApiOkResponse({ type: DeletedResultDto })
   async remove(
     @Param('id', ParseUUIDPipe) achievementId: string,
     @CurrentTenant() tenant: { id: string; role: string },
@@ -201,6 +212,7 @@ export class StudentProgramsController {
     summary:
       "A student's full program picture: every enrolment with its milestones and achievements.",
   })
+  @ApiOkResponse({ type: StudentProgramEntryDto, isArray: true })
   async listForStudent(
     @Param('studentId', ParseUUIDPipe) studentId: string,
     @CurrentTenant() tenant: { id: string; role: string },

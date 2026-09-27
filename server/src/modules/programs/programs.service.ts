@@ -259,6 +259,20 @@ export class ProgramsService {
     await this.findOne(programId, tenantId);
 
     return this.dataSource.transaction(async (manager) => {
+      // Lock the parent `Program` row before reading the max sequence —
+      // without it, two concurrent `addMilestone` calls both read the same
+      // max, both compute the same `nextSequence`, and the second's INSERT
+      // 500s on the `(program_id, sequence)` unique constraint instead of
+      // serializing. `SELECT ... FOR UPDATE` makes the second request wait
+      // for the first's transaction to commit (or roll back) before it
+      // reads, so it sees the up-to-date max.
+      await manager
+        .getRepository(Program)
+        .createQueryBuilder('p')
+        .setLock('pessimistic_write')
+        .where('p.id = :id AND p.tenant_id = :tenantId', { id: programId, tenantId })
+        .getOne();
+
       const repo = manager.getRepository(ProgramMilestone);
       const existing = await repo.find({
         where: { program_id: programId, tenant_id: tenantId },
