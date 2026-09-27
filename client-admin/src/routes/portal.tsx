@@ -19,6 +19,7 @@ import {
   CreditCardIcon,
   GraduationCapIcon,
   HomeIcon,
+  MilestoneIcon,
   MoreHorizontalIcon,
   UserRoundIcon,
 } from 'lucide-react';
@@ -157,6 +158,16 @@ function PortalLayout() {
       // `ROLE_PERMISSIONS[PARENT]`/`[STUDENT]` both hold — same pattern as
       // `/portal/fees`'s `INVOICE_READ` above.
       permission: Permission.RESULT_READ,
+    },
+    {
+      to: '/portal/programs',
+      label: t('items.portalPrograms'),
+      icon: <MilestoneIcon className="size-5" aria-hidden="true" />,
+      // [34.5.2] `StudentProgramsController` (D24) gates
+      // `GET /students/:id/programs` on `PROGRAM_READ`, which
+      // `ROLE_PERMISSIONS[PARENT]`/`[STUDENT]` both hold — same pattern as
+      // `/portal/results`'s `RESULT_READ` above.
+      permission: Permission.PROGRAM_READ,
     },
     {
       to: '/portal/exam-schedule',
