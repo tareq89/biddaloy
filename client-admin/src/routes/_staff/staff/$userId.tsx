@@ -36,6 +36,7 @@ import { MembershipsTab } from './-detail/memberships-tab';
 import { PermissionsTab } from './-detail/permissions-tab';
 import { ProfileTab } from './-detail/profile-tab';
 import { ResetPasswordDialog } from './-detail/reset-password-dialog';
+import { TeachingAssignmentsTab } from './-detail/teaching-assignments-tab';
 import { EditTeacherDialog } from './-edit-teacher-dialog';
 import { EditUserDialog } from './-edit-user-dialog';
 import { RemoveMemberDialog } from './-remove-member-dialog';
@@ -72,9 +73,14 @@ function StaffDetailPage() {
   const canReadAuditLogs = useHasPermission(Permission.AUDIT_LOG_READ);
   const currentUserId = useCurrentUserId();
 
-  const tabIds = canReadAuditLogs
-    ? (['profile', 'permissions', 'memberships', 'loginHistory'] as const)
-    : (['profile', 'permissions', 'memberships'] as const);
+  const isTeacher = teacher !== undefined;
+  const tabIds = [
+    'profile',
+    'permissions',
+    'memberships',
+    ...(isTeacher ? (['teachingAssignments'] as const) : []),
+    ...(canReadAuditLogs ? (['loginHistory'] as const) : []),
+  ] as const;
   const [activeTab, setActiveTab] = useDetailShellTab(tabIds);
 
   const [editUserOpen, setEditUserOpen] = React.useState(false);
@@ -100,6 +106,15 @@ function StaffDetailPage() {
       label: t('detail.tabs.memberships'),
       content: <MembershipsTab userId={userId} />,
     },
+    ...(teacher !== undefined
+      ? [
+          {
+            id: 'teachingAssignments',
+            label: t('detail.tabs.teachingAssignments'),
+            content: <TeachingAssignmentsTab teacherId={teacher.id} />,
+          },
+        ]
+      : []),
     ...(canReadAuditLogs
       ? [
           {

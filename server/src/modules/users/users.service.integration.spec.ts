@@ -10,6 +10,7 @@ import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
+import { Subject } from '../academics/entities/subject.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { School } from '../schools/entities/school.entity';
 import { AuthToken } from '../account-access/entities/auth-token.entity';
@@ -1532,6 +1533,73 @@ describe('TeacherService (integration)', () => {
           { assigned_section_ids: ['00000000-0000-4000-8000-000000000000'] },
           TENANT_ID,
         ),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ────────────────────────
+  //  getTeacherAssignments() [29.0]
+  // ────────────────────────
+  describe('getTeacherAssignments', () => {
+    it('returns both class-teacher and subject-teacher rows for a teacher, tenant-scoped', async () => {
+      const subjectRepo = dataSource.getRepository(Subject);
+      const subject = await subjectRepo.save(
+        subjectRepo.create({ tenant_id: TENANT_ID, name_en: 'Mathematics', code: 'MATH' }),
+      );
+
+      const user = await createTenantUser();
+      const teacher = await teacherService.create(
+        { user_id: user.id, employee_id: 'EMP-001' },
+        TENANT_ID,
+      );
+
+      await tcsRepo.save(
+        tcsRepo.create({
+          teacher_id: teacher.id,
+          section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+        }),
+      );
+
+      const otherUser = await createTenantUser({ email: 'other-teacher@example.com' });
+      const otherTeacher = await teacherService.create(
+        { user_id: otherUser.id, employee_id: 'EMP-002' },
+        TENANT_ID,
+      );
+      await tcsRepo.save(
+        tcsRepo.create({
+          teacher_id: otherTeacher.id,
+          section_id: SEED_SECTION_1_ID,
+          subject_id: subject.id,
+          tenant_id: TENANT_ID,
+        }),
+      );
+
+      const rows = await teacherService.getTeacherAssignments(teacher.id, TENANT_ID);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        teacher_id: teacher.id,
+        section_id: SEED_SECTION_1_ID,
+        // [#1026 gap fix] class_id/class_name now come through the
+        // section→class join, for the Staff detail tab's class column.
+        class_id: SEED_CLASS_1_ID,
+        class_name: 'Class One',
+        subject_id: null,
+        subject_name: null,
+      });
+
+      const otherRows = await teacherService.getTeacherAssignments(otherTeacher.id, TENANT_ID);
+      expect(otherRows).toHaveLength(1);
+      expect(otherRows[0]).toMatchObject({
+        teacher_id: otherTeacher.id,
+        subject_id: subject.id,
+        subject_name: 'Mathematics',
+      });
+    });
+
+    it('throws NotFoundException for a teacher from another tenant', async () => {
+      await expect(
+        teacherService.getTeacherAssignments('00000000-0000-4000-8000-000000000000', TENANT_ID),
       ).rejects.toThrow(NotFoundException);
     });
   });

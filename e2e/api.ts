@@ -493,6 +493,19 @@ export async function createTeacherForSection(
   fullName: string,
   sectionId: string,
 ): Promise<FreshTeacher> {
+  return createTeacher(request, session, fullName, sectionId);
+}
+
+/** Creates a fresh TEACHER user + `Teacher` row. `sectionId` omitted =
+ * zero `TeacherClassSection` rows — for specs that need a teacher with no
+ * assignments at all (e.g. an empty-state assertion on the
+ * teaching-assignments screen). */
+export async function createTeacher(
+  request: APIRequestContext,
+  session: ApiSession,
+  fullName: string,
+  sectionId?: string,
+): Promise<FreshTeacher> {
   // `crypto.randomUUID()`, not `Math.random()` — CodeQL flags `Math.random()`
   // as insecure randomness wherever the value it seeds ends up in a field
   // named like a credential (`password` here), even in test-only code.
@@ -509,7 +522,7 @@ export async function createTeacherForSection(
   const teacher = await post<{ id: string }>(request, session, '/teachers', {
     user_id: created.user.id,
     employee_id: `E2E-${suffix}`,
-    assigned_section_ids: [sectionId],
+    ...(sectionId ? { assigned_section_ids: [sectionId] } : {}),
   });
   return { email, password, userId: created.user.id, teacherId: teacher.id };
 }

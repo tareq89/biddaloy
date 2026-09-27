@@ -450,10 +450,17 @@ export function DataTable<TData extends RowData>({
   // `document.activeElement` stays on the cell the user started on. Only
   // steals focus when it's already somewhere inside this table, so
   // changing `focusedCell` via a prop/reset doesn't yank focus from
-  // elsewhere on the page.
+  // elsewhere on the page. Also skip when focus is already inside the
+  // *target* cell (e.g. a nested action button that received focus
+  // directly): that button's own `focus` event bubbles up and re-fires
+  // this effect with a new `focusedCell` object, and without this check
+  // it would immediately steal focus back onto the `<td>`, making any
+  // interactive cell content permanently unreachable by keyboard.
   React.useEffect(() => {
     if (!regionRef.current?.contains(document.activeElement)) return;
-    regionRef.current.querySelector<HTMLElement>('[data-focused="true"]')?.focus();
+    const target = regionRef.current.querySelector<HTMLElement>('[data-focused="true"]');
+    if (!target || target.contains(document.activeElement)) return;
+    target.focus();
   }, [focusedCell]);
 
   function moveFocus(rowDelta: number, colDelta: number) {

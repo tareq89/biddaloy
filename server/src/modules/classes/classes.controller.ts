@@ -30,6 +30,7 @@ import {
   QueryClassDto,
   CreateSectionDto,
   UpdateSectionDto,
+  AssignTeacherDto,
 } from './dto/classes.dto';
 import { Permission, UserRole, JwtPayload } from '@biddaloy/shared';
 
@@ -203,5 +204,64 @@ export class ClassController {
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     return this.sectionService.findTeachers(classId, tenant.id);
+  }
+
+  // --- Section teacher assignments ---
+
+  @Post(':classId/sections/:sectionId/teachers')
+  // [29.0] Clone of the `POST /classes` guard stack (D5).
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.CLASS_MANAGE)
+  @ApiOperation({ summary: 'Assign a teacher to a section, as class-teacher or subject-teacher.' })
+  assignSectionTeacher(
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Param('sectionId', ParseUUIDPipe) sectionId: string,
+    @Body() dto: AssignTeacherDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.sectionService.assignTeacher(
+      classId,
+      sectionId,
+      dto,
+      tenant.id,
+      user.sub,
+      requestContext(request),
+    );
+  }
+
+  @Delete(':classId/sections/:sectionId/teachers/:assignmentId')
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.CLASS_MANAGE)
+  @ApiOperation({ summary: 'Remove a teacher assignment from a section.' })
+  unassignSectionTeacher(
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Param('sectionId', ParseUUIDPipe) sectionId: string,
+    @Param('assignmentId', ParseUUIDPipe) assignmentId: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    return this.sectionService.unassignTeacher(
+      classId,
+      sectionId,
+      assignmentId,
+      tenant.id,
+      user.sub,
+      requestContext(request),
+    );
+  }
+
+  @Get(':classId/sections/:sectionId/teachers')
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @RequirePermissions(Permission.ACADEMIC_STRUCTURE_READ)
+  @ApiOperation({ summary: "List a section's teacher assignments." })
+  findSectionTeachers(
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Param('sectionId', ParseUUIDPipe) sectionId: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.sectionService.listSectionTeachers(classId, sectionId, tenant.id);
   }
 }

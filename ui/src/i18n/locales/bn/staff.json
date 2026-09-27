@@ -133,7 +133,22 @@
       "profile": "প্রোফাইল",
       "permissions": "অনুমতি",
       "memberships": "সদস্যপদ",
+      "teachingAssignments": "শিক্ষকতার নিয়োগ",
       "loginHistory": "লগইন ইতিহাস"
+    },
+    "teachingAssignments": {
+      "caption": "এই শিক্ষককে যেসব শ্রেণি ও শাখায় নিয়োগ দেওয়া হয়েছে",
+      "columnClass": "শ্রেণি",
+      "columnSection": "শাখা",
+      "columnRole": "ভূমিকা",
+      "columnSubject": "বিষয়",
+      "columnActions": "কার্যক্রম",
+      "assign": "নিয়োগ দিন",
+      "remove": "সরান",
+      "removeError": "এই নিয়োগ সরানো যায়নি। আবার চেষ্টা করুন।",
+      "emptyMessage": "এখনো কোনো নিয়োগ নেই",
+      "errorMessage": "শিক্ষকতার নিয়োগ লোড করা যায়নি। আবার চেষ্টা করুন।",
+      "announceResults": "{{total}} টির মধ্যে {{count}} টি নিয়োগ দেখানো হচ্ছে"
     },
     "profile": {
       "columnEmail": "ইমেইল",

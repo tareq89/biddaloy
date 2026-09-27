@@ -133,7 +133,22 @@
       "profile": "Profile",
       "permissions": "Permissions",
       "memberships": "Memberships",
+      "teachingAssignments": "Teaching assignments",
       "loginHistory": "Login history"
+    },
+    "teachingAssignments": {
+      "caption": "Classes and sections this teacher is assigned to",
+      "columnClass": "Class",
+      "columnSection": "Section",
+      "columnRole": "Role",
+      "columnSubject": "Subject",
+      "columnActions": "Actions",
+      "assign": "Assign",
+      "remove": "Remove",
+      "removeError": "Could not remove this assignment. Please try again.",
+      "emptyMessage": "No assignments yet",
+      "errorMessage": "Could not load teaching assignments. Please try again.",
+      "announceResults": "Showing {{count}} of {{total}} assignments"
     },
     "profile": {
       "columnEmail": "Email",

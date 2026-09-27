@@ -3,7 +3,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 import { apiClient } from '../api/client';
 import type { components } from '../api/schema';
 
-import { createEntityKeys } from './query-keys';
+import { createEntityKeys, fetchAllPages } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
 export type Teacher = components['schemas']['TeacherResponseDto'];
@@ -47,6 +47,70 @@ export function teachersQueryOptions(filters: TeacherListFilters) {
 
 export function useTeachers(filters: TeacherListFilters) {
   return useQuery(teachersQueryOptions(filters));
+}
+
+/** [pr-fix #1035] `TEACHER_FILTER_LIMIT`'s "whole list fits one page"
+ * assumption breaks for a large school — this fetches every page instead
+ * of relying on a single 100-row request. For reference-list pickers
+ * (`-assign-teacher-dialog.tsx`'s Combobox), not for a paged list screen.
+ * Keyed under `teacherKeys.lists()` so the create/update mutations'
+ * `lists()` invalidation refreshes this picker too. */
+export function allTeachersQueryOptions() {
+  return queryOptions({
+    queryKey: [...teacherKeys.lists(), 'all-pages'] as const,
+    queryFn: ({ signal }) =>
+      fetchAllPages((page) =>
+        apiClient
+          .get<PaginatedTeachers>('/teachers', {
+            params: { limit: TEACHER_FILTER_LIMIT, page },
+            signal,
+          })
+          .then((res) => res.data),
+      ),
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useAllTeachers(options: { enabled?: boolean } = {}) {
+  return useQuery({ ...allTeachersQueryOptions(), ...options });
+}
+
+/** [29.0] `UserService.getTeacherAssignments`'s response shape, mirrored
+ * from `users.service.ts`'s `SectionTeacherAssignmentWithClass` shape,
+ * which extends `classes.ts`'s `SectionTeacherAssignment` with class
+ * fields (no `@ApiResponse` decoration on this list endpoint either). */
+export interface TeacherAssignment {
+  id: string;
+  teacher_id: string;
+  employee_id: string;
+  full_name: string;
+  section_id: string;
+  section_name: string;
+  /** [#1026 gap fix] Not on `classes.ts`'s `SectionTeacherAssignment` — a
+   * teacher-centric row has no fixed class in scope, so the DataTable
+   * needs its own class column. */
+  class_id: string;
+  class_name: string;
+  subject_id: string | null;
+  subject_name: string | null;
+}
+
+export function teacherAssignmentsQueryOptions(teacherId: string | undefined) {
+  return queryOptions({
+    queryKey: [...teacherKeys.all, 'assignments', teacherId] as const,
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<TeacherAssignment[]>(`/teachers/${teacherId}/assignments`, {
+        signal,
+      });
+      return res.data;
+    },
+    enabled: teacherId !== undefined,
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useTeacherAssignments(teacherId: string | undefined) {
+  return useQuery(teacherAssignmentsQueryOptions(teacherId));
 }
 
 /** "Promote an existing tenant member to a teacher profile" — the server's

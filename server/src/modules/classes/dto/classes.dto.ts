@@ -119,6 +119,16 @@ export class CreateSectionDto {
   group_name?: string | null;
 }
 
+export class AssignTeacherDto {
+  @IsNotEmpty()
+  @IsUUID()
+  teacher_id: string;
+
+  @IsOptional()
+  @IsUUID()
+  subject_id?: string;
+}
+
 export class UpdateSectionDto {
   @IsOptional()
   @IsString()

@@ -40,3 +40,22 @@ export function createEntityKeys<TFilters = Record<string, unknown>, TId = strin
     detail: (id) => [entity, 'detail', id] as const,
   };
 }
+
+/** [pr-fix #1035] The server caps every list endpoint's `limit` at 100
+ * (`@Max(100)`), so a "just raise the limit" fix for a picker with >100
+ * options doesn't work — this fetches every page and concatenates them.
+ * Page 1 runs first (to learn `totalPages`), the rest run in parallel. Only
+ * for reference-list pickers (Combobox options) where the whole list is
+ * genuinely needed client-side, not for a paged `DataTable`. */
+export async function fetchAllPages<T>(
+  fetchPage: (page: number) => Promise<{ data: T[]; totalPages: number }>,
+): Promise<T[]> {
+  const first = await fetchPage(1);
+  if (first.totalPages <= 1) {
+    return first.data;
+  }
+  const rest = await Promise.all(
+    Array.from({ length: first.totalPages - 1 }, (_, i) => fetchPage(i + 2)),
+  );
+  return [first.data, ...rest.map((page) => page.data)].flat();
+}

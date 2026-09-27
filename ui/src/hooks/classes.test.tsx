@@ -1,7 +1,7 @@
 import { TeacherDesignation } from '@biddaloy/shared';
 import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { classFactory, classSectionFactory } from '../test/factories';
 import { server } from '../test/msw/server';
@@ -11,6 +11,8 @@ import { createTestQueryClient } from '../test/render-with-providers';
 
 import {
   classKeys,
+  useAssignTeacher,
+  useAssignTeacherAssignment,
   useClass,
   useClasses,
   useClassSections,
@@ -19,6 +21,9 @@ import {
   useCreateSection,
   useDeleteClass,
   useDeleteSection,
+  useSectionTeachers,
+  useUnassignTeacher,
+  useUnassignTeacherAssignment,
   useUpdateClass,
   useUpdateSection,
 } from './classes';
@@ -185,6 +190,216 @@ describe('useClassTeachers resolves the class detail page Teachers tab', () => {
 
     expect(result.current.fetchStatus).toBe('idle');
     expect(requested).toBe(false);
+  });
+});
+
+describe('useSectionTeachers resolves a section teacher list and caches it', () => {
+  it('resolves with the section teacher assignments the handler returns', async () => {
+    server.use(
+      http.get('/api/v1/classes/:classId/sections/:sectionId/teachers', () =>
+        HttpResponse.json([
+          {
+            id: 'assignment-1',
+            teacher_id: 'teacher-1',
+            employee_id: 'EMP-00001',
+            full_name: 'Rahim Uddin',
+            section_id: 'section-1',
+            section_name: 'A',
+            subject_id: null,
+            subject_name: null,
+          },
+        ]),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => useSectionTeachers('class-1', 'section-1'), {
+      tenantId: 'tenant-1',
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.[0]?.employee_id).toBe('EMP-00001');
+  });
+
+  it('caches by class+section key — the same pair reuses the cached read', async () => {
+    let requestCount = 0;
+    server.use(
+      http.get('/api/v1/classes/:classId/sections/:sectionId/teachers', () => {
+        requestCount += 1;
+        return HttpResponse.json([]);
+      }),
+    );
+
+    const queryClient = createTestQueryClient();
+    const { result, rerender } = renderHookWithProviders(
+      () => useSectionTeachers('class-1', 'section-1'),
+      { tenantId: 'tenant-1', queryClient },
+    );
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    rerender();
+    expect(requestCount).toBe(1);
+  });
+});
+
+describe('useAssignTeacher invalidates both the section-scoped and class-wide teacher lists', () => {
+  it('posts the assignment and both lists refetch on success', async () => {
+    let postedBody: unknown = null;
+    server.use(
+      http.post('/api/v1/classes/:classId/sections/:sectionId/teachers', async ({ request }) => {
+        postedBody = await request.json();
+        return HttpResponse.json(
+          {
+            id: 'assignment-1',
+            teacher_id: 'teacher-1',
+            section_id: 'section-1',
+            subject_id: null,
+          },
+          { status: 201 },
+        );
+      }),
+      http.get('/api/v1/classes/:classId/sections/:sectionId/teachers', () =>
+        HttpResponse.json([]),
+      ),
+      http.get('/api/v1/classes/:classId/teachers', () => HttpResponse.json([])),
+    );
+
+    const queryClient = createTestQueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const { result } = renderHookWithProviders(() => useAssignTeacher('class-1', 'section-1'), {
+      tenantId: 'tenant-1',
+      queryClient,
+    });
+
+    result.current.mutate({ teacher_id: 'teacher-1' });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(postedBody).toEqual({ teacher_id: 'teacher-1' });
+    const invalidatedKeys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
+    expect(invalidatedKeys).toContainEqual(['classes', 'section-teachers', 'class-1', 'section-1']);
+    expect(invalidatedKeys).toContainEqual(['classes', 'teachers', 'class-1']);
+    expect(invalidatedKeys).toContainEqual(['teachers', 'assignments']);
+  });
+
+  it('surfaces the 409 duplicate-assignment error', async () => {
+    server.use(
+      http.post('/api/v1/classes/:classId/sections/:sectionId/teachers', () =>
+        HttpResponse.json({ statusCode: 409, message: 'already assigned' }, { status: 409 }),
+      ),
+    );
+
+    const { result } = renderHookWithProviders(() => useAssignTeacher('class-1', 'section-1'), {
+      tenantId: 'tenant-1',
+    });
+
+    result.current.mutate({ teacher_id: 'teacher-1' });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+});
+
+describe('useUnassignTeacher invalidates both the section-scoped and class-wide teacher lists', () => {
+  it('deletes the assignment and invalidates both keys on success', async () => {
+    let deletedAssignmentId: string | null = null;
+    server.use(
+      http.delete(
+        '/api/v1/classes/:classId/sections/:sectionId/teachers/:assignmentId',
+        ({ params }) => {
+          deletedAssignmentId = params.assignmentId as string;
+          return new HttpResponse(null, { status: 200 });
+        },
+      ),
+    );
+
+    const queryClient = createTestQueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const { result } = renderHookWithProviders(() => useUnassignTeacher('class-1', 'section-1'), {
+      tenantId: 'tenant-1',
+      queryClient,
+    });
+
+    result.current.mutate('assignment-1');
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(deletedAssignmentId).toBe('assignment-1');
+    const invalidatedKeys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
+    expect(invalidatedKeys).toContainEqual(['classes', 'section-teachers', 'class-1', 'section-1']);
+    expect(invalidatedKeys).toContainEqual(['classes', 'teachers', 'class-1']);
+    expect(invalidatedKeys).toContainEqual(['teachers', 'assignments']);
+  });
+});
+
+describe('useAssignTeacherAssignment (unbound) — [#1026 gap fix]', () => {
+  it('posts to the classId/sectionId given per-call and invalidates section, class and teacher-assignments keys', async () => {
+    let postedBody: unknown = null;
+    server.use(
+      http.post('/api/v1/classes/:classId/sections/:sectionId/teachers', async ({ request }) => {
+        postedBody = await request.json();
+        return HttpResponse.json(
+          { id: 'assignment-1', teacher_id: 'teacher-1', section_id: 'section-1' },
+          { status: 201 },
+        );
+      }),
+    );
+
+    const queryClient = createTestQueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const { result } = renderHookWithProviders(() => useAssignTeacherAssignment(), {
+      tenantId: 'tenant-1',
+      queryClient,
+    });
+
+    result.current.mutate({
+      classId: 'class-1',
+      sectionId: 'section-1',
+      teacher_id: 'teacher-1',
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(postedBody).toEqual({ teacher_id: 'teacher-1' });
+    const invalidatedKeys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
+    expect(invalidatedKeys).toContainEqual(['classes', 'section-teachers', 'class-1', 'section-1']);
+    expect(invalidatedKeys).toContainEqual(['classes', 'teachers', 'class-1']);
+    // Broad prefix, not one exact teacher_id — D3 auto-replace can silently
+    // drop a *different* teacher's class-teacher row too.
+    expect(invalidatedKeys).toContainEqual(['teachers', 'assignments']);
+  });
+});
+
+describe('useUnassignTeacherAssignment (unbound) — [#1026 gap fix]', () => {
+  it('deletes at the classId/sectionId/assignmentId given per-call and invalidates the same three keys', async () => {
+    let deletedAssignmentId: string | null = null;
+    server.use(
+      http.delete(
+        '/api/v1/classes/:classId/sections/:sectionId/teachers/:assignmentId',
+        ({ params }) => {
+          deletedAssignmentId = params.assignmentId as string;
+          return new HttpResponse(null, { status: 200 });
+        },
+      ),
+    );
+
+    const queryClient = createTestQueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const { result } = renderHookWithProviders(() => useUnassignTeacherAssignment(), {
+      tenantId: 'tenant-1',
+      queryClient,
+    });
+
+    result.current.mutate({
+      classId: 'class-1',
+      sectionId: 'section-1',
+      assignmentId: 'assignment-1',
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(deletedAssignmentId).toBe('assignment-1');
+    const invalidatedKeys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
+    expect(invalidatedKeys).toContainEqual(['classes', 'section-teachers', 'class-1', 'section-1']);
+    expect(invalidatedKeys).toContainEqual(['classes', 'teachers', 'class-1']);
+    expect(invalidatedKeys).toContainEqual(['teachers', 'assignments']);
   });
 });
 

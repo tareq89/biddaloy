@@ -302,6 +302,42 @@ describe('/staff/$userId', () => {
     }
   });
 
+  it('[#1026] shows the Teaching assignments tab for a teacher', async () => {
+    const teacher = teacherFactory({ id: 'teacher-1', employee_id: 'EMP-77' });
+    server.use(
+      http.get('/api/v1/users/:id', () => HttpResponse.json(teacher.user)),
+      http.get('/api/v1/teachers', () => HttpResponse.json(paginated([teacher]))),
+      http.get('/api/v1/teachers/:teacherId/assignments', () => HttpResponse.json([])),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: [`/staff/${teacher.user.id}`],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByRole('tab', { name: 'Teaching assignments' });
+  });
+
+  it('[#1026] hides the Teaching assignments tab for a non-teacher', async () => {
+    const nonTeacher = userResponseFactory({ id: 'user-2', role: 'ACCOUNTANT' });
+    server.use(
+      http.get('/api/v1/users/:id', () => HttpResponse.json(nonTeacher)),
+      http.get('/api/v1/teachers', () => HttpResponse.json(paginated([]))),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff/user-2'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByRole('tab', { name: 'Profile' });
+    expect(screen.queryByRole('tab', { name: 'Teaching assignments' })).toBeNull();
+  });
+
   it('is axe clean', async () => {
     const user = userResponseFactory({ id: 'user-1', full_name: 'Abdul Karim' });
     server.use(
