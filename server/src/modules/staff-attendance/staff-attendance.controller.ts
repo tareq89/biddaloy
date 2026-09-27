@@ -68,12 +68,15 @@ export class StaffAttendanceController {
   async getSummary(
     @Query() query: QueryStaffAttendanceSummaryDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: { sub: string },
   ) {
     return this.staffAttendanceSummaryService.getSummary({
       tenantId: tenant.id,
       staffProfileId: query.staff_profile_id,
       from: query.from,
       to: query.to,
+      role: tenant.role,
+      userId: user.sub,
     });
   }
 }

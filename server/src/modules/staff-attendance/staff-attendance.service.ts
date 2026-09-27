@@ -6,7 +6,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, QueryFailedError } from 'typeorm';
+import { DataSource, In, QueryFailedError } from 'typeorm';
 import {
   AttendanceSource,
   AttendanceStatus,
@@ -17,6 +17,7 @@ import {
 import { StaffAttendanceSession } from './entities/staff-attendance-session.entity';
 import { StaffAttendanceRecord } from './entities/staff-attendance-record.entity';
 import { StaffProfile } from '../staff-profiles/entities/staff-profile.entity';
+import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
 import { AuditService, RecordAuditEntryInput } from '../audit/audit.service';
 import { SchoolsService } from '../schools/schools.service';
 import {
@@ -55,6 +56,7 @@ export class StaffAttendanceService {
     private readonly dataSource: DataSource,
     private readonly auditService: AuditService,
     private readonly schoolsService: SchoolsService,
+    private readonly staffProfilesService: StaffProfilesService,
   ) {}
 
   async markDay(params: {
@@ -76,6 +78,24 @@ export class StaffAttendanceService {
       throw new BadRequestException('entries contains a duplicate staff_profile_id');
     }
 
+    // `STAFF_ATTENDANCE_MARK` is held by every tenant role, but only for
+    // their own record — ADMIN/EXECUTIVE additionally get it for all staff
+    // (`shared/src/enums/permissions.ts`'s comment on this permission).
+    // `LEAVE_APPROVE` happens to be held by exactly that same ADMIN/
+    // EXECUTIVE pair, so it doubles as the "admin-level attendance" check
+    // without a new permission, same pattern
+    // `leave.service.ts#assertStaffProfileAccessible` uses.
+    if (!roleHasPermission(role, Permission.LEAVE_APPROVE)) {
+      const ownStaffProfileId = await this.staffProfilesService.findIdByUserId(userId);
+      const notOwn = staffProfileIds.some((id) => id !== ownStaffProfileId);
+      if (notOwn) {
+        throw new ForbiddenException({
+          message: 'You may only mark your own attendance',
+          details: { code: 'STAFF_ATTENDANCE_NOT_OWN_PROFILE' },
+        });
+      }
+    }
+
     try {
       return await this.dataSource.transaction(async (manager) => {
         const sessionRepo = manager.getRepository(StaffAttendanceSession);
@@ -95,15 +115,12 @@ export class StaffAttendanceService {
         });
 
         const isNewSession = !session;
-        const hasCorrect = roleHasPermission(role, Permission.STAFF_ATTENDANCE_MARK);
         const age = daysBetween(dto.date, today);
         if (session && age > policy.correctionWindowDays) {
-          if (!hasCorrect) {
-            throw new ForbiddenException({
-              message: 'This day is outside the correction window',
-              details: { code: 'STAFF_ATTENDANCE_WINDOW_CLOSED' },
-            });
-          }
+          // No separate "blocked entirely outside the window" role exists
+          // today — every `STAFF_ATTENDANCE_MARK` holder (enforced by
+          // `PermissionsGuard` on this route already) may correct, they
+          // just need a reason. `docs/architecture/11-attendance.md` §4.
           if (isReasonTooShort(dto.reason)) {
             throw new UnprocessableEntityException({
               message: `A reason of at least ${MIN_REASON_LENGTH} characters is required to correct this day`,
@@ -116,7 +133,7 @@ export class StaffAttendanceService {
         const knownProfiles =
           uniqueStaffProfileIds.length > 0
             ? await staffProfileRepo.find({
-                where: { tenant_id: tenantId },
+                where: { tenant_id: tenantId, id: In(uniqueStaffProfileIds) },
               })
             : [];
         const knownIds = new Set(knownProfiles.map((p) => p.id));

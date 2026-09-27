@@ -1,7 +1,14 @@
 import { Injectable, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, EntityManager, In } from 'typeorm';
+import { Repository, EntityManager, In, QueryFailedError } from 'typeorm';
 import { StaffProfile } from './entities/staff-profile.entity';
+
+/** Postgres unique_violation. */
+const UNIQUE_VIOLATION = '23505';
+
+/** Bounds the retry loop below — a real collision storm past this many
+ * attempts means something other than ordinary concurrent-insert races. */
+const MAX_EMPLOYEE_ID_ATTEMPTS = 5;
 
 export interface CreateStaffProfileOptions {
   employeeId?: string;
@@ -44,7 +51,6 @@ export class StaffProfilesService {
       throw new ConflictException(`User "${userId}" already has a staff profile`);
     }
 
-    const employeeId = opts?.employeeId ?? (await this.nextEmployeeId(tenantId, repo));
     if (opts?.employeeId) {
       const duplicate = await repo.findOne({
         where: { tenant_id: tenantId, employee_id: opts.employeeId },
@@ -54,15 +60,39 @@ export class StaffProfilesService {
           `Staff profile with employee ID "${opts.employeeId}" already exists`,
         );
       }
+      return repo.save(
+        repo.create({
+          user_id: userId,
+          tenant_id: tenantId,
+          employee_id: opts.employeeId,
+          joining_date: opts?.joiningDate ?? null,
+        }),
+      );
     }
 
-    const profile = repo.create({
-      user_id: userId,
-      tenant_id: tenantId,
-      employee_id: employeeId,
-      joining_date: opts?.joiningDate ?? null,
-    });
-    return repo.save(profile);
+    // A generated `employee_id` isn't reserved by the `count`-based read
+    // above — two concurrent `createFor` calls for the same tenant can
+    // both read the same count and then race to insert the same id. That
+    // collision is expected and recoverable (retry with a fresh count),
+    // not a real conflict worth surfacing to the caller as one.
+    let lastError: unknown;
+    for (let attempt = 0; attempt < MAX_EMPLOYEE_ID_ATTEMPTS; attempt++) {
+      const employeeId = await this.nextEmployeeId(tenantId, repo);
+      try {
+        return await repo.save(
+          repo.create({
+            user_id: userId,
+            tenant_id: tenantId,
+            employee_id: employeeId,
+            joining_date: opts?.joiningDate ?? null,
+          }),
+        );
+      } catch (error) {
+        if (!isUniqueViolationOn(error, 'UQ_staff_profiles_tenant_employee_id')) throw error;
+        lastError = error;
+      }
+    }
+    throw lastError;
   }
 
   /** Single-user lookup for `staff_profile_id` — used to expose it on `UserResponseDto`. */
@@ -77,4 +107,15 @@ export class StaffProfilesService {
     const profiles = await this.staffProfileRepo.find({ where: { user_id: In(userIds) } });
     return new Map(profiles.map((p) => [p.user_id, p.id]));
   }
+}
+
+/** True when `error` is a Postgres unique-violation on `constraintName` —
+ * shared by `StaffProfilesService.createFor` and
+ * `TeacherStaffProfileSubscriber`, both of which retry past a
+ * concurrent-insert collision on the same `employee_id` generation
+ * scheme rather than surfacing it as a caller-facing conflict. */
+export function isUniqueViolationOn(error: unknown, constraintName: string): boolean {
+  if (!(error instanceof QueryFailedError)) return false;
+  const driverError = error.driverError as { code?: string; constraint?: string } | undefined;
+  return driverError?.code === UNIQUE_VIOLATION && driverError?.constraint === constraintName;
 }

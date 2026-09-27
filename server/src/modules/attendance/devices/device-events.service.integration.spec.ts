@@ -26,10 +26,6 @@ import { AttendanceDeviceEvent } from '../entities/attendance-device-event.entit
 import { AttendanceRecord } from '../entities/attendance-record.entity';
 import { AttendanceSession } from '../entities/attendance-session.entity';
 import { DeviceEventDto } from '../dto/device.dto';
-// [36.2.3] Created by the sibling #1098/#1096 lanes off the same
-// epic/36/integration base — not merged onto this branch yet. These
-// STAFF-path tests below cannot run until they land; see this ticket's
-// report.
 import { StaffProfile } from '../../staff-profiles/entities/staff-profile.entity';
 import { StaffAttendanceRecord } from '../../staff-attendance/entities/staff-attendance-record.entity';
 import { User } from '../../users/entities/user.entity';
@@ -350,13 +346,6 @@ describe('DeviceEventsService (integration)', () => {
     expect(records).toHaveLength(0);
   });
 
-  // -------------------------------------------------------------------
-  // [36.2.3] subject_type: STAFF. Needs #1098's StaffAttendanceSession/
-  // StaffAttendanceRecord entities and #1096's StaffProfile entity —
-  // none exist on this branch yet, so this block cannot compile/run
-  // until #1098 merges. Written against the shapes documented in the
-  // [36.1.1] migration and #1098's ticket body.
-  // -------------------------------------------------------------------
   describe('subject_type: STAFF', () => {
     let staffProfileId: string;
 

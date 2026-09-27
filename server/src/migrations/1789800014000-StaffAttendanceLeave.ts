@@ -70,7 +70,8 @@ export class StaffAttendanceLeave1789800014000 implements MigrationInterface {
       INSERT INTO "staff_profiles" ("id", "user_id", "tenant_id", "employee_id", "joining_date", "created_at", "updated_at")
       SELECT gen_random_uuid(), "t"."user_id", "t"."tenant_id", "t"."employee_id", "t"."joining_date", now(), now()
       FROM "teachers" "t"
-      WHERE NOT EXISTS (SELECT 1 FROM "staff_profiles" "sp" WHERE "sp"."user_id" = "t"."user_id")
+      WHERE "t"."deleted_at" IS NULL
+        AND NOT EXISTS (SELECT 1 FROM "staff_profiles" "sp" WHERE "sp"."user_id" = "t"."user_id")
     `);
 
     // 4b. Backfill: every other staff user (TEACHER-role with no Teacher row,
@@ -78,6 +79,12 @@ export class StaffAttendanceLeave1789800014000 implements MigrationInterface {
     // tenant via a per-tenant sequence. One membership row per user is picked
     // deterministically (a user with several tenant memberships gets exactly
     // one staff_profiles row, per the plan's `user_id` unique constraint).
+    //
+    // The sequence is offset past the highest `EMP-<tenant8>-<n>` suffix
+    // already present for that tenant — including rows step 4a just
+    // inserted, which reuse a teacher's own `employee_id` and can already
+    // look like `EMP-<tenant8>-<n>` by coincidence — so this insert can
+    // never collide with them on `UQ_staff_profiles_tenant_employee_id`.
     await queryRunner.query(`
       WITH "eligible" AS (
         SELECT DISTINCT ON ("ut"."user_id") "ut"."user_id", "ut"."tenant_id"
@@ -86,10 +93,27 @@ export class StaffAttendanceLeave1789800014000 implements MigrationInterface {
           AND NOT EXISTS (SELECT 1 FROM "staff_profiles" "sp" WHERE "sp"."user_id" = "ut"."user_id")
         ORDER BY "ut"."user_id", "ut"."tenant_id"
       ),
+      "tenant_offset" AS (
+        SELECT "e"."tenant_id",
+          COALESCE(
+            (
+              SELECT MAX((m[1])::int)
+              FROM "staff_profiles" "sp",
+                LATERAL regexp_match(
+                  "sp"."employee_id",
+                  '^EMP-' || substring("e"."tenant_id"::text, 1, 8) || '-([0-9]+)$'
+                ) AS m
+              WHERE "sp"."tenant_id" = "e"."tenant_id"
+            ),
+            0
+          ) AS "max_seq"
+        FROM (SELECT DISTINCT "tenant_id" FROM "eligible") "e"
+      ),
       "numbered" AS (
-        SELECT "user_id", "tenant_id",
-          ROW_NUMBER() OVER (PARTITION BY "tenant_id" ORDER BY "user_id") AS "seq"
-        FROM "eligible"
+        SELECT "e"."user_id", "e"."tenant_id",
+          "o"."max_seq" + ROW_NUMBER() OVER (PARTITION BY "e"."tenant_id" ORDER BY "e"."user_id") AS "seq"
+        FROM "eligible" "e"
+        JOIN "tenant_offset" "o" ON "o"."tenant_id" = "e"."tenant_id"
       )
       INSERT INTO "staff_profiles" ("id", "user_id", "tenant_id", "employee_id", "joining_date", "created_at", "updated_at")
       SELECT gen_random_uuid(), "user_id", "tenant_id",

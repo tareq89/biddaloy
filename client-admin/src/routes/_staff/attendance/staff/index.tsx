@@ -59,6 +59,16 @@ function StaffAttendancePage() {
   const [draft, setDraft] = React.useState<StaffAttendanceDraft>({});
   const markAttendance = useMarkStaffAttendance();
 
+  // `draft` is plain component state, not tied to `date` — switching the
+  // date via the picker keeps this same route component mounted, so
+  // without this reset the previous day's marks would ride along and get
+  // saved against the new date.
+  React.useEffect(() => {
+    setDraft({});
+    markAttendance.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on date change, not every markAttendance identity change
+  }, [date]);
+
   function handleStatusChange(staffProfileId: string, status: AttendanceStatus) {
     setDraft((prev) => ({ ...prev, [staffProfileId]: status }));
   }
@@ -68,7 +78,12 @@ function StaffAttendancePage() {
       .filter((entry): entry is [string, AttendanceStatus] => entry[1] !== null)
       .map(([staff_profile_id, status]) => ({ staff_profile_id, status }));
     if (entries.length === 0) return;
-    markAttendance.mutate({ date, entries });
+    markAttendance.mutate(
+      { date, entries },
+      {
+        onSuccess: () => setDraft({}),
+      },
+    );
   }
 
   return (

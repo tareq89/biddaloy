@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AttendanceStatus } from '@biddaloy/shared';
+import { AttendanceStatus, Permission, roleHasPermission } from '@biddaloy/shared';
 import { StaffAttendanceRecord } from './entities/staff-attendance-record.entity';
 import { SchoolCalendarService } from '../calendar/school-calendar.service';
 import { SchoolsService } from '../schools/schools.service';
+import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
 import { resolveAttendancePolicy } from '../attendance/attendance-policy.util';
 import { computeAttendancePercentage } from '../attendance/attendance-summary.service';
 import { StaffAttendanceSummaryDto } from './dto/staff-attendance.dto';
@@ -24,6 +25,7 @@ export class StaffAttendanceSummaryService {
     private readonly recordRepo: Repository<StaffAttendanceRecord>,
     private readonly schoolCalendarService: SchoolCalendarService,
     private readonly schoolsService: SchoolsService,
+    private readonly staffProfilesService: StaffProfilesService,
   ) {}
 
   async getSummary(params: {
@@ -31,8 +33,23 @@ export class StaffAttendanceSummaryService {
     staffProfileId: string;
     from: string;
     to: string;
+    role: string;
+    userId: string;
   }): Promise<StaffAttendanceSummaryDto> {
-    const { tenantId, staffProfileId, from, to } = params;
+    const { tenantId, staffProfileId, from, to, role, userId } = params;
+
+    // Same self-or-admin scoping `StaffAttendanceService.markDay` enforces
+    // for writes — `STAFF_ATTENDANCE_READ` is held by every tenant role
+    // for their own record, ADMIN/EXECUTIVE additionally for all staff.
+    if (!roleHasPermission(role, Permission.LEAVE_APPROVE)) {
+      const ownStaffProfileId = await this.staffProfilesService.findIdByUserId(userId);
+      if (staffProfileId !== ownStaffProfileId) {
+        throw new ForbiddenException({
+          message: 'You may only read your own attendance summary',
+          details: { code: 'STAFF_ATTENDANCE_NOT_OWN_PROFILE' },
+        });
+      }
+    }
 
     const settings = await this.schoolsService.getResolvedSettings(tenantId);
     const policy = resolveAttendancePolicy(settings);

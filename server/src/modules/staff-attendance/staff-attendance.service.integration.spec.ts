@@ -221,23 +221,39 @@ describe('StaffAttendanceService', () => {
       expect(audits.length).toBeGreaterThan(0);
     });
 
-    it('rejects marking a day outside the window without STAFF_ATTENDANCE_MARK-equivalent bypass', async () => {
-      await service.markDay(
+    it('a non-admin role may mark its own attendance', async () => {
+      const user1 = await dataSource
+        .getRepository(StaffProfile)
+        .findOneOrFail({ where: { id: staffProfileId } });
+
+      const result = await service.markDay(
         putParams({
+          role: UserRole.TEACHER,
+          userId: user1.user_id,
           dto: {
-            date: OUTSIDE_WINDOW(),
+            date: TODAY(),
             entries: [{ staff_profile_id: staffProfileId, status: AttendanceStatus.PRESENT }],
           },
         }),
       );
 
+      expect(result.records[0]?.staff_profile_id).toBe(staffProfileId);
+    });
+
+    it('403s a non-admin role marking a colleague (not their own staff profile)', async () => {
+      const user1 = await dataSource
+        .getRepository(StaffProfile)
+        .findOneOrFail({ where: { id: staffProfileId } });
+
       await expect(
         service.markDay(
           putParams({
-            role: 'GUARDIAN',
+            role: UserRole.TEACHER,
+            userId: user1.user_id,
             dto: {
-              date: OUTSIDE_WINDOW(),
-              entries: [{ staff_profile_id: staffProfileId, status: AttendanceStatus.ABSENT }],
+              date: TODAY(),
+              // staffProfileId2 belongs to a different user — not this caller's own.
+              entries: [{ staff_profile_id: staffProfileId2, status: AttendanceStatus.PRESENT }],
             },
           }),
         ),
@@ -281,6 +297,8 @@ describe('StaffAttendanceService', () => {
         staffProfileId: staffProfileId2,
         from: dates[0],
         to: dates[dates.length - 1],
+        role: UserRole.ADMIN,
+        userId: ADMIN_USER_ID,
       });
 
       expect(summary.working_days).toBe(23);
@@ -289,6 +307,40 @@ describe('StaffAttendanceService', () => {
       expect(summary.absent_days).toBe(1);
       expect(summary.leave_days).toBe(1);
       expect(summary.attendance_percentage).toBe(95.45);
+    });
+
+    it("403s a non-admin role reading a colleague's summary (not their own staff profile)", async () => {
+      const user1 = await dataSource
+        .getRepository(StaffProfile)
+        .findOneOrFail({ where: { id: staffProfileId } });
+
+      await expect(
+        summaryService.getSummary({
+          tenantId: TENANT_ID,
+          staffProfileId: staffProfileId2,
+          from: TODAY(),
+          to: TODAY(),
+          role: UserRole.TEACHER,
+          userId: user1.user_id,
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('a non-admin role may read its own summary', async () => {
+      const user1 = await dataSource
+        .getRepository(StaffProfile)
+        .findOneOrFail({ where: { id: staffProfileId } });
+
+      await expect(
+        summaryService.getSummary({
+          tenantId: TENANT_ID,
+          staffProfileId,
+          from: TODAY(),
+          to: TODAY(),
+          role: UserRole.TEACHER,
+          userId: user1.user_id,
+        }),
+      ).resolves.not.toThrow();
     });
   });
 });

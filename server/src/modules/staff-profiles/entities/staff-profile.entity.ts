@@ -26,6 +26,7 @@ import { School } from '../../schools/entities/school.entity';
  */
 @Entity('staff_profiles')
 @Index(['tenant_id'])
+@Index(['tenant_id', 'employee_id'], { unique: true })
 export class StaffProfile {
   @PrimaryGeneratedColumn('uuid')
   id: string;

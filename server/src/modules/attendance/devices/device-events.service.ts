@@ -12,11 +12,6 @@ import { AttendanceDeviceEvent } from '../entities/attendance-device-event.entit
 import { AttendanceSession } from '../entities/attendance-session.entity';
 import { AttendanceRecord } from '../entities/attendance-record.entity';
 import { Student } from '../../students/entities/student.entity';
-// [36.2.3] Created by the sibling #1098 (w2-g1) lane off the same
-// epic/36/integration base — these two files/classes do not exist on this
-// branch yet, so this file cannot compile or run in isolation until #1098
-// merges. See this ticket's report for the shape assumed here (matches the
-// #1096 migration and #1098's ticket body).
 import { StaffAttendanceSession } from '../../staff-attendance/entities/staff-attendance-session.entity';
 import { StaffAttendanceRecord } from '../../staff-attendance/entities/staff-attendance-record.entity';
 import { StaffProfile } from '../../staff-profiles/entities/staff-profile.entity';

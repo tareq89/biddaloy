@@ -6,6 +6,7 @@ import { StaffProfile } from '../staff-profiles/entities/staff-profile.entity';
 import { AuditModule } from '../audit/audit.module';
 import { SchoolsModule } from '../schools/schools.module';
 import { CalendarModule } from '../calendar/calendar.module';
+import { StaffProfilesModule } from '../staff-profiles/staff-profiles.module';
 import { StaffAttendanceService } from './staff-attendance.service';
 import { StaffAttendanceSummaryService } from './staff-attendance-summary.service';
 import { StaffAttendanceController } from './staff-attendance.controller';
@@ -18,6 +19,7 @@ import { StaffAttendanceController } from './staff-attendance.controller';
     AuditModule,
     SchoolsModule,
     CalendarModule,
+    StaffProfilesModule,
   ],
   providers: [StaffAttendanceService, StaffAttendanceSummaryService],
   controllers: [StaffAttendanceController],
