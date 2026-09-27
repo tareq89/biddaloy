@@ -5,6 +5,9 @@ import { teacherAssignmentsTab } from './teacher-assignments.tab';
 import { guardiansTab } from './guardians.tab';
 import { studentsTab } from './students.tab';
 import { enrollmentsTab } from './enrollments.tab';
+import { admissionIntakesTab } from './admission-intakes.tab';
+import { admissionApplicantsTab } from './admission-applicants.tab';
+import { admissionEvaluationsTab } from './admission-evaluations.tab';
 
 /**
  * Tabs owned by the people lane. Populated by that lane's own tickets; kept as a
@@ -21,6 +24,14 @@ import { enrollmentsTab } from './enrollments.tab';
  * directly after `guardians`. `enrollments` depends on `students`, `classes`,
  * `academic_years` and `sections`, and goes last because `EXPECTED_TABS`
  * places it directly after `students`, with the fees lane's tabs following.
+ *
+ * [27.6] `admission_intakes`/`admission_applicants`/`admission_evaluations`
+ * are appended at the end, after `enrollments`: an intake depends on
+ * `sections` (already satisfied), an applicant depends on the intake, and
+ * an evaluation depends on the applicant plus `users` (already satisfied).
+ * `EXPECTED_TABS` (`codec/registry.ts`) places them in this same physical
+ * spot — right after `enrollments`, before `fee_structures` — because
+ * `ALL_TABS` must be a strict subsequence of `EXPECTED_TABS`.
  */
 export const peopleTabs: TabSpec<any, any>[] = [
   usersTab,
@@ -29,12 +40,28 @@ export const peopleTabs: TabSpec<any, any>[] = [
   guardiansTab,
   studentsTab,
   enrollmentsTab,
+  admissionIntakesTab,
+  admissionApplicantsTab,
+  admissionEvaluationsTab,
 ];
 
-export { usersTab, teachersTab, teacherAssignmentsTab, guardiansTab, studentsTab, enrollmentsTab };
+export {
+  usersTab,
+  teachersTab,
+  teacherAssignmentsTab,
+  guardiansTab,
+  studentsTab,
+  enrollmentsTab,
+  admissionIntakesTab,
+  admissionApplicantsTab,
+  admissionEvaluationsTab,
+};
 export type { UserRow } from './users.tab';
 export type { TeacherRow } from './teachers.tab';
 export type { TeacherAssignmentRow } from './teacher-assignments.tab';
 export type { GuardianRow } from './guardians.tab';
 export type { StudentRow } from './students.tab';
 export type { EnrollmentRow } from './enrollments.tab';
+export type { AdmissionIntakeRow } from './admission-intakes.tab';
+export type { AdmissionApplicantRow } from './admission-applicants.tab';
+export type { AdmissionEvaluationRow } from './admission-evaluations.tab';

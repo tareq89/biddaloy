@@ -49,6 +49,8 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/verify-email': 'pre-auth screen, no shell',
   '/select-school': 'post-auth, pre-tenant-selection — no tenant nav to trail into yet',
   '/i/$token': 'public invite-accept link, opened signed-out',
+  '/admission/$slug/': 'public admission form, opened signed-out',
+  '/admission/$slug/status': 'public admission status-check page, opened signed-out',
 
   // --- Guardian portal: tab nav, no breadcrumb chrome ---
   '/portal/': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
@@ -137,6 +139,8 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
     { label: { key: 'promotionRunDetail' }, dynamic: 'entity' },
   ],
   '/_staff/grading-scales/': [{ label: { key: 'gradingScales' } }],
+  '/_staff/admissions/intakes/': [{ label: { key: 'admissionIntakes' } }],
+  '/_staff/admissions/applicants/': [{ label: { key: 'admissionApplicants' } }],
   '/_staff/routines/setup': [{ label: { key: 'routineSetup' } }],
   '/_staff/routines/': [{ label: { key: 'routineBuilder' } }],
   '/_staff/routines/$sectionId': [
@@ -207,6 +211,14 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/grading-scales/$scaleId': [
     { label: { key: 'gradingScales' } },
     { label: { key: 'gradingScaleDetail' }, dynamic: 'entity' },
+  ],
+  '/_staff/admissions/intakes/$intakeId': [
+    { label: { key: 'admissionIntakes' } },
+    { label: { key: 'admissionIntakeDetail' }, dynamic: 'entity' },
+  ],
+  '/_staff/admissions/applicants/$applicantId': [
+    { label: { key: 'admissionApplicants' } },
+    { label: { key: 'admissionApplicantDetail' }, dynamic: 'entity' },
   ],
   '/_staff/attendance/$sectionId': [
     { label: { key: 'attendance' } },

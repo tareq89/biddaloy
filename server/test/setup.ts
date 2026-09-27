@@ -24,6 +24,7 @@ import 'ts-node/register/transpile-only';
 import { join } from 'path';
 import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
+import Redis from 'ioredis';
 import { buildResetSql, buildReferenceResetSql } from './reset-order';
 import { workerDbName } from './global-setup';
 
@@ -209,11 +210,23 @@ async function clearTransactionalTables(): Promise<void> {
 
 // ─── Global Hooks ──────────────────────────────────────────────────
 
+let redis: Redis | undefined;
+
 beforeAll(async () => {
   await setupTestDatabase();
+  // Same per-file cadence as setupTestDatabase(), and for the same reason:
+  // Redis-backed state (StepUpService's `step-up-attempts:actor:<userId>`
+  // rate-limit counter, OtpService cooldowns, login-attempt counters) is
+  // never reset otherwise and accumulates across every spec file this
+  // worker runs within the same vitest invocation — REDIS_URL above
+  // already points at this worker's own db index, so this never touches
+  // another worker's data.
+  redis = new Redis(process.env.REDIS_URL!);
+  await redis.flushdb();
 }, 60000);
 
 afterAll(async () => {
+  redis?.disconnect();
   if (dataSource && dataSource.isInitialized) {
     await dataSource.destroy();
   }

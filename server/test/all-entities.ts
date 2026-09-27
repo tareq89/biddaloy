@@ -64,6 +64,9 @@ import { Homework } from '../src/modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from '../src/modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from '../src/modules/homework/entities/homework-submission.entity';
 import { SyllabusTopic } from '../src/modules/homework/entities/syllabus-topic.entity';
+import { AdmissionIntake } from '../src/modules/admission/entities/admission-intake.entity';
+import { AdmissionApplicant } from '../src/modules/admission/entities/admission-applicant.entity';
+import { AdmissionEvaluation } from '../src/modules/admission/entities/admission-evaluation.entity';
 import { SeatPlan } from '../src/modules/seat-plans/entities/seat-plan.entity';
 import { SeatPlanSchedule } from '../src/modules/seat-plans/entities/seat-plan-schedule.entity';
 import { SeatAllocation } from '../src/modules/seat-plans/entities/seat-allocation.entity';
@@ -137,6 +140,9 @@ export const ALL_ENTITIES = [
   HomeworkAssignment,
   HomeworkSubmission,
   SyllabusTopic,
+  AdmissionIntake,
+  AdmissionApplicant,
+  AdmissionEvaluation,
   SeatPlan,
   SeatPlanSchedule,
   SeatAllocation,
