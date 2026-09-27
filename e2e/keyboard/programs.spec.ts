@@ -63,14 +63,34 @@ test.describe('teacher', () => {
     });
 
     await test.step('Tab to the Students tab, activate it', async () => {
-      await tabUntilFocused(page, t('programs.detail.tabs.students'), 30, { tag: 'BUTTON' });
+      // `DetailShell`'s tab strip is a standard ARIA tablist (Radix
+      // `Tabs`, roving tabindex) — same pattern `homework-detail-tabs.spec.ts`
+      // documents. Only the *active* tab (Milestones, first) sits in the
+      // Tab order; a plain `Tab` search can never land on the inactive
+      // Students trigger. `ArrowRight` is the real way to move between
+      // tabs in this pattern.
+      const milestonesTab = page.getByRole('tab', { name: t('programs.detail.tabs.milestones') });
+      await milestonesTab.focus();
+      await page.keyboard.press('ArrowRight');
+      await expect(
+        page.getByRole('tab', { name: t('programs.detail.tabs.students') }),
+      ).toBeFocused();
       await page.keyboard.press('Enter');
       await expect(
         page.getByRole('tab', { name: t('programs.detail.tabs.students') }),
       ).toHaveAttribute('aria-selected', 'true');
     });
 
-    const firstRowToggle = page.getByRole('tabpanel').locator('button[aria-expanded]').first();
+    // Scoped to the student rows' own `<ul>`, not just the tabpanel — the
+    // enrolment-status filter's `Select` trigger also renders
+    // `aria-expanded` (standard combobox markup) and sits before the row
+    // list in the DOM, so an unscoped `tabpanel` query matches that
+    // filter instead of the first student row's toggle.
+    const firstRowToggle = page
+      .getByRole('tabpanel')
+      .getByRole('list')
+      .locator('button[aria-expanded]')
+      .first();
 
     await test.step('expand the first student row', async () => {
       await firstRowToggle.focus();
@@ -151,7 +171,15 @@ test.describe('admin', () => {
     });
 
     await test.step('Alt+ArrowDown reorders the first milestone down', async () => {
-      await tabUntilFocused(page, t('programs.milestones.moveDown'), 20, { tag: 'BUTTON' });
+      // Focus is on the "add milestone" name field after the second
+      // `addMilestone` call — that field sits *after* the milestones list
+      // in the DOM (add-another-at-the-bottom layout), so the first
+      // row's "move down" button is behind current focus, not ahead of
+      // it. Forward `Tab` can never reach it; walk backwards instead.
+      await tabUntilFocused(page, t('programs.milestones.moveDown'), 20, {
+        tag: 'BUTTON',
+        shift: true,
+      });
       await page.keyboard.press('Alt+ArrowDown');
       await expect(milestonesList.locator('p.font-medium')).toHaveText([second, first]);
     });

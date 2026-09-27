@@ -89,7 +89,7 @@ export const STAFF_NAV_ITEMS = {
     to: '/programs',
     permission: Permission.PROGRAM_READ,
     label: { key: 'programs' },
-    synonyms: ['hifz', 'club', 'milestone', 'track'],
+    synonyms: ['program', 'programs', 'hifz', 'club', 'milestone', 'track'],
   },
   // [27.9] Staff admission intakes list — gated same as the route itself
   // (`route-permissions.ts`), `admission:review`.
