@@ -6,6 +6,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -36,9 +37,9 @@ export class StaffHrController {
   @Get()
   @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.STAFF_HR_READ)
-  @ApiOperation({ summary: 'List this tenant’s staff HR records.' })
-  async findAll(@CurrentTenant() tenant: { id: string }) {
-    return this.staffHrService.findAll(tenant.id);
+  @ApiOperation({ summary: 'List this tenant’s staff HR records, optionally filtered by user.' })
+  async findAll(@CurrentTenant() tenant: { id: string }, @Query('user_id') userId?: string) {
+    return this.staffHrService.findAll(tenant.id, userId);
   }
 
   @Get(':id')
@@ -83,6 +84,17 @@ export class StaffHrController {
     @CurrentTenant() tenant: { id: string },
   ) {
     return this.staffHrService.getCurrentDesignation(userId, tenant.id);
+  }
+
+  @Get(':userId/designation-history')
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.STAFF_HR_READ)
+  @ApiOperation({ summary: "List a staff member's whole designation history, newest first." })
+  async designationHistory(
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @CurrentTenant() tenant: { id: string },
+  ) {
+    return this.staffHrService.getDesignationHistory(userId, tenant.id);
   }
 
   @Post(':userId/promote')

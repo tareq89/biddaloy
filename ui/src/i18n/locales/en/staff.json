@@ -134,6 +134,7 @@
       "permissions": "Permissions",
       "memberships": "Memberships",
       "teachingAssignments": "Teaching assignments",
+      "hrRecord": "HR record",
       "loginHistory": "Login history"
     },
     "teachingAssignments": {
@@ -193,6 +194,59 @@
       "revokeConfirmDescription": "{{name}}'s current invitation link will stop working. They will need a new one to activate their account.",
       "revokeSuccess": "Invitation revoked for {{name}}.",
       "revokeError": "Could not revoke the invitation. Please try again."
+    }
+  },
+  "hrRecord": {
+    "comingSoon": "Coming soon",
+    "sections": {
+      "job": "Job info",
+      "promotion": "Promotion / employment history",
+      "family": "Family members",
+      "address": "Addresses",
+      "experience": "Work experience",
+      "education": "Education",
+      "training": "Training",
+      "achievement": "Achievements",
+      "language": "Languages",
+      "documents": "Documents"
+    },
+    "job": {
+      "emptyTitle": "No HR record yet",
+      "emptyExplanation": "This staff member's job details have not been filled in yet.",
+      "addAction": "Add job details",
+      "editAction": "Edit job details",
+      "indexNoLabel": "Index no.",
+      "salaryCodeLabel": "Salary code",
+      "mpoDateLabel": "MPO date",
+      "salaryScaleLabel": "Salary scale",
+      "departmentLabel": "Department",
+      "bloodGroupLabel": "Blood group",
+      "religionLabel": "Religion",
+      "errorMessage": "Could not save job details. Please try again.",
+      "save": "Save",
+      "saving": "Saving…"
+    },
+    "promotion": {
+      "promoteAction": "Promote",
+      "emptyTitle": "No promotions recorded yet",
+      "emptyExplanation": "This staff member has not been promoted or assigned a designation yet.",
+      "current": "Current",
+      "effectiveSince": "Effective since {{date}}",
+      "effectiveRange": "{{from}} – {{to}}"
+    },
+    "promote": {
+      "title": "Promote staff member",
+      "description": "Assign a new designation, effective a given date. The current designation ends the day before.",
+      "designationLabel": "New designation",
+      "designationPlaceholder": "Select a designation",
+      "effectiveDateLabel": "Effective date",
+      "notesLabel": "Notes (optional)",
+      "errorDesignationRequired": "Please select a designation.",
+      "errorEffectiveDateRequired": "Please select an effective date.",
+      "errorConflict": "This staff member already has a designation change on or after that date.",
+      "errorMessage": "Could not save this promotion. Please try again.",
+      "save": "Promote",
+      "saving": "Saving…"
     }
   }
 }

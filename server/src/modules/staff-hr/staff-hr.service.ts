@@ -54,8 +54,26 @@ export class StaffHrService {
     private readonly auditService: AuditService,
   ) {}
 
-  async findAll(tenantId: string): Promise<StaffHrRecord[]> {
-    return this.hrRecordRepo.find({ where: { tenant_id: tenantId } });
+  /** `userId` narrows to one staff member's record — [23.9]'s HR-record
+   * tab needs "does this user have a record yet" without paging the
+   * tenant's whole HR-record list client-side, same reasoning as
+   * `TeacherService`'s `user_id` filter. */
+  async findAll(tenantId: string, userId?: string): Promise<StaffHrRecord[]> {
+    return this.hrRecordRepo.find({
+      where: { tenant_id: tenantId, ...(userId !== undefined ? { user_id: userId } : {}) },
+    });
+  }
+
+  /** Every designation-history row for one user, newest first — [23.9]'s
+   * promotion timeline. Tenant-scoped like every other read here. */
+  async getDesignationHistory(
+    userId: string,
+    tenantId: string,
+  ): Promise<StaffDesignationHistory[]> {
+    return this.historyRepo.find({
+      where: { user_id: userId, tenant_id: tenantId },
+      order: { effective_date: 'DESC' },
+    });
   }
 
   async findOne(id: string, tenantId: string): Promise<StaffHrRecord> {

@@ -299,4 +299,49 @@ describe('StaffHrService', () => {
       ).rejects.toThrow('A staff HR record already exists for this user');
     });
   });
+
+  // [23.9] additions: `findAll`'s optional `user_id` filter and the
+  // designation-history list the promotion timeline reads.
+  describe('findAll', () => {
+    it('passes the user_id filter through to the repo when given', async () => {
+      const { service, hrRecordRepo } = await buildService([]);
+      hrRecordRepo.find = vi.fn(async () => []);
+
+      await service.findAll(TENANT_A, USER_ID);
+
+      expect(hrRecordRepo.find).toHaveBeenCalledWith({
+        where: { tenant_id: TENANT_A, user_id: USER_ID },
+      });
+    });
+
+    it('omits the user_id filter when not given', async () => {
+      const { service, hrRecordRepo } = await buildService([]);
+      hrRecordRepo.find = vi.fn(async () => []);
+
+      await service.findAll(TENANT_A);
+
+      expect(hrRecordRepo.find).toHaveBeenCalledWith({ where: { tenant_id: TENANT_A } });
+    });
+  });
+
+  describe('getDesignationHistory', () => {
+    it('returns every row for the user, newest first', async () => {
+      const older = historyRow({
+        id: 'h-1',
+        effective_date: new Date('2025-01-01'),
+        end_date: new Date('2025-12-31'),
+      });
+      const current = historyRow({ id: 'h-2', effective_date: new Date('2026-01-01') });
+      const { service, historyRepo } = await buildService([older, current]);
+      historyRepo.find = vi.fn(async () => [current, older]);
+
+      const rows = await service.getDesignationHistory(USER_ID, TENANT_A);
+
+      expect(historyRepo.find).toHaveBeenCalledWith({
+        where: { user_id: USER_ID, tenant_id: TENANT_A },
+        order: { effective_date: 'DESC' },
+      });
+      expect(rows).toEqual([current, older]);
+    });
+  });
 });

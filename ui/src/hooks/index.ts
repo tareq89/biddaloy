@@ -76,6 +76,27 @@ export {
   type InviteSkippedEntry,
 } from './invitations';
 export {
+  designationHistoryKeys,
+  designationKeys,
+  designationsQueryOptions,
+  staffDesignationHistoryQueryOptions,
+  staffHrRecordKeys,
+  staffHrRecordQueryOptions,
+  useCreateStaffHrRecord,
+  useDesignations,
+  usePromoteStaff,
+  useStaffDesignationHistory,
+  useStaffHrRecord,
+  useUpdateStaffHrRecord,
+  type CreateStaffHrRecordInput,
+  type Designation,
+  type PromoteStaffInput,
+  type StaffDesignationHistory,
+  type StaffEmploymentStatus,
+  type StaffHrRecord,
+  type UpdateStaffHrRecordInput,
+} from './staff-hr';
+export {
   allTeachersQueryOptions,
   teacherAssignmentsQueryOptions,
   teacherKeys,

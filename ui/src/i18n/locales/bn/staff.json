@@ -134,6 +134,7 @@
       "permissions": "অনুমতি",
       "memberships": "সদস্যপদ",
       "teachingAssignments": "শিক্ষকতার নিয়োগ",
+      "hrRecord": "এইচআর রেকর্ড",
       "loginHistory": "লগইন ইতিহাস"
     },
     "teachingAssignments": {
@@ -193,6 +194,59 @@
       "revokeConfirmDescription": "{{name}}-এর বর্তমান আমন্ত্রণ লিংক কাজ করা বন্ধ হয়ে যাবে। অ্যাকাউন্ট সক্রিয় করতে তাঁর একটি নতুন লিংক প্রয়োজন হবে।",
       "revokeSuccess": "{{name}}-এর আমন্ত্রণ প্রত্যাহার করা হয়েছে।",
       "revokeError": "আমন্ত্রণ প্রত্যাহার করা যায়নি। আবার চেষ্টা করুন।"
+    }
+  },
+  "hrRecord": {
+    "comingSoon": "শীঘ্রই আসছে",
+    "sections": {
+      "job": "চাকরির তথ্য",
+      "promotion": "পদোন্নতি / কর্মসংস্থানের ইতিহাস",
+      "family": "পরিবারের সদস্য",
+      "address": "ঠিকানা",
+      "experience": "কর্ম অভিজ্ঞতা",
+      "education": "শিক্ষা",
+      "training": "প্রশিক্ষণ",
+      "achievement": "অর্জন",
+      "language": "ভাষা",
+      "documents": "ডকুমেন্ট"
+    },
+    "job": {
+      "emptyTitle": "এখনো কোনো এইচআর রেকর্ড নেই",
+      "emptyExplanation": "এই কর্মীর চাকরির তথ্য এখনো পূরণ করা হয়নি।",
+      "addAction": "চাকরির তথ্য যুক্ত করুন",
+      "editAction": "চাকরির তথ্য সম্পাদনা করুন",
+      "indexNoLabel": "ইনডেক্স নং",
+      "salaryCodeLabel": "বেতন কোড",
+      "mpoDateLabel": "এমপিও তারিখ",
+      "salaryScaleLabel": "বেতন স্কেল",
+      "departmentLabel": "বিভাগ",
+      "bloodGroupLabel": "রক্তের গ্রুপ",
+      "religionLabel": "ধর্ম",
+      "errorMessage": "চাকরির তথ্য সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।",
+      "save": "সংরক্ষণ করুন",
+      "saving": "সংরক্ষণ করা হচ্ছে…"
+    },
+    "promotion": {
+      "promoteAction": "পদোন্নতি",
+      "emptyTitle": "এখনো কোনো পদোন্নতি রেকর্ড নেই",
+      "emptyExplanation": "এই কর্মীকে এখনো পদোন্নতি বা পদবি দেওয়া হয়নি।",
+      "current": "বর্তমান",
+      "effectiveSince": "{{date}} থেকে কার্যকর",
+      "effectiveRange": "{{from}} – {{to}}"
+    },
+    "promote": {
+      "title": "কর্মীর পদোন্নতি দিন",
+      "description": "একটি নির্দিষ্ট তারিখ থেকে কার্যকর নতুন পদবি নির্ধারণ করুন। বর্তমান পদবি তার আগের দিন শেষ হবে।",
+      "designationLabel": "নতুন পদবি",
+      "designationPlaceholder": "একটি পদবি নির্বাচন করুন",
+      "effectiveDateLabel": "কার্যকরের তারিখ",
+      "notesLabel": "মন্তব্য (ঐচ্ছিক)",
+      "errorDesignationRequired": "একটি পদবি নির্বাচন করুন।",
+      "errorEffectiveDateRequired": "একটি কার্যকরের তারিখ নির্বাচন করুন।",
+      "errorConflict": "এই কর্মীর ইতিমধ্যে সেই তারিখে বা পরে একটি পদবি পরিবর্তন রয়েছে।",
+      "errorMessage": "এই পদোন্নতি সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।",
+      "save": "পদোন্নতি দিন",
+      "saving": "সংরক্ষণ করা হচ্ছে…"
     }
   }
 }
