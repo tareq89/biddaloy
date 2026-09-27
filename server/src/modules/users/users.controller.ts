@@ -55,6 +55,7 @@ import { SETTINGS_RATE_LIMIT, STRICT_RATE_LIMIT } from '../../rate-limit';
 import { InvitationService } from '../account-access/invitation.service';
 import { GuardianProvisioningService } from '../account-access/guardian-provisioning.service';
 import { BatchInviteDto } from '../account-access/dto/batch-invite.dto';
+import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
 
 @ApiTags('users')
 @ApiTenantAuth()
@@ -68,6 +69,7 @@ export class UserController {
     private readonly recoveryService: RecoveryService,
     private readonly guardianProvisioningService: GuardianProvisioningService,
     private readonly contactChangeService: ContactChangeService,
+    private readonly staffProfilesService: StaffProfilesService,
   ) {}
 
   // --- User endpoints ---
@@ -183,11 +185,15 @@ export class UserController {
   ) {
     const result = await this.userService.findAll(query, tenant.id);
     const statusByUserId = await this.invitationService.statusForMany(result.data, tenant.id);
+    const staffProfileIdByUserId = await this.staffProfilesService.findIdsByUserIds(
+      result.data.map((u) => u.id),
+    );
     return {
       ...result,
       data: result.data.map((u) => {
         const dto = UserResponseDto.fromEntity(u, tenant.id);
         dto.invitation_status = statusByUserId.get(u.id) ?? 'NONE';
+        dto.staff_profile_id = staffProfileIdByUserId.get(u.id) ?? null;
         return dto;
       }),
     };
@@ -274,6 +280,7 @@ export class UserController {
     const user = await this.userService.findOne(jwt.sub, tenant.id);
     const dto = UserResponseDto.fromEntity(user, tenant.id);
     dto.invitation_status = await this.invitationService.statusFor(user, tenant.id);
+    dto.staff_profile_id = await this.staffProfilesService.findIdByUserId(user.id);
     return dto;
   }
 
