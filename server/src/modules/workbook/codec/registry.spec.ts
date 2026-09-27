@@ -118,6 +118,8 @@ describe('EXPECTED_TABS', () => {
       'staff_training',
       'staff_achievements',
       'staff_languages',
+      // [23.7] Wave 2 close — staff_documents (#1088).
+      'staff_documents',
     ]);
   });
 

@@ -18,6 +18,7 @@ import {
   PublicHolidaySource,
   SeatOrderMode,
   SeatPlanStatus,
+  StaffDocumentType,
   StaffEmploymentStatus,
   TeacherDesignation,
   UserRole,
@@ -105,6 +106,7 @@ import { StaffEducation } from '../modules/staff-hr/entities/staff-education.ent
 import { StaffTraining } from '../modules/staff-hr/entities/staff-training.entity';
 import { StaffAchievement } from '../modules/staff-hr/entities/staff-achievement.entity';
 import { StaffLanguage } from '../modules/staff-hr/entities/staff-language.entity';
+import { StaffDocument } from '../modules/staff-hr/entities/staff-document.entity';
 
 /** [8.9.5] manual-testing aid: gives the seed admin a *second* school
  * membership so `/select-school`'s picker actually has something to show
@@ -3263,6 +3265,7 @@ export interface StaffHrDemoSeedRepositories {
   staffTrainingRepository: Repository<StaffTraining>;
   staffAchievementRepository: Repository<StaffAchievement>;
   staffLanguageRepository: Repository<StaffLanguage>;
+  staffDocumentRepository: Repository<StaffDocument>;
 }
 
 export interface StaffHrDemoSeedParams {
@@ -3281,6 +3284,7 @@ export interface StaffHrDemoSeedResult {
   training: number;
   achievements: number;
   languages: number;
+  documents: number;
 }
 
 /** The demo's one non-teaching staff member — an accountant, so 23.5's AC
@@ -3313,6 +3317,7 @@ export async function ensureStaffHrDemoSeed(
     training: 0,
     achievements: 0,
     languages: 0,
+    documents: 0,
   };
 
   let teacherDesignation = await repos.designationRepository.findOne({
@@ -3542,6 +3547,29 @@ export async function ensureStaffHrDemoSeed(
     result.languages += 1;
   }
 
+  // [23.7] One sample document — a `storage_key` metadata row, same shape
+  // `StaffDocumentService.upload()` writes, but created directly since this
+  // is demo data rather than a real upload: no S3 object needs to exist
+  // behind it for the row itself to seed correctly.
+  const documentSeeds = [
+    {
+      document_type: StaffDocumentType.NID,
+      storage_key: `demo/staff-documents/${staffUser.id}/nid.pdf`,
+      original_filename: 'nid-card.pdf',
+      content_type: 'application/pdf',
+    },
+  ];
+  for (const seed of documentSeeds) {
+    const existing = await repos.staffDocumentRepository.findOne({
+      where: { tenant_id: schoolId, staff_user_id: staffUser.id, document_type: seed.document_type },
+    });
+    if (existing) continue;
+    await repos.staffDocumentRepository.save(
+      repos.staffDocumentRepository.create({ tenant_id: schoolId, staff_user_id: staffUser.id, ...seed }),
+    );
+    result.documents += 1;
+  }
+
   const total = Object.values(result).reduce((sum, n) => sum + n, 0);
   if (total > 0) {
     console.log(
@@ -3549,7 +3577,7 @@ export async function ensureStaffHrDemoSeed(
         `+${result.hrRecords} HR records, +${result.designationHistory} designation history, ` +
         `+${result.familyMembers} family members, +${result.addresses} addresses, ` +
         `+${result.experience} experience, +${result.education} education, +${result.training} training, ` +
-        `+${result.achievements} achievements, +${result.languages} languages`,
+        `+${result.achievements} achievements, +${result.languages} languages, +${result.documents} documents`,
     );
   }
   return result;

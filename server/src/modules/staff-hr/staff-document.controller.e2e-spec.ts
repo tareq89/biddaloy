@@ -242,4 +242,85 @@ describe('StaffDocument E2E (23.6)', () => {
       .set('X-Role', UserRole.ADMIN)
       .expect(200);
   });
+
+  /**
+   * [23.7] The full upload -> list -> download -> replace journey, with the
+   * orphan-cleanup check the ticket's AC calls for: after a same-type
+   * re-upload, exactly one object remains in `FakeStorageService`'s store
+   * for this document — the old one is gone, not just unlinked from the row.
+   */
+  it('replaces a document of the same type and leaves no orphaned storage object', async () => {
+    const storage = app.get(StorageService) as unknown as FakeStorageService;
+
+    const firstUpload = await supertest(app.getHttpServer())
+      .post(`${API}/staff-documents/${STAFF_USER_ID}/BIRTH_CERTIFICATE`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .set('X-Role', UserRole.ADMIN)
+      .attach('file', Buffer.from('%PDF-1.4 first'), {
+        filename: 'birth-cert-v1.pdf',
+        contentType: 'application/pdf',
+      })
+      .expect(201);
+    const firstStorageKeysBefore = (storage as unknown as { objects: Map<string, unknown> }).objects
+      .size;
+
+    const listAfterFirst = await supertest(app.getHttpServer())
+      .get(`${API}/staff-documents/${STAFF_USER_ID}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .set('X-Role', UserRole.ADMIN)
+      .expect(200);
+    expect(
+      listAfterFirst.body.some((d: { id: string; document_type: string }) => d.id === firstUpload.body.id),
+    ).toBe(true);
+
+    const downloadFirst = await supertest(app.getHttpServer())
+      .get(`${API}/staff-documents/download/${firstUpload.body.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .set('X-Role', UserRole.ADMIN)
+      .expect(200);
+    expect(downloadFirst.body.toString()).toBe('%PDF-1.4 first');
+
+    // Same staff member, same document type -> replace, not a second row.
+    const secondUpload = await supertest(app.getHttpServer())
+      .post(`${API}/staff-documents/${STAFF_USER_ID}/BIRTH_CERTIFICATE`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .set('X-Role', UserRole.ADMIN)
+      .attach('file', Buffer.from('%PDF-1.4 second'), {
+        filename: 'birth-cert-v2.pdf',
+        contentType: 'application/pdf',
+      })
+      .expect(201);
+    expect(secondUpload.body.id).toBe(firstUpload.body.id);
+
+    const downloadSecond = await supertest(app.getHttpServer())
+      .get(`${API}/staff-documents/download/${secondUpload.body.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .set('X-Role', UserRole.ADMIN)
+      .expect(200);
+    expect(downloadSecond.headers['content-disposition']).toContain('birth-cert-v2.pdf');
+    expect(downloadSecond.body.toString()).toBe('%PDF-1.4 second');
+
+    // Still exactly one row for this (staff, type) pair.
+    const listAfterReplace = await supertest(app.getHttpServer())
+      .get(`${API}/staff-documents/${STAFF_USER_ID}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .set('X-Role', UserRole.ADMIN)
+      .expect(200);
+    expect(
+      listAfterReplace.body.filter((d: { document_type: string }) => d.document_type === 'BIRTH_CERTIFICATE'),
+    ).toHaveLength(1);
+
+    // The orphan check: the replace must not leave the store larger than
+    // it was after the first upload — the old object was deleted, not
+    // just superseded in the row.
+    const storageKeysAfterReplace = (storage as unknown as { objects: Map<string, unknown> }).objects
+      .size;
+    expect(storageKeysAfterReplace).toBe(firstStorageKeysBefore);
+  });
 });

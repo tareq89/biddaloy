@@ -85,6 +85,7 @@ import { StaffEducation } from '../src/modules/staff-hr/entities/staff-education
 import { StaffTraining } from '../src/modules/staff-hr/entities/staff-training.entity';
 import { StaffAchievement } from '../src/modules/staff-hr/entities/staff-achievement.entity';
 import { StaffLanguage } from '../src/modules/staff-hr/entities/staff-language.entity';
+import { StaffDocument } from '../src/modules/staff-hr/entities/staff-document.entity';
 import { ImportStagingService } from '../src/modules/bulk-import/import-staging.service';
 import { ValidationService } from '../src/modules/workbook/import/validation.service';
 import { DiffService } from '../src/modules/workbook/import/diff.service';
@@ -764,6 +765,7 @@ describe('workbook round trip (integration)', () => {
         staffTrainingRepository: dataSource.getRepository(StaffTraining),
         staffAchievementRepository: dataSource.getRepository(StaffAchievement),
         staffLanguageRepository: dataSource.getRepository(StaffLanguage),
+        staffDocumentRepository: dataSource.getRepository(StaffDocument),
       },
       { schoolId: TENANT_A },
     );
@@ -1499,6 +1501,8 @@ describe('workbook round trip (integration)', () => {
       'staff_training',
       'staff_achievements',
       'staff_languages',
+      // [23.7] Wave 2 close.
+      'staff_documents',
     ];
     const empty = mustBeNonEmpty.filter((tab) => !(rowCounts[tab] ?? 0));
     expect(empty, `fixture produced no rows for: ${empty.join(', ')}`).toEqual([]);

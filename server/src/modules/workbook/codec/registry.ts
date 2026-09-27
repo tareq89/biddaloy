@@ -26,6 +26,7 @@ import { staffEducationTab } from '../tabs/people/staff-education.tab';
 import { staffTrainingTab } from '../tabs/people/staff-training.tab';
 import { staffAchievementTab } from '../tabs/people/staff-achievement.tab';
 import { staffLanguageTab } from '../tabs/people/staff-language.tab';
+import { staffDocumentTab } from '../tabs/people/staff-document.tab';
 
 /**
  * Every tab name a backup workbook may contain, in apply order (epic 14.0
@@ -136,6 +137,10 @@ export const EXPECTED_TABS = [
   'staff_training',
   'staff_achievements',
   'staff_languages',
+  // [23.7] Wave 2 close — staff_documents, depends only on `users`
+  // (already earlier in this list), appended right after the rest of the
+  // staff-HR tabs.
+  'staff_documents',
 ] as const;
 
 export type ExpectedTabName = (typeof EXPECTED_TABS)[number];
@@ -190,6 +195,8 @@ export const ALL_TABS: readonly TabSpec<any, any>[] = [
   staffTrainingTab,
   staffAchievementTab,
   staffLanguageTab,
+  // [23.7] Wave 2 close.
+  staffDocumentTab,
 ];
 
 export class RegistryError extends Error {

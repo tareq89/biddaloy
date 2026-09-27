@@ -18,6 +18,7 @@ import { staffEducationTab } from './staff-education.tab';
 import { staffTrainingTab } from './staff-training.tab';
 import { staffAchievementTab } from './staff-achievement.tab';
 import { staffLanguageTab } from './staff-language.tab';
+import { staffDocumentTab } from './staff-document.tab';
 
 /**
  * Tabs owned by the people lane. Populated by that lane's own tickets; kept as a
@@ -83,6 +84,7 @@ export {
   staffTrainingTab,
   staffAchievementTab,
   staffLanguageTab,
+  staffDocumentTab,
 };
 export type { UserRow } from './users.tab';
 export type { TeacherRow } from './teachers.tab';
