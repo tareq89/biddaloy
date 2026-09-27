@@ -148,6 +148,35 @@ export const ACTIONS: readonly PaletteAction[] = [
     // second copy of the dialog).
     run: (ctx) => ctx.navigate({ to: '/grading-scales' }),
   },
+  {
+    id: 'programs.add',
+    label: { en: 'Add program', bn: 'প্রোগ্রাম যোগ করুন' },
+    permission: Permission.PROGRAM_MANAGE,
+    kind: 'modal',
+    run: (ctx) => ctx.navigate({ to: '/programs?new=1' }),
+  },
+  {
+    id: 'programs.enrol',
+    label: { en: 'Enrol students', bn: 'শিক্ষার্থী তালিকাভুক্ত করুন' },
+    permission: Permission.PROGRAM_MANAGE,
+    kind: 'modal',
+    context: ['student'],
+    // Same "no entity id" limitation as `grading.copyScale` above —
+    // `ActionRunContext` carries no student id, so this lands on
+    // `/programs`'s own enrol dialog unprefilled rather than a specific
+    // student pre-selected ([31.0]'s retrofit territory, not this
+    // ticket's).
+    run: (ctx) => ctx.navigate({ to: '/programs?enrol=1' }),
+  },
+  {
+    id: 'programs.recordMilestone',
+    label: { en: 'Record achievement', bn: 'অর্জন রেকর্ড করুন' },
+    permission: Permission.PROGRAM_RECORD,
+    kind: 'modal',
+    context: ['student'],
+    // Same "no entity id" limitation as `programs.enrol` above.
+    run: (ctx) => ctx.navigate({ to: '/programs?record=1' }),
+  },
   /**
    * [21.9.1] `run()` only carries `navigate({ to })` — there is no way to
    * pass the slot/date "context" the ticket names, or to auto-open a

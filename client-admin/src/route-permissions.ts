@@ -49,6 +49,8 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/calendar/import': Permission.CALENDAR_MANAGE,
   '/_staff/staff/': Permission.USER_READ,
   '/_staff/staff/$userId': Permission.USER_READ,
+  '/_staff/programs/': Permission.PROGRAM_READ,
+  '/_staff/programs/$programId': Permission.PROGRAM_READ,
   '/_staff/fees/': Permission.FEE_STRUCTURE_READ,
   '/_staff/fees/dues': Permission.FEE_COLLECT,
   '/_staff/fees/generate': Permission.FEE_GENERATE,

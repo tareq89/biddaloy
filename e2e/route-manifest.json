@@ -344,6 +344,21 @@
       "archetype": "detail"
     },
     {
+      "path": "/programs",
+      "role": "admin",
+      "archetype": "list",
+      "overlays": ["programForm", "enrol", "record"]
+    },
+    {
+      "path": "/programs/$programId",
+      "params": {
+        "programId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail",
+      "overlays": ["milestoneRemove"]
+    },
+    {
       "path": "/i/$token",
       "params": {
         "token": "seeded"
