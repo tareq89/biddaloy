@@ -63,7 +63,14 @@ test('staff attendance + leave request/approval, keyboard only', async ({ page, 
     ).toBeVisible();
     await tabUntilFocused(page, me.full_name, 60, { tag: 'BUTTON' });
     await page.keyboard.press('Enter'); // AttendanceStatusControl row shortcut: PRESENT
-    await tabUntilFocused(page, t('staffAttendance.grid.submit'), 20, { tag: 'BUTTON' });
+    // The grid has no pagination yet (`index.tsx`'s own `useUsers({ limit:
+    // 200 })` comment) — every seeded staff/teacher account across every
+    // epic's demo data is one row here, so the number of Tab stops between
+    // `me`'s row and Submit grows with the tenant's total staff roster, not
+    // a fixed constant. 200 bounds it at the grid's own row cap plus margin
+    // for the row's own status-control buttons, not an arbitrary "big
+    // enough" guess.
+    await tabUntilFocused(page, t('staffAttendance.grid.submit'), 200, { tag: 'BUTTON' });
     const [markResponse] = await Promise.all([
       page.waitForResponse(
         (r) => r.url().includes('/staff-attendance/register') && r.request().method() === 'PUT',
