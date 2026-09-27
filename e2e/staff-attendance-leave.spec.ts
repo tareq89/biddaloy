@@ -61,15 +61,26 @@ test('staff attendance + leave request/approval, keyboard only', async ({ page, 
     await expect(
       page.getByRole('heading', { name: t('staffAttendance.grid.title') }),
     ).toBeVisible();
-    // A bare `me.full_name` also matches the header's account-menu button
-    // (`user-menu.tsx`'s aria-label is `"${accountMenuLabel} — ${name}"`),
-    // which sits earlier in tab order than the grid — the hunt would land
-    // there first, Enter would open that menu, and every subsequent Tab
-    // would be trapped inside it forever, unreachable at any budget.
-    // `attendance-status-control.tsx`'s row trigger's own accessible label
-    // (`"{{name}}, currently {{status}}. Change status"`) starts with
-    // "<name>," — unique to the row, not the header's " — " pattern.
-    await tabUntilFocused(page, `${me.full_name},`, 60, { tag: 'BUTTON' });
+
+    // Selecting the palette action returns focus to whatever opened the
+    // palette (the header's search trigger), not the new route's content —
+    // continuing to Tab from there walks through header chrome first,
+    // including the account-menu button, whose aria-label
+    // (`"${accountMenuLabel} — ${name}"`, `user-menu.tsx`) also contains
+    // `me.full_name` and would false-positive-match the hunt below, then
+    // Enter would open that menu and trap every later Tab inside it. Same
+    // skip-link jump `focus-management.spec.ts` uses to reach
+    // `#main-content` directly, bypassing header/sidebar chrome entirely.
+    await page.evaluate(() => {
+      document.body.setAttribute('tabindex', '-1');
+      document.body.focus();
+      document.body.removeAttribute('tabindex');
+    });
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#main-content')).toBeFocused();
+
+    await tabUntilFocused(page, me.full_name, 60, { tag: 'BUTTON' });
     await page.keyboard.press('Enter'); // AttendanceStatusControl row shortcut: PRESENT
     await tabUntilFocused(page, t('staffAttendance.grid.submit'), 20, { tag: 'BUTTON' });
     const [markResponse] = await Promise.all([
