@@ -250,14 +250,19 @@ export async function seedAccounts(
   // all get a staff HR record, matching who the migration backfills in a
   // real tenant. Deliberately after `ensureRoleTestUsers`, whose users this
   // reads by email.
-  const staffRoleEmails = [
-    'admin@biddaloy.test',
-    'accountant@biddaloy.test',
-    'teacher@biddaloy.test',
-    'executive@biddaloy.test',
-  ];
+  // Fixed email-to-employee-ID map, not `find()`'s row order: `find` with
+  // no `ORDER BY` gives no ordering guarantee, so a partial reseed (one
+  // user already profiled, another not) could assign an already-used
+  // `EMP-SEED-00N` to the wrong user and hit the unique
+  // `(tenant_id, employee_id)` constraint.
+  const employeeIdByEmail = new Map<string, string>([
+    ['admin@biddaloy.test', 'EMP-SEED-001'],
+    ['accountant@biddaloy.test', 'EMP-SEED-002'],
+    ['teacher@biddaloy.test', 'EMP-SEED-003'],
+    ['executive@biddaloy.test', 'EMP-SEED-004'],
+  ]);
   const staffRoleUsers = await repos.userRepository.find({
-    where: staffRoleEmails.map((email) => ({ email })),
+    where: [...employeeIdByEmail.keys()].map((email) => ({ email })),
   });
   await ensureStaffHrSeed(
     {
@@ -268,9 +273,9 @@ export async function seedAccounts(
       leaveRecordRepository: repos.leaveRecordRepository,
     },
     school.id,
-    staffRoleUsers.map((user, index) => ({
+    staffRoleUsers.map((user) => ({
       userId: user.id,
-      employeeId: `EMP-SEED-${String(index + 1).padStart(3, '0')}`,
+      employeeId: employeeIdByEmail.get(user.email as string)!,
     })),
   );
 
