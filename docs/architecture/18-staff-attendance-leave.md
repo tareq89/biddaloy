@@ -23,7 +23,8 @@ erDiagram
 ```
 
 - **`StaffProfile`** (`server/src/modules/staff-profiles/entities/staff-profile.entity.ts`)
-  — every ADMIN/ACCOUNTANT/TEACHER/EXECUTIVE `User` gets exactly one,
+  — every ADMIN/ACCOUNTANT/EXECUTIVE `User` gets exactly one, and a
+  TEACHER `User` gets one when its `Teacher` row is created,
   holding `employee_id` and `joining_date`. This is the generic layer
   attendance and leave both key off — `Teacher` keeps its own
   (globally-unique) `employee_id` too and points at its `StaffProfile` via
