@@ -209,6 +209,29 @@ export enum AttendanceSessionState {
   FINALIZED = 'FINALIZED',
 }
 
+/** [36.1.1] Which kind of attendance a device-events payload (or session) is
+ * for — student roll call vs staff check-in/out. */
+export enum AttendanceSubjectType {
+  STUDENT = 'STUDENT',
+  STAFF = 'STAFF',
+}
+
+/** [36.1.1] D9 — the leave types a `leave_policies` row can carry a quota for. */
+export enum LeaveType {
+  CASUAL = 'CASUAL',
+  SICK = 'SICK',
+  MATERNITY = 'MATERNITY',
+  PATERNITY = 'PATERNITY',
+  EARNED = 'EARNED',
+}
+
+/** [36.1.1] A `leave_records` row's approval state. */
+export enum LeaveStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}
+
 export enum AttendanceDeviceKind {
   BIOMETRIC = 'BIOMETRIC',
   FACE = 'FACE',

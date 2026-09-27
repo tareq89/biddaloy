@@ -10,6 +10,7 @@ import {
   AttendanceEventDirection,
   AttendanceSource,
   AttendanceStatus,
+  AttendanceSubjectType,
 } from '@biddaloy/shared';
 import { DeviceEventsService } from './device-events.service';
 import { DeviceService } from './device.service';
@@ -25,6 +26,9 @@ import { AttendanceDeviceEvent } from '../entities/attendance-device-event.entit
 import { AttendanceRecord } from '../entities/attendance-record.entity';
 import { AttendanceSession } from '../entities/attendance-session.entity';
 import { DeviceEventDto } from '../dto/device.dto';
+import { StaffProfile } from '../../staff-profiles/entities/staff-profile.entity';
+import { StaffAttendanceRecord } from '../../staff-attendance/entities/staff-attendance-record.entity';
+import { User } from '../../users/entities/user.entity';
 
 describe('DeviceEventsService (integration)', () => {
   let service: DeviceEventsService;
@@ -340,5 +344,118 @@ describe('DeviceEventsService (integration)', () => {
       .getRepository(AttendanceRecord)
       .find({ where: { student_id: deletedStudent.id } });
     expect(records).toHaveLength(0);
+  });
+
+  describe('subject_type: STAFF', () => {
+    let staffProfileId: string;
+
+    beforeEach(async () => {
+      const user = await dataSource.getRepository(User).save({
+        full_name: 'Device Test Staff',
+        email: `device-staff-${Date.now()}-${Math.floor(Math.random() * 100000)}@example.com`,
+        password_hash: 'x',
+      });
+      const profile = await dataSource.getRepository(StaffProfile).save({
+        user_id: user.id,
+        tenant_id: TENANT_ID,
+        employee_id: `EMP-DEV-${Date.now()}`,
+      });
+      staffProfileId = profile.id;
+    });
+
+    it('creates a StaffAttendanceRecord for a subject_type: STAFF event with a valid employee_id external_ref', async () => {
+      const device = await createActiveDevice();
+
+      const result = await service.ingest(device, [
+        inEvent({
+          subject_type: AttendanceSubjectType.STAFF,
+          external_ref: (
+            await dataSource.getRepository(StaffProfile).findOneOrFail({
+              where: { id: staffProfileId },
+            })
+          ).employee_id,
+        }),
+      ]);
+
+      expect(result.results[0].outcome).toBe('accepted');
+      const records = await dataSource
+        .getRepository(StaffAttendanceRecord)
+        .find({ where: { staff_profile_id: staffProfileId } });
+      expect(records).toHaveLength(1);
+    });
+
+    it('reports unknown_staff for an external_ref with no matching employee_id', async () => {
+      const device = await createActiveDevice();
+
+      const result = await service.ingest(device, [
+        inEvent({ subject_type: AttendanceSubjectType.STAFF, external_ref: 'NO-SUCH-EMPLOYEE' }),
+      ]);
+
+      expect(result.results[0].outcome).toBe('unknown_staff');
+    });
+
+    it('never overwrites a manually-marked staff record, but fills a null check_in_at', async () => {
+      const device = await createActiveDevice();
+      const employeeId = (
+        await dataSource
+          .getRepository(StaffProfile)
+          .findOneOrFail({ where: { id: staffProfileId } })
+      ).employee_id;
+
+      // Seed a manual (TEACHER-sourced, i.e. admin/self-marked) record first.
+      const first = await service.ingest(device, [
+        inEvent({ subject_type: AttendanceSubjectType.STAFF, external_ref: employeeId }),
+      ]);
+      expect(first.results[0].outcome).toBe('accepted');
+      await dataSource
+        .getRepository(StaffAttendanceRecord)
+        .update(
+          { staff_profile_id: staffProfileId },
+          { source: AttendanceSource.TEACHER, check_in_at: null },
+        );
+
+      const second = await service.ingest(device, [
+        inEvent({
+          subject_type: AttendanceSubjectType.STAFF,
+          external_ref: employeeId,
+          occurred_at: `${TODAY()}T09:00:00Z`,
+        }),
+      ]);
+
+      expect(second.results[0].outcome).toBe('skipped_teacher_marked');
+      const updated = await dataSource
+        .getRepository(StaffAttendanceRecord)
+        .findOneOrFail({ where: { staff_profile_id: staffProfileId } });
+      expect(updated.check_in_at).not.toBeNull(); // filled
+    });
+
+    it('keeps STUDENT-path behavior unchanged when subject_type is omitted', async () => {
+      const device = await createActiveDevice();
+
+      const result = await service.ingest(device, [inEvent({ student_id: studentId })]);
+
+      expect(result.results[0].outcome).toBe('accepted');
+    });
+
+    it("reports unknown_staff for another tenant's employee_id (tenant isolation)", async () => {
+      const device = await createActiveDevice(); // bound to TENANT_ID
+      const otherUser = await dataSource.getRepository(User).save({
+        full_name: 'Other Tenant Staff',
+        email: `other-tenant-staff-${Date.now()}@example.com`,
+        password_hash: 'x',
+      });
+      const sameEmployeeId = `EMP-CROSS-${Date.now()}`;
+      await dataSource.getRepository(StaffProfile).save({
+        user_id: otherUser.id,
+        tenant_id: OTHER_TENANT,
+        employee_id: sameEmployeeId,
+      });
+
+      const result = await service.ingest(device, [
+        inEvent({ subject_type: AttendanceSubjectType.STAFF, external_ref: sameEmployeeId }),
+      ]);
+
+      expect(result.results[0].outcome).toBe('unknown_staff');
+    });
   });
 });

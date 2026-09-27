@@ -122,6 +122,16 @@ export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'rooms',
   'period_slots',
   'teachers',
+  // [36.1.1] Staff attendance/leave — child-first: `leave_records` and
+  // `staff_attendance_records` both FK `staff_profiles` (and
+  // `staff_attendance_records` also FKs `staff_attendance_sessions`), and
+  // `teachers.staff_profile_id` FKs `staff_profiles` too, so `staff_profiles`
+  // must clear last of this group (after `teachers`, above).
+  'leave_records',
+  'staff_attendance_records',
+  'staff_attendance_sessions',
+  'leave_policies',
+  'staff_profiles',
   'subjects',
   'audit_logs',
   'students',

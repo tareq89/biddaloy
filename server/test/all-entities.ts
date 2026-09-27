@@ -2,6 +2,7 @@ import { AcademicYear } from '../src/modules/academics/entities/academic-year.en
 import { Class } from '../src/modules/academics/entities/class.entity';
 import { ClassSection } from '../src/modules/academics/entities/class-section.entity';
 import { Teacher } from '../src/modules/academics/entities/teacher.entity';
+import { StaffProfile } from '../src/modules/staff-profiles/entities/staff-profile.entity';
 import { TeacherClassSection } from '../src/modules/academics/entities/teacher-class-section.entity';
 import { Subject } from '../src/modules/academics/entities/subject.entity';
 import { ClassSubject } from '../src/modules/academics/entities/class-subject.entity';
@@ -76,12 +77,17 @@ import { ProgramEnrollment } from '../src/modules/programs/entities/program-enro
 import { MilestoneAchievement } from '../src/modules/programs/entities/milestone-achievement.entity';
 import { PromotionRun } from '../src/modules/promotions/entities/promotion-run.entity';
 import { PromotionEntry } from '../src/modules/promotions/entities/promotion-entry.entity';
+import { StaffAttendanceSession } from '../src/modules/staff-attendance/entities/staff-attendance-session.entity';
+import { StaffAttendanceRecord } from '../src/modules/staff-attendance/entities/staff-attendance-record.entity';
+import { LeaveRecord } from '../src/modules/leave/entities/leave-record.entity';
+import { LeavePolicy } from '../src/modules/leave/entities/leave-policy.entity';
 
 export const ALL_ENTITIES = [
   AcademicYear,
   Class,
   ClassSection,
   Teacher,
+  StaffProfile,
   TeacherClassSection,
   Subject,
   ClassSubject,
@@ -156,4 +162,8 @@ export const ALL_ENTITIES = [
   MilestoneAchievement,
   PromotionRun,
   PromotionEntry,
+  StaffAttendanceSession,
+  StaffAttendanceRecord,
+  LeaveRecord,
+  LeavePolicy,
 ];

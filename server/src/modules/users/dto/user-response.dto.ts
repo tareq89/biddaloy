@@ -81,6 +81,13 @@ export class UserResponseDto {
   @ApiProperty({ enum: INVITATION_STATUS_VALUES })
   invitation_status: InvitationStatus;
 
+  /** [36.2.1] `staff_profiles.id` for this user, or `null` if they have no
+   * staff profile (e.g. PARENT/STUDENT roles). Not populated by `fromEntity`
+   * itself — callers that need it fetch it separately via
+   * `StaffProfilesService` and assign it, same pattern as `invitation_status`. */
+  @ApiProperty({ nullable: true, type: String })
+  staff_profile_id: string | null;
+
   static fromEntity(user: User, tenantId?: string): UserResponseDto {
     const dto = new UserResponseDto();
     dto.id = user.id;

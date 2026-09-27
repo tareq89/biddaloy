@@ -101,6 +101,8 @@ import { Route as StaffAdmissionsApplicantsIndexRouteImport } from './routes/_st
 import { Route as StaffAdmissionsApplicantsApplicantIdRouteImport } from './routes/_staff/admissions/applicants/$applicantId'
 import { Route as StaffAdmissionsIntakesIndexRouteImport } from './routes/_staff/admissions/intakes/index'
 import { Route as StaffAdmissionsIntakesIntakeIdRouteImport } from './routes/_staff/admissions/intakes/$intakeId'
+import { Route as StaffAttendanceStaffIndexRouteImport } from './routes/_staff/attendance/staff/index'
+import { Route as StaffAttendanceStaffLeaveRouteImport } from './routes/_staff/attendance/staff/leave'
 import { Route as StaffCommunicationsBatchesIndexRouteImport } from './routes/_staff/communications/batches/index'
 import { Route as StaffCommunicationsBatchesBatchIdRouteImport } from './routes/_staff/communications/batches/$batchId'
 import { Route as StaffExamsSeatPlansIndexRouteImport } from './routes/_staff/exams/seat-plans/index'
@@ -587,6 +589,18 @@ const StaffAdmissionsIntakesIntakeIdRoute =
     path: '/admissions/intakes/$intakeId',
     getParentRoute: () => StaffRoute,
   } as any)
+const StaffAttendanceStaffIndexRoute =
+  StaffAttendanceStaffIndexRouteImport.update({
+    id: '/attendance/staff/',
+    path: '/attendance/staff/',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffAttendanceStaffLeaveRoute =
+  StaffAttendanceStaffLeaveRouteImport.update({
+    id: '/attendance/staff/leave',
+    path: '/attendance/staff/leave',
+    getParentRoute: () => StaffRoute,
+  } as any)
 const StaffCommunicationsBatchesIndexRoute =
   StaffCommunicationsBatchesIndexRouteImport.update({
     id: '/communications/batches/',
@@ -727,6 +741,7 @@ export interface FileRoutesByFullPath {
   '/academics/homework/new': typeof StaffAcademicsHomeworkNewRoute
   '/admissions/applicants/$applicantId': typeof StaffAdmissionsApplicantsApplicantIdRoute
   '/admissions/intakes/$intakeId': typeof StaffAdmissionsIntakesIntakeIdRoute
+  '/attendance/staff/leave': typeof StaffAttendanceStaffLeaveRoute
   '/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
   '/exams/seat-plans/$planId': typeof StaffExamsSeatPlansPlanIdRoute
   '/fees/schedules/$id': typeof StaffFeesSchedulesIdRoute
@@ -736,6 +751,7 @@ export interface FileRoutesByFullPath {
   '/academics/syllabus/': typeof StaffAcademicsSyllabusIndexRoute
   '/admissions/applicants/': typeof StaffAdmissionsApplicantsIndexRoute
   '/admissions/intakes/': typeof StaffAdmissionsIntakesIndexRoute
+  '/attendance/staff/': typeof StaffAttendanceStaffIndexRoute
   '/communications/batches/': typeof StaffCommunicationsBatchesIndexRoute
   '/exams/seat-plans/': typeof StaffExamsSeatPlansIndexRoute
   '/fees/schedules/': typeof StaffFeesSchedulesIndexRoute
@@ -826,6 +842,7 @@ export interface FileRoutesByTo {
   '/academics/homework/new': typeof StaffAcademicsHomeworkNewRoute
   '/admissions/applicants/$applicantId': typeof StaffAdmissionsApplicantsApplicantIdRoute
   '/admissions/intakes/$intakeId': typeof StaffAdmissionsIntakesIntakeIdRoute
+  '/attendance/staff/leave': typeof StaffAttendanceStaffLeaveRoute
   '/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
   '/exams/seat-plans/$planId': typeof StaffExamsSeatPlansPlanIdRoute
   '/fees/schedules/$id': typeof StaffFeesSchedulesIdRoute
@@ -835,6 +852,7 @@ export interface FileRoutesByTo {
   '/academics/syllabus': typeof StaffAcademicsSyllabusIndexRoute
   '/admissions/applicants': typeof StaffAdmissionsApplicantsIndexRoute
   '/admissions/intakes': typeof StaffAdmissionsIntakesIndexRoute
+  '/attendance/staff': typeof StaffAttendanceStaffIndexRoute
   '/communications/batches': typeof StaffCommunicationsBatchesIndexRoute
   '/exams/seat-plans': typeof StaffExamsSeatPlansIndexRoute
   '/fees/schedules': typeof StaffFeesSchedulesIndexRoute
@@ -930,6 +948,7 @@ export interface FileRoutesById {
   '/_staff/academics/homework/new': typeof StaffAcademicsHomeworkNewRoute
   '/_staff/admissions/applicants/$applicantId': typeof StaffAdmissionsApplicantsApplicantIdRoute
   '/_staff/admissions/intakes/$intakeId': typeof StaffAdmissionsIntakesIntakeIdRoute
+  '/_staff/attendance/staff/leave': typeof StaffAttendanceStaffLeaveRoute
   '/_staff/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
   '/_staff/exams/seat-plans/$planId': typeof StaffExamsSeatPlansPlanIdRoute
   '/_staff/fees/schedules/$id': typeof StaffFeesSchedulesIdRoute
@@ -939,6 +958,7 @@ export interface FileRoutesById {
   '/_staff/academics/syllabus/': typeof StaffAcademicsSyllabusIndexRoute
   '/_staff/admissions/applicants/': typeof StaffAdmissionsApplicantsIndexRoute
   '/_staff/admissions/intakes/': typeof StaffAdmissionsIntakesIndexRoute
+  '/_staff/attendance/staff/': typeof StaffAttendanceStaffIndexRoute
   '/_staff/communications/batches/': typeof StaffCommunicationsBatchesIndexRoute
   '/_staff/exams/seat-plans/': typeof StaffExamsSeatPlansIndexRoute
   '/_staff/fees/schedules/': typeof StaffFeesSchedulesIndexRoute
@@ -1033,6 +1053,7 @@ export interface FileRouteTypes {
     | '/academics/homework/new'
     | '/admissions/applicants/$applicantId'
     | '/admissions/intakes/$intakeId'
+    | '/attendance/staff/leave'
     | '/communications/batches/$batchId'
     | '/exams/seat-plans/$planId'
     | '/fees/schedules/$id'
@@ -1042,6 +1063,7 @@ export interface FileRouteTypes {
     | '/academics/syllabus/'
     | '/admissions/applicants/'
     | '/admissions/intakes/'
+    | '/attendance/staff/'
     | '/communications/batches/'
     | '/exams/seat-plans/'
     | '/fees/schedules/'
@@ -1132,6 +1154,7 @@ export interface FileRouteTypes {
     | '/academics/homework/new'
     | '/admissions/applicants/$applicantId'
     | '/admissions/intakes/$intakeId'
+    | '/attendance/staff/leave'
     | '/communications/batches/$batchId'
     | '/exams/seat-plans/$planId'
     | '/fees/schedules/$id'
@@ -1141,6 +1164,7 @@ export interface FileRouteTypes {
     | '/academics/syllabus'
     | '/admissions/applicants'
     | '/admissions/intakes'
+    | '/attendance/staff'
     | '/communications/batches'
     | '/exams/seat-plans'
     | '/fees/schedules'
@@ -1235,6 +1259,7 @@ export interface FileRouteTypes {
     | '/_staff/academics/homework/new'
     | '/_staff/admissions/applicants/$applicantId'
     | '/_staff/admissions/intakes/$intakeId'
+    | '/_staff/attendance/staff/leave'
     | '/_staff/communications/batches/$batchId'
     | '/_staff/exams/seat-plans/$planId'
     | '/_staff/fees/schedules/$id'
@@ -1244,6 +1269,7 @@ export interface FileRouteTypes {
     | '/_staff/academics/syllabus/'
     | '/_staff/admissions/applicants/'
     | '/_staff/admissions/intakes/'
+    | '/_staff/attendance/staff/'
     | '/_staff/communications/batches/'
     | '/_staff/exams/seat-plans/'
     | '/_staff/fees/schedules/'
@@ -1912,6 +1938,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffAdmissionsIntakesIntakeIdRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/attendance/staff/': {
+      id: '/_staff/attendance/staff/'
+      path: '/attendance/staff'
+      fullPath: '/attendance/staff/'
+      preLoaderRoute: typeof StaffAttendanceStaffIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/attendance/staff/leave': {
+      id: '/_staff/attendance/staff/leave'
+      path: '/attendance/staff/leave'
+      fullPath: '/attendance/staff/leave'
+      preLoaderRoute: typeof StaffAttendanceStaffLeaveRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/communications/batches/': {
       id: '/_staff/communications/batches/'
       path: '/communications/batches'
@@ -2076,6 +2116,7 @@ interface StaffRouteChildren {
   StaffAcademicsHomeworkNewRoute: typeof StaffAcademicsHomeworkNewRoute
   StaffAdmissionsApplicantsApplicantIdRoute: typeof StaffAdmissionsApplicantsApplicantIdRoute
   StaffAdmissionsIntakesIntakeIdRoute: typeof StaffAdmissionsIntakesIntakeIdRoute
+  StaffAttendanceStaffLeaveRoute: typeof StaffAttendanceStaffLeaveRoute
   StaffCommunicationsBatchesBatchIdRoute: typeof StaffCommunicationsBatchesBatchIdRoute
   StaffExamsSeatPlansPlanIdRoute: typeof StaffExamsSeatPlansPlanIdRoute
   StaffResultsExamIdStudentIdRoute: typeof StaffResultsExamIdStudentIdRoute
@@ -2084,6 +2125,7 @@ interface StaffRouteChildren {
   StaffAcademicsSyllabusIndexRoute: typeof StaffAcademicsSyllabusIndexRoute
   StaffAdmissionsApplicantsIndexRoute: typeof StaffAdmissionsApplicantsIndexRoute
   StaffAdmissionsIntakesIndexRoute: typeof StaffAdmissionsIntakesIndexRoute
+  StaffAttendanceStaffIndexRoute: typeof StaffAttendanceStaffIndexRoute
   StaffCommunicationsBatchesIndexRoute: typeof StaffCommunicationsBatchesIndexRoute
   StaffExamsSeatPlansIndexRoute: typeof StaffExamsSeatPlansIndexRoute
   StaffMarksExamIdSectionIdSubjectIdRoute: typeof StaffMarksExamIdSectionIdSubjectIdRoute
@@ -2148,6 +2190,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffAdmissionsApplicantsApplicantIdRoute:
     StaffAdmissionsApplicantsApplicantIdRoute,
   StaffAdmissionsIntakesIntakeIdRoute: StaffAdmissionsIntakesIntakeIdRoute,
+  StaffAttendanceStaffLeaveRoute: StaffAttendanceStaffLeaveRoute,
   StaffCommunicationsBatchesBatchIdRoute:
     StaffCommunicationsBatchesBatchIdRoute,
   StaffExamsSeatPlansPlanIdRoute: StaffExamsSeatPlansPlanIdRoute,
@@ -2157,6 +2200,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffAcademicsSyllabusIndexRoute: StaffAcademicsSyllabusIndexRoute,
   StaffAdmissionsApplicantsIndexRoute: StaffAdmissionsApplicantsIndexRoute,
   StaffAdmissionsIntakesIndexRoute: StaffAdmissionsIntakesIndexRoute,
+  StaffAttendanceStaffIndexRoute: StaffAttendanceStaffIndexRoute,
   StaffCommunicationsBatchesIndexRoute: StaffCommunicationsBatchesIndexRoute,
   StaffExamsSeatPlansIndexRoute: StaffExamsSeatPlansIndexRoute,
   StaffMarksExamIdSectionIdSubjectIdRoute:

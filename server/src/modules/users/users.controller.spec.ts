@@ -31,6 +31,7 @@ describe('UserController', () => {
   let invitationService: Record<string, ReturnType<typeof vi.fn>>;
   let recoveryService: Record<string, ReturnType<typeof vi.fn>>;
   let guardianProvisioningService: Record<string, ReturnType<typeof vi.fn>>;
+  let staffProfilesService: Record<string, ReturnType<typeof vi.fn>>;
 
   const TENANT = { id: 'tenant-1', role: UserRole.ADMIN };
   const JWT = { sub: 'admin-1', email: null, phone: null, memberships: [], jti: 'jti-1' };
@@ -68,12 +69,18 @@ describe('UserController', () => {
       dispatch: vi.fn(),
       batchStatus: vi.fn(),
     };
+    staffProfilesService = {
+      findIdByUserId: vi.fn().mockResolvedValue(null),
+      findIdsByUserIds: vi.fn().mockResolvedValue(new Map()),
+    };
     controller = new UserController(
       userService as unknown as UserService,
       teacherService as unknown as TeacherService,
       invitationService as any,
       recoveryService as any,
       guardianProvisioningService as any,
+      undefined as any,
+      staffProfilesService as any,
     );
   });
 

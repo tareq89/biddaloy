@@ -36,6 +36,7 @@ export const AUDIT_ENTITY_TYPES = [
   'Guardian',
   'InvitationBatch',
   'Invoice',
+  'LeaveRecord',
   'Mark',
   'MarkGrid',
   'MilestoneAchievement',
@@ -56,6 +57,7 @@ export const AUDIT_ENTITY_TYPES = [
   // 17). Kept read-compatible so historical audit rows with this
   // entity_type still validate — no new write ever uses it.
   'SchoolHoliday',
+  'StaffAttendanceRecord',
   'Student',
   'StudentSubjectChoice',
   'SyllabusTopic',
