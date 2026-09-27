@@ -114,6 +114,22 @@ export const ACTIONS: readonly PaletteAction[] = [
     kind: 'navigate',
     run: (ctx) => ctx.navigate({ to: '/attendance' }),
   },
+  // [36.4] Mirrors `attendance.take` above — permission copied verbatim
+  // from `route-permissions.ts`'s `/_staff/attendance/staff/` entry.
+  {
+    id: 'attendance.markStaff',
+    label: { en: 'Mark staff attendance', bn: 'কর্মী হাজিরা নিন' },
+    permission: Permission.STAFF_ATTENDANCE_READ,
+    kind: 'navigate',
+    run: (ctx) => ctx.navigate({ to: '/attendance/staff' }),
+  },
+  {
+    id: 'leave.record',
+    label: { en: 'Record leave', bn: 'ছুটি রেকর্ড করুন' },
+    permission: Permission.STAFF_ATTENDANCE_READ,
+    kind: 'modal',
+    run: (ctx) => ctx.navigate({ to: '/attendance/staff/leave' }),
+  },
   {
     id: 'fees.generate',
     label: { en: 'Generate fees', bn: 'ফি তৈরি করুন' },

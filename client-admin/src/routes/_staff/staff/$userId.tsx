@@ -31,6 +31,7 @@ import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
+import { AttendanceLeaveTab } from './-detail/attendance-leave-tab';
 import { LoginHistoryTab } from './-detail/login-history-tab';
 import { MembershipsTab } from './-detail/memberships-tab';
 import { PermissionsTab } from './-detail/permissions-tab';
@@ -54,7 +55,7 @@ export const Route = createFileRoute('/_staff/staff/$userId')({
       // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
       // identical comment for why.
       queryClient.ensureQueryData(userQueryOptions(params.userId)).catch(swallowUnlessOffline),
-      loadRouteNamespaces('staff', 'common'),
+      loadRouteNamespaces('staff', 'staffAttendance', 'leave', 'common'),
     ]),
   pendingComponent: StaffDetailPending,
   component: StaffDetailPage,
@@ -74,11 +75,13 @@ function StaffDetailPage() {
   const currentUserId = useCurrentUserId();
 
   const isTeacher = teacher !== undefined;
+  const hasStaffProfile = userQuery.data?.staff_profile_id != null;
   const tabIds = [
     'profile',
     'permissions',
     'memberships',
     ...(isTeacher ? (['teachingAssignments'] as const) : []),
+    ...(hasStaffProfile ? (['attendanceLeave'] as const) : []),
     ...(canReadAuditLogs ? (['loginHistory'] as const) : []),
   ] as const;
   const [activeTab, setActiveTab] = useDetailShellTab(tabIds);
@@ -112,6 +115,20 @@ function StaffDetailPage() {
             id: 'teachingAssignments',
             label: t('detail.tabs.teachingAssignments'),
             content: <TeachingAssignmentsTab teacherId={teacher.id} />,
+          },
+        ]
+      : []),
+    ...(hasStaffProfile && userQuery.data?.staff_profile_id
+      ? [
+          {
+            id: 'attendanceLeave',
+            label: t('detailTab.label', { ns: 'staffAttendance' }),
+            content: (
+              <AttendanceLeaveTab
+                staffProfileId={userQuery.data.staff_profile_id}
+                staffName={userQuery.data.full_name}
+              />
+            ),
           },
         ]
       : []),

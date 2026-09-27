@@ -13,7 +13,20 @@ import type { components } from '../api/schema';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
-export type StaffUser = components['schemas']['UserResponseDto'];
+// [36.4] `UserResponseDto` on the server now carries `staff_profile_id`
+// (`GET /users` and `GET /users/me`, populated via
+// `StaffProfilesService.findIdByUserId`/`findIdsByUserIds`), but
+// `schema.d.ts` isn't regenerated for this ticket — that's #1102's job at
+// epic close (`ui/package.json`'s `api:types` script). Intersected in by
+// hand here rather than blocking on that regen, same gap-handling
+// `PaginatedUsers` below documents for the list envelope. Drop this
+// intersection once `api:types` picks the field up for real.
+export type StaffUser = components['schemas']['UserResponseDto'] & {
+  // Optional (not required) so existing test fixtures built before this
+  // field existed still type-check — every real `/users`/`/users/me`
+  // response includes it now.
+  staff_profile_id?: string | null;
+};
 export type CreateUserInput = components['schemas']['CreateUserDto'];
 export type UpdateUserInput = components['schemas']['UpdateUserDto'];
 // [8.14.4] `PATCH /users/me`'s own DTO — distinct from `UpdateUserInput`
