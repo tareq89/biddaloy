@@ -26,6 +26,8 @@ import { InvoiceShareToken } from '../../invoices/entities/invoice-share-token.e
 import { PushSubscription } from '../../push/entities/push-subscription.entity';
 import { WorkbookJob } from '../jobs/workbook-job.entity';
 import { StaffProfile } from '../../staff-profiles/entities/staff-profile.entity';
+import { LeaveRecord } from '../../leave/entities/leave-record.entity';
+import { LeavePolicy } from '../../leave/entities/leave-policy.entity';
 import { StaffAttendanceSession } from '../../staff-attendance/entities/staff-attendance-session.entity';
 import { StaffAttendanceRecord } from '../../staff-attendance/entities/staff-attendance-record.entity';
 
@@ -103,7 +105,7 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   // ProgramEnrollment, MilestoneAchievement — got a workbook tab in
   // [34.1.4]. No exemption entries left for them.
 
-  // --- Epic 36 (staff attendance & leave): all three get a workbook tab
+  // --- Epic 36 (staff attendance & leave): all five get a workbook tab
   // in wave 5 ([36.5.1]) — exempted here only through this PR (waves 1-4),
   // which lands before those tabs exist.
   [StaffProfile, 'Tenant-scoped staff HR record (employee_id), no tab yet — Epic 36 [36.5.1].'],
@@ -112,4 +114,6 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
     StaffAttendanceRecord,
     'Tenant-scoped per-staff attendance mark, no tab yet — Epic 36 [36.5.1].',
   ],
+  [LeaveRecord, 'Tenant-scoped staff leave request/decision, no tab yet — Epic 36 [36.5.1].'],
+  [LeavePolicy, 'Tenant-scoped leave-type quota, no tab yet — Epic 36 [36.5.1].'],
 ]);

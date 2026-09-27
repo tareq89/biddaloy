@@ -79,6 +79,8 @@ import { PromotionRun } from '../src/modules/promotions/entities/promotion-run.e
 import { PromotionEntry } from '../src/modules/promotions/entities/promotion-entry.entity';
 import { StaffAttendanceSession } from '../src/modules/staff-attendance/entities/staff-attendance-session.entity';
 import { StaffAttendanceRecord } from '../src/modules/staff-attendance/entities/staff-attendance-record.entity';
+import { LeaveRecord } from '../src/modules/leave/entities/leave-record.entity';
+import { LeavePolicy } from '../src/modules/leave/entities/leave-policy.entity';
 
 export const ALL_ENTITIES = [
   AcademicYear,
@@ -162,4 +164,6 @@ export const ALL_ENTITIES = [
   PromotionEntry,
   StaffAttendanceSession,
   StaffAttendanceRecord,
+  LeaveRecord,
+  LeavePolicy,
 ];
