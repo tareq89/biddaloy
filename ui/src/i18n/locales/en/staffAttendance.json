@@ -1,0 +1,26 @@
+{
+  "grid": {
+    "title": "Staff attendance",
+    "dateLabel": "Date",
+    "submit": "Save attendance",
+    "saving": "Saving…",
+    "saved": "Attendance saved",
+    "errorMessage": "Couldn't save attendance. Try again.",
+    "loading": "Loading staff…",
+    "emptyTitle": "No staff yet",
+    "emptyMessage": "Add a staff member before marking attendance.",
+    "emptyAction": "Add staff"
+  },
+  "summary": {
+    "title": "Attendance summary",
+    "present": "Present",
+    "absent": "Absent",
+    "late": "Late",
+    "leave": "Leave",
+    "percentage": "Attendance %",
+    "errorMessage": "Couldn't load the attendance summary."
+  },
+  "detailTab": {
+    "label": "Attendance & Leave"
+  }
+}

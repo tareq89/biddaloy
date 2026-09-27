@@ -44,6 +44,8 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/security': 'reached from the account menu, not the sidebar',
   '/_staff/academic-years/$academicYearId': 'detail route reached from the academic years list',
   '/_staff/attendance/$sectionId': 'detail route reached from the attendance list',
+  '/_staff/attendance/staff/leave':
+    '[36.4] reached from the staff attendance page link, palette (Record leave), or the staff detail Attendance & Leave tab, not its own sidebar item',
   '/_staff/calendar/import': 'action reached from the calendar page, not its own nav item',
   '/_staff/classes/$classId': 'detail route reached from the classes list',
   '/_staff/exams/$examId': 'detail route reached from the exams list',

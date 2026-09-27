@@ -95,6 +95,11 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/attendance/': [{ label: { key: 'attendance' } }],
   '/_staff/attendance/reports': [{ label: { key: 'attendanceReports' } }],
   '/_staff/attendance/register': [{ label: { key: 'attendanceRegister' } }],
+  '/_staff/attendance/staff/': [{ label: { key: 'staffAttendance' } }],
+  '/_staff/attendance/staff/leave': [
+    { label: { key: 'staffAttendance' } },
+    { label: { key: 'leave' } },
+  ],
   '/_staff/fees/dues': [{ label: { key: 'studentDues' } }],
   '/_staff/payments/record': [{ label: { key: 'recordPayment' } }],
   '/_staff/fees/': [{ label: { key: 'fees' } }],

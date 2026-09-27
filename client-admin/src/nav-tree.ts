@@ -143,6 +143,15 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.ATTENDANCE_READ,
     label: { key: 'attendanceRegister' },
   },
+  // [36.4] Sibling entry, same style as `attendance.attendanceReports`
+  // above — a distinct route/permission from the student register, not a
+  // switcher on the existing `attendance.attendance` item.
+  'attendance.staffAttendance': {
+    id: 'attendance.staffAttendance',
+    to: '/attendance/staff',
+    permission: Permission.STAFF_ATTENDANCE_READ,
+    label: { key: 'staffAttendance' },
+  },
   'finance.dues': {
     id: 'finance.dues',
     to: '/fees/dues',
@@ -279,6 +288,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
       STAFF_NAV_ITEMS['attendance.attendance'],
       STAFF_NAV_ITEMS['attendance.attendanceReports'],
       STAFF_NAV_ITEMS['attendance.attendanceRegister'],
+      STAFF_NAV_ITEMS['attendance.staffAttendance'],
     ],
   },
   {

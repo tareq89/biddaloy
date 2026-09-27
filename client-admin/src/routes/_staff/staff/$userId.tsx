@@ -31,6 +31,7 @@ import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
+import { AttendanceLeaveTab } from './-detail/attendance-leave-tab';
 import { LoginHistoryTab } from './-detail/login-history-tab';
 import { MembershipsTab } from './-detail/memberships-tab';
 import { PermissionsTab } from './-detail/permissions-tab';
@@ -53,7 +54,7 @@ export const Route = createFileRoute('/_staff/staff/$userId')({
       // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
       // identical comment for why.
       queryClient.ensureQueryData(userQueryOptions(params.userId)).catch(swallowUnlessOffline),
-      loadRouteNamespaces('staff', 'common'),
+      loadRouteNamespaces('staff', 'staffAttendance', 'leave', 'common'),
     ]),
   pendingComponent: StaffDetailPending,
   component: StaffDetailPage,
@@ -72,9 +73,14 @@ function StaffDetailPage() {
   const canReadAuditLogs = useHasPermission(Permission.AUDIT_LOG_READ);
   const currentUserId = useCurrentUserId();
 
-  const tabIds = canReadAuditLogs
-    ? (['profile', 'permissions', 'memberships', 'loginHistory'] as const)
-    : (['profile', 'permissions', 'memberships'] as const);
+  const hasStaffProfile = userQuery.data?.staff_profile_id != null;
+  const tabIds = [
+    'profile',
+    'permissions',
+    'memberships',
+    ...(hasStaffProfile ? (['attendanceLeave'] as const) : []),
+    ...(canReadAuditLogs ? (['loginHistory'] as const) : []),
+  ] as const;
   const [activeTab, setActiveTab] = useDetailShellTab(tabIds);
 
   const [editUserOpen, setEditUserOpen] = React.useState(false);
@@ -100,6 +106,20 @@ function StaffDetailPage() {
       label: t('detail.tabs.memberships'),
       content: <MembershipsTab userId={userId} />,
     },
+    ...(hasStaffProfile && userQuery.data?.staff_profile_id
+      ? [
+          {
+            id: 'attendanceLeave',
+            label: t('detailTab.label', { ns: 'staffAttendance' }),
+            content: (
+              <AttendanceLeaveTab
+                staffProfileId={userQuery.data.staff_profile_id}
+                staffName={userQuery.data.full_name}
+              />
+            ),
+          },
+        ]
+      : []),
     ...(canReadAuditLogs
       ? [
           {
