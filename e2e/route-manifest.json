@@ -500,6 +500,11 @@
       "archetype": "form"
     },
     {
+      "path": "/portal/programs",
+      "role": "parent",
+      "archetype": "list"
+    },
+    {
       "path": "/attendance",
       "role": "admin",
       "archetype": "list"

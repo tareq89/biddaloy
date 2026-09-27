@@ -60,6 +60,7 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/portal/routine': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/results': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/syllabus': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
+  '/portal/programs': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
 
   // --- Platform (SUPER_ADMIN) area ---
   '/_platform/holiday-sets/': [{ label: { key: 'holidaySets' } }],
