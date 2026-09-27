@@ -49,6 +49,7 @@ describe('HrRecordTab', () => {
           { id: 'designation-1', title_en: 'Assistant Teacher', title_bn: null, is_teaching: true },
         ]),
       ),
+      http.get('/api/v1/staff-documents/user-1', () => HttpResponse.json([])),
     );
 
     renderWithProviders(<HrRecordTab userId="user-1" />, {
@@ -61,10 +62,10 @@ describe('HrRecordTab', () => {
     expect(await screen.findByText('Assistant Teacher')).toBeTruthy();
     expect(await screen.findByText('Current')).toBeTruthy();
 
-    // Every other section is stubbed with the same placeholder — 8 of them
+    // Every other section is stubbed with the same placeholder — 7 of them
     // (family, address, experience, education, training, achievement,
-    // language, documents).
-    expect((await screen.findAllByText('Coming soon')).length).toBe(8);
+    // language). [23.11] gave documents its real implementation.
+    expect((await screen.findAllByText('Coming soon')).length).toBe(7);
   });
 
   it('shows the job section empty state when the user has no HR record yet', async () => {
@@ -72,6 +73,7 @@ describe('HrRecordTab', () => {
       http.get('/api/v1/staff-hr-records', () => HttpResponse.json([])),
       http.get('/api/v1/staff-hr-records/user-2/designation-history', () => HttpResponse.json([])),
       http.get('/api/v1/designations', () => HttpResponse.json([])),
+      http.get('/api/v1/staff-documents/user-2', () => HttpResponse.json([])),
     );
 
     renderWithProviders(<HrRecordTab userId="user-2" />, {

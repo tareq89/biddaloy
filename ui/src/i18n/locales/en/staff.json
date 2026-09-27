@@ -234,6 +234,18 @@
       "effectiveSince": "Effective since {{date}}",
       "effectiveRange": "{{from}} – {{to}}"
     },
+    "documents": {
+      "notUploaded": "Not uploaded yet",
+      "uploadAction": "Upload",
+      "replaceAction": "Replace",
+      "uploadError": "Could not upload this file. Please try again.",
+      "types": {
+        "NID": "National ID",
+        "BIRTH_CERTIFICATE": "Birth certificate",
+        "PHOTO": "Photo",
+        "OTHER": "Other document"
+      }
+    },
     "promote": {
       "title": "Promote staff member",
       "description": "Assign a new designation, effective a given date. The current designation ends the day before.",

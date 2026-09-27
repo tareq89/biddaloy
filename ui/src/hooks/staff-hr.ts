@@ -70,11 +70,27 @@ export interface PromoteStaffInput {
   notes?: string;
 }
 
+/** [23.6]'s `StaffDocument` — one row per (staff, document_type); the
+ * unique index means a second upload of the same type replaces the row
+ * rather than adding another. */
+export type StaffDocumentType = 'NID' | 'BIRTH_CERTIFICATE' | 'PHOTO' | 'OTHER';
+
+export interface StaffDocument {
+  id: string;
+  staff_user_id: string;
+  document_type: StaffDocumentType;
+  original_filename: string;
+  content_type: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export const staffHrRecordKeys = createEntityKeys<{ user_id?: string }>('staff-hr-records');
 export const designationHistoryKeys = createEntityKeys<{ user_id: string }>(
   'staff-designation-history',
 );
 export const designationKeys = createEntityKeys('designations');
+export const staffDocumentKeys = createEntityKeys<{ staff_user_id: string }>('staff-documents');
 
 /** One user's HR record, if one exists yet — [23.9]'s job-info section.
  * `GET /staff-hr-records` has no single-record-by-user route, so this
@@ -185,4 +201,99 @@ export function usePromoteStaff(userId: string) {
       });
     },
   });
+}
+
+/** One staff member's uploaded documents — [23.11]'s documents section. */
+export function staffDocumentsQueryOptions(staffUserId: string) {
+  return queryOptions({
+    queryKey: staffDocumentKeys.list({ staff_user_id: staffUserId }),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<StaffDocument[]>(`/staff-documents/${staffUserId}`, {
+        signal,
+      });
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useStaffDocuments(staffUserId: string) {
+  return useQuery(staffDocumentsQueryOptions(staffUserId));
+}
+
+/** `POST /staff-documents/:staffUserId/:documentType` (23.6) — also the
+ * *replace* flow: the server upserts on the tenant/staff/type unique
+ * index, so uploading over an existing slot just swaps the file. */
+export function useUploadStaffDocument(staffUserId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      documentType,
+      file,
+      onProgress,
+    }: {
+      documentType: StaffDocumentType;
+      file: File;
+      onProgress?: (percent: number) => void;
+    }) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await apiClient.post<StaffDocument>(
+        `/staff-documents/${staffUserId}/${documentType}`,
+        formData,
+        {
+          onUploadProgress: (event) => {
+            if (onProgress && event.total) {
+              onProgress(Math.round((event.loaded / event.total) * 100));
+            }
+          },
+        },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: staffDocumentKeys.list({ staff_user_id: staffUserId }),
+      });
+    },
+  });
+}
+
+/** Reads the filename `Content-Disposition` carries, same parsing as
+ * `backup.ts`'s (module-private there — three lines, not worth an import
+ * for). */
+function filenameFromContentDisposition(header: string | undefined, fallback: string): string {
+  if (!header) return fallback;
+  const utf8Match = /filename\*=UTF-8''([^;]+)/i.exec(header);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]);
+    } catch {
+      // fall through to the plain filename= match below
+    }
+  }
+  const plainMatch = /filename="?([^";]+)"?/i.exec(header);
+  return plainMatch?.[1] ?? fallback;
+}
+
+/** `GET /staff-documents/download/:id` — authenticated download via
+ * `apiClient` (auth headers, 401-refresh) rather than a bare `fetch`,
+ * saved with a throwaway anchor, same mechanism as `backup.ts`'s
+ * `downloadBackup`. */
+export async function downloadStaffDocument(doc: StaffDocument): Promise<void> {
+  const res = await apiClient.get<Blob>(`/staff-documents/download/${doc.id}`, {
+    responseType: 'blob',
+  });
+  const filename = filenameFromContentDisposition(
+    res.headers['content-disposition'] as string | undefined,
+    doc.original_filename,
+  );
+  const url = URL.createObjectURL(res.data);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
