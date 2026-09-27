@@ -281,6 +281,8 @@
       "allClasses": "Whole school",
       "sectionLabel": "Section",
       "allSections": "All sections",
+      "programLabel": "Program",
+      "allPrograms": "Any program",
       "activeOnlyNotice": "Applies to actively enrolled students only.",
       "previewSavedOnlyNotice": "Preview reflects the saved schedule, not unsaved edits.",
       "ruleLegend": "Rule",

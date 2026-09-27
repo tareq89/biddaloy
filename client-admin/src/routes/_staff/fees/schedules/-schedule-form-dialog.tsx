@@ -45,6 +45,7 @@ import {
   useClassSections,
   useCreateRecurringSchedule,
   useFeeStructures,
+  usePrograms,
   useSchedulePreview,
   useUpdateRecurringSchedule,
   ISO_WEEKDAYS,
@@ -59,6 +60,7 @@ import * as React from 'react';
 
 const NO_CLASS = '__none__';
 const NO_SECTION = '__none__';
+const NO_PROGRAM = '__none__';
 const WEEKDAYS: Weekday[] = ISO_WEEKDAYS;
 const DAY_OF_MONTH_OPTIONS: MonthlyRuleDay[] = [
   ...Array.from({ length: 28 }, (_, i) => i + 1),
@@ -116,6 +118,7 @@ export function ScheduleFormDialog({
   const [feeIds, setFeeIds] = React.useState<string[]>(schedule?.fee_structure_ids ?? []);
   const [classId, setClassId] = React.useState(schedule?.audience.class_id ?? '');
   const [sectionId, setSectionId] = React.useState(schedule?.audience.section_id ?? '');
+  const [programId, setProgramId] = React.useState(schedule?.audience.program_id ?? '');
   const [ruleKind, setRuleKind] = React.useState<'MONTHLY' | 'WEEKLY'>(
     schedule?.rule.kind ?? 'MONTHLY',
   );
@@ -140,6 +143,7 @@ export function ScheduleFormDialog({
     academicYearId !== '' ? { academic_year_id: academicYearId } : {},
   );
   const sectionsQuery = useClassSections(classId !== '' ? classId : undefined);
+  const programsQuery = usePrograms({ includeArchived: false });
 
   const selectedYear = yearsQuery.data?.data.find((year) => year.id === academicYearId);
   const yearEndDate = selectedYear ? parseServerDate(selectedYear.end_date) : undefined;
@@ -157,6 +161,7 @@ export function ScheduleFormDialog({
     setFeeIds(schedule?.fee_structure_ids ?? []);
     setClassId(schedule?.audience.class_id ?? '');
     setSectionId(schedule?.audience.section_id ?? '');
+    setProgramId(schedule?.audience.program_id ?? '');
     setRuleKind(schedule?.rule.kind ?? 'MONTHLY');
     setDayOfMonth(schedule?.rule.day_of_month ?? 1);
     setWeekdays(schedule?.rule.weekdays ?? []);
@@ -206,6 +211,7 @@ export function ScheduleFormDialog({
       audience: {
         ...(classId !== '' ? { class_id: classId } : {}),
         ...(sectionId !== '' ? { section_id: sectionId } : {}),
+        ...(programId !== '' ? { program_id: programId } : {}),
         enrollment_status: 'ACTIVE' as const,
       },
       rule:
@@ -339,6 +345,23 @@ export function ScheduleFormDialog({
                   </SelectContent>
                 </Select>
               )}
+
+              <Select
+                value={programId === '' ? NO_PROGRAM : programId}
+                onValueChange={(value) => setProgramId(value === NO_PROGRAM ? '' : value)}
+              >
+                <SelectTrigger aria-label={t('schedules.form.programLabel')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_PROGRAM}>{t('schedules.form.allPrograms')}</SelectItem>
+                  {programsQuery.data?.map((program) => (
+                    <SelectItem key={program.id} value={program.id}>
+                      {program.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             {/* Not a control: `enrollment_status` accepts only `'ACTIVE'`,
                 so this states the fixed rule instead of offering a choice

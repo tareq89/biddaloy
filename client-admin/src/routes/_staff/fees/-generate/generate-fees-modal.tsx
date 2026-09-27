@@ -135,6 +135,7 @@ export function GenerateFeesModal({
 
   const [selectedStudents, setSelectedStudents] = React.useState<Map<string, string>>(new Map());
   const [selectedFees, setSelectedFees] = React.useState<Set<string>>(new Set());
+  const [programId, setProgramId] = React.useState<string | undefined>(undefined);
 
   const [preview, setPreview] = React.useState<GenerateFeesPreviewResult | null>(null);
   const [previewScopeKey, setPreviewScopeKey] = React.useState<string | null>(null);
@@ -209,7 +210,11 @@ export function GenerateFeesModal({
     academicYearId !== '' &&
     periodStart !== undefined &&
     dueDate !== '' &&
-    studentCount > 0 &&
+    // [34.5.3] `program_id` alone resolves the whole program server-side
+    // (`GenerateFeesDto.program_id`, additive with `student_ids` when both
+    // are set) — a staffer targeting "active students of program X" never
+    // has to tick individual checkboxes.
+    (studentCount > 0 || programId !== undefined) &&
     feeCount > 0 &&
     !previewMutation.isPending &&
     !generate.isPending;
@@ -238,6 +243,7 @@ export function GenerateFeesModal({
       period_type: periodType,
       period_start: periodStart ? toDateInputValue(periodStart) : '',
       student_ids: Array.from(selectedStudents.keys()),
+      ...(programId ? { program_id: programId } : {}),
       fee_structure_ids: Array.from(selectedFees),
     };
   }
@@ -265,6 +271,7 @@ export function GenerateFeesModal({
     setPreview(null);
     setPreviewScopeKey(null);
     setDuplicateAction('SKIP');
+    setProgramId(undefined);
     onOpenChange(false);
   }
 
@@ -420,6 +427,8 @@ export function GenerateFeesModal({
             academicYearId={academicYearId}
             selected={selectedStudents}
             onSelectedChange={setSelectedStudents}
+            programId={programId}
+            onProgramIdChange={setProgramId}
           />
 
           <FeePicker

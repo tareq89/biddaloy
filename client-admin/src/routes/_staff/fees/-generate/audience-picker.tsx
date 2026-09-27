@@ -26,6 +26,7 @@ import {
 import {
   useClasses,
   useClassSections,
+  usePrograms,
   useStudentIds,
   useStudentSearch,
   type Student,
@@ -40,12 +41,21 @@ export interface AudiencePickerProps {
   academicYearId: string;
   selected: Map<string, string>;
   onSelectedChange: (selected: Map<string, string>) => void;
+  /** [34.5.3] `program_id` isn't a `GET /students*` filter (see
+   * `StudentIdsFilters`) — a program select here can't narrow this picker's
+   * own checkbox list. It only surfaces the chosen program so the caller
+   * (`generate-fees-modal.tsx`) can add `program_id` to `GenerateFeesDto`,
+   * which the server does accept alongside `student_ids`. */
+  programId?: string | undefined;
+  onProgramIdChange?: (programId: string | undefined) => void;
 }
 
 export function AudiencePicker({
   academicYearId,
   selected,
   onSelectedChange,
+  programId,
+  onProgramIdChange,
 }: AudiencePickerProps) {
   const { t } = useTranslation('feeGeneration');
   const [search, setSearch] = React.useState('');
@@ -57,6 +67,7 @@ export function AudiencePicker({
     academicYearId !== '' ? { academic_year_id: academicYearId } : {},
   );
   const sectionsQuery = useClassSections(classId !== ALL_VALUE ? classId : undefined);
+  const programsQuery = usePrograms({ includeArchived: false });
 
   const idsFilters: StudentIdsFilters = {
     ...(search.trim() !== '' ? { search: search.trim() } : {}),
@@ -189,6 +200,25 @@ export function AudiencePicker({
               {sectionsQuery.data?.map((section) => (
                 <SelectItem key={section.id} value={section.id}>
                   {section.section_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {onProgramIdChange && (
+          <Select
+            value={programId ?? ALL_VALUE}
+            onValueChange={(value) => onProgramIdChange(value === ALL_VALUE ? undefined : value)}
+          >
+            <SelectTrigger aria-label={t('audience.programLabel')}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_VALUE}>{t('audience.anyProgram')}</SelectItem>
+              {programsQuery.data?.map((program) => (
+                <SelectItem key={program.id} value={program.id}>
+                  {program.name}
                 </SelectItem>
               ))}
             </SelectContent>
