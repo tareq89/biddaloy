@@ -1,4 +1,4 @@
-import { adminApiSession, get } from '../api';
+import { adminApiSession, get, patch } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { DetailShellPage } from '../pages/detail-shell';
@@ -68,6 +68,31 @@ test.describe.serial('programs: admin enrols -> teacher records -> guardian sees
       studentId = student.id;
       studentName = student.full_name;
 
+      // `yarn seed`'s demo data (`ensureProgramParticipationDemoSeed`)
+      // already enrols this exact student in Hifz (with achievements) —
+      // it's the same roll-1 fixture `result-publish.spec.ts` reuses. If
+      // that enrolment is still ACTIVE, the dialog's own "already
+      // enrolled" branch fires instead of a fresh enrol, so the heading
+      // never closes. Withdraw it first so this test's own enrol click
+      // creates a real, brand-new ACTIVE enrolment — the partial unique
+      // index is on `status = 'ACTIVE'` only, so a WITHDRAWN row doesn't
+      // block the re-enrol.
+      const programs = await get<{ id: string; name: string }[]>(request, session, '/programs');
+      const hifz = programs.find((p) => p.name === SEED_PROGRAM_NAME);
+      if (!hifz) throw new Error(`Seeded program "${SEED_PROGRAM_NAME}" not found`);
+      const enrollments = await get<{ id: string; status: string; student: { id: string } }[]>(
+        request,
+        session,
+        `/programs/${hifz.id}/enrollments`,
+      );
+      const existing = enrollments.find((e) => e.student.id === studentId && e.status === 'ACTIVE');
+      if (existing) {
+        await patch(request, session, `/program-enrollments/${existing.id}`, {
+          status: 'WITHDRAWN',
+          ended_on: '2026-01-01',
+        });
+      }
+
       await page.goto(`/students/${studentId}`);
       await expect(page.getByRole('heading', { level: 1, name: studentName })).toBeVisible();
 
@@ -83,12 +108,20 @@ test.describe.serial('programs: admin enrols -> teacher records -> guardian sees
       await page.getByRole('combobox', { name: t('programs.list.title') }).click();
       await page.getByRole('option', { name: SEED_PROGRAM_NAME }).click();
 
-      await page.getByRole('button', { name: t('programs.students.enrol') }).click();
+      // Scoped to the dialog: its submit button has the same accessible
+      // name ("Enrol") as the page's own trigger button, which stays in the
+      // DOM (behind the overlay) while the dialog is open.
+      const enrolDialog = page.getByRole('dialog');
+      await enrolDialog.getByRole('button', { name: t('programs.students.enrol') }).click();
       await expect(
         page.getByRole('heading', { name: t('programs.dialogs.enrol.title') }),
       ).toBeHidden();
 
-      await expect(page.getByText(SEED_PROGRAM_NAME)).toBeVisible();
+      // Two cards now: the freshly-created ACTIVE enrolment and the
+      // WITHDRAWN one this test withdrew above (`ProgramsPanel` renders
+      // every enrolment, not just active ones) — `.first()` since this
+      // step only cares that the enrol actually landed.
+      await expect(page.getByText(SEED_PROGRAM_NAME).first()).toBeVisible();
     });
   });
 
