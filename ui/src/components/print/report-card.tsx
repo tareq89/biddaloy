@@ -87,10 +87,10 @@ export interface ReportCardProps {
     fourthSubject: string;
     absent: string;
     legendTitle: string;
-    programs?: string;
-    progress?: string;
-    latestMilestone?: string;
-    scoreGrade?: string;
+    programs: string;
+    progress: string;
+    latestMilestone: string;
+    scoreGrade: string;
   };
 }
 
@@ -193,13 +193,13 @@ export function ReportCard({ data, issuer, logoUrl, activeLanguage, labels }: Re
 
       {data.programs && data.programs.length > 0 && (
         <table className="w-full border-collapse text-sm">
-          <caption className="sr-only">{labels.programs ?? 'Programs'}</caption>
+          <caption className="sr-only">{labels.programs}</caption>
           <thead>
             <tr className="border-b text-start text-muted-foreground">
-              <th className="py-1">{labels.programs ?? 'Programs'}</th>
-              <th className="py-1">{labels.progress ?? 'Progress'}</th>
-              <th className="py-1">{labels.latestMilestone ?? 'Latest milestone'}</th>
-              <th className="py-1">{labels.scoreGrade ?? 'Score/Grade'}</th>
+              <th className="py-1">{labels.programs}</th>
+              <th className="py-1">{labels.progress}</th>
+              <th className="py-1">{labels.latestMilestone}</th>
+              <th className="py-1">{labels.scoreGrade}</th>
             </tr>
           </thead>
           <tbody>

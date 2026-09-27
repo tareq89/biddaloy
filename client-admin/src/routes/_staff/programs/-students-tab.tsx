@@ -37,10 +37,19 @@ import { RecordDialog } from './-record-dialog';
 export interface StudentsTabProps {
   programId: string;
   milestoneTotal: number;
+  /** [D5] Enrol/mark-complete/withdraw/reactivate require `PROGRAM_MANAGE`;
+   * Record + the achievement checklist stay available to `PROGRAM_RECORD`
+   * alone (e.g. a teacher). */
+  canManage: boolean;
   onOpenEnrol: () => void;
 }
 
-export function StudentsTab({ programId, milestoneTotal, onOpenEnrol }: StudentsTabProps) {
+export function StudentsTab({
+  programId,
+  milestoneTotal,
+  canManage,
+  onOpenEnrol,
+}: StudentsTabProps) {
   const { t } = useTranslation('programs');
   const [status, setStatus] = React.useState<ProgramEnrollmentStatus>('ACTIVE');
   const [expandedId, setExpandedId] = React.useState<string | null>(null);
@@ -73,9 +82,11 @@ export function StudentsTab({ programId, milestoneTotal, onOpenEnrol }: Students
           <Button type="button" variant="outline" onClick={() => setToolbarRecordOpen(true)}>
             {t('students.record')}
           </Button>
-          <Button type="button" onClick={onOpenEnrol}>
-            {t('students.enrol')}
-          </Button>
+          {canManage && (
+            <Button type="button" onClick={onOpenEnrol}>
+              {t('students.enrol')}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -90,6 +101,7 @@ export function StudentsTab({ programId, milestoneTotal, onOpenEnrol }: Students
             programId={programId}
             row={row}
             showProgress={showProgress}
+            canManage={canManage}
             expanded={expandedId === row.id}
             onToggle={() => setExpandedId(expandedId === row.id ? null : row.id)}
             onRecord={() => setRecordFor(row)}
@@ -131,6 +143,7 @@ interface StudentRowProps {
   programId: string;
   row: ProgramEnrollmentRow;
   showProgress: boolean;
+  canManage: boolean;
   expanded: boolean;
   onToggle: () => void;
   onRecord: () => void;
@@ -141,6 +154,7 @@ function StudentRow({
   programId,
   row,
   showProgress,
+  canManage,
   expanded,
   onToggle,
   onRecord,
@@ -199,24 +213,26 @@ function StudentRow({
           {t('students.record')}
         </Button>
 
-        <Menu>
-          <MenuTrigger asChild>
-            <Button type="button" variant="outline" aria-label={t('students.markComplete')}>
-              ⋮
-            </Button>
-          </MenuTrigger>
-          <MenuContent align="end">
-            <MenuItem onSelect={() => onStatusChange('COMPLETED')}>
-              {complete ? t('students.completePrompt') : t('students.markComplete')}
-            </MenuItem>
-            <MenuItem onSelect={() => onStatusChange('WITHDRAWN')}>
-              {t('students.withdraw')}
-            </MenuItem>
-            <MenuItem onSelect={() => onStatusChange('ACTIVE')}>
-              {t('students.reactivate')}
-            </MenuItem>
-          </MenuContent>
-        </Menu>
+        {canManage && (
+          <Menu>
+            <MenuTrigger asChild>
+              <Button type="button" variant="outline" aria-label={t('students.markComplete')}>
+                ⋮
+              </Button>
+            </MenuTrigger>
+            <MenuContent align="end">
+              <MenuItem onSelect={() => onStatusChange('COMPLETED')}>
+                {complete ? t('students.completePrompt') : t('students.markComplete')}
+              </MenuItem>
+              <MenuItem onSelect={() => onStatusChange('WITHDRAWN')}>
+                {t('students.withdraw')}
+              </MenuItem>
+              <MenuItem onSelect={() => onStatusChange('ACTIVE')}>
+                {t('students.reactivate')}
+              </MenuItem>
+            </MenuContent>
+          </Menu>
+        )}
       </div>
 
       {expanded && entry && (

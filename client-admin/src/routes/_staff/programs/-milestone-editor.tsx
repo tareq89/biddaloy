@@ -20,9 +20,12 @@ import * as React from 'react';
 export interface MilestoneEditorProps {
   programId: string;
   milestones: ProgramMilestone[];
+  /** [D5] Add/edit/remove/reorder require `PROGRAM_MANAGE` — a
+   * `PROGRAM_RECORD`-only viewer (e.g. a teacher) sees the list read-only. */
+  canManage: boolean;
 }
 
-export function MilestoneEditor({ programId, milestones }: MilestoneEditorProps) {
+export function MilestoneEditor({ programId, milestones, canManage }: MilestoneEditorProps) {
   const { t } = useTranslation('programs');
   const { t: tCommon } = useTranslation('common');
   const addMilestone = useAddMilestone(programId);
@@ -109,30 +112,32 @@ export function MilestoneEditor({ programId, milestones }: MilestoneEditorProps)
             key={milestone.id}
             className="flex items-start gap-2 rounded-md border border-border p-3"
           >
-            <div className="flex flex-col">
-              <button
-                type="button"
-                aria-label={t('milestones.moveUp')}
-                disabled={index === 0}
-                onClick={() => move(index, -1)}
-                onKeyDown={(event) => handleKeyDown(event, index)}
-                className="disabled:opacity-30"
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                aria-label={t('milestones.moveDown')}
-                disabled={index === ordered.length - 1}
-                onClick={() => move(index, 1)}
-                onKeyDown={(event) => handleKeyDown(event, index)}
-                className="disabled:opacity-30"
-              >
-                ↓
-              </button>
-            </div>
+            {canManage && (
+              <div className="flex flex-col">
+                <button
+                  type="button"
+                  aria-label={t('milestones.moveUp')}
+                  disabled={index === 0}
+                  onClick={() => move(index, -1)}
+                  onKeyDown={(event) => handleKeyDown(event, index)}
+                  className="disabled:opacity-30"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  aria-label={t('milestones.moveDown')}
+                  disabled={index === ordered.length - 1}
+                  onClick={() => move(index, 1)}
+                  onKeyDown={(event) => handleKeyDown(event, index)}
+                  className="disabled:opacity-30"
+                >
+                  ↓
+                </button>
+              </div>
+            )}
 
-            {editingId === milestone.id ? (
+            {canManage && editingId === milestone.id ? (
               <form onSubmit={handleEditSave} className="flex flex-1 flex-col gap-2">
                 <Input
                   aria-label={t('milestones.add')}
@@ -158,29 +163,31 @@ export function MilestoneEditor({ programId, milestones }: MilestoneEditorProps)
                 {milestone.description && (
                   <p className="text-sm text-muted-foreground">{milestone.description}</p>
                 )}
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="text-sm font-medium text-primary underline"
-                    onClick={() => startEdit(milestone)}
-                  >
-                    {t('milestones.edit')}
-                  </button>
-                  <button
-                    type="button"
-                    className="text-sm font-medium text-destructive underline"
-                    onClick={() => setPendingRemoveId(milestone.id)}
-                  >
-                    {t('milestones.remove')}
-                  </button>
-                </div>
+                {canManage && (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="text-sm font-medium text-primary underline"
+                      onClick={() => startEdit(milestone)}
+                    >
+                      {t('milestones.edit')}
+                    </button>
+                    <button
+                      type="button"
+                      className="text-sm font-medium text-destructive underline"
+                      onClick={() => setPendingRemoveId(milestone.id)}
+                    >
+                      {t('milestones.remove')}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </li>
         ))}
       </ul>
 
-      {pendingRemove && (
+      {canManage && pendingRemove && (
         <div
           role="alertdialog"
           className="flex flex-col gap-2 rounded-md border border-destructive/40 p-3"
@@ -208,22 +215,24 @@ export function MilestoneEditor({ programId, milestones }: MilestoneEditorProps)
         </div>
       )}
 
-      <form onSubmit={handleAdd} className="flex flex-col gap-2 border-t border-border pt-3">
-        <Input
-          aria-label={t('milestones.add')}
-          placeholder={t('milestones.add')}
-          value={addName}
-          onChange={(e) => setAddName(e.target.value)}
-        />
-        <Textarea
-          placeholder={t('formDialog.descriptionLabel')}
-          value={addDescription}
-          onChange={(e) => setAddDescription(e.target.value)}
-        />
-        <Button type="submit" loading={addMilestone.isPending}>
-          {t('milestones.add')}
-        </Button>
-      </form>
+      {canManage && (
+        <form onSubmit={handleAdd} className="flex flex-col gap-2 border-t border-border pt-3">
+          <Input
+            aria-label={t('milestones.add')}
+            placeholder={t('milestones.add')}
+            value={addName}
+            onChange={(e) => setAddName(e.target.value)}
+          />
+          <Textarea
+            placeholder={t('formDialog.descriptionLabel')}
+            value={addDescription}
+            onChange={(e) => setAddDescription(e.target.value)}
+          />
+          <Button type="submit" loading={addMilestone.isPending}>
+            {t('milestones.add')}
+          </Button>
+        </form>
+      )}
     </div>
   );
 }

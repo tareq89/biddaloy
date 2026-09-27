@@ -326,6 +326,10 @@ function PrintTarget({
           fourthSubject: t('reportCard.fourthSubject', { ns: 'exams' }),
           absent: t('reportCard.absent', { ns: 'exams' }),
           legendTitle: t('reportCard.legendTitle', { ns: 'exams' }),
+          programs: t('reportCard.programs', { ns: 'exams' }),
+          progress: t('reportCard.progress', { ns: 'exams' }),
+          latestMilestone: t('reportCard.latestMilestone', { ns: 'exams' }),
+          scoreGrade: t('reportCard.scoreGrade', { ns: 'exams' }),
         }}
       />
     </div>

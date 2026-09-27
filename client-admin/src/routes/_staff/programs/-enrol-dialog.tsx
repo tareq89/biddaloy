@@ -194,7 +194,7 @@ export function EnrolDialog({
                   className="text-sm text-primary underline"
                   onClick={() => toggleSelectAll(students.map((s) => s.id))}
                 >
-                  {tCommon('actions.selectAllOnPage')}
+                  {tCommon('table.selectAllOnPage')}
                 </button>
               )}
             </div>

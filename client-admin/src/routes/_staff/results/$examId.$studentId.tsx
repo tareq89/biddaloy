@@ -104,6 +104,10 @@ function ReportCardPage() {
           fourthSubject: t('reportCard.fourthSubject'),
           absent: t('reportCard.absent'),
           legendTitle: t('reportCard.legendTitle'),
+          programs: t('reportCard.programs'),
+          progress: t('reportCard.progress'),
+          latestMilestone: t('reportCard.latestMilestone'),
+          scoreGrade: t('reportCard.scoreGrade'),
         }}
       />
     </div>

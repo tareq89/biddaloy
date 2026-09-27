@@ -132,7 +132,16 @@ export function RecordDialog({
           {!programId && (
             <div className="flex flex-col gap-1.5">
               <span className="text-sm font-medium">{t('list.title')}</span>
-              <Select value={selectedProgramId} onValueChange={setSelectedProgramId}>
+              <Select
+                value={selectedProgramId}
+                onValueChange={(value) => {
+                  setSelectedProgramId(value);
+                  // Milestone/enrolments belong to the *previous* program —
+                  // switching programs must not carry them over.
+                  setSelectedMilestoneId('');
+                  setEnrollmentIds(new Set());
+                }}
+              >
                 <SelectTrigger aria-label={t('list.title')}>
                   <SelectValue />
                 </SelectTrigger>
