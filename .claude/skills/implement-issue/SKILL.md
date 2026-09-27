@@ -327,6 +327,17 @@ Target the parent branch. In the description: what the issue asked for, the
 approach, any design-system additions, and how to test it. Then record the PR
 number and **timestamp** in the state file.
 
+**The description must list every issue this PR completes**, one line per
+issue, in this pattern:
+
+```
+Closes #<issue number> - <issue title>
+```
+
+`Closes #N` is what GitHub uses to auto-close the issue on merge — verify the
+list is present before opening (or, if editing an already-open PR's body,
+before pushing) rather than assuming it's there.
+
 ## Step 3 — PR pacing (CodeRabbit)
 
 CodeRabbit throttles its review if a second PR arrives within an hour of the

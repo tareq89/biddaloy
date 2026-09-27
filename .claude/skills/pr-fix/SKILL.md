@@ -278,6 +278,23 @@ If a comment turned out to be something you're not going to act on (e.g.
 it's already stale, or you disagree), do not silently skip it — reply
 explaining why, and flag it to the user rather than deciding alone.
 
+## 9b. Backfill missing "Closes" lines
+
+Read the PR's current body (`gh pr view <n> --json body`). Cross-check it
+against every issue this PR's commits actually complete (the plan comment,
+the epic's sub-issue list, or the issue numbers named in commit messages). If
+any completed issue is missing a line, add one — don't rewrite unrelated
+parts of the body:
+
+```
+Closes #<issue number> - <issue title>
+```
+
+Use `gh pr edit <n> --body-file -` (or `--body`) to update it. This is a
+metadata fix, not a code change — do it whether or not this round touched
+any files, so a completed issue never fails to auto-close purely because the
+line was missing.
+
 ## 10. Pause point — before push
 
 Before pushing, show the user:
