@@ -40,6 +40,13 @@ test.describe('teacher', () => {
       await expect(
         page.getByRole('combobox', { name: t('nav.commandPalette.ariaLabel') }),
       ).toBeFocused();
+      // Palette opens on the People tab (D11) — "prog" is a page name, not
+      // a person, so switch to the Page tab first (`Ctrl+2`), same as
+      // `homework.spec.ts`'s `Ctrl+3` for the Action tab.
+      await page.keyboard.press('Control+2');
+      await expect(
+        page.getByRole('tab', { name: t('nav.commandPalette.tabs.page') }),
+      ).toHaveAttribute('aria-selected', 'true');
       await page.keyboard.type('prog');
       await expect(page.getByRole('option').first()).toBeVisible();
       await page.keyboard.press('ArrowDown');
@@ -99,8 +106,16 @@ test.describe('admin', () => {
   }) => {
     const name = `E2E Program ${Date.now()}`;
 
+    // `formDialog.createTitle` ("Add program") is the exact same string as
+    // the list page's "Add program" button (`list.actions.add`) — scope to
+    // the dialog's own heading so this doesn't strict-mode-violate on two
+    // matches.
+    const createTitleHeading = page.getByRole('heading', {
+      name: t('programs.formDialog.createTitle'),
+    });
+
     await page.goto('/programs?new=1');
-    await expect(page.getByText(t('programs.formDialog.createTitle'))).toBeVisible();
+    await expect(createTitleHeading).toBeVisible();
 
     await test.step('fill the name and save', async () => {
       const nameInput = page.getByLabel(t('programs.formDialog.nameLabel'));
@@ -108,7 +123,7 @@ test.describe('admin', () => {
       await page.keyboard.type(name);
       await tabUntilFocused(page, t('programs.formDialog.save'), 10, { tag: 'BUTTON' });
       await page.keyboard.press('Enter');
-      await expect(page.getByText(t('programs.formDialog.createTitle'))).toBeHidden();
+      await expect(createTitleHeading).toBeHidden();
     });
 
     await test.step('open the new program', async () => {
