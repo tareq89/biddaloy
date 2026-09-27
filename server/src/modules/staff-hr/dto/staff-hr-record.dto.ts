@@ -40,41 +40,44 @@ export class CreateStaffHrRecordDto {
   religion?: string;
 }
 
-/** Request body for `PATCH /staff-hr-records/:id`. 23.2.1. */
+/** Request body for `PATCH /staff-hr-records/:id`. Every field is
+ * `| null` (23.7): a client must be able to clear a previously-set value,
+ * not just omit an unchanged one — omitting a field here leaves its
+ * current server value in place. */
 export class UpdateStaffHrRecordDto {
   @IsOptional()
   @IsString()
   @MaxLength(50)
-  index_no?: string;
+  index_no?: string | null;
 
   @IsOptional()
   @IsString()
   @MaxLength(50)
-  salary_code?: string;
+  salary_code?: string | null;
 
   @IsOptional()
   @IsDateString()
-  mpo_date?: string;
+  mpo_date?: string | null;
 
   @IsOptional()
   @IsString()
   @MaxLength(50)
-  salary_scale?: string;
+  salary_scale?: string | null;
 
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  department?: string;
+  department?: string | null;
 
   @IsOptional()
   @IsString()
   @MaxLength(10)
-  blood_group?: string;
+  blood_group?: string | null;
 
   @IsOptional()
   @IsString()
   @MaxLength(50)
-  religion?: string;
+  religion?: string | null;
 }
 
 /** Request body for `POST /staff-hr-records/:userId/promote`. 23.2.1. */

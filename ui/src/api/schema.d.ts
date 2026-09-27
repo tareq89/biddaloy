@@ -9051,13 +9051,13 @@ export interface components {
             religion?: string;
         };
         UpdateStaffHrRecordDto: {
-            index_no?: string;
-            salary_code?: string;
-            mpo_date?: string;
-            salary_scale?: string;
-            department?: string;
-            blood_group?: string;
-            religion?: string;
+            index_no?: string | null;
+            salary_code?: string | null;
+            mpo_date?: string | null;
+            salary_scale?: string | null;
+            department?: string | null;
+            blood_group?: string | null;
+            religion?: string | null;
         };
         StaffDesignationHistory: {
             id: string;
@@ -22637,7 +22637,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["StaffDesignationHistory"] | null;
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

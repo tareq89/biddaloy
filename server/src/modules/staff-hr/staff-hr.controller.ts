@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags, getSchemaPath } from '@nestjs/swagger';
 import { Permission, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -25,6 +25,7 @@ import {
   PromoteStaffDto,
   UpdateStaffHrRecordDto,
 } from './dto/staff-hr-record.dto';
+import { StaffDesignationHistory } from './entities/staff-designation-history.entity';
 
 /** CRUD + promotion for `StaffHrRecord`/`StaffDesignationHistory`. 23.2.1. */
 @ApiTags('staff-hr')
@@ -82,10 +83,13 @@ export class StaffHrController {
   @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.STAFF_HR_READ)
   @ApiOperation({ summary: "Read a staff member's current (open) designation history row." })
+  @ApiOkResponse({
+    schema: { nullable: true, allOf: [{ $ref: getSchemaPath(StaffDesignationHistory) }] },
+  })
   async currentDesignation(
     @Param('userId', ParseUUIDPipe) userId: string,
     @CurrentTenant() tenant: { id: string },
-  ) {
+  ): Promise<StaffDesignationHistory | null> {
     return this.staffHrService.getCurrentDesignation(userId, tenant.id);
   }
 
