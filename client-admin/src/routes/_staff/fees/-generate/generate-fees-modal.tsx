@@ -206,6 +206,13 @@ export function GenerateFeesModal({
 
   const feeCount = selectedFees.size;
   const studentCount = selectedStudents.size;
+  // The server's own resolved count for the current scope, once a preview
+  // has actually run against it (`students_total` covers program-only
+  // scopes the client never enumerates itself) — stale once the scope
+  // changes again, same guard `handleGenerateClick` already uses.
+  const resolvedStudentCount =
+    preview && previewScopeKey === scopeKey() ? preview.students_total : undefined;
+  const effectiveStudentCount = resolvedStudentCount ?? studentCount;
   const canGenerate =
     academicYearId !== '' &&
     periodStart !== undefined &&
@@ -238,11 +245,16 @@ export function GenerateFeesModal({
    * already the correctly-derived `Date` for both period types — this
    * just needed to serialize it. */
   function previewScope() {
+    // `student_ids` is only sent when the selection is genuinely nonempty —
+    // an empty array still resolves as "these specific zero students" on
+    // the server, not "no student filter", so a program-only request must
+    // omit the key entirely rather than send `student_ids: []`.
+    const studentIds = Array.from(selectedStudents.keys());
     return {
       academic_year_id: academicYearId,
       period_type: periodType,
       period_start: periodStart ? toDateInputValue(periodStart) : '',
-      student_ids: Array.from(selectedStudents.keys()),
+      ...(studentIds.length > 0 ? { student_ids: studentIds } : {}),
       ...(programId ? { program_id: programId } : {}),
       fee_structure_ids: Array.from(selectedFees),
     };
@@ -262,7 +274,7 @@ export function GenerateFeesModal({
     const raw = scope();
     return JSON.stringify({
       ...raw,
-      student_ids: [...raw.student_ids].sort(),
+      student_ids: [...(raw.student_ids ?? [])].sort(),
       fee_structure_ids: [...raw.fee_structure_ids].sort(),
     });
   }
@@ -466,11 +478,13 @@ export function GenerateFeesModal({
 
           <DialogFooter className="flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">
-              {t('summary.line', {
-                students: studentCount,
-                fees: feeCount,
-                bills: studentCount * feeCount,
-              })}
+              {studentCount === 0 && programId !== undefined && resolvedStudentCount === undefined
+                ? t('summary.programAudience')
+                : t('summary.line', {
+                    students: effectiveStudentCount,
+                    fees: feeCount,
+                    bills: effectiveStudentCount * feeCount,
+                  })}
             </p>
             <div className="flex gap-2">
               <Button type="button" variant="ghost" onClick={resetAndClose}>

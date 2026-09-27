@@ -134,7 +134,9 @@ export function ProgramsPanel({ studentId }: ProgramsPanelProps) {
                   name: m.name,
                   achievedOn: m.achievement?.achieved_on ?? null,
                   scoreGrade: m.achievement
-                    ? [m.achievement.score, m.achievement.grade].filter(Boolean).join(' / ') || null
+                    ? [m.achievement.score, m.achievement.grade]
+                        .filter((value) => value !== null && value !== undefined)
+                        .join(' / ') || null
                     : null,
                   remark: m.achievement?.remark ?? null,
                 }))}

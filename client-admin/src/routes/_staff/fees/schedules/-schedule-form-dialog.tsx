@@ -143,7 +143,12 @@ export function ScheduleFormDialog({
     academicYearId !== '' ? { academic_year_id: academicYearId } : {},
   );
   const sectionsQuery = useClassSections(classId !== '' ? classId : undefined);
-  const programsQuery = usePrograms({ includeArchived: false });
+  // Only include archived programs when editing a schedule that already
+  // references one — its saved `program_id` must stay visible/selectable
+  // in the audience picker. New schedules only ever offer active programs.
+  const programsQuery = usePrograms({
+    includeArchived: mode === 'edit' && (schedule?.audience.program_id ?? '') !== '',
+  });
 
   const selectedYear = yearsQuery.data?.data.find((year) => year.id === academicYearId);
   const yearEndDate = selectedYear ? parseServerDate(selectedYear.end_date) : undefined;

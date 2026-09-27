@@ -166,6 +166,44 @@ describe('GenerateFeesModal', () => {
     await waitFor(() => expect(generateCalls).toBe(2));
   });
 
+  it('omits student_ids and shows the program-audience message for a program-only scope', async () => {
+    let previewBody: unknown;
+    server.use(
+      http.get('/api/v1/programs', () =>
+        HttpResponse.json([{ id: 'program-1', name: 'Hifz Program' }]),
+      ),
+      http.post('/api/v1/fees/generate/preview', async ({ request }) => {
+        previewBody = await request.json();
+        return HttpResponse.json({
+          students_total: 5,
+          would_generate: 5,
+          duplicates: [],
+          inactive: [],
+        });
+      }),
+    );
+
+    const user = userEvent.setup();
+    await renderModal();
+
+    // No students selected, only a program — footer must not claim "0
+    // students" before the server has resolved anything.
+    await user.click(await screen.findByRole('combobox', { name: 'Program' }));
+    await user.click(await screen.findByRole('option', { name: 'Hifz Program' }));
+
+    await screen.findByText('Billing all active students in the selected program.');
+
+    const feePicker = await screen.findByTestId('fee-picker');
+    const feeCheckboxes = await within(feePicker).findAllByRole('checkbox');
+    await user.click(feeCheckboxes[0]!);
+
+    await user.click(screen.getByRole('button', { name: 'Generate fees' }));
+
+    await waitFor(() => expect(previewBody).toBeTruthy());
+    expect(previewBody).not.toHaveProperty('student_ids');
+    expect((previewBody as { program_id: string }).program_id).toBe('program-1');
+  });
+
   it('shows the generated/skipped toast and closes on success', async () => {
     server.use(
       http.get('/api/v1/students/ids', () => HttpResponse.json({ ids: ['student-1'], total: 1 })),

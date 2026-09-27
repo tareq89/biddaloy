@@ -249,6 +249,36 @@ describe('ScheduleFormDialog', () => {
     await within(programSelect).findByText('Hifz');
   });
 
+  it('only requests archived programs when editing a schedule that already has one', async () => {
+    server.use(...referenceHandlers());
+    let createModeIncludeArchived: string | null = null;
+    server.use(
+      http.get('/api/v1/programs', ({ request }) => {
+        createModeIncludeArchived = new URL(request.url).searchParams.get('include_archived');
+        return HttpResponse.json([]);
+      }),
+    );
+    await renderDialog({ mode: 'create' });
+    await waitFor(() => expect(createModeIncludeArchived).not.toBeNull());
+    expect(createModeIncludeArchived).toBe('false');
+    await cleanupTestState();
+
+    server.use(...referenceHandlers());
+    let editModeIncludeArchived: string | null = null;
+    server.use(
+      http.get('/api/v1/programs', ({ request }) => {
+        editModeIncludeArchived = new URL(request.url).searchParams.get('include_archived');
+        return HttpResponse.json([{ id: 'program-hifz', name: 'Hifz', is_active: false }]);
+      }),
+    );
+    const existing = schedule({
+      audience: { enrollment_status: 'ACTIVE', program_id: 'program-hifz' },
+    });
+    await renderDialog({ mode: 'edit', schedule: existing });
+    await waitFor(() => expect(editModeIncludeArchived).not.toBeNull());
+    expect(editModeIncludeArchived).toBe('true');
+  });
+
   it('includes program_id in the saved audience when a program is chosen', async () => {
     server.use(
       http.get('/api/v1/programs', () =>

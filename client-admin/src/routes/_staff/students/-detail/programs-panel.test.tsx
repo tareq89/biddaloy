@@ -56,6 +56,50 @@ describe('ProgramsPanel', () => {
     expect(screen.queryByText('0 / 0')).toBeNull();
   });
 
+  it('shows a score of 0 instead of dropping it (0 is falsy, not missing)', async () => {
+    const entryWithZeroScore = {
+      program: { id: 'program-3', name: 'Chess Club', is_active: true, show_on_report_card: true },
+      enrollment: {
+        id: 'enrollment-3',
+        status: 'ACTIVE',
+        started_on: '2026-01-10',
+        ended_on: null,
+      },
+      milestones: [
+        {
+          id: 'milestone-3',
+          name: 'Opening puzzle',
+          sequence: 1,
+          achievement: {
+            id: 'ach-1',
+            achieved_on: '2026-01-15',
+            score: '0',
+            grade: null,
+            remark: null,
+          },
+        },
+      ],
+      achieved_count: 1,
+      milestone_total: 1,
+    };
+    server.use(
+      http.get('/api/v1/students/:studentId/programs', () =>
+        HttpResponse.json([entryWithZeroScore]),
+      ),
+    );
+
+    renderWithProviders(<ProgramsPanel studentId="student-1" />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: 'tenant-1',
+    });
+
+    expect(await screen.findByText('Chess Club')).toBeTruthy();
+    expect(
+      screen.getByText((_, element) => element?.textContent === '2026-01-15 · 0'),
+    ).toBeTruthy();
+  });
+
   it('shows the empty state with an Enrol CTA only when the user can manage programs', async () => {
     server.use(http.get('/api/v1/students/:studentId/programs', () => HttpResponse.json([])));
 

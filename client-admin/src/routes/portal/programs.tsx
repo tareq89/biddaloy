@@ -146,7 +146,7 @@ function PortalPrograms() {
         <Card className="flex flex-col">
           {programsQuery.data.map((entry, index) => (
             <ProgramCard
-              key={entry.program.id}
+              key={entry.enrollment.id}
               entry={entry}
               bordered={index > 0}
               statusLabel={tPrograms(`status.${entry.enrollment.status}`)}
@@ -160,7 +160,7 @@ function PortalPrograms() {
 
 interface ProgramEntry {
   program: { id: string; name: string };
-  enrollment: { status: string };
+  enrollment: { id: string; status: string };
   milestones: {
     id: string;
     name: string;

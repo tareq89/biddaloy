@@ -34,7 +34,8 @@
     "label": "Notify families when fees are generated"
   },
   "summary": {
-    "line": "{{students}} students × {{fees}} fees = {{bills}} bills"
+    "line": "{{students}} students × {{fees}} fees = {{bills}} bills",
+    "programAudience": "Billing all active students in the selected program."
   },
   "duplicates": {
     "heading": "Some fees already exist for this period",

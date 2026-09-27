@@ -43,10 +43,11 @@ describe('/portal/programs', () => {
     programName: string,
     status: string,
     milestones: { id: string; name: string; achieved: boolean }[],
+    enrollmentId = `enrollment-${programId}`,
   ) {
     return {
       program: { id: programId, name: programName },
-      enrollment: { status },
+      enrollment: { id: enrollmentId, status },
       milestones: milestones.map((m) => ({
         id: m.id,
         name: m.name,
@@ -93,6 +94,35 @@ describe('/portal/programs', () => {
     expect(await screen.findByText('Hifz Program')).toBeTruthy();
     expect(screen.getByText('Juz 1')).toBeTruthy();
     expect(screen.getByText('Juz 2')).toBeTruthy();
+  });
+
+  it('renders two enrolments in the same program as separate cards (re-enrol after withdrawal, D19)', async () => {
+    mockPrograms({
+      students: [fatima],
+      programs: {
+        'student-1': [
+          entry(
+            'program-1',
+            'Hifz Program',
+            'WITHDRAWN',
+            [{ id: 'm-1', name: 'Juz 1', achieved: true }],
+            'enrollment-old',
+          ),
+          entry(
+            'program-1',
+            'Hifz Program',
+            'ACTIVE',
+            [{ id: 'm-2', name: 'Juz 2', achieved: false }],
+            'enrollment-new',
+          ),
+        ],
+      },
+    });
+    renderPrograms();
+
+    expect(await screen.findByText('Juz 1')).toBeTruthy();
+    expect(screen.getByText('Juz 2')).toBeTruthy();
+    expect(screen.getAllByText('Hifz Program')).toHaveLength(2);
   });
 
   it('renders the empty state when the child has no programs', async () => {

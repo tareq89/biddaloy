@@ -110,7 +110,18 @@ test.describe.serial('programs: admin enrols -> teacher records -> guardian sees
       const milestoneId = await firstUnticked.getAttribute('data-milestone-id');
       expect(milestoneId).toBeTruthy();
 
-      await firstUnticked.click();
+      // Wait for the recording mutation's own network response, not just the
+      // optimistic UI flip — `MilestoneChecklist` updates the checkbox
+      // immediately, so asserting `aria-checked` alone would still pass if
+      // the request later failed and rolled back.
+      const [response] = await Promise.all([
+        page.waitForResponse(
+          (res) => res.url().includes('/achievements') && res.request().method() === 'POST',
+        ),
+        firstUnticked.click(),
+      ]);
+      expect(response.ok()).toBe(true);
+
       await expect(
         row.locator(`[data-milestone-id="${milestoneId}"][role="checkbox"]`),
       ).toHaveAttribute('aria-checked', 'true');
