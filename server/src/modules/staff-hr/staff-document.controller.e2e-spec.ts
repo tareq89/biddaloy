@@ -200,7 +200,9 @@ describe('StaffDocument E2E (23.6)', () => {
         filename: 'nid.pdf',
         contentType: 'application/pdf',
       })
-      .expect(403);
+      // RolesGuard throws UnauthorizedException (401), not ForbiddenException,
+      // for a role that doesn't match @Roles() — see context.guard.ts.
+      .expect(401);
   });
 
   it('rejects a request with no X-Tenant-ID header', async () => {
@@ -212,7 +214,9 @@ describe('StaffDocument E2E (23.6)', () => {
         filename: 'nid.pdf',
         contentType: 'application/pdf',
       })
-      .expect(400);
+      // ContextGuard throws UnauthorizedException (401) for a missing
+      // X-Tenant-ID header — see context.guard.ts.
+      .expect(401);
   });
 
   it("tenant isolation: a tenant-B admin cannot download tenant-A's document by id", async () => {
@@ -273,7 +277,9 @@ describe('StaffDocument E2E (23.6)', () => {
       .set('X-Role', UserRole.ADMIN)
       .expect(200);
     expect(
-      listAfterFirst.body.some((d: { id: string; document_type: string }) => d.id === firstUpload.body.id),
+      listAfterFirst.body.some(
+        (d: { id: string; document_type: string }) => d.id === firstUpload.body.id,
+      ),
     ).toBe(true);
 
     const downloadFirst = await supertest(app.getHttpServer())
@@ -314,14 +320,16 @@ describe('StaffDocument E2E (23.6)', () => {
       .set('X-Role', UserRole.ADMIN)
       .expect(200);
     expect(
-      listAfterReplace.body.filter((d: { document_type: string }) => d.document_type === 'BIRTH_CERTIFICATE'),
+      listAfterReplace.body.filter(
+        (d: { document_type: string }) => d.document_type === 'BIRTH_CERTIFICATE',
+      ),
     ).toHaveLength(1);
 
     // The orphan check: the replace must not leave the store larger than
     // it was after the first upload — the old object was deleted, not
     // just superseded in the row.
-    const storageKeysAfterReplace = (storage as unknown as { objects: Map<string, unknown> }).objects
-      .size;
+    const storageKeysAfterReplace = (storage as unknown as { objects: Map<string, unknown> })
+      .objects.size;
     expect(storageKeysAfterReplace).toBe(firstStorageKeysBefore);
   });
 });
