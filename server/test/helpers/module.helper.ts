@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { TeacherStaffProfileSubscriber } from '../../src/modules/staff-profiles/teacher-staff-profile.subscriber';
 
 /**
  * Creates a NestJS testing module connected to the test database.
@@ -24,6 +25,7 @@ export async function createTestModule(
         type: 'postgres',
         url: process.env.DATABASE_URL,
         entities,
+        subscribers: [TeacherStaffProfileSubscriber],
         synchronize: options?.synchronize ?? false,
         dropSchema: options?.dropSchema ?? false,
         logging: false,

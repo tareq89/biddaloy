@@ -13,6 +13,7 @@ import { AppController } from './app.controller';
 import { resolveDefaultRateLimit } from './rate-limit';
 import { buildDatabaseSsl } from './db-ssl';
 import { RedactingTypeOrmLogger } from './db-logger';
+import { TeacherStaffProfileSubscriber } from './modules/staff-profiles/teacher-staff-profile.subscriber';
 import { buildRateLimitTracker } from './common/rate-limit/rate-limit-tracker';
 import { FailOpenThrottlerStorage } from './common/rate-limit/fail-open-throttler-storage';
 import { HealthModule } from './modules/health/health.module';
@@ -167,6 +168,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
           // rather than a preset name (see LoggerFactory.create). The
           // instance's own constructor argument is what gates output.
           logger: new RedactingTypeOrmLogger(config.get<string>('NODE_ENV') !== 'production'),
+          subscribers: [TeacherStaffProfileSubscriber],
           entities: [
             User,
             School,

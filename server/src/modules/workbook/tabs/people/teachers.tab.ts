@@ -291,6 +291,10 @@ export const teachersTab: TabSpec<Teacher, TeacherRow> = {
     teacher.subject_specialization = row.subject_specialization;
     teacher.joining_date = row.joining_date ? new Date(row.joining_date) : null;
 
+    // `teachers.staff_profile_id` (NOT NULL since [36.1.1]) is filled in by
+    // `TeacherStaffProfileSubscriber`'s `beforeInsert` hook, not here — see
+    // that subscriber for why this is centralized rather than per-caller.
+
     return m.save(Teacher, teacher);
   },
 
