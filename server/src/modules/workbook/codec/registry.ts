@@ -16,6 +16,8 @@ import { seatPlansTab } from '../tabs/exams/seat-plans.tab';
 import { seatPlanSchedulesTab } from '../tabs/exams/seat-plan-schedules.tab';
 import { seatAllocationsTab } from '../tabs/exams/seat-allocations.tab';
 import { programsTabs } from '../tabs/programs';
+import { attendanceTabs } from '../tabs/attendance';
+import { hrTabs } from '../tabs/hr';
 
 /**
  * Every tab name a backup workbook may contain, in apply order (epic 14.0
@@ -35,6 +37,11 @@ export const EXPECTED_TABS = [
   'class_subjects',
   'calendar_events',
   'users',
+  // [36.4.5] `staff_profiles` sits immediately before `teachers`:
+  // `teachers.staff_profile_id` now FKs it, though that column is excluded
+  // from `teachers.tab.ts` as system-derived, so there's no reverse
+  // ordering dependency.
+  'staff_profiles',
   'teachers',
   'teacher_assignments',
   'guardians',
@@ -111,6 +118,15 @@ export const EXPECTED_TABS = [
   'program_milestones',
   'program_enrollments',
   'milestone_achievements',
+  // [36.4.5] Epic 36.0's staff-attendance/leave tabs. Appended at the end,
+  // same reasoning as the homework/syllabus block above: `staff_attendance_records`
+  // depends on `staff_profiles` (people lane, registered earlier in this
+  // list) and `leave_records` depends on both `staff_profiles` and `users` —
+  // both already satisfied by the time these are applied.
+  'staff_attendance_sessions',
+  'staff_attendance_records',
+  'leave_policies',
+  'leave_records',
 ] as const;
 
 export type ExpectedTabName = (typeof EXPECTED_TABS)[number];
@@ -149,6 +165,11 @@ export const ALL_TABS: readonly TabSpec<any, any>[] = [
   // `peopleTabs` — see the `EXPECTED_TABS` comment above on why these four
   // must come last.
   ...programsTabs,
+  // [36.4.5] Appended after every lane's own barrel, not folded into
+  // `peopleTabs` — see the `EXPECTED_TABS` comment above on why these must
+  // come last.
+  ...attendanceTabs,
+  ...hrTabs,
 ];
 
 export class RegistryError extends Error {

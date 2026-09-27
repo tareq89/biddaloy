@@ -47,6 +47,11 @@ import { MilestoneAchievement } from '../modules/programs/entities/milestone-ach
 import { FeeStructure } from '../modules/fees/entities/fee-structure.entity';
 import { RecurringSchedule } from '../modules/fees/entities/recurring-schedule.entity';
 import { RecurringScheduleStructure } from '../modules/fees/entities/recurring-schedule-structure.entity';
+import { StaffProfile } from '../modules/staff-profiles/entities/staff-profile.entity';
+import { StaffAttendanceSession } from '../modules/staff-attendance/entities/staff-attendance-session.entity';
+import { StaffAttendanceRecord } from '../modules/staff-attendance/entities/staff-attendance-record.entity';
+import { LeavePolicy } from '../modules/leave/entities/leave-policy.entity';
+import { LeaveRecord } from '../modules/leave/entities/leave-record.entity';
 import {
   DEMO_ACADEMIC_YEAR,
   ensureAttendanceSeed,
@@ -63,6 +68,7 @@ import {
   ensureRoutineSeed,
   ensureSeatPlanDemoSeed,
   ensureSecondSchoolMembership,
+  ensureStaffHrSeed,
 } from './seed.util';
 import { Shift } from '../modules/routines/entities/shift.entity';
 import { PeriodSlot } from '../modules/routines/entities/period-slot.entity';
@@ -148,6 +154,11 @@ export interface SeedAccountRepositories {
   feeStructureRepository: Repository<FeeStructure>;
   recurringScheduleRepository: Repository<RecurringSchedule>;
   recurringScheduleStructureRepository: Repository<RecurringScheduleStructure>;
+  staffProfileRepository: Repository<StaffProfile>;
+  leavePolicyRepository: Repository<LeavePolicy>;
+  staffAttendanceSessionRepository: Repository<StaffAttendanceSession>;
+  staffAttendanceRecordRepository: Repository<StaffAttendanceRecord>;
+  leaveRecordRepository: Repository<LeaveRecord>;
 }
 
 /** Creates/repairs the seed accounts, their memberships and the demo
@@ -231,6 +242,36 @@ export async function seedAccounts(
     repos.userTenantRepository,
     school.id,
     passwordHash,
+  );
+
+  // [36.4.5]: a `staff_profiles` row (plus the D9 leave-policy defaults, one
+  // sample attendance day/mark, and one sample leave request) for the
+  // just-created staff-role test users — ADMIN/ACCOUNTANT/EXECUTIVE/TEACHER
+  // all get a staff HR record, matching who the migration backfills in a
+  // real tenant. Deliberately after `ensureRoleTestUsers`, whose users this
+  // reads by email.
+  const staffRoleEmails = [
+    'admin@biddaloy.test',
+    'accountant@biddaloy.test',
+    'teacher@biddaloy.test',
+    'executive@biddaloy.test',
+  ];
+  const staffRoleUsers = await repos.userRepository.find({
+    where: staffRoleEmails.map((email) => ({ email })),
+  });
+  await ensureStaffHrSeed(
+    {
+      staffProfileRepository: repos.staffProfileRepository,
+      leavePolicyRepository: repos.leavePolicyRepository,
+      staffAttendanceSessionRepository: repos.staffAttendanceSessionRepository,
+      staffAttendanceRecordRepository: repos.staffAttendanceRecordRepository,
+      leaveRecordRepository: repos.leaveRecordRepository,
+    },
+    school.id,
+    staffRoleUsers.map((user, index) => ({
+      userId: user.id,
+      employeeId: `EMP-SEED-${String(index + 1).padStart(3, '0')}`,
+    })),
   );
 
   // [8.5.2]: the ADMIN seed account must be multi-membership so the E2E

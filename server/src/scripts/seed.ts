@@ -48,6 +48,11 @@ import { MilestoneAchievement } from '../modules/programs/entities/milestone-ach
 import { FeeStructure } from '../modules/fees/entities/fee-structure.entity';
 import { RecurringSchedule } from '../modules/fees/entities/recurring-schedule.entity';
 import { RecurringScheduleStructure } from '../modules/fees/entities/recurring-schedule-structure.entity';
+import { StaffProfile } from '../modules/staff-profiles/entities/staff-profile.entity';
+import { StaffAttendanceSession } from '../modules/staff-attendance/entities/staff-attendance-session.entity';
+import { StaffAttendanceRecord } from '../modules/staff-attendance/entities/staff-attendance-record.entity';
+import { LeavePolicy } from '../modules/leave/entities/leave-policy.entity';
+import { LeaveRecord } from '../modules/leave/entities/leave-record.entity';
 import { DEV_SEED_PLATFORM_TENANT_ID } from '../config/env.validation';
 import { seedAccounts } from './seed.accounts';
 import { Shift } from '../modules/routines/entities/shift.entity';
@@ -199,6 +204,11 @@ export async function seed() {
       feeStructureRepository: dataSource.getRepository(FeeStructure),
       recurringScheduleRepository: dataSource.getRepository(RecurringSchedule),
       recurringScheduleStructureRepository: dataSource.getRepository(RecurringScheduleStructure),
+      staffProfileRepository: dataSource.getRepository(StaffProfile),
+      leavePolicyRepository: dataSource.getRepository(LeavePolicy),
+      staffAttendanceSessionRepository: dataSource.getRepository(StaffAttendanceSession),
+      staffAttendanceRecordRepository: dataSource.getRepository(StaffAttendanceRecord),
+      leaveRecordRepository: dataSource.getRepository(LeaveRecord),
     },
     school,
     adminEmail,

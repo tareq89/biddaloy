@@ -21,6 +21,8 @@ import {
   TeacherDesignation,
   UserRole,
   UserStatus,
+  LeaveType,
+  LeaveStatus,
 } from '@biddaloy/shared';
 import type { OrganisationSettings } from '@biddaloy/shared';
 import { EnrollmentStatus } from '@biddaloy/shared';
@@ -94,6 +96,11 @@ import { MilestoneAchievement } from '../modules/programs/entities/milestone-ach
 import { FeeStructure } from '../modules/fees/entities/fee-structure.entity';
 import { RecurringSchedule } from '../modules/fees/entities/recurring-schedule.entity';
 import { RecurringScheduleStructure } from '../modules/fees/entities/recurring-schedule-structure.entity';
+import { StaffProfile } from '../modules/staff-profiles/entities/staff-profile.entity';
+import { StaffAttendanceSession } from '../modules/staff-attendance/entities/staff-attendance-session.entity';
+import { StaffAttendanceRecord } from '../modules/staff-attendance/entities/staff-attendance-record.entity';
+import { LeavePolicy } from '../modules/leave/entities/leave-policy.entity';
+import { LeaveRecord } from '../modules/leave/entities/leave-record.entity';
 
 /** [8.9.5] manual-testing aid: gives the seed admin a *second* school
  * membership so `/select-school`'s picker actually has something to show
@@ -2716,13 +2723,6 @@ export async function ensureHomeworkDemoSeed(
   return result;
 }
 
-// ===========================================================================
-// [34.1.4] Programs demo data
-// ===========================================================================
-
-export interface ProgramsDemoSeedRepositories {
-  programRepository: Repository<Program>;
-  programMilestoneRepository: Repository<ProgramMilestone>;
 }
 
 export interface ProgramsDemoSeedParams {
@@ -3023,6 +3023,164 @@ export async function ensureProgramParticipationDemoSeed(
       `  Program participation demo seed: +${result.enrollments} enrollments, ` +
         `+${result.achievements} achievements, +${result.feeStructures} fee structures, ` +
         `+${result.schedules} schedules, +${result.scheduleStructures} schedule structures`,
+    );
+  }
+  return result;
+}
+
+// ===========================================================================
+// [36.4.5] Staff attendance/leave demo data
+// ===========================================================================
+
+
+/** D9 default annual quota (days) per `LeaveType`, matching the values the
+ * migration (`1789800014000-StaffAttendanceLeave.ts`) seeds for every
+ * tenant that already existed at migration time. A tenant created after
+ * that migration ran (e.g. a fresh dev database's `default-school`) gets
+ * none of that, so this seed writes the same defaults, idempotently. */
+const LEAVE_POLICY_DEFAULTS: readonly { leaveType: LeaveType; quota: number }[] = [
+  { leaveType: LeaveType.CASUAL, quota: 10 },
+  { leaveType: LeaveType.SICK, quota: 14 },
+  { leaveType: LeaveType.EARNED, quota: 15 },
+  { leaveType: LeaveType.MATERNITY, quota: 112 },
+  { leaveType: LeaveType.PATERNITY, quota: 7 },
+];
+
+export interface StaffHrSeedRepositories {
+  staffProfileRepository: Repository<StaffProfile>;
+  leavePolicyRepository: Repository<LeavePolicy>;
+  staffAttendanceSessionRepository: Repository<StaffAttendanceSession>;
+  staffAttendanceRecordRepository: Repository<StaffAttendanceRecord>;
+  leaveRecordRepository: Repository<LeaveRecord>;
+}
+
+export interface StaffHrSeedResult {
+  staffProfiles: number;
+  leavePolicies: number;
+  attendanceRecords: number;
+  leaveRecords: number;
+}
+
+/** [36.4.5] Epic 36's demo data: a `staff_profiles` row for each seeded
+ * non-teacher-role staff user, the D9 leave policy defaults for the
+ * tenant, one sample staff-attendance day/mark, and one sample leave
+ * request — so `Attendance → Staff` and the leave screens have something
+ * to show on first run. Idempotent, same find-or-create shape as every
+ * other `ensure*` helper in this file. */
+export async function ensureStaffHrSeed(
+  repos: StaffHrSeedRepositories,
+  schoolId: string,
+  staffUserIds: readonly { userId: string; employeeId: string }[],
+): Promise<StaffHrSeedResult> {
+  const result: StaffHrSeedResult = {
+    staffProfiles: 0,
+    leavePolicies: 0,
+    attendanceRecords: 0,
+    leaveRecords: 0,
+  };
+
+  const profiles: StaffProfile[] = [];
+  for (const { userId, employeeId } of staffUserIds) {
+    let profile = await repos.staffProfileRepository.findOne({
+      where: { tenant_id: schoolId, user_id: userId },
+    });
+    if (!profile) {
+      profile = await repos.staffProfileRepository.save(
+        repos.staffProfileRepository.create({
+          tenant_id: schoolId,
+          user_id: userId,
+          employee_id: employeeId,
+          joining_date: new Date('2024-01-10'),
+        }),
+      );
+      result.staffProfiles += 1;
+    }
+    profiles.push(profile);
+  }
+
+  for (const { leaveType, quota } of LEAVE_POLICY_DEFAULTS) {
+    const existing = await repos.leavePolicyRepository.findOne({
+      where: { tenant_id: schoolId, leave_type: leaveType },
+    });
+    if (existing) continue;
+    await repos.leavePolicyRepository.save(
+      repos.leavePolicyRepository.create({
+        tenant_id: schoolId,
+        leave_type: leaveType,
+        annual_quota_days: quota,
+      }),
+    );
+    result.leavePolicies += 1;
+  }
+
+  const firstProfile = profiles[0];
+  if (firstProfile) {
+    const attendanceDate = '2026-03-01';
+    let session = await repos.staffAttendanceSessionRepository.findOne({
+      where: { tenant_id: schoolId, date: attendanceDate },
+    });
+    if (!session) {
+      session = await repos.staffAttendanceSessionRepository.save(
+        repos.staffAttendanceSessionRepository.create({
+          tenant_id: schoolId,
+          date: attendanceDate,
+        }),
+      );
+    }
+
+    const existingRecord = await repos.staffAttendanceRecordRepository.findOne({
+      where: { session_id: session.id, staff_profile_id: firstProfile.id },
+    });
+    if (!existingRecord) {
+      await repos.staffAttendanceRecordRepository.save(
+        repos.staffAttendanceRecordRepository.create({
+          tenant_id: schoolId,
+          session_id: session.id,
+          staff_profile_id: firstProfile.id,
+          status: AttendanceStatus.PRESENT,
+          source: AttendanceSource.TEACHER,
+        }),
+      );
+      result.attendanceRecords += 1;
+    }
+
+    const existingLeaveRecord = await repos.leaveRecordRepository.findOne({
+      where: {
+        tenant_id: schoolId,
+        staff_profile_id: firstProfile.id,
+        start_date: '2026-03-10',
+        end_date: '2026-03-11',
+      },
+    });
+    if (!existingLeaveRecord) {
+      await repos.leaveRecordRepository.save(
+        repos.leaveRecordRepository.create({
+          tenant_id: schoolId,
+          staff_profile_id: firstProfile.id,
+          leave_type: LeaveType.CASUAL,
+          start_date: '2026-03-10',
+          end_date: '2026-03-11',
+          days: 2,
+          status: LeaveStatus.APPROVED,
+          reason: 'Demo leave request',
+          approved_by: firstProfile.user_id,
+          decided_at: new Date('2026-03-05'),
+        }),
+      );
+      result.leaveRecords += 1;
+    }
+  }
+
+  if (
+    result.staffProfiles > 0 ||
+    result.leavePolicies > 0 ||
+    result.attendanceRecords > 0 ||
+    result.leaveRecords > 0
+  ) {
+    console.log(
+      `  Staff HR seed: +${result.staffProfiles} staff profiles, +${result.leavePolicies} ` +
+        `leave policies, +${result.attendanceRecords} attendance records, ` +
+        `+${result.leaveRecords} leave records`,
     );
   }
   return result;
