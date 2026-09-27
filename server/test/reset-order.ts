@@ -31,6 +31,21 @@ export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'seat_plan_schedules',
   'seat_plans',
   'workbook_jobs',
+  // [23.0] the 7 staff-child tables (documents/languages/achievements/
+  // training/education/experience/addresses) and family_members have no FK
+  // to each other or to staff_hr_records; staff_designation_history FKs to
+  // designations (`ON DELETE CASCADE`), so it must clear before designations.
+  'staff_documents',
+  'staff_languages',
+  'staff_achievements',
+  'staff_training',
+  'staff_education',
+  'staff_experience',
+  'staff_addresses',
+  'staff_family_members',
+  'staff_designation_history',
+  'staff_hr_records',
+  'designations',
   // [34.1.4] milestone_achievements references program_enrollments+
   // program_milestones; program_enrollments references programs+students;
   // program_milestones references programs. All must clear before
