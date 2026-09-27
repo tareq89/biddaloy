@@ -28,6 +28,7 @@ at hand instead of loading the whole set.
 | [14-school-workbook.md](14-school-workbook.md) | Working on per-school workbook export/import, the `/backup/*` routes, the tab registry, or restore/retention semantics for one tenant's data |
 | [15-ux-principles.md](15-ux-principles.md) | Planning or building any screen: where it lives in the nav tree, the `Ctrl+K` palette and its action registry, breadcrumbs, keyboard/a11y gates, the "no silent gaps" registry guards, and the three sections every epic must carry |
 | [16-academic-calendar.md](16-academic-calendar.md) | Working on `modules/calendar` — calendar events, terms, import/export, the ICS feed, public holidays, or reminders for a calendar event |
+| [17-programs.md](17-programs.md) | Working on `modules/programs` — a program's milestones, student enrolment/progress, the program fee audience, or the report-card Programs block |
 
 For practical "how do I run/develop/test this" instructions, see the root
 [`README.md`](../../README.md) — these docs cover the *why* behind the

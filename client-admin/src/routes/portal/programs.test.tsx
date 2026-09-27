@@ -123,8 +123,8 @@ describe('/portal/programs', () => {
   it('shows an error state when the students query fails', async () => {
     server.use(
       http.get('/api/v1/students/mine', () =>
-        HttpResponse.json(apiErrorBody(500, 'Internal error', '/api/v1/students/mine'), {
-          status: 500,
+        HttpResponse.json(apiErrorBody(403, 'Forbidden', '/api/v1/students/mine'), {
+          status: 403,
         }),
       ),
     );
