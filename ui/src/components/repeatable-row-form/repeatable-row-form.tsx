@@ -33,12 +33,20 @@ export interface RepeatableRowField {
 
 export type RepeatableRowValue = Record<string, string | number | boolean>;
 
-export interface RepeatableRowFormProps {
+/**
+ * `T` is left as `extends object` rather than `extends RepeatableRowValue` —
+ * every caller's row type is a plain interface (e.g. `AchievementRow`), and
+ * TS's structural check for "does this interface satisfy a type with an
+ * index signature" fails even when every property matches, so requiring the
+ * stricter constraint would force a cast at every call site instead of once,
+ * here.
+ */
+export interface RepeatableRowFormProps<T extends object = RepeatableRowValue> {
   /** Describes each column of a row: label, type, whether it's required. */
   fields: RepeatableRowField[];
-  rows: RepeatableRowValue[];
+  rows: T[];
   /** Called with the full replacement array — never a single row's diff. */
-  onSave: (rows: RepeatableRowValue[]) => void;
+  onSave: (rows: T[]) => void;
   /** Heading shown above the form and reused as the empty state's title. */
   title?: string;
   /** Empty-state copy. Defaults to a generic "not filled in yet" message. */
@@ -47,15 +55,15 @@ export interface RepeatableRowFormProps {
   saveLabel?: string;
 }
 
-function emptyRow(fields: RepeatableRowField[]): RepeatableRowValue {
+function emptyRow<T extends object>(fields: RepeatableRowField[]): T {
   const row: RepeatableRowValue = {};
   for (const field of fields) {
     row[field.key] = field.type === 'checkbox' ? false : '';
   }
-  return row;
+  return row as T;
 }
 
-export function RepeatableRowForm({
+export function RepeatableRowForm<T extends object = RepeatableRowValue>({
   fields,
   rows,
   onSave,
@@ -63,14 +71,14 @@ export function RepeatableRowForm({
   emptyExplanation = 'Not filled in yet.',
   addRowLabel = 'Add row',
   saveLabel = 'Save',
-}: RepeatableRowFormProps) {
-  const [draftRows, setDraftRows] = React.useState<RepeatableRowValue[]>(rows);
+}: RepeatableRowFormProps<T>) {
+  const [draftRows, setDraftRows] = React.useState<T[]>(rows);
 
   React.useEffect(() => {
     setDraftRows(rows);
   }, [rows]);
 
-  const addRow = () => setDraftRows((prev) => [...prev, emptyRow(fields)]);
+  const addRow = () => setDraftRows((prev) => [...prev, emptyRow<T>(fields)]);
 
   const removeRow = (index: number) => setDraftRows((prev) => prev.filter((_, i) => i !== index));
 
@@ -89,7 +97,9 @@ export function RepeatableRowForm({
   };
 
   const updateField = (index: number, key: string, value: string | number | boolean) => {
-    setDraftRows((prev) => prev.map((row, i) => (i === index ? { ...row, [key]: value } : row)));
+    setDraftRows((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, [key]: value } : row)),
+    );
   };
 
   if (draftRows.length === 0) {
@@ -123,12 +133,12 @@ export function RepeatableRowForm({
                   {field.type === 'checkbox' ? (
                     <Checkbox
                       id={fieldId}
-                      checked={Boolean(row[field.key])}
+                      checked={Boolean((row as RepeatableRowValue)[field.key])}
                       onCheckedChange={(checked) => updateField(index, field.key, checked === true)}
                     />
                   ) : field.type === 'select' ? (
                     <Select
-                      value={String(row[field.key] ?? '')}
+                      value={String((row as RepeatableRowValue)[field.key] ?? '')}
                       onValueChange={(value) => updateField(index, field.key, value)}
                     >
                       <SelectTrigger id={fieldId} aria-label={field.label}>
@@ -147,7 +157,7 @@ export function RepeatableRowForm({
                       id={fieldId}
                       type={field.type === 'number' ? 'number' : 'text'}
                       required={field.required}
-                      value={row[field.key] as string | number}
+                      value={(row as RepeatableRowValue)[field.key] as string | number}
                       onChange={(event) =>
                         updateField(
                           index,
