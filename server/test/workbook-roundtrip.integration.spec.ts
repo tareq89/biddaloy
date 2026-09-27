@@ -1239,6 +1239,7 @@ describe('workbook round trip (integration)', () => {
     await dataSource.getRepository(MilestoneAchievement).save(
       dataSource.getRepository(MilestoneAchievement).create({
         tenant_id: TENANT_A,
+        program_id: program.id,
         enrollment_id: programEnrollment.id,
         milestone_id: milestoneOne.id,
         achieved_on: '2026-01-15',
