@@ -83,6 +83,7 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/guardians': '/_staff/guardians/',
   '/calendar': '/_staff/calendar/',
   '/staff': '/_staff/staff/',
+  '/programs': '/_staff/programs/',
   '/fees': '/_staff/fees/',
   '/fee-structures': '/_staff/fee-structures/',
   '/fees/generate': '/_staff/fees/generate',

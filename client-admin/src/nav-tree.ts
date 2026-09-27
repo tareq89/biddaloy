@@ -81,6 +81,16 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.USER_READ,
     label: { entity: 'staff' },
   },
+  // [34.4.2] `PROGRAM_READ` — same "match the route's own gate" rule
+  // this file follows throughout; `/programs`'s list route is gated on
+  // `PROGRAM_READ` (`route-permissions.ts`).
+  'people.programs': {
+    id: 'people.programs',
+    to: '/programs',
+    permission: Permission.PROGRAM_READ,
+    label: { key: 'programs' },
+    synonyms: ['hifz', 'club', 'milestone', 'track'],
+  },
   'academics.academicYears': {
     id: 'academics.academicYears',
     to: '/academic-years',
@@ -308,6 +318,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
       STAFF_NAV_ITEMS['people.guardians'],
       STAFF_NAV_ITEMS['people.calendar'],
       STAFF_NAV_ITEMS['people.staff'],
+      STAFF_NAV_ITEMS['people.programs'],
     ],
   },
   {
