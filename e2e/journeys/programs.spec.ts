@@ -74,7 +74,9 @@ test.describe.serial('programs: admin enrols -> teacher records -> guardian sees
       await new DetailShellPage(page).openTab('programs.detail.tabs.programs', 'programs');
 
       await page.getByRole('button', { name: t('programs.students.enrol') }).click();
-      await expect(page.getByText(t('programs.dialogs.enrol.title'))).toBeVisible();
+      await expect(
+        page.getByRole('heading', { name: t('programs.dialogs.enrol.title') }),
+      ).toBeVisible();
 
       // No `programId` in context from the student page — the dialog shows
       // a Program select; the student itself is already prefilled/checked.
@@ -82,7 +84,9 @@ test.describe.serial('programs: admin enrols -> teacher records -> guardian sees
       await page.getByRole('option', { name: SEED_PROGRAM_NAME }).click();
 
       await page.getByRole('button', { name: t('programs.students.enrol') }).click();
-      await expect(page.getByText(t('programs.dialogs.enrol.title'))).toBeHidden();
+      await expect(
+        page.getByRole('heading', { name: t('programs.dialogs.enrol.title') }),
+      ).toBeHidden();
 
       await expect(page.getByText(SEED_PROGRAM_NAME)).toBeVisible();
     });
