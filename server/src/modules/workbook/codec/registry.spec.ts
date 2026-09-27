@@ -107,6 +107,17 @@ describe('EXPECTED_TABS', () => {
       'program_milestones',
       'program_enrollments',
       'milestone_achievements',
+      // [23.5] Wave 1 close — staff-HR tabs (#1086).
+      'designations',
+      'staff_hr_records',
+      'staff_designation_history',
+      'staff_family_members',
+      'staff_addresses',
+      'staff_experience',
+      'staff_education',
+      'staff_training',
+      'staff_achievements',
+      'staff_languages',
     ]);
   });
 

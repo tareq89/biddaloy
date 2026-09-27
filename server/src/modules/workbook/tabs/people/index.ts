@@ -8,6 +8,16 @@ import { enrollmentsTab } from './enrollments.tab';
 import { admissionIntakesTab } from './admission-intakes.tab';
 import { admissionApplicantsTab } from './admission-applicants.tab';
 import { admissionEvaluationsTab } from './admission-evaluations.tab';
+import { designationTab } from './designation.tab';
+import { staffHrRecordTab } from './staff-hr-record.tab';
+import { staffDesignationHistoryTab } from './staff-designation-history.tab';
+import { staffFamilyMemberTab } from './staff-family-member.tab';
+import { staffAddressTab } from './staff-address.tab';
+import { staffExperienceTab } from './staff-experience.tab';
+import { staffEducationTab } from './staff-education.tab';
+import { staffTrainingTab } from './staff-training.tab';
+import { staffAchievementTab } from './staff-achievement.tab';
+import { staffLanguageTab } from './staff-language.tab';
 
 /**
  * Tabs owned by the people lane. Populated by that lane's own tickets; kept as a
@@ -33,6 +43,14 @@ import { admissionEvaluationsTab } from './admission-evaluations.tab';
  * spot — right after `enrollments`, before `fee_structures` — because
  * `ALL_TABS` must be a strict subsequence of `EXPECTED_TABS`.
  */
+// [23.5] `designationTab`..`staffLanguageTab` are deliberately NOT in this
+// array, even though they live in this same folder: `EXPECTED_TABS`
+// (codec/registry.ts) places them at the very end of the whole registry —
+// after `feesTabs`/`examsTabs`/`routinesTabs`/the seat-plan tabs — but
+// `peopleTabs` itself is spread *before* all of those in `ALL_TABS`. Same
+// reasoning `registry.ts`'s own comment gives for registering
+// `promotionRunsTab`/`seatPlansTab` directly rather than through a lane's
+// barrel: they're imported and appended straight into `ALL_TABS` instead.
 export const peopleTabs: TabSpec<any, any>[] = [
   usersTab,
   teachersTab,
@@ -55,6 +73,16 @@ export {
   admissionIntakesTab,
   admissionApplicantsTab,
   admissionEvaluationsTab,
+  designationTab,
+  staffHrRecordTab,
+  staffDesignationHistoryTab,
+  staffFamilyMemberTab,
+  staffAddressTab,
+  staffExperienceTab,
+  staffEducationTab,
+  staffTrainingTab,
+  staffAchievementTab,
+  staffLanguageTab,
 };
 export type { UserRow } from './users.tab';
 export type { TeacherRow } from './teachers.tab';

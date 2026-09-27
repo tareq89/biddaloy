@@ -18,6 +18,7 @@ import {
   PublicHolidaySource,
   SeatOrderMode,
   SeatPlanStatus,
+  StaffEmploymentStatus,
   TeacherDesignation,
   UserRole,
   UserStatus,
@@ -94,6 +95,16 @@ import { MilestoneAchievement } from '../modules/programs/entities/milestone-ach
 import { FeeStructure } from '../modules/fees/entities/fee-structure.entity';
 import { RecurringSchedule } from '../modules/fees/entities/recurring-schedule.entity';
 import { RecurringScheduleStructure } from '../modules/fees/entities/recurring-schedule-structure.entity';
+import { Designation } from '../modules/staff-hr/entities/designation.entity';
+import { StaffHrRecord } from '../modules/staff-hr/entities/staff-hr-record.entity';
+import { StaffDesignationHistory } from '../modules/staff-hr/entities/staff-designation-history.entity';
+import { StaffFamilyMember } from '../modules/staff-hr/entities/staff-family-member.entity';
+import { StaffAddress } from '../modules/staff-hr/entities/staff-address.entity';
+import { StaffExperience } from '../modules/staff-hr/entities/staff-experience.entity';
+import { StaffEducation } from '../modules/staff-hr/entities/staff-education.entity';
+import { StaffTraining } from '../modules/staff-hr/entities/staff-training.entity';
+import { StaffAchievement } from '../modules/staff-hr/entities/staff-achievement.entity';
+import { StaffLanguage } from '../modules/staff-hr/entities/staff-language.entity';
 
 /** [8.9.5] manual-testing aid: gives the seed admin a *second* school
  * membership so `/select-school`'s picker actually has something to show
@@ -3231,6 +3242,315 @@ export async function ensurePromotionDemoSeed(
 
   if (result.runs > 0 || result.entries > 0) {
     console.log(`  Promotion demo seed: +${result.runs} runs, +${result.entries} entries`);
+  }
+  return result;
+}
+
+// ===========================================================================
+// [23.5] Wave-1 staff-HR demo data
+// ===========================================================================
+
+export interface StaffHrDemoSeedRepositories {
+  userRepository: Repository<User>;
+  userTenantRepository: Repository<UserTenant>;
+  designationRepository: Repository<Designation>;
+  staffHrRecordRepository: Repository<StaffHrRecord>;
+  staffDesignationHistoryRepository: Repository<StaffDesignationHistory>;
+  staffFamilyMemberRepository: Repository<StaffFamilyMember>;
+  staffAddressRepository: Repository<StaffAddress>;
+  staffExperienceRepository: Repository<StaffExperience>;
+  staffEducationRepository: Repository<StaffEducation>;
+  staffTrainingRepository: Repository<StaffTraining>;
+  staffAchievementRepository: Repository<StaffAchievement>;
+  staffLanguageRepository: Repository<StaffLanguage>;
+}
+
+export interface StaffHrDemoSeedParams {
+  schoolId: string;
+}
+
+export interface StaffHrDemoSeedResult {
+  designations: number;
+  staffUsers: number;
+  hrRecords: number;
+  designationHistory: number;
+  familyMembers: number;
+  addresses: number;
+  experience: number;
+  education: number;
+  training: number;
+  achievements: number;
+  languages: number;
+}
+
+/** The demo's one non-teaching staff member — an accountant, so 23.5's AC
+ * ("a non-teaching staff member with a populated HR record") has a real row
+ * to point at rather than reusing one of the seed's teachers. */
+const STAFF_HR_DEMO_EMAIL = 'accounts.officer@demoschool.example';
+
+/**
+ * Idempotent, same find-or-create shape as every other `ensure*` in this
+ * file: two designations (one teaching, one not), one non-teaching staff
+ * user with a full HR record — job info, designation history, family,
+ * both address types, experience, education, training, an achievement and
+ * a language — proving D1 (HR applies to any staff role, not just
+ * teachers) end to end.
+ */
+export async function ensureStaffHrDemoSeed(
+  repos: StaffHrDemoSeedRepositories,
+  params: StaffHrDemoSeedParams,
+): Promise<StaffHrDemoSeedResult> {
+  const { schoolId } = params;
+  const result: StaffHrDemoSeedResult = {
+    designations: 0,
+    staffUsers: 0,
+    hrRecords: 0,
+    designationHistory: 0,
+    familyMembers: 0,
+    addresses: 0,
+    experience: 0,
+    education: 0,
+    training: 0,
+    achievements: 0,
+    languages: 0,
+  };
+
+  let teacherDesignation = await repos.designationRepository.findOne({
+    where: { tenant_id: schoolId, title_en: 'Assistant Teacher' },
+  });
+  if (!teacherDesignation) {
+    teacherDesignation = await repos.designationRepository.save(
+      repos.designationRepository.create({
+        tenant_id: schoolId,
+        title_en: 'Assistant Teacher',
+        title_bn: 'সহকারী শিক্ষক',
+        is_teaching: true,
+      }),
+    );
+    result.designations += 1;
+  }
+
+  let accountantDesignation = await repos.designationRepository.findOne({
+    where: { tenant_id: schoolId, title_en: 'Accountant' },
+  });
+  if (!accountantDesignation) {
+    accountantDesignation = await repos.designationRepository.save(
+      repos.designationRepository.create({
+        tenant_id: schoolId,
+        title_en: 'Accountant',
+        title_bn: 'হিসাবরক্ষক',
+        is_teaching: false,
+      }),
+    );
+    result.designations += 1;
+  }
+
+  let staffUser = await repos.userRepository.findOne({ where: { email: STAFF_HR_DEMO_EMAIL } });
+  if (!staffUser) {
+    staffUser = await repos.userRepository.save(
+      repos.userRepository.create({
+        email: STAFF_HR_DEMO_EMAIL,
+        full_name: 'Accounts Officer',
+        password_hash: 'not-a-real-hash-demo-seed-only',
+        status: UserStatus.ACTIVE,
+      }),
+    );
+    result.staffUsers += 1;
+  }
+  const membership = await repos.userTenantRepository.findOne({
+    where: { user_id: staffUser.id, tenant_id: schoolId },
+  });
+  if (!membership) {
+    await repos.userTenantRepository.save(
+      repos.userTenantRepository.create({
+        user_id: staffUser.id,
+        tenant_id: schoolId,
+        role: UserRole.ACCOUNTANT,
+      }),
+    );
+  }
+
+  const hrRecord = await repos.staffHrRecordRepository.findOne({
+    where: { tenant_id: schoolId, user_id: staffUser.id },
+  });
+  if (!hrRecord) {
+    await repos.staffHrRecordRepository.save(
+      repos.staffHrRecordRepository.create({
+        tenant_id: schoolId,
+        user_id: staffUser.id,
+        index_no: 'IDX-2001',
+        salary_code: 'SC-14',
+        mpo_date: '2020-01-01',
+        salary_scale: 'Scale-14',
+        department: 'Accounts',
+        blood_group: 'B+',
+        religion: 'Islam',
+      }),
+    );
+    result.hrRecords += 1;
+  }
+
+  const openHistory = await repos.staffDesignationHistoryRepository.findOne({
+    where: { tenant_id: schoolId, user_id: staffUser.id, end_date: IsNull() },
+  });
+  if (!openHistory) {
+    await repos.staffDesignationHistoryRepository.save(
+      repos.staffDesignationHistoryRepository.create({
+        tenant_id: schoolId,
+        user_id: staffUser.id,
+        designation_id: accountantDesignation.id,
+        effective_date: '2020-01-01',
+        end_date: null,
+        status: StaffEmploymentStatus.REGULAR,
+        notes: 'Demo seed — 23.5',
+      }),
+    );
+    result.designationHistory += 1;
+  }
+
+  const familySeeds = [
+    { relation: 'Spouse', name: 'Nasrin Akter', occupation: 'Homemaker', contact: '01700000001' },
+    { relation: 'Father', name: 'Abdul Karim', occupation: 'Retired', contact: null },
+  ];
+  for (const seed of familySeeds) {
+    const existing = await repos.staffFamilyMemberRepository.findOne({
+      where: { tenant_id: schoolId, staff_user_id: staffUser.id, relation: seed.relation, name: seed.name },
+    });
+    if (existing) continue;
+    await repos.staffFamilyMemberRepository.save(
+      repos.staffFamilyMemberRepository.create({ tenant_id: schoolId, staff_user_id: staffUser.id, ...seed }),
+    );
+    result.familyMembers += 1;
+  }
+
+  const addressSeeds: { type: 'PRESENT' | 'PERMANENT' }[] = [{ type: 'PRESENT' }, { type: 'PERMANENT' }];
+  for (const seed of addressSeeds) {
+    const existing = await repos.staffAddressRepository.findOne({
+      where: { tenant_id: schoolId, staff_user_id: staffUser.id, type: seed.type },
+    });
+    if (existing) continue;
+    await repos.staffAddressRepository.save(
+      repos.staffAddressRepository.create({
+        tenant_id: schoolId,
+        staff_user_id: staffUser.id,
+        type: seed.type,
+        village_street: seed.type === 'PRESENT' ? 'House 12, Road 3' : 'Village Sonargaon',
+        post_office: 'Sonargaon',
+        upazila: 'Sonargaon',
+        district: 'Narayanganj',
+      }),
+    );
+    result.addresses += 1;
+  }
+
+  const experienceSeeds = [
+    {
+      institution: 'City Model School',
+      designation: 'Junior Accountant',
+      from_date: '2015-01-01',
+      to_date: '2019-12-31',
+      description: 'Handled fee collection and payroll.',
+    },
+  ];
+  for (const seed of experienceSeeds) {
+    const existing = await repos.staffExperienceRepository.findOne({
+      where: {
+        tenant_id: schoolId,
+        staff_user_id: staffUser.id,
+        institution: seed.institution,
+        from_date: seed.from_date as unknown as Date,
+      },
+    });
+    if (existing) continue;
+    await repos.staffExperienceRepository.save(
+      repos.staffExperienceRepository.create({ tenant_id: schoolId, staff_user_id: staffUser.id, ...seed }),
+    );
+    result.experience += 1;
+  }
+
+  const educationSeeds = [
+    {
+      degree: 'B.Com (Honors)',
+      institution: 'National University',
+      board_university: 'National University',
+      result: 'First Class',
+      passing_year: '2014',
+    },
+  ];
+  for (const seed of educationSeeds) {
+    const existing = await repos.staffEducationRepository.findOne({
+      where: { tenant_id: schoolId, staff_user_id: staffUser.id, degree: seed.degree, institution: seed.institution },
+    });
+    if (existing) continue;
+    await repos.staffEducationRepository.save(
+      repos.staffEducationRepository.create({ tenant_id: schoolId, staff_user_id: staffUser.id, ...seed }),
+    );
+    result.education += 1;
+  }
+
+  const trainingSeeds = [
+    {
+      title: 'Financial Accounting Software',
+      institution: 'BITAC',
+      from_date: '2019-06-01',
+      to_date: '2019-06-10',
+      certificate_no: 'CERT-4471',
+    },
+  ];
+  for (const seed of trainingSeeds) {
+    const existing = await repos.staffTrainingRepository.findOne({
+      where: { tenant_id: schoolId, staff_user_id: staffUser.id, title: seed.title, institution: seed.institution },
+    });
+    if (existing) continue;
+    await repos.staffTrainingRepository.save(
+      repos.staffTrainingRepository.create({ tenant_id: schoolId, staff_user_id: staffUser.id, ...seed }),
+    );
+    result.training += 1;
+  }
+
+  const achievementSeeds = [
+    {
+      title: 'Employee of the Year',
+      description: 'Recognised for accuracy in fee reconciliation.',
+      date: '2022-12-20',
+      issued_by: 'School Management Committee',
+    },
+  ];
+  for (const seed of achievementSeeds) {
+    const existing = await repos.staffAchievementRepository.findOne({
+      where: { tenant_id: schoolId, staff_user_id: staffUser.id, title: seed.title },
+    });
+    if (existing) continue;
+    await repos.staffAchievementRepository.save(
+      repos.staffAchievementRepository.create({ tenant_id: schoolId, staff_user_id: staffUser.id, ...seed }),
+    );
+    result.achievements += 1;
+  }
+
+  const languageSeeds = [
+    { language_name: 'Bengali', proficiency: 'Native' },
+    { language_name: 'English', proficiency: 'Fluent' },
+  ];
+  for (const seed of languageSeeds) {
+    const existing = await repos.staffLanguageRepository.findOne({
+      where: { tenant_id: schoolId, staff_user_id: staffUser.id, language_name: seed.language_name },
+    });
+    if (existing) continue;
+    await repos.staffLanguageRepository.save(
+      repos.staffLanguageRepository.create({ tenant_id: schoolId, staff_user_id: staffUser.id, ...seed }),
+    );
+    result.languages += 1;
+  }
+
+  const total = Object.values(result).reduce((sum, n) => sum + n, 0);
+  if (total > 0) {
+    console.log(
+      `  Staff HR demo seed: +${result.designations} designations, +${result.staffUsers} staff users, ` +
+        `+${result.hrRecords} HR records, +${result.designationHistory} designation history, ` +
+        `+${result.familyMembers} family members, +${result.addresses} addresses, ` +
+        `+${result.experience} experience, +${result.education} education, +${result.training} training, ` +
+        `+${result.achievements} achievements, +${result.languages} languages`,
+    );
   }
   return result;
 }
