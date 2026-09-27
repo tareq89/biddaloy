@@ -5,6 +5,7 @@ import { AuditAction, StaffDocumentType } from '@biddaloy/shared';
 import { StaffDocument } from './entities/staff-document.entity';
 import { StorageService, StoredObject } from '../storage/storage.service';
 import { tenantObjectKey } from '../storage/storage-key';
+import { matchesDeclaredType } from '../storage/file-signature';
 import { AuditService } from '../audit/audit.service';
 
 interface CallerContext {
@@ -51,6 +52,9 @@ export class StaffDocumentService {
     }
     if (!ALLOWED_MIME_TO_EXT[file.mimetype]) {
       throw new BadRequestException('File must be PDF, JPG, PNG or WebP');
+    }
+    if (!matchesDeclaredType(file.buffer, file.mimetype)) {
+      throw new BadRequestException('File content does not match its declared type');
     }
     if (file.originalname.length > 255) {
       throw new BadRequestException('Filename must be at most 255 characters');

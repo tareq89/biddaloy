@@ -130,7 +130,7 @@ describe('StaffDocument E2E (23.6)', () => {
 
     const teacherLoginRes = await supertest(app.getHttpServer())
       .post(`${API}/auth/login`)
-      .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+      .send({ email: TEACHER_EMAIL, password: SEED_ADMIN_PASSWORD })
       .expect(200);
     teacherToken = teacherLoginRes.body.access_token;
   }, 60000);
@@ -221,10 +221,11 @@ describe('StaffDocument E2E (23.6)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .set('X-Tenant-ID', TENANT_A)
       .set('X-Role', UserRole.ADMIN)
-      .attach('file', Buffer.from('\x89PNG test'), {
-        filename: 'photo.png',
-        contentType: 'image/png',
-      })
+      .attach(
+        'file',
+        Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47]), Buffer.from(' test')]),
+        { filename: 'photo.png', contentType: 'image/png' },
+      )
       .expect(201);
     const docId = uploadRes.body.id;
 

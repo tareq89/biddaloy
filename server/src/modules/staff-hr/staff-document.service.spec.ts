@@ -17,7 +17,7 @@ const UPLOADER = 'admin-1';
 
 function makeFile(overrides: Partial<Express.Multer.File> = {}): Express.Multer.File {
   return {
-    buffer: Buffer.from('hello'),
+    buffer: Buffer.from('%PDF-1.4 hello'),
     mimetype: 'application/pdf',
     originalname: 'nid.pdf',
     size: 5,
@@ -120,7 +120,7 @@ describe('StaffDocumentService', () => {
     );
   });
 
-  it('records CREATE on first upload, UPDATE on replace', async () => {
+  it('records CREATE on first upload', async () => {
     await service.upload(STAFF_USER, StaffDocumentType.NID, makeFile(), {
       userId: UPLOADER,
       tenantId: TENANT_A,
@@ -148,6 +148,17 @@ describe('StaffDocumentService', () => {
         tenantId: TENANT_A,
       }),
     ).rejects.toThrow('File must be PDF, JPG, PNG or WebP');
+  });
+
+  it('rejects a file whose content does not match its declared mimetype', async () => {
+    await expect(
+      service.upload(
+        STAFF_USER,
+        StaffDocumentType.NID,
+        makeFile({ mimetype: 'image/png', buffer: Buffer.from('%PDF-1.4 hello') }),
+        { userId: UPLOADER, tenantId: TENANT_A },
+      ),
+    ).rejects.toThrow('File content does not match its declared type');
   });
 
   it('enforces tenant isolation on download: tenant B cannot fetch tenant A document by id', async () => {
