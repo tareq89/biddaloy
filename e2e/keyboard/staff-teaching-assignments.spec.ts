@@ -82,7 +82,10 @@ test('keyboard-only: assign a class/section from the staff detail Teaching assig
       document.body.removeAttribute('tabindex');
     });
     await page.keyboard.press('Tab');
-    await tabUntilFocused(page, t('staff.detail.teachingAssignments.assign'), 60, {
+    // Budget bumped past the original 60 — Epic 27.0's two new sidebar nav
+    // entries (Admission intakes/applicants) push every tab-index target
+    // further down the page.
+    await tabUntilFocused(page, t('staff.detail.teachingAssignments.assign'), 80, {
       tag: 'BUTTON',
     });
     await page.keyboard.press('Enter');
