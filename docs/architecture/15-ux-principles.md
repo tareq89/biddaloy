@@ -76,7 +76,7 @@ People
   Students [have]                                                   A Ac E T
     New student · Import from Excel                                 A E
     Student detail — tabs today: Overview, Enrollment, Guardians, Attendance, Fees, Invoices, Payments, Communication, Activity
-      + Results [19.0] · Homework [22.0] · Programs & milestones [N2] · Notes [N11] · Records [N11]
+      + Results [19.0] · Homework [22.0] · Programs & milestones [34.0] · Notes [N11] · Records [N11]
       + Subjects (optional/4th) [19.0] · Fines [N8] · Documents [Print module]
   Guardians [have] → detail: Information, Linked students, Payments, Communication
   Staff [partial] — ONE register (teachers, employees, administration, principal/VP as designations)
@@ -85,7 +85,7 @@ People
       + Documents [Print module] · Website profile [N13]
     Teaching assignments (bulk view) [29.0+23.0]                    A E
   Admissions [27.0] · Admission reports [27.0+N11]                  A E
-  Programs & milestones [N2]                                        A E T
+  Programs & milestones [34.0]                                      A E T
 
 Academics
   Academic years & terms [have, 17.0 adds terms]                    A E
@@ -150,7 +150,7 @@ Fees & invoices [have] · Pay online [3.0] · Statement [8.15]
 Attendance [have] · Absent fines [N8]
 Results [19.0] · Homework [22.0] · Syllabus [22.0] · Routine [21.0]
 Calendar & notices [17.0; notices have]
-Online exam & class [N6] · Programs [N2] · Documents [Print module]
+Online exam & class [N6] · Programs [34.0] · Documents [Print module]
 Account [have]
 ```
 

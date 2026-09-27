@@ -95,6 +95,32 @@ describe('/students/$studentId', () => {
     expect(enrollmentCalls).toBe(1);
   });
 
+  it('Programs tab is present and its data stays unfetched until activated', async () => {
+    const student = studentFactory({ id: 'student-1' });
+    let programsCalls = 0;
+    server.use(
+      http.get('/api/v1/students/:id', () => HttpResponse.json(student)),
+      http.get('/api/v1/students/:studentId/programs', () => {
+        programsCalls += 1;
+        return HttpResponse.json([]);
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Programs' })).toBeTruthy());
+    expect(programsCalls).toBe(0);
+
+    await user.click(screen.getByRole('tab', { name: 'Programs' }));
+    await waitFor(() => expect(programsCalls).toBe(1));
+  });
+
   it('Fees tab shows outstanding and paid balance clearly', async () => {
     const student = studentFactory({ id: 'student-1' });
     server.use(

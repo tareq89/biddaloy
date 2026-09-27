@@ -73,6 +73,15 @@
       "retry": "Try again"
     }
   },
+  "programs": {
+    "title": "Programs",
+    "loading": "Loading programs",
+    "empty": "No programs yet. Programs appear here once the school enrols this student in one.",
+    "error": {
+      "message": "Could not load these programs. Something went wrong reaching the school's records — check your connection and try again.",
+      "retry": "Try again"
+    }
+  },
   "examSchedule": {
     "title": "Exam schedule",
     "loading": "Loading exam schedule",

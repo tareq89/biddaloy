@@ -21,6 +21,7 @@ import { HomeworkTab } from './-detail/homework-tab';
 import { InvoicesTab } from './-detail/invoices-tab';
 import { OverviewTab } from './-detail/overview-tab';
 import { PaymentsTab } from './-detail/payments-tab';
+import { ProgramsPanel } from './-detail/programs-panel';
 import { PromotionOverrideBadge } from './-detail/promotion-override-badge';
 import { RecurringFeesTab } from './-detail/recurring-fees-tab';
 import { ResultsPanel } from './-detail/results-panel';
@@ -73,6 +74,8 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
       // whole-page failure one level down.
       // 'promotions' — [26.5.2]'s override badge (header + Enrollment tab)
       // reads its `badge` copy from that namespace.
+      // 'programs' — [34.5.1]'s Programs tab (`-detail/programs-panel.tsx`)
+      // reads its copy from that namespace.
       loadRouteNamespaces(
         'students',
         'common',
@@ -82,6 +85,7 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
         'fees',
         'feeGeneration',
         'promotions',
+        'programs',
       ),
     ]),
   pendingComponent: StudentDetailPending,
@@ -102,6 +106,7 @@ const TAB_IDS = [
   'homework',
   'subject-choices',
   'results',
+  'programs',
 ] as const;
 
 function StudentDetailPage() {
@@ -282,6 +287,14 @@ function StudentDetailPage() {
                   // 'subject-choices' above: exam-owned, mounted here.
                   label: t('detail.tabs.results', { ns: 'exams' }),
                   content: <ResultsPanel studentId={studentId} />,
+                },
+                {
+                  id: 'programs',
+                  // [34.5.1] — 'programs' namespace: programs are owned by
+                  // the programs feature even though mounted here, same
+                  // pattern as 'subject-choices'/'results' above.
+                  label: t('detail.tabs.programs', { ns: 'programs' }),
+                  content: <ProgramsPanel studentId={studentId} />,
                 },
               ]}
             />

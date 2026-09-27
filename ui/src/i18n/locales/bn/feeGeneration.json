@@ -13,6 +13,8 @@
     "allClasses": "সব শ্রেণি",
     "sectionLabel": "শাখা",
     "allSections": "সব শাখা",
+    "programLabel": "প্রোগ্রাম",
+    "anyProgram": "যেকোনো প্রোগ্রাম",
     "includeInactiveLabel": "নিষ্ক্রিয় শিক্ষার্থীও দেখান",
     "selectAllMatching": "মিলে যাওয়া {{count}} জন সবাইকে বাছুন",
     "loading": "শিক্ষার্থী লোড হচ্ছে…",
@@ -32,7 +34,8 @@
     "label": "ফি তৈরি হলে পরিবারকে জানান"
   },
   "summary": {
-    "line": "{{students}} জন শিক্ষার্থী × {{fees}}টি ফি = {{bills}}টি বিল"
+    "line": "{{students}} জন শিক্ষার্থী × {{fees}}টি ফি = {{bills}}টি বিল",
+    "programAudience": "নির্বাচিত প্রোগ্রামের সব সক্রিয় শিক্ষার্থীর ফি তৈরি হবে।"
   },
   "duplicates": {
     "heading": "এই সময়সীমার জন্য কিছু ফি আগে থেকেই আছে",

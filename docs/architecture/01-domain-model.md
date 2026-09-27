@@ -108,6 +108,13 @@ erDiagram
     Student ||--o{ PromotionEntry : "decided for"
     Enrollment ||--o{ PromotionEntry : "carried forward from (source_enrollment_id)"
     Enrollment ||--o| PromotionEntry : "creates on commit (target_enrollment_id)"
+
+    School ||--o{ Program : scopes
+    Program ||--o{ ProgramMilestone : "ordered list"
+    Program ||--o{ ProgramEnrollment : "students in"
+    Student ||--o{ ProgramEnrollment : "enrolled in"
+    ProgramEnrollment ||--o{ MilestoneAchievement : "ticks off"
+    ProgramMilestone ||--o{ MilestoneAchievement : "achieved via"
 ```
 
 _(This shows the shape of the graph, not every column — see each entity file
@@ -345,6 +352,19 @@ composition should extend the promotion mean the same way.
   in during a given academic year. The _current_ enrollment is the most
   recent `ACTIVE` row — `Student.class_section` is the fast-path pointer,
   `Enrollment` is the audit trail.
+
+### Programs & milestones (`modules/programs`) — see [17-programs.md](17-programs.md) for the full model
+
+- **`Program`** — a tenant-wide track (hifz, a vocational trade, a club) with
+  no `academic_year_id` — it can span years. `show_on_report_card` opts it
+  into a Programs block on the report card.
+- **`ProgramMilestone`** — an ordered step within one `Program` (e.g. "Juz
+  1" for a hifz program). Deleting a milestone cascades its achievements.
+- **`ProgramEnrollment`** — a student's enrollment in a `Program`, separate
+  from their class `Enrollment`. At most one `ACTIVE` row per
+  (program, student).
+- **`MilestoneAchievement`** — records that one enrollment reached one
+  milestone, with an optional date/score/grade/remark.
 
 ### Fees, payments, invoices (`modules/fees`, `modules/invoices`) — see [04-fees-payments-invoices.md](04-fees-payments-invoices.md) for the full lifecycle
 

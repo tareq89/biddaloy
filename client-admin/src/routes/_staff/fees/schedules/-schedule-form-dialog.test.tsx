@@ -22,7 +22,7 @@ import {
   renderWithProviders,
   server,
 } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import * as React from 'react';
@@ -47,6 +47,7 @@ function referenceHandlers() {
     http.get('/api/v1/academic-years', () => HttpResponse.json(paginated([YEAR]))),
     http.get('/api/v1/fee-structures', () => HttpResponse.json(paginated([FEE]))),
     http.get('/api/v1/classes', () => HttpResponse.json(paginated([]))),
+    http.get('/api/v1/programs', () => HttpResponse.json([])),
   ];
 }
 
@@ -229,5 +230,88 @@ describe('ScheduleFormDialog', () => {
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     expect(patched).toBe(true);
+  });
+
+  it('preselects the saved program when a schedule opens in edit mode', async () => {
+    server.use(
+      http.get('/api/v1/programs', () =>
+        HttpResponse.json([{ id: 'program-hifz', name: 'Hifz', is_active: true }]),
+      ),
+      ...referenceHandlers(),
+    );
+    const existing = schedule({
+      audience: { enrollment_status: 'ACTIVE', program_id: 'program-hifz' },
+    });
+
+    await renderDialog({ mode: 'edit', schedule: existing });
+
+    const programSelect = await screen.findByLabelText('Program');
+    await within(programSelect).findByText('Hifz');
+  });
+
+  it('only requests archived programs when editing a schedule that already has one', async () => {
+    server.use(...referenceHandlers());
+    let createModeIncludeArchived: string | null = null;
+    server.use(
+      http.get('/api/v1/programs', ({ request }) => {
+        createModeIncludeArchived = new URL(request.url).searchParams.get('include_archived');
+        return HttpResponse.json([]);
+      }),
+    );
+    await renderDialog({ mode: 'create' });
+    await waitFor(() => expect(createModeIncludeArchived).not.toBeNull());
+    expect(createModeIncludeArchived).toBe('false');
+    await cleanupTestState();
+
+    server.use(...referenceHandlers());
+    let editModeIncludeArchived: string | null = null;
+    server.use(
+      http.get('/api/v1/programs', ({ request }) => {
+        editModeIncludeArchived = new URL(request.url).searchParams.get('include_archived');
+        return HttpResponse.json([{ id: 'program-hifz', name: 'Hifz', is_active: false }]);
+      }),
+    );
+    const existing = schedule({
+      audience: { enrollment_status: 'ACTIVE', program_id: 'program-hifz' },
+    });
+    await renderDialog({ mode: 'edit', schedule: existing });
+    await waitFor(() => expect(editModeIncludeArchived).not.toBeNull());
+    expect(editModeIncludeArchived).toBe('true');
+  });
+
+  it('includes program_id in the saved audience when a program is chosen', async () => {
+    server.use(
+      http.get('/api/v1/programs', () =>
+        HttpResponse.json([{ id: 'program-hifz', name: 'Hifz', is_active: true }]),
+      ),
+      ...referenceHandlers(),
+    );
+    let submittedBody: Record<string, unknown> | undefined;
+    server.use(
+      http.post('/api/v1/fees/schedules', async ({ request }) => {
+        submittedBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(schedule({ ...(submittedBody as object) }));
+      }),
+    );
+
+    const { onSaved } = await renderDialog();
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByLabelText('Name'), 'Hifz monthly fee');
+    await user.click(await screen.findByRole('combobox', { name: 'Academic year' }));
+    await user.click(await screen.findByRole('option', { name: '2026-2027' }));
+    await waitFor(() => expect(screen.getByLabelText('Monthly Tuition')).toBeTruthy());
+    await user.click(screen.getByLabelText('Monthly Tuition'));
+
+    await user.click(await screen.findByRole('combobox', { name: 'Program' }));
+    await user.click(await screen.findByRole('option', { name: 'Hifz' }));
+
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(submittedBody?.audience).toEqual({
+      enrollment_status: 'ACTIVE',
+      program_id: 'program-hifz',
+    });
   });
 });
