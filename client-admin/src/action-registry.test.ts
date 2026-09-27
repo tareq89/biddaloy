@@ -157,7 +157,19 @@ describe('action-registry.ts', () => {
     },
   );
 
-  it('every seeded action targets a route that exists in STAFF_ROUTE_PERMISSIONS with the same permission', () => {
+  /**
+   * [34.4.3] `/_staff/programs/` is a shared list route (`STAFF_ROUTE_PERMISSIONS`
+   * gates it at `PROGRAM_READ` so any viewer can see the list), but two of its
+   * query-param actions open dialogs the page itself further restricts to
+   * `canManage` (`PROGRAM_MANAGE`) — see `programs/index.tsx`. A viewer with
+   * only `PROGRAM_READ`/`PROGRAM_RECORD` must not see "Add program" /
+   * "Enrol students" in the palette (it would be a silent no-op click), so
+   * these two are the one documented exception to the route-permission
+   * equality this test otherwise enforces everywhere.
+   */
+  const ROUTE_PERMISSION_EXCEPTIONS = new Set(['programs.add', 'programs.enrol']);
+
+  it('every seeded action targets a route that exists in STAFF_ROUTE_PERMISSIONS with the same permission (or a documented, stricter exception)', () => {
     for (const action of ACTIONS) {
       const calls: string[] = [];
       action.run({ navigate: (opts) => calls.push(opts.to) });
@@ -173,9 +185,10 @@ describe('action-registry.ts', () => {
         routePermission,
         `no STAFF_ROUTE_PERMISSIONS entry for ${routeId} (action ${action.id})`,
       ).toBeDefined();
+      if (ROUTE_PERMISSION_EXCEPTIONS.has(action.id)) continue;
       expect(
         action.permission,
-        `${action.id} permission (${action.permission}) does not match route ${target}'s permission (${routePermission})`,
+        `${action.id} permission (${action.permission}) does not match route ${target}'s permission (${routePermission}) — if this is intentional (the route is broader than the action), add it to ROUTE_PERMISSION_EXCEPTIONS with a comment explaining why`,
       ).toBe(routePermission);
     }
   });

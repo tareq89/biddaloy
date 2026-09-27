@@ -171,7 +171,7 @@ export const ACTIONS: readonly PaletteAction[] = [
   {
     id: 'programs.recordMilestone',
     label: { en: 'Record achievement', bn: 'অর্জন রেকর্ড করুন' },
-    permission: Permission.PROGRAM_RECORD,
+    permission: Permission.PROGRAM_READ,
     kind: 'modal',
     context: ['student'],
     // Same "no entity id" limitation as `programs.enrol` above.

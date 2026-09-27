@@ -69,6 +69,8 @@ import { Route as StaffMarksIndexRouteImport } from './routes/_staff/marks/index
 import { Route as StaffPaymentsIndexRouteImport } from './routes/_staff/payments/index'
 import { Route as StaffPaymentsIdRouteImport } from './routes/_staff/payments/$id'
 import { Route as StaffPaymentsRecordRouteImport } from './routes/_staff/payments/record'
+import { Route as StaffProgramsIndexRouteImport } from './routes/_staff/programs/index'
+import { Route as StaffProgramsProgramIdRouteImport } from './routes/_staff/programs/$programId'
 import { Route as StaffPromotionsIndexRouteImport } from './routes/_staff/promotions/index'
 import { Route as StaffPromotionsRunIdRouteImport } from './routes/_staff/promotions/$runId'
 import { Route as StaffPromotionsNewRouteImport } from './routes/_staff/promotions/new'
@@ -406,6 +408,16 @@ const StaffPaymentsRecordRoute = StaffPaymentsRecordRouteImport.update({
   path: '/payments/record',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffProgramsIndexRoute = StaffProgramsIndexRouteImport.update({
+  id: '/programs/',
+  path: '/programs/',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffProgramsProgramIdRoute = StaffProgramsProgramIdRouteImport.update({
+  id: '/programs/$programId',
+  path: '/programs/$programId',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffPromotionsIndexRoute = StaffPromotionsIndexRouteImport.update({
   id: '/promotions/',
   path: '/promotions/',
@@ -618,6 +630,7 @@ export interface FileRoutesByFullPath {
   '/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
   '/payments/$id': typeof StaffPaymentsIdRoute
   '/payments/record': typeof StaffPaymentsRecordRoute
+  '/programs/$programId': typeof StaffProgramsProgramIdRoute
   '/promotions/$runId': typeof StaffPromotionsRunIdRoute
   '/promotions/new': typeof StaffPromotionsNewRoute
   '/reports/collections': typeof StaffReportsCollectionsRoute
@@ -646,6 +659,7 @@ export interface FileRoutesByFullPath {
   '/invoices/': typeof StaffInvoicesIndexRoute
   '/marks/': typeof StaffMarksIndexRoute
   '/payments/': typeof StaffPaymentsIndexRoute
+  '/programs/': typeof StaffProgramsIndexRoute
   '/promotions/': typeof StaffPromotionsIndexRoute
   '/results/': typeof StaffResultsIndexRoute
   '/routines/': typeof StaffRoutinesIndexRoute
@@ -707,6 +721,7 @@ export interface FileRoutesByTo {
   '/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
   '/payments/$id': typeof StaffPaymentsIdRoute
   '/payments/record': typeof StaffPaymentsRecordRoute
+  '/programs/$programId': typeof StaffProgramsProgramIdRoute
   '/promotions/$runId': typeof StaffPromotionsRunIdRoute
   '/promotions/new': typeof StaffPromotionsNewRoute
   '/reports/collections': typeof StaffReportsCollectionsRoute
@@ -735,6 +750,7 @@ export interface FileRoutesByTo {
   '/invoices': typeof StaffInvoicesIndexRoute
   '/marks': typeof StaffMarksIndexRoute
   '/payments': typeof StaffPaymentsIndexRoute
+  '/programs': typeof StaffProgramsIndexRoute
   '/promotions': typeof StaffPromotionsIndexRoute
   '/results': typeof StaffResultsIndexRoute
   '/routines': typeof StaffRoutinesIndexRoute
@@ -801,6 +817,7 @@ export interface FileRoutesById {
   '/_staff/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
   '/_staff/payments/$id': typeof StaffPaymentsIdRoute
   '/_staff/payments/record': typeof StaffPaymentsRecordRoute
+  '/_staff/programs/$programId': typeof StaffProgramsProgramIdRoute
   '/_staff/promotions/$runId': typeof StaffPromotionsRunIdRoute
   '/_staff/promotions/new': typeof StaffPromotionsNewRoute
   '/_staff/reports/collections': typeof StaffReportsCollectionsRoute
@@ -829,6 +846,7 @@ export interface FileRoutesById {
   '/_staff/invoices/': typeof StaffInvoicesIndexRoute
   '/_staff/marks/': typeof StaffMarksIndexRoute
   '/_staff/payments/': typeof StaffPaymentsIndexRoute
+  '/_staff/programs/': typeof StaffProgramsIndexRoute
   '/_staff/promotions/': typeof StaffPromotionsIndexRoute
   '/_staff/results/': typeof StaffResultsIndexRoute
   '/_staff/routines/': typeof StaffRoutinesIndexRoute
@@ -894,6 +912,7 @@ export interface FileRouteTypes {
     | '/invoices/$invoiceId'
     | '/payments/$id'
     | '/payments/record'
+    | '/programs/$programId'
     | '/promotions/$runId'
     | '/promotions/new'
     | '/reports/collections'
@@ -922,6 +941,7 @@ export interface FileRouteTypes {
     | '/invoices/'
     | '/marks/'
     | '/payments/'
+    | '/programs/'
     | '/promotions/'
     | '/results/'
     | '/routines/'
@@ -983,6 +1003,7 @@ export interface FileRouteTypes {
     | '/invoices/$invoiceId'
     | '/payments/$id'
     | '/payments/record'
+    | '/programs/$programId'
     | '/promotions/$runId'
     | '/promotions/new'
     | '/reports/collections'
@@ -1011,6 +1032,7 @@ export interface FileRouteTypes {
     | '/invoices'
     | '/marks'
     | '/payments'
+    | '/programs'
     | '/promotions'
     | '/results'
     | '/routines'
@@ -1076,6 +1098,7 @@ export interface FileRouteTypes {
     | '/_staff/invoices/$invoiceId'
     | '/_staff/payments/$id'
     | '/_staff/payments/record'
+    | '/_staff/programs/$programId'
     | '/_staff/promotions/$runId'
     | '/_staff/promotions/new'
     | '/_staff/reports/collections'
@@ -1104,6 +1127,7 @@ export interface FileRouteTypes {
     | '/_staff/invoices/'
     | '/_staff/marks/'
     | '/_staff/payments/'
+    | '/_staff/programs/'
     | '/_staff/promotions/'
     | '/_staff/results/'
     | '/_staff/routines/'
@@ -1561,6 +1585,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffPaymentsRecordRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/programs/': {
+      id: '/_staff/programs/'
+      path: '/programs'
+      fullPath: '/programs/'
+      preLoaderRoute: typeof StaffProgramsIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/programs/$programId': {
+      id: '/_staff/programs/$programId'
+      path: '/programs/$programId'
+      fullPath: '/programs/$programId'
+      preLoaderRoute: typeof StaffProgramsProgramIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/promotions/': {
       id: '/_staff/promotions/'
       path: '/promotions'
@@ -1841,6 +1879,7 @@ interface StaffRouteChildren {
   StaffInvoicesInvoiceIdRoute: typeof StaffInvoicesInvoiceIdRoute
   StaffPaymentsIdRoute: typeof StaffPaymentsIdRoute
   StaffPaymentsRecordRoute: typeof StaffPaymentsRecordRoute
+  StaffProgramsProgramIdRoute: typeof StaffProgramsProgramIdRoute
   StaffPromotionsRunIdRoute: typeof StaffPromotionsRunIdRoute
   StaffPromotionsNewRoute: typeof StaffPromotionsNewRoute
   StaffReportsCollectionsRoute: typeof StaffReportsCollectionsRoute
@@ -1866,6 +1905,7 @@ interface StaffRouteChildren {
   StaffInvoicesIndexRoute: typeof StaffInvoicesIndexRoute
   StaffMarksIndexRoute: typeof StaffMarksIndexRoute
   StaffPaymentsIndexRoute: typeof StaffPaymentsIndexRoute
+  StaffProgramsIndexRoute: typeof StaffProgramsIndexRoute
   StaffPromotionsIndexRoute: typeof StaffPromotionsIndexRoute
   StaffResultsIndexRoute: typeof StaffResultsIndexRoute
   StaffRoutinesIndexRoute: typeof StaffRoutinesIndexRoute
@@ -1905,6 +1945,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffInvoicesInvoiceIdRoute: StaffInvoicesInvoiceIdRoute,
   StaffPaymentsIdRoute: StaffPaymentsIdRoute,
   StaffPaymentsRecordRoute: StaffPaymentsRecordRoute,
+  StaffProgramsProgramIdRoute: StaffProgramsProgramIdRoute,
   StaffPromotionsRunIdRoute: StaffPromotionsRunIdRoute,
   StaffPromotionsNewRoute: StaffPromotionsNewRoute,
   StaffReportsCollectionsRoute: StaffReportsCollectionsRoute,
@@ -1930,6 +1971,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffInvoicesIndexRoute: StaffInvoicesIndexRoute,
   StaffMarksIndexRoute: StaffMarksIndexRoute,
   StaffPaymentsIndexRoute: StaffPaymentsIndexRoute,
+  StaffProgramsIndexRoute: StaffProgramsIndexRoute,
   StaffPromotionsIndexRoute: StaffPromotionsIndexRoute,
   StaffResultsIndexRoute: StaffResultsIndexRoute,
   StaffRoutinesIndexRoute: StaffRoutinesIndexRoute,

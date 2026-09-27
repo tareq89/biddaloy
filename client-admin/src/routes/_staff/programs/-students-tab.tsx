@@ -154,6 +154,21 @@ function StudentRow({
   const entry = studentProgramsQuery.data?.find((e) => e.program.id === programId);
   const complete = row.milestone_total > 0 && row.achieved_count === row.milestone_total;
 
+  // `MilestoneChecklist`'s own header comment documents this as the
+  // caller's job: recording/undoing a milestone swaps the row's checkbox
+  // for a brand-new DOM node (unticked plain `<button>` vs. ticked
+  // `Popover`/`PopoverTrigger` button), so the browser drops focus to
+  // `<body>` unless something re-finds and refocuses it (D9's keyboard
+  // journey needs focus back on the same row after a tick).
+  const milestonesContainerRef = React.useRef<HTMLDivElement | null>(null);
+  function refocusMilestone(milestoneId: string) {
+    requestAnimationFrame(() => {
+      milestonesContainerRef.current
+        ?.querySelector<HTMLElement>(`[data-milestone-id="${milestoneId}"][role="checkbox"]`)
+        ?.focus();
+    });
+  }
+
   return (
     <li className="rounded-md border border-border">
       <div className="flex items-center gap-2 p-2">
@@ -205,7 +220,7 @@ function StudentRow({
       </div>
 
       {expanded && entry && (
-        <div className="border-t border-border p-2">
+        <div className="border-t border-border p-2" ref={milestonesContainerRef}>
           <MilestoneChecklist
             items={entry.milestones.map((m) => ({
               id: m.id,
@@ -218,22 +233,34 @@ function StudentRow({
             }))}
             undoLabel={t('milestones.remove')}
             onRecord={(milestoneId) =>
-              recordAchievements.mutate({
-                programId,
-                studentId: row.student.id,
-                input: { enrollment_ids: [row.id], milestone_id: milestoneId },
-              })
+              recordAchievements.mutate(
+                {
+                  programId,
+                  studentId: row.student.id,
+                  input: { enrollment_ids: [row.id], milestone_id: milestoneId },
+                },
+                {
+                  onSuccess: () => refocusMilestone(milestoneId),
+                  onError: () => refocusMilestone(milestoneId),
+                },
+              )
             }
             onUndo={(milestoneId) => {
               const achievementId = entry.milestones.find((m) => m.id === milestoneId)?.achievement
                 ?.id;
               if (!achievementId) return;
-              removeAchievement.mutate({
-                achievementId,
-                programId,
-                studentId: row.student.id,
-                milestoneId,
-              });
+              removeAchievement.mutate(
+                {
+                  achievementId,
+                  programId,
+                  studentId: row.student.id,
+                  milestoneId,
+                },
+                {
+                  onSuccess: () => refocusMilestone(milestoneId),
+                  onError: () => refocusMilestone(milestoneId),
+                },
+              );
             }}
           />
         </div>

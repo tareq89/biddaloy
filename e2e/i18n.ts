@@ -28,6 +28,7 @@ import bnNav from '../ui/src/i18n/locales/bn/nav.json';
 import bnPayments from '../ui/src/i18n/locales/bn/payments.json';
 import bnPlatform from '../ui/src/i18n/locales/bn/platform.json';
 import bnPortal from '../ui/src/i18n/locales/bn/portal.json';
+import bnPrograms from '../ui/src/i18n/locales/bn/programs.json';
 import bnPromotions from '../ui/src/i18n/locales/bn/promotions.json';
 import bnReports from '../ui/src/i18n/locales/bn/reports.json';
 import bnRoutines from '../ui/src/i18n/locales/bn/routines.json';
@@ -58,6 +59,7 @@ import enNav from '../ui/src/i18n/locales/en/nav.json';
 import enPayments from '../ui/src/i18n/locales/en/payments.json';
 import enPlatform from '../ui/src/i18n/locales/en/platform.json';
 import enPortal from '../ui/src/i18n/locales/en/portal.json';
+import enPrograms from '../ui/src/i18n/locales/en/programs.json';
 import enPromotions from '../ui/src/i18n/locales/en/promotions.json';
 import enReports from '../ui/src/i18n/locales/en/reports.json';
 import enRoutines from '../ui/src/i18n/locales/en/routines.json';
@@ -91,6 +93,7 @@ const catalogs = {
     payments: bnPayments,
     platform: bnPlatform,
     portal: bnPortal,
+    programs: bnPrograms,
     promotions: bnPromotions,
     reports: bnReports,
     routines: bnRoutines,
@@ -123,6 +126,7 @@ const catalogs = {
     payments: enPayments,
     platform: enPlatform,
     portal: enPortal,
+    programs: enPrograms,
     promotions: enPromotions,
     reports: enReports,
     routines: enRoutines,
