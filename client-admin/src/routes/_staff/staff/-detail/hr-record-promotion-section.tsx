@@ -5,7 +5,7 @@
  * open row (`end_date === null`) is the current designation and is
  * visually distinguished from history (acceptance criterion).
  */
-import { Button, EmptyState, SkeletonFieldList } from '@biddaloy/ui/components';
+import { Button, EmptyState, ErrorState, SkeletonFieldList } from '@biddaloy/ui/components';
 import { designationTitle, useDesignations, useStaffDesignationHistory } from '@biddaloy/ui/hooks';
 import { useLocale, useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatDate, parseServerDate } from '@biddaloy/ui/utils';
@@ -34,7 +34,17 @@ export function HrRecordPromotionSection({ userId }: HrRecordPromotionSectionPro
     return <SkeletonFieldList fields={3} />;
   }
 
-  const history = historyQuery.data ?? [];
+  if (historyQuery.isError) {
+    return (
+      <ErrorState
+        message={t('hrRecord.loadError')}
+        retryLabel={t('actions.retry', { ns: 'common' })}
+        onRetry={() => void historyQuery.refetch()}
+      />
+    );
+  }
+
+  const history = historyQuery.data;
 
   return (
     <div className="flex flex-col gap-3">

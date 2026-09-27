@@ -1,11 +1,13 @@
 import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { setActiveRole, setActiveTenant } from '../api/auth-state';
 import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 
 import {
+  downloadStaffDocument,
   useCreateStaffHrRecord,
   useDesignations,
   usePromoteStaff,
@@ -13,8 +15,10 @@ import {
   useStaffHrRecord,
   useUpdateStaffHrRecord,
   type StaffDesignationHistory,
+  type StaffDocument,
   type StaffHrRecord,
 } from './staff-hr';
+import { userKeys } from './users';
 
 const hrRecord: StaffHrRecord = {
   id: 'hr-1',
@@ -155,13 +159,17 @@ describe('usePromoteStaff', () => {
       }),
     );
 
-    const { result } = renderHookWithProviders(() => usePromoteStaff('user-1'), {
+    const { result, queryClient } = renderHookWithProviders(() => usePromoteStaff('user-1'), {
       tenantId: 'tenant-1',
     });
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
     result.current.mutate({ designation_id: 'designation-1', effective_date: '2026-06-01' });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(body).toEqual({ designation_id: 'designation-1', effective_date: '2026-06-01' });
+    expect(invalidateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: userKeys.lists() }),
+    );
   });
 
   it('surfaces a 409 (promotion already in progress) as an error', async () => {
@@ -177,5 +185,97 @@ describe('usePromoteStaff', () => {
     result.current.mutate({ designation_id: 'designation-1', effective_date: '2026-06-01' });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+});
+
+const staffDocument: StaffDocument = {
+  id: 'doc-1',
+  staff_user_id: 'user-1',
+  document_type: 'NID',
+  original_filename: 'fallback-name.pdf',
+  content_type: 'application/pdf',
+  created_at: '2026-01-01T00:00:00.000Z',
+  updated_at: '2026-01-01T00:00:00.000Z',
+};
+
+describe('downloadStaffDocument', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function mockDownload(contentDisposition?: string) {
+    server.use(
+      http.get('/api/v1/staff-documents/download/doc-1', () =>
+        HttpResponse.text('file bytes', {
+          headers: contentDisposition ? { 'Content-Disposition': contentDisposition } : {},
+        }),
+      ),
+    );
+  }
+
+  function stubAnchor() {
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    return vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  }
+
+  it('uses the UTF-8 encoded filename when present', async () => {
+    mockDownload("attachment; filename*=UTF-8''nid-card.pdf");
+    stubAnchor();
+    let downloadName = '';
+    vi.spyOn(HTMLAnchorElement.prototype, 'download', 'set').mockImplementation((value) => {
+      downloadName = value;
+    });
+    setActiveTenant('tenant-1');
+    setActiveRole('ADMIN');
+
+    await downloadStaffDocument(staffDocument);
+
+    expect(downloadName).toBe('nid-card.pdf');
+  });
+
+  it('falls back to the plain filename= parameter when no UTF-8 one is present', async () => {
+    mockDownload('attachment; filename="plain-name.pdf"');
+    stubAnchor();
+    let downloadName = '';
+    vi.spyOn(HTMLAnchorElement.prototype, 'download', 'set').mockImplementation((value) => {
+      downloadName = value;
+    });
+    setActiveTenant('tenant-1');
+    setActiveRole('ADMIN');
+
+    await downloadStaffDocument(staffDocument);
+
+    expect(downloadName).toBe('plain-name.pdf');
+  });
+
+  it("falls back to the document's own filename when there is no header at all", async () => {
+    mockDownload(undefined);
+    stubAnchor();
+    let downloadName = '';
+    vi.spyOn(HTMLAnchorElement.prototype, 'download', 'set').mockImplementation((value) => {
+      downloadName = value;
+    });
+    setActiveTenant('tenant-1');
+    setActiveRole('ADMIN');
+
+    await downloadStaffDocument(staffDocument);
+
+    expect(downloadName).toBe('fallback-name.pdf');
+  });
+
+  it("falls back to the document's own filename when the UTF-8 filename is malformed percent-encoding", async () => {
+    mockDownload("attachment; filename*=UTF-8''%E0%A6%");
+    stubAnchor();
+    let downloadName = '';
+    vi.spyOn(HTMLAnchorElement.prototype, 'download', 'set').mockImplementation((value) => {
+      downloadName = value;
+    });
+    setActiveTenant('tenant-1');
+    setActiveRole('ADMIN');
+
+    await downloadStaffDocument(staffDocument);
+
+    expect(downloadName).toBe('fallback-name.pdf');
   });
 });

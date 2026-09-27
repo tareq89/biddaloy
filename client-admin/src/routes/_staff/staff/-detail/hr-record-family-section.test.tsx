@@ -1,8 +1,9 @@
+import { toast } from '@biddaloy/ui/components';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { HrRecordFamilySection } from './hr-record-family-section';
 
@@ -62,5 +63,48 @@ describe('HrRecordFamilySection', () => {
         rows: [{ relation: 'Mother', name: 'Jasmine Begum', occupation: '', contact: '' }],
       }),
     );
+  });
+
+  it('shows an error state when the read fails', async () => {
+    server.use(
+      http.get('/api/v1/staff/user-1/family', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+      ),
+    );
+
+    renderWithProviders(<HrRecordFamilySection userId="user-1" />, {
+      locale: 'en',
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+    });
+
+    expect(await screen.findByRole('button', { name: 'Retry' })).toBeTruthy();
+  });
+
+  it('shows an error toast when the save fails', async () => {
+    server.use(http.get('/api/v1/staff/user-1/family', () => HttpResponse.json([])));
+    server.use(
+      http.put('/api/v1/staff/user-1/family', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+      ),
+    );
+    const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+
+    renderWithProviders(<HrRecordFamilySection userId="user-1" />, {
+      locale: 'en',
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Add row' }));
+    await user.type(screen.getByLabelText('Relation *'), 'Mother');
+    await user.type(screen.getByLabelText('Name *'), 'Jasmine Begum');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(toastSpy).toHaveBeenCalledWith('Could not save this section. Please try again.'),
+    );
+    toastSpy.mockRestore();
   });
 });

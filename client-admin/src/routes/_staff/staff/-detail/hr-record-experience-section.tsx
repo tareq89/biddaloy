@@ -6,6 +6,7 @@ import {
   ErrorState,
   RepeatableRowForm,
   SkeletonFieldList,
+  toast,
   type RepeatableRowField,
 } from '@biddaloy/ui/components';
 import { useReplaceStaffRows, useStaffRows, type ExperienceRow } from '@biddaloy/ui/hooks';
@@ -61,7 +62,9 @@ export function HrRecordExperienceSection({ userId }: HrRecordExperienceSectionP
     <RepeatableRowForm
       fields={fields}
       rows={rowsQuery.data}
-      onSave={(rows) => replaceRows.mutate(rows)}
+      onSave={(rows) =>
+        replaceRows.mutate(rows, { onError: () => toast.error(t('hrRecord.saveError')) })
+      }
       emptyExplanation={t('hrRecord.experience.emptyExplanation')}
       addRowLabel={t('hrRecord.addRowAction')}
       saveLabel={t('hrRecord.saveAction')}

@@ -4,6 +4,7 @@ import { apiClient } from '../api/client';
 
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
+import { userKeys } from './users';
 
 /**
  * [23.9] client types for [23.2]'s `staff-hr-records`/`designations`
@@ -215,6 +216,7 @@ export function usePromoteStaff(userId: string) {
       void queryClient.invalidateQueries({
         queryKey: designationHistoryKeys.list({ user_id: userId }),
       });
+      void queryClient.invalidateQueries({ queryKey: userKeys.lists() });
     },
   });
 }

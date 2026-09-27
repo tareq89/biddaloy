@@ -8,6 +8,7 @@ import {
   ErrorState,
   RepeatableRowForm,
   SkeletonFieldList,
+  toast,
   type RepeatableRowField,
 } from '@biddaloy/ui/components';
 import { useReplaceStaffRows, useStaffRows, type FamilyMemberRow } from '@biddaloy/ui/hooks';
@@ -47,7 +48,9 @@ export function HrRecordFamilySection({ userId }: HrRecordFamilySectionProps) {
     <RepeatableRowForm
       fields={fields}
       rows={rowsQuery.data}
-      onSave={(rows) => replaceRows.mutate(rows)}
+      onSave={(rows) =>
+        replaceRows.mutate(rows, { onError: () => toast.error(t('hrRecord.saveError')) })
+      }
       emptyExplanation={t('hrRecord.family.emptyExplanation')}
       addRowLabel={t('hrRecord.addRowAction')}
       saveLabel={t('hrRecord.saveAction')}
