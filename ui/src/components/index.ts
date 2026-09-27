@@ -339,3 +339,9 @@ export {
   type MilestoneChecklistProps,
 } from './programs/milestone-checklist';
 export { ProgressBar, type ProgressBarProps } from './programs/progress-bar';
+  RepeatableRowForm,
+  type RepeatableRowField,
+  type RepeatableRowFieldType,
+  type RepeatableRowFormProps,
+  type RepeatableRowValue,
+} from './repeatable-row-form/repeatable-row-form';
