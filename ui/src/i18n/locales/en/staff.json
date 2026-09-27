@@ -9,6 +9,8 @@
     "statusFilterAll": "All statuses",
     "invitationFilterLabel": "Invitation",
     "invitationFilterAll": "All invitation states",
+    "designationFilterLabel": "Designation",
+    "designationFilterAll": "All designations",
     "joinedRangeLabel": "Joined date",
     "joinedFromLabel": "Joined from",
     "joinedToLabel": "Joined to",

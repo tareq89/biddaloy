@@ -9,6 +9,8 @@
     "statusFilterAll": "সব অবস্থা",
     "invitationFilterLabel": "আমন্ত্রণ",
     "invitationFilterAll": "সব আমন্ত্রণ অবস্থা",
+    "designationFilterLabel": "পদবি",
+    "designationFilterAll": "সব পদবি",
     "joinedRangeLabel": "যোগদানের তারিখ",
     "joinedFromLabel": "যোগদান থেকে",
     "joinedToLabel": "যোগদান পর্যন্ত",
