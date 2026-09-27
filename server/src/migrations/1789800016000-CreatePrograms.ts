@@ -99,12 +99,26 @@ export class CreatePrograms1789800016000 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE "program_enrollments" ADD CONSTRAINT "FK_program_enrollments_student" FOREIGN KEY ("student_id") REFERENCES "students"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
     );
+    // Parent keys for the composite FKs below — `milestone_achievements`
+    // pins its own `program_id` alongside `enrollment_id`/`milestone_id`,
+    // so the DB (not just app code) rejects an achievement whose milestone
+    // and enrollment belong to two different programs. Each composite FK
+    // needs a matching unique constraint on its parent to reference.
+    await queryRunner.query(
+      `ALTER TABLE "program_enrollments" ADD CONSTRAINT "UQ_program_enrollments_id_program_tenant" UNIQUE ("id", "program_id", "tenant_id")`,
+    );
+
+    // program_milestones
+    await queryRunner.query(
+      `ALTER TABLE "program_milestones" ADD CONSTRAINT "UQ_program_milestones_id_program_tenant" UNIQUE ("id", "program_id", "tenant_id")`,
+    );
 
     // milestone_achievements
     await queryRunner.query(`
       CREATE TABLE "milestone_achievements" (
         "id" uuid NOT NULL DEFAULT gen_random_uuid(),
         "tenant_id" uuid NOT NULL,
+        "program_id" uuid NOT NULL,
         "enrollment_id" uuid NOT NULL,
         "milestone_id" uuid NOT NULL,
         "achieved_on" date NOT NULL,
@@ -124,11 +138,15 @@ export class CreatePrograms1789800016000 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE "milestone_achievements" ADD CONSTRAINT "FK_milestone_achievements_tenant" FOREIGN KEY ("tenant_id") REFERENCES "schools"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
     );
+    // Composite FKs (replacing single-column ones) — each requires the
+    // achievement's `program_id` to match the referenced enrollment's/
+    // milestone's own `program_id` (and tenant), so a mismatched trio can
+    // never be persisted, not even by a bug in application code.
     await queryRunner.query(
-      `ALTER TABLE "milestone_achievements" ADD CONSTRAINT "FK_milestone_achievements_enrollment" FOREIGN KEY ("enrollment_id") REFERENCES "program_enrollments"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+      `ALTER TABLE "milestone_achievements" ADD CONSTRAINT "FK_milestone_achievements_enrollment" FOREIGN KEY ("enrollment_id", "program_id", "tenant_id") REFERENCES "program_enrollments"("id", "program_id", "tenant_id") ON DELETE CASCADE ON UPDATE NO ACTION`,
     );
     await queryRunner.query(
-      `ALTER TABLE "milestone_achievements" ADD CONSTRAINT "FK_milestone_achievements_milestone" FOREIGN KEY ("milestone_id") REFERENCES "program_milestones"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+      `ALTER TABLE "milestone_achievements" ADD CONSTRAINT "FK_milestone_achievements_milestone" FOREIGN KEY ("milestone_id", "program_id", "tenant_id") REFERENCES "program_milestones"("id", "program_id", "tenant_id") ON DELETE CASCADE ON UPDATE NO ACTION`,
     );
     await queryRunner.query(
       `ALTER TABLE "milestone_achievements" ADD CONSTRAINT "FK_milestone_achievements_recorded_by" FOREIGN KEY ("recorded_by") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE NO ACTION`,
@@ -153,6 +171,9 @@ export class CreatePrograms1789800016000 implements MigrationInterface {
 
     // program_enrollments
     await queryRunner.query(
+      `ALTER TABLE "program_enrollments" DROP CONSTRAINT "UQ_program_enrollments_id_program_tenant"`,
+    );
+    await queryRunner.query(
       `ALTER TABLE "program_enrollments" DROP CONSTRAINT "FK_program_enrollments_student"`,
     );
     await queryRunner.query(
@@ -168,6 +189,9 @@ export class CreatePrograms1789800016000 implements MigrationInterface {
     await queryRunner.query(`DROP TYPE "public"."program_enrollments_status_enum"`);
 
     // program_milestones
+    await queryRunner.query(
+      `ALTER TABLE "program_milestones" DROP CONSTRAINT "UQ_program_milestones_id_program_tenant"`,
+    );
     await queryRunner.query(
       `ALTER TABLE "program_milestones" DROP CONSTRAINT "FK_program_milestones_program"`,
     );

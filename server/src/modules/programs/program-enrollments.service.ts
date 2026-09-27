@@ -9,6 +9,7 @@ import { MilestoneAchievement } from './entities/milestone-achievement.entity';
 import { Student } from '../students/entities/student.entity';
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
+import { localToday } from '../attendance/attendance-policy.util';
 import {
   EnrolStudentsDto,
   RecordAchievementsDto,
@@ -16,6 +17,10 @@ import {
 } from './dto/program-enrollments.dto';
 
 const NO_CONTEXT: RequestContext = { ip: null, userAgent: null };
+// Same reasoning as `recurring-schedules.service.ts`'s own `SCHOOL_TIMEZONE`
+// constant — a date default must be the school's local calendar day, not
+// UTC, or it's off by one for part of the day for a school east of UTC.
+const SCHOOL_TIMEZONE = 'Asia/Dhaka';
 
 function isUniqueViolation(err: unknown): boolean {
   return err instanceof QueryFailedError && (err as unknown as { code?: string }).code === '23505';
@@ -142,7 +147,7 @@ export class ProgramEnrollmentsService {
       throw new NotFoundException(`Student(s) not found in this tenant: ${missing.join(', ')}`);
     }
 
-    const startedOn = dto.started_on ?? new Date().toISOString().slice(0, 10);
+    const startedOn = dto.started_on ?? localToday(SCHOOL_TIMEZONE);
 
     return this.dataSource.transaction(async (manager) => {
       const rows = (await manager.query(
@@ -199,7 +204,7 @@ export class ProgramEnrollmentsService {
     const endedOn =
       dto.status === ProgramEnrollmentStatus.ACTIVE
         ? null
-        : (dto.ended_on ?? new Date().toISOString().slice(0, 10));
+        : (dto.ended_on ?? localToday(SCHOOL_TIMEZONE));
 
     try {
       await this.dataSource.transaction(async (manager) => {
@@ -264,23 +269,46 @@ export class ProgramEnrollmentsService {
       throw new NotFoundException(`Enrollment(s) not found in this program: ${missing.join(', ')}`);
     }
 
-    const achievedOn = dto.achieved_on ?? new Date().toISOString().slice(0, 10);
+    const achievedOn = dto.achieved_on ?? localToday(SCHOOL_TIMEZONE);
 
     return this.dataSource.transaction(async (manager) => {
-      await manager.query(
+      // Read the prior values before the upsert overwrites them — the
+      // audit UPDATE branch below needs the *old* achieved_on/score/grade/
+      // remark, same as `updateStatus`/`removeAchievement` in this file
+      // already populate `old_values` on their own update/delete paths.
+      const priorByEnrollmentId = new Map(
+        (
+          await manager
+            .getRepository(MilestoneAchievement)
+            .find({ where: { tenant_id: tenantId, milestone_id: dto.milestone_id } })
+        )
+          .filter((a) => enrollmentIds.includes(a.enrollment_id))
+          .map((a) => [a.enrollment_id, a] as const),
+      );
+
+      // `xmax = 0` is Postgres's own "this tuple was just inserted, not
+      // updated" tell (an updated row gets a real `xmax`) — cheaper than a
+      // second round trip, and it's what tells the audit loop below
+      // CREATE from UPDATE per row, since one `INSERT ... ON CONFLICT`
+      // batch can do both at once (some enrolments new, some re-recorded).
+      const rows = await manager.query<
+        Array<{ id: string; enrollment_id: string; inserted: boolean }>
+      >(
         `INSERT INTO milestone_achievements
-           (tenant_id, enrollment_id, milestone_id, achieved_on, recorded_by, score, grade, remark)
-         SELECT $1, eid, $2, $3, $4, $5, $6, $7
-         FROM UNNEST($8::uuid[]) AS eid
+           (tenant_id, program_id, enrollment_id, milestone_id, achieved_on, recorded_by, score, grade, remark)
+         SELECT $1, $2, eid, $3, $4, $5, $6, $7, $8
+         FROM UNNEST($9::uuid[]) AS eid
          ON CONFLICT (enrollment_id, milestone_id) DO UPDATE SET
            achieved_on = EXCLUDED.achieved_on,
            recorded_by = EXCLUDED.recorded_by,
            score = EXCLUDED.score,
            grade = EXCLUDED.grade,
            remark = EXCLUDED.remark,
-           updated_at = NOW()`,
+           updated_at = NOW()
+         RETURNING id, enrollment_id, (xmax = 0) AS inserted`,
         [
           tenantId,
+          programId,
           dto.milestone_id,
           achievedOn,
           userId,
@@ -291,20 +319,29 @@ export class ProgramEnrollmentsService {
         ],
       );
 
-      for (const enrollmentId of enrollmentIds) {
+      for (const row of rows) {
+        const prior = priorByEnrollmentId.get(row.enrollment_id);
         await this.auditService.record(
           {
-            action: AuditAction.UPDATE,
+            action: row.inserted ? AuditAction.CREATE : AuditAction.UPDATE,
             entity_type: 'MilestoneAchievement',
-            entity_id: enrollmentId,
+            entity_id: row.id,
             tenant_id: tenantId,
             performed_by_user_id: userId,
             ip_address: context.ip,
             user_agent: context.userAgent,
-            old_values: null,
+            old_values:
+              !row.inserted && prior
+                ? {
+                    achieved_on: prior.achieved_on,
+                    score: prior.score,
+                    grade: prior.grade,
+                    remark: prior.remark,
+                  }
+                : null,
             new_values: {
               milestone_id: dto.milestone_id,
-              enrollment_id: enrollmentId,
+              enrollment_id: row.enrollment_id,
               achieved_on: achievedOn,
               score: dto.score ?? null,
               grade: dto.grade ?? null,
@@ -314,7 +351,7 @@ export class ProgramEnrollmentsService {
         );
       }
 
-      return { upserted: enrollmentIds.length };
+      return { upserted: rows.length };
     });
   }
 

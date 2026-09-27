@@ -656,6 +656,18 @@ minimum, cut at that boundary if needed.
 - Each description: the issue, the approach, plan corrections the planner
   found, design-system additions, how to test, and its position in the merge
   order.
+- **The description must list every issue this PR completes**, one line per
+  issue, in this pattern:
+
+  ```
+  Closes #<issue number> - <issue title>
+  ```
+
+  A consolidated PR covers many tickets — before opening it, walk the full
+  list of tickets landing in this PR (every wave/chain merged into the
+  accumulating branch) and confirm each has its own `Closes #N - <title>`
+  line. Don't stop at the first one found; a missing line means that issue
+  never auto-closes on merge.
 - Record every PR number and timestamp in the state file as it opens.
 
 ## Step 8 — CodeRabbit and CI

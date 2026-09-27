@@ -274,7 +274,11 @@
     "fail": "Fail",
     "fourthSubject": "4th subject",
     "absent": "Absent",
-    "legendTitle": "Grade legend"
+    "legendTitle": "Grade legend",
+    "programs": "Programs",
+    "progress": "Progress",
+    "latestMilestone": "Latest milestone",
+    "scoreGrade": "Score/Grade"
   },
   "analysis": {
     "tabs": {

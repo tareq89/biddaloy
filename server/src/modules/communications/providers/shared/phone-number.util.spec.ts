@@ -21,4 +21,9 @@ describe('normalizeBdPhoneNumber', () => {
   it('strips spaces and dashes', () => {
     expect(normalizeBdPhoneNumber('017-1234 5678')).toBe('8801712345678');
   });
+
+  it('is idempotent, including for a non-BD-shaped input', () => {
+    const once = normalizeBdPhoneNumber('1300012345');
+    expect(normalizeBdPhoneNumber(once)).toBe(once);
+  });
 });

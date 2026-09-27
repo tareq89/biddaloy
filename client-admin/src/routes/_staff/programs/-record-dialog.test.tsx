@@ -140,4 +140,36 @@ describe('RecordDialog', () => {
       enrollment_ids: expect.arrayContaining(['enr-1', 'enr-2']),
     });
   });
+
+  it('shows a Program select when opened with no programId, and clears milestone/enrolments on switch', async () => {
+    const user = userEvent.setup();
+    await renderDialog({ programId: '' });
+
+    await user.click(screen.getByRole('combobox', { name: 'Programs' }));
+    await user.click(await screen.findByRole('option', { name: 'Reading Club' }));
+
+    await screen.findAllByText('Read 5 books');
+  });
+
+  it('fills score/grade/remark and shows the error message on a failed submit', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.post('/api/v1/programs/:id/achievements', () =>
+        HttpResponse.json({ message: 'nope' }, { status: 500 }),
+      ),
+    );
+
+    await renderDialog({
+      milestoneId: 'm-1',
+      enrollmentIdPrefill: 'enr-1',
+      studentId: 'student-1',
+    });
+
+    await user.type(screen.getByLabelText('Score'), '85');
+    await user.type(screen.getByLabelText('Grade'), 'A');
+    await user.type(screen.getByLabelText('Remark'), 'Well done');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await screen.findByText("Couldn't record this achievement");
+  });
 });

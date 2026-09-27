@@ -1,5 +1,7 @@
 import type { EntityManager } from 'typeorm';
 import { MilestoneAchievement } from '../../../programs/entities/milestone-achievement.entity';
+import { ProgramEnrollment } from '../../../programs/entities/program-enrollment.entity';
+import { ProgramMilestone } from '../../../programs/entities/program-milestone.entity';
 import { fromCell } from '../../codec/cell-format';
 import type {
   ColumnSpec,
@@ -72,6 +74,10 @@ const columns: readonly ColumnSpec[] = [
 const excluded: readonly string[] = [
   'enrollment_id', // exported instead as the `enrollment` ref column
   'milestone_id', // exported instead as the `milestone` ref column
+  // [migration follow-up] `program_id` is derived from `milestone_id`
+  // (the composite FK requires it to match the milestone's own program) —
+  // not a user-facing column, so it's neither exported nor imported here.
+  'program_id',
   // `recorded_by` is not excluded: it's declared directly as a `ref` column
   // above (the entity property and the column key share the same name).
 ];
@@ -233,6 +239,33 @@ export const milestoneAchievementsTab: TabSpec<MilestoneAchievement, MilestoneAc
     achievement.tenant_id = tenantId;
     achievement.enrollment_id = row.enrollment_id;
     achievement.milestone_id = row.milestone_id;
+    // `program_id` isn't a row column (see `excluded` above) — the
+    // composite FK requires it to match the milestone's own program, so
+    // derive it rather than trust anything import-supplied. Also
+    // cross-check it against the enrollment's own program: `fromRow`
+    // resolves `enrollment`/`milestone` independently (each just has to
+    // exist), so a sheet that pairs an enrollment in Program A with a
+    // milestone in Program B would otherwise only surface as an opaque
+    // DB composite-FK violation on save — this turns it into a clear
+    // error naming the actual mismatch.
+    const [enrollment, milestone] = await Promise.all([
+      m.findOne(ProgramEnrollment, { where: { id: row.enrollment_id, tenant_id: tenantId } }),
+      m.findOne(ProgramMilestone, { where: { id: row.milestone_id, tenant_id: tenantId } }),
+    ]);
+    if (!enrollment) {
+      throw new Error(`Enrollment "${row.enrollment_id}" not found for tenant "${tenantId}"`);
+    }
+    if (!milestone) {
+      throw new Error(`Milestone "${row.milestone_id}" not found for tenant "${tenantId}"`);
+    }
+    if (enrollment.program_id !== milestone.program_id) {
+      throw new Error(
+        `Row "${row.enrollment_key}|${row.milestone_key}": enrollment "${row.enrollment_id}" ` +
+          `(program "${enrollment.program_id}") and milestone "${row.milestone_id}" ` +
+          `(program "${milestone.program_id}") belong to different programs.`,
+      );
+    }
+    achievement.program_id = milestone.program_id;
     achievement.achieved_on = row.achieved_on;
     achievement.recorded_by = row.recorded_by;
     achievement.score = row.score;

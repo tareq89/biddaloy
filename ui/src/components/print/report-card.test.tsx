@@ -30,6 +30,10 @@ const LABELS = {
   fourthSubject: '4th',
   absent: 'Absent',
   legendTitle: 'Grade legend',
+  programs: 'Programs',
+  progress: 'Progress',
+  latestMilestone: 'Latest milestone',
+  scoreGrade: 'Score/Grade',
 };
 
 const BASE: ReportCardData = {

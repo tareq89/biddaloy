@@ -43,6 +43,20 @@ export class MilestoneAchievement {
   @Column({ type: 'uuid' })
   tenant_id: string;
 
+  // [34.1.2 migration follow-up] Denormalized onto every achievement so
+  // the DB can enforce — via the composite FKs below — that the
+  // enrollment and milestone this row references actually belong to the
+  // *same* program. Deliberately a plain column, no `@ManyToOne` relation:
+  // the migration's actual FKs on this column are the *composite* ones
+  // against `program_enrollments`/`program_milestones` below, not a
+  // single-column FK straight to `programs`. A `@ManyToOne(() => Program)`
+  // relation here would make TypeORM's schema sync (`synchronize: true`,
+  // used by some spec setups) synthesize that wrong single-column FK,
+  // silently losing the enrollment/milestone-same-program invariant this
+  // column exists to enforce.
+  @Column({ type: 'uuid' })
+  program_id: string;
+
   @ManyToOne(() => ProgramEnrollment, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'enrollment_id' })
   enrollment: ProgramEnrollment;

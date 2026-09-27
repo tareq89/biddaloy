@@ -28,6 +28,14 @@ describe('ProgramsService', () => {
       save: vi.fn(async (v: any) => ({ id: 'program-1', ...v })),
       update: vi.fn(async () => ({ affected: 1 })),
       delete: vi.fn(async () => ({ affected: 1 })),
+      // `addMilestone` locks the parent Program row (`SELECT ... FOR
+      // UPDATE`) before reading the max sequence — the returned row isn't
+      // used for anything, so this just needs to resolve.
+      createQueryBuilder: vi.fn(() => ({
+        setLock: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        getOne: vi.fn(async () => null),
+      })),
     };
     milestoneRepo = {
       find: vi.fn(async () => []),

@@ -90,10 +90,9 @@ function ProgramDetailPage() {
         name={program.name}
         identifiers={
           <>
-            {t('students.progress', {
-              done: program.active_enrollment_count ?? 0,
-              total: milestoneTotal,
-            })}
+            {t('list.columns.activeStudents')}: {program.active_enrollment_count ?? 0}
+            {' · '}
+            {t('list.columns.milestones')}: {milestoneTotal}
             {!program.is_active && (
               <>
                 {' · '}
@@ -118,7 +117,11 @@ function ProgramDetailPage() {
             id: 'milestones',
             label: t('detail.tabs.milestones'),
             content: (
-              <MilestoneEditor programId={program.id} milestones={program.milestones ?? []} />
+              <MilestoneEditor
+                programId={program.id}
+                milestones={program.milestones ?? []}
+                canManage={canManage}
+              />
             ),
           },
           {
@@ -128,6 +131,7 @@ function ProgramDetailPage() {
               <StudentsTab
                 programId={program.id}
                 milestoneTotal={milestoneTotal}
+                canManage={canManage}
                 onOpenEnrol={() => void navigate({ search: { ...search, enrol: '1' } })}
               />
             ),

@@ -206,6 +206,12 @@ export enum Permission {
   PROGRAM_MANAGE = 'PROGRAM_MANAGE',
   // [34.1.1] D4 — record a student's progress against a ProgramMilestone.
   PROGRAM_RECORD = 'PROGRAM_RECORD',
+
+  // Admission (27.x)
+  // [27.1] Review an AdmissionApplicant — shortlist/admit/reject and read
+  // the intake/applicant/evaluation rows. Schema-only ticket; no route
+  // consumes it yet.
+  ADMISSION_REVIEW = 'ADMISSION_REVIEW',
 }
 
 import { UserRole } from './index';
@@ -311,6 +317,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.PROGRAM_READ,
     Permission.PROGRAM_MANAGE,
     Permission.PROGRAM_RECORD,
+    // [27.1] Admission review — ADMIN only for now; no route consumes it yet.
+    Permission.ADMISSION_REVIEW,
   ],
 
   [UserRole.ACCOUNTANT]: [

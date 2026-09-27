@@ -10,11 +10,13 @@ import {
   MinLength,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { ApiProperty } from '@nestjs/swagger';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import { Program } from '../entities/program.entity';
 import { ProgramMilestone } from '../entities/program-milestone.entity';
 
 export class CreateProgramDto {
+  @IsString()
   @SanitizeText()
   @MinLength(1)
   @MaxLength(200)
@@ -33,6 +35,7 @@ export class CreateProgramDto {
 
 export class UpdateProgramDto {
   @IsOptional()
+  @IsString()
   @SanitizeText()
   @MinLength(1)
   @MaxLength(200)
@@ -54,6 +57,7 @@ export class UpdateProgramDto {
 }
 
 export class CreateMilestoneDto {
+  @IsString()
   @SanitizeText()
   @MinLength(1)
   @MaxLength(200)
@@ -68,6 +72,7 @@ export class CreateMilestoneDto {
 
 export class UpdateMilestoneDto {
   @IsOptional()
+  @IsString()
   @SanitizeText()
   @MinLength(1)
   @MaxLength(200)
@@ -123,6 +128,14 @@ export class ProgramDto {
   milestone_count?: number;
   active_enrollment_count?: number;
   milestones?: ProgramMilestoneDto[];
+}
+
+export class ProgramDeletedResultDto {
+  @ApiProperty({ enum: [true] }) deleted: true;
+}
+
+export class RemoveMilestoneResultDto {
+  @ApiProperty() achievements_removed: number;
 }
 
 export function toMilestoneDto(

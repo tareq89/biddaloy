@@ -4,7 +4,7 @@
  * entry for this route yet, so going through the real `routeTree.gen.ts`
  * would hit `_staff.tsx`'s fail-closed `AccessDeniedState` for every role.
  */
-import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
+import { apiErrorBody, cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { createRootRoute } from '@tanstack/react-router';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -226,5 +226,41 @@ describe('/programs/$programId', () => {
     await screen.findByRole('menuitem', {
       name: 'All milestones achieved — mark complete?',
     });
+  });
+
+  it('shows the forbidden message on a 403', async () => {
+    server.use(
+      http.get('/api/v1/programs/:id', () =>
+        HttpResponse.json(apiErrorBody(403, 'Forbidden', '/programs/p-1'), { status: 403 }),
+      ),
+    );
+
+    renderWithRouter(buildRouteTree(), {
+      initialEntries: ['/p-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText("You don't have permission to view this program");
+  });
+
+  it('shows the archived badge and opens the edit dialog', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('/api/v1/programs/:id', () => HttpResponse.json(program({ is_active: false }))),
+      http.get('/api/v1/programs/:id/enrollments', () => HttpResponse.json([])),
+    );
+
+    renderWithRouter(buildRouteTree(), {
+      initialEntries: ['/p-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText('Archived');
+    await user.click(screen.getByRole('button', { name: 'Edit program' }));
+    await screen.findByRole('heading', { name: 'Edit program' });
   });
 });

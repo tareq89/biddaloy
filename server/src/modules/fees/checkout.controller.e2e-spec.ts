@@ -416,6 +416,13 @@ describe('POST /payments/checkout (16.4.2)', () => {
 // call site beyond the first — `OtpService`'s 60s per-identifier resend
 // cooldown means SEED_ADMIN_EMAIL alone can't back more than one call in
 // this file's runtime.
+//
+// This diversifies the approver-keyed rate limit only. StepUpService.verify()
+// also keeps a limiter keyed solely by the acting seeded admin
+// (`step-up-attempts:actor:<userId>`), shared by every e2e file that
+// authenticates as that admin — `test/setup.ts` flushing the worker's Redis
+// db once per spec file is what actually prevents that one from
+// accumulating across files.
 const APPROVER_IDENTITIES: [string, string][] = [
   ['00000000-0000-4000-8000-0000006d0031', 'checkout-reverse-approver-1@e2e.example'],
   ['00000000-0000-4000-8000-0000006d0032', 'checkout-reverse-approver-2@e2e.example'],

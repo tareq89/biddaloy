@@ -86,12 +86,12 @@
     "COMPLETED": "Completed",
     "WITHDRAWN": "Withdrawn"
   },
-  "studentTab": {
-    "empty": "No students enrolled in this program yet"
-  },
   "studentProgramsPanel": {
     "empty": "Not enrolled in any program",
     "loadError": "Couldn't load this student's programs"
+  },
+  "studentTab": {
+    "empty": "No students enrolled in this program yet"
   },
   "portal": {
     "title": "Programs",

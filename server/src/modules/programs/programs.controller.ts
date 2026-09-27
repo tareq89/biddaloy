@@ -9,10 +9,12 @@ import {
   Post,
   Put,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -21,11 +23,14 @@ import { RequirePermissions } from '../auth/decorators/require-permissions.decor
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
+import { requestContext } from '../../common/request-context.util';
 import { ProgramsService } from './programs.service';
 import {
   CreateMilestoneDto,
   CreateProgramDto,
   ListProgramsQuery,
+  ProgramDeletedResultDto,
+  RemoveMilestoneResultDto,
   ReorderMilestonesDto,
   UpdateMilestoneDto,
   UpdateProgramDto,
@@ -68,8 +73,14 @@ export class ProgramsController {
     @Body() dto: CreateProgramDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    const program = await this.programsService.create(tenant.id, user.sub, dto);
+    const program = await this.programsService.create(
+      tenant.id,
+      user.sub,
+      dto,
+      requestContext(request),
+    );
     return toProgramDto(program);
   }
 
@@ -102,8 +113,15 @@ export class ProgramsController {
     @Body() dto: UpdateProgramDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    const program = await this.programsService.update(id, tenant.id, user.sub, dto);
+    const program = await this.programsService.update(
+      id,
+      tenant.id,
+      user.sub,
+      dto,
+      requestContext(request),
+    );
     return toProgramDto(program);
   }
 
@@ -114,12 +132,14 @@ export class ProgramsController {
     summary:
       'Hard-delete a program. Refused with 409 if it has any enrolments — archive it instead (D23).',
   })
+  @ApiOkResponse({ type: ProgramDeletedResultDto })
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ): Promise<{ deleted: true }> {
-    await this.programsService.remove(id, tenant.id, user.sub);
+    await this.programsService.remove(id, tenant.id, user.sub, requestContext(request));
     return { deleted: true };
   }
 
@@ -132,8 +152,15 @@ export class ProgramsController {
     @Body() dto: CreateMilestoneDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    const milestone = await this.programsService.addMilestone(programId, tenant.id, user.sub, dto);
+    const milestone = await this.programsService.addMilestone(
+      programId,
+      tenant.id,
+      user.sub,
+      dto,
+      requestContext(request),
+    );
     return toMilestoneDto(milestone);
   }
 
@@ -147,6 +174,7 @@ export class ProgramsController {
     @Body() dto: UpdateMilestoneDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
     const milestone = await this.programsService.updateMilestone(
       programId,
@@ -154,6 +182,7 @@ export class ProgramsController {
       tenant.id,
       user.sub,
       dto,
+      requestContext(request),
     );
     return toMilestoneDto(milestone);
   }
@@ -167,13 +196,21 @@ export class ProgramsController {
       "removed for audit purposes. Read the count from GET /programs/:id's " +
       'milestones[].achievement_count *before* calling this, to show a confirm step (D23).',
   })
+  @ApiOkResponse({ type: RemoveMilestoneResultDto })
   async removeMilestone(
     @Param('id', ParseUUIDPipe) programId: string,
     @Param('milestoneId', ParseUUIDPipe) milestoneId: string,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ): Promise<{ achievements_removed: number }> {
-    return this.programsService.removeMilestone(programId, milestoneId, tenant.id, user.sub);
+    return this.programsService.removeMilestone(
+      programId,
+      milestoneId,
+      tenant.id,
+      user.sub,
+      requestContext(request),
+    );
   }
 
   @Put(':id/milestones/order')
@@ -185,12 +222,14 @@ export class ProgramsController {
     @Body() dto: ReorderMilestonesDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
     const milestones = await this.programsService.reorder(
       programId,
       tenant.id,
       user.sub,
       dto.milestone_ids,
+      requestContext(request),
     );
     return milestones.map(toMilestoneDto);
   }

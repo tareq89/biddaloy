@@ -1,0 +1,58 @@
+{
+  "form": {
+    "title": "Admission form",
+    "loading": "Loading the form…",
+    "schoolNotFound": "We couldn't find this school. Please check the link and try again.",
+    "loadError": "Something went wrong loading the form. Please try again.",
+    "noOpenIntakes": "This school isn't accepting new applications right now.",
+    "submitError": "We couldn't submit your form. Please check your answers and try again.",
+    "submit": "Submit application",
+    "fields": {
+      "intake": "Which admission are you applying for?",
+      "intakePlaceholder": "Choose one",
+      "applicantName": "Student's full name",
+      "dateOfBirth": "Student's date of birth",
+      "gender": "Student's gender",
+      "genderPlaceholder": "Choose one",
+      "genderOptions": {
+        "MALE": "Boy",
+        "FEMALE": "Girl",
+        "OTHER": "Other"
+      },
+      "guardianName": "Parent/guardian's name",
+      "guardianPhone": "Parent/guardian's phone number",
+      "guardianEmail": "Parent/guardian's email (optional)",
+      "homeAddress": "Home address (optional)",
+      "honeypot": "Middle name"
+    },
+    "documents": {
+      "PHOTO": "Student's photo",
+      "BIRTH_CERTIFICATE": "Birth certificate",
+      "TRANSCRIPT": "Last school's report card"
+    }
+  },
+  "confirmation": {
+    "title": "Your application is submitted",
+    "explanation": "Please save this reference number. To check your status you'll need it and the guardian phone number you gave on the form.",
+    "copy": "Copy number",
+    "copied": "Copied!",
+    "checkStatusLink": "Check application status"
+  },
+  "status": {
+    "title": "Check your application status",
+    "fields": {
+      "referenceNumber": "Your reference number",
+      "guardianPhone": "Parent/guardian's phone number (the one you gave on the form)"
+    },
+    "submit": "Check status",
+    "loading": "Checking…",
+    "notFound": "We couldn't find an application with this reference number and phone number. Please check both and try again.",
+    "error": "Something went wrong. Please try again.",
+    "statuses": {
+      "PENDING": "Your application is being reviewed",
+      "SHORTLISTED": "Your child has been shortlisted",
+      "ADMITTED": "Your child has been admitted",
+      "REJECTED": "Your application was not successful this time"
+    }
+  }
+}

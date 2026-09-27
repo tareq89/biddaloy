@@ -36,6 +36,14 @@ process.env.ACCOUNT_ACCESS_ECHO_SECRETS = 'true';
 // one dedicated, real, seeded-user identifier per issueApprovalToken()
 // call in this file (step-up requires identifier to resolve to a real
 // tenant user, so a bare unseeded string 400s).
+//
+// This only covers StepUpService's approver-keyed limiter
+// (`step-up-attempts:approver:<tenant>:<identifier>`) — it also keeps a
+// separate one keyed only by the acting seeded admin
+// (`step-up-attempts:actor:<userId>`), which no per-file identifier choice
+// can diversify around, since every e2e file authenticates as the same
+// admin. `test/setup.ts` now flushes the worker's Redis db once per spec
+// file, which is what actually closes that second leak.
 const APPROVER_IDENTITIES: [string, string][] = [
   ['00000000-0000-4000-8000-0000006e0031', 'discount-rules-approver-1@e2e.example'],
   ['00000000-0000-4000-8000-0000006e0032', 'discount-rules-approver-2@e2e.example'],

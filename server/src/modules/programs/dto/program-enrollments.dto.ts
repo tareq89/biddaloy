@@ -13,6 +13,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 import { ProgramEnrollmentStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
@@ -80,4 +81,82 @@ export class ListEnrollmentsQuery {
   @IsOptional()
   @IsEnum(ProgramEnrollmentStatus)
   status?: ProgramEnrollmentStatus;
+}
+
+export class EnrollmentStudentSummaryDto {
+  @ApiProperty() id: string;
+  @ApiProperty() full_name: string;
+  @ApiProperty({ nullable: true }) roll_number: string | number | null;
+  @ApiProperty({ nullable: true }) class_name: string | null;
+  @ApiProperty({ nullable: true }) section_name: string | null;
+}
+
+export class EnrollmentListItemDto {
+  @ApiProperty() id: string;
+  @ApiProperty({ enum: ProgramEnrollmentStatus }) status: ProgramEnrollmentStatus;
+  @ApiProperty() started_on: string;
+  @ApiProperty({ nullable: true }) ended_on: string | null;
+  @ApiProperty({ type: EnrollmentStudentSummaryDto }) student: EnrollmentStudentSummaryDto;
+  @ApiProperty() achieved_count: number;
+  @ApiProperty() milestone_total: number;
+}
+
+export class EnrolStudentsResultDto {
+  @ApiProperty() created: number;
+  @ApiProperty() skipped: number;
+}
+
+export class RecordAchievementsResultDto {
+  @ApiProperty() upserted: number;
+}
+
+export class UpdateProgramEnrollmentResultDto {
+  @ApiProperty() id: string;
+  @ApiProperty({ enum: ProgramEnrollmentStatus }) status: ProgramEnrollmentStatus;
+  @ApiProperty() started_on: string;
+  @ApiProperty({ nullable: true }) ended_on: string | null;
+}
+
+export class DeletedResultDto {
+  @ApiProperty({ enum: [true] }) deleted: true;
+}
+
+export class StudentProgramMilestoneAchievementDto {
+  @ApiProperty() id: string;
+  @ApiProperty() achieved_on: string;
+  @ApiProperty({ nullable: true }) score: string | null;
+  @ApiProperty({ nullable: true }) grade: string | null;
+  @ApiProperty({ nullable: true }) remark: string | null;
+}
+
+export class StudentProgramMilestoneDto {
+  @ApiProperty() id: string;
+  @ApiProperty() name: string;
+  @ApiProperty() sequence: number;
+  @ApiProperty({ type: StudentProgramMilestoneAchievementDto, nullable: true })
+  achievement: StudentProgramMilestoneAchievementDto | null;
+}
+
+export class StudentProgramInfoDto {
+  @ApiProperty() id: string;
+  @ApiProperty() name: string;
+  @ApiProperty() is_active: boolean;
+  @ApiProperty() show_on_report_card: boolean;
+}
+
+export class StudentProgramEnrollmentInfoDto {
+  @ApiProperty() id: string;
+  @ApiProperty({ enum: ProgramEnrollmentStatus }) status: ProgramEnrollmentStatus;
+  @ApiProperty() started_on: string;
+  @ApiProperty({ nullable: true }) ended_on: string | null;
+}
+
+export class StudentProgramEntryDto {
+  @ApiProperty({ type: StudentProgramInfoDto }) program: StudentProgramInfoDto;
+  @ApiProperty({ type: StudentProgramEnrollmentInfoDto })
+  enrollment: StudentProgramEnrollmentInfoDto;
+  @ApiProperty({ type: StudentProgramMilestoneDto, isArray: true })
+  milestones: StudentProgramMilestoneDto[];
+  @ApiProperty() achieved_count: number;
+  @ApiProperty() milestone_total: number;
 }

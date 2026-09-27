@@ -12,15 +12,23 @@ import { SEED_CALENDAR_EVENT_NAMES } from '../seed-contract';
  * grid but none of the admin-only controls, and the per-user ICS feed
  * actually serves a `text/calendar` body containing a just-created event.
  *
- * All dates are fixed 2026 values, inside the seeded 2026-01-01..
- * 2026-12-31 academic year (`seed.util.ts`) — see this file's own D-note
- * in the published plan (issue #720) about the "create" leg breaking once
- * the wall clock moves past 2026 and needing a seed refresh, not a patch
- * here.
+ * The past-locked date is a fixed 2026 value, inside the seeded 2026-01-01..
+ * 2026-12-31 academic year (`seed.util.ts`). The create date is derived
+ * ("tomorrow", school-local) rather than hardcoded — the server's past-lock
+ * (`assertNotPast` in `calendar-events.service.ts`) measures "today" in the
+ * tenant's timezone (Asia/Dhaka by default, `tenant-settings-defaults.ts`),
+ * so a fixed create date eventually becomes "yesterday" there and every
+ * create silently 422s. See this file's own D-note in the published plan
+ * (issue #720): this still breaks once "tomorrow" leaves the seeded 2026
+ * academic year (i.e. on 2026-12-31) and needs a seed refresh then, not a
+ * patch here.
  */
 
-const CREATE_MONTH = '2026-09';
-const CREATE_DATE = '2026-09-26';
+const SCHOOL_TIMEZONE = 'Asia/Dhaka';
+const CREATE_DATE = new Intl.DateTimeFormat('en-CA', { timeZone: SCHOOL_TIMEZONE }).format(
+  new Date(Date.now() + 24 * 60 * 60 * 1000),
+);
+const CREATE_MONTH = CREATE_DATE.slice(0, 7);
 const PAST_LOCKED_MONTH = '2026-06';
 const PAST_LOCKED_DATE = '2026-06-15'; // SEED_CALENDAR_EVENT_NAMES.exam start date
 

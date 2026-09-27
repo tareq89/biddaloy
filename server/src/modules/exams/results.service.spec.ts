@@ -233,9 +233,28 @@ function makeRepos(overrides: Record<string, any> = {}) {
   };
   const achievedCounts = overrides.achievedCounts ?? {};
   const latestAchievements = overrides.latestAchievements ?? {};
+  // [34.2.4 yearEnd cutoff] `getReportCardPrograms` now reads these via
+  // `createQueryBuilder` (an `achieved_on <= yearEnd` filter, not
+  // expressible through `repo.count`/`findOne`'s plain `where`) — each
+  // `createQueryBuilder()` call gets its own closure so `getCount()`/
+  // `getOne()` resolve against whichever `enrollment_id` that particular
+  // query was built for.
   const milestoneAchievementRepo: any = {
-    count: vi.fn(async ({ where }: any) => achievedCounts[where.enrollment_id] ?? 0),
-    findOne: vi.fn(async ({ where }: any) => latestAchievements[where.enrollment_id] ?? null),
+    createQueryBuilder: vi.fn(() => {
+      let enrollmentId: string | undefined;
+      const qb: any = {
+        innerJoinAndSelect: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        andWhere: vi.fn((_cond: string, params?: Record<string, unknown>) => {
+          if (params && 'enrollmentId' in params) enrollmentId = params.enrollmentId as string;
+          return qb;
+        }),
+        orderBy: vi.fn().mockReturnThis(),
+        getCount: vi.fn(async () => achievedCounts[enrollmentId ?? ''] ?? 0),
+        getOne: vi.fn(async () => latestAchievements[enrollmentId ?? ''] ?? null),
+      };
+      return qb;
+    }),
   };
 
   const attendanceComponentService = {
