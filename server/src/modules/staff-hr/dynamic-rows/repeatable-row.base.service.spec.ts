@@ -113,4 +113,27 @@ describe('RepeatableRowBaseService.replaceRows', () => {
 
     expect(repo.manager.transaction).toHaveBeenCalledTimes(1);
   });
+
+  it('runs afterWrite inside the transaction, passed the transaction manager', async () => {
+    const { repo } = createFakeRepo([]);
+    const service = new TestRowService(repo);
+    const afterWrite = vi.fn(async () => {});
+
+    await service.replaceRows('staff-1', 'tenant-a', [{ name: 'a' } as any], afterWrite);
+
+    expect(afterWrite).toHaveBeenCalledOnce();
+    expect(afterWrite).toHaveBeenCalledWith(expect.objectContaining({ getRepository: expect.any(Function) }));
+  });
+
+  it('runs afterWrite even when clearing all rows (empty array)', async () => {
+    const { repo } = createFakeRepo([
+      { id: 'r1', staff_user_id: 'staff-1', tenant_id: 'tenant-a', name: 'old-1' },
+    ]);
+    const service = new TestRowService(repo);
+    const afterWrite = vi.fn(async () => {});
+
+    await service.replaceRows('staff-1', 'tenant-a', [], afterWrite);
+
+    expect(afterWrite).toHaveBeenCalledOnce();
+  });
 });

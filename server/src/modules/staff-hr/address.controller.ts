@@ -83,15 +83,19 @@ export class AddressController {
     @CurrentUser() user: { sub: string },
   ) {
     await assertUserInTenant(this.userTenantRepo, userId, tenant.id);
-    const result = await this.rowService.replaceRows(userId, tenant.id, dto.rows);
-    await this.auditService.record({
-      action: AuditAction.UPDATE,
-      entity_type: 'StaffHrRecord',
-      entity_id: userId,
-      tenant_id: tenant.id,
-      performed_by_user_id: user.sub,
-      new_values: { addresses: dto.rows },
-    });
+    const result = await this.rowService.replaceRows(userId, tenant.id, dto.rows, (manager) =>
+      this.auditService.record(
+        {
+          action: AuditAction.UPDATE,
+          entity_type: 'StaffHrRecord',
+          entity_id: userId,
+          tenant_id: tenant.id,
+          performed_by_user_id: user.sub,
+          new_values: { addresses: dto.rows },
+        },
+        manager,
+      ),
+    );
     return result;
   }
 }
