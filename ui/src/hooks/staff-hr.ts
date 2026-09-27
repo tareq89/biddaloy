@@ -259,6 +259,120 @@ export function useUploadStaffDocument(staffUserId: string) {
   });
 }
 
+/**
+ * [23.10] Generic client half of [23.3]'s "GET the list, PUT the full
+ * replacement array" pattern — one `GET`/`PUT /staff/:userId/<resource>`
+ * pair per HR section (family/address/experience/education/training/
+ * achievement/language), all with the identical `{ rows: T[] }` shape.
+ * Row types below are hand-typed from the actual DTOs
+ * (`server/src/modules/staff-hr/dto/repeatable-row.dto.ts`), same
+ * `schema.d.ts`-not-regenerated-yet reasoning as `StaffHrRecord` above.
+ */
+export interface FamilyMemberRow {
+  id?: string;
+  relation: string;
+  name: string;
+  occupation?: string;
+  contact?: string;
+}
+
+export interface AddressRow {
+  id?: string;
+  type: 'PRESENT' | 'PERMANENT';
+  village_street?: string;
+  post_office?: string;
+  upazila?: string;
+  district?: string;
+}
+
+export interface ExperienceRow {
+  id?: string;
+  institution: string;
+  designation: string;
+  from_date: string;
+  to_date?: string;
+  description?: string;
+}
+
+export interface EducationRow {
+  id?: string;
+  degree: string;
+  institution: string;
+  board_university?: string;
+  result?: string;
+  passing_year?: string;
+}
+
+export interface TrainingRow {
+  id?: string;
+  title: string;
+  institution: string;
+  from_date: string;
+  to_date?: string;
+  certificate_no?: string;
+}
+
+export interface AchievementRow {
+  id?: string;
+  title: string;
+  description?: string;
+  date?: string;
+  issued_by?: string;
+}
+
+export interface LanguageRow {
+  id?: string;
+  language_name: string;
+  proficiency?: string;
+}
+
+/** One entry per section's `PUT` path segment — the only thing that
+ * differs between the 7 endpoints. */
+export const STAFF_ROW_RESOURCES = [
+  'family',
+  'address',
+  'experience',
+  'education',
+  'training',
+  'achievement',
+  'language',
+] as const;
+export type StaffRowResource = (typeof STAFF_ROW_RESOURCES)[number];
+
+function staffRowKeys(resource: StaffRowResource) {
+  return createEntityKeys<{ user_id: string }>(`staff-${resource}`);
+}
+
+export function staffRowsQueryOptions<T>(resource: StaffRowResource, userId: string) {
+  return queryOptions({
+    queryKey: staffRowKeys(resource).list({ user_id: userId }),
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<T[]>(`/staff/${userId}/${resource}`, { signal });
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useStaffRows<T>(resource: StaffRowResource, userId: string) {
+  return useQuery(staffRowsQueryOptions<T>(resource, userId));
+}
+
+export function useReplaceStaffRows<T>(resource: StaffRowResource, userId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (rows: T[]) => {
+      const res = await apiClient.put<T[]>(`/staff/${userId}/${resource}`, { rows });
+      return res.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: staffRowKeys(resource).list({ user_id: userId }),
+      });
+    },
+  });
+}
+
 /** Reads the filename `Content-Disposition` carries, same parsing as
  * `backup.ts`'s (module-private there — three lines, not worth an import
  * for). */

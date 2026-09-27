@@ -1,14 +1,54 @@
 /**
- * [23.9] Stub for the addresses section — see `hr-record-family-section.tsx`'s
- * header comment for why this is a placeholder and what fills it in.
+ * [23.10] Addresses section — see `hr-record-family-section.tsx`'s
+ * header comment for why this is a thin `RepeatableRowForm` config
+ * wrapper, this time over `GET`/`PUT /staff/:userId/address` (23.3).
  */
+import {
+  RepeatableRowForm,
+  SkeletonFieldList,
+  type RepeatableRowField,
+} from '@biddaloy/ui/components';
+import { useReplaceStaffRows, useStaffRows, type AddressRow } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 
 export interface HrRecordAddressSectionProps {
   userId: string;
 }
 
-export function HrRecordAddressSection({ userId: _userId }: HrRecordAddressSectionProps) {
+export function HrRecordAddressSection({ userId }: HrRecordAddressSectionProps) {
   const { t } = useTranslation('staff');
-  return <p className="text-sm text-muted-foreground">{t('hrRecord.comingSoon')}</p>;
+  const rowsQuery = useStaffRows<AddressRow>('address', userId);
+  const replaceRows = useReplaceStaffRows<AddressRow>('address', userId);
+
+  const fields: RepeatableRowField[] = [
+    {
+      key: 'type',
+      label: t('hrRecord.address.typeLabel'),
+      type: 'select',
+      required: true,
+      options: [
+        { value: 'PRESENT', label: t('hrRecord.address.typePresent') },
+        { value: 'PERMANENT', label: t('hrRecord.address.typePermanent') },
+      ],
+    },
+    { key: 'village_street', label: t('hrRecord.address.villageStreetLabel'), type: 'text' },
+    { key: 'post_office', label: t('hrRecord.address.postOfficeLabel'), type: 'text' },
+    { key: 'upazila', label: t('hrRecord.address.upazilaLabel'), type: 'text' },
+    { key: 'district', label: t('hrRecord.address.districtLabel'), type: 'text' },
+  ];
+
+  if (rowsQuery.isPending) {
+    return <SkeletonFieldList fields={2} />;
+  }
+
+  return (
+    <RepeatableRowForm
+      fields={fields}
+      rows={rowsQuery.data ?? []}
+      onSave={(rows) => replaceRows.mutate(rows as AddressRow[])}
+      emptyExplanation={t('hrRecord.address.emptyExplanation')}
+      addRowLabel={t('hrRecord.addRowAction')}
+      saveLabel={t('hrRecord.saveAction')}
+    />
+  );
 }

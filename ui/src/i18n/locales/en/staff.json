@@ -234,6 +234,61 @@
       "effectiveSince": "Effective since {{date}}",
       "effectiveRange": "{{from}} – {{to}}"
     },
+    "addRowAction": "Add row",
+    "saveAction": "Save",
+    "family": {
+      "relationLabel": "Relation",
+      "nameLabel": "Name",
+      "occupationLabel": "Occupation",
+      "contactLabel": "Contact",
+      "emptyExplanation": "No family members added yet."
+    },
+    "address": {
+      "typeLabel": "Type",
+      "typePresent": "Present",
+      "typePermanent": "Permanent",
+      "villageStreetLabel": "Village / street",
+      "postOfficeLabel": "Post office",
+      "upazilaLabel": "Upazila",
+      "districtLabel": "District",
+      "emptyExplanation": "No addresses added yet."
+    },
+    "experience": {
+      "institutionLabel": "Institution",
+      "designationLabel": "Designation",
+      "fromDateLabel": "From date",
+      "toDateLabel": "To date",
+      "descriptionLabel": "Description",
+      "emptyExplanation": "No work experience added yet."
+    },
+    "education": {
+      "degreeLabel": "Degree",
+      "institutionLabel": "Institution",
+      "boardUniversityLabel": "Board / university",
+      "resultLabel": "Result",
+      "passingYearLabel": "Passing year",
+      "emptyExplanation": "No education added yet."
+    },
+    "training": {
+      "titleLabel": "Title",
+      "institutionLabel": "Institution",
+      "fromDateLabel": "From date",
+      "toDateLabel": "To date",
+      "certificateNoLabel": "Certificate no.",
+      "emptyExplanation": "No training added yet."
+    },
+    "achievement": {
+      "titleLabel": "Title",
+      "descriptionLabel": "Description",
+      "dateLabel": "Date",
+      "issuedByLabel": "Issued by",
+      "emptyExplanation": "No achievements added yet."
+    },
+    "language": {
+      "languageNameLabel": "Language",
+      "proficiencyLabel": "Proficiency",
+      "emptyExplanation": "No languages added yet."
+    },
     "documents": {
       "notUploaded": "Not uploaded yet",
       "uploadAction": "Upload",

@@ -50,6 +50,13 @@ describe('HrRecordTab', () => {
         ]),
       ),
       http.get('/api/v1/staff-documents/user-1', () => HttpResponse.json([])),
+      http.get('/api/v1/staff/user-1/family', () => HttpResponse.json([])),
+      http.get('/api/v1/staff/user-1/address', () => HttpResponse.json([])),
+      http.get('/api/v1/staff/user-1/experience', () => HttpResponse.json([])),
+      http.get('/api/v1/staff/user-1/education', () => HttpResponse.json([])),
+      http.get('/api/v1/staff/user-1/training', () => HttpResponse.json([])),
+      http.get('/api/v1/staff/user-1/achievement', () => HttpResponse.json([])),
+      http.get('/api/v1/staff/user-1/language', () => HttpResponse.json([])),
     );
 
     renderWithProviders(<HrRecordTab userId="user-1" />, {
@@ -62,10 +69,10 @@ describe('HrRecordTab', () => {
     expect(await screen.findByText('Assistant Teacher')).toBeTruthy();
     expect(await screen.findByText('Current')).toBeTruthy();
 
-    // Every other section is stubbed with the same placeholder — 7 of them
-    // (family, address, experience, education, training, achievement,
-    // language). [23.11] gave documents its real implementation.
-    expect((await screen.findAllByText('Coming soon')).length).toBe(7);
+    // [23.10]/[23.11] gave every remaining stub a real implementation —
+    // no "Coming soon" placeholder left anywhere in the tab.
+    expect(screen.queryAllByText('Coming soon').length).toBe(0);
+    expect((await screen.findAllByText('No rows yet')).length).toBe(7);
   });
 
   it('shows the job section empty state when the user has no HR record yet', async () => {
@@ -74,6 +81,13 @@ describe('HrRecordTab', () => {
       http.get('/api/v1/staff-hr-records/user-2/designation-history', () => HttpResponse.json([])),
       http.get('/api/v1/designations', () => HttpResponse.json([])),
       http.get('/api/v1/staff-documents/user-2', () => HttpResponse.json([])),
+      http.get('/api/v1/staff/user-2/family', () => HttpResponse.json([])),
+      http.get('/api/v1/staff/user-2/address', () => HttpResponse.json([])),
+      http.get('/api/v1/staff/user-2/experience', () => HttpResponse.json([])),
+      http.get('/api/v1/staff/user-2/education', () => HttpResponse.json([])),
+      http.get('/api/v1/staff/user-2/training', () => HttpResponse.json([])),
+      http.get('/api/v1/staff/user-2/achievement', () => HttpResponse.json([])),
+      http.get('/api/v1/staff/user-2/language', () => HttpResponse.json([])),
     );
 
     renderWithProviders(<HrRecordTab userId="user-2" />, {

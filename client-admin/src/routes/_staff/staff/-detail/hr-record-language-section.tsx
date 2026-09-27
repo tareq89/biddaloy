@@ -1,15 +1,46 @@
 /**
- * [23.9] Stub for the languages section — see
- * `hr-record-family-section.tsx`'s header comment for why this is a
- * placeholder and what fills it in.
+ * [23.10] Languages section — see `hr-record-family-section.tsx`'s
+ * header comment; over `GET`/`PUT /staff/:userId/language` (23.3).
  */
+import {
+  RepeatableRowForm,
+  SkeletonFieldList,
+  type RepeatableRowField,
+} from '@biddaloy/ui/components';
+import { useReplaceStaffRows, useStaffRows, type LanguageRow } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 
 export interface HrRecordLanguageSectionProps {
   userId: string;
 }
 
-export function HrRecordLanguageSection({ userId: _userId }: HrRecordLanguageSectionProps) {
+export function HrRecordLanguageSection({ userId }: HrRecordLanguageSectionProps) {
   const { t } = useTranslation('staff');
-  return <p className="text-sm text-muted-foreground">{t('hrRecord.comingSoon')}</p>;
+  const rowsQuery = useStaffRows<LanguageRow>('language', userId);
+  const replaceRows = useReplaceStaffRows<LanguageRow>('language', userId);
+
+  const fields: RepeatableRowField[] = [
+    {
+      key: 'language_name',
+      label: t('hrRecord.language.languageNameLabel'),
+      type: 'text',
+      required: true,
+    },
+    { key: 'proficiency', label: t('hrRecord.language.proficiencyLabel'), type: 'text' },
+  ];
+
+  if (rowsQuery.isPending) {
+    return <SkeletonFieldList fields={2} />;
+  }
+
+  return (
+    <RepeatableRowForm
+      fields={fields}
+      rows={rowsQuery.data ?? []}
+      onSave={(rows) => replaceRows.mutate(rows as LanguageRow[])}
+      emptyExplanation={t('hrRecord.language.emptyExplanation')}
+      addRowLabel={t('hrRecord.addRowAction')}
+      saveLabel={t('hrRecord.saveAction')}
+    />
+  );
 }

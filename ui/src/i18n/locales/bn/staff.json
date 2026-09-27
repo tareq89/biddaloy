@@ -234,6 +234,61 @@
       "effectiveSince": "{{date}} থেকে কার্যকর",
       "effectiveRange": "{{from}} – {{to}}"
     },
+    "addRowAction": "সারি যুক্ত করুন",
+    "saveAction": "সংরক্ষণ করুন",
+    "family": {
+      "relationLabel": "সম্পর্ক",
+      "nameLabel": "নাম",
+      "occupationLabel": "পেশা",
+      "contactLabel": "যোগাযোগ",
+      "emptyExplanation": "এখনো কোনো পরিবারের সদস্য যুক্ত করা হয়নি।"
+    },
+    "address": {
+      "typeLabel": "ধরন",
+      "typePresent": "বর্তমান",
+      "typePermanent": "স্থায়ী",
+      "villageStreetLabel": "গ্রাম / সড়ক",
+      "postOfficeLabel": "ডাকঘর",
+      "upazilaLabel": "উপজেলা",
+      "districtLabel": "জেলা",
+      "emptyExplanation": "এখনো কোনো ঠিকানা যুক্ত করা হয়নি।"
+    },
+    "experience": {
+      "institutionLabel": "প্রতিষ্ঠান",
+      "designationLabel": "পদবি",
+      "fromDateLabel": "শুরুর তারিখ",
+      "toDateLabel": "শেষের তারিখ",
+      "descriptionLabel": "বর্ণনা",
+      "emptyExplanation": "এখনো কোনো কর্ম অভিজ্ঞতা যুক্ত করা হয়নি।"
+    },
+    "education": {
+      "degreeLabel": "ডিগ্রি",
+      "institutionLabel": "প্রতিষ্ঠান",
+      "boardUniversityLabel": "বোর্ড / বিশ্ববিদ্যালয়",
+      "resultLabel": "ফলাফল",
+      "passingYearLabel": "পাসের সাল",
+      "emptyExplanation": "এখনো কোনো শিক্ষাগত তথ্য যুক্ত করা হয়নি।"
+    },
+    "training": {
+      "titleLabel": "শিরোনাম",
+      "institutionLabel": "প্রতিষ্ঠান",
+      "fromDateLabel": "শুরুর তারিখ",
+      "toDateLabel": "শেষের তারিখ",
+      "certificateNoLabel": "সনদ নম্বর",
+      "emptyExplanation": "এখনো কোনো প্রশিক্ষণ যুক্ত করা হয়নি।"
+    },
+    "achievement": {
+      "titleLabel": "শিরোনাম",
+      "descriptionLabel": "বর্ণনা",
+      "dateLabel": "তারিখ",
+      "issuedByLabel": "প্রদানকারী",
+      "emptyExplanation": "এখনো কোনো অর্জন যুক্ত করা হয়নি।"
+    },
+    "language": {
+      "languageNameLabel": "ভাষা",
+      "proficiencyLabel": "দক্ষতা",
+      "emptyExplanation": "এখনো কোনো ভাষা যুক্ত করা হয়নি।"
+    },
     "documents": {
       "notUploaded": "এখনো আপলোড করা হয়নি",
       "uploadAction": "আপলোড করুন",
