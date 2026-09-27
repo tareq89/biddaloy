@@ -1,6 +1,6 @@
 import { Injectable, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, EntityManager } from 'typeorm';
+import { Repository, EntityManager, In } from 'typeorm';
 import { StaffProfile } from './entities/staff-profile.entity';
 
 export interface CreateStaffProfileOptions {
@@ -63,5 +63,18 @@ export class StaffProfilesService {
       joining_date: opts?.joiningDate ?? null,
     });
     return repo.save(profile);
+  }
+
+  /** Single-user lookup for `staff_profile_id` — used to expose it on `UserResponseDto`. */
+  async findIdByUserId(userId: string): Promise<string | null> {
+    const profile = await this.staffProfileRepo.findOne({ where: { user_id: userId } });
+    return profile?.id ?? null;
+  }
+
+  /** Bulk version for list responses — one query instead of N. */
+  async findIdsByUserIds(userIds: string[]): Promise<Map<string, string>> {
+    if (userIds.length === 0) return new Map();
+    const profiles = await this.staffProfileRepo.find({ where: { user_id: In(userIds) } });
+    return new Map(profiles.map((p) => [p.user_id, p.id]));
   }
 }
