@@ -45,6 +45,7 @@ import { ProgramMilestone } from '../modules/programs/entities/program-milestone
 import { ProgramEnrollment } from '../modules/programs/entities/program-enrollment.entity';
 import { MilestoneAchievement } from '../modules/programs/entities/milestone-achievement.entity';
 import { FeeStructure } from '../modules/fees/entities/fee-structure.entity';
+import { FineRule } from '../modules/fees/entities/fine-rule.entity';
 import { RecurringSchedule } from '../modules/fees/entities/recurring-schedule.entity';
 import { RecurringScheduleStructure } from '../modules/fees/entities/recurring-schedule-structure.entity';
 import { StaffProfile } from '../modules/staff-profiles/entities/staff-profile.entity';
@@ -62,6 +63,7 @@ import {
   ensureHomeworkDemoSeed,
   ensureProgramsDemoSeed,
   ensureProgramParticipationDemoSeed,
+  ensureFineSeedData,
   ensurePromotionDemoSeed,
   ensurePublicHolidaySet,
   ensureRoleTestUsers,
@@ -152,6 +154,7 @@ export interface SeedAccountRepositories {
   programEnrollmentRepository: Repository<ProgramEnrollment>;
   milestoneAchievementRepository: Repository<MilestoneAchievement>;
   feeStructureRepository: Repository<FeeStructure>;
+  fineRuleRepository: Repository<FineRule>;
   recurringScheduleRepository: Repository<RecurringSchedule>;
   recurringScheduleStructureRepository: Repository<RecurringScheduleStructure>;
   staffProfileRepository: Repository<StaffProfile>;
@@ -607,6 +610,20 @@ export async function seedAccounts(
           },
         );
       }
+
+      // [38.1.4] Fine structures + rules — a school-default ATTENDANCE_ABSENT
+      // rule and a class-specific ATTENDANCE_LATE rule for Class 6.
+      await ensureFineSeedData(
+        {
+          feeStructureRepository: repos.feeStructureRepository,
+          fineRuleRepository: repos.fineRuleRepository,
+        },
+        {
+          schoolId: school.id,
+          academicYearId: calendarYear.id,
+          classId: examClass6.id,
+        },
+      );
 
       // [788] One COMMITTED promotion run for "Class 6", with one override
       // — deliberately after `ensureExamsDemoSeed` (whose exam this run's

@@ -46,6 +46,7 @@ import { ProgramMilestone } from '../modules/programs/entities/program-milestone
 import { ProgramEnrollment } from '../modules/programs/entities/program-enrollment.entity';
 import { MilestoneAchievement } from '../modules/programs/entities/milestone-achievement.entity';
 import { FeeStructure } from '../modules/fees/entities/fee-structure.entity';
+import { FineRule } from '../modules/fees/entities/fine-rule.entity';
 import { RecurringSchedule } from '../modules/fees/entities/recurring-schedule.entity';
 import { RecurringScheduleStructure } from '../modules/fees/entities/recurring-schedule-structure.entity';
 import { StaffProfile } from '../modules/staff-profiles/entities/staff-profile.entity';
@@ -202,6 +203,7 @@ export async function seed() {
       programEnrollmentRepository: dataSource.getRepository(ProgramEnrollment),
       milestoneAchievementRepository: dataSource.getRepository(MilestoneAchievement),
       feeStructureRepository: dataSource.getRepository(FeeStructure),
+      fineRuleRepository: dataSource.getRepository(FineRule),
       recurringScheduleRepository: dataSource.getRepository(RecurringSchedule),
       recurringScheduleStructureRepository: dataSource.getRepository(RecurringScheduleStructure),
       staffProfileRepository: dataSource.getRepository(StaffProfile),

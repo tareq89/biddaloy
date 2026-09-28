@@ -444,6 +444,27 @@ export async function createStudentWithDues(
   return { studentId: student.id, chain };
 }
 
+/**
+ * [38.1.4] A school-wide FINE fee structure — the rule/fine-specific
+ * helpers (create a `FineRule`, log a manual fine) land in 38.2.5 once
+ * those endpoints exist; this is only the fee-structure half, cloned from
+ * `createStudentWithDues`'s own `/fee-structures` POST.
+ */
+export async function createFineStructure(
+  request: APIRequestContext,
+  session: ApiSession,
+  chain: ClassSectionChain,
+  name: string,
+  amount: number,
+): Promise<{ id: string }> {
+  return post<{ id: string }>(request, session, '/fee-structures', {
+    fee_type: 'FINE',
+    name,
+    amount,
+    academic_year_id: chain.academicYearId,
+  });
+}
+
 export async function createStudent(
   request: APIRequestContext,
   session: ApiSession,

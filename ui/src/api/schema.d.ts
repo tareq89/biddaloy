@@ -5739,7 +5739,7 @@ export interface components {
             student_fee_id: string;
             fee_name: string;
             /** @enum {string} */
-            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
+            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER";
             /** Format: date-time */
             period_start: string;
             /** @enum {string} */
@@ -5885,7 +5885,7 @@ export interface components {
         FeeStructure: {
             id: string;
             /** @enum {string} */
-            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
+            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER";
             name: string;
             amount: number;
             class: components["schemas"]["Class"] | null;
@@ -5896,6 +5896,32 @@ export interface components {
             academic_year_id: string;
             tenant: components["schemas"]["School"];
             tenant_id: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
+        };
+        FineRule: {
+            id: string;
+            tenant_id: string;
+            tenant: components["schemas"]["School"];
+            academic_year_id: string;
+            academic_year: components["schemas"]["AcademicYear"];
+            /** @enum {string} */
+            trigger: "ATTENDANCE_ABSENT" | "ATTENDANCE_LATE";
+            fee_structure_id: string;
+            fee_structure: components["schemas"]["FeeStructure"];
+            class_id: string | null;
+            class: components["schemas"]["Class"] | null;
+            free_per_period: number;
+            cap_per_period: number | null;
+            conditions: {
+                [key: string]: unknown;
+            };
+            is_active: boolean;
+            created_by_user_id: string | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -5933,6 +5959,11 @@ export interface components {
             approved_by_user_id: string | null;
             late_fee_for_student_fee_id: string | null;
             late_fee_for_student_fee: components["schemas"]["StudentFee"] | null;
+            note: string | null;
+            /** Format: date-time */
+            incident_date: string | null;
+            fine_rule_id: string | null;
+            fine_rule: components["schemas"]["FineRule"] | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -6007,7 +6038,7 @@ export interface components {
         FamilyFeeStructureDto: {
             id: string;
             /** @enum {string} */
-            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
+            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER";
             name: string;
             amount: number;
             class_id: string | null;
@@ -6048,7 +6079,7 @@ export interface components {
             fee_structure_id: string;
             fee_name: string;
             /** @enum {string} */
-            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
+            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER";
             month: number;
             year: number;
             /** Format: date-time */
@@ -6085,7 +6116,7 @@ export interface components {
             student_fee_id: string;
             fee_name: string;
             /** @enum {string} */
-            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
+            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER";
             month: number;
             year: number;
             /** Format: date-time */
@@ -6174,7 +6205,7 @@ export interface components {
         };
         CreateFeeStructureDto: {
             /** @enum {string} */
-            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
+            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER";
             name: string;
             amount: number;
             /** Format: uuid */
@@ -6186,7 +6217,7 @@ export interface components {
         };
         UpdateFeeStructureDto: {
             /** @enum {string} */
-            fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
+            fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER";
             name?: string;
             amount?: number;
             /** Format: uuid */
@@ -6259,7 +6290,7 @@ export interface components {
             /** Format: date-time */
             due_date: string;
             /** @enum {string} */
-            source: "MANUAL" | "SCHEDULE";
+            source: "MANUAL" | "SCHEDULE" | "FINE_RULE";
             recurring_schedule_id: string | null;
             generated_by: components["schemas"]["User"] | null;
             generated_by_user_id: string | null;
@@ -6448,7 +6479,7 @@ export interface components {
             /** @enum {string} */
             kind: "FLAT" | "PERCENT";
             value: number;
-            fee_types: ("MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER")[] | null;
+            fee_types: ("MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER")[] | null;
             starts_on: string | null;
             ends_on: string | null;
             is_active: boolean;
@@ -6459,7 +6490,7 @@ export interface components {
             /** @enum {string} */
             kind: "FLAT" | "PERCENT";
             value: number;
-            fee_types?: ("MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER")[] | null;
+            fee_types?: ("MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER")[] | null;
             starts_on?: string | null;
             ends_on?: string | null;
             reason: string;
@@ -6470,7 +6501,7 @@ export interface components {
             /** @enum {string} */
             kind: "FLAT" | "PERCENT";
             value: number;
-            fee_types: ("MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER")[] | null;
+            fee_types: ("MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER")[] | null;
             starts_on: string | null;
             ends_on: string | null;
             reason: string;
@@ -6486,7 +6517,7 @@ export interface components {
             /** @enum {string} */
             kind?: "FLAT" | "PERCENT";
             value?: number;
-            fee_types?: ("MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER")[] | null;
+            fee_types?: ("MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER")[] | null;
             starts_on?: string | null;
             ends_on?: string | null;
             is_active?: boolean;
@@ -6851,6 +6882,7 @@ export interface components {
             lateFees?: {
                 [key: string]: components["schemas"]["LateFeeRuleDto"];
             };
+            fineDueDays?: number;
         };
         TenantSettingsDto: {
             organisationRenames?: components["schemas"]["OrganisationRenameDto"][];
@@ -10614,7 +10646,7 @@ export interface operations {
                 month?: number;
                 year?: number;
                 status?: components["schemas"]["Object"];
-                fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
+                fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER";
                 search?: string;
                 sort_by?: "due_amount" | "name" | "class";
                 sort_order?: "ASC" | "DESC";
@@ -10799,7 +10831,7 @@ export interface operations {
                 academic_year_id?: string;
                 class_id?: string;
                 search?: string;
-                fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
+                fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER";
                 section_id?: string;
                 include_deleted?: boolean;
                 sort?: "name" | "created_at" | "amount";
@@ -11164,8 +11196,8 @@ export interface operations {
             query?: {
                 period_from?: string;
                 period_to?: string;
-                fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
-                source?: "MANUAL" | "SCHEDULE";
+                fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER";
+                source?: "MANUAL" | "SCHEDULE" | "FINE_RULE";
                 generated_by_user_id?: string;
                 recurring_schedule_id?: string;
                 collection_status?: "NONE" | "PARTIAL" | "FULL";

@@ -11,6 +11,7 @@ import {
   ExamKind,
   ExamStatus,
   FeeType,
+  FineTrigger,
   MarkGridState,
   MarkStatus,
   PeriodType,
@@ -94,6 +95,7 @@ import { ProgramMilestone } from '../modules/programs/entities/program-milestone
 import { ProgramEnrollment } from '../modules/programs/entities/program-enrollment.entity';
 import { MilestoneAchievement } from '../modules/programs/entities/milestone-achievement.entity';
 import { FeeStructure } from '../modules/fees/entities/fee-structure.entity';
+import { FineRule } from '../modules/fees/entities/fine-rule.entity';
 import { RecurringSchedule } from '../modules/fees/entities/recurring-schedule.entity';
 import { RecurringScheduleStructure } from '../modules/fees/entities/recurring-schedule-structure.entity';
 import { StaffProfile } from '../modules/staff-profiles/entities/staff-profile.entity';
@@ -3031,6 +3033,124 @@ export async function ensureProgramParticipationDemoSeed(
         `+${result.achievements} achievements, +${result.feeStructures} fee structures, ` +
         `+${result.schedules} schedules, +${result.scheduleStructures} schedule structures`,
     );
+  }
+  return result;
+}
+
+// ===========================================================================
+// [38.1.4] Fines demo data
+// ===========================================================================
+
+export interface FineSeedRepositories {
+  feeStructureRepository: Repository<FeeStructure>;
+  fineRuleRepository: Repository<FineRule>;
+}
+
+export interface FineSeedParams {
+  schoolId: string;
+  academicYearId: string;
+  /** First seeded class — the class-specific ATTENDANCE_LATE rule targets it. */
+  classId: string;
+}
+
+/**
+ * [38.1.4] Five FINE fee structures (Absent, Late, Property damage, ID
+ * card replacement, Uniform) plus one school-default `ATTENDANCE_ABSENT`
+ * rule and one class-specific `ATTENDANCE_LATE` rule, so the Fee
+ * structures page and (once 38.2.x lands) the fine rules page have real
+ * data on a fresh seed. Idempotent — looked up by name/trigger+class
+ * before insert, same convention as every other `ensure*DemoSeed` here.
+ */
+export async function ensureFineSeedData(
+  repos: FineSeedRepositories,
+  params: FineSeedParams,
+): Promise<{ structures: number; rules: number }> {
+  const { schoolId, academicYearId, classId } = params;
+  const result = { structures: 0, rules: 0 };
+
+  const structureSpecs: { name: string; amount: number }[] = [
+    { name: 'Absent fine', amount: 20 },
+    { name: 'Late fine', amount: 10 },
+    { name: 'Property damage', amount: 500 },
+    { name: 'ID card replacement', amount: 100 },
+    { name: 'Uniform', amount: 50 },
+  ];
+
+  const structuresByName = new Map<string, FeeStructure>();
+  for (const spec of structureSpecs) {
+    let structure = await repos.feeStructureRepository.findOne({
+      where: { tenant_id: schoolId, academic_year_id: academicYearId, name: spec.name },
+    });
+    if (!structure) {
+      structure = await repos.feeStructureRepository.save(
+        repos.feeStructureRepository.create({
+          tenant_id: schoolId,
+          academic_year_id: academicYearId,
+          name: spec.name,
+          fee_type: FeeType.FINE,
+          amount: spec.amount,
+          class_id: null,
+          section_id: null,
+        }),
+      );
+      result.structures += 1;
+    }
+    structuresByName.set(spec.name, structure);
+  }
+
+  const absentFine = structuresByName.get('Absent fine')!;
+  const existingAbsentRule = await repos.fineRuleRepository.findOne({
+    where: {
+      tenant_id: schoolId,
+      academic_year_id: academicYearId,
+      trigger: FineTrigger.ATTENDANCE_ABSENT,
+      class_id: IsNull(),
+    },
+  });
+  if (!existingAbsentRule) {
+    await repos.fineRuleRepository.save(
+      repos.fineRuleRepository.create({
+        tenant_id: schoolId,
+        academic_year_id: academicYearId,
+        trigger: FineTrigger.ATTENDANCE_ABSENT,
+        fee_structure_id: absentFine.id,
+        class_id: null,
+        free_per_period: 1,
+        cap_per_period: 200,
+        conditions: {},
+        is_active: true,
+      }),
+    );
+    result.rules += 1;
+  }
+
+  const lateFine = structuresByName.get('Late fine')!;
+  const existingLateRule = await repos.fineRuleRepository.findOne({
+    where: {
+      tenant_id: schoolId,
+      academic_year_id: academicYearId,
+      trigger: FineTrigger.ATTENDANCE_LATE,
+      class_id: classId,
+    },
+  });
+  if (!existingLateRule) {
+    await repos.fineRuleRepository.save(
+      repos.fineRuleRepository.create({
+        tenant_id: schoolId,
+        academic_year_id: academicYearId,
+        trigger: FineTrigger.ATTENDANCE_LATE,
+        fee_structure_id: lateFine.id,
+        class_id: classId,
+        free_per_period: 0,
+        conditions: { min_minutes_late: 10 },
+        is_active: true,
+      }),
+    );
+    result.rules += 1;
+  }
+
+  if (result.structures > 0 || result.rules > 0) {
+    console.log(`  Fine seed: +${result.structures} fine structures, +${result.rules} fine rules`);
   }
   return result;
 }
