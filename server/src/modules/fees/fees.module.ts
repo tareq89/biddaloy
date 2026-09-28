@@ -46,6 +46,14 @@ import { FineRule } from './entities/fine-rule.entity';
 import { DiscountRulesService } from './discount-rules.service';
 import { DiscountRulesController } from './discount-rules.controller';
 import { LateFeeService } from './late-fee.service';
+import { SchoolCalendarService } from '../calendar/school-calendar.service';
+import { CalendarEvent } from '../calendar/entities/calendar-event.entity';
+import { FineRulesService } from './fines/fine-rules.service';
+import { FineRulesController } from './fines/fine-rules.controller';
+import { FineSweepService } from './fines/fine-sweep.service';
+import { FineSweepController } from './fines/fine-sweep.controller';
+import { FinesService } from './fines/fines.service';
+import { FinesController } from './fines/fines.controller';
 
 @Module({
   imports: [
@@ -69,6 +77,7 @@ import { LateFeeService } from './late-fee.service';
       DiscountRule,
       FineRule,
       Program,
+      CalendarEvent,
     ]),
     BullModule.registerQueue({ name: FEES_DAILY_QUEUE }),
     AuditModule,
@@ -109,6 +118,25 @@ import { LateFeeService } from './late-fee.service';
     // for this ticket — Nest resolves it into that constructor parameter
     // automatically once it's a real provider in this module.
     LateFeeService,
+    // [38.2.5] Fills the `@Optional() fineSweepService?` seam
+    // `fees-daily.scheduler.ts` ([38.1]/#1112) left for this ticket, same
+    // pattern as `LateFeeService` above. `FineSweepService` needs
+    // `SchoolCalendarService` — provided directly here (with its own
+    // `CalendarEvent` repository above) rather than importing the whole
+    // `CalendarModule`: `CalendarModule` itself imports `SchoolsModule`,
+    // and `FeeModule` is already reachable from `SchoolsModule` via
+    // `SchoolsModule -> AccountAccessModule -> CommunicationsModule ->
+    // FeeModule` (see the `forwardRef(() => SchoolsModule)` comment
+    // above) — importing `CalendarModule` here closed that into a second
+    // cycle through `CalendarModule`'s own (non-forwardRef'd) `SchoolsModule`
+    // edge, breaking every other module that reaches `CalendarModule`
+    // through `SchoolsModule` (e.g. `AttendanceModule`).
+    // `SchoolCalendarService`'s other two dependencies (`SchoolsService`,
+    // `AuditService`) are already available here.
+    SchoolCalendarService,
+    FineRulesService,
+    FineSweepService,
+    FinesService,
     FeesDailyScheduler,
   ],
   // CheckoutController is registered before FeeController: both declare
@@ -125,6 +153,9 @@ import { LateFeeService } from './late-fee.service';
     RecurringSchedulesController,
     WalletController,
     DiscountRulesController,
+    FineRulesController,
+    FineSweepController,
+    FinesController,
   ],
   exports: [
     FeeStructureService,

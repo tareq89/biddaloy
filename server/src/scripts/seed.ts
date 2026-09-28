@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
-import { DataSource } from 'typeorm';
+import { INestApplicationContext } from '@nestjs/common';
+import { Between, DataSource, In } from 'typeorm';
 import { AppModule } from '../app.module';
 import * as bcrypt from 'bcrypt';
 import { User } from '../modules/users/entities/user.entity';
@@ -68,6 +69,18 @@ import { ensureDemoOrganisation } from './seed.util';
 import { SeatPlan } from '../modules/seat-plans/entities/seat-plan.entity';
 import { SeatPlanSchedule } from '../modules/seat-plans/entities/seat-plan-schedule.entity';
 import { SeatAllocation } from '../modules/seat-plans/entities/seat-allocation.entity';
+import { StudentFee } from '../modules/fees/entities/student-fee.entity';
+import { FinesService } from '../modules/fees/fines/fines.service';
+import { FineSweepService } from '../modules/fees/fines/fine-sweep.service';
+import { PaymentAllocationService } from '../modules/fees/payment-allocation.service';
+import {
+  AttendanceSessionState,
+  AttendanceStatus,
+  DuplicateStrategy,
+  FeeStatus,
+  PaymentAllocationType,
+  PaymentMethod,
+} from '@biddaloy/shared';
 
 export { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
 
@@ -223,6 +236,10 @@ export async function seed() {
   // `title`, same "find-or-create" shape as the school block above.
   await ensureAdmissionSeed(dataSource, school);
 
+  // [38.2.5] Fine activity: 3 manual fines, one month's attendance-fine
+  // sweep, a waive and a partial payment — so every FeeStatus shows up.
+  await ensureFineActivitySeed(app, dataSource, school);
+
   await app.close();
 }
 
@@ -311,6 +328,296 @@ async function ensureAdmissionSeed(dataSource: DataSource, school: School) {
     );
     console.log(`Created admission applicant "${a.name}" (${a.status}).`);
   }
+}
+
+/**
+ * [38.2.5] Fine activity for the demo tenant: 3 manual fines (damage,
+ * ID card, uniform) logged through the real `FinesService`, one
+ * attendance-fine sweep for last month through the real `FineSweepService`
+ * (seeding a handful of ABSENT marks first if none exist), then a waive on
+ * one bill and a partial payment on another through the real
+ * `PaymentAllocationService` — so `PENDING`/`PARTIALLY_PAID`/`PAID`/
+ * `WAIVED` all show up on the fines list. Reuses the real services rather
+ * than hand-rolling bill math, same as every other `ensure*` helper reuses
+ * whatever service already owns that logic. Idempotent — everything here
+ * is looked up by a distinguishing field before it writes anything.
+ *
+ * Depends on `ensureFineSeedData` (`seed.accounts.ts`) having already run
+ * for this school — skips with a warning if the fine fee structures it
+ * creates aren't there yet.
+ */
+async function ensureFineActivitySeed(
+  app: INestApplicationContext,
+  dataSource: DataSource,
+  school: School,
+): Promise<void> {
+  const feeStructureRepo = dataSource.getRepository(FeeStructure);
+  const studentFeeRepo = dataSource.getRepository(StudentFee);
+  const studentRepo = dataSource.getRepository(Student);
+  const attendanceSessionRepo = dataSource.getRepository(AttendanceSession);
+  const attendanceRecordRepo = dataSource.getRepository(AttendanceRecord);
+  const userRepo = dataSource.getRepository(User);
+
+  const [damageStructure, idCardStructure, uniformStructure, absentStructure] = await Promise.all([
+    feeStructureRepo.findOne({ where: { tenant_id: school.id, name: 'Property damage' } }),
+    feeStructureRepo.findOne({ where: { tenant_id: school.id, name: 'ID card replacement' } }),
+    feeStructureRepo.findOne({ where: { tenant_id: school.id, name: 'Uniform' } }),
+    feeStructureRepo.findOne({ where: { tenant_id: school.id, name: 'Absent fine' } }),
+  ]);
+  if (!damageStructure || !idCardStructure || !uniformStructure || !absentStructure) {
+    console.warn('Fine structures not found — skipping fine activity seed.');
+    return;
+  }
+
+  const students = await studentRepo.find({
+    where: { tenant_id: school.id },
+    // `id` breaks ties between same-roll-number students in different
+    // sections so a rerun always picks the same two students.
+    order: { roll_number: 'ASC', id: 'ASC' },
+    take: 2,
+  });
+  if (students.length < 2) {
+    console.warn('Fewer than 2 students — skipping fine activity seed.');
+    return;
+  }
+  const [studentOne, studentTwo] = students;
+
+  const adminUser = await userRepo.findOne({ where: { email: 'admin@school.com' } });
+  if (!adminUser) {
+    console.warn('Default admin user not found — skipping fine activity seed.');
+    return;
+  }
+
+  const finesService = app.get(FinesService);
+  const fineSweepService = app.get(FineSweepService);
+  const paymentAllocationService = app.get(PaymentAllocationService);
+  // A fixed anchor inside `DEMO_ACADEMIC_YEAR` (2026-01-01..2026-12-31),
+  // not the real "today" — `FinesService.logFine`/`FineSweepService.generate`
+  // both reject an incident/target month outside the academic year, so
+  // deriving these dates from the wall clock would make `yarn seed` start
+  // throwing every January once "3 months ago" or "today" drifts past
+  // 2026-12-31. Same fixed-anchor pattern as `ATTENDANCE_SEED_MONTH`.
+  // Early enough in the year that `monthsAgo(3)` (see below) still lands
+  // inside the academic year, and early enough in 2026 that it — and every
+  // bill period derived from it below — is always a past month by the time
+  // this runs, so `allocationTypeFor` can hard-code `DUE` without racing
+  // the real wall clock (`FinesService.logFine` itself still rejects a
+  // future incident_date, which is why this can't be later than today).
+  const today = '2026-04-05';
+
+  // --- 1. Three manual fines, logged through the real FinesService, each
+  // in a different past month — one bill each, no two ever fall in the
+  // same month (see step 3: `PaymentAllocationService` enforces FIFO by
+  // (year, month), and two same-month bills sort in an unspecified order
+  // against each other, making "settle exactly this one, not that one"
+  // undependable — a distinct month per bill sidesteps that entirely).
+  const monthsAgo = (n: number): string => {
+    const d = new Date(`${today}T00:00:00.000Z`);
+    d.setUTCMonth(d.getUTCMonth() - n, 5); // the 5th, safe on every month length
+    return d.toISOString().slice(0, 10);
+  };
+  const manualFines: Array<{
+    structure: FeeStructure;
+    amount?: number;
+    note: string;
+    incidentDate: string;
+  }> = [
+    {
+      structure: uniformStructure,
+      note: 'Uniform replacement — torn beyond repair',
+      incidentDate: monthsAgo(3),
+    },
+    {
+      structure: idCardStructure,
+      note: 'Lost ID card, replacement issued',
+      incidentDate: monthsAgo(2),
+    },
+    {
+      structure: damageStructure,
+      amount: 350,
+      note: 'Broke a window pane in the science lab',
+      incidentDate: today,
+    },
+  ];
+  for (const fine of manualFines) {
+    const existing = await studentFeeRepo.findOne({
+      where: { student_id: studentOne.id, fee_structure_id: fine.structure.id, note: fine.note },
+    });
+    if (existing) continue;
+    await finesService.logFine(
+      {
+        student_ids: [studentOne.id],
+        fee_structure_id: fine.structure.id,
+        amount: fine.amount,
+        note: fine.note,
+        incident_date: fine.incidentDate,
+        notify_families: false,
+      },
+      school.id,
+      adminUser.id,
+      { headers: {} },
+    );
+    console.log(`Logged manual fine "${fine.note}" for ${studentOne.full_name}.`);
+  }
+
+  // --- 2. One month's attendance-fine sweep, seeding ABSENT marks first
+  // if this tenant doesn't have any for that month yet. `generate()`
+  // (not `runDue`) so this doesn't depend on what day `yarn seed` happens
+  // to run on — `runDue`'s correction-window gate is scheduler-only
+  // behaviour, already covered by `fine-sweep.service.integration.spec.ts`.
+  const now = new Date(`${today}T00:00:00.000Z`);
+  const prevMonthDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+  const previousMonth = `${prevMonthDate.getUTCFullYear()}-${String(
+    prevMonthDate.getUTCMonth() + 1,
+  ).padStart(2, '0')}`;
+  const monthStart = `${previousMonth}-01`;
+  const monthEndDate = new Date(
+    Date.UTC(prevMonthDate.getUTCFullYear(), prevMonthDate.getUTCMonth() + 1, 0),
+  );
+  const monthEnd = monthEndDate.toISOString().slice(0, 10);
+
+  const existingAbsences = await attendanceRecordRepo.count({
+    where: {
+      tenant_id: school.id,
+      student_id: In([studentOne.id, studentTwo.id]),
+      status: AttendanceStatus.ABSENT,
+      date: Between(monthStart, monthEnd),
+    },
+  });
+  if (existingAbsences === 0) {
+    const absentDates = ['02', '03', '04'].map((d) => `${previousMonth}-${d}`);
+    for (const student of [studentOne, studentTwo]) {
+      for (const date of absentDates) {
+        let session = await attendanceSessionRepo.findOne({
+          where: { tenant_id: school.id, section_id: student.class_section_id, date },
+        });
+        if (!session) {
+          session = await attendanceSessionRepo.save(
+            attendanceSessionRepo.create({
+              tenant_id: school.id,
+              section_id: student.class_section_id,
+              date,
+              period_no: null,
+              state: AttendanceSessionState.FINALIZED,
+            }),
+          );
+        }
+        await attendanceRecordRepo.save(
+          attendanceRecordRepo.create({
+            tenant_id: school.id,
+            session_id: session.id,
+            student_id: student.id,
+            date,
+            status: AttendanceStatus.ABSENT,
+          }),
+        );
+      }
+    }
+    console.log(`Seeded ABSENT marks for 2 students in ${previousMonth}.`);
+  }
+
+  const sweepResult = await fineSweepService.generate(
+    school.id,
+    adminUser.id,
+    previousMonth,
+    {},
+    DuplicateStrategy.SKIP,
+    false,
+  );
+  if (sweepResult.generated_count > 0) {
+    console.log(`Fine sweep for ${previousMonth}: ${sweepResult.generated_count} bill(s) created.`);
+  }
+
+  // --- 3. Waive the oldest bill fully, pay the next one fully, then the
+  // next one partially, leaving the last untouched — every `FeeStatus`
+  // shows up. `PaymentAllocationService.recordWithAllocation` enforces
+  // FIFO across a student's outstanding fees (oldest period first), so
+  // this settles them oldest-first too, rather than by fee-structure name
+  // — the August attendance-fine sweep bill is older than the three manual
+  // fines above and would otherwise block payment against them.
+  // Waiving bypasses the HTTP approval-token gate (`FinesService.waiveFine`
+  // needs a real `X-Approval-Token`, a live OTP round trip this offline
+  // script has no use for) and applies the same math `waiveFine` does
+  // directly.
+  const fineStructureIds = [
+    damageStructure.id,
+    idCardStructure.id,
+    uniformStructure.id,
+    absentStructure.id,
+  ];
+  const outstandingBills = await studentFeeRepo.find({
+    // Scoped to the fine structures this function seeds — on a database
+    // that already has other PENDING bills (tuition, etc.) for this
+    // student, an unscoped query would waive/pay one of those instead.
+    where: {
+      student_id: studentOne.id,
+      status: FeeStatus.PENDING,
+      fee_structure_id: In(fineStructureIds),
+    },
+    order: { period_start: 'ASC', created_at: 'ASC' },
+  });
+  if (outstandingBills.length < 4) {
+    console.warn(
+      `Expected 4 outstanding fine bills for ${studentOne.full_name}, found ${outstandingBills.length} — skipping waive/payment step.`,
+    );
+    return;
+  }
+  const [oldest, second, third] = outstandingBills;
+  // Every bill here is derived from the `today` anchor above (April 2026)
+  // or earlier, so by the time this ever runs (today's real date is well
+  // past that) they're always a past period — `DUE`, never `CURRENT`.
+  // `PaymentAllocationService.classifyPeriod` compares against the real
+  // server clock (local time), so computing this dynamically would just
+  // reintroduce a UTC-vs-local-timezone race for no benefit.
+  const allocationTypeFor = (): PaymentAllocationType => PaymentAllocationType.DUE;
+
+  const oldestFullAmount = Number(oldest.total_amount);
+  await studentFeeRepo.update(
+    { id: oldest.id },
+    {
+      one_off_discount_amount: oldestFullAmount,
+      discount_amount: oldestFullAmount,
+      status: FeeStatus.WAIVED,
+    },
+  );
+  console.log(`Waived fine bill ${oldest.id}.`);
+
+  await paymentAllocationService.recordWithAllocation(
+    {
+      student_id: studentOne.id,
+      total_amount: Number(second.total_amount),
+      payment_method: PaymentMethod.CASH,
+      allocations: [
+        {
+          student_fee_id: second.id,
+          allocated_amount: Number(second.total_amount),
+          allocation_type: allocationTypeFor(),
+        },
+      ],
+    },
+    school.id,
+    adminUser.id,
+  );
+  console.log(`Fully paid fine bill ${second.id}.`);
+
+  const partialAmount = Math.round((Number(third.total_amount) / 2) * 100) / 100;
+  await paymentAllocationService.recordWithAllocation(
+    {
+      student_id: studentOne.id,
+      total_amount: partialAmount,
+      payment_method: PaymentMethod.CASH,
+      allocations: [
+        {
+          student_fee_id: third.id,
+          allocated_amount: partialAmount,
+          allocation_type: allocationTypeFor(),
+        },
+      ],
+    },
+    school.id,
+    adminUser.id,
+  );
+  console.log(`Recorded a partial payment of ৳${partialAmount} on fine bill ${third.id}.`);
 }
 
 // Only self-execute when run as a script (`yarn seed`). `seed.spec.ts`
