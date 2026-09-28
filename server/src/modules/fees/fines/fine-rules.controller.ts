@@ -42,7 +42,13 @@ export class FineRulesController {
   constructor(private readonly fineRulesService: FineRulesService) {}
 
   @Get('fees/fine-rules')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  // [38.2.5] Matches the FEE_STRUCTURE_READ holders exactly (ADMIN,
+  // ACCOUNTANT — see shared/src/enums/permissions.ts): EXECUTIVE and
+  // TEACHER don't hold it (same "stays off the Finance nav" call as
+  // fee-structures' own GETs), so listing them in `@Roles` here would only
+  // fail `PermissionsGuard` at runtime and trip permission-matrix's [10.4]
+  // narrowing check.
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.FEE_STRUCTURE_READ)
   @ApiOperation({ summary: "List a tenant's fine rules for one academic year." })
   async list(

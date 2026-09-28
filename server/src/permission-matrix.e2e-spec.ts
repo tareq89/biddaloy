@@ -641,14 +641,12 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   Permission.USER_DELETE,
   // Pre-existing UI-only gates, unaffected by [10.4]: no route requires
   // these — they gate a button/action inline rather than a whole route
-  // (fee-structure management page nav, invoice print button, correcting a
-  // mark outside the window, collecting a fee).
-  Permission.FEE_STRUCTURE_READ,
+  // (invoice print button, correcting a mark outside the window, collecting
+  // a fee).
   Permission.INVOICE_PRINT,
   Permission.ATTENDANCE_CORRECT,
   Permission.FEE_COLLECT,
   // [16.2.1] Plumbing landed ahead of the routes that will require them:
-  // FEE_APPROVE gates the approval endpoint (16.2.x, not yet built);
   // PAYMENT_REVERSE now gates `POST /payments/:id/reverse` (16.6.1) and
   // REPORT_COLLECTIONS_READ now gates `GET /reports/collections` and
   // `.../collections.csv` (16.6.2), so both are no longer UI-only —
@@ -656,7 +654,10 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // gates the recurring-schedule management endpoints and
   // `POST /fees/schedules/run-now`; DISCOUNT_RULE_MANAGE now gates the
   // discount-rule CRUD endpoints — also removed from this list.
-  Permission.FEE_APPROVE,
+  // [38.2.5] FEE_STRUCTURE_READ now gates `GET /fees/fine-rules`
+  // (FineRulesController) and FEE_APPROVE now gates
+  // `POST /fees/fines/:id/waive` (FinesController) — both no longer
+  // UI-only, removed from this list.
   // [17.2.1]-[17.2.5] CALENDAR_READ/CALENDAR_MANAGE now gate
   // `/calendar/events`, `/calendar/terms`, `/calendar-settings`, the
   // platform holiday-set routes, and `/calendar/public-holidays/add` —
