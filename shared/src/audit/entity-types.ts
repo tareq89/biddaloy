@@ -64,6 +64,8 @@ export const AUDIT_ENTITY_TYPES = [
   'StaffDocument',
   'StaffHrRecord',
   'Student',
+  // [Epic 38.2.3] `FinesService.waiveFine` audits the bill it waived.
+  'StudentFee',
   'StudentSubjectChoice',
   'SyllabusTopic',
   'TeacherClassSection',
