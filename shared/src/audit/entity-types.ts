@@ -33,6 +33,7 @@ export const AUDIT_ENTITY_TYPES = [
   'ExamSchedule',
   'FeeGeneration',
   'FeeStructure',
+  'FineRule',
   'GradingScale',
   'Guardian',
   'InvitationBatch',
