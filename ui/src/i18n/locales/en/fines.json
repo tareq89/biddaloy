@@ -31,6 +31,7 @@
     "incidentDate": "Incident date",
     "month": "Month",
     "amount": "Amount",
+    "paid": "Paid",
     "status": "Status",
     "origin": "Origin"
   },

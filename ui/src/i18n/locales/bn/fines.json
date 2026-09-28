@@ -31,6 +31,7 @@
     "incidentDate": "ঘটনার তারিখ",
     "month": "মাস",
     "amount": "পরিমাণ",
+    "paid": "পরিশোধিত",
     "status": "অবস্থা",
     "origin": "উৎস"
   },
