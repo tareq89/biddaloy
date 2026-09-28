@@ -28,16 +28,32 @@ test('keyboard-only: fill in the Job section and add a Family row on the HR reco
   await test.step('tab to the HR record tab, keyboard only', async () => {
     const hrRecordTab = page.getByRole('tab', { name: t('staff.detail.tabs.hrRecord') });
     await expect(hrRecordTab).toBeVisible();
+    // The teaching-assignments tab (this teacher's created above) is
+    // conditionally rendered and sits right before this one in the strip —
+    // wait for it to be in the DOM before snapshotting `tabIds` below, or a
+    // late mount shifts every index after it and this walk lands one tab
+    // short (see staff-teaching-assignments.spec.ts's own comment on the
+    // same tab for why it can also steal focus once landed on).
+    await expect(
+      page.getByRole('tab', { name: t('staff.detail.tabs.teachingAssignments') }),
+    ).toBeVisible();
     const tabButtons = page.getByRole('tablist').first().getByRole('tab');
     const tabIds = await tabButtons.evaluateAll((els) => els.map((el) => el.id));
     const targetId = await hrRecordTab.evaluate((el) => el.id);
     const targetIndex = tabIds.indexOf(targetId);
     await tabButtons.first().focus();
     for (let i = 1; i <= targetIndex; i += 1) {
-      await page.keyboard.press('ArrowRight');
-      if (i < targetIndex) {
-        await expect(tabButtons.nth(i)).toBeFocused();
-      }
+      // Re-focus the previous trigger and retry the press: the
+      // teaching-assignments tab's panel can steal focus right after
+      // landing on it (same reason staff-teaching-assignments.spec.ts
+      // skips its own final `toBeFocused` check), sometimes racing the very
+      // next ArrowRight and eating it — so don't assume one press always
+      // lands, poll for it and press again if it didn't.
+      await expect(async () => {
+        await tabButtons.nth(i - 1).focus();
+        await page.keyboard.press('ArrowRight');
+        await expect(tabButtons.nth(i)).toBeFocused({ timeout: 300 });
+      }).toPass({ timeout: 5000 });
     }
     await expect(hrRecordTab).toHaveAttribute('aria-selected', 'true');
     await expect(hrRecordTab).toHaveAttribute('data-state', 'active');
