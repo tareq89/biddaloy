@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { FeeType } from '@biddaloy/shared';
 import {
   buildFeeNotificationMessage,
   formatFeeNotificationAmount,
@@ -72,6 +73,69 @@ describe('buildFeeNotificationMessage', () => {
     // this util only translates the surrounding phrase and the numerals.
     const message = buildFeeNotificationMessage('bn', [{ name: 'Custom English Name', amount: 100 }], '2026-01-01');
     expect(message).toContain('Custom English Name');
+  });
+});
+
+describe('buildFeeNotificationMessage — FINE bills [38.2.4]', () => {
+  const fineBill = {
+    name: 'Absent Fine',
+    amount: 80,
+    feeType: FeeType.FINE,
+    note: '4 absent days (1 free)',
+    periodStart: '2026-09-01',
+  };
+
+  it('reads as a fine notice in en: amount, month, note and due date all present', () => {
+    const message = buildFeeNotificationMessage('en', [fineBill], '2026-10-10');
+    expect(message).toContain('80');
+    expect(message).toContain('September');
+    expect(message).toContain('4 absent days (1 free)');
+    expect(message).toContain('10 October');
+  });
+
+  it('reads as a fine notice in bn: amount, month, note and due date all present', () => {
+    const message = buildFeeNotificationMessage('bn', [fineBill], '2026-10-10');
+    expect(message).toContain('৮০');
+    expect(message).toContain('সেপ্টেম্বর');
+    expect(message).toContain('4 absent days (1 free)');
+    expect(message).toContain('১০ অক্টোবর');
+  });
+
+  it('truncates a note over 80 chars to 80 chars including the ellipsis', () => {
+    const longNote = 'x'.repeat(120);
+    const message = buildFeeNotificationMessage(
+      'en',
+      [{ ...fineBill, note: longNote }],
+      '2026-10-10',
+    );
+    expect(message).not.toContain(longNote);
+    expect(message).toContain(`${'x'.repeat(79)}…`);
+  });
+
+  it('omits the note segment cleanly when there is no note', () => {
+    const message = buildFeeNotificationMessage('en', [{ ...fineBill, note: null }], '2026-10-10');
+    expect(message).toContain('Absent Fine for September: ৳80');
+    expect(message).not.toContain('—');
+  });
+
+  it('produces one line per fine when several fines are billed together', () => {
+    const message = buildFeeNotificationMessage(
+      'en',
+      [fineBill, { ...fineBill, name: 'Late Return Fine', note: 'library book' }],
+      '2026-10-10',
+    );
+    expect(message.split('\n')).toHaveLength(2);
+    expect(message).toContain('Absent Fine');
+    expect(message).toContain('Late Return Fine');
+  });
+
+  it("leaves a tuition (non-FINE) bill's text byte-identical to before", () => {
+    const message = buildFeeNotificationMessage(
+      'en',
+      [{ name: 'Monthly Fee', amount: 4200, feeType: FeeType.MONTHLY_TUITION }],
+      '2026-09-10',
+    );
+    expect(message).toBe('New fees added: Monthly Fee 4,200 — Due date 10 September');
   });
 });
 
