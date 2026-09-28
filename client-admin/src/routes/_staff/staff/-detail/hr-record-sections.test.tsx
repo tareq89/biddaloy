@@ -1,4 +1,4 @@
-import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
+import { apiErrorBody, cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import { screen } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -14,14 +14,20 @@ import { HrRecordTrainingSection } from './hr-record-training-section';
  * The 6 [23.10] sections `hr-record-family-section.test.tsx` stands in
  * for: its save round-trip still covers the shared `RepeatableRowForm`
  * path once, so this deliberately does NOT repeat it six more times (D3).
- * What it does add is the one path no section had: the read-failure
- * branch, which only `hr-record-family-section.tsx` reaches today. Table-
- * driven rather than six near-identical files, for the same reason.
+ * What it does add is the `isError` branch of the other 6, which only
+ * family's own test covers today. Table-driven rather than six
+ * near-identical files, for the same reason.
  *
- * Each case costs ~3s regardless of the status code used (measured: a 403
- * and a 500 both land at ~3.0s, matching this file's sibling error case in
- * `hr-record-family-section.test.tsx`), so the status stays 500 to match
- * that sibling rather than diverging for a speed-up that does not exist.
+ * `apiErrorBody` + a 4xx is load-bearing for runtime, not decoration.
+ * `staffRowsQueryOptions` sets `retry: shouldRetryQuery`, which overrides
+ * `renderWithProviders`'s `retry: false`, so a retried failure costs
+ * ~3s of TanStack backoff per case (~18s across these six). A *partial*
+ * body like `{ message: 'boom' }` never becomes an `ApiError` —
+ * `toApiError` requires `statusCode` + `message` + `requestId` — so it
+ * surfaces as a plain axios error and misses `shouldRetryQuery`'s 4xx
+ * short-circuit entirely, getting retried whatever status it carries.
+ * A full body with a 4xx short-circuits properly: ~0.2s per case.
+ * Same trap documented at `ui/src/hooks/classes.test.tsx:501-506`.
  */
 const SECTIONS = [
   { name: 'HrRecordAddressSection', Section: HrRecordAddressSection, resource: 'address' },
@@ -48,7 +54,9 @@ describe.each(SECTIONS)('$name', ({ Section, resource }) => {
   it(`shows an error state when GET /staff/:userId/${resource} fails`, async () => {
     server.use(
       http.get(`/api/v1/staff/user-1/${resource}`, () =>
-        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+        HttpResponse.json(apiErrorBody(403, 'boom', `/api/v1/staff/user-1/${resource}`), {
+          status: 403,
+        }),
       ),
     );
 

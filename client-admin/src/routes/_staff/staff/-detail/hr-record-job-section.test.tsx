@@ -106,18 +106,23 @@ describe('HrRecordJobSection', () => {
     renderSection();
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Edit job details' }));
+    await user.type(screen.getByLabelText('Department'), 'Science');
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(await screen.findByRole('alert')).toBeTruthy();
-    // Still editable — a failed save must not drop what was typed.
-    expect(screen.getByLabelText('Department')).toBeTruthy();
+    // Still editable, and still holding what was typed — a failed save must
+    // not silently discard the user's input.
+    expect((screen.getByLabelText('Department') as HTMLInputElement).value).toBe('Science');
   });
 
   it('shows the saving label while the save is in flight', async () => {
     server.use(
       http.get('/api/v1/staff-hr-records', () => HttpResponse.json([RECORD])),
       http.patch('/api/v1/staff-hr-records/hr-1', async () => {
-        await delay(200);
+        // 400ms, matching `record-payment-modal.test.tsx`'s own in-flight
+        // case: long enough that the request is reliably still pending when
+        // `findByRole` first polls, well inside the 5s `asyncUtilTimeout`.
+        await delay(400);
         return HttpResponse.json(RECORD);
       }),
     );
