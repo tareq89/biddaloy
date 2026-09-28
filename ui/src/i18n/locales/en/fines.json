@@ -1,0 +1,147 @@
+{
+  "title": "Fines",
+  "rules": {
+    "title": "Fine rules"
+  },
+  "tabs": {
+    "fines": "Fines",
+    "rules": "Fine rules"
+  },
+  "filters": {
+    "monthLabel": "Month",
+    "classLabel": "Class",
+    "allClasses": "All classes",
+    "sectionLabel": "Section",
+    "allSections": "All sections",
+    "originLabel": "Origin",
+    "allOrigins": "All",
+    "statusLabel": "Status",
+    "allStatuses": "All statuses"
+  },
+  "totals": {
+    "charged": "Charged",
+    "collected": "Collected",
+    "waived": "Waived",
+    "outstanding": "Outstanding"
+  },
+  "columns": {
+    "student": "Student",
+    "fine": "Fine",
+    "reason": "Reason",
+    "incidentDate": "Incident date",
+    "month": "Month",
+    "amount": "Amount",
+    "status": "Status",
+    "origin": "Origin"
+  },
+  "origin": {
+    "RULE": "Rule",
+    "MANUAL": "Manual"
+  },
+  "empty": {
+    "title": "No fines yet",
+    "description": "Fines logged manually or generated from a rule will show up here."
+  },
+  "rulesEmpty": {
+    "title": "No fine rules yet",
+    "description": "Add a rule to automatically fine students for absences or late arrivals."
+  },
+  "logForm": {
+    "title": "Log fine",
+    "studentsLabel": "Students",
+    "feeLabel": "Fine type",
+    "amountLabel": "Amount",
+    "amountHint": "Leave blank to use the fine's default amount.",
+    "noteLabel": "Reason",
+    "notePlaceholder": "Why this fine is being logged",
+    "incidentDateLabel": "Incident date",
+    "notifyLabel": "Notify guardian",
+    "errorStudentsRequired": "Choose at least one student",
+    "errorFeeRequired": "Choose a fine type",
+    "errorNoteRequired": "Reason is required",
+    "errorIncidentDateRequired": "Incident date is required",
+    "save": "Log fine",
+    "saving": "Logging…",
+    "errorMessage": "Failed to log fine"
+  },
+  "generate": {
+    "title": "Generate fines",
+    "description": "Sweep attendance for one month and create fines from every active rule.",
+    "monthLabel": "Month",
+    "classLabel": "Class",
+    "allClasses": "All classes",
+    "sectionLabel": "Section",
+    "allSections": "All sections",
+    "previewLine": "{{count}} students, {{total}}",
+    "previewZero": "No fines would be generated for this month.",
+    "duplicates": {
+      "heading": "Some fines already exist for this month",
+      "skipLabel": "Skip duplicates",
+      "skipHint": "Only students without an existing fine for this month get a new one.",
+      "removeOlderLabel": "Remove the older fine first",
+      "removeOlderHint": "The existing fine record is deleted before the new one is created.",
+      "createAnywayLabel": "Create anyway",
+      "createAnywayHint": "Creates a second fine for the same month. Needs admin approval."
+    },
+    "notifyLabel": "Notify families when fines are generated",
+    "submitAction": "Generate fines",
+    "result": {
+      "title": "Fine generation finished",
+      "generated_one": "{{count}} fine created",
+      "generated_other": "{{count}} fines created",
+      "skipped_one": "{{count}} skipped",
+      "skipped_other": "{{count}} skipped"
+    },
+    "errorMessage": "Failed to generate fines"
+  },
+  "waiveDialog": {
+    "title": "Waive fine",
+    "fullLabel": "Waive in full",
+    "partialLabel": "Waive part of it",
+    "amountLabel": "Amount to waive",
+    "reasonLabel": "Reason",
+    "reasonPlaceholder": "Why this fine is being waived",
+    "errorReasonRequired": "Reason is required",
+    "alreadyPaid": "This fine has already been paid — reverse the payment first.",
+    "confirm": "Waive fine",
+    "waiving": "Waiving…",
+    "errorMessage": "Failed to waive fine"
+  },
+  "ruleForm": {
+    "createTitle": "Add fine rule",
+    "editTitle": "Edit fine rule",
+    "triggerLabel": "Trigger",
+    "triggers": {
+      "ATTENDANCE_ABSENT": "Absent days",
+      "ATTENDANCE_LATE": "Late arrivals"
+    },
+    "feeLabel": "Fine amount",
+    "classLabel": "Class",
+    "allClasses": "Whole school",
+    "freePerPeriodLabel": "Free per month",
+    "capPerPeriodLabel": "Cap per month",
+    "minMinutesLateLabel": "Minimum minutes late",
+    "activeLabel": "Active",
+    "save": "Save",
+    "saving": "Saving…",
+    "errorMessage": "Failed to save fine rule",
+    "copyFromLastYear": "Copy from last year",
+    "copyResult_one": "{{count}} fine rule copied",
+    "copyResult_other": "{{count}} fine rules copied",
+    "copyResultSkipped": "Everything was already copied — nothing new to do."
+  },
+  "deleteRuleDialog": {
+    "title": "Delete fine rule",
+    "description": "Delete this fine rule?",
+    "confirm": "Delete",
+    "deleting": "Deleting…",
+    "errorMessage": "Failed to delete fine rule"
+  },
+  "palette": {
+    "logFine": "Log fine",
+    "generateFines": "Generate fines",
+    "waiveFine": "Waive fine",
+    "synonymPenalty": "penalty",
+    "synonymBangla": "জরিমানা"
+  }
+}
