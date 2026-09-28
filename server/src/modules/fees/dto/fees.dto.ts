@@ -559,6 +559,8 @@ export class StaffDueEntryDto implements DueEntry {
   period_type: PeriodType;
   occurrence: number;
   is_late_fee: boolean;
+  is_fine: boolean;
+  note: string | null;
   total_amount: number;
   paid_amount: number;
   discount_amount: number;
