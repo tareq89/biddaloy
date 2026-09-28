@@ -264,6 +264,17 @@ export async function seedAccounts(
   const staffRoleUsers = await repos.userRepository.find({
     where: [...employeeIdByEmail.keys()].map((email) => ({ email })),
   });
+  // `find()` gives no row-order guarantee. `ensureStaffHrSeed` picks its
+  // first entry as the sample attendance/leave record's owner, so a
+  // different query-result order across runs would move that sample record
+  // to a different profile. Order by the fixed email map instead.
+  const staffRoleUserByEmail = new Map(staffRoleUsers.map((user) => [user.email, user]));
+  const orderedStaffRoleUsers = [...employeeIdByEmail.entries()]
+    .map(([email, employeeId]) => {
+      const user = staffRoleUserByEmail.get(email);
+      return user ? { userId: user.id, employeeId } : null;
+    })
+    .filter((x): x is { userId: string; employeeId: string } => x !== null);
   await ensureStaffHrSeed(
     {
       staffProfileRepository: repos.staffProfileRepository,
@@ -273,10 +284,7 @@ export async function seedAccounts(
       leaveRecordRepository: repos.leaveRecordRepository,
     },
     school.id,
-    staffRoleUsers.map((user) => ({
-      userId: user.id,
-      employeeId: employeeIdByEmail.get(user.email as string)!,
-    })),
+    orderedStaffRoleUsers,
   );
 
   // [8.5.2]: the ADMIN seed account must be multi-membership so the E2E
