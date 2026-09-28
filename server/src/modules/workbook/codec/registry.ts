@@ -57,6 +57,9 @@ export const EXPECTED_TABS = [
   'admission_applicants',
   'admission_evaluations',
   'fee_structures',
+  // [38.1.2] `fine_rules` FKs `fee_structures` (its fine-category price) and
+  // is FK'd by `student_fees.fine_rule_id`, so it sits between the two.
+  'fine_rules',
   'student_fees',
   'invoices',
   'payments',

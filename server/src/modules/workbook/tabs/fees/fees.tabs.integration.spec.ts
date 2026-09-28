@@ -8,6 +8,7 @@ import { Class } from '../../../academics/entities/class.entity';
 import { ClassSection } from '../../../academics/entities/class-section.entity';
 import { Student } from '../../../students/entities/student.entity';
 import { FeeStructure } from '../../../fees/entities/fee-structure.entity';
+import { FineRule } from '../../../fees/entities/fine-rule.entity';
 import { StudentFee } from '../../../fees/entities/student-fee.entity';
 import { Invoice } from '../../../invoices/entities/invoice.entity';
 import { Payment } from '../../../fees/entities/payment.entity';
@@ -15,6 +16,7 @@ import { PaymentAllocation } from '../../../fees/entities/payment-allocation.ent
 import {
   FeeStatus,
   FeeType,
+  FineTrigger,
   InvoiceKind,
   InvoiceStatus,
   PaymentAllocationType,
@@ -24,6 +26,7 @@ import {
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { feeStructuresTab, type FeeStructureRow } from './fee-structures.tab';
+import { fineRulesTab, type FineRuleRow } from './fine-rules.tab';
 import { studentFeesTab, type StudentFeeRow } from './student-fees.tab';
 import { invoicesTab, type InvoiceRow } from './invoices.tab';
 import { paymentsTab, type PaymentRow } from './payments.tab';
@@ -49,6 +52,7 @@ describe('fees tabs (integration)', () => {
   let sectionRepo: Repository<ClassSection>;
   let studentRepo: Repository<Student>;
   let feeStructureRepo: Repository<FeeStructure>;
+  let fineRuleRepo: Repository<FineRule>;
   let studentFeeRepo: Repository<StudentFee>;
   let invoiceRepo: Repository<Invoice>;
   let paymentRepo: Repository<Payment>;
@@ -79,6 +83,7 @@ describe('fees tabs (integration)', () => {
     sectionRepo = module.get<Repository<ClassSection>>(getRepositoryToken(ClassSection));
     studentRepo = module.get<Repository<Student>>(getRepositoryToken(Student));
     feeStructureRepo = module.get<Repository<FeeStructure>>(getRepositoryToken(FeeStructure));
+    fineRuleRepo = module.get<Repository<FineRule>>(getRepositoryToken(FineRule));
     studentFeeRepo = module.get<Repository<StudentFee>>(getRepositoryToken(StudentFee));
     invoiceRepo = module.get<Repository<Invoice>>(getRepositoryToken(Invoice));
     paymentRepo = module.get<Repository<Payment>>(getRepositoryToken(Payment));
@@ -96,6 +101,8 @@ describe('fees tabs (integration)', () => {
     await paymentRepo.createQueryBuilder().delete().execute();
     await invoiceRepo.createQueryBuilder().delete().execute();
     await studentFeeRepo.createQueryBuilder().delete().execute();
+    await fineRuleRepo.delete({ tenant_id: TENANT_A });
+    await fineRuleRepo.delete({ tenant_id: TENANT_B });
     await feeStructureRepo.delete({ tenant_id: TENANT_A });
     await feeStructureRepo.delete({ tenant_id: TENANT_B });
     await studentRepo.delete({ tenant_id: TENANT_A });
@@ -249,6 +256,216 @@ describe('fees tabs (integration)', () => {
     });
   });
 
+  describe('fine_rules', () => {
+    beforeEach(seedFeeStructureA);
+
+    function rowFor(overrides: Partial<FineRuleRow> = {}): FineRuleRow {
+      return {
+        id: '00000000-0000-4000-8000-000000000009',
+        trigger: FineTrigger.ATTENDANCE_ABSENT,
+        fee_structure_id: feeStructureAId,
+        fee_structure_key: FEE_STRUCTURE_A_KEY,
+        class_id: null,
+        class_key: null,
+        academic_year_id: yearAId,
+        academic_year_key: '2026-2027',
+        free_per_period: 2,
+        cap_per_period: '200.00',
+        conditions: { min_minutes_late: 10 },
+        is_active: true,
+        ...overrides,
+      };
+    }
+
+    it('upsert creates a new row', async () => {
+      const created = await fineRulesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      expect(created.id).toBeDefined();
+      expect(created.tenant_id).toBe(TENANT_A);
+    });
+
+    it('upsert with a changed field updates only that field', async () => {
+      const created = await fineRulesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      const updated = await fineRulesTab.upsert(
+        rowFor({ free_per_period: 5 }),
+        created,
+        TENANT_A,
+        dataSource.manager,
+      );
+      expect(updated.free_per_period).toBe(5);
+      expect(updated.trigger).toBe(FineTrigger.ATTENDANCE_ABSENT);
+    });
+
+    it('remove soft-deletes', async () => {
+      const created = await fineRulesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      await fineRulesTab.remove(created, dataSource.manager);
+      const found = await fineRuleRepo.findOne({ where: { id: created.id }, withDeleted: true });
+      expect(found?.deleted_at).not.toBeNull();
+    });
+
+    it('load(tenantA) never returns tenant B rows', async () => {
+      await fineRulesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      const rowsA = await fineRulesTab.load(TENANT_A, dataSource.manager);
+      const rowsB = await fineRulesTab.load(TENANT_B, dataSource.manager);
+      expect(rowsA.length).toBe(1);
+      expect(rowsB.length).toBe(0);
+    });
+
+    it('the DB rejects a second active rule for the same tenant/year/trigger/null-class', async () => {
+      await fineRulesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      await expect(
+        fineRulesTab.upsert(
+          rowFor({ id: '00000000-0000-4000-8000-00000000000a' }),
+          null,
+          TENANT_A,
+          dataSource.manager,
+        ),
+      ).rejects.toThrow(
+        expect.objectContaining({
+          code: '23505',
+          constraint: 'IDX_fine_rules_tenant_year_trigger_class',
+        }),
+      );
+    });
+
+    it('persists a rule with a null class and jsonb conditions intact', async () => {
+      const created = await fineRulesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
+      const [loaded] = await fineRulesTab.load(TENANT_A, dataSource.manager);
+      expect(loaded.id).toBe(created.id);
+      expect(loaded.class_id).toBeNull();
+      expect(loaded.conditions).toEqual({ min_minutes_late: 10 });
+    });
+  });
+
+  describe('fine_rules + student_fees restore', () => {
+    beforeEach(seedFeeStructureA);
+
+    it('restore recreates both a fine rule and a FINE bill referencing it', async () => {
+      const ruleRow: FineRuleRow = {
+        id: '00000000-0000-4000-8000-000000000011',
+        academic_year_id: yearAId,
+        academic_year_key: '2026-2027',
+        trigger: FineTrigger.ATTENDANCE_ABSENT,
+        fee_structure_id: feeStructureAId,
+        fee_structure_key: FEE_STRUCTURE_A_KEY,
+        class_id: null,
+        class_key: null,
+        free_per_period: 1,
+        cap_per_period: '200.00',
+        conditions: {},
+        is_active: true,
+      };
+      const rule = await fineRulesTab.upsert(ruleRow, null, TENANT_A, dataSource.manager);
+
+      const fineBillRow: StudentFeeRow = {
+        id: '00000000-0000-4000-8000-000000000012',
+        student_id: studentA1.id,
+        student_key: studentA1.registration_number,
+        academic_year_id: yearAId,
+        academic_year_key: '2026-2027',
+        fee_structure_id: feeStructureAId,
+        fee_structure_key: FEE_STRUCTURE_A_KEY,
+        month: 1,
+        year: 2026,
+        occurrence: 1,
+        total_amount: '20.00',
+        paid_amount: '0.00',
+        discount_amount: '0.00',
+        standing_discount_amount: '0.00',
+        one_off_discount_amount: '0.00',
+        status: FeeStatus.PENDING,
+        due_date: null,
+        reminder_threshold_date: null,
+        note: 'Absent without notice',
+        incident_date: '2026-01-12',
+        fine_rule_id: rule.id,
+        fine_rule_key: fineRulesTab.keyOf(ruleRow),
+      };
+      const bill = await studentFeesTab.upsert(fineBillRow, null, TENANT_A, dataSource.manager);
+
+      const [loadedRule] = await fineRulesTab.load(TENANT_A, dataSource.manager);
+      const [loadedBill] = await studentFeesTab.load(TENANT_A, dataSource.manager);
+      expect(loadedRule.id).toBe(rule.id);
+      expect(loadedBill.id).toBe(bill.id);
+      expect(loadedBill.fine_rule_id).toBe(rule.id);
+      expect(loadedBill.note).toBe('Absent without notice');
+    });
+
+    it("restore updates an existing bill's fine_rule_id, and clearing it to null sticks", async () => {
+      const ruleRow: FineRuleRow = {
+        id: '00000000-0000-4000-8000-000000000021',
+        academic_year_id: yearAId,
+        academic_year_key: '2026-2027',
+        trigger: FineTrigger.ATTENDANCE_ABSENT,
+        fee_structure_id: feeStructureAId,
+        fee_structure_key: FEE_STRUCTURE_A_KEY,
+        class_id: null,
+        class_key: null,
+        free_per_period: 1,
+        cap_per_period: '200.00',
+        conditions: {},
+        is_active: true,
+      };
+      const rule = await fineRulesTab.upsert(ruleRow, null, TENANT_A, dataSource.manager);
+
+      const otherRuleRow: FineRuleRow = {
+        ...ruleRow,
+        id: '00000000-0000-4000-8000-000000000022',
+        trigger: FineTrigger.ATTENDANCE_LATE,
+      };
+      const otherRule = await fineRulesTab.upsert(otherRuleRow, null, TENANT_A, dataSource.manager);
+
+      const billRow: StudentFeeRow = {
+        id: '00000000-0000-4000-8000-000000000023',
+        student_id: studentA1.id,
+        student_key: studentA1.registration_number,
+        academic_year_id: yearAId,
+        academic_year_key: '2026-2027',
+        fee_structure_id: feeStructureAId,
+        fee_structure_key: FEE_STRUCTURE_A_KEY,
+        month: 1,
+        year: 2026,
+        occurrence: 1,
+        total_amount: '20.00',
+        paid_amount: '0.00',
+        discount_amount: '0.00',
+        standing_discount_amount: '0.00',
+        one_off_discount_amount: '0.00',
+        status: FeeStatus.PENDING,
+        due_date: null,
+        reminder_threshold_date: null,
+        note: 'Absent without notice',
+        incident_date: '2026-01-12',
+        fine_rule_id: rule.id,
+        fine_rule_key: fineRulesTab.keyOf(ruleRow),
+      };
+      await studentFeesTab.upsert(billRow, null, TENANT_A, dataSource.manager);
+
+      // `load()` hands `upsert` the previously-loaded entity as `existing` —
+      // this is the exact path where a loaded `fine_rule` relation used to
+      // shadow a changed `fine_rule_id` column on save (see student-fees.tab.ts).
+      const [existing] = await studentFeesTab.load(TENANT_A, dataSource.manager);
+      const updated = await studentFeesTab.upsert(
+        { ...billRow, fine_rule_id: otherRule.id, fine_rule_key: fineRulesTab.keyOf(otherRuleRow) },
+        existing,
+        TENANT_A,
+        dataSource.manager,
+      );
+      expect(updated.fine_rule_id).toBe(otherRule.id);
+      const [reloadedAfterChange] = await studentFeesTab.load(TENANT_A, dataSource.manager);
+      expect(reloadedAfterChange.fine_rule_id).toBe(otherRule.id);
+
+      const cleared = await studentFeesTab.upsert(
+        { ...billRow, fine_rule_id: null, fine_rule_key: null },
+        reloadedAfterChange,
+        TENANT_A,
+        dataSource.manager,
+      );
+      expect(cleared.fine_rule_id).toBeNull();
+      const [reloadedAfterClear] = await studentFeesTab.load(TENANT_A, dataSource.manager);
+      expect(reloadedAfterClear.fine_rule_id).toBeNull();
+    });
+  });
+
   describe('student_fees', () => {
     beforeEach(seedFeeStructureA);
 
@@ -272,6 +489,10 @@ describe('fees tabs (integration)', () => {
         status: FeeStatus.PENDING,
         due_date: '2026-01-10',
         reminder_threshold_date: '2026-01-05',
+        note: null,
+        incident_date: null,
+        fine_rule_id: null,
+        fine_rule_key: null,
         ...overrides,
       };
     }
@@ -280,6 +501,43 @@ describe('fees tabs (integration)', () => {
       const created = await studentFeesTab.upsert(rowFor(), null, TENANT_A, dataSource.manager);
       expect(created.id).toBeDefined();
       expect(created.student_id).toBe(studentA1.id);
+    });
+
+    it('upsert persists a FINE bill with note/incident_date/fine_rule_id', async () => {
+      const rule = await fineRulesTab.upsert(
+        {
+          id: '00000000-0000-4000-8000-000000000013',
+          academic_year_id: yearAId,
+          academic_year_key: '2026-2027',
+          trigger: FineTrigger.ATTENDANCE_ABSENT,
+          fee_structure_id: feeStructureAId,
+          fee_structure_key: FEE_STRUCTURE_A_KEY,
+          class_id: null,
+          class_key: null,
+          free_per_period: 2,
+          cap_per_period: '200.00',
+          conditions: {},
+          is_active: true,
+        },
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      const created = await studentFeesTab.upsert(
+        rowFor({
+          note: 'Missed 3 days without notice',
+          incident_date: '2026-01-12',
+          fine_rule_id: rule.id,
+          fine_rule_key: `2026-2027|${FineTrigger.ATTENDANCE_ABSENT}|`,
+        }),
+        null,
+        TENANT_A,
+        dataSource.manager,
+      );
+      expect(created.note).toBe('Missed 3 days without notice');
+      expect(created.fine_rule_id).toBe(rule.id);
+      const [loaded] = await studentFeesTab.load(TENANT_A, dataSource.manager);
+      expect(loaded.fine_rule_id).toBe(rule.id);
     });
 
     it('upsert with a changed field updates only that field', async () => {
@@ -357,6 +615,7 @@ describe('fees tabs (integration)', () => {
           fee_structure_key: FEE_STRUCTURE_A_KEY,
           month: 1,
           year: 2026,
+          occurrence: 1,
           total_amount: '1500.00',
           paid_amount: '0.00',
           discount_amount: '0.00',
@@ -365,6 +624,10 @@ describe('fees tabs (integration)', () => {
           status: FeeStatus.PENDING,
           due_date: '2026-01-10',
           reminder_threshold_date: '2026-01-05',
+          note: null,
+          incident_date: null,
+          fine_rule_id: null,
+          fine_rule_key: null,
         },
         null,
         TENANT_A,
@@ -525,6 +788,7 @@ describe('fees tabs (integration)', () => {
           fee_structure_key: FEE_STRUCTURE_A_KEY,
           month: 1,
           year: 2026,
+          occurrence: 1,
           total_amount: '1500.00',
           paid_amount: '0.00',
           discount_amount: '0.00',
@@ -533,6 +797,10 @@ describe('fees tabs (integration)', () => {
           status: FeeStatus.PENDING,
           due_date: '2026-01-10',
           reminder_threshold_date: '2026-01-05',
+          note: null,
+          incident_date: null,
+          fine_rule_id: null,
+          fine_rule_key: null,
         },
         null,
         TENANT_A,

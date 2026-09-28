@@ -12,6 +12,7 @@ import type {
 import { FeeStatus } from '@biddaloy/shared';
 import { academicYearsTab } from '../academics/academic-years.tab';
 import { feeStructuresTab } from './fee-structures.tab';
+import { fineRulesTab } from './fine-rules.tab';
 
 /**
  * The `student_fees` tab: one student's fee obligation for one month.
@@ -49,6 +50,10 @@ export interface StudentFeeRow {
   status: FeeStatus;
   due_date: string | null;
   reminder_threshold_date: string | null;
+  note: string | null;
+  incident_date: string | null;
+  fine_rule_id: string | null;
+  fine_rule_key: string | null;
 }
 
 const columns: readonly ColumnSpec[] = [
@@ -132,6 +137,16 @@ const columns: readonly ColumnSpec[] = [
     type: 'date',
     label: { en: 'Reminder threshold date', bn: 'অনুস্মারক তারিখ' },
   },
+  // note/incident_date/fine_rule: set on FINE bills (Epic 38 D2); a
+  // fine_rule-less FINE bill was logged manually.
+  { key: 'note', type: 'string', label: { en: 'Note', bn: 'নোট' } },
+  { key: 'incident_date', type: 'date', label: { en: 'Incident date', bn: 'ঘটনার তারিখ' } },
+  {
+    key: 'fine_rule',
+    type: 'ref',
+    ref: 'fine_rules',
+    label: { en: 'Fine rule', bn: 'জরিমানা নিয়ম' },
+  },
 ];
 
 const excluded: readonly string[] = [
@@ -154,6 +169,7 @@ const excluded: readonly string[] = [
   // leaves both null rather than fabricating provenance.
   'approved_by_user_id',
   'late_fee_for_student_fee_id',
+  'fine_rule_id', // exported instead as the `fine_rule` ref column
 ];
 
 /** Postgres error code for a foreign-key violation. */
@@ -163,7 +179,7 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
   name: 'student_fees',
   entity: StudentFee,
   excluded,
-  dependsOn: ['students', 'academic_years', 'fee_structures'],
+  dependsOn: ['students', 'academic_years', 'fee_structures', 'fine_rules'],
   columns,
   naturalKey: ['student', 'academic_year', 'fee_structure', 'month', 'year', 'occurrence'],
   deleteByAbsence: true,
@@ -187,6 +203,11 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
         'fee_structure.class.academic_year',
         'fee_structure.academic_year',
         'fee_structure.section',
+        // `fine_rule` itself is NOT loaded here: TypeORM's getEntityValue
+        // prefers a loaded relation object over the FK column on save, so a
+        // loaded `fine_rule` would silently keep its old id when restore
+        // changes or clears `fine_rule_id`. `export` only needs `ctx.keyOf`
+        // against the raw `fine_rule_id` column below.
       ],
     });
   },
@@ -208,6 +229,13 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
       status: entity.status,
       due_date: entity.due_date,
       reminder_threshold_date: entity.reminder_threshold_date,
+      note: entity.note,
+      incident_date: entity.incident_date,
+      // ponytail: a FINE bill pointing at a soft-deleted fine_rule throws
+      // here resolving the key (same pre-existing pattern as
+      // fee_structure_id above), but fine rules get soft-deleted far more
+      // often. Needs a decision before #1113. Epic 38 #1113.
+      fine_rule: entity.fine_rule_id ? ctx.keyOf('fine_rules', entity.fine_rule_id) : null,
     };
   },
 
@@ -311,6 +339,24 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
       }
     }
 
+    let fineRuleId: string | null = null;
+    const fineRuleKey = (values.fine_rule as string | null) ?? null;
+    if (fineRuleKey) {
+      const resolved = ctx.ref('fine_rules', fineRuleKey);
+      if (!resolved) {
+        errors.push({
+          tab: 'student_fees',
+          row: rowNo,
+          column: 'fine_rule',
+          message: `Column "fine_rule": no fine rule "${fineRuleKey}" was found.`,
+          severity: 'error',
+          value: fineRuleKey,
+        });
+      } else {
+        fineRuleId = resolved;
+      }
+    }
+
     if (errors.length > 0) return { errors };
 
     return {
@@ -333,6 +379,10 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
         status: values.status as FeeStatus,
         due_date: (values.due_date as string | null) ?? null,
         reminder_threshold_date: (values.reminder_threshold_date as string | null) ?? null,
+        note: (values.note as string | null) ?? null,
+        incident_date: (values.incident_date as string | null) ?? null,
+        fine_rule_id: fineRuleId,
+        fine_rule_key: fineRuleKey,
       },
     };
   },
@@ -389,6 +439,11 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
     if (row.reminder_threshold_date !== dateOnlyOrNull(existing.reminder_threshold_date)) {
       changed.push('reminder_threshold_date');
     }
+    if (row.note !== existing.note) changed.push('note');
+    if (row.incident_date !== dateOnlyOrNull(existing.incident_date)) {
+      changed.push('incident_date');
+    }
+    if (row.fine_rule_id !== existing.fine_rule_id) changed.push('fine_rule');
     return changed;
   },
 
@@ -415,6 +470,9 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
     fee.status = row.status;
     fee.due_date = row.due_date as unknown as Date | null;
     fee.reminder_threshold_date = row.reminder_threshold_date as unknown as Date | null;
+    fee.note = row.note;
+    fee.incident_date = row.incident_date as unknown as Date | null;
+    fee.fine_rule_id = row.fine_rule_id;
 
     return m.save(StudentFee, fee);
   },
