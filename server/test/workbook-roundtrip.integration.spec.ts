@@ -787,6 +787,44 @@ describe('workbook round trip (integration)', () => {
       }),
     );
 
+    // [23.0, thread #5] Neither `staff_training` nor `staff_achievements`
+    // has a DB unique constraint on its natural key, so real data can carry
+    // two rows with the same one (e.g. two trainings with the same title
+    // at the same institution). Insert a genuine duplicate of each here,
+    // via repo (not `ensureStaffHrDemoSeed`, which de-dupes by title) so
+    // this round-trip proves ValidationService's `allowDuplicateKeys` path
+    // for real, not just in validation.service.spec.ts's fakes.
+    await dataSource.getRepository(StaffTraining).save([
+      dataSource.getRepository(StaffTraining).create({
+        tenant_id: TENANT_A,
+        staff_user_id: staffHrDemoUser.id,
+        title: 'First Aid',
+        institution: 'Red Crescent',
+        from_date: '2024-01-01',
+      }),
+      dataSource.getRepository(StaffTraining).create({
+        tenant_id: TENANT_A,
+        staff_user_id: staffHrDemoUser.id,
+        title: 'First Aid',
+        institution: 'Red Crescent',
+        from_date: '2025-01-01',
+      }),
+    ]);
+    await dataSource.getRepository(StaffAchievement).save([
+      dataSource.getRepository(StaffAchievement).create({
+        tenant_id: TENANT_A,
+        staff_user_id: staffHrDemoUser.id,
+        title: 'Best Employee',
+        date: '2024-06-01',
+      }),
+      dataSource.getRepository(StaffAchievement).create({
+        tenant_id: TENANT_A,
+        staff_user_id: staffHrDemoUser.id,
+        title: 'Best Employee',
+        date: '2025-06-01',
+      }),
+    ]);
+
     const shift = await dataSource.getRepository(Shift).save(
       dataSource.getRepository(Shift).create({
         name: 'Morning',

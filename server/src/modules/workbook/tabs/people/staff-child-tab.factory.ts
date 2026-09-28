@@ -1,7 +1,13 @@
 import type { EntityManager, EntityTarget } from 'typeorm';
 import { usersTab } from './users.tab';
 import { fromCell } from '../../codec/cell-format';
-import type { ColumnSpec, ExportContext, ImportContext, RowError, TabSpec } from '../../codec/tab-spec';
+import type {
+  ColumnSpec,
+  ExportContext,
+  ImportContext,
+  RowError,
+  TabSpec,
+} from '../../codec/tab-spec';
 
 /**
  * [23.5] Shared shape for every wave-1 "one row per staff member" tab
@@ -51,7 +57,13 @@ export function createStaffChildTab<E extends { id: string }>(
 
   const columns: readonly ColumnSpec[] = [
     { key: 'id', type: 'uuid', required: true, label: { en: 'ID', bn: 'আইডি' } },
-    { key: 'staff', type: 'ref', ref: 'users', required: true, label: { en: 'Staff', bn: 'কর্মী' } },
+    {
+      key: 'staff',
+      type: 'ref',
+      ref: 'users',
+      required: true,
+      label: { en: 'Staff', bn: 'কর্মী' },
+    },
     ...fields.map((f) => ({
       key: f.key,
       type: f.type,
@@ -71,6 +83,10 @@ export function createStaffChildTab<E extends { id: string }>(
     columns,
     naturalKey,
     deleteByAbsence: true,
+    // [23.0] none of these 7 tables has a DB unique constraint on
+    // naturalKey, and no other tab references them by natural key — see
+    // TabSpec.allowDuplicateKeys.
+    allowDuplicateKeys: true,
 
     load(tenantId: string, m: EntityManager): Promise<E[]> {
       return m.find(entityClass, {
@@ -144,7 +160,7 @@ export function createStaffChildTab<E extends { id: string }>(
         ? rec[staffFkKey]
           ? usersTab.keyOf(rec[staffFkKey] as never)
           : ''
-        : (rec.staff_key as string) ?? '';
+        : ((rec.staff_key as string) ?? '');
       const rest = naturalKeyFields.map((key) => {
         const raw = isEntity
           ? (x as unknown as Record<string, unknown>)[key]

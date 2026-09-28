@@ -75,6 +75,14 @@ export interface TabSpec<E, R> {
   columns: readonly ColumnSpec[]; // columns[0] is always { key: 'id', type: 'uuid' }
   naturalKey: readonly string[]; // column keys, joined with '|' by keyOf
   deleteByAbsence: boolean;
+  /** Opt-in only for a tab with no DB unique constraint on `naturalKey` and
+   * no other tab referencing it by that key ([23.0]'s 7 staff-child
+   * tables) — real data can carry two rows with the same natural key
+   * (e.g. two trainings titled the same). `ValidationService` normally
+   * hard-rejects a duplicate key; this lets it accept one instead, when
+   * each conflicting row is either already the destination's existing
+   * entity (by id) or the key doesn't exist in the destination at all. */
+  allowDuplicateKeys?: boolean;
   load(tenantId: string, m: EntityManager): Promise<E[]>;
   toRow(entity: E, ctx: ExportContext): Record<string, unknown>;
   fromRow(

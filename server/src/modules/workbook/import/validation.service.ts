@@ -81,6 +81,12 @@ export class ValidationService {
       const existingEntities = await tab.load(tenantId, manager);
       existingIndexes.set(tab.name, KeyIndex.fromEntities(tab, existingEntities));
       pendingIndexes.set(tab.name, new Map<string, string>());
+      // Only built for an `allowDuplicateKeys` tab (see its doc comment) —
+      // lets a duplicate-key row through when it's already the destination's
+      // own entity, rather than an unrelated row that happens to collide.
+      const existingIds = tab.allowDuplicateKeys
+        ? new Set(existingEntities.map((e) => (e as unknown as { id: string }).id))
+        : undefined;
 
       const tabErrors: RowError[] = [];
       const tabWarnings: RowError[] = [];
@@ -190,6 +196,29 @@ export class ValidationService {
         const key = tab.keyOf(result.row);
         const first = firstByKey.get(key);
         if (first) {
+          // A row is "safe" to keep alongside another one sharing its key
+          // when it's already the destination's own entity (its id is
+          // there), or the destination doesn't have this key at all yet —
+          // either way inserting it can't silently overwrite an unrelated
+          // row. An id that resolves to nothing, with the key already
+          // present in the destination, stays ambiguous and falls through
+          // to the rejection below.
+          const isSafe = (row: unknown): boolean => {
+            const id = (row as Record<string, unknown>).id as string | undefined;
+            if (id !== undefined && existingIds?.has(id)) return true;
+            return existingIndexes.get(tab.name)?.get(key) === undefined;
+          };
+          const firstId = (first.row as Record<string, unknown>).id;
+          const currentId = (result.row as Record<string, unknown>).id;
+          if (
+            tab.allowDuplicateKeys &&
+            firstId !== currentId &&
+            isSafe(first.row) &&
+            isSafe(result.row)
+          ) {
+            rows.push(result.row);
+            continue;
+          }
           if (!duplicateKeys.has(key)) {
             duplicateKeys.add(key);
             recordError(tabErrors, {
