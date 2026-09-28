@@ -53,16 +53,16 @@ describe('fees/fines/-rules/rule-form-dialog', () => {
 
     const user = userEvent.setup();
     const triggerSelect = await screen.findByRole('combobox', {
-      name: 'fines.rules.form.triggerLabel',
+      name: 'Trigger',
     });
 
     // ATTENDANCE_ABSENT is the default trigger — no min-minutes field yet.
-    expect(screen.queryByLabelText('fines.rules.form.minMinutesLateLabel')).toBeNull();
+    expect(screen.queryByLabelText('Minimum minutes late')).toBeNull();
 
     await user.click(triggerSelect);
-    await user.click(await screen.findByRole('option', { name: 'fines.rules.form.triggerLate' }));
+    await user.click(await screen.findByRole('option', { name: 'Late arrivals' }));
 
-    expect(await screen.findByLabelText('fines.rules.form.minMinutesLateLabel')).toBeTruthy();
+    expect(await screen.findByLabelText('Minimum minutes late')).toBeTruthy();
   });
 
   it('shows a 409 duplicate message inline', async () => {
@@ -93,9 +93,9 @@ describe('fees/fines/-rules/rule-form-dialog', () => {
     );
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('combobox', { name: 'fines.rules.form.feeStructureLabel' }));
+    await user.click(screen.getByRole('combobox', { name: 'Fine type' }));
     await user.click(await screen.findByRole('option', { name: 'Fine Fee' }));
-    await user.click(screen.getByRole('button', { name: 'fines.rules.form.save' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(
       await screen.findByText(
@@ -126,18 +126,18 @@ describe('fees/fines/-rules/rule-form-dialog', () => {
     );
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('combobox', { name: 'fines.rules.form.triggerLabel' }));
-    await user.click(await screen.findByRole('option', { name: 'fines.rules.form.triggerLate' }));
-    await user.click(screen.getByRole('combobox', { name: 'fines.rules.form.feeStructureLabel' }));
+    await user.click(screen.getByRole('combobox', { name: 'Trigger' }));
+    await user.click(await screen.findByRole('option', { name: 'Late arrivals' }));
+    await user.click(screen.getByRole('combobox', { name: 'Fine type' }));
     await user.click(await screen.findByRole('option', { name: 'Fine Fee' }));
-    await user.click(screen.getByRole('combobox', { name: 'fines.rules.form.classLabel' }));
+    await user.click(screen.getByRole('combobox', { name: 'Class' }));
     await user.click(await screen.findByRole('option', { name: 'Class 6' }));
 
-    const minMinutes = await screen.findByLabelText('fines.rules.form.minMinutesLateLabel');
+    const minMinutes = await screen.findByLabelText('Minimum minutes late');
     await user.clear(minMinutes);
     await user.type(minMinutes, '15');
 
-    await user.click(screen.getByRole('button', { name: 'fines.rules.form.save' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     expect(submittedBody).toEqual({

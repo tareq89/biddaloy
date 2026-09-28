@@ -66,9 +66,7 @@ describe('fees/fines/-rules/rules-panel', () => {
     server.use(...referenceHandlers([fineRule({ class_id: null, class_name: null })]));
     renderWithProviders(<RulesPanel />, { locale: 'en', role: 'ADMIN', tenantId: 'tenant-1' });
 
-    await waitFor(() =>
-      expect(screen.getAllByText('fines.rules.wholeSchool').length).toBeGreaterThan(0),
-    );
+    await waitFor(() => expect(screen.getAllByText('Whole school').length).toBeGreaterThan(0));
   });
 
   it('shows a class name when the rule is scoped to a class', async () => {
@@ -87,14 +85,18 @@ describe('fees/fines/-rules/rules-panel', () => {
     renderWithProviders(<RulesPanel />, { locale: 'en', role: 'ACCOUNTANT', tenantId: 'tenant-1' });
 
     await screen.findByText('Absence Fine — ৳৫০.০০');
-    expect(screen.queryByRole('button', { name: 'fines.rules.delete' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
   });
 
   it('renders the empty state when the year has no rules', async () => {
     server.use(...referenceHandlers([]));
     renderWithProviders(<RulesPanel />, { locale: 'en', role: 'ADMIN', tenantId: 'tenant-1' });
 
-    expect(await screen.findByText('fines.rules.emptyMessage')).toBeTruthy();
+    expect(
+      await screen.findByText(
+        'Add a rule to automatically fine students for absences or late arrivals.',
+      ),
+    ).toBeTruthy();
   });
 
   it('opens the create-rule dialog when "n" is pressed', async () => {
@@ -104,7 +106,7 @@ describe('fees/fines/-rules/rules-panel', () => {
     await screen.findByText('Absence Fine — ৳৫০.০০');
     fireEvent.keyDown(document, { key: 'n' });
 
-    expect(await screen.findByText('fines.rules.form.createTitle')).toBeTruthy();
+    expect(await screen.findByText('Add fine rule')).toBeTruthy();
   });
 
   it('does not open the create-rule dialog when "n" is pressed inside the academic-year picker', async () => {
@@ -112,10 +114,10 @@ describe('fees/fines/-rules/rules-panel', () => {
     renderWithProviders(<RulesPanel />, { locale: 'en', role: 'ADMIN', tenantId: 'tenant-1' });
 
     await screen.findByText('Absence Fine — ৳৫০.০০');
-    const picker = screen.getByRole('combobox', { name: 'fines.rules.academicYearLabel' });
+    const picker = screen.getByRole('combobox', { name: 'Academic year' });
     picker.focus();
     fireEvent.keyDown(picker, { key: 'n' });
 
-    expect(screen.queryByText('fines.rules.form.createTitle')).toBeNull();
+    expect(screen.queryByText('Add fine rule')).toBeNull();
   });
 });
