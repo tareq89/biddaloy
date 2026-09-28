@@ -49,8 +49,12 @@ function StaffAttendancePage() {
   // staff-list hook. A generous limit stands in for pagination: staff
   // rosters are small enough (dozens, not thousands) that one page over
   // every school this ships to is the lazy-correct call; revisit with
-  // real pagination if a tenant's staff count ever approaches it.
-  const usersQuery = useUsers({ limit: 200 });
+  // real pagination if a tenant's staff count ever approaches it. 100 is
+  // `QueryUserDto`'s own server-side cap (`users.dto.ts`'s `@Max(100)`) —
+  // 200 here 400s every request, which is why this whole screen was
+  // silently broken (permanent error state) until the first real e2e run
+  // caught it; MSW-mocked component tests never exercise real validation.
+  const usersQuery = useUsers({ limit: 100 });
   const staff = React.useMemo(
     () => (usersQuery.data?.data ?? []).filter((user) => user.staff_profile_id != null),
     [usersQuery.data],

@@ -1,13 +1,12 @@
-import { LeaveType, LeaveStatus } from '@biddaloy/shared';
 import { useMutation, useQuery, useQueryClient, queryOptions } from '@tanstack/react-query';
 
 import { apiClient } from './client';
+import type { components } from './schema';
 
 /**
- * [36.4] Typed hooks over `POST /leave/requests`, `GET /leave/balance` and
- * `GET /leave/policies` — hand-typed against `server/src/modules/leave/
- * dto/leave.dto.ts` for the same "schema.d.ts not regenerated yet" reason
- * `staff-attendance.ts` documents.
+ * [36.4/#1102] Typed hooks over `POST /leave/requests`, `GET /leave/balance`
+ * and `GET /leave/policies` — shapes come from the regenerated `schema.d.ts`
+ * now, not hand-typed interfaces.
  *
  * No `GET /leave/requests` (list) exists on the server yet, so there is no
  * hook here for a pending-requests list or a `decide` mutation — both
@@ -16,33 +15,9 @@ import { apiClient } from './client';
  * handles that gap.
  */
 
-export interface CreateLeaveRequestInput {
-  staff_profile_id: string;
-  leave_type: LeaveType;
-  start_date: string;
-  end_date: string;
-  reason?: string;
-}
-
-export interface LeaveRecord {
-  id: string;
-  staff_profile_id: string;
-  leave_type: LeaveType;
-  start_date: string;
-  end_date: string;
-  days: number;
-  status: LeaveStatus;
-  reason: string | null;
-  approved_by: string | null;
-  decided_at: string | null;
-}
-
-export interface LeaveBalance {
-  leave_type: LeaveType;
-  annual_quota_days: number;
-  used_days: number;
-  balance: number;
-}
+export type CreateLeaveRequestInput = components['schemas']['CreateLeaveRequestDto'];
+export type LeaveRecord = components['schemas']['LeaveRecordDto'];
+export type LeaveBalance = components['schemas']['LeaveBalanceDto'];
 
 export function leaveBalanceQueryOptions(staffProfileId: string) {
   return queryOptions({
@@ -66,7 +41,7 @@ export function useLeavePolicies() {
   return useQuery({
     queryKey: ['leave', 'policies'] as const,
     queryFn: async ({ signal }) => {
-      const res = await apiClient.get<{ leave_type: LeaveType; annual_quota_days: number }[]>(
+      const res = await apiClient.get<components['schemas']['LeavePolicyDto'][]>(
         '/leave/policies',
         { signal },
       );
