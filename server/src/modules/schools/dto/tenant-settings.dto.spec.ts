@@ -5,6 +5,7 @@ import { TenantSettingsDto, TENANT_SETTINGS_SCHEMA_VERSION } from './tenant-sett
 import {
   DEFAULT_ATTENDANCE_SETTINGS,
   DEFAULT_AUTH_SETTINGS,
+  DEFAULT_FEES_SETTINGS,
   DEFAULT_REGION_SETTINGS,
 } from '../settings/tenant-settings-defaults';
 
@@ -630,6 +631,54 @@ describe('TenantSettingsDto', () => {
 
         const feesError = errors.find((e) => e.property === 'fees');
         expect(feesError?.children?.some((e) => e.property === 'lateFees')).toBe(true);
+      });
+
+      it('[Epic 38 D10] rejects a FINE key in lateFees — a fine never gets a late fee', async () => {
+        const dto = toDto(
+          feesWithLateFees({
+            FINE: { enabled: true, grace_days: 5, kind: 'FLAT', value: 100 },
+          }),
+        );
+
+        const errors = await validate(dto, VALIDATION_OPTIONS);
+
+        const feesError = errors.find((e) => e.property === 'fees');
+        expect(feesError?.children?.some((e) => e.property === 'lateFees')).toBe(true);
+      });
+    });
+
+    describe('fineDueDays', () => {
+      function feesWithFineDueDays(fineDueDays: unknown): Record<string, unknown> {
+        return {
+          version: TENANT_SETTINGS_SCHEMA_VERSION,
+          fees: {
+            approvalMode: 'OTP',
+            notifyOnManualGenerationDefault: false,
+            notifyOnScheduleDefault: false,
+            fineDueDays,
+          },
+        };
+      }
+
+      it('[Epic 38 D10] rejects fineDueDays: 0', async () => {
+        const dto = toDto(feesWithFineDueDays(0));
+
+        const errors = await validate(dto, VALIDATION_OPTIONS);
+
+        const feesError = errors.find((e) => e.property === 'fees');
+        expect(feesError?.children?.some((e) => e.property === 'fineDueDays')).toBe(true);
+      });
+
+      it('[Epic 38 D10] accepts a valid fineDueDays', async () => {
+        const dto = toDto(feesWithFineDueDays(14));
+
+        const errors = await validate(dto, VALIDATION_OPTIONS);
+
+        expect(errors.find((e) => e.property === 'fees')).toBeUndefined();
+      });
+
+      it('[Epic 38 D10] default resolves to 7 when omitted', () => {
+        expect(DEFAULT_FEES_SETTINGS.fineDueDays).toBe(7);
       });
     });
   });
