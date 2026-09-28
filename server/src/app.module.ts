@@ -13,6 +13,7 @@ import { AppController } from './app.controller';
 import { resolveDefaultRateLimit } from './rate-limit';
 import { buildDatabaseSsl } from './db-ssl';
 import { RedactingTypeOrmLogger } from './db-logger';
+import { TeacherStaffProfileSubscriber } from './modules/staff-profiles/teacher-staff-profile.subscriber';
 import { buildRateLimitTracker } from './common/rate-limit/rate-limit-tracker';
 import { FailOpenThrottlerStorage } from './common/rate-limit/fail-open-throttler-storage';
 import { HealthModule } from './modules/health/health.module';
@@ -46,6 +47,14 @@ import { ExamsModule } from './modules/exams/exams.module';
 import { PromotionsModule } from './modules/promotions/promotions.module';
 import { HomeworkModule } from './modules/homework/homework.module';
 import { AdmissionModule } from './modules/admission/admission.module';
+import { StaffProfilesModule } from './modules/staff-profiles/staff-profiles.module';
+import { StaffProfile } from './modules/staff-profiles/entities/staff-profile.entity';
+import { StaffAttendanceModule } from './modules/staff-attendance/staff-attendance.module';
+import { StaffAttendanceSession } from './modules/staff-attendance/entities/staff-attendance-session.entity';
+import { StaffAttendanceRecord } from './modules/staff-attendance/entities/staff-attendance-record.entity';
+import { LeaveModule } from './modules/leave/leave.module';
+import { LeaveRecord } from './modules/leave/entities/leave-record.entity';
+import { LeavePolicy } from './modules/leave/entities/leave-policy.entity';
 import { Homework } from './modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from './modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from './modules/homework/entities/homework-submission.entity';
@@ -171,6 +180,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
           // rather than a preset name (see LoggerFactory.create). The
           // instance's own constructor argument is what gates output.
           logger: new RedactingTypeOrmLogger(config.get<string>('NODE_ENV') !== 'production'),
+          subscribers: [TeacherStaffProfileSubscriber],
           entities: [
             User,
             School,
@@ -259,6 +269,19 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             StaffAchievement,
             StaffLanguage,
             StaffDocument,
+            // [36.1.1] StaffProfile was missing from this list — the
+            // TypeORM connection built here only knows the entities named
+            // in this array, so `StaffProfilesService` (and anything else
+            // that queries `StaffProfile` through the app's real
+            // `DataSource`, e.g. the e2e suite) hit
+            // `EntityMetadataNotFoundError` despite `StaffProfilesModule`
+            // registering it via `forFeature`. Fixed here as part of
+            // [36.2.2] since it blocked this ticket's own e2e test.
+            StaffProfile,
+            StaffAttendanceSession,
+            StaffAttendanceRecord,
+            LeaveRecord,
+            LeavePolicy,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],
@@ -342,6 +365,9 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     ProgramsModule,
     PromotionsModule,
     StaffHrModule,
+    StaffProfilesModule,
+    StaffAttendanceModule,
+    LeaveModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

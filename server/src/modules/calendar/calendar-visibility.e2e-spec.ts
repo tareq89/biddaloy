@@ -150,9 +150,20 @@ describe('Calendar Visibility E2E', () => {
     teacherToken = await login(SEED_ADMIN_EMAIL);
 
     const teacherId = randomUUID();
+    // `teachers.staff_profile_id` is NOT NULL ([36.1.1]) — this raw insert
+    // bypasses TypeORM (so `TeacherStaffProfileSubscriber` doesn't fire),
+    // hence the `staff_profiles` CTE. `SEED_ADMIN_USER_ID` is reused across
+    // many e2e specs, so `ON CONFLICT (user_id)` reuses its profile instead
+    // of erroring on the second file to run.
     await dataSource.query(
-      `INSERT INTO teachers (id, user_id, employee_id, designations, tenant_id, created_at, updated_at)
-       VALUES ($1, $2, $3, '{}', $4, NOW(), NOW())`,
+      `WITH sp AS (
+         INSERT INTO staff_profiles (id, user_id, tenant_id, employee_id, created_at, updated_at)
+         VALUES (gen_random_uuid(), $2::uuid, $4::uuid, 'EMP-E2E-' || $1, NOW(), NOW())
+         ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW()
+         RETURNING id
+       )
+       INSERT INTO teachers (id, user_id, employee_id, designations, tenant_id, staff_profile_id, created_at, updated_at)
+       SELECT $1::uuid, $2::uuid, $3, '{}', $4::uuid, sp.id, NOW(), NOW() FROM sp`,
       [teacherId, SEED_ADMIN_USER_ID, `E2E-VIS-TEACHER-${teacherId.slice(0, 8)}`, TENANT_ID],
     );
     // TEACHER is mapped to section 1 (class 1) only, not section 2 (class 2).

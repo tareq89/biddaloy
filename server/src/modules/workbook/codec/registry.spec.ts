@@ -45,7 +45,7 @@ function fakeTab(overrides: Partial<TabSpec<unknown, unknown>> = {}): TabSpec<un
 }
 
 describe('EXPECTED_TABS', () => {
-  it('lists the tab names in epic decision D2 order, plus Epics 19.0, 21.0, 22.0, 26.0 and 27.0 appended at the end', () => {
+  it('lists the tab names in epic decision D2 order, plus Epics 19.0, 21.0, 22.0, 26.0, 27.0 and 36.0 appended at the end', () => {
     expect(EXPECTED_TABS).toEqual([
       'school',
       'academic_years',
@@ -55,6 +55,7 @@ describe('EXPECTED_TABS', () => {
       'class_subjects',
       'calendar_events',
       'users',
+      'staff_profiles',
       'teachers',
       'teacher_assignments',
       'guardians',
@@ -120,6 +121,12 @@ describe('EXPECTED_TABS', () => {
       'staff_languages',
       // [23.7] Wave 2 close — staff_documents (#1088).
       'staff_documents',
+      // [36.4.5] Epic 36.0's staff-attendance/leave tabs — see
+      // EXPECTED_TABS's own comment in registry.ts.
+      'staff_attendance_sessions',
+      'staff_attendance_records',
+      'leave_policies',
+      'leave_records',
     ]);
   });
 

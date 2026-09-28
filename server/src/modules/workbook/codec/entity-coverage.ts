@@ -99,4 +99,8 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   // Epic 34.0's programs spine — Program, ProgramMilestone,
   // ProgramEnrollment, MilestoneAchievement — got a workbook tab in
   // [34.1.4]. No exemption entries left for them.
+  // Epic 36.0's staff attendance/leave entities — StaffProfile,
+  // StaffAttendanceSession, StaffAttendanceRecord, LeaveRecord,
+  // LeavePolicy — got a workbook tab in [36.5.1]. No exemption entries
+  // left for them.
 ]);

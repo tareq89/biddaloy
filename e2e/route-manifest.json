@@ -575,6 +575,16 @@
       "archetype": "list"
     },
     {
+      "path": "/attendance/staff",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/attendance/staff/leave",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
       "path": "/reports/collections",
       "role": "accountant",
       "archetype": "list"

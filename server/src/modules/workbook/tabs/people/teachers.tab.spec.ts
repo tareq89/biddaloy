@@ -99,10 +99,11 @@ describe('teachersTab shape', () => {
     });
   });
 
-  it('excludes exactly user_id', () => {
-    expect(teachersTab.excluded).toEqual(['user_id']);
+  it('excludes exactly user_id and staff_profile_id', () => {
+    expect(teachersTab.excluded).toEqual(['user_id', 'staff_profile_id']);
     const exported = teachersTab.columns.map((c) => c.key);
     expect(exported).not.toContain('user_id');
+    expect(exported).not.toContain('staff_profile_id');
   });
 });
 

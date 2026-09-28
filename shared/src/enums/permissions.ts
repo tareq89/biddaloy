@@ -218,6 +218,17 @@ export enum Permission {
   // [23.2.1] Create/edit a Designation/StaffHrRecord and promote a staff
   // member's designation — ADMIN only (D9).
   STAFF_HR_MANAGE = 'STAFF_HR_MANAGE',
+
+  // Staff Attendance & Leave (36.x)
+  // [36.1.1] Read a StaffAttendanceRecord. Every tenant role holds it for
+  // their own record; ADMIN/EXECUTIVE additionally get it for all staff
+  // (object scope enforced server-side, same split as PAYMENT_READ).
+  STAFF_ATTENDANCE_READ = 'STAFF_ATTENDANCE_READ',
+  // [36.1.1] Mark a StaffAttendanceRecord. Every tenant role holds it for
+  // their own record.
+  STAFF_ATTENDANCE_MARK = 'STAFF_ATTENDANCE_MARK',
+  // [36.1.1] Approve/reject a LeaveRecord. ADMIN/EXECUTIVE only.
+  LEAVE_APPROVE = 'LEAVE_APPROVE',
 }
 
 import { UserRole } from './index';
@@ -328,6 +339,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // [23.2.1] Staff HR — ADMIN only (D9).
     Permission.STAFF_HR_READ,
     Permission.STAFF_HR_MANAGE,
+    // [36.1.1] Own record + all-staff read, mark own record, approve leave.
+    Permission.STAFF_ATTENDANCE_READ,
+    Permission.STAFF_ATTENDANCE_MARK,
+    Permission.LEAVE_APPROVE,
   ],
 
   [UserRole.ACCOUNTANT]: [
@@ -382,6 +397,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ATTENDANCE_READ,
     // [17.1.1] School calendar read.
     Permission.CALENDAR_READ,
+    // [36.1.1] Own record only — no LEAVE_APPROVE (ADMIN/EXECUTIVE only).
+    Permission.STAFF_ATTENDANCE_READ,
+    Permission.STAFF_ATTENDANCE_MARK,
   ],
 
   [UserRole.TEACHER]: [
@@ -422,6 +440,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // programs/milestones themselves.
     Permission.PROGRAM_READ,
     Permission.PROGRAM_RECORD,
+    // [36.1.1] Own record only — no LEAVE_APPROVE (ADMIN/EXECUTIVE only).
+    Permission.STAFF_ATTENDANCE_READ,
+    Permission.STAFF_ATTENDANCE_MARK,
   ],
 
   // [5.1] added no permissions to either family role. The widened server
@@ -511,6 +532,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.PROGRAM_READ,
     Permission.PROGRAM_MANAGE,
     Permission.PROGRAM_RECORD,
+    // [36.1.1] Own record + all-staff read, mark own record, approve leave.
+    Permission.STAFF_ATTENDANCE_READ,
+    Permission.STAFF_ATTENDANCE_MARK,
+    Permission.LEAVE_APPROVE,
   ],
 };
 

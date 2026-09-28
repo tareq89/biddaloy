@@ -26,6 +26,10 @@ import {
   PlacementAlgorithm,
   PromotionOutcome,
   ProgramEnrollmentStatus,
+  AttendanceStatus,
+  AttendanceSource,
+  LeaveType,
+  LeaveStatus,
 } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -86,6 +90,11 @@ import { StaffTraining } from '../src/modules/staff-hr/entities/staff-training.e
 import { StaffAchievement } from '../src/modules/staff-hr/entities/staff-achievement.entity';
 import { StaffLanguage } from '../src/modules/staff-hr/entities/staff-language.entity';
 import { StaffDocument } from '../src/modules/staff-hr/entities/staff-document.entity';
+import { StaffProfile } from '../src/modules/staff-profiles/entities/staff-profile.entity';
+import { StaffAttendanceSession } from '../src/modules/staff-attendance/entities/staff-attendance-session.entity';
+import { StaffAttendanceRecord } from '../src/modules/staff-attendance/entities/staff-attendance-record.entity';
+import { LeavePolicy } from '../src/modules/leave/entities/leave-policy.entity';
+import { LeaveRecord } from '../src/modules/leave/entities/leave-record.entity';
 import { ImportStagingService } from '../src/modules/bulk-import/import-staging.service';
 import { ValidationService } from '../src/modules/workbook/import/validation.service';
 import { DiffService } from '../src/modules/workbook/import/diff.service';
@@ -493,6 +502,59 @@ describe('workbook round trip (integration)', () => {
         user_id: USER_ID,
         tenant_id: TENANT_A,
         role: UserRole.ADMIN,
+      }),
+    );
+
+    // [36.4.5] Staff HR record for USER_ID (already a tenant-A ADMIN member
+    // above), so the new `staff_profiles` tab is exercised rather than
+    // exported empty, plus one attendance day/mark and one leave
+    // policy/request built on top of it.
+    const staffProfile = await dataSource.getRepository(StaffProfile).save(
+      dataSource.getRepository(StaffProfile).create({
+        user_id: USER_ID,
+        tenant_id: TENANT_A,
+        employee_id: 'RT-EMP-0001',
+        joining_date: new Date('2024-01-10'),
+      }),
+    );
+
+    const staffAttendanceSession = await dataSource.getRepository(StaffAttendanceSession).save(
+      dataSource.getRepository(StaffAttendanceSession).create({
+        tenant_id: TENANT_A,
+        date: '2026-03-01',
+      }),
+    );
+
+    await dataSource.getRepository(StaffAttendanceRecord).save(
+      dataSource.getRepository(StaffAttendanceRecord).create({
+        tenant_id: TENANT_A,
+        session_id: staffAttendanceSession.id,
+        staff_profile_id: staffProfile.id,
+        status: AttendanceStatus.PRESENT,
+        source: AttendanceSource.TEACHER,
+      }),
+    );
+
+    await dataSource.getRepository(LeavePolicy).save(
+      dataSource.getRepository(LeavePolicy).create({
+        tenant_id: TENANT_A,
+        leave_type: LeaveType.CASUAL,
+        annual_quota_days: 10,
+      }),
+    );
+
+    await dataSource.getRepository(LeaveRecord).save(
+      dataSource.getRepository(LeaveRecord).create({
+        tenant_id: TENANT_A,
+        staff_profile_id: staffProfile.id,
+        leave_type: LeaveType.CASUAL,
+        start_date: '2026-03-10',
+        end_date: '2026-03-11',
+        days: 2,
+        status: LeaveStatus.APPROVED,
+        reason: 'Roundtrip fixture leave request',
+        approved_by: USER_ID,
+        decided_at: new Date('2026-03-05'),
       }),
     );
 
@@ -1558,6 +1620,11 @@ describe('workbook round trip (integration)', () => {
       'staff_languages',
       // [23.7] Wave 2 close.
       'staff_documents',
+      'staff_profiles',
+      'staff_attendance_sessions',
+      'staff_attendance_records',
+      'leave_policies',
+      'leave_records',
     ];
     const empty = mustBeNonEmpty.filter((tab) => !(rowCounts[tab] ?? 0));
     expect(empty, `fixture produced no rows for: ${empty.join(', ')}`).toEqual([]);

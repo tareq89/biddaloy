@@ -13,6 +13,8 @@ import type { components } from '../api/schema';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
+// [36.4/#1102] `UserResponseDto` carries `staff_profile_id` for real now
+// that `schema.d.ts` is regenerated — no more hand-typed intersection.
 export type StaffUser = components['schemas']['UserResponseDto'];
 export type CreateUserInput = components['schemas']['CreateUserDto'];
 export type UpdateUserInput = components['schemas']['UpdateUserDto'];

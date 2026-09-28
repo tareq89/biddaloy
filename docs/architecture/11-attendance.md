@@ -323,3 +323,7 @@ these defaults (`tenant-settings-defaults.ts`):
 
 One line each here so the next person who goes looking for one of these
 knows it was a decision, not an oversight.
+
+**Staff attendance is a separate model, not an extension of this one** —
+no shared tables, no shared code, just the same status enum reused. See
+[18-staff-attendance-leave.md](18-staff-attendance-leave.md).

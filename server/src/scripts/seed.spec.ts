@@ -55,6 +55,11 @@ import type { MilestoneAchievement } from '../modules/programs/entities/mileston
 import type { FeeStructure } from '../modules/fees/entities/fee-structure.entity';
 import type { RecurringSchedule } from '../modules/fees/entities/recurring-schedule.entity';
 import type { RecurringScheduleStructure } from '../modules/fees/entities/recurring-schedule-structure.entity';
+import type { StaffProfile } from '../modules/staff-profiles/entities/staff-profile.entity';
+import type { StaffAttendanceSession } from '../modules/staff-attendance/entities/staff-attendance-session.entity';
+import type { StaffAttendanceRecord } from '../modules/staff-attendance/entities/staff-attendance-record.entity';
+import type { LeavePolicy } from '../modules/leave/entities/leave-policy.entity';
+import type { LeaveRecord } from '../modules/leave/entities/leave-record.entity';
 import { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
 import { ensureDemoOrganisation } from './seed.util';
 
@@ -342,6 +347,26 @@ function makeRepos() {
       clock,
       'recurring-schedule-structure',
     ).asRepository() as unknown as Repository<RecurringScheduleStructure>,
+    staffProfileRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'staff-profile',
+    ).asRepository() as unknown as Repository<StaffProfile>,
+    leavePolicyRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'leave-policy',
+    ).asRepository() as unknown as Repository<LeavePolicy>,
+    staffAttendanceSessionRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'staff-attendance-session',
+    ).asRepository() as unknown as Repository<StaffAttendanceSession>,
+    staffAttendanceRecordRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'staff-attendance-record',
+    ).asRepository() as unknown as Repository<StaffAttendanceRecord>,
+    leaveRecordRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'leave-record',
+    ).asRepository() as unknown as Repository<LeaveRecord>,
   } satisfies SeedAccountRepositories;
   return { repos, users, schools, userTenants, students };
 }

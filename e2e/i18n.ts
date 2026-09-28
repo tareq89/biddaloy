@@ -27,6 +27,7 @@ import bnFeeStructures from '../ui/src/i18n/locales/bn/feeStructures.json';
 import bnGrading from '../ui/src/i18n/locales/bn/grading.json';
 import bnGuardians from '../ui/src/i18n/locales/bn/guardians.json';
 import bnHomework from '../ui/src/i18n/locales/bn/homework.json';
+import bnLeave from '../ui/src/i18n/locales/bn/leave.json';
 import bnNav from '../ui/src/i18n/locales/bn/nav.json';
 import bnPayments from '../ui/src/i18n/locales/bn/payments.json';
 import bnPlatform from '../ui/src/i18n/locales/bn/platform.json';
@@ -39,6 +40,7 @@ import bnSeatPlans from '../ui/src/i18n/locales/bn/seatPlans.json';
 import bnSeatPlansDetail from '../ui/src/i18n/locales/bn/seatPlansDetail.json';
 import bnSettings from '../ui/src/i18n/locales/bn/settings.json';
 import bnStaff from '../ui/src/i18n/locales/bn/staff.json';
+import bnStaffAttendance from '../ui/src/i18n/locales/bn/staffAttendance.json';
 import bnStudents from '../ui/src/i18n/locales/bn/students.json';
 import bnSyllabus from '../ui/src/i18n/locales/bn/syllabus.json';
 import bnTeacherAssignments from '../ui/src/i18n/locales/bn/teacherAssignments.json';
@@ -62,6 +64,7 @@ import enFeeStructures from '../ui/src/i18n/locales/en/feeStructures.json';
 import enGrading from '../ui/src/i18n/locales/en/grading.json';
 import enGuardians from '../ui/src/i18n/locales/en/guardians.json';
 import enHomework from '../ui/src/i18n/locales/en/homework.json';
+import enLeave from '../ui/src/i18n/locales/en/leave.json';
 import enNav from '../ui/src/i18n/locales/en/nav.json';
 import enPayments from '../ui/src/i18n/locales/en/payments.json';
 import enPlatform from '../ui/src/i18n/locales/en/platform.json';
@@ -74,6 +77,7 @@ import enSeatPlans from '../ui/src/i18n/locales/en/seatPlans.json';
 import enSeatPlansDetail from '../ui/src/i18n/locales/en/seatPlansDetail.json';
 import enSettings from '../ui/src/i18n/locales/en/settings.json';
 import enStaff from '../ui/src/i18n/locales/en/staff.json';
+import enStaffAttendance from '../ui/src/i18n/locales/en/staffAttendance.json';
 import enStudents from '../ui/src/i18n/locales/en/students.json';
 import enSyllabus from '../ui/src/i18n/locales/en/syllabus.json';
 import enTeacherAssignments from '../ui/src/i18n/locales/en/teacherAssignments.json';
@@ -100,6 +104,7 @@ const catalogs = {
     grading: bnGrading,
     guardians: bnGuardians,
     homework: bnHomework,
+    leave: bnLeave,
     nav: bnNav,
     payments: bnPayments,
     platform: bnPlatform,
@@ -112,6 +117,7 @@ const catalogs = {
     seatPlansDetail: bnSeatPlansDetail,
     settings: bnSettings,
     staff: bnStaff,
+    staffAttendance: bnStaffAttendance,
     students: bnStudents,
     syllabus: bnSyllabus,
     teacherAssignments: bnTeacherAssignments,
@@ -137,6 +143,7 @@ const catalogs = {
     grading: enGrading,
     guardians: enGuardians,
     homework: enHomework,
+    leave: enLeave,
     nav: enNav,
     payments: enPayments,
     platform: enPlatform,
@@ -149,6 +156,7 @@ const catalogs = {
     seatPlansDetail: enSeatPlansDetail,
     settings: enSettings,
     staff: enStaff,
+    staffAttendance: enStaffAttendance,
     students: enStudents,
     syllabus: enSyllabus,
     teacherAssignments: enTeacherAssignments,

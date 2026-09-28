@@ -1,0 +1,37 @@
+{
+  "myLeave": {
+    "title": "My leave",
+    "requestButton": "Request leave",
+    "balanceTitle": "Balance",
+    "columnType": "Type",
+    "columnQuota": "Annual quota",
+    "columnUsed": "Used",
+    "columnBalance": "Remaining",
+    "loading": "Loading balance…",
+    "errorMessage": "Couldn't load leave balance.",
+    "empty": "No leave policy configured yet."
+  },
+  "request": {
+    "title": "Request leave",
+    "description": "Requests are checked against the remaining balance for the leave type's year.",
+    "typeLabel": "Leave type",
+    "startDateLabel": "Start date",
+    "endDateLabel": "End date",
+    "reasonLabel": "Reason",
+    "submit": "Submit request",
+    "submitting": "Submitting…",
+    "errorDateRange": "End date must be on or after the start date.",
+    "errorMessage": "Couldn't submit the leave request."
+  },
+  "type": {
+    "CASUAL": "Casual",
+    "SICK": "Sick",
+    "MATERNITY": "Maternity",
+    "PATERNITY": "Paternity",
+    "EARNED": "Earned"
+  },
+  "approve": {
+    "title": "Pending requests",
+    "notAvailableMessage": "The server doesn't expose a list of pending leave requests yet, so this panel can't show anything to approve or reject. Ask engineering to add that endpoint."
+  }
+}

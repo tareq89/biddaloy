@@ -3,6 +3,8 @@ import { NotFoundException, ConflictException, BadRequestException } from '@nest
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { UserService, TeacherService } from './users.service';
+import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
+import { StaffProfile } from '../staff-profiles/entities/staff-profile.entity';
 import { CreateUserDto } from './dto/users.dto';
 import { User } from './entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
@@ -137,10 +139,15 @@ describe('UserService (integration)', () => {
   const TENANT_ID = SEED_TENANT_ID;
 
   beforeAll(async () => {
-    const module = await createTestModule(ALL_ENTITIES, [UserService, TeacherService], [], {
-      synchronize: true,
-      dropSchema: true,
-    });
+    const module = await createTestModule(
+      ALL_ENTITIES,
+      [UserService, TeacherService, StaffProfilesService],
+      [],
+      {
+        synchronize: true,
+        dropSchema: true,
+      },
+    );
 
     service = module.get<UserService>(UserService);
     userRepo = module.get<Repository<User>>(getRepositoryToken(User));
@@ -206,6 +213,40 @@ describe('UserService (integration)', () => {
       expect(result.user.phone).toBe('+8801700000000');
       expect(result.user.password_hash).toBeNull();
       expect(result.membership.role).toBe(UserRole.PARENT);
+    });
+
+    it('[36.2.1] should create a staff_profiles row when creating an ADMIN user', async () => {
+      const result = await service.create(
+        {
+          full_name: 'Admin User',
+          email: 'admin@example.com',
+          password: 'pw',
+          role: UserRole.ADMIN,
+        },
+        TENANT_ID,
+      );
+
+      const staffProfileRepo = dataSource.getRepository(StaffProfile);
+      const profile = await staffProfileRepo.findOne({ where: { user_id: result.user.id } });
+      expect(profile).not.toBeNull();
+      expect(profile?.tenant_id).toBe(TENANT_ID);
+      expect(profile?.employee_id).toMatch(/^EMP-/);
+    });
+
+    it('[36.2.1] should NOT create a staff_profiles row when creating a TEACHER-role user (TeacherService.create makes it later)', async () => {
+      const result = await service.create(
+        {
+          full_name: 'Teacher User',
+          email: 'teacher-role@example.com',
+          password: 'pw',
+          role: UserRole.TEACHER,
+        },
+        TENANT_ID,
+      );
+
+      const staffProfileRepo = dataSource.getRepository(StaffProfile);
+      const profile = await staffProfileRepo.findOne({ where: { user_id: result.user.id } });
+      expect(profile).toBeNull();
     });
 
     it('should throw ConflictException when email already exists', async () => {
@@ -1143,10 +1184,15 @@ describe('TeacherService (integration)', () => {
   const TENANT_ID = SEED_TENANT_ID;
 
   beforeAll(async () => {
-    const module = await createTestModule(ALL_ENTITIES, [UserService, TeacherService], [], {
-      synchronize: true,
-      dropSchema: true,
-    });
+    const module = await createTestModule(
+      ALL_ENTITIES,
+      [UserService, TeacherService, StaffProfilesService],
+      [],
+      {
+        synchronize: true,
+        dropSchema: true,
+      },
+    );
 
     userService = module.get<UserService>(UserService);
     teacherService = module.get<TeacherService>(TeacherService);
@@ -1216,6 +1262,24 @@ describe('TeacherService (integration)', () => {
       expect(teacher.tenant_id).toBe(TENANT_ID);
       expect(teacher.user).toBeDefined();
       expect(teacher.user.id).toBe(user.id);
+    });
+
+    it('[36.2.1] should create a staff_profiles row linked by staff_profile_id', async () => {
+      const user = await createTenantUser({ email: 'teacher-profile@example.com' });
+
+      const teacher = await teacherService.create(
+        { user_id: user.id, employee_id: 'EMP-PROFILE-1', joining_date: '2026-02-01' },
+        TENANT_ID,
+      );
+
+      expect(teacher.staff_profile_id).toBeDefined();
+
+      const staffProfileRepo = dataSource.getRepository(StaffProfile);
+      const profile = await staffProfileRepo.findOne({ where: { id: teacher.staff_profile_id } });
+      expect(profile).not.toBeNull();
+      expect(profile?.user_id).toBe(user.id);
+      expect(profile?.tenant_id).toBe(TENANT_ID);
+      expect(profile?.employee_id).toBe('EMP-PROFILE-1');
     });
 
     it('should throw NotFoundException when user does not exist', async () => {

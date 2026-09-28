@@ -1,12 +1,20 @@
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, IsNull, QueryFailedError, Repository } from 'typeorm';
-import { AttendanceEventDirection, AttendanceSource, AuditAction } from '@biddaloy/shared';
+import {
+  AttendanceEventDirection,
+  AttendanceSource,
+  AttendanceSubjectType,
+  AuditAction,
+} from '@biddaloy/shared';
 import { AttendanceDevice } from '../entities/attendance-device.entity';
 import { AttendanceDeviceEvent } from '../entities/attendance-device-event.entity';
 import { AttendanceSession } from '../entities/attendance-session.entity';
 import { AttendanceRecord } from '../entities/attendance-record.entity';
 import { Student } from '../../students/entities/student.entity';
+import { StaffAttendanceSession } from '../../staff-attendance/entities/staff-attendance-session.entity';
+import { StaffAttendanceRecord } from '../../staff-attendance/entities/staff-attendance-record.entity';
+import { StaffProfile } from '../../staff-profiles/entities/staff-profile.entity';
 import { SchoolsService } from '../../schools/schools.service';
 import { AuditService } from '../../audit/audit.service';
 import {
@@ -193,7 +201,15 @@ export class DeviceEventsService {
             device_id: device.id,
             device_event_id: event.device_event_id,
             external_ref: event.external_ref ?? null,
-            student_id: event.student_id ?? null,
+            // `student_id` is a real FK to `students` — a STAFF event's
+            // `student_id` field is a `staff_profiles.id`, never a real
+            // student, so it must never land in this column (see
+            // `ingestStaffEvent`'s docstring below for where it does go:
+            // nowhere but `raw`).
+            student_id:
+              event.subject_type === AttendanceSubjectType.STAFF
+                ? null
+                : (event.student_id ?? null),
             occurred_at: occurredAt,
             direction: event.direction,
             // Placeholder — overwritten below once the real outcome is
@@ -210,15 +226,34 @@ export class DeviceEventsService {
         throw err;
       }
 
-      // 2. Resolve the student. Exactly one of student_id/external_ref must
+      // 2. Resolve the subject. Exactly one of student_id/external_ref must
       // be given — the DTO documents this as an either/or, but nothing
       // enforces it there, so a malformed event with both set must not
-      // silently resolve by student_id and ignore external_ref.
+      // silently resolve by student_id and ignore external_ref. This rule
+      // is shared by both subject types — only what the id is checked
+      // against differs.
       const hasStudentId = event.student_id !== undefined && event.student_id !== null;
       const hasExternalRef = event.external_ref !== undefined && event.external_ref !== null;
+
       if (hasStudentId === hasExternalRef) {
-        await eventRepo.update(eventRow.id, { outcome: 'unknown_student' });
-        return { device_event_id: event.device_event_id, outcome: 'unknown_student' };
+        const outcome =
+          event.subject_type === AttendanceSubjectType.STAFF ? 'unknown_staff' : 'unknown_student';
+        await eventRepo.update(eventRow.id, { outcome });
+        return { device_event_id: event.device_event_id, outcome };
+      }
+
+      if (event.subject_type === AttendanceSubjectType.STAFF) {
+        return this.ingestStaffEvent(
+          manager,
+          eventRepo,
+          eventRow,
+          device,
+          event,
+          eventDate,
+          occurredAt,
+          policy,
+          timezone,
+        );
       }
 
       const student = await this.resolveStudent(manager, device.tenant_id, event);
@@ -451,6 +486,216 @@ export class DeviceEventsService {
       student_id: student.id,
       status: record.status,
       minutes_late: record.minutes_late,
+    };
+  }
+
+  // ---------------------------------------------------------------------
+  // [36.2.3] subject_type: STAFF branch. Mirrors the STUDENT path above
+  // (same idempotency row, same ±2-day window, same outcome codes, same
+  // "manual mark wins" rule) but resolves against `staff_profiles` and
+  // finds-or-creates a `StaffAttendanceSession`/`StaffAttendanceRecord`
+  // pair instead of the student ones. Staff have no section, so there is
+  // no section-mismatch check here.
+  //
+  // `AttendanceDeviceEvent.student_id`/`record_id` carry real FK
+  // constraints to `students`/`attendance_records` (see the [9.2]
+  // migration), so a staff event's resolved ids are never written into
+  // those columns — `raw` already has the original payload (subject_type,
+  // external_ref/student_id-equivalent) for forensics.
+  // ---------------------------------------------------------------------
+
+  private async ingestStaffEvent(
+    manager: EntityManager,
+    eventRepo: Repository<AttendanceDeviceEvent>,
+    eventRow: AttendanceDeviceEvent,
+    device: AttendanceDevice,
+    event: DeviceEventDto,
+    eventDate: string,
+    occurredAt: Date,
+    policy: ReturnType<typeof resolveAttendancePolicy>,
+    timezone: string,
+  ): Promise<DeviceEventResultDto> {
+    const staffProfile = await this.resolveStaffProfile(manager, device.tenant_id, event);
+    if (!staffProfile) {
+      await eventRepo.update(eventRow.id, { outcome: 'unknown_staff' });
+      return { device_event_id: event.device_event_id, outcome: 'unknown_staff' };
+    }
+
+    // Clock-skew window — identical rule to the STUDENT branch.
+    if (this.isOutOfWindow(eventDate, timezone)) {
+      await eventRepo.update(eventRow.id, { outcome: 'out_of_window' });
+      return { device_event_id: event.device_event_id, outcome: 'out_of_window' };
+    }
+
+    if (event.direction === AttendanceEventDirection.OUT) {
+      return this.handleStaffCheckOut(
+        manager,
+        eventRepo,
+        eventRow,
+        device,
+        staffProfile,
+        eventDate,
+        occurredAt,
+      );
+    }
+    return this.handleStaffCheckIn(
+      manager,
+      eventRepo,
+      eventRow,
+      device,
+      staffProfile,
+      eventDate,
+      occurredAt,
+      policy,
+      timezone,
+    );
+  }
+
+  private async resolveStaffProfile(
+    manager: EntityManager,
+    tenantId: string,
+    event: DeviceEventDto,
+  ): Promise<StaffProfile | null> {
+    const staffProfileRepo = manager.getRepository(StaffProfile);
+    if (event.student_id) {
+      return staffProfileRepo.findOne({
+        where: { id: event.student_id, tenant_id: tenantId },
+      });
+    }
+    if (event.external_ref) {
+      return staffProfileRepo.findOne({
+        where: { employee_id: event.external_ref, tenant_id: tenantId },
+      });
+    }
+    return null;
+  }
+
+  private async handleStaffCheckOut(
+    manager: EntityManager,
+    eventRepo: Repository<AttendanceDeviceEvent>,
+    eventRow: AttendanceDeviceEvent,
+    device: AttendanceDevice,
+    staffProfile: StaffProfile,
+    dateIso: string,
+    occurredAt: Date,
+  ): Promise<DeviceEventResultDto> {
+    const recordRepo = manager.getRepository(StaffAttendanceRecord);
+    const sessionRepo = manager.getRepository(StaffAttendanceSession);
+    const session = await sessionRepo.findOne({
+      where: { tenant_id: device.tenant_id, date: dateIso },
+    });
+    const record = session
+      ? await recordRepo.findOne({
+          where: { session_id: session.id, staff_profile_id: staffProfile.id },
+        })
+      : null;
+
+    if (!record) {
+      await eventRepo.update(eventRow.id, { outcome: 'rejected' });
+      return {
+        device_event_id: eventRow.device_event_id,
+        outcome: 'rejected',
+        reason: 'no_check_in',
+      };
+    }
+
+    if (record.check_out_at === null) {
+      record.check_out_at = occurredAt;
+      await recordRepo.save(record);
+    }
+
+    await eventRepo.update(eventRow.id, { outcome: 'accepted' });
+    return {
+      device_event_id: eventRow.device_event_id,
+      outcome: 'accepted',
+      status: record.status,
+    };
+  }
+
+  private async handleStaffCheckIn(
+    manager: EntityManager,
+    eventRepo: Repository<AttendanceDeviceEvent>,
+    eventRow: AttendanceDeviceEvent,
+    device: AttendanceDevice,
+    staffProfile: StaffProfile,
+    dateIso: string,
+    occurredAt: Date,
+    policy: ReturnType<typeof resolveAttendancePolicy>,
+    timezone: string,
+  ): Promise<DeviceEventResultDto> {
+    const sessionRepo = manager.getRepository(StaffAttendanceSession);
+    const recordRepo = manager.getRepository(StaffAttendanceRecord);
+
+    let session = await sessionRepo.findOne({
+      where: { tenant_id: device.tenant_id, date: dateIso },
+    });
+    if (!session) {
+      try {
+        session = await sessionRepo.save(
+          sessionRepo.create({ tenant_id: device.tenant_id, date: dateIso }),
+        );
+      } catch (err) {
+        if (!isUniqueViolation(err)) throw err;
+        // Two concurrent device batches raced to create the same day's
+        // staff session — the loser re-reads what the winner created.
+        session = await sessionRepo.findOneOrFail({
+          where: { tenant_id: device.tenant_id, date: dateIso },
+        });
+      }
+    }
+
+    let record = await recordRepo.findOne({
+      where: { session_id: session.id, staff_profile_id: staffProfile.id },
+    });
+    let outcome: string;
+    let versionBumped = false;
+
+    if (!record) {
+      const classification = classifyCheckIn(occurredAt, dateIso, policy, timezone);
+      record = await recordRepo.save(
+        recordRepo.create({
+          tenant_id: device.tenant_id,
+          session_id: session.id,
+          staff_profile_id: staffProfile.id,
+          status: classification.status,
+          source: AttendanceSource.DEVICE,
+          check_in_at: occurredAt,
+        }),
+      );
+      outcome = 'accepted';
+      versionBumped = true;
+    } else if (record.source === AttendanceSource.TEACHER) {
+      // Manual-mark-wins (D3): a manually-marked staff record is never
+      // overwritten by a device scan — only a blank check_in/check_out
+      // gets filled in.
+      outcome = 'skipped_teacher_marked';
+      if (record.check_in_at === null) {
+        record.check_in_at = occurredAt;
+        await recordRepo.save(record);
+        versionBumped = true;
+      }
+    } else if (occurredAt.getTime() < (record.check_in_at?.getTime() ?? Infinity)) {
+      // Keep the earliest check-in among repeated device scans.
+      const classification = classifyCheckIn(occurredAt, dateIso, policy, timezone);
+      record.check_in_at = occurredAt;
+      record.status = classification.status;
+      await recordRepo.save(record);
+      outcome = 'accepted';
+      versionBumped = true;
+    } else {
+      outcome = 'duplicate';
+    }
+
+    if (versionBumped) {
+      await sessionRepo.increment({ id: session.id }, 'version', 1);
+    }
+
+    await eventRepo.update(eventRow.id, { outcome });
+
+    return {
+      device_event_id: eventRow.device_event_id,
+      outcome,
+      status: record.status,
     };
   }
 }
