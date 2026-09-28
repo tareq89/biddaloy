@@ -141,11 +141,17 @@ export function LogFineModal({ open, onOpenChange, prefillStudentIds }: LogFineM
     for (const query of prefilledNameQueries) {
       const student = query.data;
       if (student === undefined) continue;
-      setSelected((prev) =>
-        prev.map((s) =>
+      // `useQueries` returns a new array (and this effect's dependency) on every
+      // render, so `setSelected` here must be a genuine no-op once every prefilled
+      // name is resolved — `prev.map(...)` always returns a *new* array even when
+      // no entry changes, which would otherwise re-trigger this effect forever.
+      setSelected((prev) => {
+        const needsUpdate = prev.some((s) => s.id === student.id && s.full_name === '');
+        if (!needsUpdate) return prev;
+        return prev.map((s) =>
           s.id === student.id && s.full_name === '' ? { ...s, full_name: student.full_name } : s,
-        ),
-      );
+        );
+      });
     }
   }, [prefilledNameQueries]);
 
