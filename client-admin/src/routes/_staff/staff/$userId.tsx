@@ -32,6 +32,7 @@ import { z } from 'zod';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { AttendanceLeaveTab } from './-detail/attendance-leave-tab';
+import { HrRecordTab } from './-detail/hr-record-tab';
 import { LoginHistoryTab } from './-detail/login-history-tab';
 import { MembershipsTab } from './-detail/memberships-tab';
 import { PermissionsTab } from './-detail/permissions-tab';
@@ -72,6 +73,7 @@ function StaffDetailPage() {
   const canUpdate = useHasPermission(Permission.USER_UPDATE);
   const canRemove = useHasPermission(Permission.MEMBER_REMOVE);
   const canReadAuditLogs = useHasPermission(Permission.AUDIT_LOG_READ);
+  const canReadHrRecord = useHasPermission(Permission.STAFF_HR_READ);
   const currentUserId = useCurrentUserId();
 
   const isTeacher = teacher !== undefined;
@@ -81,6 +83,7 @@ function StaffDetailPage() {
     'permissions',
     'memberships',
     ...(isTeacher ? (['teachingAssignments'] as const) : []),
+    ...(canReadHrRecord ? (['hrRecord'] as const) : []),
     ...(hasStaffProfile ? (['attendanceLeave'] as const) : []),
     ...(canReadAuditLogs ? (['loginHistory'] as const) : []),
   ] as const;
@@ -115,6 +118,15 @@ function StaffDetailPage() {
             id: 'teachingAssignments',
             label: t('detail.tabs.teachingAssignments'),
             content: <TeachingAssignmentsTab teacherId={teacher.id} />,
+          },
+        ]
+      : []),
+    ...(canReadHrRecord
+      ? [
+          {
+            id: 'hrRecord',
+            label: t('detail.tabs.hrRecord'),
+            content: <HrRecordTab userId={userId} />,
           },
         ]
       : []),

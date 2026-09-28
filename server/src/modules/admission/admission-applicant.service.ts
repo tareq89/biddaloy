@@ -18,6 +18,7 @@ import { AdmissionApplicant } from './entities/admission-applicant.entity';
 import { SchoolsService } from '../schools/schools.service';
 import { StorageService } from '../storage/storage.service';
 import { tenantObjectKey } from '../storage/storage-key';
+import { matchesDeclaredType } from '../storage/file-signature';
 import { SubmitApplicantDto } from './dto/submit-applicant.dto';
 import { CheckApplicantStatusDto } from './dto/check-applicant-status.dto';
 import { normalizeBdPhoneNumber } from '../communications/providers/shared/phone-number.util';
@@ -52,30 +53,6 @@ const EXT_BY_MIME: Record<string, string> = {
   'image/webp': 'webp',
   'application/pdf': 'pdf',
 };
-
-/**
- * Magic-byte signature check per declared mimetype — a public unauthenticated
- * upload must not trust the client-supplied `mimetype` header on its own,
- * since that's just a form field the caller can set to anything. Only the
- * four types we accept, checked against the first bytes actually written.
- */
-function matchesDeclaredType(buffer: Buffer, mimetype: string): boolean {
-  switch (mimetype) {
-    case 'image/png':
-      return buffer.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47]));
-    case 'image/jpeg':
-      return buffer.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]));
-    case 'image/webp':
-      return (
-        buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
-        buffer.subarray(8, 12).toString('ascii') === 'WEBP'
-      );
-    case 'application/pdf':
-      return buffer.subarray(0, 4).toString('ascii') === '%PDF';
-    default:
-      return false;
-  }
-}
 
 /**
  * [27.2] The unauthenticated admission-submission path. Every method here

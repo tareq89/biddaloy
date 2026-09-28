@@ -17,14 +17,21 @@ import {
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
+  designationTitle,
   useCurrentUserId,
+  useDesignations,
   useHasPermission,
   usersQueryOptions,
   useUsers,
   type StaffUser,
   type UserRoleFilter,
 } from '@biddaloy/ui/hooks';
-import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import {
+  RegionConfigProvider,
+  useLocale,
+  useTenantRegionConfig,
+  useTranslation,
+} from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
 import { formatDate } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
@@ -54,6 +61,7 @@ interface StaffFilters {
   role?: string | undefined;
   status?: string | undefined;
   invitation_status?: string | undefined;
+  designation_id?: string | undefined;
   joined_from?: string | undefined;
   joined_to?: string | undefined;
 }
@@ -67,6 +75,10 @@ const staffSearchSchema = z.object({
   role: z.string().optional().catch(undefined),
   status: z.string().optional().catch(undefined),
   invitation_status: z.string().optional().catch(undefined),
+  // [23.12] The nav-tree gap: "Staff is ONE register... with staff-type
+  // filter and designations" — a `Designation` (23.2) id, alongside the
+  // existing `role` filter, not replacing it.
+  designation_id: z.string().uuid().optional().catch(undefined),
   joined_from: z.string().optional().catch(undefined),
   joined_to: z.string().optional().catch(undefined),
   // Reserved row-selection key — same reasoning as `guardians/index.tsx`.
@@ -111,6 +123,7 @@ export const Route = createFileRoute('/_staff/staff/')({
     role: search.role,
     status: search.status,
     invitationStatus: search.invitation_status,
+    designationId: search.designation_id,
     joinedFrom: search.joined_from,
     joinedTo: search.joined_to,
   }),
@@ -131,6 +144,7 @@ export const Route = createFileRoute('/_staff/staff/')({
             ...(role !== undefined ? { role } : {}),
             ...(status !== undefined ? { status } : {}),
             ...(invitationStatus !== undefined ? { invitation_status: invitationStatus } : {}),
+            ...(deps.designationId !== undefined ? { designation_id: deps.designationId } : {}),
             ...(deps.joinedFrom !== undefined ? { joined_from: deps.joinedFrom } : {}),
             ...(deps.joinedTo !== undefined ? { joined_to: deps.joinedTo } : {}),
             ...(sortField !== undefined ? { sort: sortField } : {}),
@@ -147,6 +161,7 @@ export const Route = createFileRoute('/_staff/staff/')({
 
 function StaffListPage() {
   const { t } = useTranslation('staff');
+  const { locale } = useLocale();
   const regionConfig = useTenantRegionConfig();
   const [state, actions] = useListShellState({ limit: 10 });
   const filters = state.filters as StaffFilters;
@@ -163,6 +178,7 @@ function StaffListPage() {
   const statusParam = toStatusParam(filters.status);
   const invitationStatusParam = toInvitationStatusParam(filters.invitation_status);
   const sortField = state.sorting ? SORT_FIELD_BY_COLUMN[state.sorting.id] : undefined;
+  const designationsQuery = useDesignations();
   const usersQuery = useUsers({
     page: state.page,
     limit: state.limit,
@@ -170,6 +186,7 @@ function StaffListPage() {
     ...(roleParam !== undefined ? { role: roleParam } : {}),
     ...(statusParam !== undefined ? { status: statusParam } : {}),
     ...(invitationStatusParam !== undefined ? { invitation_status: invitationStatusParam } : {}),
+    ...(filters.designation_id !== undefined ? { designation_id: filters.designation_id } : {}),
     ...(filters.joined_from !== undefined ? { joined_from: filters.joined_from } : {}),
     ...(filters.joined_to !== undefined ? { joined_to: filters.joined_to } : {}),
     ...(sortField !== undefined ? { sort: sortField } : {}),
@@ -209,6 +226,16 @@ function StaffListPage() {
       options: INVITATION_STATUS_VALUES.map((status) => ({
         value: status,
         label: t(statusLabelKey('invitation', status), { ns: 'common' }),
+      })),
+    },
+    {
+      kind: 'select',
+      key: 'designation_id',
+      label: t('list.designationFilterLabel'),
+      allLabel: t('list.designationFilterAll'),
+      options: (designationsQuery.data ?? []).map((designation) => ({
+        value: designation.id,
+        label: designationTitle(designation, locale),
       })),
     },
     {

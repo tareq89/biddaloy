@@ -35,6 +35,9 @@ export interface UserListFilters {
   /** [12.6] Filters on the derived invitation lifecycle — "who hasn't
    * activated yet?" from the staff list. */
   invitation_status?: InvitationStatus;
+  /** [23.12] The user's *current* designation (23.2's job title, not the
+   * `UserRole` enum) — independent of `role`. */
+  designation_id?: string;
   joined_from?: string;
   joined_to?: string;
   sort?: 'full_name' | 'email' | 'joined_at' | 'status';

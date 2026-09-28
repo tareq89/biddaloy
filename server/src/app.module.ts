@@ -40,6 +40,7 @@ import { RestoreModule } from './modules/workbook/restore/restore.module';
 import { ImportModule } from './modules/workbook/import/import.module';
 import { TemplateModule } from './modules/workbook/template/template.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { StaffHrModule } from './modules/staff-hr/staff-hr.module';
 import { SearchModule } from './modules/search/search.module';
 import { GradingModule } from './modules/grading/grading.module';
 import { ExamsModule } from './modules/exams/exams.module';
@@ -67,6 +68,17 @@ import { Program } from './modules/programs/entities/program.entity';
 import { ProgramMilestone } from './modules/programs/entities/program-milestone.entity';
 import { ProgramEnrollment } from './modules/programs/entities/program-enrollment.entity';
 import { MilestoneAchievement } from './modules/programs/entities/milestone-achievement.entity';
+import { Designation } from './modules/staff-hr/entities/designation.entity';
+import { StaffHrRecord } from './modules/staff-hr/entities/staff-hr-record.entity';
+import { StaffDesignationHistory } from './modules/staff-hr/entities/staff-designation-history.entity';
+import { StaffFamilyMember } from './modules/staff-hr/entities/staff-family-member.entity';
+import { StaffAddress } from './modules/staff-hr/entities/staff-address.entity';
+import { StaffExperience } from './modules/staff-hr/entities/staff-experience.entity';
+import { StaffEducation } from './modules/staff-hr/entities/staff-education.entity';
+import { StaffTraining } from './modules/staff-hr/entities/staff-training.entity';
+import { StaffAchievement } from './modules/staff-hr/entities/staff-achievement.entity';
+import { StaffLanguage } from './modules/staff-hr/entities/staff-language.entity';
+import { StaffDocument } from './modules/staff-hr/entities/staff-document.entity';
 import { validate } from './config/env.validation';
 
 // Entities for auto-loading
@@ -246,6 +258,17 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             ProgramMilestone,
             ProgramEnrollment,
             MilestoneAchievement,
+            Designation,
+            StaffHrRecord,
+            StaffDesignationHistory,
+            StaffFamilyMember,
+            StaffAddress,
+            StaffExperience,
+            StaffEducation,
+            StaffTraining,
+            StaffAchievement,
+            StaffLanguage,
+            StaffDocument,
             // [36.1.1] StaffProfile was missing from this list — the
             // TypeORM connection built here only knows the entities named
             // in this array, so `StaffProfilesService` (and anything else
@@ -341,6 +364,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     SeatPlansModule,
     ProgramsModule,
     PromotionsModule,
+    StaffHrModule,
     StaffProfilesModule,
     StaffAttendanceModule,
     LeaveModule,

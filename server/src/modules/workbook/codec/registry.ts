@@ -16,6 +16,17 @@ import { seatPlansTab } from '../tabs/exams/seat-plans.tab';
 import { seatPlanSchedulesTab } from '../tabs/exams/seat-plan-schedules.tab';
 import { seatAllocationsTab } from '../tabs/exams/seat-allocations.tab';
 import { programsTabs } from '../tabs/programs';
+import { designationTab } from '../tabs/people/designation.tab';
+import { staffHrRecordTab } from '../tabs/people/staff-hr-record.tab';
+import { staffDesignationHistoryTab } from '../tabs/people/staff-designation-history.tab';
+import { staffFamilyMemberTab } from '../tabs/people/staff-family-member.tab';
+import { staffAddressTab } from '../tabs/people/staff-address.tab';
+import { staffExperienceTab } from '../tabs/people/staff-experience.tab';
+import { staffEducationTab } from '../tabs/people/staff-education.tab';
+import { staffTrainingTab } from '../tabs/people/staff-training.tab';
+import { staffAchievementTab } from '../tabs/people/staff-achievement.tab';
+import { staffLanguageTab } from '../tabs/people/staff-language.tab';
+import { staffDocumentTab } from '../tabs/people/staff-document.tab';
 import { attendanceTabs } from '../tabs/attendance';
 import { hrTabs } from '../tabs/hr';
 
@@ -118,6 +129,25 @@ export const EXPECTED_TABS = [
   'program_milestones',
   'program_enrollments',
   'milestone_achievements',
+  // [23.5] Epic 785's wave-1 staff-HR tabs. Appended at the very end,
+  // after every other lane's tabs: `staff_designation_history` depends on
+  // `designations` and `users` (both earlier in this list already), and
+  // nothing else in the registry depends on any of these ten, so there is
+  // no earlier slot they are required to sit in.
+  'designations',
+  'staff_hr_records',
+  'staff_designation_history',
+  'staff_family_members',
+  'staff_addresses',
+  'staff_experience',
+  'staff_education',
+  'staff_training',
+  'staff_achievements',
+  'staff_languages',
+  // [23.7] Wave 2 close — staff_documents, depends only on `users`
+  // (already earlier in this list), appended right after the rest of the
+  // staff-HR tabs.
+  'staff_documents',
   // [36.4.5] Epic 36.0's staff-attendance/leave tabs. Appended at the end,
   // same reasoning as the homework/syllabus block above: `staff_attendance_records`
   // depends on `staff_profiles` (people lane, registered earlier in this
@@ -165,6 +195,24 @@ export const ALL_TABS: readonly TabSpec<any, any>[] = [
   // `peopleTabs` — see the `EXPECTED_TABS` comment above on why these four
   // must come last.
   ...programsTabs,
+  // [23.5] Epic 785's wave-1 staff-HR tabs. Registered here directly
+  // (not via `peopleTabs`), same reason `promotionRunsTab`/`seatPlansTab`
+  // above are: `EXPECTED_TABS` places them after every tab already
+  // registered above, but `peopleTabs` itself is spread earlier in
+  // `ALL_TABS` than `feesTabs`/`examsTabs`/`routinesTabs` — too early for
+  // a tab that must sit after all of those.
+  designationTab,
+  staffHrRecordTab,
+  staffDesignationHistoryTab,
+  staffFamilyMemberTab,
+  staffAddressTab,
+  staffExperienceTab,
+  staffEducationTab,
+  staffTrainingTab,
+  staffAchievementTab,
+  staffLanguageTab,
+  // [23.7] Wave 2 close.
+  staffDocumentTab,
   // [36.4.5] Appended after every lane's own barrel, not folded into
   // `peopleTabs` — see the `EXPECTED_TABS` comment above on why these must
   // come last.

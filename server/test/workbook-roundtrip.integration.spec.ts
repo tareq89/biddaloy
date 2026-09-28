@@ -73,12 +73,28 @@ import { Program } from '../src/modules/programs/entities/program.entity';
 import { ProgramMilestone } from '../src/modules/programs/entities/program-milestone.entity';
 import { ProgramEnrollment } from '../src/modules/programs/entities/program-enrollment.entity';
 import { MilestoneAchievement } from '../src/modules/programs/entities/milestone-achievement.entity';
+import {
+  DEMO_ORGANISATION,
+  ensureDemoStudents,
+  ensureStaffHrDemoSeed,
+  SEED_DEVICE_KEY,
+} from '../src/scripts/seed.util';
+import { Designation } from '../src/modules/staff-hr/entities/designation.entity';
+import { StaffHrRecord } from '../src/modules/staff-hr/entities/staff-hr-record.entity';
+import { StaffDesignationHistory } from '../src/modules/staff-hr/entities/staff-designation-history.entity';
+import { StaffFamilyMember } from '../src/modules/staff-hr/entities/staff-family-member.entity';
+import { StaffAddress } from '../src/modules/staff-hr/entities/staff-address.entity';
+import { StaffExperience } from '../src/modules/staff-hr/entities/staff-experience.entity';
+import { StaffEducation } from '../src/modules/staff-hr/entities/staff-education.entity';
+import { StaffTraining } from '../src/modules/staff-hr/entities/staff-training.entity';
+import { StaffAchievement } from '../src/modules/staff-hr/entities/staff-achievement.entity';
+import { StaffLanguage } from '../src/modules/staff-hr/entities/staff-language.entity';
+import { StaffDocument } from '../src/modules/staff-hr/entities/staff-document.entity';
 import { StaffProfile } from '../src/modules/staff-profiles/entities/staff-profile.entity';
 import { StaffAttendanceSession } from '../src/modules/staff-attendance/entities/staff-attendance-session.entity';
 import { StaffAttendanceRecord } from '../src/modules/staff-attendance/entities/staff-attendance-record.entity';
 import { LeavePolicy } from '../src/modules/leave/entities/leave-policy.entity';
 import { LeaveRecord } from '../src/modules/leave/entities/leave-record.entity';
-import { DEMO_ORGANISATION, ensureDemoStudents, SEED_DEVICE_KEY } from '../src/scripts/seed.util';
 import { ImportStagingService } from '../src/modules/bulk-import/import-staging.service';
 import { ValidationService } from '../src/modules/workbook/import/validation.service';
 import { DiffService } from '../src/modules/workbook/import/diff.service';
@@ -114,6 +130,7 @@ import {
   RoutineState,
   ChangeRequestState,
   TeacherDesignation,
+  StaffDocumentType,
 } from '@biddaloy/shared';
 
 /**
@@ -791,6 +808,84 @@ describe('workbook round trip (integration)', () => {
         tenant_id: TENANT_A,
       }),
     );
+
+    // [23.5] Wave-1 staff-HR tabs: reuses the real seed helper rather than
+    // re-deriving its fixture here, same call `ensureDemoStudents` above
+    // already makes for the student roster. Seeds one non-teaching staff
+    // member (an accountant) with a full HR record, proving D1 (HR applies
+    // to any staff role, not just teachers) round-trips.
+    await ensureStaffHrDemoSeed(
+      {
+        userRepository: dataSource.getRepository(User),
+        userTenantRepository: dataSource.getRepository(UserTenant),
+        designationRepository: dataSource.getRepository(Designation),
+        staffHrRecordRepository: dataSource.getRepository(StaffHrRecord),
+        staffDesignationHistoryRepository: dataSource.getRepository(StaffDesignationHistory),
+        staffFamilyMemberRepository: dataSource.getRepository(StaffFamilyMember),
+        staffAddressRepository: dataSource.getRepository(StaffAddress),
+        staffExperienceRepository: dataSource.getRepository(StaffExperience),
+        staffEducationRepository: dataSource.getRepository(StaffEducation),
+        staffTrainingRepository: dataSource.getRepository(StaffTraining),
+        staffAchievementRepository: dataSource.getRepository(StaffAchievement),
+        staffLanguageRepository: dataSource.getRepository(StaffLanguage),
+      },
+      { schoolId: TENANT_A },
+    );
+
+    // [23.7] `ensureStaffHrDemoSeed` no longer seeds a document row (a
+    // storage_key with no backing object can't be downloaded); insert one
+    // directly here instead, purely so `staff_documents` round-trips.
+    const staffHrDemoUser = await dataSource
+      .getRepository(User)
+      .findOneOrFail({ where: { email: 'accounts.officer@demoschool.example' } });
+    await dataSource.getRepository(StaffDocument).save(
+      dataSource.getRepository(StaffDocument).create({
+        tenant_id: TENANT_A,
+        staff_user_id: staffHrDemoUser.id,
+        document_type: StaffDocumentType.NID,
+        storage_key: `demo/staff-documents/${staffHrDemoUser.id}/nid.pdf`,
+        original_filename: 'nid-card.pdf',
+        content_type: 'application/pdf',
+      }),
+    );
+
+    // [23.0, thread #5] Neither `staff_training` nor `staff_achievements`
+    // has a DB unique constraint on its natural key, so real data can carry
+    // two rows with the same one (e.g. two trainings with the same title
+    // at the same institution). Insert a genuine duplicate of each here,
+    // via repo (not `ensureStaffHrDemoSeed`, which de-dupes by title) so
+    // this round-trip proves ValidationService's `allowDuplicateKeys` path
+    // for real, not just in validation.service.spec.ts's fakes.
+    await dataSource.getRepository(StaffTraining).save([
+      dataSource.getRepository(StaffTraining).create({
+        tenant_id: TENANT_A,
+        staff_user_id: staffHrDemoUser.id,
+        title: 'First Aid',
+        institution: 'Red Crescent',
+        from_date: '2024-01-01',
+      }),
+      dataSource.getRepository(StaffTraining).create({
+        tenant_id: TENANT_A,
+        staff_user_id: staffHrDemoUser.id,
+        title: 'First Aid',
+        institution: 'Red Crescent',
+        from_date: '2025-01-01',
+      }),
+    ]);
+    await dataSource.getRepository(StaffAchievement).save([
+      dataSource.getRepository(StaffAchievement).create({
+        tenant_id: TENANT_A,
+        staff_user_id: staffHrDemoUser.id,
+        title: 'Best Employee',
+        date: '2024-06-01',
+      }),
+      dataSource.getRepository(StaffAchievement).create({
+        tenant_id: TENANT_A,
+        staff_user_id: staffHrDemoUser.id,
+        title: 'Best Employee',
+        date: '2025-06-01',
+      }),
+    ]);
 
     const shift = await dataSource.getRepository(Shift).save(
       dataSource.getRepository(Shift).create({
@@ -1512,6 +1607,19 @@ describe('workbook round trip (integration)', () => {
       'program_milestones',
       'program_enrollments',
       'milestone_achievements',
+      // [23.5] Wave-1 staff-HR tabs, seeded by `ensureStaffHrDemoSeed` above.
+      'designations',
+      'staff_hr_records',
+      'staff_designation_history',
+      'staff_family_members',
+      'staff_addresses',
+      'staff_experience',
+      'staff_education',
+      'staff_training',
+      'staff_achievements',
+      'staff_languages',
+      // [23.7] Wave 2 close.
+      'staff_documents',
       'staff_profiles',
       'staff_attendance_sessions',
       'staff_attendance_records',

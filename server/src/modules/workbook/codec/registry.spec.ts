@@ -108,6 +108,19 @@ describe('EXPECTED_TABS', () => {
       'program_milestones',
       'program_enrollments',
       'milestone_achievements',
+      // [23.5] Wave 1 close — staff-HR tabs (#1086).
+      'designations',
+      'staff_hr_records',
+      'staff_designation_history',
+      'staff_family_members',
+      'staff_addresses',
+      'staff_experience',
+      'staff_education',
+      'staff_training',
+      'staff_achievements',
+      'staff_languages',
+      // [23.7] Wave 2 close — staff_documents (#1088).
+      'staff_documents',
       // [36.4.5] Epic 36.0's staff-attendance/leave tabs — see
       // EXPECTED_TABS's own comment in registry.ts.
       'staff_attendance_sessions',

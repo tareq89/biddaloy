@@ -212,6 +212,12 @@ export enum Permission {
   // the intake/applicant/evaluation rows. Schema-only ticket; no route
   // consumes it yet.
   ADMISSION_REVIEW = 'ADMISSION_REVIEW',
+  // Staff HR (23.x)
+  // [23.2.1] Read a Designation/StaffHrRecord/StaffDesignationHistory.
+  STAFF_HR_READ = 'STAFF_HR_READ',
+  // [23.2.1] Create/edit a Designation/StaffHrRecord and promote a staff
+  // member's designation — ADMIN only (D9).
+  STAFF_HR_MANAGE = 'STAFF_HR_MANAGE',
 
   // Staff Attendance & Leave (36.x)
   // [36.1.1] Read a StaffAttendanceRecord. Every tenant role holds it for
@@ -330,6 +336,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.PROGRAM_RECORD,
     // [27.1] Admission review — ADMIN only for now; no route consumes it yet.
     Permission.ADMISSION_REVIEW,
+    // [23.2.1] Staff HR — ADMIN only (D9).
+    Permission.STAFF_HR_READ,
+    Permission.STAFF_HR_MANAGE,
     // [36.1.1] Own record + all-staff read, mark own record, approve leave.
     Permission.STAFF_ATTENDANCE_READ,
     Permission.STAFF_ATTENDANCE_MARK,

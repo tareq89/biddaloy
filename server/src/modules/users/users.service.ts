@@ -177,6 +177,27 @@ export class UserService {
         );
       }
 
+      // [23.12] Current-designation filter — an `EXISTS` against the raw
+      // `staff_designation_history` table (23.2), same "reach for the raw
+      // table name rather than import that module's entity" choice the
+      // `invitation_status` filter above makes for `auth_tokens`: this
+      // avoids a cross-module entity import between `users` and
+      // `staff-hr`. "Current" means the open row — `end_date IS NULL` —
+      // same definition `StaffHrController`'s designation-history read
+      // and `HrRecordPromotionSection`'s "Current" badge both use.
+      if (query.designation_id) {
+        qb.andWhere(
+          `EXISTS (
+            SELECT 1 FROM staff_designation_history sdh
+            WHERE sdh.user_id = u.id
+              AND sdh.tenant_id = :tenantId
+              AND sdh.end_date IS NULL
+              AND sdh.designation_id = :designationId
+          )`,
+          { designationId: query.designation_id },
+        );
+      }
+
       // Filter on the derived invitation lifecycle (12.6) — a lateral join
       // to the newest INVITE `auth_tokens` row for this user, then a CASE
       // expression that mirrors `deriveInvitationStatus` exactly (see the

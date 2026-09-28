@@ -173,6 +173,14 @@ export class QueryUserDto {
   @IsEnum(['NONE', 'PENDING', 'EXPIRED', 'REVOKED', 'ACTIVATED'])
   invitation_status?: InvitationStatus;
 
+  /** [23.12] Filters to staff members whose *current* designation
+   * ([23.2]'s `staff_designation_history`, the open row where
+   * `end_date IS NULL`) is this one. Independent of `role` — a
+   * designation is a job title (23.2), not the `UserRole` enum. */
+  @IsOptional()
+  @IsUUID()
+  designation_id?: string;
+
   /** Lower bound on when this user joined *this* tenant (`UserTenant.created_at`),
    * not when their account was created globally (`User.created_at`). */
   @IsOptional()

@@ -39,6 +39,21 @@ export enum TeacherDesignation {
   COORDINATOR = 'COORDINATOR',
 }
 
+/** Employment status of a staff HR record (23.1, D2 — unrelated to `TeacherDesignation`). */
+export enum StaffEmploymentStatus {
+  REGULAR = 'REGULAR',
+  IRREGULAR = 'IRREGULAR',
+  RESIGNED = 'RESIGNED',
+}
+
+/** Kind of a `StaffDocument` upload (23.6). */
+export enum StaffDocumentType {
+  NID = 'NID',
+  BIRTH_CERTIFICATE = 'BIRTH_CERTIFICATE',
+  PHOTO = 'PHOTO',
+  OTHER = 'OTHER',
+}
+
 export enum FeeType {
   MONTHLY_TUITION = 'MONTHLY_TUITION',
   EXAM_FEE = 'EXAM_FEE',

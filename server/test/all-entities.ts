@@ -77,6 +77,17 @@ import { ProgramEnrollment } from '../src/modules/programs/entities/program-enro
 import { MilestoneAchievement } from '../src/modules/programs/entities/milestone-achievement.entity';
 import { PromotionRun } from '../src/modules/promotions/entities/promotion-run.entity';
 import { PromotionEntry } from '../src/modules/promotions/entities/promotion-entry.entity';
+import { Designation } from '../src/modules/staff-hr/entities/designation.entity';
+import { StaffHrRecord } from '../src/modules/staff-hr/entities/staff-hr-record.entity';
+import { StaffDesignationHistory } from '../src/modules/staff-hr/entities/staff-designation-history.entity';
+import { StaffDocument } from '../src/modules/staff-hr/entities/staff-document.entity';
+import { StaffFamilyMember } from '../src/modules/staff-hr/entities/staff-family-member.entity';
+import { StaffAddress } from '../src/modules/staff-hr/entities/staff-address.entity';
+import { StaffExperience } from '../src/modules/staff-hr/entities/staff-experience.entity';
+import { StaffEducation } from '../src/modules/staff-hr/entities/staff-education.entity';
+import { StaffTraining } from '../src/modules/staff-hr/entities/staff-training.entity';
+import { StaffAchievement } from '../src/modules/staff-hr/entities/staff-achievement.entity';
+import { StaffLanguage } from '../src/modules/staff-hr/entities/staff-language.entity';
 import { StaffAttendanceSession } from '../src/modules/staff-attendance/entities/staff-attendance-session.entity';
 import { StaffAttendanceRecord } from '../src/modules/staff-attendance/entities/staff-attendance-record.entity';
 import { LeaveRecord } from '../src/modules/leave/entities/leave-record.entity';
@@ -162,6 +173,17 @@ export const ALL_ENTITIES = [
   MilestoneAchievement,
   PromotionRun,
   PromotionEntry,
+  Designation,
+  StaffHrRecord,
+  StaffDesignationHistory,
+  StaffDocument,
+  StaffFamilyMember,
+  StaffAddress,
+  StaffExperience,
+  StaffEducation,
+  StaffTraining,
+  StaffAchievement,
+  StaffLanguage,
   StaffAttendanceSession,
   StaffAttendanceRecord,
   LeaveRecord,

@@ -9,6 +9,8 @@
     "statusFilterAll": "All statuses",
     "invitationFilterLabel": "Invitation",
     "invitationFilterAll": "All invitation states",
+    "designationFilterLabel": "Designation",
+    "designationFilterAll": "All designations",
     "joinedRangeLabel": "Joined date",
     "joinedFromLabel": "Joined from",
     "joinedToLabel": "Joined to",
@@ -134,6 +136,7 @@
       "permissions": "Permissions",
       "memberships": "Memberships",
       "teachingAssignments": "Teaching assignments",
+      "hrRecord": "HR record",
       "loginHistory": "Login history"
     },
     "teachingAssignments": {
@@ -193,6 +196,129 @@
       "revokeConfirmDescription": "{{name}}'s current invitation link will stop working. They will need a new one to activate their account.",
       "revokeSuccess": "Invitation revoked for {{name}}.",
       "revokeError": "Could not revoke the invitation. Please try again."
+    }
+  },
+  "hrRecord": {
+    "comingSoon": "Coming soon",
+    "loadError": "Could not load this section. Please try again.",
+    "saveError": "Could not save this section. Please try again.",
+    "sections": {
+      "job": "Job info",
+      "promotion": "Promotion / employment history",
+      "family": "Family members",
+      "address": "Addresses",
+      "experience": "Work experience",
+      "education": "Education",
+      "training": "Training",
+      "achievement": "Achievements",
+      "language": "Languages",
+      "documents": "Documents"
+    },
+    "job": {
+      "emptyTitle": "No HR record yet",
+      "emptyExplanation": "This staff member's job details have not been filled in yet.",
+      "addAction": "Add job details",
+      "editAction": "Edit job details",
+      "indexNoLabel": "Index no.",
+      "salaryCodeLabel": "Salary code",
+      "mpoDateLabel": "MPO date",
+      "salaryScaleLabel": "Salary scale",
+      "departmentLabel": "Department",
+      "bloodGroupLabel": "Blood group",
+      "religionLabel": "Religion",
+      "errorMessage": "Could not save job details. Please try again.",
+      "save": "Save",
+      "saving": "Saving…"
+    },
+    "promotion": {
+      "promoteAction": "Promote",
+      "emptyTitle": "No promotions recorded yet",
+      "emptyExplanation": "This staff member has not been promoted or assigned a designation yet.",
+      "current": "Current",
+      "effectiveSince": "Effective since {{date}}",
+      "effectiveRange": "{{from}} – {{to}}"
+    },
+    "addRowAction": "Add row",
+    "saveAction": "Save",
+    "family": {
+      "relationLabel": "Relation",
+      "nameLabel": "Name",
+      "occupationLabel": "Occupation",
+      "contactLabel": "Contact",
+      "emptyExplanation": "No family members added yet."
+    },
+    "address": {
+      "typeLabel": "Type",
+      "typePresent": "Present",
+      "typePermanent": "Permanent",
+      "villageStreetLabel": "Village / street",
+      "postOfficeLabel": "Post office",
+      "upazilaLabel": "Upazila",
+      "districtLabel": "District",
+      "emptyExplanation": "No addresses added yet."
+    },
+    "experience": {
+      "institutionLabel": "Institution",
+      "designationLabel": "Designation",
+      "fromDateLabel": "From date",
+      "toDateLabel": "To date",
+      "descriptionLabel": "Description",
+      "emptyExplanation": "No work experience added yet."
+    },
+    "education": {
+      "degreeLabel": "Degree",
+      "institutionLabel": "Institution",
+      "boardUniversityLabel": "Board / university",
+      "resultLabel": "Result",
+      "passingYearLabel": "Passing year",
+      "emptyExplanation": "No education added yet."
+    },
+    "training": {
+      "titleLabel": "Title",
+      "institutionLabel": "Institution",
+      "fromDateLabel": "From date",
+      "toDateLabel": "To date",
+      "certificateNoLabel": "Certificate no.",
+      "emptyExplanation": "No training added yet."
+    },
+    "achievement": {
+      "titleLabel": "Title",
+      "descriptionLabel": "Description",
+      "dateLabel": "Date",
+      "issuedByLabel": "Issued by",
+      "emptyExplanation": "No achievements added yet."
+    },
+    "language": {
+      "languageNameLabel": "Language",
+      "proficiencyLabel": "Proficiency",
+      "emptyExplanation": "No languages added yet."
+    },
+    "documents": {
+      "notUploaded": "Not uploaded yet",
+      "uploadAction": "Upload",
+      "replaceAction": "Replace",
+      "uploadError": "Could not upload this file. Please try again.",
+      "downloadError": "Could not download this file. Please try again.",
+      "types": {
+        "NID": "National ID",
+        "BIRTH_CERTIFICATE": "Birth certificate",
+        "PHOTO": "Photo",
+        "OTHER": "Other document"
+      }
+    },
+    "promote": {
+      "title": "Promote staff member",
+      "description": "Assign a new designation, effective a given date. The current designation ends the day before.",
+      "designationLabel": "New designation",
+      "designationPlaceholder": "Select a designation",
+      "effectiveDateLabel": "Effective date",
+      "notesLabel": "Notes (optional)",
+      "errorDesignationRequired": "Please select a designation.",
+      "errorEffectiveDateRequired": "Please select an effective date.",
+      "errorConflict": "This staff member already has a designation change on or after that date.",
+      "errorMessage": "Could not save this promotion. Please try again.",
+      "save": "Promote",
+      "saving": "Saving…"
     }
   }
 }

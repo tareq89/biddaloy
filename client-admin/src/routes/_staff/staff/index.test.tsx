@@ -9,7 +9,7 @@ import {
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -29,6 +29,14 @@ function paginated<T>(data: T[]) {
  * `guardians/index.test.tsx`'s own header comment.
  */
 describe('/staff', () => {
+  // [23.12] The designation filter's options come from `GET /designations`
+  // (23.2) on every render of this page — a default handler here, same as
+  // every other test's own `server.use` for `/schools/:id/settings`, keeps
+  // that from having to be repeated in every single test below.
+  beforeEach(() => {
+    server.use(http.get('/api/v1/designations', () => HttpResponse.json([])));
+  });
+
   afterEach(async () => {
     await cleanupTestState();
   });
@@ -83,6 +91,83 @@ describe('/staff', () => {
     });
 
     await waitFor(() => expect(requestedRole).toBe('TEACHER'));
+  });
+
+  it('filters by designation using a Designation id as a query param, independent of role', async () => {
+    let requestedDesignationId: string | null = null;
+    let requestedRole: string | null = null;
+    server.use(
+      http.get('/api/v1/designations', () =>
+        HttpResponse.json([
+          {
+            id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+            title_en: 'Assistant Teacher',
+            title_bn: null,
+            is_teaching: true,
+          },
+        ]),
+      ),
+      http.get('/api/v1/users', ({ request }) => {
+        const url = new URL(request.url);
+        requestedDesignationId = url.searchParams.get('designation_id');
+        requestedRole = url.searchParams.get('role');
+        return HttpResponse.json(paginated([]));
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff?role=TEACHER&designation_id=3fa85f64-5717-4562-b3fc-2c963f66afa6'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    // Both filters are active at once — the designation filter narrows
+    // further, it doesn't replace the role filter.
+    await waitFor(() => {
+      expect(requestedDesignationId).toBe('3fa85f64-5717-4562-b3fc-2c963f66afa6');
+      expect(requestedRole).toBe('TEACHER');
+    });
+    expect(await screen.findByRole('combobox', { name: 'Designation' })).toBeTruthy();
+  });
+
+  it('clears the designation filter back to unfiltered', async () => {
+    const requestedDesignationIds: (string | null)[] = [];
+    server.use(
+      http.get('/api/v1/designations', () =>
+        HttpResponse.json([
+          {
+            id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+            title_en: 'Assistant Teacher',
+            title_bn: null,
+            is_teaching: true,
+          },
+        ]),
+      ),
+      http.get('/api/v1/users', ({ request }) => {
+        requestedDesignationIds.push(new URL(request.url).searchParams.get('designation_id'));
+        return HttpResponse.json(paginated([]));
+      }),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff?designation_id=3fa85f64-5717-4562-b3fc-2c963f66afa6'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await waitFor(() =>
+      expect(requestedDesignationIds).toContain('3fa85f64-5717-4562-b3fc-2c963f66afa6'),
+    );
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('combobox', { name: 'Designation' }));
+    await user.click(await screen.findByRole('option', { name: 'All designations' }));
+
+    await waitFor(() =>
+      expect(requestedDesignationIds[requestedDesignationIds.length - 1]).toBeNull(),
+    );
   });
 
   it('debounces the search box before it changes the request', async () => {

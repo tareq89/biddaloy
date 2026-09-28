@@ -25,6 +25,7 @@ export const AUDIT_ENTITY_TYPES = [
   'CalendarFeedToken',
   'Class',
   'ClassSection',
+  'Designation',
   'DiscountRule',
   'Enrollment',
   'Exam',
@@ -58,6 +59,9 @@ export const AUDIT_ENTITY_TYPES = [
   // entity_type still validate — no new write ever uses it.
   'SchoolHoliday',
   'StaffAttendanceRecord',
+  'StaffDesignationHistory',
+  'StaffDocument',
+  'StaffHrRecord',
   'Student',
   'StudentSubjectChoice',
   'SyllabusTopic',
