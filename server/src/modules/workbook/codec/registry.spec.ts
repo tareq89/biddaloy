@@ -66,6 +66,8 @@ describe('EXPECTED_TABS', () => {
       'admission_applicants',
       'admission_evaluations',
       'fee_structures',
+      // [38.1.2] Epic 38.0's fine rules.
+      'fine_rules',
       'student_fees',
       'invoices',
       'payments',

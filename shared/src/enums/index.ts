@@ -65,7 +65,17 @@ export enum FeeType {
   ANNUAL_FEE = 'ANNUAL_FEE',
   ADMISSION_FEE = 'ADMISSION_FEE',
   LATE_FEE = 'LATE_FEE',
+  FINE = 'FINE',
   OTHER = 'OTHER',
+}
+
+/**
+ * What makes a fine rule fire. Adding a trigger = a value here + one
+ * evaluator in server/src/modules/fees/fines/triggers (Epic 38 D6).
+ */
+export enum FineTrigger {
+  ATTENDANCE_ABSENT = 'ATTENDANCE_ABSENT',
+  ATTENDANCE_LATE = 'ATTENDANCE_LATE',
 }
 
 export enum FeeStatus {
@@ -274,6 +284,7 @@ export enum PeriodType {
 export enum FeeGenerationSource {
   MANUAL = 'MANUAL',
   SCHEDULE = 'SCHEDULE',
+  FINE_RULE = 'FINE_RULE',
 }
 
 /** What a fee-generation run does when it finds a duplicate fee already exists (16.x). */

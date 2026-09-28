@@ -6,15 +6,28 @@
  * directly rather than only through an integration test that sends a job.
  */
 
+import { FeeType } from '@biddaloy/shared';
+
 export type FeeNotificationLocale = 'bn' | 'en';
 
 /** One bill this student was just charged, as the message lists it —
  * "মাসিক ফি ৪,২০০" / "Monthly Fee 4,200". `name` is the fee structure's own
  * name, copied verbatim: it is whatever the school typed in, in whichever
- * language they typed it, so this util never translates it. */
+ * language they typed it, so this util never translates it.
+ *
+ * `feeType`/`note`/`periodStart` are only set for a FINE bill (Epic 38 D2's
+ * `student_fees.note`/`period_start`, set by the fine engine) — a non-fine
+ * bill never carries them, and this util keys its fine-vs-generic branch on
+ * `feeType === FeeType.FINE`. `periodStart` is the month the fine is
+ * *for* ("Absent fine for September"), which is not the same as the bill's
+ * due date ("Due 10 October") — a fine billed in October can cover
+ * September's absences. */
 export interface FeeNotificationBillLine {
   name: string;
   amount: number;
+  feeType?: FeeType;
+  note?: string | null;
+  periodStart?: Date | string;
 }
 
 const LATIN_TO_BENGALI_DIGITS: Record<string, string> = {
@@ -98,6 +111,54 @@ function joinBillLines(locale: FeeNotificationLocale, bills: FeeNotificationBill
     .join(', ');
 }
 
+/** SMS-length guard on a fine's free-text note (Steps §1): a note over 80
+ * chars is cut to 79 chars + "…" (80 total) rather than dropped, so the
+ * reason for the fine still shows up in a segment-1 SMS. */
+function truncateFineNote(note: string): string {
+  return note.length > 80 ? `${note.slice(0, 79)}…` : note;
+}
+
+function monthName(locale: FeeNotificationLocale, periodStart: Date | string): string {
+  const date = typeof periodStart === 'string' ? new Date(periodStart) : periodStart;
+  return locale === 'bn' ? BN_MONTH_NAMES[date.getUTCMonth()] : EN_MONTH_NAMES[date.getUTCMonth()];
+}
+
+/**
+ * One FINE bill's line — "Absent fine for September: ৳80 — 4 absent days
+ * (1 free). Due 10 October." / the bn equivalent. Distinct from
+ * `joinBillLines` (the generic "new fee" phrasing) because a fine carries
+ * two extra facts a family needs to make sense of it: which month it's
+ * *for*, and why it was charged (`note`).
+ */
+function buildFineBillLine(
+  locale: FeeNotificationLocale,
+  bill: FeeNotificationBillLine,
+  dueDate: Date | string,
+): string {
+  const amountText = formatFeeNotificationAmount(locale, bill.amount);
+  const dueDateText = formatFeeNotificationDueDate(locale, dueDate);
+  const month = bill.periodStart ? monthName(locale, bill.periodStart) : monthName(locale, dueDate);
+  const note = bill.note ? truncateFineNote(bill.note) : null;
+
+  if (locale === 'bn') {
+    const noteText = note ? ` — ${note}` : '';
+    return `${bill.name} (${month} মাসের): ৳${amountText}${noteText}। শেষ তারিখ ${dueDateText}।`;
+  }
+  const noteText = note ? ` — ${note}.` : '.';
+  return `${bill.name} for ${month}: ৳${amountText}${noteText} Due ${dueDateText}.`;
+}
+
+/** Message body for a batch of FINE bills only (the listener splits a
+ * mixed event into a fine-only call and a non-fine call, Steps §2) — one
+ * line per fine, so several fines for the same guardian all show up. */
+export function buildFineNotificationMessage(
+  locale: FeeNotificationLocale,
+  bills: FeeNotificationBillLine[],
+  dueDate: Date | string,
+): string {
+  return bills.map((bill) => buildFineBillLine(locale, bill, dueDate)).join('\n');
+}
+
 /**
  * The full message body for one student's guardian: every bill this
  * generation batch created for that student, plus the batch's due date.
@@ -110,6 +171,12 @@ export function buildFeeNotificationMessage(
   bills: FeeNotificationBillLine[],
   dueDate: Date | string,
 ): string {
+  // The listener groups a guardian's bills into an all-FINE batch and an
+  // all-non-FINE batch before calling this (Steps §2), so checking the
+  // first bill is enough — a mixed array never reaches here.
+  if (bills[0]?.feeType === FeeType.FINE) {
+    return buildFineNotificationMessage(locale, bills, dueDate);
+  }
   const billsText = joinBillLines(locale, bills);
   const dueDateText = formatFeeNotificationDueDate(locale, dueDate);
   return locale === 'bn'

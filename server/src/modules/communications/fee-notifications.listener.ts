@@ -7,6 +7,7 @@ import {
   CommunicationMedium,
   CommunicationStatus,
   CommunicationTrigger,
+  FeeType,
   countSmsSegments,
 } from '@biddaloy/shared';
 import { CommunicationLog } from './entities/communication-log.entity';
@@ -40,6 +41,9 @@ interface BillRow {
   student_id: string;
   student_full_name: string;
   fee_structure_name: string;
+  fee_type: FeeType;
+  note: string | null;
+  period_start: string;
   total_amount: string;
 }
 
@@ -154,7 +158,13 @@ export class FeeNotificationsListener implements OnModuleInit {
     const billsByStudent = new Map<string, FeeNotificationBillLine[]>();
     for (const row of bills) {
       const lines = billsByStudent.get(row.student_id) ?? [];
-      lines.push({ name: row.fee_structure_name, amount: Number(row.total_amount) });
+      lines.push({
+        name: row.fee_structure_name,
+        amount: Number(row.total_amount),
+        feeType: row.fee_type,
+        note: row.note,
+        periodStart: row.period_start,
+      });
       billsByStudent.set(row.student_id, lines);
     }
 
@@ -221,33 +231,55 @@ export class FeeNotificationsListener implements OnModuleInit {
     }> = [];
 
     for (const [guardianId, guardian] of guardiansById) {
-      const referenceKey = `${FEE_NOTIFICATION_EVENT}:${feeGenerationId}:${guardianId}`;
       const lines = linesByGuardian.get(guardianId) ?? [];
-      const message = buildFeeNotificationMessage(locale, lines, batch.due_date);
+      // A guardian whose batch mixes FINE and non-FINE bills gets two
+      // messages, not one — a fine's reason (`note`) would otherwise get
+      // buried in (or push out of an SMS segment) the generic "new fees
+      // added" list (Steps §2). Each half gets its own `reference_key` so
+      // they're independently idempotent and independently retryable.
+      const fineLines = lines.filter((line) => line.feeType === FeeType.FINE);
+      const otherLines = lines.filter((line) => line.feeType !== FeeType.FINE);
 
       const channel = resolveFeeNotificationChannel(guardian, smsAvailable, whatsappAvailable);
-      if (!channel) {
-        skippedNoSms.push({
-          guardianId,
-          recipientAddress: addressForMedium(guardian, CommunicationMedium.SMS) ?? 'unknown',
-          recipientName: guardian.full_name,
-          referenceKey,
+
+      const messageGroups: Array<{ referenceKey: string; message: string }> = [];
+      if (otherLines.length > 0) {
+        messageGroups.push({
+          referenceKey: `${FEE_NOTIFICATION_EVENT}:${feeGenerationId}:${guardianId}`,
+          message: buildFeeNotificationMessage(locale, otherLines, batch.due_date),
         });
-        continue;
+      }
+      if (fineLines.length > 0) {
+        messageGroups.push({
+          referenceKey: `${FEE_NOTIFICATION_EVENT}:${feeGenerationId}:${guardianId}:fine`,
+          message: buildFeeNotificationMessage(locale, fineLines, batch.due_date),
+        });
       }
 
-      planned.push({
-        guardianId,
-        recipientAddress: channel.address,
-        recipientName: guardian.full_name,
-        medium: channel.medium,
-        message,
-        referenceKey,
-        segments:
-          channel.medium === CommunicationMedium.SMS
-            ? countSmsSegments(message).segments
-            : undefined,
-      });
+      for (const { referenceKey, message } of messageGroups) {
+        if (!channel) {
+          skippedNoSms.push({
+            guardianId,
+            recipientAddress: addressForMedium(guardian, CommunicationMedium.SMS) ?? 'unknown',
+            recipientName: guardian.full_name,
+            referenceKey,
+          });
+          continue;
+        }
+
+        planned.push({
+          guardianId,
+          recipientAddress: channel.address,
+          recipientName: guardian.full_name,
+          medium: channel.medium,
+          message,
+          referenceKey,
+          segments:
+            channel.medium === CommunicationMedium.SMS
+              ? countSmsSegments(message).segments
+              : undefined,
+        });
+      }
     }
 
     // Idempotency: drop anything this event (or a prior delivery attempt
@@ -435,6 +467,9 @@ export class FeeNotificationsListener implements OnModuleInit {
       .select('sf.student_id', 'student_id')
       .addSelect('s.full_name', 'student_full_name')
       .addSelect('fs.name', 'fee_structure_name')
+      .addSelect('fs.fee_type', 'fee_type')
+      .addSelect('sf.note', 'note')
+      .addSelect('sf.period_start', 'period_start')
       .addSelect('sf.total_amount', 'total_amount')
       .getRawMany<BillRow>();
   }

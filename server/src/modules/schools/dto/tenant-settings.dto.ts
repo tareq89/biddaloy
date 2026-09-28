@@ -510,6 +510,13 @@ export class LateFeesMapConstraint implements ValidatorConstraintInterface {
         this.lastError = `"${feeType}" is not a known fee type`;
         return false;
       }
+      // Epic 38 D10: a FINE bill never gets a late fee — same rule as
+      // LATE_FEE never getting one (belt-and-braces with
+      // `LateFeeService.applyDue`'s own runtime skip).
+      if (feeType === FeeType.FINE) {
+        this.lastError = 'lateFees.FINE is not allowed — a fine never gets a late fee';
+        return false;
+      }
       if (typeof rule !== 'object' || rule === null) {
         this.lastError = `lateFees.${feeType} must be an object`;
         return false;
@@ -583,6 +590,14 @@ export class FeesSettingsDto {
   @IsOptional()
   @Validate(LateFeesMapConstraint)
   lateFees?: Partial<Record<FeeType, LateFeeRuleDto>>;
+
+  /** [Epic 38 D10] Days after creation a fine is due. Default 7. */
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(60)
+  fineDueDays?: number;
 }
 
 /**

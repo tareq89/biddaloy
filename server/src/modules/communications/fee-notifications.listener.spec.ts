@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
-import { CommunicationMedium } from '@biddaloy/shared';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { CommunicationMedium, CommunicationStatus, FeeType } from '@biddaloy/shared';
 import { Guardian } from '../students/entities/guardian.entity';
 import {
   FeeNotificationsListener,
@@ -125,5 +125,101 @@ describe('FeeNotificationsListener.onModuleInit', () => {
     expect(loggerSpy).toHaveBeenCalledWith('fees.generated handler failed for fg1', error.stack);
     expect(unhandled).not.toHaveBeenCalled();
     process.removeListener('unhandledRejection', unhandled);
+  });
+});
+
+/**
+ * [38.2.4] FINE vs non-FINE bills get split into separate messages per
+ * guardian. `loadBills` (the private DB-reading half) is stubbed directly
+ * rather than mocking the query builder chain — these tests are only
+ * about `handleFeesGenerated`'s grouping/splitting decision, not SQL.
+ */
+describe('FeeNotificationsListener.handleFeesGenerated — FINE splitting', () => {
+  const tenantId = 't1';
+  const feeGenerationId = 'fg1';
+  const student = { id: 's1', guardians: [] as Guardian[] };
+  const g1 = guardian({
+    id: 'g1',
+    phone: '+8801700000000',
+    notifications_enabled: true,
+    is_primary_contact: true,
+  } as any);
+
+  function makeListener(bills: unknown[]) {
+    const logRepo = {
+      find: vi.fn().mockResolvedValue([]),
+      create: vi.fn((v: unknown) => v),
+      save: vi.fn(async (v: unknown) => ({ id: 'log1', ...(v as object) })),
+    };
+    const dataSource = {
+      getRepository: vi.fn().mockReturnValue({
+        find: vi.fn().mockResolvedValue([{ ...student, guardians: [g1] }]),
+      }),
+    };
+    const queue = { add: vi.fn().mockResolvedValue(undefined) };
+    const feeGenerationsService = {
+      findOne: vi.fn().mockResolvedValue({ notify_families: true, due_date: '2026-10-10' }),
+    };
+    const schoolsService = {
+      getResolvedSettings: vi.fn().mockResolvedValue({
+        region: { locale: 'en-US' },
+        communications: { sms: { provider: 'twilio' }, whatsapp: undefined },
+      }),
+    };
+    const smsCreditService = { isMetered: vi.fn().mockResolvedValue(false) };
+
+    const listener = new FeeNotificationsListener(
+      logRepo as any,
+      dataSource as any,
+      queue as any,
+      feeGenerationsService as any,
+      schoolsService as any,
+      smsCreditService as any,
+    );
+    vi.spyOn(listener as any, 'loadBills').mockResolvedValue(bills);
+    return { listener, queue, logRepo };
+  }
+
+  function billRow(overrides: Record<string, unknown>) {
+    return {
+      student_id: 's1',
+      student_full_name: 'Karim',
+      fee_structure_name: 'Monthly Fee',
+      fee_type: FeeType.MONTHLY_TUITION,
+      note: null,
+      period_start: '2026-09-01',
+      total_amount: '100',
+      ...overrides,
+    };
+  }
+
+  it('sends two messages (two logs) when one guardian has both a FINE and a non-FINE bill', async () => {
+    const { listener, queue } = makeListener([
+      billRow({}),
+      billRow({ fee_structure_name: 'Absent Fine', fee_type: FeeType.FINE, note: 'note' }),
+    ]);
+    await listener.handleFeesGenerated({ tenantId, feeGenerationId });
+    expect(queue.add).toHaveBeenCalledTimes(2);
+  });
+
+  it('sends one message when the batch only has FINE bills', async () => {
+    const { listener, queue } = makeListener([
+      billRow({ fee_structure_name: 'Absent Fine', fee_type: FeeType.FINE, note: 'note' }),
+    ]);
+    await listener.handleFeesGenerated({ tenantId, feeGenerationId });
+    expect(queue.add).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to logging SKIPPED_NO_SMS (no queue.add) when SMS is disabled and WhatsApp unavailable', async () => {
+    const { listener, queue, logRepo } = makeListener([billRow({})]);
+    (listener as any).schoolsService.getResolvedSettings = vi.fn().mockResolvedValue({
+      region: { locale: 'en-US' },
+      communications: {},
+    });
+    await listener.handleFeesGenerated({ tenantId, feeGenerationId });
+    expect(queue.add).not.toHaveBeenCalled();
+    expect(logRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ status: CommunicationStatus.FAILED }),
+    );
   });
 });

@@ -444,6 +444,58 @@ export async function createStudentWithDues(
   return { studentId: student.id, chain };
 }
 
+/**
+ * [38.1.4] A school-wide FINE fee structure — the rule/fine-specific
+ * helpers (create a `FineRule`, log a manual fine) land in 38.2.5 once
+ * those endpoints exist; this is only the fee-structure half, cloned from
+ * `createStudentWithDues`'s own `/fee-structures` POST.
+ */
+export async function createFineStructure(
+  request: APIRequestContext,
+  session: ApiSession,
+  chain: ClassSectionChain,
+  name: string,
+  amount: number,
+): Promise<{ id: string }> {
+  return post<{ id: string }>(request, session, '/fee-structures', {
+    fee_type: 'FINE',
+    name,
+    amount,
+    academic_year_id: chain.academicYearId,
+  });
+}
+
+/** [38.2.5] `POST /fees/fine-rules` — creates a `FineRule` targeting a
+ * `FineSweepService`-computed trigger (e.g. `ATTENDANCE_ABSENT`) against a
+ * `FeeType.FINE` fee structure such as `createFineStructure` above. */
+export async function createFineRule(
+  request: APIRequestContext,
+  session: ApiSession,
+  body: Record<string, unknown>,
+): Promise<{ id: string }> {
+  return post<{ id: string }>(request, session, '/fees/fine-rules', body);
+}
+
+/** [38.2.5] `POST /fees/fines` — logs a manual fine against one or more
+ * students for a `FeeType.FINE` fee structure. */
+export async function logFine(
+  request: APIRequestContext,
+  session: ApiSession,
+  body: Record<string, unknown>,
+): Promise<{ bill_ids: string[] }> {
+  return post<{ bill_ids: string[] }>(request, session, '/fees/fines', body);
+}
+
+/** [38.2.5] `POST /fees/fines/generate` — bills the attendance-fine sweep
+ * for one month from active `FineRule`s. */
+export async function generateFines(
+  request: APIRequestContext,
+  session: ApiSession,
+  body: Record<string, unknown>,
+): Promise<{ fee_generation_ids: string[]; generated_count: number; skipped_count: number }> {
+  return post(request, session, '/fees/fines/generate', body);
+}
+
 export async function createStudent(
   request: APIRequestContext,
   session: ApiSession,

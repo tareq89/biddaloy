@@ -53,6 +53,7 @@ import type { ProgramMilestone } from '../modules/programs/entities/program-mile
 import type { ProgramEnrollment } from '../modules/programs/entities/program-enrollment.entity';
 import type { MilestoneAchievement } from '../modules/programs/entities/milestone-achievement.entity';
 import type { FeeStructure } from '../modules/fees/entities/fee-structure.entity';
+import type { FineRule } from '../modules/fees/entities/fine-rule.entity';
 import type { RecurringSchedule } from '../modules/fees/entities/recurring-schedule.entity';
 import type { RecurringScheduleStructure } from '../modules/fees/entities/recurring-schedule-structure.entity';
 import type { StaffProfile } from '../modules/staff-profiles/entities/staff-profile.entity';
@@ -339,6 +340,10 @@ function makeRepos() {
       clock,
       'fee-structure',
     ).asRepository() as unknown as Repository<FeeStructure>,
+    fineRuleRepository: new FakeRepo<Record<string, unknown>>(
+      clock,
+      'fine-rule',
+    ).asRepository() as unknown as Repository<FineRule>,
     recurringScheduleRepository: new FakeRepo<Record<string, unknown>>(
       clock,
       'recurring-schedule',
