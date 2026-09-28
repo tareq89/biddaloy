@@ -103,7 +103,6 @@ Attendance
   Staff [N5] · Leave · Report for payroll                           A E (Ac)
   Reports [have] · Yearly summary [partial] · Defaulters [have] · Submission check-list [N15]
   Printable register [have] · Sheet layout [Print module]
-  Fines [N8] — generate, waive, lists, fine SMS (money side reuses Finance › Payments)
 
 Exams & Results
   Exams [19.0]                                                      A E T
@@ -117,13 +116,14 @@ Exams & Results
 
 Finance
   Fees · Student dues · Fee structures · Generate fees · Payments (+ Student statement [8.15]) · Record payment · Invoices   [all have]
+  Fines · Fine rules [38.0]
   Online payments [3.0] · Unmatched receipts [16.0]                 A Ac
 
 Communications
   Send message [have] (+ to staff, role-wise [partial])             A E T
   Fee reminders [have] · Reminder history [have]                    A Ac E
   Notices [have]                                                    A E T
-  Automatic notices [partial: absent ✓ · fine N8 · result/marks 19.0 · homework 22.0 · receipt 3.0]
+  Automatic notices [partial: absent ✓ · fine ✓ (38.0) · result/marks 19.0 · homework 22.0 · receipt 3.0]
 
 Reports [8.15] — a hub that LINKS to screens that live with their data; no copies
   Communications · Collections [have] · Student dues [have] · Attendance [have]
@@ -131,7 +131,7 @@ Reports [8.15] — a hub that LINKS to screens that live with their data; no cop
 
 Administration
   Settings [have] → sub-pages:
-    Attendance policy & times [partial → N15] · Fine rules [N8] · Communication providers [have]
+    Attendance policy & times [partial → N15] · Communication providers [have]
     School profile & logo [have] · Region & locale [17.0] · Presets & feature toggles [N3]
     Organisation structure [have, 33.0 — Settings section, no new route; a
     shift/version/group field only shows once the tenant has 2+ entries in
@@ -146,8 +146,8 @@ User menu → My account (profile, password, switch school/role, language, theme
 
 ```text
 Overview [have]
-Fees & invoices [have] · Pay online [3.0] · Statement [8.15]
-Attendance [have] · Absent fines [N8]
+Fees & invoices [have] · Pay online [3.0] · Statement [8.15] · Fines [38.0]
+Attendance [have]
 Results [19.0] · Homework [22.0] · Syllabus [22.0] · Routine [21.0]
 Calendar & notices [17.0; notices have]
 Online exam & class [N6] · Programs [34.0] · Documents [Print module]
@@ -162,19 +162,19 @@ Schools [have] · Public holiday sets [17.0] · Preset library [N3]
 
 ### 3.4 Placement decisions (final)
 
-| #   | Decision                                                                                                                                                                     |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| P1  | Academic years & terms live under **Academics**, next to Calendar.                                                                                                           |
-| P2  | Staff is **one register** with a staff-type filter and designations — not five registers.                                                                                    |
-| P3  | Subjects get their **own page** under Academics; the class detail keeps a per-class offering tab.                                                                            |
-| P4  | Exam setup (types/heads/sub-heads, marks distribution, report-card templates) lives under **Exams & Results**, not Settings.                                                 |
-| P5  | Reports is a **hub of links**; a report lives once, where its data lives.                                                                                                    |
-| P6  | Notices live under **Communications**.                                                                                                                                       |
-| P7  | Fines: generation/waive/lists under **Attendance**; money reuses **Finance › Payments**.                                                                                     |
-| P8  | Online learning is **one item** so a tenant toggle (N3) can hide it whole.                                                                                                   |
-| P9  | Teaching assignments bulk view lives under **People › Staff**; also a tab on staff detail and class detail.                                                                  |
-| P10 | **Users stays under Administration for now**; whether it merges into Staff is decided in Epic 24.0.                                                                          |
-| P11 | Coaching centres reuse Class/Section, relabelled Course/Batch via tenant label overrides — not Programs. Programs are supplementary tracks (hifz, trades, labs, attachment). |
+| #   | Decision                                                                                                                                                                               |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P1  | Academic years & terms live under **Academics**, next to Calendar.                                                                                                                     |
+| P2  | Staff is **one register** with a staff-type filter and designations — not five registers.                                                                                              |
+| P3  | Subjects get their **own page** under Academics; the class detail keeps a per-class offering tab.                                                                                      |
+| P4  | Exam setup (types/heads/sub-heads, marks distribution, report-card templates) lives under **Exams & Results**, not Settings.                                                           |
+| P5  | Reports is a **hub of links**; a report lives once, where its data lives.                                                                                                              |
+| P6  | Notices live under **Communications**.                                                                                                                                                 |
+| P7  | Fines live under **Finance › Fines** (list + Rules tab); money reuses Finance › Payments. Replaced the Attendance placement in Epic 38 because fines are generic, not attendance-only. |
+| P8  | Online learning is **one item** so a tenant toggle (N3) can hide it whole.                                                                                                             |
+| P9  | Teaching assignments bulk view lives under **People › Staff**; also a tab on staff detail and class detail.                                                                            |
+| P10 | **Users stays under Administration for now**; whether it merges into Staff is decided in Epic 24.0.                                                                                    |
+| P11 | Coaching centres reuse Class/Section, relabelled Course/Batch via tenant label overrides — not Programs. Programs are supplementary tracks (hifz, trades, labs, attachment).           |
 
 ## 4. Command palette — `Ctrl/Cmd+K`
 

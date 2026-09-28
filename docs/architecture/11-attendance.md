@@ -304,7 +304,23 @@ these defaults (`tenant-settings-defaults.ts`):
 | `autoAbsentNotification.enabled`    | `false`        | Whether finalizing a register triggers guardian notifications for that day's absences.   |
 | `autoAbsentNotification.cutoffTime` | `11:00`        | The local time after which the auto-absent sweep considers a register due.               |
 
-## 9. What this epic deliberately did not build
+## 9. Attendance fines
+
+`ABSENT` and `LATE` marks can trigger a fine, but the billing logic lives
+outside this module. `FineSweepService` reads attendance the same way a
+report does — it never writes a mark back. See
+[04-fees-payments-invoices.md § Fines](04-fees-payments-invoices.md#fines)
+for the full flow (rule setup, the monthly sweep, the resulting bill).
+
+The two triggers it reads from this module:
+
+- **`ATTENDANCE_ABSENT`** — counts `ABSENT` marks in the month.
+- **`ATTENDANCE_LATE`** — counts `LATE` marks in the month; a rule can add
+  `min_minutes_late` to only count a `LATE` mark once its `minutes_late`
+  crosses that number (a `LATE` with `minutes_late` still `NULL` always
+  counts — see D23 in 04's decisions table).
+
+## 10. What this epic deliberately did not build
 
 - **Period-level attendance UI** — the columns (`AttendanceSession.period_no`,
   `Subject`) exist end to end, nothing in the UI uses them yet.
