@@ -105,6 +105,11 @@ test('keyboard-only: fill in the Job section and add a Family row on the HR reco
     // draft already holds the text — gutting this step's whole point.
     // Assert through the API instead, same reasoning as `e2e/api.ts`'s
     // `get` helper: a UI that lies to itself passes a UI-only assertion.
+    // Exact one-element compare rather than `toContainEqual`: `PUT` is a full
+    // replace and `createTeacher` made a fresh user, so exactly one row is
+    // the real expectation, and this also catches a duplicate-insert
+    // regression. If a second row is ever added here, sort before comparing —
+    // `findRows` has no `ORDER BY`, so row order is not guaranteed.
     await expect(async () => {
       const rows = await get<{ relation: string; name: string }[]>(
         request,
