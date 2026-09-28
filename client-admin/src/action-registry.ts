@@ -137,6 +137,39 @@ export const ACTIONS: readonly PaletteAction[] = [
     kind: 'modal',
     run: (ctx) => ctx.navigate({ to: '/fees/generate' }),
   },
+  // [38.4.3] `/_staff/fees/fines/` itself only requires FEE_READ (its
+  // route gate) — these three actions are stricter than that on purpose
+  // (only who can log/generate/waive a fine should see them from the
+  // palette), same documented "route is broader than the action" shape
+  // `programs.add`/`programs.enrol` already use, per
+  // `action-registry.test.ts`'s `ROUTE_PERMISSION_EXCEPTIONS`. `run()`
+  // carries no entity id ([31.0]'s retrofit territory, not this ticket's),
+  // so all three land unprefilled on `/fees/fines` — `?logFine=1`/
+  // `?generateFines=1` open the modal on arrival; waive has no such flag
+  // (no fine id to open one *for*), so it lands on the plain list.
+  {
+    id: 'fines.log',
+    label: { en: 'Log fine', bn: 'জরিমানা যোগ করুন' },
+    permission: Permission.FEE_GENERATE,
+    kind: 'modal',
+    context: ['student'],
+    run: (ctx) => ctx.navigate({ to: '/fees/fines?logFine=1' }),
+  },
+  {
+    id: 'fines.generate',
+    label: { en: 'Generate fines', bn: 'জরিমানা তৈরি করুন' },
+    permission: Permission.FEE_GENERATE,
+    kind: 'modal',
+    run: (ctx) => ctx.navigate({ to: '/fees/fines?generateFines=1' }),
+  },
+  {
+    id: 'fines.waive',
+    label: { en: 'Waive fine', bn: 'জরিমানা মাফ করুন' },
+    permission: Permission.FEE_APPROVE,
+    kind: 'modal',
+    context: ['student'],
+    run: (ctx) => ctx.navigate({ to: '/fees/fines' }),
+  },
   {
     id: 'students.add',
     label: { en: 'Add student', bn: 'শিক্ষার্থী যোগ করুন' },
