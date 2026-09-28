@@ -33,6 +33,7 @@ import type { ProgramMilestone } from '../modules/programs/entities/program-mile
 import type { ProgramEnrollment } from '../modules/programs/entities/program-enrollment.entity';
 import type { MilestoneAchievement } from '../modules/programs/entities/milestone-achievement.entity';
 import type { FeeStructure } from '../modules/fees/entities/fee-structure.entity';
+import type { FineRule } from '../modules/fees/entities/fine-rule.entity';
 import type { RecurringSchedule } from '../modules/fees/entities/recurring-schedule.entity';
 import type { RecurringScheduleStructure } from '../modules/fees/entities/recurring-schedule-structure.entity';
 import type { Shift } from '../modules/routines/entities/shift.entity';
@@ -57,6 +58,7 @@ import {
   ensureHomeworkDemoSeed,
   ensureProgramsDemoSeed,
   ensureProgramParticipationDemoSeed,
+  ensureFineSeedData,
   ensurePublicHolidaySet,
   ensureRoutineSeed,
   BD_NCTB_BANDS,
@@ -1650,6 +1652,53 @@ describe('ensureProgramParticipationDemoSeed', () => {
     await expect(
       ensureProgramParticipationDemoSeed(repos, { ...PARAMS, studentIds: STUDENT_IDS.slice(0, 5) }),
     ).rejects.toThrow();
+  });
+});
+
+describe('ensureFineSeedData', () => {
+  function fineRepos() {
+    return {
+      feeStructureRepository: mockRepo<FeeStructure>(),
+      fineRuleRepository: mockRepo<FineRule>(),
+    };
+  }
+
+  const PARAMS = { schoolId: 'school-1', academicYearId: 'year-1', classId: 'class-1' };
+
+  function stubEmptyLookups(repos: ReturnType<typeof fineRepos>) {
+    vi.mocked(repos.feeStructureRepository.findOne).mockResolvedValue(null);
+    vi.mocked(repos.fineRuleRepository.findOne).mockResolvedValue(null);
+  }
+
+  it('creates 5 fine structures and 2 fine rules on an empty database', async () => {
+    const repos = fineRepos();
+    stubEmptyLookups(repos);
+
+    const result = await ensureFineSeedData(repos, PARAMS);
+
+    expect(result).toEqual({ structures: 5, rules: 2 });
+    expect(repos.feeStructureRepository.create).toHaveBeenCalledTimes(5);
+    expect(repos.fineRuleRepository.create).toHaveBeenCalledTimes(2);
+
+    const rulePayloads = vi
+      .mocked(repos.fineRuleRepository.create)
+      .mock.calls.map(([payload]) => payload as Partial<FineRule>);
+    expect(rulePayloads.find((p) => p.trigger === 'ATTENDANCE_ABSENT')?.class_id).toBeNull();
+    expect(rulePayloads.find((p) => p.trigger === 'ATTENDANCE_LATE')?.class_id).toBe('class-1');
+  });
+
+  it('does not duplicate when everything already exists', async () => {
+    const repos = fineRepos();
+    vi.mocked(repos.feeStructureRepository.findOne).mockResolvedValue({
+      id: 'fs-1',
+    } as FeeStructure);
+    vi.mocked(repos.fineRuleRepository.findOne).mockResolvedValue({ id: 'fr-1' } as FineRule);
+
+    const result = await ensureFineSeedData(repos, PARAMS);
+
+    expect(result).toEqual({ structures: 0, rules: 0 });
+    expect(repos.feeStructureRepository.create).not.toHaveBeenCalled();
+    expect(repos.fineRuleRepository.create).not.toHaveBeenCalled();
   });
 });
 
