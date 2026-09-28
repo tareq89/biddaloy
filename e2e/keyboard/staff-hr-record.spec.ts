@@ -1,4 +1,4 @@
-import { adminApiSession, createTeacher } from '../api';
+import { adminApiSession, createTeacher, get } from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { tabUntilFocused } from './keyboard-utils';
@@ -98,6 +98,20 @@ test('keyboard-only: fill in the Job section and add a Family row on the HR reco
     await tabUntilFocused(page, t('staff.hrRecord.saveAction'), 20, { tag: 'BUTTON' });
     await page.keyboard.press('Enter');
 
-    await expect(page.getByText('Jane Doe')).toBeVisible();
+    // `RepeatableRowForm` rows are always-editable `<input>`s — there is no
+    // read mode (repeatable-row-form.tsx:176-193), so the typed name only
+    // ever exists as an input VALUE, which `getByText` cannot match. And
+    // `toHaveValue` would pass even if the PUT had 500'd, since the local
+    // draft already holds the text — gutting this step's whole point.
+    // Assert through the API instead, same reasoning as `e2e/api.ts`'s
+    // `get` helper: a UI that lies to itself passes a UI-only assertion.
+    await expect(async () => {
+      const rows = await get<{ relation: string; name: string }[]>(
+        request,
+        session,
+        `/staff/${teacher.userId}/family`,
+      );
+      expect(rows.map((row) => [row.relation, row.name])).toEqual([['Spouse', 'Jane Doe']]);
+    }).toPass({ timeout: 10_000 });
   });
 });
