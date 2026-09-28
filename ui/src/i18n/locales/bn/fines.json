@@ -9,6 +9,7 @@
   },
   "filters": {
     "monthLabel": "মাস",
+    "allMonths": "সব মাস",
     "classLabel": "ক্লাস",
     "allClasses": "সব ক্লাস",
     "sectionLabel": "শাখা",
@@ -31,9 +32,12 @@
     "incidentDate": "ঘটনার তারিখ",
     "month": "মাস",
     "amount": "পরিমাণ",
+    "paid": "পরিশোধিত",
     "status": "অবস্থা",
-    "origin": "উৎস"
+    "origin": "উৎস",
+    "actions": "কার্যক্রম"
   },
+  "openStudent": "শিক্ষার্থী দেখুন",
   "origin": {
     "RULE": "নিয়ম অনুযায়ী",
     "MANUAL": "নিজে যোগ করা"
