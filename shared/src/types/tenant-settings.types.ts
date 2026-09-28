@@ -229,6 +229,8 @@ export interface FeesSettings {
   /** Default `true` — a scheduled/recurring generation run does notify
    * parents unless the school turns it off. */
   notifyOnScheduleDefault: boolean;
+  /** Days after creation a fine is due (Epic 38 D10). Default 7. */
+  fineDueDays: number;
 }
 
 export interface TenantSettings {
