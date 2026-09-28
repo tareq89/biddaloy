@@ -216,9 +216,7 @@ export class FineSweepService {
             }
           }
         }
-        const matchedClassRule = actualClassId
-          ? classRuleByClassId.get(actualClassId)
-          : undefined;
+        const matchedClassRule = actualClassId ? classRuleByClassId.get(actualClassId) : undefined;
         if (matchedClassRule) {
           // Class rule wins outright — even if its own conditions exclude
           // this student (no hit here), the default does NOT apply.
@@ -290,12 +288,15 @@ export class FineSweepService {
       existing_bill_id: bill.id,
       paid_amount: Number(bill.paid_amount),
     }));
-    const duplicateKeys = new Set(
-      duplicates.map((d) => `${d.student_id}:${d.fee_structure_id}`),
+    const duplicateKeys = new Set(duplicates.map((d) => `${d.student_id}:${d.fee_structure_id}`));
+    // generate() merges rows sharing (student_id, fee_structure_id) into one bill — dedupe by
+    // the same key here, or a student hit by two rules on the same structure inflates the count.
+    const wouldCreateKeys = new Set(
+      rows
+        .filter((r) => !duplicateKeys.has(`${r.student_id}:${r.fee_structure_id}`))
+        .map((r) => `${r.student_id}:${r.fee_structure_id}`),
     );
-    const wouldCreate = rows.filter(
-      (r) => !duplicateKeys.has(`${r.student_id}:${r.fee_structure_id}`),
-    ).length;
+    const wouldCreate = wouldCreateKeys.size;
     const totalAmount = round2(rows.reduce((sum, r) => sum + r.amount, 0));
 
     return { students: rows, total_amount: totalAmount, would_create: wouldCreate, duplicates };
