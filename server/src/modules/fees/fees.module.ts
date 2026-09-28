@@ -42,6 +42,7 @@ import { PaymentReversalService } from './payment-reversal.service';
 import { FeesDailyScheduler } from './fees-daily.scheduler';
 import { FEES_DAILY_QUEUE } from './fees.constants';
 import { DiscountRule } from './entities/discount-rule.entity';
+import { FineRule } from './entities/fine-rule.entity';
 import { DiscountRulesService } from './discount-rules.service';
 import { DiscountRulesController } from './discount-rules.controller';
 import { LateFeeService } from './late-fee.service';
@@ -66,6 +67,7 @@ import { LateFeeService } from './late-fee.service';
       Invoice,
       School,
       DiscountRule,
+      FineRule,
       Program,
     ]),
     BullModule.registerQueue({ name: FEES_DAILY_QUEUE }),

@@ -33,28 +33,41 @@ function cellsFor(row: StudentFeeRow): Record<string, string> {
     status: row.status,
     due_date: row.due_date ?? '',
     reminder_threshold_date: row.reminder_threshold_date ?? '',
+    note: row.note ?? '',
+    incident_date: row.incident_date ?? '',
+    fine_rule: row.fine_rule_key ?? '',
   };
 }
+
+const BASE_ROW: Omit<StudentFeeRow, 'id'> = {
+  student_id: 'student-1',
+  student_key: 'REG-001',
+  academic_year_id: 'year-1',
+  academic_year_key: '2026-2027',
+  fee_structure_id: 'fs-1',
+  fee_structure_key: 'Tuition',
+  month: 1,
+  year: 2026,
+  occurrence: 1,
+  total_amount: '1500.00',
+  paid_amount: '0.00',
+  discount_amount: '0.00',
+  standing_discount_amount: '0.00',
+  one_off_discount_amount: '0.00',
+  status: FeeStatus.PENDING,
+  due_date: null,
+  reminder_threshold_date: null,
+  note: null,
+  incident_date: null,
+  fine_rule_id: null,
+  fine_rule_key: null,
+};
 
 describe('studentFeesTab', () => {
   it('round-trips fromRow(toRow-shaped cells)', () => {
     const row: StudentFeeRow = {
+      ...BASE_ROW,
       id: '00000000-0000-4000-8000-000000000001',
-      student_id: 'student-1',
-      student_key: 'REG-001',
-      academic_year_id: 'year-1',
-      academic_year_key: '2026-2027',
-      fee_structure_id: 'fs-1',
-      fee_structure_key: 'Tuition',
-      month: 1,
-      year: 2026,
-      occurrence: 1,
-      total_amount: '1500.00',
-      paid_amount: '0.00',
-      discount_amount: '0.00',
-      standing_discount_amount: '0.00',
-      one_off_discount_amount: '0.00',
-      status: FeeStatus.PENDING,
       due_date: '2026-01-10',
       reminder_threshold_date: '2026-01-05',
     };
@@ -66,6 +79,41 @@ describe('studentFeesTab', () => {
     const result = studentFeesTab.fromRow(cellsFor(row), 2, ctx);
     expect('row' in result).toBe(true);
     expect((result as { row: StudentFeeRow }).row).toEqual(row);
+  });
+
+  it('round-trips a FINE bill with note, incident_date and fine_rule_id', () => {
+    const row: StudentFeeRow = {
+      ...BASE_ROW,
+      id: '00000000-0000-4000-8000-000000000005',
+      note: 'Broke a window',
+      incident_date: '2026-01-15',
+      fine_rule_id: 'rule-1',
+      fine_rule_key: '2026-2027|ATTENDANCE_ABSENT|',
+    };
+    const ctx = fakeImportCtx({
+      students: { 'REG-001': 'student-1' },
+      academic_years: { '2026-2027': 'year-1' },
+      fee_structures: { Tuition: 'fs-1' },
+      fine_rules: { '2026-2027|ATTENDANCE_ABSENT|': 'rule-1' },
+    });
+    const result = studentFeesTab.fromRow(cellsFor(row), 2, ctx);
+    expect('row' in result).toBe(true);
+    expect((result as { row: StudentFeeRow }).row).toEqual(row);
+  });
+
+  it('a normal (non-FINE) bill still round-trips with nulls for note/incident_date/fine_rule', () => {
+    const row: StudentFeeRow = { ...BASE_ROW, id: '00000000-0000-4000-8000-000000000006' };
+    const ctx = fakeImportCtx({
+      students: { 'REG-001': 'student-1' },
+      academic_years: { '2026-2027': 'year-1' },
+      fee_structures: { Tuition: 'fs-1' },
+    });
+    const result = studentFeesTab.fromRow(cellsFor(row), 2, ctx);
+    expect('row' in result).toBe(true);
+    const parsed = (result as { row: StudentFeeRow }).row;
+    expect(parsed.note).toBeNull();
+    expect(parsed.incident_date).toBeNull();
+    expect(parsed.fine_rule_id).toBeNull();
   });
 
   it('gives two same-period bills differing only by occurrence distinct natural keys', () => {
@@ -89,24 +137,9 @@ describe('studentFeesTab', () => {
 
   it('rejects an out-of-range month instead of silently wrapping it', () => {
     const row: StudentFeeRow = {
+      ...BASE_ROW,
       id: '00000000-0000-4000-8000-000000000001',
-      student_id: 'student-1',
-      student_key: 'REG-001',
-      academic_year_id: 'year-1',
-      academic_year_key: '2026-2027',
-      fee_structure_id: 'fs-1',
-      fee_structure_key: 'Tuition',
       month: 13,
-      year: 2026,
-      occurrence: 1,
-      total_amount: '1500.00',
-      paid_amount: '0.00',
-      discount_amount: '0.00',
-      standing_discount_amount: '0.00',
-      one_off_discount_amount: '0.00',
-      status: FeeStatus.PENDING,
-      due_date: null,
-      reminder_threshold_date: null,
     };
     const ctx = fakeImportCtx({
       students: { 'REG-001': 'student-1' },
@@ -120,24 +153,9 @@ describe('studentFeesTab', () => {
 
   it('rejects an out-of-range year instead of silently wrapping it', () => {
     const row: StudentFeeRow = {
+      ...BASE_ROW,
       id: '00000000-0000-4000-8000-000000000001',
-      student_id: 'student-1',
-      student_key: 'REG-001',
-      academic_year_id: 'year-1',
-      academic_year_key: '2026-2027',
-      fee_structure_id: 'fs-1',
-      fee_structure_key: 'Tuition',
-      month: 1,
       year: 26,
-      occurrence: 1,
-      total_amount: '1500.00',
-      paid_amount: '0.00',
-      discount_amount: '0.00',
-      standing_discount_amount: '0.00',
-      one_off_discount_amount: '0.00',
-      status: FeeStatus.PENDING,
-      due_date: null,
-      reminder_threshold_date: null,
     };
     const ctx = fakeImportCtx({
       students: { 'REG-001': 'student-1' },
@@ -151,24 +169,10 @@ describe('studentFeesTab', () => {
 
   it('errors when the student key does not resolve', () => {
     const row: StudentFeeRow = {
+      ...BASE_ROW,
       id: '00000000-0000-4000-8000-000000000001',
       student_id: '',
       student_key: 'REG-999',
-      academic_year_id: 'year-1',
-      academic_year_key: '2026-2027',
-      fee_structure_id: 'fs-1',
-      fee_structure_key: 'Tuition',
-      month: 1,
-      year: 2026,
-      occurrence: 1,
-      total_amount: '1500.00',
-      paid_amount: '0.00',
-      discount_amount: '0.00',
-      standing_discount_amount: '0.00',
-      one_off_discount_amount: '0.00',
-      status: FeeStatus.PENDING,
-      due_date: null,
-      reminder_threshold_date: null,
     };
     const ctx = fakeImportCtx({
       academic_years: { '2026-2027': 'year-1' },
@@ -220,6 +224,9 @@ describe('studentFeesTab', () => {
       status: FeeStatus.PENDING,
       due_date: new Date(2026, 0, 10),
       reminder_threshold_date: new Date(2026, 0, 5),
+      note: null,
+      incident_date: null,
+      fine_rule_id: null,
     }) as StudentFee;
 
     const row = {
@@ -233,6 +240,9 @@ describe('studentFeesTab', () => {
       status: FeeStatus.PENDING,
       due_date: '2026-01-10',
       reminder_threshold_date: '2026-01-05',
+      note: null,
+      incident_date: null,
+      fine_rule_id: null,
     } as StudentFeeRow;
 
     expect(studentFeesTab.diffFields(row, entity)).toEqual([]);
@@ -243,7 +253,13 @@ describe('studentFeesTab', () => {
       due_date: new Date(2026, 0, 10),
       reminder_threshold_date: null,
     }) as StudentFee;
-    const row = { due_date: '2026-02-10', reminder_threshold_date: null } as StudentFeeRow;
+    const row = {
+      due_date: '2026-02-10',
+      reminder_threshold_date: null,
+      note: null,
+      incident_date: null,
+      fine_rule_id: null,
+    } as StudentFeeRow;
 
     expect(studentFeesTab.diffFields(row, entity)).toContain('due_date');
   });
