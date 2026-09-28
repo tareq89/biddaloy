@@ -112,7 +112,7 @@ describe('HrRecordJobSection', () => {
     expect(await screen.findByRole('alert')).toBeTruthy();
     // Still editable, and still holding what was typed — a failed save must
     // not silently discard the user's input.
-    expect((screen.getByLabelText('Department') as HTMLInputElement).value).toBe('Science');
+    expect(screen.getByLabelText<HTMLInputElement>('Department').value).toBe('Science');
   });
 
   it('shows the saving label while the save is in flight', async () => {
