@@ -34,6 +34,11 @@ export interface FeeDueEntry {
   /** This bill IS a late fee (`late_fee_for_student_fee_id IS NOT NULL`
    * server-side) — drives the late-fee badge on its row. */
   is_late_fee: boolean;
+  /** [Epic 38 D17] `fee_structure.fee_type === 'FINE'` — drives the "Fine"
+   * badge on the [38.4.5] "due this month" card. */
+  is_fine: boolean;
+  /** [Epic 38 D17] Set on FINE bills (the incident note); `null` otherwise. */
+  note: string | null;
   total_amount: number;
   paid_amount: number;
   discount_amount: number;

@@ -200,9 +200,26 @@ describe('/portal/fees', () => {
     /** `FamilyStudentScheduleDto[]` per student id. Defaults to no
      * schedules. */
     schedules?: Record<string, unknown[]>;
+    /** [38.4.5] `StudentFee[]` (fines) per student id. Defaults to none —
+     * `ui/src/test/msw/handlers.ts`'s global default handler for
+     * `GET /fees/fines` returns three unrelated fixtures regardless of
+     * `student_id`, which would make the Fines section appear on every
+     * test in this file that doesn't care about it. Overridden here so
+     * this page's tests are deterministic about it instead. */
+    fines?: Record<string, unknown[]>;
   }) {
     server.use(
       http.get('/api/v1/students/mine', () => HttpResponse.json(options.students)),
+      http.get('/api/v1/fees/fines', ({ request }) => {
+        const url = new URL(request.url);
+        const studentId = url.searchParams.get('student_id') ?? '';
+        const items = options.fines?.[studentId] ?? [];
+        return HttpResponse.json({
+          items,
+          total: items.length,
+          totals: { charged: 0, collected: 0, waived: 0, outstanding: 0 },
+        });
+      }),
       http.get('/api/v1/payments/invoices/student/:studentId', ({ params }) => {
         const id = params.studentId as string;
         summaryRequests.push(id);
@@ -302,6 +319,7 @@ describe('/portal/fees', () => {
     invoiceTotals?: Record<string, number>;
     wallets?: Record<string, unknown>;
     schedules?: Record<string, unknown[]>;
+    fines?: Record<string, unknown[]>;
   }) {
     mockFees({
       ...extra,
@@ -759,6 +777,47 @@ describe('/portal/fees', () => {
 
       await screen.findByText('September 2025');
       expect(screen.getByText('No wallet activity yet.')).toBeTruthy();
+    });
+  });
+
+  /** A literal fine row — the minimal `StudentFee` shape `FinesCard` reads
+   * (`fee_structure.name`, `note`, `incident_date`, `status`,
+   * `total_amount`), same "no staff-only field" discipline `fee()` above
+   * documents for the month rows. */
+  function fineRow(id: string, name: string, amount: number, status: string, note: string | null) {
+    return {
+      id,
+      student_id: 'student-1',
+      fee_structure: { name },
+      note,
+      incident_date: serverDate(-3),
+      total_amount: amount,
+      status,
+    };
+  }
+
+  describe('[38.4.5] fines section', () => {
+    it('shows a waived fine with status "Waived"', async () => {
+      standardMocks({
+        fines: {
+          'student-1': [fineRow('fine-1', 'Late arrival fine', 200, 'WAIVED', 'Late 3 times')],
+        },
+      });
+      renderFees();
+
+      await screen.findByText('September 2025');
+      expect(screen.getByText('Fines')).toBeTruthy();
+      expect(screen.getByText('Late arrival fine')).toBeTruthy();
+      expect(screen.getByText('Waived')).toBeTruthy();
+      expect(screen.getByText('Reason: Late 3 times')).toBeTruthy();
+    });
+
+    it('is absent when the child has no fines', async () => {
+      standardMocks();
+      renderFees();
+
+      await screen.findByText('September 2025');
+      expect(screen.queryByText('Fines')).toBeNull();
     });
   });
 
