@@ -340,6 +340,14 @@ export {
 } from './programs/milestone-checklist';
 export { ProgressBar, type ProgressBarProps } from './programs/progress-bar';
 export {
+  layoutPages,
+  orderSides,
+  TemplateRenderer,
+  type PrinterSetup,
+  type Sheet,
+  type TemplateRendererProps,
+} from './print/template-renderer';
+export {
   RepeatableRowForm,
   type RepeatableRowField,
   type RepeatableRowFieldType,
