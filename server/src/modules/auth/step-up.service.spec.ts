@@ -61,7 +61,12 @@ const TENANT_ID = 'tenant-1';
 const CONTEXT = { ip: '127.0.0.1', userAgent: 'vitest' };
 
 function buildService(
-  overrides: Partial<{ otpService: any; schoolsService: any; membership: any }> = {},
+  overrides: Partial<{
+    otpService: any;
+    schoolsService: any;
+    membership: any;
+    maxAttempts: string;
+  }> = {},
 ) {
   const userRepo = fakeRepo([APPROVER as any]);
   const userTenantRepo = fakeRepo([overrides.membership ?? MEMBERSHIP] as any);
@@ -75,7 +80,7 @@ function buildService(
     getResolvedSettings: vi.fn().mockResolvedValue({ version: 1 }),
   };
   const redis = fakeRedis();
-  const config = { get: vi.fn().mockReturnValue(undefined) };
+  const config = { get: vi.fn().mockReturnValue(overrides.maxAttempts) };
 
   const service = new StepUpService(
     userRepo as any,
@@ -230,6 +235,33 @@ describe('StepUpService', () => {
         service.verify(otpDto(), ACTOR_USER_ID, TENANT_ID, CONTEXT),
       ).rejects.toMatchObject({ status: HttpStatus.TOO_MANY_REQUESTS });
     });
+
+    it('honours STEP_UP_RATE_LIMIT_MAX_ATTEMPTS when it is a positive integer', async () => {
+      const { service } = buildService({ maxAttempts: '8' });
+
+      for (let i = 0; i < 8; i++) {
+        await service.verify(otpDto(), ACTOR_USER_ID, TENANT_ID, CONTEXT).catch(() => undefined);
+      }
+
+      await expect(
+        service.verify(otpDto(), ACTOR_USER_ID, TENANT_ID, CONTEXT),
+      ).rejects.toMatchObject({ status: HttpStatus.TOO_MANY_REQUESTS });
+    });
+
+    it.each(['0', '-3', 'abc', '2.5'])(
+      'falls back to the strict default of 5 for a malformed override (%s)',
+      async (maxAttempts) => {
+        const { service } = buildService({ maxAttempts });
+
+        for (let i = 0; i < 5; i++) {
+          await service.verify(otpDto(), ACTOR_USER_ID, TENANT_ID, CONTEXT).catch(() => undefined);
+        }
+
+        await expect(
+          service.verify(otpDto(), ACTOR_USER_ID, TENANT_ID, CONTEXT),
+        ).rejects.toMatchObject({ status: HttpStatus.TOO_MANY_REQUESTS });
+      },
+    );
 
     // Security-review fix: the approver rate-limit key must be scoped by
     // tenant. Before the fix, `step-up-attempts:approver:${identifier}` was

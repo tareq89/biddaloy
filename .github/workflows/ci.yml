@@ -659,6 +659,10 @@ jobs:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/betonboi_e2e
       REDIS_URL: redis://localhost:6379
       JWT_SECRET: ci-e2e-jwt-secret-do-not-use-in-production-1234567890
+      # Every e2e spec approves as the one seeded admin, so the whole run shares
+      # step-up's 5-per-15-min verification budget (step-up.service.ts). Raised
+      # for this job only; the server default stays 5.
+      STEP_UP_RATE_LIMIT_MAX_ATTEMPTS: '1000'
       NODE_ENV: test
       SEED_ADMIN_PASSWORD: ci-e2e-seed-password-123
       # D6's test-observability flag — lets activation/recovery e2e specs
@@ -865,6 +869,10 @@ jobs:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/betonboi_e2e
       REDIS_URL: redis://localhost:6379
       JWT_SECRET: ci-e2e-jwt-secret-do-not-use-in-production-1234567890
+      # Every e2e spec approves as the one seeded admin, so the whole run shares
+      # step-up's 5-per-15-min verification budget (step-up.service.ts). Raised
+      # for this job only; the server default stays 5.
+      STEP_UP_RATE_LIMIT_MAX_ATTEMPTS: '1000'
       NODE_ENV: test
       SEED_ADMIN_PASSWORD: ci-e2e-seed-password-123
       # [15.5] See the "integration"/"e2e" jobs above.
