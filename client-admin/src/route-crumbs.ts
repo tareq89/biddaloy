@@ -49,6 +49,7 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/verify-email': 'pre-auth screen, no shell',
   '/select-school': 'post-auth, pre-tenant-selection — no tenant nav to trail into yet',
   '/i/$token': 'public invite-accept link, opened signed-out',
+  '/v/$token': 'public document-verify page, opened signed-out from a printed QR code',
   '/admission/$slug/': 'public admission form, opened signed-out',
   '/admission/$slug/status': 'public admission status-check page, opened signed-out',
 
