@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
 import { act, waitFor } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { studentFactory, type Student } from '../test/factories';
 import { server } from '../test/msw/server';
@@ -18,6 +18,7 @@ import {
   useStudentIds,
   useStudents,
   useStudentSearch,
+  useBulkUploadStudentPhotos,
   useUpdateStudentEnrollmentStatus,
   useUpdateStudentPreferredCommunication,
   type PreferredCommunication,
@@ -607,5 +608,53 @@ describe('useStudentSearch', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.data).toBeInstanceOf(Array);
+  });
+});
+
+describe('useBulkUploadStudentPhotos (D57)', () => {
+  it('sends 60 files as three requests of 25, 25 and 10, and merges the reports', async () => {
+    // Same approach as bulk-upload.test.tsx: jsdom + MSW can't parse multipart, so
+    // record what each request appended instead of reading the body.
+    const appended: string[] = [];
+    vi.spyOn(FormData.prototype, 'append').mockImplementation(function (
+      this: FormData,
+      name: string,
+      value: unknown,
+    ) {
+      if (name === 'files') appended.push((value as File).name);
+    });
+    const sizes: number[] = [];
+    server.use(
+      http.post('/api/v1/students/photos/bulk', () => {
+        // Everything appended since the previous request belongs to this one.
+        const sent = sizes.reduce((a, b) => a + b, 0);
+        sizes.push(appended.length - sent);
+        return HttpResponse.json({
+          matched: appended
+            .slice(sent)
+            .map((file) => ({ file, student_id: `s-${file}`, full_name: file })),
+          unmatched: [`unmatched-${sizes.length}`],
+          invalid: [],
+        });
+      }),
+    );
+    const files = Array.from(
+      { length: 60 },
+      (_, i) => new File(['x'], `R-${i}.jpg`, { type: 'image/jpeg' }),
+    );
+    const progress: number[] = [];
+    const { result } = renderHookWithProviders(() => useBulkUploadStudentPhotos(), {
+      tenantId: 'tenant-1',
+    });
+
+    let merged: Awaited<ReturnType<typeof result.current.mutateAsync>> | undefined;
+    await act(async () => {
+      merged = await result.current.mutateAsync({ files, onProgress: (p) => progress.push(p) });
+    });
+
+    expect(sizes).toEqual([25, 25, 10]); // sequential chunks, never more than 25 at once
+    expect(merged?.matched).toHaveLength(60);
+    expect(merged?.unmatched).toEqual(['unmatched-1', 'unmatched-2', 'unmatched-3']);
+    expect(progress).toEqual([42, 83, 100]);
   });
 });

@@ -29,6 +29,7 @@ const hrRecord: StaffHrRecord = {
   salary_scale: null,
   department: 'Science',
   blood_group: null,
+  name_bn: null,
   religion: null,
   created_at: '2026-01-01T00:00:00.000Z',
   updated_at: '2026-01-01T00:00:00.000Z',
