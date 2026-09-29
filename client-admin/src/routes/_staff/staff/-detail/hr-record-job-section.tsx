@@ -26,6 +26,7 @@ type FormState = {
   salary_scale: string;
   department: string;
   blood_group: string;
+  name_bn: string;
   religion: string;
 };
 
@@ -36,6 +37,7 @@ const EMPTY_FORM: FormState = {
   salary_scale: '',
   department: '',
   blood_group: '',
+  name_bn: '',
   religion: '',
 };
 
@@ -48,6 +50,7 @@ function toFormState(record: StaffHrRecord | null): FormState {
     salary_scale: record.salary_scale ?? '',
     department: record.department ?? '',
     blood_group: record.blood_group ?? '',
+    name_bn: record.name_bn ?? '',
     religion: record.religion ?? '',
   };
 }
@@ -83,6 +86,7 @@ export function HrRecordJobSection({ userId }: HrRecordJobSectionProps) {
       salary_scale: form.salary_scale.trim(),
       department: form.department.trim(),
       blood_group: form.blood_group.trim(),
+      name_bn: form.name_bn.trim(),
       religion: form.religion.trim(),
     };
     const onSuccess = () => setEditing(false);
@@ -129,6 +133,7 @@ export function HrRecordJobSection({ userId }: HrRecordJobSectionProps) {
               ['salary_scale', 'salaryScaleLabel'],
               ['department', 'departmentLabel'],
               ['blood_group', 'bloodGroupLabel'],
+              ['name_bn', 'nameBnLabel'],
               ['religion', 'religionLabel'],
             ] as const
           ).map(([field, labelKey]) => (
@@ -156,6 +161,7 @@ export function HrRecordJobSection({ userId }: HrRecordJobSectionProps) {
             ['salary_scale', 'salaryScaleLabel'],
             ['department', 'departmentLabel'],
             ['blood_group', 'bloodGroupLabel'],
+            ['name_bn', 'nameBnLabel'],
             ['religion', 'religionLabel'],
           ] as const
         ).map(([field, labelKey]) => (
