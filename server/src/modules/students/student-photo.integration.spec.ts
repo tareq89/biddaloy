@@ -26,6 +26,8 @@ import { Guardian } from './entities/guardian.entity';
 
 const TENANT_B = '00000000-0000-4000-8000-0000005b0001';
 const PARENT_USER_ID = '00000000-0000-4000-8000-0000005b0010';
+// The audit row records who did it, and `performed_by_user_id` is a uuid FK to users.
+const ADMIN_USER_ID = '00000000-0000-4000-8000-0000005b0011';
 
 class MemoryStorage {
   objects = new Map<string, { body: Buffer; contentType: string }>();
@@ -81,9 +83,10 @@ describe('Student photos (integration)', () => {
     );
     await dataSource.query(
       `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
-       VALUES ($1, 'photo-parent@test.example', $2, 'Photo Parent', 'ACTIVE', NOW(), NOW())
+       VALUES ($1, 'photo-parent@test.example', $2, 'Photo Parent', 'ACTIVE', NOW(), NOW()),
+              ($3, 'photo-admin@test.example', $2, 'Photo Admin', 'ACTIVE', NOW(), NOW())
        ON CONFLICT DO NOTHING`,
-      [PARENT_USER_ID, SEED_ADMIN_PASSWORD_HASH],
+      [PARENT_USER_ID, SEED_ADMIN_PASSWORD_HASH, ADMIN_USER_ID],
     );
   }, 60000);
 
@@ -94,8 +97,9 @@ describe('Student photos (integration)', () => {
       TENANT_B,
     ]);
     await dataSource.query(`DELETE FROM guardians WHERE tenant_id = $1`, [SEED_TENANT_ID]);
-    await dataSource.query(`DELETE FROM users WHERE id = $1`, [PARENT_USER_ID]);
-    await dataSource.query(`DELETE FROM schools WHERE id = $1`, [TENANT_B]);
+    // The two users and TENANT_B stay: audit rows point at them, and `audit_logs` is write-only
+    // (its FKs are SET NULL / RESTRICT, so deleting either would try to UPDATE an audit row).
+    // Setup is idempotent (`ON CONFLICT DO NOTHING`) and the test database is rebuilt every run.
     await moduleRef.close();
   });
 
@@ -137,8 +141,8 @@ describe('Student photos (integration)', () => {
 
   it('upload then GET streams a JPEG', async () => {
     const s = await makeStudent('P-1');
-    await controller.upload(s.id, await file('a'), adminTenant, { sub: 'admin' } as any, req);
-    const out = await controller.serve(s.id, adminTenant, { sub: 'admin' } as any, res());
+    await controller.upload(s.id, await file('a'), adminTenant, { sub: ADMIN_USER_ID } as any, req);
+    const out = await controller.serve(s.id, adminTenant, { sub: ADMIN_USER_ID } as any, res());
     const bytes = await readAll(out.getStream());
     expect((await sharp(bytes).metadata()).format).toBe('jpeg');
     expect((await studentRepo.findOneByOrFail({ id: s.id })).photo_key).toContain(
@@ -157,7 +161,13 @@ describe('Student photos (integration)', () => {
     const mine = await makeStudent('P-2');
     const other = await makeStudent('P-3');
     for (const s of [mine, other]) {
-      await controller.upload(s.id, await file('a'), adminTenant, { sub: 'admin' } as any, req);
+      await controller.upload(
+        s.id,
+        await file('a'),
+        adminTenant,
+        { sub: ADMIN_USER_ID } as any,
+        req,
+      );
     }
     const guardian = await guardianRepo.save(
       guardianRepo.create({
@@ -189,12 +199,13 @@ describe('Student photos (integration)', () => {
         full_name: 'Other tenant kid',
         registration_number: 'DUP-1',
         roll_number: 1,
-        class_section_id: null,
+        // `students.class_section_id` is NOT NULL; the FK doesn't care which school owns the section.
+        class_section_id: SEED_SECTION_1_ID,
         tenant_id: TENANT_B,
-      } as unknown as Partial<Student>),
+      } as Partial<Student>),
     );
     const files = [{ originalname: 'DUP-1.png', buffer: await png() }] as Express.Multer.File[];
-    const out = await controller.bulk(files, adminTenant, { sub: 'admin' } as any, req);
+    const out = await controller.bulk(files, adminTenant, { sub: ADMIN_USER_ID } as any, req);
     expect(out.matched).toHaveLength(1);
     expect(out.matched[0].student_id).toBe(mine.id);
     const theirs = await studentRepo.findOneByOrFail({
