@@ -6,6 +6,7 @@ import { Guardian } from '../../../students/entities/guardian.entity';
 import { Enrollment } from '../../../students/entities/enrollment.entity';
 import { ClassSection } from '../../../academics/entities/class-section.entity';
 import { fromCell, formatDateOnly } from '../../codec/cell-format';
+import { rehomeStorageKey } from '../../codec/storage-key-scope';
 import type {
   ColumnSpec,
   ExportContext,
@@ -381,6 +382,24 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
 
     if (errors.length > 0) return { errors };
 
+    // A photo key from another school must not survive a restore (see storage-key-scope.ts):
+    // the student photo route streams by the stored key. Keys outside `tenants/` are left alone.
+    let photoKey = (values.photo_key as string | null) ?? null;
+    if (photoKey) {
+      const rehomed = rehomeStorageKey(photoKey, ctx.tenantId);
+      if (rehomed?.moved) {
+        ctx.warn({
+          tab: 'students',
+          row: rowNo,
+          column: 'photo_key',
+          message: 'This photo came from another school. Its file was not copied; upload it again.',
+          severity: 'warning',
+          value: photoKey,
+        });
+        photoKey = rehomed.key;
+      }
+    }
+
     return {
       row: {
         id: values.id as string,
@@ -388,7 +407,7 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
         full_name: values.full_name as string,
         full_name_bn: (values.full_name_bn as string | null) ?? null,
         blood_group: (values.blood_group as string | null) ?? null,
-        photo_key: (values.photo_key as string | null) ?? null,
+        photo_key: photoKey,
         roll_number: values.roll_number as number,
         class_section_id: sectionId as string,
         date_of_birth: (values.date_of_birth as string | null) ?? null,
