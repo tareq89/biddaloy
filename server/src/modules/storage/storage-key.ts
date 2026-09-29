@@ -7,7 +7,19 @@ const CATEGORY_RE = /^[a-z-]+$/;
  * list is refused rather than passed through — a caller that needs a new
  * extension adds it here deliberately, rather than the key builder trusting
  * arbitrary caller input. */
-const ALLOWED_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'webp', 'pdf', 'csv', 'xlsx']);
+const ALLOWED_EXTENSIONS = new Set([
+  'png',
+  'jpg',
+  'jpeg',
+  'webp',
+  'pdf',
+  'csv',
+  'xlsx',
+  'svg',
+  'ttf',
+  'otf',
+  'woff2',
+]);
 
 /**
  * The only way to build an object key for tenant-scoped storage. Keys are
