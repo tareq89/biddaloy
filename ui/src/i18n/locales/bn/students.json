@@ -263,7 +263,9 @@
       "sectionPlaceholder": "একটি শাখা নির্বাচন করুন",
       "rollNumber": "রোল নম্বর",
       "preferredCommunication": "পছন্দের যোগাযোগ মাধ্যম",
-      "address": "বাড়ির ঠিকানা"
+      "address": "বাড়ির ঠিকানা",
+      "fullNameBn": "নাম (বাংলা)",
+      "bloodGroup": "রক্তের গ্রুপ"
     },
     "preferredCommunicationOptions": {
       "SMS": "এসএমএস",
@@ -275,7 +277,9 @@
     "errors": {
       "fullNameRequired": "পূর্ণ নাম আবশ্যক।",
       "classSectionRequired": "একটি শ্রেণি ও শাখা নির্বাচন করুন।",
-      "rollNumberInvalid": "রোল নম্বর অবশ্যই একটি ধনাত্মক পূর্ণসংখ্যা হতে হবে।"
+      "rollNumberInvalid": "রোল নম্বর অবশ্যই একটি ধনাত্মক পূর্ণসংখ্যা হতে হবে।",
+      "fullNameBnTooLong": "বাংলা নাম সর্বোচ্চ ২০০ অক্ষরের হতে পারে।",
+      "bloodGroupInvalid": "তালিকা থেকে একটি রক্তের গ্রুপ বেছে নিন।"
     },
     "draftAvailable": "এই ফর্মের একটি অসংরক্ষিত খসড়া রয়েছে।",
     "restoreDraftAction": "খসড়া পুনরুদ্ধার করুন",
@@ -303,7 +307,8 @@
         "saveAction": "অভিভাবক যোগ করুন",
         "cancelAction": "বাতিল"
       }
-    }
+    },
+    "bloodGroupNotSet": "দেওয়া নেই"
   },
   "discounts": {
     "addRule": "ডিসকাউন্ট নিয়ম যোগ করুন",
@@ -341,5 +346,39 @@
       "errorDateRange": "শেষের তারিখ অবশ্যই শুরুর তারিখের পরে বা সমান হতে হবে।",
       "errorSave": "ডিসকাউন্ট নিয়ম সংরক্ষণ করা যায়নি।"
     }
+  },
+  "photo": {
+    "title": "ছবি",
+    "alt": "{{name}}-এর ছবি",
+    "upload": "ছবি আপলোড করুন",
+    "replace": "ছবি বদলান",
+    "uploading": "আপলোড হচ্ছে…",
+    "help": "পাসপোর্ট ছবির মতো পরিষ্কার ছবি দিন, মুখ মাঝখানে। বড় ছবি নিজে থেকেই ছোট হয়ে যাবে।",
+    "uploaded": "ছবি সংরক্ষণ হয়েছে",
+    "uploadFailed": "ছবি আপলোড করা যায়নি।",
+    "loadFailed": "ছবি আনা যায়নি।"
+  },
+  "bulkPhotos": {
+    "action": "ছবি আপলোড",
+    "title": "শিক্ষার্থীদের ছবি আপলোড",
+    "explainer": "প্রতিটি ছবির নাম শিক্ষার্থীর রেজিস্ট্রেশন নম্বর দিন, যেমন 2024-0153.jpg।",
+    "choosePhotos": "ছবি বাছুন",
+    "chooseFolder": "ফোল্ডার বাছুন",
+    "selected": "{{count}}টি ছবি বাছা হয়েছে",
+    "start": "{{count}}টি ছবি আপলোড করুন",
+    "progress": "আপলোড হচ্ছে… {{percent}}%",
+    "done": "শেষ হয়েছে",
+    "tabs": {
+      "matched": "মিলেছে ({{count}})",
+      "unmatched": "মেলে এমন শিক্ষার্থী নেই ({{count}})",
+      "invalid": "পড়া যায়নি ({{count}})"
+    },
+    "matchedRow": "{{file}} → {{name}}",
+    "invalidRow": "{{file}}: {{reason}}",
+    "noneInTab": "এখানে কিছু নেই।",
+    "copyList": "তালিকা কপি করুন",
+    "copied": "কপি হয়েছে",
+    "close": "বন্ধ করুন",
+    "failed": "আপলোড মাঝপথে থেমে গেছে। এ পর্যন্ত পাঠানো ছবিগুলো সংরক্ষিত আছে।"
   }
 }
