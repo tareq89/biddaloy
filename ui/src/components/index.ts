@@ -348,6 +348,15 @@ export {
   type TemplateRendererProps,
 } from './print/template-renderer';
 export {
+  buildCalibrationDocument,
+  buildPrintDocument,
+  fetchAsDataUrl,
+  openPrintWindow,
+  type BlobFetcher,
+  type BuildPrintDocumentInput,
+  type PrintCalibration,
+} from './print/print-document';
+export {
   RepeatableRowForm,
   type RepeatableRowField,
   type RepeatableRowFieldType,
