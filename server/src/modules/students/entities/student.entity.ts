@@ -53,6 +53,19 @@ export class Student {
   @Column({ type: 'varchar', length: 100 })
   full_name: string;
 
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  full_name_bn: string | null;
+
+  /**
+   * [32.1.2] (D15/D41/D48) Storage key of the student's photo. Replaced keys
+   * are never deleted — print snapshots reference them.
+   */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  photo_key: string | null;
+
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  blood_group: string | null;
+
   @Column({ type: 'varchar', length: 50 })
   registration_number: string;
 

@@ -688,6 +688,11 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // `@RequirePermissions` would also block override-free commits, which
   // only need PROMOTION_MANAGE.
   Permission.PROMOTION_OVERRIDE,
+  // Epic 32 — consumed by routes wired in 32.2.9; removed there
+  Permission.PRINT_TEMPLATE_MANAGE,
+  Permission.DOCUMENT_PRINT,
+  Permission.PRINT_HISTORY_READ,
+  Permission.DOCUMENT_REVOKE,
   // [34.2.1] PROGRAM_RECORD now gates POST /programs/:id/achievements and
   // DELETE /milestone-achievements/:id — no longer UI-only, removed from
   // this list.

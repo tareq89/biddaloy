@@ -79,6 +79,12 @@ import { StaffTraining } from './modules/staff-hr/entities/staff-training.entity
 import { StaffAchievement } from './modules/staff-hr/entities/staff-achievement.entity';
 import { StaffLanguage } from './modules/staff-hr/entities/staff-language.entity';
 import { StaffDocument } from './modules/staff-hr/entities/staff-document.entity';
+import { PrintTemplate } from './modules/print/entities/print-template.entity';
+import { PrintTemplateVersion } from './modules/print/entities/print-template-version.entity';
+import { PrintAsset } from './modules/print/entities/print-asset.entity';
+import { PrinterProfile } from './modules/print/entities/printer-profile.entity';
+import { PrintJob } from './modules/print/entities/print-job.entity';
+import { PrintJobItem } from './modules/print/entities/print-job-item.entity';
 import { validate } from './config/env.validation';
 
 // Entities for auto-loading
@@ -269,6 +275,12 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             StaffAchievement,
             StaffLanguage,
             StaffDocument,
+            PrintTemplate,
+            PrintTemplateVersion,
+            PrintAsset,
+            PrinterProfile,
+            PrintJob,
+            PrintJobItem,
             // [36.1.1] StaffProfile was missing from this list — the
             // TypeORM connection built here only knows the entities named
             // in this array, so `StaffProfilesService` (and anything else
