@@ -398,6 +398,14 @@
       "archetype": "bespoke"
     },
     {
+      "path": "/v/$token",
+      "params": {
+        "token": "seeded"
+      },
+      "role": "guest",
+      "archetype": "bespoke"
+    },
+    {
       "path": "/admission/$slug",
       "params": {
         "slug": "seeded"
