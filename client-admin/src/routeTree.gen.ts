@@ -35,6 +35,7 @@ import { Route as PortalProgramsRouteImport } from './routes/portal/programs'
 import { Route as PortalResultsRouteImport } from './routes/portal/results'
 import { Route as PortalRoutineRouteImport } from './routes/portal/routine'
 import { Route as PortalSyllabusRouteImport } from './routes/portal/syllabus'
+import { Route as VTokenRouteImport } from './routes/v/$token'
 import { Route as PlatformHolidaySetsIndexRouteImport } from './routes/_platform/holiday-sets/index'
 import { Route as PlatformHolidaySetsSetIdRouteImport } from './routes/_platform/holiday-sets/$setId'
 import { Route as PlatformSchoolsIndexRouteImport } from './routes/_platform/schools/index'
@@ -240,6 +241,11 @@ const PortalSyllabusRoute = PortalSyllabusRouteImport.update({
   id: '/syllabus',
   path: '/syllabus',
   getParentRoute: () => PortalRoute,
+} as any)
+const VTokenRoute = VTokenRouteImport.update({
+  id: '/v/$token',
+  path: '/v/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const PlatformHolidaySetsIndexRoute =
   PlatformHolidaySetsIndexRouteImport.update({
@@ -678,6 +684,7 @@ export interface FileRoutesByFullPath {
   '/portal/results': typeof PortalResultsRoute
   '/portal/routine': typeof PortalRoutineRoute
   '/portal/syllabus': typeof PortalSyllabusRoute
+  '/v/$token': typeof VTokenRoute
   '/portal/': typeof PortalIndexRoute
   '/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
   '/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
@@ -779,6 +786,7 @@ export interface FileRoutesByTo {
   '/portal/results': typeof PortalResultsRoute
   '/portal/routine': typeof PortalRoutineRoute
   '/portal/syllabus': typeof PortalSyllabusRoute
+  '/v/$token': typeof VTokenRoute
   '/portal': typeof PortalIndexRoute
   '/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
   '/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
@@ -885,6 +893,7 @@ export interface FileRoutesById {
   '/portal/results': typeof PortalResultsRoute
   '/portal/routine': typeof PortalRoutineRoute
   '/portal/syllabus': typeof PortalSyllabusRoute
+  '/v/$token': typeof VTokenRoute
   '/portal/': typeof PortalIndexRoute
   '/_platform/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
   '/_platform/schools/$schoolId': typeof PlatformSchoolsSchoolIdRoute
@@ -990,6 +999,7 @@ export interface FileRouteTypes {
     | '/portal/results'
     | '/portal/routine'
     | '/portal/syllabus'
+    | '/v/$token'
     | '/portal/'
     | '/holiday-sets/$setId'
     | '/schools/$schoolId'
@@ -1091,6 +1101,7 @@ export interface FileRouteTypes {
     | '/portal/results'
     | '/portal/routine'
     | '/portal/syllabus'
+    | '/v/$token'
     | '/portal'
     | '/holiday-sets/$setId'
     | '/schools/$schoolId'
@@ -1196,6 +1207,7 @@ export interface FileRouteTypes {
     | '/portal/results'
     | '/portal/routine'
     | '/portal/syllabus'
+    | '/v/$token'
     | '/portal/'
     | '/_platform/holiday-sets/$setId'
     | '/_platform/schools/$schoolId'
@@ -1288,6 +1300,7 @@ export interface RootRouteChildren {
   SelectSchoolRoute: typeof SelectSchoolRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
   ITokenRoute: typeof ITokenRoute
+  VTokenRoute: typeof VTokenRoute
   AdmissionSlugStatusRoute: typeof AdmissionSlugStatusRoute
   AdmissionSlugIndexRoute: typeof AdmissionSlugIndexRoute
 }
@@ -1475,6 +1488,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/portal/syllabus'
       preLoaderRoute: typeof PortalSyllabusRouteImport
       parentRoute: typeof PortalRoute
+    }
+    '/v/$token': {
+      id: '/v/$token'
+      path: '/v/$token'
+      fullPath: '/v/$token'
+      preLoaderRoute: typeof VTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_platform/holiday-sets/': {
       id: '/_platform/holiday-sets/'
@@ -2250,6 +2270,7 @@ const rootRouteChildren: RootRouteChildren = {
   SelectSchoolRoute: SelectSchoolRoute,
   VerifyEmailRoute: VerifyEmailRoute,
   ITokenRoute: ITokenRoute,
+  VTokenRoute: VTokenRoute,
   AdmissionSlugStatusRoute: AdmissionSlugStatusRoute,
   AdmissionSlugIndexRoute: AdmissionSlugIndexRoute,
 }

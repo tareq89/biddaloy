@@ -15,7 +15,7 @@
 import type { DocumentKind, TemplateDefinition } from '@biddaloy/shared';
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { apiClient } from '../api/client';
+import { apiClient, fetchPublicVerification } from '../api/client';
 import type { components } from '../api/schema';
 
 import { createEntityKeys } from './query-keys';
@@ -502,5 +502,22 @@ export function useRevokePrintItem() {
         )
       ).data,
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: printHistoryKeys.all }),
+  });
+}
+
+/* ------------------------------------------------------------ public page */
+
+/**
+ * The page a printed card's QR code opens. No login and no tenant: it goes
+ * through bare axios (`fetchPublicVerification`), so a literal key keeps it out
+ * of every entity's invalidation blast radius, like `usePublicInvoice`.
+ */
+export function usePublicVerification(token: string) {
+  return useQuery({
+    queryKey: ['public-verify', token] as const,
+    queryFn: ({ signal }) => fetchPublicVerification(token, signal),
+    // A 404 / 429 is a settled answer; `shouldRetryQuery` already refuses to retry any 4xx.
+    retry: shouldRetryQuery,
+    staleTime: 60 * 1000,
   });
 }

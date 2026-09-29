@@ -552,6 +552,7 @@ export {
   usePrintTemplate,
   usePrintTemplates,
   usePrintTemplateVersions,
+  usePublicVerification,
   usePublishPrintTemplate,
   useRevokePrintItem,
   useSetDefaultPrintTemplate,
