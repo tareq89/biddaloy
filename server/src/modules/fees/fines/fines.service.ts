@@ -171,7 +171,7 @@ export class FinesService {
       const outstanding = round2(
         Number(bill.total_amount) - Number(bill.discount_amount) - Number(bill.paid_amount),
       );
-      if (outstanding <= EPSILON) {
+      if (outstanding <= 0) {
         throw new ConflictException(`Fine bill "${id}" has no outstanding balance to waive`);
       }
 
@@ -193,7 +193,7 @@ export class FinesService {
       );
 
       let newStatus = bill.status;
-      if (newOutstanding <= EPSILON) {
+      if (newOutstanding <= 0) {
         newStatus = Number(bill.paid_amount) > 0 ? FeeStatus.PAID : FeeStatus.WAIVED;
       }
 

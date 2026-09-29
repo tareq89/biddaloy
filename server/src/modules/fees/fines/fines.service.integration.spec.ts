@@ -376,6 +376,31 @@ describe('FinesService (integration)', () => {
       expect(result.amount).toBe(60);
     });
 
+    it('keeps a bill PENDING when a partial waive leaves 0.01 owed, then clears it', async () => {
+      const { bill } = await makeFineBill();
+
+      // Waive 99.99 of 100: one cent is still owed, so the bill must NOT be WAIVED.
+      const first = await service.waiveFine(
+        bill.id,
+        { amount: 99.99, reason: 'Almost all' },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(await issueApprovalToken('jti-waive-cent-1')),
+      );
+      expect(first.status).toBe(FeeStatus.PENDING);
+
+      // Waiving the last cent clears it.
+      const second = await service.waiveFine(
+        bill.id,
+        { reason: 'Last cent' },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(await issueApprovalToken('jti-waive-cent-2')),
+      );
+      expect(second.status).toBe(FeeStatus.WAIVED);
+      expect(second.amount).toBe(0.01);
+    });
+
     it('rejects waiving a fully paid fine with 409', async () => {
       const { bill } = await makeFineBill({ paid_amount: 100, status: FeeStatus.PAID });
       const token = await issueApprovalToken('jti-waive-paid');
