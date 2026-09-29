@@ -239,7 +239,7 @@ export const fineRulesTab: TabSpec<FineRule, FineRuleRow> = {
         : x.academic_year_key;
     const classKey =
       x instanceof FineRule ? (x.class ? classesTab.keyOf(x.class) : '') : (x.class_key ?? '');
-    return `${yearKey}|${x.trigger}|${classKey}`;
+    return `${yearKey}|${x.trigger}|${classKey}|${x.is_active}`;
   },
 
   diffFields(row: FineRuleRow, existing: FineRule): string[] {
