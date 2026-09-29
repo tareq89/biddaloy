@@ -36,6 +36,7 @@ import {
   type FineRule,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { minorUnitsToDecimalString, serverAmountToMinorUnits } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 const NO_CLASS = '__none__';
@@ -107,8 +108,11 @@ export function RuleFormDialog({
   const [feeStructureId, setFeeStructureId] = React.useState(rule?.fee_structure_id ?? '');
   const [classId, setClassId] = React.useState(rule?.class_id ?? '');
   const [freePerPeriod, setFreePerPeriod] = React.useState(rule?.free_per_period ?? 0);
+  // MoneyInput works in minor units; the server stores the major-unit amount.
   const [capPerPeriod, setCapPerPeriod] = React.useState<number | undefined>(
-    rule?.cap_per_period ?? undefined,
+    rule?.cap_per_period != null
+      ? serverAmountToMinorUnits(rule.cap_per_period, regionConfig)
+      : undefined,
   );
   const [minMinutesLate, setMinMinutesLate] = React.useState<number>(
     typeof rule?.conditions.min_minutes_late === 'number' ? rule.conditions.min_minutes_late : 0,
@@ -125,13 +129,20 @@ export function RuleFormDialog({
     setFeeStructureId(rule?.fee_structure_id ?? '');
     setClassId(rule?.class_id ?? '');
     setFreePerPeriod(rule?.free_per_period ?? 0);
-    setCapPerPeriod(rule?.cap_per_period ?? undefined);
+    setCapPerPeriod(
+      rule?.cap_per_period != null
+        ? serverAmountToMinorUnits(rule.cap_per_period, regionConfig)
+        : undefined,
+    );
     setMinMinutesLate(
       typeof rule?.conditions.min_minutes_late === 'number' ? rule.conditions.min_minutes_late : 0,
     );
     setValidationError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
   }, [open]);
+
+  const capMajorUnits = (minorUnits: number) =>
+    Number(minorUnitsToDecimalString(minorUnits, regionConfig));
 
   function buildInput(): CreateFineRuleInput | null {
     if (feeStructureId === '') {
@@ -145,7 +156,7 @@ export function RuleFormDialog({
       fee_structure_id: feeStructureId,
       ...(classId !== '' ? { class_id: classId } : {}),
       free_per_period: freePerPeriod,
-      ...(capPerPeriod !== undefined ? { cap_per_period: capPerPeriod } : {}),
+      ...(capPerPeriod !== undefined ? { cap_per_period: capMajorUnits(capPerPeriod) } : {}),
       conditions: buildConditions(trigger, minMinutesLate),
     };
   }
@@ -165,7 +176,7 @@ export function RuleFormDialog({
         // Edit mode: send explicit nulls so clearing a field actually clears it.
         class_id: input.class_id ?? null,
         free_per_period: freePerPeriod,
-        cap_per_period: capPerPeriod ?? null,
+        cap_per_period: input.cap_per_period ?? null,
         conditions: buildConditions(trigger, minMinutesLate),
       },
       { onSuccess: onSaved },

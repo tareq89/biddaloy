@@ -59,7 +59,7 @@ describe('fees/fines/-rules/rules-panel', () => {
     server.use(...referenceHandlers([fineRule({ id: 'rule-1', class_id: null })]));
     renderWithProviders(<RulesPanel />, { locale: 'en', role: 'ADMIN', tenantId: 'tenant-1' });
 
-    expect(await screen.findByText('Absence Fine — ৳৫০.০০')).toBeTruthy();
+    expect(await screen.findByText('Absence Fine — ৳৫,০০০.০০')).toBeTruthy();
   });
 
   it('shows "Whole school" for a rule with a null class', async () => {
@@ -84,7 +84,7 @@ describe('fees/fines/-rules/rules-panel', () => {
     server.use(...referenceHandlers([fineRule()]));
     renderWithProviders(<RulesPanel />, { locale: 'en', role: 'ACCOUNTANT', tenantId: 'tenant-1' });
 
-    await screen.findByText('Absence Fine — ৳৫০.০০');
+    await screen.findByText('Absence Fine — ৳৫,০০০.০০');
     expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
   });
 
@@ -103,7 +103,7 @@ describe('fees/fines/-rules/rules-panel', () => {
     server.use(...referenceHandlers([fineRule()]));
     renderWithProviders(<RulesPanel />, { locale: 'en', role: 'ADMIN', tenantId: 'tenant-1' });
 
-    await screen.findByText('Absence Fine — ৳৫০.০০');
+    await screen.findByText('Absence Fine — ৳৫,০০০.০০');
     fireEvent.keyDown(document, { key: 'n' });
 
     expect(await screen.findByText('Add fine rule')).toBeTruthy();
@@ -113,7 +113,7 @@ describe('fees/fines/-rules/rules-panel', () => {
     server.use(...referenceHandlers([fineRule()]));
     renderWithProviders(<RulesPanel />, { locale: 'en', role: 'ADMIN', tenantId: 'tenant-1' });
 
-    await screen.findByText('Absence Fine — ৳৫০.০০');
+    await screen.findByText('Absence Fine — ৳৫,০০০.০০');
     const picker = screen.getByRole('combobox', { name: 'Academic year' });
     picker.focus();
     fireEvent.keyDown(picker, { key: 'n' });
@@ -129,5 +129,12 @@ describe('fees/fines/-rules/rules-panel', () => {
       'Add a rule to automatically fine students for absences or late arrivals.',
     );
     expect(screen.queryByRole('button', { name: 'Add rule' })).toBeNull();
+  });
+
+  it('renders the cap in major units (a 500 cap reads as 500, not 5)', async () => {
+    server.use(...referenceHandlers([fineRule({ cap_per_period: 500 })]));
+    renderWithProviders(<RulesPanel />, { locale: 'en', role: 'ADMIN', tenantId: 'tenant-1' });
+
+    expect(await screen.findByText('৳৫০০.০০')).toBeTruthy();
   });
 });

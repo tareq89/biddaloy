@@ -170,6 +170,37 @@ describe('fees/fines/-rules/rule-form-dialog', () => {
     } as const;
   }
 
+  it('edit mode sends the cap back in major units, unchanged (500 stays 500)', async () => {
+    server.use(...referenceHandlers());
+    let submittedBody: Record<string, unknown> | undefined;
+    server.use(
+      http.patch('/api/v1/fees/fine-rules/:id', async ({ request }) => {
+        submittedBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ id: 'rule-1' });
+      }),
+    );
+    const onSaved = vi.fn();
+    renderWithProviders(
+      <RuleFormDialog
+        open
+        onOpenChange={vi.fn()}
+        mode="edit"
+        academicYearId={YEAR.id}
+        rule={editableRule()}
+        onSaved={onSaved}
+      />,
+      { locale: 'en', role: 'ADMIN', tenantId: 'tenant-1' },
+    );
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    // MoneyInput works in minor units (50000); the server wants 500.
+    expect(submittedBody?.cap_per_period).toBe(500);
+    expect(submittedBody?.class_id).toBe(CLASS.id);
+  });
+
   it('edit mode sends explicit nulls when the class and cap are cleared', async () => {
     server.use(...referenceHandlers());
     let submittedBody: Record<string, unknown> | undefined;

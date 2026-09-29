@@ -40,7 +40,7 @@ import {
   type FineRule,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatCurrency } from '@biddaloy/ui/utils';
+import { formatServerAmount } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 import { CopyRulesDialog } from './copy-rules-dialog';
@@ -176,7 +176,7 @@ export function RulesPanel() {
       id: 'fee',
       header: t('fines.rules.columnFee'),
       accessorFn: (row) =>
-        `${row.fee_structure_name} — ${formatCurrency(row.fee_structure_amount, regionConfig)}`,
+        `${row.fee_structure_name} — ${formatServerAmount(row.fee_structure_amount, regionConfig)}`,
     },
     {
       id: 'freePerPeriod',
@@ -188,7 +188,7 @@ export function RulesPanel() {
       id: 'cap',
       header: t('fines.rules.columnCap'),
       accessorFn: (row) =>
-        row.cap_per_period === null ? '—' : formatCurrency(row.cap_per_period, regionConfig),
+        row.cap_per_period === null ? '—' : formatServerAmount(row.cap_per_period, regionConfig),
       align: 'end',
     },
     {
