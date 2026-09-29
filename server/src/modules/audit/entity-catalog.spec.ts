@@ -28,7 +28,6 @@ const DEPRECATED_READ_ONLY_ENTRIES = new Set([
   'PrintTemplate',
   'PrintAsset',
   'PrinterProfile',
-  'PrintJobItem',
 ]);
 
 function collectServerSourceFiles(dir: string): string[] {
