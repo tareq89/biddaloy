@@ -162,9 +162,10 @@ export function RuleFormDialog({
       {
         id: rule?.id ?? '',
         fee_structure_id: input.fee_structure_id,
-        ...(input.class_id !== undefined ? { class_id: input.class_id } : {}),
+        // Edit mode: send explicit nulls so clearing a field actually clears it.
+        class_id: input.class_id ?? null,
         free_per_period: freePerPeriod,
-        ...(capPerPeriod !== undefined ? { cap_per_period: capPerPeriod } : {}),
+        cap_per_period: capPerPeriod ?? null,
         conditions: buildConditions(trigger, minMinutesLate),
       },
       { onSuccess: onSaved },

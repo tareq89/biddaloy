@@ -16,6 +16,7 @@
     "allSections": "সব শাখা",
     "originLabel": "উৎস",
     "allOrigins": "সব",
+    "allFineTypes": "সব ধরনের জরিমানা",
     "statusLabel": "অবস্থা",
     "allStatuses": "সব অবস্থা"
   },
@@ -64,6 +65,8 @@
     "errorFeeRequired": "জরিমানার ধরন বাছাই করুন",
     "errorNoteRequired": "কারণ লেখা আবশ্যক",
     "errorIncidentDateRequired": "ঘটনার তারিখ আবশ্যক",
+    "result_one": "{{count}}টি জরিমানা যোগ করা হয়েছে",
+    "result_other": "{{count}}টি জরিমানা যোগ করা হয়েছে",
     "save": "জরিমানা যোগ করুন",
     "saving": "যোগ করা হচ্ছে…",
     "errorMessage": "জরিমানা যোগ করা যায়নি"

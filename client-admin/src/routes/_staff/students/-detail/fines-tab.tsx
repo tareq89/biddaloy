@@ -120,7 +120,7 @@ export function FinesTab({ studentId }: FinesTabProps) {
                       <TableCell>{t(`origin.${fine.origin ?? 'MANUAL'}`)}</TableCell>
                       {canWaive && (
                         <TableCell>
-                          {fine.status !== 'WAIVED' && (
+                          {fine.status !== 'WAIVED' && fine.status !== 'PAID' && (
                             <Button
                               type="button"
                               size="sm"
@@ -180,7 +180,7 @@ function FineCard({
         {fine.incident_date ? formatDate(parseServerDate(fine.incident_date), regionConfig) : '—'} ·{' '}
         {formatServerAmount(fine.total_amount, regionConfig)}
       </p>
-      {canWaive && fine.status !== 'WAIVED' && (
+      {canWaive && fine.status !== 'WAIVED' && fine.status !== 'PAID' && (
         <Button type="button" size="sm" variant="outline" onClick={onWaive}>
           {t('waiveDialog.title')}
         </Button>

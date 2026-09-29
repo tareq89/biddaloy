@@ -1,4 +1,5 @@
 import { FeeType } from '@biddaloy/shared';
+import { notifyOutcome } from '@biddaloy/ui/api';
 import {
   cleanupTestState,
   feeStructureFactory,
@@ -12,6 +13,11 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { LogFineModal } from './log-fine-modal';
+
+vi.mock('@biddaloy/ui/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@biddaloy/ui/api')>()),
+  notifyOutcome: vi.fn(),
+}));
 
 const fineStructure = feeStructureFactory({
   fee_type: FeeType.FINE,
@@ -118,6 +124,12 @@ describe('LogFineModal', () => {
       student1.id,
       student2.id,
     ]);
+    // Two bills came back, so the toast uses the plural form.
+    await waitFor(() =>
+      expect(notifyOutcome).toHaveBeenCalledWith(
+        expect.objectContaining({ message: '2 fines logged' }),
+      ),
+    );
   });
 
   it('preselects prefillStudentIds', async () => {

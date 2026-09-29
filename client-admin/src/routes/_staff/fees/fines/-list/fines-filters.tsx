@@ -59,7 +59,7 @@ export function buildFinesFilterFields(
       kind: 'select',
       key: 'fee_structure_id',
       label: t('columns.fine', { ns: 'fines' }),
-      allLabel: t('filters.allOrigins', { ns: 'fines' }),
+      allLabel: t('filters.allFineTypes', { ns: 'fines' }),
       options: fineStructures.map((structure) => ({ value: structure.id, label: structure.name })),
     },
     {

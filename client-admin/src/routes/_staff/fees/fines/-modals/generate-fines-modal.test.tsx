@@ -126,4 +126,32 @@ describe('GenerateFinesModal', () => {
     await waitFor(() => expect(requestBody).toBeTruthy());
     expect((requestBody as { duplicate_strategy: string }).duplicate_strategy).toBe('REMOVE_OLDER');
   });
+
+  it('still offers the duplicate choices when every fine already exists (would_create 0)', async () => {
+    server.use(
+      http.post('/api/v1/fees/fines/generate/preview', () =>
+        HttpResponse.json({
+          students: [],
+          total_amount: 0,
+          would_create: 0,
+          duplicates: [
+            {
+              student_id: 's1',
+              fee_structure_id: 'f1',
+              existing_bill_id: 'bill-1',
+              paid_amount: 0,
+            },
+          ],
+        }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    await renderModal();
+    await user.click(await screen.findByRole('button', { name: 'Generate fines' }));
+
+    // The "REMOVE_OLDER" choice is the only way forward here, so it must show.
+    expect(await screen.findByRole('radio', { name: /Remove the older fine first/ })).toBeTruthy();
+    expect(screen.queryByText('No fines would be generated for this month.')).toBeNull();
+  });
 });

@@ -149,4 +149,57 @@ describe('fees/fines/-rules/rule-form-dialog', () => {
       conditions: { min_minutes_late: 15 },
     });
   });
+
+  function editableRule() {
+    return {
+      id: 'rule-1',
+      academic_year_id: YEAR.id,
+      trigger: 'ATTENDANCE_ABSENT',
+      fee_structure_id: FEE.id,
+      fee_structure_name: FEE.name,
+      fee_structure_amount: 50,
+      class_id: CLASS.id,
+      class_name: CLASS.name,
+      free_per_period: 1,
+      cap_per_period: 500,
+      conditions: {},
+      is_active: true,
+      created_by_user_id: null,
+      created_at: '2026-01-01T00:00:00.000Z',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    } as const;
+  }
+
+  it('edit mode sends explicit nulls when the class and cap are cleared', async () => {
+    server.use(...referenceHandlers());
+    let submittedBody: Record<string, unknown> | undefined;
+    server.use(
+      http.patch('/api/v1/fees/fine-rules/:id', async ({ request }) => {
+        submittedBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ id: 'rule-1' });
+      }),
+    );
+    const onSaved = vi.fn();
+    renderWithProviders(
+      <RuleFormDialog
+        open
+        onOpenChange={vi.fn()}
+        mode="edit"
+        academicYearId={YEAR.id}
+        rule={editableRule()}
+        onSaved={onSaved}
+      />,
+      { locale: 'en', role: 'ADMIN', tenantId: 'tenant-1' },
+    );
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('combobox', { name: 'Class' }));
+    await user.click(await screen.findByRole('option', { name: 'Whole school' }));
+    await user.clear(screen.getByRole('textbox', { name: 'Cap per month' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(submittedBody?.class_id).toBeNull();
+    expect(submittedBody?.cap_per_period).toBeNull();
+  });
 });

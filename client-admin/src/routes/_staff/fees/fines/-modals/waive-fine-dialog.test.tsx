@@ -122,4 +122,28 @@ describe('WaiveFineDialog', () => {
     const select = await screen.findByRole('combobox', { name: 'Fine' });
     expect(select).toBeTruthy();
   });
+
+  it('clears a previous waive error when the dialog is reopened', async () => {
+    const fine = fineFactory({ id: 'fine-1', total_amount: 100, paid_amount: 0 });
+    server.use(
+      http.get('/api/v1/fees/fines', () =>
+        HttpResponse.json({ items: [fine], total: 1, totals: {} }),
+      ),
+      http.post('/api/v1/fees/fines/:id/waive', () =>
+        HttpResponse.json({ statusCode: 500, message: 'boom' }, { status: 500 }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    const view = await renderDialog({ fineId: 'fine-1' });
+    await user.type(screen.getByRole('textbox', { name: 'Reason' }), 'Waiving in full');
+    await user.click(screen.getByRole('button', { name: 'Waive fine' }));
+    await screen.findByRole('alert');
+
+    // Close, then reopen: the stale failure must not greet the next attempt.
+    view.rerender(<WaiveFineDialog open={false} onOpenChange={vi.fn()} fineId="fine-1" />);
+    view.rerender(<WaiveFineDialog open onOpenChange={vi.fn()} fineId="fine-1" />);
+
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+  });
 });

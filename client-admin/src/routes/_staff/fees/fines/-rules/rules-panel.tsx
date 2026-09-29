@@ -254,7 +254,9 @@ export function RulesPanel() {
         <EmptyState
           title={t('fines.rules.emptyTitle')}
           explanation={t('fines.rules.emptyMessage')}
-          action={{ label: t('fines.rules.addRule'), onClick: () => setCreateOpen(true) }}
+          {...(canCreate
+            ? { action: { label: t('fines.rules.addRule'), onClick: () => setCreateOpen(true) } }
+            : {})}
         />
       ) : (
         <DataTable

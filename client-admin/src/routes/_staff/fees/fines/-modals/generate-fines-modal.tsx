@@ -275,7 +275,7 @@ export function GenerateFinesModal({ open, onOpenChange, prefill }: GenerateFine
           </label>
 
           {preview !== null &&
-            (preview.would_create === 0 ? (
+            (preview.would_create === 0 && preview.duplicates.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t('generate.previewZero')}</p>
             ) : (
               <div className="flex flex-col gap-2 rounded-md border border-border-subtle p-3">

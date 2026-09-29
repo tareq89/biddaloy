@@ -19,14 +19,15 @@ describe('students/-detail/fines-tab', () => {
     return {
       id: 'fine-1',
       student_id: 'student-1',
-      fee_structure: { id: 'fee-structure-1', name: 'Late fine' },
+      fee_structure_id: 'fee-structure-1',
+      fee_name: 'Late fine',
       total_amount: 100,
       paid_amount: 0,
       discount_amount: 0,
       status: 'PENDING',
       note: 'Arrived late to assembly',
       incident_date: '2026-01-05',
-      fine_rule_id: null,
+      origin: 'MANUAL',
       ...overrides,
     };
   }
@@ -105,6 +106,15 @@ describe('students/-detail/fines-tab', () => {
     await screen.findAllByText('Arrived late to assembly');
 
     expect(screen.getByRole('button', { name: 'Log fine' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Waive fine' })).toBeNull();
+  });
+
+  it('hides Waive for a fine that is already PAID, even for an ADMIN', async () => {
+    renderFinesTab({ fines: [fineFixture({ status: 'PAID', paid_amount: 100 })] });
+
+    await screen.findByRole('tab', { name: 'Fines', selected: true });
+    await screen.findAllByText('Arrived late to assembly');
+
     expect(screen.queryByRole('button', { name: 'Waive fine' })).toBeNull();
   });
 });

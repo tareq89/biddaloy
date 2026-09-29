@@ -36,12 +36,14 @@ function fineOrigin(fine: Fine): 'RULE' | 'MANUAL' {
 
 export interface FinesTableCallbacks {
   onWaive: (fine: Fine) => void;
+  /** Waiving needs FEE_APPROVE; without it the row action is hidden. */
+  canWaive: boolean;
 }
 
 export function buildFinesColumns(
   t: TFunction<'fines', undefined>,
   regionConfig: RegionConfig,
-  { onWaive }: FinesTableCallbacks,
+  { onWaive, canWaive }: FinesTableCallbacks,
 ): DataTableColumn<Fine>[] {
   return [
     {
@@ -122,7 +124,7 @@ export function buildFinesColumns(
       card: 'actions',
       accessorFn: (row) => (
         <div className="flex flex-wrap gap-3">
-          {row.status !== 'WAIVED' && row.status !== 'PAID' && (
+          {canWaive && row.status !== 'WAIVED' && row.status !== 'PAID' && (
             <button
               type="button"
               className="text-sm font-medium text-primary underline-offset-2 hover:underline"

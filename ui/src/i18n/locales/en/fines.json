@@ -16,6 +16,7 @@
     "allSections": "All sections",
     "originLabel": "Origin",
     "allOrigins": "All",
+    "allFineTypes": "All fine types",
     "statusLabel": "Status",
     "allStatuses": "All statuses"
   },
@@ -64,6 +65,8 @@
     "errorFeeRequired": "Choose a fine type",
     "errorNoteRequired": "Reason is required",
     "errorIncidentDateRequired": "Incident date is required",
+    "result_one": "{{count}} fine logged",
+    "result_other": "{{count}} fines logged",
     "save": "Log fine",
     "saving": "Logging…",
     "errorMessage": "Failed to log fine"

@@ -211,7 +211,7 @@ export function LogFineModal({ open, onOpenChange, prefillStudentIds }: LogFineM
           notifyOutcome({
             tenantId: notifyTenantId,
             variant: 'success',
-            message: `${t('logForm.save')}: ${result.bill_ids.length}`,
+            message: t('logForm.result', { count: result.bill_ids.length }),
           });
           resetAndClose();
         },

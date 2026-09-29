@@ -75,13 +75,17 @@ export function WaiveFineDialog({ open, onOpenChange, fineId, studentId }: Waive
     [allFines, studentId],
   );
 
+  const waiveFine = useWaiveFine();
+
   React.useEffect(() => {
     if (open) {
+      waiveFine.reset();
       setSelectedFineId(fineId ?? '');
       setMode('FULL');
       setAmountMinorUnits(undefined);
       setReason('');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when the dialog opens or its fine changes
   }, [open, fineId]);
 
   const selectedFine = allFines.find((fine) => fine.id === (fineId ?? selectedFineId));
@@ -89,8 +93,6 @@ export function WaiveFineDialog({ open, onOpenChange, fineId, studentId }: Waive
     selectedFine !== undefined
       ? serverAmountToMinorUnits(outstandingOf(selectedFine), config)
       : undefined;
-
-  const waiveFine = useWaiveFine();
 
   const trimmedReason = reason.trim();
   const reasonInvalid =

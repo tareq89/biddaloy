@@ -118,8 +118,29 @@ describe('/fees/fines', () => {
     render('EXECUTIVE');
 
     await screen.findByRole('heading', { name: 'Fines' });
-    expect(screen.getByRole('button', { name: 'Log fine' })).toBeTruthy();
+    // Logging a fine needs FEE_GENERATE too, so both entry points are gone.
+    expect(screen.queryByRole('button', { name: 'Log fine' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Generate fines' })).toBeNull();
+  });
+
+  it('shows the Waive row action to an ADMIN but not to an ACCOUNTANT (no FEE_APPROVE)', async () => {
+    const fine = fineFactory({
+      id: 'fine-1',
+      student_id: STUDENT.id,
+      student_name: STUDENT.full_name,
+    });
+    server.use(finesHandler([fine]), ...referenceHandlers());
+
+    const admin = render('ADMIN');
+    expect((await screen.findAllByRole('button', { name: 'Waive fine' })).length).toBeGreaterThan(
+      0,
+    );
+    admin.unmount();
+
+    render('ACCOUNTANT');
+    await screen.findByRole('heading', { name: 'Fines' });
+    await screen.findAllByText('Karim Rahman');
+    expect(screen.queryByRole('button', { name: 'Waive fine' })).toBeNull();
   });
 
   it('is axe clean', async () => {

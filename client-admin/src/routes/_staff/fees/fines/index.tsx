@@ -124,6 +124,7 @@ function FinesListPage() {
   const [state, actions] = useListShellState({ limit: 20 });
 
   const canGenerate = useHasPermission(Permission.FEE_GENERATE);
+  const canWaive = useHasPermission(Permission.FEE_APPROVE);
 
   const finesQuery = useFines({
     page: state.page,
@@ -153,7 +154,7 @@ function FinesListPage() {
 
   // Palette entry points — see this file's own header comment.
   React.useEffect(() => {
-    if (search.logFine) {
+    if (search.logFine && canGenerate) {
       setLogFineOpen(true);
       void navigate({ search: (prev) => ({ ...prev, logFine: undefined }), replace: true });
     }
@@ -168,7 +169,7 @@ function FinesListPage() {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.ctrlKey || event.metaKey || event.altKey) return;
       if (isEditableTarget(event.target)) return;
-      if (event.key === 'l') {
+      if (event.key === 'l' && canGenerate) {
         event.preventDefault();
         setLogFineOpen(true);
       } else if (event.key === 'g' && canGenerate) {
@@ -193,7 +194,7 @@ function FinesListPage() {
     monthOptions,
   });
 
-  const columns = buildFinesColumns(t, regionConfig, { onWaive: setWaiving });
+  const columns = buildFinesColumns(t, regionConfig, { onWaive: setWaiving, canWaive });
 
   const isEmpty = !finesQuery.isLoading && fines.length === 0 && finesQuery.data?.total === 0;
 
@@ -204,9 +205,9 @@ function FinesListPage() {
         <EmptyState
           title={t('empty.title')}
           explanation={t('empty.description')}
-          action={{ label: t('logForm.title'), onClick: () => setLogFineOpen(true) }}
           {...(canGenerate
             ? {
+                action: { label: t('logForm.title'), onClick: () => setLogFineOpen(true) },
                 secondaryAction: {
                   label: t('generate.title'),
                   onClick: () => setGenerateFinesOpen(true),
@@ -220,13 +221,15 @@ function FinesListPage() {
             title={t('title')}
             primaryAction={
               <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={() => setLogFineOpen(true)}>
-                  {t('logForm.title')}
-                </Button>
                 {canGenerate && (
-                  <Button type="button" onClick={() => setGenerateFinesOpen(true)}>
-                    {t('generate.title')}
-                  </Button>
+                  <>
+                    <Button type="button" variant="outline" onClick={() => setLogFineOpen(true)}>
+                      {t('logForm.title')}
+                    </Button>
+                    <Button type="button" onClick={() => setGenerateFinesOpen(true)}>
+                      {t('generate.title')}
+                    </Button>
+                  </>
                 )}
               </div>
             }
@@ -253,7 +256,7 @@ function FinesListPage() {
         </>
       )}
 
-      <LogFineModal open={logFineOpen} onOpenChange={setLogFineOpen} />
+      {canGenerate && <LogFineModal open={logFineOpen} onOpenChange={setLogFineOpen} />}
       <GenerateFinesModal open={generateFinesOpen} onOpenChange={setGenerateFinesOpen} />
       <WaiveFineDialog
         open={waiving !== null}

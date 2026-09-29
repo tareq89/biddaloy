@@ -120,4 +120,14 @@ describe('fees/fines/-rules/rules-panel', () => {
 
     expect(screen.queryByText('Add fine rule')).toBeNull();
   });
+
+  it('shows no "Add rule" action in the empty state without FEE_STRUCTURE_CREATE', async () => {
+    server.use(...referenceHandlers([]));
+    renderWithProviders(<RulesPanel />, { locale: 'en', role: 'EXECUTIVE', tenantId: 'tenant-1' });
+
+    await screen.findByText(
+      'Add a rule to automatically fine students for absences or late arrivals.',
+    );
+    expect(screen.queryByRole('button', { name: 'Add rule' })).toBeNull();
+  });
 });
