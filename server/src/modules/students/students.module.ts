@@ -15,15 +15,25 @@ import { StudentService, GuardianService } from './students.service';
 import { StudentBulkUploadService } from './bulk-upload.service';
 import { FamilyAccessService } from './family-access.service';
 import { StudentController } from './students.controller';
+import { StudentPhotoController } from './student-photo.controller';
+import { StudentPhotoService } from './student-photo.service';
+import { StorageModule } from '../storage/storage.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Student, Guardian, Enrollment, ClassSection, Class, AcademicYear]),
     AuditModule,
+    StorageModule,
     BulkImportModule,
   ],
-  providers: [StudentService, GuardianService, StudentBulkUploadService, FamilyAccessService],
-  controllers: [StudentController],
+  providers: [
+    StudentService,
+    GuardianService,
+    StudentBulkUploadService,
+    FamilyAccessService,
+    StudentPhotoService,
+  ],
+  controllers: [StudentController, StudentPhotoController],
   exports: [StudentService, GuardianService, StudentBulkUploadService, FamilyAccessService],
 })
 export class StudentModule {}
