@@ -197,16 +197,14 @@ export class FinesService {
         newStatus = Number(bill.paid_amount) > 0 ? FeeStatus.PAID : FeeStatus.WAIVED;
       }
 
-      await manager
-        .getRepository(StudentFee)
-        .update(
-          { id },
-          {
-            one_off_discount_amount: newOneOffDiscount,
-            discount_amount: newDiscount,
-            status: newStatus,
-          },
-        );
+      await manager.getRepository(StudentFee).update(
+        { id },
+        {
+          one_off_discount_amount: newOneOffDiscount,
+          discount_amount: newDiscount,
+          status: newStatus,
+        },
+      );
 
       // [Epic 38 D24] `AuditAction` has no dedicated FINE_WAIVED member.
       // `audit_logs.action` is a Postgres enum column, so adding one needs
@@ -255,7 +253,10 @@ export class FinesService {
       } else {
         qb.innerJoin('sf.fee_structure', 'fs');
       }
-      qb.innerJoin('sf.student', 'student')
+      (withFeeStructure
+        ? qb.innerJoinAndSelect('sf.student', 'student')
+        : qb.innerJoin('sf.student', 'student')
+      )
         .where('fs.tenant_id = :tenantId', { tenantId })
         .andWhere('fs.fee_type = :fineType', { fineType: FeeType.FINE });
 
@@ -321,6 +322,7 @@ export class FinesService {
     const items: StaffFineDto[] = bills.map((bill) => ({
       id: bill.id,
       student_id: bill.student_id,
+      student_name: bill.student.full_name,
       fee_structure_id: bill.fee_structure_id,
       fee_name: bill.fee_structure.name,
       note: bill.note,

@@ -29,10 +29,9 @@ import {
 import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
 
 /**
- * [38.2.1] `FineRule` CRUD + copy-from-last-year. Not wired into
- * `fees.module.ts` yet — that's 38.2.5 (#1117); this controller has no
- * route until then, so it isn't exercised by `permission-matrix.e2e-spec.ts`
- * in this ticket.
+ * [38.2.1] `FineRule` CRUD + copy-from-last-year. Wired into
+ * `fees.module.ts` (38.2.5, #1117); its routes are covered by
+ * `permission-matrix.e2e-spec.ts`.
  */
 @ApiTags('fine-rules')
 @ApiTenantAuth()

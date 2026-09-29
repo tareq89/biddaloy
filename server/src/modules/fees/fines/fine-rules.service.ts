@@ -83,10 +83,20 @@ export class FineRulesService {
     return structure;
   }
 
-  private async assertClassInTenant(tenantId: string, classId: string): Promise<void> {
+  private async assertClassInTenant(
+    tenantId: string,
+    classId: string,
+    academicYearId: string,
+  ): Promise<void> {
     const klass = await this.classRepo.findOne({ where: { id: classId, tenant_id: tenantId } });
     if (!klass) {
       throw new BadRequestException('class_id not found in this tenant');
+    }
+    // A rule is per academic year; its class must belong to that same year.
+    if (klass.academic_year_id !== academicYearId) {
+      throw new BadRequestException(
+        "class_id belongs to a different academic year than the rule's",
+      );
     }
   }
 
@@ -105,7 +115,7 @@ export class FineRulesService {
       dto.fee_structure_id,
     );
     if (dto.class_id) {
-      await this.assertClassInTenant(tenantId, dto.class_id);
+      await this.assertClassInTenant(tenantId, dto.class_id, dto.academic_year_id);
     }
     if (!validateConditionsForTrigger(dto.trigger, dto.conditions)) {
       throw new BadRequestException('conditions has an unknown key for this trigger');
@@ -174,7 +184,7 @@ export class FineRulesService {
         );
       }
       if (dto.class_id) {
-        await this.assertClassInTenant(tenantId, dto.class_id);
+        await this.assertClassInTenant(tenantId, dto.class_id, rule.academic_year_id);
       }
       const mergedConditions = dto.conditions !== undefined ? dto.conditions : rule.conditions;
       if (!validateConditionsForTrigger(rule.trigger, mergedConditions)) {

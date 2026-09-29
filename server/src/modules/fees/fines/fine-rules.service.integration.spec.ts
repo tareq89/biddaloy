@@ -217,6 +217,17 @@ describe('FineRulesService (integration)', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it('rejects a class that belongs to a different academic year than the rule', async () => {
+      await expect(
+        service.create(SEED_TENANT_ID, USER_ID, {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          trigger: FineTrigger.ATTENDANCE_ABSENT,
+          fee_structure_id: FINE_STRUCTURE_ID,
+          class_id: TARGET_CLASS_1_ID, // belongs to the target year, not the seed year
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it('refuses a fee structure that genuinely belongs to another tenant with 404', async () => {
       await expect(
         service.create(SEED_TENANT_ID, USER_ID, {

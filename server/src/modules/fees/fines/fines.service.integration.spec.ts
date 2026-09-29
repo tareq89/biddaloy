@@ -609,6 +609,7 @@ describe('FinesService (integration)', () => {
 
       expect(result.items).toHaveLength(1);
       expect(result.items[0].student_id).toBe(linked.id);
+      expect(result.items[0].student_name).toBe(linked.full_name);
 
       const familyView = result.items.map(toFamilyFine);
       expect(familyView[0]).not.toHaveProperty('approved_by_user_id');

@@ -21,12 +21,8 @@ const ENTITY_TYPE_LITERAL = /entity_type:\s*'([A-Za-z_]+)'/g;
  * `entity-types.ts`'s own comment on each). Excluded from the "dead entry"
  * check below, which otherwise exists specifically to catch entries that
  * became dead *by accident*.
- *
- * `FineRule` is the opposite case — not yet written, on purpose: Epic 38
- * wave 1 (#1110) adds the catalog entry and entity ahead of the CRUD
- * service that will write `entity_type: 'FineRule'` (38.2.1/#1113, a later
- * wave). Remove it from this set once that service lands. */
-const DEPRECATED_READ_ONLY_ENTRIES = new Set(['SchoolHoliday', 'FineRule']);
+ */
+const DEPRECATED_READ_ONLY_ENTRIES = new Set(['SchoolHoliday']);
 
 function collectServerSourceFiles(dir: string): string[] {
   const files: string[] = [];

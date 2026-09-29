@@ -15,6 +15,7 @@ import {
   ArrayMaxSize,
   MinLength,
   MaxLength,
+  Matches,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { FeeStatus, FeeType } from '@biddaloy/shared';
@@ -45,6 +46,7 @@ export class LogFineDto {
   note: string;
 
   @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'incident_date must be YYYY-MM-DD' })
   incident_date: string;
 
   @IsOptional()
@@ -136,6 +138,7 @@ export class QueryFinesDto {
 export class StaffFineDto {
   id: string;
   student_id: string;
+  student_name: string;
   fee_structure_id: string;
   fee_name: string;
   note: string | null;

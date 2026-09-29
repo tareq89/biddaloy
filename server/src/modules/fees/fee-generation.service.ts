@@ -354,8 +354,13 @@ export class FeeGenerationService {
       // computed the same `MAX(occurrence)+1` way `late-fee.service.ts`
       // computes it for the same reason.
       if (alwaysNewOccurrence) {
-        for (const student of targetStudents) {
-          for (const structure of context.structures) {
+        // Take advisory locks in a stable (id) order so two concurrent calls
+        // over overlapping students/structures can't deadlock each other.
+        const lockOrder = (a: { id: string }, b: { id: string }) => a.id.localeCompare(b.id);
+        const lockStudents = [...targetStudents].sort(lockOrder);
+        const lockStructures = [...context.structures].sort(lockOrder);
+        for (const student of lockStudents) {
+          for (const structure of lockStructures) {
             // Serialize concurrent occurrence assignment for this (student, structure, period)
             // triple: two concurrent manual-fine calls could otherwise both read the same
             // MAX(occurrence) before either inserts. A row lock on student_fees can't help when

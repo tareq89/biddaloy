@@ -469,7 +469,7 @@ export class FeeNotificationsListener implements OnModuleInit {
       .addSelect('fs.name', 'fee_structure_name')
       .addSelect('fs.fee_type', 'fee_type')
       .addSelect('sf.note', 'note')
-      .addSelect('sf.period_start', 'period_start')
+      .addSelect("to_char(sf.period_start, 'YYYY-MM-DD')", 'period_start')
       .addSelect('sf.total_amount', 'total_amount')
       .getRawMany<BillRow>();
   }
