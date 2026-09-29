@@ -214,7 +214,9 @@ test.describe('(b) Rules: tab -> n -> create an ABSENT rule -> save', () => {
       await expect(
         page.getByRole('dialog', { name: t('fees.fines.rules.form.createTitle') }),
       ).toBeHidden();
-      await expect(page.getByText(fineName, { exact: false }).first()).toBeVisible();
+      await expect(
+        page.getByText(fineName, { exact: false }).locator('visible=true').first(),
+      ).toBeVisible();
     });
   });
 });
@@ -282,8 +284,9 @@ test.describe('(c) Student > Fines tab: the tab\'s own "Log fine" button, studen
 
     await test.step("the fine lands on the student's Fines tab", async () => {
       await expect(dialog).toBeHidden();
-      // Rendered in both the table row and the card layout.
-      await expect(page.getByText(fineName).first()).toBeVisible();
+      // Rendered in both the table row and the card layout; only one is visible
+      // at a given viewport, and it isn't always the first in DOM order.
+      await expect(page.getByText(fineName).locator('visible=true')).toBeVisible();
     });
   });
 });
