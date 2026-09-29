@@ -27,7 +27,6 @@ const DEPRECATED_READ_ONLY_ENTRIES = new Set([
   // in 32.2.x — remove these four from here when those land.
   'PrintAsset',
   'PrinterProfile',
-  'PrintJobItem',
 ]);
 
 function collectServerSourceFiles(dir: string): string[] {
