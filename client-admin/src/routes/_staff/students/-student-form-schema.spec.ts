@@ -11,6 +11,8 @@ const messages = {
   fullNameRequired: 'Full name is required.',
   classSectionRequired: 'Select a class and section.',
   rollNumberInvalid: 'Roll number must be a positive whole number.',
+  fullNameBnTooLong: 'The Bangla name must be 200 characters or fewer.',
+  bloodGroupInvalid: 'Choose a blood group from the list.',
 };
 
 describe('buildStudentFormSchema: roll_number', () => {
@@ -34,6 +36,54 @@ describe('buildStudentFormSchema: roll_number', () => {
   it('accepts an empty string (optional)', () => {
     const result = schema.safeParse({ ...validBaseValues, roll_number: '' });
     expect(result.success).toBe(true);
+  });
+});
+
+describe('buildStudentFormSchema: Bangla name and blood group (Epic 32)', () => {
+  const schema = buildStudentFormSchema(messages);
+  const valid = {
+    ...defaultStudentFormValues(),
+    full_name: 'Rahim Uddin',
+    class_section_id: 'section-1',
+  };
+
+  it('rejects a blood group that is not one of the 8', () => {
+    expect(schema.safeParse({ ...valid, blood_group: 'C+' }).success).toBe(false);
+    expect(schema.safeParse({ ...valid, blood_group: 'a+' }).success).toBe(false); // case matters
+  });
+
+  it('accepts each real blood group and "Not set"', () => {
+    for (const group of ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', '']) {
+      expect(schema.safeParse({ ...valid, blood_group: group }).success).toBe(true);
+    }
+  });
+
+  it('allows an empty Bangla name, but not one over 200 characters', () => {
+    expect(schema.safeParse({ ...valid, full_name_bn: '' }).success).toBe(true);
+    expect(schema.safeParse({ ...valid, full_name_bn: 'ক'.repeat(200) }).success).toBe(true);
+    expect(schema.safeParse({ ...valid, full_name_bn: 'ক'.repeat(201) }).success).toBe(false);
+  });
+
+  it('create leaves them out when empty; update sends null to clear them', () => {
+    const empty = { ...valid, full_name_bn: '', blood_group: '' as const };
+    const create = buildCreatePayload(empty);
+    expect('full_name_bn' in create).toBe(false);
+    expect('blood_group' in create).toBe(false);
+    const update = buildUpdatePayload(empty);
+    expect(update.full_name_bn).toBeNull();
+    expect(update.blood_group).toBeNull();
+  });
+
+  it('sends both when set', () => {
+    const set = { ...valid, full_name_bn: '  রহিম উদ্দিন ', blood_group: 'O+' as const };
+    expect(buildCreatePayload(set)).toMatchObject({
+      full_name_bn: 'রহিম উদ্দিন',
+      blood_group: 'O+',
+    });
+    expect(buildUpdatePayload(set)).toMatchObject({
+      full_name_bn: 'রহিম উদ্দিন',
+      blood_group: 'O+',
+    });
   });
 });
 
