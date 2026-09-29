@@ -2,6 +2,8 @@ import { toString as qrToString } from 'qrcode';
 import * as React from 'react';
 
 const cache = new Map<string, Promise<string>>();
+// Settled svgs, readable synchronously (static markup runs no effects).
+const ready = new Map<string, string>();
 
 function qrSvg(value: string): Promise<string> {
   let hit = cache.get(value);
@@ -10,13 +12,29 @@ function qrSvg(value: string): Promise<string> {
       // Drop fixed sizing so the SVG scales to the element box.
       svg.replace('<svg ', '<svg width="100%" height="100%" preserveAspectRatio="xMidYMid meet" '),
     );
+    hit.then(
+      (svg) => ready.set(value, svg),
+      () => undefined,
+    );
     cache.set(value, hit);
   }
   return hit;
 }
 
+/** Await before `renderToStaticMarkup` so `QrElement` renders its svg on the first pass. */
+export async function prepareQr(values: readonly string[]): Promise<void> {
+  await Promise.all(
+    values.filter(Boolean).map((v) =>
+      qrSvg(v).then(
+        () => undefined,
+        () => undefined,
+      ),
+    ),
+  );
+}
+
 export function QrElement({ value }: { value: string }) {
-  const [svg, setSvg] = React.useState('');
+  const [svg, setSvg] = React.useState(() => ready.get(value) ?? '');
   React.useEffect(() => {
     let live = true;
     if (!value) {
