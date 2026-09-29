@@ -526,6 +526,24 @@ export async function createFineStructure(
   });
 }
 
+/** The school's current academic year — the one the Fines rules page and the
+ * Log fine / Add rule fee pickers default to. Fee structures made in a fresh
+ * `createClassSection` year never show up there, so keyboard specs that pick a
+ * fee through the UI create it here instead. */
+export async function currentAcademicYearId(
+  request: APIRequestContext,
+  session: ApiSession,
+): Promise<string> {
+  const years = await get<{ id: string; is_current: boolean }[]>(
+    request,
+    session,
+    '/academic-years',
+  );
+  const year = years.find((y) => y.is_current) ?? years[0];
+  if (!year) throw new Error('no academic year seeded');
+  return year.id;
+}
+
 /** [38.2.5] `POST /fees/fine-rules` — creates a `FineRule` targeting a
  * `FineSweepService`-computed trigger (e.g. `ATTENDANCE_ABSENT`) against a
  * `FeeType.FINE` fee structure such as `createFineStructure` above. */

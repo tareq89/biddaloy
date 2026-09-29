@@ -171,7 +171,9 @@ test.describe.serial('programs: admin enrols -> teacher records -> guardian sees
       await expect(
         page.getByRole('heading', { level: 1, name: t('portal.programs.title') }),
       ).toBeVisible();
-      await expect(page.getByText(SEED_PROGRAM_NAME)).toBeVisible();
+      // The name renders in more than one place (card title + enrolment row),
+      // and a retry re-enrols — assert "shown", not "shown exactly once".
+      await expect(page.getByText(SEED_PROGRAM_NAME).first()).toBeVisible();
     });
   });
 });

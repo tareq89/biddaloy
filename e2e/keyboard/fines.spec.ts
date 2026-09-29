@@ -2,6 +2,7 @@ import {
   adminApiSession,
   createClassSection,
   createFineStructure,
+  currentAcademicYearId,
   get,
   logFine,
   parentApiSession,
@@ -57,7 +58,13 @@ test.describe('(a) Fines list: nav -> l -> log a fine -> Enter -> Waive -> step-
       class_section_id: chain.sectionId,
     });
     const fineName = `E2E Kbd Fine ${Date.now()}`;
-    await createFineStructure(request, session, chain, fineName, 75);
+    await createFineStructure(
+      request,
+      session,
+      { ...chain, academicYearId: await currentAcademicYearId(request, session) },
+      fineName,
+      75,
+    );
 
     await page.goto('/dashboard');
     await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
@@ -78,6 +85,8 @@ test.describe('(a) Fines list: nav -> l -> log a fine -> Enter -> Waive -> step-
     const logDialog = page.getByRole('dialog', { name: t('fines.logForm.title') });
 
     await test.step('"l" opens Log fine', async () => {
+      // The route is lazy: the URL changes before the hotkey listener exists.
+      await expect(page.getByRole('button', { name: t('fines.logForm.title') })).toBeVisible();
       await page.keyboard.press('l');
       await expect(logDialog).toBeVisible();
     });
@@ -149,7 +158,13 @@ test.describe('(b) Rules: tab -> n -> create an ABSENT rule -> save', () => {
     const session = await adminApiSession(request);
     const chain = await createClassSection(request, session);
     const fineName = `E2E Kbd Rule Fine ${Date.now()}`;
-    await createFineStructure(request, session, chain, fineName, 100);
+    await createFineStructure(
+      request,
+      session,
+      { ...chain, academicYearId: await currentAcademicYearId(request, session) },
+      fineName,
+      100,
+    );
 
     await page.goto('/fees/fines');
     await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
@@ -168,6 +183,8 @@ test.describe('(b) Rules: tab -> n -> create an ABSENT rule -> save', () => {
     await expect(page).toHaveURL(/\/fees\/fines\/rules$/);
 
     await test.step('"n" opens the create-rule dialog', async () => {
+      // The route is lazy: the URL changes before the hotkey listener exists.
+      await expect(page.getByRole('button', { name: t('fees.fines.rules.addRule') })).toBeVisible();
       await page.keyboard.press('n');
       await expect(
         page.getByRole('dialog', { name: t('fees.fines.rules.form.createTitle') }),
@@ -208,7 +225,13 @@ test.describe('(c) Student > Fines tab: the tab\'s own "Log fine" button, studen
       class_section_id: chain.sectionId,
     });
     const fineName = `E2E Kbd Tab Fine ${Date.now()}`;
-    await createFineStructure(request, session, chain, fineName, 60);
+    await createFineStructure(
+      request,
+      session,
+      { ...chain, academicYearId: await currentAcademicYearId(request, session) },
+      fineName,
+      60,
+    );
 
     await page.goto(`/students/${student.id}?tab=fines`);
     await expect(page.getByRole('heading', { level: 1, name: studentName })).toBeVisible();
