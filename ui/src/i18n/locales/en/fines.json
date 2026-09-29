@@ -9,6 +9,7 @@
   },
   "filters": {
     "monthLabel": "Month",
+    "allMonths": "All months",
     "classLabel": "Class",
     "allClasses": "All classes",
     "sectionLabel": "Section",
@@ -31,9 +32,12 @@
     "incidentDate": "Incident date",
     "month": "Month",
     "amount": "Amount",
+    "paid": "Paid",
     "status": "Status",
-    "origin": "Origin"
+    "origin": "Origin",
+    "actions": "Actions"
   },
+  "openStudent": "Open student",
   "origin": {
     "RULE": "Rule",
     "MANUAL": "Manual"

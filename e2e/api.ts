@@ -58,6 +58,29 @@ export async function superAdminApiSession(request: APIRequestContext): Promise<
   return { token: body.access_token, tenantId: membership.tenantId };
 }
 
+/** Same shape as `adminApiSession`, but for the seeded PARENT account —
+ * a fresh login independent of whatever role the test's own browser
+ * `storageState` is on. [38.5.1]'s `journeys/fines.spec.ts` uses this to
+ * fetch the seeded parent's real `Guardian` id (`GET /guardians/mine`)
+ * from inside a test whose *browser* is signed in as accountant/admin, so
+ * the fine-bearing student it creates can be linked to a guardian that
+ * can actually log into the portal — `createGuardian` alone makes a
+ * `Guardian` row with no login. */
+export async function parentApiSession(request: APIRequestContext): Promise<ApiSession> {
+  const password = process.env[SEED_PASSWORD_ENV];
+  if (!password) throw new Error(`${SEED_PASSWORD_ENV} is not set`);
+  const response = await request.post('/api/v1/auth/login', {
+    data: { email: SEED_ROLE_EMAILS.parent, password },
+  });
+  if (!response.ok()) {
+    throw new Error(`parent login failed: ${response.status()} ${await response.text()}`);
+  }
+  const body = (await response.json()) as RefreshResponse;
+  const membership = body.memberships.find((m) => m.role === 'PARENT');
+  if (!membership) throw new Error('no PARENT membership for seed parent');
+  return { token: body.access_token, tenantId: membership.tenantId };
+}
+
 export async function apiSession(request: APIRequestContext, role: string): Promise<ApiSession> {
   const response = await request.post('/api/v1/auth/refresh');
   if (!response.ok()) {
@@ -131,6 +154,29 @@ export async function patch<T>(
   });
   if (!response.ok()) {
     throw new Error(`PATCH ${path} failed: ${response.status()} ${await response.text()}`);
+  }
+  return (await response.json()) as T;
+}
+
+/** `PUT <path>` — same shape as `post`/`patch` above. [38.5.1]'s
+ * `markAbsentDaysInPreviousMonth` uses this for
+ * `PUT /attendance/sections/:sectionId/register`, the one write endpoint
+ * in this file that isn't POST or PATCH. */
+export async function put<T>(
+  request: APIRequestContext,
+  session: ApiSession,
+  path: string,
+  data: Record<string, unknown>,
+): Promise<T> {
+  const response = await request.put(`/api/v1${path}`, {
+    headers: {
+      Authorization: `Bearer ${session.token}`,
+      'X-Tenant-ID': session.tenantId,
+    },
+    data,
+  });
+  if (!response.ok()) {
+    throw new Error(`PUT ${path} failed: ${response.status()} ${await response.text()}`);
   }
   return (await response.json()) as T;
 }
@@ -494,6 +540,50 @@ export async function generateFines(
   body: Record<string, unknown>,
 ): Promise<{ fee_generation_ids: string[]; generated_count: number; skipped_count: number }> {
   return post(request, session, '/fees/fines/generate', body);
+}
+
+/** [38.5.1] Marks `count` non-Friday days in the previous calendar month
+ * ABSENT for one student, via one `PUT .../register` call per day — a
+ * register write doesn't need to cover the whole roster, just the entries
+ * it's given (`RegisterEntryDto[]`), so this writes only `studentId`'s own
+ * entry each time. Gives an `ATTENDANCE_ABSENT` `FineRule` something real
+ * to sweep in `journeys/fines.spec.ts`. Each day is a fresh session
+ * (`base_version: 0` — no prior write to conflict with). */
+export async function markAbsentDaysInPreviousMonth(
+  request: APIRequestContext,
+  session: ApiSession,
+  sectionId: string,
+  studentId: string,
+  count: number,
+): Promise<string[]> {
+  const now = new Date();
+  const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const dates: string[] = [];
+  for (let day = 1; dates.length < count; day += 1) {
+    const candidate = new Date(previousMonth.getFullYear(), previousMonth.getMonth(), day);
+    if (candidate.getMonth() !== previousMonth.getMonth()) {
+      throw new Error(`Ran out of days in the previous month to mark ABSENT (${count} requested)`);
+    }
+    // Fridays are the seeded tenant's default weekly off — same reasoning
+    // `markableDateIso` above documents — a register write for one lands
+    // read-only / 422s.
+    if (candidate.getDay() !== 5) {
+      dates.push(
+        `${candidate.getFullYear()}-${String(candidate.getMonth() + 1).padStart(2, '0')}-${String(
+          candidate.getDate(),
+        ).padStart(2, '0')}`,
+      );
+    }
+  }
+  for (const date of dates) {
+    await put(request, session, `/attendance/sections/${sectionId}/register`, {
+      date,
+      base_version: 0,
+      client_request_id: crypto.randomUUID(),
+      entries: [{ student_id: studentId, status: 'ABSENT' }],
+    });
+  }
+  return dates;
 }
 
 export async function createStudent(

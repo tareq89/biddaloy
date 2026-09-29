@@ -107,6 +107,8 @@ import { Route as StaffCommunicationsBatchesIndexRouteImport } from './routes/_s
 import { Route as StaffCommunicationsBatchesBatchIdRouteImport } from './routes/_staff/communications/batches/$batchId'
 import { Route as StaffExamsSeatPlansIndexRouteImport } from './routes/_staff/exams/seat-plans/index'
 import { Route as StaffExamsSeatPlansPlanIdRouteImport } from './routes/_staff/exams/seat-plans/$planId'
+import { Route as StaffFeesFinesIndexRouteImport } from './routes/_staff/fees/fines/index'
+import { Route as StaffFeesFinesRulesRouteImport } from './routes/_staff/fees/fines/rules'
 import { Route as StaffFeesSchedulesIndexRouteImport } from './routes/_staff/fees/schedules/index'
 import { Route as StaffFeesSchedulesIdRouteImport } from './routes/_staff/fees/schedules/$id'
 import { Route as StaffResultsExamIdStudentIdRouteImport } from './routes/_staff/results/$examId.$studentId'
@@ -625,6 +627,16 @@ const StaffExamsSeatPlansPlanIdRoute =
     path: '/exams/seat-plans/$planId',
     getParentRoute: () => StaffRoute,
   } as any)
+const StaffFeesFinesIndexRoute = StaffFeesFinesIndexRouteImport.update({
+  id: '/fines/',
+  path: '/fines/',
+  getParentRoute: () => StaffFeesRoute,
+} as any)
+const StaffFeesFinesRulesRoute = StaffFeesFinesRulesRouteImport.update({
+  id: '/fines/rules',
+  path: '/fines/rules',
+  getParentRoute: () => StaffFeesRoute,
+} as any)
 const StaffFeesSchedulesIndexRoute = StaffFeesSchedulesIndexRouteImport.update({
   id: '/schedules/',
   path: '/schedules/',
@@ -744,6 +756,7 @@ export interface FileRoutesByFullPath {
   '/attendance/staff/leave': typeof StaffAttendanceStaffLeaveRoute
   '/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
   '/exams/seat-plans/$planId': typeof StaffExamsSeatPlansPlanIdRoute
+  '/fees/fines/rules': typeof StaffFeesFinesRulesRoute
   '/fees/schedules/$id': typeof StaffFeesSchedulesIdRoute
   '/results/$examId/$studentId': typeof StaffResultsExamIdStudentIdRoute
   '/students/$studentId/edit': typeof StaffStudentsStudentIdEditRoute
@@ -754,6 +767,7 @@ export interface FileRoutesByFullPath {
   '/attendance/staff/': typeof StaffAttendanceStaffIndexRoute
   '/communications/batches/': typeof StaffCommunicationsBatchesIndexRoute
   '/exams/seat-plans/': typeof StaffExamsSeatPlansIndexRoute
+  '/fees/fines/': typeof StaffFeesFinesIndexRoute
   '/fees/schedules/': typeof StaffFeesSchedulesIndexRoute
   '/marks/$examId/$sectionId/$subjectId': typeof StaffMarksExamIdSectionIdSubjectIdRoute
 }
@@ -845,6 +859,7 @@ export interface FileRoutesByTo {
   '/attendance/staff/leave': typeof StaffAttendanceStaffLeaveRoute
   '/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
   '/exams/seat-plans/$planId': typeof StaffExamsSeatPlansPlanIdRoute
+  '/fees/fines/rules': typeof StaffFeesFinesRulesRoute
   '/fees/schedules/$id': typeof StaffFeesSchedulesIdRoute
   '/results/$examId/$studentId': typeof StaffResultsExamIdStudentIdRoute
   '/students/$studentId/edit': typeof StaffStudentsStudentIdEditRoute
@@ -855,6 +870,7 @@ export interface FileRoutesByTo {
   '/attendance/staff': typeof StaffAttendanceStaffIndexRoute
   '/communications/batches': typeof StaffCommunicationsBatchesIndexRoute
   '/exams/seat-plans': typeof StaffExamsSeatPlansIndexRoute
+  '/fees/fines': typeof StaffFeesFinesIndexRoute
   '/fees/schedules': typeof StaffFeesSchedulesIndexRoute
   '/marks/$examId/$sectionId/$subjectId': typeof StaffMarksExamIdSectionIdSubjectIdRoute
 }
@@ -951,6 +967,7 @@ export interface FileRoutesById {
   '/_staff/attendance/staff/leave': typeof StaffAttendanceStaffLeaveRoute
   '/_staff/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
   '/_staff/exams/seat-plans/$planId': typeof StaffExamsSeatPlansPlanIdRoute
+  '/_staff/fees/fines/rules': typeof StaffFeesFinesRulesRoute
   '/_staff/fees/schedules/$id': typeof StaffFeesSchedulesIdRoute
   '/_staff/results/$examId/$studentId': typeof StaffResultsExamIdStudentIdRoute
   '/_staff/students/$studentId_/edit': typeof StaffStudentsStudentIdEditRoute
@@ -961,6 +978,7 @@ export interface FileRoutesById {
   '/_staff/attendance/staff/': typeof StaffAttendanceStaffIndexRoute
   '/_staff/communications/batches/': typeof StaffCommunicationsBatchesIndexRoute
   '/_staff/exams/seat-plans/': typeof StaffExamsSeatPlansIndexRoute
+  '/_staff/fees/fines/': typeof StaffFeesFinesIndexRoute
   '/_staff/fees/schedules/': typeof StaffFeesSchedulesIndexRoute
   '/_staff/marks/$examId/$sectionId/$subjectId': typeof StaffMarksExamIdSectionIdSubjectIdRoute
 }
@@ -1056,6 +1074,7 @@ export interface FileRouteTypes {
     | '/attendance/staff/leave'
     | '/communications/batches/$batchId'
     | '/exams/seat-plans/$planId'
+    | '/fees/fines/rules'
     | '/fees/schedules/$id'
     | '/results/$examId/$studentId'
     | '/students/$studentId/edit'
@@ -1066,6 +1085,7 @@ export interface FileRouteTypes {
     | '/attendance/staff/'
     | '/communications/batches/'
     | '/exams/seat-plans/'
+    | '/fees/fines/'
     | '/fees/schedules/'
     | '/marks/$examId/$sectionId/$subjectId'
   fileRoutesByTo: FileRoutesByTo
@@ -1157,6 +1177,7 @@ export interface FileRouteTypes {
     | '/attendance/staff/leave'
     | '/communications/batches/$batchId'
     | '/exams/seat-plans/$planId'
+    | '/fees/fines/rules'
     | '/fees/schedules/$id'
     | '/results/$examId/$studentId'
     | '/students/$studentId/edit'
@@ -1167,6 +1188,7 @@ export interface FileRouteTypes {
     | '/attendance/staff'
     | '/communications/batches'
     | '/exams/seat-plans'
+    | '/fees/fines'
     | '/fees/schedules'
     | '/marks/$examId/$sectionId/$subjectId'
   id:
@@ -1262,6 +1284,7 @@ export interface FileRouteTypes {
     | '/_staff/attendance/staff/leave'
     | '/_staff/communications/batches/$batchId'
     | '/_staff/exams/seat-plans/$planId'
+    | '/_staff/fees/fines/rules'
     | '/_staff/fees/schedules/$id'
     | '/_staff/results/$examId/$studentId'
     | '/_staff/students/$studentId_/edit'
@@ -1272,6 +1295,7 @@ export interface FileRouteTypes {
     | '/_staff/attendance/staff/'
     | '/_staff/communications/batches/'
     | '/_staff/exams/seat-plans/'
+    | '/_staff/fees/fines/'
     | '/_staff/fees/schedules/'
     | '/_staff/marks/$examId/$sectionId/$subjectId'
   fileRoutesById: FileRoutesById
@@ -1980,6 +2004,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffExamsSeatPlansPlanIdRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/fees/fines/': {
+      id: '/_staff/fees/fines/'
+      path: '/fines'
+      fullPath: '/fees/fines/'
+      preLoaderRoute: typeof StaffFeesFinesIndexRouteImport
+      parentRoute: typeof StaffFeesRoute
+    }
+    '/_staff/fees/fines/rules': {
+      id: '/_staff/fees/fines/rules'
+      path: '/fines/rules'
+      fullPath: '/fees/fines/rules'
+      preLoaderRoute: typeof StaffFeesFinesRulesRouteImport
+      parentRoute: typeof StaffFeesRoute
+    }
     '/_staff/fees/schedules/': {
       id: '/_staff/fees/schedules/'
       path: '/schedules'
@@ -2042,7 +2080,9 @@ interface StaffFeesRouteChildren {
   StaffFeesDuesRoute: typeof StaffFeesDuesRoute
   StaffFeesGenerateRoute: typeof StaffFeesGenerateRoute
   StaffFeesIndexRoute: typeof StaffFeesIndexRoute
+  StaffFeesFinesRulesRoute: typeof StaffFeesFinesRulesRoute
   StaffFeesSchedulesIdRoute: typeof StaffFeesSchedulesIdRoute
+  StaffFeesFinesIndexRoute: typeof StaffFeesFinesIndexRoute
   StaffFeesSchedulesIndexRoute: typeof StaffFeesSchedulesIndexRoute
 }
 
@@ -2050,7 +2090,9 @@ const StaffFeesRouteChildren: StaffFeesRouteChildren = {
   StaffFeesDuesRoute: StaffFeesDuesRoute,
   StaffFeesGenerateRoute: StaffFeesGenerateRoute,
   StaffFeesIndexRoute: StaffFeesIndexRoute,
+  StaffFeesFinesRulesRoute: StaffFeesFinesRulesRoute,
   StaffFeesSchedulesIdRoute: StaffFeesSchedulesIdRoute,
+  StaffFeesFinesIndexRoute: StaffFeesFinesIndexRoute,
   StaffFeesSchedulesIndexRoute: StaffFeesSchedulesIndexRoute,
 }
 
