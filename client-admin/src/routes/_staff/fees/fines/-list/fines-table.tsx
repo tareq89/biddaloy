@@ -31,7 +31,7 @@ function truncatedReason(note: string | null): { short: string; full: string } |
 }
 
 function fineOrigin(fine: Fine): 'RULE' | 'MANUAL' {
-  return fine.fine_rule_id ? 'RULE' : 'MANUAL';
+  return fine.origin ?? 'MANUAL';
 }
 
 export interface FinesTableCallbacks {
@@ -53,7 +53,7 @@ export function buildFinesColumns(
           params={{ studentId: row.student_id }}
           className="font-medium text-primary underline-offset-2 hover:underline"
         >
-          {row.student.full_name}
+          {row.student_name ?? row.student_id}
         </Link>
       ),
       card: 'title',
@@ -61,7 +61,7 @@ export function buildFinesColumns(
     {
       id: 'fine',
       header: t('columns.fine', { ns: 'fines' }),
-      accessorFn: (row) => row.fee_structure.name,
+      accessorFn: (row) => row.fee_name,
       card: 'subtitle',
     },
     {
@@ -87,7 +87,7 @@ export function buildFinesColumns(
       accessorFn: (row) =>
         row.incident_date
           ? formatDate(parseServerDate(row.incident_date), regionConfig)
-          : `${row.year}-${String(row.month).padStart(2, '0')}`,
+          : row.period_start.slice(0, 7),
     },
     {
       id: 'amount',

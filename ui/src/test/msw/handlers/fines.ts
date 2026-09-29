@@ -63,10 +63,12 @@ const fineFixtures: Fine[] = [fineFactory(), fineFactory(), fineFactory()];
 function finesTotals(fines: Fine[]) {
   const charged = fines.reduce((sum, fine) => sum + fine.total_amount, 0);
   const collected = fines.reduce((sum, fine) => sum + fine.paid_amount, 0);
-  const waived = fines
-    .filter((fine) => fine.status === 'WAIVED')
-    .reduce((sum, fine) => sum + fine.total_amount, 0);
-  return { charged, collected, waived, outstanding: charged - collected - waived };
+  const waived = fines.reduce((sum, fine) => sum + fine.discount_amount, 0);
+  const outstanding = fines.reduce(
+    (sum, fine) => sum + fine.total_amount - fine.discount_amount - fine.paid_amount,
+    0,
+  );
+  return { charged, collected, waived, outstanding };
 }
 
 const listFines = http.get('/api/v1/fees/fines', () =>

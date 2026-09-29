@@ -148,7 +148,7 @@ export function WaiveFineDialog({ open, onOpenChange, fineId, studentId }: Waive
               <SelectContent>
                 {openFines.map((fine) => (
                   <SelectItem key={fine.id} value={fine.id}>
-                    {fine.fee_structure.name} —{' '}
+                    {fine.fee_name} —{' '}
                     {formatCurrency(serverAmountToMinorUnits(outstandingOf(fine), config), config)}
                   </SelectItem>
                 ))}

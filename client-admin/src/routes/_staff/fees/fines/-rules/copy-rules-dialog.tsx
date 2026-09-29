@@ -2,15 +2,6 @@
  * [38.4a] "Copy from last year" — cloned from `fees/schedules/-clone-
  * dialog.tsx`'s shape: pick a source year, confirm, `POST /fees/fine-
  * rules/copy` (idempotent — a second run reports everything as skipped).
- *
- * `useCopyFineRules()` (`ui/src/hooks/fines.ts`) types its mutation as
- * `Promise<void>` — the server's 201 body (`{ structures_created,
- * rules_created, skipped }`, see `fine-rules.service.ts#copy`) isn't in
- * `schema.d.ts` either, same documented gap `fines.ts`'s `PaginatedFines`
- * calls out for a sibling endpoint. This ticket's territory doesn't
- * include `fines.ts`, so the response is read back here via a local cast
- * instead of widening the hook's return type — fix properly by typing
- * `useCopyFineRules` in a follow-up.
  */
 import {
   Button,
@@ -27,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@biddaloy/ui/components';
-import { useAcademicYears, useCopyFineRules } from '@biddaloy/ui/hooks';
+import { useAcademicYears, useCopyFineRules, type CopyFineRulesResult } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
@@ -38,12 +29,6 @@ export interface CopyRulesDialogProps {
    * picker and defaults it to the previous year in the list. */
   toAcademicYearId: string;
   onCopied: () => void;
-}
-
-interface CopyFineRulesResult {
-  structures_created: number;
-  rules_created: number;
-  skipped: number;
 }
 
 export function CopyRulesDialog({
@@ -77,7 +62,7 @@ export function CopyRulesDialog({
       { from_academic_year_id: fromAcademicYearId, to_academic_year_id: toAcademicYearId },
       {
         onSuccess: (data) => {
-          setResult((data as unknown as CopyFineRulesResult | undefined) ?? null);
+          setResult(data ?? null);
         },
       },
     );

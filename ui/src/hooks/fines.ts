@@ -18,6 +18,11 @@ export interface DeleteFineRuleInput {
   id: string;
 }
 export type CopyFineRulesInput = components['schemas']['CopyFineRulesDto'];
+export interface CopyFineRulesResult {
+  structures_created: number;
+  rules_created: number;
+  skipped: number;
+}
 
 const fineRuleKeys = createEntityKeys<{ academicYearId: string }, string>('fine-rules');
 
@@ -80,9 +85,8 @@ export function useDeleteFineRule(academicYearId: string) {
 export function useCopyFineRules() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: CopyFineRulesInput) => {
-      await apiClient.post<void>('/fees/fine-rules/copy', input);
-    },
+    mutationFn: async (input: CopyFineRulesInput) =>
+      (await apiClient.post<CopyFineRulesResult>('/fees/fine-rules/copy', input)).data,
     onSuccess: (_result, variables) => {
       void queryClient.invalidateQueries({
         queryKey: fineRuleKeys.list({ academicYearId: variables.to_academic_year_id }),
@@ -97,7 +101,24 @@ export function useCopyFineRules() {
  * controller never declared an `@ApiResponse` type) — same documented gap
  * `fee-dues.ts`'s `PaginatedFeeDues` calls out for its sibling endpoint.
  * Hand-typed against the ticket's contract: `{ items, total, totals }`. */
-export type Fine = components['schemas']['StudentFee'];
+export interface Fine {
+  id: string;
+  student_id: string;
+  fee_name: string;
+  note: string | null;
+  incident_date: string | null;
+  period_start: string;
+  total_amount: number;
+  discount_amount: number;
+  paid_amount: number;
+  status: 'PENDING' | 'PARTIALLY_PAID' | 'PAID' | 'OVERDUE' | 'WAIVED' | 'ADVANCE';
+  due_date: string | null;
+  // Staff-only fields: the family variant of `GET /fees/fines` withholds them.
+  student_name?: string;
+  fee_structure_id?: string;
+  origin?: 'RULE' | 'MANUAL';
+  approved_by_user_id?: string | null;
+}
 
 export interface FineTotals {
   charged: number;

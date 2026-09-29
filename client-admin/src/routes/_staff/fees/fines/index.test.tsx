@@ -64,7 +64,7 @@ describe('/fees/fines', () => {
   it('renders fine rows and the totals footer', async () => {
     const fine = fineFactory({
       id: 'fine-1',
-      student: STUDENT,
+      student_name: STUDENT.full_name,
       student_id: STUDENT.id,
       total_amount: 100,
       paid_amount: 40,
@@ -80,7 +80,11 @@ describe('/fees/fines', () => {
   });
 
   it('updates the URL when the status filter changes', async () => {
-    const fine = fineFactory({ id: 'fine-1', student: STUDENT, student_id: STUDENT.id });
+    const fine = fineFactory({
+      id: 'fine-1',
+      student_id: STUDENT.id,
+      student_name: STUDENT.full_name,
+    });
     server.use(finesHandler([fine]), ...referenceHandlers());
 
     const { router } = render();
@@ -104,7 +108,11 @@ describe('/fees/fines', () => {
   });
 
   it('hides Log fine / Generate fines for an EXECUTIVE (no FEE_GENERATE)', async () => {
-    const fine = fineFactory({ id: 'fine-1', student: STUDENT, student_id: STUDENT.id });
+    const fine = fineFactory({
+      id: 'fine-1',
+      student_id: STUDENT.id,
+      student_name: STUDENT.full_name,
+    });
     server.use(finesHandler([fine]), ...referenceHandlers());
 
     render('EXECUTIVE');
@@ -115,7 +123,11 @@ describe('/fees/fines', () => {
   });
 
   it('is axe clean', async () => {
-    const fine = fineFactory({ id: 'fine-1', student: STUDENT, student_id: STUDENT.id });
+    const fine = fineFactory({
+      id: 'fine-1',
+      student_id: STUDENT.id,
+      student_name: STUDENT.full_name,
+    });
     server.use(finesHandler([fine]), ...referenceHandlers());
 
     const { container } = render();

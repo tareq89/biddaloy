@@ -105,7 +105,7 @@ export function FinesTab({ studentId }: FinesTabProps) {
                 <TableBody>
                   {fines.map((fine) => (
                     <TableRow key={fine.id}>
-                      <TableCell>{fine.fee_structure.name}</TableCell>
+                      <TableCell>{fine.fee_name}</TableCell>
                       <TableCell>{fine.note ?? ''}</TableCell>
                       <TableCell>
                         {fine.incident_date
@@ -117,7 +117,7 @@ export function FinesTab({ studentId }: FinesTabProps) {
                       <TableCell>
                         <StatusBadge domain="fee" status={fine.status as FeeStatus} />
                       </TableCell>
-                      <TableCell>{t(`origin.${fine.fine_rule_id ? 'RULE' : 'MANUAL'}`)}</TableCell>
+                      <TableCell>{t(`origin.${fine.origin ?? 'MANUAL'}`)}</TableCell>
                       {canWaive && (
                         <TableCell>
                           {fine.status !== 'WAIVED' && (
@@ -172,7 +172,7 @@ function FineCard({
   return (
     <li className="flex flex-col gap-2 rounded-lg border border-border-subtle p-3">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium">{fine.fee_structure.name}</span>
+        <span className="text-sm font-medium">{fine.fee_name}</span>
         <StatusBadge domain="fee" status={fine.status as FeeStatus} />
       </div>
       {fine.note && <p className="text-sm text-muted-foreground">{fine.note}</p>}

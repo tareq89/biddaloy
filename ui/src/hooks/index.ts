@@ -904,6 +904,7 @@ export {
   useUpdateFineRule,
   useWaiveFine,
   type CopyFineRulesInput,
+  type CopyFineRulesResult,
   type CreateFineRuleInput,
   type DeleteFineRuleInput,
   type Fine,

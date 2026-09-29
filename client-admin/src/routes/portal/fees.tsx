@@ -657,7 +657,7 @@ function FinesCard({ fines, config }: { fines: Fine[]; config: RegionConfig }) {
           }`}
         >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <span className="text-sm font-semibold">{fine.fee_structure.name}</span>
+            <span className="text-sm font-semibold">{fine.fee_name}</span>
             <span className="text-sm font-semibold tabular-nums">
               {formatServerAmount(fine.total_amount, config)}
             </span>
