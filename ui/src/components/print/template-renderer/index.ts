@@ -8,6 +8,7 @@ export {
   type SheetCard,
   type Side,
 } from './imposition';
+export { prepareQr } from './qr-element';
 export {
   TemplateRenderer,
   type TemplateRendererMode,
