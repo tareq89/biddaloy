@@ -105,13 +105,9 @@ export const fineRulesTab: TabSpec<FineRule, FineRuleRow> = {
   excluded,
   dependsOn: ['classes', 'academic_years', 'fee_structures'],
   columns,
-  // ponytail: [academic_year, trigger, class] collides when one active and
-  // one inactive rule share the same year/trigger/class — the DB unique
-  // index only covers active rows, so restoring both rows in one workbook
-  // will collide on this key. Needs a natural-key redesign (e.g. include
-  // is_active, or key by id) before #1113 makes rule replacement routine.
-  // Epic 38 #1113.
-  naturalKey: ['academic_year', 'trigger', 'class'],
+  // is_active is part of the key: the DB unique index only covers active rows,
+  // so an active and an inactive rule may share year/trigger/class.
+  naturalKey: ['academic_year', 'trigger', 'class', 'is_active'],
   deleteByAbsence: true,
 
   load(tenantId: string, m: EntityManager): Promise<FineRule[]> {

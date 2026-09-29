@@ -1,5 +1,6 @@
 import type { EntityManager } from 'typeorm';
 import { QueryFailedError } from 'typeorm';
+import { Logger } from '@nestjs/common';
 import { StudentFee } from '../../../fees/entities/student-fee.entity';
 import { fromCell, formatDateOnly } from '../../codec/cell-format';
 import type {
@@ -175,6 +176,25 @@ const excluded: readonly string[] = [
 /** Postgres error code for a foreign-key violation. */
 const FK_VIOLATION = '23503';
 
+const logger = new Logger('StudentFeesTab');
+
+/**
+ * A fine rule can be soft-deleted while its bills live on, so its key may not
+ * be in the export's key map. Export null (the bill stays, unlinked) instead
+ * of letting `ctx.keyOf` throw and abort the whole workbook.
+ */
+function fineRuleKeyOrNull(entity: StudentFee, ctx: ExportContext): string | null {
+  if (!entity.fine_rule_id) return null;
+  try {
+    return ctx.keyOf('fine_rules', entity.fine_rule_id);
+  } catch {
+    logger.warn(
+      `Bill ${entity.id} references fine rule ${entity.fine_rule_id} with no exported key (soft-deleted?); exporting fine_rule as empty`,
+    );
+    return null;
+  }
+}
+
 export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
   name: 'student_fees',
   entity: StudentFee,
@@ -231,11 +251,7 @@ export const studentFeesTab: TabSpec<StudentFee, StudentFeeRow> = {
       reminder_threshold_date: entity.reminder_threshold_date,
       note: entity.note,
       incident_date: entity.incident_date,
-      // ponytail: a FINE bill pointing at a soft-deleted fine_rule throws
-      // here resolving the key (same pre-existing pattern as
-      // fee_structure_id above), but fine rules get soft-deleted far more
-      // often. Needs a decision before #1113. Epic 38 #1113.
-      fine_rule: entity.fine_rule_id ? ctx.keyOf('fine_rules', entity.fine_rule_id) : null,
+      fine_rule: fineRuleKeyOrNull(entity, ctx),
     };
   },
 

@@ -263,4 +263,22 @@ describe('studentFeesTab', () => {
 
     expect(studentFeesTab.diffFields(row, entity)).toContain('due_date');
   });
+
+  it('exports a null fine_rule instead of throwing when the rule key is missing (soft-deleted rule)', () => {
+    const throwingCtx: ExportContext = {
+      keyOf: (tab) => {
+        if (tab === 'fine_rules') throw new Error('no natural key');
+        return 'k';
+      },
+    };
+    const entity = Object.assign(new StudentFee(), {
+      id: 'bill-1',
+      student_id: 's',
+      academic_year_id: 'y',
+      fee_structure_id: 'f',
+      fine_rule_id: 'deleted-rule',
+    });
+    const out = studentFeesTab.toRow(entity, throwingCtx);
+    expect(out.fine_rule).toBeNull();
+  });
 });

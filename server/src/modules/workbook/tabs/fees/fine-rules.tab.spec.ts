@@ -158,4 +158,16 @@ describe('fineRulesTab', () => {
     expect(fineRulesTab.naturalKey).toContain('class');
     expect(fineRulesTab.naturalKey).toContain('trigger');
   });
+
+  it('keys an active and an inactive rule with the same year/trigger/class distinctly', () => {
+    const active = {
+      id: '00000000-0000-4000-8000-000000000001',
+      trigger: FineTrigger.ATTENDANCE_LATE,
+      academic_year_key: '2026-2027',
+      class_key: null,
+      is_active: true,
+    } as unknown as FineRuleRow;
+    const inactive = { ...active, is_active: false } as FineRuleRow;
+    expect(fineRulesTab.keyOf(active)).not.toBe(fineRulesTab.keyOf(inactive));
+  });
 });
