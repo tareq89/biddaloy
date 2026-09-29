@@ -41,6 +41,10 @@ erDiagram
 
     FeeStructure ||--o{ FeeStructureStudent : "selected students"
     FeeStructure ||--o{ StudentFee : generates
+    FeeStructure ||--o{ FineRule : "fine category for"
+    AcademicYear ||--o{ FineRule : "rules for"
+    Class ||--o{ FineRule : "class-scoped (optional; null = school default)"
+    FineRule ||--o{ StudentFee : "fines (via fine_rule_id, nullable)"
     Student ||--o{ StudentFee : owes
     StudentFee ||--o{ PaymentAllocation : "paid via"
     Payment ||--o{ PaymentAllocation : "splits into"
