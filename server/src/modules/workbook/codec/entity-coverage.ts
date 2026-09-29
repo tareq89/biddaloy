@@ -24,6 +24,12 @@ import { StudentWallet } from '../../fees/entities/student-wallet.entity';
 import { WalletTransaction } from '../../fees/entities/wallet-transaction.entity';
 import { InvoiceShareToken } from '../../invoices/entities/invoice-share-token.entity';
 import { PushSubscription } from '../../push/entities/push-subscription.entity';
+import { PrintTemplate } from '../../print/entities/print-template.entity';
+import { PrintTemplateVersion } from '../../print/entities/print-template-version.entity';
+import { PrintAsset } from '../../print/entities/print-asset.entity';
+import { PrinterProfile } from '../../print/entities/printer-profile.entity';
+import { PrintJob } from '../../print/entities/print-job.entity';
+import { PrintJobItem } from '../../print/entities/print-job-item.entity';
 import { WorkbookJob } from '../jobs/workbook-job.entity';
 
 /**
@@ -86,6 +92,20 @@ export const ENTITY_COVERAGE_EXEMPT: ReadonlyMap<EntityTarget<unknown>, string> 
   ],
   [StudentWallet, 'Tenant-scoped student wallet balance, no tab yet — tracked in #856.'],
   [WalletTransaction, 'Tenant-scoped wallet transaction history, no tab yet — tracked in #856.'],
+
+  // --- Epic 32 print module ---
+  [
+    PrintJob,
+    'print audit trail (Epic 32 D44): like audit_logs; verify tokens must not travel to another tenant',
+  ],
+  [
+    PrintJobItem,
+    'print audit trail (Epic 32 D44): like audit_logs; verify tokens must not travel to another tenant',
+  ],
+  [PrintTemplate, 'TEMPORARY — tab lands in 32.3.10'],
+  [PrintTemplateVersion, 'TEMPORARY — tab lands in 32.3.10'],
+  [PrintAsset, 'TEMPORARY — tab lands in 32.3.10'],
+  [PrinterProfile, 'TEMPORARY — tab lands in 32.3.10'],
 
   // Epic 19.0's exams/marks/results spine got a workbook tab in [19.10.1]
   // (#906). No exemption entries left for them.

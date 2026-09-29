@@ -51,6 +51,9 @@ export interface StudentRow {
   id: string;
   registration_number: string;
   full_name: string;
+  full_name_bn: string | null;
+  blood_group: string | null;
+  photo_key: string | null;
   roll_number: number;
   class_section_id: string;
   date_of_birth: string | null;
@@ -110,6 +113,23 @@ const columns: readonly ColumnSpec[] = [
     ref: 'sections',
     required: true,
     label: { en: 'Section', bn: 'শাখা' },
+  },
+  {
+    key: 'full_name_bn',
+    type: 'string',
+    label: { en: 'Full name (Bangla)', bn: 'পূর্ণ নাম (বাংলা)' },
+  },
+  {
+    key: 'blood_group',
+    type: 'string',
+    label: { en: 'Blood group', bn: 'রক্তের গ্রুপ' },
+  },
+  {
+    // Metadata only, like staff_documents' storage_key: the object it names
+    // in StorageService is not carried by the workbook.
+    key: 'photo_key',
+    type: 'string',
+    label: { en: 'Photo key', bn: 'ছবির কী' },
   },
   {
     key: 'date_of_birth',
@@ -177,6 +197,9 @@ const excluded: readonly string[] = [
 const MAX_LENGTHS: Record<string, number> = {
   registration_number: 50,
   full_name: 100,
+  full_name_bn: 200,
+  blood_group: 10,
+  photo_key: 255,
   gender: 10,
 };
 
@@ -221,6 +244,9 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
       id: entity.id,
       registration_number: entity.registration_number,
       full_name: entity.full_name,
+      full_name_bn: entity.full_name_bn,
+      blood_group: entity.blood_group,
+      photo_key: entity.photo_key,
       roll_number: entity.roll_number,
       section: ctx.keyOf('sections', entity.class_section_id),
       class: ctx.keyOf('classes', entity.class_section?.class_id ?? ''),
@@ -360,6 +386,9 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
         id: values.id as string,
         registration_number: values.registration_number as string,
         full_name: values.full_name as string,
+        full_name_bn: (values.full_name_bn as string | null) ?? null,
+        blood_group: (values.blood_group as string | null) ?? null,
+        photo_key: (values.photo_key as string | null) ?? null,
         roll_number: values.roll_number as number,
         class_section_id: sectionId as string,
         date_of_birth: (values.date_of_birth as string | null) ?? null,
@@ -393,6 +422,9 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
     const fields = [
       'registration_number',
       'full_name',
+      'full_name_bn',
+      'blood_group',
+      'photo_key',
       'roll_number',
       'gender',
       'home_address',
@@ -473,6 +505,9 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
     student.tenant_id = tenantId;
     student.registration_number = row.registration_number;
     student.full_name = row.full_name;
+    student.full_name_bn = row.full_name_bn;
+    student.blood_group = row.blood_group;
+    student.photo_key = row.photo_key;
     // `roll_number` is unique per `class_section_id`
     // (`IDX_ca01941430b7d99b013e6c6948`, migrations/1784175065078-InitialSchema.ts:61).
     // This tab deliberately does NOT pre-check it: the restore executor (14.10.2)

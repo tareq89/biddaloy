@@ -81,6 +81,12 @@ import { Designation } from '../src/modules/staff-hr/entities/designation.entity
 import { StaffHrRecord } from '../src/modules/staff-hr/entities/staff-hr-record.entity';
 import { StaffDesignationHistory } from '../src/modules/staff-hr/entities/staff-designation-history.entity';
 import { StaffDocument } from '../src/modules/staff-hr/entities/staff-document.entity';
+import { PrintTemplate } from '../src/modules/print/entities/print-template.entity';
+import { PrintTemplateVersion } from '../src/modules/print/entities/print-template-version.entity';
+import { PrintAsset } from '../src/modules/print/entities/print-asset.entity';
+import { PrinterProfile } from '../src/modules/print/entities/printer-profile.entity';
+import { PrintJob } from '../src/modules/print/entities/print-job.entity';
+import { PrintJobItem } from '../src/modules/print/entities/print-job-item.entity';
 import { StaffFamilyMember } from '../src/modules/staff-hr/entities/staff-family-member.entity';
 import { StaffAddress } from '../src/modules/staff-hr/entities/staff-address.entity';
 import { StaffExperience } from '../src/modules/staff-hr/entities/staff-experience.entity';
@@ -177,6 +183,12 @@ export const ALL_ENTITIES = [
   StaffHrRecord,
   StaffDesignationHistory,
   StaffDocument,
+  PrintTemplate,
+  PrintTemplateVersion,
+  PrintAsset,
+  PrinterProfile,
+  PrintJob,
+  PrintJobItem,
   StaffFamilyMember,
   StaffAddress,
   StaffExperience,

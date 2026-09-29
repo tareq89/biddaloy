@@ -57,6 +57,10 @@ export class StaffHrRecord {
   @Column({ type: 'varchar', length: 10, nullable: true })
   blood_group: string | null;
 
+  /** [32.1.2] Bangla name for printed ID cards (Epic 32 D15). */
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  name_bn: string | null;
+
   @Column({ type: 'varchar', length: 50, nullable: true })
   religion: string | null;
 
