@@ -165,7 +165,9 @@ test.describe.serial('programs: admin enrols -> teacher records -> guardian sees
     test.use(loggedIn('parent'));
 
     test('the ticked milestone shows in /portal/programs', async ({ page }) => {
-      await page.goto('/portal/programs');
+      // The fines specs link extra students to the shared seeded parent, and
+      // the portal defaults to the first linked student — pin this one.
+      await page.goto(`/portal/programs?student=${studentId}`);
       await expect(
         page.getByRole('heading', { level: 1, name: t('portal.programs.title') }),
       ).toBeVisible();

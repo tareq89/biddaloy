@@ -72,6 +72,7 @@ async function findSeededRollOne(
 
 test.describe.serial('exams: admin publishes -> guardian sees it in the portal', () => {
   let examName: string;
+  let studentId: string;
 
   test.describe('1. admin processes and publishes', () => {
     test.use(loggedIn('admin'));
@@ -79,6 +80,7 @@ test.describe.serial('exams: admin publishes -> guardian sees it in the portal',
     test('process, review, publish an exam for the seeded roll 1', async ({ page, request }) => {
       const session = await adminApiSession(request);
       const student = await findSeededRollOne(request, session);
+      studentId = student.id;
 
       const subject = await post<{ id: string }>(request, session, '/subjects', {
         code: `E2EPUB-${Date.now().toString(36).toUpperCase()}`,
@@ -173,7 +175,9 @@ test.describe.serial('exams: admin publishes -> guardian sees it in the portal',
     test.use(loggedIn('parent'));
 
     test('the newly published exam appears on the linked child', async ({ page }) => {
-      await page.goto('/portal/results');
+      // Pin the student: other specs link extra children to the seeded parent
+      // and the portal otherwise shows the first one.
+      await page.goto(`/portal/results?student=${studentId}`);
       await expect(page.getByRole('heading', { name: t('portal.results.title') })).toBeVisible();
       await expect(page.getByText(examName)).toBeVisible();
     });

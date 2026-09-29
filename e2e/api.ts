@@ -212,16 +212,31 @@ export interface ClassSectionChain {
   className: string;
 }
 
+/** Inclusive `YYYY-MM-DD` bounds of a academic year. */
+export interface AcademicYearBounds {
+  start_date: string;
+  end_date: string;
+}
+
+/** The calendar year containing the previous month — a year that covers the
+ * days `markAbsentDaysInPreviousMonth` writes (January's previous month is
+ * in last year, so a hardcoded current year is not enough). */
+export function previousMonthAcademicYear(now = new Date()): AcademicYearBounds {
+  const year = new Date(now.getFullYear(), now.getMonth() - 1, 1).getFullYear();
+  return { start_date: `${year}-01-01`, end_date: `${year}-12-31` };
+}
+
 export async function createClassSection(
   request: APIRequestContext,
   session: ApiSession,
+  academicYear: AcademicYearBounds = { start_date: '2026-01-01', end_date: '2026-12-31' },
 ): Promise<ClassSectionChain> {
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
   const className = `E2E ${suffix}`.slice(0, 50);
   const year = await post<{ id: string }>(request, session, '/academic-years', {
     name: `E2E Year ${suffix}`,
-    start_date: '2026-01-01',
-    end_date: '2026-12-31',
+    start_date: academicYear.start_date,
+    end_date: academicYear.end_date,
   });
   const klass = await post<{ id: string }>(request, session, '/classes', {
     name: className,
@@ -555,6 +570,9 @@ export async function markAbsentDaysInPreviousMonth(
   sectionId: string,
   studentId: string,
   count: number,
+  /** The section's academic year; days outside it are skipped (a register
+   * write outside the year 422s). */
+  academicYear?: AcademicYearBounds,
 ): Promise<string[]> {
   const now = new Date();
   const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -567,12 +585,13 @@ export async function markAbsentDaysInPreviousMonth(
     // Fridays are the seeded tenant's default weekly off — same reasoning
     // `markableDateIso` above documents — a register write for one lands
     // read-only / 422s.
-    if (candidate.getDay() !== 5) {
-      dates.push(
-        `${candidate.getFullYear()}-${String(candidate.getMonth() + 1).padStart(2, '0')}-${String(
-          candidate.getDate(),
-        ).padStart(2, '0')}`,
-      );
+    const iso = `${candidate.getFullYear()}-${String(candidate.getMonth() + 1).padStart(2, '0')}-${String(
+      candidate.getDate(),
+    ).padStart(2, '0')}`;
+    const inYear =
+      !academicYear || (iso >= academicYear.start_date && iso <= academicYear.end_date);
+    if (candidate.getDay() !== 5 && inYear) {
+      dates.push(iso);
     }
   }
   for (const date of dates) {

@@ -1,6 +1,7 @@
 import {
   adminApiSession,
   createClassSection,
+  previousMonthAcademicYear,
   createFineRule,
   createFineStructure,
   get,
@@ -46,7 +47,8 @@ test.describe.serial('fines: rule -> sweep -> dues -> payment -> portal', () => 
       const parentSession = await parentApiSession(request);
       const guardian = await get<{ id: string }>(request, parentSession, '/guardians/mine');
 
-      const chain = await createClassSection(request, adminSession);
+      const academicYear = previousMonthAcademicYear();
+      const chain = await createClassSection(request, adminSession, academicYear);
       studentFullName = `E2E Fines Journey Student ${Date.now()}`;
       const student = await post<{ id: string }>(request, adminSession, '/students', {
         full_name: studentFullName,
@@ -77,6 +79,7 @@ test.describe.serial('fines: rule -> sweep -> dues -> payment -> portal', () => 
         chain.sectionId,
         studentId,
         3,
+        academicYear,
       );
       const previousMonthValue = absentDates[0]!.slice(0, 7);
 

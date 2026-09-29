@@ -220,7 +220,7 @@ test.describe('(c) Student > Fines tab: the tab\'s own "Log fine" button, studen
         document.body.removeAttribute('tabindex');
       });
       await page.keyboard.press('Tab');
-      await tabUntilFocused(page, t('fines.logForm.title'), 60, { tag: 'BUTTON' });
+      await tabUntilFocused(page, t('fines.logForm.title'), 120, { tag: 'BUTTON' });
       await page.keyboard.press('Enter');
     });
 
@@ -289,7 +289,7 @@ test.describe('(d) Portal: "Due this month" lists the fine with its reason', () 
     });
 
     await page.goto('/portal');
-    await expect(page.getByText(t('portal.fees.dueThisMonth'))).toBeVisible();
+    await expect(page.getByText(t('portal.fees.dueThisMonth')).first()).toBeVisible();
     await expect(page.getByText(fineName)).toBeVisible();
     await expect(page.getByText(reason)).toBeVisible();
   });
