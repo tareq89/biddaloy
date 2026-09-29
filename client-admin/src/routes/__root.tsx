@@ -62,8 +62,11 @@ const PUBLIC_PATHS = new Set([
  * [27.8] `/admission/` added the same way: `/admission/<slug>` and
  * `/admission/<slug>/status` are a family of public routes, one per
  * school, with no session and no auth call — same shape as `/i/<token>`.
+ *
+ * [32.3.9] `/v/` added the same way: `/v/<token>` is the page a printed ID
+ * card's QR code opens, so a phone reading it has no session either.
  */
-const PUBLIC_PATH_PREFIXES = ['/i/', '/admission/'];
+const PUBLIC_PATH_PREFIXES = ['/i/', '/admission/', '/v/'];
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   // Protected-route guard, runs before every route in the tree including
