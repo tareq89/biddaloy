@@ -25,7 +25,6 @@ const DEPRECATED_READ_ONLY_ENTRIES = new Set([
   'SchoolHoliday',
   // Epic 32 (D58): catalogued in 32.1.1, first written by the print services
   // in 32.2.x — remove these four from here when those land.
-  'PrintTemplate',
   'PrintAsset',
   'PrinterProfile',
   'PrintJobItem',
