@@ -21,13 +21,7 @@ const ENTITY_TYPE_LITERAL = /entity_type:\s*'([A-Za-z_]+)'/g;
  * `entity-types.ts`'s own comment on each). Excluded from the "dead entry"
  * check below, which otherwise exists specifically to catch entries that
  * became dead *by accident*. */
-const DEPRECATED_READ_ONLY_ENTRIES = new Set([
-  'SchoolHoliday',
-  // Epic 32 (D58): catalogued in 32.1.1, first written by the print services
-  // in 32.2.x — remove these four from here when those land.
-  'PrintAsset',
-  'PrinterProfile',
-]);
+const DEPRECATED_READ_ONLY_ENTRIES = new Set(['SchoolHoliday']);
 
 function collectServerSourceFiles(dir: string): string[] {
   const files: string[] = [];
