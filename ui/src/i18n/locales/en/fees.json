@@ -344,5 +344,63 @@
     "addToScheduleTitle": "Other active schedules",
     "addToScheduleEmptyMessage": "No other active schedules",
     "errorMessage": "Failed to load recurring-fee coverage for this student"
+  },
+  "fines": {
+    "rules": {
+      "title": "Fine rules",
+      "academicYearLabel": "Academic year",
+      "addRule": "Add rule",
+      "copyFromLastYear": "Copy from last year",
+      "emptyTitle": "No fine rules yet",
+      "emptyMessage": "Add a rule to automatically fine students for absences or late arrivals.",
+      "errorMessage": "Failed to load fine rules",
+      "columnTrigger": "Trigger",
+      "columnAppliesTo": "Applies to",
+      "columnFee": "Fine",
+      "columnFreePerPeriod": "Free per month",
+      "columnCap": "Cap",
+      "columnMinMinutesLate": "Min minutes late",
+      "columnActive": "Active",
+      "columnActions": "Actions",
+      "wholeSchool": "Whole school",
+      "triggerAbsent": "Absent days",
+      "triggerLate": "Late arrivals",
+      "statusActive": "Active",
+      "statusInactive": "Inactive",
+      "edit": "Edit",
+      "delete": "Delete",
+      "activate": "Activate",
+      "deactivate": "Deactivate",
+      "form": {
+        "createTitle": "Add fine rule",
+        "editTitle": "Edit fine rule",
+        "description": "Set who gets fined, how much, and any limits.",
+        "triggerLabel": "Trigger",
+        "triggerAbsent": "Absent days",
+        "triggerLate": "Late arrivals",
+        "feeStructureLabel": "Fine type",
+        "feeStructureRequired": "Choose a fine type",
+        "classLabel": "Class",
+        "wholeSchool": "Whole school",
+        "freePerPeriodLabel": "Free per month",
+        "capLabel": "Cap per month",
+        "minMinutesLateLabel": "Minimum minutes late",
+        "save": "Save",
+        "saving": "Saving…",
+        "cancel": "Cancel",
+        "errorMessage": "Failed to save fine rule"
+      },
+      "copyDialog": {
+        "title": "Copy from last year",
+        "description": "Copy fine structures and rules from another academic year.",
+        "academicYearLabel": "Source academic year",
+        "confirm": "Copy",
+        "copying": "Copying…",
+        "close": "Close",
+        "cancel": "Cancel",
+        "errorMessage": "Failed to copy fine rules",
+        "resultMessage": "{{structures}} fine type(s), {{rules}} rule(s) copied, {{skipped}} skipped"
+      }
+    }
   }
 }

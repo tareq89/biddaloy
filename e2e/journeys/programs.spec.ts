@@ -165,11 +165,15 @@ test.describe.serial('programs: admin enrols -> teacher records -> guardian sees
     test.use(loggedIn('parent'));
 
     test('the ticked milestone shows in /portal/programs', async ({ page }) => {
-      await page.goto('/portal/programs');
+      // The fines specs link extra students to the shared seeded parent, and
+      // the portal defaults to the first linked student — pin this one.
+      await page.goto(`/portal/programs?student=${studentId}`);
       await expect(
         page.getByRole('heading', { level: 1, name: t('portal.programs.title') }),
       ).toBeVisible();
-      await expect(page.getByText(SEED_PROGRAM_NAME)).toBeVisible();
+      // The name renders in more than one place (card title + enrolment row),
+      // and a retry re-enrols — assert "shown", not "shown exactly once".
+      await expect(page.getByText(SEED_PROGRAM_NAME).first()).toBeVisible();
     });
   });
 });

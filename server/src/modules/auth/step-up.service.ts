@@ -49,7 +49,7 @@ const STEP_UP_OTP_PURPOSE = 'STEP_UP' as OtpPurpose;
 const FEE_APPROVE_PERMISSION = Permission.FEE_APPROVE;
 
 const APPROVAL_TOKEN_TTL_SECONDS = 300;
-const RATE_LIMIT_MAX_ATTEMPTS = 5;
+const DEFAULT_RATE_LIMIT_MAX_ATTEMPTS = 5;
 const RATE_LIMIT_WINDOW_MS = 15 * 60_000;
 // bcrypt.compare against a hash that never matches — same shape as
 // auth.service.ts's DUMMY_PASSWORD_HASH, run for every step-up verify so a
@@ -289,6 +289,13 @@ export class StepUpService {
     return raw === ApprovalMode.OTP_OR_PASSWORD ? ApprovalMode.OTP_OR_PASSWORD : ApprovalMode.OTP;
   }
 
+  /** `STEP_UP_RATE_LIMIT_MAX_ATTEMPTS` when it is a positive integer, else the
+   * strict default — a malformed value must never loosen the brute-force gate. */
+  private rateLimitMaxAttempts(): number {
+    const parsed = Number(this.config.get<string>('STEP_UP_RATE_LIMIT_MAX_ATTEMPTS'));
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_RATE_LIMIT_MAX_ATTEMPTS;
+  }
+
   /** Fails CLOSED on a Redis error — this is the brute-force gate in front
    * of admin-approval issuance, so an outage must not silently disable it
    * (same call OtpService itself makes, unlike LoginAttemptService's
@@ -299,7 +306,7 @@ export class StepUpService {
       if (count === 1) {
         await this.redis.pexpire(key, RATE_LIMIT_WINDOW_MS);
       }
-      return count <= RATE_LIMIT_MAX_ATTEMPTS;
+      return count <= this.rateLimitMaxAttempts();
     } catch (error) {
       this.logger.error(
         `Step-up rate-limit check failed for key, failing closed: ${error instanceof Error ? error.message : String(error)}`,

@@ -15,6 +15,7 @@ export { studentFactory, type Student } from './student.factory';
 export { teacherFactory, type Teacher } from './teacher.factory';
 export { feeStructureFactory, type FeeStructure } from './fee-structure.factory';
 export { studentFeeFactory, type StudentFee } from './student-fee.factory';
+export { fineFactory, type Fine } from './fine.factory';
 export { paymentFactory, type Payment } from './payment.factory';
 export { invoiceFactory, type Invoice } from './invoice.factory';
 export { communicationFactory, type Communication } from './communication.factory';

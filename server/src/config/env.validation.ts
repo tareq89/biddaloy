@@ -62,6 +62,16 @@ class EnvironmentVariables {
   @Matches(POSITIVE_INTEGER, { message: 'RATE_LIMIT_DEFAULT_LIMIT must be a positive integer' })
   RATE_LIMIT_DEFAULT_LIMIT?: string;
 
+  // Step-up approval verifications allowed per approver / actor per 15 min
+  // (step-up.service.ts). Unset keeps the strict default of 5. Exists for the
+  // e2e job only: every spec approves as the one seeded admin, so the suite
+  // shares a single budget. Never raise it in a real deployment.
+  @IsOptional()
+  @Matches(POSITIVE_INTEGER, {
+    message: 'STEP_UP_RATE_LIMIT_MAX_ATTEMPTS must be a positive integer',
+  })
+  STEP_UP_RATE_LIMIT_MAX_ATTEMPTS?: string;
+
   @IsOptional()
   @Matches(POSITIVE_INTEGER, { message: 'RATE_LIMIT_DEFAULT_TTL_MS must be a positive integer' })
   RATE_LIMIT_DEFAULT_TTL_MS?: string;

@@ -344,5 +344,63 @@
     "addToScheduleTitle": "অন্যান্য সক্রিয় সময়সূচী",
     "addToScheduleEmptyMessage": "অন্য কোনো সক্রিয় সময়সূচী নেই",
     "errorMessage": "এই শিক্ষার্থীর জন্য পুনরাবৃত্ত-ফি কভারেজ লোড করা যায়নি"
+  },
+  "fines": {
+    "rules": {
+      "title": "জরিমানার নিয়ম",
+      "academicYearLabel": "শিক্ষাবর্ষ",
+      "addRule": "নিয়ম যোগ করুন",
+      "copyFromLastYear": "গত বছর থেকে কপি করুন",
+      "emptyTitle": "এখনো কোনো জরিমানার নিয়ম নেই",
+      "emptyMessage": "অনুপস্থিতি বা দেরিতে আসার জন্য স্বয়ংক্রিয়ভাবে জরিমানা করতে একটি নিয়ম যোগ করুন।",
+      "errorMessage": "জরিমানার নিয়ম লোড করা যায়নি",
+      "columnTrigger": "কী দেখে জরিমানা হবে",
+      "columnAppliesTo": "কার জন্য",
+      "columnFee": "জরিমানা",
+      "columnFreePerPeriod": "মাসে যতবার মাফ",
+      "columnCap": "সর্বোচ্চ",
+      "columnMinMinutesLate": "সর্বনিম্ন মিনিট দেরি",
+      "columnActive": "চালু আছে",
+      "columnActions": "কাজ",
+      "wholeSchool": "পুরো স্কুল",
+      "triggerAbsent": "অনুপস্থিতির দিন",
+      "triggerLate": "দেরিতে আসা",
+      "statusActive": "চালু আছে",
+      "statusInactive": "বন্ধ আছে",
+      "edit": "পরিবর্তন করুন",
+      "delete": "মুছে ফেলুন",
+      "activate": "চালু করুন",
+      "deactivate": "বন্ধ করুন",
+      "form": {
+        "createTitle": "জরিমানার নিয়ম যোগ করুন",
+        "editTitle": "জরিমানার নিয়ম পরিবর্তন করুন",
+        "description": "কাকে, কত জরিমানা, আর কোনো সীমা থাকবে কিনা তা ঠিক করুন।",
+        "triggerLabel": "কী দেখে জরিমানা হবে",
+        "triggerAbsent": "অনুপস্থিতির দিন",
+        "triggerLate": "দেরিতে আসা",
+        "feeStructureLabel": "জরিমানার ধরন",
+        "feeStructureRequired": "একটি জরিমানার ধরন বেছে নিন",
+        "classLabel": "ক্লাস",
+        "wholeSchool": "পুরো স্কুল",
+        "freePerPeriodLabel": "মাসে যতবার মাফ",
+        "capLabel": "মাসে সর্বোচ্চ",
+        "minMinutesLateLabel": "কতো মিনিট দেরি হলে গণ্য হবে",
+        "save": "সংরক্ষণ করুন",
+        "saving": "সংরক্ষণ করা হচ্ছে…",
+        "cancel": "বাতিল করুন",
+        "errorMessage": "জরিমানার নিয়ম সংরক্ষণ করা যায়নি"
+      },
+      "copyDialog": {
+        "title": "গত বছর থেকে কপি করুন",
+        "description": "অন্য শিক্ষাবর্ষ থেকে জরিমানার ধরন ও নিয়ম কপি করুন।",
+        "academicYearLabel": "যে বছর থেকে কপি হবে",
+        "confirm": "কপি করুন",
+        "copying": "কপি করা হচ্ছে…",
+        "close": "বন্ধ করুন",
+        "cancel": "বাতিল করুন",
+        "errorMessage": "জরিমানার নিয়ম কপি করা যায়নি",
+        "resultMessage": "{{structures}}টি জরিমানার ধরন, {{rules}}টি নিয়ম কপি হয়েছে, {{skipped}}টি বাদ দেওয়া হয়েছে"
+      }
+    }
   }
 }

@@ -1250,6 +1250,125 @@ export interface paths {
         patch: operations["DiscountRulesController_update_v1"];
         trace?: never;
     };
+    "/api/v1/fees/fine-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a tenant's fine rules for one academic year. */
+        get: operations["FineRulesController_list_v1"];
+        put?: never;
+        /** Create a fine rule. */
+        post: operations["FineRulesController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fees/fine-rules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Soft-delete a fine rule. */
+        delete: operations["FineRulesController_remove_v1"];
+        options?: never;
+        head?: never;
+        /** Update a fine rule, including activating/deactivating it. */
+        patch: operations["FineRulesController_update_v1"];
+        trace?: never;
+    };
+    "/api/v1/fees/fine-rules/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Copy fine rules (and the FINE fee structures they point at) from one academic year to another. Idempotent — a second run reports everything as skipped. */
+        post: operations["FineRulesController_copy_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fees/fines/generate/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read-only dry run of an attendance-fine sweep for one month: computed fine rows, their total, and which (student, fee structure) pairs already have a bill. Writes nothing. */
+        post: operations["FineSweepController_preview_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fees/fines/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate attendance-fine bills for one month from active FineRules. Never updates an existing bill — REMOVE_OLDER over a paid bill and CREATE_ANYWAY both require a fresh X-Approval-Token for scope "fees.duplicate_override", exactly like a manual fee generation. */
+        post: operations["FineSweepController_generate_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fees/fines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["FinesController_listFines_v1"];
+        put?: never;
+        post: operations["FinesController_logFine_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fees/fines/{id}/waive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["FinesController_waiveFine_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/invoices": {
         parameters: {
             query?: never;
@@ -6040,7 +6159,7 @@ export interface components {
             student_fee_id: string;
             fee_name: string;
             /** @enum {string} */
-            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
+            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER";
             /** Format: date-time */
             period_start: string;
             /** @enum {string} */
@@ -6186,7 +6305,7 @@ export interface components {
         FeeStructure: {
             id: string;
             /** @enum {string} */
-            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
+            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER";
             name: string;
             amount: number;
             class: components["schemas"]["Class"] | null;
@@ -6197,6 +6316,32 @@ export interface components {
             academic_year_id: string;
             tenant: components["schemas"]["School"];
             tenant_id: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
+        };
+        FineRule: {
+            id: string;
+            tenant_id: string;
+            tenant: components["schemas"]["School"];
+            academic_year_id: string;
+            academic_year: components["schemas"]["AcademicYear"];
+            /** @enum {string} */
+            trigger: "ATTENDANCE_ABSENT" | "ATTENDANCE_LATE";
+            fee_structure_id: string;
+            fee_structure: components["schemas"]["FeeStructure"];
+            class_id: string | null;
+            class: components["schemas"]["Class"] | null;
+            free_per_period: number;
+            cap_per_period: number | null;
+            conditions: {
+                [key: string]: unknown;
+            };
+            is_active: boolean;
+            created_by_user_id: string | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -6234,6 +6379,11 @@ export interface components {
             approved_by_user_id: string | null;
             late_fee_for_student_fee_id: string | null;
             late_fee_for_student_fee: components["schemas"]["StudentFee"] | null;
+            note: string | null;
+            /** Format: date-time */
+            incident_date: string | null;
+            fine_rule_id: string | null;
+            fine_rule: components["schemas"]["FineRule"] | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -6308,7 +6458,7 @@ export interface components {
         FamilyFeeStructureDto: {
             id: string;
             /** @enum {string} */
-            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
+            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER";
             name: string;
             amount: number;
             class_id: string | null;
@@ -6349,7 +6499,7 @@ export interface components {
             fee_structure_id: string;
             fee_name: string;
             /** @enum {string} */
-            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
+            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER";
             month: number;
             year: number;
             /** Format: date-time */
@@ -6358,6 +6508,8 @@ export interface components {
             period_type: "MONTH" | "WEEK";
             occurrence: number;
             is_late_fee: boolean;
+            is_fine: boolean;
+            note: string | null;
             total_amount: number;
             paid_amount: number;
             discount_amount: number;
@@ -6386,7 +6538,7 @@ export interface components {
             student_fee_id: string;
             fee_name: string;
             /** @enum {string} */
-            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
+            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER";
             month: number;
             year: number;
             /** Format: date-time */
@@ -6395,6 +6547,8 @@ export interface components {
             period_type: "MONTH" | "WEEK";
             occurrence_label: string | null;
             is_late_fee: boolean;
+            is_fine: boolean;
+            note: string | null;
             total_amount: number;
             paid_amount: number;
             discount_amount: number;
@@ -6475,7 +6629,7 @@ export interface components {
         };
         CreateFeeStructureDto: {
             /** @enum {string} */
-            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
+            fee_type: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER";
             name: string;
             amount: number;
             /** Format: uuid */
@@ -6487,7 +6641,7 @@ export interface components {
         };
         UpdateFeeStructureDto: {
             /** @enum {string} */
-            fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
+            fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER";
             name?: string;
             amount?: number;
             /** Format: uuid */
@@ -6560,7 +6714,7 @@ export interface components {
             /** Format: date-time */
             due_date: string;
             /** @enum {string} */
-            source: "MANUAL" | "SCHEDULE";
+            source: "MANUAL" | "SCHEDULE" | "FINE_RULE";
             recurring_schedule_id: string | null;
             generated_by: components["schemas"]["User"] | null;
             generated_by_user_id: string | null;
@@ -6749,7 +6903,7 @@ export interface components {
             /** @enum {string} */
             kind: "FLAT" | "PERCENT";
             value: number;
-            fee_types: ("MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER")[] | null;
+            fee_types: ("MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER")[] | null;
             starts_on: string | null;
             ends_on: string | null;
             is_active: boolean;
@@ -6760,7 +6914,7 @@ export interface components {
             /** @enum {string} */
             kind: "FLAT" | "PERCENT";
             value: number;
-            fee_types?: ("MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER")[] | null;
+            fee_types?: ("MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER")[] | null;
             starts_on?: string | null;
             ends_on?: string | null;
             reason: string;
@@ -6771,7 +6925,7 @@ export interface components {
             /** @enum {string} */
             kind: "FLAT" | "PERCENT";
             value: number;
-            fee_types: ("MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER")[] | null;
+            fee_types: ("MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER")[] | null;
             starts_on: string | null;
             ends_on: string | null;
             reason: string;
@@ -6787,11 +6941,134 @@ export interface components {
             /** @enum {string} */
             kind?: "FLAT" | "PERCENT";
             value?: number;
-            fee_types?: ("MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER")[] | null;
+            fee_types?: ("MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER")[] | null;
             starts_on?: string | null;
             ends_on?: string | null;
             is_active?: boolean;
             reason?: string;
+        };
+        FineRuleDto: {
+            id: string;
+            academic_year_id: string;
+            /** @enum {string} */
+            trigger: "ATTENDANCE_ABSENT" | "ATTENDANCE_LATE";
+            fee_structure_id: string;
+            fee_structure_name: string;
+            fee_structure_amount: number;
+            class_id: string | null;
+            class_name: string | null;
+            free_per_period: number;
+            cap_per_period: number | null;
+            conditions: {
+                [key: string]: unknown;
+            };
+            is_active: boolean;
+            created_by_user_id: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CreateFineRuleDto: {
+            /** Format: uuid */
+            academic_year_id: string;
+            /** @enum {string} */
+            trigger: "ATTENDANCE_ABSENT" | "ATTENDANCE_LATE";
+            /** Format: uuid */
+            fee_structure_id: string;
+            /** Format: uuid */
+            class_id?: string | null;
+            free_per_period?: number;
+            cap_per_period?: number | null;
+            conditions?: {
+                [key: string]: unknown;
+            };
+        };
+        UpdateFineRuleDto: {
+            /** Format: uuid */
+            fee_structure_id?: string;
+            /** Format: uuid */
+            class_id?: string | null;
+            free_per_period?: number;
+            cap_per_period?: number | null;
+            conditions?: {
+                [key: string]: unknown;
+            };
+            is_active?: boolean;
+        };
+        CopyFineRulesDto: {
+            /** Format: uuid */
+            from_academic_year_id: string;
+            /** Format: uuid */
+            to_academic_year_id: string;
+        };
+        FineSweepQueryDto: {
+            month: string;
+            /** Format: uuid */
+            class_id?: string;
+            /** Format: uuid */
+            section_id?: string;
+        };
+        FineSweepRowDto: {
+            student_id: string;
+            rule_id: string;
+            fee_structure_id: string;
+            count: number;
+            amount: number;
+            note: string;
+        };
+        FineSweepDuplicateDto: {
+            student_id: string;
+            fee_structure_id: string;
+            existing_bill_id: string;
+            paid_amount: number;
+        };
+        FineSweepPreviewResultDto: {
+            students: components["schemas"]["FineSweepRowDto"][];
+            total_amount: number;
+            would_create: number;
+            duplicates: components["schemas"]["FineSweepDuplicateDto"][];
+        };
+        FineSweepGenerateDto: {
+            month: string;
+            /** Format: uuid */
+            class_id?: string;
+            /** Format: uuid */
+            section_id?: string;
+            /**
+             * @default SKIP
+             * @enum {string}
+             */
+            duplicate_strategy: "SKIP" | "REMOVE_OLDER" | "CREATE_ANYWAY";
+            notify_families?: boolean;
+        };
+        FineSweepGenerateResultDto: {
+            fee_generation_ids: string[];
+            generated_count: number;
+            skipped_count: number;
+        };
+        LogFineDto: {
+            student_ids: string[];
+            /** Format: uuid */
+            fee_structure_id: string;
+            amount?: number;
+            note: string;
+            incident_date: string;
+            /** @default true */
+            notify_families: boolean;
+        };
+        LogFineResultDto: {
+            bill_ids: string[];
+        };
+        WaiveFineDto: {
+            amount?: number;
+            reason: string;
+        };
+        WaiveFineResultDto: {
+            id: string;
+            amount: number;
+            /** @enum {string} */
+            status: "PENDING" | "PARTIALLY_PAID" | "PAID" | "OVERDUE" | "WAIVED" | "ADVANCE";
         };
         UserResponseDto: {
             id: string;
@@ -7152,6 +7429,7 @@ export interface components {
             lateFees?: {
                 [key: string]: components["schemas"]["LateFeeRuleDto"];
             };
+            fineDueDays?: number;
         };
         TenantSettingsDto: {
             organisationRenames?: components["schemas"]["OrganisationRenameDto"][];
@@ -11203,7 +11481,7 @@ export interface operations {
                 month?: number;
                 year?: number;
                 status?: components["schemas"]["Object"];
-                fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
+                fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER";
                 search?: string;
                 sort_by?: "due_amount" | "name" | "class";
                 sort_order?: "ASC" | "DESC";
@@ -11388,7 +11666,7 @@ export interface operations {
                 academic_year_id?: string;
                 class_id?: string;
                 search?: string;
-                fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
+                fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER";
                 section_id?: string;
                 include_deleted?: boolean;
                 sort?: "name" | "created_at" | "amount";
@@ -11753,8 +12031,8 @@ export interface operations {
             query?: {
                 period_from?: string;
                 period_to?: string;
-                fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "OTHER";
-                source?: "MANUAL" | "SCHEDULE";
+                fee_type?: "MONTHLY_TUITION" | "EXAM_FEE" | "LIBRARY_FEE" | "LAB_FEE" | "SPORTS_FEE" | "COMPUTER_FEE" | "TRANSPORT_FEE" | "ANNUAL_FEE" | "ADMISSION_FEE" | "LATE_FEE" | "FINE" | "OTHER";
+                source?: "MANUAL" | "SCHEDULE" | "FINE_RULE";
                 generated_by_user_id?: string;
                 recurring_schedule_id?: string;
                 collection_status?: "NONE" | "PARTIAL" | "FULL";
@@ -12528,6 +12806,357 @@ export interface operations {
                 content: {
                     "application/json": unknown;
                 };
+            };
+        };
+    };
+    FineRulesController_list_v1: {
+        parameters: {
+            query: {
+                academic_year_id: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FineRuleDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FineRulesController_create_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateFineRuleDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FineRuleDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FineRulesController_remove_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FineRulesController_update_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateFineRuleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FineRuleDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FineRulesController_copy_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CopyFineRulesDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FineSweepController_preview_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FineSweepQueryDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FineSweepPreviewResultDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FineSweepController_generate_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FineSweepGenerateDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FineSweepGenerateResultDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FinesController_listFines_v1: {
+        parameters: {
+            query?: {
+                academic_year_id?: string;
+                month?: number;
+                class_id?: string;
+                section_id?: string;
+                student_id?: string;
+                fee_structure_id?: string;
+                origin?: "RULE" | "MANUAL";
+                status?: "PENDING" | "PARTIALLY_PAID" | "PAID" | "OVERDUE" | "WAIVED" | "ADVANCE";
+                page?: number;
+                limit?: number;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FinesController_logFine_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LogFineDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogFineResultDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FinesController_waiveFine_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WaiveFineDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaiveFineResultDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

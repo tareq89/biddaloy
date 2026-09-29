@@ -41,6 +41,7 @@ const SEED_SECTION_2_ID = '00000000-0000-4000-8000-000000000041';
 const SEED_CLASS_2_SECTION_ID = '00000000-0000-4000-8000-000000000042';
 const TUITION_STRUCTURE_ID = '00000000-0000-4000-8000-000000000051';
 const EXAM_STRUCTURE_ID = '00000000-0000-4000-8000-000000000052';
+const FINE_STRUCTURE_ID = '00000000-0000-4000-8000-000000000054';
 
 let studentSeq = 0;
 
@@ -149,6 +150,17 @@ async function seedFeeStructures(ds: DataSource): Promise<void> {
       fee_type: FeeType.EXAM_FEE,
       name: 'Exam Fee',
       amount: 500,
+      class_id: SEED_CLASS_1_ID,
+      academic_year_id: SEED_ACADEMIC_YEAR_ID,
+      tenant_id: SEED_TENANT_ID,
+    }),
+  );
+  await feeStructureRepo.save(
+    feeStructureRepo.create({
+      id: FINE_STRUCTURE_ID,
+      fee_type: FeeType.FINE,
+      name: 'Uniform Fine',
+      amount: 50,
       class_id: SEED_CLASS_1_ID,
       academic_year_id: SEED_ACADEMIC_YEAR_ID,
       tenant_id: SEED_TENANT_ID,
@@ -601,6 +613,29 @@ describe('FeeDuesService (integration)', () => {
       const entries = result.data[0].dues;
       expect(entries.find((d) => d.student_fee_id === original.id)?.is_late_fee).toBe(false);
       expect(entries.find((d) => d.student_fee_id !== original.id)?.is_late_fee).toBe(true);
+    });
+
+    it('flags a FINE bill via is_fine and carries its note; a tuition bill does not', async () => {
+      const student = await studentRepo.save(makeStudent());
+      await studentFeeRepo.save(makeFee(student.id, { fee_structure_id: TUITION_STRUCTURE_ID }));
+      await studentFeeRepo.save(
+        makeFee(student.id, {
+          fee_structure_id: FINE_STRUCTURE_ID,
+          total_amount: 50,
+          note: 'Uniform violation',
+          incident_date: new Date('2026-01-05'),
+        }),
+      );
+
+      const result = await service.getDues({ page: 1, limit: 10 }, TENANT_ID);
+
+      const entries = result.data[0].dues;
+      const tuition = entries.find((d) => d.fee_name === 'Tuition Fee')!;
+      const fine = entries.find((d) => d.fee_name === 'Uniform Fine')!;
+      expect(tuition.is_fine).toBe(false);
+      expect(tuition.note).toBeNull();
+      expect(fine.is_fine).toBe(true);
+      expect(fine.note).toBe('Uniform violation');
     });
 
     it('keeps bills scoped to their own tenant', async () => {

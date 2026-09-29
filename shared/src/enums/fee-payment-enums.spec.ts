@@ -43,8 +43,10 @@ describe('16.1.1 fee/payment enums [#638]', () => {
     expect(Object.values(PeriodType).sort()).toEqual(['MONTH', 'WEEK'].sort());
   });
 
-  it('FeeGenerationSource has MANUAL and SCHEDULE', () => {
-    expect(Object.values(FeeGenerationSource).sort()).toEqual(['MANUAL', 'SCHEDULE'].sort());
+  it('FeeGenerationSource has MANUAL, SCHEDULE and FINE_RULE', () => {
+    expect(Object.values(FeeGenerationSource).sort()).toEqual(
+      ['MANUAL', 'SCHEDULE', 'FINE_RULE'].sort(),
+    );
   });
 
   it('DuplicateStrategy has SKIP, REMOVE_OLDER, CREATE_ANYWAY', () => {
