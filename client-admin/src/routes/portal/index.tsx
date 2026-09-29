@@ -14,7 +14,7 @@ import {
   useMyStudents,
   usePaymentsByStudent,
 } from '@biddaloy/ui/hooks';
-import type { FeeDueRow, Student } from '@biddaloy/ui/hooks';
+import type { FeeDueEntry, FeeDueRow, Student } from '@biddaloy/ui/hooks';
 import {
   RegionConfigProvider,
   useRegionConfig,
@@ -27,6 +27,8 @@ import { ChevronRightIcon } from 'lucide-react';
 
 import { UpcomingCalendarCard } from '../../components/upcoming-calendar-card';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
+
+import { DueThisMonthCard } from './-due-this-month-card';
 
 /**
  * [5.2] — the family portal's landing page, replacing [8.9.10]'s
@@ -133,6 +135,10 @@ interface ChildSummary {
   /** Whole days past the earliest overdue date, or `null` when nothing is
    * overdue. */
   daysLate: number | null;
+  /** [38.4.5] This child's raw dues lines, passed straight into
+   * `DueThisMonthCard` — never re-fetched, just the same `row.dues`
+   * `deriveStatus`/`summarize` already read above. */
+  dues: FeeDueEntry[];
 }
 
 const MS_PER_DAY = 86_400_000;
@@ -241,6 +247,7 @@ function summarize(
       dueDate: earliest ?? null,
       daysLate:
         earliestOverdue === undefined ? null : Math.max(daysBetween(earliestOverdue, now), 0),
+      dues: row?.dues ?? [],
     };
   });
 }
@@ -302,14 +309,15 @@ function PortalOverview() {
     );
   }
 
-  const children = summarize(students, duesQuery.data.data, formatMeta, new Date());
+  const now = new Date();
+  const children = summarize(students, duesQuery.data.data, formatMeta, now);
 
   if (children.length === 1) {
     const only = children[0] as ChildSummary;
-    return <SingleStudentView child={only} config={config} />;
+    return <SingleStudentView child={only} config={config} now={now} />;
   }
 
-  return <MultiChildView items={children} config={config} />;
+  return <MultiChildView items={children} config={config} now={now} />;
 }
 
 function PortalSkeleton({
@@ -369,7 +377,15 @@ function PortalSkeleton({
   );
 }
 
-function MultiChildView({ items, config }: { items: ChildSummary[]; config: RegionConfig }) {
+function MultiChildView({
+  items,
+  config,
+  now,
+}: {
+  items: ChildSummary[];
+  config: RegionConfig;
+  now: Date;
+}) {
   const { t } = useTranslation('portal');
 
   const withDue = items.filter((child) => child.totalDue > 0);
@@ -408,7 +424,15 @@ function MultiChildView({ items, config }: { items: ChildSummary[]; config: Regi
       </h2>
 
       {items.map((child) => (
-        <ChildCard key={child.id} child={child} config={config} />
+        // [38.4.5] The due-this-month card is a sibling below each
+        // `ChildCard`, not nested inside its `Link` — the card is a plain
+        // information block, not another interactive target, and nesting
+        // it inside the link would make the whole card one giant tap
+        // target that also has to scroll internally.
+        <div key={child.id} className="flex flex-col gap-1.5">
+          <ChildCard child={child} config={config} />
+          <DueThisMonthCard dues={child.dues} now={now} config={config} />
+        </div>
       ))}
     </div>
   );
@@ -464,7 +488,15 @@ function ChildCard({ child, config }: { child: ChildSummary; config: RegionConfi
   );
 }
 
-function SingleStudentView({ child, config }: { child: ChildSummary; config: RegionConfig }) {
+function SingleStudentView({
+  child,
+  config,
+  now,
+}: {
+  child: ChildSummary;
+  config: RegionConfig;
+  now: Date;
+}) {
   const { t } = useTranslation('portal');
   const paymentsQuery = usePaymentsByStudent(child.id);
 
@@ -510,6 +542,8 @@ function SingleStudentView({ child, config }: { child: ChildSummary; config: Reg
           </Button>
         </div>
       </Card>
+
+      <DueThisMonthCard dues={child.dues} now={now} config={config} />
 
       <RecentPayments query={paymentsQuery} config={config} />
     </div>

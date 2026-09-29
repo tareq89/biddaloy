@@ -24,6 +24,7 @@ import bnExams from '../ui/src/i18n/locales/bn/exams.json';
 import bnFeeGeneration from '../ui/src/i18n/locales/bn/feeGeneration.json';
 import bnFees from '../ui/src/i18n/locales/bn/fees.json';
 import bnFeeStructures from '../ui/src/i18n/locales/bn/feeStructures.json';
+import bnFines from '../ui/src/i18n/locales/bn/fines.json';
 import bnGrading from '../ui/src/i18n/locales/bn/grading.json';
 import bnGuardians from '../ui/src/i18n/locales/bn/guardians.json';
 import bnHomework from '../ui/src/i18n/locales/bn/homework.json';
@@ -61,6 +62,7 @@ import enExams from '../ui/src/i18n/locales/en/exams.json';
 import enFeeGeneration from '../ui/src/i18n/locales/en/feeGeneration.json';
 import enFees from '../ui/src/i18n/locales/en/fees.json';
 import enFeeStructures from '../ui/src/i18n/locales/en/feeStructures.json';
+import enFines from '../ui/src/i18n/locales/en/fines.json';
 import enGrading from '../ui/src/i18n/locales/en/grading.json';
 import enGuardians from '../ui/src/i18n/locales/en/guardians.json';
 import enHomework from '../ui/src/i18n/locales/en/homework.json';
@@ -101,6 +103,7 @@ const catalogs = {
     feeGeneration: bnFeeGeneration,
     fees: bnFees,
     feeStructures: bnFeeStructures,
+    fines: bnFines,
     grading: bnGrading,
     guardians: bnGuardians,
     homework: bnHomework,
@@ -140,6 +143,7 @@ const catalogs = {
     feeGeneration: enFeeGeneration,
     fees: enFees,
     feeStructures: enFeeStructures,
+    fines: enFines,
     grading: enGrading,
     guardians: enGuardians,
     homework: enHomework,

@@ -59,6 +59,8 @@ function dueEntryFixture(overrides: Partial<FeeDueEntry> = {}): FeeDueEntry {
     period_type: PeriodType.MONTH,
     occurrence: 1,
     is_late_fee: false,
+    is_fine: false,
+    note: null,
     total_amount: totalAmount,
     paid_amount: paidAmount,
     discount_amount: discountAmount,

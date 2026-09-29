@@ -356,6 +356,14 @@ export class FeeGenerationService {
       if (alwaysNewOccurrence) {
         for (const student of targetStudents) {
           for (const structure of context.structures) {
+            // Serialize concurrent occurrence assignment for this (student, structure, period)
+            // triple: two concurrent manual-fine calls could otherwise both read the same
+            // MAX(occurrence) before either inserts. A row lock on student_fees can't help when
+            // no row exists yet (the first bill for this triple), so use a transaction-scoped
+            // advisory lock instead — released automatically when this transaction commits/aborts.
+            await manager.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
+              `${student.id}:${structure.id}:${context.periodStart.toISOString()}`,
+            ]);
             // `student_fees` has no `tenant_id` column of its own — tenancy
             // is enforced via the `fee_structures` FK, same as every other
             // tenant-scoped query against this table in this service.

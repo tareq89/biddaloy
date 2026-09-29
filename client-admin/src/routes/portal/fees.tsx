@@ -16,11 +16,13 @@ import {
   openPrintableInvoice,
   useCurrentUser,
   useFamilyStudentSchedules,
+  useFines,
   useMyStudents,
   useStudentFeeSummary,
   useStudentWallet,
   type FamilyStudentSchedule,
   type FamilyStudentWallet,
+  type Fine,
   type Invoice,
   type Student,
   type StudentFee,
@@ -268,6 +270,13 @@ function PortalFees() {
   });
   const walletQuery = useStudentWallet(selected?.id);
   const schedulesQuery = useFamilyStudentSchedules(selected?.id);
+  // [38.4.5] `GET /fees/fines` narrows to the caller's own linked students
+  // server-side (`FamilyAccessService`, same as every other query on this
+  // page), so `student_id` here is just which child's fines to show, not
+  // an access check.
+  const finesQuery = useFines(selected === undefined ? {} : { student_id: selected.id }, {
+    enabled: selected !== undefined,
+  });
 
   if (studentsQuery.isPending) return <FeesSkeleton label={t('fees.loading')} />;
 
@@ -297,7 +306,8 @@ function PortalFees() {
     summaryQuery.isPending ||
     invoicesQuery.isPending ||
     walletQuery.isPending ||
-    schedulesQuery.isPending
+    schedulesQuery.isPending ||
+    finesQuery.isPending
   ) {
     return <FeesSkeleton label={t('fees.loading')} showPicker={students.length > 1} />;
   }
@@ -306,7 +316,8 @@ function PortalFees() {
     summaryQuery.isError ||
     invoicesQuery.isError ||
     walletQuery.isError ||
-    schedulesQuery.isError
+    schedulesQuery.isError ||
+    finesQuery.isError
   ) {
     // One error frame for the whole page, not one per card: every card
     // describes the same student's money, and a half-rendered page would
@@ -321,6 +332,7 @@ function PortalFees() {
           void invoicesQuery.refetch();
           void walletQuery.refetch();
           void schedulesQuery.refetch();
+          void finesQuery.refetch();
         }}
       />
     );
@@ -346,6 +358,9 @@ function PortalFees() {
       )}
       <FeesSummary summary={summaryQuery.data} config={config} />
       <BreakdownCard fees={summaryQuery.data.fee_breakdown} config={config} />
+      {finesQuery.data.items.length > 0 && (
+        <FinesCard fines={finesQuery.data.items} config={config} />
+      )}
       <WalletCard wallet={walletQuery.data} config={config} />
       <RecurringFeesCard schedules={schedulesQuery.data} config={config} />
       <InvoicesCard
@@ -610,6 +625,58 @@ function BreakdownCard({
           );
         })
       )}
+    </Card>
+  );
+}
+
+/**
+ * [38.4.5] "Fines" section — `GET /fees/fines` filtered to this student,
+ * family-scoped server-side. Hidden entirely (not an `EmptyState`) when
+ * the child has no fines, per the ticket — a family with no fines should
+ * never see an empty "Fines" card telling them so.
+ *
+ * `fine.status` is read directly here, unlike `deriveMonthStatus`
+ * elsewhere on this page: a fine's status (`PENDING`/`PAID`/`WAIVED`) is
+ * never silently wrong the way an unpaid month's `OVERDUE` gap is — there
+ * is no "carried over fine" concept the way there is a carried-over
+ * month, so no derivation is needed.
+ */
+function FinesCard({ fines, config }: { fines: Fine[]; config: RegionConfig }) {
+  const { t } = useTranslation('portal');
+
+  return (
+    <Card className="flex flex-col">
+      <h2 className="border-b border-border-subtle px-3.5 py-3 text-sm font-semibold">
+        {t('fees.fines')}
+      </h2>
+      {fines.map((fine, index) => (
+        <div
+          key={fine.id}
+          className={`flex flex-col gap-1 px-3.5 py-2.5 ${
+            index > 0 ? 'border-t border-border-subtle' : ''
+          }`}
+        >
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <span className="text-sm font-semibold">{fine.fee_structure.name}</span>
+            <span className="text-sm font-semibold tabular-nums">
+              {formatServerAmount(fine.total_amount, config)}
+            </span>
+          </div>
+          {fine.note !== null && fine.note !== '' && (
+            <span className="text-[11px] text-muted-foreground">
+              {t('fees.reason')}: {fine.note}
+            </span>
+          )}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <StatusBadge domain="fee" status={fine.status as FeeStatus} />
+            {fine.incident_date !== null && (
+              <span className="text-[11px] text-muted-foreground">
+                {formatDate(parseServerDate(fine.incident_date), config)}
+              </span>
+            )}
+          </div>
+        </div>
+      ))}
     </Card>
   );
 }

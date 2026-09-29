@@ -129,7 +129,7 @@ export const finesKeys = createEntityKeys<FinesFilters>('fines');
 
 /** [38.3.1] `GET /fees/fines` — the fines list + totals footer (charged /
  * collected / waived / outstanding) the fines screen (wave 4) renders. */
-export function useFines(filters: FinesFilters = {}) {
+export function useFines(filters: FinesFilters = {}, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: finesKeys.list(filters),
     queryFn: async ({ signal }) => {
@@ -137,6 +137,11 @@ export function useFines(filters: FinesFilters = {}) {
       return res.data;
     },
     retry: shouldRetryQuery,
+    // [38.4.5] `portal/fees.tsx` calls this before its own student id is
+    // known (`/students/mine` still in flight) — an unguarded call would
+    // fire a filterless `GET /fees/fines`, the tenant-wide staff list, same
+    // reasoning `portal/fees.tsx`'s `invoicesQuery` documents for itself.
+    enabled: options.enabled ?? true,
   });
 }
 
