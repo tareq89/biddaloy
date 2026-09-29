@@ -38,7 +38,7 @@ erDiagram
         decimal total_amount
         decimal discount_amount
         decimal paid_amount
-        enum status "PENDING to PARTIALLY_PAID to PAID"
+        enum status "PENDING, PARTIALLY_PAID, PAID, OVERDUE, WAIVED (fully waived fine)"
         uuid late_fee_for_student_fee_id "self-reference, nullable: set means this row IS a late fee"
         string note "FINE bills only: reason shown to the family"
         date incident_date "FINE bills only: null on a rule-generated fine"
@@ -358,10 +358,19 @@ flowchart LR
   an optional class scope, `free_per_period` and an optional
   `cap_per_period`. `FineSweepService` reads `attendance_records`
   read-only (it never writes a mark), counts hits per student for the
-  month, and bills `(count - free_per_period) × rate`, capped. It runs
+  month, and bills `max(0, count - free_per_period) × rate`, capped. At or
+  below the free threshold there is no bill at all (see the example below). It runs
   daily as part of `FeesDailyScheduler` (like the late-fee sweep below),
   self-healing the previous month once `correctionWindowDays` has passed —
   a late attendance correction never mutates a bill already generated.
+  Example, `free_per_period: 2`, rate 50:
+
+  | Absences in the month | Bill                             |
+  | --------------------- | -------------------------------- |
+  | 1 or 2                | none (within the free threshold) |
+  | 3                     | (3 - 2) × 50 = 50                |
+  | 5                     | (5 - 2) × 50 = 150               |
+
 - **Staff-logged (manual)** — `POST /fees/fines` (`FinesService.logFine`)
   takes a reason and incident date, for anything a rule can't see (a
   broken window, a lost ID card, a discipline case). ADMIN/ACCOUNTANT
