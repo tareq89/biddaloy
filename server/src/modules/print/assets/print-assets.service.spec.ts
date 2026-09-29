@@ -26,7 +26,7 @@ function setup(saveImpl?: () => Promise<unknown>) {
   const rows: any[] = [];
   const repo = {
     create: vi.fn((v: object) => ({ id: 'asset-1', ...v })),
-    save: vi.fn(saveImpl ?? (async (v) => (rows.push(v), v))),
+    save: vi.fn(saveImpl ?? (async (v: object) => (rows.push(v), v))),
     find: vi.fn(),
     findOne: vi.fn(
       async ({ where }: any) =>

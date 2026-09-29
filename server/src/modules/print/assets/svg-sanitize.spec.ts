@@ -74,6 +74,53 @@ describe('sanitizePrintSvg — regression: markup smuggled through <style>', () 
   });
 });
 
+describe('sanitizePrintSvg — regression: round 2 style bypasses', () => {
+  const S = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">';
+  // Either rejected, or the OUTPUT must be inert. Never live markup.
+  const inert = (input: string) => {
+    let out = '';
+    try {
+      out = run(input).svg;
+    } catch (e) {
+      expect(e).toBeInstanceOf(BadRequestException);
+      return;
+    }
+    expect(out).not.toMatch(/<[^>]*\son\w+\s*=/i); // inside a real tag; escaped text is inert
+    // Entity-escaped text like `&lt;svg onload=alert(1)&gt;` is inert; only a real `<script` matters.
+    expect(out).not.toMatch(/<script/i);
+    expect(out).not.toMatch(/url\(\s*(?!['"]?#)/i);
+    expect(out).not.toMatch(/@import|evil|\/\/e\//i);
+    expect(out).not.toMatch(/<(?!\/?(?:svg|style|rect|g|image)\b)/);
+  };
+
+  it.each([
+    ['</style >', `${S}<style>&lt;/style&gt;&lt;svg onload=alert(1)&gt;</style ></svg>`],
+    ['</style\\n>', `${S}<style>&lt;/style&gt;&lt;svg onload=alert(1)&gt;</style\n></svg>`],
+    ['unclosed <style>', `${S}<style>&lt;/style&gt;&lt;svg onload=alert(1)&gt;</svg>`],
+    [
+      'entity <image onerror>',
+      `${S}<style>&lt;/style&gt;&lt;image href=x onerror=alert(1)/&gt;</style ></svg>`,
+    ],
+    ['uppercase STYLE', `${S}<STYLE>&lt;/STYLE&gt;&lt;svg onload=alert(1)&gt;</STYLE></svg>`],
+    [
+      '@import + url with </style >',
+      `${S}<style>@import url(//evil.x/a.css); .a{background:url(//evil.x/p)}</style ></svg>`,
+    ],
+    ['url with unclosed style', `${S}<style>.a{background:url(http://e/)}</svg>`],
+  ])('%s is rejected or inert', (_n, input) => inert(input));
+
+  it('the two external-ref cases are actually rejected or stripped, not kept', () => {
+    for (const css of [
+      '@import url(//evil.x/a.css); .a{fill:red}',
+      '.a{background:url(http://e/)}',
+    ]) {
+      for (const close of ['</style >', '</style\n>', '</style>']) {
+        inert(`${S}<style>${css}${close}</svg>`);
+      }
+    }
+  });
+});
+
 describe('sanitizePrintSvg — regression: CSS escape bypasses', () => {
   it.each([
     ['escaped url(', '<style>.a{fill:\\75rl(https://evil.test/x)}</style>'],

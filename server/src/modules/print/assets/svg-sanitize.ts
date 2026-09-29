@@ -1,5 +1,4 @@
 import { BadRequestException } from '@nestjs/common';
-import { randomUUID } from 'crypto';
 import sanitizeHtml from 'sanitize-html';
 
 export const SVG_MAX_BYTES = 10 * 1024 * 1024;
@@ -112,31 +111,8 @@ function toPx(value: string | undefined): number | undefined {
   return m ? Math.round(Number(m[1])) : undefined;
 }
 
-/**
- * [32.2.2] D24/D52 — allowlist-sanitizes an uploaded SVG. Throws
- * BadRequestException for a non-svg root, a missing size, or > 10 MB.
- */
-export function sanitizePrintSvg(buffer: Buffer): {
-  svg: string;
-  widthPx?: number;
-  heightPx?: number;
-} {
-  if (buffer.length > SVG_MAX_BYTES) {
-    throw new BadRequestException('SVG must be at most 10MB');
-  }
-  const input = buffer.toString('utf8');
-  if (!ROOT_RE.test(input)) throw new BadRequestException('File is not an SVG document');
-
-  // <style> bodies are cleaned by us and re-inserted after sanitizing, so the
-  // parser never sees CSS text that could smuggle markup (CDATA / entities).
-  const token = `__CSS_${randomUUID()}_`;
-  const styles: string[] = [];
-  const stashed = input.replace(
-    /(<style\b[^>]*(?<!\/)>)([\s\S]*?)(<\/style>)/g,
-    (_m, open, css, close) => `${open}${token}${styles.push(cleanCss(css)) - 1}__${close}`,
-  );
-
-  const svg = sanitizeHtml(stashed, {
+function sanitizeOnce(input: string): string {
+  return sanitizeHtml(input, {
     parser: { xmlMode: true, lowerCaseTags: false, lowerCaseAttributeNames: false },
     allowedTags: ALLOWED_TAGS,
     allowedAttributes: { '*': ALLOWED_ATTRS },
@@ -162,14 +138,37 @@ export function sanitizePrintSvg(buffer: Buffer): {
     // The href allowlist above is the real gate; this only stops sanitize-html
     // from rejecting the `data:` scheme a second time.
     allowedSchemes: ['data'],
-  }).replace(new RegExp(`${token}(\\d+)__`, 'g'), (_m, i) => styles[Number(i)] ?? '');
+  });
+}
 
-  // Defense in depth: no tag outside the allowlist may survive in the output.
-  for (const m of svg.matchAll(/<\/?([A-Za-z][\w:.-]*)/g)) {
-    if (!ALLOWED_TAGS.includes(m[1]!)) {
-      throw new BadRequestException('SVG contains unsupported markup');
-    }
+/**
+ * [32.2.2] D24/D52 — allowlist-sanitizes an uploaded SVG. Throws
+ * BadRequestException for a non-svg root, a missing size, or > 10 MB.
+ */
+export function sanitizePrintSvg(buffer: Buffer): {
+  svg: string;
+  widthPx?: number;
+  heightPx?: number;
+} {
+  if (buffer.length > SVG_MAX_BYTES) {
+    throw new BadRequestException('SVG must be at most 10MB');
   }
+  const input = buffer.toString('utf8');
+  if (!ROOT_RE.test(input)) throw new BadRequestException('File is not an SVG document');
+
+  return finish(sanitizeOnce(input));
+}
+
+function finish(svg1: string) {
+  // Backstop: sanitize-html writes <style> text raw (entity-decoded), so
+  // smuggled markup shows up as real elements in svg1. Re-sanitizing must be a
+  // no-op; anything it still strips means svg1 held off-allowlist markup.
+  if (sanitizeOnce(svg1) !== svg1) throw new BadRequestException('SVG contains unsupported markup');
+  // Only now is style text safe to treat as plain CSS text.
+  const svg = svg1.replace(
+    /(<style\b[^>]*>)([\s\S]*?)(<\/style\s*>)/gi,
+    (_m, open, css, close) => open + cleanCss(css) + close,
+  );
 
   const root = svg.match(/<svg\b[^>]*>/);
   if (!root) throw new BadRequestException('File is not an SVG document');
