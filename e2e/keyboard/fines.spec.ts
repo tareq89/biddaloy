@@ -2,6 +2,7 @@ import {
   adminApiSession,
   createClassSection,
   createFineStructure,
+  currentAcademicYear,
   currentAcademicYearId,
   get,
   logFine,
@@ -126,7 +127,11 @@ test.describe('(a) Fines list: nav -> l -> log a fine -> Enter -> Waive -> step-
     });
 
     await test.step('Enter reaches Waive, step-up, WAIVED', async () => {
-      const waiveButton = page.getByRole('button', { name: t('fines.waiveDialog.confirm') });
+      // Scope to this fine's row: the shared tenant lists many other fines.
+      const waiveButton = page
+        .getByRole('row')
+        .filter({ hasText: fineName })
+        .getByRole('button', { name: t('fines.waiveDialog.confirm') });
       await waiveButton.focus();
       await page.keyboard.press('Enter');
 
@@ -156,15 +161,15 @@ test.describe('(b) Rules: tab -> n -> create an ABSENT rule -> save', () => {
     request,
   }) => {
     const session = await adminApiSession(request);
-    const chain = await createClassSection(request, session);
-    const fineName = `E2E Kbd Rule Fine ${Date.now()}`;
-    await createFineStructure(
+    // The current year already has a seeded school-wide ABSENT rule (one active
+    // per year+trigger+class), so scope this rule to its own class in that year.
+    const chain = await createClassSection(
       request,
       session,
-      { ...chain, academicYearId: await currentAcademicYearId(request, session) },
-      fineName,
-      100,
+      await currentAcademicYear(request, session),
     );
+    const fineName = `E2E Kbd Rule Fine ${Date.now()}`;
+    await createFineStructure(request, session, chain, fineName, 100);
 
     await page.goto('/fees/fines');
     await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
@@ -196,6 +201,10 @@ test.describe('(b) Rules: tab -> n -> create an ABSENT rule -> save', () => {
       await feePicker.focus();
       await selectByTypeahead(page, fineName);
 
+      const classPicker = page.getByLabel(t('fees.fines.rules.form.classLabel'));
+      await classPicker.focus();
+      await selectByTypeahead(page, chain.className);
+
       const saveButton = page.getByRole('button', { name: t('fees.fines.rules.form.save') });
       await saveButton.focus();
       await page.keyboard.press('Enter');
@@ -205,7 +214,7 @@ test.describe('(b) Rules: tab -> n -> create an ABSENT rule -> save', () => {
       await expect(
         page.getByRole('dialog', { name: t('fees.fines.rules.form.createTitle') }),
       ).toBeHidden();
-      await expect(page.getByText(fineName, { exact: false })).toBeVisible();
+      await expect(page.getByText(fineName, { exact: false }).first()).toBeVisible();
     });
   });
 });
@@ -273,7 +282,8 @@ test.describe('(c) Student > Fines tab: the tab\'s own "Log fine" button, studen
 
     await test.step("the fine lands on the student's Fines tab", async () => {
       await expect(dialog).toBeHidden();
-      await expect(page.getByText(fineName)).toBeVisible();
+      // Rendered in both the table row and the card layout.
+      await expect(page.getByText(fineName).first()).toBeVisible();
     });
   });
 });
