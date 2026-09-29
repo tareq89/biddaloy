@@ -534,7 +534,8 @@ export async function currentAcademicYearId(
   request: APIRequestContext,
   session: ApiSession,
 ): Promise<string> {
-  const years = await get<{ id: string; is_current: boolean }[]>(
+  // Paginated; same first page + `is_current ?? first` rule the rules panel uses.
+  const { data: years } = await get<{ data: { id: string; is_current: boolean }[] }>(
     request,
     session,
     '/academic-years',
