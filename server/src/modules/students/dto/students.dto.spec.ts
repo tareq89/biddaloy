@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { QueryGuardianDto, QueryStudentIdsDto } from './students.dto';
+import {
+  CreateStudentDto,
+  QueryGuardianDto,
+  QueryStudentIdsDto,
+  UpdateStudentDto,
+} from './students.dto';
 
 /**
  * [8.14.9] Regression test for a boolean query-param coercion bug: an HTTP
@@ -56,5 +61,37 @@ describe('QueryStudentIdsDto shift/version survive whitelisting', () => {
     expect(errors).toHaveLength(0);
     expect(dto.shift).toBe('Morning');
     expect(dto.version).toBe('English');
+  });
+});
+
+/** [32.2.5] blood_group allowlist + Bangla-name sanitisation (D43). */
+describe('Student blood_group / full_name_bn', () => {
+  const base = { full_name: 'A', class_section_id: '00000000-0000-4000-8000-000000000001' };
+
+  it.each(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'])('accepts %s', async (blood_group) => {
+    const dto = plainToInstance(CreateStudentDto, { ...base, blood_group });
+    expect(await validate(dto, { whitelist: true })).toHaveLength(0);
+  });
+
+  it.each(['C+', 'a+', 'O', ''])('rejects %j', async (blood_group) => {
+    const dto = plainToInstance(UpdateStudentDto, { blood_group });
+    const errors = await validate(dto, { whitelist: true });
+    expect(errors.map((e) => e.property)).toContain('blood_group');
+  });
+
+  it('strips markup from full_name_bn and survives whitelisting', async () => {
+    const dto = plainToInstance(CreateStudentDto, {
+      ...base,
+      full_name_bn: 'রহিম<script>alert(1)</script>',
+    });
+    expect(await validate(dto, { whitelist: true })).toHaveLength(0);
+    expect(dto.full_name_bn).not.toContain('<');
+    expect(dto.full_name_bn).toContain('রহিম');
+  });
+
+  it('rejects full_name_bn over 200 chars', async () => {
+    const dto = plainToInstance(UpdateStudentDto, { full_name_bn: 'ক'.repeat(201) });
+    const errors = await validate(dto, { whitelist: true });
+    expect(errors.map((e) => e.property)).toContain('full_name_bn');
   });
 });
