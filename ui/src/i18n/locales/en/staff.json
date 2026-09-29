@@ -228,7 +228,8 @@
       "religionLabel": "Religion",
       "errorMessage": "Could not save job details. Please try again.",
       "save": "Save",
-      "saving": "Saving…"
+      "saving": "Saving…",
+      "nameBnLabel": "Name (Bangla)"
     },
     "promotion": {
       "promoteAction": "Promote",

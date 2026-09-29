@@ -28,6 +28,7 @@ import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
+import { BulkPhotoDialog } from './-bulk-photo-dialog';
 import { SendReminderDialog } from './-send-reminder-dialog';
 
 /** `DataTableSort.id` values that map onto a server-sortable field —
@@ -207,11 +208,13 @@ function StudentsListPage() {
   const canSendReminder = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
   const canAddStudent = useHasPermission(Permission.STUDENT_CREATE);
   const canBulkImport = useHasPermission(Permission.STUDENT_BULK_UPLOAD);
+  const canUpdateStudent = useHasPermission(Permission.STUDENT_UPDATE);
   const canManageBackup = useHasPermission(Permission.BACKUP_MANAGE);
   const isEmpty =
     !studentsQuery.isLoading && !studentsQuery.isError && (studentsQuery.data?.total ?? 0) === 0;
 
   const [reminderDialogOpen, setReminderDialogOpen] = React.useState(false);
+  const [photosDialogOpen, setPhotosDialogOpen] = React.useState(false);
 
   // FilterBar's `onChange` patches one key at a time — intercept `class_id`
   // changes to also clear `section_id`, since a section chosen under the
@@ -429,6 +432,11 @@ function StudentsListPage() {
         title={t('list.title')}
         primaryAction={
           <div className="flex items-center gap-2">
+            {canUpdateStudent && (
+              <Button type="button" variant="outline" onClick={() => setPhotosDialogOpen(true)}>
+                {t('bulkPhotos.action')}
+              </Button>
+            )}
             {canBulkImport && (
               <Button asChild variant="outline">
                 <Link to="/students/import">{t('list.importStudents')}</Link>
@@ -518,6 +526,7 @@ function StudentsListPage() {
           </Link>
         </p>
       )}
+      <BulkPhotoDialog open={photosDialogOpen} onOpenChange={setPhotosDialogOpen} />
       <SendReminderDialog
         open={reminderDialogOpen}
         onOpenChange={setReminderDialogOpen}
