@@ -26,7 +26,7 @@ import { selectByTypeahead, tabUntilFocused } from './keyboard-utils';
  *  (c) A student's Fines tab: its own inline "Log fine" button (not the
  *      command palette — see the note below) opens `LogFineModal` with
  *      the student pre-selected via `prefillStudentIds`.
- *  (d) The guardian portal's "Due this month" card lists a logged fine
+ *  (d) The guardian portal's Fines card lists a logged fine
  *      with its reason.
  *
  * Plan correction on (c): the ticket describes this as "Ctrl+K `>log
@@ -278,10 +278,10 @@ test.describe('(c) Student > Fines tab: the tab\'s own "Log fine" button, studen
   });
 });
 
-test.describe('(d) Portal: "Due this month" lists the fine with its reason', () => {
+test.describe('(d) Portal: the Fines card lists the fine with its reason', () => {
   test.use(loggedIn('parent'));
 
-  test('the guardian\'s "Due this month" card shows a logged fine and its reason', async ({
+  test("the guardian's Fines card shows a logged fine and its reason", async ({
     page,
     request,
   }) => {
@@ -311,8 +311,10 @@ test.describe('(d) Portal: "Due this month" lists the fine with its reason', () 
       notify_families: false,
     });
 
-    await page.goto('/portal');
-    await expect(page.getByText(t('portal.fees.dueThisMonth')).first()).toBeVisible();
+    // The Fines card lists a fine by its incident date. "Due this month" would
+    // not: a fine is due today + fineDueDays, which is next month in the last
+    // week of any month. Pin the student — the shared parent has many children.
+    await page.goto(`/portal/fees?student=${student.id}`);
     await expect(page.getByText(fineName)).toBeVisible();
     await expect(page.getByText(reason)).toBeVisible();
   });

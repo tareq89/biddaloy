@@ -218,26 +218,27 @@ export interface AcademicYearBounds {
   end_date: string;
 }
 
-/** The calendar year containing the previous month — a year that covers the
- * days `markAbsentDaysInPreviousMonth` writes (January's previous month is
- * in last year, so a hardcoded current year is not enough). */
-export function previousMonthAcademicYear(now = new Date()): AcademicYearBounds {
-  const year = new Date(now.getFullYear(), now.getMonth() - 1, 1).getFullYear();
-  return { start_date: `${year}-01-01`, end_date: `${year}-12-31` };
-}
-
 export async function createClassSection(
   request: APIRequestContext,
   session: ApiSession,
-  academicYear: AcademicYearBounds = { start_date: '2026-01-01', end_date: '2026-12-31' },
+  academicYear: AcademicYearBounds & { id?: string } = {
+    start_date: '2026-01-01',
+    end_date: '2026-12-31',
+  },
 ): Promise<ClassSectionChain> {
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
   const className = `E2E ${suffix}`.slice(0, 50);
-  const year = await post<{ id: string }>(request, session, '/academic-years', {
-    name: `E2E Year ${suffix}`,
-    start_date: academicYear.start_date,
-    end_date: academicYear.end_date,
-  });
+  // `id` reuses an existing year instead of creating one — needed when a spec
+  // depends on a date-based year lookup (e.g. the fine sweep), which is
+  // ambiguous while two years overlap.
+  const year =
+    academicYear.id !== undefined
+      ? { id: academicYear.id }
+      : await post<{ id: string }>(request, session, '/academic-years', {
+          name: `E2E Year ${suffix}`,
+          start_date: academicYear.start_date,
+          end_date: academicYear.end_date,
+        });
   const klass = await post<{ id: string }>(request, session, '/classes', {
     name: className,
     academic_year_id: year.id,
@@ -528,21 +529,26 @@ export async function createFineStructure(
 
 /** The school's current academic year — the one the Fines rules page and the
  * Log fine / Add rule fee pickers default to. Fee structures made in a fresh
- * `createClassSection` year never show up there, so keyboard specs that pick a
- * fee through the UI create it here instead. */
+ * `createClassSection` year never show up there, so specs that pick a fee
+ * through the UI (or sweep by month) work inside this year instead. */
+export async function currentAcademicYear(
+  request: APIRequestContext,
+  session: ApiSession,
+): Promise<AcademicYearBounds & { id: string }> {
+  // Paginated; same first page + `is_current ?? first` rule the rules panel uses.
+  const { data: years } = await get<{
+    data: { id: string; is_current: boolean; start_date: string; end_date: string }[];
+  }>(request, session, '/academic-years');
+  const year = years.find((y) => y.is_current) ?? years[0];
+  if (!year) throw new Error('no academic year seeded');
+  return { id: year.id, start_date: year.start_date, end_date: year.end_date };
+}
+
 export async function currentAcademicYearId(
   request: APIRequestContext,
   session: ApiSession,
 ): Promise<string> {
-  // Paginated; same first page + `is_current ?? first` rule the rules panel uses.
-  const { data: years } = await get<{ data: { id: string; is_current: boolean }[] }>(
-    request,
-    session,
-    '/academic-years',
-  );
-  const year = years.find((y) => y.is_current) ?? years[0];
-  if (!year) throw new Error('no academic year seeded');
-  return year.id;
+  return (await currentAcademicYear(request, session)).id;
 }
 
 /** [38.2.5] `POST /fees/fine-rules` — creates a `FineRule` targeting a

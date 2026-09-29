@@ -1,9 +1,9 @@
 import {
   adminApiSession,
   createClassSection,
-  previousMonthAcademicYear,
   createFineRule,
   createFineStructure,
+  currentAcademicYear,
   get,
   logFine,
   markAbsentDaysInPreviousMonth,
@@ -47,7 +47,10 @@ test.describe.serial('fines: rule -> sweep -> dues -> payment -> portal', () => 
       const parentSession = await parentApiSession(request);
       const guardian = await get<{ id: string }>(request, parentSession, '/guardians/mine');
 
-      const academicYear = previousMonthAcademicYear();
+      // The seeded current year, not a fresh one: the sweep finds its year by
+      // date, and a second year covering the same month would make that pick
+      // arbitrary (it would bill the seeded rule instead of this spec's).
+      const academicYear = await currentAcademicYear(request, adminSession);
       const chain = await createClassSection(request, adminSession, academicYear);
       studentFullName = `E2E Fines Journey Student ${Date.now()}`;
       const student = await post<{ id: string }>(request, adminSession, '/students', {
@@ -67,6 +70,9 @@ test.describe.serial('fines: rule -> sweep -> dues -> payment -> portal', () => 
       );
       await createFineRule(request, adminSession, {
         academic_year_id: chain.academicYearId,
+        // A class rule beats the seeded school-wide one for this class, so only
+        // this spec's 3 x 50 bills — not the seeded free-1 rule as well.
+        class_id: chain.classId,
         trigger: 'ATTENDANCE_ABSENT',
         fee_structure_id: fineStructure.id,
         free_per_period: 0,
