@@ -36,7 +36,7 @@ type Tenant = { id: string };
 // Method-level on purpose: the class has both reader and writer routes.
 const read = () =>
   applyDecorators(
-    Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE),
+    Roles(UserRole.ADMIN, UserRole.ACCOUNTANT),
     RequirePermissions(Permission.DOCUMENT_PRINT),
   );
 const write = () =>
