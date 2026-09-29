@@ -780,15 +780,15 @@ describe('/portal/fees', () => {
     });
   });
 
-  /** A literal fine row — the minimal `StudentFee` shape `FinesCard` reads
-   * (`fee_structure.name`, `note`, `incident_date`, `status`,
+  /** A literal fine row — the minimal family fine (`FamilyFineDto`) shape `FinesCard` reads
+   * (`fee_name`, `note`, `incident_date`, `status`,
    * `total_amount`), same "no staff-only field" discipline `fee()` above
    * documents for the month rows. */
   function fineRow(id: string, name: string, amount: number, status: string, note: string | null) {
     return {
       id,
       student_id: 'student-1',
-      fee_structure: { name },
+      fee_name: name,
       note,
       incident_date: serverDate(-3),
       total_amount: amount,
