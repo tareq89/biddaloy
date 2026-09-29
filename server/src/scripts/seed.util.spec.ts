@@ -51,6 +51,7 @@ import {
   DEMO_STUDENTS_PER_SECTION,
   ensureAttendanceSeed,
   ensureCalendarDemoSeed,
+  ensurePrintProfileDemoSeed,
   ensureDemoOrganisation,
   ensureDemoStudents,
   ensureGradingDemoSeed,
@@ -1705,5 +1706,36 @@ describe('ensureRoutineSeed', () => {
     expect(vi.mocked(repos.classRepository.save)).not.toHaveBeenCalled();
     expect(vi.mocked(repos.routineSlotRepository.create)).not.toHaveBeenCalled();
     expect(vi.mocked(repos.routineChangeRequestRepository.create)).not.toHaveBeenCalled();
+  });
+});
+
+describe('ensurePrintProfileDemoSeed', () => {
+  function repo<T>(data: unknown[]) {
+    const r = mockRepo<Student>();
+    vi.mocked(r.find).mockResolvedValue(data as unknown as Student[]);
+    return r as unknown as Repository<T>;
+  }
+
+  it('fills empty values, keeps set ones, and updates 0 rows on the second run', async () => {
+    const students = [
+      { id: 's1', full_name_bn: null, blood_group: null },
+      { id: 's2', full_name_bn: 'আগেরটাই', blood_group: 'O+' },
+    ];
+    const staff = [{ id: 'h1', name_bn: null, blood_group: 'B+' }];
+    const repos = {
+      studentRepository: repo<Student>(students),
+      staffHrRecordRepository: repo<never>(staff),
+    };
+
+    const first = await ensurePrintProfileDemoSeed(repos, { schoolId: 'school-1' });
+    expect(first).toEqual({ students: 1, staff: 1 });
+    expect(students[0].full_name_bn).toBeTruthy();
+    expect(students[0].blood_group).toBeTruthy();
+    expect(students[1]).toEqual({ id: 's2', full_name_bn: 'আগেরটাই', blood_group: 'O+' });
+    expect(staff[0].name_bn).toBeTruthy();
+    expect(staff[0].blood_group).toBe('B+');
+
+    const second = await ensurePrintProfileDemoSeed(repos, { schoolId: 'school-1' });
+    expect(second).toEqual({ students: 0, staff: 0 });
   });
 });

@@ -47,6 +47,7 @@ import { MilestoneAchievement } from '../modules/programs/entities/milestone-ach
 import { FeeStructure } from '../modules/fees/entities/fee-structure.entity';
 import { RecurringSchedule } from '../modules/fees/entities/recurring-schedule.entity';
 import { RecurringScheduleStructure } from '../modules/fees/entities/recurring-schedule-structure.entity';
+import { StaffHrRecord } from '../modules/staff-hr/entities/staff-hr-record.entity';
 import { StaffProfile } from '../modules/staff-profiles/entities/staff-profile.entity';
 import { StaffAttendanceSession } from '../modules/staff-attendance/entities/staff-attendance-session.entity';
 import { StaffAttendanceRecord } from '../modules/staff-attendance/entities/staff-attendance-record.entity';
@@ -67,6 +68,7 @@ import {
   ensureRoleTestUsers,
   ensureRoutineSeed,
   ensureSeatPlanDemoSeed,
+  ensurePrintProfileDemoSeed,
   ensureSecondSchoolMembership,
   ensureStaffHrSeed,
 } from './seed.util';
@@ -694,4 +696,14 @@ export async function seedAccounts(
       }
     }
   }
+
+  // [32.1.4]: Bangla names + blood groups for the ID-card demos.
+  await ensurePrintProfileDemoSeed(
+    {
+      studentRepository: repos.studentRepository,
+      // ponytail: HR repo via the manager (absent in FakeRepo); the plain seed creates no HR rows yet.
+      staffHrRecordRepository: repos.studentRepository.manager?.getRepository(StaffHrRecord),
+    },
+    { schoolId: school.id },
+  );
 }

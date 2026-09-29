@@ -3771,3 +3771,95 @@ export async function ensureStaffHrDemoSeed(
   }
   return result;
 }
+
+// ===========================================================================
+// [32.1.4] Print-profile demo data (Bangla names + blood groups)
+// ===========================================================================
+
+const DEMO_BANGLA_NAMES = [
+  'মোহাম্মদ রহিম উদ্দিন',
+  'ফাতেমা খাতুন',
+  'আব্দুল করিম',
+  'নাসরিন আক্তার',
+  'মো. সাকিব হাসান',
+  'সুমাইয়া ইসলাম',
+  'তানভীর আহমেদ',
+  'রুবিনা ইয়াসমিন',
+  'মাহমুদুল হাসান',
+  'জান্নাতুল ফেরদৌস',
+  'ইমরান হোসেন',
+  'আয়েশা সিদ্দিকা',
+  'শাহরিয়ার কবির',
+  'নুসরাত জাহান',
+  'আরিফ চৌধুরী',
+  'তাহমিনা বেগম',
+  'রাকিবুল ইসলাম',
+  'সাবরিনা সুলতানা',
+  'ফারুক আলম',
+  'মৌসুমী রহমান',
+];
+const DEMO_BLOOD_GROUPS = ['A+', 'B+', 'O+', 'AB+', 'A-', 'B-', 'O-', 'AB-'];
+
+export interface PrintProfileDemoSeedRepositories {
+  studentRepository: Repository<Student>;
+  /** Optional: the plain `yarn seed` does not create HR records today. */
+  staffHrRecordRepository?: Repository<StaffHrRecord>;
+}
+
+export interface PrintProfileDemoSeedResult {
+  students: number;
+  staff: number;
+}
+
+/** [32.1.4] Idempotent: fills `full_name_bn`/`blood_group` on the tenant's
+ * students and `name_bn`/`blood_group` on its staff HR records by position.
+ * Values already set are never overwritten. `photo_key` is left alone. */
+export async function ensurePrintProfileDemoSeed(
+  repos: PrintProfileDemoSeedRepositories,
+  params: { schoolId: string },
+): Promise<PrintProfileDemoSeedResult> {
+  const { schoolId } = params;
+  const result: PrintProfileDemoSeedResult = { students: 0, staff: 0 };
+
+  const students = await repos.studentRepository.find({
+    where: { tenant_id: schoolId },
+    order: { created_at: 'ASC', id: 'ASC' },
+  });
+  for (const [i, student] of students.entries()) {
+    let changed = false;
+    if (!student.full_name_bn) {
+      student.full_name_bn = DEMO_BANGLA_NAMES[i % DEMO_BANGLA_NAMES.length];
+      changed = true;
+    }
+    if (!student.blood_group) {
+      student.blood_group = DEMO_BLOOD_GROUPS[i % DEMO_BLOOD_GROUPS.length];
+      changed = true;
+    }
+    if (changed) {
+      await repos.studentRepository.save(student);
+      result.students += 1;
+    }
+  }
+
+  const hrRepo = repos.staffHrRecordRepository;
+  const hrRecords = hrRepo
+    ? await hrRepo.find({ where: { tenant_id: schoolId }, order: { created_at: 'ASC', id: 'ASC' } })
+    : [];
+  for (const [i, record] of hrRecords.entries()) {
+    let changed = false;
+    if (!record.name_bn) {
+      // Offset so staff names differ from the first students' names.
+      record.name_bn = DEMO_BANGLA_NAMES[(i + 10) % DEMO_BANGLA_NAMES.length];
+      changed = true;
+    }
+    if (!record.blood_group) {
+      record.blood_group = DEMO_BLOOD_GROUPS[i % DEMO_BLOOD_GROUPS.length];
+      changed = true;
+    }
+    if (changed) {
+      await hrRepo!.save(record);
+      result.staff += 1;
+    }
+  }
+  return result;
+}
