@@ -43,6 +43,10 @@ describe('tenantObjectKey', () => {
     expect(() => tenantObjectKey(VALID_TENANT_ID, 'avatars', '../../png')).toThrow(/not allowed/);
   });
 
+  it.each(['svg', 'ttf', 'otf', 'woff2'])('accepts the print asset extension %s', (ext) => {
+    expect(tenantObjectKey(VALID_TENANT_ID, 'print-font', ext)).toMatch(new RegExp(`\\.${ext}$`));
+  });
+
   it('accepts a mixed-case extension by normalizing it', () => {
     const key = tenantObjectKey(VALID_TENANT_ID, 'documents', 'PDF');
     expect(key).toMatch(/\.pdf$/);
