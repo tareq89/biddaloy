@@ -78,6 +78,11 @@ function makeStudent(overrides: Partial<Student> = {}): Student {
     date_of_birth: null,
     gender: null,
     home_address: null,
+    religion: null,
+    birth_reg_no: null,
+    health_notes: null,
+    father_name: null,
+    mother_name: null,
     preferred_communication: CommunicationMedium.SMS,
     enrollment_status: EnrollmentStatus.ACTIVE,
     tenant_id: TENANT_ID,
@@ -112,7 +117,7 @@ describe('studentsTab shape', () => {
   it('is registered through the people barrel, after guardians', () => {
     expect(peopleTabs).toContain(studentsTab);
     expect(peopleTabs.indexOf(guardiansTab)).toBeLessThan(peopleTabs.indexOf(studentsTab));
-    expect(peopleTabs.map((t) => t.name).slice(-6)).toEqual([
+    expect(peopleTabs.map((t) => t.name).slice(-9)).toEqual([
       'guardians',
       'students',
       'enrollments',
@@ -120,6 +125,10 @@ describe('studentsTab shape', () => {
       'admission_intakes',
       'admission_applicants',
       'admission_evaluations',
+      // [39.1.3] student child tabs appended after the admission tabs.
+      'student_lifecycle_events',
+      'student_notes',
+      'student_public_exams',
     ]);
   });
 
@@ -211,6 +220,11 @@ describe('round-trip', () => {
       date_of_birth: null,
       gender: null,
       home_address: null,
+      religion: null,
+      birth_reg_no: null,
+      health_notes: null,
+      father_name: null,
+      mother_name: null,
       preferred_communication: CommunicationMedium.SMS,
       enrollment_status: EnrollmentStatus.ACTIVE,
       guardian_ids: expect.arrayContaining([GUARDIAN_1, GUARDIAN_2]),

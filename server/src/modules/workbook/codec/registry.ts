@@ -67,6 +67,11 @@ export const EXPECTED_TABS = [
   'admission_intakes',
   'admission_applicants',
   'admission_evaluations',
+  // [39.1.3] Epic 39.0's per-student child tabs, appended by `peopleTabs` after
+  // the admission tabs; they depend on `students`, `enrollments`, `users`.
+  'student_lifecycle_events',
+  'student_notes',
+  'student_public_exams',
   'fee_structures',
   // [38.1.2] `fine_rules` FKs `fee_structures` (its fine-category price) and
   // is FK'd by `student_fees.fine_rule_id`, so it sits between the two.
