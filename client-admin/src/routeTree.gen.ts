@@ -34,6 +34,7 @@ import { Route as PortalFeesRouteImport } from './routes/portal/fees'
 import { Route as PortalProgramsRouteImport } from './routes/portal/programs'
 import { Route as PortalResultsRouteImport } from './routes/portal/results'
 import { Route as PortalRoutineRouteImport } from './routes/portal/routine'
+import { Route as PortalSurveysRouteImport } from './routes/portal/surveys'
 import { Route as PortalSyllabusRouteImport } from './routes/portal/syllabus'
 import { Route as PlatformHolidaySetsIndexRouteImport } from './routes/_platform/holiday-sets/index'
 import { Route as PlatformHolidaySetsSetIdRouteImport } from './routes/_platform/holiday-sets/$setId'
@@ -240,6 +241,11 @@ const PortalResultsRoute = PortalResultsRouteImport.update({
 const PortalRoutineRoute = PortalRoutineRouteImport.update({
   id: '/routine',
   path: '/routine',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalSurveysRoute = PortalSurveysRouteImport.update({
+  id: '/surveys',
+  path: '/surveys',
   getParentRoute: () => PortalRoute,
 } as any)
 const PortalSyllabusRoute = PortalSyllabusRouteImport.update({
@@ -716,6 +722,7 @@ export interface FileRoutesByFullPath {
   '/portal/programs': typeof PortalProgramsRoute
   '/portal/results': typeof PortalResultsRoute
   '/portal/routine': typeof PortalRoutineRoute
+  '/portal/surveys': typeof PortalSurveysRoute
   '/portal/syllabus': typeof PortalSyllabusRoute
   '/portal/': typeof PortalIndexRoute
   '/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
@@ -823,6 +830,7 @@ export interface FileRoutesByTo {
   '/portal/programs': typeof PortalProgramsRoute
   '/portal/results': typeof PortalResultsRoute
   '/portal/routine': typeof PortalRoutineRoute
+  '/portal/surveys': typeof PortalSurveysRoute
   '/portal/syllabus': typeof PortalSyllabusRoute
   '/portal': typeof PortalIndexRoute
   '/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
@@ -935,6 +943,7 @@ export interface FileRoutesById {
   '/portal/programs': typeof PortalProgramsRoute
   '/portal/results': typeof PortalResultsRoute
   '/portal/routine': typeof PortalRoutineRoute
+  '/portal/surveys': typeof PortalSurveysRoute
   '/portal/syllabus': typeof PortalSyllabusRoute
   '/portal/': typeof PortalIndexRoute
   '/_platform/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
@@ -1046,6 +1055,7 @@ export interface FileRouteTypes {
     | '/portal/programs'
     | '/portal/results'
     | '/portal/routine'
+    | '/portal/surveys'
     | '/portal/syllabus'
     | '/portal/'
     | '/holiday-sets/$setId'
@@ -1153,6 +1163,7 @@ export interface FileRouteTypes {
     | '/portal/programs'
     | '/portal/results'
     | '/portal/routine'
+    | '/portal/surveys'
     | '/portal/syllabus'
     | '/portal'
     | '/holiday-sets/$setId'
@@ -1264,6 +1275,7 @@ export interface FileRouteTypes {
     | '/portal/programs'
     | '/portal/results'
     | '/portal/routine'
+    | '/portal/surveys'
     | '/portal/syllabus'
     | '/portal/'
     | '/_platform/holiday-sets/$setId'
@@ -1542,6 +1554,13 @@ declare module '@tanstack/react-router' {
       path: '/routine'
       fullPath: '/portal/routine'
       preLoaderRoute: typeof PortalRoutineRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/surveys': {
+      id: '/portal/surveys'
+      path: '/surveys'
+      fullPath: '/portal/surveys'
+      preLoaderRoute: typeof PortalSurveysRouteImport
       parentRoute: typeof PortalRoute
     }
     '/portal/syllabus': {
@@ -2348,6 +2367,7 @@ interface PortalRouteChildren {
   PortalProgramsRoute: typeof PortalProgramsRoute
   PortalResultsRoute: typeof PortalResultsRoute
   PortalRoutineRoute: typeof PortalRoutineRoute
+  PortalSurveysRoute: typeof PortalSurveysRoute
   PortalSyllabusRoute: typeof PortalSyllabusRoute
   PortalIndexRoute: typeof PortalIndexRoute
 }
@@ -2361,6 +2381,7 @@ const PortalRouteChildren: PortalRouteChildren = {
   PortalProgramsRoute: PortalProgramsRoute,
   PortalResultsRoute: PortalResultsRoute,
   PortalRoutineRoute: PortalRoutineRoute,
+  PortalSurveysRoute: PortalSurveysRoute,
   PortalSyllabusRoute: PortalSyllabusRoute,
   PortalIndexRoute: PortalIndexRoute,
 }
