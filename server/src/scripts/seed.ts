@@ -64,8 +64,14 @@ import { RoutineSlot } from '../modules/routines/entities/routine-slot.entity';
 import { RoutineSlotTeacher } from '../modules/routines/entities/routine-slot-teacher.entity';
 import { RoutineSubstitution } from '../modules/routines/entities/routine-substitution.entity';
 import { RoutineChangeRequest } from '../modules/routines/entities/routine-change-request.entity';
-import { ensureDemoOrganisation, type PrintDemoSeedPorts } from './seed.util';
+import {
+  ensureDemoOrganisation,
+  type PrintDemoSeedPorts,
+  type PrintHistoryDemoSeedPorts,
+} from './seed.util';
 import { PrintTemplatesService } from '../modules/print/templates/print-templates.service';
+import { PrintJobsService } from '../modules/print/jobs/print-jobs.service';
+import { PrintHistoryService } from '../modules/print/jobs/print-history.service';
 import { StorageService } from '../modules/storage/storage.service';
 import { SeatPlan } from '../modules/seat-plans/entities/seat-plan.entity';
 import { SeatPlanSchedule } from '../modules/seat-plans/entities/seat-plan-schedule.entity';
@@ -342,15 +348,40 @@ function printPorts(
   schoolId: string,
   adminEmail: string,
   userRepository: Repository<User>,
-): PrintDemoSeedPorts {
+): PrintDemoSeedPorts & PrintHistoryDemoSeedPorts {
   const templates = app.get(PrintTemplatesService);
   const storage = app.get(StorageService);
+  const jobs = app.get(PrintJobsService);
+  const history = app.get(PrintHistoryService);
   const adminId = async () => (await userRepository.findOneByOrFail({ email: adminEmail })).id;
+  const caller = async () => ({ tenantId: schoolId, userId: await adminId(), role: 'ADMIN' });
   return {
     createTemplate: async (suggestionKey, name) =>
       templates.create(schoolId, await adminId(), { name, suggestion_key: suggestionKey }),
     publishTemplate: async (id) => templates.publish(schoolId, await adminId(), id),
     setDefaultTemplate: async (id) => templates.setDefault(schoolId, await adminId(), id),
     putObject: (key, body, type) => storage.put(key, body, type),
+    createJob: async (input) => {
+      const job = await jobs.create(await caller(), {
+        template_id: input.templateId,
+        subject_type: 'STUDENT',
+        subject_ids: input.subjectIds,
+        printer_profile_id: input.printerProfileId,
+        batch_label: input.batchLabel,
+      });
+      return {
+        job_id: job.job_id,
+        items: (job.items as Array<{ item_id: string; subject_id: string }>).map((i) => ({
+          item_id: i.item_id,
+          subject_id: i.subject_id,
+        })),
+      };
+    },
+    confirmJob: async (jobId, failed) => jobs.confirm(await caller(), jobId, failed),
+    reprintJob: async (jobId, itemIds) => {
+      const again = await jobs.reprint(await caller(), jobId, itemIds);
+      return { job_id: again.job_id };
+    },
+    revokeItem: async (itemId, reason) => history.revoke(await caller(), itemId, reason),
   };
 }
