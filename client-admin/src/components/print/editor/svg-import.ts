@@ -121,6 +121,38 @@ function weightOf(value: string): 400 | 500 | 600 | 700 {
   return 400;
 }
 
+const ACTIVE_ELEMENTS = 'script, foreignObject, iframe, object, embed, audio, video, animate, set';
+const LOCAL_OR_DATA_IMAGE = /^(#|data:image\/(png|jpeg|webp);base64,)/i;
+
+/**
+ * The file is a designer's, so before it is mounted in the live page (to measure it) it is
+ * stripped of anything active: scripts and embedded documents, `on*` handlers, any link that
+ * is not `#id` or an embedded image, and CSS `@import` / external `url()`. The server
+ * sanitises the upload again (32.2.2); this keeps the measuring step itself inert.
+ */
+export function stripActiveContent(root: Element): void {
+  for (const el of Array.from(root.querySelectorAll(ACTIVE_ELEMENTS))) el.remove();
+  for (const el of [root, ...Array.from(root.querySelectorAll('*'))]) {
+    for (const attr of Array.from(el.attributes)) {
+      const name = attr.name.toLowerCase();
+      const isLink = name === 'href' || name === 'xlink:href' || name.endsWith(':href');
+      if (name.startsWith('on') || (isLink && !LOCAL_OR_DATA_IMAGE.test(attr.value.trim()))) {
+        el.removeAttribute(attr.name);
+      } else if (name === 'style') {
+        el.setAttribute(attr.name, scrubCss(attr.value));
+      }
+    }
+  }
+  for (const style of Array.from(root.querySelectorAll('style'))) {
+    style.textContent = scrubCss(style.textContent ?? '');
+  }
+}
+
+/** Removes `@import` rules and every `url()` that is not a `#fragment`. */
+function scrubCss(css: string): string {
+  return css.replace(/@import[^;]*;?/gi, '').replace(/url\(\s*(?!['"]?\s*#)[^)]*\)/gi, 'none');
+}
+
 export function importSvg(
   svgText: string,
   page: TemplateDefinition['page'],
@@ -134,6 +166,7 @@ export function importSvg(
   if (root.nodeName.toLowerCase() !== 'svg' || parsed.querySelector('parsererror')) {
     throw new SvgImportError('not-svg');
   }
+  stripActiveContent(root);
 
   // The artboard: viewBox if present, else width/height.
   const vb = root

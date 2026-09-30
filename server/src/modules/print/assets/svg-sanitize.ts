@@ -89,7 +89,34 @@ const ALLOWED_ATTRS = [
   'xml:space',
 ];
 
-const ROOT_RE = /^\s*(?:<\?xml[\s\S]*?\?>\s*|<!--[\s\S]*?-->\s*|<!DOCTYPE[^>]*>\s*)*<svg[\s>]/i;
+const SVG_START_RE = /^<svg[\s>]/i;
+
+/**
+ * True when the text is an XML document whose root element is `<svg>`: only an XML
+ * declaration, comments and a doctype may come first. Scanned with `indexOf` rather than
+ * a regex — the earlier `(?:…[\s\S]*?…)*` form backtracked exponentially on a file
+ * made of many `<!--` (a ReDoS on an upload).
+ */
+function startsWithSvgRoot(text: string): boolean {
+  /** Position after the construct's closing marker, or -1 when it never closes. */
+  const skip = (from: number, open: string, close: string): number => {
+    const at = text.indexOf(close, from + open.length);
+    return at < 0 ? -1 : at + close.length;
+  };
+  let pos = 0;
+  for (;;) {
+    while (pos < text.length && /\s/.test(text[pos]!)) pos += 1;
+    const head = text.slice(pos, pos + 9).toLowerCase();
+    let next: number;
+    if (head.startsWith('<?xml')) next = skip(pos, '<?xml', '?>');
+    else if (head.startsWith('<!--')) next = skip(pos, '<!--', '-->');
+    else if (head.startsWith('<!doctype')) next = skip(pos, '<!doctype', '>');
+    else return SVG_START_RE.test(text.slice(pos, pos + 6));
+    if (next < 0) return false;
+    pos = next;
+  }
+}
+
 const LOCAL_OR_DATA_HREF = /^(#.*|data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=\s]*)$/;
 // Any url( that is not url(#id) — external fetches and data exfiltration.
 const NON_LOCAL_URL = /url\(\s*(?!['"]?\s*#)/i;
@@ -154,7 +181,7 @@ export function sanitizePrintSvg(buffer: Buffer): {
     throw new BadRequestException('SVG must be at most 10MB');
   }
   const input = buffer.toString('utf8');
-  if (!ROOT_RE.test(input)) throw new BadRequestException('File is not an SVG document');
+  if (!startsWithSvgRoot(input)) throw new BadRequestException('File is not an SVG document');
 
   return finish(sanitizeOnce(input));
 }

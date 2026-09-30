@@ -1,7 +1,16 @@
 import { DocumentKind } from '@biddaloy/shared';
 import { describe, expect, it } from 'vitest';
 
-import { importSvg, SvgImportError, toHex, type Measure, type StyleOf } from './svg-import';
+import {
+  domMeasure,
+  domStyleOf,
+  importSvg,
+  stripActiveContent,
+  SvgImportError,
+  toHex,
+  type Measure,
+  type StyleOf,
+} from './svg-import';
 
 const PAGE = { widthMm: 85.6, heightMm: 54, sides: ['front'] } as never;
 const FONTS = ['Biddaloy Sans', 'Hind Siliguri'];
@@ -126,5 +135,202 @@ describe('toHex', () => {
     expect(toHex('rgb(255, 0, 16)')).toBe('#ff0010');
     expect(toHex('#ABC')).toBe('#aabbcc');
     expect(toHex('none')).toBe('#000000');
+  });
+});
+
+describe('stripActiveContent', () => {
+  const parse = (svg: string) =>
+    new DOMParser().parseFromString(svg, 'image/svg+xml').documentElement;
+
+  it('removes scripts, embedded documents and event handlers', () => {
+    const root = parse(
+      '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><script>alert(1)</script>' +
+        '<foreignObject><div/></foreignObject><rect onclick="x()" width="1" height="1"/></svg>',
+    );
+    stripActiveContent(root);
+    expect(root.querySelector('script, foreignObject')).toBeNull();
+    expect(root.getAttribute('onload')).toBeNull();
+    expect(root.querySelector('rect')?.getAttribute('onclick')).toBeNull();
+    expect(root.querySelector('rect')).not.toBeNull(); // real artwork stays
+  });
+
+  it('drops external links but keeps #id and embedded images', () => {
+    const root = parse(
+      '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">' +
+        '<use href="#a"/><image href="https://evil.example/x.png"/>' +
+        '<image xlink:href="data:image/png;base64,AAAA"/><a href="javascript:alert(1)"/></svg>',
+    );
+    stripActiveContent(root);
+    expect(root.querySelector('use')?.getAttribute('href')).toBe('#a');
+    expect(root.querySelectorAll('image')[0]?.getAttribute('href')).toBeNull();
+    expect(root.querySelectorAll('image')[1]?.getAttribute('xlink:href')).toMatch(
+      /^data:image\/png/,
+    );
+    expect(root.querySelector('a')?.getAttribute('href')).toBeNull();
+  });
+
+  it('scrubs @import and external url() from <style> and style attributes, keeping url(#id)', () => {
+    const root = parse(
+      '<svg xmlns="http://www.w3.org/2000/svg"><style>@import url(https://evil.example/a.css);' +
+        '.c{fill:url(#g);background:url(https://evil.example/b.png)}</style>' +
+        '<rect style="fill:url(https://evil.example/c);stroke:url(#g)"/></svg>',
+    );
+    stripActiveContent(root);
+    const css = root.querySelector('style')?.textContent ?? '';
+    expect(css).not.toMatch(/@import|evil\.example/);
+    expect(css).toContain('url(#g)');
+    const inline = root.querySelector('rect')?.getAttribute('style') ?? '';
+    expect(inline).not.toMatch(/evil\.example/);
+    expect(inline).toContain('url(#g)');
+  });
+
+  it('importSvg never leaves a script in the cleaned SVG it returns', () => {
+    const svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 856 540"><script>alert(1)</script></svg>';
+    const out = importSvg(
+      svg,
+      PAGE,
+      DocumentKind.STUDENT_ID_CARD,
+      FONTS,
+      () => ({ x: 0, y: 0, width: 1, height: 1 }),
+      () => ({ fill: '', fontSize: '', fontFamily: '', fontWeight: '400', textAnchor: 'start' }),
+    );
+    expect(out.cleanedSvg).not.toMatch(/<script/i);
+  });
+});
+
+// ---- the parts the fixture above does not exercise -----------------------------------------
+
+describe('importSvg: artboard, fonts, alignment and weight', () => {
+  const flat: Measure = () => ({ x: 0, y: 0, width: 100, height: 50 });
+  const style =
+    (over: Partial<ReturnType<StyleOf>> = {}): StyleOf =>
+    () => ({
+      fill: 'rgb(0, 0, 0)',
+      fontSize: '30px',
+      fontFamily: 'Hind Siliguri',
+      fontWeight: '400',
+      textAnchor: 'start',
+      ...over,
+    });
+  const svg = (inner: string, attrs = 'viewBox="0 0 856 540"') =>
+    `<svg xmlns="http://www.w3.org/2000/svg" ${attrs}>${inner}</svg>`;
+  const one = (over: Partial<ReturnType<StyleOf>>, key = '{{student.name}}') =>
+    importSvg(
+      svg(`<text>${key}</text>`),
+      PAGE,
+      DocumentKind.STUDENT_ID_CARD,
+      FONTS,
+      flat,
+      style(over),
+    );
+
+  it('falls back to width/height when there is no viewBox', () => {
+    const r = importSvg(
+      svg('', 'width="856" height="540"'),
+      PAGE,
+      DocumentKind.STUDENT_ID_CARD,
+      FONTS,
+      flat,
+    );
+    expect(r.warnings.aspect).toBeUndefined();
+  });
+
+  it('rejects an svg with no usable artboard', () => {
+    expect(() =>
+      importSvg(svg('', 'width="0" height="0"'), PAGE, DocumentKind.STUDENT_ID_CARD, FONTS, flat),
+    ).toThrow(SvgImportError);
+    expect(() =>
+      importSvg(svg('', 'viewBox="0 0 x y"'), PAGE, DocumentKind.STUDENT_ID_CARD, FONTS, flat),
+    ).toThrow(SvgImportError);
+  });
+
+  it('maps text-anchor to alignment', () => {
+    expect(one({ textAnchor: 'middle' }).elements[0]).toMatchObject({ align: 'center' });
+    expect(one({ textAnchor: 'end' }).elements[0]).toMatchObject({ align: 'right' });
+    expect(one({ textAnchor: 'start' }).elements[0]).toMatchObject({ align: 'left' });
+  });
+
+  it('maps font weight to the four allowed weights', () => {
+    expect(one({ fontWeight: 'bold' }).elements[0]).toMatchObject({ weight: 700 });
+    expect(one({ fontWeight: '700' }).elements[0]).toMatchObject({ weight: 700 });
+    expect(one({ fontWeight: '600' }).elements[0]).toMatchObject({ weight: 600 });
+    expect(one({ fontWeight: '500' }).elements[0]).toMatchObject({ weight: 500 });
+    expect(one({ fontWeight: 'normal' }).elements[0]).toMatchObject({ weight: 400 });
+  });
+
+  it('uses 10 pt when the size is unreadable, and clamps a huge or tiny size', () => {
+    expect(one({ fontSize: '' }).elements[0]).toMatchObject({ sizePt: 10 });
+    expect(one({ fontSize: '9000px' }).elements[0]).toMatchObject({ sizePt: 96 });
+    expect(one({ fontSize: '0.1px' }).elements[0]).toMatchObject({ sizePt: 4 });
+  });
+
+  it('takes the first family, unquoted, and treats a missing family as a fallback', () => {
+    expect(one({ fontFamily: `"Hind Siliguri", sans-serif` }).elements[0]).toMatchObject({
+      fontFamily: 'Hind Siliguri',
+    });
+    const none = one({ fontFamily: '' });
+    expect(none.elements[0]).toMatchObject({ fontFamily: 'Biddaloy Sans' });
+    expect(none.warnings.fontFallback).toEqual([{ field: 'student.name', family: '—' }]);
+  });
+
+  it('warns about a known key that is not a text field (a photo), and keeps it', () => {
+    const r = one({}, '{{student.photo}}');
+    expect(r.elements).toHaveLength(0);
+    expect(r.warnings.unknown).toEqual(['student.photo']);
+  });
+
+  it('never returns a zero-size element', () => {
+    const tiny: Measure = () => ({ x: 0, y: 0, width: 0, height: 0 });
+    const r = importSvg(
+      svg('<text>{{student.name}}</text>'),
+      PAGE,
+      DocumentKind.STUDENT_ID_CARD,
+      FONTS,
+      tiny,
+      style(),
+    );
+    expect(r.elements[0]).toMatchObject({ w: 1, h: 1 });
+  });
+});
+
+describe('toHex', () => {
+  it('handles rgba(), 6-digit hex and 3-digit hex', () => {
+    expect(toHex('rgba(1, 2, 3, 0.5)')).toBe('#010203');
+    expect(toHex('#A1B2C3')).toBe('#a1b2c3');
+    expect(toHex('  #fff ')).toBe('#ffffff');
+    expect(toHex('url(#g)')).toBe('#000000');
+  });
+});
+
+describe('domMeasure', () => {
+  const node = (ctm: object | null) =>
+    ({
+      getBBox: () => ({ x: 10, y: 20, width: 30, height: 40 }),
+      getCTM: () => ctm,
+    }) as unknown as SVGGraphicsElement;
+
+  it('returns the box as-is when there is no transform', () => {
+    expect(domMeasure(node(null))).toEqual({ x: 10, y: 20, width: 30, height: 40 });
+  });
+  it('maps the box through the transform (scale 2, translate 5,6)', () => {
+    expect(domMeasure(node({ a: 2, b: 0, c: 0, d: 2, e: 5, f: 6 }))).toEqual({
+      x: 25,
+      y: 46,
+      width: 60,
+      height: 80,
+    });
+  });
+});
+
+describe('domStyleOf', () => {
+  it('reads style from the element, falling back to attributes', () => {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', 'text') as SVGGraphicsElement;
+    el.setAttribute('text-anchor', 'end');
+    document.body.appendChild(el);
+    const s = domStyleOf(el);
+    expect(typeof s.fontSize).toBe('string');
+    expect(typeof s.fill).toBe('string');
+    el.remove();
   });
 });

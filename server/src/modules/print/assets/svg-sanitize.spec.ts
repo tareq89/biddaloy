@@ -217,4 +217,21 @@ describe('sanitizePrintSvg — rejected', () => {
   it('rejects over 10 MB', () => {
     expect(() => sanitizePrintSvg(Buffer.alloc(10 * 1024 * 1024 + 1, 32))).toThrow(/10MB/);
   });
+
+  // A file made of thousands of unclosed comment / prolog starts used to backtrack
+  // exponentially in the root check. It must be rejected quickly, not hang.
+  it('rejects a pathological prolog in linear time', () => {
+    const started = Date.now();
+    for (const chunk of ['<!--', '<?xml ', '<!DOCTYPE ']) {
+      expect(() => run(chunk.repeat(20_000))).toThrow(BadRequestException);
+    }
+    expect(Date.now() - started).toBeLessThan(1500);
+  });
+
+  it('still accepts an xml declaration, comment and doctype before <svg>', () => {
+    const svg =
+      '<?xml version="1.0"?>\n<!-- Generator: Illustrator -->\n<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "x">\n' +
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="1" height="1"/></svg>';
+    expect(() => run(svg)).not.toThrow();
+  });
 });

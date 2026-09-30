@@ -34,6 +34,11 @@ function fontFaces(fonts: PrintFont[]): string {
     .join('');
 }
 
+/** A CSS number that can only ever be a number: anything else (NaN, a string cast in) becomes 0. */
+const cssNum = (n: number) => String(Number.isFinite(Number(n)) ? Number(n) : 0);
+/** A BCP 47-ish tag only; anything else falls back to English rather than reaching an attribute. */
+const safeLang = (lang: string) => (/^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$/.test(lang) ? lang : 'en');
+
 /** The shared document shell: `@page`, sheet + calibration CSS, inlined fonts. Body is already-built HTML. */
 export function printShell(opts: {
   printer: PrintCalibration;
@@ -44,13 +49,16 @@ export function printShell(opts: {
   body: string;
 }): string {
   const { printer, fonts, lang, title, body } = opts;
-  const { widthMm: w, heightMm: h } =
-    printer.type === PrinterType.CARD ? opts.pageMm : { widthMm: 210, heightMm: 297 };
+  const page = printer.type === PrinterType.CARD ? opts.pageMm : { widthMm: 210, heightMm: 297 };
+  const w = cssNum(page.widthMm);
+  const h = cssNum(page.heightMm);
+  // Everything interpolated below is a number or escaped; `body` is markup the caller built
+  // from escaped values (see `buildPrintDocument`), the one deliberate piece of raw HTML.
   const html =
-    `<!doctype html><html lang="${esc(lang)}"><head><meta charset="utf-8"><title>${esc(title)}</title><style>` +
+    `<!doctype html><html lang="${esc(safeLang(lang))}"><head><meta charset="utf-8"><title>${esc(title)}</title><style>` +
     `@page{size:${w}mm ${h}mm;margin:0}html,body{margin:0}` +
     `.sheet{width:${w}mm;height:${h}mm;break-after:page;position:relative;overflow:hidden}` +
-    `.sheet-inner{transform:translate(${printer.offsetXMm}mm,${printer.offsetYMm}mm) scale(${printer.scale});transform-origin:0 0}` +
+    `.sheet-inner{transform:translate(${cssNum(printer.offsetXMm)}mm,${cssNum(printer.offsetYMm)}mm) scale(${cssNum(printer.scale)});transform-origin:0 0}` +
     `${fontFaces(fonts)}</style></head><body>${body}</body></html>`;
   // Guard: no network fetches when opened (Acceptance 1). `url(data:` in fonts is fine.
   if (/<img\b[^>]*\bsrc="(?!data:)/i.test(html)) throw new Error('non-data image URL');

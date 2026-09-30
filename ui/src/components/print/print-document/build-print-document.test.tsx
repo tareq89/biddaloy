@@ -3,7 +3,11 @@ import { describe, expect, it } from 'vitest';
 
 import { layoutPages } from '../template-renderer';
 
-import { buildPrintDocument, type BuildPrintDocumentInput } from './build-print-document';
+import {
+  buildPrintDocument,
+  printShell,
+  type BuildPrintDocumentInput,
+} from './build-print-document';
 
 const text = (id: string, extra: object) => ({
   id,
@@ -138,5 +142,36 @@ describe('buildPrintDocument', () => {
     expect(grouped.indexOf('Bob')).toBeLessThan(grouped.indexOf('BACKSIDE'));
     const inter = await buildPrintDocument(make());
     expect(inter.indexOf('BACKSIDE')).toBeLessThan(inter.indexOf('Bob'));
+  });
+});
+
+describe('printShell hardening', () => {
+  const opts = {
+    printer: { type: PrinterType.CARD, offsetXMm: 0, offsetYMm: 0, scale: 1 } as never,
+    pageMm: { widthMm: 85.6, heightMm: 54 },
+    fonts: [],
+    title: 'T',
+    body: '<p>x</p>',
+  };
+
+  it('a bad language tag never reaches the attribute', () => {
+    const html = printShell({ ...opts, lang: 'en"><script>alert(1)</script>' });
+    expect(html).toContain('<html lang="en">');
+    expect(html).not.toMatch(/<script/i);
+  });
+
+  it('non-finite numbers become 0 in the CSS', () => {
+    const html = printShell({
+      ...opts,
+      lang: 'bn',
+      printer: {
+        type: PrinterType.CARD,
+        offsetXMm: Number.NaN,
+        offsetYMm: 1,
+        scale: Infinity,
+      },
+    });
+    expect(html).toContain('translate(0mm,1mm) scale(0)');
+    expect(html).not.toMatch(/NaN|Infinity/);
   });
 });
