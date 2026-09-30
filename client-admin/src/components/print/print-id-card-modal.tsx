@@ -90,7 +90,10 @@ export function PrintIdCardModal({
     <Dialog open={open} onOpenChange={(next) => (next ? undefined : onCancel())}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t('picker.title')}</DialogTitle>
+          {/* This modal IS the page (the route shows nothing behind it), so its title is the page's h1. */}
+          <DialogTitle asChild>
+            <h1>{t('picker.title')}</h1>
+          </DialogTitle>
         </DialogHeader>
 
         <div role="group" aria-label={t('picker.who')} className="flex gap-2">
