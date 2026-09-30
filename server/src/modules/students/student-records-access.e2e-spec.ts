@@ -14,6 +14,9 @@ import {
   SEED_ADMIN_USER_ID,
   SEED_ADMIN_PASSWORD,
   SEED_SECTION_1_ID,
+  SEED_SECTION_2_ID,
+  SEED_CLASS_1_ID,
+  SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
 
 /**
@@ -226,6 +229,131 @@ describe('Student status + records access E2E', () => {
       await as(UserRole.ACCOUNTANT, http().patch(`/api/v1/students/${id}`))
         .send({ religion: 'Islam' })
         .expect(403);
+    });
+  });
+
+  describe('a student who has left cannot be reactivated by a generic edit', () => {
+    async function makeWithdrawnStudent(name: string) {
+      const made = await makeStudent(name);
+      await as(UserRole.ADMIN, http().post(`/api/v1/students/${made.id}/leave`))
+        .send({ type: 'WITHDRAWN', occurred_on: '2026-01-05', reason: 'Moved abroad' })
+        .expect(201);
+      expect(await studentStatus(made.id)).toBe('INACTIVE');
+      return made;
+    }
+    const enrollmentRows = async (id: string) =>
+      (
+        await dataSource.query(
+          `SELECT enrollment_status FROM enrollments WHERE student_id = $1 ORDER BY created_at`,
+          [id],
+        )
+      ).map((r: { enrollment_status: string }) => r.enrollment_status);
+
+    it('PATCH /students/:id with class_section_id is a 409 and creates no enrollment', async () => {
+      const { id } = await makeWithdrawnStudent('Section Move After Leaving');
+      const before = await enrollmentRows(id);
+
+      const res = await as(UserRole.ACCOUNTANT, http().patch(`/api/v1/students/${id}`))
+        .send({ class_section_id: SEED_SECTION_2_ID })
+        .expect(409);
+
+      expect(JSON.stringify(res.body.message)).toContain('Readmit');
+      expect(await enrollmentRows(id)).toEqual(before); // no new ACTIVE row
+      expect(before).not.toContain('ACTIVE');
+      expect(await studentStatus(id)).toBe('INACTIVE');
+    });
+
+    it('POST /enrollments for that student is a 409 and creates no enrollment', async () => {
+      const { id } = await makeWithdrawnStudent('New Enrollment After Leaving');
+      const before = await enrollmentRows(id);
+
+      const res = await as(UserRole.ACCOUNTANT, http().post('/api/v1/enrollments'))
+        .send({
+          student_id: id,
+          class_id: SEED_CLASS_1_ID,
+          section_id: SEED_SECTION_1_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        })
+        .expect(409);
+
+      expect(JSON.stringify(res.body.message)).toContain('Readmit');
+      expect(await enrollmentRows(id)).toEqual(before);
+      expect(await studentStatus(id)).toBe('INACTIVE');
+    });
+
+    it('the proper way back, POST /students/:id/readmit, still works', async () => {
+      const { id } = await makeWithdrawnStudent('Proper Readmit');
+      await as(UserRole.ADMIN, http().post(`/api/v1/students/${id}/readmit`))
+        .send({
+          occurred_on: '2026-02-01',
+          class_section_id: SEED_SECTION_1_ID,
+          reason: 'Returned',
+        })
+        .expect(201);
+      expect(await studentStatus(id)).toBe('ACTIVE');
+      expect(await eventCount(id)).toBe(2); // WITHDRAWN + READMITTED
+    });
+
+    it('an ACTIVE student can still be moved to another section by an ACCOUNTANT', async () => {
+      const { id } = await makeStudent('Ordinary Section Move');
+      const res = await as(UserRole.ACCOUNTANT, http().patch(`/api/v1/students/${id}`))
+        .send({ class_section_id: SEED_SECTION_2_ID })
+        .expect(200);
+      expect(res.body.class_section_id).toBe(SEED_SECTION_2_ID);
+      expect(await studentStatus(id)).toBe('ACTIVE');
+    });
+  });
+
+  describe('records edits: audit, empty body, tenant header', () => {
+    it('writes an audit row for the change and never copies health_notes into it', async () => {
+      const { id } = await makeStudent('Audited Records');
+
+      await as(UserRole.EXECUTIVE, http().patch(`/api/v1/students/${id}/records`))
+        .send({ religion: 'Buddhism', health_notes: 'top secret diagnosis' })
+        .expect(200);
+
+      const rows = await dataSource.query(
+        `SELECT action, performed_by_user_id, old_values, new_values
+           FROM audit_logs WHERE entity_type = 'Student' AND entity_id = $1 AND action = 'UPDATE'`,
+        [id],
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0].performed_by_user_id).toBe(SEED_ADMIN_USER_ID);
+      expect(rows[0].new_values.religion).toBe('Buddhism');
+      expect(Object.keys(rows[0].new_values)).toContain('health_notes'); // recorded as changed...
+      expect(JSON.stringify(rows[0])).not.toContain('top secret'); // ...but not the content
+    });
+
+    it('an unchanged or empty edit is a 200, not a 500, and writes no audit row', async () => {
+      const { id } = await makeStudent('Empty Records Edit');
+      await as(UserRole.EXECUTIVE, http().patch(`/api/v1/students/${id}/records`))
+        .send({})
+        .expect(200);
+      const rows = await dataSource.query(
+        `SELECT 1 FROM audit_logs WHERE entity_type = 'Student' AND entity_id = $1 AND action = 'UPDATE'`,
+        [id],
+      );
+      expect(rows).toHaveLength(0);
+    });
+
+    it('requires the X-Tenant-ID header', async () => {
+      const { id } = await makeStudent('Tenant Header');
+      await http()
+        .patch(`/api/v1/students/${id}/records`)
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Role', UserRole.EXECUTIVE)
+        .send({ religion: 'Islam' })
+        .expect(401);
+    });
+
+    it('the TEACHER role used above really exists, so its 401s are about permissions', async () => {
+      const held = await dataSource.query(
+        `SELECT role FROM user_tenants WHERE user_id = $1 AND tenant_id = $2`,
+        [SEED_ADMIN_USER_ID, TENANT_ID],
+      );
+      expect(held.map((r: { role: string }) => r.role)).toEqual(
+        expect.arrayContaining(['TEACHER', 'EXECUTIVE', 'ACCOUNTANT']),
+      );
     });
   });
 });

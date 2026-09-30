@@ -125,7 +125,7 @@ describe('EnrollmentController', () => {
   // ────────────────────────
   describe('update', () => {
     it('should call service.update with id, dto, and tenant id', async () => {
-      const dto = { enrollment_status: 'INACTIVE' as any };
+      const dto = { section_id: 'sec-1' };
       const expected = { id: 'e1', enrollment_status: 'INACTIVE' };
       service.update.mockResolvedValue(expected);
 
@@ -198,7 +198,7 @@ describe('EnrollmentController', () => {
       service.update.mockRejectedValue(new NotFoundException('Enrollment not found'));
 
       await expect(
-        controller.update('bad', { enrollment_status: 'INACTIVE' as any }, TENANT, USER, REQUEST),
+        controller.update('bad', { section_id: 'sec-1' }, TENANT, USER, REQUEST),
       ).rejects.toThrow(NotFoundException);
     });
   });
