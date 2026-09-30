@@ -34,7 +34,9 @@ describe('SurveysService', () => {
       findOne: vi.fn(async () => survey),
       save: vi.fn(async (_e: unknown, v: unknown) => v),
       count: vi.fn(async (entity: { name: string }) =>
-        entity.name === 'SurveyQuestion' ? questionRepo.count() : targetRepo.count(),
+        entity.name === 'SurveyQuestion'
+          ? (questionRepo.count as () => unknown)()
+          : (targetRepo.count as () => unknown)(),
       ),
     };
     surveyRepo.manager = {
