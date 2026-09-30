@@ -752,3 +752,32 @@ describe('student lifecycle grants [39.1.1] D22', () => {
     });
   }
 });
+
+describe('print permission grants [32.1.1]', () => {
+  const PRINT: Permission[] = [
+    Permission.PRINT_TEMPLATE_MANAGE,
+    Permission.DOCUMENT_PRINT,
+    Permission.PRINT_HISTORY_READ,
+    Permission.DOCUMENT_REVOKE,
+  ];
+  const held = (role: UserRole) => ROLE_PERMISSIONS[role].filter((p) => PRINT.includes(p));
+
+  it('ADMIN and SUPER_ADMIN hold all four', () => {
+    expect(new Set(held(UserRole.ADMIN))).toEqual(new Set(PRINT));
+    expect(new Set(held(UserRole.SUPER_ADMIN))).toEqual(new Set(PRINT));
+  });
+
+  it('ACCOUNTANT has DOCUMENT_PRINT only', () => {
+    expect(held(UserRole.ACCOUNTANT)).toEqual([Permission.DOCUMENT_PRINT]);
+  });
+
+  it('EXECUTIVE has PRINT_HISTORY_READ only', () => {
+    expect(held(UserRole.EXECUTIVE)).toEqual([Permission.PRINT_HISTORY_READ]);
+  });
+
+  it('TEACHER, PARENT and STUDENT have none', () => {
+    for (const r of [UserRole.TEACHER, UserRole.PARENT, UserRole.STUDENT]) {
+      expect(held(r)).toEqual([]);
+    }
+  });
+});
