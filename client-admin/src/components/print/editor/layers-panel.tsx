@@ -20,6 +20,8 @@ export interface LayersPanelProps {
   onRemove: (id: string) => void;
   /** -1 = one step towards the back of the list, +1 = towards the front. */
   onMove: (id: string, delta: -1 | 1) => void;
+  /** Extra info shown after a layer's name (e.g. how sharp an image will print). */
+  badgeOf?: (el: PrintElement) => React.ReactNode;
 }
 
 const ADD: Array<{ type: NewElementType; key: string }> = [
@@ -36,6 +38,7 @@ export function LayersPanel({
   onAdd,
   onRemove,
   onMove,
+  badgeOf,
 }: LayersPanelProps) {
   const { t } = useTranslation('printEditor');
   const labelOf = useElementLabel();
@@ -92,6 +95,7 @@ export function LayersPanel({
               >
                 <span className="text-xs text-muted-foreground">{t(`layers.type.${el.type}`)}</span>
                 <span className="truncate">{labelOf(el)}</span>
+                {badgeOf?.(el)}
               </button>
             </li>
           ))}
