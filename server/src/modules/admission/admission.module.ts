@@ -15,6 +15,9 @@ import { AdmissionNotificationService } from './admission-notification.service';
 import { SchoolsModule } from '../schools/schools.module';
 import { StorageModule } from '../storage/storage.module';
 import { CommunicationLog } from '../communications/entities/communication-log.entity';
+import { StudentLifecycleEvent } from '../students/entities/student-lifecycle-event.entity';
+import { AdmissionReportsService } from './admission-reports.service';
+import { AdmissionReportsController } from './admission-reports.controller';
 import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
 
 /**
@@ -32,13 +35,19 @@ import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AdmissionIntake, AdmissionApplicant, AdmissionEvaluation, CommunicationLog]),
+    TypeOrmModule.forFeature([AdmissionIntake, AdmissionApplicant, AdmissionEvaluation, CommunicationLog, StudentLifecycleEvent]),
     BullModule.registerQueue({ name: COMMUNICATIONS_QUEUE }),
     StudentModule,
     SchoolsModule,
     StorageModule,
   ],
-  controllers: [IntakeController, ApplicantReviewController, PublicAdmissionController],
-  providers: [IntakeService, ApplicantReviewService, AdmissionApplicantService, AdmissionNotificationService],
+  controllers: [IntakeController, ApplicantReviewController, PublicAdmissionController, AdmissionReportsController],
+  providers: [
+    IntakeService,
+    ApplicantReviewService,
+    AdmissionApplicantService,
+    AdmissionNotificationService,
+    AdmissionReportsService,
+  ],
 })
 export class AdmissionModule {}
