@@ -30,10 +30,11 @@ function enrollment(overrides: Partial<Record<string, unknown>> = {}) {
 }
 
 function renderTab() {
-  return renderWithProviders(
-    <EnrollmentTab studentId={STUDENT_ID} studentName="Test Student" />,
-    { locale: 'en', role: 'ADMIN', tenantId: 'tenant-1' },
-  );
+  return renderWithProviders(<EnrollmentTab studentId={STUDENT_ID} studentName="Test Student" />, {
+    locale: 'en',
+    role: 'ADMIN',
+    tenantId: 'tenant-1',
+  });
 }
 
 describe('EnrollmentTab', () => {
