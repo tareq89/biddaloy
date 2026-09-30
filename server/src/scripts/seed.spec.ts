@@ -63,7 +63,10 @@ import type { LeavePolicy } from '../modules/leave/entities/leave-policy.entity'
 import type { LeaveRecord } from '../modules/leave/entities/leave-record.entity';
 import { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
 import { ensureDemoOrganisation } from './seed.util';
-import { ensureStudentLifecycleSeed, type StudentLifecycleSeedRepositories } from './seed';
+import {
+  ensureStudentLifecycleSeed,
+  type StudentLifecycleSeedRepositories,
+} from './seed.lifecycle';
 import { SEED_LIFECYCLE_STUDENTS, SEED_TRANSFER_DESTINATION } from '../../../e2e/seed-contract';
 
 /**
