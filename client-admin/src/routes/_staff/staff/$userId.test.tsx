@@ -65,6 +65,24 @@ describe('/staff/$userId', () => {
     expect(screen.getAllByText('Active').length).toBeGreaterThan(0);
   });
 
+  it('shows the ACR and Incidents tabs to ACR_READ holders', async () => {
+    const user = userResponseFactory({ id: 'user-1', role: 'TEACHER' });
+    server.use(
+      http.get('/api/v1/users/:id', () => HttpResponse.json(user)),
+      http.get('/api/v1/teachers', () => HttpResponse.json(paginated([]))),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff/user-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    expect(await screen.findByRole('tab', { name: 'ACR' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Incidents' })).toBeTruthy();
+  });
+
   it("deep-links via ?tab= — the Permissions tab lists exactly ROLE_PERMISSIONS for the user's role, read-only", async () => {
     const user = userResponseFactory({ id: 'user-1', role: 'TEACHER' });
     server.use(

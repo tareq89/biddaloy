@@ -5,6 +5,7 @@
  * one `ListShell`/`EmptyState`, whose `<h1>` is the page's single heading.
  * Tab + filters live in the URL, same as every list in this app.
  */
+import { Permission } from '@biddaloy/shared';
 import {
   EmptyState,
   RoutePending,
@@ -13,12 +14,16 @@ import {
   TabsList,
   TabsTrigger,
 } from '@biddaloy/ui/components';
+import { useHasPermission } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute } from '@tanstack/react-router';
+import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 
+import { ReportIncidentDialog } from './-detail/report-incident-dialog';
+import { StartAcrDialog } from './-detail/start-acr-dialog';
 import { AcrRegister } from './-evaluations/acr-register';
 import { IncidentsList } from './-evaluations/incidents-list';
 
@@ -35,6 +40,10 @@ const evaluationsSearchSchema = z.object({
   type: z.string().optional().catch(undefined),
   severity: z.string().optional().catch(undefined),
   selected: z.string().optional().catch(undefined),
+  // One-shot palette flags (`action-registry.ts`): open the shared dialogs.
+  // TanStack parses `?x=1` into the number 1, so a bare z.string() would drop it.
+  reportIncident: z.union([z.string(), z.number()]).optional().catch(undefined),
+  startAcr: z.union([z.string(), z.number()]).optional().catch(undefined),
 });
 
 export const Route = createFileRoute('/_staff/staff/evaluations')({
@@ -47,7 +56,25 @@ export const Route = createFileRoute('/_staff/staff/evaluations')({
 function EvaluationsPage() {
   const { t } = useTranslation('evaluations');
   const { tab = 'acr' } = Route.useSearch();
+  const search = Route.useSearch();
   const navigate = Route.useNavigate();
+  const canWrite = useHasPermission(Permission.ACR_WRITE);
+  const [reportOpen, setReportOpen] = React.useState(false);
+  const [startOpen, setStartOpen] = React.useState(false);
+
+  // Consume the palette's one-shot flags, same pattern as fees/fines.
+  React.useEffect(() => {
+    if (!search.reportIncident && !search.startAcr) return;
+    if (canWrite) {
+      if (search.reportIncident) setReportOpen(true);
+      if (search.startAcr) setStartOpen(true);
+    }
+    void navigate({
+      search: (prev) => ({ ...prev, reportIncident: undefined, startAcr: undefined }),
+      replace: true,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- consume once per flag
+  }, [search.reportIncident, search.startAcr]);
 
   return (
     <Tabs
@@ -78,6 +105,12 @@ function EvaluationsPage() {
       <TabsContent value="incidents">
         <IncidentsList />
       </TabsContent>
+      {canWrite && (
+        <>
+          <ReportIncidentDialog open={reportOpen} onOpenChange={setReportOpen} />
+          <StartAcrDialog open={startOpen} onOpenChange={setStartOpen} />
+        </>
+      )}
     </Tabs>
   );
 }

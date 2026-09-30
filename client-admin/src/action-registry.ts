@@ -170,18 +170,27 @@ export const ACTIONS: readonly PaletteAction[] = [
     context: ['student'],
     run: (ctx) => ctx.navigate({ to: '/fees/fines' }),
   },
-  // [28.3.2/D22] Start an ACR. `run()` carries no staff/year prefill and the
-  // start dialog (register, 28.3.3) has no route yet, so this lands on the
-  // staff list — pick the person, open their ACR tab. `ACR_WRITE` is
-  // stricter than that route's USER_READ gate on purpose (see
-  // `ROUTE_PERMISSION_EXCEPTIONS` in `action-registry.test.ts`).
+  // [28.3.2/D22, 28.4.2/U7] ACR actions have no entity id in `run()`, so they
+  // land on the evaluations page with a one-shot flag (`?startAcr=1` /
+  // `?reportIncident=1`, same shape as `fines.log`); that page opens the very
+  // same `StartAcrDialog` / `ReportIncidentDialog` the staff tabs use, with a
+  // staff picker since no staff member is in context. `ACR_WRITE` is stricter
+  // than the route's ACR_READ gate on purpose (see `ROUTE_PERMISSION_EXCEPTIONS`).
   {
     id: 'acr.start',
     label: { en: 'Start ACR', bn: 'এসিআর শুরু করুন' },
     permission: Permission.ACR_WRITE,
     kind: 'modal',
     context: [],
-    run: (ctx) => ctx.navigate({ to: '/staff' }),
+    run: (ctx) => ctx.navigate({ to: '/staff/evaluations?startAcr=1' }),
+  },
+  {
+    id: 'incidents.report',
+    label: { en: 'Report an incident', bn: 'ঘটনা জানান' },
+    permission: Permission.ACR_WRITE,
+    kind: 'modal',
+    context: [],
+    run: (ctx) => ctx.navigate({ to: '/staff/evaluations?reportIncident=1' }),
   },
   {
     id: 'students.add',
