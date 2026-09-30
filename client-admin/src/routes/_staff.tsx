@@ -199,6 +199,7 @@ function StaffLayout() {
     class: useEntityLabel('class', { count: 2 }),
     academicYear: useEntityLabel('academicYear', { count: 2 }),
     invoice: useEntityLabel('invoice', { count: 2 }),
+    exam: useEntityLabel('exam', { count: 2 }),
   };
 
   function resolveLabel(label: StaffNavLabel, namespace: 'items' | 'groups'): string {
