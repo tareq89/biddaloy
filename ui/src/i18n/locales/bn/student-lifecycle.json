@@ -1,0 +1,39 @@
+{
+  "leave": {
+    "title": "স্কুল ছাড়ার তথ্য লিখুন",
+    "description": "{{name}} স্কুল ছেড়ে যাচ্ছে, তা লিখে রাখুন।",
+    "duesWarning": "এই শিক্ষার্থীর {{amount}} বকেয়া আছে। তবু আপনি স্কুল ছাড়ার তথ্য লিখতে পারবেন।",
+    "typeLabel": "ছাড়ার ধরন",
+    "type": {
+      "WITHDRAWN": "নাম কাটা হয়েছে",
+      "TRANSFERRED_OUT": "অন্য স্কুলে গেছে",
+      "GRADUATED": "পড়া শেষ করেছে"
+    },
+    "dateLabel": "তারিখ",
+    "destinationLabel": "নতুন স্কুল",
+    "reasonLabel": "কারণ",
+    "remarkLabel": "মন্তব্য (ইচ্ছা হলে)",
+    "confirm": "সংরক্ষণ করুন",
+    "saving": "সংরক্ষণ হচ্ছে..."
+  },
+  "readmit": {
+    "title": "আবার ভর্তি করুন",
+    "description": "{{name}}-কে আবার স্কুলে ভর্তি করুন।",
+    "dateLabel": "তারিখ",
+    "classLabel": "শ্রেণি",
+    "classPlaceholder": "শ্রেণি বেছে নিন",
+    "sectionLabel": "শাখা",
+    "sectionPlaceholder": "শাখা বেছে নিন",
+    "reasonLabel": "কারণ (ইচ্ছা হলে)",
+    "remarkLabel": "মন্তব্য (ইচ্ছা হলে)",
+    "confirm": "ভর্তি করুন",
+    "saving": "সংরক্ষণ হচ্ছে..."
+  },
+  "errors": {
+    "dateRequired": "একটি তারিখ বেছে নিন।",
+    "dateFuture": "তারিখ আজকের পরে হতে পারবে না।",
+    "reasonRequired": "একটি কারণ লিখুন।",
+    "sectionRequired": "শ্রেণি ও শাখা বেছে নিন।",
+    "generic": "সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।"
+  }
+}
