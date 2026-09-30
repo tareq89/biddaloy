@@ -173,6 +173,14 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/fees/schedules/': [{ label: { key: 'recurringSchedules' } }],
   '/_staff/invoices/': [{ label: { entity: 'invoice' } }],
   '/_staff/reports/collections': [{ label: { key: 'collectionsReport' } }],
+  // [32.4.1] The editor is chromeless (no crumb bar), so this only sets the tab title: the template's name.
+  '/_staff/print-templates/': [{ label: { key: 'printTemplates' } }],
+  '/_staff/print-templates/$templateId/edit': [
+    { label: { key: 'printTemplates' } },
+    { label: { key: 'printTemplateEdit' }, dynamic: 'entity' },
+  ],
+  '/_staff/print/preview': [{ label: { key: 'printPreview' } }],
+  '/_staff/reports/printables': [{ label: { key: 'printables' } }],
   '/_staff/communications/send': [{ label: { key: 'sendMessage' } }],
   '/_staff/communications/reminders': [{ label: { key: 'feeReminders' } }],
   '/_staff/communications/batches/': [{ label: { key: 'reminderHistory' } }],
