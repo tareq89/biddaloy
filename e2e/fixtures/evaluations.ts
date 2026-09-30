@@ -1,29 +1,54 @@
 // [28.1.4] Body factories for the Epic 28 evaluations e2e helpers (ACR,
-// incidents, surveys). Shapes come from the shared DTOs (#1226).
-import type {
-  AcrAssessmentResponse,
-  CreateIncidentRequest,
-  CreateSurveyRequest,
-  IncidentResponse,
-  SaveAcrAssessmentRequest,
-  SurveyResponse,
-} from '@biddaloy/shared';
+// incidents, surveys). These are the WIRE shapes the server accepts (the
+// server-local DTOs), not the `@biddaloy/shared` evaluations types, which
+// disagree on field names for ACR and surveys.
+import type { CreateIncidentRequest, IncidentResponse } from '@biddaloy/shared';
 
-export type {
-  AcrAssessmentResponse as AcrResponse,
-  CreateIncidentRequest as CreateIncidentBody,
-  CreateSurveyRequest as CreateSurveyBody,
-  IncidentResponse,
-  SaveAcrAssessmentRequest as CreateAcrBody,
-  SurveyResponse,
-};
+export type { CreateIncidentRequest as CreateIncidentBody, IncidentResponse };
 
-export function acrBody(
-  staffId: string,
-  academicYearId: string,
-  over: Partial<SaveAcrAssessmentRequest> = {},
-): SaveAcrAssessmentRequest {
-  return { staffId, academicYearId, scores: [], ...over };
+export interface AcrCriterionBody {
+  block: 'BLOCK_2' | 'BLOCK_3';
+  code: string;
+  label_en: string;
+  label_bn: string;
+  sort_order: number;
+}
+export type SaveAcrCriteriaBody = { criteria: AcrCriterionBody[] };
+export interface CreateAcrBody {
+  user_id: string;
+  academic_year_id: string;
+}
+export interface AcrResponse {
+  id: string;
+  user_id: string;
+  academic_year_id: string;
+  status: 'INCOMPLETE' | 'COMPLETED';
+  total: number | null;
+  assessed_by: string;
+  scores: { criterion_id: string; score: number }[];
+}
+export interface CreateSurveyBody {
+  title: string;
+  anonymous: boolean;
+  respondent: 'STUDENTS' | 'GUARDIANS' | 'BOTH';
+  questions: { text: string; starsEnabled: boolean }[];
+  targets: { teacherId: string; subjectId: string }[];
+  minResponses?: number;
+}
+export interface SurveyResponse {
+  id: string;
+  status: 'DRAFT' | 'OPEN' | 'CLOSED';
+  title: string;
+}
+
+export function acrCriteriaBody(): SaveAcrCriteriaBody {
+  return {
+    criteria: [{ block: 'BLOCK_2', code: 'e2e', label_en: 'E2E', label_bn: 'ই২ই', sort_order: 1 }],
+  };
+}
+
+export function acrBody(userId: string, academicYearId: string): CreateAcrBody {
+  return { user_id: userId, academic_year_id: academicYearId };
 }
 
 export function incidentBody(
@@ -42,8 +67,16 @@ export function incidentBody(
 
 export function surveyBody(
   title: string,
-  academicYearId: string,
-  over: Partial<CreateSurveyRequest> = {},
-): CreateSurveyRequest {
-  return { title, respondent: 'BOTH', academicYearId, ...over };
+  teacherId: string,
+  subjectId: string,
+  over: Partial<CreateSurveyBody> = {},
+): CreateSurveyBody {
+  return {
+    title,
+    anonymous: true,
+    respondent: 'BOTH',
+    questions: [{ text: 'Clear lessons?', starsEnabled: true }],
+    targets: [{ teacherId, subjectId }],
+    ...over,
+  };
 }

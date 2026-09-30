@@ -10,6 +10,7 @@ import type {
   CreateIncidentBody,
   CreateSurveyBody,
   IncidentResponse,
+  SaveAcrCriteriaBody,
   SurveyResponse,
 } from './fixtures/evaluations';
 import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS } from './seed-contract';
@@ -913,30 +914,63 @@ export async function requestStepUpOtp(
   );
 }
 
-/** [28.1.4] `POST /evaluations/acrs`. TODO(28.2): endpoint arrives in W2;
- * path is a placeholder until then. */
+/** `PUT /acr/criteria` — saves a new ACR form version (copy-on-write). */
+export async function saveAcrCriteria(
+  request: APIRequestContext,
+  session: ApiSession,
+  body: SaveAcrCriteriaBody,
+): Promise<{ id: string | null; version: number }> {
+  return put(request, session, '/acr/criteria', body);
+}
+
+/** `POST /acr/assessments` — starts an INCOMPLETE ACR on the latest form version. */
 export async function createAcr(
   request: APIRequestContext,
   session: ApiSession,
   body: CreateAcrBody,
 ): Promise<AcrResponse> {
-  return post<AcrResponse>(request, session, '/evaluations/acrs', body);
+  return post<AcrResponse>(request, session, '/acr/assessments', body);
 }
 
-/** [28.1.4] `POST /evaluations/incidents`. TODO(28.2): see `createAcr`. */
+/** `POST /acr/assessments/:id/complete` (assessor only, D7). */
+export async function completeAcr(
+  request: APIRequestContext,
+  session: ApiSession,
+  id: string,
+): Promise<AcrResponse> {
+  return post<AcrResponse>(request, session, `/acr/assessments/${id}/complete`, {});
+}
+
+/** `POST /incidents`. */
 export async function createIncident(
   request: APIRequestContext,
   session: ApiSession,
   body: CreateIncidentBody,
 ): Promise<IncidentResponse> {
-  return post<IncidentResponse>(request, session, '/evaluations/incidents', body);
+  return post<IncidentResponse>(request, session, '/incidents', body);
 }
 
-/** [28.1.4] `POST /evaluations/surveys`. TODO(28.2): see `createAcr`. */
+/** `POST /surveys` — a DRAFT; `publishSurvey`/`closeSurvey` move it on. */
 export async function createSurvey(
   request: APIRequestContext,
   session: ApiSession,
   body: CreateSurveyBody,
 ): Promise<SurveyResponse> {
-  return post<SurveyResponse>(request, session, '/evaluations/surveys', body);
+  return post<SurveyResponse>(request, session, '/surveys', body);
+}
+
+export async function publishSurvey(
+  request: APIRequestContext,
+  session: ApiSession,
+  id: string,
+): Promise<SurveyResponse> {
+  return post<SurveyResponse>(request, session, `/surveys/${id}/publish`, {});
+}
+
+export async function closeSurvey(
+  request: APIRequestContext,
+  session: ApiSession,
+  id: string,
+): Promise<SurveyResponse> {
+  return post<SurveyResponse>(request, session, `/surveys/${id}/close`, {});
 }

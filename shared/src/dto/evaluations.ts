@@ -1,3 +1,4 @@
+// UI: prefer generated API types (ui/src/api/schema.d.ts); these are not the wire shapes.
 /** Epic 28.0 response/request shapes. Plain types; server DTO classes implement them. */
 import type {
   AcrCriterionBlock,
