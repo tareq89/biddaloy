@@ -48,7 +48,9 @@
     "shiftLabel": "Shift",
     "allShifts": "All shifts",
     "versionLabel": "Version",
-    "allVersions": "All versions"
+    "allVersions": "All versions",
+    "printIdCards": "Print ID cards ({{count}})",
+    "printWholeClass": "Print ID cards for whole {{name}}"
   },
   "sendReminderDialog": {
     "title": "Send reminder",
@@ -72,7 +74,8 @@
       "collectFees": "Collect fees",
       "sendReminder": "Send reminder",
       "transferStatus": "Transfer / change status",
-      "delete": "Delete"
+      "delete": "Delete",
+      "printIdCard": "Print ID card"
     },
     "tabs": {
       "overview": "Overview",
@@ -85,7 +88,8 @@
       "communication": "Communication",
       "activity": "Activity",
       "attendance": "Attendance",
-      "homework": "Homework"
+      "homework": "Homework",
+      "documents": "Documents"
     },
     "overview": {
       "dateOfBirth": "Date of birth",
@@ -380,5 +384,8 @@
     "copied": "Copied",
     "close": "Close",
     "failed": "The upload stopped. Photos sent so far were saved."
+  },
+  "documents": {
+    "historyTitle": "Printed documents"
   }
 }

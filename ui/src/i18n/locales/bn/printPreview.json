@@ -52,5 +52,26 @@
     "reprintFailed": "{{count}}টি আবার ছাপুন",
     "continue": "এগিয়ে যান",
     "recorded": "লেখা হয়েছে।"
+  },
+  "picker": {
+    "title": "আইডি কার্ড প্রিন্ট",
+    "who": "কার জন্য?",
+    "type": {
+      "STUDENT": "শিক্ষার্থী",
+      "STAFF": "কর্মী"
+    },
+    "search": "নাম দিয়ে খুঁজুন",
+    "results": "ফলাফল",
+    "selected_one": "{{count}} জন বাছাই করা হয়েছে",
+    "selected_other": "{{count}} জন বাছাই করা হয়েছে",
+    "wholeSection": "অথবা পুরো শাখা প্রিন্ট করুন",
+    "class": "শ্রেণি",
+    "classPlaceholder": "শ্রেণি বাছুন",
+    "section": "শাখা",
+    "sectionPlaceholder": "শাখা বাছুন",
+    "cancel": "বাতিল",
+    "printSection": "পুরো শাখা প্রিন্ট করুন",
+    "continue_one": "{{count}} জনকে নিয়ে এগিয়ে যান",
+    "continue_other": "{{count}} জনকে নিয়ে এগিয়ে যান"
   }
 }
