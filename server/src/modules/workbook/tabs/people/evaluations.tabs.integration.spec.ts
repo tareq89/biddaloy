@@ -37,9 +37,8 @@ import { usersTab } from './users.tab';
  * natural keys.
  *
  * Also pins a deliberate rule: a row whose author is a SUPER_ADMIN-only user
- * (who `usersTab.load` never exports) is left out of the export, together
- * with its children, rather than written with a blank ref that would abort
- * the restore.
+ * (who `usersTab.load` never exports) makes the export fail loudly, naming
+ * the tab and row, rather than silently dropping data from the backup.
  */
 describe('ACR / incidents / surveys tabs (integration)', () => {
   let module: TestingModule;
@@ -94,13 +93,21 @@ describe('ACR / incidents / surveys tabs (integration)', () => {
   async function seed() {
     await ds.query(`DELETE FROM schools WHERE id = $1`, [TENANT]);
     await ds.query(`DELETE FROM users WHERE email LIKE '%@evaltabs.test'`);
-    await ds.getRepository(School).save({ id: TENANT, name: 'Eval School', slug: 'eval-tabs-1228' });
+    await ds
+      .getRepository(School)
+      .save({ id: TENANT, name: 'Eval School', slug: 'eval-tabs-1228' });
 
     const mkUser = async (email: string, role: UserRole) => {
-      const u = await ds.getRepository(User).save(
-        ds.getRepository(User).create({ email, phone: null, full_name: email, password_hash: null }),
-      );
-      await ds.getRepository(UserTenant).save({ user_id: u.id, tenant_id: TENANT, role, metadata: null });
+      const u = await ds
+        .getRepository(User)
+        .save(
+          ds
+            .getRepository(User)
+            .create({ email, phone: null, full_name: email, password_hash: null }),
+        );
+      await ds
+        .getRepository(UserTenant)
+        .save({ user_id: u.id, tenant_id: TENANT, role, metadata: null });
       return u;
     };
     const staff = await mkUser(EMAIL, UserRole.TEACHER);
@@ -155,9 +162,12 @@ describe('ACR / incidents / surveys tabs (integration)', () => {
       step3_data: null,
       completed_at: new Date('2026-06-01T10:00:00.000Z'),
     });
-    await ds
-      .getRepository(AcrScore)
-      .save({ tenant_id: TENANT, assessment_id: assessment.id, criterion_id: criterion.id, score: 3 });
+    await ds.getRepository(AcrScore).save({
+      tenant_id: TENANT,
+      assessment_id: assessment.id,
+      criterion_id: criterion.id,
+      score: 3,
+    });
 
     const incidents = ds.getRepository(StaffIncident);
     await incidents.save({
@@ -169,17 +179,6 @@ describe('ACR / incidents / surveys tabs (integration)', () => {
       body: 'Kept',
       occurred_on: '2026-04-02',
     });
-    // Reported by a SUPER_ADMIN-only user: must be omitted from the export.
-    await incidents.save({
-      tenant_id: TENANT,
-      staff_user_id: staff.id,
-      reported_by: admin.id,
-      type: 'OTHER',
-      severity: 'HIGH',
-      body: 'Platform-reported',
-      occurred_on: '2026-04-03',
-    });
-
     const survey = await ds.getRepository(Survey).save({
       tenant_id: TENANT,
       title: 'Term 1',
@@ -190,12 +189,19 @@ describe('ACR / incidents / surveys tabs (integration)', () => {
       closes_at: new Date('2026-07-01T00:00:00.000Z'),
       min_responses: 5,
     });
-    const question = await ds
-      .getRepository(SurveyQuestion)
-      .save({ tenant_id: TENANT, survey_id: survey.id, sort_order: 1, text: 'Clear?', stars_enabled: true });
-    await ds
-      .getRepository(SurveyTarget)
-      .save({ tenant_id: TENANT, survey_id: survey.id, teacher_id: teacher.id, subject_id: subject.id });
+    const question = await ds.getRepository(SurveyQuestion).save({
+      tenant_id: TENANT,
+      survey_id: survey.id,
+      sort_order: 1,
+      text: 'Clear?',
+      stars_enabled: true,
+    });
+    await ds.getRepository(SurveyTarget).save({
+      tenant_id: TENANT,
+      survey_id: survey.id,
+      teacher_id: teacher.id,
+      subject_id: subject.id,
+    });
     const response = await ds.getRepository(SurveyResponse).save({
       tenant_id: TENANT,
       survey_id: survey.id,
@@ -203,9 +209,13 @@ describe('ACR / incidents / surveys tabs (integration)', () => {
       teacher_id: teacher.id,
       subject_id: subject.id,
     });
-    await ds
-      .getRepository(SurveyAnswer)
-      .save({ tenant_id: TENANT, response_id: response.id, question_id: question.id, text: 'Yes', stars: 5 });
+    await ds.getRepository(SurveyAnswer).save({
+      tenant_id: TENANT,
+      response_id: response.id,
+      question_id: question.id,
+      text: 'Yes',
+      stars: 5,
+    });
     return staff;
   }
 
@@ -213,13 +223,15 @@ describe('ACR / incidents / surveys tabs (integration)', () => {
     await seed();
     const first = await exportAll();
 
-    expect(first.sheets.get('staff_incidents')).toHaveLength(1); // SUPER_ADMIN-reported one omitted
+    expect(first.sheets.get('staff_incidents')).toHaveLength(1);
     expect(first.sheets.get('acr_scores')).toHaveLength(1);
     expect(first.sheets.get('survey_answers')).toHaveLength(1);
 
     // Wipe the ten tables for this tenant (children first).
     for (const t of [...tabs].reverse()) {
-      await ds.query(`DELETE FROM ${ds.getMetadata(t.entity).tableName} WHERE tenant_id = $1`, [TENANT]);
+      await ds.query(`DELETE FROM ${ds.getMetadata(t.entity).tableName} WHERE tenant_id = $1`, [
+        TENANT,
+      ]);
     }
 
     // Restore in order, resolving refs from the first export's key maps.
@@ -253,5 +265,20 @@ describe('ACR / incidents / surveys tabs (integration)', () => {
     const assessment = await ds.getRepository(AcrAssessment).findOneByOrFail({ tenant_id: TENANT });
     expect(assessment.total).toBe(3);
     expect(assessment.step1_data).toEqual({ a: { x: 1, y: 2 }, b: 1 });
+  });
+
+  it('fails the export loudly when an incident was reported by a SUPER_ADMIN-only user', async () => {
+    const staff = await seed();
+    const admin = await ds.getRepository(User).findOneByOrFail({ email: ADMIN_EMAIL });
+    await ds.getRepository(StaffIncident).save({
+      tenant_id: TENANT,
+      staff_user_id: staff.id,
+      reported_by: admin.id,
+      type: 'OTHER',
+      severity: 'HIGH',
+      body: 'Platform-reported',
+      occurred_on: '2026-04-03',
+    });
+    await expect(exportAll()).rejects.toThrow(/staff_incidents.*reporter/);
   });
 });

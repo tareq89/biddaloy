@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { usersTab } from './users.tab';
 import type { EntityManager } from 'typeorm';
 import { AcrAssessment } from '../../../acr/entities/acr-assessment.entity';
 import { AcrCriterion } from '../../../acr/entities/acr-criterion.entity';
@@ -75,7 +76,12 @@ describe('acr tabs', () => {
         { user: 'a@x.test', academic_year: '2026', form_version: '1', assessor: 'a@x.test' },
         keys,
       ),
-    ).toMatchObject({ total: 37, step1_data: { note: 'ok' }, step3_data: null, status: 'COMPLETED' });
+    ).toMatchObject({
+      total: 37,
+      step1_data: { note: 'ok' },
+      step3_data: null,
+      status: 'COMPLETED',
+    });
 
     const score = Object.assign(new AcrScore(), {
       id: '66666666-6666-4666-8666-666666666666',
@@ -84,12 +90,21 @@ describe('acr tabs', () => {
       score: 4,
     });
     expect(
-      roundTrip(acrScoresTab, score, { assessment: 'a@x.test|2026', criterion: '1|BLOCK_2|T1' }, keys),
+      roundTrip(
+        acrScoresTab,
+        score,
+        { assessment: 'a@x.test|2026', criterion: '1|BLOCK_2|T1' },
+        keys,
+      ),
     ).toMatchObject({ assessment_id: A, criterion_id: C, score: 4 });
   });
 
   it('upsert writes every field back onto the entity', async () => {
-    const assessment = Object.assign(new AcrAssessment(), { id: A, total: 12, status: 'INCOMPLETE' });
+    const assessment = Object.assign(new AcrAssessment(), {
+      id: A,
+      total: 12,
+      status: 'INCOMPLETE',
+    });
     const row = roundTrip(
       acrAssessmentsTab,
       Object.assign(new AcrAssessment(), {
@@ -109,7 +124,12 @@ describe('acr tabs', () => {
     );
     const m = { save: async (_t: unknown, e: unknown) => e } as unknown as EntityManager;
     const saved = await acrAssessmentsTab.upsert(row, assessment, 'tenant', m);
-    expect(saved).toMatchObject({ tenant_id: 'tenant', total: 37, status: 'COMPLETED', user_id: U });
+    expect(saved).toMatchObject({
+      tenant_id: 'tenant',
+      total: 37,
+      status: 'COMPLETED',
+      user_id: U,
+    });
   });
 
   it('an unknown ref yields a RowError naming the column', () => {
@@ -119,5 +139,15 @@ describe('acr tabs', () => {
       { tenantId: 't', ref: () => undefined, warn: () => undefined },
     );
     expect('errors' in res && res.errors.map((e) => e.column)).toEqual(['assessment', 'criterion']);
+  });
+
+  it('fails loudly when a row author is not an exportable user (e.g. SUPER_ADMIN-only)', async () => {
+    vi.spyOn(usersTab, 'load').mockResolvedValue([]);
+    const m = {
+      find: async () => [Object.assign(new AcrFormVersion(), { id: V, created_by: U, version: 1 })],
+    } as unknown as EntityManager;
+    await expect(acrFormVersionsTab.load('t', m)).rejects.toThrow(
+      new RegExp(`acr_form_versions.*${V}.*creator`),
+    );
   });
 });

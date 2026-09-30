@@ -98,16 +98,19 @@ export function createRefChildTab<E extends { id: string }>(
           stamp[r.key] = keyById.get(row[r.fk] as string) ?? '';
         }
       }
-      // A row with an unresolvable ref is not exported. The usual cause is a
-      // SUPER_ADMIN-only author (created_by / assessed_by / reported_by):
-      // `usersTab.load` leaves platform users out, so a `users` key can never
-      // exist for them, and a cell left blank would abort the whole restore.
-      // Dropping the row also drops its children (their parent key is then
-      // blank too), so the workbook stays self-consistent. Tenant isolation
-      // is unaffected: nothing outside this tenant is ever looked up.
-      return rows.filter((row) =>
-        refs.every((r) => ((row as unknown as Rec)[STAMP] as Rec)?.[r.key] !== ''),
-      );
+      // An unresolvable ref is usually a SUPER_ADMIN-only author (created_by /
+      // assessed_by / reported_by): `usersTab.load` leaves platform users out.
+      // Skipping the row silently would lose data from the backup, so fail loudly.
+      for (const row of rows as unknown as Rec[]) {
+        for (const r of refs) {
+          if ((row[STAMP] as Rec)[r.key] === '') {
+            throw new Error(
+              `Workbook export: tab "${name}" row ${String(row.id)} has a "${r.key}" (${r.fk}) that is not exportable (is it a platform SUPER_ADMIN user, or a missing parent?).`,
+            );
+          }
+        }
+      }
+      return rows;
     },
 
     toRow(entity: E, ctx: ExportContext): Rec {
