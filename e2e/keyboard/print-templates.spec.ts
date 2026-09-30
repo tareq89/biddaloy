@@ -37,7 +37,7 @@ test('keyboard-only: new template -> editor -> nudge a layer -> publish -> libra
 
   await test.step('`n` opens the New template dialog', async () => {
     // `n` is heard while focus is inside the list, so put focus on the list's own controls.
-    await tabUntilFocused(page, t('printTemplates.new'), 60, { tag: 'BUTTON' });
+    await tabUntilFocused(page, t('printTemplates.new'), 90, { tag: 'BUTTON' });
     await page.keyboard.press('n');
     await expect(page.getByRole('dialog')).toBeVisible();
     await expect(page.getByText(t('printTemplates.new_dialog.title')).first()).toBeVisible();

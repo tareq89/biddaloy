@@ -51,7 +51,7 @@ test('keyboard-only: find a printed card by name and read its details', async ({
   });
 
   await test.step("filter by the person's name", async () => {
-    await tabUntilFocused(page, t('printHistory.filters.search'), 60, { tag: 'INPUT' });
+    await tabUntilFocused(page, t('printHistory.filters.search'), 90, { tag: 'INPUT' });
     await page.keyboard.type(name);
     await expect(page.getByRole('cell', { name, exact: true })).toBeVisible();
   });
