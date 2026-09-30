@@ -133,7 +133,9 @@ test('keyboard-only: pick exam and section, arrow to Defaulted, toggle by compon
     await page.keyboard.press('Enter');
     // `useRouteFocus` focuses the new page's <h1> once the navigation and
     // its view transition settle — the signal that the page is ready.
-    await expect(page.getByRole('heading', { level: 1, name: t('nav.items.analysis') })).toBeFocused();
+    await expect(
+      page.getByRole('heading', { level: 1, name: t('nav.items.analysis') }),
+    ).toBeFocused();
   });
 
   await test.step('pick the seeded exam and section', async () => {
