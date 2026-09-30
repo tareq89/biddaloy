@@ -80,6 +80,11 @@ describe('PrintTemplatesService (integration)', () => {
       document_kind: DocumentKind.STUDENT_ID_CARD,
     });
     expect(list[0]?.current_version).toMatchObject({ id: v2.id, version: 2 });
+    // A list row has the same shape as a detail row: the library reads these (a missing
+    // `updated_at` crashed it, and a missing `current_version_id` made every draft look published).
+    expect(list[0]).toMatchObject({ current_version_id: v2.id, layout_kind: expect.any(String) });
+    expect(new Date(list[0]!.updated_at).getTime()).not.toBeNaN();
+    expect(new Date(list[0]!.created_at).getTime()).not.toBeNaN();
   });
 
   it("tenant B cannot read, publish or list tenant A's template", async () => {
