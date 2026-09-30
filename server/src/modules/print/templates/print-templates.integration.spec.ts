@@ -5,7 +5,7 @@ import { NotFoundException } from '@nestjs/common';
 import { DocumentKind, type TemplateDefinition } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
-import { SEED_ADMIN_USER_ID, SEED_TENANT_ID } from '@test/constants';
+import { SEED_ADMIN_USER_ID } from '@test/constants';
 import { AuditService } from '../../audit/audit.service';
 import { StorageService } from '../../storage/storage.service';
 import { PRINT_SUGGESTIONS } from '../suggestions/suggestions';
@@ -19,6 +19,7 @@ import { PrintTemplatesService } from './print-templates.service';
 describe('PrintTemplatesService (integration)', () => {
   let service: PrintTemplatesService;
   let ds: DataSource;
+  let tenantA: string;
   let tenantB: string;
   const put = vi.fn(async () => undefined);
   const suggestion = PRINT_SUGGESTIONS.find((s) => s.key === 'student-portrait-classic')!;
@@ -31,20 +32,25 @@ describe('PrintTemplatesService (integration)', () => {
     ]);
     service = module.get(PrintTemplatesService);
     ds = module.get(DataSource);
-    const rows = await ds.query(`INSERT INTO schools (name, slug) VALUES ($1, $2) RETURNING id`, [
-      `Print B ${randomUUID()}`,
-      `print-b-${randomUUID()}`,
-    ]);
-    tenantB = rows[0].id;
+    const school = async (tag: string) =>
+      (
+        await ds.query(`INSERT INTO schools (name, slug) VALUES ($1, $2) RETURNING id`, [
+          `Print ${tag} ${randomUUID()}`,
+          `print-${tag}-${randomUUID()}`,
+        ])
+      )[0].id as string;
+    tenantA = await school('a');
+    tenantB = await school('b');
   });
 
   afterAll(async () => {
+    // tenantA keeps its rows (audit_logs block deleting the school), like the sibling print specs; it is unique per run.
     await ds.query(`DELETE FROM schools WHERE id = $1`, [tenantB]);
     await ds.destroy();
   });
 
   it('creates from a suggestion, edits the draft, publishes twice and keeps v1 unchanged', async () => {
-    const created = await service.create(SEED_TENANT_ID, SEED_ADMIN_USER_ID, {
+    const created = await service.create(tenantA, SEED_ADMIN_USER_ID, {
       name: 'Student card',
       suggestion_key: suggestion.key,
     });
@@ -52,7 +58,7 @@ describe('PrintTemplatesService (integration)', () => {
     expect(put).toHaveBeenCalledTimes(2);
     const assets = await ds.query(
       `SELECT asset_kind, content_type FROM print_assets WHERE tenant_id = $1`,
-      [SEED_TENANT_ID],
+      [tenantA],
     );
     expect(assets).toEqual([
       { asset_kind: 'ARTWORK', content_type: 'image/svg+xml' },
@@ -61,22 +67,22 @@ describe('PrintTemplatesService (integration)', () => {
     expect(created.is_default).toBe(true);
     expect(created.current_version_id).toBeNull();
 
-    const v1 = await service.publish(SEED_TENANT_ID, SEED_ADMIN_USER_ID, created.id);
-    const detail = await service.findOne(SEED_TENANT_ID, created.id);
+    const v1 = await service.publish(tenantA, SEED_ADMIN_USER_ID, created.id);
+    const detail = await service.findOne(tenantA, created.id);
     expect(detail.current_version?.version).toBe(1);
 
     const draft: TemplateDefinition = structuredClone(detail.draft);
     draft.copyLabel = { text: 'Duplicate {n}' };
-    await service.update(SEED_TENANT_ID, SEED_ADMIN_USER_ID, created.id, { draft });
-    const v2 = await service.publish(SEED_TENANT_ID, SEED_ADMIN_USER_ID, created.id);
+    await service.update(tenantA, SEED_ADMIN_USER_ID, created.id, { draft });
+    const v2 = await service.publish(tenantA, SEED_ADMIN_USER_ID, created.id);
 
     expect([v1.version, v2.version]).toEqual([1, 2]);
-    const versions = await service.listVersions(SEED_TENANT_ID, created.id);
+    const versions = await service.listVersions(tenantA, created.id);
     expect(versions.map((v) => v.version)).toEqual([2, 1]);
     // A published version never changes after later edits and publishes.
-    const old = await service.findVersion(SEED_TENANT_ID, v1.id);
+    const old = await service.findVersion(tenantA, v1.id);
     expect(old.definition.copyLabel).toEqual({ text: 'Copy {n}' });
-    const list = await service.list(SEED_TENANT_ID, {
+    const list = await service.list(tenantA, {
       document_kind: DocumentKind.STUDENT_ID_CARD,
     });
     expect(list[0]?.current_version).toMatchObject({ id: v2.id, version: 2 });
@@ -88,7 +94,7 @@ describe('PrintTemplatesService (integration)', () => {
   });
 
   it("tenant B cannot read, publish or list tenant A's template", async () => {
-    const created = await service.create(SEED_TENANT_ID, SEED_ADMIN_USER_ID, {
+    const created = await service.create(tenantA, SEED_ADMIN_USER_ID, {
       name: 'Private',
       suggestion_key: suggestion.key,
     });

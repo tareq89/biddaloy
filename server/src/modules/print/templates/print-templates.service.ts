@@ -38,9 +38,20 @@ import type {
 const PG_UNIQUE_VIOLATION = '23505';
 const SIDES: ArtworkSide[] = ['front', 'back'];
 
-const isUniqueViolation = (e: unknown) =>
-  (e as { code?: string; driverError?: { code?: string } })?.code === PG_UNIQUE_VIOLATION ||
-  (e as { driverError?: { code?: string } })?.driverError?.code === PG_UNIQUE_VIOLATION;
+const NAME_INDEX = 'UQ_print_templates_name';
+const DEFAULT_INDEX = 'UQ_print_templates_default_per_kind';
+
+/** The violated constraint's name, or undefined when `e` is not a unique violation. */
+const uniqueViolation = (e: unknown): string | undefined => {
+  const d = ((e as { driverError?: unknown })?.driverError ?? e) as {
+    code?: string;
+    constraint?: string;
+  };
+  return d?.code === PG_UNIQUE_VIOLATION ? (d.constraint ?? '') : undefined;
+};
+
+const raceConflict = () =>
+  new ConflictException('Another template became the default at the same moment. Try again');
 
 /** [32.2.1] Template CRUD, publish (immutable versions), default and archive. Every query is tenant-scoped; a foreign id is a 404. */
 @Injectable()
@@ -172,9 +183,11 @@ export class PrintTemplatesService {
         return template;
       });
     } catch (e) {
-      if (isUniqueViolation(e)) {
+      const constraint = uniqueViolation(e);
+      if (constraint === NAME_INDEX) {
         throw new ConflictException('A template with this name already exists');
       }
+      if (constraint === DEFAULT_INDEX) throw raceConflict();
       throw e;
     }
   }
@@ -222,7 +235,7 @@ export class PrintTemplatesService {
         return saved;
       });
     } catch (e) {
-      if (isUniqueViolation(e)) {
+      if (uniqueViolation(e) === NAME_INDEX) {
         throw new ConflictException('A template with this name already exists');
       }
       throw e;
@@ -269,6 +282,15 @@ export class PrintTemplatesService {
   }
 
   async setDefault(tenantId: string, userId: string, id: string) {
+    try {
+      return await this.setDefaultTx(tenantId, userId, id);
+    } catch (e) {
+      if (uniqueViolation(e) === DEFAULT_INDEX) throw raceConflict();
+      throw e;
+    }
+  }
+
+  private setDefaultTx(tenantId: string, userId: string, id: string) {
     return this.dataSource.transaction(async (manager) => {
       const repo = manager.getRepository(PrintTemplate);
       const template = await this.load(repo, tenantId, id, true);
@@ -364,9 +386,7 @@ export class PrintTemplatesService {
   private async storeArtwork(tenantId: string, suggestion: PrintSuggestion, side: ArtworkSide) {
     const file = suggestion.artwork[side];
     const body = await readFile(join(ARTWORK_DIR, file));
-    // ponytail: tenantObjectKey has no 'svg' in its extension allowlist (storage-key.ts is outside
-    // this ticket's territory); build with 'png' to reuse its tenant/category validation, then swap.
-    const storage_key = tenantObjectKey(tenantId, 'print-artwork', 'png').replace(/\.png$/, '.svg');
+    const storage_key = tenantObjectKey(tenantId, 'print-artwork', 'svg');
     await this.storage.put(storage_key, body, 'image/svg+xml');
     return {
       asset_kind: PrintAssetKind.ARTWORK,

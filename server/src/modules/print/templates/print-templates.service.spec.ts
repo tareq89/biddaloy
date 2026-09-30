@@ -135,6 +135,33 @@ describe('PrintTemplatesService', () => {
       const { service } = setup();
       await expect(service.setDefault(TENANT, USER, ID)).rejects.toThrow(ConflictException);
     });
+
+    it('409 (not 500) when a concurrent default wins the race', async () => {
+      const { service, templateRepo } = setup({ current_version_id: 'v1' });
+      templateRepo.save.mockRejectedValueOnce({
+        driverError: { code: '23505', constraint: 'UQ_print_templates_default_per_kind' },
+      });
+      await expect(service.setDefault(TENANT, USER, ID)).rejects.toThrow(/became the default/);
+    });
+  });
+
+  describe('unique violations', () => {
+    const violation = (constraint: string) => ({ driverError: { code: '23505', constraint } });
+
+    it('update maps the name index to "already exists"', async () => {
+      const { service, templateRepo } = setup();
+      templateRepo.save.mockRejectedValueOnce(violation('UQ_print_templates_name'));
+      await expect(service.update(TENANT, USER, ID, { name: 'X' })).rejects.toThrow(
+        /already exists/,
+      );
+    });
+
+    it('update rethrows any other unique violation untouched', async () => {
+      const { service, templateRepo } = setup();
+      const other = violation('UQ_print_templates_default_per_kind');
+      templateRepo.save.mockRejectedValueOnce(other);
+      await expect(service.update(TENANT, USER, ID, { name: 'X' })).rejects.toBe(other);
+    });
   });
 
   describe('archive', () => {
