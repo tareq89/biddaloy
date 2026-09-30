@@ -58,6 +58,8 @@ export type EditorAction =
   | { type: 'SET_COPY_LABEL'; text: string | undefined }
   /** The current side's artwork. `assetId: null` removes it; `print` says whether it is printed. */
   | { type: 'SET_BACKGROUND'; assetId: string | null; print?: boolean }
+  /** An imported SVG: its cleaned artwork becomes the background AND its fields are added — ONE undo step. */
+  | { type: 'IMPORT_SVG'; assetId: string; elements: PrintElement[] }
   | { type: 'SET_SIDE'; side: EditorSide }
   | { type: 'SET_ZOOM'; zoom: number }
   | { type: 'SELECT'; id: string | null }
@@ -362,6 +364,29 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         ...state.draft,
         ...(side === 'back' ? { back: nextSide } : { front: nextSide }),
       });
+    }
+
+    case 'IMPORT_SVG': {
+      const side = state.side;
+      const target = side === 'back' ? state.draft.back : state.draft.front;
+      if (!target) return state;
+      // Fresh ids (the importer's are only unique among themselves) and page-clamped rects.
+      let draft = state.draft;
+      const added: PrintElement[] = [];
+      for (const el of action.elements) {
+        const id = newElementId({
+          ...draft,
+          front: { ...draft.front, elements: [...draft.front.elements, ...added] },
+        });
+        added.push({ ...el, id, ...clampRect(el, draft.page) });
+      }
+      const nextSide = {
+        ...target,
+        elements: [...target.elements, ...added],
+        background: { assetId: action.assetId, print: target.background?.print ?? true },
+      };
+      draft = { ...draft, ...(side === 'back' ? { back: nextSide } : { front: nextSide }) };
+      return commit(state, draft, added.at(-1)?.id ?? state.selectedId);
     }
 
     case 'SET_SIDE':
