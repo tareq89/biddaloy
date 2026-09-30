@@ -30,7 +30,7 @@ export const Route = createFileRoute('/_staff/staff/$userId_/acr/$assessmentId')
 });
 
 function AcrPending() {
-  const { t } = useTranslation('nav');
+  const { t } = useTranslation('evaluations');
   return <RoutePending variant="detail" label={t('routePending.label', { ns: 'nav' })} />;
 }
 
