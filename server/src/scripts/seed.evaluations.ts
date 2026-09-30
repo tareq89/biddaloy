@@ -119,6 +119,9 @@ export async function ensureEvaluationsSeed(
   let form = await repos.formVersionRepository.findOne({
     where: { tenant_id: tenantId, version: 1 },
   });
+  // An existing v1 may carry custom criteria that real assessments reference:
+  // never add defaults to it, only read what it has.
+  const formExisted = form !== null;
   if (!form) {
     form = await repos.formVersionRepository.save(
       repos.formVersionRepository.create({
@@ -133,7 +136,7 @@ export async function ensureEvaluationsSeed(
     let c = await repos.criterionRepository.findOne({
       where: { tenant_id: tenantId, form_version_id: form.id, code },
     });
-    if (!c) {
+    if (!c && !formExisted) {
       c = await repos.criterionRepository.save(
         repos.criterionRepository.create({
           tenant_id: tenantId,
@@ -146,7 +149,7 @@ export async function ensureEvaluationsSeed(
         }),
       );
     }
-    criteria.push(c);
+    if (c) criteria.push(c);
   }
 
   // --- ACRs: teacher COMPLETED (all 25 scored), accounts officer INCOMPLETE
@@ -157,30 +160,33 @@ export async function ensureEvaluationsSeed(
     if (existing) return;
     const scored = status === 'COMPLETED' ? criteria : criteria.slice(0, 5);
     const total = scored.reduce((sum, _c, i) => sum + seedScore(i), 0);
-    const a = await repos.assessmentRepository.save(
-      repos.assessmentRepository.create({
-        tenant_id: tenantId,
-        user_id: userId,
-        academic_year_id: year.id,
-        form_version_id: form.id,
-        status,
-        total: status === 'COMPLETED' ? total : null,
-        assessed_by: adminUserId,
-        step1_data: null,
-        step3_data: null,
-        completed_at: status === 'COMPLETED' ? new Date() : null,
-      }),
-    );
-    for (const [i, c] of scored.entries()) {
-      await repos.scoreRepository.save(
-        repos.scoreRepository.create({
+    // Parent + scores commit together, so a rerun never sees a half-written ACR.
+    await repos.assessmentRepository.manager.transaction(async (tx) => {
+      const a = await tx.getRepository(repos.assessmentRepository.target).save(
+        repos.assessmentRepository.create({
           tenant_id: tenantId,
-          assessment_id: a.id,
-          criterion_id: c.id,
-          score: seedScore(i),
+          user_id: userId,
+          academic_year_id: year.id,
+          form_version_id: form.id,
+          status,
+          total: status === 'COMPLETED' ? total : null,
+          assessed_by: adminUserId,
+          step1_data: null,
+          step3_data: null,
+          completed_at: status === 'COMPLETED' ? new Date() : null,
         }),
       );
-    }
+      for (const [i, c] of scored.entries()) {
+        await tx.getRepository(repos.scoreRepository.target).save(
+          repos.scoreRepository.create({
+            tenant_id: tenantId,
+            assessment_id: a.id,
+            criterion_id: c.id,
+            score: seedScore(i),
+          }),
+        );
+      }
+    });
   };
   await ensureAssessment(teacherUser.id, 'COMPLETED');
   await ensureAssessment(staffUser.id, 'INCOMPLETE');
@@ -288,24 +294,26 @@ export async function ensureEvaluationsSeed(
       },
     });
     if (existing) continue;
-    const response = await repos.surveyResponseRepository.save(
-      repos.surveyResponseRepository.create({
-        tenant_id: tenantId,
-        survey_id: survey.id,
-        respondent_user_id: respondent.id,
-        teacher_id: teacher.id,
-        subject_id: subject.id,
-      }),
-    );
-    await repos.surveyAnswerRepository.save(
-      repos.surveyAnswerRepository.create({
-        tenant_id: tenantId,
-        response_id: response.id,
-        question_id: question.id,
-        text: null,
-        stars: 3 + (n % 3),
-      }),
-    );
+    await repos.surveyResponseRepository.manager.transaction(async (tx) => {
+      const response = await tx.getRepository(repos.surveyResponseRepository.target).save(
+        repos.surveyResponseRepository.create({
+          tenant_id: tenantId,
+          survey_id: survey.id,
+          respondent_user_id: respondent.id,
+          teacher_id: teacher.id,
+          subject_id: subject.id,
+        }),
+      );
+      await tx.getRepository(repos.surveyAnswerRepository.target).save(
+        repos.surveyAnswerRepository.create({
+          tenant_id: tenantId,
+          response_id: response.id,
+          question_id: question.id,
+          text: null,
+          stars: 3 + (n % 3),
+        }),
+      );
+    });
   }
 
   // --- a rating on a demo student note (rows come from ensureStudentLifecycleSeed)

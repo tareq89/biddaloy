@@ -5,10 +5,13 @@ import {
   createAcr,
   createIncident,
   createSurvey,
+  createClassSection,
   createTeacher,
+  createTeacherForSection,
   currentAcademicYearId,
   get,
   patch,
+  post,
   publishSurvey,
   saveAcrCriteria,
 } from '../api';
@@ -59,14 +62,24 @@ test.describe('evaluations API', () => {
 
   test('survey: draft -> open -> closed, results hidden below N', async ({ request }) => {
     const session = await adminApiSession(request);
-    const teacher = await createTeacher(request, session, `Survey Teacher ${Date.now()}`);
-    const subjects = await get<{ id: string }[] | { data: { id: string }[] }>(
+    const chain = await createClassSection(request, session);
+    const teacher = await createTeacherForSection(
       request,
       session,
-      '/subjects',
+      `Survey Teacher ${Date.now()}`,
+      chain.sectionId,
     );
-    const subjectId = (Array.isArray(subjects) ? subjects : subjects.data)[0]?.id;
-    if (!subjectId) throw new Error('no subject seeded');
+    const subject = await post<{ id: string }>(request, session, '/subjects', {
+      code: `E2E-${Date.now().toString(36).toUpperCase()}`,
+      name_en: 'E2E Survey Subject',
+      name_bn: 'ই২ই বিষয়',
+    });
+    const subjectId = subject.id;
+    // The survey target must be a real (teacher, subject) assignment.
+    await post(request, session, `/classes/${chain.classId}/sections/${chain.sectionId}/teachers`, {
+      teacher_id: teacher.teacherId,
+      subject_id: subjectId,
+    });
     const survey = await createSurvey(
       request,
       session,

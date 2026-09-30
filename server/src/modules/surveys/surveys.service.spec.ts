@@ -28,6 +28,18 @@ describe('SurveysService', () => {
       update: vi.fn(),
       find: vi.fn(),
     };
+    // publish/update run in a transaction with a row lock; the fake manager
+    // just routes back to the same per-entity mocks.
+    const manager = {
+      findOne: vi.fn(async () => survey),
+      save: vi.fn(async (_e: unknown, v: unknown) => v),
+      count: vi.fn(async (entity: { name: string }) =>
+        entity.name === 'SurveyQuestion' ? questionRepo.count() : targetRepo.count(),
+      ),
+    };
+    surveyRepo.manager = {
+      transaction: vi.fn(async (fn: (m: unknown) => unknown) => fn(manager)),
+    } as never;
     questionRepo = { find: vi.fn(async () => []), count: vi.fn(async () => 1) };
     targetRepo = { find: vi.fn(async () => []), count: vi.fn(async () => 1) };
     tcsRepo = { findOne: vi.fn(async () => ({ id: 'tcs-1' })) };

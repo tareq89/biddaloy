@@ -9,10 +9,22 @@ import {
 } from './seed.evaluations';
 
 /** Minimal in-memory repo: findOne by equality, create, save. */
+const REGISTRY = new Map<string, FakeRepo>();
+const FAKE_MANAGER = {
+  transaction: <T>(fn: (tx: unknown) => Promise<T>) => fn(FAKE_MANAGER),
+  getRepository: (target: string) => REGISTRY.get(target),
+};
+
 class FakeRepo {
   readonly rows: Record<string, unknown>[] = [];
+  readonly manager = FAKE_MANAGER;
   private n = 0;
-  constructor(private readonly prefix: string) {}
+  constructor(private readonly prefix: string) {
+    REGISTRY.set(prefix, this);
+  }
+  get target() {
+    return this.prefix;
+  }
   findOne({ where }: { where: Record<string, unknown> }) {
     const hit = this.rows.find((r) => Object.entries(where).every(([k, v]) => r[k] === v));
     return Promise.resolve(hit ?? null);

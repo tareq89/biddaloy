@@ -169,6 +169,13 @@ export class SurveysService {
     this.assertWindow(opensAt, closesAt);
 
     await this.surveyRepo.manager.transaction(async (manager) => {
+      const locked = await manager.findOne(Survey, {
+        where: { id, tenant_id: tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!locked || locked.status !== 'DRAFT') {
+        throw new BadRequestException('Only a DRAFT survey can be edited');
+      }
       Object.assign(survey, {
         ...(dto.title !== undefined && { title: dto.title }),
         ...(dto.anonymous !== undefined && { anonymous: dto.anonymous }),
@@ -191,15 +198,26 @@ export class SurveysService {
     if (survey.closes_at && survey.closes_at <= new Date()) {
       throw new BadRequestException('closesAt is already in the past');
     }
-    const [q, t] = await Promise.all([
-      this.questionRepo.count({ where: { survey_id: id, tenant_id: tenantId } }),
-      this.targetRepo.count({ where: { survey_id: id, tenant_id: tenantId } }),
-    ]);
-    if (q === 0 || t === 0) {
-      throw new BadRequestException('A survey needs at least one question and one target');
-    }
-    survey.status = 'OPEN';
-    await this.surveyRepo.save(survey);
+    // Lock the row so a concurrent draft `update` can't swap content between
+    // validation and OPEN; `update` takes the same lock.
+    await this.surveyRepo.manager.transaction(async (manager) => {
+      const locked = await manager.findOne(Survey, {
+        where: { id, tenant_id: tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!locked || locked.status !== 'DRAFT') {
+        throw new BadRequestException('Only a DRAFT survey can be published');
+      }
+      const [q, t] = await Promise.all([
+        manager.count(SurveyQuestion, { where: { survey_id: id, tenant_id: tenantId } }),
+        manager.count(SurveyTarget, { where: { survey_id: id, tenant_id: tenantId } }),
+      ]);
+      if (q === 0 || t === 0) {
+        throw new BadRequestException('A survey needs at least one question and one target');
+      }
+      locked.status = 'OPEN';
+      await manager.save(Survey, locked);
+    });
     return this.findOne(id, tenantId);
   }
 

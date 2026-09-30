@@ -7,6 +7,7 @@ import {
   IsDateString,
   IsIn,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
@@ -22,6 +23,7 @@ export class SurveyQuestionInputDto {
   @IsString()
   @MaxLength(1000)
   @SanitizeText()
+  @IsNotEmpty()
   text: string;
 
   @IsBoolean()
@@ -41,6 +43,7 @@ export class CreateSurveyDto {
   @IsString()
   @MaxLength(200)
   @SanitizeText()
+  @IsNotEmpty()
   title: string;
 
   @IsBoolean()
@@ -83,6 +86,7 @@ export class UpdateSurveyDto {
   @IsString()
   @MaxLength(200)
   @SanitizeText()
+  @IsNotEmpty()
   title?: string;
 
   @IsOptional()
