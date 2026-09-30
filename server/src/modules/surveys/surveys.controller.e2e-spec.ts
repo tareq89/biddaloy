@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -61,7 +61,10 @@ describe('Surveys E2E', () => {
       .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
       .expect(200);
     token = login.body.access_token;
+  }, 60000);
 
+  // The global per-test truncate wipes teachers/subjects/tcs, so rebuild them before each test.
+  beforeEach(async () => {
     teacherId = randomUUID();
     await dataSource.query(
       `WITH sp AS (
@@ -85,7 +88,7 @@ describe('Surveys E2E', () => {
        VALUES ($1, $2, $3, $4, $5, NOW())`,
       [randomUUID(), teacherId, SEED_SECTION_1_ID, subjectId, SEED_TENANT_ID],
     );
-  }, 60000);
+  });
 
   afterAll(async () => {
     await app.close();
@@ -99,8 +102,8 @@ describe('Surveys E2E', () => {
     targets: [{ teacherId, subjectId }],
   });
 
-  it('TEACHER gets 403 on create', async () => {
-    await api('post', '/surveys', UserRole.TEACHER).send(body()).expect(403);
+  it('TEACHER is refused on create (RolesGuard answers 401)', async () => {
+    await api('post', '/surveys', UserRole.TEACHER).send(body()).expect(401);
   });
 
   it('ADMIN create -> publish -> close, edit blocked once OPEN', async () => {
@@ -124,6 +127,15 @@ describe('Surveys E2E', () => {
 
     const closed = await api('post', `/surveys/${id}/close`).expect(201);
     expect(closed.body.status).toBe('CLOSED');
+  });
+
+  it('400 when minResponses is below 3', async () => {
+    await api('post', '/surveys')
+      .send({ ...body(), minResponses: 2 })
+      .expect(400);
+    await api('post', '/surveys')
+      .send({ ...body(), minResponses: 3 })
+      .expect(201);
   });
 
   it('400 when a target is not a real assignment', async () => {

@@ -73,7 +73,7 @@ export class CreateSurveyDto {
 
   @IsOptional()
   @IsInt()
-  @Min(1)
+  @Min(3)
   minResponses?: number;
 }
 
@@ -119,6 +119,6 @@ export class UpdateSurveyDto {
 
   @IsOptional()
   @IsInt()
-  @Min(1)
+  @Min(3)
   minResponses?: number;
 }
