@@ -9,6 +9,7 @@
  */
 import { DocumentKind } from '@biddaloy/shared';
 import {
+  Checkbox,
   Select,
   SelectContent,
   SelectItem,
@@ -101,12 +102,11 @@ export function SampleDataBar({
       ) : null}
 
       <div className="flex items-center gap-2 text-sm">
-        <input
+        <Checkbox
           id="sample-longest"
-          type="checkbox"
           checked={longest}
           aria-describedby="sample-longest-help"
-          onChange={(e) => onLongestChange(e.target.checked)}
+          onCheckedChange={(next) => onLongestChange(next === true)}
         />
         <label htmlFor="sample-longest">{t('sample.longest')}</label>
       </div>
