@@ -23,7 +23,7 @@ function Harness({ onOpenChange }: { onOpenChange?: (open: boolean) => void }) {
   const [open, setOpen] = React.useState(false);
   return (
     <>
-      <button type="button" aria-label="open-leave" onClick={() => setOpen(true)} />
+      <button type="button" data-testid="open-leave" onClick={() => setOpen(true)} />
       <LeaveDialog
         open={open}
         onOpenChange={(next) => {
@@ -41,7 +41,7 @@ async function openDialog() {
   const view = renderWithProviders(<Harness />, { tenantId: 'tenant-1', locale: 'en' });
   await view.localeReady;
   const user = userEvent.setup();
-  await user.click(await screen.findByRole('button', { name: 'open-leave' }));
+  await user.click(await screen.findByTestId('open-leave'));
   await screen.findByRole('dialog');
   return user;
 }
@@ -80,7 +80,9 @@ describe('LeaveDialog', () => {
   it('shows the dues warning and still submits', async () => {
     server.use(
       withBalance(500),
-      http.post('/api/v1/students/s1/leave', () => HttpResponse.json({ id: 'e1' }, { status: 201 })),
+      http.post('/api/v1/students/s1/leave', () =>
+        HttpResponse.json({ id: 'e1' }, { status: 201 }),
+      ),
     );
     const onOpenChange = vi.fn();
     const view = renderWithProviders(<Harness onOpenChange={onOpenChange} />, {
@@ -89,7 +91,7 @@ describe('LeaveDialog', () => {
     });
     await view.localeReady;
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'open-leave' }));
+    await user.click(await screen.findByTestId('open-leave'));
     expect(await screen.findByText(/unpaid dues/)).toBeTruthy();
     const submit = screen.getByRole('button', { name: 'Record leaving' });
     expect((submit as HTMLButtonElement).disabled).toBe(false);
