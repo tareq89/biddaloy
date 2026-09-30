@@ -30,6 +30,8 @@ const API = '/api/v1';
 const TENANT_B = '00000000-0000-4000-8000-0000001f0001';
 const TEACHER_USER_ID = '00000000-0000-4000-8000-0000001f0010';
 const TEACHER_EMAIL = 'perf-teacher@e2e.example';
+const ACCOUNTANT_USER_ID = '00000000-0000-4000-8000-0000001f0012';
+const ACCOUNTANT_EMAIL = 'perf-accountant@e2e.example';
 const OTHER_ADMIN_ID = '00000000-0000-4000-8000-0000001f0011';
 const B_YEAR = '00000000-0000-4000-8000-0000001f0020';
 const B_CLASS = '00000000-0000-4000-8000-0000001f0030';
@@ -40,6 +42,7 @@ describe('performance (28.3.5)', () => {
   let ds: DataSource;
   let adminToken: string;
   let teacherToken: string;
+  let accountantToken: string;
   let studentId: string;
   let otherTenantStudentId: string;
   let examId: string;
@@ -106,8 +109,10 @@ describe('performance (28.3.5)', () => {
     );
     await addUser(TEACHER_USER_ID, TEACHER_EMAIL, SEED_TENANT_ID, UserRole.TEACHER);
     await addUser(OTHER_ADMIN_ID, 'perf-other@e2e.example', TENANT_B, UserRole.ADMIN);
+    await addUser(ACCOUNTANT_USER_ID, ACCOUNTANT_EMAIL, SEED_TENANT_ID, UserRole.ACCOUNTANT);
     adminToken = await login(SEED_ADMIN_EMAIL);
     teacherToken = await login(TEACHER_EMAIL);
+    accountantToken = await login(ACCOUNTANT_EMAIL);
   }, 120000);
 
   afterAll(async () => {
@@ -225,6 +230,19 @@ describe('performance (28.3.5)', () => {
       teacherToken,
       UserRole.TEACHER,
     ).expect(404);
+  });
+
+  it('role outside ADMIN/EXECUTIVE/TEACHER (ACCOUNTANT) is denied on both endpoints', async () => {
+    await as(
+      supertest(app.getHttpServer()).get(`${API}/performance/classes/${SEED_CLASS_1_ID}?${year}`),
+      accountantToken,
+      UserRole.ACCOUNTANT,
+    ).expect(401); /* RolesGuard denial */
+    await as(
+      supertest(app.getHttpServer()).get(`${API}/performance/students/${studentId}?${year}`),
+      accountantToken,
+      UserRole.ACCOUNTANT,
+    ).expect(401); /* RolesGuard denial */
   });
 
   it('ADMIN reads any class', async () => {

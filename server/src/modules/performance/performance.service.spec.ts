@@ -232,6 +232,16 @@ describe('PerformanceService', () => {
     await expect(service.getClassPerformance('c1', Q, teacher)).rejects.toThrow(ForbiddenException);
   });
 
+  it('non-teacher, non-tenant-wide role gets 403 without touching the teacher join', async () => {
+    // assertTeacherScope falls through to the final throw for e.g. ACCOUNTANT / PARENT.
+    for (const role of [UserRole.ACCOUNTANT, UserRole.PARENT]) {
+      await expect(service.getClassPerformance('c1', Q, { ...teacher, role })).rejects.toThrow(
+        ForbiddenException,
+      );
+    }
+    expect(sectionRepo.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
   it('student with null section is scope-checked by class', async () => {
     enrollmentRepo.findOne.mockResolvedValue({ class_id: 'c1', section_id: null });
     await service.getStudentPerformance('s1', Q, teacher);

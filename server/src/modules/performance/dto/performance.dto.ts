@@ -79,3 +79,33 @@ export class StudentPerformanceResponseDto {
   @ApiProperty() noteRatingCount!: number;
   @ApiProperty({ type: [StudentExamOutcomeDto] }) exams!: StudentExamOutcomeDto[];
 }
+
+export class StaffAcrYearDto {
+  @ApiProperty() academicYearId!: string;
+  @ApiProperty() status!: string;
+  @ApiProperty({ type: Number, nullable: true }) total!: number | null;
+}
+
+export class StaffSurveyDto {
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    description:
+      'All-time (not range-scoped). Null unless a CLOSED survey met min-N (pair and per-question); questions below min-N are left out of the average.',
+  })
+  averageStars!: number | null;
+  @ApiProperty() surveyCount!: number;
+}
+
+export class StaffPerformanceResponseDto {
+  @ApiProperty() userId!: string;
+  @ApiProperty({ type: [StaffAcrYearDto], description: 'All-time, year-over-year.' })
+  acr!: StaffAcrYearDto[];
+  @ApiProperty({ type: StaffSurveyDto }) survey!: StaffSurveyDto;
+  @ApiProperty({ description: 'All-time (not range-scoped).' }) incidentCount!: number;
+  @ApiProperty({
+    type: [ClassPerformanceResponseDto],
+    description: 'Sections whose class belongs to the requested academic year.',
+  })
+  classes!: ClassPerformanceResponseDto[];
+}

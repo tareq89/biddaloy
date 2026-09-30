@@ -12,6 +12,14 @@ import { ExamsModule } from '../exams/exams.module';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { HomeworkModule } from '../homework/homework.module';
 import { SchoolsModule } from '../schools/schools.module';
+import { Teacher } from '../academics/entities/teacher.entity';
+import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
+import { UserTenant } from '../auth/entities/user-tenant.entity';
+import { AcrModule } from '../acr/acr.module';
+import { SurveysModule } from '../surveys/surveys.module';
+import { IncidentsModule } from '../incidents/incidents.module';
+import { StaffPerformanceController } from './staff-performance.controller';
+import { StaffPerformanceService } from './staff-performance.service';
 import { PerformanceController } from './performance.controller';
 import { PerformanceService } from './performance.service';
 
@@ -30,14 +38,20 @@ import { PerformanceService } from './performance.service';
       AcademicYear,
       AcademicTerm,
       StudentNote,
+      Teacher,
+      TeacherClassSection,
+      UserTenant,
     ]),
     ExamsModule,
     AttendanceModule,
     HomeworkModule,
     SchoolsModule,
+    AcrModule,
+    SurveysModule,
+    IncidentsModule,
   ],
-  controllers: [PerformanceController],
-  providers: [PerformanceService],
+  controllers: [PerformanceController, StaffPerformanceController],
+  providers: [PerformanceService, StaffPerformanceService],
   exports: [PerformanceService],
 })
 export class PerformanceModule {}
