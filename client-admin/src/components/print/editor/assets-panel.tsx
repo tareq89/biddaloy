@@ -10,7 +10,7 @@ import {
   type TemplateDefinition,
   PrintAssetKind,
 } from '@biddaloy/shared';
-import { Button, FileUpload, Input } from '@biddaloy/ui/components';
+import { Button, Checkbox, FileUpload, Input } from '@biddaloy/ui/components';
 import { usePrintAssets, useUploadPrintAsset, type PrintAssetRow } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
@@ -80,12 +80,11 @@ export function AssetsPanel({
             <p className="truncate text-sm">{backgroundAsset.original_name}</p>
             <DpiBadge widthPx={backgroundAsset.width_px} elementWidthMm={pageWidthMm} />
             <div className="flex items-center gap-2 text-sm">
-              <input
+              <Checkbox
                 id="print-background"
-                type="checkbox"
                 checked={background.print}
                 aria-describedby="print-background-help"
-                onChange={(e) => onSetBackground(background.assetId, e.target.checked)}
+                onCheckedChange={(next) => onSetBackground(background.assetId, next === true)}
               />
               <label htmlFor="print-background">{t('assets.printBackground')}</label>
             </div>
@@ -225,11 +224,10 @@ export function AssetsPanel({
           onRemove={() => setFontFile(undefined)}
         />
         <div className="flex items-center gap-2 text-sm">
-          <input
+          <Checkbox
             id="font-rights"
-            type="checkbox"
             checked={fontRights}
-            onChange={(e) => setFontRights(e.target.checked)}
+            onCheckedChange={(next) => setFontRights(next === true)}
           />
           <label htmlFor="font-rights">{t('assets.fontRights')}</label>
         </div>
