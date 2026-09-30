@@ -129,8 +129,11 @@ What each event does to the status:
 
 Rules the server enforces (all covered by tests):
 
-- `reason` is required free text. `occurred_on` defaults to today, past dates are allowed,
-  **future dates are rejected** (there is no scheduler to apply them later).
+- **`occurred_on` is required** in both `leave` and `readmit` (`YYYY-MM-DD`). The API does **not**
+  default it; only the two dialogs pre-fill today's date. Past dates are allowed, **future dates
+  are rejected** (there is no scheduler to apply them later).
+- **`reason` is required for a leave** (free text, not an enum) but **optional for a readmit**
+  (stored as an empty string when omitted).
 - Leave closes the student's **latest-year** ACTIVE enrollment. Fee generation only looks at
   ACTIVE students, so a student who has left stops being billed. The leave dialog _warns_ about
   unpaid dues but never blocks.
@@ -166,12 +169,12 @@ with real roles.
 
 ## 5. Who can do what
 
-| Permission                      | Roles                     | Gates                                                               |
-| ------------------------------- | ------------------------- | ------------------------------------------------------------------- |
-| `STUDENT_LIFECYCLE_MANAGE`      | ADMIN, EXECUTIVE          | leave, readmit, lifecycle events, the report                        |
-| `STUDENT_NOTES_READ` / `_WRITE` | ADMIN, EXECUTIVE, TEACHER | the Notes tab (a TEACHER also needs to teach the student's section) |
-| `STUDENT_RECORDS_READ`          | ADMIN, EXECUTIVE, TEACHER | seeing `health_notes`                                               |
-| `STUDENT_RECORDS_WRITE`         | ADMIN, EXECUTIVE          | `PATCH /students/:id/records`                                       |
+| Permission                      | Roles                     | Gates                                                                                                            |
+| ------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `STUDENT_LIFECYCLE_MANAGE`      | ADMIN, EXECUTIVE          | leave, readmit, the report                                                                                       |
+| `STUDENT_NOTES_READ` / `_WRITE` | ADMIN, EXECUTIVE, TEACHER | the Notes tab (a TEACHER also needs to teach the student's section)                                              |
+| `STUDENT_RECORDS_READ`          | ADMIN, EXECUTIVE, TEACHER | seeing `health_notes` and the lifecycle history (`GET /students/:id/lifecycle-events`, the Records tab timeline) |
+| `STUDENT_RECORDS_WRITE`         | ADMIN, EXECUTIVE          | `PATCH /students/:id/records`                                                                                    |
 
 ACCOUNTANT has none of these. A role that is not in a route's role list is refused with **401**
 (for example an ACCOUNTANT or TEACHER calling `POST .../leave`).
