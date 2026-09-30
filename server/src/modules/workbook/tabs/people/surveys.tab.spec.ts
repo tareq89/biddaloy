@@ -72,7 +72,10 @@ describe('survey tabs', () => {
       min_responses: 5,
       created_at: created,
     });
-    expect(roundTrip(surveysTab, survey, {}, keys)).toMatchObject({ anonymous: true, min_responses: 5 });
+    expect(roundTrip(surveysTab, survey, {}, keys)).toMatchObject({
+      anonymous: true,
+      min_responses: 5,
+    });
 
     const question = Object.assign(new SurveyQuestion(), {
       id: Q,

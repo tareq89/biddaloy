@@ -11,7 +11,12 @@ export const staffIncidentsTab = createRefChildTab<StaffIncident>({
   entityClass: StaffIncident,
   refs: [
     { key: 'staff', fk: 'staff_user_id', tab: usersTab, label: { en: 'Staff', bn: 'কর্মী' } },
-    { key: 'reporter', fk: 'reported_by', tab: usersTab, label: { en: 'Reported by', bn: 'রিপোর্টকারী' } },
+    {
+      key: 'reporter',
+      fk: 'reported_by',
+      tab: usersTab,
+      label: { en: 'Reported by', bn: 'রিপোর্টকারী' },
+    },
   ],
   fields: [
     {
@@ -29,8 +34,18 @@ export const staffIncidentsTab = createRefChildTab<StaffIncident>({
       label: { en: 'Severity', bn: 'গুরুত্ব' },
     },
     { key: 'body', type: 'string', required: true, label: { en: 'Details', bn: 'বিবরণ' } },
-    { key: 'occurred_on', type: 'date', required: true, label: { en: 'Occurred on', bn: 'ঘটার তারিখ' } },
-    { key: 'created_at', type: 'datetime', required: true, label: { en: 'Created at', bn: 'তৈরির সময়' } },
+    {
+      key: 'occurred_on',
+      type: 'date',
+      required: true,
+      label: { en: 'Occurred on', bn: 'ঘটার তারিখ' },
+    },
+    {
+      key: 'created_at',
+      type: 'datetime',
+      required: true,
+      label: { en: 'Created at', bn: 'তৈরির সময়' },
+    },
   ],
   naturalKey: ['staff', 'occurred_on', 'type', 'created_at'],
 });

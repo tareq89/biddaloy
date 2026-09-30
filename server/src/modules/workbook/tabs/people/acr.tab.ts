@@ -21,9 +21,16 @@ export const acrFormVersionsTab = createRefChildTab<AcrFormVersion>({
   name: 'acr_form_versions',
   entityClass: AcrFormVersion,
   refs: [
-    { key: 'creator', fk: 'created_by', tab: usersTab, label: { en: 'Created by', bn: 'তৈরি করেছেন' } },
+    {
+      key: 'creator',
+      fk: 'created_by',
+      tab: usersTab,
+      label: { en: 'Created by', bn: 'তৈরি করেছেন' },
+    },
   ],
-  fields: [{ key: 'version', type: 'int', required: true, label: { en: 'Version', bn: 'সংস্করণ' } }],
+  fields: [
+    { key: 'version', type: 'int', required: true, label: { en: 'Version', bn: 'সংস্করণ' } },
+  ],
   naturalKey: ['version'],
 });
 
@@ -40,8 +47,18 @@ export const acrCriteriaTab = createRefChildTab<AcrCriterion>({
       label: { en: 'Block', bn: 'ব্লক' },
     },
     { key: 'code', type: 'string', required: true, label: { en: 'Code', bn: 'কোড' } },
-    { key: 'label_en', type: 'string', required: true, label: { en: 'Label (English)', bn: 'লেবেল (ইংরেজি)' } },
-    { key: 'label_bn', type: 'string', required: true, label: { en: 'Label (Bangla)', bn: 'লেবেল (বাংলা)' } },
+    {
+      key: 'label_en',
+      type: 'string',
+      required: true,
+      label: { en: 'Label (English)', bn: 'লেবেল (ইংরেজি)' },
+    },
+    {
+      key: 'label_bn',
+      type: 'string',
+      required: true,
+      label: { en: 'Label (Bangla)', bn: 'লেবেল (বাংলা)' },
+    },
     { key: 'sort_order', type: 'int', required: true, label: { en: 'Order', bn: 'ক্রম' } },
   ],
   naturalKey: ['form_version', 'block', 'code'],
@@ -59,7 +76,12 @@ export const acrAssessmentsTab = createRefChildTab<AcrAssessment>({
       label: { en: 'Academic year', bn: 'শিক্ষাবর্ষ' },
     },
     { ...form_version, tab: acrFormVersionsTab },
-    { key: 'assessor', fk: 'assessed_by', tab: usersTab, label: { en: 'Assessed by', bn: 'মূল্যায়নকারী' } },
+    {
+      key: 'assessor',
+      fk: 'assessed_by',
+      tab: usersTab,
+      label: { en: 'Assessed by', bn: 'মূল্যায়নকারী' },
+    },
   ],
   fields: [
     {
@@ -81,8 +103,18 @@ export const acrScoresTab = createRefChildTab<AcrScore>({
   name: 'acr_scores',
   entityClass: AcrScore,
   refs: [
-    { key: 'assessment', fk: 'assessment_id', tab: acrAssessmentsTab, label: { en: 'Assessment', bn: 'মূল্যায়ন' } },
-    { key: 'criterion', fk: 'criterion_id', tab: acrCriteriaTab, label: { en: 'Criterion', bn: 'মানদণ্ড' } },
+    {
+      key: 'assessment',
+      fk: 'assessment_id',
+      tab: acrAssessmentsTab,
+      label: { en: 'Assessment', bn: 'মূল্যায়ন' },
+    },
+    {
+      key: 'criterion',
+      fk: 'criterion_id',
+      tab: acrCriteriaTab,
+      label: { en: 'Criterion', bn: 'মানদণ্ড' },
+    },
   ],
   fields: [{ key: 'score', type: 'int', required: true, label: { en: 'Score', bn: 'স্কোর' } }],
   naturalKey: ['assessment', 'criterion'],

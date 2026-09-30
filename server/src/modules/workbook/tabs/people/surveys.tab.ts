@@ -37,15 +37,40 @@ export const surveysTab = createRefChildTab<Survey>({
     },
     { key: 'opens_at', type: 'datetime', label: { en: 'Opens at', bn: 'শুরুর সময়' } },
     { key: 'closes_at', type: 'datetime', label: { en: 'Closes at', bn: 'শেষের সময়' } },
-    { key: 'min_responses', type: 'int', required: true, label: { en: 'Min responses', bn: 'ন্যূনতম উত্তর' } },
-    { key: 'created_at', type: 'datetime', required: true, label: { en: 'Created at', bn: 'তৈরির সময়' } },
+    {
+      key: 'min_responses',
+      type: 'int',
+      required: true,
+      label: { en: 'Min responses', bn: 'ন্যূনতম উত্তর' },
+    },
+    {
+      key: 'created_at',
+      type: 'datetime',
+      required: true,
+      label: { en: 'Created at', bn: 'তৈরির সময়' },
+    },
   ],
   naturalKey: ['title', 'created_at'],
 });
 
-const survey = { key: 'survey', fk: 'survey_id', tab: surveysTab, label: { en: 'Survey', bn: 'জরিপ' } };
-const teacher = { key: 'teacher', fk: 'teacher_id', tab: teachersTab, label: { en: 'Teacher', bn: 'শিক্ষক' } };
-const subject = { key: 'subject', fk: 'subject_id', tab: subjectsTab, label: { en: 'Subject', bn: 'বিষয়' } };
+const survey = {
+  key: 'survey',
+  fk: 'survey_id',
+  tab: surveysTab,
+  label: { en: 'Survey', bn: 'জরিপ' },
+};
+const teacher = {
+  key: 'teacher',
+  fk: 'teacher_id',
+  tab: teachersTab,
+  label: { en: 'Teacher', bn: 'শিক্ষক' },
+};
+const subject = {
+  key: 'subject',
+  fk: 'subject_id',
+  tab: subjectsTab,
+  label: { en: 'Subject', bn: 'বিষয়' },
+};
 
 export const surveyQuestionsTab = createRefChildTab<SurveyQuestion>({
   name: 'survey_questions',
@@ -54,7 +79,12 @@ export const surveyQuestionsTab = createRefChildTab<SurveyQuestion>({
   fields: [
     { key: 'sort_order', type: 'int', required: true, label: { en: 'Order', bn: 'ক্রম' } },
     { key: 'text', type: 'string', required: true, label: { en: 'Question', bn: 'প্রশ্ন' } },
-    { key: 'stars_enabled', type: 'bool', required: true, label: { en: 'Stars enabled', bn: 'তারকা চালু' } },
+    {
+      key: 'stars_enabled',
+      type: 'bool',
+      required: true,
+      label: { en: 'Stars enabled', bn: 'তারকা চালু' },
+    },
   ],
   naturalKey: ['survey', 'sort_order'],
 });
@@ -72,12 +102,22 @@ export const surveyResponsesTab = createRefChildTab<SurveyResponse>({
   entityClass: SurveyResponse,
   refs: [
     survey,
-    { key: 'respondent', fk: 'respondent_user_id', tab: usersTab, label: { en: 'Respondent', bn: 'উত্তরদাতা' } },
+    {
+      key: 'respondent',
+      fk: 'respondent_user_id',
+      tab: usersTab,
+      label: { en: 'Respondent', bn: 'উত্তরদাতা' },
+    },
     teacher,
     subject,
   ],
   fields: [
-    { key: 'created_at', type: 'datetime', required: true, label: { en: 'Created at', bn: 'তৈরির সময়' } },
+    {
+      key: 'created_at',
+      type: 'datetime',
+      required: true,
+      label: { en: 'Created at', bn: 'তৈরির সময়' },
+    },
   ],
   naturalKey: ['survey', 'respondent', 'teacher', 'subject'],
 });
@@ -86,8 +126,18 @@ export const surveyAnswersTab = createRefChildTab<SurveyAnswer>({
   name: 'survey_answers',
   entityClass: SurveyAnswer,
   refs: [
-    { key: 'response', fk: 'response_id', tab: surveyResponsesTab, label: { en: 'Response', bn: 'উত্তরপত্র' } },
-    { key: 'question', fk: 'question_id', tab: surveyQuestionsTab, label: { en: 'Question', bn: 'প্রশ্ন' } },
+    {
+      key: 'response',
+      fk: 'response_id',
+      tab: surveyResponsesTab,
+      label: { en: 'Response', bn: 'উত্তরপত্র' },
+    },
+    {
+      key: 'question',
+      fk: 'question_id',
+      tab: surveyQuestionsTab,
+      label: { en: 'Question', bn: 'প্রশ্ন' },
+    },
   ],
   fields: [
     { key: 'text', type: 'string', label: { en: 'Text', bn: 'লেখা' } },

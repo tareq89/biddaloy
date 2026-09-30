@@ -62,12 +62,7 @@ export const ACR_DEFAULT_CRITERIA: readonly (readonly [Block, string, string, st
     'পদক্ষেপ গ্রহণ ও আদেশ পালনে তৎপরতা',
   ],
   ['BLOCK_2', '2.12', 'Safety awareness', 'নিরাপত্তা সচেতনতা'],
-  [
-    'BLOCK_2',
-    '2.13',
-    'Behavior towards parents and the public',
-    'অভিভাবক ও জনসাধারণের প্রতি আচরণ',
-  ],
+  ['BLOCK_2', '2.13', 'Behavior towards parents and the public', 'অভিভাবক ও জনসাধারণের প্রতি আচরণ'],
   ['BLOCK_3', '3.1', 'Professional subject based knowledge', 'বিষয়ভিত্তিক পেশাগত জ্ঞান'],
   ['BLOCK_3', '3.2', 'Interest in acquiring knowledge', 'জ্ঞান অর্জনে আগ্রহ'],
   ['BLOCK_3', '3.3', 'Skills in understanding content', 'বিষয়বস্তু বোঝার দক্ষতা'],
