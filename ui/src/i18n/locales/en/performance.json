@@ -1,0 +1,17 @@
+{
+  "title": "Performance",
+  "loading": "Loading performance…",
+  "loadError": "Couldn't load performance.",
+  "empty": "No data for this period.",
+  "passRate": "Pass rate",
+  "averageMarks": "Average marks",
+  "averageGpa": "Average GPA",
+  "attendance": "Attendance",
+  "homework": "Homework completion",
+  "homeworkAllTime": "All time, not limited to the selected period",
+  "noteRating": "Teacher note rating",
+  "surveyAverage": "Survey rating",
+  "incidents": "Incidents",
+  "acr": "ACR",
+  "notAvailable": "—"
+}
