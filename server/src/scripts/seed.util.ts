@@ -114,6 +114,7 @@ import { LeavePolicy } from '../modules/leave/entities/leave-policy.entity';
 import { LeaveRecord } from '../modules/leave/entities/leave-record.entity';
 import { PrinterProfile } from '../modules/print/entities/printer-profile.entity';
 import { PrintTemplate } from '../modules/print/entities/print-template.entity';
+import { PrintJob } from '../modules/print/entities/print-job.entity';
 import { tenantObjectKey } from '../modules/storage/storage-key';
 import sharp from 'sharp';
 
@@ -3969,4 +3970,90 @@ export async function ensurePrintDemoSeed(
     result.photos += 1;
   }
   return result;
+}
+
+/** What the print-history demo needs: the real job / history service calls (D9, D25). */
+export interface PrintHistoryDemoSeedPorts {
+  createJob(input: {
+    templateId: string;
+    subjectIds: string[];
+    printerProfileId: string;
+    batchLabel: string;
+  }): Promise<{ job_id: string; items: Array<{ item_id: string; subject_id: string }> }>;
+  confirmJob(jobId: string, failedItemIds: string[]): Promise<unknown>;
+  reprintJob(jobId: string, itemIds: string[]): Promise<{ job_id: string }>;
+  revokeItem(itemId: string, reason: string): Promise<unknown>;
+}
+
+export interface PrintHistoryDemoSeedRepositories {
+  printJobRepository: Repository<PrintJob>;
+  printTemplateRepository: Repository<PrintTemplate>;
+  printerRepository: Repository<PrinterProfile>;
+  studentRepository: Repository<Student>;
+}
+
+/** Marks the demo jobs, so a second run can tell they exist. */
+export const PRINT_DEMO_BATCH_LABEL = 'Demo';
+export const PRINT_DEMO_REVOKE_REASON = 'Card lost — replaced';
+
+/**
+ * [32.4.4] Idempotent: three demo jobs on the student template from `ensurePrintDemoSeed`,
+ * made through the real services so the history looks like real use:
+ *
+ *   job 1  5 students, all printed OK; one of them is later REVOKED ("Card lost — replaced")
+ *   job 2  2 students, the first one FAILED
+ *   job 3  the reprint of that failed card (copy 2), confirmed OK
+ *
+ * Skipped when a job labelled "Demo" already exists.
+ */
+export async function ensurePrintHistoryDemoSeed(
+  repos: PrintHistoryDemoSeedRepositories,
+  ports: PrintHistoryDemoSeedPorts,
+  params: { schoolId: string },
+): Promise<{ jobs: number; revoked: number }> {
+  const { schoolId } = params;
+  const none = { jobs: 0, revoked: 0 };
+
+  if (
+    await repos.printJobRepository.findOne({
+      where: { tenant_id: schoolId, batch_label: PRINT_DEMO_BATCH_LABEL },
+    })
+  ) {
+    return none;
+  }
+  const template = await repos.printTemplateRepository.findOne({
+    where: { tenant_id: schoolId, name: 'Student ID card' },
+  });
+  const printer = await repos.printerRepository.findOne({
+    where: { tenant_id: schoolId, name: 'Card printer' },
+  });
+  // Nothing to print with: the print demo itself did not run (e.g. no storage configured).
+  if (!template?.current_version_id || !printer) return none;
+
+  const students = await repos.studentRepository.find({
+    where: { tenant_id: schoolId },
+    order: { created_at: 'ASC', id: 'ASC' },
+    take: 7,
+  });
+  if (students.length < 7) return none;
+  const ids = students.map((s) => s.id);
+  const base = {
+    templateId: template.id,
+    printerProfileId: printer.id,
+    batchLabel: PRINT_DEMO_BATCH_LABEL,
+  };
+
+  // Job 1: all good, then one card is revoked.
+  const good = await ports.createJob({ ...base, subjectIds: ids.slice(0, 5) });
+  await ports.confirmJob(good.job_id, []);
+  await ports.revokeItem(good.items[0]!.item_id, PRINT_DEMO_REVOKE_REASON);
+
+  // Job 2: the first card failed; job 3 reprints just that one (copy 2).
+  const flawed = await ports.createJob({ ...base, subjectIds: ids.slice(5, 7) });
+  const failedItem = flawed.items[0]!;
+  await ports.confirmJob(flawed.job_id, [failedItem.item_id]);
+  const again = await ports.reprintJob(flawed.job_id, [failedItem.item_id]);
+  await ports.confirmJob(again.job_id, []);
+
+  return { jobs: 3, revoked: 1 };
 }
