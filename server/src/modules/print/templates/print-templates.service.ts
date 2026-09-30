@@ -95,10 +95,15 @@ export class PrintTemplatesService {
         id: r.id,
         name: r.name,
         document_kind: r.document_kind,
+        layout_kind: r.layout_kind,
         is_default: r.is_default,
         batch_size: r.batch_size,
+        // The same pointer the detail response carries, so a list row and a detail row have one shape.
+        current_version_id: r.current_version_id,
         current_version: v ? { id: v.id, version: v.version, published_at: v.published_at } : null,
         archived_at: r.archived_at,
+        created_at: r.created_at,
+        updated_at: r.updated_at,
       };
     });
   }
