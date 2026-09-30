@@ -59,6 +59,7 @@ import { StaffAchievement } from '../modules/staff-hr/entities/staff-achievement
 import { StaffLanguage } from '../modules/staff-hr/entities/staff-language.entity';
 import { PrinterProfile } from '../modules/print/entities/printer-profile.entity';
 import { PrintTemplate } from '../modules/print/entities/print-template.entity';
+import { PrintJob } from '../modules/print/entities/print-job.entity';
 import { StaffProfile } from '../modules/staff-profiles/entities/staff-profile.entity';
 import { StaffAttendanceSession } from '../modules/staff-attendance/entities/staff-attendance-session.entity';
 import { StaffAttendanceRecord } from '../modules/staff-attendance/entities/staff-attendance-record.entity';
@@ -81,7 +82,9 @@ import {
   ensureSeatPlanDemoSeed,
   ensureStaffHrDemoSeed,
   ensurePrintDemoSeed,
+  ensurePrintHistoryDemoSeed,
   type PrintDemoSeedPorts,
+  type PrintHistoryDemoSeedPorts,
   ensurePrintProfileDemoSeed,
   ensureSecondSchoolMembership,
   ensureStaffHrSeed,
@@ -186,7 +189,7 @@ export async function seedAccounts(
   adminEmail: string,
   passwordHash: string,
   /** Real app services for the print demo. Absent in unit tests, where the print demo is skipped. */
-  printPorts?: PrintDemoSeedPorts,
+  printPorts?: PrintDemoSeedPorts & PrintHistoryDemoSeedPorts,
 ): Promise<void> {
   // Check if the designated seed admin already exists (including soft-deleted)
   const existing = await repos.userRepository.findOne({
@@ -749,6 +752,17 @@ export async function seedAccounts(
       {
         printerRepository: manager.getRepository(PrinterProfile),
         printTemplateRepository: manager.getRepository(PrintTemplate),
+        studentRepository: repos.studentRepository,
+      },
+      printPorts,
+      { schoolId: school.id },
+    );
+    // [32.4.4] A populated history: confirmed, failed + reprinted, and revoked.
+    await ensurePrintHistoryDemoSeed(
+      {
+        printJobRepository: manager.getRepository(PrintJob),
+        printTemplateRepository: manager.getRepository(PrintTemplate),
+        printerRepository: manager.getRepository(PrinterProfile),
         studentRepository: repos.studentRepository,
       },
       printPorts,
