@@ -11,6 +11,12 @@ export interface PrintCalibration {
   scale: number;
 }
 
+/** Copy number of one card, from its `print.copyNumber` value; anything unusable means the original. */
+const copyOf = (values: Record<string, string> | undefined): number => {
+  const n = Number(values?.['print.copyNumber']);
+  return Number.isInteger(n) && n >= 1 ? n : 1;
+};
+
 const esc = (s: string) =>
   s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
@@ -87,6 +93,9 @@ export async function buildPrintDocument(input: BuildPrintDocumentInput): Promis
                   side={sheet.side}
                   values={cards[c.index] ?? {}}
                   assetUrl={assetUrl}
+                  // D23: the copy label ("Copy 2", "DUPLICATE") only shows from copy 2 on. The renderer
+                  // needs the number; the caller supplies it as `print.copyNumber` (missing = the original).
+                  copy={copyOf(cards[c.index])}
                   mode="print"
                 />,
               ) +
