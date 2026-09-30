@@ -16,6 +16,7 @@ import {
 } from '@biddaloy/shared';
 import {
   BUNDLED_PRINT_FONTS,
+  Checkbox,
   Input,
   RadioGroup,
   RadioGroupItem,
@@ -443,11 +444,12 @@ export function PropertiesPanel({
                 onCommit={(fill) => onChange({ fill })}
               />
               <div className="flex items-center gap-2 text-xs">
-                <input
+                <Checkbox
                   id={`${key}-nofill`}
-                  type="checkbox"
                   checked={element.fill === undefined}
-                  onChange={(e) => onChange({ fill: e.target.checked ? undefined : '#ffffff' })}
+                  onCheckedChange={(next) =>
+                    onChange({ fill: next === true ? undefined : '#ffffff' })
+                  }
                 />
                 <label htmlFor={`${key}-nofill`}>{t('properties.shape.noFill')}</label>
               </div>
