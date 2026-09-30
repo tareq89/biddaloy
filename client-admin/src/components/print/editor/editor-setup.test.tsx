@@ -186,7 +186,7 @@ describe('template editor: page, files and publishing', () => {
     );
 
     const box = await screen.findByRole('checkbox', { name: 'Print the background' });
-    expect((box as HTMLInputElement).checked).toBe(true);
+    expect(box.getAttribute('aria-checked')).toBe('true');
     await user.click(box);
 
     await waitFor(
