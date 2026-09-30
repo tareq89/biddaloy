@@ -158,4 +158,13 @@ describe('student profile fields', () => {
     expect(redactHealthNotes({ data: [mk()] }, false).data[0]).not.toHaveProperty('health_notes');
     expect(redactHealthNotes(mk(), true).health_notes).toBe('secret');
   });
+
+  it('redactHealthNotes also strips children nested under a guardian, alone or in a page (D14)', () => {
+    const guardian = () => ({ id: 'g', students: [{ id: 's1', health_notes: 'secret' }] });
+    expect(redactHealthNotes(guardian(), false).students[0]).not.toHaveProperty('health_notes');
+    expect(redactHealthNotes({ data: [guardian()] }, false).data[0].students[0]).not.toHaveProperty(
+      'health_notes',
+    );
+    expect(redactHealthNotes(guardian(), true).students[0].health_notes).toBe('secret');
+  });
 });

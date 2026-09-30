@@ -228,19 +228,20 @@ export class StudentController {
   // [10.4] G3 grants AC GUARDIAN_CREATE; G1 tightens E off.
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.GUARDIAN_CREATE)
-  createGuardian(
+  async createGuardian(
     @Body() dto: CreateGuardianDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
   ) {
-    return this.guardianService.create(
+    const guardian = await this.guardianService.create(
       dto,
       tenant.id,
       undefined,
       user.sub,
       requestContext(request),
     );
+    return redactHealthNotes(guardian, canReadRecords(tenant.role));
   }
 
   @Get('guardians')
@@ -248,11 +249,12 @@ export class StudentController {
   // hidden, guardians excluded from global search).
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.TEACHER)
   @RequirePermissions(Permission.GUARDIAN_READ)
-  findAllGuardians(
+  async findAllGuardians(
     @Query() query: QueryGuardianDto,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
-    return this.guardianService.findAll(query, tenant.id);
+    const page = await this.guardianService.findAll(query, tenant.id);
+    return redactHealthNotes(page, canReadRecords(tenant.role));
   }
 
   /**
@@ -268,11 +270,12 @@ export class StudentController {
     summary:
       "Read the guardian record linked to the calling PARENT's own account. Ownership comes from the JWT, never a path id.",
   })
-  findMyGuardian(
+  async findMyGuardian(
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.guardianService.findOwn(user.sub, tenant.id);
+    const guardian = await this.guardianService.findOwn(user.sub, tenant.id);
+    return redactHealthNotes(guardian, canReadRecords(tenant.role));
   }
 
   /** See the ordering note on `GET guardians/mine`. */
@@ -282,38 +285,52 @@ export class StudentController {
     summary:
       "Update the contact details on the calling PARENT's own guardian record. These are the fields fee reminders dial, so a stale number is self-fixable.",
   })
-  updateMyGuardian(
+  async updateMyGuardian(
     @Body() dto: UpdateOwnGuardianDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
   ) {
-    return this.guardianService.updateOwn(user.sub, dto, tenant.id, requestContext(request));
+    const guardian = await this.guardianService.updateOwn(
+      user.sub,
+      dto,
+      tenant.id,
+      requestContext(request),
+    );
+    return redactHealthNotes(guardian, canReadRecords(tenant.role));
   }
 
   @Get('guardians/:id')
   // [10.4] G12 — E tightened off; see findAllGuardians() above.
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.TEACHER)
   @RequirePermissions(Permission.GUARDIAN_READ)
-  findOneGuardian(
+  async findOneGuardian(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
-    return this.guardianService.findOne(id, tenant.id);
+    const guardian = await this.guardianService.findOne(id, tenant.id);
+    return redactHealthNotes(guardian, canReadRecords(tenant.role));
   }
 
   @Patch('guardians/:id')
   // [10.4] G3 grants AC GUARDIAN_UPDATE; G1 tightens E off.
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.GUARDIAN_UPDATE)
-  updateGuardian(
+  async updateGuardian(
     @Param('id') id: string,
     @Body() dto: UpdateGuardianDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
   ) {
-    return this.guardianService.update(id, dto, tenant.id, user.sub, requestContext(request));
+    const guardian = await this.guardianService.update(
+      id,
+      dto,
+      tenant.id,
+      user.sub,
+      requestContext(request),
+    );
+    return redactHealthNotes(guardian, canReadRecords(tenant.role));
   }
 
   @Delete('guardians/:id')
