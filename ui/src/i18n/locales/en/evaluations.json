@@ -103,7 +103,7 @@
     },
     "criteriaSettings": {
       "title": "ACR criteria",
-      "description": "The criteria every ACR is scored against. Drag or use the arrows to reorder.",
+      "description": "The criteria every ACR is scored against. Use the arrows to reorder.",
       "appliesToNewOnly": "Changes apply to new ACRs only. ACRs already started keep the criteria they began with.",
       "saved": "Saved as version {{version}}. Applies to new ACRs only.",
       "version": "Version {{version}}",

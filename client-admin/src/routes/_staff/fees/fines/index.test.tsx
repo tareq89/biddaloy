@@ -107,6 +107,20 @@ describe('/fees/fines', () => {
     expect(screen.getByRole('button', { name: 'Generate fines' })).toBeTruthy();
   });
 
+  it.each([
+    ['logFine', 'Log fine'],
+    ['generateFines', 'Generate fines'],
+  ])(
+    'opens the dialog from the palette flag ?%s=1 (router parses it to a number)',
+    async (flag, title) => {
+      server.use(finesHandler([]), ...referenceHandlers());
+
+      render('ADMIN', `/fees/fines?${flag}=1`);
+
+      expect(await screen.findByRole('dialog', { name: title })).toBeTruthy();
+    },
+  );
+
   it('hides Log fine / Generate fines for an EXECUTIVE (no FEE_GENERATE)', async () => {
     const fine = fineFactory({
       id: 'fine-1',

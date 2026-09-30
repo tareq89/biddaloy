@@ -60,8 +60,9 @@ const finesSearchSchema = z.object({
   // declared or `validateSearch` strips it" reasoning `dues.tsx` documents.
   selected: z.string().optional().catch(undefined),
   // Palette entry points, see this file's own header comment.
-  logFine: z.string().optional().catch(undefined),
-  generateFines: z.string().optional().catch(undefined),
+  // `z.coerce.string()`: the router parses `?logFine=1` to the number 1 (see payments/index.tsx).
+  logFine: z.coerce.string().optional().catch(undefined),
+  generateFines: z.coerce.string().optional().catch(undefined),
 });
 
 function isEditableTarget(target: EventTarget | null): boolean {
