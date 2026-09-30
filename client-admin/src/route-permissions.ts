@@ -190,4 +190,9 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // `REPORT_COLLECTIONS_READ` gate (ADMIN/ACCOUNTANT/EXECUTIVE in
   // `ROLE_PERMISSIONS`), not the broader `REPORTS_VIEW`.
   '/_staff/reports/collections': Permission.REPORT_COLLECTIONS_READ,
+  // [32.4.1] Print module: templates, preview (printing itself) and history.
+  '/_staff/print-templates/': Permission.PRINT_TEMPLATE_MANAGE,
+  '/_staff/print-templates/$templateId/edit': Permission.PRINT_TEMPLATE_MANAGE,
+  '/_staff/print/preview': Permission.DOCUMENT_PRINT,
+  '/_staff/reports/printables': Permission.PRINT_HISTORY_READ,
 };

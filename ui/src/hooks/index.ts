@@ -535,6 +535,7 @@ export {
   printerKeys,
   printHistoryKeys,
   printTemplateKeys,
+  printTemplateQueryOptions,
   printTemplatesQueryOptions,
   reprintPrintJob,
   useArchivePrinter,
