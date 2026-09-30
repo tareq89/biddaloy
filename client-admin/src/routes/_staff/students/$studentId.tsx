@@ -273,6 +273,7 @@ function StudentDetailPage() {
                     <EnrollmentTab
                       studentId={studentId}
                       studentName={studentQuery.data.full_name}
+                      enrollmentStatus={studentQuery.data.enrollment_status}
                     />
                   ),
                 },
