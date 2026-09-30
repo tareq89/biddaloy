@@ -667,6 +667,22 @@ export interface paths {
         patch: operations["StudentController_updateStudent_v1"];
         trace?: never;
     };
+    "/api/v1/students/{id}/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["StudentController_updateStudentRecords_v1"];
+        trace?: never;
+    };
     "/api/v1/guardians": {
         parameters: {
             query?: never;
@@ -6257,9 +6273,14 @@ export interface components {
             home_address?: string | null;
             /** @enum {string} */
             preferred_communication?: "SMS" | "WHATSAPP" | "EMAIL" | "PHONE_CALL" | "MESSENGER";
-            /** @enum {string} */
-            enrollment_status?: "ACTIVE" | "INACTIVE" | "TRANSFERRED" | "GRADUATED";
             guardian_ids?: string[];
+            birth_reg_no?: string | null;
+            religion?: string | null;
+            health_notes?: string | null;
+            father_name?: string | null;
+            mother_name?: string | null;
+        };
+        UpdateStudentRecordsDto: {
             birth_reg_no?: string | null;
             religion?: string | null;
             health_notes?: string | null;
@@ -6431,8 +6452,6 @@ export interface components {
             academic_year_id: string;
         };
         UpdateEnrollmentDto: {
-            /** @enum {string} */
-            enrollment_status?: "ACTIVE" | "INACTIVE" | "TRANSFERRED" | "GRADUATED";
             /** Format: uuid */
             class_id?: string;
             /** Format: uuid */
@@ -11355,6 +11374,43 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UpdateStudentDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Student"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudentController_updateStudentRecords_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateStudentRecordsDto"];
             };
         };
         responses: {
