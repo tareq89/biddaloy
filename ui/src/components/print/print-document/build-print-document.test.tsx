@@ -75,6 +75,38 @@ describe('buildPrintDocument', () => {
     expect(html).toMatch(/aria-label="QR code"[^>]*><svg /);
   });
 
+  it('shows the copy label from copy 2 on, and not on the original (D23)', async () => {
+    const withLabel = {
+      ...definition,
+      copyLabel: { text: 'Copy {n}' },
+      front: {
+        elements: [
+          ...(definition.front.elements as object[]),
+          text('c', { field: 'print.copyLabel' }),
+        ],
+      },
+    } as unknown as TemplateDefinition;
+    const printCards = [
+      { 'student.name': 'Alice', 'print.verify_qr': 'https://example.com/v/1' }, // no number = the original
+      {
+        'student.name': 'Alice',
+        'print.verify_qr': 'https://example.com/v/2',
+        'print.copyNumber': '3',
+      },
+    ];
+    const printer = { type: PrinterType.CARD, offsetXMm: 0, offsetYMm: 0, scale: 1 };
+    const html = await buildPrintDocument({
+      ...make(),
+      definition: withLabel,
+      cards: printCards,
+      printer,
+      sheets: layoutPages(withLabel.page, { type: PrinterType.CARD }, 2, ['front']),
+    });
+
+    expect(html).toContain('Copy 3');
+    expect(html.match(/Copy \d/g)).toHaveLength(1); // only the reprint carries it
+  });
+
   it('throws on a non-data image url', async () => {
     const withBg = {
       ...definition,
