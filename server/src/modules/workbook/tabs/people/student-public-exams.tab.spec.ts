@@ -79,6 +79,17 @@ describe('studentPublicExamsTab', () => {
     expect(rowOrThrow(cells).gpa).toBeNull();
   });
 
+  it('a gpa outside 0.00-5.00 yields a per-row error, not a failure later at save', () => {
+    for (const bad of ['12.50', '5.01', '-0.10']) {
+      const cells = { ...toCells(makeExam()), gpa: bad };
+      const result = tab.fromRow(cells, 4, importCtx);
+      expect((result as { errors: RowError[] }).errors[0]).toMatchObject({ column: 'gpa', row: 4 });
+    }
+    for (const ok of ['0.00', '5.00', '3.75']) {
+      expect(rowOrThrow({ ...toCells(makeExam()), gpa: ok }).gpa).toBe(ok);
+    }
+  });
+
   it('an unknown student yields a RowError naming the student column', () => {
     const cells = toCells(makeExam());
     cells.student = 'GHOST';
