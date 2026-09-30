@@ -16,7 +16,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { applyDecorators } from '@nestjs/common';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, PickType } from '@nestjs/swagger';
 import { Type, Transform } from 'class-transformer';
 import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
@@ -153,10 +153,10 @@ export class UpdateStudentDto {
   @IsEnum(CommunicationMedium)
   preferred_communication?: CommunicationMedium;
 
-  @IsOptional()
-  @IsEnum(EnrollmentStatus)
-  enrollment_status?: EnrollmentStatus;
-
+  // [39.2.1] No `enrollment_status` here on purpose. A status change must go through
+  // POST /students/:id/leave or /readmit (STUDENT_LIFECYCLE_MANAGE, mandatory reason and date,
+  // a lifecycle event, one transaction). With `forbidNonWhitelisted` a body that still sends it
+  // is rejected with a 400 instead of writing `students.enrollment_status` directly.
   @IsOptional()
   @IsArray()
   @IsUUID('4', { each: true })
@@ -177,6 +177,19 @@ export class UpdateStudentDto {
   @ProfileText(200)
   mother_name?: string | null;
 }
+
+/**
+ * [39.2.4] Body of `PATCH /students/:id/records`: the five profile fields only. A separate route
+ * (ADMIN + EXECUTIVE, STUDENT_RECORDS_WRITE) so an EXECUTIVE can edit records without being
+ * granted general student updates.
+ */
+export class UpdateStudentRecordsDto extends PickType(UpdateStudentDto, [
+  'birth_reg_no',
+  'religion',
+  'health_notes',
+  'father_name',
+  'mother_name',
+] as const) {}
 
 export class QueryStudentDto {
   @IsOptional()
