@@ -26,6 +26,8 @@ export interface StaffHrRecord {
   salary_scale: string | null;
   department: string | null;
   blood_group: string | null;
+  /** Bangla name, printed on staff ID cards (Epic 32, D49). */
+  name_bn: string | null;
   religion: string | null;
   created_at: string;
   updated_at: string;
@@ -68,6 +70,7 @@ export interface CreateStaffHrRecordInput {
   salary_scale?: string;
   department?: string;
   blood_group?: string;
+  name_bn?: string;
   religion?: string;
 }
 
@@ -78,6 +81,7 @@ export interface UpdateStaffHrRecordInput {
   salary_scale?: string | null;
   department?: string | null;
   blood_group?: string | null;
+  name_bn?: string | null;
   religion?: string | null;
 }
 

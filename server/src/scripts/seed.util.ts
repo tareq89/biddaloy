@@ -114,6 +114,11 @@ import { StaffAttendanceSession } from '../modules/staff-attendance/entities/sta
 import { StaffAttendanceRecord } from '../modules/staff-attendance/entities/staff-attendance-record.entity';
 import { LeavePolicy } from '../modules/leave/entities/leave-policy.entity';
 import { LeaveRecord } from '../modules/leave/entities/leave-record.entity';
+import { PrinterProfile } from '../modules/print/entities/printer-profile.entity';
+import { PrintTemplate } from '../modules/print/entities/print-template.entity';
+import { PrintJob } from '../modules/print/entities/print-job.entity';
+import { tenantObjectKey } from '../modules/storage/storage-key';
+import sharp from 'sharp';
 
 /** [8.9.5] manual-testing aid: gives the seed admin a *second* school
  * membership so `/select-school`'s picker actually has something to show
@@ -3890,4 +3895,285 @@ export async function ensureStaffHrDemoSeed(
     );
   }
   return result;
+}
+
+// ===========================================================================
+// [32.1.4] Print-profile demo data (Bangla names + blood groups)
+// ===========================================================================
+
+const DEMO_BANGLA_NAMES = [
+  'মোহাম্মদ রহিম উদ্দিন',
+  'ফাতেমা খাতুন',
+  'আব্দুল করিম',
+  'নাসরিন আক্তার',
+  'মো. সাকিব হাসান',
+  'সুমাইয়া ইসলাম',
+  'তানভীর আহমেদ',
+  'রুবিনা ইয়াসমিন',
+  'মাহমুদুল হাসান',
+  'জান্নাতুল ফেরদৌস',
+  'ইমরান হোসেন',
+  'আয়েশা সিদ্দিকা',
+  'শাহরিয়ার কবির',
+  'নুসরাত জাহান',
+  'আরিফ চৌধুরী',
+  'তাহমিনা বেগম',
+  'রাকিবুল ইসলাম',
+  'সাবরিনা সুলতানা',
+  'ফারুক আলম',
+  'মৌসুমী রহমান',
+];
+const DEMO_BLOOD_GROUPS = ['A+', 'B+', 'O+', 'AB+', 'A-', 'B-', 'O-', 'AB-'];
+
+export interface PrintProfileDemoSeedRepositories {
+  studentRepository: Repository<Student>;
+  /** Optional: the plain `yarn seed` does not create HR records today. */
+  staffHrRecordRepository?: Repository<StaffHrRecord>;
+}
+
+export interface PrintProfileDemoSeedResult {
+  students: number;
+  staff: number;
+}
+
+/** [32.1.4] Idempotent: fills `full_name_bn`/`blood_group` on the tenant's
+ * students and `name_bn`/`blood_group` on its staff HR records by position.
+ * Values already set are never overwritten. `photo_key` is left alone. */
+export async function ensurePrintProfileDemoSeed(
+  repos: PrintProfileDemoSeedRepositories,
+  params: { schoolId: string },
+): Promise<PrintProfileDemoSeedResult> {
+  const { schoolId } = params;
+  const result: PrintProfileDemoSeedResult = { students: 0, staff: 0 };
+
+  const students = await repos.studentRepository.find({
+    where: { tenant_id: schoolId },
+    order: { created_at: 'ASC', id: 'ASC' },
+  });
+  for (const [i, student] of students.entries()) {
+    let changed = false;
+    if (!student.full_name_bn) {
+      student.full_name_bn = DEMO_BANGLA_NAMES[i % DEMO_BANGLA_NAMES.length];
+      changed = true;
+    }
+    if (!student.blood_group) {
+      student.blood_group = DEMO_BLOOD_GROUPS[i % DEMO_BLOOD_GROUPS.length];
+      changed = true;
+    }
+    if (changed) {
+      await repos.studentRepository.save(student);
+      result.students += 1;
+    }
+  }
+
+  const hrRepo = repos.staffHrRecordRepository;
+  const hrRecords = hrRepo
+    ? await hrRepo.find({ where: { tenant_id: schoolId }, order: { created_at: 'ASC', id: 'ASC' } })
+    : [];
+  for (const [i, record] of hrRecords.entries()) {
+    let changed = false;
+    if (!record.name_bn) {
+      // Offset so staff names differ from the first students' names.
+      record.name_bn = DEMO_BANGLA_NAMES[(i + 10) % DEMO_BANGLA_NAMES.length];
+      changed = true;
+    }
+    if (!record.blood_group) {
+      record.blood_group = DEMO_BLOOD_GROUPS[i % DEMO_BLOOD_GROUPS.length];
+      changed = true;
+    }
+    if (changed) {
+      await hrRepo!.save(record);
+      result.staff += 1;
+    }
+  }
+  return result;
+}
+
+/**
+ * What the print demo needs from the running app. The seed helpers here stay free of Nest,
+ * so `seed.ts` hands in the real service calls: templates go through the same code paths
+ * as the API (artwork copied into storage, asset rows, publish, default), not a copy of the SQL.
+ */
+export interface PrintDemoSeedPorts {
+  createTemplate(suggestionKey: string, name: string): Promise<{ id: string }>;
+  publishTemplate(id: string): Promise<unknown>;
+  setDefaultTemplate(id: string): Promise<unknown>;
+  putObject(key: string, body: Buffer, contentType: string): Promise<void>;
+}
+
+export interface PrintDemoSeedRepositories {
+  printerRepository: Repository<PrinterProfile>;
+  printTemplateRepository: Repository<PrintTemplate>;
+  studentRepository: Repository<Student>;
+}
+
+export interface PrintDemoSeedResult {
+  printers: number;
+  templates: number;
+  photos: number;
+}
+
+const DEMO_PHOTO_TINTS = ['#cfe3f5', '#f5dfcf', '#d9f0d3', '#efd3f0', '#f5f0c8', '#d3eef0'];
+const DEMO_PHOTO_COUNT = 10;
+
+/** A neutral head-and-shoulders silhouette, 600x800, on a per-student tint. */
+async function demoPhotoJpeg(tint: string): Promise<Buffer> {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800">
+    <rect width="600" height="800" fill="${tint}"/>
+    <circle cx="300" cy="300" r="120" fill="#8a94a3"/>
+    <path d="M60 800 C60 560 180 500 300 500 C420 500 540 560 540 800 Z" fill="#8a94a3"/>
+  </svg>`;
+  return sharp(Buffer.from(svg)).jpeg({ quality: 85 }).toBuffer();
+}
+
+/**
+ * [32.3.11] Idempotent: two printers, a published + default student ID template, a published
+ * staff ID template, and silhouette photos for the first ~10 students, so a fresh `yarn seed`
+ * school can print ID cards straight away.
+ */
+export async function ensurePrintDemoSeed(
+  repos: PrintDemoSeedRepositories,
+  ports: PrintDemoSeedPorts,
+  params: { schoolId: string },
+): Promise<PrintDemoSeedResult> {
+  const { schoolId } = params;
+  const result: PrintDemoSeedResult = { printers: 0, templates: 0, photos: 0 };
+
+  // --- printers -------------------------------------------------------------
+  const ensurePrinter = async (name: string, type: 'CARD' | 'OFFICE', margin: string) => {
+    if (await repos.printerRepository.findOne({ where: { tenant_id: schoolId, name } })) return;
+    await repos.printerRepository.save(
+      repos.printerRepository.create({
+        tenant_id: schoolId,
+        name,
+        printer_type: type,
+        margin_top_mm: margin,
+        margin_right_mm: margin,
+        margin_bottom_mm: margin,
+        margin_left_mm: margin,
+      }),
+    );
+    result.printers += 1;
+  };
+  await ensurePrinter('Office printer (A4)', 'OFFICE', '5');
+  await ensurePrinter('Card printer', 'CARD', '0');
+
+  // --- templates ------------------------------------------------------------
+  const ensureTemplate = async (name: string, suggestionKey: string, makeDefault: boolean) => {
+    if (await repos.printTemplateRepository.findOne({ where: { tenant_id: schoolId, name } })) {
+      return;
+    }
+    const created = await ports.createTemplate(suggestionKey, name);
+    await ports.publishTemplate(created.id);
+    if (makeDefault) await ports.setDefaultTemplate(created.id);
+    result.templates += 1;
+  };
+  await ensureTemplate('Student ID card', 'student-portrait-classic', true);
+  await ensureTemplate('Staff ID card', 'staff-portrait-modern', true);
+
+  // --- student photos (same key scheme as the upload endpoint) ----------------
+  const students = await repos.studentRepository.find({
+    where: { tenant_id: schoolId },
+    order: { created_at: 'ASC', id: 'ASC' },
+    take: DEMO_PHOTO_COUNT,
+  });
+  for (const [i, student] of students.entries()) {
+    if (student.photo_key) continue;
+    const key = tenantObjectKey(schoolId, 'student-photo', 'jpg');
+    await ports.putObject(
+      key,
+      await demoPhotoJpeg(DEMO_PHOTO_TINTS[i % DEMO_PHOTO_TINTS.length]!),
+      'image/jpeg',
+    );
+    student.photo_key = key;
+    await repos.studentRepository.save(student);
+    result.photos += 1;
+  }
+  return result;
+}
+
+/** What the print-history demo needs: the real job / history service calls (D9, D25). */
+export interface PrintHistoryDemoSeedPorts {
+  createJob(input: {
+    templateId: string;
+    subjectIds: string[];
+    printerProfileId: string;
+    batchLabel: string;
+  }): Promise<{ job_id: string; items: Array<{ item_id: string; subject_id: string }> }>;
+  confirmJob(jobId: string, failedItemIds: string[]): Promise<unknown>;
+  reprintJob(jobId: string, itemIds: string[]): Promise<{ job_id: string }>;
+  revokeItem(itemId: string, reason: string): Promise<unknown>;
+}
+
+export interface PrintHistoryDemoSeedRepositories {
+  printJobRepository: Repository<PrintJob>;
+  printTemplateRepository: Repository<PrintTemplate>;
+  printerRepository: Repository<PrinterProfile>;
+  studentRepository: Repository<Student>;
+}
+
+/** Marks the demo jobs, so a second run can tell they exist. */
+export const PRINT_DEMO_BATCH_LABEL = 'Demo';
+export const PRINT_DEMO_REVOKE_REASON = 'Card lost — replaced';
+
+/**
+ * [32.4.4] Idempotent: three demo jobs on the student template from `ensurePrintDemoSeed`,
+ * made through the real services so the history looks like real use:
+ *
+ *   job 1  5 students, all printed OK; one of them is later REVOKED ("Card lost — replaced")
+ *   job 2  2 students, the first one FAILED
+ *   job 3  the reprint of that failed card (copy 2), confirmed OK
+ *
+ * Skipped when a job labelled "Demo" already exists.
+ */
+export async function ensurePrintHistoryDemoSeed(
+  repos: PrintHistoryDemoSeedRepositories,
+  ports: PrintHistoryDemoSeedPorts,
+  params: { schoolId: string },
+): Promise<{ jobs: number; revoked: number }> {
+  const { schoolId } = params;
+  const none = { jobs: 0, revoked: 0 };
+
+  if (
+    await repos.printJobRepository.findOne({
+      where: { tenant_id: schoolId, batch_label: PRINT_DEMO_BATCH_LABEL },
+    })
+  ) {
+    return none;
+  }
+  const template = await repos.printTemplateRepository.findOne({
+    where: { tenant_id: schoolId, name: 'Student ID card' },
+  });
+  const printer = await repos.printerRepository.findOne({
+    where: { tenant_id: schoolId, name: 'Card printer' },
+  });
+  // Nothing to print with: the print demo itself did not run (e.g. no storage configured).
+  if (!template?.current_version_id || !printer) return none;
+
+  const students = await repos.studentRepository.find({
+    where: { tenant_id: schoolId },
+    order: { created_at: 'ASC', id: 'ASC' },
+    take: 7,
+  });
+  if (students.length < 7) return none;
+  const ids = students.map((s) => s.id);
+  const base = {
+    templateId: template.id,
+    printerProfileId: printer.id,
+    batchLabel: PRINT_DEMO_BATCH_LABEL,
+  };
+
+  // Job 1: all good, then one card is revoked.
+  const good = await ports.createJob({ ...base, subjectIds: ids.slice(0, 5) });
+  await ports.confirmJob(good.job_id, []);
+  await ports.revokeItem(good.items[0]!.item_id, PRINT_DEMO_REVOKE_REASON);
+
+  // Job 2: the first card failed; job 3 reprints just that one (copy 2).
+  const flawed = await ports.createJob({ ...base, subjectIds: ids.slice(5, 7) });
+  const failedItem = flawed.items[0]!;
+  await ports.confirmJob(flawed.job_id, [failedItem.item_id]);
+  const again = await ports.reprintJob(flawed.job_id, [failedItem.item_id]);
+  await ports.confirmJob(again.job_id, []);
+
+  return { jobs: 3, revoked: 1 };
 }
