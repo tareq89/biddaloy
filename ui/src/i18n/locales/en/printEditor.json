@@ -237,5 +237,26 @@
     "makeDefaultBody": "There is no default template for this document type yet.",
     "makeDefault": "Make this the default",
     "notNow": "Not now"
+  },
+  "svgImport": {
+    "title": "Import from Illustrator / SVG",
+    "intro": "Write each field as its own text, like {{example}}. We place it in the design and keep the rest as the background.",
+    "choose": "Choose an SVG file",
+    "unreadable": "This file could not be read as an SVG.",
+    "none": "No {{example}} texts were found. The file will be used as the background only.",
+    "colField": "Field",
+    "colPosition": "Position",
+    "colFont": "Font",
+    "colStatus": "Status",
+    "statusOk": "OK",
+    "statusFont": "Font not available, using Biddaloy Sans",
+    "warnAspect": "Your artboard is {{svg}} mm. This template is {{page}} mm.",
+    "warnUnknown": "{{key}} is not a field of this document. It was left in the artwork.",
+    "warnMixed": "\"{{text}}\" mixes a field with other words. Put each field in its own text box.",
+    "cancel": "Cancel",
+    "import": "Import",
+    "open": "Import from Illustrator / SVG",
+    "kit": "Download design kit",
+    "kitHelp": "An empty artboard at this paper size, with guides and a how-to."
   }
 }
