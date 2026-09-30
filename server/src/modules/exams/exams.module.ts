@@ -123,6 +123,6 @@ import {
     FamilyAccessService,
     ExamSchedulesService,
   ],
-  exports: [TypeOrmModule],
+  exports: [TypeOrmModule, AnalysisService],
 })
 export class ExamsModule {}

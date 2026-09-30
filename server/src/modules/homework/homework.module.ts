@@ -95,5 +95,6 @@ import { HomeworkAnalyticsService } from './homework-analytics.service';
     SyllabusService,
     HomeworkAnalyticsService,
   ],
+  exports: [HomeworkAnalyticsService],
 })
 export class HomeworkModule {}
