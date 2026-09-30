@@ -48,6 +48,17 @@ import { FeeStructure } from '../modules/fees/entities/fee-structure.entity';
 import { RecurringSchedule } from '../modules/fees/entities/recurring-schedule.entity';
 import { RecurringScheduleStructure } from '../modules/fees/entities/recurring-schedule-structure.entity';
 import { StaffHrRecord } from '../modules/staff-hr/entities/staff-hr-record.entity';
+import { Designation } from '../modules/staff-hr/entities/designation.entity';
+import { StaffDesignationHistory } from '../modules/staff-hr/entities/staff-designation-history.entity';
+import { StaffFamilyMember } from '../modules/staff-hr/entities/staff-family-member.entity';
+import { StaffAddress } from '../modules/staff-hr/entities/staff-address.entity';
+import { StaffExperience } from '../modules/staff-hr/entities/staff-experience.entity';
+import { StaffEducation } from '../modules/staff-hr/entities/staff-education.entity';
+import { StaffTraining } from '../modules/staff-hr/entities/staff-training.entity';
+import { StaffAchievement } from '../modules/staff-hr/entities/staff-achievement.entity';
+import { StaffLanguage } from '../modules/staff-hr/entities/staff-language.entity';
+import { PrinterProfile } from '../modules/print/entities/printer-profile.entity';
+import { PrintTemplate } from '../modules/print/entities/print-template.entity';
 import { StaffProfile } from '../modules/staff-profiles/entities/staff-profile.entity';
 import { StaffAttendanceSession } from '../modules/staff-attendance/entities/staff-attendance-session.entity';
 import { StaffAttendanceRecord } from '../modules/staff-attendance/entities/staff-attendance-record.entity';
@@ -68,6 +79,9 @@ import {
   ensureRoleTestUsers,
   ensureRoutineSeed,
   ensureSeatPlanDemoSeed,
+  ensureStaffHrDemoSeed,
+  ensurePrintDemoSeed,
+  type PrintDemoSeedPorts,
   ensurePrintProfileDemoSeed,
   ensureSecondSchoolMembership,
   ensureStaffHrSeed,
@@ -171,6 +185,8 @@ export async function seedAccounts(
   school: School,
   adminEmail: string,
   passwordHash: string,
+  /** Real app services for the print demo. Absent in unit tests, where the print demo is skipped. */
+  printPorts?: PrintDemoSeedPorts,
 ): Promise<void> {
   // Check if the designated seed admin already exists (including soft-deleted)
   const existing = await repos.userRepository.findOne({
@@ -697,13 +713,46 @@ export async function seedAccounts(
     }
   }
 
-  // [32.1.4]: Bangla names + blood groups for the ID-card demos.
+  // Staff HR demo records + Bangla names/blood groups for the ID-card demos. The HR repositories
+  // come off the manager (absent in the unit-test FakeRepo), so this whole block is skipped there.
+  const manager = repos.studentRepository.manager;
+  if (manager) {
+    await ensureStaffHrDemoSeed(
+      {
+        userRepository: repos.userRepository,
+        userTenantRepository: repos.userTenantRepository,
+        designationRepository: manager.getRepository(Designation),
+        staffHrRecordRepository: manager.getRepository(StaffHrRecord),
+        staffDesignationHistoryRepository: manager.getRepository(StaffDesignationHistory),
+        staffFamilyMemberRepository: manager.getRepository(StaffFamilyMember),
+        staffAddressRepository: manager.getRepository(StaffAddress),
+        staffExperienceRepository: manager.getRepository(StaffExperience),
+        staffEducationRepository: manager.getRepository(StaffEducation),
+        staffTrainingRepository: manager.getRepository(StaffTraining),
+        staffAchievementRepository: manager.getRepository(StaffAchievement),
+        staffLanguageRepository: manager.getRepository(StaffLanguage),
+      },
+      { schoolId: school.id },
+    );
+  }
   await ensurePrintProfileDemoSeed(
     {
       studentRepository: repos.studentRepository,
-      // ponytail: HR repo via the manager (absent in FakeRepo); the plain seed creates no HR rows yet.
-      staffHrRecordRepository: repos.studentRepository.manager?.getRepository(StaffHrRecord),
+      staffHrRecordRepository: manager?.getRepository(StaffHrRecord),
     },
     { schoolId: school.id },
   );
+
+  // [32.3.11] Printers, published ID-card templates and student photos.
+  if (manager && printPorts) {
+    await ensurePrintDemoSeed(
+      {
+        printerRepository: manager.getRepository(PrinterProfile),
+        printTemplateRepository: manager.getRepository(PrintTemplate),
+        studentRepository: repos.studentRepository,
+      },
+      printPorts,
+      { schoolId: school.id },
+    );
+  }
 }
