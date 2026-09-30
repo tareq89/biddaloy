@@ -3,6 +3,7 @@
  * overflows its box, a missing photo, an empty name. Nothing is blocked outright;
  * with any issue the person must tick "Print anyway" before Print unlocks.
  */
+import { Checkbox } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
 
 export interface PreflightIssue {
@@ -43,10 +44,9 @@ export function PreflightPanel({
         ))}
       </ul>
       <label className="flex items-center gap-2 font-medium">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={acknowledged}
-          onChange={(e) => onAcknowledgedChange(e.target.checked)}
+          onCheckedChange={(next) => onAcknowledgedChange(next === true)}
         />
         {t('preflight.printAnyway')}
       </label>
