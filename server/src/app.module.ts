@@ -143,6 +143,9 @@ import { MarkGrid } from './modules/exams/entities/mark-grid.entity';
 import { Result } from './modules/exams/entities/result.entity';
 import { ResultSubject } from './modules/exams/entities/result-subject.entity';
 import { StudentSubjectChoice } from './modules/students/entities/student-subject-choice.entity';
+import { StudentLifecycleEvent } from './modules/students/entities/student-lifecycle-event.entity';
+import { StudentNote } from './modules/students/entities/student-note.entity';
+import { StudentPublicExam } from './modules/students/entities/student-public-exam.entity';
 import { AdmissionIntake } from './modules/admission/entities/admission-intake.entity';
 import { AdmissionApplicant } from './modules/admission/entities/admission-applicant.entity';
 import { AdmissionEvaluation } from './modules/admission/entities/admission-evaluation.entity';
@@ -236,6 +239,9 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             ResultSubject,
             ExamSchedule,
             StudentSubjectChoice,
+            StudentLifecycleEvent,
+            StudentNote,
+            StudentPublicExam,
             PromotionRun,
             PromotionEntry,
             Shift,

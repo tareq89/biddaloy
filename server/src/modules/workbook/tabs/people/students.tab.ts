@@ -56,6 +56,11 @@ export interface StudentRow {
   date_of_birth: string | null;
   gender: string | null;
   home_address: string | null;
+  religion: string | null;
+  birth_reg_no: string | null;
+  health_notes: string | null;
+  father_name: string | null;
+  mother_name: string | null;
   preferred_communication: CommunicationMedium;
   enrollment_status: EnrollmentStatus;
   guardian_ids: string[];
@@ -126,6 +131,31 @@ const columns: readonly ColumnSpec[] = [
     key: 'home_address',
     type: 'string',
     label: { en: 'Home address', bn: 'বাসার ঠিকানা' },
+  },
+  {
+    key: 'religion',
+    type: 'string',
+    label: { en: 'Religion', bn: 'ধর্ম' },
+  },
+  {
+    key: 'birth_reg_no',
+    type: 'string',
+    label: { en: 'Birth registration no.', bn: 'জন্মনিবন্ধন নম্বর' },
+  },
+  {
+    key: 'health_notes',
+    type: 'string',
+    label: { en: 'Health notes', bn: 'স্বাস্থ্য সংক্রান্ত তথ্য' },
+  },
+  {
+    key: 'father_name',
+    type: 'string',
+    label: { en: "Father's name", bn: 'পিতার নাম' },
+  },
+  {
+    key: 'mother_name',
+    type: 'string',
+    label: { en: "Mother's name", bn: 'মাতার নাম' },
   },
   {
     // Not `required`: an empty cell defaults to the entity's own default
@@ -231,6 +261,11 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
       date_of_birth: entity.date_of_birth,
       gender: entity.gender,
       home_address: entity.home_address,
+      religion: entity.religion,
+      birth_reg_no: entity.birth_reg_no,
+      health_notes: entity.health_notes,
+      father_name: entity.father_name,
+      mother_name: entity.mother_name,
       preferred_communication: entity.preferred_communication,
       enrollment_status: entity.enrollment_status,
       guardian_phones: guardianKeys,
@@ -365,6 +400,11 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
         date_of_birth: (values.date_of_birth as string | null) ?? null,
         gender: (values.gender as string | null) ?? null,
         home_address: (values.home_address as string | null) ?? null,
+        religion: (values.religion as string | null) ?? null,
+        birth_reg_no: (values.birth_reg_no as string | null) ?? null,
+        health_notes: (values.health_notes as string | null) ?? null,
+        father_name: (values.father_name as string | null) ?? null,
+        mother_name: (values.mother_name as string | null) ?? null,
         preferred_communication:
           (values.preferred_communication as CommunicationMedium | null) ?? CommunicationMedium.SMS,
         enrollment_status:
@@ -396,6 +436,11 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
       'roll_number',
       'gender',
       'home_address',
+      'religion',
+      'birth_reg_no',
+      'health_notes',
+      'father_name',
+      'mother_name',
       'preferred_communication',
       'enrollment_status',
       'user_id',
@@ -482,6 +527,11 @@ export const studentsTab: TabSpec<Student, StudentRow> = {
     student.date_of_birth = row.date_of_birth ? new Date(row.date_of_birth) : null;
     student.gender = row.gender;
     student.home_address = row.home_address;
+    student.religion = row.religion;
+    student.birth_reg_no = row.birth_reg_no;
+    student.health_notes = row.health_notes;
+    student.father_name = row.father_name;
+    student.mother_name = row.mother_name;
     student.preferred_communication = row.preferred_communication;
     student.enrollment_status = row.enrollment_status;
     student.user_id = row.user_id;

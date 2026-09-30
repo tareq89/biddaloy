@@ -110,8 +110,8 @@ describe('enrollmentsTab shape', () => {
   it('is registered through the people barrel, after students', () => {
     expect(peopleTabs).toContain(enrollmentsTab);
     expect(peopleTabs.indexOf(studentsTab)).toBeLessThan(peopleTabs.indexOf(enrollmentsTab));
-    // [27.6] No longer last: the admission tabs are appended after it.
-    expect(peopleTabs.indexOf(enrollmentsTab)).toBe(peopleTabs.length - 4);
+    // [27.6]/[39.1.3] No longer last: the admission and student-child tabs follow it.
+    expect(peopleTabs.indexOf(enrollmentsTab)).toBe(peopleTabs.length - 7);
   });
 
   it('satisfies the registry contract', () => {
