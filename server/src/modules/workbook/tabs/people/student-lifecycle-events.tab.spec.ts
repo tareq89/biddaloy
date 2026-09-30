@@ -106,10 +106,12 @@ describe('studentLifecycleEventsTab', () => {
     expect((result as { errors: RowError[] }).errors[0].column).toBe('student');
   });
 
-  it('two events with the same natural key produce the same key (validator rejects the duplicate)', () => {
+  it('two same-day same-type events share a key, and the tab opts in to duplicate keys so restore accepts them', () => {
     const a = rowOrThrow(toCells(makeEvent()));
     const b = rowOrThrow(toCells(makeEvent({ id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee' })));
     expect(tab.keyOf(a)).toBe(tab.keyOf(b));
+    expect(a.id).not.toBe(b.id);
+    expect(tab.allowDuplicateKeys).toBe(true);
   });
 
   it('diffFields reports only the changed field', () => {

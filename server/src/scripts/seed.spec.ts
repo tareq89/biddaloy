@@ -512,6 +512,8 @@ describe('ensureStudentLifecycleSeed [39.1.4]', () => {
     const events = fake('event');
     const notes = fake('note');
     const exams = fake('exam');
+    const year1 = years.create({ tenant_id: TENANT, name: '2026-2027' });
+    void years.save(year1);
     for (let n = 1; n <= 5; n += 1) {
       const s = students.create({
         tenant_id: TENANT,
@@ -523,10 +525,10 @@ describe('ensureStudentLifecycleSeed [39.1.4]', () => {
         health_notes: null,
       });
       void students.save(s);
-      void enrollments.save(enrollments.create({ tenant_id: TENANT, student_id: s.id }));
+      void enrollments.save(
+        enrollments.create({ tenant_id: TENANT, student_id: s.id, academic_year_id: year1.id }),
+      );
     }
-    void years.save(years.create({ tenant_id: TENANT, name: '2026-2027' }));
-    void years.save(years.create({ tenant_id: TENANT, name: '2027-2028' }));
     const repos = {
       studentRepository: students.asRepository(),
       enrollmentRepository: enrollments.asRepository(),
@@ -535,11 +537,11 @@ describe('ensureStudentLifecycleSeed [39.1.4]', () => {
       noteRepository: notes.asRepository(),
       publicExamRepository: exams.asRepository(),
     } as unknown as StudentLifecycleSeedRepositories;
-    return { repos, students, events, notes, exams };
+    return { repos, students, enrollments, events, notes, exams };
   }
 
   it('seeds events, notes, exams and student columns, and matches the e2e contract', async () => {
-    const { repos, students, events, notes, exams } = setup();
+    const { repos, students, enrollments, events, notes, exams } = setup();
 
     await ensureStudentLifecycleSeed(repos, TENANT, 'admin-1');
 
@@ -549,7 +551,12 @@ describe('ensureStudentLifecycleSeed [39.1.4]', () => {
       'TRANSFERRED_OUT',
       'WITHDRAWN',
     ]);
-    expect(new Set(events.rows.map((e) => e.academic_year_id)).size).toBe(2);
+    // Every event's year must equal the year of the enrollment it points at.
+    for (const e of events.rows) {
+      const enrollment = enrollments.rows.find((x) => x.id === e.enrollment_id);
+      expect(enrollment?.academic_year_id).toBe(e.academic_year_id);
+      expect(enrollment?.student_id).toBe(e.student_id);
+    }
     expect(events.rows.every((e) => e.reason && e.recorded_by_user_id === 'admin-1')).toBe(true);
     expect(events.rows.find((e) => e.event_type === 'TRANSFERRED_OUT')?.destination).toBe(
       SEED_TRANSFER_DESTINATION,

@@ -6,7 +6,7 @@ import type { Student } from '../modules/students/entities/student.entity';
 import type { StudentLifecycleEvent } from '../modules/students/entities/student-lifecycle-event.entity';
 import type { StudentNote } from '../modules/students/entities/student-note.entity';
 import type { StudentPublicExam } from '../modules/students/entities/student-public-exam.entity';
-import { DEMO_ACADEMIC_YEAR, DEMO_NEXT_ACADEMIC_YEAR } from './seed.util';
+import { DEMO_ACADEMIC_YEAR } from './seed.util';
 
 // Kept out of seed.ts on purpose: seed.ts imports AppModule, whose
 // ConfigModule validates env at import time, so a unit spec importing it
@@ -29,8 +29,8 @@ export interface StudentLifecycleSeedRepositories {
  * this never replays `StudentLifecycleService`, so enrollment/student
  * statuses are left as the roster seeded them.
  *
- *  0001 WITHDRAWN (2026) then READMITTED (2027)   0002 TRANSFERRED_OUT
- *  0003 GRADUATED (2027)                          0004/0005 one note each
+ *  0001 WITHDRAWN then READMITTED (same year, so D16 reactivates one enrollment)
+ *  0002 TRANSFERRED_OUT   0003 GRADUATED   0004/0005 one note each
  *  0003 SSC + JSC results                         0001-0003 parent/religion/birth-reg/health
  */
 export async function ensureStudentLifecycleSeed(
@@ -49,11 +49,8 @@ export async function ensureStudentLifecycleSeed(
   const year1 = await repos.academicYearRepository.findOne({
     where: { tenant_id: tenantId, name: DEMO_ACADEMIC_YEAR.name },
   });
-  const year2 = await repos.academicYearRepository.findOne({
-    where: { tenant_id: tenantId, name: DEMO_NEXT_ACADEMIC_YEAR.name },
-  });
-  if (students.some((s) => !s) || !year1 || !year2) {
-    console.warn('Demo students/years not found — skipping student lifecycle seed.');
+  if (students.some((s) => !s) || !year1) {
+    console.warn('Demo students/year not found — skipping student lifecycle seed.');
     return;
   }
   const [s1, s2, s3, s4, s5] = students as Student[];
@@ -79,7 +76,7 @@ export async function ensureStudentLifecycleSeed(
   // --- lifecycle events ----------------------------------------------------
   const events = [
     [s1, year1, StudentLifecycleEventType.WITHDRAWN, '2026-05-10', 'Family relocated', null],
-    [s1, year2, StudentLifecycleEventType.READMITTED, '2027-01-10', 'Family returned', null],
+    [s1, year1, StudentLifecycleEventType.READMITTED, '2026-08-10', 'Family returned', null],
     [
       s2,
       year1,
@@ -88,7 +85,7 @@ export async function ensureStudentLifecycleSeed(
       'Father transferred',
       'Dhaka Residential Model College',
     ],
-    [s3, year2, StudentLifecycleEventType.GRADUATED, '2027-12-20', 'Completed final year', null],
+    [s3, year1, StudentLifecycleEventType.GRADUATED, '2026-12-20', 'Completed final year', null],
   ] as const;
   for (const [s, year, type, occurredOn, reason, destination] of events) {
     const where = {
@@ -98,8 +95,10 @@ export async function ensureStudentLifecycleSeed(
       occurred_on: occurredOn,
     };
     if (await repos.lifecycleEventRepository.findOne({ where })) continue;
+    // The event's year and its enrollment's year must agree (the report filters on the
+    // event's year), so look the enrollment up by that year.
     const enrollment = await repos.enrollmentRepository.findOne({
-      where: { tenant_id: tenantId, student_id: s.id },
+      where: { tenant_id: tenantId, student_id: s.id, academic_year_id: year.id },
     });
     if (!enrollment) continue;
     await repos.lifecycleEventRepository.save(

@@ -27,6 +27,14 @@ describe('CreateStudentNoteDto', () => {
       expect((await bodyErrors(bad)).errors.length).toBeGreaterThan(0);
     }
   });
+
+  it('strips HTML markup, and a markup-only body is rejected as blank (CWE-79)', async () => {
+    const { dto, errors } = await bodyErrors('  <b>ok</b><script>alert(1)</script> ');
+    expect(errors).toHaveLength(0);
+    expect(dto.body).not.toMatch(/[<>]/);
+    expect(dto.body).toContain('ok');
+    expect((await bodyErrors('<b> </b>')).errors.length).toBeGreaterThan(0);
+  });
 });
 
 describe('StudentNotesService', () => {
@@ -47,7 +55,12 @@ describe('StudentNotesService', () => {
     students = { findOne: vi.fn().mockResolvedValue({ id: STUDENT, class_section_id: 'sec' }) };
     dataSource = { query: vi.fn().mockResolvedValue([{ full_name: 'Ann' }]) };
     audit = { record: vi.fn().mockResolvedValue(undefined) };
-    service = new StudentNotesService(notes as any, students as any, dataSource as any, audit as any);
+    service = new StudentNotesService(
+      notes as any,
+      students as any,
+      dataSource as any,
+      audit as any,
+    );
   });
 
   const caller = (userId: string, role: string) => ({ userId, role, tenantId: TENANT });
@@ -65,9 +78,9 @@ describe('StudentNotesService', () => {
   });
 
   it('forbids a non-author non-admin (EXECUTIVE) from deleting', async () => {
-    await expect(service.remove(STUDENT, 'n1', caller('other', UserRole.EXECUTIVE))).rejects.toThrow(
-      ForbiddenException,
-    );
+    await expect(
+      service.remove(STUDENT, 'n1', caller('other', UserRole.EXECUTIVE)),
+    ).rejects.toThrow(ForbiddenException);
     expect(notes.softDelete).not.toHaveBeenCalled();
     expect(audit.record).not.toHaveBeenCalled();
   });

@@ -110,6 +110,24 @@ export const studentPublicExamsTab: TabSpec<StudentPublicExam, StudentPublicExam
     }
     if (errors.length > 0) return { errors };
 
+    // `gpa` is numeric(3,2) but the `money` cell accepts any amount; without this a
+    // value like 12.50 passes validation and aborts the whole restore in `save`.
+    const gpa = values.gpa as string | null;
+    if (gpa != null && !(Number(gpa) >= 0 && Number(gpa) <= 5)) {
+      return {
+        errors: [
+          {
+            tab: 'student_public_exams',
+            row: rowNo,
+            column: 'gpa',
+            message: 'Column "GPA": must be between 0.00 and 5.00.',
+            severity: 'error',
+            value: gpa,
+          },
+        ],
+      };
+    }
+
     const studentKey = values.student as string;
     const studentId = ctx.ref('students', studentKey);
     if (!studentId) {

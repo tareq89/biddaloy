@@ -118,6 +118,11 @@ export const studentLifecycleEventsTab: TabSpec<StudentLifecycleEvent, StudentLi
   columns,
   naturalKey: ['student', 'event_type', 'occurred_on'],
   deleteByAbsence: true,
+  // The table has no unique constraint on naturalKey and no other tab references events by
+  // it. Legitimate data repeats it: leave, readmit, leave, readmit on one day gives two
+  // WITHDRAWN rows for one student and date. Without this the validator hard-rejects that
+  // tenant's own export on restore. See TabSpec.allowDuplicateKeys.
+  allowDuplicateKeys: true,
 
   load(tenantId: string, m: EntityManager): Promise<StudentLifecycleEvent[]> {
     return m.find(StudentLifecycleEvent, {
