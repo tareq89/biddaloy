@@ -26,6 +26,13 @@ export class EvaluationsAndPerformance1790900000000 implements MigrationInterfac
     );
   }
 
+  /** Composite (tenant_id, col) -> ref(tenant_id, id): a child can't point at another tenant's parent. */
+  private async cfk(q: QueryRunner, table: string, col: string, ref: string) {
+    await q.query(
+      `ALTER TABLE "${table}" ADD CONSTRAINT "FK_${table}_${col.replace(/_id$/, '')}" FOREIGN KEY ("tenant_id", "${col}") REFERENCES "${ref}"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE NO ACTION`,
+    );
+  }
+
   public async up(q: QueryRunner): Promise<void> {
     // ---- ACR ----
     await q.query(`
@@ -36,6 +43,7 @@ export class EvaluationsAndPerformance1790900000000 implements MigrationInterfac
         "created_by" uuid NOT NULL,
         "created_at" timestamptz NOT NULL DEFAULT now(),
         CONSTRAINT "PK_acr_form_versions" PRIMARY KEY ("id"),
+        CONSTRAINT "UQ_acr_form_versions_tenant_id" UNIQUE ("tenant_id", "id"),
         CONSTRAINT "UQ_acr_form_versions_tenant_version" UNIQUE ("tenant_id", "version")
       )
     `);
@@ -53,6 +61,7 @@ export class EvaluationsAndPerformance1790900000000 implements MigrationInterfac
         "label_bn" text NOT NULL,
         "sort_order" integer NOT NULL DEFAULT 0,
         CONSTRAINT "PK_acr_criteria" PRIMARY KEY ("id"),
+        CONSTRAINT "UQ_acr_criteria_tenant_id" UNIQUE ("tenant_id", "id"),
         CONSTRAINT "CHK_acr_criteria_block" CHECK ("block" IN ('BLOCK_2', 'BLOCK_3'))
       )
     `);
@@ -60,7 +69,7 @@ export class EvaluationsAndPerformance1790900000000 implements MigrationInterfac
       `CREATE INDEX "IDX_acr_criteria_tenant_form" ON "acr_criteria" ("tenant_id", "form_version_id")`,
     );
     await this.fk(q, 'acr_criteria', 'tenant_id', 'schools', 'CASCADE');
-    await this.fk(q, 'acr_criteria', 'form_version_id', 'acr_form_versions');
+    await this.cfk(q, 'acr_criteria', 'form_version_id', 'acr_form_versions');
 
     await q.query(`
       CREATE TABLE "acr_assessments" (
@@ -78,6 +87,7 @@ export class EvaluationsAndPerformance1790900000000 implements MigrationInterfac
         "created_at" timestamptz NOT NULL DEFAULT now(),
         "updated_at" timestamptz NOT NULL DEFAULT now(),
         CONSTRAINT "PK_acr_assessments" PRIMARY KEY ("id"),
+        CONSTRAINT "UQ_acr_assessments_tenant_id" UNIQUE ("tenant_id", "id"),
         CONSTRAINT "UQ_acr_assessments_tenant_user_year" UNIQUE ("tenant_id", "user_id", "academic_year_id"),
         CONSTRAINT "CHK_acr_assessments_status" CHECK ("status" IN ('INCOMPLETE', 'COMPLETED'))
       )
@@ -85,7 +95,7 @@ export class EvaluationsAndPerformance1790900000000 implements MigrationInterfac
     await this.fk(q, 'acr_assessments', 'tenant_id', 'schools', 'CASCADE');
     await this.fk(q, 'acr_assessments', 'user_id', 'users');
     await this.fk(q, 'acr_assessments', 'academic_year_id', 'academic_years');
-    await this.fk(q, 'acr_assessments', 'form_version_id', 'acr_form_versions');
+    await this.cfk(q, 'acr_assessments', 'form_version_id', 'acr_form_versions');
     await this.fk(q, 'acr_assessments', 'assessed_by', 'users');
 
     await q.query(`
@@ -104,8 +114,8 @@ export class EvaluationsAndPerformance1790900000000 implements MigrationInterfac
       `CREATE INDEX "IDX_acr_scores_tenant_assessment" ON "acr_scores" ("tenant_id", "assessment_id")`,
     );
     await this.fk(q, 'acr_scores', 'tenant_id', 'schools', 'CASCADE');
-    await this.fk(q, 'acr_scores', 'assessment_id', 'acr_assessments');
-    await this.fk(q, 'acr_scores', 'criterion_id', 'acr_criteria');
+    await this.cfk(q, 'acr_scores', 'assessment_id', 'acr_assessments');
+    await this.cfk(q, 'acr_scores', 'criterion_id', 'acr_criteria');
 
     // ---- Staff incidents (D15: no attachment table) ----
     await q.query(`
@@ -146,6 +156,7 @@ export class EvaluationsAndPerformance1790900000000 implements MigrationInterfac
         "created_at" timestamptz NOT NULL DEFAULT now(),
         "updated_at" timestamptz NOT NULL DEFAULT now(),
         CONSTRAINT "PK_surveys" PRIMARY KEY ("id"),
+        CONSTRAINT "UQ_surveys_tenant_id" UNIQUE ("tenant_id", "id"),
         CONSTRAINT "CHK_surveys_status" CHECK ("status" IN ('DRAFT', 'OPEN', 'CLOSED')),
         CONSTRAINT "CHK_surveys_respondent" CHECK ("respondent" IN ('STUDENTS', 'GUARDIANS', 'BOTH'))
       )
@@ -161,14 +172,15 @@ export class EvaluationsAndPerformance1790900000000 implements MigrationInterfac
         "sort_order" integer NOT NULL DEFAULT 0,
         "text" text NOT NULL,
         "stars_enabled" boolean NOT NULL DEFAULT true,
-        CONSTRAINT "PK_survey_questions" PRIMARY KEY ("id")
+        CONSTRAINT "PK_survey_questions" PRIMARY KEY ("id"),
+        CONSTRAINT "UQ_survey_questions_tenant_id" UNIQUE ("tenant_id", "id")
       )
     `);
     await q.query(
       `CREATE INDEX "IDX_survey_questions_tenant_survey" ON "survey_questions" ("tenant_id", "survey_id")`,
     );
     await this.fk(q, 'survey_questions', 'tenant_id', 'schools', 'CASCADE');
-    await this.fk(q, 'survey_questions', 'survey_id', 'surveys');
+    await this.cfk(q, 'survey_questions', 'survey_id', 'surveys');
 
     await q.query(`
       CREATE TABLE "survey_targets" (
@@ -185,7 +197,7 @@ export class EvaluationsAndPerformance1790900000000 implements MigrationInterfac
       `CREATE INDEX "IDX_survey_targets_tenant_survey" ON "survey_targets" ("tenant_id", "survey_id")`,
     );
     await this.fk(q, 'survey_targets', 'tenant_id', 'schools', 'CASCADE');
-    await this.fk(q, 'survey_targets', 'survey_id', 'surveys');
+    await this.cfk(q, 'survey_targets', 'survey_id', 'surveys');
     await this.fk(q, 'survey_targets', 'teacher_id', 'teachers');
     await this.fk(q, 'survey_targets', 'subject_id', 'subjects');
 
@@ -199,6 +211,7 @@ export class EvaluationsAndPerformance1790900000000 implements MigrationInterfac
         "subject_id" uuid NOT NULL,
         "created_at" timestamptz NOT NULL DEFAULT now(),
         CONSTRAINT "PK_survey_responses" PRIMARY KEY ("id"),
+        CONSTRAINT "UQ_survey_responses_tenant_id" UNIQUE ("tenant_id", "id"),
         CONSTRAINT "UQ_survey_responses_once" UNIQUE ("survey_id", "respondent_user_id", "teacher_id", "subject_id")
       )
     `);
@@ -206,7 +219,7 @@ export class EvaluationsAndPerformance1790900000000 implements MigrationInterfac
       `CREATE INDEX "IDX_survey_responses_tenant_survey" ON "survey_responses" ("tenant_id", "survey_id")`,
     );
     await this.fk(q, 'survey_responses', 'tenant_id', 'schools', 'CASCADE');
-    await this.fk(q, 'survey_responses', 'survey_id', 'surveys');
+    await this.cfk(q, 'survey_responses', 'survey_id', 'surveys');
     await this.fk(q, 'survey_responses', 'respondent_user_id', 'users');
     await this.fk(q, 'survey_responses', 'teacher_id', 'teachers');
     await this.fk(q, 'survey_responses', 'subject_id', 'subjects');
@@ -227,8 +240,8 @@ export class EvaluationsAndPerformance1790900000000 implements MigrationInterfac
       `CREATE INDEX "IDX_survey_answers_tenant_response" ON "survey_answers" ("tenant_id", "response_id")`,
     );
     await this.fk(q, 'survey_answers', 'tenant_id', 'schools', 'CASCADE');
-    await this.fk(q, 'survey_answers', 'response_id', 'survey_responses');
-    await this.fk(q, 'survey_answers', 'question_id', 'survey_questions');
+    await this.cfk(q, 'survey_answers', 'response_id', 'survey_responses');
+    await this.cfk(q, 'survey_answers', 'question_id', 'survey_questions');
 
     // ---- student_notes.rating ----
     await q.query(

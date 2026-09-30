@@ -220,6 +220,33 @@ describe('evaluations & performance schema (integration)', () => {
     ).toBe(0);
   });
 
+  it("rejects a child row in tenant B that references tenant A's parent (composite FK)", async () => {
+    const a = await assessment();
+    await expect(
+      ds.getRepository(AcrCriterion).save({
+        tenant_id: OTHER_TENANT,
+        form_version_id: versionId,
+        block: 'BLOCK_2',
+        code: 'X',
+        label_en: 'x',
+        label_bn: 'x',
+      }),
+    ).rejects.toThrow(/FK_acr_criteria_form_version/);
+    await expect(
+      ds.getRepository(AcrScore).save({
+        tenant_id: OTHER_TENANT,
+        assessment_id: a.id,
+        criterion_id: criterionId,
+        score: 3,
+      }),
+    ).rejects.toThrow(/FK_acr_scores_assessment/);
+    await expect(
+      ds
+        .getRepository(SurveyQuestion)
+        .save({ tenant_id: OTHER_TENANT, survey_id: surveyId, text: 'q' }),
+    ).rejects.toThrow(/FK_survey_questions_survey/);
+  });
+
   it('migrates down and back up', async () => {
     const migration = new EvaluationsAndPerformance1790900000000();
     const run = async (fn: (qr: QueryRunner) => Promise<void>) => {
