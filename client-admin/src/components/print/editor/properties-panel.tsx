@@ -40,7 +40,7 @@ export interface PropertiesPanelProps {
 
 const fmt = (n: number | undefined) => (n === undefined ? '' : String(n));
 
-function NumberField({
+export function NumberField({
   id,
   label,
   value,

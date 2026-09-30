@@ -56,6 +56,10 @@ function serve() {
       patches.push((await request.json()) as Record<string, unknown>);
       return HttpResponse.json(template());
     }),
+    // The publish button, sample bar and files panel load these on mount.
+    http.get('/api/v1/print-templates/t-1/versions', () => HttpResponse.json([])),
+    http.get('/api/v1/print-templates', () => HttpResponse.json([template()])),
+    http.get('/api/v1/print-assets', () => HttpResponse.json([])),
   );
 }
 
