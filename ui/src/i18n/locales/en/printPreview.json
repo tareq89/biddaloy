@@ -1,0 +1,56 @@
+{
+  "title": "Print preview",
+  "header": {
+    "batch": "Batch {{current}} of {{total}} · {{count}} cards",
+    "printer": "{{name}} · {{type}}"
+  },
+  "controls": {
+    "template": "Template",
+    "printer": "Printer",
+    "batchSize": "Cards per batch (max {{max}})",
+    "choosePrinter": "Choose a printer"
+  },
+  "printerType": {
+    "CARD": "Card printer",
+    "OFFICE": "Office printer"
+  },
+  "noTemplate": {
+    "title": "No template for this document yet",
+    "explanation": "A template decides how the card looks.",
+    "action": "Create one from a suggestion"
+  },
+  "noPrinter": {
+    "notice": "Add your first printer to be able to print.",
+    "action": "Add your first printer"
+  },
+  "print": "Print",
+  "printing": "Opening the print window…",
+  "popupBlocked": "Your browser blocked the print window. Allow pop-ups for this site, then press Print again.",
+  "printFailed": "Could not start printing. Nothing was printed.",
+  "locked": "Confirm the current batch before the next one unlocks.",
+  "sides": {
+    "front": "Front",
+    "back": "Back"
+  },
+  "loading": "Loading the preview…",
+  "previewError": "Could not load the preview.",
+  "preflight": {
+    "title": "{{bad}} of {{total}} cards need attention",
+    "overflow": "Text does not fit: {{fields}}",
+    "noPhoto": "No photo",
+    "empty": "Missing: {{fields}}",
+    "printAnyway": "Print anyway"
+  },
+  "confirm": {
+    "title": "Did all {{count}} cards print correctly?",
+    "yes": "Yes, all printed",
+    "some": "Some failed…",
+    "pick": "Tick the cards that did not print correctly.",
+    "confirm": "Confirm",
+    "saving": "Saving…",
+    "error": "Could not save your answer. Try again.",
+    "reprintFailed": "Reprint {{count}} failed",
+    "continue": "Continue",
+    "recorded": "Recorded."
+  }
+}
