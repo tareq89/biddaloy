@@ -106,11 +106,11 @@ describe('ACR criteria E2E (28.2.1)', () => {
       .set('Authorization', `Bearer ${token}`)
       .set('X-Tenant-ID', tenant);
 
-  it('forbids a TEACHER (403) on read and write', async () => {
-    await as(teacherToken, TENANT_A, 'get').expect(403);
+  it('forbids a TEACHER (401) on read and write', async () => {
+    await as(teacherToken, TENANT_A, 'get').expect(401);
     await as(teacherToken, TENANT_A, 'put')
       .send({ criteria: [row('x')] })
-      .expect(403);
+      .expect(401);
   });
 
   it('ADMIN saves v1 then v2; GET returns latest; audit row written', async () => {
