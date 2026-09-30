@@ -1,0 +1,20 @@
+{
+  "title": "Notes",
+  "add": "Add note",
+  "addTitle": "Add a note",
+  "addDescription": "Only staff can see notes. You can't edit a note after saving it.",
+  "bodyLabel": "Note",
+  "hint": "Press Ctrl+Enter to save",
+  "save": "Save note",
+  "saving": "Saving…",
+  "saveError": "Could not save the note. Try again.",
+  "empty": "No notes yet",
+  "emptyDescription": "Add a note to keep staff-only details about this student.",
+  "errorMessage": "Could not load notes.",
+  "unknownAuthor": "Unknown",
+  "delete": "Delete",
+  "deleteTitle": "Delete this note?",
+  "deleteDescription": "The note will be removed. This can't be undone.",
+  "deleting": "Deleting…",
+  "deleteError": "Could not delete the note. Try again."
+}
