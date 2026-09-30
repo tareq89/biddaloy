@@ -104,7 +104,7 @@ export async function post<T>(
   request: APIRequestContext,
   session: ApiSession,
   path: string,
-  data: Record<string, unknown>,
+  data: object,
 ): Promise<T> {
   const response = await request.post(`/api/v1${path}`, {
     headers: {
