@@ -53,6 +53,8 @@ import {
   ensureCalendarDemoSeed,
   ensurePrintProfileDemoSeed,
   ensurePrintDemoSeed,
+  ensurePrintHistoryDemoSeed,
+  PRINT_DEMO_REVOKE_REASON,
   ensureDemoOrganisation,
   ensureDemoStudents,
   ensureGradingDemoSeed,
@@ -1820,5 +1822,75 @@ describe('ensurePrintDemoSeed', () => {
     expect(second).toEqual({ printers: 0, templates: 0, photos: 0 });
     expect(s.ports.createTemplate).not.toHaveBeenCalled();
     expect(s.ports.putObject).not.toHaveBeenCalled();
+  });
+});
+
+describe('ensurePrintHistoryDemoSeed', () => {
+  const SCHOOL = '11111111-1111-4111-8111-111111111111';
+
+  function setup(over: { jobExists?: boolean; students?: number } = {}) {
+    let n = 0;
+    const repos = {
+      printJobRepository: {
+        findOne: vi.fn(() => Promise.resolve(over.jobExists ? { id: 'j' } : null)),
+      },
+      printTemplateRepository: {
+        findOne: vi.fn(() => Promise.resolve({ id: 'tpl', current_version_id: 'v1' })),
+      },
+      printerRepository: { findOne: vi.fn(() => Promise.resolve({ id: 'printer' })) },
+      studentRepository: {
+        find: vi.fn(() =>
+          Promise.resolve(Array.from({ length: over.students ?? 10 }, (_, i) => ({ id: `s${i}` }))),
+        ),
+      },
+    };
+    const ports = {
+      createJob: vi.fn((input: { subjectIds: string[] }) => {
+        n += 1;
+        return Promise.resolve({
+          job_id: `job-${n}`,
+          items: input.subjectIds.map((id) => ({ item_id: `item-${n}-${id}`, subject_id: id })),
+        });
+      }),
+      confirmJob: vi.fn(() => Promise.resolve()),
+      reprintJob: vi.fn(() => Promise.resolve({ job_id: 'job-reprint' })),
+      revokeItem: vi.fn(() => Promise.resolve()),
+    };
+    const run = () =>
+      ensurePrintHistoryDemoSeed(
+        repos as unknown as Parameters<typeof ensurePrintHistoryDemoSeed>[0],
+        ports,
+        { schoolId: SCHOOL },
+      );
+    return { run, ports };
+  }
+
+  it('makes a confirmed job, a failed job with its reprint, and one revoked card', async () => {
+    const { run, ports } = setup();
+    expect(await run()).toEqual({ jobs: 3, revoked: 1 });
+
+    // Job 1: five students, all OK; its first card is revoked with the demo reason.
+    expect(ports.createJob.mock.calls[0]![0].subjectIds).toHaveLength(5);
+    expect(ports.confirmJob).toHaveBeenCalledWith('job-1', []);
+    expect(ports.revokeItem).toHaveBeenCalledWith('item-1-s0', PRINT_DEMO_REVOKE_REASON);
+    expect(PRINT_DEMO_REVOKE_REASON).toBe('Card lost — replaced');
+
+    // Job 2: the first card failed; it is reprinted (the service makes that copy 2), then confirmed.
+    expect(ports.createJob.mock.calls[1]![0].subjectIds).toEqual(['s5', 's6']);
+    expect(ports.confirmJob).toHaveBeenCalledWith('job-2', ['item-2-s5']);
+    expect(ports.reprintJob).toHaveBeenCalledWith('job-2', ['item-2-s5']);
+    expect(ports.confirmJob).toHaveBeenCalledWith('job-reprint', []);
+  });
+
+  it('does nothing when the demo jobs already exist', async () => {
+    const { run, ports } = setup({ jobExists: true });
+    expect(await run()).toEqual({ jobs: 0, revoked: 0 });
+    expect(ports.createJob).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when there are too few students to make the demo', async () => {
+    const { run, ports } = setup({ students: 3 });
+    expect(await run()).toEqual({ jobs: 0, revoked: 0 });
+    expect(ports.createJob).not.toHaveBeenCalled();
   });
 });
