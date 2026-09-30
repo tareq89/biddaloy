@@ -47,6 +47,7 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/academics/syllabus': '/_staff/academics/syllabus/',
   '/analysis': '/_staff/analysis/',
   '/promotions/new': '/_staff/promotions/new',
+  '/staff': '/_staff/staff/',
   '/staff/teaching-assignments': '/_staff/staff/teaching-assignments',
 };
 
@@ -186,6 +187,9 @@ describe('action-registry.ts', () => {
     'fines.log',
     'fines.generate',
     'fines.waive',
+    // [28.3.2] ACR_WRITE is stricter than `/staff`'s USER_READ gate — see
+    // `action-registry.ts`'s comment on `acr.start`.
+    'acr.start',
   ]);
 
   it('every seeded action targets a route that exists in STAFF_ROUTE_PERMISSIONS with the same permission (or a documented, stricter exception)', () => {

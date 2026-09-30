@@ -202,6 +202,13 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
     { label: { entity: 'staff' } },
     { label: { entity: 'staff' }, dynamic: 'entity' },
   ],
+  // [28.3.2] Staff › name › ACR. One dynamic segment per trail, so the
+  // year lives in the page heading / `document.title`, not a crumb.
+  '/_staff/staff/$userId_/acr/$assessmentId': [
+    { label: { entity: 'staff' } },
+    { label: { entity: 'staff' }, dynamic: 'entity' },
+    { label: { key: 'acr' } },
+  ],
   '/_staff/academic-years/$academicYearId': [
     { label: { entity: 'academicYear' } },
     { label: { entity: 'academicYear' }, dynamic: 'entity' },

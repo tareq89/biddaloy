@@ -390,6 +390,15 @@
       "archetype": "detail"
     },
     {
+      "path": "/staff/$userId/acr/$assessmentId",
+      "params": {
+        "userId": "seeded",
+        "assessmentId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "wizard"
+    },
+    {
       "path": "/programs",
       "role": "admin",
       "archetype": "list",

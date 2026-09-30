@@ -170,6 +170,19 @@ export const ACTIONS: readonly PaletteAction[] = [
     context: ['student'],
     run: (ctx) => ctx.navigate({ to: '/fees/fines' }),
   },
+  // [28.3.2/D22] Start an ACR. `run()` carries no staff/year prefill and the
+  // start dialog (register, 28.3.3) has no route yet, so this lands on the
+  // staff list — pick the person, open their ACR tab. `ACR_WRITE` is
+  // stricter than that route's USER_READ gate on purpose (see
+  // `ROUTE_PERMISSION_EXCEPTIONS` in `action-registry.test.ts`).
+  {
+    id: 'acr.start',
+    label: { en: 'Start ACR', bn: 'এসিআর শুরু করুন' },
+    permission: Permission.ACR_WRITE,
+    kind: 'modal',
+    context: [],
+    run: (ctx) => ctx.navigate({ to: '/staff' }),
+  },
   {
     id: 'students.add',
     label: { en: 'Add student', bn: 'শিক্ষার্থী যোগ করুন' },
