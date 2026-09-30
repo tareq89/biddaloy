@@ -16,7 +16,7 @@ import { LifecycleReportDto, LifecycleReportQueryDto } from './dto/admission-rep
 @ApiTenantAuth()
 @Controller('admission/reports')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
-@Roles(UserRole.ADMIN)
+@Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
 @RequirePermissions(Permission.STUDENT_LIFECYCLE_MANAGE)
 export class AdmissionReportsController {
   constructor(private readonly reports: AdmissionReportsService) {}
