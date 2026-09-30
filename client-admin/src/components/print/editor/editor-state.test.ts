@@ -5,6 +5,7 @@ import {
   HISTORY_LIMIT,
   clampRect,
   createElement,
+  createImageFromAsset,
   editorReducer,
   elementsOf,
   initEditorState,
@@ -220,5 +221,79 @@ describe('the rest', () => {
     expect(s.past).toEqual([]);
     expect(s.selectedId).toBeNull();
     expect(elementsOf(s.draft, 'front')[0]!.id).toBe('z');
+  });
+});
+
+const ASSET = '11111111-1111-4111-8111-111111111111';
+
+describe('page setup', () => {
+  it('swapping width and height re-fits elements into the new page', () => {
+    const wide = start(draft([text('a', { x: 60, y: 40, w: 24, h: 10 })]));
+    const s = run(wide, { type: 'SET_PAGE', page: { widthMm: 54, heightMm: 85.6 } });
+    expect(s.draft.page).toMatchObject({ widthMm: 54, heightMm: 85.6 });
+    expect(at(s, 'a')).toMatchObject({ x: 30, w: 24 }); // pulled back inside the narrower page
+  });
+
+  it('adding the back side creates an empty back; removing it discards it and leaves the back view', () => {
+    let s = run(start(), { type: 'SET_PAGE', page: { sides: 'both' } });
+    expect(s.draft.back).toEqual({ elements: [] });
+    expect(s.draft.page.sides).toEqual(['front', 'back']);
+    s = run(s, { type: 'SET_SIDE', side: 'back' }, { type: 'SET_PAGE', page: { sides: 'front' } });
+    expect(s.draft.back).toBeUndefined();
+    expect(s.side).toBe('front');
+  });
+
+  it('a page size outside the allowed range is refused', () => {
+    const s0 = start();
+    expect(run(s0, { type: 'SET_PAGE', page: { widthMm: 5 } })).toBe(s0);
+    expect(run(s0, { type: 'SET_PAGE', page: { widthMm: 9999 } })).toBe(s0);
+  });
+
+  it('is undoable as one step', () => {
+    const s0 = start();
+    const s = run(
+      s0,
+      { type: 'SET_PAGE', page: { widthMm: 54, heightMm: 85.6, sides: 'both' } },
+      { type: 'UNDO' },
+    );
+    expect(s.draft).toEqual(s0.draft);
+  });
+});
+
+describe('copy label and background', () => {
+  it('sets and removes the copy label', () => {
+    let s = run(start(), { type: 'SET_COPY_LABEL', text: 'Copy {n}' });
+    expect(s.draft.copyLabel).toEqual({ text: 'Copy {n}' });
+    s = run(s, { type: 'SET_COPY_LABEL', text: undefined });
+    expect(s.draft.copyLabel).toBeUndefined();
+  });
+
+  it("sets the current side's background, defaulting to printed", () => {
+    const s = run(start(), { type: 'SET_BACKGROUND', assetId: ASSET });
+    expect(s.draft.front.background).toEqual({ assetId: ASSET, print: true });
+  });
+
+  it('turning off "print the background" keeps the artwork but stops printing it (pre-printed stock)', () => {
+    let s = run(start(), { type: 'SET_BACKGROUND', assetId: ASSET });
+    s = run(s, { type: 'SET_BACKGROUND', assetId: ASSET, print: false });
+    expect(s.draft.front.background).toEqual({ assetId: ASSET, print: false });
+  });
+
+  it('removes the background', () => {
+    const s = run(
+      start(),
+      { type: 'SET_BACKGROUND', assetId: ASSET },
+      { type: 'SET_BACKGROUND', assetId: null },
+    );
+    expect(s.draft.front.background).toBeUndefined();
+  });
+
+  it('inserts an uploaded image as an element that points at the asset', () => {
+    const s0 = start();
+    const el = createImageFromAsset(ASSET, s0.draft);
+    const s = run(s0, { type: 'ADD_ELEMENT', element: el });
+    expect(elementsOf(s.draft, 'front')).toHaveLength(2);
+    expect(el).toMatchObject({ type: 'IMAGE', assetId: ASSET });
+    expect('field' in el).toBe(false); // exactly one image source
   });
 });
