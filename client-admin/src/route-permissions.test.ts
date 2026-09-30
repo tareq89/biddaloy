@@ -88,6 +88,8 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/programs': '/_staff/programs/',
   '/fees': '/_staff/fees/',
   '/fee-structures': '/_staff/fee-structures/',
+  '/print-templates': '/_staff/print-templates/',
+  '/reports/printables': '/_staff/reports/printables',
   '/fees/generate': '/_staff/fees/generate',
   '/fees/schedules': '/_staff/fees/schedules/',
   '/invoices': '/_staff/invoices/',

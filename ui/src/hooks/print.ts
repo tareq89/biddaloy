@@ -210,13 +210,17 @@ export function usePrintTemplates(kind?: DocumentKind) {
   return useQuery(printTemplatesQueryOptions(kind));
 }
 
-export function usePrintTemplate(id: string) {
-  return useQuery({
+export function printTemplateQueryOptions(id: string) {
+  return queryOptions({
     queryKey: printTemplateKeys.detail(id),
     queryFn: async ({ signal }) =>
       (await apiClient.get<PrintTemplateRow>(`/print-templates/${id}`, { signal })).data,
     retry: shouldRetryQuery,
   });
+}
+
+export function usePrintTemplate(id: string) {
+  return useQuery(printTemplateQueryOptions(id));
 }
 
 export function usePrintSuggestions() {

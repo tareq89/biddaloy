@@ -193,6 +193,10 @@ declare module '@tanstack/react-router' {
   interface Register {
     router: typeof router;
   }
+  /** [32.4.1] `chromeless`: `_staff.tsx` renders the route without the sidebar and header. */
+  interface StaticDataRouteOption {
+    chromeless?: boolean;
+  }
 }
 
 function renderApp(): void {
