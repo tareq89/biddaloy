@@ -11,7 +11,7 @@ import { Student } from '../students/entities/student.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
-import { CreateEnrollmentDto, UpdateEnrollmentDto } from './dto/enrollments.dto';
+import { CreateEnrollmentDto, EnrollmentUpdate } from './dto/enrollments.dto';
 import { EnrollmentStatus, AuditAction } from '@biddaloy/shared';
 import { nextRollNumber } from '../students/roll-number.util';
 import { AuditService } from '../audit/audit.service';
@@ -225,7 +225,7 @@ export class EnrollmentService {
 
   async update(
     id: string,
-    dto: UpdateEnrollmentDto,
+    dto: EnrollmentUpdate,
     tenantId: string,
     userId: string | null = null,
     context: RequestContext = { ip: null, userAgent: null },

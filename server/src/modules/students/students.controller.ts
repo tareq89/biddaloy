@@ -39,6 +39,7 @@ import { FamilyAccessService } from './family-access.service';
 import {
   CreateStudentDto,
   UpdateStudentDto,
+  UpdateStudentRecordsDto,
   QueryStudentDto,
   QueryStudentIdsDto,
   StudentIdsResultDto,
@@ -211,6 +212,24 @@ export class StudentController {
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     assertCanWriteProfileFields(dto, canWriteRecords(tenant.role));
+    const student = await this.studentService.update(id, dto, tenant.id);
+    return redactHealthNotes(student, canReadRecords(tenant.role));
+  }
+
+  /**
+   * [39.2.4] The Records tab's save. Its own route so an EXECUTIVE, who holds STUDENT_RECORDS_WRITE
+   * but not STUDENT_UPDATE, can edit the five profile fields without being handed general student
+   * updates. Only those five fields are accepted (`forbidNonWhitelisted`), so it cannot move a
+   * student between sections or change a status.
+   */
+  @Patch('students/:id/records')
+  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
+  @RequirePermissions(Permission.STUDENT_RECORDS_WRITE)
+  async updateStudentRecords(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateStudentRecordsDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
     const student = await this.studentService.update(id, dto, tenant.id);
     return redactHealthNotes(student, canReadRecords(tenant.role));
   }
