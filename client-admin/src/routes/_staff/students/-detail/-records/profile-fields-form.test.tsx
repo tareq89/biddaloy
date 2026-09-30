@@ -52,7 +52,7 @@ describe('students/-detail/-records/profile-fields-form', () => {
 
   it('reflects saved values and is not dirty after a successful save', async () => {
     server.use(
-      http.patch('/api/v1/students/:id', async ({ request }) =>
+      http.patch('/api/v1/students/:id/records', async ({ request }) =>
         HttpResponse.json({ ...base, ...((await request.json()) as object) }),
       ),
     );
