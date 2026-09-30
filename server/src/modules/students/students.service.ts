@@ -66,11 +66,16 @@ export function assertCanWriteProfileFields(
 }
 
 /** [39.2.1] `health_notes` is only visible with STUDENT_RECORDS_READ (D14). Works on
- * one student, an array, or a paginated `{ data }` page; mutates and returns the input. */
+ * one student or guardian, an array, or a paginated `{ data }` page (children included);
+ * mutates and returns the input. */
 export function redactHealthNotes<T>(result: T, canReadRecords: boolean): T {
   if (canReadRecords || result == null) return result;
+  // Recurses into `students` so a Guardian (or a page of them) with children attached is safe too.
   const strip = (s: unknown) => {
-    if (s && typeof s === 'object') delete (s as { health_notes?: unknown }).health_notes;
+    if (!s || typeof s !== 'object') return;
+    delete (s as { health_notes?: unknown }).health_notes;
+    const kids = (s as { students?: unknown }).students;
+    if (Array.isArray(kids)) kids.forEach(strip);
   };
   const page = (result as { data?: unknown }).data;
   if (Array.isArray(result)) result.forEach(strip);
