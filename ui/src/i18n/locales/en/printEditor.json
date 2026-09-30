@@ -1,0 +1,160 @@
+{
+  "title": "Template editor",
+  "loading": "Loading the template…",
+  "loadError": "Could not load this template.",
+  "topbar": {
+    "status": {
+      "saved": "Saved",
+      "pending": "Unsaved changes…",
+      "saving": "Saving…",
+      "error": "Couldn't save"
+    },
+    "retry": "Retry",
+    "sideGroup": "Side",
+    "front": "Front",
+    "back": "Back",
+    "zoom": "Zoom",
+    "undo": "Undo",
+    "redo": "Redo",
+    "exit": "Back to templates"
+  },
+  "layers": {
+    "title": "Layers",
+    "empty": "Nothing on this side yet. Add an element to begin.",
+    "addGroup": "Add element",
+    "addText": "Text",
+    "addImage": "Image",
+    "addQr": "QR code",
+    "addShape": "Shape",
+    "delete": "Delete",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "type": {
+      "TEXT": "Text",
+      "IMAGE": "Image",
+      "QR": "QR code",
+      "SHAPE": "Shape"
+    },
+    "staticText": "“{{text}}”"
+  },
+  "canvas": {
+    "label": "Design area",
+    "safeZone": "Safe zone: keep important things 3 mm from the edge",
+    "element": "{{type}}: {{label}}"
+  },
+  "properties": {
+    "title": "Properties",
+    "empty": "Select an element to edit it.",
+    "position": "Position and size (mm)",
+    "x": "X",
+    "y": "Y",
+    "w": "Width",
+    "h": "Height",
+    "content": "Content",
+    "source": {
+      "static": "Fixed text",
+      "field": "Data field"
+    },
+    "text": "Text",
+    "field": "Field",
+    "font": "Font",
+    "size": "Size (pt)",
+    "minSize": "Smallest size (pt)",
+    "minSizeHelp": "Text shrinks down to this size. Leave empty for the default.",
+    "weight": "Weight",
+    "weights": {
+      "400": "Regular",
+      "500": "Medium",
+      "600": "Semibold",
+      "700": "Bold"
+    },
+    "colour": "Colour",
+    "align": "Alignment",
+    "aligns": {
+      "left": "Left",
+      "center": "Centre",
+      "right": "Right"
+    },
+    "overflow": "If the text is too long",
+    "overflowOptions": {
+      "SHRINK": {
+        "label": "Shrink to fit",
+        "help": "Makes the text smaller until it fits."
+      },
+      "WRAP": {
+        "label": "Wrap to more lines",
+        "help": "Continues on the next line."
+      },
+      "CLIP": {
+        "label": "Cut off",
+        "help": "Hides what does not fit."
+      },
+      "FLAG": {
+        "label": "Warn me",
+        "help": "Prints as is and warns you before printing."
+      }
+    },
+    "image": {
+      "field": "Picture from",
+      "fit": "Fit",
+      "fits": {
+        "COVER": "Fill the box",
+        "CONTAIN": "Show all of it"
+      },
+      "alignY": "Keep",
+      "alignYOptions": {
+        "top": "The top (faces)",
+        "center": "The middle"
+      }
+    },
+    "shape": {
+      "kind": "Shape",
+      "kinds": {
+        "RECT": "Rectangle",
+        "LINE": "Line"
+      },
+      "stroke": "Line colour",
+      "fill": "Fill colour",
+      "noFill": "No fill",
+      "strokeWidth": "Line width (mm)",
+      "radius": "Corner radius (mm)"
+    },
+    "qrNote": "The QR code is made for each card when it is printed."
+  },
+  "exitDialog": {
+    "title": "You have changes that are not saved yet",
+    "body": "Leaving now could lose them.",
+    "saveAndLeave": "Save and leave",
+    "leaveAnyway": "Leave anyway",
+    "stay": "Stay",
+    "saveFailed": "Could not save. Try again, or leave anyway."
+  },
+  "fields": {
+    "card.valid_until": "Valid until",
+    "guardian.phone": "Guardian phone",
+    "print.copyLabel": "Copy label (\"Copy 2\")",
+    "print.issue_date": "Issue date",
+    "print.verify_qr": "Verification QR code",
+    "school.address": "School address",
+    "school.logo": "School logo",
+    "school.name": "School name",
+    "school.name_bn": "School name (Bangla)",
+    "school.phone": "School phone",
+    "staff.blood_group": "Blood group",
+    "staff.designation": "Designation",
+    "staff.employee_id": "Employee ID",
+    "staff.name": "Name",
+    "staff.name_bn": "Name (Bangla)",
+    "staff.phone": "Phone",
+    "staff.photo": "Photo",
+    "student.blood_group": "Blood group",
+    "student.class": "Class",
+    "student.date_of_birth": "Date of birth",
+    "student.name": "Name",
+    "student.name_bn": "Name (Bangla)",
+    "student.photo": "Photo",
+    "student.registration_number": "Registration number",
+    "student.roll": "Roll number",
+    "student.section": "Section"
+  }
+}
