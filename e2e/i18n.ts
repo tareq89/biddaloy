@@ -32,6 +32,11 @@ import bnNav from '../ui/src/i18n/locales/bn/nav.json';
 import bnPayments from '../ui/src/i18n/locales/bn/payments.json';
 import bnPlatform from '../ui/src/i18n/locales/bn/platform.json';
 import bnPortal from '../ui/src/i18n/locales/bn/portal.json';
+import bnPrintEditor from '../ui/src/i18n/locales/bn/printEditor.json';
+import bnPrintHistory from '../ui/src/i18n/locales/bn/printHistory.json';
+import bnPrintPreview from '../ui/src/i18n/locales/bn/printPreview.json';
+import bnPrintTemplates from '../ui/src/i18n/locales/bn/printTemplates.json';
+import bnVerify from '../ui/src/i18n/locales/bn/verify.json';
 import bnPrograms from '../ui/src/i18n/locales/bn/programs.json';
 import bnPromotions from '../ui/src/i18n/locales/bn/promotions.json';
 import bnReports from '../ui/src/i18n/locales/bn/reports.json';
@@ -69,6 +74,11 @@ import enNav from '../ui/src/i18n/locales/en/nav.json';
 import enPayments from '../ui/src/i18n/locales/en/payments.json';
 import enPlatform from '../ui/src/i18n/locales/en/platform.json';
 import enPortal from '../ui/src/i18n/locales/en/portal.json';
+import enPrintEditor from '../ui/src/i18n/locales/en/printEditor.json';
+import enPrintHistory from '../ui/src/i18n/locales/en/printHistory.json';
+import enPrintPreview from '../ui/src/i18n/locales/en/printPreview.json';
+import enPrintTemplates from '../ui/src/i18n/locales/en/printTemplates.json';
+import enVerify from '../ui/src/i18n/locales/en/verify.json';
 import enPrograms from '../ui/src/i18n/locales/en/programs.json';
 import enPromotions from '../ui/src/i18n/locales/en/promotions.json';
 import enReports from '../ui/src/i18n/locales/en/reports.json';
@@ -109,6 +119,11 @@ const catalogs = {
     payments: bnPayments,
     platform: bnPlatform,
     portal: bnPortal,
+    printEditor: bnPrintEditor,
+    printHistory: bnPrintHistory,
+    printPreview: bnPrintPreview,
+    printTemplates: bnPrintTemplates,
+    verify: bnVerify,
     programs: bnPrograms,
     promotions: bnPromotions,
     reports: bnReports,
@@ -148,6 +163,11 @@ const catalogs = {
     payments: enPayments,
     platform: enPlatform,
     portal: enPortal,
+    printEditor: enPrintEditor,
+    printHistory: enPrintHistory,
+    printPreview: enPrintPreview,
+    printTemplates: enPrintTemplates,
+    verify: enVerify,
     programs: enPrograms,
     promotions: enPromotions,
     reports: enReports,
