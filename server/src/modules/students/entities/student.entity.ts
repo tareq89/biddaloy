@@ -39,6 +39,10 @@ import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
 @Entity('students')
 @Index(['class_section_id', 'roll_number'], { unique: true })
 @Index(['tenant_id', 'registration_number'], { unique: true })
+@Index('IDX_students_tenant_birth_reg_no', ['tenant_id', 'birth_reg_no'], {
+  unique: true,
+  where: '"birth_reg_no" IS NOT NULL AND "deleted_at" IS NULL',
+})
 export class Student {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -77,6 +81,21 @@ export class Student {
 
   @Column({ type: 'enum', enum: CommunicationMedium, default: CommunicationMedium.SMS })
   preferred_communication: CommunicationMedium;
+
+  @Column({ type: 'varchar', nullable: true })
+  religion: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  birth_reg_no: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  health_notes: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  father_name: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  mother_name: string | null;
 
   @ManyToMany(() => Guardian, (guardian) => guardian.students, { cascade: ['insert'] })
   @JoinTable({
