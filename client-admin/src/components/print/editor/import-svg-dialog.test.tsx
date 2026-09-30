@@ -118,4 +118,64 @@ describe('ImportSvgDialog', () => {
     expect(await screen.findByText('This file could not be read as an SVG.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Import' }).hasAttribute('disabled')).toBe(true);
   });
+
+  const upload = async (svg: string, name = 'card.svg') => {
+    const view = renderWithProviders(<Harness />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: 'tenant-1',
+    });
+    await screen.findByRole('dialog');
+    const input =
+      view.container.ownerDocument.querySelector<HTMLInputElement>('input[type="file"]')!;
+    await view.user.upload(input, new File([svg], name, { type: 'image/svg+xml' }));
+    return view;
+  };
+
+  it('warns about a different artboard shape, a key that is not a field, and mixed text', async () => {
+    await upload(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 856">' +
+        '<text>{{student.name}}</text><text>{{oops.key}}</text><text>Name: {{student.class}}</text></svg>',
+    );
+    expect(
+      await screen.findByText(/Your artboard is 85\.6×135\.7 mm\. This template is 85\.6×54 mm\./),
+    ).toBeTruthy();
+    expect(screen.getByText(/oops\.key is not a field of this document/)).toBeTruthy();
+    expect(screen.getByText(/mixes a field with other words/)).toBeTruthy();
+  });
+
+  it('marks a field whose font is not available', async () => {
+    await upload(SVG);
+    expect(
+      (await screen.findAllByText('Font not available, using Biddaloy Sans')).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it('a file with no fields explains it will only be the background, and can still be imported', async () => {
+    await upload(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 856 540"><rect width="1" height="1"/></svg>',
+    );
+    expect(await screen.findByText(/No \{\{student\.name\}\} texts were found/)).toBeTruthy();
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Import' }).disabled).toBe(false);
+  });
+
+  it("shows the server's refusal when the upload fails, and adds nothing", async () => {
+    server.use(
+      http.post('/api/v1/print-assets', () =>
+        HttpResponse.json({ message: 'Bad file' }, { status: 400 }),
+      ),
+    );
+    const { user } = await upload(SVG);
+    await screen.findByText('student.name');
+    await user.click(screen.getByRole('button', { name: 'Import' }));
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.getByTestId('count').textContent).toBe('0');
+  });
+
+  it('Cancel closes the dialog and forgets the chosen file', async () => {
+    const { user } = await upload(SVG);
+    await screen.findByText('student.name');
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
 });

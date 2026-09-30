@@ -7,6 +7,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../routeTree.gen';
 
+const { CREATE_TEMPLATE, ADD_PRINTER, DONE, CANCEL, PICK_STAFF, PICK_SECTION, SECTION_ID } =
+  vi.hoisted(() => ({
+    CREATE_TEMPLATE: 'create-template',
+    ADD_PRINTER: 'add-printer',
+    DONE: 'done',
+    CANCEL: 'cancel-picker',
+    PICK_STAFF: 'pick-staff',
+    PICK_SECTION: 'pick-section',
+    SECTION_ID: '11111111-1111-4111-8111-111111111111',
+  }));
+
 // The big screens have their own tests. Here only the ROUTES are under test, so each page
 // component is a stub that shows what the route handed it.
 vi.mock('../../components/print/editor/template-editor', () => ({
@@ -15,8 +26,54 @@ vi.mock('../../components/print/editor/template-editor', () => ({
   ),
 }));
 vi.mock('../../components/print/preview/print-preview', () => ({
-  PrintPreview: ({ subjectIds }: { subjectIds: string[] }) => (
-    <div data-testid="preview">{subjectIds.join(',')}</div>
+  PrintPreview: (props: {
+    documentKind: string;
+    subjectType: string;
+    subjectIds: string[];
+    onCreateTemplate: () => void;
+    onAddPrinter: () => void;
+    onDone: () => void;
+  }) => (
+    <div>
+      <div data-testid="preview">{props.subjectIds.join(',')}</div>
+      <output data-testid="preview-kind">{`${props.documentKind}/${props.subjectType}`}</output>
+      <button type="button" onClick={props.onCreateTemplate}>
+        {CREATE_TEMPLATE}
+      </button>
+      <button type="button" onClick={props.onAddPrinter}>
+        {ADD_PRINTER}
+      </button>
+      <button type="button" onClick={props.onDone}>
+        {DONE}
+      </button>
+    </div>
+  ),
+}));
+vi.mock('../../components/print/print-id-card-modal', () => ({
+  PrintIdCardModal: (props: {
+    initialType: string;
+    onCancel: () => void;
+    onConfirm: (
+      c:
+        | { subjectType: 'STUDENT' | 'STAFF'; ids: string }
+        | { subjectType: 'STUDENT'; classSectionId: string },
+    ) => void;
+  }) => (
+    <div>
+      <output data-testid="picker-type">{props.initialType}</output>
+      <button type="button" onClick={props.onCancel}>
+        {CANCEL}
+      </button>
+      <button type="button" onClick={() => props.onConfirm({ subjectType: 'STAFF', ids: 'u1,u2' })}>
+        {PICK_STAFF}
+      </button>
+      <button
+        type="button"
+        onClick={() => props.onConfirm({ subjectType: 'STUDENT', classSectionId: SECTION_ID })}
+      >
+        {PICK_SECTION}
+      </button>
+    </div>
   ),
 }));
 vi.mock('../../components/print/history/print-history-page', () => ({
@@ -38,7 +95,6 @@ vi.mock('../../components/print/history/print-history-page', () => ({
 
 const PICK_OK = 'pick-ok';
 const DENIED = "You don't have access to this page.";
-const SECTION_ID = '11111111-1111-4111-8111-111111111111';
 
 const render = (path: string, role: UserRole = UserRole.ADMIN) =>
   renderWithRouter(routeTree, {
@@ -128,5 +184,73 @@ describe('print routes [32.4.1]', () => {
     await user.click(await screen.findByRole('button', { name: PICK_OK }));
     await waitFor(() => expect(router.state.location.search).toMatchObject({ outcome: 'OK' }));
     expect(router.state.location.search).not.toHaveProperty('page');
+  });
+
+  it('with nobody chosen it shows the picker, for the type in the URL', async () => {
+    render('/print/preview?kind=STAFF_ID_CARD&subject_type=STAFF');
+    expect((await screen.findByTestId('picker-type')).textContent).toBe('STAFF');
+    expect(screen.queryByTestId('preview')).toBeNull();
+  });
+
+  it('the picker hands its choice back to the URL: people become ids, a section becomes class_section_id', async () => {
+    server.use(
+      http.get('/api/v1/students/ids', () => HttpResponse.json({ ids: ['x1'], total: 1 })),
+    );
+    const { router } = render('/print/preview?kind=STUDENT_ID_CARD&subject_type=STUDENT');
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: PICK_STAFF }));
+    await waitFor(() =>
+      expect(router.state.location.search).toMatchObject({
+        kind: 'STAFF_ID_CARD',
+        subject_type: 'STAFF',
+        ids: 'u1,u2',
+      }),
+    );
+    expect((await screen.findByTestId('preview')).textContent).toBe('u1,u2');
+  });
+
+  it('a section choice turns into class_section_id', async () => {
+    server.use(
+      http.get('/api/v1/students/ids', () => HttpResponse.json({ ids: ['x1', 'x2'], total: 2 })),
+    );
+    const { router } = render('/print/preview?kind=STUDENT_ID_CARD&subject_type=STUDENT');
+    await userEvent.setup().click(await screen.findByRole('button', { name: PICK_SECTION }));
+    await waitFor(() =>
+      expect(router.state.location.search).toMatchObject({ class_section_id: SECTION_ID }),
+    );
+    expect((await screen.findByTestId('preview')).textContent).toBe('x1,x2');
+  });
+
+  it('cancelling the picker goes back to where the user came from', async () => {
+    const { router } = render(
+      '/print/preview?kind=STUDENT_ID_CARD&subject_type=STUDENT&from=%2Fstudents',
+    );
+    await userEvent.setup().click(await screen.findByRole('button', { name: CANCEL }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/students'));
+  });
+
+  it('a bad kind falls back to student cards, and an off-site "from" is ignored', async () => {
+    const { router } = render(
+      '/print/preview?kind=NOPE&subject_type=WHAT&ids=a&from=https%3A%2F%2Fevil.example',
+    );
+    expect((await screen.findByTestId('preview-kind')).textContent).toBe('STUDENT_ID_CARD/STUDENT');
+    await userEvent.setup().click(screen.getByRole('button', { name: DONE }));
+    // `/` itself redirects to the dashboard; the point is that it stayed on this site.
+    await waitFor(() => expect(router.state.location.pathname).toBe('/dashboard'));
+  });
+
+  it('the preview\'s "no template" and "no printer" actions go to the right places', async () => {
+    const { router } = render('/print/preview?kind=STUDENT_ID_CARD&subject_type=STUDENT&ids=a');
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: ADD_PRINTER }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings'));
+    expect(router.state.location.hash).toBe('printers-section');
+  });
+
+  it('"create a template" opens the library with the new-template dialog requested', async () => {
+    const { router } = render('/print/preview?kind=STUDENT_ID_CARD&subject_type=STUDENT&ids=a');
+    await userEvent.setup().click(await screen.findByRole('button', { name: CREATE_TEMPLATE }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/print-templates'));
+    expect(router.state.location.search).toMatchObject({ new: '1' });
   });
 });
