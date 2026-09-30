@@ -178,6 +178,29 @@ describe('AcrAssessmentsService', () => {
     expect(reg.map((r) => r.user_id)).toEqual(['other']);
   });
 
+  it('D7: only the assessor edits/completes; any other admin may reopen', async () => {
+    const { svc, start } = setup();
+    const a = await start();
+    await svc.update(
+      a.id,
+      {
+        scores: [
+          { criterion_id: 'c1', score: 3 },
+          { criterion_id: 'c2', score: 3 },
+        ],
+      },
+      T,
+      ADMIN,
+    );
+    await expect(svc.update(a.id, { step1_data: { x: 1 } }, T, 'admin2')).rejects.toThrow(
+      /assessor/,
+    );
+    await expect(svc.complete(a.id, T, 'admin2')).rejects.toThrow(/assessor/);
+    await svc.complete(a.id, T, ADMIN);
+    const re = await svc.reopen(a.id, T, 'admin2');
+    expect(re.status).toBe('INCOMPLETE');
+  });
+
   it('cross-tenant id is 404', async () => {
     const { svc, start } = setup();
     const a = await start();

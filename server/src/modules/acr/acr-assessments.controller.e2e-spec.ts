@@ -132,7 +132,12 @@ describe('ACR assessments E2E (28.2.2)', () => {
     await ds.query(`DELETE FROM user_tenants WHERE user_id = ANY($1)`, [
       [TEACHER_USER_ID, STAFF_USER_ID],
     ]);
-    await ds.query(`DELETE FROM users WHERE id = ANY($1)`, [[TEACHER_USER_ID, STAFF_USER_ID]]);
+    // audit_logs is append-only: deleting a user who logged in would fire the FK's
+    // ON DELETE SET NULL against its trigger, so blank the accounts instead.
+    await ds.query(
+      `UPDATE users SET password_hash = NULL, email = NULL, status = 'INACTIVE' WHERE id = ANY($1)`,
+      [[TEACHER_USER_ID, STAFF_USER_ID]],
+    );
     await ds.query(`DELETE FROM schools WHERE id = $1`, [TENANT_B]);
     await app.close();
   });

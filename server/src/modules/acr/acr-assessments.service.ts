@@ -1,12 +1,13 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, In, Not, Repository } from 'typeorm';
-import { AuditAction, AuditEntityType, STAFF_ROLES } from '@biddaloy/shared';
+import { AuditAction, STAFF_ROLES } from '@biddaloy/shared';
 import { AcrAssessment, AcrAssessmentStatus } from './entities/acr-assessment.entity';
 import { AcrCriterion } from './entities/acr-criterion.entity';
 import { AcrFormVersion } from './entities/acr-form-version.entity';
@@ -20,8 +21,6 @@ import {
   UpdateAcrAssessmentDto,
 } from './dto/assessment.dto';
 
-// ponytail: 'AcrAssessment' is not in shared AUDIT_ENTITY_TYPES yet; cast until shared adds it.
-const AUDIT_TYPE = 'AcrAssessment' as AuditEntityType;
 const VALID_SCORES = [4, 3, 2, 1];
 
 /**
@@ -98,7 +97,7 @@ export class AcrAssessmentsService {
     }
     const saved = await this.assessments.manager.transaction(async (em) => {
       const aRepo = em.getRepository(AcrAssessment);
-      const row = await this.findVisible(aRepo, id, tenantId, callerId, true);
+      const row = await this.findVisible(aRepo, id, tenantId, callerId, true, true);
       if (row.status === 'COMPLETED')
         throw new ConflictException('Completed ACR is read-only; reopen it first');
       if (scoreInputs.length) {
@@ -137,7 +136,7 @@ export class AcrAssessmentsService {
   ): Promise<AcrAssessmentResponseDto> {
     const saved = await this.assessments.manager.transaction(async (em) => {
       const aRepo = em.getRepository(AcrAssessment);
-      const row = await this.findVisible(aRepo, id, tenantId, callerId, true);
+      const row = await this.findVisible(aRepo, id, tenantId, callerId, true, true);
       if (row.status === 'COMPLETED') throw new ConflictException('ACR is already completed');
       const required = await em.getRepository(AcrCriterion).find({
         where: { tenant_id: tenantId, form_version_id: row.form_version_id },
@@ -219,12 +218,16 @@ export class AcrAssessmentsService {
     tenantId: string,
     callerId: string,
     lock = false,
+    onlyAssessor = false,
   ): Promise<AcrAssessment> {
     const row = await repo.findOne({
       where: { id, tenant_id: tenantId },
       ...(lock ? { lock: { mode: 'pessimistic_write' as const } } : {}),
     });
     if (!row || row.user_id === callerId) throw new NotFoundException('ACR assessment not found');
+    // D7: only the assessor edits/completes; reopen is open to any ACR_WRITE holder (D4).
+    if (onlyAssessor && row.assessed_by !== callerId)
+      throw new ForbiddenException('Only the assessor can change this ACR');
     return row;
   }
 
@@ -238,7 +241,7 @@ export class AcrAssessmentsService {
     return this.auditService.record(
       {
         action: AuditAction.UPDATE,
-        entity_type: AUDIT_TYPE,
+        entity_type: 'AcrAssessment',
         entity_id: row.id,
         tenant_id: tenantId,
         performed_by_user_id: actorUserId,
