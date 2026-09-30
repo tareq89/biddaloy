@@ -34,6 +34,7 @@ function makeNote(overrides: Partial<StudentNote> = {}): StudentNote {
     author_user_id: USER_ID,
     author_key: 'teacher@x.test',
     body: 'Needs extra reading time',
+    rating: 4,
     created_at: new Date('2026-04-01T08:30:00.000Z'),
     ...overrides,
   });
@@ -65,6 +66,7 @@ describe('studentNotesTab', () => {
       'student',
       'author',
       'body',
+      'rating',
       'created_at',
     ]);
   });
@@ -75,11 +77,22 @@ describe('studentNotesTab', () => {
     expect(row).toMatchObject({
       student_id: STUDENT_ID,
       author_user_id: USER_ID,
+      rating: 4,
       created_at: '2026-04-01T08:30:00.000Z',
     });
     expect(tab.keyOf(row)).toBe('S-001|2026-04-01T08:30:00.000Z|teacher@x.test');
     expect(tab.keyOf(row)).toBe(tab.keyOf(entity));
     expect(tab.diffFields(row, entity)).toEqual([]);
+  });
+
+  it('round-trips a null rating and rejects an out-of-range one', () => {
+    const nullRow = rowOrThrow(toCells(makeNote({ rating: null })));
+    expect(nullRow.rating).toBeNull();
+    expect(tab.diffFields(nullRow, makeNote({ rating: null }))).toEqual([]);
+    const cells = toCells(makeNote());
+    cells.rating = '6';
+    const result = tab.fromRow(cells, 5, importCtx);
+    expect((result as { errors: RowError[] }).errors[0].column).toBe('rating');
   });
 
   it('an unknown student yields a RowError naming the student column', () => {
