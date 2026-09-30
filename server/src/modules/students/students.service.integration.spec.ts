@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { StudentService, GuardianService } from './students.service';
+import { StudentService, GuardianService, redactHealthNotes } from './students.service';
 import { QueryStudentIdsDto } from './dto/students.dto';
 import { Student } from './entities/student.entity';
 import { Guardian } from './entities/guardian.entity';
@@ -19,7 +19,14 @@ import {
   SEED_SECTION_2_ID,
   SEED_ACADEMIC_YEAR_ID,
 } from '@test/constants';
-import { EnrollmentStatus, CommunicationMedium, AuditAction } from '@biddaloy/shared';
+import {
+  EnrollmentStatus,
+  CommunicationMedium,
+  AuditAction,
+  Permission,
+  UserRole,
+  roleHasPermission,
+} from '@biddaloy/shared';
 import { AuditService } from '../audit/audit.service';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 
@@ -189,6 +196,92 @@ describe('StudentService (integration)', () => {
       await dataSource.query('DELETE FROM guardians');
       await dataSource.query('DELETE FROM students');
     }
+  });
+
+  describe('profile fields [39.2.1]', () => {
+    const profile = {
+      religion: 'Islam',
+      birth_reg_no: '19900123456789012',
+      health_notes: 'Peanut allergy',
+      father_name: 'Karim',
+      mother_name: 'Rahima',
+    };
+
+    it('round-trips the five fields through create, read and update', async () => {
+      const created = await service.create(
+        { full_name: 'P One', class_section_id: SEED_SECTION_1_ID, ...profile },
+        TENANT_ID,
+      );
+      expect(created).toMatchObject(profile);
+      const updated = await service.update(
+        created.id,
+        { religion: 'Hindu', mother_name: null },
+        TENANT_ID,
+      );
+      expect(updated.religion).toBe('Hindu');
+      expect(updated.mother_name).toBeNull();
+      expect(updated.father_name).toBe('Karim');
+    });
+
+    it('ACCOUNTANT (no RECORDS_READ) and PARENT never see health_notes; ADMIN does', async () => {
+      const created = await service.create(
+        { full_name: 'P Two', class_section_id: SEED_SECTION_1_ID, ...profile },
+        TENANT_ID,
+      );
+      for (const role of [UserRole.ACCOUNTANT, UserRole.PARENT, UserRole.STUDENT]) {
+        const s = redactHealthNotes(
+          await service.findOne(created.id, TENANT_ID),
+          roleHasPermission(role, Permission.STUDENT_RECORDS_READ),
+        );
+        expect(s).not.toHaveProperty('health_notes');
+      }
+      const admin = redactHealthNotes(
+        await service.findOne(created.id, TENANT_ID),
+        roleHasPermission(UserRole.ADMIN, Permission.STUDENT_RECORDS_READ),
+      );
+      expect(admin.health_notes).toBe('Peanut allergy');
+    });
+
+    it('duplicate birth_reg_no in the same school is 409 (create and update); another school is fine', async () => {
+      await service.create(
+        {
+          full_name: 'D One',
+          class_section_id: SEED_SECTION_1_ID,
+          birth_reg_no: profile.birth_reg_no,
+        },
+        TENANT_ID,
+      );
+      await expect(
+        service.create(
+          {
+            full_name: 'D Two',
+            class_section_id: SEED_SECTION_1_ID,
+            birth_reg_no: profile.birth_reg_no,
+          },
+          TENANT_ID,
+        ),
+      ).rejects.toThrow(ConflictException);
+
+      const other = await service.create(
+        { full_name: 'D Three', class_section_id: SEED_SECTION_1_ID },
+        TENANT_ID,
+      );
+      await expect(
+        service.update(other.id, { birth_reg_no: profile.birth_reg_no }, TENANT_ID),
+      ).rejects.toThrow(ConflictException);
+
+      // Same number in another tenant: insert directly (no section there), index is per tenant.
+      await studentRepo.save(
+        studentRepo.create({
+          full_name: 'Other',
+          registration_number: 'REG-X-1',
+          roll_number: 1,
+          class_section_id: OTHER_SECTION_ID,
+          birth_reg_no: profile.birth_reg_no,
+          tenant_id: OTHER_TENANT,
+        } as any),
+      );
+    });
   });
 
   describe('create', () => {
