@@ -324,6 +324,48 @@ describe('Student status + records access E2E', () => {
       expect(JSON.stringify(rows[0])).not.toContain('top secret'); // ...but not the content
     });
 
+    it('re-sending an unchanged date_of_birth writes no audit row; a changed one does', async () => {
+      // `date_of_birth` is a DATE column (read back as "YYYY-MM-DD") but the service turns the
+      // incoming value into a Date, so a naive comparison always saw a change.
+      const made = await as(UserRole.ADMIN, http().post('/api/v1/students'))
+        .send({
+          full_name: 'DOB Audit',
+          class_section_id: SEED_SECTION_1_ID,
+          date_of_birth: '2012-03-04',
+        })
+        .expect(201);
+      const id = made.body.id as string;
+      const updates = async () =>
+        Number(
+          (
+            await dataSource.query(
+              `SELECT count(*) AS n FROM audit_logs WHERE entity_type = 'Student' AND entity_id = $1 AND action = 'UPDATE'`,
+              [id],
+            )
+          )[0].n,
+        );
+
+      await as(UserRole.ACCOUNTANT, http().patch(`/api/v1/students/${id}`))
+        .send({ full_name: 'DOB Audit', date_of_birth: '2012-03-04' })
+        .expect(200);
+      expect(await updates()).toBe(0); // nothing actually changed
+
+      await as(UserRole.ACCOUNTANT, http().patch(`/api/v1/students/${id}`))
+        .send({ date_of_birth: '2012-03-05' })
+        .expect(200);
+      expect(await updates()).toBe(1); // a real change is still recorded
+
+      // ...and it lists only the field that changed, not every field the caller did not send.
+      const row = (
+        await dataSource.query(
+          `SELECT old_values, new_values FROM audit_logs WHERE entity_type = 'Student' AND entity_id = $1 AND action = 'UPDATE'`,
+          [id],
+        )
+      )[0];
+      expect(Object.keys(row.new_values)).toEqual(['date_of_birth']);
+      expect(Object.keys(row.old_values)).toEqual(['date_of_birth']);
+    });
+
     it('an unchanged or empty edit is a 200, not a 500, and writes no audit row', async () => {
       const { id } = await makeStudent('Empty Records Edit');
       await as(UserRole.EXECUTIVE, http().patch(`/api/v1/students/${id}/records`))
