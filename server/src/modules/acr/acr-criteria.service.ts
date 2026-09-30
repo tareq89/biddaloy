@@ -1,14 +1,11 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AuditAction, AuditEntityType } from '@biddaloy/shared';
+import { AuditAction } from '@biddaloy/shared';
 import { AcrFormVersion } from './entities/acr-form-version.entity';
 import { AcrCriterion } from './entities/acr-criterion.entity';
 import { AuditService } from '../audit/audit.service';
 import { AcrCriteriaSetResponseDto, SaveAcrCriteriaDto } from './dto/criteria.dto';
-
-// ponytail: 'AcrFormVersion' is not in shared AUDIT_ENTITY_TYPES yet; cast until shared adds it.
-const AUDIT_TYPE = 'AcrFormVersion' as AuditEntityType;
 
 /** Copy-on-write ACR criteria: every save is a new version, old ones never mutate (D1). 28.2.1. */
 @Injectable()
@@ -72,7 +69,7 @@ export class AcrCriteriaService {
     }
     await this.auditService.record({
       action: AuditAction.CREATE,
-      entity_type: AUDIT_TYPE,
+      entity_type: 'AcrFormVersion',
       entity_id: created.id,
       tenant_id: tenantId,
       performed_by_user_id: actorUserId,

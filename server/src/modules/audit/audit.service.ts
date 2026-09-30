@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
+import { EntityManager, Repository, SelectQueryBuilder } from 'typeorm';
 import { AuditLog } from './entities/audit-log.entity';
 import { ApprovalScope, AuditAction, AuditEntityType } from '@biddaloy/shared';
 import { redactSensitiveFields } from './redact.util';
@@ -116,7 +116,7 @@ export class AuditService {
     await this.repo.save(this.repo.create(sanitized));
   }
 
-  async findAll(query: QueryAuditLogDto, tenantId: string) {
+  async findAll(query: QueryAuditLogDto, tenantId: string, callerId?: string) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
@@ -143,6 +143,8 @@ export class AuditService {
       .addSelect(['performed_by.id', 'performed_by.full_name'])
       .where('audit_log.tenant_id = :tenantId', { tenantId })
       .orderBy('audit_log.created_at', 'DESC');
+
+    this.hideCallersAcr(qb, callerId);
 
     if (query.action) {
       qb.andWhere('audit_log.action = :action', { action: query.action });
@@ -191,6 +193,7 @@ export class AuditService {
     entityId: string,
     query: QueryAuditLogDto,
     tenantId: string,
+    callerId?: string,
   ) {
     const page = query.page || 1;
     const limit = query.limit || 10;
@@ -202,6 +205,8 @@ export class AuditService {
       .andWhere('audit_log.entity_type = :entityType', { entityType })
       .andWhere('audit_log.entity_id = :entityId', { entityId })
       .orderBy('audit_log.created_at', 'DESC');
+
+    this.hideCallersAcr(qb, callerId);
 
     if (query.action) {
       qb.andWhere('audit_log.action = :action', { action: query.action });
@@ -221,5 +226,22 @@ export class AuditService {
     const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
 
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  /**
+   * [28.0] ACR privacy (D2): the subject must never see audit rows about their
+   * own ACR — the row's existence/timing is itself the leak. AcrFormVersion has
+   * no subject, so only AcrAssessment rows are filtered.
+   */
+  private hideCallersAcr(qb: SelectQueryBuilder<AuditLog>, callerId?: string) {
+    if (!callerId) return;
+    qb.andWhere(
+      `NOT (audit_log.entity_type = 'AcrAssessment' AND EXISTS (
+        SELECT 1 FROM acr_assessments acr
+        WHERE acr.id::text = audit_log.entity_id::text
+          AND acr.tenant_id = audit_log.tenant_id
+          AND acr.user_id = :acrCallerId))`,
+      { acrCallerId: callerId },
+    );
   }
 }

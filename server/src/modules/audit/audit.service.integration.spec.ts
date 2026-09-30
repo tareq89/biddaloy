@@ -5,6 +5,7 @@ import { AuditAction } from '@biddaloy/shared';
 
 import { AuditService } from './audit.service';
 import { AuditLog } from './entities/audit-log.entity';
+import { AcrAssessment } from '../acr/entities/acr-assessment.entity';
 import { School } from '../schools/entities/school.entity';
 import { User } from '../users/entities/user.entity';
 import { QueryAuditLogDto } from './dto/audit-log.dto';
@@ -176,9 +177,7 @@ describe('AuditService (integration)', () => {
 
     expect(result.data).toHaveLength(1);
     expect(result.data[0]?.entity_id).toBe(targetEntityId);
-    expect(AuditLogResponseDto.fromEntity(result.data[0]!).performed_by_name).toBe(
-      'Fatema Begum',
-    );
+    expect(AuditLogResponseDto.fromEntity(result.data[0]!).performed_by_name).toBe('Fatema Begum');
   });
 
   // Tenant isolation: the join must not become a way around the tenant
@@ -202,5 +201,56 @@ describe('AuditService (integration)', () => {
 
     expect(result.data).toEqual([]);
     expect(result.total).toBe(0);
+  });
+
+  it('hides AcrAssessment rows about the caller from findAll and findByEntity (ACR privacy)', async () => {
+    const YEAR = '00000000-0000-4000-8000-0000000003b1';
+    const acrRepo = dataSource.getRepository(AcrAssessment);
+    const mine = await acrRepo.save(
+      acrRepo.create({
+        tenant_id: TENANT_ID,
+        user_id: ACTIVE_USER_ID,
+        academic_year_id: YEAR,
+        form_version_id: YEAR,
+        assessed_by: REMOVED_USER_ID,
+      }),
+    );
+    const other = await acrRepo.save(
+      acrRepo.create({
+        tenant_id: TENANT_ID,
+        user_id: REMOVED_USER_ID,
+        academic_year_id: YEAR,
+        form_version_id: YEAR,
+        assessed_by: ACTIVE_USER_ID,
+      }),
+    );
+    for (const a of [mine, other]) {
+      await auditLogRepo.save(
+        auditLogRepo.create({
+          tenant_id: TENANT_ID,
+          entity_type: 'AcrAssessment',
+          entity_id: a.id,
+          action: AuditAction.UPDATE,
+          performed_by_user_id: REMOVED_USER_ID,
+        }),
+      );
+    }
+
+    const asSubject = await service.findAll({} as QueryAuditLogDto, TENANT_ID, ACTIVE_USER_ID);
+    expect(asSubject.data.map((r) => r.entity_id)).toEqual([other.id]);
+    expect(
+      (
+        await service.findByEntity(
+          'AcrAssessment',
+          mine.id,
+          {} as QueryAuditLogDto,
+          TENANT_ID,
+          ACTIVE_USER_ID,
+        )
+      ).total,
+    ).toBe(0);
+
+    const asAssessor = await service.findAll({} as QueryAuditLogDto, TENANT_ID, YEAR);
+    expect(asAssessor.data.map((r) => r.entity_id).sort()).toEqual([mine.id, other.id].sort());
   });
 });
