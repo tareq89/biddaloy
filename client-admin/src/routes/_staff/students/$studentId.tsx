@@ -152,6 +152,18 @@ function StudentDetailPage() {
 
   const isActive = studentQuery.data?.enrollment_status === EnrollmentStatus.ACTIVE;
 
+  // Leave <-> Readmit swaps the header action, so the button that opened the
+  // dialog unmounts and focus would fall to <body>. Remember the replacement
+  // and focus it once the status has flipped AND the dialog has closed
+  // (focus is still trapped in the dialog while the refetch lands).
+  const pendingFocus = React.useRef<{ target: string; wasActive: boolean } | null>(null);
+  React.useEffect(() => {
+    const pending = pendingFocus.current;
+    if (!pending || pending.wasActive === isActive || leaveDialogOpen || readmitDialogOpen) return;
+    pendingFocus.current = null;
+    document.querySelector<HTMLElement>(`[data-action-id="${pending.target}"]`)?.focus();
+  }, [isActive, leaveDialogOpen, readmitDialogOpen]);
+
   return (
     <RegionConfigProvider value={regionConfig}>
       <div className="flex flex-col gap-4">
@@ -208,14 +220,20 @@ function StudentDetailPage() {
                   label: t('detail.actions.recordLeaving'),
                   allowed: canManageLifecycle && isActive,
                   priority: 'secondary',
-                  onClick: () => setLeaveDialogOpen(true),
+                  onClick: () => {
+                    pendingFocus.current = { target: 'readmit', wasActive: true };
+                    setLeaveDialogOpen(true);
+                  },
                 },
                 {
                   id: 'readmit',
                   label: t('detail.actions.readmit'),
                   allowed: canManageLifecycle && !isActive,
                   priority: 'secondary',
-                  onClick: () => setReadmitDialogOpen(true),
+                  onClick: () => {
+                    pendingFocus.current = { target: 'record-leaving', wasActive: false };
+                    setReadmitDialogOpen(true);
+                  },
                 },
                 {
                   id: 'collect-fees',

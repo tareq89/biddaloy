@@ -26,10 +26,7 @@ export function RecordsTab({ studentId }: RecordsTabProps) {
         forbiddenMessage={t('tab.forbidden')}
         errorMessage={t('tab.error')}
       >
-        {(student) => (
-          // key: re-seed the form's local state if a refetch brings new values.
-          <ProfileFieldsForm key={student.updated_at} student={student} />
-        )}
+        {(student) => <ProfileFieldsForm student={student} />}
       </TabQueryState>
       <PublicExamsSection studentId={studentId} />
       <LifecycleTimeline studentId={studentId} />

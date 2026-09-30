@@ -172,7 +172,8 @@ function ExamDialog({
       roll_no: rollNo.trim(),
       registration_no: registrationNo.trim(),
       passing_year: yearNumber,
-      ...(gpaNumber !== undefined ? { gpa: gpaNumber } : {}),
+      // Server: omitted = unchanged, null = clear. So erasing an existing GPA must send null.
+      ...(gpaNumber !== undefined ? { gpa: gpaNumber } : exam?.gpa != null ? { gpa: null } : {}),
     };
     save.mutate(exam ? { ...body, examId: exam.id } : { ...body, exam_type: examType }, {
       onSuccess: onClose,

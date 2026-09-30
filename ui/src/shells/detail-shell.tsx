@@ -148,6 +148,7 @@ export function DetailShell({
                 key={action.id}
                 type="button"
                 variant={variantFor(action)}
+                data-action-id={action.id}
                 onClick={action.onClick}
               >
                 {action.label}
