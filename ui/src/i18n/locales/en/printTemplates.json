@@ -1,0 +1,70 @@
+{
+  "title": "Print templates",
+  "caption": "Your school's print templates",
+  "new": "New template",
+  "empty": {
+    "heading": "Start from a design",
+    "explanation": "Pick a design to begin. You can change everything in the editor."
+  },
+  "loadError": "Could not load the templates.",
+  "columns": {
+    "name": "Name",
+    "type": "Type",
+    "status": "Status",
+    "default": "Default",
+    "batch": "Batch size",
+    "updated": "Last updated",
+    "actions": "Actions"
+  },
+  "kind": {
+    "STUDENT_ID_CARD": "Student ID card",
+    "STAFF_ID_CARD": "Staff ID card"
+  },
+  "status": {
+    "published": "Published",
+    "draft": "Draft only"
+  },
+  "default": "Default",
+  "filters": {
+    "kind": "Document type",
+    "allKinds": "All documents"
+  },
+  "actions": {
+    "edit": "Edit",
+    "makeDefault": "Make default",
+    "archive": "Archive"
+  },
+  "archive": {
+    "title": "Archive {{name}}?",
+    "explain": "It will no longer be offered when printing. Past prints keep their record.",
+    "confirm": "Archive",
+    "cancel": "Cancel",
+    "failed": "Could not archive this template."
+  },
+  "makeDefaultFailed": "Could not make this the default.",
+  "new_dialog": {
+    "title": "New template",
+    "kind": "Document type",
+    "designs": "Choose a design",
+    "name": "Name",
+    "nameHelp": "You can rename it later.",
+    "create": "Create and open editor",
+    "creating": "Creating…",
+    "cancel": "Cancel",
+    "noSuggestions": "There are no designs for this document type yet.",
+    "createFailed": "Could not create the template."
+  },
+  "style": {
+    "classic": "Classic",
+    "modern": "Modern"
+  },
+  "orientation": {
+    "portrait": "portrait",
+    "landscape": "landscape"
+  },
+  "defaultName": "{{style}} {{orientation}} ID card",
+  "suggestion": {
+    "alt": "{{style}} {{orientation}} design",
+    "loading": "Loading the design…"
+  }
+}
