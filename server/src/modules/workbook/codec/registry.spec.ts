@@ -132,6 +132,16 @@ describe('EXPECTED_TABS', () => {
       'staff_attendance_records',
       'leave_policies',
       'leave_records',
+      'acr_form_versions',
+      'acr_criteria',
+      'acr_assessments',
+      'acr_scores',
+      'staff_incidents',
+      'surveys',
+      'survey_questions',
+      'survey_targets',
+      'survey_responses',
+      'survey_answers',
     ]);
   });
 

@@ -23,6 +23,19 @@ import {
  * why they need their own cadence.
  */
 export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
+  // [28.1.2] ACR / incidents / surveys. Child-first within each group; all
+  // FK (RESTRICT) to users/teachers/subjects/academic_years, so they clear
+  // before those tables.
+  'survey_answers',
+  'survey_responses',
+  'survey_targets',
+  'survey_questions',
+  'surveys',
+  'staff_incidents',
+  'acr_scores',
+  'acr_assessments',
+  'acr_criteria',
+  'acr_form_versions',
   // [39.1.2] FK (RESTRICT) to `students` and `enrollments`, so all three
   // clear before either of those.
   'student_lifecycle_events',
