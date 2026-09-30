@@ -66,5 +66,13 @@
   "suggestion": {
     "alt": "{{style}} {{orientation}} design",
     "loading": "Loading the design…"
+  },
+  "gate": {
+    "title": "Open this on a computer to design or print",
+    "body": "Designing and printing need a bigger screen. Copy the link and open it on a computer.",
+    "copy": "Copy link",
+    "copied": "Link copied",
+    "copyFailed": "Could not copy the link",
+    "back": "Go back"
   }
 }
