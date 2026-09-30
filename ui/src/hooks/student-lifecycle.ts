@@ -22,7 +22,10 @@ export type StudentPublicExam = components['schemas']['StudentPublicExam'];
 export type CreateStudentPublicExamInput = components['schemas']['CreateStudentPublicExamDto'];
 export type UpdateStudentPublicExamInput = components['schemas']['UpdateStudentPublicExamDto'];
 /** `examId` present -> PATCH that row, absent -> POST a new one. */
-export type SavePublicExamInput = (CreateStudentPublicExamInput | UpdateStudentPublicExamInput) & {
+export type SavePublicExamInput = (
+  | CreateStudentPublicExamInput
+  | (Omit<UpdateStudentPublicExamInput, 'gpa'> & { gpa?: number | null })
+) & {
   examId?: string;
 };
 

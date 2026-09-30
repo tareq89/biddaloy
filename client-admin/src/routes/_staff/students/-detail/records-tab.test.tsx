@@ -126,6 +126,39 @@ describe('students/-detail/records-tab', () => {
     expect(await screen.findByText('222')).toBeTruthy();
   });
 
+  it('sends gpa: null when an existing GPA is erased, and omits it when blank on create', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    const { user } = renderTab({ exams: [exam()] });
+    // After renderTab so these win over its default handlers.
+    server.use(
+      http.patch('/api/v1/students/:id/public-exams/:examId', async ({ request }) => {
+        bodies.push((await request.json()) as Record<string, unknown>);
+        return HttpResponse.json(exam({ gpa: null }));
+      }),
+      http.post('/api/v1/students/:id/public-exams', async ({ request }) => {
+        bodies.push((await request.json()) as Record<string, unknown>);
+        return HttpResponse.json(exam({ id: 'exam-new', gpa: null }), { status: 201 });
+      }),
+    );
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    let dialog = await screen.findByRole('dialog');
+    await user.clear(within(dialog).getByLabelText('GPA'));
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toHaveProperty('gpa', null);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    await user.click(screen.getByRole('button', { name: 'Add exam' }));
+    dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Board'), 'Dhaka');
+    await user.type(within(dialog).getByLabelText('Roll no.'), '111');
+    await user.type(within(dialog).getByLabelText('Registration no.'), '222');
+    await user.type(within(dialog).getByLabelText('Passing year'), '2024');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies[1]).not.toHaveProperty('gpa');
+  });
+
   it('deletes an exam', async () => {
     const { user } = renderTab({ exams: [exam()] });
     await user.click(await screen.findByRole('button', { name: 'Delete' }));

@@ -12,14 +12,43 @@ export function ProfileFieldsForm({ student }: { student: Student }) {
   const canSeeHealth = useHasPermission(Permission.STUDENT_RECORDS_READ);
   const update = useUpdateStudent(student.id);
 
-  const [values, setValues] = React.useState({
-    religion: student.religion ?? '',
-    birth_reg_no: student.birth_reg_no ?? '',
-    father_name: student.father_name ?? '',
-    mother_name: student.mother_name ?? '',
-    health_notes: student.health_notes ?? '',
-  });
-  type Key = keyof typeof values;
+  const server = React.useMemo(
+    () => ({
+      religion: student.religion ?? '',
+      birth_reg_no: student.birth_reg_no ?? '',
+      father_name: student.father_name ?? '',
+      mother_name: student.mother_name ?? '',
+      health_notes: student.health_notes ?? '',
+    }),
+    [
+      student.religion,
+      student.birth_reg_no,
+      student.father_name,
+      student.mother_name,
+      student.health_notes,
+    ],
+  );
+  type Values = typeof server;
+  type Key = keyof Values;
+  const [values, setValues] = React.useState<Values>(server);
+  // Last server values the form was seeded with; a field is "dirty" when it differs.
+  const baseline = React.useRef<Values>(server);
+  const seededId = React.useRef(student.id);
+  React.useEffect(() => {
+    const prev = baseline.current;
+    const sameStudent = seededId.current === student.id;
+    baseline.current = server;
+    seededId.current = student.id;
+    // Fresh server data (background refetch) overwrites only untouched fields;
+    // another student reseeds everything.
+    setValues((cur) =>
+      sameStudent
+        ? (Object.fromEntries(
+            (Object.keys(server) as Key[]).map((k) => [k, cur[k] === prev[k] ? server[k] : cur[k]]),
+          ) as Values)
+        : server,
+    );
+  }, [server, student.id]);
   const set = (key: Key, value: string) => setValues((prev) => ({ ...prev, [key]: value }));
 
   function handleSubmit(event: React.FormEvent) {
@@ -37,8 +66,27 @@ export function ProfileFieldsForm({ student }: { student: Student }) {
         ...(canSeeHealth ? { health_notes: orNull(values.health_notes) } : {}),
       },
       {
-        onSuccess: () =>
-          notifyOutcome({ tenantId, variant: 'success', message: t('profile.saved') }),
+        onSuccess: () => {
+          // Reseed from what was saved: nothing is dirty any more.
+          const saved = Object.fromEntries(
+            (Object.keys(values) as Key[]).map((k) => [
+              k,
+              k === 'health_notes' && !canSeeHealth ? values[k] : values[k].trim(),
+            ]),
+          ) as Values;
+          baseline.current = saved;
+          // Keep anything typed while the save was in flight (it stays dirty).
+          setValues(
+            (cur) =>
+              Object.fromEntries(
+                (Object.keys(saved) as Key[]).map((k) => [
+                  k,
+                  cur[k] === values[k] ? saved[k] : cur[k],
+                ]),
+              ) as Values,
+          );
+          notifyOutcome({ tenantId, variant: 'success', message: t('profile.saved') });
+        },
       },
     );
   }

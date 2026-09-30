@@ -27,15 +27,6 @@ interface StudentRow {
   class_section: { section_name: string; class: { name: string } };
 }
 
-/** What has focus now: tag + accessible text, or 'BODY'. */
-async function activeElement(page: Page): Promise<string> {
-  return page.evaluate(() => {
-    const el = document.activeElement as HTMLElement | null;
-    if (!el || el === document.body) return 'BODY';
-    return `${el.tagName}:${el.getAttribute('role') ?? ''}:${(el.getAttribute('aria-label') ?? el.textContent ?? '').trim()}`;
-  });
-}
-
 async function resetFocus(page: Page): Promise<void> {
   await page.evaluate(() => {
     document.body.setAttribute('tabindex', '-1');
@@ -108,14 +99,11 @@ test.describe('student lifecycle, keyboard only', () => {
     });
 
     await test.step('focus after close', async () => {
-      // Documents CURRENT behaviour, not a desired one: once the student is no
-      // longer ACTIVE the "Record leaving" trigger unmounts, so focus is lost
-      // to <body>. Wait for the unmount first, or we would read the moment
-      // before the refetch when focus is still on the trigger.
+      // The trigger unmounts once the student is no longer ACTIVE; focus must
+      // move to the replacement "Readmit" action, not fall to <body>.
       await expect(
-        page.getByRole('button', { name: t('students.detail.actions.recordLeaving') }),
-      ).toHaveCount(0);
-      expect(await activeElement(page)).toBe('BODY');
+        page.getByRole('button', { name: t('students.detail.actions.readmit') }),
+      ).toBeFocused();
     });
 
     await test.step('Records tab timeline shows the event', async () => {
@@ -143,12 +131,10 @@ test.describe('student lifecycle, keyboard only', () => {
     await page.keyboard.press('ControlOrMeta+Enter');
     await expect(dialog).toBeHidden();
 
-    // Documents current behaviour: ACTIVE again, the Readmit trigger unmounts
-    // and focus is lost to <body> (the wait below covers the unmount).
+    // ACTIVE again: focus moves to the replacement "Record leaving" action.
     await expect(
       page.getByRole('button', { name: t('students.detail.actions.recordLeaving') }),
-    ).toBeVisible();
-    expect(await activeElement(page)).toBe('BODY');
+    ).toBeFocused();
 
     await openTabByKeyboard(page, 'records');
     await expect(
