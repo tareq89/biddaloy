@@ -31,6 +31,12 @@ export enum Permission {
   STUDENT_UPDATE = 'STUDENT_UPDATE',
   STUDENT_DELETE = 'STUDENT_DELETE',
   STUDENT_BULK_UPLOAD = 'STUDENT_BULK_UPLOAD',
+  // Student lifecycle (39.x) — D22.
+  STUDENT_LIFECYCLE_MANAGE = 'STUDENT_LIFECYCLE_MANAGE',
+  STUDENT_NOTES_READ = 'STUDENT_NOTES_READ',
+  STUDENT_NOTES_WRITE = 'STUDENT_NOTES_WRITE',
+  STUDENT_RECORDS_READ = 'STUDENT_RECORDS_READ',
+  STUDENT_RECORDS_WRITE = 'STUDENT_RECORDS_WRITE',
 
   // Guardian Management
   GUARDIAN_CREATE = 'GUARDIAN_CREATE',
@@ -343,6 +349,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.STAFF_ATTENDANCE_READ,
     Permission.STAFF_ATTENDANCE_MARK,
     Permission.LEAVE_APPROVE,
+    // [39.1.1] D22 — student lifecycle, notes, records.
+    Permission.STUDENT_LIFECYCLE_MANAGE,
+    Permission.STUDENT_NOTES_READ,
+    Permission.STUDENT_NOTES_WRITE,
+    Permission.STUDENT_RECORDS_READ,
+    Permission.STUDENT_RECORDS_WRITE,
   ],
 
   [UserRole.ACCOUNTANT]: [
@@ -443,6 +455,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // [36.1.1] Own record only — no LEAVE_APPROVE (ADMIN/EXECUTIVE only).
     Permission.STAFF_ATTENDANCE_READ,
     Permission.STAFF_ATTENDANCE_MARK,
+    // [39.1.1] D22 — teachers read/write notes, read records.
+    Permission.STUDENT_NOTES_READ,
+    Permission.STUDENT_NOTES_WRITE,
+    Permission.STUDENT_RECORDS_READ,
   ],
 
   // [5.1] added no permissions to either family role. The widened server
@@ -536,6 +552,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.STAFF_ATTENDANCE_READ,
     Permission.STAFF_ATTENDANCE_MARK,
     Permission.LEAVE_APPROVE,
+    // [39.1.1] D22 — student lifecycle, notes, records.
+    Permission.STUDENT_LIFECYCLE_MANAGE,
+    Permission.STUDENT_NOTES_READ,
+    Permission.STUDENT_NOTES_WRITE,
+    Permission.STUDENT_RECORDS_READ,
+    Permission.STUDENT_RECORDS_WRITE,
   ],
 };
 
