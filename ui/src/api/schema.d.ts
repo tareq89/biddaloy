@@ -6355,6 +6355,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/performance/students/{studentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["PerformanceController_student_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/performance/classes/{classId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["PerformanceController_klass_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/performance/staff/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["StaffPerformanceController_staff_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -11024,6 +11072,79 @@ export interface components {
             opensAt?: string;
             closesAt?: string;
             minResponses?: number;
+        };
+        HomeworkRollupDto: {
+            totalAssignments: number;
+            completed: number;
+            defaulters: number;
+            completionPercent: number;
+        };
+        StudentExamOutcomeDto: {
+            examId: string;
+            examName: string;
+            totalMarks: number;
+            gpa: number;
+            grade: string;
+            isFail: boolean;
+        };
+        StudentPerformanceResponseDto: {
+            studentId: string;
+            classId: string;
+            sectionId: string | null;
+            academicYearId: string;
+            termId: string | null;
+            from: string;
+            to: string;
+            passRate: number | null;
+            averageMarks: number | null;
+            averageGpa: number | null;
+            attendancePercent: number | null;
+            /** @description All-time — not filtered by academicYearId/termId; HomeworkAnalyticsService has no date filter. Section rollup counts section-wide assignments only (D24). */
+            homework: components["schemas"]["HomeworkRollupDto"];
+            noteRatingAverage: number | null;
+            noteRatingCount: number;
+            exams: components["schemas"]["StudentExamOutcomeDto"][];
+        };
+        ClassExamOutcomeDto: {
+            examId: string;
+            examName: string;
+            appeared: number;
+            passRate: number;
+            averageMarks: number | null;
+        };
+        ClassPerformanceResponseDto: {
+            classId: string;
+            sectionId: string | null;
+            academicYearId: string;
+            termId: string | null;
+            from: string;
+            to: string;
+            passRate: number | null;
+            averageMarks: number | null;
+            attendancePercent: number | null;
+            /** @description All-time — not filtered by academicYearId/termId; HomeworkAnalyticsService has no date filter. Section rollup counts section-wide assignments only (D24). */
+            homework: components["schemas"]["HomeworkRollupDto"];
+            exams: components["schemas"]["ClassExamOutcomeDto"][];
+        };
+        StaffAcrYearDto: {
+            academicYearId: string;
+            status: string;
+            total: number | null;
+        };
+        StaffSurveyDto: {
+            /** @description All-time (not range-scoped). Null unless a CLOSED survey met min-N (pair and per-question); questions below min-N are left out of the average. */
+            averageStars: number | null;
+            surveyCount: number;
+        };
+        StaffPerformanceResponseDto: {
+            userId: string;
+            /** @description All-time, year-over-year. */
+            acr: components["schemas"]["StaffAcrYearDto"][];
+            survey: components["schemas"]["StaffSurveyDto"];
+            /** @description All-time (not range-scoped). */
+            incidentCount: number;
+            /** @description Sections whose class belongs to the requested academic year. */
+            classes: components["schemas"]["ClassPerformanceResponseDto"][];
         };
     };
     responses: never;
@@ -27730,6 +27851,115 @@ export interface operations {
                 };
                 content: {
                     "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PerformanceController_student_v1: {
+        parameters: {
+            query: {
+                academicYearId: string;
+                termId?: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                studentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudentPerformanceResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PerformanceController_klass_v1: {
+        parameters: {
+            query: {
+                academicYearId: string;
+                termId?: string;
+                sectionId?: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                classId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassPerformanceResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StaffPerformanceController_staff_v1: {
+        parameters: {
+            query: {
+                academicYearId: string;
+                termId?: string;
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffPerformanceResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
