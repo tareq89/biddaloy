@@ -216,6 +216,7 @@ function EditorBody({
           {t('topbar.zoom')}
           <input
             type="range"
+            className="h-6"
             min={100}
             max={400}
             step={25}
