@@ -4,6 +4,14 @@
 // SPA sends (Bearer + X-Tenant-ID).
 import type { APIRequestContext } from '@playwright/test';
 
+import type {
+  AcrResponse,
+  CreateAcrBody,
+  CreateIncidentBody,
+  CreateSurveyBody,
+  IncidentResponse,
+  SurveyResponse,
+} from './fixtures/evaluations';
 import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS } from './seed-contract';
 
 interface RefreshResponse {
@@ -903,4 +911,32 @@ export async function requestStepUpOtp(
     'No debug.otp in step-up otp/request response after retrying past the 60s cooldown — ' +
       'ACCOUNT_ACCESS_ECHO_SECRETS=true set?',
   );
+}
+
+/** [28.1.4] `POST /evaluations/acrs`. TODO(28.2): endpoint arrives in W2;
+ * path is a placeholder until then. */
+export async function createAcr(
+  request: APIRequestContext,
+  session: ApiSession,
+  body: CreateAcrBody,
+): Promise<AcrResponse> {
+  return post<AcrResponse>(request, session, '/evaluations/acrs', body);
+}
+
+/** [28.1.4] `POST /evaluations/incidents`. TODO(28.2): see `createAcr`. */
+export async function createIncident(
+  request: APIRequestContext,
+  session: ApiSession,
+  body: CreateIncidentBody,
+): Promise<IncidentResponse> {
+  return post<IncidentResponse>(request, session, '/evaluations/incidents', body);
+}
+
+/** [28.1.4] `POST /evaluations/surveys`. TODO(28.2): see `createAcr`. */
+export async function createSurvey(
+  request: APIRequestContext,
+  session: ApiSession,
+  body: CreateSurveyBody,
+): Promise<SurveyResponse> {
+  return post<SurveyResponse>(request, session, '/evaluations/surveys', body);
 }
