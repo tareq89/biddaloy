@@ -10,6 +10,8 @@ changed and why, if you're looking for something this doc used to describe.
 ```mermaid
 erDiagram
     FeeStructure ||--o{ StudentFee : "generates"
+    FeeStructure ||--o{ FineRule : "fine rate for"
+    FineRule ||--o{ StudentFee : "fines (nullable — null = logged manually)"
     RecurringSchedule ||--o{ StudentFee : "generates (recurring)"
     RecurringSchedule ||--o{ RecurringScheduleExclusion : "opt-outs"
     DiscountRule ||--o{ StudentFee : "auto-applies discount"
@@ -36,8 +38,22 @@ erDiagram
         decimal total_amount
         decimal discount_amount
         decimal paid_amount
-        enum status "PENDING to PARTIALLY_PAID to PAID"
+        enum status "PENDING, PARTIALLY_PAID, PAID, OVERDUE, WAIVED (fully waived fine)"
         uuid late_fee_for_student_fee_id "self-reference, nullable: set means this row IS a late fee"
+        string note "FINE bills only: reason shown to the family"
+        date incident_date "FINE bills only: null on a rule-generated fine"
+        uuid fine_rule_id "FINE bills only: null means logged manually"
+    }
+    FineRule {
+        uuid id
+        uuid academic_year_id
+        enum trigger "ATTENDANCE_ABSENT or ATTENDANCE_LATE"
+        uuid fee_structure_id "the fine's rate + label"
+        uuid class_id "nullable: null is the school default"
+        int free_per_period
+        decimal cap_per_period "nullable: no cap"
+        jsonb conditions "e.g. min_minutes_late"
+        bool is_active
     }
     RecurringSchedule {
         uuid id
@@ -314,6 +330,158 @@ run (D13). Channel order is push → WhatsApp → SMS, with SMS only sent if
 the school has it enabled and has credit remaining. See
 [05-communications.md](05-communications.md).
 
+## Fines
+
+A fine is just a bill: `FeeStructure.fee_type = 'FINE'` (e.g. "Absent",
+"Late", "Damage", "Lost ID card") and the fine itself is an ordinary
+`StudentFee` row. There's no separate "fine" table for the bill itself —
+checkout, reversal, and invoicing have **no fine-specific branch** anywhere.
+Two things get a fine onto a bill (Epic 38 #818):
+
+```mermaid
+flowchart LR
+  R[fine_rules] --> SW[FineSweepService]
+  AT[(attendance_records)] --> SW
+  FS[FeeStructure fee_type=FINE] -. rate + label .-> SW
+  FS -. default amount .-> M[Log fine]
+  SW -->|1 bill / student / month| G[FeeGenerationService.generate]
+  M -->|1 bill per student| G
+  G --> SF[(StudentFee + note, incident_date, fine_rule_id)]
+  SF --> D[Dues · Record Payment · Invoices — unchanged]
+  SF --> W[Waive = one-off discount, FEE_APPROVE step-up]
+  SF --> P[Portal: Due this month + Fees › Fines]
+  SF --> N[Fine notice]
+```
+
+- **Rule-driven (automatic, monthly)** — a `FineRule` names a trigger
+  (`ATTENDANCE_ABSENT` or `ATTENDANCE_LATE`), a `FeeStructure` (the rate),
+  an optional class scope, `free_per_period` and an optional
+  `cap_per_period`. `FineSweepService` reads `attendance_records`
+  read-only (it never writes a mark), counts hits per student for the
+  month, and bills `max(0, count - free_per_period) × rate`, capped. At or
+  below the free threshold there is no bill at all (see the example below). It runs
+  daily as part of `FeesDailyScheduler` (like the late-fee sweep below),
+  self-healing the previous month once `correctionWindowDays` has passed —
+  a late attendance correction never mutates a bill already generated.
+  Example, `free_per_period: 2`, rate 50:
+
+  | Absences in the month | Bill                             |
+  | --------------------- | -------------------------------- |
+  | 1 or 2                | none (within the free threshold) |
+  | 3                     | (3 - 2) × 50 = 50                |
+  | 5                     | (5 - 2) × 50 = 150               |
+
+- **Staff-logged (manual)** — `POST /fees/fines` (`FinesService.logFine`)
+  takes a reason and incident date, for anything a rule can't see (a
+  broken window, a lost ID card, a discipline case). ADMIN/ACCOUNTANT
+  only, `FEE_GENERATE` permission, no approval needed to _add_ a fine.
+
+Both paths write through the same `FeeGenerationService.generate()` used
+by every other bill, extended with `billOverrides` — a per-(student, fee
+structure) map of `{ amount, note, fine_rule_id }` that lets one
+`generate()` call bill different students different amounts, instead of
+everyone paying the structure's fixed price.
+
+### A worked example: a class rule fines "3+ absences a month, ৳20 each, capped at ৳200"
+
+The rule (`FineRule`, `trigger: 'ATTENDANCE_ABSENT'`):
+
+```json
+{
+  "id": "9f11...",
+  "academic_year_id": "2b7a...",
+  "trigger": "ATTENDANCE_ABSENT",
+  "fee_structure_id": "c001...",
+  "class_id": "cl-10...",
+  "free_per_period": 2,
+  "cap_per_period": "200.00",
+  "conditions": {},
+  "is_active": true
+}
+```
+
+A student in that class was marked `ABSENT` 5 times in September. Staff
+open **Finance › Fines**, pick "Generate", and preview September:
+
+```json
+// POST /fees/fines/generate/preview {"month": "2026-09", "class_id": "cl-10..."}
+{
+  "students": [
+    {
+      "student_id": "a1b2...",
+      "rule_id": "9f11...",
+      "fee_structure_id": "c001...",
+      "count": 5,
+      "amount": 60.0,
+      "note": "5 absences (2 free)"
+    }
+  ],
+  "total_amount": 60.0,
+  "would_create": 1,
+  "duplicates": []
+}
+```
+
+`amount` is `(5 - 2 free) × ৳20 = ৳60` — under the ৳200 cap, so the cap
+never kicks in here. Confirming the preview calls
+`POST /fees/fines/generate`, which produces this `StudentFee` row:
+
+```json
+{
+  "id": "e4d5...",
+  "student_id": "a1b2...",
+  "fee_structure_id": "c001...",
+  "period_start": "2026-09-01",
+  "total_amount": "60.00",
+  "status": "PENDING",
+  "note": "5 absences (2 free)",
+  "incident_date": null,
+  "fine_rule_id": "9f11..."
+}
+```
+
+`incident_date` stays `null` on a rule-generated fine — there's no single
+day, it's a monthly count. A manually-logged fine is the opposite:
+`fine_rule_id` is `null` (that's what marks it "logged manually", not a
+separate kind flag) and `incident_date` is the day it happened. From that
+row on, the fine behaves exactly like any other bill: it shows up in
+dues, Record Payment can collect it, and it prints on an invoice.
+
+### Waiving a fine (D24)
+
+Waiving reduces or clears a fine the same way a checkout discount does —
+`POST /fees/fines/:id/waive` behind `FEE_APPROVE` step-up
+(`ApprovalScope.FEES_DISCOUNT`), reason required, FINE bills only:
+
+| Situation                               | Waive amount                 | Resulting `status`     |
+| --------------------------------------- | ---------------------------- | ---------------------- |
+| Unpaid fine, waived in full             | the whole outstanding amount | `WAIVED`               |
+| Partly paid fine, rest waived           | the remaining balance        | `PAID`                 |
+| Partly paid fine, only part of the rest | less than the balance        | stays `PARTIALLY_PAID` |
+| Fully paid fine                         | — (nothing outstanding)      | rejected, `409`        |
+
+There's no dedicated "waive" column — the endpoint writes the same
+`one_off_discount_amount`/`discount_amount` fields checkout uses, and
+`status` is derived from whatever's left outstanding after the discount.
+
+### The manual-occurrence rule (D28)
+
+Every other bill in this doc asks "does one already exist for this
+(student, structure, period)?" and offers skip/remove-older/create-anyway
+(D6, "Generate" above) when it does. A **manually-logged** fine skips that
+question entirely: `FinesService.logFine()` calls `generate()` with
+`alwaysNewOccurrence: true`, so a second damage report on the same
+student in the same month always creates a new bill, no duplicate prompt,
+no approval. A **rule-generated** fine still goes through the normal
+duplicate check (SKIP by default) — the sweep is idempotent per month, so
+re-running it never double-bills.
+
+### Fines never get late fees
+
+`LateFeeService` explicitly skips `fee_type = 'FINE'` bills
+(`late-fee.service.ts`, D10) — a fine is already a penalty; charging a
+late fee on top of it isn't a case anyone asked for.
+
 ## Family-facing access
 
 Parents/students see a deliberately narrower view of all of the above —
@@ -352,6 +520,18 @@ unmasked payment reference).
 | D19 | No production data existed yet — migrations were free to drop/recreate; seed/`e2e/seed-contract`/`api-types` regenerated at each wave close.         |
 | D20 | Checkout is idempotent (`idempotency_key` unique per tenant), locks bill rows during allocation.                                                     |
 | D21 | Invoices immutable after issue; changes produce a credit note, never an edit.                                                                        |
+
+### Fines (D22–D28, from Epic 38 #818)
+
+| #   | Decision                                                                                                                                                                                                   |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D22 | A class `FineRule` replaces the school default for that trigger; one active rule per (tenant, academic year, trigger, class_id), `NULLS NOT DISTINCT`.                                                     |
+| D23 | A `LATE` mark with `minutes_late` still `NULL` counts as a hit; `min_minutes_late` only filters marks where the minutes are actually known.                                                                |
+| D24 | Waive covers the outstanding amount only — full waive on an unpaid fine gives `WAIVED`, waiving the rest of a partly-paid one gives `PAID` (see the waive table above). A fully paid fine can't be waived. |
+| D25 | Permissions: log/generate a fine needs `FEE_GENERATE`; rule CRUD needs `FEE_STRUCTURE_CREATE/UPDATE/DELETE`; waive needs `FEE_APPROVE` step-up. EXECUTIVE stays read-only.                                 |
+| D26 | The daily sweep runs from `correctionWindowDays + 1` to month end, always billing the _previous_ month (self-healing after a late attendance correction).                                                  |
+| D27 | `FineRule` is scoped to one `academic_year_id`; the sweep resolves the year that contains the attended month.                                                                                              |
+| D28 | A manually-logged fine always creates a new bill (`alwaysNewOccurrence: true`) — no duplicate prompt, no approval, unlike every other `generate()` caller.                                                 |
 
 ## What was removed, and why
 

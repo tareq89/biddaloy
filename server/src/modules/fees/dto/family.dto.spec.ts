@@ -17,6 +17,7 @@ import {
   ruleLabel,
   toFamilyDiscountRule,
   toFamilyFeeStructure,
+  toFamilyFine,
   toFamilyInvoice,
   toFamilyPayment,
   toFamilyStudentDue,
@@ -24,6 +25,8 @@ import {
   toFamilyStudentSchedule,
   toFamilyWalletTransaction,
 } from './family.dto';
+import type { StaffFineDto } from '../fines/dto/fines.dto';
+import { FineOrigin } from '../fines/dto/fines.dto';
 import { Payment } from '../entities/payment.entity';
 import { StudentFee } from '../entities/student-fee.entity';
 import { FeeStructure } from '../entities/fee-structure.entity';
@@ -333,6 +336,8 @@ const DUE_ENTRY_KEYS = [
   'period_type',
   'occurrence_label',
   'is_late_fee',
+  'is_fine',
+  'note',
   'total_amount',
   'paid_amount',
   'discount_amount',
@@ -375,6 +380,8 @@ function makeStudentDueSummary(): StudentDueSummary {
         period_type: PeriodType.MONTH,
         occurrence: 1,
         is_late_fee: false,
+        is_fine: false,
+        note: null,
         total_amount: 1000,
         paid_amount: 200,
         discount_amount: 100,
@@ -760,5 +767,56 @@ describe('toFamilyStudentSchedule', () => {
     expect(json).not.toContain('last_run_period');
     expect(dto).not.toHaveProperty('excluded');
     expect(dto).not.toHaveProperty('is_active');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fines [Epic 38.2.3]
+// ---------------------------------------------------------------------------
+
+function makeStaffFine(overrides: Partial<StaffFineDto> = {}): StaffFineDto {
+  return {
+    id: 'fine-1',
+    student_id: 'student-1',
+    fee_structure_id: 'fs-fine-1',
+    fee_name: 'Uniform Fine',
+    note: 'Uniform violation',
+    incident_date: new Date('2026-03-05'),
+    period_start: new Date('2026-03-01'),
+    total_amount: 100,
+    discount_amount: 20,
+    paid_amount: 0,
+    status: FeeStatus.PENDING,
+    due_date: new Date('2026-03-12'),
+    origin: FineOrigin.MANUAL,
+    approved_by_user_id: 'staff-1',
+    ...overrides,
+  };
+}
+
+describe('toFamilyFine', () => {
+  it('publishes exactly the family allow-list and nothing else', () => {
+    expectKeys(toFamilyFine(makeStaffFine()), [
+      'id',
+      'student_id',
+      'fee_name',
+      'note',
+      'incident_date',
+      'period_start',
+      'total_amount',
+      'discount_amount',
+      'paid_amount',
+      'status',
+      'due_date',
+    ]);
+  });
+
+  it('withholds approved_by_user_id, fee_structure_id and origin', () => {
+    const dto = toFamilyFine(makeStaffFine());
+
+    expect(dto).not.toHaveProperty('approved_by_user_id');
+    expect(dto).not.toHaveProperty('fee_structure_id');
+    expect(dto).not.toHaveProperty('origin');
+    expect(JSON.stringify(dto)).not.toContain('staff-1');
   });
 });

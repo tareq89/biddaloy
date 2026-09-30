@@ -272,6 +272,14 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.SCHEDULE_MANAGE,
     label: { key: 'recurringSchedules' },
   },
+  // [38.4.3] FEE_READ — same "blanket refusal matching nav visibility"
+  // gate `route-permissions.ts` uses for this route.
+  'finance.fines': {
+    id: 'finance.fines',
+    to: '/fees/fines',
+    permission: Permission.FEE_READ,
+    label: { key: 'fines' },
+  },
   'finance.invoices': {
     id: 'finance.invoices',
     to: '/invoices',
@@ -418,6 +426,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
       STAFF_NAV_ITEMS['finance.feeStructures'],
       STAFF_NAV_ITEMS['finance.generateFees'],
       STAFF_NAV_ITEMS['finance.recurringSchedules'],
+      STAFF_NAV_ITEMS['finance.fines'],
       STAFF_NAV_ITEMS['finance.invoices'],
     ],
   },

@@ -34,6 +34,9 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/attendance/staff': '/_staff/attendance/staff/',
   '/attendance/staff/leave': '/_staff/attendance/staff/leave',
   '/fees/generate': '/_staff/fees/generate',
+  '/fees/fines?logFine=1': '/_staff/fees/fines/',
+  '/fees/fines?generateFines=1': '/_staff/fees/fines/',
+  '/fees/fines': '/_staff/fees/fines/',
   '/students/new': '/_staff/students/new',
   '/students/import': '/_staff/students/import',
   '/grading-scales': '/_staff/grading-scales/',
@@ -184,7 +187,16 @@ describe('action-registry.ts', () => {
    * these two are the one documented exception to the route-permission
    * equality this test otherwise enforces everywhere.
    */
-  const ROUTE_PERMISSION_EXCEPTIONS = new Set(['programs.add', 'programs.enrol']);
+  // [38.4.3] `fines.log`/`fines.generate`/`fines.waive` are stricter than
+  // `/_staff/fees/fines/`'s own FEE_READ gate on purpose — see
+  // `action-registry.ts`'s comment on those three entries.
+  const ROUTE_PERMISSION_EXCEPTIONS = new Set([
+    'programs.add',
+    'programs.enrol',
+    'fines.log',
+    'fines.generate',
+    'fines.waive',
+  ]);
 
   it('every seeded action targets a route that exists in STAFF_ROUTE_PERMISSIONS with the same permission (or a documented, stricter exception)', () => {
     for (const action of ACTIONS) {

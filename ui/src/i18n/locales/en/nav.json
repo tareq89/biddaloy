@@ -28,6 +28,8 @@
     "teachingAssignments": "Teaching assignments",
     "fees": "Fees",
     "feeStructures": "Fee Structures",
+    "fines": "Fines",
+    "fineRules": "Fine rules",
     "generateFees": "Generate Fees",
     "recurringSchedules": "Recurring Schedules",
     "invoices": "Invoices",

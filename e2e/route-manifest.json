@@ -338,6 +338,16 @@
       "archetype": "detail"
     },
     {
+      "path": "/fees/fines",
+      "role": "accountant",
+      "archetype": "list"
+    },
+    {
+      "path": "/fees/fines/rules",
+      "role": "accountant",
+      "archetype": "list"
+    },
+    {
       "path": "/guardians",
       "role": "admin",
       "archetype": "list"

@@ -20,7 +20,8 @@ const ENTITY_TYPE_LITERAL = /entity_type:\s*'([A-Za-z_]+)'/g;
  * rows — no server code writes them anymore, on purpose (see
  * `entity-types.ts`'s own comment on each). Excluded from the "dead entry"
  * check below, which otherwise exists specifically to catch entries that
- * became dead *by accident*. */
+ * became dead *by accident*.
+ */
 const DEPRECATED_READ_ONLY_ENTRIES = new Set(['SchoolHoliday']);
 
 function collectServerSourceFiles(dir: string): string[] {

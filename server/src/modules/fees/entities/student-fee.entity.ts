@@ -13,6 +13,7 @@ import {
 import { Student } from '../../students/entities/student.entity';
 import { AcademicYear } from '../../academics/entities/academic-year.entity';
 import { FeeStructure } from './fee-structure.entity';
+import { FineRule } from './fine-rule.entity';
 import { FeeStatus, PeriodType } from '@biddaloy/shared';
 
 /**
@@ -156,6 +157,23 @@ export class StudentFee {
   @ManyToOne(() => StudentFee, { nullable: true })
   @JoinColumn({ name: 'late_fee_for_student_fee_id' })
   late_fee_for_student_fee: StudentFee | null;
+
+  /**
+   * note/incident_date/fine_rule_id: set on FINE bills (Epic 38 D2);
+   * fine_rule_id null on a FINE bill = logged manually.
+   */
+  @Column({ type: 'varchar', length: 280, nullable: true })
+  note: string | null;
+
+  @Column({ type: 'date', nullable: true })
+  incident_date: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  fine_rule_id: string | null;
+
+  @ManyToOne(() => FineRule, { nullable: true })
+  @JoinColumn({ name: 'fine_rule_id' })
+  fine_rule: FineRule | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

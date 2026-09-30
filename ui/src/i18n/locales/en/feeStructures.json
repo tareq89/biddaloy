@@ -66,6 +66,7 @@
     "ANNUAL_FEE": "Annual fee",
     "ADMISSION_FEE": "Admission fee",
     "LATE_FEE": "Late fee",
+    "FINE": "Fine",
     "OTHER": "Other"
   }
 }

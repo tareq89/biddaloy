@@ -92,6 +92,7 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/reports/printables': '/_staff/reports/printables',
   '/fees/generate': '/_staff/fees/generate',
   '/fees/schedules': '/_staff/fees/schedules/',
+  '/fees/fines': '/_staff/fees/fines/',
   '/invoices': '/_staff/invoices/',
   '/communications/send': '/_staff/communications/send',
   '/communications/reminders': '/_staff/communications/reminders',

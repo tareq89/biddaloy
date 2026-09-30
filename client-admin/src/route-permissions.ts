@@ -63,6 +63,11 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // managing `RecurringSchedule`, not `FEE_GENERATE`.
   '/_staff/fees/schedules/': Permission.SCHEDULE_MANAGE,
   '/_staff/fees/schedules/$id': Permission.SCHEDULE_MANAGE,
+  // [38.4.3] Fines list + Rules tab — read-only gate (FEE_READ), matching
+  // "blanket refusal matching nav visibility" above; Log/Generate fines
+  // buttons inside the page are separately gated on FEE_GENERATE.
+  '/_staff/fees/fines/': Permission.FEE_READ,
+  '/_staff/fees/fines/rules': Permission.FEE_READ,
   '/_staff/fee-structures/': Permission.FEE_STRUCTURE_READ,
   '/_staff/invoices/': Permission.INVOICE_READ,
   '/_staff/invoices/$invoiceId': Permission.INVOICE_READ,

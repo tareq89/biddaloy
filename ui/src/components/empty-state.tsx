@@ -1,9 +1,9 @@
 /**
- * `explanation` and `action` are both required, non-optional props —
+ * `explanation` is a required prop, and `action` is required unless the
+ * viewer lacks permission to take it (then omit it) —
  * an empty state that only says "No data" is a dead end, one that says "No
  * fee structures yet. Create one to start generating monthly fees" teaches
- * the product. Omitting either is a type error, not a lint warning:
- * there is no honest default for either field.
+ * the product. There is no honest default for either field.
  *
  * `title` renders as an `<h1>` — [8.9.7]: every route in the app is
  * expected to have exactly one page-level heading for `useRouteFocus` to
@@ -77,7 +77,9 @@ export type EmptyStateKind = 'empty' | 'no-results';
 export interface EmptyStateProps {
   title: string;
   explanation: string;
-  action: { label: string; onClick: () => void };
+  /** Optional so a caller can withhold the primary next move from a viewer
+   * who lacks the permission to take it. */
+  action?: { label: string; onClick: () => void };
   /** A second, lower-emphasis way out. Rendered as a `ghost` button beside
    * `action`, mirroring `ErrorState`'s `onHome`. Optional: most "nothing
    * yet" states have exactly one honest next move. */
@@ -121,16 +123,20 @@ export function EmptyState({
       )}
       <h1 className="font-medium">{title}</h1>
       <p className="max-w-prose text-sm text-muted-foreground">{explanation}</p>
-      <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-        <Button type="button" onClick={action.onClick}>
-          {action.label}
-        </Button>
-        {secondaryAction && (
-          <Button type="button" variant="ghost" onClick={secondaryAction.onClick}>
-            {secondaryAction.label}
-          </Button>
-        )}
-      </div>
+      {(action || secondaryAction) && (
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+          {action && (
+            <Button type="button" onClick={action.onClick}>
+              {action.label}
+            </Button>
+          )}
+          {secondaryAction && (
+            <Button type="button" variant="ghost" onClick={secondaryAction.onClick}>
+              {secondaryAction.label}
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

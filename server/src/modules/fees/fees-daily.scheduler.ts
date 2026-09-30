@@ -16,6 +16,7 @@ import { Student } from '../students/entities/student.entity';
 import { SCHOOL_TZ, todayInSchoolTz } from '../../common/time';
 import { FEES_DAILY_CRON, FEES_DAILY_JOB_ID, FEES_DAILY_QUEUE } from './fees.constants';
 import { LateFeeService } from './late-fee.service';
+import { FineSweepService } from './fines/fine-sweep.service';
 import { applyProgramAudience } from './program-audience';
 
 /**
@@ -126,6 +127,12 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
     @Optional()
     @Inject(LateFeeService)
     private readonly lateFeeService?: LateFeeService,
+    // [38.2.5] Same `@Optional()` + explicit `@Inject` seam as
+    // `lateFeeService` above, left by [38.1]/#1112 for this ticket to fill
+    // in `fees.module.ts`.
+    @Optional()
+    @Inject(FineSweepService)
+    private readonly fineSweepService?: FineSweepService,
   ) {
     super();
   }
@@ -219,6 +226,24 @@ export class FeesDailyScheduler extends WorkerHost implements OnModuleInit {
         );
         Sentry.withScope((scope) => {
           scope.setTag('job', 'fees-daily-late-fees');
+          scope.setContext('fees_daily', { tenant_id: tenantId });
+          Sentry.captureException(error instanceof Error ? error : new Error(String(error)));
+        });
+      }
+    }
+
+    // [38.2.5] Attendance-fine sweep runs last, once per tenant — its own
+    // try/catch so a throw here never stops the rest of the tenants in the
+    // outer `process()` loop. `runDue` itself already no-ops silently when
+    // no academic year covers the target month, so this only ever logs a
+    // genuine failure.
+    if (this.fineSweepService) {
+      try {
+        await this.fineSweepService.runDue(tenantId, today);
+      } catch (error) {
+        this.logger.error(`fees-daily fine sweep failed for tenant ${tenantId}: ${String(error)}`);
+        Sentry.withScope((scope) => {
+          scope.setTag('job', 'fees-daily-fine-sweep');
           scope.setContext('fees_daily', { tenant_id: tenantId });
           Sentry.captureException(error instanceof Error ? error : new Error(String(error)));
         });

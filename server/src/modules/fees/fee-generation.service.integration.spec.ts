@@ -16,6 +16,7 @@ import { PaymentAllocation } from './entities/payment-allocation.entity';
 import { InvoicesService } from '../invoices/invoices.service';
 import { StorageModule } from '../storage/storage.module';
 import { FeeStructure } from './entities/fee-structure.entity';
+import { FineRule } from './entities/fine-rule.entity';
 import { StudentFee } from './entities/student-fee.entity';
 import { FeeGeneration } from './entities/fee-generation.entity';
 import { Student } from '../students/entities/student.entity';
@@ -41,6 +42,7 @@ import {
   PaymentMethod,
   PaymentAllocationType,
   ProgramEnrollmentStatus,
+  FineTrigger,
 } from '@biddaloy/shared';
 
 const JWT_SECRET = 'test-fee-generation-secret';
@@ -64,6 +66,8 @@ describe('FeeGenerationService (integration)', () => {
   let programRepo: Repository<Program>;
   let programEnrollmentRepo: Repository<ProgramEnrollment>;
   let paymentAllocationService: PaymentAllocationService;
+  let fineRuleRepo: Repository<FineRule>;
+  let discountResolver: NoopDiscountResolver;
   let dataSource: DataSource;
   let redis: Redis;
 
@@ -156,6 +160,8 @@ describe('FeeGenerationService (integration)', () => {
       getRepositoryToken(ProgramEnrollment),
     );
     paymentAllocationService = module.get<PaymentAllocationService>(PaymentAllocationService);
+    fineRuleRepo = module.get<Repository<FineRule>>(getRepositoryToken(FineRule));
+    discountResolver = module.get<NoopDiscountResolver>(NoopDiscountResolver);
     dataSource = module.get(DataSource);
 
     await dataSource.getRepository(School).save(
@@ -240,6 +246,7 @@ describe('FeeGenerationService (integration)', () => {
     await dataSource.query('DELETE FROM payments');
     await dataSource.query('DELETE FROM student_fees');
     await dataSource.query('DELETE FROM fee_generations');
+    await dataSource.query('DELETE FROM fine_rules');
     await dataSource.query('DELETE FROM fee_structures');
     await dataSource.query('DELETE FROM program_enrollments');
     await dataSource.query('DELETE FROM programs');
@@ -1048,6 +1055,198 @@ describe('FeeGenerationService (integration)', () => {
 
       const bills = await studentFeeRepo.find();
       expect(bills).toHaveLength(0);
+    });
+  });
+
+  describe('billOverrides / alwaysNewOccurrence (Epic 38 D2/D12/D28)', () => {
+    it('bills each student its own override amount, note, incident_date and fine_rule_id', async () => {
+      const [s1, s2] = await studentRepo.save([makeStudent(), makeStudent()]);
+      const structure = await structureRepo.save(
+        makeStructure({ fee_type: FeeType.FINE, amount: 20 }),
+      );
+      const fineRule = await fineRuleRepo.save(
+        fineRuleRepo.create({
+          tenant_id: TENANT_ID,
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          trigger: FineTrigger.ATTENDANCE_ABSENT,
+          fee_structure_id: structure.id,
+          class_id: null,
+          free_per_period: 0,
+          is_active: true,
+        }),
+      );
+      const fineRuleId = fineRule.id;
+
+      const result = await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-03-01',
+          period_type: PeriodType.MONTH,
+          student_ids: [s1.id, s2.id],
+          fee_structure_ids: [structure.id],
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+        {
+          billOverrides: new Map([
+            [
+              `${s1.id}:${structure.id}`,
+              {
+                amount: 100,
+                note: 'Uniform violation',
+                incident_date: '2026-03-05',
+                fine_rule_id: fineRuleId,
+              },
+            ],
+            [`${s2.id}:${structure.id}`, { amount: 60 }],
+          ]),
+        },
+      );
+
+      expect(result.generated_count).toBe(2);
+      const bills = await studentFeeRepo.find({ order: { total_amount: 'DESC' } });
+      expect(bills.map((b) => Number(b.total_amount))).toEqual([100, 60]);
+      const bill1 = bills.find((b) => b.student_id === s1.id)!;
+      expect(bill1.note).toBe('Uniform violation');
+      expect(bill1.incident_date).not.toBeNull();
+      expect(bill1.fine_rule_id).toBe(fineRuleId);
+      const bill2 = bills.find((b) => b.student_id === s2.id)!;
+      expect(bill2.note).toBeNull();
+      expect(bill2.fine_rule_id).toBeNull();
+    });
+
+    it('skips (not errors) a student whose override amount is <= 0', async () => {
+      const [s1, s2] = await studentRepo.save([makeStudent(), makeStudent()]);
+      const structure = await structureRepo.save(
+        makeStructure({ fee_type: FeeType.FINE, amount: 20 }),
+      );
+
+      const result = await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-03-01',
+          period_type: PeriodType.MONTH,
+          student_ids: [s1.id, s2.id],
+          fee_structure_ids: [structure.id],
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+        {
+          billOverrides: new Map([
+            [`${s1.id}:${structure.id}`, { amount: 0 }],
+            [`${s2.id}:${structure.id}`, { amount: 50 }],
+          ]),
+        },
+      );
+
+      expect(result.generated_count).toBe(1);
+      expect(result.skipped_count).toBe(1);
+      const bills = await studentFeeRepo.find();
+      expect(bills).toHaveLength(1);
+      expect(bills[0].student_id).toBe(s2.id);
+    });
+
+    it('alwaysNewOccurrence inserts two separate bills for the same period without approval', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const structure = await structureRepo.save(
+        makeStructure({ fee_type: FeeType.FINE, amount: 20 }),
+      );
+
+      const dto = {
+        academic_year_id: SEED_ACADEMIC_YEAR_ID,
+        period_start: '2026-03-01',
+        period_type: PeriodType.MONTH,
+        student_ids: [student.id],
+        fee_structure_ids: [structure.id],
+      };
+      const options = {
+        alwaysNewOccurrence: true,
+        billOverrides: new Map([[`${student.id}:${structure.id}`, { amount: 30 }]]),
+      };
+
+      const first = await service.generate(
+        dto,
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+        options,
+      );
+      const second = await service.generate(
+        dto,
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+        options,
+      );
+
+      expect(first.generated_count).toBe(1);
+      expect(second.generated_count).toBe(1);
+      const bills = await studentFeeRepo.find({ order: { occurrence: 'ASC' } });
+      expect(bills).toHaveLength(2);
+      expect(bills.map((b) => b.occurrence)).toEqual([1, 2]);
+    });
+
+    it('without overrides, behaviour is byte-identical to a plain generate() call', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const structure = await structureRepo.save(makeStructure());
+
+      const withoutOptions = await service.generate(
+        {
+          academic_year_id: SEED_ACADEMIC_YEAR_ID,
+          period_start: '2026-03-01',
+          period_type: PeriodType.MONTH,
+          student_ids: [student.id],
+          fee_structure_ids: [structure.id],
+        },
+        TENANT_ID,
+        ACTOR_USER_ID,
+        requestWithToken(),
+      );
+
+      expect(withoutOptions.generated_count).toBe(1);
+      const [bill] = await studentFeeRepo.find();
+      expect(bill.note).toBeNull();
+      expect(bill.incident_date).toBeNull();
+      expect(bill.fine_rule_id).toBeNull();
+      expect(Number(bill.total_amount)).toBe(1000);
+    });
+
+    it('D12: a 100% PERCENT discount on a FINE bill discounts the override amount, not the structure amount', async () => {
+      const student = await studentRepo.save(makeStudent());
+      const structure = await structureRepo.save(
+        makeStructure({ fee_type: FeeType.FINE, amount: 20 }),
+      );
+
+      const spy = vi
+        .spyOn(discountResolver, 'resolve')
+        .mockImplementation(async ({ baseAmount }) => ({ amount: baseAmount }));
+
+      try {
+        await service.generate(
+          {
+            academic_year_id: SEED_ACADEMIC_YEAR_ID,
+            period_start: '2026-03-01',
+            period_type: PeriodType.MONTH,
+            student_ids: [student.id],
+            fee_structure_ids: [structure.id],
+          },
+          TENANT_ID,
+          ACTOR_USER_ID,
+          requestWithToken(),
+          { billOverrides: new Map([[`${student.id}:${structure.id}`, { amount: 100 }]]) },
+        );
+
+        const [bill] = await studentFeeRepo.find();
+        expect(Number(bill.total_amount)).toBe(100);
+        expect(Number(bill.discount_amount)).toBe(100);
+        // Never discounts the structure's ৳20 list price instead of the
+        // ৳100 override — the exact D12 regression this test guards.
+        expect(spy).toHaveBeenCalledWith(expect.objectContaining({ baseAmount: 100 }));
+      } finally {
+        spy.mockRestore();
+      }
     });
   });
 });

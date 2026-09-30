@@ -117,6 +117,10 @@ export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'payments',
   'discount_rules',
   'student_fees',
+  // [38.1.2] `fine_rules` is referenced by `student_fees.fine_rule_id` (must
+  // truncate after student_fees) and itself references `fee_structures`
+  // (must truncate before it).
+  'fine_rules',
   'recurring_schedule_exclusions',
   'recurring_schedule_structures',
   'fee_generations',

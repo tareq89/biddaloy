@@ -171,6 +171,8 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/fee-structures/': [{ label: { key: 'feeStructures' } }],
   '/_staff/fees/generate': [{ label: { key: 'generateFees' } }],
   '/_staff/fees/schedules/': [{ label: { key: 'recurringSchedules' } }],
+  '/_staff/fees/fines/': [{ label: { key: 'fines' } }],
+  '/_staff/fees/fines/rules': [{ label: { key: 'fines' } }, { label: { key: 'fineRules' } }],
   '/_staff/invoices/': [{ label: { entity: 'invoice' } }],
   '/_staff/reports/collections': [{ label: { key: 'collectionsReport' } }],
   // [32.4.1] The editor is chromeless (no crumb bar), so this only sets the tab title: the template's name.

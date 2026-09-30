@@ -1,0 +1,154 @@
+{
+  "title": "জরিমানা",
+  "rules": {
+    "title": "জরিমানার নিয়ম"
+  },
+  "tabs": {
+    "fines": "জরিমানা",
+    "rules": "জরিমানার নিয়ম"
+  },
+  "filters": {
+    "monthLabel": "মাস",
+    "allMonths": "সব মাস",
+    "classLabel": "ক্লাস",
+    "allClasses": "সব ক্লাস",
+    "sectionLabel": "শাখা",
+    "allSections": "সব শাখা",
+    "originLabel": "উৎস",
+    "allOrigins": "সব",
+    "allFineTypes": "সব ধরনের জরিমানা",
+    "statusLabel": "অবস্থা",
+    "allStatuses": "সব অবস্থা"
+  },
+  "totals": {
+    "charged": "ধার্য করা হয়েছে",
+    "collected": "আদায় হয়েছে",
+    "waived": "মাফ করা হয়েছে",
+    "outstanding": "বাকি আছে"
+  },
+  "columns": {
+    "student": "শিক্ষার্থী",
+    "fine": "জরিমানা",
+    "reason": "কারণ",
+    "incidentDate": "ঘটনার তারিখ",
+    "month": "মাস",
+    "amount": "পরিমাণ",
+    "paid": "পরিশোধিত",
+    "status": "অবস্থা",
+    "origin": "উৎস",
+    "actions": "কার্যক্রম"
+  },
+  "openStudent": "শিক্ষার্থী দেখুন",
+  "origin": {
+    "RULE": "নিয়ম অনুযায়ী",
+    "MANUAL": "নিজে যোগ করা"
+  },
+  "empty": {
+    "title": "এখনো কোনো জরিমানা নেই",
+    "description": "নিজে যোগ করা বা নিয়ম থেকে তৈরি জরিমানা এখানে দেখা যাবে।"
+  },
+  "rulesEmpty": {
+    "title": "এখনো কোনো জরিমানার নিয়ম নেই",
+    "description": "অনুপস্থিতি বা দেরিতে আসার জন্য স্বয়ংক্রিয়ভাবে জরিমানা করতে একটি নিয়ম যোগ করুন।"
+  },
+  "logForm": {
+    "title": "জরিমানা যোগ করুন",
+    "studentsLabel": "শিক্ষার্থী",
+    "feeLabel": "জরিমানার ধরন",
+    "amountLabel": "পরিমাণ",
+    "amountHint": "খালি রাখলে জরিমানার নিজস্ব পরিমাণ ব্যবহার হবে।",
+    "noteLabel": "কারণ",
+    "notePlaceholder": "কেন এই জরিমানা দেওয়া হচ্ছে",
+    "incidentDateLabel": "ঘটনার তারিখ",
+    "notifyLabel": "অভিভাবককে জানান",
+    "errorStudentsRequired": "অন্তত একজন শিক্ষার্থী বাছাই করুন",
+    "errorFeeRequired": "জরিমানার ধরন বাছাই করুন",
+    "errorNoteRequired": "কারণ লেখা আবশ্যক",
+    "errorIncidentDateRequired": "ঘটনার তারিখ আবশ্যক",
+    "result_one": "{{count}}টি জরিমানা যোগ করা হয়েছে",
+    "result_other": "{{count}}টি জরিমানা যোগ করা হয়েছে",
+    "save": "জরিমানা যোগ করুন",
+    "saving": "যোগ করা হচ্ছে…",
+    "errorMessage": "জরিমানা যোগ করা যায়নি"
+  },
+  "generate": {
+    "title": "জরিমানা তৈরি করুন",
+    "description": "এক মাসের হাজিরা দেখে সক্রিয় প্রতিটি নিয়ম থেকে জরিমানা তৈরি করুন।",
+    "monthLabel": "মাস",
+    "classLabel": "ক্লাস",
+    "allClasses": "সব ক্লাস",
+    "sectionLabel": "শাখা",
+    "allSections": "সব শাখা",
+    "previewLine": "{{count}} জন শিক্ষার্থী, {{total}}",
+    "previewZero": "এই মাসে কোনো জরিমানা তৈরি হবে না।",
+    "duplicates": {
+      "heading": "এই মাসের কিছু জরিমানা আগে থেকেই আছে",
+      "skipLabel": "যাদের আগে থেকে আছে তাদের বাদ দিন",
+      "skipHint": "যাদের এই মাসের জরিমানা এখনো নেই শুধু তাদের জন্যই নতুন তৈরি হবে।",
+      "removeOlderLabel": "আগেরটা মুছে নতুন তৈরি করুন",
+      "removeOlderHint": "নতুনটা তৈরি হওয়ার আগে পুরনো জরিমানা মুছে ফেলা হবে।",
+      "createAnywayLabel": "তবুও নতুন তৈরি করুন",
+      "createAnywayHint": "একই মাসের জন্য দ্বিতীয় জরিমানা তৈরি হবে। অ্যাডমিনের অনুমোদন লাগবে।"
+    },
+    "notifyLabel": "জরিমানা তৈরি হলে পরিবারকে জানান",
+    "submitAction": "জরিমানা তৈরি করুন",
+    "result": {
+      "title": "জরিমানা তৈরি শেষ হয়েছে",
+      "generated_one": "{{count}}টি জরিমানা তৈরি হয়েছে",
+      "generated_other": "{{count}}টি জরিমানা তৈরি হয়েছে",
+      "skipped_one": "{{count}}টি বাদ দেওয়া হয়েছে",
+      "skipped_other": "{{count}}টি বাদ দেওয়া হয়েছে"
+    },
+    "errorMessage": "জরিমানা তৈরি করা যায়নি"
+  },
+  "waiveDialog": {
+    "title": "জরিমানা মাফ করুন",
+    "fullLabel": "পুরোটা মাফ করুন",
+    "partialLabel": "কিছু অংশ মাফ করুন",
+    "amountLabel": "কত টাকা মাফ করবেন",
+    "reasonLabel": "কারণ",
+    "reasonPlaceholder": "কেন এই জরিমানা মাফ করা হচ্ছে",
+    "errorReasonRequired": "কারণ লেখা আবশ্যক",
+    "alreadyPaid": "এই জরিমানা ইতিমধ্যে পরিশোধ হয়ে গেছে — আগে পেমেন্টটা ফেরত দিন।",
+    "confirm": "মাফ করুন",
+    "waiving": "মাফ করা হচ্ছে…",
+    "errorMessage": "জরিমানা মাফ করা যায়নি"
+  },
+  "ruleForm": {
+    "createTitle": "জরিমানার নিয়ম যোগ করুন",
+    "editTitle": "জরিমানার নিয়ম পরিবর্তন করুন",
+    "triggerLabel": "কী দেখে জরিমানা হবে",
+    "triggers": {
+      "ATTENDANCE_ABSENT": "অনুপস্থিতির দিন",
+      "ATTENDANCE_LATE": "দেরিতে আসা"
+    },
+    "feeLabel": "জরিমানার পরিমাণ",
+    "classLabel": "ক্লাস",
+    "allClasses": "পুরো স্কুল",
+    "freePerPeriodLabel": "মাসে যতবার মাফ",
+    "capPerPeriodLabel": "মাসে সর্বোচ্চ",
+    "minMinutesLateLabel": "কতো মিনিট দেরি হলে গণ্য হবে",
+    "activeLabel": "চালু আছে",
+    "save": "সংরক্ষণ করুন",
+    "saving": "সংরক্ষণ করা হচ্ছে…",
+    "errorMessage": "জরিমানার নিয়ম সংরক্ষণ করা যায়নি",
+    "copyFromLastYear": "গত বছর থেকে কপি করুন",
+    "copyResult_one": "{{count}}টি নিয়ম কপি হয়েছে",
+    "copyResult_other": "{{count}}টি নিয়ম কপি হয়েছে",
+    "copyResultSkipped": "সবকিছু আগেই কপি করা ছিল — নতুন কিছু করার নেই।"
+  },
+  "deleteRuleDialog": {
+    "title": "জরিমানার নিয়ম মুছুন",
+    "description": "এই জরিমানার নিয়ম মুছে ফেলবেন?",
+    "confirm": "মুছুন",
+    "deleting": "মোছা হচ্ছে…",
+    "errorMessage": "জরিমানার নিয়ম মুছতে ব্যর্থ হয়েছে"
+  },
+  "palette": {
+    "logFine": "জরিমানা যোগ করুন",
+    "generateFines": "জরিমানা তৈরি করুন",
+    "waiveFine": "জরিমানা মাফ করুন",
+    "synonymPenalty": "penalty",
+    "synonymBangla": "জরিমানা"
+  }
+}
