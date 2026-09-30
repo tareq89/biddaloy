@@ -52,6 +52,7 @@ import {
   ensureAttendanceSeed,
   ensureCalendarDemoSeed,
   ensurePrintProfileDemoSeed,
+  ensurePrintDemoSeed,
   ensureDemoOrganisation,
   ensureDemoStudents,
   ensureGradingDemoSeed,
@@ -1737,5 +1738,87 @@ describe('ensurePrintProfileDemoSeed', () => {
 
     const second = await ensurePrintProfileDemoSeed(repos, { schoolId: 'school-1' });
     expect(second).toEqual({ students: 0, staff: 0 });
+  });
+});
+
+describe('ensurePrintDemoSeed', () => {
+  const SCHOOL = '11111111-1111-4111-8111-111111111111';
+  /** In-memory stand-ins: `findOne` looks at what was saved by name, like the real tables. */
+  function setup() {
+    const printers: Array<{ name: string }> = [];
+    const templates: Array<{ name: string }> = [];
+    const students = [
+      { id: 's1', photo_key: null as string | null },
+      { id: 's2', photo_key: 'tenants/x/student-photo/kept.jpg' as string | null },
+    ];
+    const repos = {
+      printerRepository: {
+        findOne: vi.fn(({ where }: { where: { name: string } }) =>
+          Promise.resolve(printers.find((p) => p.name === where.name) ?? null),
+        ),
+        create: vi.fn((d: { name: string }) => d),
+        save: vi.fn((d: { name: string }) => Promise.resolve(printers.push(d))),
+      },
+      printTemplateRepository: {
+        findOne: vi.fn(({ where }: { where: { name: string } }) =>
+          Promise.resolve(templates.find((t) => t.name === where.name) ?? null),
+        ),
+      },
+      studentRepository: {
+        find: vi.fn(() => Promise.resolve(students)),
+        save: vi.fn((s: unknown) => Promise.resolve(s)),
+      },
+    };
+    const ports = {
+      createTemplate: vi.fn((key: string, name: string) => {
+        templates.push({ name });
+        return Promise.resolve({ id: `tpl-${key}` });
+      }),
+      publishTemplate: vi.fn(() => Promise.resolve()),
+      setDefaultTemplate: vi.fn(() => Promise.resolve()),
+      putObject: vi.fn(() => Promise.resolve()),
+    };
+    return { repos, ports, printers, students };
+  }
+  const run = (s: ReturnType<typeof setup>) =>
+    ensurePrintDemoSeed(s.repos as unknown as Parameters<typeof ensurePrintDemoSeed>[0], s.ports, {
+      schoolId: SCHOOL,
+    });
+
+  it('creates 2 printers, 2 published templates (student one is default) and a photo for students without one', async () => {
+    const s = setup();
+    const first = await run(s);
+    expect(first).toEqual({ printers: 2, templates: 2, photos: 1 });
+    expect(s.ports.createTemplate).toHaveBeenCalledWith(
+      'student-portrait-classic',
+      'Student ID card',
+    );
+    expect(s.ports.createTemplate).toHaveBeenCalledWith('staff-portrait-modern', 'Staff ID card');
+    // Both are published; each kind's first template is already the default, so only the
+    // demo's explicit set-default calls are asserted to have happened after publish.
+    expect(s.ports.publishTemplate).toHaveBeenCalledTimes(2);
+    expect(s.ports.setDefaultTemplate).toHaveBeenCalledTimes(2);
+    // The photo is a real 600x800 JPEG under this school's key prefix; an existing photo is kept.
+    const [key, body, type] = s.ports.putObject.mock.calls[0] as unknown as [
+      string,
+      Buffer,
+      string,
+    ];
+    expect(key.startsWith(`tenants/${SCHOOL}/student-photo/`)).toBe(true);
+    expect(key.endsWith('.jpg')).toBe(true);
+    expect(type).toBe('image/jpeg');
+    expect(body.subarray(0, 2).toString('hex')).toBe('ffd8');
+    expect(s.students[1]!.photo_key).toBe('tenants/x/student-photo/kept.jpg');
+  });
+
+  it('creates nothing the second time', async () => {
+    const s = setup();
+    await run(s);
+    s.ports.createTemplate.mockClear();
+    s.ports.putObject.mockClear();
+    const second = await run(s);
+    expect(second).toEqual({ printers: 0, templates: 0, photos: 0 });
+    expect(s.ports.createTemplate).not.toHaveBeenCalled();
+    expect(s.ports.putObject).not.toHaveBeenCalled();
   });
 });

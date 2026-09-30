@@ -1,5 +1,6 @@
+import type { INestApplicationContext } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { DataSource } from 'typeorm';
+import { DataSource, type Repository } from 'typeorm';
 import { AppModule } from '../app.module';
 import * as bcrypt from 'bcrypt';
 import { User } from '../modules/users/entities/user.entity';
@@ -63,7 +64,9 @@ import { RoutineSlot } from '../modules/routines/entities/routine-slot.entity';
 import { RoutineSlotTeacher } from '../modules/routines/entities/routine-slot-teacher.entity';
 import { RoutineSubstitution } from '../modules/routines/entities/routine-substitution.entity';
 import { RoutineChangeRequest } from '../modules/routines/entities/routine-change-request.entity';
-import { ensureDemoOrganisation } from './seed.util';
+import { ensureDemoOrganisation, type PrintDemoSeedPorts } from './seed.util';
+import { PrintTemplatesService } from '../modules/print/templates/print-templates.service';
+import { StorageService } from '../modules/storage/storage.service';
 import { SeatPlan } from '../modules/seat-plans/entities/seat-plan.entity';
 import { SeatPlanSchedule } from '../modules/seat-plans/entities/seat-plan-schedule.entity';
 import { SeatAllocation } from '../modules/seat-plans/entities/seat-allocation.entity';
@@ -213,6 +216,7 @@ export async function seed() {
     school,
     adminEmail,
     passwordHash,
+    printPorts(app, school.id, adminEmail, userRepository),
   );
 
   // [27.11] Sample admission intake + applicants, so local dev has
@@ -330,4 +334,23 @@ if (isDirectRun) {
       console.error('Seed failed:', err);
       process.exit(1);
     });
+}
+
+/** [32.3.11] The print demo goes through the real services, so templates are made exactly as the API makes them. */
+function printPorts(
+  app: INestApplicationContext,
+  schoolId: string,
+  adminEmail: string,
+  userRepository: Repository<User>,
+): PrintDemoSeedPorts {
+  const templates = app.get(PrintTemplatesService);
+  const storage = app.get(StorageService);
+  const adminId = async () => (await userRepository.findOneByOrFail({ email: adminEmail })).id;
+  return {
+    createTemplate: async (suggestionKey, name) =>
+      templates.create(schoolId, await adminId(), { name, suggestion_key: suggestionKey }),
+    publishTemplate: async (id) => templates.publish(schoolId, await adminId(), id),
+    setDefaultTemplate: async (id) => templates.setDefault(schoolId, await adminId(), id),
+    putObject: (key, body, type) => storage.put(key, body, type),
+  };
 }
