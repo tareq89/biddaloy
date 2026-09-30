@@ -14,6 +14,7 @@ import { ActivityTab } from './-detail/activity-tab';
 import { AttendanceTab } from './-detail/attendance-tab';
 import { CommunicationTab } from './-detail/communication-tab';
 import { DeleteStudentDialog } from './-detail/delete-student-dialog';
+import { DocumentsTab } from './-detail/documents-tab';
 import { EnrollmentTab } from './-detail/enrollment-tab';
 import { FeesTab } from './-detail/fees-tab';
 import { GuardiansTab } from './-detail/guardians-tab';
@@ -86,6 +87,7 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
         'feeGeneration',
         'promotions',
         'programs',
+        'printHistory',
       ),
     ]),
   pendingComponent: StudentDetailPending,
@@ -107,6 +109,7 @@ const TAB_IDS = [
   'subject-choices',
   'results',
   'programs',
+  'documents',
 ] as const;
 
 function StudentDetailPage() {
@@ -124,6 +127,7 @@ function StudentDetailPage() {
   const canDelete = useHasPermission(Permission.STUDENT_DELETE);
   const canCollectFees = useHasPermission(Permission.FEE_COLLECT);
   const canSendReminder = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
+  const canPrint = useHasPermission(Permission.DOCUMENT_PRINT);
   // The Fees/Payments/Invoices tabs format currency — same reasoning as
   // `/settings`'s own `RegionConfigProvider` wrap: `useRegionConfig()`
   // has no ambient provider above the route tree, so without this every
@@ -201,6 +205,22 @@ function StudentDetailPage() {
                   allowed: canUpdate,
                   priority: 'tertiary',
                   onClick: () => setTransferDialogOpen(true),
+                },
+                {
+                  id: 'print-id-card',
+                  label: t('detail.actions.printIdCard'),
+                  allowed: canPrint,
+                  priority: 'tertiary',
+                  onClick: () =>
+                    void navigate({
+                      to: '/print/preview',
+                      search: {
+                        kind: 'STUDENT_ID_CARD',
+                        subject_type: 'STUDENT',
+                        ids: studentId,
+                        from: `/students/${studentId}`,
+                      },
+                    }),
                 },
                 {
                   id: 'delete',
@@ -296,6 +316,15 @@ function StudentDetailPage() {
                   label: t('detail.tabs.programs', { ns: 'programs' }),
                   content: <ProgramsPanel studentId={studentId} />,
                 },
+                ...(canPrint
+                  ? [
+                      {
+                        id: 'documents',
+                        label: t('detail.tabs.documents'),
+                        content: <DocumentsTab studentId={studentId} />,
+                      },
+                    ]
+                  : []),
               ]}
             />
 

@@ -13,6 +13,7 @@ import { z } from 'zod';
 
 import { DesktopOnlyGate } from '../../../components/print/desktop-only-gate';
 import { PrintPreview } from '../../../components/print/preview/print-preview';
+import { PrintIdCardModal } from '../../../components/print/print-id-card-modal';
 import { loadRouteNamespaces } from '../../../route-loaders';
 
 const searchSchema = z.object({
@@ -51,6 +52,31 @@ function PrintPreviewPage() {
   });
   const explicit = search.ids ? search.ids.split(',').filter(Boolean) : [];
   const ids = search.class_section_id !== undefined ? (bySection.data?.ids ?? []) : explicit;
+
+  // Opened with nobody chosen (the command palette's "Print ID card"): pick people first.
+  if (search.ids === undefined && search.class_section_id === undefined) {
+    return (
+      <DesktopOnlyGate backTo={search.from ?? '/'}>
+        <PrintIdCardModal
+          open
+          initialType={search.subject_type}
+          onCancel={() => router.history.push(search.from ?? '/')}
+          onConfirm={(choice) =>
+            void navigate({
+              search: (prev) => ({
+                ...prev,
+                kind: choice.subjectType === 'STAFF' ? 'STAFF_ID_CARD' : 'STUDENT_ID_CARD',
+                subject_type: choice.subjectType,
+                ...('classSectionId' in choice
+                  ? { class_section_id: choice.classSectionId }
+                  : { ids: choice.ids }),
+              }),
+            })
+          }
+        />
+      </DesktopOnlyGate>
+    );
+  }
 
   return (
     <DesktopOnlyGate backTo={search.from ?? '/'}>

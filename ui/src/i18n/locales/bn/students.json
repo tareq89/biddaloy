@@ -48,7 +48,9 @@
     "shiftLabel": "শিফট",
     "allShifts": "সকল শিফট",
     "versionLabel": "ভার্সন",
-    "allVersions": "সকল ভার্সন"
+    "allVersions": "সকল ভার্সন",
+    "printIdCards": "আইডি কার্ড প্রিন্ট ({{count}})",
+    "printWholeClass": "পুরো {{name}}-এর আইডি কার্ড প্রিন্ট"
   },
   "sendReminderDialog": {
     "title": "রিমাইন্ডার পাঠান",
@@ -72,7 +74,8 @@
       "collectFees": "ফি আদায়",
       "sendReminder": "রিমাইন্ডার পাঠান",
       "transferStatus": "স্থানান্তর / অবস্থা পরিবর্তন",
-      "delete": "মুছে ফেলুন"
+      "delete": "মুছে ফেলুন",
+      "printIdCard": "আইডি কার্ড প্রিন্ট"
     },
     "tabs": {
       "overview": "সংক্ষিপ্ত বিবরণ",
@@ -85,7 +88,8 @@
       "communication": "যোগাযোগ",
       "activity": "কার্যক্রম",
       "attendance": "উপস্থিতি",
-      "homework": "বাড়ির কাজ"
+      "homework": "বাড়ির কাজ",
+      "documents": "ডকুমেন্ট"
     },
     "overview": {
       "dateOfBirth": "জন্ম তারিখ",
@@ -380,5 +384,8 @@
     "copied": "কপি হয়েছে",
     "close": "বন্ধ করুন",
     "failed": "আপলোড মাঝপথে থেমে গেছে। এ পর্যন্ত পাঠানো ছবিগুলো সংরক্ষিত আছে।"
+  },
+  "documents": {
+    "historyTitle": "প্রিন্ট করা ডকুমেন্ট"
   }
 }
