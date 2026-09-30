@@ -39,6 +39,9 @@ import { Invoice } from '../src/modules/invoices/entities/invoice.entity';
 import { InvoiceShareToken } from '../src/modules/invoices/entities/invoice-share-token.entity';
 import { School } from '../src/modules/schools/entities/school.entity';
 import { Student } from '../src/modules/students/entities/student.entity';
+import { StudentLifecycleEvent } from '../src/modules/students/entities/student-lifecycle-event.entity';
+import { StudentNote } from '../src/modules/students/entities/student-note.entity';
+import { StudentPublicExam } from '../src/modules/students/entities/student-public-exam.entity';
 import { Guardian } from '../src/modules/students/entities/guardian.entity';
 import { Enrollment } from '../src/modules/students/entities/enrollment.entity';
 import { User } from '../src/modules/users/entities/user.entity';
@@ -136,6 +139,9 @@ export const ALL_ENTITIES = [
   InvoiceShareToken,
   School,
   Student,
+  StudentLifecycleEvent,
+  StudentNote,
+  StudentPublicExam,
   Guardian,
   Enrollment,
   User,
