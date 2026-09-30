@@ -514,8 +514,13 @@ export class StudentService {
       const txStudentRepo = manager.getRepository(Student);
       const txEnrollmentRepo = manager.getRepository(Enrollment);
 
+      // The validated DTO instance carries every declared property, `undefined` when the caller
+      // did not send it. Only what was actually supplied counts: for the empty-body guard below
+      // and for the audit diff (otherwise every unsent field looked like a change).
+      const supplied = Object.keys(updateData).filter((k) => updateData[k] !== undefined);
+
       // An empty body (`{}`) would make TypeORM throw UpdateValuesMissingError, a 500.
-      if (Object.keys(updateData).length > 0) {
+      if (supplied.length > 0) {
         try {
           await txStudentRepo.update({ id, tenant_id: tenantId }, updateData);
         } catch (err) {
@@ -527,10 +532,20 @@ export class StudentService {
       // changed; health_notes is recorded as changed but never copied into the log.
       const masked = (key: string, value: unknown) =>
         key === 'health_notes' ? '[redacted]' : value;
-      const changed = Object.keys(updateData).filter(
+      // `date_of_birth` is a DATE column (read back as "YYYY-MM-DD") but `updateData` holds a
+      // Date, so compare the date part only; otherwise every save that re-sends the same
+      // birthday would log a change that did not happen.
+      const comparable = (key: string, value: unknown) =>
+        key === 'date_of_birth' && value != null
+          ? value instanceof Date
+            ? value.toISOString().slice(0, 10)
+            : String(value).slice(0, 10)
+          : value;
+      const changed = supplied.filter(
         (k) =>
-          JSON.stringify((existingStudent as unknown as Record<string, unknown>)[k]) !==
-          JSON.stringify(updateData[k]),
+          JSON.stringify(
+            comparable(k, (existingStudent as unknown as Record<string, unknown>)[k]),
+          ) !== JSON.stringify(comparable(k, updateData[k])),
       );
       if (changed.length > 0) {
         await this.auditService.record(
