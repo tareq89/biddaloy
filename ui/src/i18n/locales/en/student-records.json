@@ -1,0 +1,73 @@
+{
+  "tab": {
+    "forbidden": "You do not have access to this student's records.",
+    "error": "Could not load records."
+  },
+  "profile": {
+    "title": "Profile details",
+    "religion": "Religion",
+    "birthRegNo": "Birth registration no.",
+    "fatherName": "Father's name",
+    "motherName": "Mother's name",
+    "healthNotes": "Health notes",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Profile details saved.",
+    "saveError": "Could not save profile details."
+  },
+  "exams": {
+    "title": "Public exams",
+    "add": "Add exam",
+    "edit": "Edit",
+    "delete": "Delete",
+    "empty": "No public exams recorded yet",
+    "columns": {
+      "type": "Exam",
+      "board": "Board",
+      "roll": "Roll",
+      "registration": "Registration",
+      "gpa": "GPA",
+      "year": "Year"
+    },
+    "types": {
+      "PSC": "PSC",
+      "JSC": "JSC",
+      "SSC": "SSC",
+      "DAKHIL": "Dakhil",
+      "HSC": "HSC",
+      "ALIM": "Alim"
+    },
+    "form": {
+      "addTitle": "Add public exam",
+      "editTitle": "Edit public exam",
+      "type": "Exam type",
+      "board": "Board",
+      "roll": "Roll no.",
+      "registration": "Registration no.",
+      "gpa": "GPA",
+      "year": "Passing year",
+      "save": "Save",
+      "saving": "Saving…",
+      "saveError": "Could not save this exam."
+    },
+    "deleteConfirm": {
+      "title": "Delete this exam?",
+      "body": "This removes the exam record.",
+      "confirm": "Delete",
+      "error": "Could not delete this exam."
+    }
+  },
+  "timeline": {
+    "title": "Lifecycle history",
+    "empty": "No lifecycle events yet",
+    "reason": "Reason",
+    "destination": "Destination",
+    "remark": "Remark",
+    "types": {
+      "WITHDRAWN": "Withdrawn",
+      "TRANSFERRED_OUT": "Transferred out",
+      "GRADUATED": "Graduated",
+      "READMITTED": "Readmitted"
+    }
+  }
+}
