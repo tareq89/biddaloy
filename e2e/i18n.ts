@@ -9,6 +9,7 @@
 
 import bnAcademicYears from '../ui/src/i18n/locales/bn/academicYears.json';
 import bnAdmissionPublic from '../ui/src/i18n/locales/bn/admission-public.json';
+import bnAdmissionReports from '../ui/src/i18n/locales/bn/admission-reports.json';
 import bnAdmissionStaffApplicants from '../ui/src/i18n/locales/bn/admission-staff-applicants.json';
 import bnAdmissionStaffIntakes from '../ui/src/i18n/locales/bn/admission-staff-intakes.json';
 import bnApproval from '../ui/src/i18n/locales/bn/approval.json';
@@ -50,6 +51,7 @@ import bnSyllabus from '../ui/src/i18n/locales/bn/syllabus.json';
 import bnTeacherAssignments from '../ui/src/i18n/locales/bn/teacherAssignments.json';
 import enAcademicYears from '../ui/src/i18n/locales/en/academicYears.json';
 import enAdmissionPublic from '../ui/src/i18n/locales/en/admission-public.json';
+import enAdmissionReports from '../ui/src/i18n/locales/en/admission-reports.json';
 import enAdmissionStaffApplicants from '../ui/src/i18n/locales/en/admission-staff-applicants.json';
 import enAdmissionStaffIntakes from '../ui/src/i18n/locales/en/admission-staff-intakes.json';
 import enApproval from '../ui/src/i18n/locales/en/approval.json';
@@ -94,6 +96,7 @@ const catalogs = {
   bn: {
     academicYears: bnAcademicYears,
     'admission-public': bnAdmissionPublic,
+    'admission-reports': bnAdmissionReports,
     'admission-staff-applicants': bnAdmissionStaffApplicants,
     'admission-staff-intakes': bnAdmissionStaffIntakes,
     approval: bnApproval,
@@ -137,6 +140,7 @@ const catalogs = {
   en: {
     academicYears: enAcademicYears,
     'admission-public': enAdmissionPublic,
+    'admission-reports': enAdmissionReports,
     'admission-staff-applicants': enAdmissionStaffApplicants,
     'admission-staff-intakes': enAdmissionStaffIntakes,
     approval: enApproval,
