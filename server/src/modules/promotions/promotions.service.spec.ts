@@ -75,6 +75,7 @@ describe('PromotionsService (unit)', () => {
       enrollmentService as any,
       auditService as any,
       approvalService as any,
+      { recordEvent: vi.fn() } as any,
     );
   });
 
