@@ -32,6 +32,7 @@ import {
   LayoutDashboardIcon,
   ListChecksIcon,
   MoreHorizontalIcon,
+  IdCardIcon,
   PrinterIcon,
   ReceiptIcon,
   ScrollTextIcon,
@@ -74,6 +75,8 @@ const STAFF_NAV_ICONS: Record<string, ReactNode> = {
   'attendance.attendance': <CalendarCheck2Icon aria-hidden="true" />,
   'attendance.attendanceReports': <ClipboardListIcon aria-hidden="true" />,
   'attendance.attendanceRegister': <PrinterIcon aria-hidden="true" />,
+  'administration.printTemplates': <IdCardIcon aria-hidden="true" />,
+  'reports.printables': <PrinterIcon aria-hidden="true" />,
   'finance.dues': <HandCoinsIcon aria-hidden="true" />,
   'finance.recordPayment': <BanknoteIcon aria-hidden="true" />,
   'finance.fees': <WalletIcon aria-hidden="true" />,
@@ -164,6 +167,8 @@ function StaffLayout() {
   // `STAFF_ROUTE_PERMISSIONS` is keyed by exactly that route ID.
   const matches = useMatches();
   const leafRouteId = matches[matches.length - 1]?.routeId;
+  // [32.4.1] The editor and print preview take the whole screen: no sidebar, no header (D54).
+  const chromeless = matches[matches.length - 1]?.staticData.chromeless === true;
   const requiredPermission = leafRouteId ? STAFF_ROUTE_PERMISSIONS[leafRouteId] : undefined;
   const onDenied = () => void navigate({ to: '/' });
   const isAuditLogsRoute = leafRouteId === '/_staff/audit-logs/';
@@ -276,6 +281,28 @@ function StaffLayout() {
   // own strings — see that component's header comment.
   const notificationBell = <NotificationBell viewAllTo="/notifications" />;
 
+  const permissionGate = (
+    <>
+      {requiredPermission ? (
+        <RequirePermission
+          permission={requiredPermission}
+          onDenied={onDenied}
+          {...(isAuditLogsRoute
+            ? { explanation: t('forbidden.explanation', { ns: 'auditLogs' }) }
+            : {})}
+        >
+          <Outlet />
+        </RequirePermission>
+      ) : (
+        // Fail-closed: no map entry for this route ID means
+        // `route-permissions.test.ts`'s drift guard has a bug to catch
+        // before this ever ships, but until it does, an unmapped route
+        // refuses everyone — including admins — rather than rendering.
+        <AccessDeniedState onAction={onDenied} />
+      )}
+    </>
+  );
+
   return (
     <RequireRole allow={STAFF_ROLES} redirectTo="/portal">
       {/* The app's single step-up approval modal host. Every staff route
@@ -283,96 +310,84 @@ function StaffLayout() {
           staff page finds exactly one host — regardless of which component
           mounted first. See `ui/src/hooks/approval.tsx`. */}
       <ApprovalModalHostProvider>
-        <AppShell
-          navItems={navItems}
-          navGroups={navGroups}
-          brand={t('brand')}
-          // [8.14.3]: desktop-only now — below `md` the consolidated mobile
-          // header row (`mobileHeaderActions`) carries search and the bell,
-          // and `TenantBar` moves into the drawer (`drawerHeader`) instead of
-          // stacking a second chrome row under this one. `topBar` itself
-          // stays wired (not deleted): `AppShell` still measures it into
-          // `--app-header-h` for the desktop sticky-chrome contract [8.14.2]
-          // established.
-          topBar={
-            <div className="hidden md:flex">
-              <AppHeader
-                start={<TenantBar />}
-                end={
-                  <>
-                    <SyncStatusIndicator />
-                    <CommandPaletteLauncher />
-                    {notificationBell}
-                    <LocaleSwitcher />
-                    <ThemeToggle />
-                    <StaffUserMenu />
-                  </>
-                }
-              />
-            </div>
-          }
-          mobileHeaderActions={
-            <>
-              <CommandPaletteLauncher />
-              {notificationBell}
-            </>
-          }
-          drawerHeader={
-            <div className="mb-4 flex flex-col gap-2">
-              <TenantBar />
-              <div className="flex items-center gap-2">
-                <SyncStatusIndicator />
-                <ThemeToggle />
+        {chromeless ? (
+          permissionGate
+        ) : (
+          <AppShell
+            navItems={navItems}
+            navGroups={navGroups}
+            brand={t('brand')}
+            // [8.14.3]: desktop-only now — below `md` the consolidated mobile
+            // header row (`mobileHeaderActions`) carries search and the bell,
+            // and `TenantBar` moves into the drawer (`drawerHeader`) instead of
+            // stacking a second chrome row under this one. `topBar` itself
+            // stays wired (not deleted): `AppShell` still measures it into
+            // `--app-header-h` for the desktop sticky-chrome contract [8.14.2]
+            // established.
+            topBar={
+              <div className="hidden md:flex">
+                <AppHeader
+                  start={<TenantBar />}
+                  end={
+                    <>
+                      <SyncStatusIndicator />
+                      <CommandPaletteLauncher />
+                      {notificationBell}
+                      <LocaleSwitcher />
+                      <ThemeToggle />
+                      <StaffUserMenu />
+                    </>
+                  }
+                />
               </div>
-            </div>
-          }
-          bottomNav={
-            <BottomNav
-              // [9.6 fix] `BottomNav`'s own contract caps `items` at 4 when
-              // `more` is present (`bottom-nav.tsx`) — a 5th cell isn't
-              // truncated for you, it just overflows the bar past 320/640px
-              // (WCAG 1.4.10 reflow) for any role that can see all of them.
-              // `attendanceItem` stays reachable through the drawer nav group
-              // below instead, same as `attendanceReportsItem`/
-              // `attendanceRegisterItem` already are.
-              items={[dashboardItem, studentsItem, duesItem, recordPaymentItem]}
-              label={t('bottomNavStaffLabel')}
-              more={{
-                label: t('items.more'),
-                icon: <MoreHorizontalIcon className="size-5" aria-hidden="true" />,
-              }}
-            />
-          }
-          openMenuLabel={t('openMenuLabel')}
-          closeMenuLabel={t('closeMenuLabel')}
-          navLabel={t('navLabel')}
-          skipLinkLabel={t('skipToContent')}
-        >
-          {breadcrumbItems.length > 0 && (
-            <Breadcrumbs
-              items={breadcrumbItems}
-              aria-label={t('breadcrumb.navLabel')}
-              className="mb-4"
-            />
-          )}
-          {requiredPermission ? (
-            <RequirePermission
-              permission={requiredPermission}
-              onDenied={onDenied}
-              {...(isAuditLogsRoute
-                ? { explanation: t('forbidden.explanation', { ns: 'auditLogs' }) }
-                : {})}
-            >
-              <Outlet />
-            </RequirePermission>
-          ) : (
-            // Fail-closed: no map entry for this route ID means
-            // `route-permissions.test.ts`'s drift guard has a bug to catch
-            // before this ever ships, but until it does, an unmapped route
-            // refuses everyone — including admins — rather than rendering.
-            <AccessDeniedState onAction={onDenied} />
-          )}
-        </AppShell>
+            }
+            mobileHeaderActions={
+              <>
+                <CommandPaletteLauncher />
+                {notificationBell}
+              </>
+            }
+            drawerHeader={
+              <div className="mb-4 flex flex-col gap-2">
+                <TenantBar />
+                <div className="flex items-center gap-2">
+                  <SyncStatusIndicator />
+                  <ThemeToggle />
+                </div>
+              </div>
+            }
+            bottomNav={
+              <BottomNav
+                // [9.6 fix] `BottomNav`'s own contract caps `items` at 4 when
+                // `more` is present (`bottom-nav.tsx`) — a 5th cell isn't
+                // truncated for you, it just overflows the bar past 320/640px
+                // (WCAG 1.4.10 reflow) for any role that can see all of them.
+                // `attendanceItem` stays reachable through the drawer nav group
+                // below instead, same as `attendanceReportsItem`/
+                // `attendanceRegisterItem` already are.
+                items={[dashboardItem, studentsItem, duesItem, recordPaymentItem]}
+                label={t('bottomNavStaffLabel')}
+                more={{
+                  label: t('items.more'),
+                  icon: <MoreHorizontalIcon className="size-5" aria-hidden="true" />,
+                }}
+              />
+            }
+            openMenuLabel={t('openMenuLabel')}
+            closeMenuLabel={t('closeMenuLabel')}
+            navLabel={t('navLabel')}
+            skipLinkLabel={t('skipToContent')}
+          >
+            {breadcrumbItems.length > 0 && (
+              <Breadcrumbs
+                items={breadcrumbItems}
+                aria-label={t('breadcrumb.navLabel')}
+                className="mb-4"
+              />
+            )}
+            {permissionGate}
+          </AppShell>
+        )}
       </ApprovalModalHostProvider>
     </RequireRole>
   );
