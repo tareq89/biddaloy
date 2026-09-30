@@ -2,10 +2,11 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  ForbiddenException,
   PayloadTooLargeException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In, Brackets, EntityManager } from 'typeorm';
+import { Repository, IsNull, In, Brackets, EntityManager, QueryFailedError } from 'typeorm';
 import { Student } from './entities/student.entity';
 import { Guardian } from './entities/guardian.entity';
 import { Enrollment } from './entities/enrollment.entity';
@@ -16,6 +17,7 @@ import {
   UpdateStudentDto,
   QueryStudentDto,
   QueryStudentIdsDto,
+  STUDENT_PROFILE_FIELDS,
 } from './dto/students.dto';
 import {
   CreateGuardianDto,
@@ -33,6 +35,49 @@ import { RequestContext } from '../../common/request-context.util';
 // [16.3.3] Caps the audience picker's "select all matching" id list — bounds
 // both the query cost and the response size for a single selection.
 const MAX_STUDENT_IDS_RESULT = 5000;
+
+const BIRTH_REG_NO_INDEX = 'IDX_students_tenant_birth_reg_no';
+
+/** [39.2.1] Turns the partial-unique violation on (tenant, birth_reg_no) into a 409. */
+function rethrowBirthRegNoConflict(err: unknown): never {
+  if (
+    err instanceof QueryFailedError &&
+    (err as unknown as { code?: string; constraint?: string }).code === '23505' &&
+    (err as unknown as { constraint?: string }).constraint === BIRTH_REG_NO_INDEX
+  ) {
+    throw new ConflictException('A student with this birth registration number already exists');
+  }
+  throw err;
+}
+
+/** [39.2.1] Writing any profile field needs STUDENT_RECORDS_WRITE (403 otherwise),
+ * even though the route itself only needs STUDENT_UPDATE / STUDENT_CREATE. */
+export function assertCanWriteProfileFields(
+  dto: CreateStudentDto | UpdateStudentDto,
+  canWriteRecords: boolean,
+): void {
+  if (canWriteRecords) return;
+  const touched = STUDENT_PROFILE_FIELDS.filter((f) => dto[f] !== undefined);
+  if (touched.length > 0) {
+    throw new ForbiddenException(
+      `Requires permission STUDENT_RECORDS_WRITE to set: ${touched.join(', ')}`,
+    );
+  }
+}
+
+/** [39.2.1] `health_notes` is only visible with STUDENT_RECORDS_READ (D14). Works on
+ * one student, an array, or a paginated `{ data }` page; mutates and returns the input. */
+export function redactHealthNotes<T>(result: T, canReadRecords: boolean): T {
+  if (canReadRecords || result == null) return result;
+  const strip = (s: unknown) => {
+    if (s && typeof s === 'object') delete (s as { health_notes?: unknown }).health_notes;
+  };
+  const page = (result as { data?: unknown }).data;
+  if (Array.isArray(result)) result.forEach(strip);
+  else if (Array.isArray(page)) page.forEach(strip);
+  else strip(result);
+  return result;
+}
 
 @Injectable()
 export class StudentService {
@@ -128,6 +173,11 @@ export class StudentService {
         gender: dto.gender ?? null,
         home_address: dto.home_address ?? null,
         preferred_communication: dto.preferred_communication as CommunicationMedium,
+        religion: dto.religion ?? null,
+        birth_reg_no: dto.birth_reg_no ?? null,
+        health_notes: dto.health_notes ?? null,
+        father_name: dto.father_name ?? null,
+        mother_name: dto.mother_name ?? null,
         tenant_id: tenantId,
       });
 
@@ -155,9 +205,14 @@ export class StudentService {
       return savedStudent;
     };
 
-    const savedStudent = manager
-      ? await generateAndSave(manager)
-      : await this.repo.manager.transaction(generateAndSave);
+    let savedStudent: Student;
+    try {
+      savedStudent = manager
+        ? await generateAndSave(manager)
+        : await this.repo.manager.transaction(generateAndSave);
+    } catch (err) {
+      rethrowBirthRegNoConflict(err);
+    }
 
     // Link guardians
     if (dto.guardian_ids?.length) {
@@ -437,7 +492,11 @@ export class StudentService {
       const txStudentRepo = manager.getRepository(Student);
       const txEnrollmentRepo = manager.getRepository(Enrollment);
 
-      await txStudentRepo.update({ id, tenant_id: tenantId }, updateData);
+      try {
+        await txStudentRepo.update({ id, tenant_id: tenantId }, updateData);
+      } catch (err) {
+        rethrowBirthRegNoConflict(err);
+      }
 
       if (sectionChanged && section) {
         // Keyed on the *new* section's own academic year — not "whichever
