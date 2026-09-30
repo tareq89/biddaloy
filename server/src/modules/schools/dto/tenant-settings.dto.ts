@@ -600,6 +600,15 @@ export class FeesSettingsDto {
   fineDueDays?: number;
 }
 
+/** [28.2.1] `settings.evaluations` — incident notification options. Absent = off. */
+export class EvaluationsSettingsDto {
+  /** SMS to ACR_WRITE holders on a new incident (fixed text, never the incident). Default off. */
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  incidentSmsEnabled?: boolean;
+}
+
 /**
  * [33.3.1] An explicit rename instruction for one `organisation` vocabulary
  * list, carried alongside a settings PATCH rather than inferred from the
@@ -668,4 +677,8 @@ export class TenantSettingsDto {
   @OptionalSetting()
   @NestedSettings(() => FeesSettingsDto)
   fees?: FeesSettingsDto;
+
+  @OptionalSetting()
+  @NestedSettings(() => EvaluationsSettingsDto)
+  evaluations?: EvaluationsSettingsDto;
 }
