@@ -171,7 +171,6 @@ describe('/students/$studentId', () => {
     expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
     await adminUser.click(screen.getByRole('button', { name: 'More actions' }));
     expect(await screen.findByRole('menuitem', { name: 'Send reminder' })).toBeTruthy();
-    expect(screen.getByRole('menuitem', { name: 'Transfer / change status' })).toBeTruthy();
     expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeTruthy();
     unmount();
 
@@ -190,9 +189,6 @@ describe('/students/$studentId', () => {
     expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
     await accountantUser.click(screen.getByRole('button', { name: 'More actions' }));
     expect(await screen.findByRole('menuitem', { name: 'Send reminder' })).toBeTruthy();
-    // [10.4] G3 — "Transfer / change status" (enrollment update) is gated on
-    // STUDENT_UPDATE, which ACCOUNTANT now also holds.
-    expect(screen.getByRole('menuitem', { name: 'Transfer / change status' })).toBeTruthy();
     expect(screen.queryByRole('menuitem', { name: 'Delete' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
   });
@@ -270,42 +266,71 @@ describe('/students/$studentId', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/students'));
   });
 
-  it('changing the enrollment status via the Transfer / change status dialog updates the badge', async () => {
-    // A mutable fixture, not a fixed response — `onSuccess` invalidates
-    // the detail query, which refetches via `GET`; if that handler kept
-    // returning the original `ACTIVE` student, the mutation's own
-    // (correct) response would get immediately overwritten by the
-    // refetch, same reasoning as `index.test.tsx`'s `useCreateStudent` fixture.
-    let currentStudent = studentFactory({ id: 'student-1', enrollment_status: 'ACTIVE' });
+  it('header actions follow status: ACTIVE shows Record leaving, non-ACTIVE shows Readmit; the status dropdown is gone', async () => {
     server.use(
-      http.get('/api/v1/students/:id', () => HttpResponse.json(currentStudent)),
-      http.patch('/api/v1/students/:id', async ({ request }) => {
-        const body = (await request.json()) as { enrollment_status: string };
-        currentStudent = {
-          ...currentStudent,
-          enrollment_status: body.enrollment_status as typeof currentStudent.enrollment_status,
-        };
-        return HttpResponse.json(currentStudent);
-      }),
+      http.get('/api/v1/students/:id', () =>
+        HttpResponse.json(studentFactory({ id: 'student-1', enrollment_status: 'ACTIVE' })),
+      ),
     );
+    const { unmount } = renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    const user = userEvent.setup();
+    const leave = await screen.findByRole('button', { name: 'Record leaving' });
+    expect(screen.queryByRole('button', { name: 'Readmit' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(screen.queryByRole('menuitem', { name: 'Transfer / change status' })).toBeNull();
+    await user.keyboard('{Escape}');
+    await user.click(leave);
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+    unmount();
 
+    server.use(
+      http.get('/api/v1/students/:id', () =>
+        HttpResponse.json(studentFactory({ id: 'student-1', enrollment_status: 'TRANSFERRED' })),
+      ),
+    );
     renderWithRouter(routeTree, {
       initialEntries: ['/students/student-1'],
       tenantId: 'tenant-1',
       role: 'ADMIN',
       locale: 'en',
     });
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Readmit' }));
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Record leaving' })).toBeNull();
+  });
 
-    const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'More actions' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Transfer / change status' }));
-    const dialog = within(await screen.findByRole('dialog'));
-    await user.click(dialog.getByRole('combobox'));
-    await user.click(await screen.findByRole('option', { name: 'Transferred' }));
-    await user.click(dialog.getByRole('button', { name: 'Save' }));
+  it('Records and Notes tabs show only with STUDENT_RECORDS_READ / STUDENT_NOTES_READ; lifecycle actions need STUDENT_LIFECYCLE_MANAGE', async () => {
+    server.use(
+      http.get('/api/v1/students/:id', () =>
+        HttpResponse.json(studentFactory({ id: 'student-1' })),
+      ),
+    );
+    const { unmount } = renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    expect(await screen.findByRole('tab', { name: 'Records' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Notes' })).toBeTruthy();
+    unmount();
 
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(await screen.findByText('Transferred')).toBeTruthy();
+    // ACCOUNTANT holds none of the three (permissions.ts) — see server matrix.
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students/student-1'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+    await screen.findByRole('tab', { name: 'Overview' });
+    expect(screen.queryByRole('tab', { name: 'Records' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Notes' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Record leaving' })).toBeNull();
   });
 
   it('[8.11.3] Move class dialog PATCHes the current enrollment when one already exists', async () => {

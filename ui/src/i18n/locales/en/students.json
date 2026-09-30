@@ -71,7 +71,8 @@
       "edit": "Edit",
       "collectFees": "Collect fees",
       "sendReminder": "Send reminder",
-      "transferStatus": "Transfer / change status",
+      "recordLeaving": "Record leaving",
+      "readmit": "Readmit",
       "delete": "Delete"
     },
     "tabs": {
@@ -86,7 +87,9 @@
       "communication": "Communication",
       "activity": "Activity",
       "attendance": "Attendance",
-      "homework": "Homework"
+      "homework": "Homework",
+      "records": "Records",
+      "notes": "Notes"
     },
     "overview": {
       "dateOfBirth": "Date of birth",
@@ -203,20 +206,6 @@
       "loading": "Loading homework",
       "errorMessage": "Couldn't load homework.",
       "emptyMessage": "No homework assigned yet."
-    },
-    "transferDialog": {
-      "title": "Transfer / change status",
-      "description": "Change {{name}}'s enrolment status.",
-      "statusLabel": "New status",
-      "status": {
-        "ACTIVE": "Active",
-        "INACTIVE": "Inactive",
-        "TRANSFERRED": "Transferred",
-        "GRADUATED": "Graduated"
-      },
-      "confirm": "Save",
-      "saving": "Saving…",
-      "errorMessage": "Couldn't update the status. Try again."
     },
     "deleteDialog": {
       "title": "Delete student",
