@@ -69,7 +69,11 @@
     "seatPlans": "Seat plans",
     "programs": "Programs & milestones",
     "portalPrograms": "Programs",
-    "more": "More"
+    "more": "More",
+    "printTemplates": "Print templates",
+    "printables": "Printables & documents",
+    "printTemplateEdit": "Edit template",
+    "printPreview": "Print preview"
   },
   "groups": {
     "people": "People",

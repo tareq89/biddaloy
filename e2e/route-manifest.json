@@ -389,6 +389,15 @@
       "archetype": "detail",
       "overlays": ["milestoneRemove"]
     },
+    { "path": "/print-templates", "role": "admin", "archetype": "list" },
+    {
+      "path": "/print-templates/$templateId/edit",
+      "params": { "templateId": "seeded" },
+      "role": "admin",
+      "archetype": "bespoke"
+    },
+    { "path": "/print/preview", "role": "admin", "archetype": "bespoke" },
+    { "path": "/reports/printables", "role": "admin", "archetype": "list" },
     {
       "path": "/i/$token",
       "params": {
