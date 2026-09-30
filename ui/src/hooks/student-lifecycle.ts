@@ -6,7 +6,7 @@ import type { components } from '../api/schema';
 import { enrollmentKeys } from './enrollments';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
-import { studentKeys } from './students';
+import { studentKeys, type Student } from './students';
 
 // [39.3.1] Student-side hooks for Epic 39.0: lifecycle events (leave /
 // readmit), staff-only notes, public exams. Types come straight from the
@@ -15,6 +15,7 @@ import { studentKeys } from './students';
 export type StudentLifecycleEvent = components['schemas']['StudentLifecycleEventDto'];
 export type LeaveStudentInput = components['schemas']['LeaveStudentDto'];
 export type ReadmitStudentInput = components['schemas']['ReadmitStudentDto'];
+export type UpdateStudentRecordsInput = components['schemas']['UpdateStudentRecordsDto'];
 export type StudentNote = components['schemas']['StudentNoteResponseDto'];
 export type CreateStudentNoteInput = components['schemas']['CreateStudentNoteDto'];
 export type StudentPublicExam = components['schemas']['StudentPublicExam'];
@@ -74,6 +75,22 @@ export function useReadmitStudent(studentId: string) {
     mutationFn: async (input: ReadmitStudentInput) =>
       (await apiClient.post<StudentLifecycleEvent>(`/students/${studentId}/readmit`, input)).data,
     onSuccess: () => invalidateAfterLifecycleChange(queryClient, studentId),
+  });
+}
+
+/** [39.2.4] The Records tab's save: `PATCH /students/:id/records`. Its own route, not
+ * `useUpdateStudent`, because an EXECUTIVE holds STUDENT_RECORDS_WRITE but not the general
+ * STUDENT_UPDATE that `PATCH /students/:id` needs. Sends only the five profile fields. */
+export function useUpdateStudentRecords(studentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: UpdateStudentRecordsInput) =>
+      (await apiClient.patch<Student>(`/students/${studentId}/records`, input)).data,
+    retry: shouldRetryQuery,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: studentKeys.detail(studentId) });
+      void queryClient.invalidateQueries({ queryKey: studentKeys.lists() });
+    },
   });
 }
 

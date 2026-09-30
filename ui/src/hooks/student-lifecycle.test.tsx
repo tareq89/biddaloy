@@ -24,6 +24,7 @@ import {
   useReadmitStudent,
   useSavePublicExam,
   useStudentNotes,
+  useUpdateStudentRecords,
 } from './student-lifecycle';
 import { studentKeys } from './students';
 
@@ -56,6 +57,32 @@ describe('queries', () => {
   it('does not fetch without a student id', () => {
     const { result } = renderHookWithProviders(() => useStudentNotes(''), opts);
     expect(result.current.fetchStatus).toBe('idle');
+  });
+});
+
+describe('useUpdateStudentRecords', () => {
+  it('[39.2.4] PATCHes /students/:id/records (not /students/:id) and invalidates detail + lists', async () => {
+    // An EXECUTIVE can only call the /records route; the general PATCH would 401 for them.
+    const seen: { body?: unknown; generalPatchCalled: boolean } = { generalPatchCalled: false };
+    server.use(
+      http.patch(`/api/v1/students/${S}/records`, async ({ request }) => {
+        seen.body = await request.json();
+        return HttpResponse.json({ id: S, religion: 'Islam' });
+      }),
+      http.patch(`/api/v1/students/${S}`, () => {
+        seen.generalPatchCalled = true;
+        return HttpResponse.json({}, { status: 401 });
+      }),
+    );
+    const { result, queryClient } = renderHookWithProviders(() => useUpdateStudentRecords(S), opts);
+    const spy = vi.spyOn(queryClient, 'invalidateQueries');
+    await act(async () => {
+      await result.current.mutateAsync({ religion: 'Islam', health_notes: null });
+    });
+    expect(seen.body).toEqual({ religion: 'Islam', health_notes: null });
+    expect(seen.generalPatchCalled).toBe(false);
+    expect(invalidatedKeys(spy)).toContainEqual(studentKeys.detail(S));
+    expect(invalidatedKeys(spy)).toContainEqual(studentKeys.lists());
   });
 });
 
