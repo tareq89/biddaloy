@@ -42,6 +42,9 @@ import bnSeatPlansDetail from '../ui/src/i18n/locales/bn/seatPlansDetail.json';
 import bnSettings from '../ui/src/i18n/locales/bn/settings.json';
 import bnStaff from '../ui/src/i18n/locales/bn/staff.json';
 import bnStaffAttendance from '../ui/src/i18n/locales/bn/staffAttendance.json';
+import bnStudentLifecycle from '../ui/src/i18n/locales/bn/student-lifecycle.json';
+import bnStudentNotes from '../ui/src/i18n/locales/bn/student-notes.json';
+import bnStudentRecords from '../ui/src/i18n/locales/bn/student-records.json';
 import bnStudents from '../ui/src/i18n/locales/bn/students.json';
 import bnSyllabus from '../ui/src/i18n/locales/bn/syllabus.json';
 import bnTeacherAssignments from '../ui/src/i18n/locales/bn/teacherAssignments.json';
@@ -80,6 +83,9 @@ import enSeatPlansDetail from '../ui/src/i18n/locales/en/seatPlansDetail.json';
 import enSettings from '../ui/src/i18n/locales/en/settings.json';
 import enStaff from '../ui/src/i18n/locales/en/staff.json';
 import enStaffAttendance from '../ui/src/i18n/locales/en/staffAttendance.json';
+import enStudentLifecycle from '../ui/src/i18n/locales/en/student-lifecycle.json';
+import enStudentNotes from '../ui/src/i18n/locales/en/student-notes.json';
+import enStudentRecords from '../ui/src/i18n/locales/en/student-records.json';
 import enStudents from '../ui/src/i18n/locales/en/students.json';
 import enSyllabus from '../ui/src/i18n/locales/en/syllabus.json';
 import enTeacherAssignments from '../ui/src/i18n/locales/en/teacherAssignments.json';
@@ -121,6 +127,9 @@ const catalogs = {
     settings: bnSettings,
     staff: bnStaff,
     staffAttendance: bnStaffAttendance,
+    'student-lifecycle': bnStudentLifecycle,
+    'student-notes': bnStudentNotes,
+    'student-records': bnStudentRecords,
     students: bnStudents,
     syllabus: bnSyllabus,
     teacherAssignments: bnTeacherAssignments,
@@ -161,6 +170,9 @@ const catalogs = {
     settings: enSettings,
     staff: enStaff,
     staffAttendance: enStaffAttendance,
+    'student-lifecycle': enStudentLifecycle,
+    'student-notes': enStudentNotes,
+    'student-records': enStudentRecords,
     students: enStudents,
     syllabus: enSyllabus,
     teacherAssignments: enTeacherAssignments,
