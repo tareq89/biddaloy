@@ -2,7 +2,7 @@
 import { Permission } from '@biddaloy/shared';
 import { captureNotificationTenant, notifyOutcome } from '@biddaloy/ui/api';
 import { Button, Input, Textarea } from '@biddaloy/ui/components';
-import { useHasPermission, useUpdateStudent, type Student } from '@biddaloy/ui/hooks';
+import { useHasPermission, useUpdateStudentRecords, type Student } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
@@ -10,7 +10,7 @@ export function ProfileFieldsForm({ student }: { student: Student }) {
   const { t } = useTranslation('student-records');
   const canWrite = useHasPermission(Permission.STUDENT_RECORDS_WRITE);
   const canSeeHealth = useHasPermission(Permission.STUDENT_RECORDS_READ);
-  const update = useUpdateStudent(student.id);
+  const update = useUpdateStudentRecords(student.id);
 
   const server = React.useMemo(
     () => ({
