@@ -111,6 +111,8 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // the intakes screen above.
   '/_staff/admissions/applicants/': Permission.ADMISSION_REVIEW,
   '/_staff/admissions/applicants/$applicantId': Permission.ADMISSION_REVIEW,
+  // [39.4.2] Lifecycle report — `STUDENT_LIFECYCLE_MANAGE` (ADMIN, EXECUTIVE; D22).
+  '/_staff/admissions/reports/': Permission.STUDENT_LIFECYCLE_MANAGE,
   // [19.6.1] `EXAM_MANAGE` — the management page; see `nav-tree.ts`'s
   // `examsResults.exams` comment (`GET /exams` itself is `MARK_VIEW`, but
   // detail and writes are `EXAM_MANAGE`).
