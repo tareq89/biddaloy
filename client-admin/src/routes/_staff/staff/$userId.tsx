@@ -31,8 +31,10 @@ import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
+import { AcrTab } from './-detail/acr-tab';
 import { AttendanceLeaveTab } from './-detail/attendance-leave-tab';
 import { HrRecordTab } from './-detail/hr-record-tab';
+import { IncidentsTab } from './-detail/incidents-tab';
 import { LoginHistoryTab } from './-detail/login-history-tab';
 import { MembershipsTab } from './-detail/memberships-tab';
 import { PermissionsTab } from './-detail/permissions-tab';
@@ -56,7 +58,7 @@ export const Route = createFileRoute('/_staff/staff/$userId')({
       // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
       // identical comment for why.
       queryClient.ensureQueryData(userQueryOptions(params.userId)).catch(swallowUnlessOffline),
-      loadRouteNamespaces('staff', 'staffAttendance', 'leave', 'common'),
+      loadRouteNamespaces('staff', 'staffAttendance', 'leave', 'evaluations', 'common'),
     ]),
   pendingComponent: StaffDetailPending,
   component: StaffDetailPage,
@@ -74,6 +76,7 @@ function StaffDetailPage() {
   const canRemove = useHasPermission(Permission.MEMBER_REMOVE);
   const canReadAuditLogs = useHasPermission(Permission.AUDIT_LOG_READ);
   const canReadHrRecord = useHasPermission(Permission.STAFF_HR_READ);
+  const canReadAcr = useHasPermission(Permission.ACR_READ);
   const currentUserId = useCurrentUserId();
 
   const isTeacher = teacher !== undefined;
@@ -84,6 +87,7 @@ function StaffDetailPage() {
     'memberships',
     ...(isTeacher ? (['teachingAssignments'] as const) : []),
     ...(canReadHrRecord ? (['hrRecord'] as const) : []),
+    ...(canReadAcr ? (['acr', 'incidents'] as const) : []),
     ...(hasStaffProfile ? (['attendanceLeave'] as const) : []),
     ...(canReadAuditLogs ? (['loginHistory'] as const) : []),
   ] as const;
@@ -127,6 +131,20 @@ function StaffDetailPage() {
             id: 'hrRecord',
             label: t('detail.tabs.hrRecord'),
             content: <HrRecordTab userId={userId} />,
+          },
+        ]
+      : []),
+    ...(canReadAcr
+      ? [
+          {
+            id: 'acr',
+            label: t('tabs.acr', { ns: 'evaluations' }),
+            content: <AcrTab userId={userId} />,
+          },
+          {
+            id: 'incidents',
+            label: t('tabs.incidents', { ns: 'evaluations' }),
+            content: <IncidentsTab userId={userId} />,
           },
         ]
       : []),

@@ -85,6 +85,7 @@ import { Route as StaffRoutinesSetupRouteImport } from './routes/_staff/routines
 import { Route as StaffRoutinesSubstitutionsRouteImport } from './routes/_staff/routines/substitutions'
 import { Route as StaffStaffIndexRouteImport } from './routes/_staff/staff/index'
 import { Route as StaffStaffUserIdRouteImport } from './routes/_staff/staff/$userId'
+import { Route as StaffStaffEvaluationsRouteImport } from './routes/_staff/staff/evaluations'
 import { Route as StaffStaffTeachingAssignmentsRouteImport } from './routes/_staff/staff/teaching-assignments'
 import { Route as StaffStudentsIndexRouteImport } from './routes/_staff/students/index'
 import { Route as StaffStudentsStudentIdRouteImport } from './routes/_staff/students/$studentId'
@@ -115,6 +116,7 @@ import { Route as StaffFeesSchedulesIdRouteImport } from './routes/_staff/fees/s
 import { Route as StaffResultsExamIdStudentIdRouteImport } from './routes/_staff/results/$examId.$studentId'
 import { Route as StaffStudentsStudentIdEditRouteImport } from './routes/_staff/students/$studentId_.edit'
 import { Route as StaffMarksExamIdSectionIdSubjectIdRouteImport } from './routes/_staff/marks/$examId.$sectionId.$subjectId'
+import { Route as StaffStaffUserIdAcrAssessmentIdRouteImport } from './routes/_staff/staff/$userId_.acr.$assessmentId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -502,6 +504,11 @@ const StaffStaffUserIdRoute = StaffStaffUserIdRouteImport.update({
   path: '/staff/$userId',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffStaffEvaluationsRoute = StaffStaffEvaluationsRouteImport.update({
+  id: '/staff/evaluations',
+  path: '/staff/evaluations',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffStaffTeachingAssignmentsRoute =
   StaffStaffTeachingAssignmentsRouteImport.update({
     id: '/staff/teaching-assignments',
@@ -672,6 +679,12 @@ const StaffMarksExamIdSectionIdSubjectIdRoute =
     path: '/marks/$examId/$sectionId/$subjectId',
     getParentRoute: () => StaffRoute,
   } as any)
+const StaffStaffUserIdAcrAssessmentIdRoute =
+  StaffStaffUserIdAcrAssessmentIdRouteImport.update({
+    id: '/staff/$userId_/acr/$assessmentId',
+    path: '/staff/$userId/acr/$assessmentId',
+    getParentRoute: () => StaffRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -727,6 +740,7 @@ export interface FileRoutesByFullPath {
   '/routines/setup': typeof StaffRoutinesSetupRoute
   '/routines/substitutions': typeof StaffRoutinesSubstitutionsRoute
   '/staff/$userId': typeof StaffStaffUserIdRoute
+  '/staff/evaluations': typeof StaffStaffEvaluationsRoute
   '/staff/teaching-assignments': typeof StaffStaffTeachingAssignmentsRoute
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/students/import': typeof StaffStudentsImportRoute
@@ -778,6 +792,7 @@ export interface FileRoutesByFullPath {
   '/fees/fines/': typeof StaffFeesFinesIndexRoute
   '/fees/schedules/': typeof StaffFeesSchedulesIndexRoute
   '/marks/$examId/$sectionId/$subjectId': typeof StaffMarksExamIdSectionIdSubjectIdRoute
+  '/staff/$userId/acr/$assessmentId': typeof StaffStaffUserIdAcrAssessmentIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -831,6 +846,7 @@ export interface FileRoutesByTo {
   '/routines/setup': typeof StaffRoutinesSetupRoute
   '/routines/substitutions': typeof StaffRoutinesSubstitutionsRoute
   '/staff/$userId': typeof StaffStaffUserIdRoute
+  '/staff/evaluations': typeof StaffStaffEvaluationsRoute
   '/staff/teaching-assignments': typeof StaffStaffTeachingAssignmentsRoute
   '/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/students/import': typeof StaffStudentsImportRoute
@@ -882,6 +898,7 @@ export interface FileRoutesByTo {
   '/fees/fines': typeof StaffFeesFinesIndexRoute
   '/fees/schedules': typeof StaffFeesSchedulesIndexRoute
   '/marks/$examId/$sectionId/$subjectId': typeof StaffMarksExamIdSectionIdSubjectIdRoute
+  '/staff/$userId/acr/$assessmentId': typeof StaffStaffUserIdAcrAssessmentIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -940,6 +957,7 @@ export interface FileRoutesById {
   '/_staff/routines/setup': typeof StaffRoutinesSetupRoute
   '/_staff/routines/substitutions': typeof StaffRoutinesSubstitutionsRoute
   '/_staff/staff/$userId': typeof StaffStaffUserIdRoute
+  '/_staff/staff/evaluations': typeof StaffStaffEvaluationsRoute
   '/_staff/staff/teaching-assignments': typeof StaffStaffTeachingAssignmentsRoute
   '/_staff/students/$studentId': typeof StaffStudentsStudentIdRoute
   '/_staff/students/import': typeof StaffStudentsImportRoute
@@ -991,6 +1009,7 @@ export interface FileRoutesById {
   '/_staff/fees/fines/': typeof StaffFeesFinesIndexRoute
   '/_staff/fees/schedules/': typeof StaffFeesSchedulesIndexRoute
   '/_staff/marks/$examId/$sectionId/$subjectId': typeof StaffMarksExamIdSectionIdSubjectIdRoute
+  '/_staff/staff/$userId_/acr/$assessmentId': typeof StaffStaffUserIdAcrAssessmentIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -1048,6 +1067,7 @@ export interface FileRouteTypes {
     | '/routines/setup'
     | '/routines/substitutions'
     | '/staff/$userId'
+    | '/staff/evaluations'
     | '/staff/teaching-assignments'
     | '/students/$studentId'
     | '/students/import'
@@ -1099,6 +1119,7 @@ export interface FileRouteTypes {
     | '/fees/fines/'
     | '/fees/schedules/'
     | '/marks/$examId/$sectionId/$subjectId'
+    | '/staff/$userId/acr/$assessmentId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -1152,6 +1173,7 @@ export interface FileRouteTypes {
     | '/routines/setup'
     | '/routines/substitutions'
     | '/staff/$userId'
+    | '/staff/evaluations'
     | '/staff/teaching-assignments'
     | '/students/$studentId'
     | '/students/import'
@@ -1203,6 +1225,7 @@ export interface FileRouteTypes {
     | '/fees/fines'
     | '/fees/schedules'
     | '/marks/$examId/$sectionId/$subjectId'
+    | '/staff/$userId/acr/$assessmentId'
   id:
     | '__root__'
     | '/'
@@ -1260,6 +1283,7 @@ export interface FileRouteTypes {
     | '/_staff/routines/setup'
     | '/_staff/routines/substitutions'
     | '/_staff/staff/$userId'
+    | '/_staff/staff/evaluations'
     | '/_staff/staff/teaching-assignments'
     | '/_staff/students/$studentId'
     | '/_staff/students/import'
@@ -1311,6 +1335,7 @@ export interface FileRouteTypes {
     | '/_staff/fees/fines/'
     | '/_staff/fees/schedules/'
     | '/_staff/marks/$examId/$sectionId/$subjectId'
+    | '/_staff/staff/$userId_/acr/$assessmentId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1863,6 +1888,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffStaffUserIdRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/staff/evaluations': {
+      id: '/_staff/staff/evaluations'
+      path: '/staff/evaluations'
+      fullPath: '/staff/evaluations'
+      preLoaderRoute: typeof StaffStaffEvaluationsRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/staff/teaching-assignments': {
       id: '/_staff/staff/teaching-assignments'
       path: '/staff/teaching-assignments'
@@ -2073,6 +2105,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffMarksExamIdSectionIdSubjectIdRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/staff/$userId_/acr/$assessmentId': {
+      id: '/_staff/staff/$userId_/acr/$assessmentId'
+      path: '/staff/$userId/acr/$assessmentId'
+      fullPath: '/staff/$userId/acr/$assessmentId'
+      preLoaderRoute: typeof StaffStaffUserIdAcrAssessmentIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
   }
 }
 
@@ -2150,6 +2189,7 @@ interface StaffRouteChildren {
   StaffRoutinesSetupRoute: typeof StaffRoutinesSetupRoute
   StaffRoutinesSubstitutionsRoute: typeof StaffRoutinesSubstitutionsRoute
   StaffStaffUserIdRoute: typeof StaffStaffUserIdRoute
+  StaffStaffEvaluationsRoute: typeof StaffStaffEvaluationsRoute
   StaffStaffTeachingAssignmentsRoute: typeof StaffStaffTeachingAssignmentsRoute
   StaffStudentsStudentIdRoute: typeof StaffStudentsStudentIdRoute
   StaffStudentsImportRoute: typeof StaffStudentsImportRoute
@@ -2192,6 +2232,7 @@ interface StaffRouteChildren {
   StaffCommunicationsBatchesIndexRoute: typeof StaffCommunicationsBatchesIndexRoute
   StaffExamsSeatPlansIndexRoute: typeof StaffExamsSeatPlansIndexRoute
   StaffMarksExamIdSectionIdSubjectIdRoute: typeof StaffMarksExamIdSectionIdSubjectIdRoute
+  StaffStaffUserIdAcrAssessmentIdRoute: typeof StaffStaffUserIdAcrAssessmentIdRoute
 }
 
 const StaffRouteChildren: StaffRouteChildren = {
@@ -2224,6 +2265,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffRoutinesSetupRoute: StaffRoutinesSetupRoute,
   StaffRoutinesSubstitutionsRoute: StaffRoutinesSubstitutionsRoute,
   StaffStaffUserIdRoute: StaffStaffUserIdRoute,
+  StaffStaffEvaluationsRoute: StaffStaffEvaluationsRoute,
   StaffStaffTeachingAssignmentsRoute: StaffStaffTeachingAssignmentsRoute,
   StaffStudentsStudentIdRoute: StaffStudentsStudentIdRoute,
   StaffStudentsImportRoute: StaffStudentsImportRoute,
@@ -2269,6 +2311,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffExamsSeatPlansIndexRoute: StaffExamsSeatPlansIndexRoute,
   StaffMarksExamIdSectionIdSubjectIdRoute:
     StaffMarksExamIdSectionIdSubjectIdRoute,
+  StaffStaffUserIdAcrAssessmentIdRoute: StaffStaffUserIdAcrAssessmentIdRoute,
 }
 
 const StaffRouteWithChildren = StaffRoute._addFileChildren(StaffRouteChildren)

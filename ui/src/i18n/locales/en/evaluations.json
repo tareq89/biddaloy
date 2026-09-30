@@ -1,0 +1,186 @@
+{
+  "title": "Evaluations",
+  "tabs": {
+    "acr": "ACR",
+    "surveys": "Surveys",
+    "incidents": "Incidents"
+  },
+  "acr": {
+    "title": "Annual Confidential Report",
+    "documentTitle": "{{name}} — ACR {{year}} · Biddaloy",
+    "start": "Start ACR",
+    "startTitle": "Start an ACR",
+    "staffLabel": "Staff member",
+    "yearLabel": "Academic year",
+    "starting": "Starting…",
+    "startError": "Couldn't start the ACR.",
+    "startConflict": "An ACR already exists for this staff member and year.",
+    "errorStaff": "Choose a staff member.",
+    "errorYear": "Choose an academic year.",
+    "loadError": "Couldn't load this ACR.",
+    "reopen": "Reopen",
+    "reopenError": "Couldn't reopen the ACR.",
+    "completedReadOnly": "This ACR is completed. Reopen it to make changes.",
+    "submit": "Complete ACR",
+    "submitting": "Completing…",
+    "submitHint": "Press Ctrl+Enter to complete",
+    "submitBlocked": "Score every criterion before completing.",
+    "completeError": "Couldn't complete the ACR.",
+    "next": "Next",
+    "back": "Back",
+    "stepOf": "Step {{current}} of {{total}}",
+    "criterionOf": "Criterion {{current}} of {{total}}",
+    "keyboardHint": "Press 4, 3, 2 or 1 to score and move on",
+    "total": "Total score",
+    "save": {
+      "idle": "",
+      "saving": "Saving…",
+      "saved": "Saved",
+      "error": "Couldn't save. Retrying…"
+    },
+    "steps": {
+      "period": "Period and description",
+      "criteria": "Criteria",
+      "closing": "Closing remarks"
+    },
+    "step1": {
+      "periodFrom": "Period from",
+      "periodTo": "Period to",
+      "employmentDuration": "Duration of employment",
+      "description": "Description of duties"
+    },
+    "step2": {
+      "block2": "Block 2: Performance",
+      "block3": "Block 3: Personal qualities",
+      "unscored": "Not scored"
+    },
+    "step3": {
+      "specialQualification": "Special qualification",
+      "honestyReputation": "Honesty and reputation",
+      "promotionEligibility": "Eligible for promotion",
+      "promotionYes": "Yes",
+      "promotionNo": "No",
+      "training": "Training needed",
+      "recommendations": "Recommendations"
+    },
+    "scores": {
+      "4": "Excellent",
+      "3": "Good",
+      "2": "Satisfactory",
+      "1": "Poor"
+    },
+    "criteria": {
+      "PUNCTUALITY": "Punctuality",
+      "TEAMWORK": "Teamwork"
+    },
+    "register": {
+      "title": "ACR register",
+      "yearFilter": "Year",
+      "allYears": "All years",
+      "statusFilter": "Status",
+      "allStatuses": "All",
+      "columnStaff": "Staff member",
+      "columnYear": "Year",
+      "columnStatus": "Status",
+      "columnTotal": "Total",
+      "columnCompletedAt": "Completed",
+      "open": "Open",
+      "loading": "Loading ACRs…",
+      "empty": "No ACRs yet for this filter.",
+      "errorMessage": "Couldn't load the ACR register."
+    },
+    "status": {
+      "INCOMPLETE": "In progress",
+      "COMPLETED": "Completed"
+    },
+    "history": {
+      "title": "ACR history",
+      "loading": "Loading ACR history…",
+      "empty": "No ACR has been started for this staff member.",
+      "errorMessage": "Couldn't load ACR history.",
+      "trendTitle": "Year over year",
+      "trendLabel": "{{year}}: {{total}}"
+    },
+    "criteriaSettings": {
+      "title": "ACR criteria",
+      "description": "The criteria every ACR is scored against. Drag or use the arrows to reorder.",
+      "appliesToNewOnly": "Changes apply to new ACRs only. ACRs already started keep the criteria they began with.",
+      "saved": "Saved as version {{version}}. Applies to new ACRs only.",
+      "version": "Version {{version}}",
+      "block2": "Block 2: Performance",
+      "block3": "Block 3: Personal qualities",
+      "codeLabel": "Code",
+      "labelEn": "Name (English)",
+      "labelBn": "Name (Bangla)",
+      "blockLabel": "Block",
+      "add": "Add criterion",
+      "remove": "Remove",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "save": "Save criteria",
+      "saving": "Saving…",
+      "loading": "Loading criteria…",
+      "loadError": "Couldn't load the criteria.",
+      "saveError": "Couldn't save the criteria.",
+      "errorRequired": "Code and both names are required.",
+      "errorDuplicateCode": "Each code must be unique."
+    }
+  },
+  "incident": {
+    "title": "Incidents",
+    "tabTitle": "Incidents",
+    "report": "Report an incident",
+    "reportTitle": "Report an incident",
+    "staffLabel": "Staff member",
+    "typeLabel": "Type",
+    "severityLabel": "Severity",
+    "occurredOnLabel": "Date",
+    "descriptionLabel": "What happened",
+    "submit": "Report",
+    "submitting": "Reporting…",
+    "reported": "Incident reported.",
+    "errorStaff": "Choose a staff member.",
+    "errorType": "Choose a type.",
+    "errorSeverity": "Choose a severity.",
+    "errorDescription": "Describe what happened.",
+    "errorDate": "Choose a date.",
+    "errorFuture": "The date cannot be in the future.",
+    "errorMessage": "Couldn't report the incident.",
+    "loading": "Loading incidents…",
+    "empty": "No incidents reported.",
+    "loadError": "Couldn't load incidents.",
+    "filterType": "Type",
+    "filterSeverity": "Severity",
+    "allTypes": "All types",
+    "allSeverities": "All severities",
+    "columnStaff": "Staff member",
+    "columnType": "Type",
+    "columnSeverity": "Severity",
+    "columnDate": "Date",
+    "columnDescription": "Details",
+    "types": {
+      "BEHAVIOUR": "Behaviour",
+      "ABSENCE": "Absence",
+      "COMPLAINT": "Complaint",
+      "COMMENDATION": "Commendation",
+      "OTHER": "Other"
+    },
+    "severities": {
+      "LOW": "Low",
+      "MEDIUM": "Medium",
+      "HIGH": "High"
+    }
+  },
+  "surveys": {
+    "placeholderTitle": "Surveys",
+    "placeholderBody": "Survey results will appear here."
+  },
+  "palette": {
+    "startAcr": "Start ACR",
+    "reportIncident": "Report an incident"
+  },
+  "nav": {
+    "evaluations": "Evaluations"
+  },
+  "forbidden": "You don't have access to evaluations."
+}

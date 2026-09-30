@@ -1,8 +1,15 @@
+import { Permission } from '@biddaloy/shared';
 import { decodeAccessTokenMemberships, getActiveRole, getActiveTenant } from '@biddaloy/ui/api';
-import { useAccessToken, useSchoolSettings, useSchools } from '@biddaloy/ui/hooks';
+import {
+  useAccessToken,
+  useHasPermission,
+  useSchoolSettings,
+  useSchools,
+} from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
+import { AcrCriteriaSection } from './settings/AcrCriteriaSection';
 import { AttendanceSection } from './settings/AttendanceSection';
 import { BackupSection } from './settings/backup-section';
 import { CalendarSection } from './settings/CalendarSection';
@@ -75,6 +82,7 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
     : ownSchoolName;
 
   const settingsQuery = useSchoolSettings(schoolId ?? '');
+  const canEditAcrCriteria = useHasPermission(Permission.ACR_WRITE);
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
@@ -94,6 +102,11 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
           opening a `?backup=<jobId>` email link on a page where this
           never mounts, since they haven't picked a school yet. */}
       <BackupSection {...(backupJobId !== undefined ? { backupJobId } : {})} />
+
+      {/* [28.4.1] Like `BackupSection`, always the caller's own active
+          tenant (criteria are per school), so not behind the SUPER_ADMIN
+          picker; `ACR_WRITE` mirrors `PUT /acr/criteria`. */}
+      {canEditAcrCriteria && <AcrCriteriaSection />}
 
       {isSuperAdmin && (
         <div className="grid gap-1.5">
