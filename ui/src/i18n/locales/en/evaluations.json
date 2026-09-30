@@ -218,6 +218,8 @@
       "saveDraft": "Save as draft",
       "publishNow": "Save and publish",
       "saving": "Saving…",
+      "saved": "Survey saved as a draft.",
+      "published": "Survey published.",
       "errorTitle": "Enter a title.",
       "errorTargets": "Add at least one teacher and subject.",
       "errorQuestions": "Add at least one question.",
@@ -233,7 +235,6 @@
     },
     "detail": {
       "documentTitle": "{{title}} — Survey · Biddaloy",
-      "back": "Back to surveys",
       "loadError": "Couldn't load this survey.",
       "publish": "Publish",
       "publishing": "Publishing…",

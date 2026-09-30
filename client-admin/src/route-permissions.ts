@@ -57,6 +57,8 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/staff/teaching-assignments': Permission.CLASS_MANAGE,
   // [28.4.1] Evaluations register — same gate as the ACR form it links to.
   '/_staff/staff/evaluations': Permission.ACR_READ,
+  // [28.4.2] One survey's results — same gate as the register it opens from.
+  '/_staff/staff/evaluations_/surveys/$surveyId': Permission.ACR_READ,
   '/_staff/programs/': Permission.PROGRAM_READ,
   '/_staff/programs/$programId': Permission.PROGRAM_READ,
   '/_staff/fees/': Permission.FEE_STRUCTURE_READ,

@@ -90,6 +90,11 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
     { label: { key: 'teachingAssignments' } },
   ],
   '/_staff/staff/evaluations': [{ label: { entity: 'staff' } }, { label: { key: 'evaluations' } }],
+  // [28.4.2] The survey's own title is the page heading, so the trail stops at Evaluations.
+  '/_staff/staff/evaluations_/surveys/$surveyId': [
+    { label: { entity: 'staff' } },
+    { label: { key: 'evaluations' }, dynamic: 'entity' },
+  ],
   '/_staff/programs/': [{ label: { key: 'programs' } }],
   '/_staff/programs/$programId': [
     { label: { key: 'programs' } },

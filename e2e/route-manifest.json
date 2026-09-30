@@ -387,6 +387,14 @@
       "archetype": "list"
     },
     {
+      "path": "/staff/evaluations/surveys/$surveyId",
+      "params": {
+        "surveyId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
       "path": "/staff/$userId",
       "params": {
         "userId": "seeded"

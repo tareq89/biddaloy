@@ -6,14 +6,7 @@
  * Tab + filters live in the URL, same as every list in this app.
  */
 import { Permission } from '@biddaloy/shared';
-import {
-  EmptyState,
-  RoutePending,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@biddaloy/ui/components';
+import { RoutePending, Tabs, TabsContent, TabsList, TabsTrigger } from '@biddaloy/ui/components';
 import { useHasPermission } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { createFileRoute } from '@tanstack/react-router';
@@ -26,6 +19,8 @@ import { ReportIncidentDialog } from './-detail/report-incident-dialog';
 import { StartAcrDialog } from './-detail/start-acr-dialog';
 import { AcrRegister } from './-evaluations/acr-register';
 import { IncidentsList } from './-evaluations/incidents-list';
+import { SurveyFormDialog } from './-evaluations/survey-form-dialog';
+import { SurveysList } from './-evaluations/surveys-list';
 
 const TABS = ['acr', 'surveys', 'incidents'] as const;
 
@@ -44,6 +39,7 @@ const evaluationsSearchSchema = z.object({
   // TanStack parses `?x=1` into the number 1, so a bare z.string() would drop it.
   reportIncident: z.union([z.string(), z.number()]).optional().catch(undefined),
   startAcr: z.union([z.string(), z.number()]).optional().catch(undefined),
+  publishSurvey: z.union([z.string(), z.number()]).optional().catch(undefined),
 });
 
 export const Route = createFileRoute('/_staff/staff/evaluations')({
@@ -61,20 +57,28 @@ function EvaluationsPage() {
   const canWrite = useHasPermission(Permission.ACR_WRITE);
   const [reportOpen, setReportOpen] = React.useState(false);
   const [startOpen, setStartOpen] = React.useState(false);
+  const [surveyOpen, setSurveyOpen] = React.useState(false);
 
   // Consume the palette's one-shot flags, same pattern as fees/fines.
   React.useEffect(() => {
-    if (!search.reportIncident && !search.startAcr) return;
+    if (!search.reportIncident && !search.startAcr && !search.publishSurvey) return;
     if (canWrite) {
       if (search.reportIncident) setReportOpen(true);
       if (search.startAcr) setStartOpen(true);
+      if (search.publishSurvey) setSurveyOpen(true);
     }
     void navigate({
-      search: (prev) => ({ ...prev, reportIncident: undefined, startAcr: undefined }),
+      search: (prev) => ({
+        ...prev,
+        reportIncident: undefined,
+        startAcr: undefined,
+        publishSurvey: undefined,
+        ...(search.publishSurvey && canWrite ? { tab: 'surveys' as const } : {}),
+      }),
       replace: true,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- consume once per flag
-  }, [search.reportIncident, search.startAcr]);
+  }, [search.reportIncident, search.startAcr, search.publishSurvey]);
 
   return (
     <Tabs
@@ -96,11 +100,7 @@ function EvaluationsPage() {
         <AcrRegister />
       </TabsContent>
       <TabsContent value="surveys">
-        {/* Placeholder slot — filled by 28.4.2. */}
-        <EmptyState
-          title={t('surveys.placeholderTitle')}
-          explanation={t('surveys.placeholderBody')}
-        />
+        <SurveysList {...(canWrite ? { onNew: () => setSurveyOpen(true) } : {})} />
       </TabsContent>
       <TabsContent value="incidents">
         <IncidentsList />
@@ -109,6 +109,7 @@ function EvaluationsPage() {
         <>
           <ReportIncidentDialog open={reportOpen} onOpenChange={setReportOpen} />
           <StartAcrDialog open={startOpen} onOpenChange={setStartOpen} />
+          <SurveyFormDialog open={surveyOpen} onOpenChange={setSurveyOpen} />
         </>
       )}
     </Tabs>
