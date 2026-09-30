@@ -340,6 +340,13 @@ export {
 } from './programs/milestone-checklist';
 export { ProgressBar, type ProgressBarProps } from './programs/progress-bar';
 export {
+  SummaryCard,
+  type SummaryCardFigure,
+  type SummaryCardProps,
+} from './performance/summary-card';
+export { BarWidget, type BarWidgetBar, type BarWidgetProps } from './performance/bar-widget';
+export { SwipeRow, type SwipeRowProps } from './performance/swipe-row';
+export {
   RepeatableRowForm,
   type RepeatableRowField,
   type RepeatableRowFieldType,
