@@ -34,7 +34,7 @@ import {
 } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
 import { formatDate } from '@biddaloy/ui/utils';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
 
@@ -169,6 +169,11 @@ function StaffListPage() {
 
   const canCreate = useHasPermission(Permission.USER_CREATE);
   const canRemove = useHasPermission(Permission.MEMBER_REMOVE);
+  // D18: a staff card exposes HR data, so printing needs both permissions.
+  const canPrintDocuments = useHasPermission(Permission.DOCUMENT_PRINT);
+  const canReadHr = useHasPermission(Permission.STAFF_HR_READ);
+  const canPrint = canPrintDocuments && canReadHr;
+  const navigate = useNavigate();
 
   const [addUserOpen, setAddUserOpen] = React.useState(false);
   const [promoteOpen, setPromoteOpen] = React.useState(false);
@@ -346,6 +351,41 @@ function StaffListPage() {
         onPageChange={actions.setPage}
         onPageSizeChange={actions.setLimit}
         pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
+        {...(canPrint
+          ? {
+              selectedIds: state.selectedIds,
+              onSelectedIdsChange: actions.setSelectedIds,
+              bulkActions: (
+                <>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() =>
+                      void navigate({
+                        to: '/print/preview',
+                        search: {
+                          kind: 'STAFF_ID_CARD',
+                          subject_type: 'STAFF',
+                          ids: Array.from(state.selectedIds).join(','),
+                          from: '/staff',
+                        },
+                      })
+                    }
+                  >
+                    {t('list.printIdCards', { count: state.selectedIds.size })}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => actions.setSelectedIds(new Set())}
+                  >
+                    {t('list.clearSelection')}
+                  </Button>
+                </>
+              ),
+            }
+          : {})}
         loading={usersQuery.isLoading}
         isFetching={usersQuery.isFetching}
         {...(usersQuery.isError ? { error: t('list.errorMessage') } : {})}
