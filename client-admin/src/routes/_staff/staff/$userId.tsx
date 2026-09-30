@@ -32,6 +32,7 @@ import { z } from 'zod';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { AttendanceLeaveTab } from './-detail/attendance-leave-tab';
+import { StaffDocumentsTab } from './-detail/documents-tab';
 import { HrRecordTab } from './-detail/hr-record-tab';
 import { LoginHistoryTab } from './-detail/login-history-tab';
 import { MembershipsTab } from './-detail/memberships-tab';
@@ -56,7 +57,7 @@ export const Route = createFileRoute('/_staff/staff/$userId')({
       // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
       // identical comment for why.
       queryClient.ensureQueryData(userQueryOptions(params.userId)).catch(swallowUnlessOffline),
-      loadRouteNamespaces('staff', 'staffAttendance', 'leave', 'common'),
+      loadRouteNamespaces('staff', 'staffAttendance', 'leave', 'printHistory', 'common'),
     ]),
   pendingComponent: StaffDetailPending,
   component: StaffDetailPage,
@@ -74,6 +75,8 @@ function StaffDetailPage() {
   const canRemove = useHasPermission(Permission.MEMBER_REMOVE);
   const canReadAuditLogs = useHasPermission(Permission.AUDIT_LOG_READ);
   const canReadHrRecord = useHasPermission(Permission.STAFF_HR_READ);
+  // D18: a staff card exposes HR data, so printing needs both permissions.
+  const canPrintStaffCard = useHasPermission(Permission.DOCUMENT_PRINT) && canReadHrRecord;
   const currentUserId = useCurrentUserId();
 
   const isTeacher = teacher !== undefined;
@@ -84,6 +87,7 @@ function StaffDetailPage() {
     'memberships',
     ...(isTeacher ? (['teachingAssignments'] as const) : []),
     ...(canReadHrRecord ? (['hrRecord'] as const) : []),
+    ...(canPrintStaffCard ? (['documents'] as const) : []),
     ...(hasStaffProfile ? (['attendanceLeave'] as const) : []),
     ...(canReadAuditLogs ? (['loginHistory'] as const) : []),
   ] as const;
@@ -127,6 +131,17 @@ function StaffDetailPage() {
             id: 'hrRecord',
             label: t('detail.tabs.hrRecord'),
             content: <HrRecordTab userId={userId} />,
+          },
+        ]
+      : []),
+    ...(canPrintStaffCard
+      ? [
+          {
+            id: 'documents',
+            label: t('detail.tabs.documents'),
+            content: (
+              <StaffDocumentsTab userId={userId} onOpenHrRecord={() => setActiveTab('hrRecord')} />
+            ),
           },
         ]
       : []),
