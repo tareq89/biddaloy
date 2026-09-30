@@ -892,6 +892,14 @@ export {
   type RemoveUncollectedResult,
 } from './fee-generations';
 export {
+  admissionReportKeys,
+  useAdmissionLifecycleReport,
+  type LifecycleReport,
+  type LifecycleReportCounts,
+  type LifecycleReportFilters,
+  type LifecycleReportRow,
+} from './admission-reports';
+export {
   finesKeys,
   useCopyFineRules,
   useCreateFineRule,
