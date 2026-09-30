@@ -4,7 +4,7 @@
  * `useState` rather than `FormShell`/react-hook-form: that machinery
  * (autosave, unsaved-changes warning, submit-error focus summary) earns
  * its keep on the Student admission form's field count, not a 3-field
- * modal — same weight class as `transfer-status-dialog.tsx`.
+ * modal — same weight class as a plain 3-field dialog.
  *
  * Owns only the fields and their client-side validation; the actual
  * mutation (create vs. update) is the caller's — this dialog just calls

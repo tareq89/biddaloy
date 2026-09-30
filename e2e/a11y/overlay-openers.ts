@@ -81,10 +81,6 @@ export const overlayOpeners: Record<string, (page: Page, locale: Locale) => Prom
     await new DetailShellPage(page, locale).clickAction('students.detail.actions.delete');
     await expectDialogOpen(page);
   },
-  '/students/$studentId::transfer-status': async (page, locale) => {
-    await new DetailShellPage(page, locale).clickAction('students.detail.actions.transferStatus');
-    await expectDialogOpen(page);
-  },
   // [30.4.1] `ShortcutsSheet` (`ui/src/components/shortcuts-sheet.tsx`) —
   // the `?` keyboard-shortcuts help. It is global, not tied to any one
   // route, so it is deliberately NOT in `route-manifest.json` — that file
