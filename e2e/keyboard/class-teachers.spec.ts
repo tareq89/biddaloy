@@ -41,7 +41,9 @@ test('keyboard-only: assign a teacher from the class detail Teachers tab', async
       document.body.removeAttribute('tabindex');
     });
     await page.keyboard.press('Tab');
-    await tabUntilFocused(page, t('classes.detail.teachers.assign'), 60, { tag: 'BUTTON' });
+    // The sidebar's links come before the page content in Tab order, so this budget grows
+    // with the nav (Epic 32 added two links: Print templates, Printables & documents).
+    await tabUntilFocused(page, t('classes.detail.teachers.assign'), 80, { tag: 'BUTTON' });
     await page.keyboard.press('Enter');
   });
 
