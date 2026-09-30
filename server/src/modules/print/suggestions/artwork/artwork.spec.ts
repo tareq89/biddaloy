@@ -42,6 +42,10 @@ describe('suggestion artwork', () => {
       for (const attr of Array.from(el.attributes)) {
         expect(attr.name.toLowerCase().startsWith('on')).toBe(false);
         if (attr.localName === 'href') expect(attr.value.startsWith('#')).toBe(true);
+        if (attr.localName === 'style') {
+          expect(attr.value).not.toMatch(/@import/i);
+          expect(attr.value).not.toMatch(/url\(\s*['"]?(?!#)/i);
+        }
       }
     }
 

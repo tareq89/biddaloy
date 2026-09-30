@@ -32,6 +32,7 @@ export class PrintModule1790700000000 implements MigrationInterface {
         "created_at" timestamptz NOT NULL DEFAULT now(),
         "updated_at" timestamptz NOT NULL DEFAULT now(),
         CONSTRAINT "PK_print_templates" PRIMARY KEY ("id"),
+        CONSTRAINT "UQ_print_templates_tenant_id" UNIQUE ("tenant_id", "id"),
         CONSTRAINT "CHK_print_templates_batch_size" CHECK ("batch_size" BETWEEN 1 AND 200)
       )
     `);
@@ -56,6 +57,7 @@ export class PrintModule1790700000000 implements MigrationInterface {
         "published_by" uuid,
         "published_at" timestamptz NOT NULL DEFAULT now(),
         CONSTRAINT "PK_print_template_versions" PRIMARY KEY ("id"),
+        CONSTRAINT "UQ_print_template_versions_tenant_id" UNIQUE ("tenant_id", "id"),
         CONSTRAINT "UQ_print_template_versions_template_version" UNIQUE ("template_id", "version")
       )
     `);
@@ -64,11 +66,11 @@ export class PrintModule1790700000000 implements MigrationInterface {
     );
     await q.query(tenantFk('print_template_versions'));
     await q.query(
-      `ALTER TABLE "print_template_versions" ADD CONSTRAINT "FK_print_template_versions_template" FOREIGN KEY ("template_id") REFERENCES "print_templates"("id") ON DELETE RESTRICT ON UPDATE NO ACTION`,
+      `ALTER TABLE "print_template_versions" ADD CONSTRAINT "FK_print_template_versions_template" FOREIGN KEY ("tenant_id", "template_id") REFERENCES "print_templates"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE NO ACTION`,
     );
     await q.query(userFk('print_template_versions', 'published_by'));
     await q.query(
-      `ALTER TABLE "print_templates" ADD CONSTRAINT "FK_print_templates_current_version" FOREIGN KEY ("current_version_id") REFERENCES "print_template_versions"("id") ON DELETE SET NULL ON UPDATE NO ACTION`,
+      `ALTER TABLE "print_templates" ADD CONSTRAINT "FK_print_templates_current_version" FOREIGN KEY ("tenant_id", "current_version_id") REFERENCES "print_template_versions"("tenant_id", "id") ON DELETE SET NULL ("current_version_id") ON UPDATE NO ACTION`,
     );
     await q.query(
       `CREATE OR REPLACE FUNCTION "public"."block_print_template_versions_update"() RETURNS TRIGGER AS $$ BEGIN RAISE EXCEPTION 'print_template_versions is immutable: updates are not permitted'; END; $$ LANGUAGE plpgsql`,
@@ -120,6 +122,7 @@ export class PrintModule1790700000000 implements MigrationInterface {
         "created_at" timestamptz NOT NULL DEFAULT now(),
         "updated_at" timestamptz NOT NULL DEFAULT now(),
         CONSTRAINT "PK_printer_profiles" PRIMARY KEY ("id"),
+        CONSTRAINT "UQ_printer_profiles_tenant_id" UNIQUE ("tenant_id", "id"),
         CONSTRAINT "CHK_printer_profiles_scale" CHECK ("scale" BETWEEN 0.9 AND 1.1)
       )
     `);
@@ -145,7 +148,8 @@ export class PrintModule1790700000000 implements MigrationInterface {
         "batch_label" varchar(120),
         "reprint_of_job_id" uuid,
         "created_at" timestamptz NOT NULL DEFAULT now(),
-        CONSTRAINT "PK_print_jobs" PRIMARY KEY ("id")
+        CONSTRAINT "PK_print_jobs" PRIMARY KEY ("id"),
+        CONSTRAINT "UQ_print_jobs_tenant_id" UNIQUE ("tenant_id", "id")
       )
     `);
     await q.query(
@@ -153,14 +157,14 @@ export class PrintModule1790700000000 implements MigrationInterface {
     );
     await q.query(tenantFk('print_jobs'));
     await q.query(
-      `ALTER TABLE "print_jobs" ADD CONSTRAINT "FK_print_jobs_template_version" FOREIGN KEY ("template_version_id") REFERENCES "print_template_versions"("id") ON DELETE RESTRICT ON UPDATE NO ACTION`,
+      `ALTER TABLE "print_jobs" ADD CONSTRAINT "FK_print_jobs_template_version" FOREIGN KEY ("tenant_id", "template_version_id") REFERENCES "print_template_versions"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE NO ACTION`,
     );
     await q.query(
-      `ALTER TABLE "print_jobs" ADD CONSTRAINT "FK_print_jobs_printer_profile" FOREIGN KEY ("printer_profile_id") REFERENCES "printer_profiles"("id") ON DELETE SET NULL ON UPDATE NO ACTION`,
+      `ALTER TABLE "print_jobs" ADD CONSTRAINT "FK_print_jobs_printer_profile" FOREIGN KEY ("tenant_id", "printer_profile_id") REFERENCES "printer_profiles"("tenant_id", "id") ON DELETE SET NULL ("printer_profile_id") ON UPDATE NO ACTION`,
     );
     await q.query(userFk('print_jobs', 'printed_by'));
     await q.query(
-      `ALTER TABLE "print_jobs" ADD CONSTRAINT "FK_print_jobs_reprint_of" FOREIGN KEY ("reprint_of_job_id") REFERENCES "print_jobs"("id") ON DELETE SET NULL ON UPDATE NO ACTION`,
+      `ALTER TABLE "print_jobs" ADD CONSTRAINT "FK_print_jobs_reprint_of" FOREIGN KEY ("tenant_id", "reprint_of_job_id") REFERENCES "print_jobs"("tenant_id", "id") ON DELETE SET NULL ("reprint_of_job_id") ON UPDATE NO ACTION`,
     );
 
     // ---- print_job_items ----
@@ -183,7 +187,7 @@ export class PrintModule1790700000000 implements MigrationInterface {
         "created_at" timestamptz NOT NULL DEFAULT now(),
         CONSTRAINT "PK_print_job_items" PRIMARY KEY ("id"),
         CONSTRAINT "UQ_print_job_items_verify_token" UNIQUE ("verify_token_hash"),
-        CONSTRAINT "UQ_print_job_items_copy" UNIQUE ("tenant_id", "subject_type", "subject_id", "document_kind", "copy_number")
+        CONSTRAINT "UQ_print_job_items_copy" UNIQUE NULLS NOT DISTINCT ("tenant_id", "subject_type", "subject_id", "document_kind", "copy_number")
       )
     `);
     await q.query(`CREATE INDEX "IDX_print_job_items_tenant" ON "print_job_items" ("tenant_id")`);
@@ -192,7 +196,7 @@ export class PrintModule1790700000000 implements MigrationInterface {
     );
     await q.query(tenantFk('print_job_items'));
     await q.query(
-      `ALTER TABLE "print_job_items" ADD CONSTRAINT "FK_print_job_items_job" FOREIGN KEY ("job_id") REFERENCES "print_jobs"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+      `ALTER TABLE "print_job_items" ADD CONSTRAINT "FK_print_job_items_job" FOREIGN KEY ("tenant_id", "job_id") REFERENCES "print_jobs"("tenant_id", "id") ON DELETE CASCADE ON UPDATE NO ACTION`,
     );
     await q.query(userFk('print_job_items', 'revoked_by'));
 
