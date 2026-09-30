@@ -61,7 +61,7 @@ export class SurveyResultsService {
       ),
       this.surveyRepo.query(
         `SELECT r.teacher_id, r.subject_id, a.question_id, AVG(a.stars)::float AS avg,
-                COUNT(*)::int AS n
+                COUNT(a.stars)::int AS n
            FROM survey_answers a
            JOIN survey_responses r ON r.id = a.response_id AND r.tenant_id = a.tenant_id
           WHERE a.tenant_id = $1 AND r.survey_id = $2
@@ -100,8 +100,9 @@ export class SurveyResultsService {
         hidden: false,
         questions: questions.map((q) => {
           const row = stars.find((s) => pair(s) === k && s.question_id === q.id);
-          // Per-question gate: a question answered by fewer than min_responses
-          // people (others skipped it) could identify those few respondents.
+          // Per-question gate on STAR answers (text-only answers don't count, same as
+          // `teacherAverage`): a question starred by fewer than min_responses
+          // people (others skipped it or only commented) could identify those few respondents.
           if (!row || row.n < survey.min_responses) {
             return { questionId: q.id, text: q.text, averageStars: null, comments: [] };
           }
