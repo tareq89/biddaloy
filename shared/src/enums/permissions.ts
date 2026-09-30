@@ -177,6 +177,14 @@ export enum Permission {
   RESULT_READ = 'RESULT_READ',
   // [25.1.1] Create/edit/publish a SeatPlan and its seat allocations.
   SEAT_PLAN_MANAGE = 'SEAT_PLAN_MANAGE',
+  // [32.1.1] Epic 32 D18/D47 — create/edit print templates, assets and printer profiles.
+  PRINT_TEMPLATE_MANAGE = 'PRINT_TEMPLATE_MANAGE',
+  // [32.1.1] Epic 32 D18/D47 — create and run print jobs (ID cards etc.).
+  DOCUMENT_PRINT = 'DOCUMENT_PRINT',
+  // [32.1.1] Epic 32 D18/D47 — read print-job history.
+  PRINT_HISTORY_READ = 'PRINT_HISTORY_READ',
+  // [32.1.1] Epic 32 D18/D47 — revoke an issued document (e.g. a lost card).
+  DOCUMENT_REVOKE = 'DOCUMENT_REVOKE',
   // [26.1.1] Create/edit/run a PromotionRun (D22). ADMIN only — no separate
   // analysis permission; analysis reuses MARK_VIEW.
   PROMOTION_MANAGE = 'PROMOTION_MANAGE',
@@ -323,6 +331,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.RESULT_READ,
     // [25.1.1] Seat plans — ADMIN only.
     Permission.SEAT_PLAN_MANAGE,
+    // [32.1.1] Print module — ADMIN holds all four (D18/D47).
+    Permission.PRINT_TEMPLATE_MANAGE,
+    Permission.DOCUMENT_PRINT,
+    Permission.PRINT_HISTORY_READ,
+    Permission.DOCUMENT_REVOKE,
     // [26.1.1] Promotion runs — ADMIN only (D22).
     Permission.PROMOTION_MANAGE,
     Permission.PROMOTION_OVERRIDE,
@@ -412,6 +425,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // [36.1.1] Own record only — no LEAVE_APPROVE (ADMIN/EXECUTIVE only).
     Permission.STAFF_ATTENDANCE_READ,
     Permission.STAFF_ATTENDANCE_MARK,
+    // [32.1.1] Front office prints cards (D18/D47).
+    Permission.DOCUMENT_PRINT,
   ],
 
   [UserRole.TEACHER]: [
@@ -558,6 +573,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.STUDENT_NOTES_WRITE,
     Permission.STUDENT_RECORDS_READ,
     Permission.STUDENT_RECORDS_WRITE,
+    // [32.1.1] Read-only print history (D18/D47).
+    Permission.PRINT_HISTORY_READ,
   ],
 };
 
