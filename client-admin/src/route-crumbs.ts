@@ -147,6 +147,7 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/grading-scales/': [{ label: { key: 'gradingScales' } }],
   '/_staff/admissions/intakes/': [{ label: { key: 'admissionIntakes' } }],
   '/_staff/admissions/applicants/': [{ label: { key: 'admissionApplicants' } }],
+  '/_staff/admissions/reports/': [{ label: { key: 'admissionReports' } }],
   '/_staff/routines/setup': [{ label: { key: 'routineSetup' } }],
   '/_staff/routines/': [{ label: { key: 'routineBuilder' } }],
   '/_staff/routines/$sectionId': [

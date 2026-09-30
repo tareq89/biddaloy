@@ -101,6 +101,7 @@ import { Route as StaffAdmissionsApplicantsIndexRouteImport } from './routes/_st
 import { Route as StaffAdmissionsApplicantsApplicantIdRouteImport } from './routes/_staff/admissions/applicants/$applicantId'
 import { Route as StaffAdmissionsIntakesIndexRouteImport } from './routes/_staff/admissions/intakes/index'
 import { Route as StaffAdmissionsIntakesIntakeIdRouteImport } from './routes/_staff/admissions/intakes/$intakeId'
+import { Route as StaffAdmissionsReportsIndexRouteImport } from './routes/_staff/admissions/reports/index'
 import { Route as StaffAttendanceStaffIndexRouteImport } from './routes/_staff/attendance/staff/index'
 import { Route as StaffAttendanceStaffLeaveRouteImport } from './routes/_staff/attendance/staff/leave'
 import { Route as StaffCommunicationsBatchesIndexRouteImport } from './routes/_staff/communications/batches/index'
@@ -591,6 +592,12 @@ const StaffAdmissionsIntakesIntakeIdRoute =
     path: '/admissions/intakes/$intakeId',
     getParentRoute: () => StaffRoute,
   } as any)
+const StaffAdmissionsReportsIndexRoute =
+  StaffAdmissionsReportsIndexRouteImport.update({
+    id: '/admissions/reports/',
+    path: '/admissions/reports/',
+    getParentRoute: () => StaffRoute,
+  } as any)
 const StaffAttendanceStaffIndexRoute =
   StaffAttendanceStaffIndexRouteImport.update({
     id: '/attendance/staff/',
@@ -764,6 +771,7 @@ export interface FileRoutesByFullPath {
   '/academics/syllabus/': typeof StaffAcademicsSyllabusIndexRoute
   '/admissions/applicants/': typeof StaffAdmissionsApplicantsIndexRoute
   '/admissions/intakes/': typeof StaffAdmissionsIntakesIndexRoute
+  '/admissions/reports/': typeof StaffAdmissionsReportsIndexRoute
   '/attendance/staff/': typeof StaffAttendanceStaffIndexRoute
   '/communications/batches/': typeof StaffCommunicationsBatchesIndexRoute
   '/exams/seat-plans/': typeof StaffExamsSeatPlansIndexRoute
@@ -867,6 +875,7 @@ export interface FileRoutesByTo {
   '/academics/syllabus': typeof StaffAcademicsSyllabusIndexRoute
   '/admissions/applicants': typeof StaffAdmissionsApplicantsIndexRoute
   '/admissions/intakes': typeof StaffAdmissionsIntakesIndexRoute
+  '/admissions/reports': typeof StaffAdmissionsReportsIndexRoute
   '/attendance/staff': typeof StaffAttendanceStaffIndexRoute
   '/communications/batches': typeof StaffCommunicationsBatchesIndexRoute
   '/exams/seat-plans': typeof StaffExamsSeatPlansIndexRoute
@@ -975,6 +984,7 @@ export interface FileRoutesById {
   '/_staff/academics/syllabus/': typeof StaffAcademicsSyllabusIndexRoute
   '/_staff/admissions/applicants/': typeof StaffAdmissionsApplicantsIndexRoute
   '/_staff/admissions/intakes/': typeof StaffAdmissionsIntakesIndexRoute
+  '/_staff/admissions/reports/': typeof StaffAdmissionsReportsIndexRoute
   '/_staff/attendance/staff/': typeof StaffAttendanceStaffIndexRoute
   '/_staff/communications/batches/': typeof StaffCommunicationsBatchesIndexRoute
   '/_staff/exams/seat-plans/': typeof StaffExamsSeatPlansIndexRoute
@@ -1082,6 +1092,7 @@ export interface FileRouteTypes {
     | '/academics/syllabus/'
     | '/admissions/applicants/'
     | '/admissions/intakes/'
+    | '/admissions/reports/'
     | '/attendance/staff/'
     | '/communications/batches/'
     | '/exams/seat-plans/'
@@ -1185,6 +1196,7 @@ export interface FileRouteTypes {
     | '/academics/syllabus'
     | '/admissions/applicants'
     | '/admissions/intakes'
+    | '/admissions/reports'
     | '/attendance/staff'
     | '/communications/batches'
     | '/exams/seat-plans'
@@ -1292,6 +1304,7 @@ export interface FileRouteTypes {
     | '/_staff/academics/syllabus/'
     | '/_staff/admissions/applicants/'
     | '/_staff/admissions/intakes/'
+    | '/_staff/admissions/reports/'
     | '/_staff/attendance/staff/'
     | '/_staff/communications/batches/'
     | '/_staff/exams/seat-plans/'
@@ -1962,6 +1975,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffAdmissionsIntakesIntakeIdRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/admissions/reports/': {
+      id: '/_staff/admissions/reports/'
+      path: '/admissions/reports'
+      fullPath: '/admissions/reports/'
+      preLoaderRoute: typeof StaffAdmissionsReportsIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/attendance/staff/': {
       id: '/_staff/attendance/staff/'
       path: '/attendance/staff'
@@ -2167,6 +2187,7 @@ interface StaffRouteChildren {
   StaffAcademicsSyllabusIndexRoute: typeof StaffAcademicsSyllabusIndexRoute
   StaffAdmissionsApplicantsIndexRoute: typeof StaffAdmissionsApplicantsIndexRoute
   StaffAdmissionsIntakesIndexRoute: typeof StaffAdmissionsIntakesIndexRoute
+  StaffAdmissionsReportsIndexRoute: typeof StaffAdmissionsReportsIndexRoute
   StaffAttendanceStaffIndexRoute: typeof StaffAttendanceStaffIndexRoute
   StaffCommunicationsBatchesIndexRoute: typeof StaffCommunicationsBatchesIndexRoute
   StaffExamsSeatPlansIndexRoute: typeof StaffExamsSeatPlansIndexRoute
@@ -2242,6 +2263,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffAcademicsSyllabusIndexRoute: StaffAcademicsSyllabusIndexRoute,
   StaffAdmissionsApplicantsIndexRoute: StaffAdmissionsApplicantsIndexRoute,
   StaffAdmissionsIntakesIndexRoute: StaffAdmissionsIntakesIndexRoute,
+  StaffAdmissionsReportsIndexRoute: StaffAdmissionsReportsIndexRoute,
   StaffAttendanceStaffIndexRoute: StaffAttendanceStaffIndexRoute,
   StaffCommunicationsBatchesIndexRoute: StaffCommunicationsBatchesIndexRoute,
   StaffExamsSeatPlansIndexRoute: StaffExamsSeatPlansIndexRoute,
