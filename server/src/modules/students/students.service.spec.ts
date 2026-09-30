@@ -8,6 +8,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { StudentService, assertCanWriteProfileFields, redactHealthNotes } from './students.service';
 import { CreateStudentDto, UpdateStudentDto } from './dto/students.dto';
 import { Student } from './entities/student.entity';
+import { AuditService } from '../audit/audit.service';
 import { Guardian } from './entities/guardian.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Class } from '../academics/entities/class.entity';
@@ -56,6 +57,7 @@ describe('StudentService.findAllIds', () => {
         { provide: getRepositoryToken(Guardian), useValue: {} },
         { provide: getRepositoryToken(ClassSection), useValue: {} },
         { provide: getRepositoryToken(Class), useValue: {} },
+        { provide: AuditService, useValue: { record: vi.fn() } },
       ],
     }).compile();
 

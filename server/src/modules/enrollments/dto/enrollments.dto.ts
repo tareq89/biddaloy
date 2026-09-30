@@ -33,6 +33,8 @@ export class UpdateEnrollmentDto {
   section_id?: string;
 }
 
-/** Internal input to `EnrollmentsService.update`. Wider than the request DTO: server-side flows
- * (promotions, tests) may still set a status; an HTTP caller cannot. */
+/** Input type of `EnrollmentsService.update`. Wider than the request DTO so the service (and its
+ * integration tests) can still exercise a status write; no HTTP caller can send one, and no
+ * production flow calls `update` with it: the lifecycle service and the promotion commit write
+ * status themselves. */
 export type EnrollmentUpdate = UpdateEnrollmentDto & { enrollment_status?: EnrollmentStatus };

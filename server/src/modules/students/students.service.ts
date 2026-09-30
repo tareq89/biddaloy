@@ -95,6 +95,7 @@ export class StudentService {
     private readonly sectionRepo: Repository<ClassSection>,
     @InjectRepository(Class)
     private readonly classRepo: Repository<Class>,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -462,7 +463,13 @@ export class StudentService {
     });
   }
 
-  async update(id: string, dto: UpdateStudentDto, tenantId: string): Promise<Student> {
+  async update(
+    id: string,
+    dto: UpdateStudentDto,
+    tenantId: string,
+    userId: string | null = null,
+    context: RequestContext = { ip: null, userAgent: null },
+  ): Promise<Student> {
     const existingStudent = await this.findOne(id, tenantId);
 
     // Validate class_section_id belongs to tenant if provided
@@ -493,14 +500,58 @@ export class StudentService {
     const sectionChanged =
       !!dto.class_section_id && dto.class_section_id !== existingStudent.class_section_id;
 
+    // [39.2.1] A section move on a student who has left would create a fresh ACTIVE enrollment
+    // below (the "no ACTIVE enrollment for that year" branch), quietly reactivating them: no
+    // permission check, no reason or date, no event, and `students.enrollment_status` left
+    // disagreeing with the new row. Bringing a student back is POST /students/:id/readmit.
+    if (sectionChanged && existingStudent.enrollment_status !== EnrollmentStatus.ACTIVE) {
+      throw new ConflictException(
+        'This student is not currently enrolled. Use "Readmit" to bring them back; moving them to a section cannot reactivate them.',
+      );
+    }
+
     await this.repo.manager.transaction(async (manager) => {
       const txStudentRepo = manager.getRepository(Student);
       const txEnrollmentRepo = manager.getRepository(Enrollment);
 
-      try {
-        await txStudentRepo.update({ id, tenant_id: tenantId }, updateData);
-      } catch (err) {
-        rethrowBirthRegNoConflict(err);
+      // An empty body (`{}`) would make TypeORM throw UpdateValuesMissingError, a 500.
+      if (Object.keys(updateData).length > 0) {
+        try {
+          await txStudentRepo.update({ id, tenant_id: tenantId }, updateData);
+        } catch (err) {
+          rethrowBirthRegNoConflict(err);
+        }
+      }
+
+      // Every write goes to the audit log (epic 39 invariant). Only fields that actually
+      // changed; health_notes is recorded as changed but never copied into the log.
+      const masked = (key: string, value: unknown) =>
+        key === 'health_notes' ? '[redacted]' : value;
+      const changed = Object.keys(updateData).filter(
+        (k) =>
+          JSON.stringify((existingStudent as unknown as Record<string, unknown>)[k]) !==
+          JSON.stringify(updateData[k]),
+      );
+      if (changed.length > 0) {
+        await this.auditService.record(
+          {
+            action: AuditAction.UPDATE,
+            entity_type: 'Student',
+            entity_id: id,
+            tenant_id: tenantId,
+            performed_by_user_id: userId,
+            ip_address: context.ip,
+            user_agent: context.userAgent,
+            old_values: Object.fromEntries(
+              changed.map((k) => [
+                k,
+                masked(k, (existingStudent as unknown as Record<string, unknown>)[k]),
+              ]),
+            ),
+            new_values: Object.fromEntries(changed.map((k) => [k, masked(k, updateData[k])])),
+          },
+          manager,
+        );
       }
 
       if (sectionChanged && section) {

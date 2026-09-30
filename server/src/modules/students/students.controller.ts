@@ -210,9 +210,17 @@ export class StudentController {
     @Param('id') id: string,
     @Body() dto: UpdateStudentDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
     assertCanWriteProfileFields(dto, canWriteRecords(tenant.role));
-    const student = await this.studentService.update(id, dto, tenant.id);
+    const student = await this.studentService.update(
+      id,
+      dto,
+      tenant.id,
+      user.sub,
+      requestContext(request),
+    );
     return redactHealthNotes(student, canReadRecords(tenant.role));
   }
 
@@ -229,8 +237,16 @@ export class StudentController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateStudentRecordsDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    const student = await this.studentService.update(id, dto, tenant.id);
+    const student = await this.studentService.update(
+      id,
+      dto,
+      tenant.id,
+      user.sub,
+      requestContext(request),
+    );
     return redactHealthNotes(student, canReadRecords(tenant.role));
   }
 
