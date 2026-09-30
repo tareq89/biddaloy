@@ -52,6 +52,12 @@ export type EditorAction =
   | { type: 'REORDER_ELEMENT'; id: string; toIndex: number }
   | { type: 'MOVE_BY'; id: string; dxMm: number; dyMm: number }
   | { type: 'SET_RECT'; id: string; rect: Partial<Rect> }
+  /** Paper size and/or sides. Elements are re-fitted to the new page; a dropped back side is discarded. */
+  | { type: 'SET_PAGE'; page: { widthMm?: number; heightMm?: number; sides?: 'front' | 'both' } }
+  /** The copy label text ("Copy {n}", "DUPLICATE"); `undefined` removes it. */
+  | { type: 'SET_COPY_LABEL'; text: string | undefined }
+  /** The current side's artwork. `assetId: null` removes it; `print` says whether it is printed. */
+  | { type: 'SET_BACKGROUND'; assetId: string | null; print?: boolean }
   | { type: 'SET_SIDE'; side: EditorSide }
   | { type: 'SET_ZOOM'; zoom: number }
   | { type: 'SELECT'; id: string | null }
@@ -87,6 +93,23 @@ export function newElementId(draft: TemplateDefinition): string {
   let n = used.size + 1;
   while (used.has(`el-${n}`)) n += 1;
   return `el-${n}`;
+}
+
+/** An IMAGE element that shows an uploaded asset (a signature, a seal), centred on the page. */
+export function createImageFromAsset(assetId: string, draft: TemplateDefinition): PrintElement {
+  const w = Math.min(24, draft.page.widthMm);
+  const rect = clampRect(
+    { w, h: w, x: (draft.page.widthMm - w) / 2, y: (draft.page.heightMm - w) / 2 },
+    draft.page,
+  );
+  return {
+    id: newElementId(draft),
+    type: 'IMAGE',
+    ...rect,
+    assetId,
+    fit: ImageFit.CONTAIN,
+    alignY: 'center',
+  };
 }
 
 /** A valid new element of `type`, centred on the page (D36: new elements start at the centre). */
@@ -196,6 +219,23 @@ function mapElement(
   );
 }
 
+/** A copy of `obj` without `key` (so the property is absent, not `undefined`). */
+function omit<T extends object, K extends keyof T>(obj: T, key: K): Omit<T, K> {
+  const copy = { ...obj };
+  delete copy[key];
+  return copy;
+}
+
+/** Re-fits every element of both sides into the (possibly new) page. */
+function refit(draft: TemplateDefinition): TemplateDefinition {
+  const fit = (els: PrintElement[]) => els.map((el) => ({ ...el, ...clampRect(el, draft.page) }));
+  return {
+    ...draft,
+    front: { ...draft.front, elements: fit(draft.front.elements) },
+    ...(draft.back ? { back: { ...draft.back, elements: fit(draft.back.elements) } } : {}),
+  };
+}
+
 export function editorReducer(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
     case 'ADD_ELEMENT': {
@@ -274,6 +314,54 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         state,
         mapElement(state, action.id, (el) => ({ ...el, ...target })),
       );
+    }
+
+    case 'SET_PAGE': {
+      const { sides, ...size } = action.page;
+      const page = {
+        ...state.draft.page,
+        ...(size.widthMm !== undefined ? { widthMm: size.widthMm } : {}),
+        ...(size.heightMm !== undefined ? { heightMm: size.heightMm } : {}),
+        ...(sides === 'both' ? { sides: ['front', 'back'] as ['front', 'back'] } : {}),
+        ...(sides === 'front' ? { sides: ['front'] as ['front'] } : {}),
+      };
+      let next: TemplateDefinition = { ...state.draft, page };
+      if (sides === 'both' && !next.back) next = { ...next, back: { elements: [] } };
+      if (sides === 'front' && next.back) next = omit(next, 'back');
+      const result = commit(state, refit(next));
+      // Losing the back side while looking at it: go to the front.
+      return result.draft.back || result.side === 'front'
+        ? result
+        : { ...result, side: 'front', selectedId: null };
+    }
+
+    case 'SET_COPY_LABEL': {
+      const rest = omit(state.draft, 'copyLabel');
+      const next = (
+        action.text === undefined ? rest : { ...rest, copyLabel: { text: action.text } }
+      ) as TemplateDefinition;
+      return commit(state, next);
+    }
+
+    case 'SET_BACKGROUND': {
+      const side = state.side;
+      const target = side === 'back' ? state.draft.back : state.draft.front;
+      if (!target) return state;
+      const { background: previous, ...rest } = target;
+      const nextSide =
+        action.assetId === null
+          ? rest
+          : {
+              ...rest,
+              background: {
+                assetId: action.assetId,
+                print: action.print ?? previous?.print ?? true,
+              },
+            };
+      return commit(state, {
+        ...state.draft,
+        ...(side === 'back' ? { back: nextSide } : { front: nextSide }),
+      });
     }
 
     case 'SET_SIDE':
