@@ -15,6 +15,7 @@ import {
   MaxLength,
   ValidateIf,
 } from 'class-validator';
+import { applyDecorators } from '@nestjs/common';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type, Transform } from 'class-transformer';
 import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
@@ -24,6 +25,31 @@ import type { BulkImportErrorDto } from '../../bulk-import/dto/bulk-import.dto';
 // Matches "01712345678", "+8801712345678", or "8801712345678" — Bangladesh
 // mobile numbers (operator prefixes 13-19).
 export const BD_PHONE_REGEX = /^(?:\+?880|0)1[3-9]\d{8}$/;
+
+/** [39.2.1] The five student-profile fields. Writing any needs STUDENT_RECORDS_WRITE
+ * (enforced in the controller); `null` on update clears the column. */
+export const STUDENT_PROFILE_FIELDS = [
+  'religion',
+  'birth_reg_no',
+  'health_notes',
+  'father_name',
+  'mother_name',
+] as const;
+
+const trimmed = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim() : value;
+
+const ProfileText = (max: number) =>
+  applyDecorators(IsOptional(), Transform(trimmed), IsString(), SanitizeText(), MaxLength(max));
+
+/** Birth registration numbers are 10-17 digits (BD BRN is 17, older ones 10+). */
+const BirthRegNo = () =>
+  applyDecorators(
+    IsOptional(),
+    Transform(trimmed),
+    IsString(),
+    Matches(/^\d{10,17}$/, { message: 'birth_reg_no must be 10 to 17 digits' }),
+  );
 
 export class CreateStudentDto {
   @IsString()
@@ -69,6 +95,21 @@ export class CreateStudentDto {
   @IsArray()
   @IsUUID('4', { each: true })
   guardian_ids?: string[];
+
+  @BirthRegNo()
+  birth_reg_no?: string;
+
+  @ProfileText(200)
+  religion?: string;
+
+  @ProfileText(2000)
+  health_notes?: string;
+
+  @ProfileText(200)
+  father_name?: string;
+
+  @ProfileText(200)
+  mother_name?: string;
 }
 
 export class UpdateStudentDto {
@@ -120,6 +161,21 @@ export class UpdateStudentDto {
   @IsArray()
   @IsUUID('4', { each: true })
   guardian_ids?: string[];
+
+  @BirthRegNo()
+  birth_reg_no?: string | null;
+
+  @ProfileText(200)
+  religion?: string | null;
+
+  @ProfileText(2000)
+  health_notes?: string | null;
+
+  @ProfileText(200)
+  father_name?: string | null;
+
+  @ProfileText(200)
+  mother_name?: string | null;
 }
 
 export class QueryStudentDto {
