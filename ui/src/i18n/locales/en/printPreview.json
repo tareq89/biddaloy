@@ -52,5 +52,26 @@
     "reprintFailed": "Reprint {{count}} failed",
     "continue": "Continue",
     "recorded": "Recorded."
+  },
+  "picker": {
+    "title": "Print ID cards",
+    "who": "Who is it for?",
+    "type": {
+      "STUDENT": "Students",
+      "STAFF": "Staff"
+    },
+    "search": "Search by name",
+    "results": "Matches",
+    "selected_one": "{{count}} person chosen",
+    "selected_other": "{{count}} people chosen",
+    "wholeSection": "Or print a whole section",
+    "class": "Class",
+    "classPlaceholder": "Choose a class",
+    "section": "Section",
+    "sectionPlaceholder": "Choose a section",
+    "cancel": "Cancel",
+    "printSection": "Print the whole section",
+    "continue_one": "Continue with {{count}}",
+    "continue_other": "Continue with {{count}}"
   }
 }

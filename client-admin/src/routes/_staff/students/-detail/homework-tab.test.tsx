@@ -54,9 +54,7 @@ describe('HomeworkTab (student detail)', () => {
 
     renderTab(STUDENT_ID);
 
-    await waitFor(() =>
-      expect(screen.getByText('No homework assigned yet.')).toBeTruthy(),
-    );
+    await waitFor(() => expect(screen.getByText('No homework assigned yet.')).toBeTruthy());
   });
 
   it('shows an error state with retry when the rollup fails to load', async () => {
