@@ -4,7 +4,12 @@
  * server, which checks the real file content and cleans SVGs; whatever it refuses is
  * shown here verbatim.
  */
-import { PrintAssetKind } from '@biddaloy/shared';
+import {
+  type DocumentKind,
+  type PrintElement,
+  type TemplateDefinition,
+  PrintAssetKind,
+} from '@biddaloy/shared';
 import { Button, FileUpload, Input } from '@biddaloy/ui/components';
 import { usePrintAssets, useUploadPrintAsset, type PrintAssetRow } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
@@ -12,13 +17,20 @@ import * as React from 'react';
 
 import { MutationErrorMessage } from '../../MutationErrorMessage';
 
+import { buildDesignKit, downloadTextFile } from './design-kit';
 import { DpiBadge } from './dpi-badge';
+import { ImportSvgDialog } from './import-svg-dialog';
 
 export interface AssetsPanelProps {
   pageWidthMm: number;
   background: { assetId: string; print: boolean } | undefined;
   onSetBackground: (assetId: string | null, print?: boolean) => void;
   onInsertImage: (assetId: string) => void;
+  page: TemplateDefinition['page'];
+  kind: DocumentKind;
+  /** Font families the design may use (bundled + uploaded). */
+  availableFonts: string[];
+  onImportSvg: (assetId: string, elements: PrintElement[]) => void;
 }
 
 export function AssetsPanel({
@@ -26,6 +38,10 @@ export function AssetsPanel({
   background,
   onSetBackground,
   onInsertImage,
+  page,
+  kind,
+  availableFonts,
+  onImportSvg,
 }: AssetsPanelProps) {
   const { t } = useTranslation('printEditor');
   const assetsQuery = usePrintAssets();
@@ -33,6 +49,7 @@ export function AssetsPanel({
   const [fontName, setFontName] = React.useState('');
   const [fontRights, setFontRights] = React.useState(false);
   const [fontFile, setFontFile] = React.useState<File | undefined>(undefined);
+  const [importOpen, setImportOpen] = React.useState(false);
 
   const assets = (assetsQuery.data ?? []).filter((a) => a.archived_at === null);
   const byKind = (kind: PrintAssetKind) => assets.filter((a) => a.asset_kind === kind);
@@ -104,6 +121,37 @@ export function AssetsPanel({
           }}
         />
         <p className="text-xs text-muted-foreground">{t('assets.backgroundAccept')}</p>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="self-start"
+          onClick={() => setImportOpen(true)}
+        >
+          {t('svgImport.open')}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="self-start"
+          onClick={() => {
+            const kit = buildDesignKit(page, kind);
+            downloadTextFile('design-kit.svg', 'image/svg+xml', kit.svg);
+            downloadTextFile('design-kit-README.txt', 'text/plain', kit.readme);
+          }}
+        >
+          {t('svgImport.kit')}
+        </Button>
+        <p className="text-xs text-muted-foreground">{t('svgImport.kitHelp')}</p>
+        <ImportSvgDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          page={page}
+          kind={kind}
+          availableFonts={availableFonts}
+          onImport={onImportSvg}
+        />
       </div>
 
       {/* ---- images to place ---- */}
