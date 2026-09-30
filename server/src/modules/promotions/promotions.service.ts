@@ -18,6 +18,7 @@ import {
   ApprovalScope,
   Permission,
   roleHasPermission,
+  StudentLifecycleEventType,
 } from '@biddaloy/shared';
 import { PromotionRun } from './entities/promotion-run.entity';
 import { PromotionEntry } from './entities/promotion-entry.entity';
@@ -31,8 +32,10 @@ import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { User } from '../users/entities/user.entity';
 import { EnrollmentService } from '../enrollments/enrollments.service';
 import { AuditService } from '../audit/audit.service';
+import { StudentLifecycleService } from '../students/student-lifecycle.service';
 import { ApprovalService } from '../auth/guards/approval.guard';
 import { RequestContext } from '../../common/request-context.util';
+import { todayInSchoolTz } from '../../common/time';
 import { CreatePromotionRunDto, PatchPromotionEntryDto } from './dto/promotions.dto';
 import {
   suggestOutcome,
@@ -85,6 +88,7 @@ export class PromotionsService {
     private readonly enrollmentService: EnrollmentService,
     private readonly auditService: AuditService,
     private readonly approvalService: ApprovalService,
+    private readonly studentLifecycleService: StudentLifecycleService,
   ) {}
 
   // ────────────────────────
@@ -961,6 +965,17 @@ export class PromotionsService {
           },
           manager,
         );
+        // COHORT_CHANGED guard above guarantees ACTIVE -> GRADUATED, so this always matches a real change.
+        await this.studentLifecycleService.recordEvent(manager, {
+          tenant_id: tenantId,
+          student_id: entry.student_id,
+          enrollment_id: entry.source_enrollment_id,
+          academic_year_id: run.source_academic_year_id,
+          event_type: StudentLifecycleEventType.GRADUATED,
+          occurred_on: todayInSchoolTz(),
+          reason: 'promotion: graduated',
+          recorded_by_user_id: userId,
+        });
       }
 
       await entryRepo.save(entries);

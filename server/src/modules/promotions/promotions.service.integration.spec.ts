@@ -16,6 +16,8 @@ import { GradingScale } from '../grading/entities/grading-scale.entity';
 import { School } from '../schools/entities/school.entity';
 import { EnrollmentService } from '../enrollments/enrollments.service';
 import { AuditService } from '../audit/audit.service';
+import { StudentLifecycleService } from '../students/student-lifecycle.service';
+import { StudentLifecycleEvent } from '../students/entities/student-lifecycle-event.entity';
 import { ApprovalService } from '../auth/guards/approval.guard';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -27,6 +29,7 @@ import {
   PromotionOutcome,
   PromotionRunStatus,
   PlacementAlgorithm,
+  StudentLifecycleEventType,
 } from '@biddaloy/shared';
 
 const SOURCE_YEAR_ID = '00000000-0000-4000-8000-000000010001';
@@ -172,6 +175,7 @@ describe('PromotionsService (integration)', () => {
         PromotionsService,
         EnrollmentService,
         AuditService,
+        StudentLifecycleService,
         { provide: ApprovalService, useValue: { consume: vi.fn() } },
       ],
       [],
@@ -201,6 +205,7 @@ describe('PromotionsService (integration)', () => {
     await dataSource.query('DELETE FROM results');
     await dataSource.query('DELETE FROM exams');
     await dataSource.query('DELETE FROM grading_scales');
+    await dataSource.query('DELETE FROM student_lifecycle_events');
     await dataSource.query('DELETE FROM enrollments');
     await dataSource.query('DELETE FROM student_guardians');
     await dataSource.query('DELETE FROM students');
@@ -547,7 +552,9 @@ describe('PromotionsService (integration)', () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it('sets GRADUATED on both the enrollment and the student for a whole-class graduation run (D18)', async () => {
+    // Whole-class graduation fixture: a grade-12 class, one student with an ACTIVE
+    // source-year enrollment and a passing result, and a built (uncommitted) run.
+    async function buildGraduationRun() {
       // A class with no numeric_grade + 1 match and numeric_grade set →
       // resolveTarget graduates the whole run (target_class_id = null).
       const gradClassId = '00000000-0000-4000-8000-000000010030';
@@ -644,6 +651,11 @@ describe('PromotionsService (integration)', () => {
         TENANT_ID,
         ADMIN_USER_ID,
       );
+      return { run, student, enrollment };
+    }
+
+    it('sets GRADUATED on both the enrollment and the student for a whole-class graduation run (D18)', async () => {
+      const { run, student, enrollment } = await buildGraduationRun();
 
       const entry = await entryRepo.findOne({ where: { run_id: run.id, student_id: student.id } });
       expect(entry?.suggested_outcome).toBe(PromotionOutcome.GRADUATE);
@@ -654,6 +666,102 @@ describe('PromotionsService (integration)', () => {
       expect(graduatedStudent?.enrollment_status).toBe(EnrollmentStatus.GRADUATED);
       const graduatedEnrollment = await enrollmentRepo.findOne({ where: { id: enrollment.id } });
       expect(graduatedEnrollment?.enrollment_status).toBe(EnrollmentStatus.GRADUATED);
+
+      // Exactly one GRADUATED lifecycle event, tied to the source enrollment/year (#1187).
+      const events = await dataSource
+        .getRepository(StudentLifecycleEvent)
+        .find({ where: { student_id: student.id } });
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({
+        tenant_id: TENANT_ID,
+        enrollment_id: enrollment.id,
+        academic_year_id: SOURCE_YEAR_ID,
+        event_type: StudentLifecycleEventType.GRADUATED,
+        reason: 'promotion: graduated',
+        recorded_by_user_id: ADMIN_USER_ID,
+      });
+
+      // Replay: second commit 409s and adds no second event.
+      await expect(
+        service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} }),
+      ).rejects.toThrow(ConflictException);
+      expect(
+        await dataSource
+          .getRepository(StudentLifecycleEvent)
+          .count({ where: { student_id: student.id } }),
+      ).toBe(1);
+    });
+
+    it('rolls back the GRADUATED event and both status writes if the commit fails after the event insert', async () => {
+      const { run, student, enrollment } = await buildGraduationRun();
+      const lifecycle = (service as unknown as { studentLifecycleService: StudentLifecycleService })
+        .studentLifecycleService;
+      const realRecordEvent = lifecycle.recordEvent.bind(lifecycle);
+      // Let the event row really be inserted inside the transaction, then fail.
+      const spy = vi
+        .spyOn(lifecycle, 'recordEvent')
+        .mockImplementationOnce(async (manager, input) => {
+          await realRecordEvent(manager, input);
+          throw new Error('boom after event insert');
+        });
+
+      await expect(
+        service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} }),
+      ).rejects.toThrow();
+      spy.mockRestore();
+
+      // Everything the commit wrote is undone together: no event, statuses still ACTIVE.
+      expect(
+        await dataSource
+          .getRepository(StudentLifecycleEvent)
+          .count({ where: { student_id: student.id } }),
+      ).toBe(0);
+      const studentAfter = await studentRepo.findOne({ where: { id: student.id } });
+      expect(studentAfter?.enrollment_status).toBe(EnrollmentStatus.ACTIVE);
+      const enrollmentAfter = await enrollmentRepo.findOne({ where: { id: enrollment.id } });
+      expect(enrollmentAfter?.enrollment_status).toBe(EnrollmentStatus.ACTIVE);
+    });
+
+    it('promoted (non-graduate) students get no lifecycle event', async () => {
+      const student = await buildStudent();
+      await enrollActive(student.id);
+      await addResult(student.id, { isFail: false, gpa: 4.0, total: 400 });
+      const run = await service.create(
+        {
+          source_class_id: SOURCE_CLASS_ID,
+          target_academic_year_id: TARGET_YEAR_ID,
+          exam_ids: [examId],
+          algorithm: PlacementAlgorithm.BLOCK,
+        },
+        TENANT_ID,
+        ADMIN_USER_ID,
+      );
+      await service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} });
+      expect(
+        await dataSource
+          .getRepository(StudentLifecycleEvent)
+          .count({ where: { student_id: student.id } }),
+      ).toBe(0);
+    });
+
+    it('a student who left after the run was built aborts the commit: no event, no status write', async () => {
+      // A GRADUATE-outcome student, so "no event" is a meaningful assertion.
+      const { run, student, enrollment } = await buildGraduationRun();
+      await enrollmentRepo.update(
+        { id: enrollment.id },
+        { enrollment_status: EnrollmentStatus.TRANSFERRED },
+      );
+
+      await expect(
+        service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} }),
+      ).rejects.toThrow(ConflictException);
+      expect(
+        await dataSource
+          .getRepository(StudentLifecycleEvent)
+          .count({ where: { student_id: student.id } }),
+      ).toBe(0);
+      const after = await enrollmentRepo.findOne({ where: { id: enrollment.id } });
+      expect(after?.enrollment_status).toBe(EnrollmentStatus.TRANSFERRED);
     });
 
     it('leaves an already-committed run and its results intact after a source exam is reprocessed (with #994)', async () => {
