@@ -1,7 +1,7 @@
 /**
  * [8.11.4]'s Information tab edit action — a small dialog over
- * `useUpdateGuardian`, same shape as `students/-detail/transfer-status
- * -dialog.tsx` (plain `useState` per field, no `react-hook-form`/`Form
+ * `useUpdateGuardian`, same shape as other plain-state
+ * dialogs (plain `useState` per field, no `react-hook-form`/`Form
  * Shell`): the field count here (7, all optional but `full_name`) doesn't
  * warrant that heavier machinery the way the full Add/Edit Student page
  * does. `student_ids` is deliberately not a field here — the Linked

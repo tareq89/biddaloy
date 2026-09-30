@@ -501,7 +501,7 @@
       },
       "role": "admin",
       "archetype": "detail",
-      "overlays": ["send-reminder", "delete-student", "transfer-status"]
+      "overlays": ["send-reminder", "delete-student"]
     },
     {
       "path": "/students/$studentId/edit",

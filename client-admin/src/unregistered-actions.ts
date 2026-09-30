@@ -365,11 +365,6 @@ export const UNREGISTERED_ACTIONS: readonly UnregisteredAction[] = [
     note: 'Student enrollment tab dialogs',
   },
   {
-    file: 'client-admin/src/routes/_staff/students/-detail/transfer-status-dialog.tsx',
-    owningEpic: '31.0',
-    note: 'Student transfer status dialog',
-  },
-  {
     file: 'client-admin/src/routes/_staff/students/-send-reminder-dialog.tsx',
     owningEpic: '31.0',
     note: 'Send a fee reminder for one student (local-state dialog; the seeded action uses the standalone bulk-reminder route instead)',
