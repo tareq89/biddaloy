@@ -55,6 +55,8 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // matching `/_staff/classes/$classId`'s own Teachers tab (the same
   // assign/unassign mutations, just a cross-section view of them).
   '/_staff/staff/teaching-assignments': Permission.CLASS_MANAGE,
+  // [28.4.1] Evaluations register — same gate as the ACR form it links to.
+  '/_staff/staff/evaluations': Permission.ACR_READ,
   '/_staff/programs/': Permission.PROGRAM_READ,
   '/_staff/programs/$programId': Permission.PROGRAM_READ,
   '/_staff/fees/': Permission.FEE_STRUCTURE_READ,

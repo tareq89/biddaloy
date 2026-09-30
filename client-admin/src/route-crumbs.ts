@@ -89,6 +89,7 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
     { label: { entity: 'staff' } },
     { label: { key: 'teachingAssignments' } },
   ],
+  '/_staff/staff/evaluations': [{ label: { entity: 'staff' } }, { label: { key: 'evaluations' } }],
   '/_staff/programs/': [{ label: { key: 'programs' } }],
   '/_staff/programs/$programId': [
     { label: { key: 'programs' } },

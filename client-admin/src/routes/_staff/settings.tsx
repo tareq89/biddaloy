@@ -33,7 +33,7 @@ export const Route = createFileRoute('/_staff/settings')({
   // [613]: `bulkImport` too — `RestoreWizard` mounts the shared
   // `BulkUploadPreview`, whose own copy (file picker, expiry countdown,
   // confirm/upload-another buttons) lives in that namespace.
-  loader: () => loadRouteNamespaces('settings', 'backup', 'bulkImport'),
+  loader: () => loadRouteNamespaces('settings', 'backup', 'bulkImport', 'evaluations'),
   pendingComponent: SettingsPending,
   component: SettingsRoute,
 });

@@ -124,6 +124,15 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.CLASS_MANAGE,
     label: { key: 'teachingAssignments' },
   },
+  // [28.4.1] People > Staff > Evaluations (D20) — ACR, survey results and
+  // incidents in one place; `ACR_READ` is ADMIN-only today, so a teacher
+  // never sees it.
+  'people.evaluations': {
+    id: 'people.evaluations',
+    to: '/staff/evaluations',
+    permission: Permission.ACR_READ,
+    label: { key: 'evaluations' },
+  },
   'academics.academicYears': {
     id: 'academics.academicYears',
     to: '/academic-years',
@@ -373,6 +382,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
       STAFF_NAV_ITEMS['people.admissionApplicants'],
       STAFF_NAV_ITEMS['people.admissionReports'],
       STAFF_NAV_ITEMS['people.teachingAssignments'],
+      STAFF_NAV_ITEMS['people.evaluations'],
     ],
   },
   {
