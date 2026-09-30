@@ -340,9 +340,11 @@ export {
 } from './programs/milestone-checklist';
 export { ProgressBar, type ProgressBarProps } from './programs/progress-bar';
 export {
+  BUNDLED_PRINT_FONTS,
   layoutPages,
   orderSides,
   TemplateRenderer,
+  type PrintFont,
   type PrinterSetup,
   type Sheet,
   type TemplateRendererProps,
