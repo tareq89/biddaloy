@@ -300,6 +300,12 @@ function EditorBody({
           ) : null}
           {tab === 'assets' ? (
             <AssetsPanel
+              page={state.draft.page}
+              kind={kind}
+              availableFonts={[...BUNDLED_PRINT_FONTS.map((f) => f.family), ...extraFonts]}
+              onImportSvg={(assetId, elements) =>
+                dispatch({ type: 'IMPORT_SVG', assetId, elements })
+              }
               pageWidthMm={state.draft.page.widthMm}
               background={background}
               onSetBackground={(assetId, print) =>
