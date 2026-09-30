@@ -6,6 +6,7 @@
  */
 import {
   Button,
+  Checkbox,
   Dialog,
   DialogContent,
   DialogFooter,
@@ -81,10 +82,9 @@ export function DidAllPrintDialog({
             <legend className="mb-1 text-sm text-muted-foreground">{t('confirm.pick')}</legend>
             {items.map((item) => (
               <label key={item.id} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={failed.includes(item.id)}
-                  onChange={() => toggle(item.id)}
+                  onCheckedChange={() => toggle(item.id)}
                 />
                 {item.label}
               </label>
