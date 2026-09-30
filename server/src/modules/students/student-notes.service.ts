@@ -61,11 +61,12 @@ export class StudentNotesService {
     const rows: Array<{
       id: string;
       body: string;
+      rating: number | null;
       created_at: Date;
       author_id: string;
       name: string | null;
     }> = await this.dataSource.query(
-      `SELECT n.id, n.body, n.created_at, n.author_user_id AS author_id, u.full_name AS name
+      `SELECT n.id, n.body, n.rating, n.created_at, n.author_user_id AS author_id, u.full_name AS name
            FROM student_notes n LEFT JOIN users u ON u.id = n.author_user_id
           WHERE n.tenant_id = $1 AND n.student_id = $2 AND n.deleted_at IS NULL
           ORDER BY n.created_at DESC, n.id`,
@@ -74,6 +75,7 @@ export class StudentNotesService {
     return rows.map((r) => ({
       id: r.id,
       body: r.body,
+      rating: r.rating ?? null,
       author: { id: r.author_id, name: r.name ?? '' },
       created_at: r.created_at,
     }));
@@ -92,6 +94,7 @@ export class StudentNotesService {
         student_id: studentId,
         author_user_id: caller.userId,
         body: dto.body.trim(),
+        rating: dto.rating ?? null,
       }),
     );
     // The note body is deliberately not copied into the audit row.
@@ -111,6 +114,7 @@ export class StudentNotesService {
     return {
       id: note.id,
       body: note.body,
+      rating: note.rating ?? null,
       author: { id: caller.userId, name: u?.full_name ?? '' },
       created_at: note.created_at,
     };
