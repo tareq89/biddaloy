@@ -237,7 +237,11 @@ export function CommandPaletteLauncher() {
     const locale = i18n.language.startsWith('bn') ? 'bn' : 'en';
     return ACTIONS.filter((action) => hasPermission(activeRole, action.permission))
       .filter(
-        (action) => !action.context || action.context.some((ctx) => availableContexts.has(ctx)),
+        // `context: []` means "needs no entity" (ACR / incident actions), same as omitted.
+        (action) =>
+          !action.context ||
+          action.context.length === 0 ||
+          action.context.some((ctx) => availableContexts.has(ctx)),
       )
       .filter((action) => action.label[locale].toLowerCase().includes(trimmedQuery))
       .map((action) => ({ id: action.id, label: action.label[locale] }));
