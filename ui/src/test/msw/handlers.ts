@@ -15,9 +15,11 @@ import { incidentDefaultHandlers } from './handlers/incidents';
 import { invitationDefaultHandlers } from './handlers/invitations';
 import { invoiceDefaultHandlers } from './handlers/invoices';
 import { paymentDefaultHandlers } from './handlers/payments';
+import { performanceDefaultHandlers } from './handlers/performance';
 import { publicHolidaySetsDefaultHandlers } from './handlers/public-holiday-sets';
 import { schoolsDefaultHandlers } from './handlers/schools';
 import { studentDefaultHandlers } from './handlers/students';
+import { surveyDefaultHandlers } from './handlers/surveys';
 import { teacherDefaultHandlers } from './handlers/teachers';
 import { userDefaultHandlers } from './handlers/users';
 
@@ -73,4 +75,6 @@ export const handlers: readonly HttpHandler[] = [
   ...publicHolidaySetsDefaultHandlers,
   ...acrDefaultHandlers,
   ...incidentDefaultHandlers,
+  ...surveyDefaultHandlers,
+  ...performanceDefaultHandlers,
 ];

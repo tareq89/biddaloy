@@ -80,9 +80,10 @@ describe('/staff/evaluations', () => {
     expect(await screen.findByText('No incidents reported.')).toBeTruthy();
   });
 
-  it('Surveys tab is a placeholder empty state', async () => {
+  it('Surveys tab shows the empty-state text', async () => {
+    server.use(http.get('/api/v1/surveys', () => HttpResponse.json([])));
     render('ADMIN', '/staff/evaluations?tab=surveys');
-    expect(await screen.findByText('Survey results will appear here.')).toBeTruthy();
+    expect(await screen.findByText('No surveys yet.')).toBeTruthy();
   });
 
   it('is refused for a role without ACR_READ', async () => {

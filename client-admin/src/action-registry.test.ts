@@ -20,6 +20,7 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/payments/record': '/_staff/payments/record',
   '/staff/evaluations?startAcr=1': '/_staff/staff/evaluations',
   '/staff/evaluations?reportIncident=1': '/_staff/staff/evaluations',
+  '/staff/evaluations?publishSurvey=1': '/_staff/staff/evaluations',
   '/exams/seat-plans?generate=1': '/_staff/exams/seat-plans/',
   '/programs?new=1': '/_staff/programs/',
   '/programs?enrol=1': '/_staff/programs/',
@@ -193,6 +194,7 @@ describe('action-registry.ts', () => {
     // `action-registry.ts`'s comment on `acr.start`.
     'acr.start',
     'incidents.report',
+    'surveys.publish',
   ]);
 
   it('every seeded action targets a route that exists in STAFF_ROUTE_PERMISSIONS with the same permission (or a documented, stricter exception)', () => {

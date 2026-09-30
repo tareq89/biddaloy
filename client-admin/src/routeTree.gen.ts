@@ -34,6 +34,7 @@ import { Route as PortalFeesRouteImport } from './routes/portal/fees'
 import { Route as PortalProgramsRouteImport } from './routes/portal/programs'
 import { Route as PortalResultsRouteImport } from './routes/portal/results'
 import { Route as PortalRoutineRouteImport } from './routes/portal/routine'
+import { Route as PortalSurveysRouteImport } from './routes/portal/surveys'
 import { Route as PortalSyllabusRouteImport } from './routes/portal/syllabus'
 import { Route as PlatformHolidaySetsIndexRouteImport } from './routes/_platform/holiday-sets/index'
 import { Route as PlatformHolidaySetsSetIdRouteImport } from './routes/_platform/holiday-sets/$setId'
@@ -117,6 +118,7 @@ import { Route as StaffResultsExamIdStudentIdRouteImport } from './routes/_staff
 import { Route as StaffStudentsStudentIdEditRouteImport } from './routes/_staff/students/$studentId_.edit'
 import { Route as StaffMarksExamIdSectionIdSubjectIdRouteImport } from './routes/_staff/marks/$examId.$sectionId.$subjectId'
 import { Route as StaffStaffUserIdAcrAssessmentIdRouteImport } from './routes/_staff/staff/$userId_.acr.$assessmentId'
+import { Route as StaffStaffEvaluationsSurveysSurveyIdRouteImport } from './routes/_staff/staff/evaluations_.surveys.$surveyId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -239,6 +241,11 @@ const PortalResultsRoute = PortalResultsRouteImport.update({
 const PortalRoutineRoute = PortalRoutineRouteImport.update({
   id: '/routine',
   path: '/routine',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalSurveysRoute = PortalSurveysRouteImport.update({
+  id: '/surveys',
+  path: '/surveys',
   getParentRoute: () => PortalRoute,
 } as any)
 const PortalSyllabusRoute = PortalSyllabusRouteImport.update({
@@ -685,6 +692,12 @@ const StaffStaffUserIdAcrAssessmentIdRoute =
     path: '/staff/$userId/acr/$assessmentId',
     getParentRoute: () => StaffRoute,
   } as any)
+const StaffStaffEvaluationsSurveysSurveyIdRoute =
+  StaffStaffEvaluationsSurveysSurveyIdRouteImport.update({
+    id: '/staff/evaluations_/surveys/$surveyId',
+    path: '/staff/evaluations/surveys/$surveyId',
+    getParentRoute: () => StaffRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -709,6 +722,7 @@ export interface FileRoutesByFullPath {
   '/portal/programs': typeof PortalProgramsRoute
   '/portal/results': typeof PortalResultsRoute
   '/portal/routine': typeof PortalRoutineRoute
+  '/portal/surveys': typeof PortalSurveysRoute
   '/portal/syllabus': typeof PortalSyllabusRoute
   '/portal/': typeof PortalIndexRoute
   '/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
@@ -793,6 +807,7 @@ export interface FileRoutesByFullPath {
   '/fees/schedules/': typeof StaffFeesSchedulesIndexRoute
   '/marks/$examId/$sectionId/$subjectId': typeof StaffMarksExamIdSectionIdSubjectIdRoute
   '/staff/$userId/acr/$assessmentId': typeof StaffStaffUserIdAcrAssessmentIdRoute
+  '/staff/evaluations/surveys/$surveyId': typeof StaffStaffEvaluationsSurveysSurveyIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -815,6 +830,7 @@ export interface FileRoutesByTo {
   '/portal/programs': typeof PortalProgramsRoute
   '/portal/results': typeof PortalResultsRoute
   '/portal/routine': typeof PortalRoutineRoute
+  '/portal/surveys': typeof PortalSurveysRoute
   '/portal/syllabus': typeof PortalSyllabusRoute
   '/portal': typeof PortalIndexRoute
   '/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
@@ -899,6 +915,7 @@ export interface FileRoutesByTo {
   '/fees/schedules': typeof StaffFeesSchedulesIndexRoute
   '/marks/$examId/$sectionId/$subjectId': typeof StaffMarksExamIdSectionIdSubjectIdRoute
   '/staff/$userId/acr/$assessmentId': typeof StaffStaffUserIdAcrAssessmentIdRoute
+  '/staff/evaluations/surveys/$surveyId': typeof StaffStaffEvaluationsSurveysSurveyIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -926,6 +943,7 @@ export interface FileRoutesById {
   '/portal/programs': typeof PortalProgramsRoute
   '/portal/results': typeof PortalResultsRoute
   '/portal/routine': typeof PortalRoutineRoute
+  '/portal/surveys': typeof PortalSurveysRoute
   '/portal/syllabus': typeof PortalSyllabusRoute
   '/portal/': typeof PortalIndexRoute
   '/_platform/holiday-sets/$setId': typeof PlatformHolidaySetsSetIdRoute
@@ -1010,6 +1028,7 @@ export interface FileRoutesById {
   '/_staff/fees/schedules/': typeof StaffFeesSchedulesIndexRoute
   '/_staff/marks/$examId/$sectionId/$subjectId': typeof StaffMarksExamIdSectionIdSubjectIdRoute
   '/_staff/staff/$userId_/acr/$assessmentId': typeof StaffStaffUserIdAcrAssessmentIdRoute
+  '/_staff/staff/evaluations_/surveys/$surveyId': typeof StaffStaffEvaluationsSurveysSurveyIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -1036,6 +1055,7 @@ export interface FileRouteTypes {
     | '/portal/programs'
     | '/portal/results'
     | '/portal/routine'
+    | '/portal/surveys'
     | '/portal/syllabus'
     | '/portal/'
     | '/holiday-sets/$setId'
@@ -1120,6 +1140,7 @@ export interface FileRouteTypes {
     | '/fees/schedules/'
     | '/marks/$examId/$sectionId/$subjectId'
     | '/staff/$userId/acr/$assessmentId'
+    | '/staff/evaluations/surveys/$surveyId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -1142,6 +1163,7 @@ export interface FileRouteTypes {
     | '/portal/programs'
     | '/portal/results'
     | '/portal/routine'
+    | '/portal/surveys'
     | '/portal/syllabus'
     | '/portal'
     | '/holiday-sets/$setId'
@@ -1226,6 +1248,7 @@ export interface FileRouteTypes {
     | '/fees/schedules'
     | '/marks/$examId/$sectionId/$subjectId'
     | '/staff/$userId/acr/$assessmentId'
+    | '/staff/evaluations/surveys/$surveyId'
   id:
     | '__root__'
     | '/'
@@ -1252,6 +1275,7 @@ export interface FileRouteTypes {
     | '/portal/programs'
     | '/portal/results'
     | '/portal/routine'
+    | '/portal/surveys'
     | '/portal/syllabus'
     | '/portal/'
     | '/_platform/holiday-sets/$setId'
@@ -1336,6 +1360,7 @@ export interface FileRouteTypes {
     | '/_staff/fees/schedules/'
     | '/_staff/marks/$examId/$sectionId/$subjectId'
     | '/_staff/staff/$userId_/acr/$assessmentId'
+    | '/_staff/staff/evaluations_/surveys/$surveyId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1529,6 +1554,13 @@ declare module '@tanstack/react-router' {
       path: '/routine'
       fullPath: '/portal/routine'
       preLoaderRoute: typeof PortalRoutineRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/surveys': {
+      id: '/portal/surveys'
+      path: '/surveys'
+      fullPath: '/portal/surveys'
+      preLoaderRoute: typeof PortalSurveysRouteImport
       parentRoute: typeof PortalRoute
     }
     '/portal/syllabus': {
@@ -2112,6 +2144,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffStaffUserIdAcrAssessmentIdRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/staff/evaluations_/surveys/$surveyId': {
+      id: '/_staff/staff/evaluations_/surveys/$surveyId'
+      path: '/staff/evaluations/surveys/$surveyId'
+      fullPath: '/staff/evaluations/surveys/$surveyId'
+      preLoaderRoute: typeof StaffStaffEvaluationsSurveysSurveyIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
   }
 }
 
@@ -2233,6 +2272,7 @@ interface StaffRouteChildren {
   StaffExamsSeatPlansIndexRoute: typeof StaffExamsSeatPlansIndexRoute
   StaffMarksExamIdSectionIdSubjectIdRoute: typeof StaffMarksExamIdSectionIdSubjectIdRoute
   StaffStaffUserIdAcrAssessmentIdRoute: typeof StaffStaffUserIdAcrAssessmentIdRoute
+  StaffStaffEvaluationsSurveysSurveyIdRoute: typeof StaffStaffEvaluationsSurveysSurveyIdRoute
 }
 
 const StaffRouteChildren: StaffRouteChildren = {
@@ -2312,6 +2352,8 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffMarksExamIdSectionIdSubjectIdRoute:
     StaffMarksExamIdSectionIdSubjectIdRoute,
   StaffStaffUserIdAcrAssessmentIdRoute: StaffStaffUserIdAcrAssessmentIdRoute,
+  StaffStaffEvaluationsSurveysSurveyIdRoute:
+    StaffStaffEvaluationsSurveysSurveyIdRoute,
 }
 
 const StaffRouteWithChildren = StaffRoute._addFileChildren(StaffRouteChildren)
@@ -2325,6 +2367,7 @@ interface PortalRouteChildren {
   PortalProgramsRoute: typeof PortalProgramsRoute
   PortalResultsRoute: typeof PortalResultsRoute
   PortalRoutineRoute: typeof PortalRoutineRoute
+  PortalSurveysRoute: typeof PortalSurveysRoute
   PortalSyllabusRoute: typeof PortalSyllabusRoute
   PortalIndexRoute: typeof PortalIndexRoute
 }
@@ -2338,6 +2381,7 @@ const PortalRouteChildren: PortalRouteChildren = {
   PortalProgramsRoute: PortalProgramsRoute,
   PortalResultsRoute: PortalResultsRoute,
   PortalRoutineRoute: PortalRoutineRoute,
+  PortalSurveysRoute: PortalSurveysRoute,
   PortalSyllabusRoute: PortalSyllabusRoute,
   PortalIndexRoute: PortalIndexRoute,
 }
