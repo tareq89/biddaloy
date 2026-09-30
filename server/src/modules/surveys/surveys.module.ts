@@ -32,5 +32,6 @@ import { SurveysService } from './surveys.service';
   // SurveyRespondController first: it owns `GET /surveys/mine`, which `SurveysController`'s `GET :id` would shadow.
   controllers: [SurveyRespondController, SurveyResultsController, SurveysController],
   providers: [SurveysService, SurveyRespondService, SurveyResultsService, FamilyAccessService],
+  exports: [SurveyResultsService],
 })
 export class SurveysModule {}
