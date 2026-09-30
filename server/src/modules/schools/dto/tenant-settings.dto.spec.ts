@@ -683,6 +683,27 @@ describe('TenantSettingsDto', () => {
     });
   });
 
+  describe('evaluations', () => {
+    const withEvaluations = (evaluations: unknown) =>
+      toDto({ version: TENANT_SETTINGS_SCHEMA_VERSION, evaluations });
+
+    it('[28.2.1] accepts incidentSmsEnabled true/false and an omitted value', async () => {
+      for (const evaluations of [{ incidentSmsEnabled: true }, { incidentSmsEnabled: false }, {}]) {
+        const errors = await validate(withEvaluations(evaluations), VALIDATION_OPTIONS);
+        expect(errors.find((e) => e.property === 'evaluations')).toBeUndefined();
+      }
+    });
+
+    it('[28.2.1] rejects a non-boolean incidentSmsEnabled', async () => {
+      const errors = await validate(
+        withEvaluations({ incidentSmsEnabled: 'yes' }),
+        VALIDATION_OPTIONS,
+      );
+      const err = errors.find((e) => e.property === 'evaluations');
+      expect(err?.children?.some((e) => e.property === 'incidentSmsEnabled')).toBe(true);
+    });
+  });
+
   // `organisation.{shifts,versions,groups}` (33.1.1) — a tenant's own
   // vocabulary for shift/version/group. Same validation on all three lists.
   describe('organisation', () => {
