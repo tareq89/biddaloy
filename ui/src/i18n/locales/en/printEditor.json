@@ -156,5 +156,86 @@
     "student.registration_number": "Registration number",
     "student.roll": "Roll number",
     "student.section": "Section"
+  },
+  "tabs": {
+    "group": "Editor panels",
+    "layers": "Layers",
+    "page": "Page",
+    "assets": "Files"
+  },
+  "page": {
+    "title": "Page setup",
+    "name": "Name",
+    "paper": "Paper",
+    "presets": {
+      "CR80_PORTRAIT": "CR80 card, portrait",
+      "CR80_LANDSCAPE": "CR80 card, landscape",
+      "CUSTOM": "Custom size"
+    },
+    "width": "Width (mm)",
+    "height": "Height (mm)",
+    "sides": "Sides",
+    "sidesOptions": {
+      "front": "Front only",
+      "both": "Front and back"
+    },
+    "batchSize": "Cards per batch",
+    "batchHelp": "Heavier designs print more reliably in smaller batches. The most is {{max}}.",
+    "copyLabel": "Label on reprints",
+    "copyLabelHelp": "Printed on copy 2 and later, for example \"Copy {n}\" or \"DUPLICATE\". Leave empty for none.",
+    "copyLabelExample": "Example on copy 3: {{example}}"
+  },
+  "assets": {
+    "title": "Files",
+    "background": "Background for this side",
+    "backgroundNone": "No background yet.",
+    "backgroundChoose": "Upload artwork",
+    "backgroundAccept": "SVG, PNG or JPG from your designer",
+    "removeBackground": "Remove background",
+    "printBackground": "Print the background",
+    "printBackgroundHelp": "Turn off if you print on pre-printed card stock.",
+    "images": "Images (signature, seal)",
+    "imagesNone": "No images uploaded yet.",
+    "upload": "Upload an image",
+    "insert": "Add to design",
+    "fonts": "Fonts",
+    "fontName": "Font name",
+    "fontRights": "I have the right to use this font",
+    "fontFile": "Font file (TTF, OTF or WOFF2)",
+    "fontUpload": "Upload font",
+    "fontsNone": "No fonts uploaded yet.",
+    "uploading": "Uploading…",
+    "uploaded": "Uploaded",
+    "chooseFile": "Choose a file"
+  },
+  "dpi": {
+    "good": "Looks sharp",
+    "ok": "May look soft",
+    "low": "Will look blurry — use a larger image",
+    "value": "{{dpi}} dpi"
+  },
+  "sample": {
+    "label": "Sample",
+    "none": "Sample text",
+    "choose": "Choose a student",
+    "longest": "Longest values",
+    "longestHelp": "Fills every field with its longest realistic value, so text that does not fit shows up early.",
+    "publishFirst": "Publish once to preview with a real student.",
+    "failed": "Could not load that student."
+  },
+  "publish": {
+    "button": "Publish v{{n}}",
+    "saving": "Wait for saving to finish…",
+    "problems": "Fix these before publishing:",
+    "confirmTitle": "Publish v{{n}}?",
+    "confirmBody": "Printing will use this version from now on. Earlier prints keep their version.",
+    "confirm": "Publish",
+    "cancel": "Cancel",
+    "done": "Published v{{n}}",
+    "failed": "Could not publish.",
+    "makeDefaultTitle": "Make this the default?",
+    "makeDefaultBody": "There is no default template for this document type yet.",
+    "makeDefault": "Make this the default",
+    "notNow": "Not now"
   }
 }
