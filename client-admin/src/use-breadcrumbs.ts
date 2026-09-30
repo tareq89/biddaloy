@@ -159,6 +159,7 @@ export function useBreadcrumbs(appName: string): UseBreadcrumbsResult {
   const classLabel = useEntityLabel('class', { count: 2 });
   const academicYearLabel = useEntityLabel('academicYear', { count: 2 });
   const invoiceLabel = useEntityLabel('invoice', { count: 2 });
+  const examLabel = useEntityLabel('exam', { count: 2 });
   const entityLabels: Record<string, string> = {
     student: studentLabel,
     guardian: guardianLabel,
@@ -166,6 +167,7 @@ export function useBreadcrumbs(appName: string): UseBreadcrumbsResult {
     class: classLabel,
     academicYear: academicYearLabel,
     invoice: invoiceLabel,
+    exam: examLabel,
   };
 
   const resolvedName = useResolvedEntityName(dynamicEntityKey, dynamicId);
