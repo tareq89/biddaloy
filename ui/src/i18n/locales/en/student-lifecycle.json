@@ -1,0 +1,39 @@
+{
+  "leave": {
+    "title": "Record leaving",
+    "description": "Record that {{name}} is leaving the school.",
+    "duesWarning": "This student has {{amount}} in unpaid dues. You can still record leaving.",
+    "typeLabel": "Reason type",
+    "type": {
+      "WITHDRAWN": "Withdrawn",
+      "TRANSFERRED_OUT": "Transferred to another school",
+      "GRADUATED": "Graduated"
+    },
+    "dateLabel": "Date",
+    "destinationLabel": "New school",
+    "reasonLabel": "Reason",
+    "remarkLabel": "Remark (optional)",
+    "confirm": "Record leaving",
+    "saving": "Saving..."
+  },
+  "readmit": {
+    "title": "Readmit student",
+    "description": "Take {{name}} back into the school.",
+    "dateLabel": "Date",
+    "classLabel": "Class",
+    "classPlaceholder": "Choose a class",
+    "sectionLabel": "Section",
+    "sectionPlaceholder": "Choose a section",
+    "reasonLabel": "Reason (optional)",
+    "remarkLabel": "Remark (optional)",
+    "confirm": "Readmit",
+    "saving": "Saving..."
+  },
+  "errors": {
+    "dateRequired": "Choose a date.",
+    "dateFuture": "The date cannot be in the future.",
+    "reasonRequired": "Write a reason.",
+    "sectionRequired": "Choose a class and section.",
+    "generic": "Could not save. Please try again."
+  }
+}
