@@ -40,7 +40,12 @@ test('keyboard-only: assign a teacher from the class detail Teachers tab', async
       document.body.focus();
       document.body.removeAttribute('tabindex');
     });
+    // Skip link first, like every other keyboard spec. Tabbing from the top of the document
+    // walks the whole sidebar before reaching main, so the press count grows with every nav
+    // item ever added (it needed exactly 60 until [39.0] added one link, then failed).
     await page.keyboard.press('Tab');
+    await expect(page.getByRole('link', { name: t('nav.skipToContent') })).toBeFocused();
+    await page.keyboard.press('Enter');
     await tabUntilFocused(page, t('classes.detail.teachers.assign'), 60, { tag: 'BUTTON' });
     await page.keyboard.press('Enter');
   });
