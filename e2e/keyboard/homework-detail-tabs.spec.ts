@@ -67,6 +67,12 @@ test('keyboard-only: class detail Homework tab shows the completion and syllabus
   const tablist = page.getByRole('tablist');
   await tablist.locator('[role="tab"]').first().focus();
   await page.keyboard.press('End');
+  // Epic 28 added a Performance tab after Homework (MARK_VIEW), so End lands there.
+  await expect(page.getByRole('tab', { name: t('performance.title') })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await page.keyboard.press('ArrowLeft');
   await expect(page.getByRole('tab', { name: t('classes.detail.tabHomework') })).toHaveAttribute(
     'aria-selected',
     'true',
