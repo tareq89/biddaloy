@@ -408,6 +408,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         past: state.past.slice(0, -1),
         future: [state.draft, ...state.future],
         selectedId: sideOf(previous, state.selectedId ?? '') ? state.selectedId : null,
+        side: previous.back ? state.side : 'front',
       };
     }
 
@@ -420,10 +421,18 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         past: [...state.past, state.draft].slice(-HISTORY_LIMIT),
         future: rest,
         selectedId: sideOf(next, state.selectedId ?? '') ? state.selectedId : null,
+        side: next.back ? state.side : 'front',
       };
     }
 
     case 'REPLACE_DRAFT':
-      return { ...state, draft: action.draft, past: [], future: [], selectedId: null };
+      return {
+        ...state,
+        draft: action.draft,
+        past: [],
+        future: [],
+        selectedId: null,
+        side: action.draft.back ? state.side : 'front',
+      };
   }
 }
