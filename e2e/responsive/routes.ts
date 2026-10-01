@@ -10,13 +10,16 @@ import {
   createReminderBatch,
   createStaffUser,
   createStudentWithDues,
+  createSurvey,
   createTeacher,
+  createTeacherForSection,
   currentAcademicYearId,
   findSchoolIdBySlug,
+  post,
   superAdminApiSession,
   type ApiSession,
 } from '../api';
-import { acrBody } from '../fixtures/evaluations';
+import { acrBody, surveyBody } from '../fixtures/evaluations';
 import manifest from '../route-manifest.json';
 
 /** Shared manifest typing + param resolution for the responsive suites
@@ -75,6 +78,31 @@ export async function resolvePath(
     const yearId = await currentAcademicYearId(request, session);
     const acr = await createAcr(request, session, acrBody(teacher.userId, yearId));
     return route.path.replace('$userId', teacher.userId).replace('$assessmentId', acr.id);
+  }
+  if (route.path.includes('$surveyId')) {
+    // [28.4] `/staff/evaluations/surveys/$surveyId` 404s without a real survey:
+    // a DRAFT whose target is a real (teacher, subject) assignment.
+    const chain = await createClassSection(request, session);
+    const teacher = await createTeacherForSection(
+      request,
+      session,
+      `Reflow Survey Teacher ${stamp}`,
+      chain.sectionId,
+    );
+    const subject = await post<{ id: string }>(request, session, '/subjects', {
+      code: `RF-${stamp.toString(36).toUpperCase()}`,
+      name_en: 'Reflow Survey Subject',
+    });
+    await post(request, session, `/classes/${chain.classId}/sections/${chain.sectionId}/teachers`, {
+      teacher_id: teacher.teacherId,
+      subject_id: subject.id,
+    });
+    const survey = await createSurvey(
+      request,
+      session,
+      surveyBody(`Reflow survey ${stamp}`, teacher.teacherId, subject.id),
+    );
+    return route.path.replace('$surveyId', survey.id);
   }
   if (route.path.includes('$userId')) {
     const staffUser = await createStaffUser(request, session, `Reflow Staff ${stamp}`);
