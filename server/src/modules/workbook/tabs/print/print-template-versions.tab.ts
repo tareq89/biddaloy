@@ -165,10 +165,16 @@ export const printTemplateVersionsTab: TabSpec<PrintTemplateVersion, PrintTempla
   },
 
   diffFields(row: PrintTemplateVersionRow, existing: PrintTemplateVersion): string[] {
-    // Only the content matters: a version's published_at / id are not part of "has it changed".
-    return JSON.stringify(row.definition) === JSON.stringify(existing.definition)
-      ? []
-      : ['definition'];
+    // A version's published_at / id are not part of "has it changed", but becoming the template's
+    // current version is: restore moves `current_version_id` even when the definition is identical.
+    const changed: string[] = [];
+    if (JSON.stringify(row.definition) !== JSON.stringify(existing.definition)) {
+      changed.push('definition');
+    }
+    if (row.is_current && existing.template?.current_version_id !== existing.id) {
+      changed.push('is_current');
+    }
+    return changed;
   },
 
   async upsert(
