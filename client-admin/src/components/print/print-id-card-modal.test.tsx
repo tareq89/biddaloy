@@ -10,7 +10,10 @@ import { PrintIdCardModal, type PrintIdCardChoice } from './print-id-card-modal'
 const CLASS_ID = '11111111-1111-4111-8111-111111111111';
 const SECTION_ID = '22222222-2222-4222-8222-222222222222';
 
+let usersCalls = 0;
+
 function serve() {
+  usersCalls = 0;
   server.use(
     http.get('/api/v1/students', () =>
       HttpResponse.json({
@@ -23,14 +26,15 @@ function serve() {
         limit: 20,
       }),
     ),
-    http.get('/api/v1/users', () =>
-      HttpResponse.json({
+    http.get('/api/v1/users', () => {
+      usersCalls += 1;
+      return HttpResponse.json({
         data: [{ id: 'u1', full_name: 'Mr Teacher' }],
         total: 1,
         page: 1,
         limit: 20,
-      }),
-    ),
+      });
+    }),
     http.get('/api/v1/classes', () =>
       HttpResponse.json({
         data: [{ id: CLASS_ID, name: 'Class 6' }],
@@ -76,6 +80,12 @@ describe('PrintIdCardModal', () => {
     await user.selectOptions(await screen.findByLabelText('Section'), SECTION_ID);
     await user.click(screen.getByRole('button', { name: 'Print the whole section' }));
     expect(onConfirm).toHaveBeenCalledWith({ subjectType: 'STUDENT', classSectionId: SECTION_ID });
+  });
+
+  it('opened for students, it never asks the server for the staff list', async () => {
+    setup();
+    await screen.findByLabelText('Rahim Uddin');
+    expect(usersCalls).toBe(0);
   });
 
   it('opened for staff, it lists staff and has no whole-section choice', async () => {

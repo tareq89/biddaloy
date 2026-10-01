@@ -19,9 +19,10 @@ import {
   useClassSections,
   useHasPermission,
   useStudents,
-  useUsers,
+  usersQueryOptions,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 
 /** What the modal decided. `ids` is a comma list of student ids (students) or user ids (staff). */
@@ -59,9 +60,14 @@ export function PrintIdCardModal({
     { limit: PICK_LIMIT, ...(search.trim() ? { search: search.trim() } : {}) },
     { enabled: type === 'STUDENT' },
   );
-  const staff = useUsers({
-    limit: PICK_LIMIT,
-    ...(search.trim() ? { search: search.trim() } : {}),
+  // Staff are listed only on the Staff tab: this modal opens on Students, and /users needs a
+  // permission a student-only printer may not have.
+  const staff = useQuery({
+    ...usersQueryOptions({
+      limit: PICK_LIMIT,
+      ...(search.trim() ? { search: search.trim() } : {}),
+    }),
+    enabled: type === 'STAFF',
   });
   const classes = useClasses();
   const sections = useClassSections(classId || undefined);
