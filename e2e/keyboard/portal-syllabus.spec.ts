@@ -9,7 +9,7 @@ import { t } from '../i18n';
 
 test.use(loggedIn('parent'));
 
-test('keyboard-only: portal syllabus renders the seeded child\'s topics', async ({ page }) => {
+test("keyboard-only: portal syllabus renders the seeded child's topics", async ({ page }) => {
   await page.goto('/portal/syllabus');
   await expect(page.getByRole('heading', { name: t('portal.syllabus.title') })).toBeVisible();
 

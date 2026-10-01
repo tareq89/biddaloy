@@ -30,7 +30,8 @@ export async function focusedText(page: Page): Promise<string> {
 export async function tabUntilFocused(
   page: Page,
   text: string,
-  max = 60,
+  // The sidebar's links come before page content in Tab order, so this grows with the nav.
+  max = 90,
   options: { tag?: string; shift?: boolean } = {},
 ): Promise<void> {
   for (let i = 0; i < max; i += 1) {
