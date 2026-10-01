@@ -80,6 +80,8 @@ import { StaffTraining } from './modules/staff-hr/entities/staff-training.entity
 import { StaffAchievement } from './modules/staff-hr/entities/staff-achievement.entity';
 import { StaffLanguage } from './modules/staff-hr/entities/staff-language.entity';
 import { StaffDocument } from './modules/staff-hr/entities/staff-document.entity';
+import { ExamTemplate } from './modules/exams/entities/exam-template.entity';
+import { ExamTemplateComponent } from './modules/exams/entities/exam-template-component.entity';
 import { PrintTemplate } from './modules/print/entities/print-template.entity';
 import { PrintTemplateVersion } from './modules/print/entities/print-template-version.entity';
 import { PrintAsset } from './modules/print/entities/print-asset.entity';
@@ -284,6 +286,8 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             StaffAchievement,
             StaffLanguage,
             StaffDocument,
+            ExamTemplate,
+            ExamTemplateComponent,
             PrintTemplate,
             PrintTemplateVersion,
             PrintAsset,
