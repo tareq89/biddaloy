@@ -207,7 +207,7 @@ describe('side after history and draft replacement', () => {
     const twoSide = editorReducer(oneSidedStart, {
       type: 'SET_PAGE',
       page: { sides: 'both' },
-    } as EditorAction);
+    });
     const viewingBack = run(twoSide, { type: 'SET_SIDE', side: 'back' });
     expect(viewingBack.side).toBe('back');
     const undone = run(viewingBack, { type: 'UNDO' });
