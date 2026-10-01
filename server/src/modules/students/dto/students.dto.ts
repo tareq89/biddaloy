@@ -22,6 +22,9 @@ import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import type { BulkImportErrorDto } from '../../bulk-import/dto/bulk-import.dto';
 
+/** [32.2.5] Allowed blood groups on a student (D43). */
+export const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+
 // Matches "01712345678", "+8801712345678", or "8801712345678" — Bangladesh
 // mobile numbers (operator prefixes 13-19).
 export const BD_PHONE_REGEX = /^(?:\+?880|0)1[3-9]\d{8}$/;
@@ -56,6 +59,16 @@ export class CreateStudentDto {
   @IsNotEmpty()
   @SanitizeText()
   full_name: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  @SanitizeText()
+  full_name_bn?: string;
+
+  @IsOptional()
+  @IsIn(BLOOD_GROUPS)
+  blood_group?: string;
 
   @IsOptional()
   @IsEmail()
@@ -117,6 +130,16 @@ export class UpdateStudentDto {
   @IsString()
   @SanitizeText()
   full_name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  @SanitizeText()
+  full_name_bn?: string | null;
+
+  @IsOptional()
+  @IsIn(BLOOD_GROUPS)
+  blood_group?: string | null;
 
   @IsOptional()
   @IsUUID()

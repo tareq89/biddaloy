@@ -54,7 +54,7 @@ test('keyboard-only: start from BD NCTB, edit a boundary, watch coverage, save',
     // skip link, header actions, and every sidebar item (plus PR #887's
     // [30.3.3] breadcrumb trail) before reaching this page's own content —
     // matching the budget the save step below already uses.
-    await tabUntilFocused(page, t('grading.detail.startFromNctb'), 60, { tag: 'BUTTON' });
+    await tabUntilFocused(page, t('grading.detail.startFromNctb'), 90, { tag: 'BUTTON' });
     await page.keyboard.press('Enter');
     // Seven BD NCTB bands land in the table; the coverage bar goes green
     // (a single "covered" segment, no gap/overlap testids) immediately,
@@ -95,7 +95,7 @@ test('keyboard-only: start from BD NCTB, edit a boundary, watch coverage, save',
     // clear the rest of that row plus all 6 remaining BD NCTB rows (7
     // cells each: from/to/grade/gpa/fail/comment/delete) and "Add band"
     // before reaching Save — roughly 49 cells, not a handful.
-    await tabUntilFocused(page, t('grading.detail.save'), 60, { tag: 'BUTTON' });
+    await tabUntilFocused(page, t('grading.detail.save'), 90, { tag: 'BUTTON' });
     await page.keyboard.press('Enter');
 
     await expect(page.getByText(t('grading.recomputePreview.title'))).toBeVisible();

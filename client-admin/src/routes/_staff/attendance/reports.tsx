@@ -387,7 +387,7 @@ function ReportsPageContent() {
         // mistake in either direction.
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
         columns={(view === 'summary' ? summaryColumns : flagsColumns) as DataTableColumn<never>[]}
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+
         data={rows as never[]}
         getRowId={(row: { student_id: string }) => row.student_id}
         // Neither view is server-sortable — no `sort_by` column on either

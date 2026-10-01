@@ -90,6 +90,10 @@ import { StaffTraining } from '../src/modules/staff-hr/entities/staff-training.e
 import { StaffAchievement } from '../src/modules/staff-hr/entities/staff-achievement.entity';
 import { StaffLanguage } from '../src/modules/staff-hr/entities/staff-language.entity';
 import { StaffDocument } from '../src/modules/staff-hr/entities/staff-document.entity';
+import { PrintAsset } from '../src/modules/print/entities/print-asset.entity';
+import { PrinterProfile } from '../src/modules/print/entities/printer-profile.entity';
+import { PrintTemplate } from '../src/modules/print/entities/print-template.entity';
+import { PrintTemplateVersion } from '../src/modules/print/entities/print-template-version.entity';
 import { StaffProfile } from '../src/modules/staff-profiles/entities/staff-profile.entity';
 import { StaffAttendanceSession } from '../src/modules/staff-attendance/entities/staff-attendance-session.entity';
 import { StaffAttendanceRecord } from '../src/modules/staff-attendance/entities/staff-attendance-record.entity';
@@ -848,6 +852,94 @@ describe('workbook round trip (integration)', () => {
         content_type: 'application/pdf',
       }),
     );
+
+    // [32.3.10] Epic 32's print setup: one printer, two assets (artwork + font)
+    // and one template with two published versions and a draft. The version
+    // definitions and the draft point at the assets by id, which a restore
+    // re-mints, so this proves the ids are remapped and not merely copied.
+    const printer = await dataSource.getRepository(PrinterProfile).save(
+      dataSource.getRepository(PrinterProfile).create({
+        tenant_id: TENANT_A,
+        name: 'Front office',
+        printer_type: 'CARD',
+        margin_top_mm: '0',
+        margin_right_mm: '0',
+        margin_bottom_mm: '0',
+        margin_left_mm: '0',
+        offset_x_mm: '1.5',
+        offset_y_mm: '-0.5',
+        scale: '1.005',
+        duplex_order: 'INTERLEAVED',
+        sheet_gap_mm: '2',
+      }),
+    );
+    expect(printer.id).toBeTruthy();
+    const artwork = await dataSource.getRepository(PrintAsset).save(
+      dataSource.getRepository(PrintAsset).create({
+        tenant_id: TENANT_A,
+        asset_kind: 'ARTWORK',
+        storage_key: `tenants/${TENANT_A}/print-assets/${randomUUID()}.png`,
+        content_type: 'image/png',
+        byte_size: 4096,
+        width_px: 1011,
+        height_px: 638,
+        original_name: 'front.png',
+      }),
+    );
+    const font = await dataSource.getRepository(PrintAsset).save(
+      dataSource.getRepository(PrintAsset).create({
+        tenant_id: TENANT_A,
+        asset_kind: 'FONT',
+        storage_key: `tenants/${TENANT_A}/print-assets/${randomUUID()}.woff2`,
+        content_type: 'font/woff2',
+        byte_size: 2048,
+        font_family: 'Noto Sans Bengali',
+        original_name: 'noto.woff2',
+      }),
+    );
+    const printDefinition = (label: string) =>
+      ({
+        page: { widthMm: 85.6, heightMm: 54 },
+        label,
+        front: {
+          background: { assetId: artwork.id, print: true },
+          elements: [
+            { id: 'name', type: 'TEXT', field: 'student.name', fontAssetId: font.id },
+            { id: 'logo', type: 'IMAGE', assetId: artwork.id },
+          ],
+        },
+      }) as never;
+    const printTemplate = await dataSource.getRepository(PrintTemplate).save(
+      dataSource.getRepository(PrintTemplate).create({
+        tenant_id: TENANT_A,
+        document_kind: 'STUDENT_ID_CARD',
+        layout_kind: 'FIXED',
+        name: 'Classic',
+        is_default: true,
+        batch_size: 50,
+        draft: printDefinition('draft'),
+      }),
+    );
+    const versionRepo = dataSource.getRepository(PrintTemplateVersion);
+    await versionRepo.save(
+      versionRepo.create({
+        tenant_id: TENANT_A,
+        template_id: printTemplate.id,
+        version: 1,
+        definition: printDefinition('v1'),
+      }),
+    );
+    const secondVersion = await versionRepo.save(
+      versionRepo.create({
+        tenant_id: TENANT_A,
+        template_id: printTemplate.id,
+        version: 2,
+        definition: printDefinition('v2'),
+      }),
+    );
+    await dataSource
+      .getRepository(PrintTemplate)
+      .update({ id: printTemplate.id }, { current_version_id: secondVersion.id });
 
     // [23.0, thread #5] Neither `staff_training` nor `staff_achievements`
     // has a DB unique constraint on its natural key, so real data can carry
@@ -1625,6 +1717,11 @@ describe('workbook round trip (integration)', () => {
       'staff_attendance_records',
       'leave_policies',
       'leave_records',
+      // [32.3.10] Epic 32's print setup.
+      'printer_profiles',
+      'print_assets',
+      'print_templates',
+      'print_template_versions',
     ];
     const empty = mustBeNonEmpty.filter((tab) => !(rowCounts[tab] ?? 0));
     expect(empty, `fixture produced no rows for: ${empty.join(', ')}`).toEqual([]);
@@ -1840,18 +1937,61 @@ describe('workbook round trip (integration)', () => {
     expect(organisationA).toEqual(DEMO_ORGANISATION);
     expect(organisationB).toEqual(DEMO_ORGANISATION);
 
+    // [32.3.10] `print_assets.storage_key` is the second deliberate exception.
+    // A restore into a DIFFERENT school must never keep the source school's
+    // `tenants/<id>/` prefix (it would let the new row stream the source
+    // school's file), so it rewrites the prefix to the destination. Assert
+    // that explicitly, then compare the keys with the school id removed.
+    const assetKeys = (w: typeof normalizedA, tenant: string) =>
+      (w.print_assets ?? []).map((row) => {
+        expect(row.storage_key).toMatch(new RegExp(`^tenants/${tenant}/print-assets/`));
+        return {
+          ...row,
+          storage_key: row.storage_key?.replace(`tenants/${tenant}/`, 'tenants/<school>/'),
+        };
+      });
+    const printAssetsA = assetKeys(normalizedA, TENANT_A);
+    const printAssetsB = assetKeys(normalizedB, TENANT_B);
+
     const normalizedANoName = {
       ...normalizedA,
       school: normalizedA.school?.map(({ name: _name, ...rest }) => rest),
+      print_assets: printAssetsA,
     };
     const normalizedBNoName = {
       ...normalizedB,
       school: normalizedB.school?.map(({ name: _name, ...rest }) => rest),
+      print_assets: printAssetsB,
     };
 
     const diffLines = diffNormalized(normalizedANoName, normalizedBNoName);
     expect(diffLines).toEqual([]);
     expect(normalizedBNoName).toEqual(normalizedANoName);
+
+    // [32.3.10] Beyond the generic diff: the restored template opens on the same
+    // current version, and every asset id inside it is a row of THIS school (B).
+    const restoredTemplate = await dataSource
+      .getRepository(PrintTemplate)
+      .findOneOrFail({ where: { tenant_id: TENANT_B, name: 'Classic' } });
+    expect(restoredTemplate.is_default).toBe(true);
+    const restoredVersions = await dataSource.getRepository(PrintTemplateVersion).find({
+      where: { tenant_id: TENANT_B, template_id: restoredTemplate.id },
+      order: { version: 'ASC' },
+    });
+    expect(restoredVersions.map((v) => v.version)).toEqual([1, 2]);
+    expect(restoredTemplate.current_version_id).toBe(restoredVersions[1]?.id);
+    const restoredAssetIds = new Set(
+      (await dataSource.getRepository(PrintAsset).find({ where: { tenant_id: TENANT_B } })).map(
+        (a) => a.id,
+      ),
+    );
+    const idsInJson = JSON.stringify([
+      restoredTemplate.draft,
+      ...restoredVersions.map((v) => v.definition),
+    ]).match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g);
+    expect(idsInJson?.length).toBeGreaterThan(0);
+    for (const id of idsInJson ?? [])
+      expect(restoredAssetIds.has(id), `asset ${id} is not in tenant B`).toBe(true);
 
     // (D6) explicit, beyond the generic diff above: restoring a scale whose
     // `revision` sat above the entity's `default: 1` must not silently reset

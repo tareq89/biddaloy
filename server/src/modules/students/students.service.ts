@@ -172,6 +172,8 @@ export class StudentService {
       // Create and save student
       const student = txStudentRepo.create({
         full_name: dto.full_name,
+        full_name_bn: dto.full_name_bn ?? null,
+        blood_group: dto.blood_group ?? null,
         registration_number: regNumber,
         roll_number: rollNumber,
         class_section_id: dto.class_section_id,

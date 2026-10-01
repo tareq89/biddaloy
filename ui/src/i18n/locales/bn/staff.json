@@ -28,7 +28,9 @@
     "errorMessage": "ব্যবহারকারী লোড করা যায়নি। আবার চেষ্টা করুন।",
     "announceResults": "{{total}}টির মধ্যে {{count}}টি ব্যবহারকারী দেখানো হচ্ছে",
     "addUser": "ব্যবহারকারী যোগ করুন",
-    "promoteTeacher": "শিক্ষক হিসেবে উন্নীত করুন"
+    "promoteTeacher": "শিক্ষক হিসেবে উন্নীত করুন",
+    "printIdCards": "আইডি কার্ড প্রিন্ট ({{count}})",
+    "clearSelection": "নির্বাচন মুছুন"
   },
   "roles": {
     "SUPER_ADMIN": "সুপার অ্যাডমিন",
@@ -137,7 +139,8 @@
       "memberships": "সদস্যপদ",
       "teachingAssignments": "শিক্ষকতার নিয়োগ",
       "hrRecord": "এইচআর রেকর্ড",
-      "loginHistory": "লগইন ইতিহাস"
+      "loginHistory": "লগইন ইতিহাস",
+      "documents": "ডকুমেন্ট"
     },
     "teachingAssignments": {
       "caption": "এই শিক্ষককে যেসব শ্রেণি ও শাখায় নিয়োগ দেওয়া হয়েছে",
@@ -228,7 +231,8 @@
       "religionLabel": "ধর্ম",
       "errorMessage": "চাকরির তথ্য সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।",
       "save": "সংরক্ষণ করুন",
-      "saving": "সংরক্ষণ করা হচ্ছে…"
+      "saving": "সংরক্ষণ করা হচ্ছে…",
+      "nameBnLabel": "নাম (বাংলা)"
     },
     "promotion": {
       "promoteAction": "পদোন্নতি",
@@ -320,5 +324,13 @@
       "save": "পদোন্নতি দিন",
       "saving": "সংরক্ষণ করা হচ্ছে…"
     }
+  },
+  "documents": {
+    "photoTitle": "আইডি কার্ডের ছবি",
+    "photoOnFile": "এইচআর রেকর্ডে ছবি আছে।",
+    "photoMissing": "এখনও ছবি নেই। এইচআর রেকর্ডে যোগ করুন।",
+    "openHrRecord": "এইচআর রেকর্ড খুলুন",
+    "historyTitle": "প্রিন্ট করা ডকুমেন্ট",
+    "printButton": "আইডি কার্ড প্রিন্ট"
   }
 }

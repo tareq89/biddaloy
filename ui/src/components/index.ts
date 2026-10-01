@@ -340,6 +340,25 @@ export {
 } from './programs/milestone-checklist';
 export { ProgressBar, type ProgressBarProps } from './programs/progress-bar';
 export {
+  BUNDLED_PRINT_FONTS,
+  layoutPages,
+  orderSides,
+  TemplateRenderer,
+  type PrintFont,
+  type PrinterSetup,
+  type Sheet,
+  type TemplateRendererProps,
+} from './print/template-renderer';
+export {
+  buildCalibrationDocument,
+  buildPrintDocument,
+  fetchAsDataUrl,
+  openPrintWindow,
+  type BlobFetcher,
+  type BuildPrintDocumentInput,
+  type PrintCalibration,
+} from './print/print-document';
+export {
   RepeatableRowForm,
   type RepeatableRowField,
   type RepeatableRowFieldType,

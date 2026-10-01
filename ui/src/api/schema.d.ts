@@ -848,6 +848,41 @@ export interface paths {
         patch: operations["StudentPublicExamsController_update_v1"];
         trace?: never;
     };
+    "/api/v1/students/photos/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bulk photo upload (max 25 per request). File name without extension must equal the student registration number. */
+        post: operations["StudentPhotoController_bulk_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/{id}/photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stream a student's photo. PARENT/STUDENT must be linked to the student. */
+        get: operations["StudentPhotoController_serve_v1"];
+        put?: never;
+        /** Upload a student photo (PNG/JPEG/WebP). Re-encoded to JPEG. */
+        post: operations["StudentPhotoController_upload_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/enrollments": {
         parameters: {
             query?: never;
@@ -6693,6 +6728,9 @@ export interface components {
         };
         CreateStudentDto: {
             full_name: string;
+            full_name_bn?: string;
+            /** @enum {string} */
+            blood_group?: "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-";
             /** Format: email */
             email?: string;
             phone?: string;
@@ -6851,6 +6889,9 @@ export interface components {
             user: components["schemas"]["User"] | null;
             user_id: string | null;
             full_name: string;
+            full_name_bn: string | null;
+            photo_key: string | null;
+            blood_group: string | null;
             registration_number: string;
             roll_number: number;
             class_section: components["schemas"]["ClassSection"];
@@ -6955,6 +6996,9 @@ export interface components {
         };
         UpdateStudentDto: {
             full_name?: string;
+            full_name_bn?: string | null;
+            /** @enum {string|null} */
+            blood_group?: "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-" | null;
             /** Format: uuid */
             class_section_id?: string;
             roll_number?: number;
@@ -10543,6 +10587,7 @@ export interface components {
             salary_scale: string | null;
             department: string | null;
             blood_group: string | null;
+            name_bn: string | null;
             religion: string | null;
             /** Format: date-time */
             created_at: string;
@@ -10558,6 +10603,7 @@ export interface components {
             salary_scale?: string;
             department?: string;
             blood_group?: string;
+            name_bn?: string;
             religion?: string;
         };
         UpdateStaffHrRecordDto: {
@@ -10567,6 +10613,7 @@ export interface components {
             salary_scale?: string | null;
             department?: string | null;
             blood_group?: string | null;
+            name_bn?: string | null;
             religion?: string | null;
         };
         StaffDesignationHistory: {
@@ -12987,6 +13034,110 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["StudentPublicExam"];
                 };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudentPhotoController_bulk_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    files?: string[];
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudentPhotoController_serve_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudentPhotoController_upload_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file?: string;
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {

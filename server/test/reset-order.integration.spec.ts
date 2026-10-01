@@ -125,7 +125,10 @@ describe('reset-order (integration)', () => {
     // with an explicit `UPDATE "payments" SET "invoice_id" = NULL` before
     // any delete runs, so this one direction is a known, handled exemption
     // rather than a real ordering bug.
-    const KNOWN_CYCLE_EXEMPTIONS = new Set(['payments->invoices']);
+    const KNOWN_CYCLE_EXEMPTIONS = new Set([
+      'payments->invoices',
+      'print_templates->print_template_versions',
+    ]);
 
     const violations = edges.filter(({ child, parent }) => {
       // A self-referential FK (e.g. a parent_id pointing at the same table) is

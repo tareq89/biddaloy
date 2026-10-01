@@ -222,6 +222,13 @@ const ALLOWLIST: AllowlistEntry[] = [
       '[#666] the share token itself is the credential and carries its own tenant scope (InvoiceShareService.validatePublicToken) — there is no JWT, no user, and no X-Tenant-ID on this path at all, same no-guards rationale as /auth/activate*. Throttled instead via PUBLIC_INVOICE_RATE_LIMIT.',
   },
   {
+    controller: 'PublicVerifyController',
+    method: 'GET',
+    path: '/public/verify/:token',
+    reason:
+      '[32.2.5] D22 — the printed QR token is the credential; the tenant is resolved from the token row (PublicVerifyService hashes it and looks it up), so there is no JWT, user or X-Tenant-ID. Returns only the allowlisted fields (spec-enforced) and is throttled via PUBLIC_VERIFY_RATE_LIMIT.',
+  },
+  {
     controller: 'CalendarFeedPublicController',
     method: 'GET',
     path: '/calendar/feed/:token.ics',
