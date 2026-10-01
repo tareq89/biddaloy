@@ -25,6 +25,7 @@ import {
   UpdateSubjectDto,
   QuerySubjectDto,
   AttachClassSubjectDto,
+  UpdateClassSubjectDto,
 } from './dto/subjects.dto';
 import { Permission, UserRole } from '@biddaloy/shared';
 
@@ -128,6 +129,19 @@ export class ClassSubjectController {
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
     return this.service.attachToClass(classId, dto, tenant.id);
+  }
+
+  @Patch(':classId/subjects/:subjectId')
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(Permission.CLASS_MANAGE)
+  @ApiOperation({ summary: 'Update a class-subject offering (optional flag, group).' })
+  updateOffering(
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Param('subjectId', ParseUUIDPipe) subjectId: string,
+    @Body() dto: UpdateClassSubjectDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
+    return this.service.updateClassSubject(classId, subjectId, dto, tenant.id);
   }
 
   @Delete(':classId/subjects/:subjectId')
