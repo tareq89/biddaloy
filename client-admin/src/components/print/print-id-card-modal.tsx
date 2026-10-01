@@ -48,13 +48,21 @@ export function PrintIdCardModal({
   const { t } = useTranslation('printPreview');
   // D18: a staff card exposes HR data, so the Staff choice needs STAFF_HR_READ.
   const canPrintStaff = useHasPermission(Permission.STAFF_HR_READ);
-  const [type, setType] = React.useState<PrintSubjectType>(
-    initialType === 'STAFF' && !canPrintStaff ? 'STUDENT' : initialType,
-  );
+  const [chosenType, setType] = React.useState<PrintSubjectType>(initialType);
   const [search, setSearch] = React.useState('');
   const [picked, setPicked] = React.useState<Map<string, string>>(new Map());
   const [classId, setClassId] = React.useState('');
   const [sectionId, setSectionId] = React.useState('');
+
+  // Staff without (or no longer with) STAFF_HR_READ: fall back to Students and drop what was
+  // chosen for Staff. `type` is derived so no query ever sees STAFF in the meantime; the state
+  // reset below is React's supported adjust-state-during-render pattern (no effect, no flash).
+  const type: PrintSubjectType = chosenType === 'STAFF' && !canPrintStaff ? 'STUDENT' : chosenType;
+  if (chosenType === 'STAFF' && !canPrintStaff) {
+    setType('STUDENT');
+    setPicked(new Map());
+    setSearch('');
+  }
 
   const students = useStudents(
     { limit: PICK_LIMIT, ...(search.trim() ? { search: search.trim() } : {}) },

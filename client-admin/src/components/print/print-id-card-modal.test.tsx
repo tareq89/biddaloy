@@ -49,13 +49,13 @@ function serve() {
   );
 }
 
-function setup(initialType: 'STUDENT' | 'STAFF' = 'STUDENT') {
+function setup(initialType: 'STUDENT' | 'STAFF' = 'STUDENT', role = 'ADMIN') {
   serve();
   const onConfirm = vi.fn<(choice: PrintIdCardChoice) => void>();
   const onCancel = vi.fn();
   const view = renderWithProviders(
     <PrintIdCardModal open initialType={initialType} onCancel={onCancel} onConfirm={onConfirm} />,
-    { locale: 'en', role: 'ADMIN', tenantId: 'tenant-1' },
+    { locale: 'en', role, tenantId: 'tenant-1' },
   );
   return { ...view, onConfirm, onCancel };
 }
@@ -85,6 +85,14 @@ describe('PrintIdCardModal', () => {
   it('opened for students, it never asks the server for the staff list', async () => {
     setup();
     await screen.findByLabelText('Rahim Uddin');
+    expect(usersCalls).toBe(0);
+  });
+
+  it('opened for staff by a role without STAFF_HR_READ, it shows students and never asks for staff', async () => {
+    setup('STAFF', 'ACCOUNTANT');
+
+    expect(await screen.findByLabelText('Rahim Uddin')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Staff' })).toBeNull();
     expect(usersCalls).toBe(0);
   });
 
