@@ -119,6 +119,19 @@ erDiagram
     Student ||--o{ ProgramEnrollment : "enrolled in"
     ProgramEnrollment ||--o{ MilestoneAchievement : "ticks off"
     ProgramMilestone ||--o{ MilestoneAchievement : "achieved via"
+
+    AcrFormVersion ||--o{ AcrCriterion : "criteria of"
+    AcrFormVersion ||--o{ AcrAssessment : "form used by"
+    User ||--o{ AcrAssessment : "subject of"
+    AcademicYear ||--o{ AcrAssessment : "one per user per year"
+    AcrAssessment ||--o{ AcrScore : "scored by"
+    AcrCriterion ||--o{ AcrScore : scores
+    User ||--o{ StaffIncident : "reported about"
+    Survey ||--o{ SurveyQuestion : asks
+    Survey ||--o{ SurveyTarget : "rates teacher+subject"
+    Survey ||--o{ SurveyResponse : "answered by"
+    SurveyResponse ||--o{ SurveyAnswer : holds
+    SurveyQuestion ||--o{ SurveyAnswer : "answer to"
 ```
 
 _(This shows the shape of the graph, not every column — see each entity file
@@ -396,6 +409,16 @@ composition should extend the promotion mean the same way.
 - **`ReminderBatch`** — tracks a bulk reminder campaign (progress, success
   rate, filters used); each message it produces gets its own
   `CommunicationLog` row.
+
+### Evaluations (`modules/acr`, `modules/incidents`, `modules/surveys`) — see [17-evaluations-and-performance.md](17-evaluations-and-performance.md) for the lifecycles and privacy rules
+
+- **`AcrFormVersion`** / **`AcrCriterion`** — the yearly staff assessment form. Copy-on-write: every save of the criteria is a new version.
+- **`AcrAssessment`** — one staff member's ACR for one academic year (unique per user and year), `INCOMPLETE` or `COMPLETED`. The subject can never read it (404).
+- **`AcrScore`** — one 1 to 4 score for one criterion in one ACR.
+- **`StaffIncident`** — a reported incident about a staff member (type, severity, date, text). No attachments.
+- **`Survey`** / **`SurveyQuestion`** / **`SurveyTarget`** — a teacher survey (`DRAFT`, `OPEN`, `CLOSED`), its questions, and the teacher and subject pairs it rates.
+- **`SurveyResponse`** / **`SurveyAnswer`** — one respondent's answers for one target. `respondent_user_id` exists only to stop double answers and is never returned.
+- Also adds `student_notes.rating` (1 to 5), read by student Performance. Performance itself has no tables; it is computed on read.
 
 ### Attendance (`modules/attendance`)
 

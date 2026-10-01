@@ -77,13 +77,17 @@ People
     New student · Import from Excel                                 A E
     Student detail — tabs today: Overview, Enrollment, Guardians, Attendance, Fees, Invoices, Payments, Communication, Activity
       + Results [19.0] · Homework [22.0] · Programs & milestones [34.0] · Notes [N11] · Records [N11]
+      + Performance [28.0, have — MARK_VIEW]
       + Subjects (optional/4th) [19.0] · Fines [N8] · Documents [Print module]
   Guardians [have] → detail: Information, Linked students, Payments, Communication
   Staff [partial] — ONE register (teachers, employees, administration, principal/VP as designations)
     Staff detail — tabs today: Profile, Memberships, Permissions, Login history, Invitation
-      + HR record [23.0] · Teaching assignments [29.0+23.0] · Attendance & leave [N5] · ACR [28.0]
+      + HR record [23.0] · Teaching assignments [29.0+23.0] · Attendance & leave [N5]
+      + ACR · Incidents · Performance [28.0, have — ACR_READ, admin only]
       + Documents [Print module] · Website profile [N13]
     Teaching assignments (bulk view) [29.0+23.0]                    A E
+    Evaluations [28.0, have] — tabs ACR · Surveys · Incidents         A
+      Survey detail (results sealed until closed)
   Admissions [27.0] · Admission reports [27.0+N11]                  A E
   Programs & milestones [34.0]                                      A E T
 
