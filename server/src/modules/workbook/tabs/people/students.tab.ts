@@ -1,6 +1,7 @@
 import type { EntityManager } from 'typeorm';
 import { IsNull } from 'typeorm';
 import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
+import { BLOOD_GROUPS } from '../../../students/dto/students.dto';
 import { Student } from '../../../students/entities/student.entity';
 import { Guardian } from '../../../students/entities/guardian.entity';
 import { Enrollment } from '../../../students/entities/enrollment.entity';
@@ -127,7 +128,8 @@ const columns: readonly ColumnSpec[] = [
   },
   {
     key: 'blood_group',
-    type: 'string',
+    type: 'enum',
+    enumValues: BLOOD_GROUPS,
     label: { en: 'Blood group', bn: 'রক্তের গ্রুপ' },
   },
   {
@@ -229,7 +231,6 @@ const MAX_LENGTHS: Record<string, number> = {
   registration_number: 50,
   full_name: 100,
   full_name_bn: 200,
-  blood_group: 10,
   photo_key: 255,
   gender: 10,
 };

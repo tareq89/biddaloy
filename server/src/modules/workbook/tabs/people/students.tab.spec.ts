@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
+import { BLOOD_GROUPS } from '../../../students/dto/students.dto';
 import { Student } from '../../../students/entities/student.entity';
 import type { Guardian } from '../../../students/entities/guardian.entity';
 import { cellText, toCell } from '../../codec/cell-format';
@@ -388,6 +389,21 @@ describe('fromRow validation', () => {
     const err = errors.find((e) => e.column === 'enrollment_status');
     expect(err).toBeDefined();
     for (const value of Object.values(EnrollmentStatus)) {
+      expect(err!.message).toContain(value);
+    }
+  });
+
+  it('a blood_group outside the allowlist yields a RowError listing the allowed values', () => {
+    const student = makeStudent();
+    const cells = toCells(student);
+    cells.blood_group = 'C+';
+
+    const result = studentsTab.fromRow(cells, 7, importCtx());
+    expect('errors' in result).toBe(true);
+    const errors = (result as { errors: RowError[] }).errors;
+    const err = errors.find((e) => e.column === 'blood_group');
+    expect(err).toBeDefined();
+    for (const value of BLOOD_GROUPS) {
       expect(err!.message).toContain(value);
     }
   });
