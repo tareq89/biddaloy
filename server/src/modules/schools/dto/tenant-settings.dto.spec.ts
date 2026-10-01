@@ -685,6 +685,12 @@ describe('TenantSettingsDto', () => {
 
   // `organisation.{shifts,versions,groups}` (33.1.1) — a tenant's own
   // vocabulary for shift/version/group. Same validation on all three lists.
+  it('rejects a body containing preset (35.1.2, D37)', async () => {
+    const dto = toDto({ version: TENANT_SETTINGS_SCHEMA_VERSION, preset: { id: 'x' } });
+    const errors = await validate(dto, VALIDATION_OPTIONS);
+    expect(errors.some((e) => e.property === 'preset')).toBe(true);
+  });
+
   describe('organisation', () => {
     it('accepts a fully-specified organisation block', async () => {
       const dto = toDto({

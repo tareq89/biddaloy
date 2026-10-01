@@ -164,6 +164,12 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
     ? overlaidFees
     : { ...overlaidFees, approvalMode: DEFAULT_FEES_SETTINGS.approvalMode };
 
+  // [35.1.2] No default: `preset` is absent until a preset is applied, so
+  // "has a preset" is a truthiness check. Passed through only if stored.
+  const preset = isPlainObject(stored?.preset)
+    ? (stored.preset as unknown as TenantSettings['preset'])
+    : undefined;
+
   return {
     version: TENANT_SETTINGS_SCHEMA_VERSION,
     region,
@@ -174,5 +180,6 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
     backup,
     fees,
     ...(communications ? { communications } : {}),
+    ...(preset ? { preset } : {}),
   };
 }

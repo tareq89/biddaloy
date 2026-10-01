@@ -111,6 +111,19 @@ describe('mergeTenantSettings', () => {
     });
   });
 
+  it('ignores a patched preset and keeps the stored one (35.1.2)', () => {
+    const preset = { id: 'bd-national', version: 1 };
+    const withPreset = { version: 1, preset };
+    // A PATCH carrying `preset` must not overwrite it.
+    expect(mergeTenantSettings(withPreset, { version: 1, preset: { id: 'x' } }).preset).toEqual(
+      preset,
+    );
+    // An unrelated patch leaves it alone.
+    expect(mergeTenantSettings(withPreset, { version: 1, region: {} }).preset).toEqual(preset);
+    // A PATCH can't create one either.
+    expect(mergeTenantSettings({ version: 1 }, { version: 1, preset }).preset).toBeUndefined();
+  });
+
   it('replaces organisation wholesale when present, and leaves it untouched when the patch omits it (33.1.1)', () => {
     const existing = {
       version: 1,

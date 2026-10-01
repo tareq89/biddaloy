@@ -95,6 +95,10 @@ export function mergeTenantSettings(
     merged.organisation = patch.organisation;
   }
 
+  // [35.1.2] `preset` is deliberately NOT merged (D37): a PATCH can never set
+  // or clear it. Apply/reset (W2) write it via a direct `settings` merge on
+  // the manager. It survives here only through the `...current` spread above.
+
   if (patch.auth !== undefined) {
     merged.auth = patch.auth;
   }
