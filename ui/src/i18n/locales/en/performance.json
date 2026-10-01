@@ -20,5 +20,8 @@
   "examResults": "Exam results",
   "noYear": "No current academic year is set.",
   "attendanceTitle": "Attendance",
-  "homeworkTitle": "Homework"
+  "homeworkTitle": "Homework",
+  "surveyWaiting": "Waiting for more responses",
+  "classesTitle": "Classes taught",
+  "acrByYear": "ACR total by year"
 }

@@ -20,5 +20,8 @@
   "examResults": "পরীক্ষার ফলাফল",
   "noYear": "কোনো চলমান শিক্ষাবর্ষ নির্ধারণ করা নেই।",
   "attendanceTitle": "উপস্থিতি",
-  "homeworkTitle": "বাড়ির কাজ"
+  "homeworkTitle": "বাড়ির কাজ",
+  "surveyWaiting": "আরও উত্তরের অপেক্ষায়",
+  "classesTitle": "পাঠদানকৃত শ্রেণি",
+  "acrByYear": "বছরভিত্তিক এসিআর মোট"
 }
