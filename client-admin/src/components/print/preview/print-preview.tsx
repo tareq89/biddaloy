@@ -131,7 +131,11 @@ export function PrintPreview({
   // --- batches (D10, D19, D46) ----------------------------------------------
   const maxBatch = template?.batch_size ?? 1;
   const [batchSizeInput, setBatchSizeInput] = React.useState<number | undefined>(undefined);
-  const batchSize = Math.min(maxBatch, Math.max(1, batchSizeInput ?? maxBatch));
+  // A cleared number input arrives as NaN, which `??` would let through: fall back to the max.
+  const batchSize = Math.min(
+    maxBatch,
+    Math.max(1, Number.isFinite(batchSizeInput) ? (batchSizeInput as number) : maxBatch),
+  );
   const batches = React.useMemo(() => chunk(subjectIds, batchSize), [subjectIds, batchSize]);
   const [confirmed, setConfirmed] = React.useState(0); // batches confirmed so far = index of the current one
   const batchIds = batches[confirmed] ?? [];
