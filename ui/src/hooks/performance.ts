@@ -48,11 +48,16 @@ export function classPerformanceQueryOptions(
   });
 }
 
-export function staffPerformanceQueryOptions(userId: string) {
+export function staffPerformanceQueryOptions(userId: string, scope: PerformanceScope) {
   return queryOptions({
-    queryKey: [...performanceKey, 'staff', userId] as const,
+    queryKey: [...performanceKey, 'staff', userId, scope] as const,
     queryFn: async ({ signal }) =>
-      (await apiClient.get<StaffPerformance>(`/performance/staff/${userId}`, { signal })).data,
+      (
+        await apiClient.get<StaffPerformance>(`/performance/staff/${userId}`, {
+          params: scope,
+          signal,
+        })
+      ).data,
     retry: shouldRetryQuery,
   });
 }
@@ -63,5 +68,5 @@ export const useClassPerformance = (
   classId: string,
   scope: PerformanceScope & { sectionId?: string },
 ) => useQuery(classPerformanceQueryOptions(classId, scope));
-export const useStaffPerformance = (userId: string) =>
-  useQuery(staffPerformanceQueryOptions(userId));
+export const useStaffPerformance = (userId: string, scope: PerformanceScope) =>
+  useQuery(staffPerformanceQueryOptions(userId, scope));

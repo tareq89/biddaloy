@@ -13,6 +13,7 @@ import { ClassFormDialog } from './-class-form-dialog';
 import { DeleteClassDialog } from './-delete-class-dialog';
 import { FeeStructuresTab } from './-detail/fee-structures-tab';
 import { HomeworkTab } from './-detail/homework-tab';
+import { PerformanceTab } from './-detail/performance-tab';
 import { SectionsTab } from './-detail/sections-tab';
 import { StudentsTab } from './-detail/students-tab';
 import { SubjectsTab } from './-detail/subjects-tab';
@@ -30,7 +31,7 @@ export const Route = createFileRoute('/_staff/classes/$classId')({
       // whole page (i18n's useSuspense: true) instead of just that tab,
       // taking keyboard focus with it — same failure mode
       // `students/$studentId.tsx`'s loader comment documents.
-      loadRouteNamespaces('classes', 'common', 'feeStructures', 'staff'),
+      loadRouteNamespaces('classes', 'common', 'feeStructures', 'staff', 'performance'),
     ]),
   pendingComponent: ClassDetailPending,
   component: ClassDetailPage,
@@ -43,6 +44,7 @@ const TAB_IDS = [
   'teachers',
   'subjects',
   'homework',
+  'performance',
 ] as const;
 
 function ClassDetailPage() {
@@ -54,6 +56,8 @@ function ClassDetailPage() {
   const classQuery = useClass(classId);
   const [activeTab, setActiveTab] = useDetailShellTab(TAB_IDS);
   const canManage = useHasPermission(Permission.CLASS_MANAGE);
+  const canViewPerformance = useHasPermission(Permission.MARK_VIEW);
+  const { t: tPerformance } = useTranslation('performance');
   const regionConfig = useTenantRegionConfig();
 
   const [editOpen, setEditOpen] = React.useState(false);
@@ -146,6 +150,17 @@ function ClassDetailPage() {
               label: t('detail.tabHomework'),
               content: <HomeworkTab classId={klass.id} />,
             },
+            ...(canViewPerformance
+              ? [
+                  {
+                    id: 'performance',
+                    label: tPerformance('title'),
+                    content: (
+                      <PerformanceTab classId={klass.id} academicYearId={klass.academic_year.id} />
+                    ),
+                  },
+                ]
+              : []),
           ]}
           activeTab={activeTab}
           onTabChange={setActiveTab}

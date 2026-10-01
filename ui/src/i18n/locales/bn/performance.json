@@ -13,5 +13,14 @@
   "surveyAverage": "জরিপ রেটিং",
   "incidents": "ঘটনা",
   "acr": "এসিআর",
-  "notAvailable": "—"
+  "notAvailable": "—",
+  "notEnoughData": "এখনো যথেষ্ট তথ্য নেই",
+  "allSections": "সব শাখা",
+  "sectionLabel": "শাখা",
+  "examResults": "পরীক্ষার ফলাফল",
+  "noYear": "কোনো চলমান শিক্ষাবর্ষ নির্ধারণ করা নেই।",
+  "attendanceTitle": "উপস্থিতি",
+  "homeworkTitle": "বাড়ির কাজ",
+  "surveyWaiting": "আরও উত্তরের অপেক্ষায়",
+  "acrByYear": "বছরভিত্তিক এসিআর মোট"
 }

@@ -203,6 +203,16 @@ export const ACTIONS: readonly PaletteAction[] = [
     context: [],
     run: (ctx) => ctx.navigate({ to: '/staff/evaluations?publishSurvey=1' }),
   },
+  // [28.4.5/D22] No entity id in `run()`: lands on the student list with a
+  // flag that makes each row's "View" open the Performance tab.
+  {
+    id: 'performance.open',
+    label: { en: 'Open performance', bn: 'পারফরম্যান্স দেখুন' },
+    permission: Permission.MARK_VIEW,
+    kind: 'navigate',
+    context: ['student'],
+    run: (ctx) => ctx.navigate({ to: '/students?openPerformance=1' }),
+  },
   {
     id: 'students.add',
     label: { en: 'Add student', bn: 'শিক্ষার্থী যোগ করুন' },

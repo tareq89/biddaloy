@@ -38,5 +38,6 @@ describe('staff detail ACR/Incidents tabs', () => {
     await screen.findByRole('tab', { name: 'Profile' });
     expect(screen.queryByRole('tab', { name: 'ACR' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Incidents' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Performance' })).toBeNull();
   });
 });

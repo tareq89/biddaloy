@@ -32,6 +32,7 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/attendance/staff': '/_staff/attendance/staff/',
   '/attendance/staff/leave': '/_staff/attendance/staff/leave',
   '/fees/generate': '/_staff/fees/generate',
+  '/students?openPerformance=1': '/_staff/students/',
   '/fees/fines?logFine=1': '/_staff/fees/fines/',
   '/fees/fines?generateFines=1': '/_staff/fees/fines/',
   '/fees/fines': '/_staff/fees/fines/',
@@ -195,6 +196,9 @@ describe('action-registry.ts', () => {
     'acr.start',
     'incidents.report',
     'surveys.publish',
+    // [28.4.5] MARK_VIEW (the Performance tab's gate) is stricter than the
+    // student list's STUDENT_READ.
+    'performance.open',
   ]);
 
   it('every seeded action targets a route that exists in STAFF_ROUTE_PERMISSIONS with the same permission (or a documented, stricter exception)', () => {

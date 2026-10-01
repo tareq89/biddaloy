@@ -215,6 +215,12 @@
     "lateFeeKindFlat": "Flat amount",
     "lateFeeValue": "Value"
   },
+  "evaluations": {
+    "legend": "Evaluations",
+    "incidentSmsLabel": "Send an SMS when a new incident report is filed",
+    "incidentSmsHint": "The SMS says only that a new report exists, never what it says.",
+    "pushAlwaysOn": "Push notifications are always on."
+  },
   "organisation": {
     "legend": "Shift, version & group",
     "shiftsLabel": "Shifts",

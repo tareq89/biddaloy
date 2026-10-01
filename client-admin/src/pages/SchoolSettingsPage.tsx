@@ -14,6 +14,7 @@ import { AttendanceSection } from './settings/AttendanceSection';
 import { BackupSection } from './settings/backup-section';
 import { CalendarSection } from './settings/CalendarSection';
 import { EmailSection } from './settings/EmailSection';
+import { EvaluationsSection } from './settings/EvaluationsSection';
 import { FeesSection } from './settings/FeesSection';
 import { MessengerSection } from './settings/MessengerSection';
 import { OrganisationSection } from './settings/OrganisationSection';
@@ -177,6 +178,11 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
           <SmsSection schoolId={schoolId} sms={settingsQuery.data.communications?.sms} />
           <SmsCreditSection key={schoolId} schoolId={schoolId} isSuperAdmin={isSuperAdmin} />
           <FeesSection key={schoolId} schoolId={schoolId} fees={settingsQuery.data.fees} />
+          <EvaluationsSection
+            key={schoolId}
+            schoolId={schoolId}
+            evaluations={settingsQuery.data.evaluations}
+          />
         </div>
       )}
     </div>

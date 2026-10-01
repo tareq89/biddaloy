@@ -24,6 +24,7 @@ import { LeaveDialog } from './-detail/leave-dialog';
 import { NotesTab } from './-detail/notes-tab';
 import { OverviewTab } from './-detail/overview-tab';
 import { PaymentsTab } from './-detail/payments-tab';
+import { PerformanceTab } from './-detail/performance-tab';
 import { ProgramsPanel } from './-detail/programs-panel';
 import { PromotionOverrideBadge } from './-detail/promotion-override-badge';
 import { ReadmitDialog } from './-detail/readmit-dialog';
@@ -97,6 +98,7 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
         // from these; same suspend-the-whole-page reasoning as 'fees'.
         'student-records',
         'student-notes',
+        'performance',
         'student-lifecycle',
       ),
     ]),
@@ -117,6 +119,7 @@ const TAB_IDS = [
   'activity',
   'attendance',
   'homework',
+  'performance',
   'subject-choices',
   'results',
   'programs',
@@ -140,6 +143,8 @@ function StudentDetailPage() {
   const canManageLifecycle = useHasPermission(Permission.STUDENT_LIFECYCLE_MANAGE);
   const canReadRecords = useHasPermission(Permission.STUDENT_RECORDS_READ);
   const canReadNotes = useHasPermission(Permission.STUDENT_NOTES_READ);
+  const canViewPerformance = useHasPermission(Permission.MARK_VIEW);
+  const { t: tPerformance } = useTranslation('performance');
   const canDelete = useHasPermission(Permission.STUDENT_DELETE);
   const canCollectFees = useHasPermission(Permission.FEE_COLLECT);
   const canSendReminder = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
@@ -327,6 +332,15 @@ function StudentDetailPage() {
                   label: t('detail.tabs.homework'),
                   content: <HomeworkTab studentId={studentId} />,
                 },
+                ...(canViewPerformance
+                  ? [
+                      {
+                        id: 'performance',
+                        label: tPerformance('title'),
+                        content: <PerformanceTab studentId={studentId} />,
+                      },
+                    ]
+                  : []),
                 {
                   id: 'subject-choices',
                   // [19.6.1] — 'exams' namespace, not 'students': this tab

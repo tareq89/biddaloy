@@ -16,5 +16,8 @@
   "deleteTitle": "Delete this note?",
   "deleteDescription": "The note will be removed. This can't be undone.",
   "deleting": "Deleting…",
-  "deleteError": "Could not delete the note. Try again."
+  "deleteError": "Could not delete the note. Try again.",
+  "ratingLabel": "Rating (optional)",
+  "ratingStar": "{{count}} out of 5",
+  "ratingShown": "Rated {{count}} out of 5"
 }
