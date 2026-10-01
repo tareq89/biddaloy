@@ -52,7 +52,15 @@ test('keyboard-only: find a printed card by name and read its details', async ({
 
   await test.step("filter by the person's name", async () => {
     await tabUntilFocused(page, t('printHistory.filters.search'), 90, { tag: 'INPUT' });
-    await page.keyboard.type(name);
+    // The box is synced to the URL, so a re-render mid-typing can eat a keystroke; retype until
+    // the value is exactly the name.
+    await expect(async () => {
+      await page.keyboard.press('ControlOrMeta+a');
+      await page.keyboard.type(name);
+      await expect(
+        page.getByRole('textbox', { name: t('printHistory.filters.search') }),
+      ).toHaveValue(name, { timeout: 1000 });
+    }).toPass({ timeout: 10_000 });
     await expect(page.getByRole('cell', { name, exact: true })).toBeVisible();
   });
 
