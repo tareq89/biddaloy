@@ -1,10 +1,9 @@
 import type { BreadcrumbItem } from '@biddaloy/ui/components';
-import type { AcademicYear, Class, Guardian, PrintTemplateRow, Student } from '@biddaloy/ui/hooks';
+import type { AcademicYear, Class, Guardian, Student } from '@biddaloy/ui/hooks';
 import {
   academicYearQueryOptions,
   classQueryOptions,
   guardianQueryOptions,
-  printTemplateQueryOptions,
   studentQueryOptions,
   useEntityLabel,
 } from '@biddaloy/ui/hooks';
@@ -79,11 +78,6 @@ const ENTITY_RESOLVERS: Record<string, EntityResolver<any>> = {
     queryOptions: academicYearQueryOptions,
     getName: (data: AcademicYear) => data.name,
   },
-  // [32.4.1] Keyed by the crumb's own label key: "template" has no `EntityLabel` noun.
-  printTemplateEdit: {
-    queryOptions: printTemplateQueryOptions,
-    getName: (data: PrintTemplateRow) => data.name,
-  },
 };
 
 /** List-page `to` for a segment's own label, read from the same
@@ -142,13 +136,8 @@ export function useBreadcrumbs(appName: string): UseBreadcrumbsResult {
   // Exactly one dynamic param on any leaf that has one — `route-crumbs.ts`
   // never nests two dynamic segments in the same trail.
   const dynamicId = dynamicSegment && leafMatch ? Object.values(leafMatch.params)[0] : undefined;
-  const dynamicLabel = dynamicSegment?.label;
   const dynamicEntityKey =
-    dynamicLabel === undefined
-      ? undefined
-      : 'entity' in dynamicLabel
-        ? dynamicLabel.entity
-        : dynamicLabel.key;
+    dynamicSegment && 'entity' in dynamicSegment.label ? dynamicSegment.label.entity : undefined;
 
   // Same plural count `_staff.tsx`'s own `entityLabels` map uses for
   // these nouns in the sidebar — a breadcrumb list segment is the same
@@ -159,7 +148,6 @@ export function useBreadcrumbs(appName: string): UseBreadcrumbsResult {
   const classLabel = useEntityLabel('class', { count: 2 });
   const academicYearLabel = useEntityLabel('academicYear', { count: 2 });
   const invoiceLabel = useEntityLabel('invoice', { count: 2 });
-  const examLabel = useEntityLabel('exam', { count: 2 });
   const entityLabels: Record<string, string> = {
     student: studentLabel,
     guardian: guardianLabel,
@@ -167,7 +155,6 @@ export function useBreadcrumbs(appName: string): UseBreadcrumbsResult {
     class: classLabel,
     academicYear: academicYearLabel,
     invoice: invoiceLabel,
-    exam: examLabel,
   };
 
   const resolvedName = useResolvedEntityName(dynamicEntityKey, dynamicId);

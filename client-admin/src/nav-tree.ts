@@ -317,21 +317,6 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.COMMUNICATION_BULK_SEND,
     label: { key: 'reminderHistory' },
   },
-  // [32.4.1] Template design + the library. `PRINT_TEMPLATE_MANAGE` is the templates controller's gate.
-  'administration.printTemplates': {
-    id: 'administration.printTemplates',
-    to: '/print-templates',
-    permission: Permission.PRINT_TEMPLATE_MANAGE,
-    label: { key: 'printTemplates' },
-    synonyms: ['ID card', 'certificate', 'design', 'template'],
-  },
-  'reports.printables': {
-    id: 'reports.printables',
-    to: '/reports/printables',
-    permission: Permission.PRINT_HISTORY_READ,
-    label: { key: 'printables' },
-    synonyms: ['ID card', 'printed', 'reprint', 'history'],
-  },
   'administration.auditLogs': {
     id: 'administration.auditLogs',
     to: '/audit-logs',
@@ -441,7 +426,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
   {
     id: 'reports',
     label: { key: 'reports' },
-    items: [STAFF_NAV_ITEMS['reports.collectionsReport'], STAFF_NAV_ITEMS['reports.printables']],
+    items: [STAFF_NAV_ITEMS['reports.collectionsReport']],
   },
   {
     id: 'communications',
@@ -456,7 +441,6 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
     id: 'administration',
     label: { key: 'administration' },
     items: [
-      STAFF_NAV_ITEMS['administration.printTemplates'],
       STAFF_NAV_ITEMS['administration.auditLogs'],
       STAFF_NAV_ITEMS['administration.settings'],
     ],
