@@ -57,6 +57,14 @@ describe('PrintHistoryService.list', () => {
   });
 });
 
+describe('PrintHistoryService.getItem', () => {
+  it('hides a staff item from a role without STAFF_HR_READ (D18)', async () => {
+    const query = vi.fn(async () => [{ subject_type: 'STAFF' }]);
+    const svc = new PrintHistoryService({ query } as any, { record: vi.fn() } as any);
+    await expect(svc.getItem(caller('EXECUTIVE'), 'i1')).rejects.toBeInstanceOf(ForbiddenException);
+  });
+});
+
 describe('PrintHistoryService.subjectHistory', () => {
   it('lists a student for anyone allowed to print', async () => {
     const { svc } = makeHistory();

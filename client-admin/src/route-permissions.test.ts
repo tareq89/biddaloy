@@ -108,6 +108,7 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/grading-scales': '/_staff/grading-scales/',
   '/admissions/intakes': '/_staff/admissions/intakes/',
   '/admissions/applicants': '/_staff/admissions/applicants/',
+  '/admissions/reports': '/_staff/admissions/reports/',
   '/routines/setup': '/_staff/routines/setup',
   '/routines': '/_staff/routines/',
   '/routines/my': '/_staff/routines/my',

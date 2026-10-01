@@ -11,7 +11,7 @@ import { Student } from '../students/entities/student.entity';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
-import { CreateEnrollmentDto, UpdateEnrollmentDto } from './dto/enrollments.dto';
+import { CreateEnrollmentDto, EnrollmentUpdate } from './dto/enrollments.dto';
 import { EnrollmentStatus, AuditAction } from '@biddaloy/shared';
 import { nextRollNumber } from '../students/roll-number.util';
 import { AuditService } from '../audit/audit.service';
@@ -39,9 +39,21 @@ export class EnrollmentService {
     userId: string | null = null,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<Enrollment> {
-    return this.repo.manager.transaction((manager) =>
-      this.createInTransaction(manager, dto, tenantId, userId, context),
-    );
+    return this.repo.manager.transaction(async (manager) => {
+      // [39.2.1] POST /enrollments must not bring a student who has left back into an ACTIVE
+      // enrollment: that is a readmission (POST /students/:id/readmit: permission, reason,
+      // date, event). `createInTransaction` stays unguarded because readmit and the promotion
+      // commit legitimately call it for a non-ACTIVE student.
+      const student = await manager.getRepository(Student).findOne({
+        where: { id: dto.student_id, tenant_id: tenantId, deleted_at: IsNull() },
+      });
+      if (student && student.enrollment_status !== EnrollmentStatus.ACTIVE) {
+        throw new ConflictException(
+          'This student is not currently enrolled. Use "Readmit" to bring them back; a new enrollment cannot reactivate them.',
+        );
+      }
+      return this.createInTransaction(manager, dto, tenantId, userId, context);
+    });
   }
 
   /**
@@ -225,7 +237,7 @@ export class EnrollmentService {
 
   async update(
     id: string,
-    dto: UpdateEnrollmentDto,
+    dto: EnrollmentUpdate,
     tenantId: string,
     userId: string | null = null,
     context: RequestContext = { ip: null, userAgent: null },

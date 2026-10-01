@@ -28,12 +28,18 @@ import { RequirePermissions } from '../auth/decorators/require-permissions.decor
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
-import { StudentService, GuardianService } from './students.service';
+import {
+  StudentService,
+  GuardianService,
+  assertCanWriteProfileFields,
+  redactHealthNotes,
+} from './students.service';
 import { StudentBulkUploadService } from './bulk-upload.service';
 import { FamilyAccessService } from './family-access.service';
 import {
   CreateStudentDto,
   UpdateStudentDto,
+  UpdateStudentRecordsDto,
   QueryStudentDto,
   QueryStudentIdsDto,
   StudentIdsResultDto,
@@ -43,9 +49,12 @@ import {
   QueryGuardianDto,
   CommitBulkUploadDto,
 } from './dto/students.dto';
-import { UserRole, JwtPayload, Permission } from '@biddaloy/shared';
+import { UserRole, JwtPayload, Permission, roleHasPermission } from '@biddaloy/shared';
 
 const BULK_UPLOAD_MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+const canReadRecords = (role: string) => roleHasPermission(role, Permission.STUDENT_RECORDS_READ);
+const canWriteRecords = (role: string) => roleHasPermission(role, Permission.STUDENT_RECORDS_WRITE);
 
 @ApiTags('students')
 @ApiTenantAuth()
@@ -66,11 +75,13 @@ export class StudentController {
   // off (no write surface).
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.STUDENT_CREATE)
-  createStudent(
+  async createStudent(
     @Body() dto: CreateStudentDto,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
-    return this.studentService.create(dto, tenant.id);
+    assertCanWriteProfileFields(dto, canWriteRecords(tenant.role));
+    const student = await this.studentService.create(dto, tenant.id);
+    return redactHealthNotes(student, canReadRecords(tenant.role));
   }
 
   // [14.9.1] Split from a single write-on-upload endpoint into validate +
@@ -116,11 +127,12 @@ export class StudentController {
   @Get('students')
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.STUDENT_READ)
-  findAllStudents(
+  async findAllStudents(
     @Query() query: QueryStudentDto,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
-    return this.studentService.findAll(query, tenant.id);
+    const page = await this.studentService.findAll(query, tenant.id);
+    return redactHealthNotes(page, canReadRecords(tenant.role));
   }
 
   /**
@@ -135,11 +147,12 @@ export class StudentController {
     summary:
       "List the students the calling PARENT or STUDENT is linked to. The discovery route for the family portal: without it a parent has no way to learn their own children's IDs.",
   })
-  findMyStudents(
+  async findMyStudents(
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.familyAccess.getLinkedStudents(tenant.role, user.sub, tenant.id);
+    const students = await this.familyAccess.getLinkedStudents(tenant.role, user.sub, tenant.id);
+    return redactHealthNotes(students, canReadRecords(tenant.role));
   }
 
   /**
@@ -186,19 +199,55 @@ export class StudentController {
     // [5.1] moved the check that used to be inline here into
     // FamilyAccessService so every widened family route shares one copy.
     await this.familyAccess.assertLinked(tenant.role, user.sub, id, tenant.id);
-    return student;
+    return redactHealthNotes(student, canReadRecords(tenant.role));
   }
 
   @Patch('students/:id')
   // [10.4] G3, G1 — same reasoning as createStudent() above.
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.STUDENT_UPDATE)
-  updateStudent(
+  async updateStudent(
     @Param('id') id: string,
     @Body() dto: UpdateStudentDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
   ) {
-    return this.studentService.update(id, dto, tenant.id);
+    assertCanWriteProfileFields(dto, canWriteRecords(tenant.role));
+    const student = await this.studentService.update(
+      id,
+      dto,
+      tenant.id,
+      user.sub,
+      requestContext(request),
+    );
+    return redactHealthNotes(student, canReadRecords(tenant.role));
+  }
+
+  /**
+   * [39.2.4] The Records tab's save. Its own route so an EXECUTIVE, who holds STUDENT_RECORDS_WRITE
+   * but not STUDENT_UPDATE, can edit the five profile fields without being handed general student
+   * updates. Only those five fields are accepted (`forbidNonWhitelisted`), so it cannot move a
+   * student between sections or change a status.
+   */
+  @Patch('students/:id/records')
+  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
+  @RequirePermissions(Permission.STUDENT_RECORDS_WRITE)
+  async updateStudentRecords(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateStudentRecordsDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: JwtPayload,
+    @Req() request: Request,
+  ) {
+    const student = await this.studentService.update(
+      id,
+      dto,
+      tenant.id,
+      user.sub,
+      requestContext(request),
+    );
+    return redactHealthNotes(student, canReadRecords(tenant.role));
   }
 
   @Delete('students/:id')
@@ -214,19 +263,20 @@ export class StudentController {
   // [10.4] G3 grants AC GUARDIAN_CREATE; G1 tightens E off.
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.GUARDIAN_CREATE)
-  createGuardian(
+  async createGuardian(
     @Body() dto: CreateGuardianDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
   ) {
-    return this.guardianService.create(
+    const guardian = await this.guardianService.create(
       dto,
       tenant.id,
       undefined,
       user.sub,
       requestContext(request),
     );
+    return redactHealthNotes(guardian, canReadRecords(tenant.role));
   }
 
   @Get('guardians')
@@ -234,11 +284,12 @@ export class StudentController {
   // hidden, guardians excluded from global search).
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.TEACHER)
   @RequirePermissions(Permission.GUARDIAN_READ)
-  findAllGuardians(
+  async findAllGuardians(
     @Query() query: QueryGuardianDto,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
-    return this.guardianService.findAll(query, tenant.id);
+    const page = await this.guardianService.findAll(query, tenant.id);
+    return redactHealthNotes(page, canReadRecords(tenant.role));
   }
 
   /**
@@ -254,11 +305,12 @@ export class StudentController {
     summary:
       "Read the guardian record linked to the calling PARENT's own account. Ownership comes from the JWT, never a path id.",
   })
-  findMyGuardian(
+  async findMyGuardian(
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.guardianService.findOwn(user.sub, tenant.id);
+    const guardian = await this.guardianService.findOwn(user.sub, tenant.id);
+    return redactHealthNotes(guardian, canReadRecords(tenant.role));
   }
 
   /** See the ordering note on `GET guardians/mine`. */
@@ -268,38 +320,52 @@ export class StudentController {
     summary:
       "Update the contact details on the calling PARENT's own guardian record. These are the fields fee reminders dial, so a stale number is self-fixable.",
   })
-  updateMyGuardian(
+  async updateMyGuardian(
     @Body() dto: UpdateOwnGuardianDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
   ) {
-    return this.guardianService.updateOwn(user.sub, dto, tenant.id, requestContext(request));
+    const guardian = await this.guardianService.updateOwn(
+      user.sub,
+      dto,
+      tenant.id,
+      requestContext(request),
+    );
+    return redactHealthNotes(guardian, canReadRecords(tenant.role));
   }
 
   @Get('guardians/:id')
   // [10.4] G12 — E tightened off; see findAllGuardians() above.
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.TEACHER)
   @RequirePermissions(Permission.GUARDIAN_READ)
-  findOneGuardian(
+  async findOneGuardian(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
-    return this.guardianService.findOne(id, tenant.id);
+    const guardian = await this.guardianService.findOne(id, tenant.id);
+    return redactHealthNotes(guardian, canReadRecords(tenant.role));
   }
 
   @Patch('guardians/:id')
   // [10.4] G3 grants AC GUARDIAN_UPDATE; G1 tightens E off.
   @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.GUARDIAN_UPDATE)
-  updateGuardian(
+  async updateGuardian(
     @Param('id') id: string,
     @Body() dto: UpdateGuardianDto,
     @CurrentTenant() tenant: { id: string; role: string },
     @CurrentUser() user: JwtPayload,
     @Req() request: Request,
   ) {
-    return this.guardianService.update(id, dto, tenant.id, user.sub, requestContext(request));
+    const guardian = await this.guardianService.update(
+      id,
+      dto,
+      tenant.id,
+      user.sub,
+      requestContext(request),
+    );
+    return redactHealthNotes(guardian, canReadRecords(tenant.role));
   }
 
   @Delete('guardians/:id')

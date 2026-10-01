@@ -169,7 +169,6 @@ export {
   useStudents,
   useStudentSearch,
   useUpdateStudent,
-  useUpdateStudentEnrollmentStatus,
   useUpdateStudentPreferredCommunication,
   useUploadStudentPhoto,
   type BulkStudentPhotoResult,
@@ -951,6 +950,14 @@ export {
   type RemoveUncollectedResult,
 } from './fee-generations';
 export {
+  admissionReportKeys,
+  useAdmissionLifecycleReport,
+  type LifecycleReport,
+  type LifecycleReportCounts,
+  type LifecycleReportFilters,
+  type LifecycleReportRow,
+} from './admission-reports';
+export {
   finesKeys,
   useCopyFineRules,
   useCreateFineRule,
@@ -1223,3 +1230,28 @@ export {
   type SmsCreditsFilters,
   type SmsCreditsResponse,
 } from './sms-credits';
+export {
+  lifecycleEventKeys,
+  studentNoteKeys,
+  studentPublicExamKeys,
+  useAddStudentNote,
+  useDeletePublicExam,
+  useDeleteStudentNote,
+  useLeaveStudent,
+  useLifecycleEvents,
+  usePublicExams,
+  useReadmitStudent,
+  useSavePublicExam,
+  useUpdateStudentRecords,
+  useStudentNotes,
+  type CreateStudentNoteInput,
+  type CreateStudentPublicExamInput,
+  type LeaveStudentInput,
+  type ReadmitStudentInput,
+  type SavePublicExamInput,
+  type StudentLifecycleEvent,
+  type UpdateStudentRecordsInput,
+  type StudentNote,
+  type StudentPublicExam,
+  type UpdateStudentPublicExamInput,
+} from './student-lifecycle';

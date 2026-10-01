@@ -19,7 +19,6 @@ import {
   useStudents,
   useStudentSearch,
   useBulkUploadStudentPhotos,
-  useUpdateStudentEnrollmentStatus,
   useUpdateStudentPreferredCommunication,
   type PreferredCommunication,
 } from './students';
@@ -416,53 +415,6 @@ describe('retry behaviour: 4xx does not retry, other failures do', () => {
     // shouldRetryQuery allows retrying while failureCount < 2 — so 2
     // retries on top of the original request, 3 calls total.
     expect(callCount).toBe(3);
-  });
-});
-
-describe('useUpdateStudentEnrollmentStatus', () => {
-  it('[8.10.2] patches enrollment_status and invalidates the detail cache', async () => {
-    const queryClient = createTestQueryClient();
-    queryClient.setQueryData(
-      studentKeys.detail('student-1'),
-      studentFactory({ id: 'student-1', enrollment_status: 'ACTIVE' }),
-    );
-
-    server.use(
-      http.patch('/api/v1/students/:id', async ({ request }) => {
-        const body = (await request.json()) as { enrollment_status: string };
-        return HttpResponse.json(
-          studentFactory({
-            id: 'student-1',
-            enrollment_status: body.enrollment_status as Student['enrollment_status'],
-          }),
-        );
-      }),
-      http.get('/api/v1/students/:id', () =>
-        HttpResponse.json(studentFactory({ id: 'student-1', enrollment_status: 'TRANSFERRED' })),
-      ),
-    );
-
-    // A live `useStudent` observer, same reasoning as the optimistic-
-    // mutation test above — `invalidateQueries` only triggers a
-    // background refetch for a query someone is actually watching; a
-    // detail page keeps this query mounted the whole time, so this
-    // mirrors that instead of just inspecting the cache directly.
-    const { result } = renderHookWithProviders(
-      () => ({
-        student: useStudent('student-1'),
-        update: useUpdateStudentEnrollmentStatus('student-1'),
-      }),
-      { tenantId: 'tenant-1', queryClient },
-    );
-
-    result.current.update.mutate('TRANSFERRED');
-
-    await waitFor(() => expect(result.current.update.isSuccess).toBe(true));
-    expect(result.current.update.data?.enrollment_status).toBe('TRANSFERRED');
-    // `onSuccess` invalidates the detail query too — the refetched value
-    // (from the `GET` handler above), not just the mutation's own
-    // response, is what a re-opened detail page would actually show.
-    await waitFor(() => expect(result.current.student.data?.enrollment_status).toBe('TRANSFERRED'));
   });
 });
 

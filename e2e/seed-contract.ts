@@ -83,3 +83,15 @@ export const SEED_CALENDAR_EVENT_NAMES = {
  * uses for the seeded grading scale. `programs.spec.ts` finds the program
  * by this name via the command palette / UI, not by id. */
 export const SEED_PROGRAM_NAME = 'Hifz';
+
+/** [39.1.4] Demo students `ensureStudentLifecycleSeed` (`seed.ts`) gives
+ * lifecycle history, addressed by registration number. Duplicated from
+ * `seed.ts`; `seed.spec.ts` asserts the seeded rows match. */
+export const SEED_LIFECYCLE_STUDENTS = {
+  withdrawnThenReadmitted: '2026-2027-0001',
+  transferredOut: '2026-2027-0002',
+  graduated: '2026-2027-0003',
+} as const;
+
+/** [39.1.4] Destination text on the TRANSFERRED_OUT event. */
+export const SEED_TRANSFER_DESTINATION = 'Dhaka Residential Model College';

@@ -32,13 +32,17 @@ describe('sanitizePrintSvg — stripped', () => {
     expect(svg).not.toMatch(/evil\.test|javascript|text\/html/i);
   });
 
-  it('removes @import and non-local url() inside <style>', () => {
-    const { svg } = run(
-      wrap(
-        '<style>@import url(https://evil.test/x.css); .a{fill:url(https://evil.test/p);} .b{fill:url(#g)}</style>',
-      ),
-    );
-    expect(svg).not.toMatch(/evil\.test|@import/);
+  it.each([
+    '@import url(https://evil.test/x.css);',
+    '.a{fill:url(https://evil.test/p);}',
+    '.a{fill:uurl(x)rl(https://evil.test/p);}', // a strip pass would rebuild url(https://...)
+    '@imurl(x)port "https://evil.test/x.css";',
+  ])('rejects external references inside <style>: %s', (css) => {
+    expect(() => run(wrap(`<style>${css}</style>`))).toThrow(BadRequestException);
+  });
+
+  it('keeps a local url(#id) inside <style>', () => {
+    const { svg } = run(wrap('<style>.b{fill:url(#g)}</style>'));
     expect(svg).toContain('url(#g)');
   });
 

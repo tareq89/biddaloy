@@ -10,7 +10,10 @@ import { PrintIdCardModal, type PrintIdCardChoice } from './print-id-card-modal'
 const CLASS_ID = '11111111-1111-4111-8111-111111111111';
 const SECTION_ID = '22222222-2222-4222-8222-222222222222';
 
+let usersCalls = 0;
+
 function serve() {
+  usersCalls = 0;
   server.use(
     http.get('/api/v1/students', () =>
       HttpResponse.json({
@@ -23,14 +26,15 @@ function serve() {
         limit: 20,
       }),
     ),
-    http.get('/api/v1/users', () =>
-      HttpResponse.json({
+    http.get('/api/v1/users', () => {
+      usersCalls += 1;
+      return HttpResponse.json({
         data: [{ id: 'u1', full_name: 'Mr Teacher' }],
         total: 1,
         page: 1,
         limit: 20,
-      }),
-    ),
+      });
+    }),
     http.get('/api/v1/classes', () =>
       HttpResponse.json({
         data: [{ id: CLASS_ID, name: 'Class 6' }],
@@ -45,13 +49,13 @@ function serve() {
   );
 }
 
-function setup(initialType: 'STUDENT' | 'STAFF' = 'STUDENT') {
+function setup(initialType: 'STUDENT' | 'STAFF' = 'STUDENT', role = 'ADMIN') {
   serve();
   const onConfirm = vi.fn<(choice: PrintIdCardChoice) => void>();
   const onCancel = vi.fn();
   const view = renderWithProviders(
     <PrintIdCardModal open initialType={initialType} onCancel={onCancel} onConfirm={onConfirm} />,
-    { locale: 'en', role: 'ADMIN', tenantId: 'tenant-1' },
+    { locale: 'en', role, tenantId: 'tenant-1' },
   );
   return { ...view, onConfirm, onCancel };
 }
@@ -76,6 +80,20 @@ describe('PrintIdCardModal', () => {
     await user.selectOptions(await screen.findByLabelText('Section'), SECTION_ID);
     await user.click(screen.getByRole('button', { name: 'Print the whole section' }));
     expect(onConfirm).toHaveBeenCalledWith({ subjectType: 'STUDENT', classSectionId: SECTION_ID });
+  });
+
+  it('opened for students, it never asks the server for the staff list', async () => {
+    setup();
+    await screen.findByLabelText('Rahim Uddin');
+    expect(usersCalls).toBe(0);
+  });
+
+  it('opened for staff by a role without STAFF_HR_READ, it shows students and never asks for staff', async () => {
+    setup('STAFF', 'ACCOUNTANT');
+
+    expect(await screen.findByLabelText('Rahim Uddin')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Staff' })).toBeNull();
+    expect(usersCalls).toBe(0);
   });
 
   it('opened for staff, it lists staff and has no whole-section choice', async () => {

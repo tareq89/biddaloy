@@ -23,6 +23,11 @@ import {
  * why they need their own cadence.
  */
 export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
+  // [39.1.2] FK (RESTRICT) to `students` and `enrollments`, so all three
+  // clear before either of those.
+  'student_lifecycle_events',
+  'student_notes',
+  'student_public_exams',
   // [25.5, #1054] `seat_allocations` FKs to `seat_plans`, `exam_schedules`,
   // `students`, and `rooms` (all `ON DELETE CASCADE`); `seat_plan_schedules`
   // FKs to `seat_plans` and `exam_schedules`. All three appear before every

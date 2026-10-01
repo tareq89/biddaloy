@@ -70,6 +70,10 @@ import {
   type PrintDemoSeedPorts,
   type PrintHistoryDemoSeedPorts,
 } from './seed.util';
+import { ensureStudentLifecycleSeed } from './seed.lifecycle';
+import { StudentLifecycleEvent } from '../modules/students/entities/student-lifecycle-event.entity';
+import { StudentNote } from '../modules/students/entities/student-note.entity';
+import { StudentPublicExam } from '../modules/students/entities/student-public-exam.entity';
 import { PrintTemplatesService } from '../modules/print/templates/print-templates.service';
 import { PrintJobsService } from '../modules/print/jobs/print-jobs.service';
 import { PrintHistoryService } from '../modules/print/jobs/print-history.service';
@@ -248,6 +252,23 @@ export async function seed() {
   // [38.2.5] Fine activity: 3 manual fines, one month's attendance-fine
   // sweep, a waive and a partial payment — so every FeeStatus shows up.
   await ensureFineActivitySeed(app, dataSource, school);
+
+  // [39.1.4] Lifecycle events, notes, public exams + the five student columns.
+  const lifecycleAdmin = await userRepository.findOne({ where: { email: adminEmail } });
+  if (lifecycleAdmin) {
+    await ensureStudentLifecycleSeed(
+      {
+        studentRepository: dataSource.getRepository(Student),
+        enrollmentRepository: dataSource.getRepository(Enrollment),
+        academicYearRepository: dataSource.getRepository(AcademicYear),
+        lifecycleEventRepository: dataSource.getRepository(StudentLifecycleEvent),
+        noteRepository: dataSource.getRepository(StudentNote),
+        publicExamRepository: dataSource.getRepository(StudentPublicExam),
+      },
+      school.id,
+      lifecycleAdmin.id,
+    );
+  }
 
   await app.close();
 }

@@ -175,6 +175,21 @@ describe('PrintPreview', () => {
     expect(screen.getByText(/Batch 1 of 3/)).toBeTruthy();
   });
 
+  it('clearing the batch size falls back to the maximum instead of breaking the batches', async () => {
+    serveLists([template({ batch_size: 50 })], [printer()]);
+    servePreview();
+    const { user } = setup(ids(120));
+
+    const input = await screen.findByLabelText<HTMLInputElement>(/Cards per batch/);
+    await user.clear(input); // a cleared number input reads as NaN
+
+    await waitFor(() => expect(input.value).toBe('50'));
+    expect(screen.getByText(/Batch 1 of 3/)).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(false),
+    );
+  });
+
   it('offers to create a template when there is none', async () => {
     serveLists([], [printer()]);
     const { user, onCreateTemplate } = setup();

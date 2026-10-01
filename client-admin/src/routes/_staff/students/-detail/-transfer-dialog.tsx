@@ -1,5 +1,5 @@
 /**
- * "Move class" dialog — [8.11.3]. Distinct from `transfer-status-dialog.tsx`
+ * "Move class" dialog — [8.11.3]. Distinct from the retired status dialog
  * (an [8.10.2] feature): that dialog only changes `Student.enrollment_status`
  * (ACTIVE/INACTIVE/TRANSFERRED/GRADUATED); this one moves the student's
  * actual class/section by writing an `Enrollment` row, which is what
@@ -27,7 +27,7 @@
  *
  * Not optimistic — a rolled-back move must never show the student in a
  * class they didn't actually move to (the issue's own acceptance
- * criterion, shared with `transfer-status-dialog.tsx`'s identical
+ * criterion, shared with the retired status dialog's identical
  * reasoning).
  */
 import {

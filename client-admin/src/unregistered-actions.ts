@@ -365,9 +365,19 @@ export const UNREGISTERED_ACTIONS: readonly UnregisteredAction[] = [
     note: 'Student enrollment tab dialogs',
   },
   {
-    file: 'client-admin/src/routes/_staff/students/-detail/transfer-status-dialog.tsx',
+    file: 'client-admin/src/routes/_staff/students/-detail/leave-dialog.tsx',
     owningEpic: '31.0',
-    note: 'Student transfer status dialog',
+    note: 'Record student leaving (palette run() cannot carry the student id)',
+  },
+  {
+    file: 'client-admin/src/routes/_staff/students/-detail/notes-tab.tsx',
+    owningEpic: '31.0',
+    note: 'Add note to student (palette run() cannot carry the student id)',
+  },
+  {
+    file: 'client-admin/src/routes/_staff/students/-detail/readmit-dialog.tsx',
+    owningEpic: '31.0',
+    note: 'Readmit student (palette run() cannot carry the student id)',
   },
   {
     file: 'client-admin/src/routes/_staff/students/-send-reminder-dialog.tsx',

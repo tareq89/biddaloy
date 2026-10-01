@@ -722,6 +722,37 @@ describe('routine role grants [21.1.1]', () => {
   }
 });
 
+describe('student lifecycle grants [39.1.1] D22', () => {
+  const ALL_FIVE = [
+    Permission.STUDENT_LIFECYCLE_MANAGE,
+    Permission.STUDENT_NOTES_READ,
+    Permission.STUDENT_NOTES_WRITE,
+    Permission.STUDENT_RECORDS_READ,
+    Permission.STUDENT_RECORDS_WRITE,
+  ];
+
+  for (const role of [UserRole.ADMIN, UserRole.EXECUTIVE]) {
+    it(`grants all five to ${role}`, () => {
+      for (const p of ALL_FIVE) expect(ROLE_PERMISSIONS[role]).toContain(p);
+    });
+  }
+
+  it('gives TEACHER notes r/w and records read only', () => {
+    const t = ROLE_PERMISSIONS[UserRole.TEACHER];
+    expect(t).toContain(Permission.STUDENT_NOTES_READ);
+    expect(t).toContain(Permission.STUDENT_NOTES_WRITE);
+    expect(t).toContain(Permission.STUDENT_RECORDS_READ);
+    expect(t).not.toContain(Permission.STUDENT_LIFECYCLE_MANAGE);
+    expect(t).not.toContain(Permission.STUDENT_RECORDS_WRITE);
+  });
+
+  for (const role of [UserRole.ACCOUNTANT, UserRole.PARENT, UserRole.STUDENT]) {
+    it(`gives ${role} none of the five`, () => {
+      for (const p of ALL_FIVE) expect(ROLE_PERMISSIONS[role]).not.toContain(p);
+    });
+  }
+});
+
 describe('print permission grants [32.1.1]', () => {
   const PRINT: Permission[] = [
     Permission.PRINT_TEMPLATE_MANAGE,

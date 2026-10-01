@@ -198,3 +198,31 @@ describe('element factories', () => {
     expect(img.w).toBeLessThanOrEqual(12);
   });
 });
+
+describe('side after history and draft replacement', () => {
+  const both = (): TemplateDefinition => twoSided();
+
+  it('UNDO onto a one-sided draft while viewing the back switches to the front', () => {
+    const oneSidedStart = start(oneSided());
+    const twoSide = editorReducer(oneSidedStart, {
+      type: 'SET_PAGE',
+      page: { sides: 'both' },
+    });
+    const viewingBack = run(twoSide, { type: 'SET_SIDE', side: 'back' });
+    expect(viewingBack.side).toBe('back');
+    const undone = run(viewingBack, { type: 'UNDO' });
+    expect(undone.draft.back).toBeUndefined();
+    expect(undone.side).toBe('front');
+  });
+
+  it('REPLACE_DRAFT with a one-sided draft while viewing the back switches to the front', () => {
+    const viewingBack = run(start(both()), { type: 'SET_SIDE', side: 'back' });
+    const replaced = run(viewingBack, { type: 'REPLACE_DRAFT', draft: oneSided() });
+    expect(replaced.side).toBe('front');
+  });
+
+  it('REPLACE_DRAFT keeps the side when the new draft still has a back', () => {
+    const viewingBack = run(start(both()), { type: 'SET_SIDE', side: 'back' });
+    expect(run(viewingBack, { type: 'REPLACE_DRAFT', draft: both() }).side).toBe('back');
+  });
+});

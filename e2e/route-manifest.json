@@ -252,6 +252,11 @@
       "archetype": "list"
     },
     {
+      "path": "/admissions/reports",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
       "path": "/admissions/applicants/$applicantId",
       "params": {
         "applicantId": "seeded"
@@ -518,7 +523,7 @@
       },
       "role": "admin",
       "archetype": "detail",
-      "overlays": ["send-reminder", "delete-student", "transfer-status"]
+      "overlays": ["send-reminder", "delete-student"]
     },
     {
       "path": "/students/$studentId/edit",

@@ -23,9 +23,12 @@ import { TabQueryState } from './tab-query-state';
 export interface EnrollmentTabProps {
   studentId: string;
   studentName: string;
+  /** The student's status. A student who has left gets no move/transfer action: the server
+   * refuses a new enrollment for them (409); bringing them back is "Readmit" in the header. */
+  enrollmentStatus: string;
 }
 
-export function EnrollmentTab({ studentId, studentName }: EnrollmentTabProps) {
+export function EnrollmentTab({ studentId, studentName, enrollmentStatus }: EnrollmentTabProps) {
   const { t } = useTranslation('students');
   // [26.5.2] Separate binding so `promotions` is actually loaded before
   // the override line renders — same reasoning `teachers-tab.tsx` gives
@@ -36,7 +39,7 @@ export function EnrollmentTab({ studentId, studentName }: EnrollmentTabProps) {
   useTranslation('promotions');
   const query = useStudentEnrollments(studentId);
   const overridesQuery = useStudentPromotionOverrides(studentId);
-  const canUpdate = useHasPermission(Permission.STUDENT_UPDATE);
+  const canUpdate = useHasPermission(Permission.STUDENT_UPDATE) && enrollmentStatus === 'ACTIVE';
   const [moveDialogOpen, setMoveDialogOpen] = React.useState(false);
 
   return (

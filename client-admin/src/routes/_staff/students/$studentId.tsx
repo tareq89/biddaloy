@@ -21,14 +21,17 @@ import { FinesTab } from './-detail/fines-tab';
 import { GuardiansTab } from './-detail/guardians-tab';
 import { HomeworkTab } from './-detail/homework-tab';
 import { InvoicesTab } from './-detail/invoices-tab';
+import { LeaveDialog } from './-detail/leave-dialog';
+import { NotesTab } from './-detail/notes-tab';
 import { OverviewTab } from './-detail/overview-tab';
 import { PaymentsTab } from './-detail/payments-tab';
 import { ProgramsPanel } from './-detail/programs-panel';
 import { PromotionOverrideBadge } from './-detail/promotion-override-badge';
+import { ReadmitDialog } from './-detail/readmit-dialog';
+import { RecordsTab } from './-detail/records-tab';
 import { RecurringFeesTab } from './-detail/recurring-fees-tab';
 import { ResultsPanel } from './-detail/results-panel';
 import { SubjectChoicesPanel } from './-detail/subject-choices-panel';
-import { TransferStatusDialog } from './-detail/transfer-status-dialog';
 import { SendReminderDialog } from './-send-reminder-dialog';
 
 const studentDetailSearchSchema = z.object({
@@ -91,6 +94,11 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
         'feeGeneration',
         'promotions',
         'programs',
+        // [39.x] Records/Notes tabs + Leave/Readmit dialogs read their copy
+        // from these; same suspend-the-whole-page reasoning as 'fees'.
+        'student-records',
+        'student-notes',
+        'student-lifecycle',
         'printHistory',
       ),
     ]),
@@ -114,6 +122,8 @@ const TAB_IDS = [
   'subject-choices',
   'results',
   'programs',
+  'records',
+  'notes',
   'documents',
 ] as const;
 
@@ -125,10 +135,14 @@ function StudentDetailPage() {
   const [activeTab, setActiveTab] = useDetailShellTab(TAB_IDS);
 
   const [reminderDialogOpen, setReminderDialogOpen] = React.useState(false);
-  const [transferDialogOpen, setTransferDialogOpen] = React.useState(false);
+  const [leaveDialogOpen, setLeaveDialogOpen] = React.useState(false);
+  const [readmitDialogOpen, setReadmitDialogOpen] = React.useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
 
   const canUpdate = useHasPermission(Permission.STUDENT_UPDATE);
+  const canManageLifecycle = useHasPermission(Permission.STUDENT_LIFECYCLE_MANAGE);
+  const canReadRecords = useHasPermission(Permission.STUDENT_RECORDS_READ);
+  const canReadNotes = useHasPermission(Permission.STUDENT_NOTES_READ);
   const canDelete = useHasPermission(Permission.STUDENT_DELETE);
   const canCollectFees = useHasPermission(Permission.FEE_COLLECT);
   const canSendReminder = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
@@ -139,6 +153,20 @@ function StudentDetailPage() {
   // amount on this page would silently fall back to the context's
   // hardcoded default region rather than the active tenant's actual one.
   const regionConfig = useTenantRegionConfig();
+
+  const isActive = studentQuery.data?.enrollment_status === EnrollmentStatus.ACTIVE;
+
+  // Leave <-> Readmit swaps the header action, so the button that opened the
+  // dialog unmounts and focus would fall to <body>. Remember the replacement
+  // and focus it once the status has flipped AND the dialog has closed
+  // (focus is still trapped in the dialog while the refetch lands).
+  const pendingFocus = React.useRef<{ target: string; wasActive: boolean } | null>(null);
+  React.useEffect(() => {
+    const pending = pendingFocus.current;
+    if (!pending || pending.wasActive === isActive || leaveDialogOpen || readmitDialogOpen) return;
+    pendingFocus.current = null;
+    document.querySelector<HTMLElement>(`[data-action-id="${pending.target}"]`)?.focus();
+  }, [isActive, leaveDialogOpen, readmitDialogOpen]);
 
   return (
     <RegionConfigProvider value={regionConfig}>
@@ -189,6 +217,28 @@ function StudentDetailPage() {
                   onClick: () =>
                     void navigate({ to: '/students/$studentId/edit', params: { studentId } }),
                 },
+                // Secondary = a real button in the header (Tab-reachable), not
+                // buried in "More actions". Status changes only via these events.
+                {
+                  id: 'record-leaving',
+                  label: t('detail.actions.recordLeaving'),
+                  allowed: canManageLifecycle && isActive,
+                  priority: 'secondary',
+                  onClick: () => {
+                    pendingFocus.current = { target: 'readmit', wasActive: true };
+                    setLeaveDialogOpen(true);
+                  },
+                },
+                {
+                  id: 'readmit',
+                  label: t('detail.actions.readmit'),
+                  allowed: canManageLifecycle && !isActive,
+                  priority: 'secondary',
+                  onClick: () => {
+                    pendingFocus.current = { target: 'record-leaving', wasActive: false };
+                    setReadmitDialogOpen(true);
+                  },
+                },
                 {
                   id: 'collect-fees',
                   label: t('detail.actions.collectFees'),
@@ -203,13 +253,6 @@ function StudentDetailPage() {
                   allowed: canSendReminder,
                   priority: 'tertiary',
                   onClick: () => setReminderDialogOpen(true),
-                },
-                {
-                  id: 'transfer-status',
-                  label: t('detail.actions.transferStatus'),
-                  allowed: canUpdate,
-                  priority: 'tertiary',
-                  onClick: () => setTransferDialogOpen(true),
                 },
                 {
                   id: 'print-id-card',
@@ -250,6 +293,7 @@ function StudentDetailPage() {
                     <EnrollmentTab
                       studentId={studentId}
                       studentName={studentQuery.data.full_name}
+                      enrollmentStatus={studentQuery.data.enrollment_status}
                     />
                   ),
                 },
@@ -326,6 +370,24 @@ function StudentDetailPage() {
                   label: t('detail.tabs.programs', { ns: 'programs' }),
                   content: <ProgramsPanel studentId={studentId} />,
                 },
+                ...(canReadRecords
+                  ? [
+                      {
+                        id: 'records',
+                        label: t('detail.tabs.records'),
+                        content: <RecordsTab studentId={studentId} />,
+                      },
+                    ]
+                  : []),
+                ...(canReadNotes
+                  ? [
+                      {
+                        id: 'notes',
+                        label: t('detail.tabs.notes'),
+                        content: <NotesTab studentId={studentId} />,
+                      },
+                    ]
+                  : []),
                 ...(canPrint
                   ? [
                       {
@@ -348,12 +410,17 @@ function StudentDetailPage() {
                 // clear the way the list page's bulk send does.
               }}
             />
-            <TransferStatusDialog
-              open={transferDialogOpen}
-              onOpenChange={setTransferDialogOpen}
+            <LeaveDialog
+              open={leaveDialogOpen}
+              onOpenChange={setLeaveDialogOpen}
               studentId={studentId}
               studentName={studentQuery.data.full_name}
-              currentStatus={studentQuery.data.enrollment_status}
+            />
+            <ReadmitDialog
+              open={readmitDialogOpen}
+              onOpenChange={setReadmitDialogOpen}
+              studentId={studentId}
+              studentName={studentQuery.data.full_name}
             />
             <DeleteStudentDialog
               open={deleteDialogOpen}

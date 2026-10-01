@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CommunicationMedium, EnrollmentStatus } from '@biddaloy/shared';
+import { BLOOD_GROUPS } from '../../../students/dto/students.dto';
 import { Student } from '../../../students/entities/student.entity';
 import type { Guardian } from '../../../students/entities/guardian.entity';
 import { cellText, toCell } from '../../codec/cell-format';
@@ -81,6 +82,11 @@ function makeStudent(overrides: Partial<Student> = {}): Student {
     date_of_birth: null,
     gender: null,
     home_address: null,
+    religion: null,
+    birth_reg_no: null,
+    health_notes: null,
+    father_name: null,
+    mother_name: null,
     preferred_communication: CommunicationMedium.SMS,
     enrollment_status: EnrollmentStatus.ACTIVE,
     tenant_id: TENANT_ID,
@@ -115,7 +121,7 @@ describe('studentsTab shape', () => {
   it('is registered through the people barrel, after guardians', () => {
     expect(peopleTabs).toContain(studentsTab);
     expect(peopleTabs.indexOf(guardiansTab)).toBeLessThan(peopleTabs.indexOf(studentsTab));
-    expect(peopleTabs.map((t) => t.name).slice(-6)).toEqual([
+    expect(peopleTabs.map((t) => t.name).slice(-9)).toEqual([
       'guardians',
       'students',
       'enrollments',
@@ -123,6 +129,10 @@ describe('studentsTab shape', () => {
       'admission_intakes',
       'admission_applicants',
       'admission_evaluations',
+      // [39.1.3] student child tabs appended after the admission tabs.
+      'student_lifecycle_events',
+      'student_notes',
+      'student_public_exams',
     ]);
   });
 
@@ -239,6 +249,11 @@ describe('round-trip', () => {
       date_of_birth: null,
       gender: null,
       home_address: null,
+      religion: null,
+      birth_reg_no: null,
+      health_notes: null,
+      father_name: null,
+      mother_name: null,
       preferred_communication: CommunicationMedium.SMS,
       enrollment_status: EnrollmentStatus.ACTIVE,
       guardian_ids: expect.arrayContaining([GUARDIAN_1, GUARDIAN_2]),
@@ -374,6 +389,21 @@ describe('fromRow validation', () => {
     const err = errors.find((e) => e.column === 'enrollment_status');
     expect(err).toBeDefined();
     for (const value of Object.values(EnrollmentStatus)) {
+      expect(err!.message).toContain(value);
+    }
+  });
+
+  it('a blood_group outside the allowlist yields a RowError listing the allowed values', () => {
+    const student = makeStudent();
+    const cells = toCells(student);
+    cells.blood_group = 'C+';
+
+    const result = studentsTab.fromRow(cells, 7, importCtx());
+    expect('errors' in result).toBe(true);
+    const errors = (result as { errors: RowError[] }).errors;
+    const err = errors.find((e) => e.column === 'blood_group');
+    expect(err).toBeDefined();
+    for (const value of BLOOD_GROUPS) {
       expect(err!.message).toContain(value);
     }
   });

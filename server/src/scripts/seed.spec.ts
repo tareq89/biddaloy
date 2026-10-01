@@ -63,6 +63,11 @@ import type { LeavePolicy } from '../modules/leave/entities/leave-policy.entity'
 import type { LeaveRecord } from '../modules/leave/entities/leave-record.entity';
 import { seedAccounts, type SeedAccountRepositories } from './seed.accounts';
 import { ensureDemoOrganisation } from './seed.util';
+import {
+  ensureStudentLifecycleSeed,
+  type StudentLifecycleSeedRepositories,
+} from './seed.lifecycle';
+import { SEED_LIFECYCLE_STUDENTS, SEED_TRANSFER_DESTINATION } from '../../../e2e/seed-contract';
 
 /**
  * A deliberately small in-memory stand-in for a TypeORM repository. It only
@@ -491,5 +496,92 @@ describe('seedAccounts', () => {
     await expect(
       seedAccounts(repos, noVocabSchool as unknown as School, 'admin@school.com', 'hash'),
     ).rejects.toThrow(/Class 7.*shift "Morning"/);
+  });
+});
+
+describe('ensureStudentLifecycleSeed [39.1.4]', () => {
+  const TENANT = 'school-default';
+
+  function setup() {
+    let now = 0;
+    const clock = { tick: () => new Date(1_800_000_000_000 + (now += 1000)) };
+    const fake = (prefix: string) => new FakeRepo<Record<string, unknown>>(clock, prefix);
+    const students = fake('student');
+    const enrollments = fake('enrollment');
+    const years = fake('year');
+    const events = fake('event');
+    const notes = fake('note');
+    const exams = fake('exam');
+    const year1 = years.create({ tenant_id: TENANT, name: '2026-2027' });
+    void years.save(year1);
+    for (let n = 1; n <= 5; n += 1) {
+      const s = students.create({
+        tenant_id: TENANT,
+        registration_number: `2026-2027-000${n}`,
+        father_name: null,
+        mother_name: null,
+        religion: null,
+        birth_reg_no: null,
+        health_notes: null,
+      });
+      void students.save(s);
+      void enrollments.save(
+        enrollments.create({ tenant_id: TENANT, student_id: s.id, academic_year_id: year1.id }),
+      );
+    }
+    const repos = {
+      studentRepository: students.asRepository(),
+      enrollmentRepository: enrollments.asRepository(),
+      academicYearRepository: years.asRepository(),
+      lifecycleEventRepository: events.asRepository(),
+      noteRepository: notes.asRepository(),
+      publicExamRepository: exams.asRepository(),
+    } as unknown as StudentLifecycleSeedRepositories;
+    return { repos, students, enrollments, events, notes, exams };
+  }
+
+  it('seeds events, notes, exams and student columns, and matches the e2e contract', async () => {
+    const { repos, students, enrollments, events, notes, exams } = setup();
+
+    await ensureStudentLifecycleSeed(repos, TENANT, 'admin-1');
+
+    expect(events.rows.map((e) => e.event_type).sort()).toEqual([
+      'GRADUATED',
+      'READMITTED',
+      'TRANSFERRED_OUT',
+      'WITHDRAWN',
+    ]);
+    // Every event's year must equal the year of the enrollment it points at.
+    for (const e of events.rows) {
+      const enrollment = enrollments.rows.find((x) => x.id === e.enrollment_id);
+      expect(enrollment?.academic_year_id).toBe(e.academic_year_id);
+      expect(enrollment?.student_id).toBe(e.student_id);
+    }
+    expect(events.rows.every((e) => e.reason && e.recorded_by_user_id === 'admin-1')).toBe(true);
+    expect(events.rows.find((e) => e.event_type === 'TRANSFERRED_OUT')?.destination).toBe(
+      SEED_TRANSFER_DESTINATION,
+    );
+    expect(notes.rows).toHaveLength(2);
+    expect(exams.rows.map((e) => e.exam_type).sort()).toEqual(['JSC', 'SSC']);
+    expect(students.rows.filter((s) => s.father_name && s.birth_reg_no)).toHaveLength(3);
+    const byReg = (r: string) => students.rows.find((s) => s.registration_number === r)?.id;
+    expect(events.rows.find((e) => e.event_type === 'WITHDRAWN')?.student_id).toBe(
+      byReg(SEED_LIFECYCLE_STUDENTS.withdrawnThenReadmitted),
+    );
+    expect(events.rows.find((e) => e.event_type === 'TRANSFERRED_OUT')?.student_id).toBe(
+      byReg(SEED_LIFECYCLE_STUDENTS.transferredOut),
+    );
+    expect(events.rows.find((e) => e.event_type === 'GRADUATED')?.student_id).toBe(
+      byReg(SEED_LIFECYCLE_STUDENTS.graduated),
+    );
+  });
+
+  it('is idempotent: a second run adds no rows', async () => {
+    const { repos, events, notes, exams } = setup();
+
+    await ensureStudentLifecycleSeed(repos, TENANT, 'admin-1');
+    await ensureStudentLifecycleSeed(repos, TENANT, 'admin-1');
+
+    expect([events.rows.length, notes.rows.length, exams.rows.length]).toEqual([4, 2, 2]);
   });
 });

@@ -240,6 +240,39 @@ describe('print_template_versions tab', () => {
     );
   });
 
+  describe('diffFields', () => {
+    const row = (is_current: boolean) => {
+      const out = printTemplateVersionsTab.fromRow(
+        cells({ is_current: String(is_current) }),
+        2,
+        ctx(),
+      );
+      if (!('row' in out)) throw new Error('row expected');
+      return out.row;
+    };
+    const existing = (currentVersionId: string | null, definition: unknown) =>
+      ({ id: 'v2', definition, template: { current_version_id: currentVersionId } }) as never;
+
+    it('reports is_current when an identical version becomes the current one', () => {
+      const r = row(true);
+      expect(printTemplateVersionsTab.diffFields(r, existing('v1', r.definition))).toEqual([
+        'is_current',
+      ]);
+    });
+
+    it('reports nothing when the version is already current and the definition matches', () => {
+      const r = row(true);
+      expect(printTemplateVersionsTab.diffFields(r, existing('v2', r.definition))).toEqual([]);
+    });
+
+    it('reports the definition when it differs', () => {
+      const r = row(false);
+      expect(printTemplateVersionsTab.diffFields(r, existing('v1', { front: {} }))).toEqual([
+        'definition',
+      ]);
+    });
+  });
+
   it('never deletes a published version', async () => {
     expect(printTemplateVersionsTab.deleteByAbsence).toBe(false);
     await expect(printTemplateVersionsTab.remove({} as never, {} as never)).rejects.toThrow(

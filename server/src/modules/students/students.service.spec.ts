@@ -1,9 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { PayloadTooLargeException } from '@nestjs/common';
+import { ForbiddenException, PayloadTooLargeException } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+import { Permission, UserRole, roleHasPermission } from '@biddaloy/shared';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { StudentService } from './students.service';
+import { StudentService, assertCanWriteProfileFields, redactHealthNotes } from './students.service';
+import { CreateStudentDto, UpdateStudentDto } from './dto/students.dto';
 import { Student } from './entities/student.entity';
+import { AuditService } from '../audit/audit.service';
 import { Guardian } from './entities/guardian.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Class } from '../academics/entities/class.entity';
@@ -52,6 +57,7 @@ describe('StudentService.findAllIds', () => {
         { provide: getRepositoryToken(Guardian), useValue: {} },
         { provide: getRepositoryToken(ClassSection), useValue: {} },
         { provide: getRepositoryToken(Class), useValue: {} },
+        { provide: AuditService, useValue: { record: vi.fn() } },
       ],
     }).compile();
 
@@ -80,5 +86,87 @@ describe('StudentService.findAllIds', () => {
 
     expect(result.total).toBe(5000);
     expect(result.ids).toHaveLength(5000);
+  });
+});
+
+/** [39.2.1] Student profile fields: validation + permission split. */
+describe('student profile fields', () => {
+  const errorsFor = async (cls: any, body: object) =>
+    (await validate(plainToInstance(cls, body))).map((e) => e.property);
+
+  it('accepts all five fields on update, trimmed', async () => {
+    const dto = plainToInstance(UpdateStudentDto, {
+      religion: '  Islam ',
+      birth_reg_no: ' 12345678901234567 ',
+      health_notes: 'Asthma',
+      father_name: 'A',
+      mother_name: 'B',
+    });
+    expect(await validate(dto)).toHaveLength(0);
+    expect(dto.religion).toBe('Islam');
+    expect(dto.birth_reg_no).toBe('12345678901234567');
+  });
+
+  it('rejects birth_reg_no that is not 10-17 digits', async () => {
+    for (const bad of ['123456789', '123456789012345678', '12345abcde12']) {
+      expect(await errorsFor(UpdateStudentDto, { birth_reg_no: bad })).toContain('birth_reg_no');
+    }
+    expect(
+      await errorsFor(CreateStudentDto, {
+        class_section_id: 'x',
+        full_name: 'n',
+        birth_reg_no: '12',
+      }),
+    ).toContain('birth_reg_no');
+  });
+
+  it('enforces max lengths (200 / health_notes 2000)', async () => {
+    expect(await errorsFor(UpdateStudentDto, { father_name: 'a'.repeat(201) })).toContain(
+      'father_name',
+    );
+    expect(await errorsFor(UpdateStudentDto, { health_notes: 'a'.repeat(2001) })).toContain(
+      'health_notes',
+    );
+    expect(await errorsFor(UpdateStudentDto, { health_notes: 'a'.repeat(2000) })).toHaveLength(0);
+  });
+
+  it('allows null to clear a field on update', async () => {
+    expect(await errorsFor(UpdateStudentDto, { religion: null, birth_reg_no: null })).toHaveLength(
+      0,
+    );
+  });
+
+  it('PATCH with profile fields is 403 without STUDENT_RECORDS_WRITE, other fields still fine', () => {
+    // ACCOUNTANT has STUDENT_UPDATE but not RECORDS_WRITE.
+    const can = roleHasPermission(UserRole.ACCOUNTANT, Permission.STUDENT_RECORDS_WRITE);
+    expect(can).toBe(false);
+    expect(() => assertCanWriteProfileFields({ religion: 'x' } as any, can)).toThrow(
+      ForbiddenException,
+    );
+    expect(() => assertCanWriteProfileFields({ full_name: 'x' } as any, can)).not.toThrow();
+    expect(() => assertCanWriteProfileFields({ religion: 'x' } as any, true)).not.toThrow();
+  });
+
+  it('an explicit null still counts as a write attempt', () => {
+    expect(() => assertCanWriteProfileFields({ health_notes: null } as any, false)).toThrow(
+      ForbiddenException,
+    );
+  });
+
+  it('redactHealthNotes strips from one, a list and a page unless RECORDS_READ', () => {
+    const mk = () => ({ id: '1', health_notes: 'secret' });
+    expect(redactHealthNotes(mk(), false)).not.toHaveProperty('health_notes');
+    expect(redactHealthNotes([mk(), mk()], false).every((s) => !('health_notes' in s))).toBe(true);
+    expect(redactHealthNotes({ data: [mk()] }, false).data[0]).not.toHaveProperty('health_notes');
+    expect(redactHealthNotes(mk(), true).health_notes).toBe('secret');
+  });
+
+  it('redactHealthNotes also strips children nested under a guardian, alone or in a page (D14)', () => {
+    const guardian = () => ({ id: 'g', students: [{ id: 's1', health_notes: 'secret' }] });
+    expect(redactHealthNotes(guardian(), false).students[0]).not.toHaveProperty('health_notes');
+    expect(redactHealthNotes({ data: [guardian()] }, false).data[0].students[0]).not.toHaveProperty(
+      'health_notes',
+    );
+    expect(redactHealthNotes(guardian(), true).students[0].health_notes).toBe('secret');
   });
 });

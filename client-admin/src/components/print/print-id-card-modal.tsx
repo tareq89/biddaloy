@@ -19,9 +19,10 @@ import {
   useClassSections,
   useHasPermission,
   useStudents,
-  useUsers,
+  usersQueryOptions,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 
 /** What the modal decided. `ids` is a comma list of student ids (students) or user ids (staff). */
@@ -47,21 +48,34 @@ export function PrintIdCardModal({
   const { t } = useTranslation('printPreview');
   // D18: a staff card exposes HR data, so the Staff choice needs STAFF_HR_READ.
   const canPrintStaff = useHasPermission(Permission.STAFF_HR_READ);
-  const [type, setType] = React.useState<PrintSubjectType>(
-    initialType === 'STAFF' && !canPrintStaff ? 'STUDENT' : initialType,
-  );
+  const [chosenType, setType] = React.useState<PrintSubjectType>(initialType);
   const [search, setSearch] = React.useState('');
   const [picked, setPicked] = React.useState<Map<string, string>>(new Map());
   const [classId, setClassId] = React.useState('');
   const [sectionId, setSectionId] = React.useState('');
 
+  // Staff without (or no longer with) STAFF_HR_READ: fall back to Students and drop what was
+  // chosen for Staff. `type` is derived so no query ever sees STAFF in the meantime; the state
+  // reset below is React's supported adjust-state-during-render pattern (no effect, no flash).
+  const type: PrintSubjectType = chosenType === 'STAFF' && !canPrintStaff ? 'STUDENT' : chosenType;
+  if (chosenType === 'STAFF' && !canPrintStaff) {
+    setType('STUDENT');
+    setPicked(new Map());
+    setSearch('');
+  }
+
   const students = useStudents(
     { limit: PICK_LIMIT, ...(search.trim() ? { search: search.trim() } : {}) },
     { enabled: type === 'STUDENT' },
   );
-  const staff = useUsers({
-    limit: PICK_LIMIT,
-    ...(search.trim() ? { search: search.trim() } : {}),
+  // Staff are listed only on the Staff tab: this modal opens on Students, and /users needs a
+  // permission a student-only printer may not have.
+  const staff = useQuery({
+    ...usersQueryOptions({
+      limit: PICK_LIMIT,
+      ...(search.trim() ? { search: search.trim() } : {}),
+    }),
+    enabled: type === 'STAFF',
   });
   const classes = useClasses();
   const sections = useClassSections(classId || undefined);

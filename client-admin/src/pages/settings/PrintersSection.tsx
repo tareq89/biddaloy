@@ -81,6 +81,8 @@ export function PrintersSection() {
     if (!archiveTarget) return;
     archive.mutate(archiveTarget.id, {
       onSuccess: () => toast.success(t('printers.archived')),
+      // The global MutationCache only toasts a 403, so any other failure would be silent.
+      onError: () => toast.error(t('printers.archiveError')),
       onSettled: () => setArchiveTarget(undefined),
     });
   }

@@ -8,12 +8,24 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { PrintersSection } from './PrintersSection';
 
-// Only the print window is mocked: opening a real tab isn't possible in jsdom.
+// Only the print window is mocked: opening a real tab isn't possible in jsdom. `toast.error` is
+// a spy because no Toaster is mounted in tests.
 const openPrintWindow = vi.hoisted(() => vi.fn());
-vi.mock('@biddaloy/ui/components', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@biddaloy/ui/components')>()),
-  openPrintWindow,
-}));
+const toastError = vi.hoisted(() => vi.fn());
+vi.mock('@biddaloy/ui/components', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@biddaloy/ui/components')>();
+  return {
+    ...actual,
+    openPrintWindow,
+    toast: Object.assign(
+      (...args: Parameters<typeof actual.toast>) => actual.toast(...args),
+      actual.toast,
+      {
+        error: toastError,
+      },
+    ),
+  };
+});
 
 const printer = (over: Partial<PrinterRow> = {}): PrinterRow => ({
   id: 'p-1',
@@ -41,6 +53,7 @@ const render = (role = 'ADMIN') =>
 describe('PrintersSection', () => {
   afterEach(async () => {
     openPrintWindow.mockReset();
+    toastError.mockReset();
     await cleanupTestState();
   });
 
@@ -164,6 +177,25 @@ describe('PrintersSection', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Archive' }));
 
     await waitFor(() => expect(archived).toBe(1));
+  });
+
+  it('tells the person when archiving fails, instead of closing the dialog silently', async () => {
+    listPrinters([printer()]);
+    server.use(
+      http.post('/api/v1/printers/p-1/archive', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+      ),
+    );
+    const { user } = render();
+    await waitFor(() => expect(screen.getByText('Front office')).toBeTruthy());
+
+    await user.click(screen.getByRole('button', { name: 'Archive' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Archive' }));
+
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith('Could not archive the printer. Try again.'),
+    );
   });
 
   it('is hidden without PRINT_TEMPLATE_MANAGE', () => {

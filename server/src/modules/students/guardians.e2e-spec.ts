@@ -29,6 +29,7 @@ describe('Guardians E2E', () => {
   let dataSource: DataSource;
   let adminToken: string;
   let studentToken: string;
+  let accountantToken: string;
 
   const TENANT_ID = SEED_TENANT_ID;
 
@@ -70,6 +71,20 @@ describe('Guardians E2E', () => {
       .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
       .expect(200);
     studentToken = studentLoginRes.body.access_token;
+
+    // [39.2.4] An ACCOUNTANT reads guardians (GUARDIAN_READ) but has no STUDENT_RECORDS_READ.
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ($1, $2, $3, NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+      [SEED_ADMIN_USER_ID, TENANT_ID, UserRole.ACCOUNTANT],
+    );
+    // Re-login so the token carries the new membership (same as the STUDENT one above).
+    const accountantLoginRes = await supertest(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+      .expect(200);
+    accountantToken = accountantLoginRes.body.access_token;
   }, 60000);
 
   afterAll(async () => {
@@ -557,6 +572,64 @@ describe('Guardians E2E', () => {
         .expect(401);
 
       expect(res.body.message).toContain('Requires one of roles');
+    });
+  });
+
+  // [39.2.4] D14 — a guardian response embeds its children; health_notes must not ride along
+  // for a caller without STUDENT_RECORDS_READ.
+  describe('health_notes on guardian responses', () => {
+    it('is hidden from an ACCOUNTANT on every route that embeds children, and visible to ADMIN', async () => {
+      const studentRes = await supertest(app.getHttpServer())
+        .post('/api/v1/students')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({
+          full_name: 'Health Notes Student',
+          class_section_id: SEED_SECTION_1_ID,
+          health_notes: 'severe peanut allergy',
+        })
+        .expect(201);
+      expect(studentRes.body.health_notes).toBe('severe peanut allergy');
+
+      const asAdmin = (req: supertest.Test) =>
+        req.set('Authorization', `Bearer ${adminToken}`).set('X-Tenant-ID', TENANT_ID);
+      const asAccountant = (req: supertest.Test) =>
+        req
+          .set('Authorization', `Bearer ${accountantToken}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .set('X-Role', UserRole.ACCOUNTANT);
+
+      const created = await asAccountant(supertest(app.getHttpServer()).post('/api/v1/guardians'))
+        .send({
+          full_name: 'Accountant Made Guardian',
+          relationship: 'Mother',
+          student_ids: [studentRes.body.id],
+        })
+        .expect(201);
+      const id = created.body.id;
+      expect(created.body.students).toHaveLength(1);
+
+      const list = await asAccountant(
+        supertest(app.getHttpServer()).get('/api/v1/guardians'),
+      ).expect(200);
+      const one = await asAccountant(
+        supertest(app.getHttpServer()).get(`/api/v1/guardians/${id}`),
+      ).expect(200);
+      const updated = await asAccountant(
+        supertest(app.getHttpServer()).patch(`/api/v1/guardians/${id}`),
+      )
+        .send({ occupation: 'Teacher' })
+        .expect(200);
+
+      for (const body of [created.body, list.body, one.body, updated.body]) {
+        expect(JSON.stringify(body)).not.toContain('peanut');
+        expect(JSON.stringify(body)).not.toContain('health_notes');
+      }
+
+      const adminView = await asAdmin(
+        supertest(app.getHttpServer()).get(`/api/v1/guardians/${id}`),
+      ).expect(200);
+      expect(adminView.body.students[0].health_notes).toBe('severe peanut allergy');
     });
   });
 });

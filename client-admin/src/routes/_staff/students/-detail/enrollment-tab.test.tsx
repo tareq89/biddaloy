@@ -29,15 +29,36 @@ function enrollment(overrides: Partial<Record<string, unknown>> = {}) {
   };
 }
 
-function renderTab() {
-  return renderWithProviders(<EnrollmentTab studentId={STUDENT_ID} studentName="Test Student" />, {
-    locale: 'en',
-    role: 'ADMIN',
-    tenantId: 'tenant-1',
-  });
+function renderTab(enrollmentStatus = 'ACTIVE') {
+  return renderWithProviders(
+    <EnrollmentTab
+      studentId={STUDENT_ID}
+      studentName="Test Student"
+      enrollmentStatus={enrollmentStatus}
+    />,
+    { locale: 'en', role: 'ADMIN', tenantId: 'tenant-1' },
+  );
 }
 
 describe('EnrollmentTab', () => {
+  it('offers the move action for an ACTIVE student but not for one who has left', async () => {
+    server.use(
+      http.get('/api/v1/enrollments/student/:studentId', () => HttpResponse.json([enrollment()])),
+      http.get('/api/v1/students/:studentId/promotion-overrides', () => HttpResponse.json([])),
+    );
+
+    const active = renderTab('ACTIVE');
+    expect(await active.findByRole('button', { name: 'Move class' })).toBeTruthy();
+    active.unmount();
+
+    for (const status of ['INACTIVE', 'TRANSFERRED', 'GRADUATED']) {
+      const left = renderTab(status);
+      await left.findByText('2025-2026');
+      expect(left.queryByRole('button', { name: 'Move class' })).toBeNull();
+      left.unmount();
+    }
+  });
+
   it('renders an override line under the enrollment matching its target year', async () => {
     server.use(
       http.get('/api/v1/enrollments/student/:studentId', () =>

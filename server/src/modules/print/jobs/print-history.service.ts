@@ -95,6 +95,13 @@ export class PrintHistoryService {
       [caller.tenantId, itemId],
     );
     if (rows.length === 0) throw new NotFoundException('Print item not found');
+    // Staff snapshots are HR data: PRINT_HISTORY_READ alone must not reveal them.
+    if (
+      rows[0].subject_type === 'STAFF' &&
+      !roleHasPermission(caller.role, Permission.STAFF_HR_READ)
+    ) {
+      throw new ForbiddenException('Missing permission: STAFF_HR_READ');
+    }
     return rows[0];
   }
 

@@ -9,6 +9,9 @@ import { enrollmentsTab } from './enrollments.tab';
 import { admissionIntakesTab } from './admission-intakes.tab';
 import { admissionApplicantsTab } from './admission-applicants.tab';
 import { admissionEvaluationsTab } from './admission-evaluations.tab';
+import { studentLifecycleEventsTab } from './student-lifecycle-events.tab';
+import { studentNotesTab } from './student-notes.tab';
+import { studentPublicExamsTab } from './student-public-exams.tab';
 import { designationTab } from './designation.tab';
 import { staffHrRecordTab } from './staff-hr-record.tab';
 import { staffDesignationHistoryTab } from './staff-designation-history.tab';
@@ -67,6 +70,10 @@ export const peopleTabs: TabSpec<any, any>[] = [
   admissionIntakesTab,
   admissionApplicantsTab,
   admissionEvaluationsTab,
+  // [39.1.3] After `students`, `enrollments` and (via the academics lane) `academic_years`.
+  studentLifecycleEventsTab,
+  studentNotesTab,
+  studentPublicExamsTab,
 ];
 
 export {
@@ -80,6 +87,9 @@ export {
   admissionIntakesTab,
   admissionApplicantsTab,
   admissionEvaluationsTab,
+  studentLifecycleEventsTab,
+  studentNotesTab,
+  studentPublicExamsTab,
   designationTab,
   staffHrRecordTab,
   staffDesignationHistoryTab,
@@ -102,3 +112,6 @@ export type { EnrollmentRow } from './enrollments.tab';
 export type { AdmissionIntakeRow } from './admission-intakes.tab';
 export type { AdmissionApplicantRow } from './admission-applicants.tab';
 export type { AdmissionEvaluationRow } from './admission-evaluations.tab';
+export type { StudentLifecycleEventRow } from './student-lifecycle-events.tab';
+export type { StudentNoteRow } from './student-notes.tab';
+export type { StudentPublicExamRow } from './student-public-exams.tab';

@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
+  IsDateString,
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
@@ -66,14 +67,14 @@ export class QueryPrintHistoryDto {
   @ApiPropertyOptional() @IsOptional() @IsUUID() printed_by?: string;
   @ApiPropertyOptional({ description: 'ISO date or datetime, inclusive' })
   @IsOptional()
-  @IsString()
+  @IsDateString({ strict: true })
   @MaxLength(40)
   from?: string;
   @ApiPropertyOptional({
     description: 'ISO date or datetime, inclusive (a date covers the whole day)',
   })
   @IsOptional()
-  @IsString()
+  @IsDateString({ strict: true })
   @MaxLength(40)
   to?: string;
   @ApiPropertyOptional({ enum: ['OPEN', 'CONFIRMED'] })

@@ -126,11 +126,11 @@ const NON_LOCAL_URL = /url\(\s*(?!['"]?\s*#)/i;
 const BAD_CSS = /[<&\\]|image-set\(|expression\(/i;
 
 function cleanCss(css: string): string {
-  if (BAD_CSS.test(css)) throw new BadRequestException('SVG <style> has unsupported content');
-  return css
-    .replace(/@import[^;]*;?/gi, '')
-    .replace(/url\(\s*(?!['"]?\s*#)[^)]*\)/gi, '')
-    .replace(/>/g, '&gt;');
+  // Reject rather than strip: one strip pass can rebuild the token (`uurl(x)rl(https://evil)`).
+  if (BAD_CSS.test(css) || /@import/i.test(css) || NON_LOCAL_URL.test(css)) {
+    throw new BadRequestException('SVG <style> has unsupported content');
+  }
+  return css.replace(/>/g, '&gt;');
 }
 
 function toPx(value: string | undefined): number | undefined {

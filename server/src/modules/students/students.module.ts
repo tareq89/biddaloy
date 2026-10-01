@@ -11,29 +11,67 @@ import { AuditModule } from '../audit/audit.module';
 // injectable without this — imported anyway so the dependency is visible
 // here rather than only discoverable by reading `bulk-upload.service.ts`.
 import { BulkImportModule } from '../bulk-import/bulk-import.module';
+import { EnrollmentModule } from '../enrollments/enrollments.module';
 import { StudentService, GuardianService } from './students.service';
 import { StudentBulkUploadService } from './bulk-upload.service';
 import { FamilyAccessService } from './family-access.service';
 import { StudentController } from './students.controller';
+import { StudentLifecycleEvent } from './entities/student-lifecycle-event.entity';
+import { StudentNote } from './entities/student-note.entity';
+import { StudentPublicExam } from './entities/student-public-exam.entity';
+import { StudentLifecycleService } from './student-lifecycle.service';
+import { StudentLifecycleController } from './student-lifecycle.controller';
+import { StudentNotesService } from './student-notes.service';
+import { StudentNotesController } from './student-notes.controller';
+import { StudentPublicExamsService } from './student-public-exams.service';
+import { StudentPublicExamsController } from './student-public-exams.controller';
 import { StudentPhotoController } from './student-photo.controller';
 import { StudentPhotoService } from './student-photo.service';
 import { StorageModule } from '../storage/storage.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Student, Guardian, Enrollment, ClassSection, Class, AcademicYear]),
+    TypeOrmModule.forFeature([
+      Student,
+      Guardian,
+      Enrollment,
+      ClassSection,
+      Class,
+      AcademicYear,
+      StudentLifecycleEvent,
+      StudentNote,
+      StudentPublicExam,
+    ]),
     AuditModule,
     StorageModule,
     BulkImportModule,
+    // Pre-wired so W2's lifecycle service can inject `EnrollmentService`
+    // without reopening this file (D29).
+    EnrollmentModule,
   ],
   providers: [
     StudentService,
     GuardianService,
     StudentBulkUploadService,
     FamilyAccessService,
+    StudentLifecycleService,
+    StudentNotesService,
+    StudentPublicExamsService,
     StudentPhotoService,
   ],
-  controllers: [StudentController, StudentPhotoController],
-  exports: [StudentService, GuardianService, StudentBulkUploadService, FamilyAccessService],
+  controllers: [
+    StudentController,
+    StudentLifecycleController,
+    StudentNotesController,
+    StudentPublicExamsController,
+    StudentPhotoController,
+  ],
+  exports: [
+    StudentService,
+    GuardianService,
+    StudentBulkUploadService,
+    FamilyAccessService,
+    StudentLifecycleService,
+  ],
 })
 export class StudentModule {}

@@ -210,7 +210,8 @@ export function StudentForm<TInput>({
               size="sm"
               onClick={() => {
                 const draft = autosave.restoreDraft();
-                if (draft) form.reset(draft);
+                // Drafts saved before a field existed omit it; fill from the defaults.
+                if (draft) form.reset({ ...initialValues, ...draft });
                 setDraftBannerVisible(false);
               }}
             >

@@ -107,6 +107,13 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.ADMISSION_REVIEW,
     label: { key: 'admissionApplicants' },
   },
+  // [39.4.2] Admission lifecycle report — gated like the route itself.
+  'people.admissionReports': {
+    id: 'people.admissionReports',
+    to: '/admissions/reports',
+    permission: Permission.STUDENT_LIFECYCLE_MANAGE,
+    label: { key: 'admissionReports' },
+  },
   // [29.0] Class/subject-teacher assignments, bulk-view across a class's
   // sections — `15-ux-principles.md` §3.1's "Teaching assignments (bulk
   // view)" line, gated on `CLASS_MANAGE` per D5 (same gate the class
@@ -379,6 +386,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
       STAFF_NAV_ITEMS['people.programs'],
       STAFF_NAV_ITEMS['people.admissionIntakes'],
       STAFF_NAV_ITEMS['people.admissionApplicants'],
+      STAFF_NAV_ITEMS['people.admissionReports'],
       STAFF_NAV_ITEMS['people.teachingAssignments'],
     ],
   },

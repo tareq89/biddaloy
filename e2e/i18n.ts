@@ -9,6 +9,7 @@
 
 import bnAcademicYears from '../ui/src/i18n/locales/bn/academicYears.json';
 import bnAdmissionPublic from '../ui/src/i18n/locales/bn/admission-public.json';
+import bnAdmissionReports from '../ui/src/i18n/locales/bn/admission-reports.json';
 import bnAdmissionStaffApplicants from '../ui/src/i18n/locales/bn/admission-staff-applicants.json';
 import bnAdmissionStaffIntakes from '../ui/src/i18n/locales/bn/admission-staff-intakes.json';
 import bnApproval from '../ui/src/i18n/locales/bn/approval.json';
@@ -47,11 +48,15 @@ import bnSeatPlansDetail from '../ui/src/i18n/locales/bn/seatPlansDetail.json';
 import bnSettings from '../ui/src/i18n/locales/bn/settings.json';
 import bnStaff from '../ui/src/i18n/locales/bn/staff.json';
 import bnStaffAttendance from '../ui/src/i18n/locales/bn/staffAttendance.json';
+import bnStudentLifecycle from '../ui/src/i18n/locales/bn/student-lifecycle.json';
+import bnStudentNotes from '../ui/src/i18n/locales/bn/student-notes.json';
+import bnStudentRecords from '../ui/src/i18n/locales/bn/student-records.json';
 import bnStudents from '../ui/src/i18n/locales/bn/students.json';
 import bnSyllabus from '../ui/src/i18n/locales/bn/syllabus.json';
 import bnTeacherAssignments from '../ui/src/i18n/locales/bn/teacherAssignments.json';
 import enAcademicYears from '../ui/src/i18n/locales/en/academicYears.json';
 import enAdmissionPublic from '../ui/src/i18n/locales/en/admission-public.json';
+import enAdmissionReports from '../ui/src/i18n/locales/en/admission-reports.json';
 import enAdmissionStaffApplicants from '../ui/src/i18n/locales/en/admission-staff-applicants.json';
 import enAdmissionStaffIntakes from '../ui/src/i18n/locales/en/admission-staff-intakes.json';
 import enApproval from '../ui/src/i18n/locales/en/approval.json';
@@ -90,6 +95,9 @@ import enSeatPlansDetail from '../ui/src/i18n/locales/en/seatPlansDetail.json';
 import enSettings from '../ui/src/i18n/locales/en/settings.json';
 import enStaff from '../ui/src/i18n/locales/en/staff.json';
 import enStaffAttendance from '../ui/src/i18n/locales/en/staffAttendance.json';
+import enStudentLifecycle from '../ui/src/i18n/locales/en/student-lifecycle.json';
+import enStudentNotes from '../ui/src/i18n/locales/en/student-notes.json';
+import enStudentRecords from '../ui/src/i18n/locales/en/student-records.json';
 import enStudents from '../ui/src/i18n/locales/en/students.json';
 import enSyllabus from '../ui/src/i18n/locales/en/syllabus.json';
 import enTeacherAssignments from '../ui/src/i18n/locales/en/teacherAssignments.json';
@@ -98,6 +106,7 @@ const catalogs = {
   bn: {
     academicYears: bnAcademicYears,
     'admission-public': bnAdmissionPublic,
+    'admission-reports': bnAdmissionReports,
     'admission-staff-applicants': bnAdmissionStaffApplicants,
     'admission-staff-intakes': bnAdmissionStaffIntakes,
     approval: bnApproval,
@@ -136,6 +145,9 @@ const catalogs = {
     settings: bnSettings,
     staff: bnStaff,
     staffAttendance: bnStaffAttendance,
+    'student-lifecycle': bnStudentLifecycle,
+    'student-notes': bnStudentNotes,
+    'student-records': bnStudentRecords,
     students: bnStudents,
     syllabus: bnSyllabus,
     teacherAssignments: bnTeacherAssignments,
@@ -143,6 +155,7 @@ const catalogs = {
   en: {
     academicYears: enAcademicYears,
     'admission-public': enAdmissionPublic,
+    'admission-reports': enAdmissionReports,
     'admission-staff-applicants': enAdmissionStaffApplicants,
     'admission-staff-intakes': enAdmissionStaffIntakes,
     approval: enApproval,
@@ -181,6 +194,9 @@ const catalogs = {
     settings: enSettings,
     staff: enStaff,
     staffAttendance: enStaffAttendance,
+    'student-lifecycle': enStudentLifecycle,
+    'student-notes': enStudentNotes,
+    'student-records': enStudentRecords,
     students: enStudents,
     syllabus: enSyllabus,
     teacherAssignments: enTeacherAssignments,
