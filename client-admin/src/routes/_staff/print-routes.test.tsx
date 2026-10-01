@@ -239,6 +239,15 @@ describe('print routes [32.4.1]', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/dashboard'));
   });
 
+  it('a backslash-prefixed "from" is ignored too (pushState would throw on it)', async () => {
+    const { router } = render(
+      '/print/preview?kind=STUDENT_ID_CARD&subject_type=STUDENT&ids=a&from=%2F%5Cevil.example',
+    );
+    await screen.findByTestId('preview');
+    await userEvent.setup().click(screen.getByRole('button', { name: DONE }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/dashboard'));
+  });
+
   it('the preview\'s "no template" and "no printer" actions go to the right places', async () => {
     const { router } = render('/print/preview?kind=STUDENT_ID_CARD&subject_type=STUDENT&ids=a');
     const user = userEvent.setup();

@@ -25,7 +25,7 @@ const searchSchema = z.object({
   // An in-app path only: never navigate to an address typed into the URL.
   from: z
     .string()
-    .regex(/^\/(?!\/)/)
+    .regex(/^\/(?![/\\])/)
     .optional()
     .catch(undefined),
 });
