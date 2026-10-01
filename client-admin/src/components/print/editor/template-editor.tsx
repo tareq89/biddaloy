@@ -72,10 +72,16 @@ export function TemplateEditor(props: TemplateEditorProps) {
   const { t } = useTranslation('printEditor');
   const query = usePrintTemplate(props.templateId);
 
-  if (query.isPending) {
-    return <Skeleton role="status" aria-label={t('loading')} className="h-96 w-full" />;
+  // Only the first load can fail the screen: a refetch error (after publish / archive /
+  // duplicate invalidates this query) must not throw away an editor with unsaved work.
+  if (query.data === undefined) {
+    return query.isPending ? (
+      <Skeleton role="status" aria-label={t('loading')} className="h-96 w-full" />
+    ) : (
+      <ErrorState message={t('loadError')} onRetry={() => void query.refetch()} />
+    );
   }
-  if (query.isError || !query.data.draft) {
+  if (!query.data.draft) {
     return <ErrorState message={t('loadError')} onRetry={() => void query.refetch()} />;
   }
   // Keyed by id: opening another template starts a fresh editor and history.

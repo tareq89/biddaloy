@@ -182,6 +182,39 @@ function ColourField({
   );
 }
 
+/** Free text that commits when the field loses focus, not on every keystroke: each commit is an
+ * undo step and clears the redo stack, so typing a word would otherwise cost one Ctrl+Z per letter. */
+function TextField({
+  id,
+  label,
+  value,
+  onCommit,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onCommit: (value: string) => void;
+}) {
+  const [text, setText] = React.useState(value);
+  React.useEffect(() => setText(value), [value]);
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor={id} className="text-xs font-medium">
+        {label}
+      </label>
+      <Input
+        id={id}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={() => text !== value && onCommit(text)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+        }}
+      />
+    </div>
+  );
+}
+
 /* ---------------------------------------------------------------- the panel */
 
 export function PropertiesPanel({
@@ -287,16 +320,12 @@ export function PropertiesPanel({
               onChange={(field) => onChange({ field })}
             />
           ) : (
-            <div className="flex flex-col gap-1">
-              <label htmlFor={`${key}-text`} className="text-xs font-medium">
-                {t('properties.text')}
-              </label>
-              <Input
-                id={`${key}-text`}
-                value={element.text ?? ''}
-                onChange={(e) => onChange({ text: e.target.value })}
-              />
-            </div>
+            <TextField
+              id={`${key}-text`}
+              label={t('properties.text')}
+              value={element.text ?? ''}
+              onCommit={(text) => onChange({ text })}
+            />
           )}
 
           <Choice

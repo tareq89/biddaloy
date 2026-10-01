@@ -39,30 +39,39 @@ export function useDraftAutosave(
 
   const save = React.useCallback((): Promise<void> => {
     clearTimeout(timer.current);
+    // One PATCH at a time: a second one racing the first could land out of order and
+    // overwrite the newer draft with an older one. Wait, then save whatever is latest.
+    if (inFlight.current) return inFlight.current.catch(() => undefined).then(() => save());
     const toSave = latest.current;
     if (toSave === saved.current) {
       setStatus('saved');
       return Promise.resolve();
     }
     setStatus('saving');
-    const run = mutateAsync({ draft: toSave }).then(
-      () => {
-        saved.current = toSave;
-        // More edits arrived while this save was in flight: save those too.
-        if (latest.current !== toSave) return save();
-        setStatus('saved');
-      },
-      (error: unknown) => {
-        setStatus('error');
-        throw error;
-      },
-    );
+    const run = mutateAsync({ draft: toSave })
+      .then(
+        () => {
+          saved.current = toSave;
+        },
+        (error: unknown) => {
+          setStatus('error');
+          throw error;
+        },
+      )
+      .finally(() => {
+        inFlight.current = undefined;
+      });
     inFlight.current = run;
-    return run;
+    // More edits arrived while this save was in flight: save those too.
+    return run.then(() => (latest.current !== toSave ? save() : setStatus('saved')));
   }, [mutateAsync]);
 
   React.useEffect(() => {
-    if (draft === saved.current) return;
+    if (draft === saved.current) {
+      // Undone back to what the server holds: nothing to save, and nothing to lose.
+      setStatus((s) => (s === 'saving' ? s : 'saved'));
+      return;
+    }
     setStatus((s) => (s === 'saving' ? s : 'pending'));
     clearTimeout(timer.current);
     timer.current = setTimeout(() => {

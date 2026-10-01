@@ -1,6 +1,6 @@
 import '@biddaloy/ui/test';
 
-import type { PrintTemplateRow } from '@biddaloy/ui/hooks';
+import { printTemplateKeys, type PrintTemplateRow } from '@biddaloy/ui/hooks';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
@@ -190,6 +190,104 @@ describe('TemplateEditor', () => {
     const { user, onExit } = setup();
     await user.click(await screen.findByRole('button', { name: 'Back to templates' }));
     expect(onExit).toHaveBeenCalledOnce();
+  });
+
+  it('typing in the Text field is ONE undo step, committed when the field loses focus', async () => {
+    const { user } = setup();
+    await selectLayer(user);
+    const text = screen.getByLabelText<HTMLInputElement>('Text');
+
+    await user.clear(text);
+    await user.type(text, 'Hi there');
+    // Nothing is committed yet: the layer still carries the old text.
+    expect(layerButtons()).toHaveLength(1);
+    // Clicking the layer blurs the field (which commits it) and leaves focus where the
+    // editor's keyboard shortcuts apply, as it would for a person pressing Ctrl+Z next.
+    await user.click(layerButtons()[0]!);
+
+    await waitFor(() =>
+      expect(screen.queryAllByRole('button', { name: /“Hi there”/ })).not.toHaveLength(0),
+    );
+    await user.keyboard('{Control>}z{/Control}');
+    // One Ctrl+Z restores the original text, not "Hi ther".
+    await waitFor(() => expect(layerButtons()).toHaveLength(1));
+    expect(screen.getByLabelText<HTMLInputElement>('Text').value).toBe('Hello');
+  });
+
+  it('keeps the editor on screen when a later refetch of the template fails', async () => {
+    const { queryClient } = setup();
+    await screen.findByRole('heading', { name: 'Classic' });
+    server.use(
+      http.get('/api/v1/print-templates/t-1', () =>
+        HttpResponse.json({ message: 'no' }, { status: 500 }),
+      ),
+    );
+
+    void queryClient.invalidateQueries({ queryKey: printTemplateKeys.detail('t-1') });
+    // 5xx responses are retried with a backoff: wait for the refetch to really have failed,
+    // or the assertions below would pass before anything happened.
+    await waitFor(
+      () =>
+        expect(queryClient.getQueryState(printTemplateKeys.detail('t-1'))?.status).toBe('error'),
+      { timeout: 12000 },
+    );
+
+    expect(screen.getByRole('heading', { name: 'Classic' })).toBeTruthy();
+    expect(screen.queryByText('Could not load this template.')).toBeNull();
+  }, 20000);
+
+  it('undoing back to the saved draft before the autosave fires reads Saved and sends nothing', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { user, onExit } = setup();
+    await selectLayer(user);
+
+    await user.keyboard('{Delete}');
+    await screen.findByText('Unsaved changes…');
+    await user.keyboard('{Control>}z{/Control}');
+
+    expect(await screen.findByText('Saved')).toBeTruthy();
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(patches).toHaveLength(0);
+
+    // And leaving does not warn about changes that are not there.
+    await user.click(screen.getByRole('button', { name: 'Back to templates' }));
+    expect(onExit).toHaveBeenCalledOnce();
+  });
+
+  it('never has two saves in flight: a change made mid-save waits, then saves the latest draft', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let running = 0;
+    let maxRunning = 0;
+    const bodies: Array<{ draft: ReturnType<typeof draft> }> = [];
+    server.use(
+      http.patch('/api/v1/print-templates/t-1', async ({ request }) => {
+        running += 1;
+        maxRunning = Math.max(maxRunning, running);
+        bodies.push((await request.json()) as { draft: ReturnType<typeof draft> });
+        if (bodies.length === 1) await gate; // hold the first save open
+        running -= 1;
+        return HttpResponse.json(template());
+      }),
+    );
+    const { user } = setup();
+    await selectLayer(user);
+
+    await user.keyboard('{ArrowRight}');
+    await vi.advanceTimersByTimeAsync(1600); // first save starts, and is held open
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    await user.keyboard('{ArrowRight}');
+    await vi.advanceTimersByTimeAsync(1600); // the second wait ends while the first is in flight
+    expect(bodies).toHaveLength(1);
+
+    release();
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(maxRunning).toBe(1);
+    expect(bodies[0]!.draft.front.elements[0]!.x).toBe(10.5);
+    expect(bodies[1]!.draft.front.elements[0]!.x).toBe(11);
   });
 
   it('shows an error state with a retry when the template cannot be loaded', async () => {
