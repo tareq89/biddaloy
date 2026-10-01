@@ -237,6 +237,7 @@
     "archive": "Archive",
     "archiveConfirm": "Archive {{name}}? Past prints keep their record.",
     "archived": "Printer archived",
+    "archiveError": "Could not archive the printer. Try again.",
     "loadError": "Could not load the printers.",
     "empty": {
       "title": "Add your first printer",
