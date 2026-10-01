@@ -184,6 +184,36 @@ describe('stripActiveContent', () => {
     expect(inline).toContain('url(#g)');
   });
 
+  it('removes elements outside the SVG namespace, which would start their own fetch', () => {
+    const root = parse(
+      '<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/>' +
+        '<img xmlns="http://www.w3.org/1999/xhtml" src="https://evil.example/p.png"/></svg>',
+    );
+    stripActiveContent(root);
+    expect(root.querySelector('img')).toBeNull();
+    expect(root.querySelector('rect')).not.toBeNull();
+  });
+
+  it('removes the motion and discard animation elements, like animate and set', () => {
+    const root = parse(
+      '<svg xmlns="http://www.w3.org/2000/svg"><animateMotion/><animateTransform/><discard/>' +
+        '<rect width="1" height="1"/></svg>',
+    );
+    stripActiveContent(root);
+    expect(root.querySelector('animateMotion, animateTransform, discard')).toBeNull();
+    expect(root.querySelector('rect')).not.toBeNull();
+  });
+
+  it('drops CSS that hides a url( behind an escape, or uses image-set()', () => {
+    const root = parse(
+      '<svg xmlns="http://www.w3.org/2000/svg"><style>.a{fill:u\\rl(https://evil.example/a)}</style>' +
+        '<rect style="background:image-set(\'https://evil.example/b.png\' 1x)"/></svg>',
+    );
+    stripActiveContent(root);
+    expect(root.querySelector('style')?.textContent).toBe('');
+    expect(root.querySelector('rect')?.getAttribute('style')).toBe('');
+  });
+
   it('importSvg never leaves a script in the cleaned SVG it returns', () => {
     const svg =
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 856 540"><script>alert(1)</script></svg>';

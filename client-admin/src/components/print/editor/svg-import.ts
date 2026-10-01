@@ -121,7 +121,9 @@ function weightOf(value: string): 400 | 500 | 600 | 700 {
   return 400;
 }
 
-const ACTIVE_ELEMENTS = 'script, foreignObject, iframe, object, embed, audio, video, animate, set';
+const ACTIVE_ELEMENTS =
+  'script, foreignObject, iframe, object, embed, audio, video, animate, animateMotion, animateTransform, set, discard';
+const SVG_NS = 'http://www.w3.org/2000/svg';
 const LOCAL_OR_DATA_IMAGE = /^(#|data:image\/(png|jpeg|webp);base64,)/i;
 
 /**
@@ -131,6 +133,10 @@ const LOCAL_OR_DATA_IMAGE = /^(#|data:image\/(png|jpeg|webp);base64,)/i;
  * sanitises the upload again (32.2.2); this keeps the measuring step itself inert.
  */
 export function stripActiveContent(root: Element): void {
+  // Anything outside the SVG namespace (an XHTML <img src>, say) starts its own fetch once adopted.
+  for (const el of Array.from(root.querySelectorAll('*'))) {
+    if (el.namespaceURI !== SVG_NS) el.remove();
+  }
   for (const el of Array.from(root.querySelectorAll(ACTIVE_ELEMENTS))) el.remove();
   for (const el of [root, ...Array.from(root.querySelectorAll('*'))]) {
     for (const attr of Array.from(el.attributes)) {
@@ -150,6 +156,9 @@ export function stripActiveContent(root: Element): void {
 
 /** Removes `@import` rules and every `url()` that is not a `#fragment`. */
 function scrubCss(css: string): string {
+  // ponytail: CSS with escapes (`u\rl(`) or image-set() is dropped whole rather than parsed;
+  // designer CSS that legitimately uses them loses its styling. Parse properly if that bites.
+  if (css.includes('\\') || /image-set\(/i.test(css)) return '';
   return css.replace(/@import[^;]*;?/gi, '').replace(/url\(\s*(?!['"]?\s*#)[^)]*\)/gi, 'none');
 }
 
