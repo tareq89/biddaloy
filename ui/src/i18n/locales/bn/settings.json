@@ -215,6 +215,12 @@
     "lateFeeKindFlat": "নির্দিষ্ট পরিমাণ",
     "lateFeeValue": "মান"
   },
+  "evaluations": {
+    "legend": "মূল্যায়ন",
+    "incidentSmsLabel": "নতুন ঘটনার প্রতিবেদন জমা হলে এসএমএস পাঠান",
+    "incidentSmsHint": "এসএমএসে শুধু জানানো হয় যে একটি নতুন প্রতিবেদন আছে, প্রতিবেদনে কী লেখা আছে তা কখনও নয়।",
+    "pushAlwaysOn": "পুশ নোটিফিকেশন সবসময় চালু থাকে।"
+  },
   "organisation": {
     "legend": "শিফট, ভার্সন ও গ্রুপ",
     "shiftsLabel": "শিফট",
