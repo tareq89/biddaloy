@@ -12,6 +12,7 @@ const notes = [
   {
     id: 'note-1',
     body: 'Needs extra reading support. Spoke to the guardian on Sunday.',
+    rating: 4,
     author: { id: 'user-me', name: 'Rahima Begum' },
     created_at: '2026-01-05T10:00:00.000Z',
   },

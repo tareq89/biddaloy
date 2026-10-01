@@ -89,6 +89,28 @@ describe('students/-detail/notes-tab', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
+  it('sends the optional 1-5 star rating, and toggling a star again clears it', async () => {
+    const posted: unknown[] = [];
+    server.use(
+      http.post('/api/v1/students/:id/notes', async ({ request }) => {
+        posted.push(await request.json());
+        return HttpResponse.json(note({ id: 'note-2' }), { status: 201 });
+      }),
+    );
+    const { user } = renderTab({ notes: [] });
+    await user.click(await screen.findByRole('button', { name: 'Add note' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Note'), 'Great week');
+    await user.click(within(dialog).getByRole('button', { name: '4 out of 5' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Save note' }));
+    await waitFor(() => expect(posted).toEqual([{ body: 'Great week', rating: 4 }]));
+  });
+
+  it('shows a saved rating on the card', async () => {
+    renderTab({ notes: [note({ rating: 3 })] });
+    expect(await screen.findByRole('img', { name: 'Rated 3 out of 5' })).toBeTruthy();
+  });
+
   it('disables save for a blank note', async () => {
     const { user } = renderTab({ notes: [] });
     await user.click(await screen.findByRole('button', { name: 'Add note' }));

@@ -16,5 +16,9 @@
   "deleteTitle": "এই নোট মুছবেন?",
   "deleteDescription": "নোটটি মুছে যাবে। এটি আর ফেরানো যাবে না।",
   "deleting": "মোছা হচ্ছে…",
-  "deleteError": "নোট মোছা যায়নি। আবার চেষ্টা করুন।"
+  "deleteError": "নোট মোছা যায়নি। আবার চেষ্টা করুন।",
+  "ratingLabel": "রেটিং (ঐচ্ছিক)",
+  "ratingStar": "৫ এর মধ্যে {{count}}",
+  "ratingClear": "রেটিং নেই",
+  "ratingShown": "৫ এর মধ্যে {{count}} রেটিং"
 }

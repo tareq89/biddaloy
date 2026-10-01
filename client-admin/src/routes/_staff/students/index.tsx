@@ -76,6 +76,9 @@ const studentsSearchSchema = z.object({
   // Router's `validateSearch` strips it from the URL on every navigation,
   // since a plain `z.object` drops any key it doesn't know about.
   selected: z.string().optional().catch(undefined),
+  // [28.4.5/D22] Palette "Open performance" flag: row "View" links open the
+  // student's Performance tab. TanStack parses `?x=1` as a number, so coerce.
+  openPerformance: z.coerce.string().optional().catch(undefined),
 });
 
 function toStudentListFilters(filters: StudentFilters, sortColumnId: string | undefined) {
@@ -163,6 +166,7 @@ function StudentsListPage() {
   const queryClient = useQueryClient();
   const [state, actions] = useListShellState({ limit: 10 });
   const filters = state.filters as StudentFilters;
+  const { openPerformance } = Route.useSearch();
 
   const vocabularyQuery = useOrganisationVocabulary();
   // [D5] A shift/version filter field only exists once the tenant has 2+
@@ -410,6 +414,7 @@ function StudentsListPage() {
           <Link
             to="/students/$studentId"
             params={{ studentId: row.id }}
+            {...(openPerformance ? { search: { tab: 'performance' } } : {})}
             data-focus-anchor={row.id}
             className="text-sm text-muted-foreground underline"
           >

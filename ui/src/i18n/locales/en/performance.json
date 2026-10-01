@@ -13,5 +13,12 @@
   "surveyAverage": "Survey rating",
   "incidents": "Incidents",
   "acr": "ACR",
-  "notAvailable": "—"
+  "notAvailable": "—",
+  "notEnoughData": "Not enough data yet",
+  "allSections": "All sections",
+  "sectionLabel": "Section",
+  "examResults": "Exam results",
+  "noYear": "No current academic year is set.",
+  "attendanceTitle": "Attendance",
+  "homeworkTitle": "Homework"
 }
