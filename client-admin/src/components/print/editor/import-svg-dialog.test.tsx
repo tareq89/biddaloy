@@ -48,6 +48,7 @@ function Harness() {
       <output data-testid="count">{state.draft.front.elements.length}</output>
       <output data-testid="background">{state.draft.front.background?.assetId ?? NONE}</output>
       <button type="button" data-testid="undo" onClick={() => dispatch({ type: 'UNDO' })} />
+      <button type="button" data-testid="reopen" onClick={() => setOpen(true)} />
     </div>
   );
 }
@@ -177,5 +178,11 @@ describe('ImportSvgDialog', () => {
     await screen.findByText('student.name');
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    // Reopening shows an empty dialog: the previous file's fields and Import are gone.
+    await user.click(screen.getByTestId('reopen'));
+    await screen.findByRole('dialog');
+    expect(screen.queryByText('student.name')).toBeNull();
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Import' }).disabled).toBe(true);
   });
 });

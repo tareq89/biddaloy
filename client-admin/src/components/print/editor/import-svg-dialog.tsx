@@ -183,7 +183,14 @@ export function ImportSvgDialog({
         {upload.isError ? <MutationErrorMessage error={upload.error} /> : null}
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              reset();
+              onOpenChange(false);
+            }}
+          >
             {t('svgImport.cancel')}
           </Button>
           <Button
