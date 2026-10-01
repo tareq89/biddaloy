@@ -2117,7 +2117,8 @@ export interface paths {
         delete: operations["ClassSubjectController_detach_v1"];
         options?: never;
         head?: never;
-        patch?: never;
+        /** Update a class-subject offering (optional flag, group). */
+        patch: operations["ClassSubjectController_updateOffering_v1"];
         trace?: never;
     };
     "/api/v1/school-calendar/holidays": {
@@ -8330,6 +8331,7 @@ export interface components {
             academic_year: components["schemas"]["AcademicYear"];
             academic_year_id: string;
             is_optional: boolean;
+            group_name: string | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -8343,6 +8345,13 @@ export interface components {
             /** Format: uuid */
             academic_year_id: string;
             is_optional?: boolean;
+            group_name?: string | null;
+        };
+        UpdateClassSubjectDto: {
+            /** Format: uuid */
+            academic_year_id: string;
+            is_optional?: boolean;
+            group_name?: string | null;
         };
         CreateHolidayDto: {
             /** Format: uuid */
@@ -16285,6 +16294,44 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ClassSubjectController_updateOffering_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                classId: string;
+                subjectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateClassSubjectDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassSubject"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
