@@ -45,7 +45,15 @@ export function pendingSurveyFactory(overrides: Partial<PendingSurvey> = {}): Pe
     anonymous: true,
     closesAt: null,
     questions: [{ id: faker.string.uuid(), text: 'Explains clearly', starsEnabled: true }],
-    pending: [{ teacherId: faker.string.uuid(), subjectId: faker.string.uuid() }],
+    pending: [
+      {
+        teacherId: faker.string.uuid(),
+        teacherName: 'Rahim Uddin',
+        subjectId: faker.string.uuid(),
+        subjectName: 'Mathematics',
+        subjectNameBn: 'গণিত',
+      },
+    ],
     ...overrides,
   };
 }

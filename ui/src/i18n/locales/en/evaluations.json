@@ -269,7 +269,6 @@
     "emptyBody": "You have answered everything for now.",
     "anonymousNote": "Your answer is hidden from management.",
     "namedNote": "Your name will be shown with your answer.",
-    "teacherN": "Teacher {{n}}",
     "commentLabel": "Your answer",
     "starsLabel": "Rating (optional)",
     "starsHint": "Press 1 to 5 to rate",

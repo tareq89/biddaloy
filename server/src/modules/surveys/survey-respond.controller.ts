@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtPayload, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -10,7 +10,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { SurveyRespondService } from './survey-respond.service';
 import { SurveyResultsService } from './survey-results.service';
-import { RespondSurveyDto } from './dto/survey-respond.dto';
+import { PendingSurveyDto, RespondSurveyDto } from './dto/survey-respond.dto';
 
 type Tenant = { id: string; role: string };
 
@@ -28,6 +28,7 @@ export class SurveyRespondController {
 
   @Get('mine')
   @ApiOperation({ summary: "OPEN surveys with the caller's pending teacher-subject pairs." })
+  @ApiOkResponse({ type: [PendingSurveyDto] })
   mine(@CurrentTenant() tenant: Tenant, @CurrentUser() user: JwtPayload) {
     return this.respondService.listMine(tenant.role, user.sub, tenant.id);
   }

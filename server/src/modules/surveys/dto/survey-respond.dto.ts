@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -70,3 +71,27 @@ export interface SurveyVisibleResult {
 }
 
 export type SurveyPairResult = SurveyHiddenResult | SurveyVisibleResult;
+
+/** Response shapes for `GET /surveys/mine` (documentation only; typed client reads these). */
+export class PendingPairDto {
+  @ApiProperty() teacherId: string;
+  @ApiProperty() teacherName: string;
+  @ApiProperty() subjectId: string;
+  @ApiProperty() subjectName: string;
+  @ApiProperty({ type: String, nullable: true }) subjectNameBn: string | null;
+}
+
+export class PendingSurveyQuestionDto {
+  @ApiProperty() id: string;
+  @ApiProperty() text: string;
+  @ApiProperty() starsEnabled: boolean;
+}
+
+export class PendingSurveyDto {
+  @ApiProperty() id: string;
+  @ApiProperty() title: string;
+  @ApiProperty() anonymous: boolean;
+  @ApiProperty({ type: String, format: 'date-time', nullable: true }) closesAt: Date | null;
+  @ApiProperty({ type: [PendingSurveyQuestionDto] }) questions: PendingSurveyQuestionDto[];
+  @ApiProperty({ type: [PendingPairDto] }) pending: PendingPairDto[];
+}

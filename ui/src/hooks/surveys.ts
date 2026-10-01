@@ -34,16 +34,8 @@ export interface SurveyDetail extends Survey {
   targets: SurveyTarget[];
 }
 
-/** One open survey with the caller's still-unanswered teacher-subject pairs. */
-export interface PendingSurvey {
-  id: string;
-  title: string;
-  /** UI label only: "hidden from management". Never "untraceable". */
-  anonymous: boolean;
-  closesAt: string | null;
-  questions: { id: string; text: string; starsEnabled: boolean }[];
-  pending: { teacherId: string; subjectId: string }[];
-}
+/** One open survey with the caller's still-unanswered teacher-subject pairs (`anonymous` is a UI label only: never "untraceable"). */
+export type PendingSurvey = components['schemas']['PendingSurveyDto'];
 
 export interface SurveyQuestionResult {
   questionId: string;
@@ -121,7 +113,7 @@ function useSurveyTransition(action: 'publish' | 'close') {
 export const usePublishSurvey = () => useSurveyTransition('publish');
 export const useCloseSurvey = () => useSurveyTransition('close');
 
-/** Family side: OPEN surveys with the caller's pending pairs (ids only — resolve names yourself). */
+/** Family side: OPEN surveys with the caller's pending pairs (with teacher and subject display names). */
 export function useMySurveys() {
   return useQuery({
     queryKey: mineKey,

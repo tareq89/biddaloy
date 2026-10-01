@@ -11008,6 +11008,27 @@ export interface components {
             description: string;
             createdAt: string;
         };
+        PendingSurveyQuestionDto: {
+            id: string;
+            text: string;
+            starsEnabled: boolean;
+        };
+        PendingPairDto: {
+            teacherId: string;
+            teacherName: string;
+            subjectId: string;
+            subjectName: string;
+            subjectNameBn: string | null;
+        };
+        PendingSurveyDto: {
+            id: string;
+            title: string;
+            anonymous: boolean;
+            /** Format: date-time */
+            closesAt: string | null;
+            questions: components["schemas"]["PendingSurveyQuestionDto"][];
+            pending: components["schemas"]["PendingPairDto"][];
+        };
         SurveyAnswerInputDto: {
             /** Format: uuid */
             questionId: string;
@@ -27582,7 +27603,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>[];
+                    "application/json": components["schemas"]["PendingSurveyDto"][];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

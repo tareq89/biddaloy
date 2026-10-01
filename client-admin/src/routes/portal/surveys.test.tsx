@@ -27,12 +27,22 @@ const survey = (anonymous: boolean) =>
     id: 's1',
     anonymous,
     questions: [{ id: 'q1', text: 'Explains clearly', starsEnabled: true }],
-    pending: [{ teacherId: 't1', subjectId: 'sub1' }],
+    pending: [
+      {
+        teacherId: 't1',
+        teacherName: 'Rahim Uddin',
+        subjectId: 'sub1',
+        subjectName: 'Mathematics',
+        subjectNameBn: 'গণিত',
+      },
+    ],
   });
 
 async function open() {
   const user = userEvent.setup();
-  await user.click(await screen.findByText('Teacher 1', undefined, { timeout: 4000 }));
+  await user.click(
+    await screen.findByText('Rahim Uddin · Mathematics', undefined, { timeout: 4000 }),
+  );
   return user;
 }
 

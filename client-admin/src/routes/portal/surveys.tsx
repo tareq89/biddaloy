@@ -4,9 +4,9 @@
  * loading / empty / error frames and the same "no `<h1>` while pending or
  * erroring" heading contract (`useRouteFocus` falls back to `<main>`).
  *
- * `GET /surveys/mine` returns teacher and subject ids only, and PARENT/STUDENT
- * get 403 on `/teachers` and `/subjects`, so a pair is shown as "Teacher n"
- * until the server sends names.
+ * `GET /surveys/mine` carries the teacher and subject display names (PARENT/
+ * STUDENT get 403 on `/teachers` and `/subjects`), so a pair is labelled
+ * "Teacher name · Subject" with the Bangla subject name when the UI is in bn.
  *
  * Privacy line (D10) is driven by the survey's `anonymous` flag and says
  * "hidden from management" / "your name will be shown". It never claims
@@ -50,8 +50,9 @@ function PortalSurveysRoute() {
 }
 
 function PortalSurveys() {
-  const { t } = useTranslation('evaluations');
+  const { t, i18n } = useTranslation('evaluations');
   const config = useRegionConfig();
+  const bn = i18n.language === 'bn';
   const query = useMySurveys();
 
   if (query.isPending) return <SurveysSkeleton label={t('portalSurveys.loading')} />;
@@ -84,12 +85,12 @@ function PortalSurveys() {
               </p>
             )}
           </div>
-          {survey.pending.map((pair, i) => (
+          {survey.pending.map((pair) => (
             <PairForm
               key={`${pair.teacherId}:${pair.subjectId}`}
               survey={survey}
               pair={pair}
-              label={t('portalSurveys.teacherN', { n: i + 1 })}
+              label={`${pair.teacherName} · ${(bn && pair.subjectNameBn) || pair.subjectName}`}
             />
           ))}
         </Card>
