@@ -1,4 +1,5 @@
 import { IsDateString, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
 /** Request body for `POST /staff-hr-records`. 23.2.1. */
 export class CreateStaffHrRecordDto {
@@ -33,6 +34,12 @@ export class CreateStaffHrRecordDto {
   @IsString()
   @MaxLength(10)
   blood_group?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  @SanitizeText()
+  name_bn?: string;
 
   @IsOptional()
   @IsString()
@@ -73,6 +80,12 @@ export class UpdateStaffHrRecordDto {
   @IsString()
   @MaxLength(10)
   blood_group?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  @SanitizeText()
+  name_bn?: string | null;
 
   @IsOptional()
   @IsString()
