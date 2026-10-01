@@ -56,6 +56,8 @@ import { GradingBand } from '../src/modules/grading/entities/grading-band.entity
 import { Subject } from '../src/modules/academics/entities/subject.entity';
 import { ClassSubject } from '../src/modules/academics/entities/class-subject.entity';
 import { Exam } from '../src/modules/exams/entities/exam.entity';
+import { ExamTemplate } from '../src/modules/exams/entities/exam-template.entity';
+import { ExamTemplateComponent } from '../src/modules/exams/entities/exam-template-component.entity';
 import { ExamComponent } from '../src/modules/exams/entities/exam-component.entity';
 import { ExamSchedule } from '../src/modules/exams/entities/exam-schedule.entity';
 import { Mark } from '../src/modules/exams/entities/mark.entity';
@@ -467,6 +469,14 @@ describe('workbook round trip (integration)', () => {
         settings: {
           communications: { sms: { mimsms: { apiKey: PROVIDER_SECRET } } },
           organisation: DEMO_ORGANISATION,
+          // [35.1.5] `preset` is a plain (non-secret) settings key; the school
+          // tab exports it and deep-merges it back on restore.
+          preset: {
+            id: 'bd-national',
+            version: '1',
+            appliedAt: '2026-03-01T00:00:00.000Z',
+            appliedByUserId: USER_ID,
+          },
         } as any,
       }),
       dataSource.getRepository(School).create({
@@ -1241,8 +1251,66 @@ describe('workbook round trip (integration)', () => {
         class_id: klass.id,
         subject_id: subject.id,
         academic_year_id: year.id,
+        group_name: 'Science',
       }),
     );
+
+    // [35.1.5] One template with two component lines (different subject
+    // codes, same class grade), exercising both new tabs.
+    const examTemplate = await dataSource.getRepository(ExamTemplate).save(
+      dataSource.getRepository(ExamTemplate).create({
+        tenant_id: TENANT_A,
+        name: 'Roundtrip Term Template',
+        kind: ExamKind.TERM,
+      }),
+    );
+    await dataSource.getRepository(ExamTemplateComponent).save([
+      dataSource.getRepository(ExamTemplateComponent).create({
+        tenant_id: TENANT_A,
+        template_id: examTemplate.id,
+        class_grade: 6,
+        subject_code: 'MATH',
+        sequence: 1,
+        name: 'Written',
+        kind: ExamComponentKind.WRITTEN,
+        full_marks: '70.00',
+        pass_marks: '23.00',
+      }),
+      dataSource.getRepository(ExamTemplateComponent).create({
+        tenant_id: TENANT_A,
+        template_id: examTemplate.id,
+        class_grade: 6,
+        subject_code: 'MATH',
+        sequence: 2,
+        name: 'MCQ',
+        kind: ExamComponentKind.MCQ,
+        full_marks: '30.00',
+        pass_marks: '10.00',
+      }),
+    ]);
+    // A deleted template whose line is still in the table: must be skipped,
+    // not crash the export (its template has no natural key to export).
+    const deletedTemplate = await dataSource.getRepository(ExamTemplate).save(
+      dataSource.getRepository(ExamTemplate).create({
+        tenant_id: TENANT_A,
+        name: 'Deleted Template',
+        kind: ExamKind.TERM,
+      }),
+    );
+    await dataSource.getRepository(ExamTemplateComponent).save(
+      dataSource.getRepository(ExamTemplateComponent).create({
+        tenant_id: TENANT_A,
+        template_id: deletedTemplate.id,
+        class_grade: 6,
+        subject_code: 'MATH',
+        sequence: 1,
+        name: 'Written',
+        kind: ExamComponentKind.WRITTEN,
+        full_marks: '70.00',
+        pass_marks: '23.00',
+      }),
+    );
+    await dataSource.getRepository(ExamTemplate).softDelete({ id: deletedTemplate.id });
 
     const exam = await dataSource.getRepository(Exam).save(
       dataSource.getRepository(Exam).create({
@@ -1682,6 +1750,8 @@ describe('workbook round trip (integration)', () => {
       'routine_substitutions',
       'routine_change_requests',
       'exams',
+      'exam_templates',
+      'exam_template_components',
       'exam_components',
       'exam_schedules',
       'mark_grids',
@@ -1936,6 +2006,15 @@ describe('workbook round trip (integration)', () => {
     const organisationB = JSON.parse(normalizedB.school?.[0]?.settings ?? '{}').organisation;
     expect(organisationA).toEqual(DEMO_ORGANISATION);
     expect(organisationB).toEqual(DEMO_ORGANISATION);
+
+    // [35.1.5] `settings.preset` (D37) survives export -> strip -> merge into
+    // the clean tenant, and Wave 1's new data round-trips losslessly.
+    const presetOf = (w: typeof normalizedA) => JSON.parse(w.school?.[0]?.settings ?? '{}').preset;
+    expect(presetOf(normalizedA)).toMatchObject({ id: 'bd-national', version: '1' });
+    expect(presetOf(normalizedB)).toEqual(presetOf(normalizedA));
+    expect(normalizedB.exam_templates).toHaveLength(1);
+    expect(normalizedB.exam_template_components).toHaveLength(2);
+    expect(normalizedB.class_subjects?.[0]?.group_name).toBe('Science');
 
     // [32.3.10] `print_assets.storage_key` is the second deliberate exception.
     // A restore into a DIFFERENT school must never keep the source school's

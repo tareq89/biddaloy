@@ -1,5 +1,7 @@
 import type { TabSpec } from '../../codec/tab-spec';
 import { examsTab } from './exams.tab';
+import { examTemplatesTab } from './exam-templates.tab';
+import { examTemplateComponentsTab } from './exam-template-components.tab';
 import { examComponentsTab } from './exam-components.tab';
 import { examSchedulesTab } from './exam-schedules.tab';
 import { markGridsTab } from './mark-grids.tab';
@@ -34,6 +36,9 @@ import { seatAllocationsTab } from './seat-allocations.tab';
  * names them.
  */
 export const examsTabs: TabSpec<any, any>[] = [
+  // [35.1.5] Templates have no dependencies, so they lead the group.
+  examTemplatesTab,
+  examTemplateComponentsTab,
   examsTab,
   examComponentsTab,
   examSchedulesTab,
@@ -45,6 +50,8 @@ export const examsTabs: TabSpec<any, any>[] = [
 ];
 
 export {
+  examTemplatesTab,
+  examTemplateComponentsTab,
   examsTab,
   examComponentsTab,
   examSchedulesTab,
@@ -57,6 +64,8 @@ export {
   seatPlanSchedulesTab,
   seatAllocationsTab,
 };
+export type { ExamTemplateRow } from './exam-templates.tab';
+export type { ExamTemplateComponentRow } from './exam-template-components.tab';
 export type { ExamRow } from './exams.tab';
 export type { ExamComponentRow } from './exam-components.tab';
 export type { ExamScheduleRow } from './exam-schedules.tab';

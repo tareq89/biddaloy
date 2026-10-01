@@ -77,6 +77,9 @@ describe('EXPECTED_TABS', () => {
       'payment_allocations',
       'grading_scales',
       'grading_bands',
+      // [35.1.5] Exam templates, ahead of `exams`.
+      'exam_templates',
+      'exam_template_components',
       // [19.10.1] Epic 19.0's exams/marks/results spine (#906).
       'exams',
       'exam_components',

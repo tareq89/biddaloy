@@ -83,6 +83,9 @@ export const EXPECTED_TABS = [
   'payment_allocations',
   'grading_scales',
   'grading_bands',
+  // [35.1.5] Exam templates depend on nothing; kept ahead of `exams`.
+  'exam_templates',
+  'exam_template_components',
   'exams',
   'exam_components',
   'exam_schedules',
