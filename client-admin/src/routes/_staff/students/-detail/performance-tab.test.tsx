@@ -100,6 +100,28 @@ describe('student PerformanceTab', () => {
     expect((await screen.findAllByText('Not enough data yet')).length).toBe(5);
   });
 
+  it('treats a 404 (no current-year enrollment) as the empty state, not an error', async () => {
+    years();
+    server.use(
+      http.get('/api/v1/performance/students/:id', () =>
+        HttpResponse.json(
+          {
+            statusCode: 404,
+            message: 'Student has no enrollment',
+            timestamp: '2026-01-01T00:00:00Z',
+            path: '/',
+            requestId: 'r1',
+          },
+          { status: 404 },
+        ),
+      ),
+    );
+    renderTab();
+
+    expect((await screen.findAllByText('Not enough data yet')).length).toBe(5);
+    expect(screen.queryByText("Couldn't load performance.")).toBeNull();
+  });
+
   it('shows an error state with retry when the request fails', async () => {
     years();
     server.use(

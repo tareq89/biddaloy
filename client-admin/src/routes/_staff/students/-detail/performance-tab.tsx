@@ -5,6 +5,7 @@
  * server gates the endpoint with. Phone: summary card, then swipeable
  * widgets (SwipeRow); desktop: grid. Bars are CSS only (D24).
  */
+import { ApiError } from '@biddaloy/ui/api';
 import { BarWidget, ErrorState, SummaryCard, SwipeRow, Skeleton } from '@biddaloy/ui/components';
 import { useAcademicYears, useStudentPerformance } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
@@ -40,9 +41,11 @@ function StudentPerformance({
   const query = useStudentPerformance(studentId, { academicYearId });
 
   if (query.isPending) return <PerformanceSkeleton label={t('loading')} />;
-  if (query.isError) return <PerformanceError onRetry={query.refetch} />;
+  // A 404 means no enrollment in the current year: same empty state as the staff tab.
+  const notFound = query.error instanceof ApiError && query.error.statusCode === 404;
+  if (query.isError && !notFound) return <PerformanceError onRetry={query.refetch} />;
 
-  const d = query.data;
+  const d = query.data ?? EMPTY;
   const n = (value: string) => renderDigits(value, numerals);
   const pct = (v: number | null) => (v === null ? t('notAvailable') : n(`${Math.round(v)}%`));
   const num = (v: number | null) =>
@@ -124,6 +127,16 @@ function StudentPerformance({
     </div>
   );
 }
+
+const EMPTY = {
+  passRate: null,
+  averageMarks: null,
+  averageGpa: null,
+  attendancePercent: null,
+  noteRatingAverage: null,
+  exams: [],
+  homework: { totalAssignments: 0, completed: 0, defaulters: 0, completionPercent: 0 },
+};
 
 function PerformanceSkeleton({ label }: { label: string }) {
   return (

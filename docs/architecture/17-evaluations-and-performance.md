@@ -302,9 +302,9 @@ TanStack Router parses `?startAcr=1` as the number `1`, so the page schema accep
 - **Homework is all-time.** The homework figure ignores the selected year or
   term, and the UI says so.
 - **Student Performance needs a current-year enrollment.** The API answers
-  404 "no enrollment in this academic year" and the student tab shows its
-  generic load error instead of an empty state (the staff tab handles 404 as
-  empty).
+  404 "no enrollment in this academic year". The student tab shows the same
+  "Not enough data yet" empty state as the staff tab. Real errors (500, network)
+  still show the error with a Retry button.
 - **Wave 6 is blocked** on #786 (finer roles, Epic 24.0) and #812 (print
   module, Epic 32.0).
 
