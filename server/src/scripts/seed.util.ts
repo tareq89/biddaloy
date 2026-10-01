@@ -4060,12 +4060,15 @@ export async function ensurePrintDemoSeed(
 
   // --- templates ------------------------------------------------------------
   const ensureTemplate = async (name: string, suggestionKey: string, makeDefault: boolean) => {
-    if (await repos.printTemplateRepository.findOne({ where: { tenant_id: schoolId, name } })) {
-      return;
-    }
-    const created = await ports.createTemplate(suggestionKey, name);
-    await ports.publishTemplate(created.id);
-    if (makeDefault) await ports.setDefaultTemplate(created.id);
+    const existing = await repos.printTemplateRepository.findOne({
+      where: { tenant_id: schoolId, name },
+    });
+    // Published or archived: leave it alone. A draft that a failed publish stranded is resumed
+    // rather than deleted — deleting would orphan its artwork assets and storage objects.
+    if (existing?.current_version_id || existing?.archived_at) return;
+    const id = existing?.id ?? (await ports.createTemplate(suggestionKey, name)).id;
+    await ports.publishTemplate(id);
+    if (makeDefault) await ports.setDefaultTemplate(id);
     result.templates += 1;
   };
   await ensureTemplate('Student ID card', 'student-portrait-classic', true);

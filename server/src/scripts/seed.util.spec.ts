@@ -1797,7 +1797,12 @@ describe('ensurePrintDemoSeed', () => {
   /** In-memory stand-ins: `findOne` looks at what was saved by name, like the real tables. */
   function setup() {
     const printers: Array<{ name: string }> = [];
-    const templates: Array<{ name: string }> = [];
+    const templates: Array<{
+      id: string;
+      name: string;
+      current_version_id: string | null;
+      archived_at: Date | null;
+    }> = [];
     const students = [
       { id: 's1', photo_key: null as string | null },
       { id: 's2', photo_key: 'tenants/x/student-photo/kept.jpg' as string | null },
@@ -1822,14 +1827,18 @@ describe('ensurePrintDemoSeed', () => {
     };
     const ports = {
       createTemplate: vi.fn((key: string, name: string) => {
-        templates.push({ name });
+        templates.push({ id: `tpl-${key}`, name, current_version_id: null, archived_at: null });
         return Promise.resolve({ id: `tpl-${key}` });
       }),
-      publishTemplate: vi.fn(() => Promise.resolve()),
+      publishTemplate: vi.fn((id: string) => {
+        const t = templates.find((x) => x.id === id);
+        if (t) t.current_version_id = `ver-${id}`;
+        return Promise.resolve();
+      }),
       setDefaultTemplate: vi.fn(() => Promise.resolve()),
       putObject: vi.fn(() => Promise.resolve()),
     };
-    return { repos, ports, printers, students };
+    return { repos, ports, printers, students, templates };
   }
   const run = (s: ReturnType<typeof setup>) =>
     ensurePrintDemoSeed(s.repos as unknown as Parameters<typeof ensurePrintDemoSeed>[0], s.ports, {
@@ -1871,6 +1880,44 @@ describe('ensurePrintDemoSeed', () => {
     expect(second).toEqual({ printers: 0, templates: 0, photos: 0 });
     expect(s.ports.createTemplate).not.toHaveBeenCalled();
     expect(s.ports.putObject).not.toHaveBeenCalled();
+  });
+
+  it('resumes a draft a failed publish stranded, instead of creating a second one', async () => {
+    const s = setup();
+    s.ports.publishTemplate.mockRejectedValueOnce(new Error('publish failed'));
+    await expect(run(s)).rejects.toThrow('publish failed');
+    expect(s.templates).toHaveLength(1); // the stranded draft, never published
+    s.ports.createTemplate.mockClear();
+
+    const second = await run(s);
+
+    // The draft is published under its own id; only the other template is newly created.
+    expect(s.ports.createTemplate).toHaveBeenCalledTimes(1);
+    expect(s.ports.createTemplate).not.toHaveBeenCalledWith(
+      'student-portrait-classic',
+      'Student ID card',
+    );
+    expect(s.ports.publishTemplate).toHaveBeenCalledWith('tpl-student-portrait-classic');
+    expect(second.templates).toBe(2);
+    expect(s.templates).toHaveLength(2);
+  });
+
+  it('leaves an archived template alone', async () => {
+    const s = setup();
+    s.templates.push({
+      id: 'tpl-old',
+      name: 'Student ID card',
+      current_version_id: null,
+      archived_at: new Date(),
+    });
+
+    await run(s);
+
+    expect(s.ports.publishTemplate).not.toHaveBeenCalledWith('tpl-old');
+    expect(s.ports.createTemplate).not.toHaveBeenCalledWith(
+      'student-portrait-classic',
+      'Student ID card',
+    );
   });
 });
 
