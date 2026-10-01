@@ -1,6 +1,7 @@
 export * from './enums/index';
 export * from './enums/print';
 export * from './print/index';
+export * from './presets/index';
 export * from './enums/permissions';
 export * from './enums/audiences';
 export * from './types/payment.types';

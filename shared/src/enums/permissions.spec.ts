@@ -781,3 +781,13 @@ describe('print permission grants [32.1.1]', () => {
     }
   });
 });
+
+describe('CURRICULUM_PRESET_APPLY [35.1.1]', () => {
+  it('is held by ADMIN and SUPER_ADMIN only', () => {
+    expect(roleHasPermission(UserRole.ADMIN, Permission.CURRICULUM_PRESET_APPLY)).toBe(true);
+    expect(roleHasPermission(UserRole.SUPER_ADMIN, Permission.CURRICULUM_PRESET_APPLY)).toBe(true);
+    for (const r of [UserRole.ACCOUNTANT, UserRole.TEACHER, UserRole.EXECUTIVE]) {
+      expect(roleHasPermission(r, Permission.CURRICULUM_PRESET_APPLY)).toBe(false);
+    }
+  });
+});
