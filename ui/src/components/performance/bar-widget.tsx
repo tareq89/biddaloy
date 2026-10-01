@@ -45,7 +45,7 @@ export function BarWidget({
   }
 
   return (
-    <Card className="flex h-full flex-col gap-3 p-4">
+    <Card className="flex h-full flex-col gap-3 p-4 text-card-foreground">
       <h3 className="text-sm font-semibold">{title}</h3>
       {error ? (
         <p role="alert" className="text-sm text-destructive">

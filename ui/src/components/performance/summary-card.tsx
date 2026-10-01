@@ -42,7 +42,7 @@ export function SummaryCard({
   }
 
   return (
-    <Card className="flex flex-col gap-3 p-4">
+    <Card className="flex flex-col gap-3 p-4 text-card-foreground">
       <h2 className="text-sm font-normal text-muted-foreground">{title}</h2>
       {error ? (
         <p role="alert" className="text-sm text-destructive">
