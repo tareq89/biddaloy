@@ -57,7 +57,7 @@ test('admin builds a section routine, resolves a teacher clash, fill-assists, an
   const teachers = await get<{ data: { id: string; employee_id: string }[] }>(
     request,
     admin,
-    '/teachers',
+    '/teachers?limit=100',
   );
   const teacherA = teachers.data.find((tch) => tch.employee_id === 'SEED-TEACHER-0001');
   const teacherB = teachers.data.find((tch) => tch.employee_id === 'SEED-TEACHER-0002');
