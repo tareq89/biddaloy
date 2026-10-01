@@ -255,7 +255,6 @@ function StudentDetailPage() {
                   onClick: () => setReminderDialogOpen(true),
                 },
                 {
-                {
                   id: 'print-id-card',
                   label: t('detail.actions.printIdCard'),
                   allowed: canPrint,
