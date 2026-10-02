@@ -25,10 +25,14 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  toast,
 } from '@biddaloy/ui/components';
 import { useAcademicYears, useClasses, useCreateExam, useUpdateExam } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
+
+import { examTemplatesQueryOptions } from './use-exam-templates';
 
 export interface ExamFormInitialValues {
   name: string;
@@ -42,10 +46,13 @@ export interface ExamFormDialogProps {
   examId?: string;
   initialValues?: ExamFormInitialValues;
   defaultAcademicYearId?: string;
+  /** Prefills the template select (palette "Create exam from template", #1289). */
+  defaultTemplateId?: string;
   onSaved: () => void;
 }
 
 const EMPTY_VALUES: ExamFormInitialValues = { name: '', kind: ExamKind.TERM };
+const NO_TEMPLATE = '__none__';
 const EXAM_KINDS = Object.values(ExamKind);
 
 export function ExamFormDialog({
@@ -55,9 +62,11 @@ export function ExamFormDialog({
   examId,
   initialValues,
   defaultAcademicYearId,
+  defaultTemplateId,
   onSaved,
 }: ExamFormDialogProps) {
   const { t } = useTranslation('exams');
+  const { t: tt } = useTranslation('examsTemplateField');
   const academicYearsQuery = useAcademicYears();
   const createExam = useCreateExam();
   const updateExam = useUpdateExam(examId ?? '');
@@ -67,7 +76,15 @@ export function ExamFormDialog({
   const [kind, setKind] = React.useState<ExamKind>(initialValues?.kind ?? ExamKind.TERM);
   const [academicYearId, setAcademicYearId] = React.useState(defaultAcademicYearId ?? '');
   const [classId, setClassId] = React.useState('');
+  const [templateId, setTemplateId] = React.useState(defaultTemplateId ?? NO_TEMPLATE);
   const [validationError, setValidationError] = React.useState<string | null>(null);
+
+  // Only fetched while the create dialog is open (the parent is EXAM_MANAGE-gated).
+  const templatesQuery = useQuery({
+    ...examTemplatesQueryOptions(),
+    enabled: open && mode === 'create',
+  });
+  const templates = templatesQuery.data ?? [];
 
   const classesQuery = useClasses(academicYearId ? { academic_year_id: academicYearId } : {});
 
@@ -78,6 +95,7 @@ export function ExamFormDialog({
     setKind(values.kind);
     setAcademicYearId(defaultAcademicYearId ?? '');
     setClassId('');
+    setTemplateId(defaultTemplateId ?? NO_TEMPLATE);
     setValidationError(null);
     mutation.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close transitions
@@ -97,9 +115,26 @@ export function ExamFormDialog({
     setValidationError(null);
 
     if (mode === 'create') {
+      const fromTemplate = templateId !== NO_TEMPLATE;
       createExam.mutate(
-        { name: name.trim(), kind, academic_year_id: academicYearId, class_id: classId },
-        { onSuccess: onSaved },
+        {
+          name: name.trim(),
+          kind,
+          academic_year_id: academicYearId,
+          class_id: classId,
+          ...(fromTemplate ? { template_id: templateId } : {}),
+        },
+        {
+          onSuccess: (exam) => {
+            if (fromTemplate) {
+              // `POST /exams` returns the Exam plus `components_created`.
+              const count = (exam as { components_created?: number }).components_created ?? 0;
+              if (count > 0) toast.success(tt('toast.created', { count }));
+              else toast.info(tt('toast.noRows'));
+            }
+            onSaved();
+          },
+        },
       );
     } else {
       updateExam.mutate({ name: name.trim(), kind }, { onSuccess: onSaved });
@@ -184,6 +219,25 @@ export function ExamFormDialog({
                   </SelectContent>
                 </Select>
               </div>
+
+              {templates.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-sm font-medium">{tt('label')}</span>
+                  <Select value={templateId} onValueChange={setTemplateId}>
+                    <SelectTrigger aria-label={tt('label')}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NO_TEMPLATE}>{tt('none')}</SelectItem>
+                      {templates.map((tpl) => (
+                        <SelectItem key={tpl.id} value={tpl.id}>
+                          {tpl.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </>
           )}
 
