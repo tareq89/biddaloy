@@ -25,6 +25,13 @@ describe('resolveTenantSettings', () => {
     expect(resolved.communications).toBeUndefined();
   });
 
+  it('returns a stored preset, and undefined when none is stored (35.1.2)', () => {
+    const preset = { id: 'bd-national', version: 1 };
+    expect(resolveTenantSettings({ preset }).preset).toEqual(preset);
+    expect(resolveTenantSettings({}).preset).toBeUndefined();
+    expect('preset' in resolveTenantSettings(null)).toBe(false);
+  });
+
   it('resolves to full defaults for an empty settings blob', () => {
     const resolved = resolveTenantSettings({});
 

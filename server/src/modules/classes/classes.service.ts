@@ -24,30 +24,7 @@ import {
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
-
-/** [33.2.1] Rejects a non-null value that isn't in the tenant's own
- * vocabulary for this dimension. `null`/`undefined` is always allowed —
- * clearing/omitting the field never needs a vocabulary to check against
- * (D5's "this tenant doesn't use this dimension"). A *non-null* value is
- * validated even when the vocabulary is empty, which means it is always
- * rejected in that case: an empty vocabulary is "tenant hasn't configured
- * anything yet", not "tenant accepts anything" — the value is unvalidated
- * input crossing a trust boundary, and there is nothing configured to
- * check it against, so it's refused rather than written blind. Matching
- * is case-sensitive: the DTO that writes the vocabulary itself (33.1.1)
- * already blocks case-variant duplicates from entering it. */
-function assertInVocabulary(
-  value: string | null | undefined,
-  vocabulary: string[],
-  field: string,
-): void {
-  if (value === null || value === undefined) return;
-  if (!vocabulary.includes(value)) {
-    throw new BadRequestException(
-      `"${value}" is not a configured ${field}. Configure it in organisation settings first.`,
-    );
-  }
-}
+import { assertInVocabulary } from '../schools/settings/organisation-vocabulary.util';
 
 /** [8.11.2] — `SectionService.findAll`'s per-section enrolled count, so the
  * classes list's inline expansion can show it without an extra request per

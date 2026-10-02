@@ -30,6 +30,7 @@ export interface ClassSubjectRow {
   subject_id: string;
   is_optional: boolean;
   is_graded_only: boolean;
+  group_name: string | null;
   // The referenced tabs' own natural keys, kept alongside the resolved
   // local ids so `keyOf` can build the same key format for a row as for an
   // entity, without a uuid ever appearing in a natural key.
@@ -79,6 +80,12 @@ const columns: readonly ColumnSpec[] = [
     // docstring draws.
     label: { en: 'Graded only (excluded from GPA)', bn: 'শুধু গ্রেড (জিপিএ বহির্ভূত)' },
   },
+  {
+    key: 'group_name',
+    type: 'string',
+    // Optional: blank = not group-specific (NULL). Pre-#1266 backups lack it.
+    label: { en: 'Group', bn: 'গ্রুপ' },
+  },
 ];
 
 /**
@@ -122,6 +129,7 @@ export const classSubjectsTab: TabSpec<ClassSubject, ClassSubjectRow> = {
       subject: ctx.keyOf('subjects', entity.subject_id),
       is_optional: entity.is_optional,
       is_graded_only: entity.is_graded_only,
+      group_name: entity.group_name,
     };
   },
 
@@ -195,6 +203,26 @@ export const classSubjectsTab: TabSpec<ClassSubject, ClassSubjectRow> = {
 
     if (errors.length > 0) return { errors };
 
+    // Same rule as `SubjectService.resolveGroupName` [35.1.2]: a row is
+    // group-specific OR optional, never both. (Vocabulary membership is not
+    // checked here — the workbook does not validate `classes.shift/version`
+    // against the organisation vocabulary either.)
+    if (values.group_name && values.is_optional) {
+      return {
+        errors: [
+          {
+            tab: 'class_subjects',
+            row: rowNo,
+            column: 'group_name',
+            message:
+              'Column "group_name": a subject is either group-specific or optional, not both.',
+            severity: 'error',
+            value: String(values.group_name),
+          },
+        ],
+      };
+    }
+
     // `classKey` embeds its own academic year (`classesTab.keyOf` builds it
     // as `${name}|${yearKey}|${shift}|${version}`, [33.2.1]) — reject a row
     // whose separately given `academic_year` names a different year, since
@@ -227,6 +255,7 @@ export const classSubjectsTab: TabSpec<ClassSubject, ClassSubjectRow> = {
         subject_id: subjectId as string,
         is_optional: values.is_optional as boolean,
         is_graded_only: (values.is_graded_only as boolean | null) ?? false,
+        group_name: (values.group_name as string | null) || null,
         class_key: classKey,
         academic_year_key: academicYearKey,
         subject_key: subjectKey,
@@ -252,6 +281,7 @@ export const classSubjectsTab: TabSpec<ClassSubject, ClassSubjectRow> = {
     if (row.subject_id !== existing.subject_id) changed.push('subject');
     if (row.is_optional !== existing.is_optional) changed.push('is_optional');
     if (row.is_graded_only !== existing.is_graded_only) changed.push('is_graded_only');
+    if ((row.group_name ?? null) !== (existing.group_name ?? null)) changed.push('group_name');
     return changed;
   },
 
@@ -268,6 +298,7 @@ export const classSubjectsTab: TabSpec<ClassSubject, ClassSubjectRow> = {
     classSubject.subject_id = row.subject_id;
     classSubject.is_optional = row.is_optional;
     classSubject.is_graded_only = row.is_graded_only;
+    classSubject.group_name = row.group_name;
 
     return m.save(ClassSubject, classSubject);
   },

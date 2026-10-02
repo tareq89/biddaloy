@@ -51,6 +51,15 @@ export class UserService {
     dto: CreateUserDto,
     tenantId: string,
   ): Promise<{ user: User; membership: UserTenant }> {
+    // #731: SUPER_ADMIN is a platform role (seeded on the platform tenant),
+    // never grantable through a tenant-scoped endpoint. Checked here, the one
+    // place that writes a membership role from request input, so no caller
+    // can skip it.
+    if (dto.role === UserRole.SUPER_ADMIN) {
+      throw new BadRequestException(
+        'The SUPER_ADMIN role cannot be assigned through this endpoint',
+      );
+    }
     // Stored lowercased, so this pre-check and the DB's case-sensitive
     // unique index agree with each other and with login. See normalizeEmail.
     const email = dto.email ? normalizeEmail(dto.email) : null;

@@ -233,6 +233,15 @@ export interface FeesSettings {
   fineDueDays: number;
 }
 
+/** Which curriculum preset (Epic 35.0) a tenant applied, and when. */
+export interface PresetSettings {
+  id: string;
+  version: string;
+  /** ISO timestamp. */
+  appliedAt: string;
+  appliedByUserId: string;
+}
+
 export interface TenantSettings {
   version: typeof TENANT_SETTINGS_SCHEMA_VERSION;
   region?: RegionSettings;
@@ -240,6 +249,7 @@ export interface TenantSettings {
   attendance?: AttendancePolicySettings;
   routine?: RoutineSettings;
   organisation?: OrganisationSettings;
+  preset?: PresetSettings;
   auth?: AuthSettings;
   backup?: BackupSettings;
   fees?: FeesSettings;

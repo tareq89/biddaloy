@@ -32,12 +32,12 @@ const ROLE_PRIORITY: Record<string, number> = {
  * — never "any membership anywhere with role SUPER_ADMIN".
  *
  * That distinction is the whole fix for a real privilege escalation: a
- * tenant ADMIN can mint a tenant-LOCAL SUPER_ADMIN user today
- * (`CreateUserDto.role` is a bare `@IsEnum(UserRole)`, a pre-existing gap
- * outside this guard, tracked separately — NOT fixed here). Without pinning
- * to the platform tenant, that locally-minted SUPER_ADMIN's JWT would satisfy
- * the old "any membership" check and grant them access to every OTHER
- * school's tenant via `X-Tenant-ID`.
+ * tenant ADMIN used to be able to mint a tenant-LOCAL SUPER_ADMIN user via
+ * `POST /users` (#731 — `UserService.create` now refuses that role). Rows
+ * minted before that fix can still exist, so this pin stays load-bearing:
+ * without it, such a locally-minted SUPER_ADMIN's JWT would satisfy the old
+ * "any membership" check and grant them access to every OTHER school's
+ * tenant via `X-Tenant-ID`.
  *
  * `platformTenantId` unresolved (undefined) means no membership qualifies —
  * fails closed. See `resolvePlatformTenantId` for how that id is obtained:
