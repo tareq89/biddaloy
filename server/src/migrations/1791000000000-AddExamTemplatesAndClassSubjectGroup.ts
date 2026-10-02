@@ -6,8 +6,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * `class_subjects.group_name`. Reuses the existing `exams_kind_enum` and
  * `exam_components_kind_enum` pg types — neither is created or dropped here.
  */
-export class AddExamTemplatesAndClassSubjectGroup1790900000000 implements MigrationInterface {
-  name = 'AddExamTemplatesAndClassSubjectGroup1790900000000';
+export class AddExamTemplatesAndClassSubjectGroup1791000000000 implements MigrationInterface {
+  name = 'AddExamTemplatesAndClassSubjectGroup1791000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`

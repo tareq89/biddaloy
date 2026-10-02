@@ -2,18 +2,18 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from
 import { DataSource, QueryRunner } from 'typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { School } from '../src/modules/schools/entities/school.entity';
-import { AddExamTemplatesAndClassSubjectGroup1790900000000 } from '../src/migrations/1790900000000-AddExamTemplatesAndClassSubjectGroup';
+import { AddExamTemplatesAndClassSubjectGroup1791000000000 } from '../src/migrations/1791000000000-AddExamTemplatesAndClassSubjectGroup';
 
 /**
  * [35.1.3/#1266] Runs the exam-templates migration's `up`/`down` against the
  * test database (already migrated by `global-setup.ts`). `down()` then
  * `up()` run in one test so later specs still see the tables.
  */
-describe('AddExamTemplatesAndClassSubjectGroup1790900000000 (integration)', () => {
+describe('AddExamTemplatesAndClassSubjectGroup1791000000000 (integration)', () => {
   let dataSource: DataSource;
   let queryRunner: QueryRunner;
   let tenantId: string;
-  const migration = new AddExamTemplatesAndClassSubjectGroup1790900000000();
+  const migration = new AddExamTemplatesAndClassSubjectGroup1791000000000();
 
   beforeAll(async () => {
     const module = await createTestModule([School], []);
