@@ -306,6 +306,7 @@ describe('ContextGuard', () => {
 
       expect(result).toBe(true);
       expect(req.currentTenant).toEqual({ id: 'new-school-tenant', role: UserRole.SUPER_ADMIN });
+      expect(req).toMatchObject({ isPlatformSuperAdmin: true });
       // Unlike their OWN platform tenant, an "elsewhere" target IS resolved
       // — it must exist and be ACTIVE, just refused via platform authority
       // rather than a membership row.
@@ -396,6 +397,22 @@ describe('ContextGuard', () => {
     });
 
     // --- Security regression: privilege escalation via tenant-local SUPER_ADMIN ---
+    it('[SECURITY] a tenant-local SUPER_ADMIN acting on their own tenant is not flagged platform', async () => {
+      const req = {
+        user: {
+          sub: 'rogue-1',
+          email: 'rogue@school-a.test',
+          phone: null,
+          memberships: [{ tenantId: 'school-a', role: UserRole.SUPER_ADMIN }],
+        },
+        headers: { 'x-tenant-id': 'school-a' },
+      };
+
+      await guard.canActivate(createMockContext(req));
+
+      expect(req).toMatchObject({ isPlatformSuperAdmin: false });
+    });
+
     it("[SECURITY] a tenant-local SUPER_ADMIN (minted by that tenant's own ADMIN, not on the platform tenant) cannot reach another tenant", async () => {
       const req = {
         user: {
