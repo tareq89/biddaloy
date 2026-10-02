@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { CR80, DocumentKind } from '@biddaloy/shared';
+import { ACR_CRITERIA_SLOTS, CR80, DocumentKind } from '@biddaloy/shared';
 import type { PrintElement, TemplateDefinition } from '@biddaloy/shared';
 
 export type SuggestionOrientation = 'portrait' | 'landscape';
@@ -13,7 +13,7 @@ export interface PrintSuggestion {
   style: SuggestionStyle;
   nameKey: string;
   /** File names inside `ARTWORK_DIR`. */
-  artwork: { front: string; back: string };
+  artwork: { front: string; back?: string };
   definition: TemplateDefinition;
 }
 
@@ -86,6 +86,7 @@ const ZONES: Record<`${SuggestionOrientation}-${SuggestionStyle}`, Zones> = {
 const PRIMARY: Record<DocumentKind, string> = {
   [DocumentKind.STUDENT_ID_CARD]: '#0B3A6B',
   [DocumentKind.STAFF_ID_CARD]: '#2B2F36',
+  [DocumentKind.ACR_ASSESSMENT]: '#0B3A6B',
 };
 const WHITE = '#FFFFFF';
 const SANS = 'Biddaloy Sans';
@@ -107,7 +108,7 @@ interface TextOpts {
   pt: number;
   color: string;
   weight?: 400 | 500 | 600 | 700;
-  align: 'left' | 'center';
+  align: 'left' | 'center' | 'right';
 }
 
 function text([x, y, w, h]: Rect, o: TextOpts): PrintElement {
@@ -237,11 +238,78 @@ function build(kind: DocumentKind, o: SuggestionOrientation, s: SuggestionStyle)
   };
 }
 
+/** A4 portrait, front only: header, one row per criterion slot (EN, BN, score), total. */
+function buildAcr(): PrintSuggestion {
+  const c = PRIMARY[DocumentKind.ACR_ASSESSMENT];
+  const rows: PrintElement[] = Array.from({ length: ACR_CRITERIA_SLOTS }, (_, i) => {
+    const y = 44 + 7.5 * i;
+    const n = i + 1;
+    return [
+      text([11, y, 84, 7], { field: `acr.criterion.${n}.label`, pt: 8, color: c, align: 'left' }),
+      text([97, y, 85, 7], {
+        field: `acr.criterion.${n}.label_bn`,
+        font: SERIF_BN,
+        pt: 8,
+        color: c,
+        align: 'left',
+      }),
+      text([184, y, 15, 7], {
+        field: `acr.criterion.${n}.score`,
+        pt: 9,
+        color: c,
+        weight: 700,
+        align: 'center',
+      }),
+    ];
+  }).flat();
+  const front: PrintElement[] = [
+    text([10, 8, 190, 8], { field: 'school.name', pt: 14, color: c, weight: 700, align: 'center' }),
+    text([10, 17, 190, 7], {
+      text: 'Annual Confidential Report (ACR)',
+      pt: 11,
+      color: c,
+      weight: 600,
+      align: 'center',
+    }),
+    text([10, 26, 120, 6], { field: 'staff.name', pt: 11, color: c, weight: 700, align: 'left' }),
+    text([10, 32, 120, 5], {
+      field: 'staff.name_bn',
+      font: SERIF_BN,
+      pt: 9,
+      color: c,
+      align: 'left',
+    }),
+    text([10, 36, 120, 4.5], { field: 'staff.designation', pt: 9, color: c, align: 'left' }),
+    text([150, 26, 50, 6], { field: 'acr.year', pt: 11, color: c, weight: 700, align: 'right' }),
+    ...rows,
+    text([10, 276, 30, 7], { text: 'Completed:', pt: 8, color: c, align: 'left' }),
+    text([40, 276, 50, 7], { field: 'acr.completed_on', pt: 9, color: c, align: 'left' }),
+    text([132, 276, 38, 7], { text: 'Total', pt: 10, color: c, weight: 700, align: 'right' }),
+    text([172, 276, 26, 7], { field: 'acr.total', pt: 11, color: c, weight: 700, align: 'center' }),
+  ];
+  return {
+    key: 'acr-a4-standard',
+    documentKind: DocumentKind.ACR_ASSESSMENT,
+    orientation: 'portrait',
+    style: 'classic',
+    nameKey: 'print.suggestion.acr_a4_standard',
+    artwork: { front: 'acr-a4-standard-front.svg' },
+    definition: {
+      page: { widthMm: 210, heightMm: 297, sides: ['front'] },
+      copyLabel: { text: 'Copy {n}' },
+      front: {
+        background: { assetId: PLACEHOLDER_ASSET, print: true },
+        elements: ids('front', front),
+      },
+    },
+  };
+}
+
 export const PRINT_SUGGESTIONS: readonly PrintSuggestion[] = [
-  DocumentKind.STUDENT_ID_CARD,
-  DocumentKind.STAFF_ID_CARD,
-].flatMap((kind) =>
-  (['portrait', 'landscape'] as const).flatMap((o) =>
-    (['classic', 'modern'] as const).map((s) => build(kind, o, s)),
+  ...[DocumentKind.STUDENT_ID_CARD, DocumentKind.STAFF_ID_CARD].flatMap((kind) =>
+    (['portrait', 'landscape'] as const).flatMap((o) =>
+      (['classic', 'modern'] as const).map((s) => build(kind, o, s)),
+    ),
   ),
-);
+  buildAcr(),
+];

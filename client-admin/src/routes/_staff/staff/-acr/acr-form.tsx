@@ -35,6 +35,7 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 import { WizardShell } from '@biddaloy/ui/shells';
 import * as React from 'react';
 
+import { AcrPrintButton } from './acr-print-button';
 import { CriterionStep, SCORE_VALUES, type ScoreValue } from './criterion-step';
 
 interface Step1 {
@@ -291,16 +292,19 @@ export function AcrForm({ assessment, criteria, onServerUpdate }: AcrFormProps) 
         <h1 className="text-lg font-semibold">{t('acr.title')}</h1>
         <div role="status" className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm text-muted-foreground">{t('acr.completedReadOnly')}</p>
-          {canWrite && (
-            <Button
-              type="button"
-              variant="outline"
-              loading={reopen.isPending}
-              onClick={() => void handleReopen()}
-            >
-              {t('acr.reopen')}
-            </Button>
-          )}
+          <div className="flex flex-wrap gap-2">
+            <AcrPrintButton assessment={assessment} />
+            {canWrite && (
+              <Button
+                type="button"
+                variant="outline"
+                loading={reopen.isPending}
+                onClick={() => void handleReopen()}
+              >
+                {t('acr.reopen')}
+              </Button>
+            )}
+          </div>
         </div>
         <p className="text-base font-semibold">
           {t('acr.total')}: {assessment.total ?? '—'}

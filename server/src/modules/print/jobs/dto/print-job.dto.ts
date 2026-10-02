@@ -16,9 +16,9 @@ export class PreviewPrintJobDto {
   @IsUUID()
   template_id: string;
 
-  @ApiProperty({ enum: ['STUDENT', 'STAFF'] })
-  @IsIn(['STUDENT', 'STAFF'])
-  subject_type: 'STUDENT' | 'STAFF';
+  @ApiProperty({ enum: ['STUDENT', 'STAFF', 'ACR'] })
+  @IsIn(['STUDENT', 'STAFF', 'ACR'])
+  subject_type: 'STUDENT' | 'STAFF' | 'ACR';
 
   @ApiProperty({ type: [String] })
   @IsArray()

@@ -130,6 +130,12 @@
     "saveFailed": "সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন, অথবা তবুও বের হন।"
   },
   "fields": {
+    "acr.completed_on": "সম্পন্নের তারিখ",
+    "acr.criterion_label": "মানদণ্ড {{n}} (ইংরেজি)",
+    "acr.criterion_label_bn": "মানদণ্ড {{n}} (বাংলা)",
+    "acr.criterion_score": "মানদণ্ড {{n}} এর নম্বর",
+    "acr.total": "এসিআর মোট নম্বর",
+    "acr.year": "এসিআর সাল",
     "card.valid_until": "মেয়াদ",
     "guardian.phone": "অভিভাবকের ফোন",
     "print.copyLabel": "কপির লেখা (\"কপি ২\")",

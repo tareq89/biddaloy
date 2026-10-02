@@ -130,7 +130,8 @@
         "stay": "Stay on this page",
         "leave": "Leave without saving"
       }
-    }
+    },
+    "print": "Print ACR"
   },
   "incident": {
     "title": "Incidents",

@@ -56,6 +56,8 @@ export function PrintHistoryPage({ search, onSearchChange }: PrintHistoryPagePro
   const region = useRegionConfig();
   const canPrint = useHasPermission(Permission.DOCUMENT_PRINT);
   const canRevoke = useHasPermission(Permission.DOCUMENT_REVOKE);
+  // ACR rows are confidential: the server hides them without ACR_READ, so don't offer the filter.
+  const canReadAcr = useHasPermission(Permission.ACR_READ);
 
   const historyQuery = usePrintHistory(toHistoryFilters(search));
   const templatesQuery = usePrintTemplates();
@@ -156,7 +158,10 @@ export function PrintHistoryPage({ search, onSearchChange }: PrintHistoryPagePro
       key: 'document_kind',
       label: t('filters.kind'),
       allLabel: t('filters.allKinds'),
-      options: (['STUDENT_ID_CARD', 'STAFF_ID_CARD'] as const).map((k) => ({
+      options: (canReadAcr
+        ? (['STUDENT_ID_CARD', 'STAFF_ID_CARD', 'ACR_ASSESSMENT'] as const)
+        : (['STUDENT_ID_CARD', 'STAFF_ID_CARD'] as const)
+      ).map((k) => ({
         value: k,
         label: t(`kind.${k}`),
       })),

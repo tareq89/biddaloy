@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  ACR_CRITERIA_SLOTS,
   CR80,
   DocumentKind,
   DuplexOrder,
@@ -20,7 +21,11 @@ import {
 
 describe('print enums', () => {
   it('have stable string values', () => {
-    expect(Object.values(DocumentKind)).toEqual(['STUDENT_ID_CARD', 'STAFF_ID_CARD']);
+    expect(Object.values(DocumentKind)).toEqual([
+      'STUDENT_ID_CARD',
+      'STAFF_ID_CARD',
+      'ACR_ASSESSMENT',
+    ]);
     expect(Object.values(LayoutKind)).toEqual(['FIXED', 'FLOWING']);
     expect(Object.values(PrintElementType)).toEqual(['TEXT', 'IMAGE', 'QR', 'SHAPE']);
     expect(Object.values(ShapeKind)).toEqual(['RECT', 'LINE']);
@@ -31,12 +36,13 @@ describe('print enums', () => {
     expect(Object.values(PrintAssetKind)).toEqual(['ARTWORK', 'IMAGE', 'FONT']);
     expect(Object.values(PrintJobStatus)).toEqual(['OPEN', 'CONFIRMED']);
     expect(Object.values(PrintItemOutcome)).toEqual(['PENDING', 'OK', 'FAILED']);
-    expect(Object.values(PrintSubjectType)).toEqual(['STUDENT', 'STAFF']);
+    expect(Object.values(PrintSubjectType)).toEqual(['STUDENT', 'STAFF', 'ACR']);
   });
 
   it('pins the batch limits and CR80 size', () => {
     expect(PRINT_BATCH_CEILING).toBe(200);
     expect(PRINT_DEFAULT_BATCH_SIZE).toBe(50);
+    expect(ACR_CRITERIA_SLOTS).toBe(30);
     expect(CR80).toEqual({ widthMm: 85.6, heightMm: 54 });
   });
 });

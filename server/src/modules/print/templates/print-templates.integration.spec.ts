@@ -105,4 +105,18 @@ describe('PrintTemplatesService (integration)', () => {
     await expect(service.listVersions(tenantB, created.id)).rejects.toThrow(NotFoundException);
     expect(await service.list(tenantB, {})).toEqual([]);
   });
+
+  it('creates and publishes the front-only A4 ACR suggestion (one artwork, no back)', async () => {
+    put.mockClear();
+    const created = await service.create(tenantA, SEED_ADMIN_USER_ID, {
+      name: 'ACR A4',
+      suggestion_key: 'acr-a4-standard',
+    });
+    expect(put).toHaveBeenCalledTimes(1);
+    expect(created.draft.back).toBeUndefined();
+    expect(created.draft.page.sides).toEqual(['front']);
+    expect(created.document_kind).toBe(DocumentKind.ACR_ASSESSMENT);
+    const v = await service.publish(tenantA, SEED_ADMIN_USER_ID, created.id);
+    expect(v.version).toBe(1);
+  });
 });

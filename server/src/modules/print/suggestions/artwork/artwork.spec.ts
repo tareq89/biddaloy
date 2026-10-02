@@ -10,6 +10,7 @@ const FILES = readdirSync(DIR)
 const BOX = {
   portrait: { width: '54mm', height: '85.6mm', viewBox: '0 0 54 85.6' },
   landscape: { width: '85.6mm', height: '54mm', viewBox: '0 0 85.6 54' },
+  a4: { width: '210mm', height: '297mm', viewBox: '0 0 210 297' },
 };
 // The allowlist 32.2.2 enforces (Epic 32.0 #1134).
 const ALLOWED = new Set(
@@ -20,18 +21,22 @@ const ALLOWED = new Set(
 );
 
 describe('suggestion artwork', () => {
-  it('ships all 16 files (8 designs x front/back)', () => {
-    expect(FILES).toHaveLength(16);
+  it('ships all 17 files (8 card designs x front/back + 1 A4 ACR page)', () => {
+    expect(FILES).toHaveLength(17);
   });
 
-  it.each(FILES)('%s is clean, CR80-sized background artwork', (file) => {
+  it.each(FILES)('%s is clean, correctly sized background artwork', (file) => {
     const xml = readFileSync(join(DIR, file), 'utf8');
     // image/svg+xml makes jsdom parse strictly as XML and throw when malformed.
     const doc = new JSDOM(xml, { contentType: 'image/svg+xml' }).window.document;
     const root = doc.documentElement;
 
     expect(root.localName).toBe('svg');
-    const box = file.includes('-landscape-') ? BOX.landscape : BOX.portrait;
+    const box = file.startsWith('acr-')
+      ? BOX.a4
+      : file.includes('-landscape-')
+        ? BOX.landscape
+        : BOX.portrait;
     expect(root.getAttribute('viewBox')).toBe(box.viewBox);
     expect(root.getAttribute('width')).toBe(box.width);
     expect(root.getAttribute('height')).toBe(box.height);

@@ -130,6 +130,12 @@
     "saveFailed": "Could not save. Try again, or leave anyway."
   },
   "fields": {
+    "acr.completed_on": "Completed on",
+    "acr.criterion_label": "Criterion {{n}} (English)",
+    "acr.criterion_label_bn": "Criterion {{n}} (Bangla)",
+    "acr.criterion_score": "Criterion {{n}} score",
+    "acr.total": "ACR total score",
+    "acr.year": "ACR year",
     "card.valid_until": "Valid until",
     "guardian.phone": "Guardian phone",
     "print.copyLabel": "Copy label (\"Copy 2\")",
