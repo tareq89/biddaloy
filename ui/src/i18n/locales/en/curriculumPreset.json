@@ -1,0 +1,93 @@
+{
+  "title": "Curriculum preset",
+  "loadError": "Could not load the curriculum presets.",
+  "retry": "Try again",
+  "steps": {
+    "pick": "Choose a preset",
+    "options": "Options",
+    "confirm": "Confirm"
+  },
+  "submit": "Apply preset",
+  "cards": {
+    "label": "Curriculum presets",
+    "select": "Choose",
+    "selected": "Chosen",
+    "preview": "Preview",
+    "stages": "Stages: {{names}}",
+    "withVersions": "Versions: {{names}}"
+  },
+  "unverified": "Structure only — marks and grading set by your school",
+  "unverifiedWarning": "This preset has not been checked against the official curriculum. It sets up classes and subjects only. Your school must set marks and grading itself.",
+  "options": {
+    "stages": "Stages to set up",
+    "versions": "Versions to set up",
+    "versionsHint": "Choose at least one version.",
+    "stagesHint": "Choose at least one stage.",
+    "startYear": "Start year",
+    "startYearHint": "The first academic year is created for this year."
+  },
+  "review": {
+    "summary": "{{name}} — stages: {{stages}}, start year {{year}}.",
+    "versions": "Versions: {{names}}.",
+    "next": "Press “Apply preset” to type the preset name and confirm."
+  },
+  "confirm": {
+    "title": "Apply {{name}}?",
+    "creates": "This will create the academic year, classes, subjects, grading scale and exam templates from the preset.",
+    "irreversible": "This cannot be undone by you — only a platform administrator can reset it.",
+    "typeLabel": "Type “{{name}}” to confirm",
+    "apply": "Apply",
+    "cancel": "Cancel",
+    "error": "Could not apply the preset. Please try again."
+  },
+  "preview": {
+    "title": "{{name}}",
+    "loadError": "Could not load the preview.",
+    "stages": "Stages",
+    "classes": "Classes",
+    "groups": "Groups",
+    "subjects": "Subjects: {{count}}",
+    "subjectsByClass": "Subjects by class",
+    "className": "Class {{grade}}",
+    "oneOf": "One of: {{names}}",
+    "gradingScale": "Grading scale",
+    "band": "{{from}}–{{to}}% — {{grade}}",
+    "noScale": "No grading scale. Your school sets it.",
+    "examTemplates": "Exam templates",
+    "certificates": "Certificates",
+    "certificateKind": {
+      "TESTIMONIAL": "Testimonial",
+      "TRANSCRIPT": "Transcript",
+      "CHARACTER": "Character certificate",
+      "TRANSFER": "Transfer certificate"
+    },
+    "none": "None"
+  },
+  "applied": {
+    "title": "Preset applied",
+    "preset": "Preset: {{id}} (version {{version}})",
+    "appliedAt": "Applied on {{date}}",
+    "appliedBy": "Applied by user {{id}}",
+    "createdHeading": "What was created",
+    "created": {
+      "settings": "Settings",
+      "academicYears": "Academic years",
+      "classes": "Classes",
+      "subjects": "Subjects",
+      "classSubjects": "Class subjects",
+      "academicTerms": "Terms",
+      "gradingScales": "Grading scales",
+      "gradingBands": "Grading bands",
+      "examTemplates": "Exam templates",
+      "examTemplateComponents": "Exam template parts"
+    }
+  },
+  "custom": {
+    "message": "Your school was set up without a curriculum preset."
+  },
+  "blocked": {
+    "heading": "A preset cannot be applied because these already exist:",
+    "item": "{{entity}} — {{count}}",
+    "open": "Open {{entity}}"
+  }
+}
