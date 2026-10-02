@@ -5,7 +5,7 @@ import {
   server,
   subjectFactory,
 } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -44,12 +44,14 @@ describe('SubjectChoicesPanel', () => {
             subject_id: history.id,
             chosen: currentFourth === 'class-subject-history',
             is_fourth: currentFourth === 'class-subject-history',
+            choice_group: null,
           },
           {
             class_subject_id: 'class-subject-geo',
             subject_id: geography.id,
             chosen: currentFourth === 'class-subject-geo',
             is_fourth: currentFourth === 'class-subject-geo',
+            choice_group: null,
           },
         ]),
       ),
@@ -87,6 +89,7 @@ describe('SubjectChoicesPanel', () => {
         subject_id: history.id,
         chosen: false,
         is_fourth: false,
+        choice_group: null,
       },
     ]);
   const fail = () => HttpResponse.json({ message: 'boom' }, { status: 500 });
@@ -164,5 +167,86 @@ describe('SubjectChoicesPanel', () => {
 
     await user.click(await screen.findByRole('radio', { name: 'History' }));
     await screen.findByRole('alert');
+  });
+
+  it('renders group members in their own radio group, never as fourth options, and PUTs is_fourth:false', async () => {
+    const islam = subjectFactory({ id: 's-islam', name_en: 'Islam' });
+    const hindu = subjectFactory({ id: 's-hindu', name_en: 'Hindu' });
+    let body: unknown;
+    server.use(
+      http.get('/api/v1/academic-years', yearsOk),
+      http.get('/api/v1/subjects', () =>
+        HttpResponse.json({
+          data: [history, islam, hindu],
+          total: 3,
+          page: 1,
+          limit: 100,
+          totalPages: 1,
+        }),
+      ),
+      http.get('/api/v1/students/:studentId/subject-choices', () =>
+        HttpResponse.json([
+          {
+            class_subject_id: 'cs-h',
+            subject_id: history.id,
+            chosen: false,
+            is_fourth: false,
+            choice_group: null,
+          },
+          {
+            class_subject_id: 'cs-i',
+            subject_id: islam.id,
+            chosen: false,
+            is_fourth: false,
+            choice_group: 'Religion',
+          },
+          {
+            class_subject_id: 'cs-d',
+            subject_id: hindu.id,
+            chosen: false,
+            is_fourth: false,
+            choice_group: 'Religion',
+          },
+        ]),
+      ),
+      http.put('/api/v1/students/:studentId/subject-choices', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({});
+      }),
+    );
+    const { user } = renderPanel();
+
+    const group = await screen.findByRole('group', { name: 'Religion' });
+    expect(within(group).getAllByRole('radio')).toHaveLength(2);
+    const fourth = screen.getByRole('group', { name: 'Fourth subject' });
+    expect(within(fourth).getAllByRole('radio')).toHaveLength(1);
+    expect(screen.getByText(/Not picked yet/)).toBeTruthy();
+
+    await user.click(within(group).getByRole('radio', { name: 'Islam' }));
+    await waitFor(() => expect(body).toEqual({ class_subject_id: 'cs-i', is_fourth: false }));
+  });
+
+  it('hides the unpicked hint once a member is chosen', async () => {
+    const islam = subjectFactory({ id: 's-islam', name_en: 'Islam' });
+    server.use(
+      http.get('/api/v1/academic-years', yearsOk),
+      http.get('/api/v1/subjects', () =>
+        HttpResponse.json({ data: [islam], total: 1, page: 1, limit: 100, totalPages: 1 }),
+      ),
+      http.get('/api/v1/students/:studentId/subject-choices', () =>
+        HttpResponse.json([
+          {
+            class_subject_id: 'cs-i',
+            subject_id: islam.id,
+            chosen: true,
+            is_fourth: false,
+            choice_group: 'Religion',
+          },
+        ]),
+      ),
+    );
+    renderPanel();
+    await screen.findByRole('radio', { name: 'Islam' });
+    expect(screen.queryByText(/Not picked yet/)).toBeNull();
   });
 });

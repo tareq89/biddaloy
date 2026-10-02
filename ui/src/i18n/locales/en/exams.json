@@ -138,6 +138,7 @@
     "loadError": "Couldn't load subject choices.",
     "empty": "No optional subjects are offered for this student's class.",
     "label": "Fourth subject",
+    "groupUnpicked": "Not picked yet — this student's results can't be processed in exams that include this group until one is picked.",
     "errorMessage": "Couldn't save the choice."
   },
   "studentResultsPanel": {
