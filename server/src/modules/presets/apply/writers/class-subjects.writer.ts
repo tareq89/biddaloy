@@ -18,6 +18,7 @@ export const writeClassSubjects: ApplyWriter = async (ctx) => {
           subject_id: ctx.ids.subjectIdByCode.get(cs.subjectCode)!,
           academic_year_id: ctx.ids.yearId!,
           group_name: cs.group ?? null,
+          choice_group: cs.choiceGroup ?? null,
           is_optional: cs.optional ?? false,
           is_graded_only: cs.gradedOnly ?? false,
           tenant_id: ctx.tenantId,

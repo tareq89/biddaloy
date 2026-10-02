@@ -29,15 +29,15 @@
  * Model limits (one ClassSubject per class+subject, and `group` XOR `optional`):
  *  - "Higher Mathematics optional for non-Science" at 9-10 is NOT expressible
  *    (it is group-only for Science); omitted.
- *  - "Religion & Moral Education" at 9-10 is modelled as the four religion
- *    subjects P-01..P-04 (school picks per student), same as primary.ts.
+ *  - "Religion & Moral Education" at 9-10 is a choice group
+ *    ('Religion') over the four religion subjects P-01..P-04, as in primary.ts.
  *  - "General Mathematics" at 9-10 reuses MATH ("Mathematics").
  *  - 11-12 Higher Mathematics is the optional 4th subject; Biology is the
  *    Science group-only subject.
  */
 import type { PresetPack } from '@biddaloy/shared';
 
-import { NCTB_COMMON_SUBJECTS } from './primary';
+import { NCTB_COMMON_SUBJECTS, NCTB_RELIGION_GROUP } from './primary';
 
 type Subject = PresetPack['subjects'][number];
 type ClassSubject = PresetPack['classSubjects'][number];
@@ -95,10 +95,9 @@ const G910 = [9, 10];
 const G1112 = [11, 12];
 
 const classSubjects: ClassSubject[] = [
-  // 9-10 compulsory (optional:false: school picks the religion per student).
-  ...all(G910, [BAN.code, ENG.code, MATH.code, REUSED.BGS, ...REUSED.RELIGIONS, REUSED.ICT], {
-    optional: false,
-  }),
+  // 9-10 compulsory; religion is a one-of choice group (D47).
+  ...all(G910, [BAN.code, ENG.code, MATH.code, REUSED.BGS, REUSED.ICT], { optional: false }),
+  ...all(G910, REUSED.RELIGIONS, { choiceGroup: NCTB_RELIGION_GROUP }),
   ...inGroup(G910, 'Science', ['S-01', 'S-02', 'S-03', 'S-04']),
   ...inGroup(G910, 'Humanities', ['S-05', 'S-06', 'S-07', 'S-08']),
   ...inGroup(G910, 'Business Studies', ['S-09', 'S-10', 'S-11']),
