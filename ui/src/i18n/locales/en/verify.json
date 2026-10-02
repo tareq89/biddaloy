@@ -1,0 +1,25 @@
+{
+  "pageTitle": "Verify document",
+  "loading": "Checking this document…",
+  "valid": "Valid document",
+  "revoked": "This document has been revoked",
+  "revokedOn": "Revoked on {{date}}",
+  "kind": {
+    "STUDENT_ID_CARD": "Student ID card",
+    "STAFF_ID_CARD": "Staff ID card"
+  },
+  "rows": {
+    "type": "Document",
+    "holder": "Holder",
+    "school": "School",
+    "issuedOn": "Issued on",
+    "copy": "Copy"
+  },
+  "footer": "Verified by SchoolManager",
+  "notFoundTitle": "We could not find this document",
+  "notFoundExplanation": "Check that you scanned the whole code.",
+  "tooMany": "Too many checks — try again in a minute.",
+  "errorTitle": "Could not check this document",
+  "errorExplanation": "There was a problem with the connection or the server.",
+  "errorRetry": "Try again"
+}

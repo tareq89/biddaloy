@@ -515,6 +515,37 @@ export async function getPublicInvoice(
   }
 }
 
+/** [32.2.10] What the public page shows for a printed document (D22) — nothing
+ * beyond this: no ids, photo, class or phone. */
+export interface PublicVerification {
+  document_kind: string;
+  holder_name: string;
+  school_name: string;
+  school_name_bn: string | null;
+  issued_at: string;
+  copy_number: number;
+  status: 'VALID' | 'REVOKED';
+  revoked_at?: string;
+}
+
+/** `GET /public/verify/:token` — bare axios, no tenant header and no login, exactly
+ * like `getPublicInvoice`: whoever scans a printed card's QR code has neither. The
+ * server resolves the tenant from the token. 404 = unknown token; 429 = throttled. */
+export async function fetchPublicVerification(
+  token: string,
+  signal?: AbortSignal,
+): Promise<PublicVerification> {
+  try {
+    const response = await axios.get<PublicVerification>(
+      `${API_BASE_URL}/public/verify/${encodeURIComponent(token)}`,
+      signal !== undefined ? { signal } : {},
+    );
+    return response.data;
+  } catch (error) {
+    throw toApiError(error);
+  }
+}
+
 /** Single-flight refresh: the first 401 creates this promise; every
  * concurrent 401 that arrives before it settles awaits the same one instead
  * of issuing its own POST /auth/refresh. The server treats a second refresh

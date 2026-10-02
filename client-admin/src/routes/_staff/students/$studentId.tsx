@@ -14,6 +14,7 @@ import { ActivityTab } from './-detail/activity-tab';
 import { AttendanceTab } from './-detail/attendance-tab';
 import { CommunicationTab } from './-detail/communication-tab';
 import { DeleteStudentDialog } from './-detail/delete-student-dialog';
+import { DocumentsTab } from './-detail/documents-tab';
 import { EnrollmentTab } from './-detail/enrollment-tab';
 import { FeesTab } from './-detail/fees-tab';
 import { FinesTab } from './-detail/fines-tab';
@@ -100,6 +101,7 @@ export const Route = createFileRoute('/_staff/students/$studentId')({
         'student-notes',
         'performance',
         'student-lifecycle',
+        'printHistory',
       ),
     ]),
   pendingComponent: StudentDetailPending,
@@ -125,6 +127,7 @@ const TAB_IDS = [
   'programs',
   'records',
   'notes',
+  'documents',
 ] as const;
 
 function StudentDetailPage() {
@@ -148,6 +151,7 @@ function StudentDetailPage() {
   const canDelete = useHasPermission(Permission.STUDENT_DELETE);
   const canCollectFees = useHasPermission(Permission.FEE_COLLECT);
   const canSendReminder = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
+  const canPrint = useHasPermission(Permission.DOCUMENT_PRINT);
   // The Fees/Payments/Invoices tabs format currency — same reasoning as
   // `/settings`'s own `RegionConfigProvider` wrap: `useRegionConfig()`
   // has no ambient provider above the route tree, so without this every
@@ -254,6 +258,22 @@ function StudentDetailPage() {
                   allowed: canSendReminder,
                   priority: 'tertiary',
                   onClick: () => setReminderDialogOpen(true),
+                },
+                {
+                  id: 'print-id-card',
+                  label: t('detail.actions.printIdCard'),
+                  allowed: canPrint,
+                  priority: 'tertiary',
+                  onClick: () =>
+                    void navigate({
+                      to: '/print/preview',
+                      search: {
+                        kind: 'STUDENT_ID_CARD',
+                        subject_type: 'STUDENT',
+                        ids: studentId,
+                        from: `/students/${studentId}`,
+                      },
+                    }),
                 },
                 {
                   id: 'delete',
@@ -379,6 +399,15 @@ function StudentDetailPage() {
                         id: 'notes',
                         label: t('detail.tabs.notes'),
                         content: <NotesTab studentId={studentId} />,
+                      },
+                    ]
+                  : []),
+                ...(canPrint
+                  ? [
+                      {
+                        id: 'documents',
+                        label: t('detail.tabs.documents'),
+                        content: <DocumentsTab studentId={studentId} />,
                       },
                     ]
                   : []),

@@ -160,7 +160,7 @@ function FinesListPage() {
       void navigate({ search: (prev) => ({ ...prev, logFine: undefined }), replace: true });
     }
     if (search.generateFines) {
-      setGenerateFinesOpen(true);
+      if (canGenerate) setGenerateFinesOpen(true);
       void navigate({ search: (prev) => ({ ...prev, generateFines: undefined }), replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per mount to consume the one-shot query flag
@@ -258,7 +258,9 @@ function FinesListPage() {
       )}
 
       {canGenerate && <LogFineModal open={logFineOpen} onOpenChange={setLogFineOpen} />}
-      <GenerateFinesModal open={generateFinesOpen} onOpenChange={setGenerateFinesOpen} />
+      {canGenerate && (
+        <GenerateFinesModal open={generateFinesOpen} onOpenChange={setGenerateFinesOpen} />
+      )}
       <WaiveFineDialog
         open={waiving !== null}
         onOpenChange={(open) => !open && setWaiving(null)}

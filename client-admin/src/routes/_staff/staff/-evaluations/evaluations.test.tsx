@@ -88,7 +88,8 @@ describe('/staff/evaluations', () => {
 
   it('is refused for a role without ACR_READ', async () => {
     render('TEACHER');
-    await waitFor(() => expect(screen.queryByRole('heading', { name: 'ACR register' })).toBeNull());
+    await screen.findByRole('heading', { name: /don't have access to this page/i });
+    expect(screen.queryByRole('heading', { name: 'ACR register' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Incidents' })).toBeNull();
   });
 });

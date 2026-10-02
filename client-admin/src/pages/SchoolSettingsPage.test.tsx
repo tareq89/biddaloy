@@ -1,11 +1,29 @@
 import '@biddaloy/ui/test';
 
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterProvider,
+} from '@tanstack/react-router';
 import { screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
+import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { SchoolSettingsPage } from './SchoolSettingsPage';
+
+// AcrCriteriaSection (mounted by the page) calls useBlocker, which needs a router.
+function PageWithRouter() {
+  const [router] = React.useState(() =>
+    createRouter({
+      routeTree: createRootRoute({ component: SchoolSettingsPage }),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    }),
+  );
+  return <RouterProvider router={router} />;
+}
 
 // Matches ApiErrorBody's shape — apiClient's response interceptor
 // (client.ts's toApiError) only recognizes this shape as an ApiError;
@@ -39,7 +57,7 @@ describe('SchoolSettingsPage', () => {
   });
 
   it('shows a school picker for a SUPER_ADMIN, with no school selected by default', async () => {
-    renderWithProviders(<SchoolSettingsPage />, {
+    renderWithProviders(<PageWithRouter />, {
       locale: 'en',
       role: 'SUPER_ADMIN',
       tenantId: 'tenant-1',
@@ -54,7 +72,7 @@ describe('SchoolSettingsPage', () => {
   });
 
   it('picking a school shows the "configuring" banner and every section', async () => {
-    const { user } = renderWithProviders(<SchoolSettingsPage />, {
+    const { user } = renderWithProviders(<PageWithRouter />, {
       locale: 'en',
       role: 'SUPER_ADMIN',
       tenantId: 'tenant-1',
@@ -87,7 +105,7 @@ describe('SchoolSettingsPage', () => {
       }),
     );
 
-    renderWithProviders(<SchoolSettingsPage />, {
+    renderWithProviders(<PageWithRouter />, {
       locale: 'en',
       role: 'SUPER_ADMIN',
       tenantId: 'tenant-1',
@@ -106,7 +124,7 @@ describe('SchoolSettingsPage', () => {
       http.get('/api/v1/schools', () => HttpResponse.json(apiErrorBody(400), { status: 400 })),
     );
 
-    renderWithProviders(<SchoolSettingsPage />, {
+    renderWithProviders(<PageWithRouter />, {
       locale: 'en',
       role: 'SUPER_ADMIN',
       tenantId: 'tenant-1',
@@ -123,7 +141,7 @@ describe('SchoolSettingsPage', () => {
         HttpResponse.json(apiErrorBody(400), { status: 400 }),
       ),
     );
-    const { user } = renderWithProviders(<SchoolSettingsPage />, {
+    const { user } = renderWithProviders(<PageWithRouter />, {
       locale: 'en',
       role: 'SUPER_ADMIN',
       tenantId: 'tenant-1',
@@ -137,7 +155,7 @@ describe('SchoolSettingsPage', () => {
   });
 
   it('an ADMIN sees no picker at all — their own school loads directly', async () => {
-    renderWithProviders(<SchoolSettingsPage />, {
+    renderWithProviders(<PageWithRouter />, {
       locale: 'en',
       role: 'ADMIN',
       tenantId: 'tenant-1',
@@ -153,7 +171,7 @@ describe('SchoolSettingsPage', () => {
   });
 
   it('has no accessibility violations with every section rendered', async () => {
-    const { container } = renderWithProviders(<SchoolSettingsPage />, {
+    const { container } = renderWithProviders(<PageWithRouter />, {
       locale: 'en',
       role: 'ADMIN',
       tenantId: 'tenant-1',

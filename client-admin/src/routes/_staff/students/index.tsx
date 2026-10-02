@@ -22,12 +22,13 @@ import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@bi
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
 import { downloadCsv } from '@biddaloy/ui/utils';
 import { useQueryClient } from '@tanstack/react-query';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
+import { BulkPhotoDialog } from './-bulk-photo-dialog';
 import { SendReminderDialog } from './-send-reminder-dialog';
 
 /** `DataTableSort.id` values that map onto a server-sortable field —
@@ -211,11 +212,38 @@ function StudentsListPage() {
   const canSendReminder = useHasPermission(Permission.COMMUNICATION_BULK_SEND);
   const canAddStudent = useHasPermission(Permission.STUDENT_CREATE);
   const canBulkImport = useHasPermission(Permission.STUDENT_BULK_UPLOAD);
+  const canUpdateStudent = useHasPermission(Permission.STUDENT_UPDATE);
   const canManageBackup = useHasPermission(Permission.BACKUP_MANAGE);
+  const canPrint = useHasPermission(Permission.DOCUMENT_PRINT);
+  const navigate = useNavigate();
   const isEmpty =
     !studentsQuery.isLoading && !studentsQuery.isError && (studentsQuery.data?.total ?? 0) === 0;
 
+  // A class AND a section chosen: offer to print the whole section without selecting rows.
+  const wholeClass =
+    filters.class_id !== undefined && filters.section_id !== undefined
+      ? {
+          sectionId: filters.section_id,
+          label: `${classesQuery.data?.data.find((k) => k.id === filters.class_id)?.name ?? ''}-${
+            sectionsQuery.data?.find((x) => x.id === filters.section_id)?.section_name ?? ''
+          }`,
+        }
+      : undefined;
+
+  function printPreview(search: { ids: string } | { class_section_id: string }) {
+    void navigate({
+      to: '/print/preview',
+      search: {
+        kind: 'STUDENT_ID_CARD',
+        subject_type: 'STUDENT',
+        from: '/students',
+        ...search,
+      },
+    });
+  }
+
   const [reminderDialogOpen, setReminderDialogOpen] = React.useState(false);
+  const [photosDialogOpen, setPhotosDialogOpen] = React.useState(false);
 
   // FilterBar's `onChange` patches one key at a time — intercept `class_id`
   // changes to also clear `section_id`, since a section chosen under the
@@ -434,9 +462,23 @@ function StudentsListPage() {
         title={t('list.title')}
         primaryAction={
           <div className="flex items-center gap-2">
+            {canUpdateStudent && (
+              <Button type="button" variant="outline" onClick={() => setPhotosDialogOpen(true)}>
+                {t('bulkPhotos.action')}
+              </Button>
+            )}
             {canBulkImport && (
               <Button asChild variant="outline">
                 <Link to="/students/import">{t('list.importStudents')}</Link>
+              </Button>
+            )}
+            {canPrint && wholeClass !== undefined && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => printPreview({ class_section_id: wholeClass.sectionId })}
+              >
+                {t('list.printWholeClass', { name: wholeClass.label })}
               </Button>
             )}
             {canAddStudent && (
@@ -492,6 +534,15 @@ function StudentsListPage() {
                 {t('list.sendReminder')}
               </Button>
             )}
+            {canPrint && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => printPreview({ ids: Array.from(state.selectedIds).join(',') })}
+              >
+                {t('list.printIdCards', { count: state.selectedIds.size })}
+              </Button>
+            )}
             <Button
               type="button"
               size="sm"
@@ -523,6 +574,7 @@ function StudentsListPage() {
           </Link>
         </p>
       )}
+      <BulkPhotoDialog open={photosDialogOpen} onOpenChange={setPhotosDialogOpen} />
       <SendReminderDialog
         open={reminderDialogOpen}
         onOpenChange={setReminderDialogOpen}

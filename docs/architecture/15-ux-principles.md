@@ -78,13 +78,13 @@ People
     Student detail — tabs today: Overview, Enrollment, Guardians, Attendance, Fees, Invoices, Payments, Communication, Activity
       + Results [19.0] · Homework [22.0] · Programs & milestones [34.0] · Notes [N11] · Records [N11]
       + Performance [28.0, have — MARK_VIEW]
-      + Subjects (optional/4th) [19.0] · Fines [N8] · Documents [Print module]
+      + Subjects (optional/4th) [19.0] · Fines [N8] · Documents [have, 32.0]
   Guardians [have] → detail: Information, Linked students, Payments, Communication
   Staff [partial] — ONE register (teachers, employees, administration, principal/VP as designations)
     Staff detail — tabs today: Profile, Memberships, Permissions, Login history, Invitation
       + HR record [23.0] · Teaching assignments [29.0+23.0] · Attendance & leave [N5]
       + ACR · Incidents · Performance [28.0, have — ACR_READ, admin only]
-      + Documents [Print module] · Website profile [N13]
+      + Documents [have, 32.0] · Website profile [N13]
     Teaching assignments (bulk view) [29.0+23.0]                    A E
     Evaluations [28.0, have] — tabs ACR · Surveys · Incidents         A
       Survey detail (results sealed until closed)
@@ -106,7 +106,7 @@ Attendance
   Students [have] · Monthly grid [partial] · Upload device file [partial] · Period/subject-wise [N15]
   Staff [N5] · Leave · Report for payroll                           A E (Ac)
   Reports [have] · Yearly summary [partial] · Defaulters [have] · Submission check-list [N15]
-  Printable register [have] · Sheet layout [Print module]
+  Printable register [have] · Sheet layout [Print module — follow-up epic]
 
 Exams & Results
   Exams [19.0]                                                      A E T
@@ -116,7 +116,7 @@ Exams & Results
   Analysis [have] · Merit list · Defaulted list · Pass/fail (+ by component)
   Promotion [have] · Draft run · Grid override · Commit                   A E
   Segregation [26.0, not yet shipped]
-  Seat plans [25.0] · Exam printables [Print module]
+  Seat plans [25.0] · Exam printables [Print module — follow-up epic]
 
 Finance
   Fees · Student dues · Fee structures · Generate fees · Payments (+ Student statement [8.15]) · Record payment · Invoices   [all have]
@@ -131,12 +131,13 @@ Communications
 
 Reports [8.15] — a hub that LINKS to screens that live with their data; no copies
   Communications · Collections [have] · Student dues [have] · Attendance [have]
-  Student lists [8.15] · Student count [8.15] · Printables & documents [Print module] · Exports [8.15]
+  Student lists [8.15] · Student count [8.15] · Printables & documents [have, 32.0] · Exports [8.15]
 
 Administration
+  Print templates [have, 32.0] — library, then the full-screen editor
   Settings [have] → sub-pages:
     Attendance policy & times [partial → N15] · Communication providers [have]
-    School profile & logo [have] · Region & locale [17.0] · Presets & feature toggles [N3]
+    Printers [have, 32.0] (calibration, margins) · School profile & logo [have] · Region & locale [17.0] · Presets & feature toggles [N3]
     Organisation structure [have, 33.0 — Settings section, no new route; a
     shift/version/group field only shows once the tenant has 2+ entries in
     it] · Result templates library [19.0] · Backup & restore [have] · Website sync [N13]
@@ -154,7 +155,7 @@ Fees & invoices [have] · Pay online [3.0] · Statement [8.15] · Fines [38.0]
 Attendance [have]
 Results [19.0] · Homework [22.0] · Syllabus [22.0] · Routine [21.0]
 Calendar & notices [17.0; notices have]
-Online exam & class [N6] · Programs [34.0] · Documents [Print module]
+Online exam & class [N6] · Programs [34.0] · Documents [Print module — follow-up epic]
 Account [have]
 ```
 

@@ -74,7 +74,11 @@
     "seatPlans": "সিট প্ল্যান",
     "programs": "প্রোগ্রাম ও মাইলস্টোন",
     "portalPrograms": "প্রোগ্রাম",
-    "more": "আরও"
+    "more": "আরও",
+    "printTemplates": "প্রিন্ট টেমপ্লেট",
+    "printables": "প্রিন্ট ও ডকুমেন্ট",
+    "printTemplateEdit": "টেমপ্লেট সম্পাদনা",
+    "printPreview": "প্রিন্ট প্রিভিউ"
   },
   "groups": {
     "people": "ব্যক্তিবর্গ",

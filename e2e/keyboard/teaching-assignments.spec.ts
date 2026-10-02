@@ -51,7 +51,7 @@ test('keyboard-only: filter by class, then unassign a teacher', async ({ page, r
       document.body.removeAttribute('tabindex');
     });
     await page.keyboard.press('Tab');
-    await tabUntilFocused(page, t('teacherAssignments.list.classLabel'), 60, {
+    await tabUntilFocused(page, t('teacherAssignments.list.classLabel'), 90, {
       tag: 'BUTTON',
     });
     // `selectByTypeahead` opens the trigger itself (presses Enter), then

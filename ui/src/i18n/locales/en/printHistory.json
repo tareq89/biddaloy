@@ -1,0 +1,99 @@
+{
+  "title": "Printables & documents",
+  "caption": "Everything that has been printed, newest first",
+  "empty": "Nothing printed yet. Print ID cards from a student's or staff member's page.",
+  "loadError": "Could not load the print history.",
+  "announce": "{{visible}} of {{total}} shown",
+  "columns": {
+    "when": "Printed",
+    "by": "Printed by",
+    "document": "Document",
+    "person": "Person",
+    "copy": "Copy",
+    "result": "Result",
+    "status": "Status",
+    "actions": "Actions"
+  },
+  "system": "System",
+  "copyValue": "#{{n}}",
+  "documentValue": "{{name}} v{{version}}",
+  "kind": {
+    "STUDENT_ID_CARD": "Student ID card",
+    "STAFF_ID_CARD": "Staff ID card"
+  },
+  "outcome": {
+    "OK": "Printed",
+    "FAILED": "Failed",
+    "PENDING": "Pending"
+  },
+  "status": {
+    "VALID": "Valid",
+    "REVOKED": "Revoked"
+  },
+  "filters": {
+    "kind": "Document type",
+    "allKinds": "All documents",
+    "template": "Template",
+    "allTemplates": "All templates",
+    "printedBy": "Printed by",
+    "allUsers": "Everyone",
+    "dates": "Date",
+    "from": "From",
+    "to": "To",
+    "outcome": "Result",
+    "allOutcomes": "Any result",
+    "validity": "Status",
+    "allValidity": "Valid and revoked",
+    "onlyValid": "Valid only",
+    "onlyRevoked": "Revoked only",
+    "search": "Search by name",
+    "searchPlaceholder": "Search by name"
+  },
+  "actions": {
+    "view": "View",
+    "reprint": "Reprint",
+    "revoke": "Revoke"
+  },
+  "item": {
+    "title": "Printed copy",
+    "loading": "Loading…",
+    "error": "Could not load this print.",
+    "printedBy": "Printed by",
+    "printedAt": "Printed",
+    "copy": "Copy",
+    "status": "Status",
+    "reason": "Revoked because",
+    "qrNote": "The QR code is not stored, so it does not appear here. Reprint to get a new one.",
+    "front": "Front",
+    "back": "Back",
+    "close": "Close"
+  },
+  "reprint": {
+    "title": "Reprint {{name}}",
+    "explain": "This prints the same card exactly as before, as a new copy with its own QR code.",
+    "printer": "Printer",
+    "choosePrinter": "Choose a printer",
+    "noPrinter": "Add a printer in Settings first.",
+    "print": "Print",
+    "cancel": "Cancel",
+    "failed": "Could not start printing. Nothing was printed.",
+    "popupBlocked": "Your browser blocked the print window. Allow pop-ups for this site, then press Print again."
+  },
+  "revoke": {
+    "title": "Revoke {{name}}",
+    "warning": "Anyone scanning this card's QR code will see it is no longer valid.",
+    "reason": "Reason",
+    "reasonHelp": "Required, up to 280 characters. Shown to staff, not to the public.",
+    "reasonRequired": "Enter a reason.",
+    "confirm": "Revoke card",
+    "cancel": "Cancel",
+    "saving": "Revoking…",
+    "failed": "Could not revoke this card.",
+    "done": "Card revoked"
+  },
+  "subject": {
+    "title": "Print history",
+    "empty": "Not printed yet",
+    "error": "Could not load the print history."
+  }
+}

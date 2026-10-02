@@ -27,6 +27,7 @@ import { staffTrainingTab } from '../tabs/people/staff-training.tab';
 import { staffAchievementTab } from '../tabs/people/staff-achievement.tab';
 import { staffLanguageTab } from '../tabs/people/staff-language.tab';
 import { staffDocumentTab } from '../tabs/people/staff-document.tab';
+import { printTabs } from '../tabs/print';
 import { attendanceTabs } from '../tabs/attendance';
 import { hrTabs } from '../tabs/hr';
 import { acrTabs } from '../tabs/people/acr.tab';
@@ -168,6 +169,12 @@ export const EXPECTED_TABS = [
   'staff_attendance_records',
   'leave_policies',
   'leave_records',
+  // [32.3.10] Epic 32's print setup. Appended at the end, in dependency order:
+  // templates point at assets, and versions point at their template.
+  'printer_profiles',
+  'print_assets',
+  'print_templates',
+  'print_template_versions',
   // [28.1.3] Epic 28.0's ACR / incident / survey tabs, appended at the end:
   // they depend only on `users`, `academic_years`, `teachers` and `subjects`,
   // all earlier in this list. Order is restore order.
@@ -242,6 +249,9 @@ export const ALL_TABS: readonly TabSpec<any, any>[] = [
   // come last.
   ...attendanceTabs,
   ...hrTabs,
+  // [32.3.10] Epic 32's print setup: printers, assets, templates, template versions.
+  // Last, matching where they sit in EXPECTED_TABS.
+  ...printTabs,
   // [28.1.3] After every lane's barrel — see the `EXPECTED_TABS` comment.
   ...acrTabs,
   ...incidentsTabs,

@@ -439,4 +439,44 @@ export const ACTIONS: readonly PaletteAction[] = [
     // `ActionRunContext` can't supply a class ([31.0]'s retrofit).
     run: (ctx) => ctx.navigate({ to: '/promotions/new' }),
   },
+
+  // [32.4.2] Print module (D32). The two ID-card actions open `/print/preview` with nobody
+  // chosen, which shows the picker modal (`print-id-card-modal.tsx`).
+  {
+    id: 'print.studentIdCard',
+    label: { en: 'Print student ID card', bn: 'শিক্ষার্থীর আইডি কার্ড প্রিন্ট' },
+    permission: Permission.DOCUMENT_PRINT,
+    kind: 'modal',
+    run: (ctx) => ctx.navigate({ to: '/print/preview?kind=STUDENT_ID_CARD&subject_type=STUDENT' }),
+  },
+  {
+    id: 'print.staffIdCard',
+    label: { en: 'Print staff ID card', bn: 'কর্মীর আইডি কার্ড প্রিন্ট' },
+    permission: Permission.DOCUMENT_PRINT,
+    kind: 'modal',
+    run: (ctx) => ctx.navigate({ to: '/print/preview?kind=STAFF_ID_CARD&subject_type=STAFF' }),
+  },
+  {
+    id: 'print.newTemplate',
+    label: { en: 'New print template', bn: 'নতুন প্রিন্ট টেমপ্লেট' },
+    permission: Permission.PRINT_TEMPLATE_MANAGE,
+    kind: 'modal',
+    run: (ctx) => ctx.navigate({ to: '/print-templates?new=1' }),
+  },
+  {
+    id: 'print.history',
+    label: { en: 'Print history', bn: 'প্রিন্টের ইতিহাস' },
+    permission: Permission.PRINT_HISTORY_READ,
+    kind: 'navigate',
+    run: (ctx) => ctx.navigate({ to: '/reports/printables' }),
+  },
+  // Gated like the Settings page it opens (`SETTINGS_MANAGE`), not `PRINT_TEMPLATE_MANAGE`: the
+  // palette must not offer a shortcut to a page the person cannot open.
+  {
+    id: 'print.printers',
+    label: { en: 'Printers', bn: 'প্রিন্টার' },
+    permission: Permission.SETTINGS_MANAGE,
+    kind: 'navigate',
+    run: (ctx) => ctx.navigate({ to: '/settings#printers-section' }),
+  },
 ];

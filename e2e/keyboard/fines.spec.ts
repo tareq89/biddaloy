@@ -77,7 +77,7 @@ test.describe('(a) Fines list: nav -> l -> log a fine -> Enter -> Waive -> step-
         document.body.removeAttribute('tabindex');
       });
       await page.keyboard.press('Tab');
-      await tabUntilFocused(page, t('nav.items.fines'), 60, { tag: 'a' });
+      await tabUntilFocused(page, t('nav.items.fines'), 90, { tag: 'a' });
       await page.keyboard.press('Enter');
     });
 
@@ -181,7 +181,7 @@ test.describe('(b) Rules: tab -> n -> create an ABSENT rule -> save', () => {
         document.body.removeAttribute('tabindex');
       });
       await page.keyboard.press('Tab');
-      await tabUntilFocused(page, t('fines.tabs.rules'), 60, { tag: 'a' });
+      await tabUntilFocused(page, t('fines.tabs.rules'), 90, { tag: 'a' });
       await page.keyboard.press('Enter');
     });
 

@@ -34,7 +34,13 @@ function AcrPending() {
   return <RoutePending variant="detail" label={t('routePending.label', { ns: 'nav' })} />;
 }
 
+// Keyed by assessment so navigating to another ACR re-seeds the form.
 function AcrPage() {
+  const { assessmentId } = Route.useParams();
+  return <AcrPageInner key={assessmentId} />;
+}
+
+function AcrPageInner() {
   const { userId, assessmentId } = Route.useParams();
   const { t } = useTranslation('evaluations');
   const assessmentQuery = useAcrAssessment(assessmentId);

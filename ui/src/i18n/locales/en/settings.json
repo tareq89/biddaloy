@@ -234,5 +234,72 @@
     "renameConfirm": "Save",
     "renameCancel": "Cancel",
     "emptyList": "No values yet."
+  },
+  "printers": {
+    "title": "Printers",
+    "explainer": "Your browser can't tell which printer you pick in its print dialog, so choose the same printer here when you print. Each printer can be off by a millimetre or two — the calibration page fixes that.",
+    "add": "Add printer",
+    "edit": "Edit",
+    "archive": "Archive",
+    "archiveConfirm": "Archive {{name}}? Past prints keep their record.",
+    "archived": "Printer archived",
+    "archiveError": "Could not archive the printer. Try again.",
+    "loadError": "Could not load the printers.",
+    "empty": {
+      "title": "Add your first printer",
+      "explanation": "You'll choose it each time you print."
+    },
+    "type": {
+      "CARD": "Card printer",
+      "OFFICE": "Office printer"
+    },
+    "typeHelp": {
+      "CARD": "Prints one card at a time, edge to edge.",
+      "OFFICE": "Prints cards on A4 sheets to cut out."
+    },
+    "duplex": {
+      "INTERLEAVED": "Automatic both sides",
+      "GROUPED": "I turn the stack over by hand"
+    },
+    "offsetValue": "Offset X {{x}} mm, Y {{y}} mm",
+    "calibrate": "Print calibration page",
+    "calibrateError": "Could not open the print window.",
+    "popupBlocked": "Your browser blocked the print window. Allow pop-ups for this site and try again.",
+    "guide": {
+      "title": "Calibrate {{name}}",
+      "step1": "Measure how far the first cross is from the top-left corner of the paper. It should be exactly 20 mm.",
+      "step2": "Enter the difference as the offset X and Y in this printer's settings (a printed cross that is 1 mm too far right needs X −1).",
+      "step3": "Print the page again and check that the cross is now at 20 mm.",
+      "editOffset": "Edit offset",
+      "close": "Done"
+    },
+    "form": {
+      "addTitle": "Add printer",
+      "editTitle": "Edit printer",
+      "name": "Name",
+      "type": "Printer type",
+      "margins": "Margins (mm)",
+      "marginTop": "Top",
+      "marginRight": "Right",
+      "marginBottom": "Bottom",
+      "marginLeft": "Left",
+      "offsetX": "Offset X (mm)",
+      "offsetY": "Offset Y (mm)",
+      "scale": "Scale",
+      "duplex": "Printing on both sides",
+      "gap": "Cutting gap (mm)",
+      "save": "Save",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "saveError": "Could not save the printer.",
+      "errors": {
+        "name": "Enter a name.",
+        "margin": "Margins must be between 0 and 20 mm.",
+        "offset": "Offset must be between −10 and 10 mm.",
+        "scale": "Scale must be between 0.90 and 1.10.",
+        "gap": "The gap must be between 0 and 20 mm."
+      }
+    },
+    "archiveTitle": "Archive printer"
   }
 }

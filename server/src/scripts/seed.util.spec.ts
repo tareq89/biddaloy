@@ -52,6 +52,10 @@ import {
   DEMO_STUDENTS_PER_SECTION,
   ensureAttendanceSeed,
   ensureCalendarDemoSeed,
+  ensurePrintProfileDemoSeed,
+  ensurePrintDemoSeed,
+  ensurePrintHistoryDemoSeed,
+  PRINT_DEMO_REVOKE_REASON,
   ensureDemoOrganisation,
   ensureDemoStudents,
   ensureGradingDemoSeed,
@@ -1754,5 +1758,235 @@ describe('ensureRoutineSeed', () => {
     expect(vi.mocked(repos.classRepository.save)).not.toHaveBeenCalled();
     expect(vi.mocked(repos.routineSlotRepository.create)).not.toHaveBeenCalled();
     expect(vi.mocked(repos.routineChangeRequestRepository.create)).not.toHaveBeenCalled();
+  });
+});
+
+describe('ensurePrintProfileDemoSeed', () => {
+  function repo<T>(data: unknown[]) {
+    const r = mockRepo<Student>();
+    vi.mocked(r.find).mockResolvedValue(data as unknown as Student[]);
+    return r as unknown as Repository<T>;
+  }
+
+  it('fills empty values, keeps set ones, and updates 0 rows on the second run', async () => {
+    const students = [
+      { id: 's1', full_name_bn: null, blood_group: null },
+      { id: 's2', full_name_bn: 'আগেরটাই', blood_group: 'O+' },
+    ];
+    const staff = [{ id: 'h1', name_bn: null, blood_group: 'B+' }];
+    const repos = {
+      studentRepository: repo<Student>(students),
+      staffHrRecordRepository: repo<never>(staff),
+    };
+
+    const first = await ensurePrintProfileDemoSeed(repos, { schoolId: 'school-1' });
+    expect(first).toEqual({ students: 1, staff: 1 });
+    expect(students[0].full_name_bn).toBeTruthy();
+    expect(students[0].blood_group).toBeTruthy();
+    expect(students[1]).toEqual({ id: 's2', full_name_bn: 'আগেরটাই', blood_group: 'O+' });
+    expect(staff[0].name_bn).toBeTruthy();
+    expect(staff[0].blood_group).toBe('B+');
+
+    const second = await ensurePrintProfileDemoSeed(repos, { schoolId: 'school-1' });
+    expect(second).toEqual({ students: 0, staff: 0 });
+  });
+});
+
+describe('ensurePrintDemoSeed', () => {
+  const SCHOOL = '11111111-1111-4111-8111-111111111111';
+  /** In-memory stand-ins: `findOne` looks at what was saved by name, like the real tables. */
+  function setup() {
+    const printers: Array<{ name: string }> = [];
+    const templates: Array<{
+      id: string;
+      name: string;
+      current_version_id: string | null;
+      archived_at: Date | null;
+    }> = [];
+    const students = [
+      { id: 's1', photo_key: null as string | null },
+      { id: 's2', photo_key: 'tenants/x/student-photo/kept.jpg' as string | null },
+    ];
+    const repos = {
+      printerRepository: {
+        findOne: vi.fn(({ where }: { where: { name: string } }) =>
+          Promise.resolve(printers.find((p) => p.name === where.name) ?? null),
+        ),
+        create: vi.fn((d: { name: string }) => d),
+        save: vi.fn((d: { name: string }) => Promise.resolve(printers.push(d))),
+      },
+      printTemplateRepository: {
+        findOne: vi.fn(({ where }: { where: { name: string } }) =>
+          Promise.resolve(templates.find((t) => t.name === where.name) ?? null),
+        ),
+      },
+      studentRepository: {
+        find: vi.fn(() => Promise.resolve(students)),
+        save: vi.fn((s: unknown) => Promise.resolve(s)),
+      },
+    };
+    const ports = {
+      createTemplate: vi.fn((key: string, name: string) => {
+        templates.push({ id: `tpl-${key}`, name, current_version_id: null, archived_at: null });
+        return Promise.resolve({ id: `tpl-${key}` });
+      }),
+      publishTemplate: vi.fn((id: string) => {
+        const t = templates.find((x) => x.id === id);
+        if (t) t.current_version_id = `ver-${id}`;
+        return Promise.resolve();
+      }),
+      setDefaultTemplate: vi.fn(() => Promise.resolve()),
+      putObject: vi.fn(() => Promise.resolve()),
+    };
+    return { repos, ports, printers, students, templates };
+  }
+  const run = (s: ReturnType<typeof setup>) =>
+    ensurePrintDemoSeed(s.repos as unknown as Parameters<typeof ensurePrintDemoSeed>[0], s.ports, {
+      schoolId: SCHOOL,
+    });
+
+  it('creates 2 printers, 2 published templates (student one is default) and a photo for students without one', async () => {
+    const s = setup();
+    const first = await run(s);
+    expect(first).toEqual({ printers: 2, templates: 2, photos: 1 });
+    expect(s.ports.createTemplate).toHaveBeenCalledWith(
+      'student-portrait-classic',
+      'Student ID card',
+    );
+    expect(s.ports.createTemplate).toHaveBeenCalledWith('staff-portrait-modern', 'Staff ID card');
+    // Both are published; each kind's first template is already the default, so only the
+    // demo's explicit set-default calls are asserted to have happened after publish.
+    expect(s.ports.publishTemplate).toHaveBeenCalledTimes(2);
+    expect(s.ports.setDefaultTemplate).toHaveBeenCalledTimes(2);
+    // The photo is a real 600x800 JPEG under this school's key prefix; an existing photo is kept.
+    const [key, body, type] = s.ports.putObject.mock.calls[0] as unknown as [
+      string,
+      Buffer,
+      string,
+    ];
+    expect(key.startsWith(`tenants/${SCHOOL}/student-photo/`)).toBe(true);
+    expect(key.endsWith('.jpg')).toBe(true);
+    expect(type).toBe('image/jpeg');
+    expect(body.subarray(0, 2).toString('hex')).toBe('ffd8');
+    expect(s.students[1]!.photo_key).toBe('tenants/x/student-photo/kept.jpg');
+  });
+
+  it('creates nothing the second time', async () => {
+    const s = setup();
+    await run(s);
+    s.ports.createTemplate.mockClear();
+    s.ports.putObject.mockClear();
+    const second = await run(s);
+    expect(second).toEqual({ printers: 0, templates: 0, photos: 0 });
+    expect(s.ports.createTemplate).not.toHaveBeenCalled();
+    expect(s.ports.putObject).not.toHaveBeenCalled();
+  });
+
+  it('resumes a draft a failed publish stranded, instead of creating a second one', async () => {
+    const s = setup();
+    s.ports.publishTemplate.mockRejectedValueOnce(new Error('publish failed'));
+    await expect(run(s)).rejects.toThrow('publish failed');
+    expect(s.templates).toHaveLength(1); // the stranded draft, never published
+    s.ports.createTemplate.mockClear();
+
+    const second = await run(s);
+
+    // The draft is published under its own id; only the other template is newly created.
+    expect(s.ports.createTemplate).toHaveBeenCalledTimes(1);
+    expect(s.ports.createTemplate).not.toHaveBeenCalledWith(
+      'student-portrait-classic',
+      'Student ID card',
+    );
+    expect(s.ports.publishTemplate).toHaveBeenCalledWith('tpl-student-portrait-classic');
+    expect(second.templates).toBe(2);
+    expect(s.templates).toHaveLength(2);
+  });
+
+  it('leaves an archived template alone', async () => {
+    const s = setup();
+    s.templates.push({
+      id: 'tpl-old',
+      name: 'Student ID card',
+      current_version_id: null,
+      archived_at: new Date(),
+    });
+
+    await run(s);
+
+    expect(s.ports.publishTemplate).not.toHaveBeenCalledWith('tpl-old');
+    expect(s.ports.createTemplate).not.toHaveBeenCalledWith(
+      'student-portrait-classic',
+      'Student ID card',
+    );
+  });
+});
+
+describe('ensurePrintHistoryDemoSeed', () => {
+  const SCHOOL = '11111111-1111-4111-8111-111111111111';
+
+  function setup(over: { jobExists?: boolean; students?: number } = {}) {
+    let n = 0;
+    const repos = {
+      printJobRepository: {
+        findOne: vi.fn(() => Promise.resolve(over.jobExists ? { id: 'j' } : null)),
+      },
+      printTemplateRepository: {
+        findOne: vi.fn(() => Promise.resolve({ id: 'tpl', current_version_id: 'v1' })),
+      },
+      printerRepository: { findOne: vi.fn(() => Promise.resolve({ id: 'printer' })) },
+      studentRepository: {
+        find: vi.fn(() =>
+          Promise.resolve(Array.from({ length: over.students ?? 10 }, (_, i) => ({ id: `s${i}` }))),
+        ),
+      },
+    };
+    const ports = {
+      createJob: vi.fn((input: { subjectIds: string[] }) => {
+        n += 1;
+        return Promise.resolve({
+          job_id: `job-${n}`,
+          items: input.subjectIds.map((id) => ({ item_id: `item-${n}-${id}`, subject_id: id })),
+        });
+      }),
+      confirmJob: vi.fn(() => Promise.resolve()),
+      reprintJob: vi.fn(() => Promise.resolve({ job_id: 'job-reprint' })),
+      revokeItem: vi.fn(() => Promise.resolve()),
+    };
+    const run = () =>
+      ensurePrintHistoryDemoSeed(
+        repos as unknown as Parameters<typeof ensurePrintHistoryDemoSeed>[0],
+        ports,
+        { schoolId: SCHOOL },
+      );
+    return { run, ports };
+  }
+
+  it('makes a confirmed job, a failed job with its reprint, and one revoked card', async () => {
+    const { run, ports } = setup();
+    expect(await run()).toEqual({ jobs: 3, revoked: 1 });
+
+    // Job 1: five students, all OK; its first card is revoked with the demo reason.
+    expect(ports.createJob.mock.calls[0]![0].subjectIds).toHaveLength(5);
+    expect(ports.confirmJob).toHaveBeenCalledWith('job-1', []);
+    expect(ports.revokeItem).toHaveBeenCalledWith('item-1-s0', PRINT_DEMO_REVOKE_REASON);
+    expect(PRINT_DEMO_REVOKE_REASON).toBe('Card lost — replaced');
+
+    // Job 2: the first card failed; it is reprinted (the service makes that copy 2), then confirmed.
+    expect(ports.createJob.mock.calls[1]![0].subjectIds).toEqual(['s5', 's6']);
+    expect(ports.confirmJob).toHaveBeenCalledWith('job-2', ['item-2-s5']);
+    expect(ports.reprintJob).toHaveBeenCalledWith('job-2', ['item-2-s5']);
+    expect(ports.confirmJob).toHaveBeenCalledWith('job-reprint', []);
+  });
+
+  it('does nothing when the demo jobs already exist', async () => {
+    const { run, ports } = setup({ jobExists: true });
+    expect(await run()).toEqual({ jobs: 0, revoked: 0 });
+    expect(ports.createJob).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when there are too few students to make the demo', async () => {
+    const { run, ports } = setup({ students: 3 });
+    expect(await run()).toEqual({ jobs: 0, revoked: 0 });
+    expect(ports.createJob).not.toHaveBeenCalled();
   });
 });

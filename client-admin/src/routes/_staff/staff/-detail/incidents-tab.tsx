@@ -6,7 +6,7 @@ import { Permission } from '@biddaloy/shared';
 import { Button, EmptyState } from '@biddaloy/ui/components';
 import { useHasPermission, useIncidents } from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatDate } from '@biddaloy/ui/utils';
+import { formatDate, parseDate } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 import { ReportIncidentDialog } from './report-incident-dialog';
@@ -47,7 +47,7 @@ export function IncidentsTab({ userId }: IncidentsTabProps) {
                 <li key={r.id} className="flex flex-col gap-1 p-3 text-sm">
                   <span className="font-medium">
                     {t(`incident.types.${r.type}`)} · {t(`incident.severities.${r.severity}`)} ·{' '}
-                    {formatDate(new Date(r.occurredOn), regionConfig)}
+                    {formatDate(parseDate(r.occurredOn), regionConfig)}
                   </span>
                   <span>{r.description}</span>
                 </li>

@@ -18,6 +18,7 @@ import { EvaluationsSection } from './settings/EvaluationsSection';
 import { FeesSection } from './settings/FeesSection';
 import { MessengerSection } from './settings/MessengerSection';
 import { OrganisationSection } from './settings/OrganisationSection';
+import { PrintersSection } from './settings/PrintersSection';
 import { RegionalSection } from './settings/RegionalSection';
 import { SchoolProfileSection } from './settings/school-profile-section';
 import { SignInSection } from './settings/SignInSection';
@@ -165,6 +166,9 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
               organisation={settingsQuery.data.organisation}
             />
           </div>
+          {/* [32.3.7] Takes no `schoolId`: printers belong to the caller's own
+              school, and the section hides itself without PRINT_TEMPLATE_MANAGE. */}
+          <PrintersSection />
           <SignInSection key={schoolId} schoolId={schoolId} auth={settingsQuery.data.auth} />
           <WhatsAppSection
             schoolId={schoolId}

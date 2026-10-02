@@ -9,7 +9,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@biddaloy/ui/components';
-import { useUsers } from '@biddaloy/ui/hooks';
+import { Input } from '@biddaloy/ui/components';
+import { useDebouncedValue, useUser, useUsers } from '@biddaloy/ui/hooks';
+import { useTranslation } from '@biddaloy/ui/i18n';
+import * as React from 'react';
 
 export interface StaffSelectProps {
   id: string;
@@ -19,23 +22,42 @@ export interface StaffSelectProps {
 }
 
 export function StaffSelect({ id, value, onValueChange, describedBy }: StaffSelectProps) {
-  // ponytail: first 100 staff only; swap for a search box if a school has more.
-  const users = useUsers({ limit: 100 });
+  const { t } = useTranslation('evaluations');
+  const [term, setTerm] = React.useState('');
+  const search = useDebouncedValue(term.trim(), 300);
+  const users = useUsers({ limit: 100, ...(search ? { search } : {}) });
+  // Keep the chosen user selectable even when the search filters them out.
+  const selected = useUser(value || undefined);
+  const items = users.data?.data ?? [];
+  const options =
+    value && selected.data && !items.some((u) => u.id === value)
+      ? [selected.data, ...items]
+      : items;
   return (
-    <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger
-        id={id}
-        {...(describedBy ? { 'aria-invalid': true as const, 'aria-describedby': describedBy } : {})}
-      >
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {(users.data?.data ?? []).map((u) => (
-          <SelectItem key={u.id} value={u.id}>
-            {u.full_name}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <>
+      <Input
+        aria-label={t('incident.staffSearch')}
+        placeholder={t('incident.staffSearch')}
+        value={term}
+        onChange={(e) => setTerm(e.target.value)}
+      />
+      <Select value={value} onValueChange={onValueChange}>
+        <SelectTrigger
+          id={id}
+          {...(describedBy
+            ? { 'aria-invalid': true as const, 'aria-describedby': describedBy }
+            : {})}
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((u) => (
+            <SelectItem key={u.id} value={u.id}>
+              {u.full_name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </>
   );
 }

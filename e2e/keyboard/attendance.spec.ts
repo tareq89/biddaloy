@@ -87,7 +87,7 @@ test('teacher marks and submits a whole section without touching the mouse', asy
     // key), and the button comes first in tab order — an untagged search
     // would land on the button, whose Enter toggles the group shut rather
     // than navigating. Pin the match to the link itself.
-    await tabUntilFocused(page, t('nav.items.attendance'), 60, { tag: 'a' });
+    await tabUntilFocused(page, t('nav.items.attendance'), 90, { tag: 'a' });
     await page.keyboard.press('Enter');
     await expect(page.getByRole('heading', { name: t('attendance.list.title') })).toBeVisible();
   });

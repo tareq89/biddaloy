@@ -26,6 +26,11 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/programs?enrol=1': '/_staff/programs/',
   '/programs?record=1': '/_staff/programs/',
   '/exams/seat-plans': '/_staff/exams/seat-plans/',
+  '/print/preview?kind=STUDENT_ID_CARD&subject_type=STUDENT': '/_staff/print/preview',
+  '/print/preview?kind=STAFF_ID_CARD&subject_type=STAFF': '/_staff/print/preview',
+  '/print-templates?new=1': '/_staff/print-templates/',
+  '/reports/printables': '/_staff/reports/printables',
+  '/settings#printers-section': '/_staff/settings',
   '/communications/send': '/_staff/communications/send',
   '/communications/reminders': '/_staff/communications/reminders',
   '/attendance': '/_staff/attendance/',
@@ -88,6 +93,11 @@ const REGISTERED_ACTION_FILES: Record<string, string> = {
   'homework.import': 'client-admin/src/routes/_staff/academics/homework/import.tsx',
   'syllabus.markTopic': 'client-admin/src/routes/_staff/academics/syllabus/index.tsx',
   'promotions.promote': 'client-admin/src/routes/_staff/promotions/new.tsx',
+  'print.studentIdCard': 'client-admin/src/components/print/print-id-card-modal.tsx',
+  'print.staffIdCard': 'client-admin/src/components/print/print-id-card-modal.tsx',
+  'print.newTemplate': 'client-admin/src/components/print/library/new-template-dialog.tsx',
+  'print.history': 'client-admin/src/components/print/history/print-history-page.tsx',
+  'print.printers': 'client-admin/src/pages/settings/PrintersSection.tsx',
   'staff.assignTeacher': 'client-admin/src/routes/_staff/staff/teaching-assignments.tsx',
 };
 

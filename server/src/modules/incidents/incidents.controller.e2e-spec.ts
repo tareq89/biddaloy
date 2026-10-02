@@ -98,6 +98,13 @@ describe('incidents (28.2.x)', () => {
       SEED_TENANT_ID,
       TENANT_B,
     ]);
+    // Drop the memberships so the extra ADMIN (SUBJECT_ID) doesn't leak into
+    // SEED_TENANT_ID for other specs. The users and the TENANT_B school stay:
+    // audit_logs is append-only and references them, and ON CONFLICT DO NOTHING
+    // keeps reruns working.
+    await ds.query(`DELETE FROM user_tenants WHERE user_id = ANY($1)`, [
+      [SUBJECT_ID, TEACHER_ID, PARENT_ID, OTHER_TENANT_STAFF],
+    ]);
     await app.close();
   });
 

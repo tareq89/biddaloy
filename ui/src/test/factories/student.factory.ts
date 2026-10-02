@@ -22,6 +22,10 @@ export function studentFactory(overrides: Partial<Student> = {}, script?: Script
     user,
     user_id: user?.id ?? null,
     full_name: scriptedFullName(script),
+    // Epic 32 columns; null until a photo / Bangla name / blood group is set.
+    full_name_bn: null,
+    photo_key: null,
+    blood_group: null,
     registration_number: faker.string.numeric(8),
     roll_number: faker.number.int({ min: 1, max: 60 }),
     class_section: classSection,

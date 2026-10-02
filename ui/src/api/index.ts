@@ -3,6 +3,7 @@
  */
 export { apiClient } from './client';
 export {
+  fetchPublicVerification,
   getPublicInvoice,
   postAuthActivate,
   postAuthActivateResend,
@@ -16,6 +17,7 @@ export {
   type ForgotPasswordResponse,
   type OtpRequestResponse,
   type PublicInvoiceReceipt,
+  type PublicVerification,
   type VerifyEmailResponse,
 } from './client';
 export {

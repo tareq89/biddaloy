@@ -12,9 +12,7 @@ test.use(loggedIn('admin'));
 
 test('keyboard-only: homework import page downloads the template via Enter', async ({ page }) => {
   await page.goto('/academics/homework/import');
-  await expect(
-    page.getByRole('heading', { name: t('homework.import.title') }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: t('homework.import.title') })).toBeVisible();
 
   const downloadButton = page.getByRole('button', {
     name: t('homework.import.template.download'),
