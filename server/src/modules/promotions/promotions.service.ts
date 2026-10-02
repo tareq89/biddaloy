@@ -926,6 +926,43 @@ export class PromotionsService {
         }
       }
 
+      // ── Carry choice-group picks forward (D45) ──
+      // A PROMOTE/RETAIN student keeps a pick only where the new class offers
+      // the same subject in a same-named choice group. is_fourth is never
+      // copied (picks with a choice_group are never fourth: DB CHECK), and
+      // students with no match simply get no pick. `choice_group` on the new
+      // row is trigger-owned in real DBs; it is written explicitly so the
+      // statement also works without triggers. The old class subject is NOT
+      // filtered by deleted_at (the pick is history); the new one is (D49).
+      // Same transaction: a failure here rolls back the whole commit.
+      const targetEnrollmentIds = entries
+        .filter(
+          (e) =>
+            (e.final_outcome === PromotionOutcome.PROMOTE ||
+              e.final_outcome === PromotionOutcome.RETAIN) &&
+            e.target_enrollment_id,
+        )
+        .map((e) => e.target_enrollment_id as string);
+      if (targetEnrollmentIds.length > 0) {
+        await manager.query(
+          `INSERT INTO student_subject_choices
+             (tenant_id, student_id, class_subject_id, academic_year_id, is_fourth, choice_group)
+           SELECT e.tenant_id, e.student_id, ncs.id, ncs.academic_year_id, false, ncs.choice_group
+           FROM enrollments e
+           JOIN student_subject_choices old
+             ON old.student_id = e.student_id AND old.tenant_id = e.tenant_id
+            AND old.academic_year_id = $3 AND old.choice_group IS NOT NULL
+           JOIN class_subjects ocs ON ocs.id = old.class_subject_id AND ocs.tenant_id = e.tenant_id
+           JOIN class_subjects ncs
+             ON ncs.class_id = e.class_id AND ncs.academic_year_id = e.academic_year_id
+            AND ncs.tenant_id = e.tenant_id AND ncs.subject_id = ocs.subject_id
+            AND ncs.choice_group = old.choice_group AND ncs.deleted_at IS NULL
+           WHERE e.tenant_id = $1 AND e.id = ANY($2::uuid[])
+           ON CONFLICT DO NOTHING`,
+          [tenantId, targetEnrollmentIds, run.source_academic_year_id],
+        );
+      }
+
       // ── GRADUATE: close out the source enrollment and student status (D18) ──
       const graduateEntries = entries.filter((e) => e.final_outcome === PromotionOutcome.GRADUATE);
       for (const entry of graduateEntries) {
