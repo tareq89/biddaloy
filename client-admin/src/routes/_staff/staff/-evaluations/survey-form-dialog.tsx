@@ -32,6 +32,7 @@ import {
   useAllTeachers,
   useCreateSurvey,
   usePublishSurvey,
+  useUpdateSurvey,
   type SurveyRespondent,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
@@ -61,6 +62,7 @@ export function SurveyFormDialog({ open, onOpenChange }: SurveyFormDialogProps) 
   const { t } = useTranslation('evaluations');
   const create = useCreateSurvey();
   const publish = usePublishSurvey();
+  const update = useUpdateSurvey();
   const teachers = useAllTeachers({ enabled: open });
   const subjects = useAllSubjects();
   const nextKey = React.useRef(0);
@@ -100,6 +102,7 @@ export function SurveyFormDialog({ open, onOpenChange }: SurveyFormDialogProps) 
     setServerError(null);
     create.reset();
     publish.reset();
+    update.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset on open only
   }, [open]);
 
@@ -136,19 +139,21 @@ export function SurveyFormDialog({ open, onOpenChange }: SurveyFormDialogProps) 
     setServerError(null);
     if (next.length > 0) return;
     try {
-      // A retry after a failed publish must not create a second draft.
+      const body = {
+        title: title.trim(),
+        anonymous,
+        respondent,
+        minResponses: Number(minResponses),
+        questions: questions.map((q) => ({ text: q.text.trim(), starsEnabled: q.stars })),
+        targets: targets.map((r) => ({ teacherId: r.teacherId!, subjectId: r.subjectId! })),
+        ...(opensAt ? { opensAt: new Date(`${opensAt}T00:00:00`).toISOString() } : {}),
+        ...(closesAt ? { closesAt: new Date(`${closesAt}T23:59:59`).toISOString() } : {}),
+      };
+      // A retry after a failed publish (or a second save) updates the existing
+      // draft with the current form values; it never creates a second draft.
       const survey = createdId.current
-        ? { id: createdId.current }
-        : await create.mutateAsync({
-            title: title.trim(),
-            anonymous,
-            respondent,
-            minResponses: Number(minResponses),
-            questions: questions.map((q) => ({ text: q.text.trim(), starsEnabled: q.stars })),
-            targets: targets.map((r) => ({ teacherId: r.teacherId!, subjectId: r.subjectId! })),
-            ...(opensAt ? { opensAt: new Date(`${opensAt}T00:00:00`).toISOString() } : {}),
-            ...(closesAt ? { closesAt: new Date(`${closesAt}T23:59:59`).toISOString() } : {}),
-          });
+        ? await update.mutateAsync({ id: createdId.current, ...body })
+        : await create.mutateAsync(body);
       createdId.current = survey.id;
       if (andPublish) await publish.mutateAsync(survey.id);
       toast.success(t(andPublish ? 'surveys.form.published' : 'surveys.form.saved'));
@@ -162,7 +167,7 @@ export function SurveyFormDialog({ open, onOpenChange }: SurveyFormDialogProps) 
     }
   }
 
-  const busy = create.isPending || publish.isPending;
+  const busy = create.isPending || update.isPending || publish.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

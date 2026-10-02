@@ -95,6 +95,19 @@ export function useCreateSurvey() {
   });
 }
 
+/** `PATCH /surveys/:id` — DRAFT only; accepts the same fields as create, all optional. */
+export function useUpdateSurvey() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: { id: string } & Partial<CreateSurveyInput>) =>
+      (await apiClient.patch<SurveyDetail>(`/surveys/${id}`, input)).data,
+    onSuccess: (_data, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: surveyKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: surveyKeys.detail(id) });
+    },
+  });
+}
+
 function useSurveyTransition(action: 'publish' | 'close') {
   const queryClient = useQueryClient();
   return useMutation({

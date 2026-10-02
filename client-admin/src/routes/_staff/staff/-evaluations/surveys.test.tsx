@@ -193,4 +193,38 @@ describe('survey form dialog submit', () => {
     await user.keyboard('{Control>}{Enter}{/Control}');
     expect(await screen.findByText('Teacher not assigned')).toBeTruthy();
   });
+
+  it('retry after a failed publish PATCHes the draft with the edited title, then publishes', async () => {
+    const patched: unknown[] = [];
+    let creates = 0;
+    let publishes = 0;
+    server.use(
+      http.post('/api/v1/surveys', () => {
+        creates += 1;
+        return HttpResponse.json(surveyDetailFactory({ id: 'draft-1' }), { status: 201 });
+      }),
+      http.patch('/api/v1/surveys/:id', async ({ request }) => {
+        patched.push(await request.json());
+        return HttpResponse.json(surveyDetailFactory({ id: 'draft-1' }));
+      }),
+      http.post('/api/v1/surveys/:id/publish', () => {
+        publishes += 1;
+        return publishes === 1
+          ? HttpResponse.json(
+              { statusCode: 400, message: 'nope', timestamp: 't', path: '/', requestId: 'r' },
+              { status: 400 },
+            )
+          : HttpResponse.json(surveyDetailFactory(), { status: 201 });
+      }),
+    );
+    const user = await fill();
+    await user.click(screen.getByRole('button', { name: 'Save and publish' }));
+    expect(await screen.findByText('nope')).toBeTruthy();
+    await user.type(screen.getByLabelText('Survey title'), ' edited');
+    await user.click(screen.getByRole('button', { name: 'Save and publish' }));
+    await waitFor(() => expect(publishes).toBe(2));
+    expect(creates).toBe(1);
+    expect(patched).toHaveLength(1);
+    expect((patched[0] as { title: string }).title).toBe('Term 2 edited');
+  });
 });

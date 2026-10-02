@@ -1189,6 +1189,7 @@ export {
   useCreateSurvey,
   useMySurveys,
   usePublishSurvey,
+  useUpdateSurvey,
   useRespondSurvey,
   useSurvey,
   useSurveyResults,
