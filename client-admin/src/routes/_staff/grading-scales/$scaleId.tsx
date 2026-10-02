@@ -20,6 +20,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import * as React from 'react';
 
 import { MutationErrorMessage } from '../../../components/MutationErrorMessage';
+import { PresetWarningBanner } from '../../../components/PresetWarningBanner';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { BandEditor } from './-band-editor';
@@ -137,6 +138,8 @@ function ScaleEditorPage() {
   const { t } = useTranslation('grading');
   const scaleQuery = useGradingScale(scaleId);
   const canManage = useHasPermission(Permission.GRADING_SCALE_MANAGE);
+  // The banner's status call is ADMIN-only; skip it for other viewers.
+  const canSeePresetBanner = useHasPermission(Permission.CURRICULUM_PRESET_APPLY);
 
   const [bands, setBands] = React.useState<BandInput[] | undefined>(undefined);
   const [copyOpen, setCopyOpen] = React.useState(false);
@@ -200,6 +203,7 @@ function ScaleEditorPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      {canSeePresetBanner && <PresetWarningBanner />}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">{scale.name}</h1>
         {canManage && (

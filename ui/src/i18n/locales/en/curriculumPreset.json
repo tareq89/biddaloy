@@ -89,5 +89,11 @@
     "heading": "A preset cannot be applied because these already exist:",
     "item": "{{entity}} — {{count}}",
     "open": "Open {{entity}}"
+  },
+  "settingsLink": {
+    "title": "Curriculum preset",
+    "applied": "Applied: {{id}} · {{version}}",
+    "notApplied": "Not applied",
+    "open": "Open"
   }
 }

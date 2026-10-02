@@ -102,4 +102,36 @@ describe('/grading-scales/$scaleId', () => {
       screen.getByText("3 students' results will be recalculated against the new bands."),
     ).toBeTruthy();
   });
+
+  describe('preset warning banner [35.5.2]', () => {
+    function mount(role: string, state: 'APPLIED' | 'AVAILABLE') {
+      let statusCalls = 0;
+      server.use(
+        http.get('/api/v1/grading/scales/:id', () => HttpResponse.json(SCALE)),
+        http.get('/api/v1/presets/status', () => {
+          statusCalls += 1;
+          return HttpResponse.json({ state });
+        }),
+      );
+      renderWithRouter(routeTree, {
+        initialEntries: ['/grading-scales/scale-1'],
+        tenantId: 'tenant-1',
+        role,
+        locale: 'en',
+      });
+      return () => statusCalls;
+    }
+
+    it('shows with APPLIED for a viewer holding CURRICULUM_PRESET_APPLY', async () => {
+      mount('ADMIN', 'APPLIED');
+      expect(await screen.findByText(/This comes from your curriculum preset/)).toBeTruthy();
+    });
+
+    it('is absent with AVAILABLE', async () => {
+      const calls = mount('ADMIN', 'AVAILABLE');
+      await screen.findByText('Class 6 Scale');
+      await waitFor(() => expect(calls()).toBe(1));
+      expect(screen.queryByText(/This comes from your curriculum preset/)).toBeNull();
+    });
+  });
 });
