@@ -144,6 +144,34 @@ export function findMissingPicks(
   return missing;
 }
 
+export interface UnassignedStudent {
+  student_id: string;
+  full_name: string;
+  roll_number: number | null;
+}
+
+/** Students whose section has no stream (or no section) while this exam
+ * tests a group-only subject (`class_subjects.group_name` set). One entry
+ * per student. A student whose stream matches nothing examined is fine. */
+export function findUnassignedStreams(
+  students: Student[],
+  classSubjects: ClassSubject[],
+  componentsBySubject: Map<string, unknown[]>,
+  groupByStudent: Map<string, string | null>,
+): UnassignedStudent[] {
+  const tested = classSubjects.some(
+    (cs) => Boolean(cs.group_name) && componentsBySubject.has(cs.subject_id),
+  );
+  if (!tested) return [];
+  return students
+    .filter((s) => !groupByStudent.get(s.id))
+    .map((s) => ({
+      student_id: s.id,
+      full_name: s.full_name,
+      roll_number: s.roll_number ?? null,
+    }));
+}
+
 @Injectable()
 export class ResultsService {
   constructor(
@@ -225,7 +253,11 @@ export class ResultsService {
   private async computeAll(
     exam: Exam,
     tenantId: string,
-  ): Promise<{ rows: ComputedStudentResult[]; missingPicks: MissingChoicePick[] }> {
+  ): Promise<{
+    rows: ComputedStudentResult[];
+    missingPicks: MissingChoicePick[];
+    unassignedStreams: UnassignedStudent[];
+  }> {
     const scales = await this.scaleRepo.find({
       where: { tenant_id: tenantId, deleted_at: IsNull() },
     });
@@ -252,6 +284,9 @@ export class ResultsService {
         class_id: exam.class_id,
         enrollment_status: EnrollmentStatus.ACTIVE,
       },
+      // [35.1.14] section join gives the stream (group_name); tenant-safe
+      // through the tenant-filtered enrollment query, no extra round trip.
+      relations: { section: true },
     });
     const students =
       enrollments.length === 0
@@ -264,6 +299,9 @@ export class ResultsService {
             },
           });
     const sectionByStudent = new Map(enrollments.map((e) => [e.student_id, e.section_id]));
+    const groupByStudent = new Map<string, string | null>(
+      enrollments.map((e) => [e.student_id, e.section?.group_name ?? null]),
+    );
 
     const classSubjects = await this.classSubjectRepo.find({
       where: {
@@ -329,12 +367,24 @@ export class ResultsService {
       choiceByStudentAndSubject,
     );
 
+    // Stream subjects tested in this exam where a student's section has no stream.
+    const unassignedStreams = findUnassignedStreams(
+      students,
+      classSubjects,
+      componentsBySubject,
+      groupByStudent,
+    );
+
     const computed: ComputedStudentResult[] = [];
     for (const student of students) {
       const subjectResults: SubjectResult[] = [];
       const subjectDisplay: ComputedStudentResult['subjects'] = [];
 
       for (const classSubject of classSubjects) {
+        // A stream subject is only for sections of that stream (case-sensitive).
+        if (classSubject.group_name && classSubject.group_name !== groupByStudent.get(student.id)) {
+          continue;
+        }
         // Optional offerings and choice-group members count only when the
         // student picked/opted into THIS one; a non-taker's marks are never read.
         if (
@@ -454,7 +504,7 @@ export class ResultsService {
           section_position: sectionPositions.get(c.student_id) ?? null,
         }) as any,
     );
-    return { rows, missingPicks };
+    return { rows, missingPicks, unassignedStreams };
   }
 
   /** Soft-deletes every active result for the exam — including students
@@ -573,7 +623,7 @@ export class ResultsService {
       }
       // Computed after the lock: mark writes hold it FOR SHARE, so none
       // can commit between this read and the write below.
-      const { rows, missingPicks } = await this.computeAll(locked, tenantId);
+      const { rows, missingPicks, unassignedStreams } = await this.computeAll(locked, tenantId);
       // D44: not bypassable by `force` — a missing pick means an unknowable
       // result, not a draft-grid shortcut. recomputeIfProcessed ignores it.
       // Payload under `details`: the global error filter forwards only
@@ -585,6 +635,17 @@ export class ResultsService {
             code: 'CHOICE_GROUP_UNPICKED',
             total: missingPicks.length,
             missing: missingPicks.slice(0, 50),
+          },
+        });
+      }
+      // [35.1.14] same rule for streams; thrown second so choice-group wins when both fire.
+      if (unassignedStreams.length > 0) {
+        throw new ConflictException({
+          message: `${unassignedStreams.length} student(s) are in a section with no group, but this class has group-specific subjects.`,
+          details: {
+            code: 'STREAM_UNASSIGNED',
+            total: unassignedStreams.length,
+            missing: unassignedStreams.slice(0, 50),
           },
         });
       }
