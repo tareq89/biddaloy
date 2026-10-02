@@ -140,7 +140,7 @@ describe('PresetApplyService (integration)', () => {
       is_current: true,
     } as never);
     const err = await svc.apply(c, uid, dto).catch((e) => e);
-    expect(err.getResponse()).toMatchObject({ code: 'PRESET_NOT_FRESH' });
+    expect(err.getResponse()).toMatchObject({ details: { code: 'PRESET_NOT_FRESH' } });
     expect(await presetOf(c)).toBeUndefined();
   });
 
