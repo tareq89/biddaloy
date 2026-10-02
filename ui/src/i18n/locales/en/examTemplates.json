@@ -1,0 +1,75 @@
+{
+  "form": {
+    "title": "New exam template",
+    "description": "A template holds the components (written, MCQ, viva…) and marks for each class and subject. Add them after creating it.",
+    "nameLabel": "Name",
+    "namePlaceholder": "e.g. Half-yearly",
+    "kindLabel": "Kind",
+    "errorNameRequired": "Name is required.",
+    "errorNameTooLong": "Name can be at most {{max}} characters.",
+    "errorMessage": "Couldn't create the template.",
+    "save": "Create",
+    "saving": "Creating…"
+  },
+  "list": {
+    "title": "Exam templates",
+    "caption": "Exam templates",
+    "add": "New template",
+    "columnName": "Name",
+    "columnKind": "Kind",
+    "columnRows": "Subject rows",
+    "columnGrades": "Class grades",
+    "columnActions": "Actions",
+    "delete": "Delete",
+    "deleteRow": "Delete template {{name}}",
+    "emptyMessage": "No templates yet — apply a curriculum preset or create one.",
+    "errorMessage": "Couldn't load the templates.",
+    "announceResults": "Showing {{visible}} of {{total}} templates"
+  },
+  "delete": {
+    "title": "Delete template?",
+    "description": "\"{{name}}\" and all its components will be deleted. Exams already created from it are not affected.",
+    "confirm": "Delete template",
+    "errorMessage": "Couldn't delete the template."
+  },
+  "detail": {
+    "loading": "Loading template…",
+    "loadError": "Couldn't load this template.",
+    "tabComponents": "Components",
+    "nameLabel": "Template name",
+    "rename": "Rename",
+    "saveError": "Couldn't save the changes."
+  },
+  "grid": {
+    "empty": "No class grades yet. Add a class grade to start.",
+    "gradeHeading": "Class {{grade}}",
+    "gradeLabel": "Class grade (1–99)",
+    "addGrade": "Add class grade",
+    "subjectPicker": "Subject to add to class {{grade}}",
+    "subjectPlaceholder": "Choose a subject",
+    "addSubject": "Add subject",
+    "removeSubject": "Remove {{subject}} from class {{grade}}",
+    "removeSubjectShort": "Remove subject",
+    "columnName": "Component",
+    "columnKind": "Kind",
+    "columnFull": "Full marks",
+    "columnPass": "Pass marks",
+    "columnActions": "Actions",
+    "cellLabel": "{{column}} — {{subject}}, class {{grade}}, row {{row}}",
+    "addComponent": "Add component",
+    "removeRow": "Remove row {{row}} of {{subject}}, class {{grade}}",
+    "removeRowShort": "Remove",
+    "discard": "Discard changes",
+    "save": "Save template",
+    "error": {
+      "nameRequired": "Enter a component name.",
+      "nameTooLong": "Name can be at most {{max}} characters.",
+      "nameDuplicate": "Two components of this subject share a name.",
+      "fullInvalid": "Full marks must be above 0 and at most {{max}}, with up to 2 decimals.",
+      "passInvalid": "Pass marks must be between 0 and full marks, with up to 2 decimals.",
+      "noComponents": "Add at least one component, or remove this subject.",
+      "gradeInvalid": "Enter a whole number from 1 to 99.",
+      "fixErrors": "Fix the highlighted fields before saving."
+    }
+  }
+}
