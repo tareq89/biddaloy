@@ -120,7 +120,6 @@ import {
   WorkbookJobSource,
   WorkbookJobStatus,
 } from '../src/modules/workbook/jobs/workbook-job.entity';
-import { Subject } from '../src/modules/academics/entities/subject.entity';
 import { Teacher } from '../src/modules/academics/entities/teacher.entity';
 import { Shift } from '../src/modules/routines/entities/shift.entity';
 import { PeriodSlot } from '../src/modules/routines/entities/period-slot.entity';
