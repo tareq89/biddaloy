@@ -107,6 +107,43 @@ interface ComputedStudentResult {
   }>;
 }
 
+export interface MissingChoicePick {
+  student_id: string;
+  full_name: string;
+  roll_number: number | null;
+  choice_group: string;
+}
+
+/** Choice groups tested in this exam (some member has components) where a
+ * student holds no pick. A pick row exists only for the member taken. */
+export function findMissingPicks(
+  students: Student[],
+  classSubjects: ClassSubject[],
+  componentsBySubject: Map<string, unknown[]>,
+  choiceByStudentAndSubject: Map<string, unknown>,
+): MissingChoicePick[] {
+  const groups = new Map<string, ClassSubject[]>();
+  for (const cs of classSubjects) {
+    if (!cs.choice_group) continue;
+    groups.set(cs.choice_group, [...(groups.get(cs.choice_group) ?? []), cs]);
+  }
+  const missing: MissingChoicePick[] = [];
+  for (const [group, members] of groups) {
+    if (!members.some((m) => componentsBySubject.has(m.subject_id))) continue;
+    for (const s of students) {
+      if (!members.some((m) => choiceByStudentAndSubject.has(`${s.id}:${m.id}`))) {
+        missing.push({
+          student_id: s.id,
+          full_name: s.full_name,
+          roll_number: s.roll_number ?? null,
+          choice_group: group,
+        });
+      }
+    }
+  }
+  return missing;
+}
+
 @Injectable()
 export class ResultsService {
   constructor(
@@ -185,7 +222,10 @@ export class ResultsService {
    * are themselves read-only. Callers (`process`, `recomputeIfProcessed`)
    * decide what to do with the output.
    */
-  private async computeAll(exam: Exam, tenantId: string): Promise<ComputedStudentResult[]> {
+  private async computeAll(
+    exam: Exam,
+    tenantId: string,
+  ): Promise<{ rows: ComputedStudentResult[]; missingPicks: MissingChoicePick[] }> {
     const scales = await this.scaleRepo.find({
       where: { tenant_id: tenantId, deleted_at: IsNull() },
     });
@@ -281,15 +321,27 @@ export class ResultsService {
       return result.valuesByStudent;
     }
 
+    // Choice groups tested in this exam where a student has no pick (D44).
+    const missingPicks = findMissingPicks(
+      students,
+      classSubjects,
+      componentsBySubject,
+      choiceByStudentAndSubject,
+    );
+
     const computed: ComputedStudentResult[] = [];
     for (const student of students) {
       const subjectResults: SubjectResult[] = [];
       const subjectDisplay: ComputedStudentResult['subjects'] = [];
 
       for (const classSubject of classSubjects) {
-        if (classSubject.is_optional) {
-          const choice = choiceByStudentAndSubject.get(`${student.id}:${classSubject.id}`);
-          if (!choice) continue; // student never opted into this offering
+        // Optional offerings and choice-group members count only when the
+        // student picked/opted into THIS one; a non-taker's marks are never read.
+        if (
+          (classSubject.is_optional || Boolean(classSubject.choice_group)) &&
+          !choiceByStudentAndSubject.has(`${student.id}:${classSubject.id}`)
+        ) {
+          continue;
         }
         const isFourth =
           classSubject.is_optional &&
@@ -394,7 +446,7 @@ export class ResultsService {
       }
     }
 
-    return computed.map(
+    const rows = computed.map(
       (c) =>
         ({
           ...c,
@@ -402,6 +454,7 @@ export class ResultsService {
           section_position: sectionPositions.get(c.student_id) ?? null,
         }) as any,
     );
+    return { rows, missingPicks };
   }
 
   /** Soft-deletes every active result for the exam — including students
@@ -520,7 +573,21 @@ export class ResultsService {
       }
       // Computed after the lock: mark writes hold it FOR SHARE, so none
       // can commit between this read and the write below.
-      const rows = await this.computeAll(locked, tenantId);
+      const { rows, missingPicks } = await this.computeAll(locked, tenantId);
+      // D44: not bypassable by `force` — a missing pick means an unknowable
+      // result, not a draft-grid shortcut. recomputeIfProcessed ignores it.
+      // Payload under `details`: the global error filter forwards only
+      // `message` + `details` to the client (error-response.ts).
+      if (missingPicks.length > 0) {
+        throw new ConflictException({
+          message: `${missingPicks.length} student(s) have not picked a subject in a choice group.`,
+          details: {
+            code: 'CHOICE_GROUP_UNPICKED',
+            total: missingPicks.length,
+            missing: missingPicks.slice(0, 50),
+          },
+        });
+      }
       await this.replaceResults(manager, locked, rows, scale.id, scale.revision, tenantId);
 
       await this.auditService.record(
@@ -583,7 +650,7 @@ export class ResultsService {
       // Rewrite every student's row, not just the batch's — a mark change
       // for one student can shift another's `position` (D18) even though
       // that other student's own marks never changed.
-      const computed = await this.computeAll(exam, tenantId);
+      const { rows: computed } = await this.computeAll(exam, tenantId);
       await this.replaceResults(manager, exam, computed, scale.id, scale.revision, tenantId);
 
       await this.auditService.record(

@@ -3,7 +3,7 @@ import { ConflictException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Brackets } from 'typeorm';
-import { ResultsService } from './results.service';
+import { ResultsService, findMissingPicks } from './results.service';
 import { Exam } from './entities/exam.entity';
 import { Result } from './entities/result.entity';
 import { ResultSubject } from './entities/result-subject.entity';
@@ -960,6 +960,30 @@ describe('ResultsService.getStudentResultCard — programs (34.2.4, D1, D22)', (
     const card = await service.getStudentResultCard(...CARD_ARGS);
     expect(card?.programs).toEqual([
       { program_name: 'New Program', achieved_count: 0, milestone_total: 0, latest: null },
+    ]);
+  });
+});
+
+describe('findMissingPicks', () => {
+  const cs = (id: string, subject_id: string, choice_group: string | null) =>
+    ({ id, subject_id, choice_group }) as any;
+  const st = (id: string) => ({ id, full_name: `N-${id}`, roll_number: 1 }) as any;
+  const classSubjects = [cs('c1', 's1', 'REL'), cs('c2', 's2', 'REL'), cs('c3', 's3', null)];
+
+  it('ignores a group with no components in the exam', () => {
+    expect(findMissingPicks([st('a')], classSubjects, new Map([['s3', []]]), new Map())).toEqual(
+      [],
+    );
+  });
+
+  it('reports a student without a pick once, with name and group', () => {
+    const comps = new Map([
+      ['s1', []],
+      ['s2', []],
+    ]);
+    const picks = new Map([['a:c2', {}]]);
+    expect(findMissingPicks([st('a'), st('b')], classSubjects, comps, picks)).toEqual([
+      { student_id: 'b', full_name: 'N-b', roll_number: 1, choice_group: 'REL' },
     ]);
   });
 });
