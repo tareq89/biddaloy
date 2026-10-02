@@ -59,12 +59,20 @@ export class PresetResetService {
       // Stored preset read from the LOCKED row, never the cached settings reader.
       const settings = school.settings as unknown as Record<string, unknown> | null;
       const preset = settings?.preset;
-      if (!preset) throw new ConflictException({ code: 'PRESET_NOT_APPLIED' });
+      if (!preset)
+        throw new ConflictException({
+          message: 'No curriculum preset is applied to this school',
+          details: { code: 'PRESET_NOT_APPLIED' },
+        });
 
       const blockers = (await countRows(manager, schoolId, RESET_BLOCKER_ENTITIES)).filter(
         (c) => c.count > 0,
       );
-      if (blockers.length) throw new ConflictException({ code: 'PRESET_RESET_BLOCKED', blockers });
+      if (blockers.length)
+        throw new ConflictException({
+          message: 'Preset cannot be reset while operational data exists',
+          details: { code: 'PRESET_RESET_BLOCKED', blockers },
+        });
 
       // Only getRepository(X).softDelete/delete by tenant_id: never remove()/save() on an
       // entity with tenant-filtered relations (TypeORM would NULL other tenants' FKs).

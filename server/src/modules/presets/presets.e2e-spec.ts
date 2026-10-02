@@ -178,7 +178,8 @@ describe('Curriculum presets E2E (35.2.6)', () => {
     expect((await status()).state).toBe('APPLIED');
 
     const again = await admin(t).post('/presets/apply').send(body).expect(409);
-    expect(again.body.code).toBe('PRESET_NOT_FRESH');
+    expect(again.body.details.code).toBe('PRESET_NOT_FRESH');
+    expect(again.body.details.blockers).toBeDefined();
 
     await superAdmin(t).post(`/platform/schools/${t}/preset/reset`).send({}).expect(400);
     const reset = await superAdmin(t)

@@ -133,7 +133,7 @@ describe('PresetResetService (integration)', () => {
     const t = await newSchool();
     const err = await reset.reset(t, uid, why).catch((e) => e);
     expect(err).toBeInstanceOf(ConflictException);
-    expect(err.getResponse()).toMatchObject({ code: 'PRESET_NOT_APPLIED' });
+    expect(err.getResponse()).toMatchObject({ details: { code: 'PRESET_NOT_APPLIED' } });
     await expect(reset.reset(randomUUID(), uid, why)).rejects.toBeInstanceOf(NotFoundException);
   });
 
@@ -153,8 +153,7 @@ describe('PresetResetService (integration)', () => {
     const before = await rows(t);
     const err = await reset.reset(t, uid, why).catch((e) => e);
     expect(err.getResponse()).toMatchObject({
-      code: 'PRESET_RESET_BLOCKED',
-      blockers: [{ entity: 'students', count: 1 }],
+      details: { code: 'PRESET_RESET_BLOCKED', blockers: [{ entity: 'students', count: 1 }] },
     });
     expect(await rows(t)).toEqual(before);
     expect((await settingsOf(t)).preset).toBeDefined();
