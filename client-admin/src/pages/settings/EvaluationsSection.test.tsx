@@ -21,7 +21,9 @@ describe('EvaluationsSection', () => {
     const box = await screen.findByLabelText(LABEL);
     expect(box.getAttribute('aria-checked')).toBe('false');
     expect(
-      screen.getByText('The SMS says only that a new report exists, never what it says.'),
+      screen.getByText(
+        'The SMS says only that a new report exists, never what it says. SMS is sent only if an SMS provider is set up in the SMS settings above.',
+      ),
     ).toBeTruthy();
   });
 
