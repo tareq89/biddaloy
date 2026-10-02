@@ -59,6 +59,7 @@ import { Homework } from './modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from './modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from './modules/homework/entities/homework-submission.entity';
 import { SeatPlansModule } from './modules/seat-plans/seat-plans.module';
+import { PresetsModule } from './modules/presets/presets.module';
 import { PrintModule } from './modules/print/print.module';
 import { SeatPlan } from './modules/seat-plans/entities/seat-plan.entity';
 import { SeatPlanSchedule } from './modules/seat-plans/entities/seat-plan-schedule.entity';
@@ -387,6 +388,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     HomeworkModule,
     AdmissionModule,
     SeatPlansModule,
+    PresetsModule,
     PrintModule,
     ProgramsModule,
     PromotionsModule,
