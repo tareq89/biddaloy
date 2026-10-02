@@ -4,6 +4,7 @@ import {
   adminApiSession,
   createAcr,
   createClassSection,
+  createExamTemplate,
   createGuardian,
   createInvoice,
   createInvoiceShareToken,
@@ -62,6 +63,12 @@ export async function resolvePath(
   }
   const session: ApiSession = await sharedAdminSession(request);
   const stamp = Date.now();
+  if (route.path.startsWith('/exams/templates/')) {
+    // [35.5.3] Must precede the print-template branch below: an exam-template
+    // detail needs an EXAM template id, not a print-template one.
+    const template = await createExamTemplate(request, session, `Reflow Exam Template ${stamp}`);
+    return route.path.replace('$templateId', template.id);
+  }
   if (route.path.includes('$templateId')) {
     // [32.4.1] The full-screen template editor needs a real template to open.
     const template = await post<{ id: string }>(request, session, '/print-templates', {

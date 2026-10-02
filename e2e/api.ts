@@ -277,6 +277,51 @@ export async function ensureGradingScale(
   await post(request, session, `/grading/scales/${scale.id}/copy`, { source_scale_id: source.id });
 }
 
+/** `POST /presets/apply` — applies a curriculum pack to a FRESH school
+ * (ADMIN). Returns the created-row counts per table. */
+export async function applyPreset(
+  request: APIRequestContext,
+  session: ApiSession,
+  options: { presetId: string; startYear: number; stages: string[]; versions?: string[] },
+): Promise<{ created: Record<string, number> }> {
+  return post(request, session, '/presets/apply', {
+    preset_id: options.presetId,
+    start_year: options.startYear,
+    stages: options.stages,
+    ...(options.versions ? { versions: options.versions } : {}),
+  });
+}
+
+/** `POST /platform/schools/:id/preset/reset` — SUPER_ADMIN only; `reason`
+ * must be 10-500 chars. 409s while the school holds operational data. */
+export async function resetPreset(
+  request: APIRequestContext,
+  superSession: ApiSession,
+  schoolId: string,
+  reason: string,
+): Promise<{ deleted: Record<string, number> }> {
+  return post(request, superSession, `/platform/schools/${schoolId}/preset/reset`, { reason });
+}
+
+/** `GET /presets/status` — `AVAILABLE` | `APPLIED` | `CUSTOM` (ADMIN). */
+export async function presetState(
+  request: APIRequestContext,
+  session: ApiSession,
+): Promise<string> {
+  return (await get<{ state: string }>(request, session, '/presets/status')).state;
+}
+
+/** `POST /exam-templates` (ADMIN) — an empty template; rows come from
+ * `PATCH /exam-templates/:id` or, in the keyboard spec, the grid. */
+export async function createExamTemplate(
+  request: APIRequestContext,
+  session: ApiSession,
+  name: string,
+  kind = 'TERM',
+): Promise<{ id: string }> {
+  return post<{ id: string }>(request, session, '/exam-templates', { name, kind });
+}
+
 export async function createGuardian(
   request: APIRequestContext,
   session: ApiSession,
