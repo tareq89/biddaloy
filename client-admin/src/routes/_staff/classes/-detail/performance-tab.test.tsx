@@ -2,9 +2,9 @@ import '@biddaloy/ui/test';
 
 import { RegionConfigProvider } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { PerformanceTab } from './performance-tab';
 
@@ -46,10 +46,33 @@ describe('class PerformanceTab', () => {
     expect(screen.getAllByText('75%').length).toBeGreaterThan(0);
   });
 
+  it('prints the on-screen content via window.print', async () => {
+    server.use(http.get('/api/v1/performance/classes/:id', () => HttpResponse.json(full)));
+    renderTab();
+    await screen.findByText('Midterm');
+    const print = vi.spyOn(window, 'print').mockImplementation(() => undefined);
+    const button = screen.getByRole('button', { name: 'Print / Save as PDF' });
+    expect(button.parentElement?.className).toContain('print:hidden');
+    expect(button.closest('#performance-print-area')).not.toBeNull();
+    fireEvent.click(button);
+    expect(print).toHaveBeenCalledTimes(1);
+    print.mockRestore();
+  });
+
   it('shows empty states when there is no data', async () => {
     server.use(http.get('/api/v1/performance/classes/:id', () => HttpResponse.json(empty)));
     renderTab();
     expect((await screen.findAllByText('Not enough data yet')).length).toBeGreaterThan(0);
+  });
+
+  it('hides print while loading and prints the section label in the heading', async () => {
+    server.use(http.get('/api/v1/performance/classes/:id', () => HttpResponse.json(full)));
+    renderTab();
+    expect(screen.queryByRole('button', { name: 'Print / Save as PDF' })).toBeNull();
+    await screen.findByText('Midterm');
+    const h = document.querySelector('#performance-print-area h2');
+    expect(h?.textContent).toBe('All sections');
+    expect(h?.className).toContain('print:block');
   });
 
   it('shows an error state on failure', async () => {
@@ -58,5 +81,6 @@ describe('class PerformanceTab', () => {
     );
     renderTab();
     expect(await screen.findByRole('button', { name: 'Retry' }, { timeout: 8000 })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Print / Save as PDF' })).toBeNull();
   });
 });

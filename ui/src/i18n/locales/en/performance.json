@@ -1,4 +1,5 @@
 {
+  "print": "Print / Save as PDF",
   "title": "Performance",
   "loading": "Loading performance…",
   "loadError": "Couldn't load performance.",

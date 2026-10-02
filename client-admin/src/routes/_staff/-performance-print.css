@@ -1,0 +1,38 @@
+/**
+ * [28.W6.G1.02] Printable Performance tabs. Same "hide everything, reveal the
+ * print area" approach as `analysis/-analysis-print.css`. Only one Performance
+ * tab is mounted at a time (Radix Tabs unmounts inactive content).
+ */
+@media print {
+  body:has(#performance-print-area) * {
+    visibility: hidden;
+  }
+
+  body:has(#performance-print-area) #performance-print-area,
+  body:has(#performance-print-area) #performance-print-area * {
+    visibility: visible;
+  }
+
+  #performance-print-area {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* SwipeRow is a phone scroller; lay it out as a grid so bars are not clipped. */
+  #performance-print-area [role='region'] {
+    overflow: visible;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  #performance-print-area [role='region'] > * {
+    width: auto;
+  }
+
+  @page {
+    margin: 10mm;
+  }
+}

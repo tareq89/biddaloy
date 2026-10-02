@@ -6,6 +6,7 @@
  */
 import {
   BarWidget,
+  Button,
   ErrorState,
   Select,
   SelectContent,
@@ -19,7 +20,10 @@ import {
 import { useClassPerformance, useClassSections } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { renderDigits } from '@biddaloy/ui/utils';
+import { Printer } from 'lucide-react';
 import * as React from 'react';
+
+import '../../-performance-print.css';
 
 const ALL = 'all';
 
@@ -44,6 +48,11 @@ export function PerformanceTab({ classId, academicYearId }: PerformanceTabProps)
   const num = (v: number | null) =>
     v === null ? t('notAvailable') : n(String(Math.round(v * 10) / 10));
 
+  const sectionLabel =
+    section === ALL
+      ? t('allSections')
+      : (sections.data?.find((x) => x.id === section)?.section_name ?? t('allSections'));
+
   let body: React.ReactNode;
   if (query.isPending) {
     body = (
@@ -64,7 +73,14 @@ export function PerformanceTab({ classId, academicYearId }: PerformanceTabProps)
   } else {
     const d = query.data;
     body = (
-      <>
+      <div id="performance-print-area" className="flex flex-col gap-3">
+        <div className="flex justify-end print:hidden">
+          <Button type="button" variant="outline" onClick={() => window.print()}>
+            <Printer className="size-4" />
+            {t('print')}
+          </Button>
+        </div>
+        <h2 className="hidden text-base font-semibold print:block">{sectionLabel}</h2>
         <SummaryCard
           title={t('title')}
           headline={d.passRate === null ? null : { label: t('passRate'), value: pct(d.passRate) }}
@@ -115,7 +131,7 @@ export function PerformanceTab({ classId, academicYearId }: PerformanceTabProps)
             }
           />
         </SwipeRow>
-      </>
+      </div>
     );
   }
 

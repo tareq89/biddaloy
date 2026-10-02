@@ -7,10 +7,20 @@
  * waiting message, never a number. Bars are CSS only (D24).
  */
 import { ApiError } from '@biddaloy/ui/api';
-import { BarWidget, ErrorState, SummaryCard, SwipeRow, Skeleton } from '@biddaloy/ui/components';
+import {
+  BarWidget,
+  Button,
+  ErrorState,
+  SummaryCard,
+  SwipeRow,
+  Skeleton,
+} from '@biddaloy/ui/components';
 import { useAcademicYears, useStaffPerformance } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { renderDigits } from '@biddaloy/ui/utils';
+import { Printer } from 'lucide-react';
+
+import '../../-performance-print.css';
 
 export interface PerformanceTabProps {
   userId: string;
@@ -80,7 +90,13 @@ function StaffPerformance({
   });
 
   return (
-    <div className="flex flex-col gap-3">
+    <div id="performance-print-area" className="flex flex-col gap-3">
+      <div className="flex justify-end print:hidden">
+        <Button type="button" variant="outline" onClick={() => window.print()}>
+          <Printer className="size-4" />
+          {t('print')}
+        </Button>
+      </div>
       <SummaryCard
         title={t('title')}
         headline={passRate === null ? null : { label: t('passRate'), value: pct(passRate) }}

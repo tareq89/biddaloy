@@ -8,9 +8,9 @@ import {
   server,
   studentFactory,
 } from '@biddaloy/ui/test';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../../routeTree.gen';
 
@@ -77,6 +77,21 @@ describe('student PerformanceTab', () => {
     expect(screen.getByText('4 / 5')).toBeTruthy();
   });
 
+  it('prints the on-screen content via window.print', async () => {
+    years();
+    server.use(http.get('/api/v1/performance/students/:id', () => HttpResponse.json(base)));
+    renderTab();
+    expect(screen.queryByRole('button', { name: 'Print / Save as PDF' })).toBeNull();
+    await screen.findByText('Pass rate');
+    const print = vi.spyOn(window, 'print').mockImplementation(() => undefined);
+    const button = screen.getByRole('button', { name: 'Print / Save as PDF' });
+    expect(button.parentElement?.className).toContain('print:hidden');
+    expect(button.closest('#performance-print-area')).not.toBeNull();
+    fireEvent.click(button);
+    expect(print).toHaveBeenCalledTimes(1);
+    print.mockRestore();
+  });
+
   it('shows "Not enough data yet" per widget when there is nothing', async () => {
     years();
     server.use(
@@ -135,6 +150,7 @@ describe('student PerformanceTab', () => {
       await screen.findByText("Couldn't load performance.", {}, { timeout: 4000 }),
     ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Print / Save as PDF' })).toBeNull();
   });
 });
 
