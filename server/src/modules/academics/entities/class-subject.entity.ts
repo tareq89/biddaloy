@@ -8,6 +8,7 @@ import {
   ManyToOne,
   JoinColumn,
   Index,
+  Check,
 } from 'typeorm';
 import { School } from '../../schools/entities/school.entity';
 import { Class } from './class.entity';
@@ -33,6 +34,11 @@ import { AcademicYear } from './academic-year.entity';
   unique: true,
   where: '"deleted_at" IS NULL',
 })
+// Mirrors the migration's CHK (see student-subject-choice.entity.ts note).
+@Check(
+  'CHK_class_subjects_choice_group_exclusive',
+  `"choice_group" IS NULL OR (btrim("choice_group") <> '' AND "is_optional" = false AND "group_name" IS NULL)`,
+)
 export class ClassSubject {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -77,6 +83,10 @@ export class ClassSubject {
   /** #1266 validated against `organisation.groups`; NULL = not group-specific. */
   @Column({ type: 'varchar', length: 50, nullable: true })
   group_name: string | null;
+
+  /** [35.1.7] 'Exactly one of' set within one class+year (D42). NULL = not in a choice group. Never with is_optional or group_name (DB CHECK). */
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  choice_group: string | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

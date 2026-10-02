@@ -3,6 +3,7 @@ import { DataSource, QueryRunner } from 'typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { School } from '../src/modules/schools/entities/school.entity';
 import { AddExamTemplatesAndClassSubjectGroup1791000000000 } from '../src/migrations/1791000000000-AddExamTemplatesAndClassSubjectGroup';
+import { SubjectChoiceGroups1791100000000 } from '../src/migrations/1791100000000-SubjectChoiceGroups';
 
 /**
  * [35.1.3/#1266] Runs the exam-templates migration's `up`/`down` against the
@@ -14,6 +15,8 @@ describe('AddExamTemplatesAndClassSubjectGroup1791000000000 (integration)', () =
   let queryRunner: QueryRunner;
   let tenantId: string;
   const migration = new AddExamTemplatesAndClassSubjectGroup1791000000000();
+  // [35.1.7] Depends on class_subjects.group_name (CHECK), so it must be reverted first.
+  const later = new SubjectChoiceGroups1791100000000();
 
   beforeAll(async () => {
     const module = await createTestModule([School], []);
@@ -74,6 +77,10 @@ describe('AddExamTemplatesAndClassSubjectGroup1791000000000 (integration)', () =
   });
 
   it('down() removes tables + column but keeps the shared enums; up() restores', async () => {
+    // Revert the later migration first, as `migration:revert` would: dropping
+    // group_name silently drops its CHK_class_subjects_choice_group_exclusive,
+    // leaving this worker's DB broken for later spec files.
+    await later.down(queryRunner);
     await migration.down(queryRunner);
     expect(await tableNames()).toEqual([]);
     expect(await groupNameColumn()).toEqual([]);
@@ -83,6 +90,7 @@ describe('AddExamTemplatesAndClassSubjectGroup1791000000000 (integration)', () =
     expect(enums).toHaveLength(2);
 
     await migration.up(queryRunner);
+    await later.up(queryRunner);
     expect(await tableNames()).toEqual(['exam_template_components', 'exam_templates']);
     expect(await groupNameColumn()).toHaveLength(1);
   });

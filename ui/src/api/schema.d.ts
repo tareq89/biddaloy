@@ -8732,6 +8732,7 @@ export interface components {
             academic_year_id: string;
             is_optional: boolean;
             group_name: string | null;
+            choice_group: string | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -10017,6 +10018,7 @@ export interface components {
             academic_year: components["schemas"]["AcademicYear"];
             academic_year_id: string;
             is_fourth: boolean;
+            choice_group: string | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
