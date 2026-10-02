@@ -67,6 +67,7 @@ import { RoutineSubstitution } from '../modules/routines/entities/routine-substi
 import { RoutineChangeRequest } from '../modules/routines/entities/routine-change-request.entity';
 import {
   ensureDemoOrganisation,
+  ensurePresetDemoSeed,
   type PrintDemoSeedPorts,
   type PrintHistoryDemoSeedPorts,
 } from './seed.util';
@@ -305,6 +306,9 @@ export async function seed() {
       lifecycleAdmin.id,
     );
   }
+
+  // [35.5.5] Unapplied tenant for walking the preset flow (after the demo seeds).
+  await ensurePresetDemoSeed(dataSource.manager, passwordHash);
 
   await app.close();
 }
