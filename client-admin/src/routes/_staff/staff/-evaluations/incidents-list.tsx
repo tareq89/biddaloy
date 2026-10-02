@@ -13,7 +13,7 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
-import { formatDate } from '@biddaloy/ui/utils';
+import { formatDate, parseDate } from '@biddaloy/ui/utils';
 
 const TYPES: IncidentType[] = ['BEHAVIOUR', 'ABSENCE', 'COMPLAINT', 'COMMENDATION', 'OTHER'];
 const SEVERITIES: IncidentSeverity[] = ['LOW', 'MEDIUM', 'HIGH'];
@@ -72,7 +72,7 @@ export function IncidentsList() {
     {
       id: 'date',
       header: t('incident.columnDate'),
-      accessorFn: (row) => formatDate(new Date(row.occurredOn), regionConfig),
+      accessorFn: (row) => formatDate(parseDate(row.occurredOn), regionConfig),
     },
     {
       id: 'description',
