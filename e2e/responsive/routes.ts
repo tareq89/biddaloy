@@ -2,6 +2,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 import {
   adminApiSession,
+  createAcr,
   createClassSection,
   createGuardian,
   createInvoice,
@@ -9,11 +10,14 @@ import {
   createReminderBatch,
   createStaffUser,
   createStudentWithDues,
+  createTeacher,
+  currentAcademicYearId,
   post,
   findSchoolIdBySlug,
   superAdminApiSession,
   type ApiSession,
 } from '../api';
+import { acrBody } from '../fixtures/evaluations';
 import manifest from '../route-manifest.json';
 
 /** Shared manifest typing + param resolution for the responsive suites
@@ -71,6 +75,15 @@ export async function resolvePath(
   if (route.path.includes('$guardianId')) {
     const guardian = await createGuardian(request, session, `Reflow Guardian ${stamp}`);
     return route.path.replace('$guardianId', guardian.id);
+  }
+  if (route.path.includes('$assessmentId')) {
+    // [28.3.7] `/staff/$userId/acr/$assessmentId` 404s without a real ACR: start
+    // one (INCOMPLETE, on the latest form) for a fresh teacher. Admin is the
+    // assessor, not the subject, so the subject-404 rule does not apply.
+    const teacher = await createTeacher(request, session, `Reflow ACR ${stamp}`);
+    const yearId = await currentAcademicYearId(request, session);
+    const acr = await createAcr(request, session, acrBody(teacher.userId, yearId));
+    return route.path.replace('$userId', teacher.userId).replace('$assessmentId', acr.id);
   }
   if (route.path.includes('$userId')) {
     const staffUser = await createStaffUser(request, session, `Reflow Staff ${stamp}`);

@@ -382,12 +382,26 @@
       "archetype": "list"
     },
     {
+      "path": "/staff/evaluations",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
       "path": "/staff/$userId",
       "params": {
         "userId": "seeded"
       },
       "role": "admin",
       "archetype": "detail"
+    },
+    {
+      "path": "/staff/$userId/acr/$assessmentId",
+      "params": {
+        "userId": "seeded",
+        "assessmentId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "wizard"
     },
     {
       "path": "/programs",

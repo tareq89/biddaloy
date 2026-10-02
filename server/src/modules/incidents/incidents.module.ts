@@ -18,5 +18,6 @@ import { IncidentNotifyListener } from './incident-notify.listener';
   ],
   controllers: [IncidentsController],
   providers: [IncidentsService, IncidentNotifyListener],
+  exports: [IncidentsService],
 })
 export class IncidentsModule {}

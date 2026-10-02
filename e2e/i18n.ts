@@ -21,6 +21,7 @@ import bnCalendar from '../ui/src/i18n/locales/bn/calendar.json';
 import bnClasses from '../ui/src/i18n/locales/bn/classes.json';
 import bnCommon from '../ui/src/i18n/locales/bn/common.json';
 import bnCommunications from '../ui/src/i18n/locales/bn/communications.json';
+import bnEvaluations from '../ui/src/i18n/locales/bn/evaluations.json';
 import bnExams from '../ui/src/i18n/locales/bn/exams.json';
 import bnFeeGeneration from '../ui/src/i18n/locales/bn/feeGeneration.json';
 import bnFees from '../ui/src/i18n/locales/bn/fees.json';
@@ -68,6 +69,7 @@ import enCalendar from '../ui/src/i18n/locales/en/calendar.json';
 import enClasses from '../ui/src/i18n/locales/en/classes.json';
 import enCommon from '../ui/src/i18n/locales/en/common.json';
 import enCommunications from '../ui/src/i18n/locales/en/communications.json';
+import enEvaluations from '../ui/src/i18n/locales/en/evaluations.json';
 import enExams from '../ui/src/i18n/locales/en/exams.json';
 import enFeeGeneration from '../ui/src/i18n/locales/en/feeGeneration.json';
 import enFees from '../ui/src/i18n/locales/en/fees.json';
@@ -118,6 +120,7 @@ const catalogs = {
     classes: bnClasses,
     common: bnCommon,
     communications: bnCommunications,
+    evaluations: bnEvaluations,
     exams: bnExams,
     feeGeneration: bnFeeGeneration,
     fees: bnFees,
@@ -167,6 +170,7 @@ const catalogs = {
     classes: enClasses,
     common: enCommon,
     communications: enCommunications,
+    evaluations: enEvaluations,
     exams: enExams,
     feeGeneration: enFeeGeneration,
     fees: enFees,

@@ -96,6 +96,7 @@ describe('TemplateService', () => {
       }
     });
 
+    // Builds every registered tab (10 added by Epic 28); >5s on slow CI runners.
     it('gives every enum or bool column a list data validation on rows 2-1000', async () => {
       const service = new TemplateService(makeRepo(fakeSchool()));
       const { buffer } = await service.build(TENANT_ID, 'en');
@@ -153,7 +154,7 @@ describe('TemplateService', () => {
           expect(validations[address].type).toBe('list');
         }
       }
-    });
+    }, 30_000);
 
     it('gives every header cell a comment naming the column and its requirement', async () => {
       const service = new TemplateService(makeRepo(fakeSchool()));

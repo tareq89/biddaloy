@@ -60,8 +60,9 @@ const finesSearchSchema = z.object({
   // declared or `validateSearch` strips it" reasoning `dues.tsx` documents.
   selected: z.string().optional().catch(undefined),
   // Palette entry points, see this file's own header comment.
-  logFine: z.string().optional().catch(undefined),
-  generateFines: z.string().optional().catch(undefined),
+  // `z.coerce.string()`: the router parses `?logFine=1` to the number 1 (see payments/index.tsx).
+  logFine: z.coerce.string().optional().catch(undefined),
+  generateFines: z.coerce.string().optional().catch(undefined),
 });
 
 function isEditableTarget(target: EventTarget | null): boolean {
@@ -159,7 +160,7 @@ function FinesListPage() {
       void navigate({ search: (prev) => ({ ...prev, logFine: undefined }), replace: true });
     }
     if (search.generateFines) {
-      setGenerateFinesOpen(true);
+      if (canGenerate) setGenerateFinesOpen(true);
       void navigate({ search: (prev) => ({ ...prev, generateFines: undefined }), replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per mount to consume the one-shot query flag
@@ -257,7 +258,9 @@ function FinesListPage() {
       )}
 
       {canGenerate && <LogFineModal open={logFineOpen} onOpenChange={setLogFineOpen} />}
-      <GenerateFinesModal open={generateFinesOpen} onOpenChange={setGenerateFinesOpen} />
+      {canGenerate && (
+        <GenerateFinesModal open={generateFinesOpen} onOpenChange={setGenerateFinesOpen} />
+      )}
       <WaiveFineDialog
         open={waiving !== null}
         onOpenChange={(open) => !open && setWaiving(null)}

@@ -145,4 +145,20 @@ describe('CommandPaletteLauncher', () => {
 
     await waitFor(() => expect(screen.queryByRole('option', { name: 'Add student' })).toBeNull());
   });
+
+  it('Action tab offers a context-free action (`context: []`) from any page', async () => {
+    renderWithRouter(routeTree, {
+      initialEntries: ['/students'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
+    const input = screen.getByRole('combobox', { name: 'Command palette' });
+    await user.type(input, '>start acr');
+
+    expect(await screen.findByRole('option', { name: 'Start ACR' })).toBeTruthy();
+  });
 });
