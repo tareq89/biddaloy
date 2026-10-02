@@ -75,6 +75,7 @@ function makeClassSubject(overrides: Partial<ClassSubject> = {}): ClassSubject {
     is_optional: false,
     is_graded_only: false,
     group_name: null,
+    choice_group: null,
     tenant_id: TENANT_ID,
     ...overrides,
   } satisfies Partial<ClassSubject>);
@@ -143,6 +144,7 @@ describe('round trip', () => {
         is_optional: false,
         is_graded_only: false,
         group_name: null,
+        choice_group: null,
         class_key: 'Class 10|2026-2027',
         academic_year_key: '2026-2027',
         subject_key: 'MATH',
@@ -203,6 +205,7 @@ describe('diffFields', () => {
       is_optional: false,
       is_graded_only: false,
       group_name: null,
+      choice_group: null,
       class_key: 'unused',
       academic_year_key: 'unused',
       subject_key: 'unused',
@@ -221,6 +224,7 @@ describe('diffFields', () => {
       is_optional: true,
       is_graded_only: false,
       group_name: null,
+      choice_group: null,
       class_key: 'unused',
       academic_year_key: 'unused',
       subject_key: 'unused',
@@ -239,6 +243,7 @@ describe('diffFields', () => {
       is_optional: false,
       is_graded_only: true,
       group_name: null,
+      choice_group: null,
       class_key: 'unused',
       academic_year_key: 'unused',
       subject_key: 'unused',
@@ -257,6 +262,7 @@ describe('diffFields', () => {
       is_optional: false,
       is_graded_only: false,
       group_name: null,
+      choice_group: null,
       class_key: 'unused',
       academic_year_key: 'unused',
       subject_key: 'unused',
@@ -283,5 +289,45 @@ describe('diffFields', () => {
     expect(result).toMatchObject({
       errors: [{ row: 7, column: 'group_name', severity: 'error' }],
     });
+  });
+
+  it('round-trips choice_group, and a blank cell restores as null', () => {
+    const withChoice = classSubjectsTab.fromRow(
+      toCells(makeClassSubject({ choice_group: 'Religion' })),
+      2,
+      makeImportCtx(),
+    );
+    expect(withChoice).toMatchObject({ row: { choice_group: 'Religion' } });
+
+    const blank = classSubjectsTab.fromRow(toCells(makeClassSubject()), 2, makeImportCtx());
+    expect(blank).toMatchObject({ row: { choice_group: null } });
+
+    const oldBackup = toCells(makeClassSubject());
+    delete oldBackup.choice_group;
+    expect(classSubjectsTab.fromRow(oldBackup, 2, makeImportCtx())).toMatchObject({
+      row: { choice_group: null },
+    });
+  });
+
+  it('rejects a choice group combined with is_optional or group_name', () => {
+    for (const overrides of [{ is_optional: true }, { group_name: 'Science' }]) {
+      const result = classSubjectsTab.fromRow(
+        toCells(makeClassSubject({ choice_group: 'Religion', ...overrides })),
+        2,
+        makeImportCtx(),
+      );
+      expect(result).toMatchObject({ errors: [{ column: 'choice_group', severity: 'error' }] });
+    }
+  });
+
+  it('reports a changed choice_group', () => {
+    const row = classSubjectsTab.fromRow(
+      toCells(makeClassSubject({ choice_group: 'Religion' })),
+      2,
+      makeImportCtx(),
+    );
+    expect('row' in row && classSubjectsTab.diffFields(row.row, makeClassSubject())).toEqual([
+      'choice_group',
+    ]);
   });
 });
