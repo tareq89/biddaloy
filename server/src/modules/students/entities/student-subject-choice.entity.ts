@@ -7,6 +7,7 @@ import {
   ManyToOne,
   JoinColumn,
   Index,
+  Check,
 } from 'typeorm';
 import { School } from '../../schools/entities/school.entity';
 import { Student } from './student.entity';
@@ -43,6 +44,20 @@ import { AcademicYear } from '../../academics/entities/academic-year.entity';
   unique: true,
   where: '"is_fourth" = true',
 })
+// [35.1.7] Mirrors the migration's one-pick-per-choice-group index and CHECK;
+// without these copies the schema builder drops them as "not declared".
+@Index(
+  'IDX_student_subject_choices_one_per_choice_group',
+  ['student_id', 'academic_year_id', 'choice_group'],
+  {
+    unique: true,
+    where: '"choice_group" IS NOT NULL',
+  },
+)
+@Check(
+  'CHK_student_subject_choices_group_not_fourth',
+  `"choice_group" IS NULL OR "is_fourth" = false`,
+)
 export class StudentSubjectChoice {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -78,6 +93,10 @@ export class StudentSubjectChoice {
 
   @Column({ type: 'boolean', default: false })
   is_fourth: boolean;
+
+  /** Owned by trigger trg_ssc_copy_choice_group — never set in code. */
+  @Column({ type: 'varchar', length: 50, nullable: true, insert: false, update: false })
+  choice_group: string | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
