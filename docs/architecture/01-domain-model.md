@@ -324,6 +324,28 @@ within that `(exam, section)` pair — computed once, at process time, so it
 stays correct even if the student is later moved or promoted out of that
 section.
 
+**Stream (group) subjects (D49).** In NCTB classes 9-10 a student takes the
+subjects of one stream (Science, Humanities, Business). A subject with
+`class_subjects.group_name` set counts only for students whose **section**
+has the same `class_sections.group_name`. Subjects with no `group_name` count
+for everyone.
+
+```mermaid
+flowchart LR
+  A[Section group = Science] --> B[Result counts BAN + PHY]
+  B --> C[ECO, Humanities: skipped, no false F]
+  D[Section has no group, ECO tested in exam] --> E[process refuses: 409 STREAM_UNASSIGNED]
+```
+
+Example, class 10: BAN (no group), PHY (`Science`), ECO (`Humanities`). A
+Science-section student with marks only for BAN and PHY is processed normally;
+ECO never appears in their `result_subjects`. A student in a section with no
+group blocks `process()` with a 409 whose `details` carry
+`code: STREAM_UNASSIGNED`, `total` and the first 50 students (`force` does
+**not** bypass it). The block only applies while a group-only subject has
+components in the exam. A student whose stream matches no examined subject
+gets no stream subjects; if nothing at all is countable the grade is `-`, not `F`.
+
 ### Promotions (`modules/promotions`) — Epic 26.6–26.8
 
 ```
