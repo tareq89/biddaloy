@@ -58,11 +58,20 @@ export function validatePresetPack(pack: PresetPack): string[] {
       errs.push('only the lowest grading bands may be isFail');
   }
 
+  // Mirrors UQ_exam_templates_tenant_name and UQ_exam_template_components_natural.
+  for (const n of new Set(dupes(pack.examTemplates.map((t) => t.name))))
+    errs.push(`duplicate template name: ${n}`);
   for (const t of pack.examTemplates) {
+    const rowKeys = new Set<string>();
     t.rows.forEach((r) => {
       const at = `template ${t.name} row ${r.classGrade}/${r.subjectCode}`;
       if (!grades.includes(r.classGrade)) errs.push(`${at}: unknown class grade`);
       if (!codes.includes(r.subjectCode)) errs.push(`${at}: unknown subject code`);
+      const rowKey = `${r.classGrade}|${r.subjectCode}`;
+      if (rowKeys.has(rowKey)) errs.push(`${at}: duplicate row`);
+      rowKeys.add(rowKey);
+      for (const n of new Set(dupes(r.components.map((c) => c.name))))
+        errs.push(`${at}: duplicate component ${n}`);
       for (const c of r.components) {
         if (!(c.full > 0)) errs.push(`${at} component ${c.name}: full must be > 0`);
         else if (c.pass < 0 || c.pass > c.full)

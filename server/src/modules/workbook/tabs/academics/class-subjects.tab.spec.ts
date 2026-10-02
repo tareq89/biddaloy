@@ -276,4 +276,12 @@ describe('diffFields', () => {
     const blank = classSubjectsTab.fromRow(toCells(makeClassSubject()), 2, makeImportCtx());
     expect(blank).toMatchObject({ row: { group_name: null } });
   });
+
+  it('rejects a row that is both group-specific and optional', () => {
+    const cells = toCells(makeClassSubject({ group_name: 'Science', is_optional: true }));
+    const result = classSubjectsTab.fromRow(cells, 7, makeImportCtx());
+    expect(result).toMatchObject({
+      errors: [{ row: 7, column: 'group_name', severity: 'error' }],
+    });
+  });
 });

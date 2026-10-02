@@ -203,6 +203,26 @@ export const classSubjectsTab: TabSpec<ClassSubject, ClassSubjectRow> = {
 
     if (errors.length > 0) return { errors };
 
+    // Same rule as `SubjectService.resolveGroupName` [35.1.2]: a row is
+    // group-specific OR optional, never both. (Vocabulary membership is not
+    // checked here — the workbook does not validate `classes.shift/version`
+    // against the organisation vocabulary either.)
+    if (values.group_name && values.is_optional) {
+      return {
+        errors: [
+          {
+            tab: 'class_subjects',
+            row: rowNo,
+            column: 'group_name',
+            message:
+              'Column "group_name": a subject is either group-specific or optional, not both.',
+            severity: 'error',
+            value: String(values.group_name),
+          },
+        ],
+      };
+    }
+
     // `classKey` embeds its own academic year (`classesTab.keyOf` builds it
     // as `${name}|${yearKey}|${shift}|${version}`, [33.2.1]) — reject a row
     // whose separately given `academic_year` names a different year, since

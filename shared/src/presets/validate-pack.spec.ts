@@ -171,6 +171,27 @@ describe('validatePresetPack', () => {
       (p) => (p.examTemplates[0].rows[0].components[0].full = 0),
       'template Final row 1/BAN component W: full must be > 0',
     ],
+    [
+      'duplicate component name in a row',
+      (p) =>
+        p.examTemplates[0].rows[0].components.push({
+          name: 'W',
+          kind: 'WRITTEN',
+          full: 50,
+          pass: 10,
+        }),
+      'template Final row 1/BAN: duplicate component W',
+    ],
+    [
+      'duplicate row in a template',
+      (p) => p.examTemplates[0].rows.push({ ...p.examTemplates[0].rows[0] }),
+      'template Final row 1/BAN: duplicate row',
+    ],
+    [
+      'duplicate template name',
+      (p) => p.examTemplates.push({ ...p.examTemplates[0] }),
+      'duplicate template name: Final',
+    ],
     ['duplicate term seq', (p) => (p.terms[1].seq = 1), 'duplicate term seq: 1'],
     [
       'term start after end',
