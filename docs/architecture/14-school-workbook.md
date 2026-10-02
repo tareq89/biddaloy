@@ -95,7 +95,7 @@ order (`server/src/modules/workbook/codec/registry.ts`, `EXPECTED_TABS`).
 | —   | `exam_template_components` | `template` + `class_grade` + `subject_code` + `name`                           | Yes                 | [35.1.5] `template` is a ref to `exam_templates` by name; `tenant_id`, timestamps. Hard-deleted (no soft delete)                                                                                                                                                             |
 
 [35.1.5] `class_subjects` also carries an optional `group_name` column (blank
-= not group-specific). `school` exports `settings.preset` (it is not a
+= not group-specific). [35.1.10] It also carries an optional `choice_group` (blank = NULL; old backups lack it); `student_subject_choices` leaves its own `choice_group` out because a DB trigger fills it from the class subject. `school` exports `settings.preset` (it is not a
 secret path) and deep-merges it back, so a restored school keeps its preset
 claim (D37).
 

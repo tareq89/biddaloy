@@ -62,6 +62,7 @@ const excluded: readonly string[] = [
   'student_id', // exported instead as the `student` ref column
   'class_subject_id', // exported instead as the `class_subject` ref column
   'academic_year_id', // denormalised from `class_subject` — see docstring
+  'choice_group', // derived by DB trigger trg_ssc_copy_choice_group from the class subject (35.1.7)
 ];
 
 export const studentSubjectChoicesTab: TabSpec<StudentSubjectChoice, StudentSubjectChoiceRow> = {
@@ -74,17 +75,22 @@ export const studentSubjectChoicesTab: TabSpec<StudentSubjectChoice, StudentSubj
   deleteByAbsence: true,
 
   load(tenantId: string, m: EntityManager): Promise<StudentSubjectChoice[]> {
-    return m.find(StudentSubjectChoice, {
-      where: { tenant_id: tenantId },
-      relations: [
-        'student',
-        'class_subject',
-        'class_subject.class',
-        'class_subject.class.academic_year',
-        'class_subject.academic_year',
-        'class_subject.subject',
-      ],
-    });
+    return m
+      .find(StudentSubjectChoice, {
+        where: { tenant_id: tenantId },
+        relations: [
+          'student',
+          'class_subject',
+          'class_subject.class',
+          'class_subject.class.academic_year',
+          'class_subject.academic_year',
+          'class_subject.subject',
+        ],
+        // A pick whose class subject was soft-deleted (detach before 35.1.8 cleared picks)
+        // loads with `class_subject: null`; its key is not in the class_subjects index, so
+        // `toRow` would throw and break every later export. Skip those dead rows.
+      })
+      .then((rows) => rows.filter((r) => r.class_subject));
   },
 
   toRow(entity: StudentSubjectChoice, ctx: ExportContext): Record<string, unknown> {
@@ -199,9 +205,27 @@ export const studentSubjectChoicesTab: TabSpec<StudentSubjectChoice, StudentSubj
     // Derived from the chosen class_subject, same as the live write path —
     // never set independently (see docstring / `excluded`).
     const classSubject = await m.findOneOrFail(ClassSubject, {
-      where: { id: row.class_subject_id },
+      where: { id: row.class_subject_id, tenant_id: tenantId },
     });
     choice.academic_year_id = classSubject.academic_year_id;
+    // One pick per choice group per student/year (unique index, 35.1.7). The
+    // trigger copies the group at insert; surface a clash as a readable error
+    // rather than a raw 23505 (TabSpec has no cross-row validation hook).
+    if (classSubject.choice_group) {
+      const clash = await m
+        .createQueryBuilder(StudentSubjectChoice, 'c')
+        .where('c.tenant_id = :tenantId', { tenantId })
+        .andWhere('c.student_id = :studentId', { studentId: row.student_id })
+        .andWhere('c.academic_year_id = :yearId', { yearId: classSubject.academic_year_id })
+        .andWhere('c.choice_group = :group', { group: classSubject.choice_group })
+        .andWhere('c.class_subject_id <> :csId', { csId: row.class_subject_id })
+        .getExists();
+      if (clash) {
+        throw new Error(
+          `Column "class_subject": student "${row.student_key}" already has another pick in choice group "${classSubject.choice_group}" for this year.`,
+        );
+      }
+    }
     choice.is_fourth = row.is_fourth;
 
     return m.save(StudentSubjectChoice, choice);

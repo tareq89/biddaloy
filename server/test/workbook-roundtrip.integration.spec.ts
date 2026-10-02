@@ -1254,6 +1254,39 @@ describe('workbook round trip (integration)', () => {
       }),
     );
 
+    // [35.1.10] Two class subjects in choice group 'Religion' + one pick
+    // (choice_group on the pick is trigger-filled and must round-trip).
+    const religionSubjects = await dataSource.getRepository(Subject).save(
+      ['ISL', 'HIN'].map((c) =>
+        dataSource.getRepository(Subject).create({
+          tenant_id: TENANT_A,
+          name_en: `Religion ${c}`,
+          name_bn: `ধর্ম ${c}`,
+          code: `REL-${c}-${TENANT_A.slice(0, 8)}`,
+        }),
+      ),
+    );
+    const religionClassSubjects = await dataSource.getRepository(ClassSubject).save(
+      religionSubjects.map((rs) =>
+        dataSource.getRepository(ClassSubject).create({
+          tenant_id: TENANT_A,
+          class_id: klass.id,
+          subject_id: rs.id,
+          academic_year_id: year.id,
+          choice_group: 'Religion',
+        }),
+      ),
+    );
+    await dataSource.getRepository(StudentSubjectChoice).save(
+      dataSource.getRepository(StudentSubjectChoice).create({
+        tenant_id: TENANT_A,
+        student_id: studentTwo.id,
+        class_subject_id: religionClassSubjects[0].id,
+        academic_year_id: year.id,
+        is_fourth: false,
+      }),
+    );
+
     // [35.1.5] One template with two component lines (different subject
     // codes, same class grade), exercising both new tabs.
     const examTemplate = await dataSource.getRepository(ExamTemplate).save(
@@ -2013,7 +2046,12 @@ describe('workbook round trip (integration)', () => {
     expect(presetOf(normalizedB)).toEqual(presetOf(normalizedA));
     expect(normalizedB.exam_templates).toHaveLength(1);
     expect(normalizedB.exam_template_components).toHaveLength(2);
-    expect(normalizedB.class_subjects?.[0]?.group_name).toBe('Science');
+    expect(normalizedB.class_subjects?.some((r) => r.group_name === 'Science')).toBe(true);
+    // [35.1.10] choice groups + trigger-filled pick group round-trip.
+    expect(
+      normalizedB.class_subjects?.filter((r) => r.choice_group === 'Religion'),
+    ).toHaveLength(2);
+    expect(normalizedB.student_subject_choices).toHaveLength(2);
 
     // [32.3.10] `print_assets.storage_key` is the second deliberate exception.
     // A restore into a DIFFERENT school must never keep the source school's
