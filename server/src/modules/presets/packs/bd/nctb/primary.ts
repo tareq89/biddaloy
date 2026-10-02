@@ -61,6 +61,10 @@ const S = {
   CAREER: { code: 'P-12', nameEn: 'Career Education', nameBn: 'কর্ম ও জীবনমুখী শিক্ষা' },
 } satisfies Record<string, Subject>;
 
+/** Religion and Agri/Home are 'one of' choice groups (D47). */
+export const NCTB_RELIGION_GROUP = 'Religion';
+export const NCTB_AGRI_HOME_GROUP = 'Agriculture / Home Science';
+
 const RELIGIONS = [S.ISLAM, S.HINDU, S.BUDDHIST, S.CHRISTIAN];
 
 // UNVERIFIED: every list below.
@@ -130,8 +134,13 @@ export const NCTB_PRIMARY: Pick<PresetPack, 'classes' | 'subjects' | 'classSubje
         .map((s) => [s.code, s]),
     ).values(),
   ],
-  // optional:false everywhere: the school picks the religion per student.
+  // Religion and Agri/Home are 'one of' choice groups (D47).
   classSubjects: grades.flatMap((g) =>
-    BY_GRADE[g].map((s) => ({ classGrade: g, subjectCode: s.code, optional: false })),
+    BY_GRADE[g].map((s) => {
+      const row: PresetPack['classSubjects'][number] = { classGrade: g, subjectCode: s.code };
+      if (RELIGIONS.includes(s)) row.choiceGroup = NCTB_RELIGION_GROUP;
+      else if (g >= 6 && (s === S.AGRI || s === S.HOME)) row.choiceGroup = NCTB_AGRI_HOME_GROUP;
+      return row;
+    }),
   ),
 };

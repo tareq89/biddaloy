@@ -2,7 +2,12 @@ import { validatePresetPack, type PresetPack } from '@biddaloy/shared';
 import { describe, expect, it } from 'vitest';
 
 import { makeTestPack } from '../../../__fixtures__/test-pack';
-import { NCTB_COMMON_SUBJECTS, NCTB_PRIMARY } from './primary';
+import {
+  NCTB_AGRI_HOME_GROUP,
+  NCTB_COMMON_SUBJECTS,
+  NCTB_PRIMARY,
+  NCTB_RELIGION_GROUP,
+} from './primary';
 
 describe('NCTB_PRIMARY', () => {
   it('has classes 1-8 with the right stages', () => {
@@ -23,6 +28,25 @@ describe('NCTB_PRIMARY', () => {
   it('exports the common subjects and includes them', () => {
     const codes = NCTB_PRIMARY.subjects.map((s) => s.code);
     for (const s of Object.values(NCTB_COMMON_SUBJECTS)) expect(codes).toContain(s.code);
+  });
+
+  it('has 4 Religion choice-group rows in every class 1-8, never optional', () => {
+    for (let g = 1; g <= 8; g++) {
+      const rows = NCTB_PRIMARY.classSubjects.filter(
+        (c) => c.classGrade === g && c.choiceGroup === NCTB_RELIGION_GROUP,
+      );
+      expect(rows.map((r) => r.subjectCode)).toEqual(['P-01', 'P-02', 'P-03', 'P-04']);
+      expect(rows.every((r) => r.optional === undefined)).toBe(true);
+    }
+  });
+
+  it('puts exactly P-10 and P-11 in the Agri/Home group at 6-8, none at 1-5', () => {
+    for (let g = 1; g <= 8; g++) {
+      const rows = NCTB_PRIMARY.classSubjects.filter(
+        (c) => c.classGrade === g && c.choiceGroup === NCTB_AGRI_HOME_GROUP,
+      );
+      expect(rows.map((r) => r.subjectCode)).toEqual(g >= 6 ? ['P-10', 'P-11'] : []);
+    }
   });
 
   it('passes validatePresetPack once merged into a pack', () => {

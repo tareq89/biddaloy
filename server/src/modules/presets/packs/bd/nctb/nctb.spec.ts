@@ -62,4 +62,13 @@ describe('NCTB_PACK', () => {
     const keys = NCTB_PACK.classSubjects.map((c) => `${c.classGrade}:${c.subjectCode}`);
     expect(new Set(keys).size).toBe(keys.length);
   });
+
+  it('has 4 Religion members at classes 1-10 and none at 11-12', () => {
+    for (let g = 1; g <= 12; g++) {
+      const n = NCTB_PACK.classSubjects.filter(
+        (c) => c.classGrade === g && c.choiceGroup === 'Religion',
+      ).length;
+      expect(n).toBe(g <= 10 ? 4 : 0);
+    }
+  });
 });

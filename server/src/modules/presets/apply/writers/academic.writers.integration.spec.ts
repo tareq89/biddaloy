@@ -4,6 +4,8 @@ import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
+import { NCTB_PACK } from '../../packs/bd/nctb';
+import type { PresetPack } from '@biddaloy/shared';
 import { makeTestPack } from '../../__fixtures__/test-pack';
 import type { ApplyContext } from '../apply-context';
 import { School } from '../../../schools/entities/school.entity';
@@ -34,10 +36,11 @@ describe('academic preset writers (integration)', () => {
     startMonth?: number;
     stages: string[];
     versions?: string[];
+    pack?: PresetPack;
   }): Promise<{ tenantId: string; counts: Record<string, number> }> {
-    const pack = makeTestPack();
-    pack.yearShape.startMonth = opts.startMonth ?? 1;
-    if (opts.versions)
+    const pack = opts.pack ?? makeTestPack();
+    if (!opts.pack) pack.yearShape.startMonth = opts.startMonth ?? 1;
+    if (opts.versions && !opts.pack)
       pack.versions = [
         { key: 'BN', name: { en: 'Bangla', bn: 'বাংলা' } },
         { key: 'EN', name: { en: 'English', bn: 'ইংরেজি' } },
@@ -121,6 +124,35 @@ describe('academic preset writers (integration)', () => {
     expect(mat.group_name).toBeNull();
     expect(mat.is_optional).toBe(false);
     expect(mat.is_graded_only).toBe(false);
+  });
+
+  it('writes choice_group from the pack row', async () => {
+    const pack = makeTestPack();
+    pack.classSubjects = [
+      { classGrade: 1, subjectCode: 'BAN', choiceGroup: 'L2' },
+      { classGrade: 1, subjectCode: 'ENG', choiceGroup: 'L2' },
+    ];
+    pack.examTemplates = [];
+    const { tenantId } = await run({ stages: ['PRIMARY'], pack });
+    const rows = await ds.getRepository(ClassSubject).findBy({ tenant_id: tenantId });
+    expect(rows.map((r) => r.choice_group)).toEqual(['L2', 'L2']);
+  });
+
+  it('applying NCTB: class 5 has 4 Religion rows, class 7 has the Agri/Home group', async () => {
+    const { tenantId } = await run({
+      stages: ['PRIMARY', 'JUNIOR'],
+      versions: NCTB_PACK.versions?.length ? [NCTB_PACK.versions[0].key] : [],
+      pack: NCTB_PACK,
+    });
+    const rows = await ds.getRepository(ClassSubject).find({
+      where: { tenant_id: tenantId },
+      relations: { class: true },
+    });
+    const of = (grade: number, g: string) =>
+      rows.filter((r) => r.class.numeric_grade === grade && r.choice_group === g);
+    expect(of(5, 'Religion')).toHaveLength(4);
+    expect(of(5, 'Agriculture / Home Science')).toHaveLength(0);
+    expect(of(7, 'Agriculture / Home Science')).toHaveLength(2);
   });
 
   it('settings writer sets vocabulary, region and preset block, keeps other blocks', async () => {
