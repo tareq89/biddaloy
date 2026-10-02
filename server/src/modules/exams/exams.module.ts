@@ -3,6 +3,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { Exam } from './entities/exam.entity';
 import { ExamComponent } from './entities/exam-component.entity';
+import { ExamTemplate } from './entities/exam-template.entity';
+import { ExamTemplateComponent } from './entities/exam-template-component.entity';
 import { Mark } from './entities/mark.entity';
 import { MarkGrid } from './entities/mark-grid.entity';
 import { Result } from './entities/result.entity';
@@ -33,6 +35,8 @@ import { ExamsService } from './exams.service';
 import { ExamsController } from './exams.controller';
 import { ExamComponentsService } from './exam-components.service';
 import { ExamComponentsController } from './exam-components.controller';
+import { ExamTemplatesService } from './exam-templates.service';
+import { ExamTemplatesController } from './exam-templates.controller';
 import { SubjectChoicesService } from '../students/subject-choices.service';
 import { SubjectChoicesController } from '../students/subject-choices.controller';
 import { MarksService } from './marks.service';
@@ -66,6 +70,8 @@ import {
     TypeOrmModule.forFeature([
       Exam,
       ExamComponent,
+      ExamTemplate,
+      ExamTemplateComponent,
       Mark,
       MarkGrid,
       Result,
@@ -101,6 +107,7 @@ import {
   controllers: [
     ExamsController,
     ExamComponentsController,
+    ExamTemplatesController,
     SubjectChoicesController,
     MarksController,
     ResultsController,
@@ -112,6 +119,7 @@ import {
   providers: [
     ExamsService,
     ExamComponentsService,
+    ExamTemplatesService,
     SubjectChoicesService,
     MarksService,
     MarkGridService,
@@ -123,6 +131,6 @@ import {
     FamilyAccessService,
     ExamSchedulesService,
   ],
-  exports: [TypeOrmModule, AnalysisService],
+  exports: [TypeOrmModule, AnalysisService, ExamTemplatesService],
 })
 export class ExamsModule {}

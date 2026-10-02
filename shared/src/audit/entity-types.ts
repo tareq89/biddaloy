@@ -35,6 +35,7 @@ export const AUDIT_ENTITY_TYPES = [
   'Exam',
   'ExamComponent',
   'ExamSchedule',
+  'ExamTemplate',
   'FeeGeneration',
   'FeeStructure',
   'FineRule',
