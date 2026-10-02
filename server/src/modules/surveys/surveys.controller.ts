@@ -9,7 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permission, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -18,7 +18,7 @@ import { RequirePermissions } from '../auth/decorators/require-permissions.decor
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { SurveysService } from './surveys.service';
-import { CreateSurveyDto, UpdateSurveyDto } from './dto/survey.dto';
+import { CreateSurveyDto, SurveyDetailDto, UpdateSurveyDto } from './dto/survey.dto';
 
 type Tenant = { id: string };
 
@@ -34,6 +34,7 @@ export class SurveysController {
   @Post()
   @RequirePermissions(Permission.ACR_WRITE)
   @ApiOperation({ summary: 'Create a DRAFT survey with questions and targets.' })
+  @ApiCreatedResponse({ type: SurveyDetailDto })
   create(@Body() dto: CreateSurveyDto, @CurrentTenant() tenant: Tenant) {
     return this.surveysService.create(dto, tenant.id);
   }
@@ -48,6 +49,7 @@ export class SurveysController {
   @Get(':id')
   @RequirePermissions(Permission.ACR_READ)
   @ApiOperation({ summary: 'One survey with questions and targets.' })
+  @ApiOkResponse({ type: SurveyDetailDto })
   findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentTenant() tenant: Tenant) {
     return this.surveysService.findOne(id, tenant.id);
   }
@@ -55,6 +57,7 @@ export class SurveysController {
   @Patch(':id')
   @RequirePermissions(Permission.ACR_WRITE)
   @ApiOperation({ summary: 'Edit a DRAFT survey.' })
+  @ApiOkResponse({ type: SurveyDetailDto })
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateSurveyDto,
@@ -66,6 +69,7 @@ export class SurveysController {
   @Post(':id/publish')
   @RequirePermissions(Permission.ACR_WRITE)
   @ApiOperation({ summary: 'DRAFT -> OPEN.' })
+  @ApiOkResponse({ type: SurveyDetailDto })
   publish(@Param('id', ParseUUIDPipe) id: string, @CurrentTenant() tenant: Tenant) {
     return this.surveysService.publish(id, tenant.id);
   }
@@ -73,6 +77,7 @@ export class SurveysController {
   @Post(':id/close')
   @RequirePermissions(Permission.ACR_WRITE)
   @ApiOperation({ summary: 'OPEN -> CLOSED.' })
+  @ApiOkResponse({ type: SurveyDetailDto })
   close(@Param('id', ParseUUIDPipe) id: string, @CurrentTenant() tenant: Tenant) {
     return this.surveysService.close(id, tenant.id);
   }

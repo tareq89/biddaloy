@@ -11007,6 +11007,24 @@ export interface components {
             description: string;
             createdAt: string;
         };
+        PendingSurveyQuestionDto: {
+            id: string;
+            text: string;
+            starsEnabled: boolean;
+        };
+        PendingPairDto: {
+            teacherId: string;
+            subjectId: string;
+        };
+        PendingSurveyDto: {
+            id: string;
+            title: string;
+            anonymous: boolean;
+            /** Format: date-time */
+            closesAt: string | null;
+            questions: components["schemas"]["PendingSurveyQuestionDto"][];
+            pending: components["schemas"]["PendingPairDto"][];
+        };
         SurveyAnswerInputDto: {
             /** Format: uuid */
             questionId: string;
@@ -11019,6 +11037,34 @@ export interface components {
             /** Format: uuid */
             subjectId: string;
             answers: components["schemas"]["SurveyAnswerInputDto"][];
+        };
+        SurveyHiddenResult: {
+            teacherId: string;
+            subjectId: string;
+            count: number;
+            /** @enum {boolean} */
+            hidden: true;
+        };
+        SurveyQuestionResult: {
+            questionId: string;
+            text: string;
+            averageStars: number | null;
+            comments: string[];
+        };
+        SurveyVisibleResult: {
+            teacherId: string;
+            subjectId: string;
+            count: number;
+            /** @enum {boolean} */
+            hidden: false;
+            questions: components["schemas"]["SurveyQuestionResult"][];
+        };
+        SurveyResultsDto: {
+            surveyId: string;
+            title: string;
+            anonymous: boolean;
+            minResponses: number;
+            results: (components["schemas"]["SurveyHiddenResult"] | components["schemas"]["SurveyVisibleResult"])[];
         };
         SurveyQuestionInputDto: {
             text: string;
@@ -11040,6 +11086,42 @@ export interface components {
             opensAt?: string;
             closesAt?: string;
             minResponses?: number;
+        };
+        SurveyQuestionDto: {
+            id: string;
+            tenant_id: string;
+            survey_id: string;
+            sort_order: number;
+            text: string;
+            stars_enabled: boolean;
+        };
+        SurveyTargetDto: {
+            id: string;
+            tenant_id: string;
+            survey_id: string;
+            teacher_id: string;
+            subject_id: string;
+        };
+        SurveyDetailDto: {
+            id: string;
+            tenant_id: string;
+            title: string;
+            /** @enum {string} */
+            status: "DRAFT" | "OPEN" | "CLOSED";
+            anonymous: boolean;
+            /** @enum {string} */
+            respondent: "STUDENTS" | "GUARDIANS" | "BOTH";
+            /** Format: date-time */
+            opens_at: string | null;
+            /** Format: date-time */
+            closes_at: string | null;
+            min_responses: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            questions: components["schemas"]["SurveyQuestionDto"][];
+            targets: components["schemas"]["SurveyTargetDto"][];
         };
         Survey: {
             id: string;
@@ -27612,7 +27694,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>[];
+                    "application/json": components["schemas"]["PendingSurveyDto"][];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -27679,7 +27761,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["SurveyResultsDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -27744,7 +27828,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["SurveyDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -27777,7 +27861,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["SurveyDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -27814,7 +27898,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["SurveyDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -27842,12 +27926,12 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["SurveyDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -27875,12 +27959,12 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["SurveyDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
