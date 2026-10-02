@@ -72,10 +72,11 @@ describe('nav-tree', () => {
     expect(Object.keys(STAFF_NAV_ITEMS).length).toBeGreaterThan(0);
   });
 
-  it('declares Exams & Results with exams, seat plans, grading scales, analysis, then promotion — [19.6.1]/[20.3.1]/[25.6]/[26.5.1]/[26.6.1]', () => {
+  it('declares Exams & Results with exams, templates, seat plans, grading scales, analysis, then promotion — [19.6.1]/[20.3.1]/[25.6]/[26.5.1]/[26.6.1]', () => {
     const examsResults = STAFF_NAV_GROUPS.find((group) => group.id === 'examsResults');
     expect(examsResults?.items.map((item) => item.id)).toEqual([
       'examsResults.exams',
+      'examsResults.examTemplates',
       'examsResults.seatPlans',
       'examsResults.gradingScales',
       'examsResults.analysis',

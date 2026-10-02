@@ -75,6 +75,22 @@ export const ACTIONS: readonly PaletteAction[] = [
     context: ['student', 'invoice'],
     run: (ctx) => ctx.navigate({ to: '/payments/record' }),
   },
+  // [35.5.1] D14: no availability predicate — the page renders a read-only
+  // summary once a preset is applied.
+  {
+    id: 'presets.apply',
+    label: { en: 'Apply curriculum preset', bn: 'কারিকুলাম প্রিসেট প্রয়োগ করুন' },
+    permission: Permission.CURRICULUM_PRESET_APPLY,
+    kind: 'navigate',
+    run: (ctx) => ctx.navigate({ to: '/curriculum-preset' }),
+  },
+  {
+    id: 'examTemplates.createExam',
+    label: { en: 'Create exam from template', bn: 'টেমপ্লেট থেকে পরীক্ষা তৈরি করুন' },
+    permission: Permission.EXAM_MANAGE,
+    kind: 'modal',
+    run: (ctx) => ctx.navigate({ to: '/exams?create=1' }),
+  },
   {
     id: 'seatPlans.generate',
     label: { en: 'Generate seat plan', bn: 'সিট প্ল্যান তৈরি করুন' },

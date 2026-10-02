@@ -119,6 +119,12 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   // [25.6] Single-level, same as `/_staff/exams/` above — no separate
   // "Exams & Results" segment; that's the nav group label, not part of
   // any sibling route's own crumb trail either.
+  '/_staff/exams/templates/': [{ label: { key: 'examTemplates' } }],
+  // No entity resolver for templates (see seat plans below): falls back to the id.
+  '/_staff/exams/templates/$templateId': [
+    { label: { key: 'examTemplates' } },
+    { label: { key: 'examTemplateDetail' }, dynamic: 'entity' },
+  ],
   '/_staff/exams/seat-plans/': [{ label: { key: 'seatPlans' } }],
   // [25.7] No entity resolver registered for seat plans (`use-breadcrumbs.ts`'s
   // `ENTITY_RESOLVERS` is a deliberate short list — student/guardian/class/
@@ -196,6 +202,7 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/communications/batches/': [{ label: { key: 'reminderHistory' } }],
   '/_staff/audit-logs/': [{ label: { key: 'auditLogs' } }],
   '/_staff/settings': [{ label: { key: 'settings' } }],
+  '/_staff/curriculum-preset': [{ label: { key: 'curriculumPreset' } }],
 
   // --- Staff shell: sub-pages nest under their list route's segment ---
   '/_staff/students/new': [{ label: { entity: 'student' } }, { label: { key: 'new' } }],

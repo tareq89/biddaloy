@@ -23,16 +23,25 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState } from '@biddaloy/ui/shells';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
+import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { ExamFormDialog } from './-exam-form-dialog';
 
+// `?create=1` opens the create dialog (palette "Create exam from template",
+// same pattern as seat-plans' `?generate=1`); `?template=<id>` pre-selects it.
+const examsSearchSchema = z.object({
+  create: z.coerce.string().optional().catch(undefined),
+  template: z.string().optional().catch(undefined),
+});
+
 export const Route = createFileRoute('/_staff/exams/')({
+  validateSearch: examsSearchSchema,
   loader: ({ context: { queryClient } }) =>
     Promise.all([
       queryClient.ensureQueryData(examsQueryOptions({})).catch(swallowUnlessOffline),
-      loadRouteNamespaces('exams', 'common'),
+      loadRouteNamespaces('exams', 'common', 'examsTemplateField'),
     ]),
   pendingComponent: ExamsListPending,
   component: ExamsListPage,
@@ -58,7 +67,8 @@ function ExamsListPage() {
   };
   const examsQuery = useExams(filters);
 
-  const [createOpen, setCreateOpen] = React.useState(false);
+  const search = Route.useSearch();
+  const [createOpen, setCreateOpen] = React.useState(search.create === '1');
 
   return (
     <>
@@ -142,6 +152,7 @@ function ExamsListPage() {
           open={createOpen}
           onOpenChange={setCreateOpen}
           mode="create"
+          {...(search.template ? { defaultTemplateId: search.template } : {})}
           {...(academicYearId && academicYearId !== ALL_VALUE
             ? { defaultAcademicYearId: academicYearId }
             : {})}
