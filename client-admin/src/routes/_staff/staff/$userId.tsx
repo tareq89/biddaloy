@@ -33,6 +33,7 @@ import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loader
 
 import { AcrTab } from './-detail/acr-tab';
 import { AttendanceLeaveTab } from './-detail/attendance-leave-tab';
+import { StaffDocumentsTab } from './-detail/documents-tab';
 import { HrRecordTab } from './-detail/hr-record-tab';
 import { IncidentsTab } from './-detail/incidents-tab';
 import { LoginHistoryTab } from './-detail/login-history-tab';
@@ -58,7 +59,14 @@ export const Route = createFileRoute('/_staff/staff/$userId')({
       // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
       // identical comment for why.
       queryClient.ensureQueryData(userQueryOptions(params.userId)).catch(swallowUnlessOffline),
-      loadRouteNamespaces('staff', 'staffAttendance', 'leave', 'evaluations', 'common'),
+      loadRouteNamespaces(
+        'staff',
+        'staffAttendance',
+        'leave',
+        'evaluations',
+        'printHistory',
+        'common',
+      ),
     ]),
   pendingComponent: StaffDetailPending,
   component: StaffDetailPage,
@@ -77,6 +85,8 @@ function StaffDetailPage() {
   const canReadAuditLogs = useHasPermission(Permission.AUDIT_LOG_READ);
   const canReadHrRecord = useHasPermission(Permission.STAFF_HR_READ);
   const canReadAcr = useHasPermission(Permission.ACR_READ);
+  // D18: a staff card exposes HR data, so printing needs both permissions.
+  const canPrintStaffCard = useHasPermission(Permission.DOCUMENT_PRINT) && canReadHrRecord;
   const currentUserId = useCurrentUserId();
 
   const isTeacher = teacher !== undefined;
@@ -88,6 +98,7 @@ function StaffDetailPage() {
     ...(isTeacher ? (['teachingAssignments'] as const) : []),
     ...(canReadHrRecord ? (['hrRecord'] as const) : []),
     ...(canReadAcr ? (['acr', 'incidents'] as const) : []),
+    ...(canPrintStaffCard ? (['documents'] as const) : []),
     ...(hasStaffProfile ? (['attendanceLeave'] as const) : []),
     ...(canReadAuditLogs ? (['loginHistory'] as const) : []),
   ] as const;
@@ -145,6 +156,17 @@ function StaffDetailPage() {
             id: 'incidents',
             label: t('tabs.incidents', { ns: 'evaluations' }),
             content: <IncidentsTab userId={userId} />,
+          },
+        ]
+      : []),
+    ...(canPrintStaffCard
+      ? [
+          {
+            id: 'documents',
+            label: t('detail.tabs.documents'),
+            content: (
+              <StaffDocumentsTab userId={userId} onOpenHrRecord={() => setActiveTab('hrRecord')} />
+            ),
           },
         ]
       : []),

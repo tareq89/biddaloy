@@ -34,10 +34,17 @@ export const PREFERRED_COMMUNICATION_VALUES = [
   'MESSENGER',
 ] as const;
 
+/** Mirrors the server's list (`CreateStudentDto.blood_group`); `buildCreatePayload`'s
+ * return type is checked against the generated union, so a change server-side breaks here. */
+export const BLOOD_GROUP_VALUES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
+export type BloodGroup = (typeof BLOOD_GROUP_VALUES)[number];
+
 export interface StudentFormMessages {
   fullNameRequired: string;
   classSectionRequired: string;
   rollNumberInvalid: string;
+  fullNameBnTooLong: string;
+  bloodGroupInvalid: string;
 }
 
 /** Every field name this schema can produce a `ZodIssue` for — the
@@ -46,6 +53,8 @@ export interface StudentFormMessages {
  * schema itself so the two can't drift apart. */
 export const STUDENT_FORM_SERVER_FIELDS = [
   'full_name',
+  'full_name_bn',
+  'blood_group',
   'class_section_id',
   'roll_number',
   'date_of_birth',
@@ -57,6 +66,12 @@ export const STUDENT_FORM_SERVER_FIELDS = [
 export function buildStudentFormSchema(messages: StudentFormMessages) {
   return z.object({
     full_name: z.string().trim().min(1, messages.fullNameRequired),
+    // Optional: an empty box means "no Bangla name". Printed on ID cards (Epic 32, D41).
+    full_name_bn: z.string().trim().max(200, messages.fullNameBnTooLong),
+    // '' = "Not set". Anything else must be one of the 8 real groups.
+    blood_group: z.union([z.enum(BLOOD_GROUP_VALUES), z.literal('')], {
+      message: messages.bloodGroupInvalid,
+    }),
     classId: z.string(),
     class_section_id: z.string().min(1, messages.classSectionRequired),
     // `[1-9]\d*` — not `\d+` — since `"0"` isn't a positive whole number,
@@ -81,6 +96,8 @@ export type StudentFormValues = z.infer<StudentFormSchema>;
 export function defaultStudentFormValues(): StudentFormValues {
   return {
     full_name: '',
+    full_name_bn: '',
+    blood_group: '',
     classId: '',
     class_section_id: '',
     roll_number: '',
@@ -99,6 +116,11 @@ export function defaultStudentFormValues(): StudentFormValues {
 export function studentToFormValues(student: Student): StudentFormValues {
   return {
     full_name: student.full_name,
+    full_name_bn: student.full_name_bn ?? '',
+    // The API types it as a plain string; anything that isn't a known group shows as "Not set".
+    blood_group: (BLOOD_GROUP_VALUES as readonly string[]).includes(student.blood_group ?? '')
+      ? (student.blood_group as BloodGroup)
+      : '',
     classId: student.class_section.class_id,
     class_section_id: student.class_section_id,
     roll_number: String(student.roll_number),
@@ -155,8 +177,11 @@ function toBasePayload(values: StudentFormValues) {
 export function buildCreatePayload(values: StudentFormValues): CreateStudentInput {
   const gender = toOptional(values.gender);
   const homeAddress = toOptional(values.home_address);
+  const nameBn = toOptional(values.full_name_bn);
   return {
     ...toBasePayload(values),
+    ...(nameBn !== undefined ? { full_name_bn: nameBn } : {}),
+    ...(values.blood_group !== '' ? { blood_group: values.blood_group } : {}),
     ...(values.date_of_birth ? { date_of_birth: toLocalDateString(values.date_of_birth) } : {}),
     ...(gender !== undefined ? { gender } : {}),
     ...(homeAddress !== undefined ? { home_address: homeAddress } : {}),
@@ -172,6 +197,8 @@ export function buildCreatePayload(values: StudentFormValues): CreateStudentInpu
 export function buildUpdatePayload(values: StudentFormValues): UpdateStudentInput {
   return {
     ...toBasePayload(values),
+    full_name_bn: toOptional(values.full_name_bn) ?? null,
+    blood_group: values.blood_group === '' ? null : values.blood_group,
     date_of_birth: values.date_of_birth ? toLocalDateString(values.date_of_birth) : null,
     gender: toOptional(values.gender) ?? null,
     home_address: toOptional(values.home_address) ?? null,

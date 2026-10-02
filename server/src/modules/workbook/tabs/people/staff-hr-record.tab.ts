@@ -15,6 +15,7 @@ export const staffHrRecordTab = createStaffChildTab<StaffHrRecord>({
     { key: 'salary_scale', type: 'string', label: { en: 'Salary scale', bn: 'বেতন স্কেল' } },
     { key: 'department', type: 'string', label: { en: 'Department', bn: 'বিভাগ' } },
     { key: 'blood_group', type: 'string', label: { en: 'Blood group', bn: 'রক্তের গ্রুপ' } },
+    { key: 'name_bn', type: 'string', label: { en: 'Name (Bangla)', bn: 'নাম (বাংলা)' } },
     { key: 'religion', type: 'string', label: { en: 'Religion', bn: 'ধর্ম' } },
   ],
 });

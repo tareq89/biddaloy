@@ -117,6 +117,23 @@ describe('/staff/$userId', () => {
     expect(screen.queryByRole('checkbox')).toBeNull();
   });
 
+  // [32.4.2] D18: a staff ID card exposes HR data, so the Documents tab needs DOCUMENT_PRINT AND STAFF_HR_READ.
+  it('shows the Documents tab to a role that holds both DOCUMENT_PRINT and STAFF_HR_READ (ADMIN)', async () => {
+    const user = userResponseFactory({ id: 'user-1', role: 'TEACHER' });
+    server.use(
+      http.get('/api/v1/users/:id', () => HttpResponse.json(user)),
+      http.get('/api/v1/teachers', () => HttpResponse.json(paginated([]))),
+      http.get('/api/v1/schools/:id/settings', () => HttpResponse.json({ version: 1 })),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff/user-1'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    expect(await screen.findByRole('tab', { name: 'Documents' })).toBeTruthy();
+  });
+
   it("Memberships tab shows this school's single membership plus the isolation note", async () => {
     const user = userResponseFactory({
       id: 'user-1',

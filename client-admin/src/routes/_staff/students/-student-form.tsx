@@ -62,9 +62,13 @@ import { GuardianPicker } from './-guardian-picker';
 import {
   PREFERRED_COMMUNICATION_VALUES,
   STUDENT_FORM_SERVER_FIELDS,
+  BLOOD_GROUP_VALUES,
   buildStudentFormSchema,
   type StudentFormValues,
 } from './-student-form-schema';
+
+/** Radix `Select` can't hold an empty-string item, so "Not set" travels as this sentinel. */
+const BLOOD_GROUP_NOT_SET = '__not_set__';
 
 export interface StudentFormProps<TInput> {
   initialValues: StudentFormValues;
@@ -105,6 +109,8 @@ export function StudentForm<TInput>({
         fullNameRequired: t('form.errors.fullNameRequired'),
         classSectionRequired: t('form.errors.classSectionRequired'),
         rollNumberInvalid: t('form.errors.rollNumberInvalid'),
+        fullNameBnTooLong: t('form.errors.fullNameBnTooLong'),
+        bloodGroupInvalid: t('form.errors.bloodGroupInvalid'),
       }),
     [t],
   );
@@ -204,7 +210,8 @@ export function StudentForm<TInput>({
               size="sm"
               onClick={() => {
                 const draft = autosave.restoreDraft();
-                if (draft) form.reset(draft);
+                // Drafts saved before a field existed omit it; fill from the defaults.
+                if (draft) form.reset({ ...initialValues, ...draft });
                 setDraftBannerVisible(false);
               }}
             >
@@ -239,6 +246,59 @@ export function StudentForm<TInput>({
                 <FormLabel htmlFor={fieldId('full_name')}>{t('form.fields.fullName')}</FormLabel>
                 <FormControl>
                   <Input id={fieldId('full_name')} {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="full_name_bn"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel htmlFor={fieldId('full_name_bn')}>
+                  {t('form.fields.fullNameBn')}
+                </FormLabel>
+                <FormControl>
+                  <Input id={fieldId('full_name_bn')} lang="bn" maxLength={200} {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="blood_group"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel htmlFor={fieldId('blood_group')}>
+                  {t('form.fields.bloodGroup')}
+                </FormLabel>
+                <FormControl>
+                  <Select
+                    value={field.value === '' ? BLOOD_GROUP_NOT_SET : field.value}
+                    onValueChange={(value) =>
+                      field.onChange(value === BLOOD_GROUP_NOT_SET ? '' : value)
+                    }
+                  >
+                    <SelectTrigger
+                      id={fieldId('blood_group')}
+                      aria-label={t('form.fields.bloodGroup')}
+                      className="w-full"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={BLOOD_GROUP_NOT_SET}>
+                        {t('form.bloodGroupNotSet')}
+                      </SelectItem>
+                      {BLOOD_GROUP_VALUES.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {value}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </FormControl>
                 <FormMessage />
               </FormItem>

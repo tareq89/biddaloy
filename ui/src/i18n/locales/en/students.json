@@ -48,7 +48,9 @@
     "shiftLabel": "Shift",
     "allShifts": "All shifts",
     "versionLabel": "Version",
-    "allVersions": "All versions"
+    "allVersions": "All versions",
+    "printIdCards": "Print ID cards ({{count}})",
+    "printWholeClass": "Print ID cards for whole {{name}}"
   },
   "sendReminderDialog": {
     "title": "Send reminder",
@@ -73,7 +75,8 @@
       "sendReminder": "Send reminder",
       "recordLeaving": "Record leaving",
       "readmit": "Readmit",
-      "delete": "Delete"
+      "delete": "Delete",
+      "printIdCard": "Print ID card"
     },
     "tabs": {
       "overview": "Overview",
@@ -89,7 +92,8 @@
       "attendance": "Attendance",
       "homework": "Homework",
       "records": "Records",
-      "notes": "Notes"
+      "notes": "Notes",
+      "documents": "Documents"
     },
     "overview": {
       "dateOfBirth": "Date of birth",
@@ -253,7 +257,9 @@
       "sectionPlaceholder": "Select a section",
       "rollNumber": "Roll number",
       "preferredCommunication": "Preferred contact",
-      "address": "Home address"
+      "address": "Home address",
+      "fullNameBn": "Name (Bangla)",
+      "bloodGroup": "Blood group"
     },
     "preferredCommunicationOptions": {
       "SMS": "SMS",
@@ -265,7 +271,9 @@
     "errors": {
       "fullNameRequired": "Full name is required.",
       "classSectionRequired": "Select a class and section.",
-      "rollNumberInvalid": "Roll number must be a positive whole number."
+      "rollNumberInvalid": "Roll number must be a positive whole number.",
+      "fullNameBnTooLong": "The Bangla name must be 200 characters or fewer.",
+      "bloodGroupInvalid": "Choose a blood group from the list."
     },
     "draftAvailable": "You have an unsaved draft of this form.",
     "restoreDraftAction": "Restore draft",
@@ -293,7 +301,8 @@
         "saveAction": "Add guardian",
         "cancelAction": "Cancel"
       }
-    }
+    },
+    "bloodGroupNotSet": "Not set"
   },
   "discounts": {
     "addRule": "Add discount rule",
@@ -331,5 +340,42 @@
       "errorDateRange": "End date must be on or after the start date.",
       "errorSave": "Couldn't save the discount rule."
     }
+  },
+  "photo": {
+    "title": "Photo",
+    "alt": "Photo of {{name}}",
+    "upload": "Upload photo",
+    "replace": "Replace photo",
+    "uploading": "Uploading…",
+    "help": "A clear passport-style photo, face centred. Large photos are resized automatically.",
+    "uploaded": "Photo saved",
+    "uploadFailed": "Could not upload the photo.",
+    "loadFailed": "Could not load the photo."
+  },
+  "bulkPhotos": {
+    "action": "Upload photos",
+    "title": "Upload student photos",
+    "explainer": "Name each photo with the student's registration number, for example 2024-0153.jpg.",
+    "choosePhotos": "Choose photos",
+    "chooseFolder": "Choose a folder",
+    "selected": "{{count}} photos selected",
+    "start": "Upload {{count}} photos",
+    "progress": "Uploading… {{percent}}%",
+    "done": "Finished",
+    "tabs": {
+      "matched": "Matched ({{count}})",
+      "unmatched": "No matching student ({{count}})",
+      "invalid": "Couldn't read ({{count}})"
+    },
+    "matchedRow": "{{file}} → {{name}}",
+    "invalidRow": "{{file}}: {{reason}}",
+    "noneInTab": "Nothing here.",
+    "copyList": "Copy list",
+    "copied": "Copied",
+    "close": "Close",
+    "failed": "The upload stopped. Photos sent so far were saved."
+  },
+  "documents": {
+    "historyTitle": "Printed documents"
   }
 }

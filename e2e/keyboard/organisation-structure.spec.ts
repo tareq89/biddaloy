@@ -128,7 +128,7 @@ test.describe('organisation structure', () => {
       await expect(page.getByRole('link', { name: t('nav.skipToContent') })).toBeFocused();
       // Same "toggle button shares the link's label" seam
       // `keyboard/attendance.spec.ts` already documents — pin to the link.
-      await tabUntilFocused(page, t('nav.items.settings'), 60, { tag: 'a' });
+      await tabUntilFocused(page, t('nav.items.settings'), 90, { tag: 'a' });
       await page.keyboard.press('Enter');
       // `useRouteFocus` moves focus to the <h1> asynchronously after the
       // route settles; tabbing before that lets it yank focus mid-sequence.
@@ -164,7 +164,7 @@ test.describe('organisation structure', () => {
       await page.keyboard.press('Tab');
       await page.keyboard.press('Enter');
 
-      await tabUntilFocused(page, t('settings.save.action'), 60, { tag: 'BUTTON' });
+      await tabUntilFocused(page, t('settings.save.action'), 90, { tag: 'BUTTON' });
       await page.keyboard.press('Enter');
       await expect(page.getByText(t('settings.save.success'))).toBeVisible();
     });
@@ -179,7 +179,7 @@ test.describe('organisation structure', () => {
       // [30.1.3] The classes nav item's label is the plural entity noun
       // (`useEntityLabel('class', { count: 2 })`), not `nav.items.classes`
       // — that key exists but this item doesn't use it.
-      await tabUntilFocused(page, t('common.entities.class_other'), 60, { tag: 'a' });
+      await tabUntilFocused(page, t('common.entities.class_other'), 90, { tag: 'a' });
       await page.keyboard.press('Enter');
       // Same late `useRouteFocus` <h1> focus — if it lands after the dialog
       // opens, Radix's trap re-focuses the name input with select: true and
@@ -188,7 +188,7 @@ test.describe('organisation structure', () => {
     });
 
     await test.step('create a class with the first shift, without touching the mouse', async () => {
-      await tabUntilFocused(page, t('classes.list.addClass'), 60, { tag: 'BUTTON' });
+      await tabUntilFocused(page, t('classes.list.addClass'), 90, { tag: 'BUTTON' });
       await page.keyboard.press('Enter');
       await expect(
         page.getByRole('heading', { name: t('classes.classForm.createTitle') }),
@@ -222,7 +222,7 @@ test.describe('organisation structure', () => {
         document.body.removeAttribute('tabindex');
       });
       await page.keyboard.press('Tab');
-      await tabUntilFocused(page, t('classes.list.shiftLabel'), 60, { tag: 'BUTTON' });
+      await tabUntilFocused(page, t('classes.list.shiftLabel'), 90, { tag: 'BUTTON' });
       await selectByTypeahead(page, shiftOne);
 
       await expect(page.getByRole('link', { name: className })).toBeVisible();

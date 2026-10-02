@@ -1,3 +1,4 @@
+import { ApiProperty, getSchemaPath } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -47,26 +48,65 @@ export class RespondSurveyDto {
 }
 
 /** Privacy contract for GET /surveys/:id/results: no respondent field exists on any of these. */
-export interface SurveyHiddenResult {
-  teacherId: string;
-  subjectId: string;
-  count: number;
-  hidden: true;
+export class SurveyHiddenResult {
+  @ApiProperty() teacherId: string;
+  @ApiProperty() subjectId: string;
+  @ApiProperty() count: number;
+  @ApiProperty({ type: Boolean, enum: [true] }) hidden: true;
 }
 
-export interface SurveyQuestionResult {
-  questionId: string;
-  text: string;
-  averageStars: number | null;
-  comments: string[];
+export class SurveyQuestionResult {
+  @ApiProperty() questionId: string;
+  @ApiProperty() text: string;
+  @ApiProperty({ type: Number, nullable: true }) averageStars: number | null;
+  @ApiProperty({ type: [String] }) comments: string[];
 }
 
-export interface SurveyVisibleResult {
-  teacherId: string;
-  subjectId: string;
-  count: number;
-  hidden: false;
-  questions: SurveyQuestionResult[];
+export class SurveyVisibleResult {
+  @ApiProperty() teacherId: string;
+  @ApiProperty() subjectId: string;
+  @ApiProperty() count: number;
+  @ApiProperty({ type: Boolean, enum: [false] }) hidden: false;
+  @ApiProperty({ type: [SurveyQuestionResult] }) questions: SurveyQuestionResult[];
 }
 
 export type SurveyPairResult = SurveyHiddenResult | SurveyVisibleResult;
+
+/** `GET /surveys/:id/results`: one entry per teacher-subject pair, hidden below `minResponses`. */
+export class SurveyResultsDto {
+  @ApiProperty() surveyId: string;
+  @ApiProperty() title: string;
+  @ApiProperty() anonymous: boolean;
+  @ApiProperty() minResponses: number;
+  @ApiProperty({
+    type: 'array',
+    items: {
+      oneOf: [
+        { $ref: getSchemaPath(SurveyHiddenResult) },
+        { $ref: getSchemaPath(SurveyVisibleResult) },
+      ],
+    },
+  })
+  results: SurveyPairResult[];
+}
+
+/** Response shapes for `GET /surveys/mine`. */
+export class PendingPairDto {
+  @ApiProperty() teacherId: string;
+  @ApiProperty() subjectId: string;
+}
+
+export class PendingSurveyQuestionDto {
+  @ApiProperty() id: string;
+  @ApiProperty() text: string;
+  @ApiProperty() starsEnabled: boolean;
+}
+
+export class PendingSurveyDto {
+  @ApiProperty() id: string;
+  @ApiProperty() title: string;
+  @ApiProperty() anonymous: boolean;
+  @ApiProperty({ type: String, format: 'date-time', nullable: true }) closesAt: Date | null;
+  @ApiProperty({ type: [PendingSurveyQuestionDto] }) questions: PendingSurveyQuestionDto[];
+  @ApiProperty({ type: [PendingPairDto] }) pending: PendingPairDto[];
+}

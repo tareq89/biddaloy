@@ -28,7 +28,9 @@
     "errorMessage": "Could not load users. Please try again.",
     "announceResults": "Showing {{count}} of {{total}} users",
     "addUser": "Add user",
-    "promoteTeacher": "Promote to teacher"
+    "promoteTeacher": "Promote to teacher",
+    "printIdCards": "Print ID cards ({{count}})",
+    "clearSelection": "Clear selection"
   },
   "roles": {
     "SUPER_ADMIN": "Super admin",
@@ -137,7 +139,8 @@
       "memberships": "Memberships",
       "teachingAssignments": "Teaching assignments",
       "hrRecord": "HR record",
-      "loginHistory": "Login history"
+      "loginHistory": "Login history",
+      "documents": "Documents"
     },
     "teachingAssignments": {
       "caption": "Classes and sections this teacher is assigned to",
@@ -228,7 +231,8 @@
       "religionLabel": "Religion",
       "errorMessage": "Could not save job details. Please try again.",
       "save": "Save",
-      "saving": "Saving…"
+      "saving": "Saving…",
+      "nameBnLabel": "Name (Bangla)"
     },
     "promotion": {
       "promoteAction": "Promote",
@@ -320,5 +324,13 @@
       "save": "Promote",
       "saving": "Saving…"
     }
+  },
+  "documents": {
+    "photoTitle": "ID card photo",
+    "photoOnFile": "A photo is on file from the HR record.",
+    "photoMissing": "No photo yet. Add one in the HR record.",
+    "openHrRecord": "Open HR record",
+    "historyTitle": "Printed documents",
+    "printButton": "Print ID card"
   }
 }

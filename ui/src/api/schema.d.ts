@@ -848,6 +848,41 @@ export interface paths {
         patch: operations["StudentPublicExamsController_update_v1"];
         trace?: never;
     };
+    "/api/v1/students/photos/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bulk photo upload (max 25 per request). File name without extension must equal the student registration number. */
+        post: operations["StudentPhotoController_bulk_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/students/{id}/photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stream a student's photo. PARENT/STUDENT must be linked to the student. */
+        get: operations["StudentPhotoController_serve_v1"];
+        put?: never;
+        /** Upload a student photo (PNG/JPEG/WebP). Re-encoded to JPEG. */
+        post: operations["StudentPhotoController_upload_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/enrollments": {
         parameters: {
             query?: never;
@@ -6741,6 +6776,9 @@ export interface components {
         };
         CreateStudentDto: {
             full_name: string;
+            full_name_bn?: string;
+            /** @enum {string} */
+            blood_group?: "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-";
             /** Format: email */
             email?: string;
             phone?: string;
@@ -6899,6 +6937,9 @@ export interface components {
             user: components["schemas"]["User"] | null;
             user_id: string | null;
             full_name: string;
+            full_name_bn: string | null;
+            photo_key: string | null;
+            blood_group: string | null;
             registration_number: string;
             roll_number: number;
             class_section: components["schemas"]["ClassSection"];
@@ -7003,6 +7044,9 @@ export interface components {
         };
         UpdateStudentDto: {
             full_name?: string;
+            full_name_bn?: string | null;
+            /** @enum {string|null} */
+            blood_group?: "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-" | null;
             /** Format: uuid */
             class_section_id?: string;
             roll_number?: number;
@@ -10591,6 +10635,7 @@ export interface components {
             salary_scale: string | null;
             department: string | null;
             blood_group: string | null;
+            name_bn: string | null;
             religion: string | null;
             /** Format: date-time */
             created_at: string;
@@ -10606,6 +10651,7 @@ export interface components {
             salary_scale?: string;
             department?: string;
             blood_group?: string;
+            name_bn?: string;
             religion?: string;
         };
         UpdateStaffHrRecordDto: {
@@ -10615,6 +10661,7 @@ export interface components {
             salary_scale?: string | null;
             department?: string | null;
             blood_group?: string | null;
+            name_bn?: string | null;
             religion?: string | null;
         };
         StaffDesignationHistory: {
@@ -11008,6 +11055,24 @@ export interface components {
             description: string;
             createdAt: string;
         };
+        PendingSurveyQuestionDto: {
+            id: string;
+            text: string;
+            starsEnabled: boolean;
+        };
+        PendingPairDto: {
+            teacherId: string;
+            subjectId: string;
+        };
+        PendingSurveyDto: {
+            id: string;
+            title: string;
+            anonymous: boolean;
+            /** Format: date-time */
+            closesAt: string | null;
+            questions: components["schemas"]["PendingSurveyQuestionDto"][];
+            pending: components["schemas"]["PendingPairDto"][];
+        };
         SurveyAnswerInputDto: {
             /** Format: uuid */
             questionId: string;
@@ -11020,6 +11085,34 @@ export interface components {
             /** Format: uuid */
             subjectId: string;
             answers: components["schemas"]["SurveyAnswerInputDto"][];
+        };
+        SurveyHiddenResult: {
+            teacherId: string;
+            subjectId: string;
+            count: number;
+            /** @enum {boolean} */
+            hidden: true;
+        };
+        SurveyQuestionResult: {
+            questionId: string;
+            text: string;
+            averageStars: number | null;
+            comments: string[];
+        };
+        SurveyVisibleResult: {
+            teacherId: string;
+            subjectId: string;
+            count: number;
+            /** @enum {boolean} */
+            hidden: false;
+            questions: components["schemas"]["SurveyQuestionResult"][];
+        };
+        SurveyResultsDto: {
+            surveyId: string;
+            title: string;
+            anonymous: boolean;
+            minResponses: number;
+            results: (components["schemas"]["SurveyHiddenResult"] | components["schemas"]["SurveyVisibleResult"])[];
         };
         SurveyQuestionInputDto: {
             text: string;
@@ -11041,6 +11134,42 @@ export interface components {
             opensAt?: string;
             closesAt?: string;
             minResponses?: number;
+        };
+        SurveyQuestionDto: {
+            id: string;
+            tenant_id: string;
+            survey_id: string;
+            sort_order: number;
+            text: string;
+            stars_enabled: boolean;
+        };
+        SurveyTargetDto: {
+            id: string;
+            tenant_id: string;
+            survey_id: string;
+            teacher_id: string;
+            subject_id: string;
+        };
+        SurveyDetailDto: {
+            id: string;
+            tenant_id: string;
+            title: string;
+            /** @enum {string} */
+            status: "DRAFT" | "OPEN" | "CLOSED";
+            anonymous: boolean;
+            /** @enum {string} */
+            respondent: "STUDENTS" | "GUARDIANS" | "BOTH";
+            /** Format: date-time */
+            opens_at: string | null;
+            /** Format: date-time */
+            closes_at: string | null;
+            min_responses: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            questions: components["schemas"]["SurveyQuestionDto"][];
+            targets: components["schemas"]["SurveyTargetDto"][];
         };
         Survey: {
             id: string;
@@ -13108,6 +13237,110 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["StudentPublicExam"];
                 };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudentPhotoController_bulk_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    files?: string[];
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudentPhotoController_serve_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StudentPhotoController_upload_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file?: string;
+                };
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -27582,7 +27815,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>[];
+                    "application/json": components["schemas"]["PendingSurveyDto"][];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -27649,7 +27882,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["SurveyResultsDto"];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -27714,7 +27949,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["SurveyDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -27747,7 +27982,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["SurveyDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -27784,7 +28019,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["SurveyDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -27812,12 +28047,12 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["SurveyDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -27845,12 +28080,12 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["SurveyDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

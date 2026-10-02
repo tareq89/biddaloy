@@ -1,0 +1,278 @@
+import '@biddaloy/ui/test';
+
+import type { PrinterRow, PrintTemplateRow } from '@biddaloy/ui/hooks';
+import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
+import { screen, waitFor } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { PrintPreview } from './print-preview';
+import { runPrint } from './run-print';
+
+// jsdom can't open a print tab, so only `runPrint` is faked; everything else is real.
+vi.mock('./run-print', () => ({ runPrint: vi.fn() }));
+
+const template = (over: Partial<PrintTemplateRow> = {}): PrintTemplateRow => ({
+  id: 't-1',
+  name: 'Classic',
+  document_kind: 'STUDENT_ID_CARD',
+  layout_kind: 'FIXED',
+  is_default: true,
+  batch_size: 50,
+  current_version_id: 'v-1',
+  archived_at: null,
+  created_at: '2027-01-01T00:00:00.000Z',
+  updated_at: '2027-01-01T00:00:00.000Z',
+  ...over,
+});
+
+const printer = (over: Partial<PrinterRow> = {}): PrinterRow => ({
+  id: 'p-1',
+  name: 'Front office',
+  printer_type: 'CARD',
+  margin_top_mm: 0,
+  margin_right_mm: 0,
+  margin_bottom_mm: 0,
+  margin_left_mm: 0,
+  offset_x_mm: 0,
+  offset_y_mm: 0,
+  scale: 1,
+  duplex_order: 'INTERLEAVED',
+  sheet_gap_mm: 2,
+  archived_at: null,
+  ...over,
+});
+
+const element = (extra: object) => ({
+  id: 'e1',
+  type: 'TEXT',
+  x: 1,
+  y: 1,
+  w: 40,
+  h: 6,
+  fontFamily: 'Biddaloy Sans',
+  sizePt: 10,
+  weight: 400,
+  color: '#000000',
+  align: 'left',
+  overflow: 'CLIP',
+  ...extra,
+});
+
+const definition = (elements: object[]) => ({
+  page: { widthMm: 85.6, heightMm: 54, sides: ['front'] },
+  front: { elements },
+});
+
+/** Serves a preview whose items mirror the subject ids the page asks for. */
+function servePreview(
+  defn = definition([element({ field: 'student.name' })]),
+  photoUrl: string | null = null,
+) {
+  server.use(
+    http.post('/api/v1/print-jobs/preview', async ({ request }) => {
+      const body = (await request.json()) as { subject_ids: string[] };
+      return HttpResponse.json({
+        template: {
+          id: 't-1',
+          batch_size: 50,
+          version: { id: 'v-1', version: 1, definition: defn },
+        },
+        items: body.subject_ids.map((id) => ({
+          subject_id: id,
+          label: `Student ${id}`,
+          values: { 'student.name': `Student ${id}` },
+          photo_url: photoUrl,
+        })),
+      });
+    }),
+  );
+}
+
+function serveLists(templates: PrintTemplateRow[], printers: PrinterRow[]) {
+  server.use(
+    http.get('/api/v1/print-templates', () => HttpResponse.json(templates)),
+    http.get('/api/v1/printers', () => HttpResponse.json(printers)),
+    http.get('/api/v1/print-assets', () => HttpResponse.json([])),
+  );
+}
+
+const ids = (n: number) => Array.from({ length: n }, (_, i) => `s-${i + 1}`);
+
+function setup(subjectIds = ids(3)) {
+  const onCreateTemplate = vi.fn();
+  const onAddPrinter = vi.fn();
+  const onDone = vi.fn();
+  const view = renderWithProviders(
+    <PrintPreview
+      documentKind="STUDENT_ID_CARD"
+      subjectType="STUDENT"
+      subjectIds={subjectIds}
+      onCreateTemplate={onCreateTemplate}
+      onAddPrinter={onAddPrinter}
+      onDone={onDone}
+    />,
+    { locale: 'en', role: 'ADMIN', tenantId: 'school-1' },
+  );
+  return { ...view, onCreateTemplate, onAddPrinter, onDone };
+}
+
+const printResult = (n: number) => ({
+  jobId: 'job-1',
+  items: ids(n).map((id) => ({ itemId: `i-${id}`, subjectId: id, label: `Student ${id}` })),
+});
+
+describe('PrintPreview', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+  afterEach(async () => {
+    vi.mocked(runPrint).mockReset();
+    await cleanupTestState();
+  });
+
+  it('splits 120 people into 3 batches of 50, and batch 2 stays locked until batch 1 is confirmed', async () => {
+    serveLists([template()], [printer()]);
+    servePreview();
+    server.use(
+      http.patch('/api/v1/print-jobs/:id/confirm', () =>
+        HttpResponse.json({ job_id: 'job-1', status: 'CONFIRMED', failed_item_ids: [] }),
+      ),
+    );
+    vi.mocked(runPrint).mockResolvedValue(printResult(50));
+    const { user } = setup(ids(120));
+
+    expect(await screen.findByText(/Batch 1 of 3 · 50 cards/)).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(false),
+    );
+
+    await user.click(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }));
+    // The job is created and printed; now the answer is needed before anything else can happen.
+    expect(await screen.findByText('Did all 50 cards print correctly?')).toBeTruthy();
+    expect(screen.getByText(/Batch 1 of 3/)).toBeTruthy(); // batch 2 is not reachable yet
+
+    await user.click(screen.getByRole('button', { name: 'Yes, all printed' }));
+    await user.click(await screen.findByRole('button', { name: 'Continue' }));
+
+    expect(await screen.findByText(/Batch 2 of 3 · 50 cards/)).toBeTruthy();
+    expect(vi.mocked(runPrint).mock.calls[0]?.[0].request).toMatchObject({
+      kind: 'create',
+      body: { subject_ids: ids(120).slice(0, 50), batch_label: '1/3' },
+    });
+  });
+
+  it("clamps the batch size to the template's maximum", async () => {
+    serveLists([template({ batch_size: 50 })], [printer()]);
+    servePreview();
+    const { user } = setup(ids(120));
+
+    const input = await screen.findByLabelText<HTMLInputElement>(/Cards per batch/);
+    await user.clear(input);
+    await user.type(input, '80');
+
+    await waitFor(() => expect(input.value).toBe('50'));
+    expect(screen.getByText(/Batch 1 of 3/)).toBeTruthy();
+  });
+
+  it('clearing the batch size falls back to the maximum instead of breaking the batches', async () => {
+    serveLists([template({ batch_size: 50 })], [printer()]);
+    servePreview();
+    const { user } = setup(ids(120));
+
+    const input = await screen.findByLabelText<HTMLInputElement>(/Cards per batch/);
+    await user.clear(input); // a cleared number input reads as NaN
+
+    await waitFor(() => expect(input.value).toBe('50'));
+    expect(screen.getByText(/Batch 1 of 3/)).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(false),
+    );
+  });
+
+  it('offers to create a template when there is none', async () => {
+    serveLists([], [printer()]);
+    const { user, onCreateTemplate } = setup();
+
+    expect(await screen.findByText('No template for this document yet')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Create one from a suggestion' }));
+    expect(onCreateTemplate).toHaveBeenCalledOnce();
+  });
+
+  it('ignores an unpublished template (no current version)', async () => {
+    serveLists([template({ current_version_id: null })], [printer()]);
+    setup();
+    expect(await screen.findByText('No template for this document yet')).toBeTruthy();
+  });
+
+  it('keeps Print disabled until a printer exists, and offers to add one', async () => {
+    serveLists([template()], []);
+    servePreview();
+    const { user, onAddPrinter } = setup();
+
+    expect(await screen.findByText('Add your first printer to be able to print.')).toBeTruthy();
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: 'Add your first printer' }));
+    expect(onAddPrinter).toHaveBeenCalledOnce();
+  });
+
+  it('requires "Print anyway" when a card has a problem (here: no photo)', async () => {
+    // jsdom can't measure text, so overflow itself can't be triggered here; a missing photo goes
+    // through the very same pre-flight gate (D14).
+    serveLists([template()], [printer()]);
+    servePreview(
+      definition([
+        element({ field: 'student.name' }),
+        element({ id: 'ph', type: 'IMAGE', field: 'student.photo' }),
+      ]),
+      null,
+    );
+    const { user } = setup(ids(2));
+
+    expect(await screen.findByText('2 of 2 cards need attention')).toBeTruthy();
+    const print = screen.getByRole<HTMLButtonElement>('button', { name: 'Print' });
+    expect(print.disabled).toBe(true);
+
+    await user.click(screen.getByRole('checkbox', { name: 'Print anyway' }));
+    expect(print.disabled).toBe(false);
+  });
+
+  it('restores the remembered printer and prints with it', async () => {
+    window.localStorage.setItem('print.printer.school-1', 'p-2');
+    serveLists([template()], [printer(), printer({ id: 'p-2', name: 'Staff room' })]);
+    servePreview();
+    vi.mocked(runPrint).mockResolvedValue(printResult(3));
+    const { user } = setup();
+
+    // The trigger shows the selected printer, so the remembered one was restored.
+    expect(await screen.findByText('Staff room · Card printer')).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(false),
+    );
+    await user.click(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }));
+
+    await waitFor(() => expect(runPrint).toHaveBeenCalledOnce());
+    expect(vi.mocked(runPrint).mock.calls[0]?.[0].printer.id).toBe('p-2');
+  });
+
+  it('finishes (onDone) after the last batch is confirmed', async () => {
+    serveLists([template()], [printer()]);
+    servePreview();
+    server.use(
+      http.patch('/api/v1/print-jobs/:id/confirm', () =>
+        HttpResponse.json({ job_id: 'job-1', status: 'CONFIRMED', failed_item_ids: [] }),
+      ),
+    );
+    vi.mocked(runPrint).mockResolvedValue(printResult(3));
+    const { user, onDone } = setup(ids(3));
+
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(false),
+    );
+    await user.click(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }));
+    await user.click(await screen.findByRole('button', { name: 'Yes, all printed' }));
+    await user.click(await screen.findByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(onDone).toHaveBeenCalledOnce());
+  });
+});

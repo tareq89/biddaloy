@@ -49,6 +49,14 @@ export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'seat_plan_schedules',
   'seat_plans',
   'workbook_jobs',
+  // [32.1.2] print tables: items -> jobs -> versions -> templates (versions
+  // RESTRICT their template; templates' current_version_id is SET NULL).
+  'print_job_items',
+  'print_jobs',
+  'print_template_versions',
+  'print_templates',
+  'printer_profiles',
+  'print_assets',
   // [23.0] the 7 staff-child tables (documents/languages/achievements/
   // training/education/experience/addresses) and family_members have no FK
   // to each other or to staff_hr_records; staff_designation_history FKs to
@@ -215,7 +223,13 @@ export function buildResetSql(): string {
   // `payments.invoice_id` first breaks the cycle without touching
   // production's `RESTRICT` semantics — this only runs against the test
   // database's transactional-table reset.
-  return [`UPDATE "payments" SET "invoice_id" = NULL`, ...deletes].join('; ');
+  // [32.1.2] Same for `print_templates.current_version_id` <->
+  // `print_template_versions.template_id` (RESTRICT).
+  return [
+    `UPDATE "payments" SET "invoice_id" = NULL`,
+    `UPDATE "print_templates" SET "current_version_id" = NULL`,
+    ...deletes,
+  ].join('; ');
 }
 
 /** Child-first delete order for the six reference tables below. */

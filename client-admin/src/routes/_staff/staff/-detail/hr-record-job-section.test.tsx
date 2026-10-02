@@ -26,6 +26,7 @@ const RECORD = {
   salary_scale: null,
   department: null,
   blood_group: null,
+  name_bn: null,
   religion: null,
   created_at: '2026-01-01T00:00:00.000Z',
   updated_at: '2026-01-01T00:00:00.000Z',
@@ -90,9 +91,52 @@ describe('HrRecordJobSection', () => {
         salary_scale: null,
         department: 'Science',
         blood_group: null,
+        name_bn: null,
         religion: null,
       }),
     );
+  });
+
+  it('saves the Bangla name (name_bn) when the record is first created', async () => {
+    let postBody: unknown;
+    server.use(
+      http.get('/api/v1/staff-hr-records', () => HttpResponse.json([])),
+      http.post('/api/v1/staff-hr-records', async ({ request }) => {
+        postBody = await request.json();
+        return HttpResponse.json({ ...RECORD, name_bn: 'রহিম উদ্দিন' });
+      }),
+    );
+
+    renderSection();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Add job details' }));
+    await user.type(screen.getByLabelText('Name (Bangla)'), 'রহিম উদ্দিন');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(postBody).toEqual({ user_id: 'user-1', name_bn: 'রহিম উদ্দিন' }));
+  });
+
+  it('clears the Bangla name with an explicit null when the box is emptied', async () => {
+    let patchBody: Record<string, unknown> | undefined;
+    server.use(
+      http.get('/api/v1/staff-hr-records', () =>
+        HttpResponse.json([{ ...RECORD, name_bn: 'রহিম উদ্দিন' }]),
+      ),
+      http.patch('/api/v1/staff-hr-records/hr-1', async ({ request }) => {
+        patchBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(RECORD);
+      }),
+    );
+
+    renderSection();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Edit job details' }));
+    expect(screen.getByLabelText<HTMLInputElement>('Name (Bangla)').value).toBe('রহিম উদ্দিন');
+    await user.clear(screen.getByLabelText('Name (Bangla)'));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    // Omitting the key would leave the old name in place; the server needs an explicit null.
+    await waitFor(() => expect(patchBody?.name_bn).toBeNull());
   });
 
   it('shows an inline error and keeps the form open when the save fails', async () => {
