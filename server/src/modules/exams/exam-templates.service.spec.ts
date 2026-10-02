@@ -115,6 +115,15 @@ describe('ExamTemplatesService', () => {
     expect(t.compRepo.delete).not.toHaveBeenCalled();
   });
 
+  it('allows one ATTENDANCE component per row, rejects two with 400', async () => {
+    const att = (name: string) => ({ name, kind: ExamComponentKind.ATTENDANCE, full: 5, pass: 0 });
+    await t.service.update(TPL, { rows: [row({ components: [att('A')] })] }, TENANT);
+    const two = row({ components: [att('A'), att('B')] });
+    await expect(t.service.update(TPL, { rows: [two] }, TENANT)).rejects.toThrow(
+      /At most one ATTENDANCE/,
+    );
+  });
+
   it('rejects full <= 0, duplicate component names and duplicate rows', async () => {
     const zero = row({ components: [{ name: 'W', kind: 'WRITTEN', full: 0, pass: 0 }] });
     const dupName = row({

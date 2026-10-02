@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, In, IsNull, Repository } from 'typeorm';
-import { AuditAction } from '@biddaloy/shared';
+import { AuditAction, ExamComponentKind } from '@biddaloy/shared';
 import { ExamTemplate } from './entities/exam-template.entity';
 import { ExamTemplateComponent } from './entities/exam-template-component.entity';
 import { Subject } from '../academics/entities/subject.entity';
@@ -263,6 +263,11 @@ export class ExamTemplatesService {
           );
         }
         names.add(c.name);
+      }
+      if (r.components.filter((c) => c.kind === ExamComponentKind.ATTENDANCE).length > 1) {
+        throw new BadRequestException(
+          `At most one ATTENDANCE component is allowed per subject (class ${r.classGrade}, ${r.subjectCode}).`,
+        );
       }
     }
   }

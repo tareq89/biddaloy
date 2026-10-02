@@ -10,6 +10,7 @@ import { Class } from '../academics/entities/class.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { AcademicTerm } from '../calendar/entities/academic-term.entity';
 import { AuditService } from '../audit/audit.service';
+import { ExamTemplatesService } from './exam-templates.service';
 import { ExamKind } from '@biddaloy/shared';
 
 /**
@@ -32,7 +33,10 @@ function createRepoStub() {
     softDelete: vi.fn(async () => undefined),
   };
   repo.manager = {
-    transaction: vi.fn(async (cb: any) => cb({ getRepository: () => repo })),
+    transaction: vi.fn(async (cb: any) =>
+      cb({ getRepository: (e: any) => (e === Exam ? repo : repo.manager.getRepository(e)) }),
+    ),
+    getRepository: vi.fn(() => ({ findOne: vi.fn(async () => null) })),
   };
   return repo;
 }
@@ -57,6 +61,7 @@ async function buildService() {
     findOne: vi.fn(async ({ where }: any) => ({ id: where.id, tenant_id: where.tenant_id })),
   };
   const auditService = { record: vi.fn(async () => undefined) };
+  const templatesService = { componentsFor: vi.fn(async () => []) };
 
   const moduleRef = await Test.createTestingModule({
     providers: [
@@ -67,6 +72,7 @@ async function buildService() {
       { provide: getRepositoryToken(AcademicYear), useValue: yearRepo },
       { provide: getRepositoryToken(AcademicTerm), useValue: termRepo },
       { provide: AuditService, useValue: auditService },
+      { provide: ExamTemplatesService, useValue: templatesService },
     ],
   }).compile();
 
@@ -78,6 +84,7 @@ async function buildService() {
     yearRepo,
     termRepo,
     auditService,
+    templatesService,
   };
 }
 
@@ -222,6 +229,36 @@ describe('ExamsService class/year change guard (issue rule #1)', () => {
     await expect(
       service.update('e1', { class_id: 'c1', academic_year_id: 'y1' } as any, TENANT_ID),
     ).resolves.toBeDefined();
+  });
+});
+
+describe('ExamsService.create with template_id', () => {
+  const base = {
+    name: 'Term 1',
+    kind: ExamKind.TERM,
+    academic_year_id: 'y1',
+    class_id: 'c1',
+    template_id: 't1',
+  } as any;
+
+  it('unknown template -> 404 before any write', async () => {
+    const { service, examRepo } = await buildService();
+    await expect(service.create(base, TENANT_ID)).rejects.toBeInstanceOf(NotFoundException);
+    expect(examRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('class without numeric_grade -> 400 before any write', async () => {
+    const { service, examRepo } = await buildService();
+    examRepo.manager.getRepository = vi.fn(() => ({ findOne: vi.fn(async () => ({ id: 't1' })) }));
+    await expect(service.create(base, TENANT_ID)).rejects.toBeInstanceOf(BadRequestException);
+    expect(examRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('without template_id the template service is never consulted', async () => {
+    const { service, templatesService } = await buildService();
+    const exam = await service.create({ ...base, template_id: undefined }, TENANT_ID);
+    expect(exam.components_created).toBe(0);
+    expect(templatesService.componentsFor).not.toHaveBeenCalled();
   });
 });
 

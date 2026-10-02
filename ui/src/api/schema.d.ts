@@ -3937,7 +3937,7 @@ export interface paths {
         /** List exams for the current tenant. */
         get: operations["ExamsController_findAll_v1"];
         put?: never;
-        /** Create an exam. */
+        /** Create an exam, optionally building its components from a template. */
         post: operations["ExamsController_create_v1"];
         delete?: never;
         options?: never;
@@ -9936,6 +9936,8 @@ export interface components {
             class_id: string;
             /** Format: uuid */
             academic_term_id?: string | null;
+            /** Format: uuid */
+            template_id?: string;
         };
         AcademicTerm: {
             id: string;
@@ -9947,6 +9949,31 @@ export interface components {
             name: string;
             start_date: string;
             end_date: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
+        };
+        CreateExamResponseDto: {
+            components_created: number;
+            id: string;
+            tenant: components["schemas"]["School"];
+            tenant_id: string;
+            academic_year: components["schemas"]["AcademicYear"];
+            academic_year_id: string;
+            class: components["schemas"]["Class"];
+            class_id: string;
+            academic_term: components["schemas"]["AcademicTerm"] | null;
+            academic_term_id: string | null;
+            name: string;
+            /** @enum {string} */
+            kind: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
+            /** @enum {string} */
+            status: "DRAFT" | "PUBLISHED" | "PROCESSED";
+            /** Format: date-time */
+            published_at: string | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -21982,7 +22009,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Exam"];
+                    "application/json": components["schemas"]["CreateExamResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
