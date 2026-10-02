@@ -411,6 +411,48 @@ describe('Users & Teachers E2E [8.11.8]', () => {
       teacherToken = res.body.access_token;
     });
 
+    it('[#731] rejects an ADMIN minting a SUPER_ADMIN membership with 400', async () => {
+      const email = 'escalate-731@example.com';
+      const res = await request()
+        .post('/api/v1/users')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .send({ email, tenantId: TENANT_A, full_name: 'Escalator', role: UserRole.SUPER_ADMIN })
+        .expect(400);
+      expect(res.body.message).toContain('SUPER_ADMIN');
+      const rows = await dataSource.query('SELECT id FROM users WHERE email = $1', [email]);
+      expect(rows).toHaveLength(0);
+    });
+
+    it('[#731] PATCH /users/:id cannot carry a role (400 forbidNonWhitelisted)', async () => {
+      await request()
+        .patch(`/api/v1/users/${MEMBER_A_ID}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .send({ role: UserRole.SUPER_ADMIN })
+        .expect(400);
+      const rows = await dataSource.query(
+        'SELECT 1 FROM user_tenants WHERE user_id = $1 AND role = $2',
+        [MEMBER_A_ID, UserRole.SUPER_ADMIN],
+      );
+      expect(rows).toHaveLength(0);
+    });
+
+    it('[#731] still creates a normal-role user', async () => {
+      const email = 'ok-731@example.com';
+      const res = await request()
+        .post('/api/v1/users')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .send({ email, tenantId: TENANT_A, full_name: 'Fine Teacher', role: UserRole.TEACHER })
+        .expect(201);
+      expect(res.body.user.role).toBe(UserRole.TEACHER);
+      const id = res.body.user.id;
+      await dataSource.query('DELETE FROM auth_tokens WHERE user_id = $1', [id]).catch(() => {});
+      await dataSource.query('DELETE FROM user_tenants WHERE user_id = $1', [id]);
+      await dataSource.query('DELETE FROM users WHERE id = $1', [id]);
+    });
+
     it('denies a TEACHER creating a user (ADMIN/EXECUTIVE only)', async () => {
       const res = await request()
         .post('/api/v1/users')
