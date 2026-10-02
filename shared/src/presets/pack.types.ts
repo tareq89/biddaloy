@@ -70,6 +70,8 @@ export interface PresetPack {
     group?: string;
     optional?: boolean;
     gradedOnly?: boolean;
+    /** Rows of one class sharing a choiceGroup are 'exactly one of' — the student studies one. Never with `optional` or `group`. */
+    choiceGroup?: string;
   }[];
   gradingScale: { name: string; bands: PresetGradeBand[] } | null;
   terms: { name: string; seq: number; start: PresetMonthDay; end: PresetMonthDay }[];
