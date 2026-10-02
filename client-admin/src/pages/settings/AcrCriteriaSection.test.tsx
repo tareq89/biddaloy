@@ -4,6 +4,12 @@ import {
   renderWithProviders,
   server,
 } from '@biddaloy/ui/test';
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterProvider,
+} from '@tanstack/react-router';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -14,6 +20,15 @@ import { AcrCriteriaSection } from './AcrCriteriaSection';
 afterEach(async () => {
   await cleanupTestState();
 });
+
+// `useBlocker` needs a router in context.
+function withRouter() {
+  const router = createRouter({
+    routeTree: createRootRoute({ component: AcrCriteriaSection }),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  });
+  return <RouterProvider router={router} />;
+}
 
 describe('AcrCriteriaSection', () => {
   it('shows the applies-to-new-ACRs notice and, after Save, the new version', async () => {
@@ -31,7 +46,7 @@ describe('AcrCriteriaSection', () => {
         return HttpResponse.json({ id: 'v2', version: 2, criteria: [] });
       }),
     );
-    renderWithProviders(<AcrCriteriaSection />, {
+    renderWithProviders(withRouter(), {
       locale: 'en',
       tenantId: 'tenant-1',
       role: 'ADMIN',

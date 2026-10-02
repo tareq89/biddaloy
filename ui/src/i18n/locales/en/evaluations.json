@@ -123,7 +123,13 @@
       "loadError": "Couldn't load the criteria.",
       "saveError": "Couldn't save the criteria.",
       "errorRequired": "Code and both names are required.",
-      "errorDuplicateCode": "Each code must be unique."
+      "errorDuplicateCode": "Each code must be unique.",
+      "unsavedDialog": {
+        "title": "Leave without saving?",
+        "description": "You have unsaved criteria changes. If you leave now, they will be lost.",
+        "stay": "Stay on this page",
+        "leave": "Leave without saving"
+      }
     }
   },
   "incident": {
@@ -169,7 +175,8 @@
       "LOW": "Low",
       "MEDIUM": "Medium",
       "HIGH": "High"
-    }
+    },
+    "staffSearch": "Search staff by name"
   },
   "surveys": {
     "placeholderTitle": "Surveys",
