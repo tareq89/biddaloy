@@ -30,6 +30,9 @@ import { staffDocumentTab } from '../tabs/people/staff-document.tab';
 import { printTabs } from '../tabs/print';
 import { attendanceTabs } from '../tabs/attendance';
 import { hrTabs } from '../tabs/hr';
+import { acrTabs } from '../tabs/people/acr.tab';
+import { incidentsTabs } from '../tabs/people/incidents.tab';
+import { surveysTabs } from '../tabs/people/surveys.tab';
 
 /**
  * Every tab name a backup workbook may contain, in apply order (epic 14.0
@@ -172,6 +175,19 @@ export const EXPECTED_TABS = [
   'print_assets',
   'print_templates',
   'print_template_versions',
+  // [28.1.3] Epic 28.0's ACR / incident / survey tabs, appended at the end:
+  // they depend only on `users`, `academic_years`, `teachers` and `subjects`,
+  // all earlier in this list. Order is restore order.
+  'acr_form_versions',
+  'acr_criteria',
+  'acr_assessments',
+  'acr_scores',
+  'staff_incidents',
+  'surveys',
+  'survey_questions',
+  'survey_targets',
+  'survey_responses',
+  'survey_answers',
 ] as const;
 
 export type ExpectedTabName = (typeof EXPECTED_TABS)[number];
@@ -236,6 +252,10 @@ export const ALL_TABS: readonly TabSpec<any, any>[] = [
   // [32.3.10] Epic 32's print setup: printers, assets, templates, template versions.
   // Last, matching where they sit in EXPECTED_TABS.
   ...printTabs,
+  // [28.1.3] After every lane's barrel — see the `EXPECTED_TABS` comment.
+  ...acrTabs,
+  ...incidentsTabs,
+  ...surveysTabs,
 ];
 
 export class RegistryError extends Error {

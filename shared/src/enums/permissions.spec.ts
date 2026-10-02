@@ -252,6 +252,14 @@ describe('family read grants [5.1]', () => {
    * routes (27.4/27.5) — pinned to ADMIN only so another role can't
    * silently gain it before those routes and their own role table land.
    */
+  it('grants ACR_READ and ACR_WRITE to ADMIN only [28.1.1]', () => {
+    for (const role of Object.values(UserRole)) {
+      const expected = role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN;
+      expect(ROLE_PERMISSIONS[role].includes(Permission.ACR_READ)).toBe(expected);
+      expect(ROLE_PERMISSIONS[role].includes(Permission.ACR_WRITE)).toBe(expected);
+    }
+  });
+
   it('grants ADMISSION_REVIEW to ADMIN only', () => {
     for (const role of Object.values(UserRole)) {
       const expected = role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN;

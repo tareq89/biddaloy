@@ -71,6 +71,17 @@ import {
   type PrintHistoryDemoSeedPorts,
 } from './seed.util';
 import { ensureStudentLifecycleSeed } from './seed.lifecycle';
+import { ensureEvaluationsSeed } from './seed.evaluations';
+import { AcrAssessment } from '../modules/acr/entities/acr-assessment.entity';
+import { AcrCriterion } from '../modules/acr/entities/acr-criterion.entity';
+import { AcrFormVersion } from '../modules/acr/entities/acr-form-version.entity';
+import { AcrScore } from '../modules/acr/entities/acr-score.entity';
+import { StaffIncident } from '../modules/incidents/entities/staff-incident.entity';
+import { Survey } from '../modules/surveys/entities/survey.entity';
+import { SurveyAnswer } from '../modules/surveys/entities/survey-answer.entity';
+import { SurveyQuestion } from '../modules/surveys/entities/survey-question.entity';
+import { SurveyResponse } from '../modules/surveys/entities/survey-response.entity';
+import { SurveyTarget } from '../modules/surveys/entities/survey-target.entity';
 import { StudentLifecycleEvent } from '../modules/students/entities/student-lifecycle-event.entity';
 import { StudentNote } from '../modules/students/entities/student-note.entity';
 import { StudentPublicExam } from '../modules/students/entities/student-public-exam.entity';
@@ -264,6 +275,31 @@ export async function seed() {
         lifecycleEventRepository: dataSource.getRepository(StudentLifecycleEvent),
         noteRepository: dataSource.getRepository(StudentNote),
         publicExamRepository: dataSource.getRepository(StudentPublicExam),
+      },
+      school.id,
+      lifecycleAdmin.id,
+    );
+
+    // [28.1.4] Default ACR form, demo ACRs, survey, incidents, note rating.
+    await ensureEvaluationsSeed(
+      {
+        userRepository,
+        userTenantRepository,
+        academicYearRepository: dataSource.getRepository(AcademicYear),
+        subjectRepository: dataSource.getRepository(Subject),
+        teacherRepository: dataSource.getRepository(Teacher),
+        studentRepository: dataSource.getRepository(Student),
+        noteRepository: dataSource.getRepository(StudentNote),
+        formVersionRepository: dataSource.getRepository(AcrFormVersion),
+        criterionRepository: dataSource.getRepository(AcrCriterion),
+        assessmentRepository: dataSource.getRepository(AcrAssessment),
+        scoreRepository: dataSource.getRepository(AcrScore),
+        incidentRepository: dataSource.getRepository(StaffIncident),
+        surveyRepository: dataSource.getRepository(Survey),
+        surveyQuestionRepository: dataSource.getRepository(SurveyQuestion),
+        surveyTargetRepository: dataSource.getRepository(SurveyTarget),
+        surveyResponseRepository: dataSource.getRepository(SurveyResponse),
+        surveyAnswerRepository: dataSource.getRepository(SurveyAnswer),
       },
       school.id,
       lifecycleAdmin.id,

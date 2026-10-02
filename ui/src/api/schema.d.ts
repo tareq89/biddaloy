@@ -6129,6 +6129,267 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/acr/criteria": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Latest ACR criteria version. */
+        get: operations["AcrCriteriaController_getLatest_v1"];
+        /** Save the full criteria list as a new version. */
+        put: operations["AcrCriteriaController_save_v1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/acr/assessments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** ACR register (own ACR excluded). */
+        get: operations["AcrAssessmentsController_list_v1"];
+        put?: never;
+        /** Start an ACR (INCOMPLETE, latest form version). */
+        post: operations["AcrAssessmentsController_start_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/acr/assessments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One ACR. */
+        get: operations["AcrAssessmentsController_get_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Autosave step fields and scores. */
+        patch: operations["AcrAssessmentsController_update_v1"];
+        trace?: never;
+    };
+    "/api/v1/acr/assessments/{id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete an ACR (all criteria scored). */
+        post: operations["AcrAssessmentsController_complete_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/acr/assessments/{id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reopen a completed ACR. */
+        post: operations["AcrAssessmentsController_reopen_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/acr/staff/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A staff member's ACR history. */
+        get: operations["AcrAssessmentsController_history_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List incidents (never the caller’s own). */
+        get: operations["IncidentsController_list_v1"];
+        put?: never;
+        /** Report an incident about a staff member. */
+        post: operations["IncidentsController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One incident; 404 when it is about the caller. */
+        get: operations["IncidentsController_findOne_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/surveys/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** OPEN surveys with the caller's pending teacher-subject pairs. */
+        get: operations["SurveyRespondController_mine_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/surveys/{id}/respond": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer one teacher-subject pair, once (409 on repeat). */
+        post: operations["SurveyRespondController_respond_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/surveys/{id}/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Aggregated results per teacher-subject, hidden below min_responses. */
+        get: operations["SurveyResultsController_results_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/surveys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List surveys. */
+        get: operations["SurveysController_findAll_v1"];
+        put?: never;
+        /** Create a DRAFT survey with questions and targets. */
+        post: operations["SurveysController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/surveys/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One survey with questions and targets. */
+        get: operations["SurveysController_findOne_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit a DRAFT survey. */
+        patch: operations["SurveysController_update_v1"];
+        trace?: never;
+    };
+    "/api/v1/surveys/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** DRAFT -> OPEN. */
+        post: operations["SurveysController_publish_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/surveys/{id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** OPEN -> CLOSED. */
+        post: operations["SurveysController_close_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6847,6 +7108,7 @@ export interface components {
         StudentNoteResponseDto: {
             id: string;
             body: string;
+            rating: number | null;
             author: {
                 id?: string;
                 name?: string;
@@ -6856,6 +7118,7 @@ export interface components {
         };
         CreateStudentNoteDto: {
             body: string;
+            rating?: number;
         };
         StudentPublicExam: {
             id: string;
@@ -8206,6 +8469,9 @@ export interface components {
             };
             fineDueDays?: number;
         };
+        EvaluationsSettingsDto: {
+            incidentSmsEnabled?: boolean;
+        };
         TenantSettingsDto: {
             organisationRenames?: components["schemas"]["OrganisationRenameDto"][];
             /** @enum {number} */
@@ -8218,6 +8484,7 @@ export interface components {
             auth?: components["schemas"]["AuthSettingsDto"];
             backup?: components["schemas"]["BackupSettingsDto"];
             fees?: components["schemas"]["FeesSettingsDto"];
+            evaluations?: components["schemas"]["EvaluationsSettingsDto"];
         };
         UpdateSchoolProfileDto: {
             name?: string;
@@ -10647,6 +10914,245 @@ export interface components {
         };
         UpdateLeavePolicyDto: {
             annual_quota_days: number;
+        };
+        AcrCriterionResponseDto: {
+            id: string;
+            /** @enum {string} */
+            block: "BLOCK_2" | "BLOCK_3";
+            code: string;
+            label_en: string;
+            label_bn: string;
+            sort_order: number;
+        };
+        AcrCriteriaSetResponseDto: {
+            id: string | null;
+            version: number;
+            criteria: components["schemas"]["AcrCriterionResponseDto"][];
+        };
+        AcrCriterionInputDto: {
+            /** @enum {string} */
+            block: "BLOCK_2" | "BLOCK_3";
+            code: string;
+            label_en: string;
+            label_bn: string;
+            sort_order: number;
+        };
+        SaveAcrCriteriaDto: {
+            criteria: components["schemas"]["AcrCriterionInputDto"][];
+        };
+        StartAcrAssessmentDto: {
+            /** Format: uuid */
+            user_id: string;
+            /** Format: uuid */
+            academic_year_id: string;
+        };
+        AcrAssessmentResponseDto: {
+            id: string;
+            user_id: string;
+            academic_year_id: string;
+            form_version_id: string;
+            /** @enum {string} */
+            status: "COMPLETED" | "INCOMPLETE";
+            total: number | null;
+            assessed_by: string;
+            step1_data: {
+                [key: string]: unknown;
+            } | null;
+            step3_data: {
+                [key: string]: unknown;
+            } | null;
+            /** Format: date-time */
+            completed_at: string | null;
+            scores: {
+                criterion_id: string;
+                score: number;
+            }[];
+        };
+        AcrScoreInputDto: {
+            /** Format: uuid */
+            criterion_id: string;
+            /** @enum {number} */
+            score: 4 | 3 | 2 | 1;
+        };
+        UpdateAcrAssessmentDto: {
+            step1_data?: {
+                [key: string]: unknown;
+            };
+            step3_data?: {
+                [key: string]: unknown;
+            };
+            scores?: components["schemas"]["AcrScoreInputDto"][];
+        };
+        CreateIncidentDto: {
+            /** Format: uuid */
+            staffId: string;
+            /** @enum {string} */
+            type: "BEHAVIOUR" | "ABSENCE" | "COMPLAINT" | "COMMENDATION" | "OTHER";
+            /** @enum {string} */
+            severity: "LOW" | "MEDIUM" | "HIGH";
+            /** @example 2026-09-30 */
+            occurredOn: string;
+            description: string;
+            /** @description Must be empty for now. */
+            attachments?: string[];
+        };
+        IncidentResponseDto: {
+            id: string;
+            staffId: string;
+            /** @enum {string} */
+            type: "BEHAVIOUR" | "ABSENCE" | "COMPLAINT" | "COMMENDATION" | "OTHER";
+            /** @enum {string} */
+            severity: "LOW" | "MEDIUM" | "HIGH";
+            occurredOn: string;
+            description: string;
+            createdAt: string;
+        };
+        PendingSurveyQuestionDto: {
+            id: string;
+            text: string;
+            starsEnabled: boolean;
+        };
+        PendingPairDto: {
+            teacherId: string;
+            subjectId: string;
+        };
+        PendingSurveyDto: {
+            id: string;
+            title: string;
+            anonymous: boolean;
+            /** Format: date-time */
+            closesAt: string | null;
+            questions: components["schemas"]["PendingSurveyQuestionDto"][];
+            pending: components["schemas"]["PendingPairDto"][];
+        };
+        SurveyAnswerInputDto: {
+            /** Format: uuid */
+            questionId: string;
+            text?: string;
+            stars?: number;
+        };
+        RespondSurveyDto: {
+            /** Format: uuid */
+            teacherId: string;
+            /** Format: uuid */
+            subjectId: string;
+            answers: components["schemas"]["SurveyAnswerInputDto"][];
+        };
+        SurveyHiddenResult: {
+            teacherId: string;
+            subjectId: string;
+            count: number;
+            /** @enum {boolean} */
+            hidden: true;
+        };
+        SurveyQuestionResult: {
+            questionId: string;
+            text: string;
+            averageStars: number | null;
+            comments: string[];
+        };
+        SurveyVisibleResult: {
+            teacherId: string;
+            subjectId: string;
+            count: number;
+            /** @enum {boolean} */
+            hidden: false;
+            questions: components["schemas"]["SurveyQuestionResult"][];
+        };
+        SurveyResultsDto: {
+            surveyId: string;
+            title: string;
+            anonymous: boolean;
+            minResponses: number;
+            results: (components["schemas"]["SurveyHiddenResult"] | components["schemas"]["SurveyVisibleResult"])[];
+        };
+        SurveyQuestionInputDto: {
+            text: string;
+            starsEnabled: boolean;
+        };
+        SurveyTargetInputDto: {
+            /** Format: uuid */
+            teacherId: string;
+            /** Format: uuid */
+            subjectId: string;
+        };
+        CreateSurveyDto: {
+            title: string;
+            anonymous: boolean;
+            /** @enum {string} */
+            respondent: "STUDENTS" | "GUARDIANS" | "BOTH";
+            questions: components["schemas"]["SurveyQuestionInputDto"][];
+            targets: components["schemas"]["SurveyTargetInputDto"][];
+            opensAt?: string;
+            closesAt?: string;
+            minResponses?: number;
+        };
+        SurveyQuestionDto: {
+            id: string;
+            tenant_id: string;
+            survey_id: string;
+            sort_order: number;
+            text: string;
+            stars_enabled: boolean;
+        };
+        SurveyTargetDto: {
+            id: string;
+            tenant_id: string;
+            survey_id: string;
+            teacher_id: string;
+            subject_id: string;
+        };
+        SurveyDetailDto: {
+            id: string;
+            tenant_id: string;
+            title: string;
+            /** @enum {string} */
+            status: "DRAFT" | "OPEN" | "CLOSED";
+            anonymous: boolean;
+            /** @enum {string} */
+            respondent: "STUDENTS" | "GUARDIANS" | "BOTH";
+            /** Format: date-time */
+            opens_at: string | null;
+            /** Format: date-time */
+            closes_at: string | null;
+            min_responses: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            questions: components["schemas"]["SurveyQuestionDto"][];
+            targets: components["schemas"]["SurveyTargetDto"][];
+        };
+        Survey: {
+            id: string;
+            tenant_id: string;
+            tenant: components["schemas"]["School"];
+            title: string;
+            /** @enum {string} */
+            status: "DRAFT" | "OPEN" | "CLOSED";
+            anonymous: boolean;
+            /** @enum {string} */
+            respondent: "STUDENTS" | "GUARDIANS" | "BOTH";
+            /** Format: date-time */
+            opens_at: string | null;
+            /** Format: date-time */
+            closes_at: string | null;
+            min_responses: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        UpdateSurveyDto: {
+            title?: string;
+            anonymous?: boolean;
+            /** @enum {string} */
+            respondent?: "STUDENTS" | "GUARDIANS" | "BOTH";
+            questions?: components["schemas"]["SurveyQuestionInputDto"][];
+            targets?: components["schemas"]["SurveyTargetInputDto"][];
+            opensAt?: string;
+            closesAt?: string;
+            minResponses?: number;
         };
     };
     responses: never;
@@ -26752,6 +27258,713 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LeavePolicyDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcrCriteriaController_getLatest_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcrCriteriaSetResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcrCriteriaController_save_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveAcrCriteriaDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcrCriteriaSetResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcrAssessmentsController_list_v1: {
+        parameters: {
+            query?: {
+                year?: string;
+                status?: "INCOMPLETE" | "COMPLETED";
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcrAssessmentResponseDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcrAssessmentsController_start_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartAcrAssessmentDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcrAssessmentResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcrAssessmentsController_get_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcrAssessmentResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcrAssessmentsController_update_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAcrAssessmentDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcrAssessmentResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcrAssessmentsController_complete_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcrAssessmentResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcrAssessmentsController_reopen_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcrAssessmentResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcrAssessmentsController_history_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcrAssessmentResponseDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IncidentsController_list_v1: {
+        parameters: {
+            query?: {
+                staffUserId?: string;
+                type?: "BEHAVIOUR" | "ABSENCE" | "COMPLAINT" | "COMMENDATION" | "OTHER";
+            };
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncidentResponseDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IncidentsController_create_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateIncidentDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncidentResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IncidentsController_findOne_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncidentResponseDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SurveyRespondController_mine_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PendingSurveyDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SurveyRespondController_respond_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RespondSurveyDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SurveyResultsController_results_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SurveyResultsDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SurveysController_findAll_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Survey"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SurveysController_create_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSurveyDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SurveyDetailDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SurveysController_findOne_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SurveyDetailDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SurveysController_update_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSurveyDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SurveyDetailDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SurveysController_publish_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SurveyDetailDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SurveysController_close_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SurveyDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

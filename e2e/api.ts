@@ -4,6 +4,15 @@
 // SPA sends (Bearer + X-Tenant-ID).
 import type { APIRequestContext } from '@playwright/test';
 
+import type {
+  AcrResponse,
+  CreateAcrBody,
+  CreateIncidentBody,
+  CreateSurveyBody,
+  IncidentResponse,
+  SaveAcrCriteriaBody,
+  SurveyResponse,
+} from './fixtures/evaluations';
 import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS } from './seed-contract';
 
 interface RefreshResponse {
@@ -96,7 +105,7 @@ export async function post<T>(
   request: APIRequestContext,
   session: ApiSession,
   path: string,
-  data: Record<string, unknown>,
+  data: object,
 ): Promise<T> {
   const response = await request.post(`/api/v1${path}`, {
     headers: {
@@ -903,4 +912,65 @@ export async function requestStepUpOtp(
     'No debug.otp in step-up otp/request response after retrying past the 60s cooldown — ' +
       'ACCOUNT_ACCESS_ECHO_SECRETS=true set?',
   );
+}
+
+/** `PUT /acr/criteria` — saves a new ACR form version (copy-on-write). */
+export async function saveAcrCriteria(
+  request: APIRequestContext,
+  session: ApiSession,
+  body: SaveAcrCriteriaBody,
+): Promise<{ id: string | null; version: number }> {
+  return put(request, session, '/acr/criteria', body);
+}
+
+/** `POST /acr/assessments` — starts an INCOMPLETE ACR on the latest form version. */
+export async function createAcr(
+  request: APIRequestContext,
+  session: ApiSession,
+  body: CreateAcrBody,
+): Promise<AcrResponse> {
+  return post<AcrResponse>(request, session, '/acr/assessments', body);
+}
+
+/** `POST /acr/assessments/:id/complete` (assessor only, D7). */
+export async function completeAcr(
+  request: APIRequestContext,
+  session: ApiSession,
+  id: string,
+): Promise<AcrResponse> {
+  return post<AcrResponse>(request, session, `/acr/assessments/${id}/complete`, {});
+}
+
+/** `POST /incidents`. */
+export async function createIncident(
+  request: APIRequestContext,
+  session: ApiSession,
+  body: CreateIncidentBody,
+): Promise<IncidentResponse> {
+  return post<IncidentResponse>(request, session, '/incidents', body);
+}
+
+/** `POST /surveys` — a DRAFT; `publishSurvey`/`closeSurvey` move it on. */
+export async function createSurvey(
+  request: APIRequestContext,
+  session: ApiSession,
+  body: CreateSurveyBody,
+): Promise<SurveyResponse> {
+  return post<SurveyResponse>(request, session, '/surveys', body);
+}
+
+export async function publishSurvey(
+  request: APIRequestContext,
+  session: ApiSession,
+  id: string,
+): Promise<SurveyResponse> {
+  return post<SurveyResponse>(request, session, `/surveys/${id}/publish`, {});
+}
+
+export async function closeSurvey(
+  request: APIRequestContext,
+  session: ApiSession,
+  id: string,
+): Promise<SurveyResponse> {
+  return post<SurveyResponse>(request, session, `/surveys/${id}/close`, {});
 }

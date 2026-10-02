@@ -6,6 +6,7 @@ import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { AuditService } from './audit.service';
 import { QueryAuditLogDto } from './dto/audit-log.dto';
@@ -30,8 +31,9 @@ export class AuditController {
   async findAll(
     @Query() query: QueryAuditLogDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: { sub: string },
   ) {
-    const result = await this.auditService.findAll(query, tenant.id);
+    const result = await this.auditService.findAll(query, tenant.id, user.sub);
     return { ...result, data: result.data.map(AuditLogResponseDto.fromEntity) };
   }
 
@@ -52,8 +54,15 @@ export class AuditController {
     @Param('entityId') entityId: string,
     @Query() query: QueryAuditLogDto,
     @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: { sub: string },
   ) {
-    const result = await this.auditService.findByEntity(entityType, entityId, query, tenant.id);
+    const result = await this.auditService.findByEntity(
+      entityType,
+      entityId,
+      query,
+      tenant.id,
+      user.sub,
+    );
     return { ...result, data: result.data.map(AuditLogResponseDto.fromEntity) };
   }
 }

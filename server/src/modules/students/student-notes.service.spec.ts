@@ -9,8 +9,8 @@ import { CreateStudentNoteDto } from './dto/student-notes.dto';
 const TENANT = 't1';
 const STUDENT = 's1';
 
-async function bodyErrors(body: unknown) {
-  const dto = plainToInstance(CreateStudentNoteDto, { body });
+async function bodyErrors(body: unknown, rating?: unknown) {
+  const dto = plainToInstance(CreateStudentNoteDto, { body, rating });
   return { dto, errors: await validate(dto) };
 }
 
@@ -20,6 +20,14 @@ describe('CreateStudentNoteDto', () => {
     expect(errors).toHaveLength(0);
     expect(dto.body).toBe('hi');
     expect((await bodyErrors('x'.repeat(2000))).errors).toHaveLength(0);
+  });
+
+  it('accepts rating 1 and 5, rejects 0 and 6, omitted is fine', async () => {
+    expect((await bodyErrors('hi', 1)).errors).toHaveLength(0);
+    expect((await bodyErrors('hi', 5)).errors).toHaveLength(0);
+    expect((await bodyErrors('hi')).errors).toHaveLength(0);
+    expect((await bodyErrors('hi', 0)).errors.length).toBeGreaterThan(0);
+    expect((await bodyErrors('hi', 6)).errors.length).toBeGreaterThan(0);
   });
 
   it('rejects empty, whitespace-only, >2000 and non-string bodies', async () => {
@@ -107,5 +115,27 @@ describe('StudentNotesService', () => {
     );
     expect(res.author).toEqual({ id: 'u1', name: 'Ann' });
     expect(JSON.stringify(audit.record.mock.calls[0][0])).not.toContain('hello');
+  });
+
+  it('create persists rating, and stores null when omitted', async () => {
+    const rated = await service.create(
+      STUDENT,
+      { body: 'a', rating: 4 },
+      caller('u1', UserRole.ADMIN),
+    );
+    expect(notes.create).toHaveBeenLastCalledWith(expect.objectContaining({ rating: 4 }));
+    expect(rated.rating).toBe(4);
+    const plain = await service.create(STUDENT, { body: 'b' }, caller('u1', UserRole.ADMIN));
+    expect(notes.create).toHaveBeenLastCalledWith(expect.objectContaining({ rating: null }));
+    expect(plain.rating).toBeNull();
+  });
+
+  it('list returns rating (null when unset)', async () => {
+    dataSource.query.mockResolvedValueOnce([
+      { id: 'n1', body: 'x', rating: 3, created_at: new Date(), author_id: 'a', name: 'Ann' },
+      { id: 'n2', body: 'y', rating: null, created_at: new Date(), author_id: 'a', name: null },
+    ]);
+    const rows = await service.list(STUDENT, caller('u1', UserRole.ADMIN));
+    expect(rows.map((r) => r.rating)).toEqual([3, null]);
   });
 });

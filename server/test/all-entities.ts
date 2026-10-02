@@ -102,6 +102,16 @@ import { StaffAttendanceSession } from '../src/modules/staff-attendance/entities
 import { StaffAttendanceRecord } from '../src/modules/staff-attendance/entities/staff-attendance-record.entity';
 import { LeaveRecord } from '../src/modules/leave/entities/leave-record.entity';
 import { LeavePolicy } from '../src/modules/leave/entities/leave-policy.entity';
+import { AcrFormVersion } from '../src/modules/acr/entities/acr-form-version.entity';
+import { AcrCriterion } from '../src/modules/acr/entities/acr-criterion.entity';
+import { AcrAssessment } from '../src/modules/acr/entities/acr-assessment.entity';
+import { AcrScore } from '../src/modules/acr/entities/acr-score.entity';
+import { StaffIncident } from '../src/modules/incidents/entities/staff-incident.entity';
+import { Survey } from '../src/modules/surveys/entities/survey.entity';
+import { SurveyQuestion } from '../src/modules/surveys/entities/survey-question.entity';
+import { SurveyTarget } from '../src/modules/surveys/entities/survey-target.entity';
+import { SurveyResponse } from '../src/modules/surveys/entities/survey-response.entity';
+import { SurveyAnswer } from '../src/modules/surveys/entities/survey-answer.entity';
 
 export const ALL_ENTITIES = [
   AcademicYear,
@@ -208,4 +218,14 @@ export const ALL_ENTITIES = [
   StaffAttendanceRecord,
   LeaveRecord,
   LeavePolicy,
+  AcrFormVersion,
+  AcrCriterion,
+  AcrAssessment,
+  AcrScore,
+  StaffIncident,
+  Survey,
+  SurveyQuestion,
+  SurveyTarget,
+  SurveyResponse,
+  SurveyAnswer,
 ];

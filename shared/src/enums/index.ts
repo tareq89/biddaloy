@@ -398,3 +398,4 @@ export * from './admission';
 export * from './seat-plan';
 export * from './programs';
 export * from './student-lifecycle';
+export * from './evaluations';
