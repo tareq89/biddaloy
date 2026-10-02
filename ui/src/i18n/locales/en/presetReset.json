@@ -1,0 +1,40 @@
+{
+  "card": {
+    "title": "Curriculum preset",
+    "description": "Undo the curriculum preset applied to this school. Only possible while the school has no operational data.",
+    "button": "Reset curriculum preset"
+  },
+  "dialog": {
+    "title": "Reset curriculum preset",
+    "description": "This permanently undoes the preset for {{name}}. It cannot be undone.",
+    "deletesHeading": "What will be deleted",
+    "deletes": "Academic years, terms, classes, subjects, class-subjects, the grading scale, exam templates and preset settings.",
+    "blocksWhen": "Only works while the school has no students, exams, fees or other operational data.",
+    "reasonLabel": "Reason (required, audited)",
+    "reasonCount": "{{count}} / {{max}} characters (minimum {{min}})",
+    "confirm": "Reset preset"
+  },
+  "blocked": {
+    "heading": "Cannot reset: this school already has data",
+    "entities": {
+      "students": "Students",
+      "enrolments": "Enrolments",
+      "exams": "Exams",
+      "fee_structures": "Fee structures",
+      "homework": "Homework",
+      "syllabus_topics": "Syllabus topics",
+      "routine_slots": "Routine slots",
+      "calendar_events": "Calendar events",
+      "promotion_runs": "Promotion runs",
+      "attendance_sessions": "Attendance sessions",
+      "teacher_assignments": "Teacher assignments",
+      "routines": "Routines",
+      "admission_intakes": "Admission intakes",
+      "recurring_fee_schedules": "Recurring fee schedules",
+      "fine_rules": "Fine rules"
+    }
+  },
+  "notApplied": "This school has no preset to reset",
+  "error": "Could not reset the preset. Try again.",
+  "success": "Preset reset. {{count}} records removed."
+}
