@@ -173,6 +173,13 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
       '#570 — platform route (SUPER_ADMIN cross-school SMS credit read), same rationale as the POST on this controller.',
   },
   {
+    controller: 'PlatformPresetsController',
+    method: 'POST',
+    path: '/platform/schools/:id/preset/reset',
+    reason:
+      '35.2.5 — platform route (SUPER_ADMIN undoes a school preset), same rationale as GET /schools; no new permission, RolesGuard(SUPER_ADMIN) is the whole check.',
+  },
+  {
     controller: 'PlatformBackupHealthController',
     method: 'GET',
     path: '/platform/backups/health',
