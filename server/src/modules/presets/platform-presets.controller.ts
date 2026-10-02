@@ -15,6 +15,7 @@ import { Request } from 'express';
 import { JwtPayload, UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { PlatformSuperAdminGuard } from '../auth/guards/platform-super-admin.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -26,7 +27,7 @@ import { ResetPresetDto, ResetPresetResponseDto } from './dto/reset-preset.dto';
 @ApiTags('platform')
 @ApiTenantAuth()
 @Controller('platform/schools')
-@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
+@UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard, PlatformSuperAdminGuard)
 export class PlatformPresetsController {
   constructor(private readonly reset: PresetResetService) {}
 

@@ -253,6 +253,10 @@ export class ContextGuard implements CanActivate {
     };
 
     request.currentUser = user;
+    // Lets platform-only routes (`PlatformSuperAdminGuard`) tell a genuine
+    // platform SUPER_ADMIN from a legacy tenant-local one: both resolve to
+    // `currentTenant.role === 'SUPER_ADMIN'`.
+    request.isPlatformSuperAdmin = isPlatformSuperAdmin(user.memberships, platformTenantId);
 
     return true;
   }
