@@ -1,7 +1,6 @@
 /**
  * Assembled `bd/nctb` pack: classes 1-8 (primary.ts) + 9-12 (secondary.ts).
  * `verified` is false: see the UNVERIFIED lists in primary.ts and secondary.ts.
- * Registry wiring is #1280's job.
  */
 import type { PresetPack } from '@biddaloy/shared';
 
@@ -23,7 +22,7 @@ export const NCTB_PACK: PresetPack = {
     bn: 'প্রথম থেকে দ্বাদশ শ্রেণি, নবম-দ্বাদশে বিজ্ঞান, মানবিক ও ব্যবসায় শিক্ষা বিভাগ এবং এসএসসি/এইচএসসি জিপিএ স্কেল।',
   },
   verified: false,
-  // ponytail: RegionSettings has no weekly-off-day field (it lives in attendance policy), so only locale/country/timezone here.
+  // RegionSettings has no weekly-off field; Friday is the tenant-wide attendance default, so only locale/country/timezone here.
   region: { country: 'BD', locale: 'bn-BD', timezone: 'Asia/Dhaka' },
   yearShape: { startMonth: 1 },
   stages: [

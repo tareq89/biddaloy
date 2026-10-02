@@ -59,7 +59,7 @@ export const ALIA_PACK: PresetPack = {
     bn: 'ইবতেদায়ি, দাখিল, আলিম, ফাযিল ও কামিল স্তরের পাঠ্যক্রম।',
   },
   verified: false,
-  // Weekly-off (Friday) lives in attendance settings, not RegionSettings; see ticket drift note.
+  // Weekly-off: apply never writes attendance settings; every tenant already defaults to Friday (DEFAULT_ATTENDANCE_SETTINGS.weeklyOffDays = [5]). See #1280.
   region: { country: 'BD', timezone: 'Asia/Dhaka' },
   yearShape: { startMonth: 1 },
   stages: [

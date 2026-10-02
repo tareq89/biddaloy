@@ -12,6 +12,9 @@ import type { PresetPack } from '@biddaloy/shared';
  * Left out on purpose:
  *  - TAHFEEZ (Qur'an memorisation) is a programme (Epic 34), not a stage.
  *
+ * Weekly-off: apply does not write attendance settings; every tenant already
+ * defaults to Friday (#1280).
+ *
  * UNVERIFIED (not documented in the sources, so not guessed):
  *  - Years per stage: one class per stage. Real boards run several years
  *    per stage and their syllabi differ (~6 boards).
