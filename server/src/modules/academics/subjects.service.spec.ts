@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { SubjectService } from './subjects.service';
@@ -16,9 +16,16 @@ const BOTH = 'A subject is either group-specific or optional, not both';
 
 async function build(existingRow?: Partial<ClassSubject>) {
   const saved: any[] = [];
+  const lockedEntities: { entity: unknown; qb: any }[] = [];
   const manager: any = {
-    createQueryBuilder: () => {
-      const qb: any = { setLock: () => qb, where: () => qb, getOne: async () => ({ id: 's1' }) };
+    createQueryBuilder: (entity: unknown) => {
+      const qb: any = {
+        setLock: vi.fn(() => qb),
+        where: () => qb,
+        // ClassSubject lookups (update) return the existing row; Subject lookups a stub.
+        getOne: async () => (entity === ClassSubject ? (existingRow ?? null) : { id: 's1' }),
+      };
+      lockedEntities.push({ entity, qb });
       return qb;
     },
     findOne: vi.fn(async () => null),
@@ -53,7 +60,7 @@ async function build(existingRow?: Partial<ClassSubject>) {
       },
     ],
   }).compile();
-  return { svc: ref.get(SubjectService), saved, csRepo };
+  return { svc: ref.get(SubjectService), saved, csRepo, lockedEntities };
 }
 
 const attach = (svc: SubjectService, extra: object) =>
@@ -83,9 +90,9 @@ describe('SubjectService group_name [35.1.2]', () => {
   });
 
   it('update: null clears the group', async () => {
-    const { svc, csRepo } = await build({ id: 'cs1', is_optional: false, group_name: 'Science' });
+    const { svc, saved } = await build({ id: 'cs1', is_optional: false, group_name: 'Science' });
     await svc.updateClassSubject('c1', 's1', { academic_year_id: YEAR, group_name: null }, T);
-    expect(csRepo.save.mock.calls[0][0].group_name).toBeNull();
+    expect(saved[0].group_name).toBeNull();
   });
 
   it('update: setting optional on a grouped row is rejected', async () => {
@@ -93,6 +100,25 @@ describe('SubjectService group_name [35.1.2]', () => {
     await expect(
       svc.updateClassSubject('c1', 's1', { academic_year_id: YEAR, is_optional: true }, T),
     ).rejects.toThrow(BOTH);
+  });
+
+  it('update: reads the offering under a pessimistic_write lock and saves via the same manager', async () => {
+    const { svc, saved, lockedEntities } = await build({
+      id: 'cs1',
+      is_optional: false,
+      group_name: null,
+    });
+    await svc.updateClassSubject('c1', 's1', { academic_year_id: YEAR, is_optional: true }, T);
+    const lock = lockedEntities.find((l) => l.entity === ClassSubject);
+    expect(lock?.qb.setLock).toHaveBeenCalledWith('pessimistic_write');
+    expect(saved[0].is_optional).toBe(true);
+  });
+
+  it('update: 404 when the offering is missing', async () => {
+    const { svc } = await build();
+    await expect(
+      svc.updateClassSubject('c1', 's1', { academic_year_id: YEAR }, T),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('list returns group_name', async () => {

@@ -262,34 +262,41 @@ export class SubjectService {
     dto: UpdateClassSubjectDto,
     tenantId: string,
   ): Promise<ClassSubject> {
-    const row = await this.classSubjectRepo.findOne({
-      where: {
-        class_id: classId,
-        subject_id: subjectId,
-        academic_year_id: dto.academic_year_id,
-        tenant_id: tenantId,
-        deleted_at: IsNull(),
-      },
+    // Read, validate and write under one row lock: two concurrent PATCHes on
+    // the same offering would otherwise each validate against stale
+    // is_optional/group_name and the later save would clobber the other.
+    const rowId = await this.repo.manager.transaction(async (manager) => {
+      const row = await manager
+        .createQueryBuilder(ClassSubject, 'cs')
+        .setLock('pessimistic_write')
+        .where(
+          `cs.class_id = :classId AND cs.subject_id = :subjectId
+           AND cs.academic_year_id = :yearId AND cs.tenant_id = :tenantId
+           AND cs.deleted_at IS NULL`,
+          { classId, subjectId, yearId: dto.academic_year_id, tenantId },
+        )
+        .getOne();
+      if (!row) {
+        throw new NotFoundException(
+          `Subject "${subjectId}" is not offered by class "${classId}" in that academic year`,
+        );
+      }
+      const isOptional = dto.is_optional ?? row.is_optional;
+      const groupName =
+        dto.group_name !== undefined
+          ? await this.resolveGroupName(dto.group_name, isOptional, tenantId)
+          : row.group_name;
+      // group_name untouched but optional flipped on a grouped row.
+      if (isOptional && groupName !== null) {
+        throw new BadRequestException('A subject is either group-specific or optional, not both');
+      }
+      row.is_optional = isOptional;
+      row.group_name = groupName;
+      await manager.save(ClassSubject, row);
+      return row.id;
     });
-    if (!row) {
-      throw new NotFoundException(
-        `Subject "${subjectId}" is not offered by class "${classId}" in that academic year`,
-      );
-    }
-    const isOptional = dto.is_optional ?? row.is_optional;
-    const groupName =
-      dto.group_name !== undefined
-        ? await this.resolveGroupName(dto.group_name, isOptional, tenantId)
-        : row.group_name;
-    // group_name untouched but optional flipped on a grouped row.
-    if (isOptional && groupName !== null) {
-      throw new BadRequestException('A subject is either group-specific or optional, not both');
-    }
-    row.is_optional = isOptional;
-    row.group_name = groupName;
-    await this.classSubjectRepo.save(row);
     return (await this.classSubjectRepo.findOne({
-      where: { id: row.id },
+      where: { id: rowId },
       relations: ['subject'],
     })) as ClassSubject;
   }
