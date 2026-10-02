@@ -8747,12 +8747,14 @@ export interface components {
             academic_year_id: string;
             is_optional?: boolean;
             group_name?: string | null;
+            choice_group?: string | null;
         };
         UpdateClassSubjectDto: {
             /** Format: uuid */
             academic_year_id: string;
             is_optional?: boolean;
             group_name?: string | null;
+            choice_group?: string | null;
         };
         CreateHolidayDto: {
             /** Format: uuid */
