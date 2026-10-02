@@ -21,6 +21,8 @@ import { usePickText, usePresetPreview, type PresetPreview } from './use-presets
 export interface PresetPreviewSheetProps {
   /** `null` = closed. */
   presetId: string | null;
+  /** Element to focus when the dialog closes (it has no Radix trigger to return to). */
+  returnFocusTo?: React.RefObject<HTMLElement | null>;
   onClose: () => void;
 }
 
@@ -76,7 +78,7 @@ function SubjectsByClass({ preview }: { preview: PresetPreview }) {
   );
 }
 
-export function PresetPreviewSheet({ presetId, onClose }: PresetPreviewSheetProps) {
+export function PresetPreviewSheet({ presetId, onClose, returnFocusTo }: PresetPreviewSheetProps) {
   const { t } = useTranslation('curriculumPreset');
   const pick = usePickText();
   const query = usePresetPreview(presetId);
@@ -84,7 +86,15 @@ export function PresetPreviewSheet({ presetId, onClose }: PresetPreviewSheetProp
 
   return (
     <Dialog open={presetId !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="h-dvh max-h-dvh w-full max-w-none overflow-y-auto rounded-none sm:h-auto sm:max-h-[85vh] sm:max-w-2xl sm:rounded-lg">
+      <DialogContent
+        className="h-dvh max-h-dvh w-full max-w-none overflow-y-auto rounded-none sm:h-auto sm:max-h-[85vh] sm:max-w-2xl sm:rounded-lg"
+        onCloseAutoFocus={(event) => {
+          if (returnFocusTo?.current) {
+            event.preventDefault();
+            returnFocusTo.current.focus();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle>
             {preview

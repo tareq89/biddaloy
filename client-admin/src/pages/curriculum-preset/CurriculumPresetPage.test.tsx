@@ -120,6 +120,22 @@ describe('CurriculumPresetPage', () => {
     expect(await screen.findByText('One of: Islam / Hindu / Buddhist / Christian')).toBeDefined();
   });
 
+  it('returns focus to the card that opened the preview when it is closed with Escape', async () => {
+    mockApi({ state: 'AVAILABLE' });
+    const user = renderPage();
+    await screen.findByText('NCTB National Curriculum');
+    await user.tab(); // first tab stop is the first card
+    const card = document.activeElement;
+    expect(card).not.toBe(document.body);
+    await user.keyboard('{Enter}');
+    await screen.findByText('One of: Islam / Hindu / Buddhist / Christian');
+    await user.keyboard('{Escape}');
+    await waitFor(() =>
+      expect(screen.queryByText('One of: Islam / Hindu / Buddhist / Christian')).toBeNull(),
+    );
+    expect(document.activeElement).toBe(card);
+  });
+
   it('encodes the slash in the preset id when previewing', async () => {
     const seen = vi.fn();
     mockApi({ state: 'AVAILABLE' });
