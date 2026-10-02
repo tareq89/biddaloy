@@ -21,6 +21,7 @@ import bnCalendar from '../ui/src/i18n/locales/bn/calendar.json';
 import bnClasses from '../ui/src/i18n/locales/bn/classes.json';
 import bnCommon from '../ui/src/i18n/locales/bn/common.json';
 import bnCommunications from '../ui/src/i18n/locales/bn/communications.json';
+import bnEvaluations from '../ui/src/i18n/locales/bn/evaluations.json';
 import bnExams from '../ui/src/i18n/locales/bn/exams.json';
 import bnFeeGeneration from '../ui/src/i18n/locales/bn/feeGeneration.json';
 import bnFees from '../ui/src/i18n/locales/bn/fees.json';
@@ -32,6 +33,7 @@ import bnHomework from '../ui/src/i18n/locales/bn/homework.json';
 import bnLeave from '../ui/src/i18n/locales/bn/leave.json';
 import bnNav from '../ui/src/i18n/locales/bn/nav.json';
 import bnPayments from '../ui/src/i18n/locales/bn/payments.json';
+import bnPerformance from '../ui/src/i18n/locales/bn/performance.json';
 import bnPlatform from '../ui/src/i18n/locales/bn/platform.json';
 import bnPortal from '../ui/src/i18n/locales/bn/portal.json';
 import bnPrintEditor from '../ui/src/i18n/locales/bn/printEditor.json';
@@ -68,6 +70,7 @@ import enCalendar from '../ui/src/i18n/locales/en/calendar.json';
 import enClasses from '../ui/src/i18n/locales/en/classes.json';
 import enCommon from '../ui/src/i18n/locales/en/common.json';
 import enCommunications from '../ui/src/i18n/locales/en/communications.json';
+import enEvaluations from '../ui/src/i18n/locales/en/evaluations.json';
 import enExams from '../ui/src/i18n/locales/en/exams.json';
 import enFeeGeneration from '../ui/src/i18n/locales/en/feeGeneration.json';
 import enFees from '../ui/src/i18n/locales/en/fees.json';
@@ -79,6 +82,7 @@ import enHomework from '../ui/src/i18n/locales/en/homework.json';
 import enLeave from '../ui/src/i18n/locales/en/leave.json';
 import enNav from '../ui/src/i18n/locales/en/nav.json';
 import enPayments from '../ui/src/i18n/locales/en/payments.json';
+import enPerformance from '../ui/src/i18n/locales/en/performance.json';
 import enPlatform from '../ui/src/i18n/locales/en/platform.json';
 import enPortal from '../ui/src/i18n/locales/en/portal.json';
 import enPrintEditor from '../ui/src/i18n/locales/en/printEditor.json';
@@ -118,6 +122,8 @@ const catalogs = {
     classes: bnClasses,
     common: bnCommon,
     communications: bnCommunications,
+    evaluations: bnEvaluations,
+    performance: bnPerformance,
     exams: bnExams,
     feeGeneration: bnFeeGeneration,
     fees: bnFees,
@@ -167,6 +173,8 @@ const catalogs = {
     classes: enClasses,
     common: enCommon,
     communications: enCommunications,
+    evaluations: enEvaluations,
+    performance: enPerformance,
     exams: enExams,
     feeGeneration: enFeeGeneration,
     fees: enFees,

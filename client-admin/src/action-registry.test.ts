@@ -18,6 +18,9 @@ const PERMISSION_VALUES = new Set(Object.values(Permission));
  * small subset here, only the routes seeded actions actually target. */
 const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/payments/record': '/_staff/payments/record',
+  '/staff/evaluations?startAcr=1': '/_staff/staff/evaluations',
+  '/staff/evaluations?reportIncident=1': '/_staff/staff/evaluations',
+  '/staff/evaluations?publishSurvey=1': '/_staff/staff/evaluations',
   '/exams/seat-plans?generate=1': '/_staff/exams/seat-plans/',
   '/programs?new=1': '/_staff/programs/',
   '/programs?enrol=1': '/_staff/programs/',
@@ -34,6 +37,7 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/attendance/staff': '/_staff/attendance/staff/',
   '/attendance/staff/leave': '/_staff/attendance/staff/leave',
   '/fees/generate': '/_staff/fees/generate',
+  '/students?openPerformance=1': '/_staff/students/',
   '/fees/fines?logFine=1': '/_staff/fees/fines/',
   '/fees/fines?generateFines=1': '/_staff/fees/fines/',
   '/fees/fines': '/_staff/fees/fines/',
@@ -52,6 +56,7 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/academics/syllabus': '/_staff/academics/syllabus/',
   '/analysis': '/_staff/analysis/',
   '/promotions/new': '/_staff/promotions/new',
+  '/staff': '/_staff/staff/',
   '/staff/teaching-assignments': '/_staff/staff/teaching-assignments',
 };
 
@@ -196,6 +201,14 @@ describe('action-registry.ts', () => {
     'fines.log',
     'fines.generate',
     'fines.waive',
+    // [28.3.2] ACR_WRITE is stricter than `/staff`'s USER_READ gate — see
+    // `action-registry.ts`'s comment on `acr.start`.
+    'acr.start',
+    'incidents.report',
+    'surveys.publish',
+    // [28.4.5] MARK_VIEW (the Performance tab's gate) is stricter than the
+    // student list's STUDENT_READ.
+    'performance.open',
   ]);
 
   it('every seeded action targets a route that exists in STAFF_ROUTE_PERMISSIONS with the same permission (or a documented, stricter exception)', () => {

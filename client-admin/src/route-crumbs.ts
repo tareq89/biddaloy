@@ -61,6 +61,7 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/portal/exam-schedule': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/fees': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/routine': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
+  '/portal/surveys': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/results': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/syllabus': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/programs': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
@@ -89,6 +90,12 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/staff/teaching-assignments': [
     { label: { entity: 'staff' } },
     { label: { key: 'teachingAssignments' } },
+  ],
+  '/_staff/staff/evaluations': [{ label: { entity: 'staff' } }, { label: { key: 'evaluations' } }],
+  // [28.4.2] The survey's own title is the page heading, so the trail stops at Evaluations.
+  '/_staff/staff/evaluations_/surveys/$surveyId': [
+    { label: { entity: 'staff' } },
+    { label: { key: 'evaluations' }, dynamic: 'entity' },
   ],
   '/_staff/programs/': [{ label: { key: 'programs' } }],
   '/_staff/programs/$programId': [
@@ -210,6 +217,13 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/_staff/staff/$userId': [
     { label: { entity: 'staff' } },
     { label: { entity: 'staff' }, dynamic: 'entity' },
+  ],
+  // [28.3.2] Staff › name › ACR. One dynamic segment per trail, so the
+  // year lives in the page heading / `document.title`, not a crumb.
+  '/_staff/staff/$userId_/acr/$assessmentId': [
+    { label: { entity: 'staff' } },
+    { label: { entity: 'staff' }, dynamic: 'entity' },
+    { label: { key: 'acr' } },
   ],
   '/_staff/academic-years/$academicYearId': [
     { label: { entity: 'academicYear' } },

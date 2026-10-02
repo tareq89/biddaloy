@@ -220,7 +220,15 @@ describe('[28.4.2] Survey respond and results', () => {
     const t = tokens[GUARDIAN_TAUGHT];
     const mine = await call('get', '/surveys/mine', t, UserRole.PARENT).expect(200);
     const s = mine.body.find((x: { id: string }) => x.id === surveyId);
-    expect(s.pending).toEqual([{ teacherId, subjectId }]);
+    expect(s.pending).toEqual([
+      {
+        teacherId,
+        teacherName: expect.stringMatching(/\S/),
+        subjectId,
+        subjectName: 'Survey Subject',
+        subjectNameBn: null,
+      },
+    ]);
 
     await call('post', respondPath(surveyId), t, UserRole.PARENT).send(answer()).expect(201);
     await call('post', respondPath(surveyId), t, UserRole.PARENT).send(answer()).expect(409);
@@ -357,7 +365,7 @@ describe('[28.4.2] Survey respond and results', () => {
     }
   });
 
-  it('a question answered by fewer than min_responses people is masked (no average, no comments)', async () => {
+  it('a question answered by fewer than min_responses people is masked (no average, no comments), and text-only answers do not count toward n', async () => {
     await ds.query(`UPDATE surveys SET min_responses = 2 WHERE id = $1`, [surveyId]);
     const q2 = randomUUID();
     await ds.query(
@@ -378,6 +386,24 @@ describe('[28.4.2] Survey respond and results', () => {
     await call('post', respondPath(surveyId), tokens[STUDENT_USER], UserRole.STUDENT)
       .send({ ...answer(), answers: [{ questionId, stars: 5 }] })
       .expect(201);
+    // q3: stars from ONE response + a comment-only answer from the other.
+    // COUNT(*) is 2 but only one person starred: the average must stay sealed.
+    const q3 = randomUUID();
+    await ds.query(
+      `INSERT INTO survey_questions (id, tenant_id, survey_id, sort_order, text, stars_enabled)
+       VALUES ($1, $2, $3, 2, 'Helpful?', true)`,
+      [q3, SEED_TENANT_ID, surveyId],
+    );
+    const responses: { id: string }[] = await ds.query(
+      `SELECT id FROM survey_responses WHERE survey_id = $1 ORDER BY id`,
+      [surveyId],
+    );
+    expect(responses).toHaveLength(2);
+    await ds.query(
+      `INSERT INTO survey_answers (id, tenant_id, response_id, question_id, stars, text)
+       VALUES ($1, $3, $4, $5, 5, NULL), ($2, $3, $6, $5, NULL, 'comment only')`,
+      [randomUUID(), randomUUID(), SEED_TENANT_ID, responses[0].id, q3, responses[1].id],
+    );
     await closeSurvey(surveyId);
     const res = await call(
       'get',
@@ -395,6 +421,9 @@ describe('[28.4.2] Survey respond and results', () => {
     expect(masked.averageStars).toBeNull();
     expect(masked.comments).toEqual([]);
     expect(JSON.stringify(res.body)).not.toContain('identifying comment');
+    const sealed = qs.find((q) => q.questionId === q3)!;
+    expect(sealed.averageStars).toBeNull();
+    expect(sealed.comments).toEqual([]);
   });
 
   it('a NAMED (anonymous:false) survey still exposes no respondent field', async () => {

@@ -125,6 +125,16 @@ function NoteCard({
           </Button>
         )}
       </div>
+      {typeof note.rating === 'number' && (
+        <p
+          className="text-sm text-primary"
+          role="img"
+          aria-label={t('ratingShown', { count: note.rating })}
+        >
+          {'★'.repeat(note.rating)}
+          <span className="text-muted-foreground">{'★'.repeat(5 - note.rating)}</span>
+        </p>
+      )}
       <p className="text-sm break-words whitespace-pre-wrap">{note.body}</p>
     </li>
   );
@@ -142,11 +152,13 @@ function AddNoteDialog({
   const { t } = useTranslation('student-notes');
   const addNote = useAddStudentNote(studentId);
   const [body, setBody] = React.useState('');
+  const [rating, setRating] = React.useState<number | null>(null);
 
   React.useEffect(() => {
     if (open) {
       addNote.reset();
       setBody('');
+      setRating(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when the dialog opens
   }, [open]);
@@ -156,7 +168,9 @@ function AddNoteDialog({
 
   function submit() {
     if (!canSubmit) return;
-    addNote.mutate({ body: trimmed }, { onSuccess: () => onOpenChange(false) });
+    addNote.mutate(rating === null ? { body: trimmed } : { body: trimmed, rating }, {
+      onSuccess: () => onOpenChange(false),
+    });
   }
 
   return (
@@ -188,6 +202,26 @@ function AddNoteDialog({
           <p id="student-note-hint" className="text-xs text-muted-foreground">
             {t('hint')}
           </p>
+        </div>
+
+        <div role="group" aria-label={t('ratingLabel')} className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium">{t('ratingLabel')}</span>
+          <div className="flex gap-1">
+            {[1, 2, 3, 4, 5].map((value) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={rating === value}
+                aria-label={t('ratingStar', { count: value })}
+                onClick={() => setRating(rating === value ? null : value)}
+                className={`rounded-sm px-1 text-2xl leading-none focus-visible:outline-2 focus-visible:outline-ring ${
+                  value <= (rating ?? 0) ? 'text-primary' : 'text-muted-foreground'
+                }`}
+              >
+                <span aria-hidden="true">★</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {addNote.isError && (

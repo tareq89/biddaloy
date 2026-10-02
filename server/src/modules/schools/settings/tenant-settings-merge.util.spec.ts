@@ -129,6 +129,20 @@ describe('mergeTenantSettings', () => {
     expect(mergeTenantSettings({ version: 1 }, { version: 1, preset }).preset).toBeUndefined();
   });
 
+  it('stores evaluations on PATCH and preserves it when the patch omits it (28.4.7)', () => {
+    const existing = { version: 1, evaluations: { incidentSmsEnabled: true } };
+
+    expect(mergeTenantSettings(existing, toPatch({ version: 1 })).evaluations).toEqual({
+      incidentSmsEnabled: true,
+    });
+    expect(
+      mergeTenantSettings(
+        { version: 1 },
+        toPatch({ version: 1, evaluations: { incidentSmsEnabled: true } }),
+      ).evaluations,
+    ).toEqual({ incidentSmsEnabled: true });
+  });
+
   it('replaces organisation wholesale when present, and leaves it untouched when the patch omits it (33.1.1)', () => {
     const existing = {
       version: 1,

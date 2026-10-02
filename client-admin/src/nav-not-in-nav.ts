@@ -37,6 +37,7 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/portal/fees': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/programs': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/routine': 'guardian portal page, has its own portal nav, not the staff sidebar',
+  '/portal/surveys': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/results': 'guardian portal page, has its own portal nav, not the staff sidebar',
   '/portal/syllabus': 'guardian portal page, has its own portal nav, not the staff sidebar',
 
@@ -90,6 +91,10 @@ export const NOT_IN_NAV: Record<string, string> = {
     '[16.4.4] placeholder page for the Record Payment modal, reached via /payments/record, not its own nav item',
   '/_staff/payments/$id': 'detail route reached from the payments list',
   '/_staff/staff/$userId': 'detail route reached from the staff list',
+  '/_staff/staff/$userId_/acr/$assessmentId':
+    "[28.3.2] ACR form reached from a staff member's ACR history / the register, not its own nav item",
+  '/_staff/staff/evaluations_/surveys/$surveyId':
+    '[28.4.2] survey results reached from the Surveys tab on /staff/evaluations, not its own nav item',
   '/_staff/students/$studentId': 'detail route reached from the students list',
   '/_staff/students/$studentId_/edit': 'action reached from the student detail page',
   '/_staff/students/import': 'action reached from the students list, not its own nav item',

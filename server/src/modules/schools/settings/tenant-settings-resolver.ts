@@ -169,6 +169,16 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
   const preset = isPlainObject(stored?.preset)
     ? (stored.preset as unknown as TenantSettings['preset'])
     : undefined;
+  // [28.4.7] `evaluations` is not on the shared `TenantSettings` type; pass the
+  // one known boolean through (spread, so no excess-property error) so the
+  // settings GET can show the stored toggle. Anything else is dropped.
+  const storedEvaluations = (
+    stored as { evaluations?: { incidentSmsEnabled?: unknown } } | undefined
+  )?.evaluations;
+  const evaluations =
+    typeof storedEvaluations?.incidentSmsEnabled === 'boolean'
+      ? { incidentSmsEnabled: storedEvaluations.incidentSmsEnabled }
+      : undefined;
 
   return {
     version: TENANT_SETTINGS_SCHEMA_VERSION,
@@ -181,5 +191,6 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
     fees,
     ...(communications ? { communications } : {}),
     ...(preset ? { preset } : {}),
+    ...(evaluations ? { evaluations } : {}),
   };
 }

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
+import { PushModule } from '../push/push.module';
 import { Student } from '../students/entities/student.entity';
 import { FamilyAccessService } from '../students/family-access.service';
 import { Survey } from './entities/survey.entity';
@@ -18,6 +19,7 @@ import { SurveysService } from './surveys.service';
 /** [28.1.2] Shell registered once in AppModule (D25). [28.2.4] lifecycle, [28.4.2] respond + results. */
 @Module({
   imports: [
+    PushModule,
     TypeOrmModule.forFeature([
       Survey,
       SurveyQuestion,
@@ -32,5 +34,6 @@ import { SurveysService } from './surveys.service';
   // SurveyRespondController first: it owns `GET /surveys/mine`, which `SurveysController`'s `GET :id` would shadow.
   controllers: [SurveyRespondController, SurveyResultsController, SurveysController],
   providers: [SurveysService, SurveyRespondService, SurveyResultsService, FamilyAccessService],
+  exports: [SurveyResultsService],
 })
 export class SurveysModule {}

@@ -29,6 +29,7 @@ import { UpcomingCalendarCard } from '../../components/upcoming-calendar-card';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
 
 import { DueThisMonthCard } from './-due-this-month-card';
+import { PortalSurveysCard } from './-surveys-card';
 
 /**
  * [5.2] — the family portal's landing page, replacing [8.9.10]'s
@@ -99,7 +100,7 @@ export const Route = createFileRoute('/portal/')({
       // [8.14.5]: swallowed — see `_staff/academic-years/index.tsx`'s
       // identical comment for why.
       queryClient.ensureQueryData(myStudentsQueryOptions()).catch(swallowUnlessOffline),
-      loadRouteNamespaces('portal', 'common', 'calendar'),
+      loadRouteNamespaces('portal', 'common', 'calendar', 'evaluations'),
     ]),
   pendingComponent: PortalOverviewPending,
   component: PortalOverviewRoute,
@@ -112,6 +113,7 @@ function PortalOverviewRoute() {
           portal variant, same "role-gated server-side" pattern the
           portal calendar/attendance routes already use. */}
       <UpcomingCalendarCard calendarPath="/portal/calendar" />
+      <PortalSurveysCard />
       <PortalOverview />
     </RegionConfigProvider>
   );

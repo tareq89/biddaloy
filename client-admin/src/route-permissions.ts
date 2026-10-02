@@ -49,10 +49,16 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/calendar/import': Permission.CALENDAR_MANAGE,
   '/_staff/staff/': Permission.USER_READ,
   '/_staff/staff/$userId': Permission.USER_READ,
+  // [28.3.2] ACR_READ to view; the form itself gates edits on ACR_WRITE.
+  '/_staff/staff/$userId_/acr/$assessmentId': Permission.ACR_READ,
   // [29.0] Teaching-assignments bulk view — gated on CLASS_MANAGE per D5,
   // matching `/_staff/classes/$classId`'s own Teachers tab (the same
   // assign/unassign mutations, just a cross-section view of them).
   '/_staff/staff/teaching-assignments': Permission.CLASS_MANAGE,
+  // [28.4.1] Evaluations register — same gate as the ACR form it links to.
+  '/_staff/staff/evaluations': Permission.ACR_READ,
+  // [28.4.2] One survey's results — same gate as the register it opens from.
+  '/_staff/staff/evaluations_/surveys/$surveyId': Permission.ACR_READ,
   '/_staff/programs/': Permission.PROGRAM_READ,
   '/_staff/programs/$programId': Permission.PROGRAM_READ,
   '/_staff/fees/': Permission.FEE_STRUCTURE_READ,

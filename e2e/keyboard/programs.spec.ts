@@ -57,7 +57,7 @@ test.describe('teacher', () => {
     });
 
     await test.step('open Hifz by keyboard', async () => {
-      await tabUntilFocused(page, SEED_PROGRAM_NAME, 90, { tag: 'A' });
+      await tabUntilFocused(page, SEED_PROGRAM_NAME, 150, { tag: 'A' });
       await page.keyboard.press('Enter');
       await expect(page.getByRole('heading', { level: 1, name: SEED_PROGRAM_NAME })).toBeVisible();
     });
@@ -147,7 +147,8 @@ test.describe('admin', () => {
     });
 
     await test.step('open the new program', async () => {
-      await tabUntilFocused(page, name, 90, { tag: 'A' });
+      // 150, not 60: the admin sidebar alone is ~60 tab stops and Epic 28 added Evaluations.
+      await tabUntilFocused(page, name, 150, { tag: 'A' });
       await page.keyboard.press('Enter');
       await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
     });

@@ -161,6 +161,8 @@ export interface MaskedTenantSettings {
   auth?: AuthSettings;
   backup?: BackupSettings;
   fees?: FeesSettings;
+  /** [28.4.3] Not secret data; generated `EvaluationsSettingsDto`. */
+  evaluations?: NonNullable<TenantSettingsInput['evaluations']>;
   organisation?: OrganisationSettings;
   /** [21.7.1] Not secret data, same reasoning as `attendance` above. */
   routine?: RoutineSettingsInput;

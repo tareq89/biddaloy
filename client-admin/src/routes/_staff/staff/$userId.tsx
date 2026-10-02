@@ -31,11 +31,14 @@ import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
+import { AcrTab } from './-detail/acr-tab';
 import { AttendanceLeaveTab } from './-detail/attendance-leave-tab';
 import { StaffDocumentsTab } from './-detail/documents-tab';
 import { HrRecordTab } from './-detail/hr-record-tab';
+import { IncidentsTab } from './-detail/incidents-tab';
 import { LoginHistoryTab } from './-detail/login-history-tab';
 import { MembershipsTab } from './-detail/memberships-tab';
+import { PerformanceTab } from './-detail/performance-tab';
 import { PermissionsTab } from './-detail/permissions-tab';
 import { ProfileTab } from './-detail/profile-tab';
 import { ResetPasswordDialog } from './-detail/reset-password-dialog';
@@ -57,7 +60,15 @@ export const Route = createFileRoute('/_staff/staff/$userId')({
       // [8.14.5]: swallowed — see `academic-years/$academicYearId.tsx`'s
       // identical comment for why.
       queryClient.ensureQueryData(userQueryOptions(params.userId)).catch(swallowUnlessOffline),
-      loadRouteNamespaces('staff', 'staffAttendance', 'leave', 'printHistory', 'common'),
+      loadRouteNamespaces(
+        'staff',
+        'staffAttendance',
+        'leave',
+        'evaluations',
+        'performance',
+        'printHistory',
+        'common',
+      ),
     ]),
   pendingComponent: StaffDetailPending,
   component: StaffDetailPage,
@@ -75,6 +86,7 @@ function StaffDetailPage() {
   const canRemove = useHasPermission(Permission.MEMBER_REMOVE);
   const canReadAuditLogs = useHasPermission(Permission.AUDIT_LOG_READ);
   const canReadHrRecord = useHasPermission(Permission.STAFF_HR_READ);
+  const canReadAcr = useHasPermission(Permission.ACR_READ);
   // D18: a staff card exposes HR data, so printing needs both permissions.
   const canPrintStaffCard = useHasPermission(Permission.DOCUMENT_PRINT) && canReadHrRecord;
   const currentUserId = useCurrentUserId();
@@ -87,6 +99,7 @@ function StaffDetailPage() {
     'memberships',
     ...(isTeacher ? (['teachingAssignments'] as const) : []),
     ...(canReadHrRecord ? (['hrRecord'] as const) : []),
+    ...(canReadAcr ? (['acr', 'incidents', 'performance'] as const) : []),
     ...(canPrintStaffCard ? (['documents'] as const) : []),
     ...(hasStaffProfile ? (['attendanceLeave'] as const) : []),
     ...(canReadAuditLogs ? (['loginHistory'] as const) : []),
@@ -131,6 +144,25 @@ function StaffDetailPage() {
             id: 'hrRecord',
             label: t('detail.tabs.hrRecord'),
             content: <HrRecordTab userId={userId} />,
+          },
+        ]
+      : []),
+    ...(canReadAcr
+      ? [
+          {
+            id: 'acr',
+            label: t('tabs.acr', { ns: 'evaluations' }),
+            content: <AcrTab userId={userId} />,
+          },
+          {
+            id: 'incidents',
+            label: t('tabs.incidents', { ns: 'evaluations' }),
+            content: <IncidentsTab userId={userId} />,
+          },
+          {
+            id: 'performance',
+            label: t('title', { ns: 'performance' }),
+            content: <PerformanceTab userId={userId} />,
           },
         ]
       : []),

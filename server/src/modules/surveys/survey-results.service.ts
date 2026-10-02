@@ -28,6 +28,8 @@ export class SurveyResultsService {
     @InjectRepository(Teacher) private readonly teacherRepo: Repository<Teacher>,
   ) {}
 
+  // Seal rule (CLOSED, pair count >= min, per-question n >= min) is duplicated in
+  // `teacherAverage` below; change both together.
   async getResults(surveyId: string, role: string, userId: string, tenantId: string) {
     if (!roleHasPermission(role, Permission.ACR_READ)) {
       throw new NotFoundException('Survey not found');
@@ -59,7 +61,7 @@ export class SurveyResultsService {
       ),
       this.surveyRepo.query(
         `SELECT r.teacher_id, r.subject_id, a.question_id, AVG(a.stars)::float AS avg,
-                COUNT(*)::int AS n
+                COUNT(a.stars)::int AS n
            FROM survey_answers a
            JOIN survey_responses r ON r.id = a.response_id AND r.tenant_id = a.tenant_id
           WHERE a.tenant_id = $1 AND r.survey_id = $2
@@ -98,8 +100,9 @@ export class SurveyResultsService {
         hidden: false,
         questions: questions.map((q) => {
           const row = stars.find((s) => pair(s) === k && s.question_id === q.id);
-          // Per-question gate: a question answered by fewer than min_responses
-          // people (others skipped it) could identify those few respondents.
+          // Per-question gate on STAR answers (text-only answers don't count, same as
+          // `teacherAverage`): a question starred by fewer than min_responses
+          // people (others skipped it or only commented) could identify those few respondents.
           if (!row || row.n < survey.min_responses) {
             return { questionId: q.id, text: q.text, averageStars: null, comments: [] };
           }
@@ -121,6 +124,53 @@ export class SurveyResultsService {
       anonymous: survey.anonymous,
       minResponses: survey.min_responses,
       results,
+    };
+  }
+
+  /**
+   * [28.4.3] Sealed per-teacher rollup for the staff performance view. Same seal
+   * rule as `getResults` (survey CLOSED, pair count >= min_responses, per-question
+   * star count >= min_responses) enforced in SQL; only aggregates leave the query
+   * (no respondent id, no timestamp). Caller handles the subject-404 (D2).
+   * WARNING: does NO role/permission check; callers must gate on ACR_READ themselves.
+   * Seal rule mirrors `getResults`; change both together.
+   */
+  async teacherAverage(
+    teacherUserId: string,
+    tenantId: string,
+  ): Promise<{ averageStars: number | null; surveyCount: number }> {
+    const teachers = await this.teacherRepo.find({
+      where: { user_id: teacherUserId, tenant_id: tenantId },
+      select: { id: true },
+    });
+    if (!teachers.length) return { averageStars: null, surveyCount: 0 };
+    const [row] = (await this.surveyRepo.query(
+      `WITH pairs AS (
+         SELECT r.survey_id, r.teacher_id, r.subject_id, s.min_responses
+           FROM survey_responses r
+           JOIN surveys s ON s.id = r.survey_id AND s.tenant_id = r.tenant_id
+          WHERE r.tenant_id = $1 AND r.teacher_id = ANY($2::uuid[]) AND s.status = 'CLOSED'
+          GROUP BY r.survey_id, r.teacher_id, r.subject_id, s.min_responses
+         HAVING COUNT(*) >= s.min_responses
+       ), q AS (
+         SELECT p.survey_id, SUM(a.stars)::float AS total, COUNT(a.stars)::int AS n
+           FROM pairs p
+           JOIN survey_responses r ON r.survey_id = p.survey_id AND r.teacher_id = p.teacher_id
+                AND r.subject_id = p.subject_id AND r.tenant_id = $1
+           JOIN survey_answers a ON a.response_id = r.id AND a.tenant_id = r.tenant_id
+          WHERE a.stars IS NOT NULL
+          GROUP BY p.survey_id, p.teacher_id, p.subject_id, p.min_responses, a.question_id
+         HAVING COUNT(a.stars) >= p.min_responses
+       )
+       SELECT COALESCE(SUM(total), 0)::float AS total, COALESCE(SUM(n), 0)::int AS n,
+              COUNT(DISTINCT survey_id)::int AS surveys
+         FROM q`,
+      [tenantId, teachers.map((t) => t.id)],
+    )) as { total: number; n: number; surveys: number }[];
+    if (!row || row.n === 0) return { averageStars: null, surveyCount: 0 };
+    return {
+      averageStars: Math.round((row.total / row.n) * 100) / 100,
+      surveyCount: row.surveys,
     };
   }
 }

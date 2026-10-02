@@ -160,6 +160,22 @@ describe('SurveyResultsService', () => {
     expect(q).toStrictEqual({ questionId: Q1, text: 'Clear?', averageStars: null, comments: [] });
   });
 
+  it('per-question n counts STAR answers only (COUNT(a.stars)), so text-only answers cannot unseal a question', async () => {
+    const query = vi.fn(async () => []);
+    const svc = new SurveyResultsService(
+      { findOne: vi.fn(async () => survey), query } as never,
+      { find: vi.fn(async () => []) } as never,
+      { find: vi.fn(async () => targets) } as never,
+      { find: vi.fn(async () => teachers) } as never,
+    );
+    await svc.getResults('s1', UserRole.ADMIN, 'admin', TENANT);
+    const avgSql = (query.mock.calls as unknown as [string][])
+      .map(([sql]) => sql)
+      .find((sql) => sql.includes('AVG('))!;
+    expect(avgSql).toContain('COUNT(a.stars)::int AS n');
+    expect(avgSql).not.toMatch(/COUNT\(\*\)/);
+  });
+
   it('while the survey is not CLOSED every pair is hidden, even at or above min_responses', async () => {
     counts = [{ teacher_id: T1, subject_id: S1, count: 9 }];
     survey.status = 'OPEN';

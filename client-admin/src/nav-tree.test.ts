@@ -1,3 +1,5 @@
+import { Permission, UserRole } from '@biddaloy/shared';
+import { hasPermission } from '@biddaloy/ui/hooks';
 import { QueryClient } from '@tanstack/react-query';
 import { createRouter } from '@tanstack/react-router';
 import { describe, expect, it } from 'vitest';
@@ -178,5 +180,15 @@ describe('matchesNavSearch — CommandPalette Page tab (30.5.1)', () => {
 
   it('does not match an unrelated term', () => {
     expect(matchesNavSearch('Attendance', ['routine', 'timetable'], 'invoice')).toBe(false);
+  });
+});
+
+describe('[28.4.1] Evaluations nav item', () => {
+  it('sits in the people group, gated on ACR_READ, which TEACHER lacks', () => {
+    const item = STAFF_NAV_ITEMS['people.evaluations'];
+    expect(item.permission).toBe(Permission.ACR_READ);
+    expect(hasPermission(UserRole.TEACHER, item.permission)).toBe(false);
+    expect(hasPermission(UserRole.ADMIN, item.permission)).toBe(true);
+    expect(allGroupItems()).toContain(item);
   });
 });

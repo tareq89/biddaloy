@@ -31,6 +31,7 @@ at hand instead of loading the whole set.
 | [17-programs.md](17-programs.md) | Working on `modules/programs` — a program's milestones, student enrolment/progress, the program fee audience, or the report-card Programs block |
 | [18-staff-attendance-leave.md](18-staff-attendance-leave.md) | Working on staff attendance, staff profiles, leave policies/requests, or the live leave-balance formula |
 | [19-student-lifecycle.md](19-student-lifecycle.md) | Working on a student leaving, graduating or being readmitted, student profile records / health notes / staff notes / public-exam results, or the admission and leaving report |
+| [17-evaluations-and-performance.md](17-evaluations-and-performance.md) | Working on staff ACR, incident reports, teacher surveys (and the sealed-results rule), or the student/class/staff Performance tabs |
 | [19-print-module.md](19-print-module.md) | Working on `modules/print` or `print/` in shared/client — templates and the editor, printer profiles, print jobs and history, the public `/v/:token` verify page, or adding a new document kind (admit card, certificate) |
 
 For practical "how do I run/develop/test this" instructions, see the root

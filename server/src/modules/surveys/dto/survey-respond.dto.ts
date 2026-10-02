@@ -90,10 +90,13 @@ export class SurveyResultsDto {
   results: SurveyPairResult[];
 }
 
-/** Response shapes for `GET /surveys/mine`. */
+/** Response shapes for `GET /surveys/mine` (documentation only; typed client reads these). */
 export class PendingPairDto {
   @ApiProperty() teacherId: string;
+  @ApiProperty() teacherName: string;
   @ApiProperty() subjectId: string;
+  @ApiProperty() subjectName: string;
+  @ApiProperty({ type: String, nullable: true }) subjectNameBn: string | null;
 }
 
 export class PendingSurveyQuestionDto {

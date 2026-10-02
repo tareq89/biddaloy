@@ -176,6 +176,18 @@ describe('resolveTenantSettings', () => {
     );
   });
 
+  describe('evaluations.incidentSmsEnabled (28.4.7)', () => {
+    it('is absent by default, passes a stored boolean through, drops junk', () => {
+      expect(resolveTenantSettings({})).not.toHaveProperty('evaluations');
+      expect(resolveTenantSettings({ evaluations: { incidentSmsEnabled: true } })).toMatchObject({
+        evaluations: { incidentSmsEnabled: true },
+      });
+      expect(
+        resolveTenantSettings({ evaluations: { incidentSmsEnabled: 'yes' } }),
+      ).not.toHaveProperty('evaluations');
+    });
+  });
+
   describe('fees.approvalMode (16.2.1)', () => {
     it('stored {} resolves to the default OTP', () => {
       expect(resolveTenantSettings({}).fees?.approvalMode).toBe('OTP');

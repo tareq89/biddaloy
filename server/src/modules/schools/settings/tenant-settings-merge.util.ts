@@ -117,6 +117,12 @@ export function mergeTenantSettings(
     merged.fees = patch.fees;
   }
 
+  // [28.4.7] Wholesale replace, like `fees`. The shared `TenantSettings`
+  // type does not carry `evaluations`; the DTO validates the one boolean.
+  if (patch.evaluations !== undefined) {
+    merged.evaluations = patch.evaluations;
+  }
+
   return merged;
 }
 

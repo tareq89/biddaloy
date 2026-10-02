@@ -1,6 +1,7 @@
 import type { HttpHandler } from 'msw';
 
 import { academicYearDefaultHandlers } from './handlers/academic-years';
+import { acrDefaultHandlers } from './handlers/acr';
 import { auditLogDefaultHandlers } from './handlers/audit-logs';
 import { authDefaultHandlers } from './handlers/auth';
 import { backupDefaultHandlers } from './handlers/backup';
@@ -10,12 +11,15 @@ import { enrollmentDefaultHandlers } from './handlers/enrollments';
 import { feeDefaultHandlers, feeStructureDefaultHandlers } from './handlers/fees';
 import { fineDefaultHandlers } from './handlers/fines';
 import { guardianDefaultHandlers } from './handlers/guardians';
+import { incidentDefaultHandlers } from './handlers/incidents';
 import { invitationDefaultHandlers } from './handlers/invitations';
 import { invoiceDefaultHandlers } from './handlers/invoices';
 import { paymentDefaultHandlers } from './handlers/payments';
+import { performanceDefaultHandlers } from './handlers/performance';
 import { publicHolidaySetsDefaultHandlers } from './handlers/public-holiday-sets';
 import { schoolsDefaultHandlers } from './handlers/schools';
 import { studentDefaultHandlers } from './handlers/students';
+import { surveyDefaultHandlers } from './handlers/surveys';
 import { teacherDefaultHandlers } from './handlers/teachers';
 import { userDefaultHandlers } from './handlers/users';
 
@@ -69,4 +73,8 @@ export const handlers: readonly HttpHandler[] = [
   ...auditLogDefaultHandlers,
   ...schoolsDefaultHandlers,
   ...publicHolidaySetsDefaultHandlers,
+  ...acrDefaultHandlers,
+  ...incidentDefaultHandlers,
+  ...surveyDefaultHandlers,
+  ...performanceDefaultHandlers,
 ];
