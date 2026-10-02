@@ -201,4 +201,48 @@ describe('validatePresetPack', () => {
   ])('flags %s', (_name, mutate, expected) => {
     expect(errorsFor(mutate)).toContain(expected);
   });
+
+  describe('choiceGroup', () => {
+    const row = (subjectCode: string, extra = {}) => ({ classGrade: 1, subjectCode, ...extra });
+    const withRows = (rows: PresetPack['classSubjects']) => (p: PresetPack) => {
+      p.classSubjects = rows;
+    };
+
+    it('accepts a 2-member group', () => {
+      expect(
+        errorsFor(withRows([row('BAN', { choiceGroup: 'L2' }), row('ENG', { choiceGroup: 'L2' })])),
+      ).toEqual([]);
+    });
+
+    it.each([
+      [
+        'empty name',
+        [row('BAN', { choiceGroup: ' ' }), row('ENG', { choiceGroup: ' ' })],
+        'classSubject 1/BAN: choiceGroup must be 1-50 characters',
+      ],
+      [
+        '>50 chars',
+        [row('BAN', { choiceGroup: 'x'.repeat(51) }), row('ENG', { choiceGroup: 'x'.repeat(51) })],
+        'classSubject 1/BAN: choiceGroup must be 1-50 characters',
+      ],
+      [
+        'with optional',
+        [row('BAN', { choiceGroup: 'L2', optional: true }), row('ENG', { choiceGroup: 'L2' })],
+        'classSubject 1/BAN: cannot be both choiceGroup and optional',
+      ],
+      [
+        'with group',
+        [row('BAN', { choiceGroup: 'L2', group: 'SCIENCE' }), row('ENG', { choiceGroup: 'L2' })],
+        'classSubject 1/BAN: cannot be both choiceGroup and group',
+      ],
+      [
+        'single member',
+        [row('BAN', { choiceGroup: 'L2' })],
+        'choice group L2 at class 1 needs at least 2 subjects',
+      ],
+      ['duplicate class+subject', [row('BAN'), row('BAN')], 'duplicate classSubject: 1/BAN'],
+    ])('flags %s', (_n, rows, expected) => {
+      expect(errorsFor(withRows(rows))).toContain(expected);
+    });
+  });
 });
