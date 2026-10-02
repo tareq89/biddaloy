@@ -93,4 +93,24 @@ export class AttachClassSubjectDto {
   @IsOptional()
   @IsBoolean()
   is_optional?: boolean;
+
+  /** [35.1.2] Must be in `organisation.groups`; ''/null = not group-specific. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  group_name?: string | null;
+}
+
+export class UpdateClassSubjectDto {
+  @IsUUID()
+  academic_year_id: string;
+
+  @IsOptional()
+  @IsBoolean()
+  is_optional?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  group_name?: string | null;
 }

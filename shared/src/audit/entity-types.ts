@@ -28,6 +28,7 @@ export const AUDIT_ENTITY_TYPES = [
   'CalendarFeedToken',
   'Class',
   'ClassSection',
+  'CurriculumPreset',
   'Designation',
   'DiscountRule',
   'Enrollment',

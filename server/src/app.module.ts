@@ -73,6 +73,7 @@ import { Homework } from './modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from './modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from './modules/homework/entities/homework-submission.entity';
 import { SeatPlansModule } from './modules/seat-plans/seat-plans.module';
+import { PresetsModule } from './modules/presets/presets.module';
 import { PrintModule } from './modules/print/print.module';
 import { SeatPlan } from './modules/seat-plans/entities/seat-plan.entity';
 import { SeatPlanSchedule } from './modules/seat-plans/entities/seat-plan-schedule.entity';
@@ -94,6 +95,8 @@ import { StaffTraining } from './modules/staff-hr/entities/staff-training.entity
 import { StaffAchievement } from './modules/staff-hr/entities/staff-achievement.entity';
 import { StaffLanguage } from './modules/staff-hr/entities/staff-language.entity';
 import { StaffDocument } from './modules/staff-hr/entities/staff-document.entity';
+import { ExamTemplate } from './modules/exams/entities/exam-template.entity';
+import { ExamTemplateComponent } from './modules/exams/entities/exam-template-component.entity';
 import { PrintTemplate } from './modules/print/entities/print-template.entity';
 import { PrintTemplateVersion } from './modules/print/entities/print-template-version.entity';
 import { PrintAsset } from './modules/print/entities/print-asset.entity';
@@ -298,6 +301,8 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             StaffAchievement,
             StaffLanguage,
             StaffDocument,
+            ExamTemplate,
+            ExamTemplateComponent,
             PrintTemplate,
             PrintTemplateVersion,
             PrintAsset,
@@ -407,6 +412,7 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     HomeworkModule,
     AdmissionModule,
     SeatPlansModule,
+    PresetsModule,
     PrintModule,
     ProgramsModule,
     PromotionsModule,

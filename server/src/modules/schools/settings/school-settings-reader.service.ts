@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import type { ApprovalMode, OrganisationSettings, RoutineSettings } from '@biddaloy/shared';
+import type {
+  ApprovalMode,
+  OrganisationSettings,
+  PresetSettings,
+  RoutineSettings,
+} from '@biddaloy/shared';
 import { SchoolsService } from '../schools.service';
 
 /**
@@ -25,6 +30,13 @@ export class SchoolSettingsReader {
     // fills it from `DEFAULT_FEES_SETTINGS`), so this non-null assertion
     // reflects that invariant rather than papering over an unknown case.
     return settings.fees!.approvalMode;
+  }
+
+  /** [35.1.2] The tenant's applied curriculum preset, or `undefined` if none
+   * has been applied. Read-only: the settings PATCH can never write it. */
+  async preset(tenantId: string): Promise<PresetSettings | undefined> {
+    const settings = await this.schoolsService.getResolvedSettings(tenantId);
+    return settings.preset;
   }
 
   /** [33.2.1] The tenant's `settings.organisation` — shift/version/group

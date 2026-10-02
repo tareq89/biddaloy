@@ -121,6 +121,8 @@ export enum Permission {
 
   // Settings
   SETTINGS_MANAGE = 'SETTINGS_MANAGE',
+  // [35.1.1] Apply a curriculum preset to a fresh tenant — ADMIN only.
+  CURRICULUM_PRESET_APPLY = 'CURRICULUM_PRESET_APPLY',
   // [16.2.1] Manage a recurring fee-generation `RecurringSchedule` (16.x).
   SCHEDULE_MANAGE = 'SCHEDULE_MANAGE',
   // [16.2.1] Manage a `DiscountRule` (16.x) — who qualifies for what
@@ -312,6 +314,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // [10.4] G6 — per-entity Activity tab; see enum comment.
     Permission.AUDIT_ENTITY_HISTORY_READ,
     Permission.SETTINGS_MANAGE,
+    Permission.CURRICULUM_PRESET_APPLY,
     // [16.2.1] Recurring fee-generation schedules and discount rules.
     Permission.SCHEDULE_MANAGE,
     Permission.DISCOUNT_RULE_MANAGE,

@@ -74,6 +74,10 @@ export class ClassSubject {
   @Column({ type: 'boolean', default: false })
   is_optional: boolean;
 
+  /** #1266 validated against `organisation.groups`; NULL = not group-specific. */
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  group_name: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

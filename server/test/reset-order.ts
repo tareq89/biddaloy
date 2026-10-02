@@ -112,6 +112,8 @@ export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'marks',
   'student_subject_choices',
   'exam_components',
+  'exam_template_components',
+  'exam_templates',
   'exam_schedules',
   'exams',
   'grading_bands',

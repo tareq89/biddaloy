@@ -176,6 +176,16 @@ describe('UserService (integration)', () => {
   //  create()
   // ────────────────────────
   describe('create', () => {
+    it('[#731] rejects SUPER_ADMIN and writes no user or membership', async () => {
+      await expect(
+        service.create(
+          { full_name: 'Esc', email: 'esc731@example.com', role: UserRole.SUPER_ADMIN },
+          TENANT_ID,
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(await userRepo.count({ where: { email: 'esc731@example.com' } })).toBe(0);
+    });
+
     it('should create a user with email, password, and role membership', async () => {
       const result = await service.create(
         {

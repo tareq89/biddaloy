@@ -85,6 +85,8 @@ import { Designation } from '../src/modules/staff-hr/entities/designation.entity
 import { StaffHrRecord } from '../src/modules/staff-hr/entities/staff-hr-record.entity';
 import { StaffDesignationHistory } from '../src/modules/staff-hr/entities/staff-designation-history.entity';
 import { StaffDocument } from '../src/modules/staff-hr/entities/staff-document.entity';
+import { ExamTemplate } from '../src/modules/exams/entities/exam-template.entity';
+import { ExamTemplateComponent } from '../src/modules/exams/entities/exam-template-component.entity';
 import { PrintTemplate } from '../src/modules/print/entities/print-template.entity';
 import { PrintTemplateVersion } from '../src/modules/print/entities/print-template-version.entity';
 import { PrintAsset } from '../src/modules/print/entities/print-asset.entity';
@@ -201,6 +203,8 @@ export const ALL_ENTITIES = [
   StaffHrRecord,
   StaffDesignationHistory,
   StaffDocument,
+  ExamTemplate,
+  ExamTemplateComponent,
   PrintTemplate,
   PrintTemplateVersion,
   PrintAsset,
