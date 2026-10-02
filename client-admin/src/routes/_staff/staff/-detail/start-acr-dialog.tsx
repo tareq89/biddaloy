@@ -54,6 +54,7 @@ export function StartAcrDialog({ open, onOpenChange, staffUserId }: StartAcrDial
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (start.isPending) return;
     const next: { staff?: string; year?: string } = {};
     if (!staff) next.staff = t('acr.errorStaff');
     if (!yearId) next.year = t('acr.errorYear');

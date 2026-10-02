@@ -73,6 +73,7 @@ export function ReportIncidentDialog({
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (report.isPending) return;
     const next: Errors = {};
     if (!staff) next.staff = t('incident.errorStaff');
     if (!type) next.type = t('incident.errorType');
