@@ -17,6 +17,9 @@ export const AUDIT_ENTITY_TYPES = [
   'AbsenceNoticePreview',
   'AcademicTerm',
   'AcademicYear',
+  // [Epic 28] ACR. Audit reads hide AcrAssessment rows about the caller (D2).
+  'AcrAssessment',
+  'AcrFormVersion',
   'ApprovalToken',
   'AttendanceDevice',
   'AttendanceRecord',

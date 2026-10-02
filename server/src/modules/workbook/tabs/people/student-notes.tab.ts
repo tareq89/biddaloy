@@ -25,6 +25,7 @@ export interface StudentNoteRow {
   student_id: string;
   author_user_id: string;
   body: string;
+  rating: number | null;
   created_at: string;
   student_key: string;
   author_key: string;
@@ -49,6 +50,7 @@ const columns: readonly ColumnSpec[] = [
     label: { en: 'Author', bn: 'লেখক' },
   },
   { key: 'body', type: 'string', required: true, label: { en: 'Note', bn: 'নোট' } },
+  { key: 'rating', type: 'int', label: { en: 'Rating (1-5)', bn: 'রেটিং (১-৫)' } },
   {
     // Part of the natural key, so required and restored verbatim.
     key: 'created_at',
@@ -101,6 +103,7 @@ export const studentNotesTab: TabSpec<StudentNote, StudentNoteRow> = {
       student: ctx.keyOf('students', entity.student_id),
       author: ctx.keyOf('users', entity.author_user_id),
       body: entity.body,
+      rating: entity.rating,
       created_at: entity.created_at,
     };
   },
@@ -120,6 +123,22 @@ export const studentNotesTab: TabSpec<StudentNote, StudentNoteRow> = {
     }
     if (errors.length > 0) return { errors };
 
+    const rating = values.rating as number | null;
+    if (rating !== null && (rating < 1 || rating > 5)) {
+      return {
+        errors: [
+          {
+            tab: 'student_notes',
+            row: rowNo,
+            column: 'rating',
+            message: 'Column "rating": must be a whole number from 1 to 5.',
+            severity: 'error',
+            value: String(rating),
+          },
+        ],
+      };
+    }
+
     const studentKey = values.student as string;
     const studentId = ctx.ref('students', studentKey);
     if (!studentId) errors.push(unresolved(rowNo, 'student', studentKey, 'student'));
@@ -136,6 +155,7 @@ export const studentNotesTab: TabSpec<StudentNote, StudentNoteRow> = {
         student_id: studentId as string,
         author_user_id: authorId as string,
         body: values.body as string,
+        rating,
         created_at: values.created_at as string,
         student_key: studentKey,
         author_key: authorKey,
@@ -156,6 +176,7 @@ export const studentNotesTab: TabSpec<StudentNote, StudentNoteRow> = {
     if (row.student_id !== existing.student_id) changed.push('student');
     if (row.author_user_id !== existing.author_user_id) changed.push('author');
     if (row.body !== existing.body) changed.push('body');
+    if (row.rating !== (existing.rating ?? null)) changed.push('rating');
     if (row.created_at !== formatDateTime(existing.created_at)) changed.push('created_at');
     return changed;
   },
@@ -171,6 +192,7 @@ export const studentNotesTab: TabSpec<StudentNote, StudentNoteRow> = {
     note.student_id = row.student_id;
     note.author_user_id = row.author_user_id;
     note.body = row.body;
+    note.rating = row.rating;
     note.created_at = new Date(row.created_at);
     return m.save(StudentNote, note);
   },

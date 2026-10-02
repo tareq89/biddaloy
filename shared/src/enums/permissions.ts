@@ -234,6 +234,10 @@ export enum Permission {
   // [23.2.1] Create/edit a Designation/StaffHrRecord and promote a staff
   // member's designation — ADMIN only (D9).
   STAFF_HR_MANAGE = 'STAFF_HR_MANAGE',
+  // [28.1.1] Read / write ACR assessments, incidents, surveys and the
+  // Performance views — ADMIN only for now (D6, D8).
+  ACR_READ = 'ACR_READ',
+  ACR_WRITE = 'ACR_WRITE',
 
   // Staff Attendance & Leave (36.x)
   // [36.1.1] Read a StaffAttendanceRecord. Every tenant role holds it for
@@ -361,6 +365,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // [23.2.1] Staff HR — ADMIN only (D9).
     Permission.STAFF_HR_READ,
     Permission.STAFF_HR_MANAGE,
+    // [28.1.1] ACR — ADMIN only (D6, D8).
+    Permission.ACR_READ,
+    Permission.ACR_WRITE,
     // [36.1.1] Own record + all-staff read, mark own record, approve leave.
     Permission.STAFF_ATTENDANCE_READ,
     Permission.STAFF_ATTENDANCE_MARK,

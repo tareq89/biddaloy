@@ -286,6 +286,27 @@ export const IDENTITY_SCOPED: IdentityScopedEntry[] = [
       '[36.3] same rationale — every role can view the tenant quotas; only editing them ' +
       '(PUT /leave/policies/:type) requires LEAVE_APPROVE.',
   },
+  {
+    controller: 'SurveyRespondController',
+    method: 'GET',
+    path: '/surveys/mine',
+    reason:
+      '[28.4.2] self-service: pending pairs come from the JWT sub via FamilyAccessService linkage; PARENT/STUDENT hold no survey permission to grant or withhold',
+  },
+  {
+    controller: 'SurveyRespondController',
+    method: 'POST',
+    path: '/surveys/:id/respond',
+    reason:
+      '[28.4.2] identity-scoped: D11 eligibility (caller-linked student taught that exact subject by that teacher, pair in survey_targets) checked in SurveyRespondService',
+  },
+  {
+    controller: 'SurveyResultsController',
+    method: 'GET',
+    path: '/surveys/:id/results',
+    reason:
+      '[28.4.2] D2: ACR_READ checked in-service, not via @RequirePermissions, so a TEACHER or target teacher gets 404, never 403',
+  },
 ];
 
 function findIdentityScopedEntry(

@@ -44,6 +44,10 @@ export class StudentNote {
   @Column({ type: 'text' })
   body: string;
 
+  /** [28.1.2] Optional 1-5 rating (CHECK in the migration). */
+  @Column({ type: 'smallint', nullable: true })
+  rating: number | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

@@ -55,6 +55,20 @@ import { StaffAttendanceRecord } from './modules/staff-attendance/entities/staff
 import { LeaveModule } from './modules/leave/leave.module';
 import { LeaveRecord } from './modules/leave/entities/leave-record.entity';
 import { LeavePolicy } from './modules/leave/entities/leave-policy.entity';
+import { AcrModule } from './modules/acr/acr.module';
+import { IncidentsModule } from './modules/incidents/incidents.module';
+import { SurveysModule } from './modules/surveys/surveys.module';
+import { PerformanceModule } from './modules/performance/performance.module';
+import { AcrFormVersion } from './modules/acr/entities/acr-form-version.entity';
+import { AcrCriterion } from './modules/acr/entities/acr-criterion.entity';
+import { AcrAssessment } from './modules/acr/entities/acr-assessment.entity';
+import { AcrScore } from './modules/acr/entities/acr-score.entity';
+import { StaffIncident } from './modules/incidents/entities/staff-incident.entity';
+import { Survey } from './modules/surveys/entities/survey.entity';
+import { SurveyQuestion } from './modules/surveys/entities/survey-question.entity';
+import { SurveyTarget } from './modules/surveys/entities/survey-target.entity';
+import { SurveyResponse } from './modules/surveys/entities/survey-response.entity';
+import { SurveyAnswer } from './modules/surveys/entities/survey-answer.entity';
 import { Homework } from './modules/homework/entities/homework.entity';
 import { HomeworkAssignment } from './modules/homework/entities/homework-assignment.entity';
 import { HomeworkSubmission } from './modules/homework/entities/homework-submission.entity';
@@ -308,6 +322,16 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
             StaffAttendanceRecord,
             LeaveRecord,
             LeavePolicy,
+            AcrFormVersion,
+            AcrCriterion,
+            AcrAssessment,
+            AcrScore,
+            StaffIncident,
+            Survey,
+            SurveyQuestion,
+            SurveyTarget,
+            SurveyResponse,
+            SurveyAnswer,
           ],
           synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
           migrations: ['dist/migrations/*.js'],
@@ -396,6 +420,10 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
     StaffProfilesModule,
     StaffAttendanceModule,
     LeaveModule,
+    AcrModule,
+    IncidentsModule,
+    SurveysModule,
+    PerformanceModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

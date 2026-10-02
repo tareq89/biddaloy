@@ -9,6 +9,7 @@ import {
   createReminderBatch,
   createStaffUser,
   createStudentWithDues,
+  post,
   findSchoolIdBySlug,
   superAdminApiSession,
   type ApiSession,
@@ -55,6 +56,14 @@ export async function resolvePath(
   }
   const session: ApiSession = await sharedAdminSession(request);
   const stamp = Date.now();
+  if (route.path.includes('$templateId')) {
+    // [32.4.1] The full-screen template editor needs a real template to open.
+    const template = await post<{ id: string }>(request, session, '/print-templates', {
+      name: `Reflow Template ${stamp}`,
+      suggestion_key: 'student-portrait-classic',
+    });
+    return route.path.replace('$templateId', template.id);
+  }
   if (route.path.includes('$studentId')) {
     const { studentId } = await createStudentWithDues(request, session, `Reflow Student ${stamp}`);
     return route.path.replace('$studentId', studentId);

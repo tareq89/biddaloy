@@ -140,6 +140,16 @@ describe('EXPECTED_TABS', () => {
       'print_assets',
       'print_templates',
       'print_template_versions',
+      'acr_form_versions',
+      'acr_criteria',
+      'acr_assessments',
+      'acr_scores',
+      'staff_incidents',
+      'surveys',
+      'survey_questions',
+      'survey_targets',
+      'survey_responses',
+      'survey_answers',
     ]);
   });
 

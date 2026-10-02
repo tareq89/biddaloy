@@ -14,3 +14,4 @@ export * from './audit/entity-types';
 export * from './sms/segments';
 export * from './dto/designation.dto';
 export * from './dto/staff-hr-record.dto';
+export * from './dto/evaluations';
