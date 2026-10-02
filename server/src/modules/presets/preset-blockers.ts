@@ -13,6 +13,11 @@ import { SyllabusTopic } from '../homework/entities/syllabus-topic.entity';
 import { RoutineSlot } from '../routines/entities/routine-slot.entity';
 import { CalendarEvent } from '../calendar/entities/calendar-event.entity';
 import { PromotionRun } from '../promotions/entities/promotion-run.entity';
+import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
+import { Routine } from '../routines/entities/routine.entity';
+import { AdmissionIntake } from '../admission/entities/admission-intake.entity';
+import { RecurringSchedule } from '../fees/entities/recurring-schedule.entity';
+import { FineRule } from '../fees/entities/fine-rule.entity';
 import { AttendanceSession } from '../attendance/entities/attendance-session.entity';
 
 export interface BlockerEntity {
@@ -44,6 +49,13 @@ export const RESET_BLOCKER_ENTITIES: BlockerEntity[] = [
   { label: 'calendar events', entity: CalendarEvent },
   { label: 'promotion runs', entity: PromotionRun },
   { label: 'attendance sessions', entity: AttendanceSession },
+  { label: 'teacher assignments', entity: TeacherClassSection },
+  { label: 'routines', entity: Routine },
+  { label: 'admission intakes', entity: AdmissionIntake },
+  { label: 'recurring fee schedules', entity: RecurringSchedule },
+  { label: 'fine rules', entity: FineRule },
+  // Deliberately NOT blockers: attendance_devices (hardware registration, only an optional
+  // SET NULL link to a section) and exam_schedules (needs an exam, and exams are a blocker).
 ];
 
 /** Counts the tenant's non-deleted rows per entity (soft-deleted rows are excluded by TypeORM). */
@@ -52,10 +64,13 @@ export async function countRows(
   tenantId: string,
   list: BlockerEntity[],
 ): Promise<{ entity: string; count: number }[]> {
-  return Promise.all(
-    list.map(async ({ label, entity }) => ({
+  // Sequential: a transaction holds one connection, so Promise.all just queues on it.
+  const out: { entity: string; count: number }[] = [];
+  for (const { label, entity } of list) {
+    out.push({
       entity: label,
       count: await manager.getRepository(entity).count({ where: { tenant_id: tenantId } }),
-    })),
-  );
+    });
+  }
+  return out;
 }
