@@ -104,6 +104,17 @@ describe('students/-detail/notes-tab', () => {
     await user.click(within(dialog).getByRole('button', { name: '4 out of 5' }));
     await user.click(within(dialog).getByRole('button', { name: 'Save note' }));
     await waitFor(() => expect(posted).toEqual([{ body: 'Great week', rating: 4 }]));
+
+    await user.click(await screen.findByRole('button', { name: 'Add note' }));
+    const clearDialog = await screen.findByRole('dialog');
+    await user.type(within(clearDialog).getByLabelText('Note'), 'No rating');
+    const fourStar = within(clearDialog).getByRole('button', { name: '4 out of 5' });
+    await user.click(fourStar);
+    await user.click(fourStar);
+    await user.click(within(clearDialog).getByRole('button', { name: 'Save note' }));
+    await waitFor(() =>
+      expect(posted).toEqual([{ body: 'Great week', rating: 4 }, { body: 'No rating' }]),
+    );
   });
 
   it('shows a saved rating on the card', async () => {
