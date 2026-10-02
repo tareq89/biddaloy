@@ -14,7 +14,6 @@ import {
   createTeacher,
   createTeacherForSection,
   currentAcademicYearId,
-  post,
   findSchoolIdBySlug,
   post,
   superAdminApiSession,
