@@ -11062,7 +11062,10 @@ export interface components {
         };
         PendingPairDto: {
             teacherId: string;
+            teacherName: string;
             subjectId: string;
+            subjectName: string;
+            subjectNameBn: string | null;
         };
         PendingSurveyDto: {
             id: string;

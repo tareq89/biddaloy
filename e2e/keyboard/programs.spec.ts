@@ -147,6 +147,7 @@ test.describe('admin', () => {
     });
 
     await test.step('open the new program', async () => {
+      // 150, not 60: the admin sidebar alone is ~60 tab stops and Epic 28 added Evaluations.
       await tabUntilFocused(page, name, 150, { tag: 'A' });
       await page.keyboard.press('Enter');
       await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();

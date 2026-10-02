@@ -61,6 +61,7 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
   '/portal/exam-schedule': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/fees': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/routine': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
+  '/portal/surveys': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/results': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/syllabus': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
   '/portal/programs': 'guardian portal uses bottom tab nav, no breadcrumb chrome',
@@ -91,6 +92,11 @@ export const ROUTE_CRUMBS: Record<string, RouteCrumbs | NoCrumbReason> = {
     { label: { key: 'teachingAssignments' } },
   ],
   '/_staff/staff/evaluations': [{ label: { entity: 'staff' } }, { label: { key: 'evaluations' } }],
+  // [28.4.2] The survey's own title is the page heading, so the trail stops at Evaluations.
+  '/_staff/staff/evaluations_/surveys/$surveyId': [
+    { label: { entity: 'staff' } },
+    { label: { key: 'evaluations' }, dynamic: 'entity' },
+  ],
   '/_staff/programs/': [{ label: { key: 'programs' } }],
   '/_staff/programs/$programId': [
     { label: { key: 'programs' } },

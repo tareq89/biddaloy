@@ -220,7 +220,15 @@ describe('[28.4.2] Survey respond and results', () => {
     const t = tokens[GUARDIAN_TAUGHT];
     const mine = await call('get', '/surveys/mine', t, UserRole.PARENT).expect(200);
     const s = mine.body.find((x: { id: string }) => x.id === surveyId);
-    expect(s.pending).toEqual([{ teacherId, subjectId }]);
+    expect(s.pending).toEqual([
+      {
+        teacherId,
+        teacherName: expect.stringMatching(/\S/),
+        subjectId,
+        subjectName: 'Survey Subject',
+        subjectNameBn: null,
+      },
+    ]);
 
     await call('post', respondPath(surveyId), t, UserRole.PARENT).send(answer()).expect(201);
     await call('post', respondPath(surveyId), t, UserRole.PARENT).send(answer()).expect(409);

@@ -1,6 +1,7 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, LessThan, Repository } from 'typeorm';
+import { PushService } from '../push/push.service';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { Survey } from './entities/survey.entity';
 import { SurveyQuestion } from './entities/survey-question.entity';
@@ -29,7 +30,60 @@ export class SurveysService {
     @InjectRepository(SurveyTarget) private readonly targetRepo: Repository<SurveyTarget>,
     @InjectRepository(TeacherClassSection)
     private readonly tcsRepo: Repository<TeacherClassSection>,
+    private readonly push: PushService,
   ) {}
+
+  private readonly logger = new Logger(SurveysService.name);
+
+  /**
+   * [28.4 D12] Best-effort, text-free push to everyone who can answer: the
+   * linked students' own accounts and guardians, narrowed by `respondent`.
+   * Survey text is never sent, only a fixed title. Never throws.
+   */
+  private async notifyRespondents(
+    surveyId: string,
+    respondent: string,
+    tenantId: string,
+  ): Promise<void> {
+    try {
+      const rows: { user_id: string }[] = await this.surveyRepo.query(
+        `SELECT DISTINCT uid AS user_id FROM (
+           SELECT s.user_id AS uid
+             FROM survey_targets st
+             JOIN teacher_class_sections tcs ON tcs.tenant_id = st.tenant_id
+              AND tcs.teacher_id = st.teacher_id AND tcs.subject_id = st.subject_id
+             JOIN students s ON s.tenant_id = st.tenant_id AND s.class_section_id = tcs.section_id
+              AND s.deleted_at IS NULL AND s.enrollment_status = 'ACTIVE'
+            WHERE st.tenant_id = $1 AND st.survey_id = $2 AND $3 <> 'GUARDIANS'
+           UNION
+           SELECT g.user_id AS uid
+             FROM survey_targets st
+             JOIN teacher_class_sections tcs ON tcs.tenant_id = st.tenant_id
+              AND tcs.teacher_id = st.teacher_id AND tcs.subject_id = st.subject_id
+             JOIN students s ON s.tenant_id = st.tenant_id AND s.class_section_id = tcs.section_id
+              AND s.deleted_at IS NULL AND s.enrollment_status = 'ACTIVE'
+             JOIN student_guardians sg ON sg.student_id = s.id
+             JOIN guardians g ON g.id = sg.guardian_id AND g.tenant_id = st.tenant_id
+            WHERE st.tenant_id = $1 AND st.survey_id = $2 AND $3 <> 'STUDENTS'
+         ) r WHERE uid IS NOT NULL`,
+        [tenantId, surveyId, respondent],
+      );
+      await Promise.all(
+        rows.map((r) =>
+          this.push
+            .sendToUser(r.user_id, tenantId, {
+              type: 'survey.published',
+              title: 'New teacher survey',
+              body: 'New teacher survey',
+              url: '/portal/surveys',
+            })
+            .catch((e) => this.logger.warn(`survey push failed: ${String(e)}`)),
+        ),
+      );
+    } catch (e) {
+      this.logger.warn(`survey notify failed for ${surveyId}: ${String(e)}`);
+    }
+  }
 
   /** Each (teacher, subject) must be a real assignment in this tenant. */
   private async assertTargetsValid(
@@ -218,6 +272,8 @@ export class SurveysService {
       locked.status = 'OPEN';
       await manager.save(Survey, locked);
     });
+    // Fire-and-forget: a slow or failing push must never delay or fail publish.
+    void this.notifyRespondents(id, survey.respondent, tenantId);
     return this.findOne(id, tenantId);
   }
 

@@ -33,6 +33,7 @@ import bnHomework from '../ui/src/i18n/locales/bn/homework.json';
 import bnLeave from '../ui/src/i18n/locales/bn/leave.json';
 import bnNav from '../ui/src/i18n/locales/bn/nav.json';
 import bnPayments from '../ui/src/i18n/locales/bn/payments.json';
+import bnPerformance from '../ui/src/i18n/locales/bn/performance.json';
 import bnPlatform from '../ui/src/i18n/locales/bn/platform.json';
 import bnPortal from '../ui/src/i18n/locales/bn/portal.json';
 import bnPrintEditor from '../ui/src/i18n/locales/bn/printEditor.json';
@@ -81,6 +82,7 @@ import enHomework from '../ui/src/i18n/locales/en/homework.json';
 import enLeave from '../ui/src/i18n/locales/en/leave.json';
 import enNav from '../ui/src/i18n/locales/en/nav.json';
 import enPayments from '../ui/src/i18n/locales/en/payments.json';
+import enPerformance from '../ui/src/i18n/locales/en/performance.json';
 import enPlatform from '../ui/src/i18n/locales/en/platform.json';
 import enPortal from '../ui/src/i18n/locales/en/portal.json';
 import enPrintEditor from '../ui/src/i18n/locales/en/printEditor.json';
@@ -121,6 +123,7 @@ const catalogs = {
     common: bnCommon,
     communications: bnCommunications,
     evaluations: bnEvaluations,
+    performance: bnPerformance,
     exams: bnExams,
     feeGeneration: bnFeeGeneration,
     fees: bnFees,
@@ -171,6 +174,7 @@ const catalogs = {
     common: enCommon,
     communications: enCommunications,
     evaluations: enEvaluations,
+    performance: enPerformance,
     exams: enExams,
     feeGeneration: enFeeGeneration,
     fees: enFees,

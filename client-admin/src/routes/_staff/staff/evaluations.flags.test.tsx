@@ -34,6 +34,7 @@ describe('evaluations palette flags', () => {
   it.each([
     ['reportIncident=1', 'Report an incident'],
     ['startAcr=1', 'Start an ACR'],
+    ['publishSurvey=1', 'New teacher survey'],
   ])('?%s opens its dialog for ACR_WRITE and clears the flag', async (search, title) => {
     const { router } = mount(search);
     expect(await screen.findByRole('dialog', { name: title }, { timeout: 4000 })).toBeTruthy();
@@ -42,7 +43,7 @@ describe('evaluations palette flags', () => {
     );
   });
 
-  it.each(['reportIncident=1', 'startAcr=1'])(
+  it.each(['reportIncident=1', 'startAcr=1', 'publishSurvey=1'])(
     '?%s opens nothing without ACR_WRITE',
     async (search) => {
       denyWrite.value = true;

@@ -9,6 +9,7 @@ describe('SurveysService', () => {
   let questionRepo: Record<string, ReturnType<typeof vi.fn>>;
   let targetRepo: Record<string, ReturnType<typeof vi.fn>>;
   let tcsRepo: { findOne: ReturnType<typeof vi.fn> };
+  let push: { sendToUser: ReturnType<typeof vi.fn> };
   let service: SurveysService;
 
   const base = (over: Record<string, unknown> = {}) => ({
@@ -45,11 +46,14 @@ describe('SurveysService', () => {
     questionRepo = { find: vi.fn(async () => []), count: vi.fn(async () => 1) };
     targetRepo = { find: vi.fn(async () => []), count: vi.fn(async () => 1) };
     tcsRepo = { findOne: vi.fn(async () => ({ id: 'tcs-1' })) };
+    push = { sendToUser: vi.fn(async () => ({})) };
+    surveyRepo.query = vi.fn(async () => [{ user_id: 'u1' }, { user_id: 'u2' }]);
     service = new SurveysService(
       surveyRepo as never,
       questionRepo as never,
       targetRepo as never,
       tcsRepo as never,
+      push as never,
     );
   });
 
@@ -104,5 +108,30 @@ describe('SurveysService', () => {
   it('refuses to publish a survey with no questions', async () => {
     questionRepo.count.mockResolvedValue(0);
     await expect(service.publish('s1', TENANT)).rejects.toThrow(BadRequestException);
+  });
+
+  it('publish pushes a text-free notice to each respondent, tenant-scoped', async () => {
+    survey = base({ title: 'SECRET-TITLE', respondent: 'GUARDIANS' });
+    await service.publish('s1', TENANT);
+    await vi.waitFor(() => expect(push.sendToUser).toHaveBeenCalledTimes(2));
+    expect(surveyRepo.query).toHaveBeenCalledWith(expect.any(String), [TENANT, 's1', 'GUARDIANS']);
+    const [uid, tenant, payload] = push.sendToUser.mock.calls[0] as [string, string, object];
+    expect([uid, tenant]).toEqual(['u1', TENANT]);
+    expect(payload).toMatchObject({ url: '/portal/surveys' });
+    expect(JSON.stringify(payload)).not.toContain('SECRET-TITLE');
+  });
+
+  it('a failing push or lookup never fails publish', async () => {
+    push.sendToUser.mockRejectedValue(new Error('boom'));
+    await expect(service.publish('s1', TENANT)).resolves.toBeDefined();
+    surveyRepo.query.mockRejectedValue(new Error('db'));
+    survey = base();
+    await expect(service.publish('s1', TENANT)).resolves.toBeDefined();
+  });
+
+  it('a refused publish sends no push', async () => {
+    questionRepo.count.mockResolvedValue(0);
+    await expect(service.publish('s1', TENANT)).rejects.toThrow(BadRequestException);
+    expect(push.sendToUser).not.toHaveBeenCalled();
   });
 });

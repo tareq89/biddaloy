@@ -21,7 +21,13 @@ export interface PendingSurvey {
   anonymous: boolean;
   closesAt: Date | null;
   questions: { id: string; text: string; starsEnabled: boolean }[];
-  pending: { teacherId: string; subjectId: string }[];
+  pending: {
+    teacherId: string;
+    teacherName: string;
+    subjectId: string;
+    subjectName: string;
+    subjectNameBn: string | null;
+  }[];
 }
 
 type PairRow = { survey_id: string; teacher_id: string; subject_id: string };
@@ -85,6 +91,29 @@ export class SurveyRespondService {
     );
   }
 
+  /** Display names for the already-eligible pairs only (no wider identity leak); tenant-scoped. */
+  private async pairNames(pairs: PairRow[], tenantId: string) {
+    const teachers = new Map<string, string>();
+    const subjects = new Map<string, { en: string; bn: string | null }>();
+    if (pairs.length === 0) return { teachers, subjects };
+    const teacherIds = [...new Set(pairs.map((p) => p.teacher_id))];
+    const subjectIds = [...new Set(pairs.map((p) => p.subject_id))];
+    const [t, sub] = await Promise.all([
+      this.surveyRepo.query(
+        `SELECT t.id, u.full_name FROM teachers t JOIN users u ON u.id = t.user_id
+          WHERE t.tenant_id = $1 AND t.id = ANY($2::uuid[])`,
+        [tenantId, teacherIds],
+      ) as Promise<{ id: string; full_name: string }[]>,
+      this.surveyRepo.query(
+        `SELECT id, name_en, name_bn FROM subjects WHERE tenant_id = $1 AND id = ANY($2::uuid[])`,
+        [tenantId, subjectIds],
+      ) as Promise<{ id: string; name_en: string; name_bn: string | null }[]>,
+    ]);
+    t.forEach((r) => teachers.set(r.id, r.full_name));
+    sub.forEach((r) => subjects.set(r.id, { en: r.name_en, bn: r.name_bn }));
+    return { teachers, subjects };
+  }
+
   async listMine(role: string, userId: string, tenantId: string): Promise<PendingSurvey[]> {
     const now = new Date();
     const open = (
@@ -105,6 +134,8 @@ export class SurveyRespondService {
         order: { sort_order: 'ASC' },
       }),
     ]);
+    // Names for the portal: PARENT/STUDENT cannot read /teachers or /subjects.
+    const names = await this.pairNames(eligible, tenantId);
     const key = (r: PairRow) => `${r.survey_id}:${r.teacher_id}:${r.subject_id}`;
     const answered = new Set(done.map(key));
 
@@ -119,7 +150,13 @@ export class SurveyRespondService {
           .map((q) => ({ id: q.id, text: q.text, starsEnabled: q.stars_enabled })),
         pending: eligible
           .filter((e) => e.survey_id === s.id && !answered.has(key(e)))
-          .map((e) => ({ teacherId: e.teacher_id, subjectId: e.subject_id })),
+          .map((e) => ({
+            teacherId: e.teacher_id,
+            teacherName: names.teachers.get(e.teacher_id) ?? '',
+            subjectId: e.subject_id,
+            subjectName: names.subjects.get(e.subject_id)?.en ?? '',
+            subjectNameBn: names.subjects.get(e.subject_id)?.bn ?? null,
+          })),
       }))
       .filter((s) => s.pending.length > 0);
   }
