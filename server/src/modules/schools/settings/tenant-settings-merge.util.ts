@@ -1,5 +1,7 @@
 import { instanceToPlain } from 'class-transformer';
+import type { OrganisationSettings, PresetSettings, RegionSettings } from '@biddaloy/shared';
 import { TenantSettingsDto } from '../dto/tenant-settings.dto';
+import { DEFAULT_ORGANISATION_SETTINGS } from './tenant-settings-defaults';
 
 /** `instanceToPlain(dto, { exposeUnsetFields: false })` — a class instance
  * whose properties the caller never set stay absent from the result
@@ -116,4 +118,25 @@ export function mergeTenantSettings(
   }
 
   return merged;
+}
+
+/** [35.2.2] Preset apply: the only writer allowed to set `preset` (D37 bars PATCH). */
+export function mergeApplySettings(
+  stored: Record<string, unknown> | null,
+  patch: { organisation: OrganisationSettings; region: RegionSettings; preset: PresetSettings },
+): Record<string, unknown> {
+  return {
+    ...(stored ?? {}),
+    organisation: patch.organisation,
+    region: patch.region,
+    preset: patch.preset,
+  };
+}
+
+/** [35.2.2] Preset reset: drops `preset`, restores the empty organisation vocabulary. */
+export function clearPresetSettings(
+  stored: Record<string, unknown> | null,
+): Record<string, unknown> {
+  const { preset: _preset, ...rest } = stored ?? {};
+  return { ...rest, organisation: { ...DEFAULT_ORGANISATION_SETTINGS } };
 }

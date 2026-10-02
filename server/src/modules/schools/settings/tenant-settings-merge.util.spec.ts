@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { plainToInstance } from 'class-transformer';
-import { mergeTenantSettings, toPlainSettingsPatch } from './tenant-settings-merge.util';
+import {
+  clearPresetSettings,
+  mergeApplySettings,
+  mergeTenantSettings,
+  toPlainSettingsPatch,
+} from './tenant-settings-merge.util';
 import { TenantSettingsDto } from '../dto/tenant-settings.dto';
 import { DEFAULT_REGION_SETTINGS } from './tenant-settings-defaults';
 
@@ -230,5 +235,35 @@ describe('mergeTenantSettings', () => {
       expect(whatsapp.phoneNumberId).toBe('111');
       expect('accessToken' in whatsapp).toBe(false);
     });
+  });
+});
+
+describe('mergeApplySettings / clearPresetSettings', () => {
+  const preset = {
+    id: 'p',
+    version: '1',
+    appliedAt: '2026-01-01T00:00:00.000Z',
+    appliedByUserId: 'u',
+  };
+  const organisation = { shifts: [], versions: ['BN'], groups: ['SCIENCE'] };
+
+  it('sets organisation, region and preset, keeping other blocks', () => {
+    const out = mergeApplySettings(
+      { version: 1, fees: { x: 1 } },
+      { organisation, region: DEFAULT_REGION_SETTINGS, preset },
+    );
+    expect(out).toMatchObject({
+      organisation,
+      region: DEFAULT_REGION_SETTINGS,
+      preset,
+      fees: { x: 1 },
+    });
+  });
+
+  it('clear removes preset, resets organisation, keeps the rest', () => {
+    const out = clearPresetSettings({ version: 1, organisation, preset, fees: { x: 1 } });
+    expect(out.preset).toBeUndefined();
+    expect(out.organisation).toEqual({ shifts: [], versions: [], groups: [] });
+    expect(out.fees).toEqual({ x: 1 });
   });
 });
