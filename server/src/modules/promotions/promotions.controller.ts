@@ -18,7 +18,6 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -32,7 +31,7 @@ import {
   SuggestTargetQueryDto,
   ListPromotionRunsQueryDto,
 } from './dto/promotions.dto';
-import { Permission, UserRole, JwtPayload } from '@biddaloy/shared';
+import { Permission, JwtPayload } from '@biddaloy/shared';
 
 @ApiTags('promotions')
 @ApiTenantAuth()
@@ -50,14 +49,6 @@ export class PromotionsController {
   // the ticket) while a PARENT/STUDENT caller still can't read another
   // student's override notes by guessing UUIDs.
   @Get('students/:studentId/promotion-overrides')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
   @RequirePermissions(Permission.STUDENT_READ)
   async findStudentOverrides(
     @Param('studentId', new ParseUUIDPipe()) studentId: string,
@@ -69,17 +60,19 @@ export class PromotionsController {
   }
 
   @Get('promotions/suggest-target')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.PROMOTION_MANAGE)
   suggestTarget(
     @Query() query: SuggestTargetQueryDto,
     @CurrentTenant() tenant: { id: string; role: string },
   ) {
-    return this.service.suggestTarget(query.source_class_id, query.target_academic_year_id, tenant.id);
+    return this.service.suggestTarget(
+      query.source_class_id,
+      query.target_academic_year_id,
+      tenant.id,
+    );
   }
 
   @Post('promotions')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.PROMOTION_MANAGE)
   create(
     @Body() dto: CreatePromotionRunDto,
@@ -90,7 +83,6 @@ export class PromotionsController {
   }
 
   @Patch('promotions/:id/entries')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.PROMOTION_MANAGE)
   patchEntries(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -103,30 +95,38 @@ export class PromotionsController {
   }
 
   @Post('promotions/:id/refresh')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.PROMOTION_MANAGE)
-  refresh(@Param('id', new ParseUUIDPipe()) id: string, @CurrentTenant() tenant: { id: string; role: string }) {
+  refresh(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
     return this.service.refresh(id, tenant.id);
   }
 
   @Delete('promotions/:id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.PROMOTION_MANAGE)
-  remove(@Param('id', new ParseUUIDPipe()) id: string, @CurrentTenant() tenant: { id: string; role: string }) {
+  remove(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
     return this.service.remove(id, tenant.id);
   }
 
   @Get('promotions')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.PROMOTION_MANAGE)
-  list(@Query() query: ListPromotionRunsQueryDto, @CurrentTenant() tenant: { id: string; role: string }) {
+  list(
+    @Query() query: ListPromotionRunsQueryDto,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
     return this.service.list(tenant.id, query.source_class_id);
   }
 
   @Get('promotions/:id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.PROMOTION_MANAGE)
-  findOne(@Param('id', new ParseUUIDPipe()) id: string, @CurrentTenant() tenant: { id: string; role: string }) {
+  findOne(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
     return this.service.findOne(id, tenant.id);
   }
 
@@ -136,7 +136,6 @@ export class PromotionsController {
   // @RequireApproval here; ApprovalGuard would demand a token on every
   // commit, including the common no-override case.
   @Post('promotions/:id/commit')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.PROMOTION_MANAGE)
   async commit(
     @Param('id', new ParseUUIDPipe()) id: string,

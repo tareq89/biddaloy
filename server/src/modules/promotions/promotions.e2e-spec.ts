@@ -6,8 +6,19 @@ import { DataSource } from 'typeorm';
 import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
-import { UserRole, PlacementAlgorithm, PromotionOutcome, PromotionRunStatus, ApprovalScope } from '@biddaloy/shared';
-import { SEED_TENANT_ID, SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD, SEED_ADMIN_PASSWORD_HASH } from '@test/constants';
+import {
+  UserRole,
+  PlacementAlgorithm,
+  PromotionOutcome,
+  PromotionRunStatus,
+  ApprovalScope,
+} from '@biddaloy/shared';
+import {
+  SEED_TENANT_ID,
+  SEED_ADMIN_EMAIL,
+  SEED_ADMIN_PASSWORD,
+  SEED_ADMIN_PASSWORD_HASH,
+} from '@test/constants';
 
 /**
  * E2E tests for the money-tier `POST /promotions/:id/commit` boundary
@@ -181,7 +192,9 @@ describe('Promotions E2E (#788)', () => {
   }
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
     app = moduleFixture.createNestApplication();
     configureApiVersioning(app);
     app.useGlobalPipes(new ValidationPipe(buildValidationPipeOptions()));
@@ -239,14 +252,14 @@ describe('Promotions E2E (#788)', () => {
     expect(res.body.status).toBe(PromotionRunStatus.COMMITTED);
   });
 
-  it('EXECUTIVE cannot commit a run (401 — role not in @Roles(ADMIN), matching the RolesGuard convention elsewhere)', async () => {
+  it('EXECUTIVE cannot commit a run (403 — lacks PROMOTION_MANAGE)', async () => {
     const { runId } = await seedRun({ tenantId: SEED_TENANT_ID, withOverride: false });
 
     await supertest(app.getHttpServer())
       .post(`${API}/promotions/${runId}/commit`)
       .set('Authorization', `Bearer ${executiveToken}`)
       .set('X-Tenant-ID', SEED_TENANT_ID)
-      .expect(401);
+      .expect(403);
   });
 
   it("returns 404 for another tenant's run", async () => {

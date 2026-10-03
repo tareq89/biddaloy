@@ -15,7 +15,6 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -27,7 +26,7 @@ import {
   AttachClassSubjectDto,
   UpdateClassSubjectDto,
 } from './dto/subjects.dto';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
 
 @ApiTags('subjects')
 @ApiTenantAuth()
@@ -38,7 +37,6 @@ export class SubjectController {
 
   @Post()
   // [10.4] G1, G2 — AC, E tightened off: neither holds CLASS_MANAGE.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CLASS_MANAGE)
   @ApiOperation({ summary: 'Create a subject.' })
   create(@Body() dto: CreateSubjectDto, @CurrentTenant() tenant: { id: string; role: string }) {
@@ -47,7 +45,6 @@ export class SubjectController {
 
   @Get()
   // [10.4] G4 — reference-data read.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.ACADEMIC_STRUCTURE_READ)
   @ApiOperation({ summary: 'List subjects for the current tenant.' })
   findAll(@Query() query: QuerySubjectDto, @CurrentTenant() tenant: { id: string; role: string }) {
@@ -56,7 +53,6 @@ export class SubjectController {
 
   @Get(':id')
   // [10.4] G4 — reference-data read.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.ACADEMIC_STRUCTURE_READ)
   @ApiOperation({ summary: 'Get a single subject by ID.' })
   findOne(
@@ -68,7 +64,6 @@ export class SubjectController {
 
   @Patch(':id')
   // [10.4] G1, G2 — AC, E tightened off.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CLASS_MANAGE)
   @ApiOperation({ summary: 'Update a subject.' })
   update(
@@ -81,7 +76,6 @@ export class SubjectController {
 
   @Delete(':id')
   // [10.4] G1, G2 — AC, E tightened off.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CLASS_MANAGE)
   @ApiOperation({ summary: 'Delete a subject.' })
   remove(
@@ -107,7 +101,6 @@ export class ClassSubjectController {
 
   @Get(':classId/subjects')
   // [10.4] G4 — reference-data read.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.ACADEMIC_STRUCTURE_READ)
   @ApiOperation({ summary: "List a class's subjects for an academic year." })
   findByClass(
@@ -120,7 +113,6 @@ export class ClassSubjectController {
 
   @Post(':classId/subjects')
   // [10.4] G1, G2 — AC, E tightened off.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CLASS_MANAGE)
   @ApiOperation({ summary: "Attach a subject to a class's academic-year offering." })
   attach(
@@ -132,7 +124,6 @@ export class ClassSubjectController {
   }
 
   @Patch(':classId/subjects/:subjectId')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CLASS_MANAGE)
   @ApiOperation({ summary: 'Update a class-subject offering (optional flag, group).' })
   updateOffering(
@@ -146,7 +137,6 @@ export class ClassSubjectController {
 
   @Delete(':classId/subjects/:subjectId')
   // [10.4] G1, G2 — AC, E tightened off.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CLASS_MANAGE)
   @ApiOperation({ summary: "Detach a subject from a class's academic-year offering." })
   detach(
