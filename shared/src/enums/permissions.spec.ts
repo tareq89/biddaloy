@@ -252,17 +252,20 @@ describe('family read grants [5.1]', () => {
    * routes (27.4/27.5) — pinned to ADMIN only so another role can't
    * silently gain it before those routes and their own role table land.
    */
-  it('grants ACR_READ and ACR_WRITE to ADMIN only [28.1.1]', () => {
+  it('grants ACR_WRITE to ADMIN only, ACR_READ also to COMMITTEE [28.1.1, #1358]', () => {
     for (const role of Object.values(UserRole)) {
       const expected = role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN;
-      expect(ROLE_PERMISSIONS[role].includes(Permission.ACR_READ)).toBe(expected);
+      expect(ROLE_PERMISSIONS[role].includes(Permission.ACR_READ)).toBe(
+        expected || role === UserRole.COMMITTEE,
+      );
       expect(ROLE_PERMISSIONS[role].includes(Permission.ACR_WRITE)).toBe(expected);
     }
   });
 
-  it('grants ADMISSION_REVIEW to ADMIN only', () => {
+  it('grants ADMISSION_REVIEW to ADMIN and OFFICE_STAFF only [#1358]', () => {
     for (const role of Object.values(UserRole)) {
-      const expected = role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN;
+      const expected =
+        role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN || role === UserRole.OFFICE_STAFF;
       expect(ROLE_PERMISSIONS[role].includes(Permission.ADMISSION_REVIEW)).toBe(expected);
     }
   });
@@ -797,5 +800,44 @@ describe('CURRICULUM_PRESET_APPLY [35.1.1]', () => {
     for (const r of [UserRole.ACCOUNTANT, UserRole.TEACHER, UserRole.EXECUTIVE]) {
       expect(roleHasPermission(r, Permission.CURRICULUM_PRESET_APPLY)).toBe(false);
     }
+  });
+});
+
+describe('new role grants [#1358]', () => {
+  const NEW_ROLES = [UserRole.OFFICE_STAFF, UserRole.EXAM_CONTROLLER, UserRole.COMMITTEE];
+  const has = (r: UserRole, p: Permission) => ROLE_PERMISSIONS[r].includes(p);
+
+  it('COMMITTEE is read-only and sees no student data', () => {
+    for (const p of ROLE_PERMISSIONS[UserRole.COMMITTEE]) {
+      expect(p, `COMMITTEE must not hold ${p}`).not.toMatch(
+        /_(CREATE|UPDATE|DELETE|WRITE|MANAGE)$/,
+      );
+    }
+    expect(has(UserRole.COMMITTEE, Permission.STUDENT_READ)).toBe(false);
+  });
+
+  it('no new role can move money or change settings', () => {
+    const forbidden = [
+      Permission.FEE_COLLECT,
+      Permission.PAYMENT_RECORD,
+      Permission.PAYMENT_REFUND,
+      Permission.PAYMENT_REVERSE,
+      Permission.FEE_APPROVE,
+      Permission.SETTINGS_MANAGE,
+      Permission.BACKUP_MANAGE,
+    ];
+    for (const r of NEW_ROLES) {
+      for (const p of forbidden) expect(has(r, p), `${r} must not hold ${p}`).toBe(false);
+    }
+  });
+
+  it('EXAM_CONTROLLER cannot enter marks or edit print templates', () => {
+    expect(has(UserRole.EXAM_CONTROLLER, Permission.MARK_ENTER)).toBe(false);
+    expect(has(UserRole.EXAM_CONTROLLER, Permission.PRINT_TEMPLATE_MANAGE)).toBe(false);
+  });
+
+  it('OFFICE_STAFF cannot delete students or run lifecycle changes', () => {
+    expect(has(UserRole.OFFICE_STAFF, Permission.STUDENT_DELETE)).toBe(false);
+    expect(has(UserRole.OFFICE_STAFF, Permission.STUDENT_LIFECYCLE_MANAGE)).toBe(false);
   });
 });
