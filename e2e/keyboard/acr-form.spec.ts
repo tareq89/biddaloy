@@ -47,7 +47,7 @@ test('keyboard-only: start an ACR from the palette, score every criterion, compl
   await test.step('Next to Criteria, score every criterion with digit keys', async () => {
     // The sidebar sits ahead of the wizard in tab order (60+ stops), so focus the
     // button directly; activation is still a real key press.
-    await page.getByRole('button', { name: t('wizard.next'), exact: true }).focus();
+    await page.getByRole('button', { name: t('common.wizard.next'), exact: true }).focus();
     await page.keyboard.press('Enter');
     await expect(page.locator('#acr-keyboard-hint')).toBeVisible();
     // Blur whatever the step change focused so digits reach the document handler.
