@@ -69,8 +69,6 @@ export interface GlobalSearchGroup {
 
 export type CommandPaletteTabId = 'people' | 'page' | 'action';
 
-const TAB_ORDER: readonly CommandPaletteTabId[] = ['people', 'page', 'action'];
-
 export interface CommandPaletteTab {
   id: CommandPaletteTabId;
   label: string;
@@ -86,8 +84,9 @@ export interface CommandPaletteProps {
   onOpenChange: (open: boolean) => void;
   query: string;
   onQueryChange: (query: string) => void;
-  /** Exactly three tabs, People first — matches D11's "opens on People". */
-  tabs: readonly [CommandPaletteTab, CommandPaletteTab, CommandPaletteTab];
+  /** Tabs in display order — People first *when present* (D11's "opens on
+   * People"); callers omit it when the viewer cannot search people. */
+  tabs: readonly [CommandPaletteTab, ...CommandPaletteTab[]];
   onSelect: (tabId: CommandPaletteTabId, groupId: string, resultId: string) => void;
   /** Accessible name for the input — same reasoning as `GlobalSearch`'s
    * identical prop: there is no visible `<label>`. */
@@ -97,7 +96,7 @@ export interface CommandPaletteProps {
   description?: string;
   announceResults?: (count: number) => string;
   /** Overrides which tab is active on mount — D11 still means the palette
-   * opens on People by default (the default here), but a caller that
+   * opens on its first tab, People when present (the default here), but a caller that
    * already knows the viewer wants a specific tab (e.g. a Storybook story
    * demonstrating the Page tab, or `>`/`/` consuming the first keystroke
    * before this component ever mounts) can skip the extra keypress. */
@@ -128,9 +127,9 @@ export function CommandPalette({
   placeholder = 'Search students, guardians, pages, and actions…',
   description = 'Search across people, pages, and actions. Use the arrow keys to move between results and Enter to open one.',
   announceResults = (count) => `${count} result${count === 1 ? '' : 's'}`,
-  initialTab = 'people',
+  initialTab,
 }: CommandPaletteProps) {
-  const [activeTab, setActiveTab] = React.useState<CommandPaletteTabId>(initialTab);
+  const [activeTab, setActiveTab] = React.useState<CommandPaletteTabId>(initialTab ?? tabs[0].id);
   const [activeIndex, setActiveIndex] = React.useState(-1);
   const listboxId = React.useId();
   const tablistId = React.useId();
@@ -145,7 +144,7 @@ export function CommandPalette({
   // would immediately override the caller-supplied `initialTab`.
   React.useEffect(() => {
     if (open) {
-      setActiveTab(initialTab);
+      setActiveTab(initialTab ?? tabs[0].id);
       setActiveIndex(-1);
     }
     // Deliberately excludes `initialTab`: it's a mount-time default, not
@@ -161,7 +160,7 @@ export function CommandPalette({
   const activeTabData = tabById.get(activeTab) ?? tabs[0];
 
   const trimmedQuery = query.trim();
-  const isPeopleEmptyQuery = activeTab === 'people' && trimmedQuery === '';
+  const isPeopleEmptyQuery = activeTabData.id === 'people' && trimmedQuery === '';
   const options = isPeopleEmptyQuery ? [] : flatten(activeTabData.groups);
   const totalResults = isPeopleEmptyQuery ? recentItems.length : options.length;
   const anyLoading = activeTabData.groups.some((group) => group.isLoading);
@@ -187,6 +186,7 @@ export function CommandPalette({
   }
 
   function switchTab(tabId: CommandPaletteTabId) {
+    if (!tabById.has(tabId)) return;
     setActiveTab(tabId);
     setActiveIndex(-1);
     inputRef.current?.focus();
@@ -294,12 +294,12 @@ export function CommandPalette({
                 switchTab('action');
               } else if (event.key === 'ArrowLeft') {
                 event.preventDefault();
-                const index = TAB_ORDER.indexOf(activeTab);
-                switchTab(TAB_ORDER[Math.max(index - 1, 0)] ?? activeTab);
+                const index = tabs.findIndex((tab) => tab.id === activeTabData.id);
+                switchTab(tabs[Math.max(index - 1, 0)]?.id ?? activeTab);
               } else if (event.key === 'ArrowRight') {
                 event.preventDefault();
-                const index = TAB_ORDER.indexOf(activeTab);
-                switchTab(TAB_ORDER[Math.min(index + 1, TAB_ORDER.length - 1)] ?? activeTab);
+                const index = tabs.findIndex((tab) => tab.id === activeTabData.id);
+                switchTab(tabs[Math.min(index + 1, tabs.length - 1)]?.id ?? activeTab);
               } else if (event.key === 'ArrowDown') {
                 event.preventDefault();
                 setActiveIndex((index) => Math.min(index + 1, totalResults - 1));

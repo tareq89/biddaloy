@@ -161,4 +161,28 @@ describe('CommandPaletteLauncher', () => {
 
     expect(await screen.findByRole('option', { name: 'Start ACR' })).toBeTruthy();
   });
+
+  it('COMMITTEE (no STUDENT_READ) sees Page and Action tabs only and makes no /search call', async () => {
+    let searchCalls = 0;
+    server.use(
+      http.get('/api/v1/search', () => {
+        searchCalls += 1;
+        return HttpResponse.json({});
+      }),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/roles'],
+      tenantId: 'tenant-1',
+      role: 'COMMITTEE',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
+    const input = screen.getByRole('combobox', { name: 'Command palette' });
+    await user.type(input, 'ab');
+
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Page', 'Action']);
+    expect(searchCalls).toBe(0);
+  });
 });
