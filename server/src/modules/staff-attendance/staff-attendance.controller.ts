@@ -2,10 +2,9 @@ import { Body, Controller, Get, Put, Query, Req, UseGuards } from '@nestjs/commo
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -20,7 +19,7 @@ import {
 } from './dto/staff-attendance.dto';
 
 /**
- * `@Roles(...)` is the coarse gate; `@RequirePermissions` is the actual
+ * `@RequirePermissions` is the gate:
  * one — every role that holds `STAFF_ATTENDANCE_MARK`/`STAFF_ATTENDANCE_READ`
  * per `shared/src/enums/permissions.ts` (ADMIN, ACCOUNTANT, TEACHER,
  * EXECUTIVE).
@@ -36,7 +35,6 @@ export class StaffAttendanceController {
   ) {}
 
   @Put('register')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.TEACHER, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.STAFF_ATTENDANCE_MARK)
   @ApiOperation({
     summary:
@@ -61,7 +59,6 @@ export class StaffAttendanceController {
   }
 
   @Get('summary')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.TEACHER, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.STAFF_ATTENDANCE_READ)
   @ApiOperation({ summary: "One staff member's attendance counts/percentage over a date range." })
   @ApiOkResponse({ type: StaffAttendanceSummaryDto })

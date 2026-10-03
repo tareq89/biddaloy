@@ -16,7 +16,6 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -29,13 +28,7 @@ import {
   ReorderSyllabusTopicsDto,
   toSyllabusTopicResponseDto,
 } from './dto/syllabus.dto';
-import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
-
-// Only the roles that actually hold SYLLABUS_READ (shared/src/enums/permissions.ts)
-// — ACCOUNTANT and EXECUTIVE don't, unlike most other _READ permissions.
-const ALL_ROLES = [UserRole.ADMIN, UserRole.TEACHER, UserRole.PARENT, UserRole.STUDENT];
-
-const WRITE_ROLES = [UserRole.ADMIN, UserRole.TEACHER];
+import { JwtPayload, Permission } from '@biddaloy/shared';
 
 /**
  * [22.3.4] `GET /syllabus-topics` (`SYLLABUS_READ`) and the write routes
@@ -51,7 +44,6 @@ export class SyllabusController {
   constructor(private readonly service: SyllabusService) {}
 
   @Get()
-  @Roles(...ALL_ROLES)
   @RequirePermissions(Permission.SYLLABUS_READ)
   @ApiOperation({ summary: 'List syllabus topics, optionally filtered by class/subject.' })
   async list(
@@ -64,7 +56,6 @@ export class SyllabusController {
   }
 
   @Post()
-  @Roles(...WRITE_ROLES)
   @RequirePermissions(Permission.SYLLABUS_MANAGE)
   @ApiOperation({ summary: 'Create a syllabus topic.' })
   async create(
@@ -78,7 +69,6 @@ export class SyllabusController {
   }
 
   @Patch('reorder')
-  @Roles(...WRITE_ROLES)
   @RequirePermissions(Permission.SYLLABUS_MANAGE)
   @ApiOperation({ summary: 'Bulk-update the sequence of a set of syllabus topics.' })
   async reorder(
@@ -97,7 +87,6 @@ export class SyllabusController {
   }
 
   @Patch(':id')
-  @Roles(...WRITE_ROLES)
   @RequirePermissions(Permission.SYLLABUS_MANAGE)
   @ApiOperation({ summary: 'Edit a syllabus topic (content and/or status).' })
   async update(
@@ -112,7 +101,6 @@ export class SyllabusController {
   }
 
   @Delete(':id')
-  @Roles(...WRITE_ROLES)
   @RequirePermissions(Permission.SYLLABUS_MANAGE)
   @ApiOperation({ summary: 'Delete a syllabus topic.' })
   async remove(

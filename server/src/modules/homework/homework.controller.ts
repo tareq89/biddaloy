@@ -54,7 +54,6 @@ export class HomeworkController {
   }
 
   @Post('homework')
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
   @RequirePermissions(Permission.HOMEWORK_ASSIGN)
   @ApiOperation({ summary: 'Create a Homework for a subject/class.' })
   @ApiOkResponse({ type: HomeworkResponseDto })
@@ -174,7 +173,6 @@ export class HomeworkController {
   }
 
   @Post('homework/:id/assign')
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
   @RequirePermissions(Permission.HOMEWORK_ASSIGN)
   @ApiOperation({ summary: 'Assign a Homework to a section or a single student (D24).' })
   @ApiOkResponse({ type: HomeworkAssignmentResponseDto })
@@ -192,7 +190,6 @@ export class HomeworkController {
   }
 
   @Post('homework-assignments/:id/reassign')
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
   @RequirePermissions(Permission.HOMEWORK_ASSIGN)
   @ApiOperation({
     summary:
@@ -213,7 +210,6 @@ export class HomeworkController {
   }
 
   @Patch('homework-assignments/:id')
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
   @RequirePermissions(Permission.HOMEWORK_ASSIGN)
   @ApiOperation({ summary: 'Deactivate or reactivate an assignment (Q10 D22).' })
   @ApiOkResponse({ type: HomeworkAssignmentResponseDto })
