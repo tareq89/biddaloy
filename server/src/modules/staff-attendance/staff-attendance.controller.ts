@@ -19,10 +19,10 @@ import {
 } from './dto/staff-attendance.dto';
 
 /**
- * `@RequirePermissions` is the gate:
- * one — every role that holds `STAFF_ATTENDANCE_MARK`/`STAFF_ATTENDANCE_READ`
- * per `shared/src/enums/permissions.ts` (ADMIN, ACCOUNTANT, TEACHER,
- * EXECUTIVE).
+ * `@RequirePermissions` is the gate. Every role that holds
+ * `STAFF_ATTENDANCE_MARK`/`STAFF_ATTENDANCE_READ` per
+ * `shared/src/enums/permissions.ts` (ADMIN, ACCOUNTANT, TEACHER, EXECUTIVE)
+ * gets in.
  */
 @ApiTags('staff-attendance')
 @ApiTenantAuth()

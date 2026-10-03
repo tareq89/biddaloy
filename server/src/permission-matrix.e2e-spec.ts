@@ -5,6 +5,7 @@ import { DiscoveryModule, DiscoveryService, MetadataScanner } from '@nestjs/core
 import { Permission, ROLE_PERMISSIONS, roleHasPermission, UserRole } from '@biddaloy/shared';
 import { AppModule } from './app.module';
 import { PermissionsGuard } from './modules/auth/guards/permissions.guard';
+import { RolesGuard } from './modules/auth/guards/context.guard';
 import { ROLES_KEY } from './modules/auth/decorators/roles.decorator';
 import { PERMISSIONS_KEY } from './modules/auth/decorators/require-permissions.decorator';
 import { buildFullPath, RequestMethodName } from './route-guard-coverage.e2e-spec';
@@ -730,7 +731,11 @@ describe('Permission matrix (regression)', () => {
       fullPath: string;
       roles: UserRole[];
       permissions: Permission[];
+      hasPermissionsGuard: boolean;
     }) => void,
+    // Default: PermissionsGuard routes only. `includeRolesGuardOnly` also visits routes guarded
+    // by RolesGuard without PermissionsGuard, so a mirrored @Roles there cannot hide (#1357).
+    { includeRolesGuardOnly = false }: { includeRolesGuardOnly?: boolean } = {},
   ) {
     const controllers = discoveryService.getControllers();
 
@@ -753,7 +758,10 @@ describe('Permission matrix (regression)', () => {
         const routePath: string = Reflect.getMetadata(PATH_METADATA, handler) ?? '';
         const methodGuards: unknown[] = Reflect.getMetadata(GUARDS_METADATA, handler) ?? [];
         const allGuards = [...classGuards, ...methodGuards];
-        if (!allGuards.includes(PermissionsGuard)) continue;
+        const hasPermissionsGuard = allGuards.includes(PermissionsGuard);
+        if (!hasPermissionsGuard && !(includeRolesGuardOnly && allGuards.includes(RolesGuard))) {
+          continue;
+        }
 
         // getAllAndOverride semantics: handler metadata wins if present.
         const handlerRoles: UserRole[] | undefined = Reflect.getMetadata(ROLES_KEY, handler);
@@ -767,7 +775,15 @@ describe('Permission matrix (regression)', () => {
         const fullPath = buildFullPath(controllerPrefix, routePath);
         const methodLabel = RequestMethodName(httpMethod);
 
-        visit({ controllerName, methodName, methodLabel, fullPath, roles, permissions });
+        visit({
+          controllerName,
+          methodName,
+          methodLabel,
+          fullPath,
+          roles,
+          permissions,
+          hasPermissionsGuard,
+        });
       }
     }
   }
@@ -865,15 +881,22 @@ describe('Permission matrix (regression)', () => {
     // permission would be silently shut out (D32).
     const violations: string[] = [];
 
-    walkRoutes(({ controllerName, methodLabel, fullPath, roles }) => {
-      if (roles.length === 0) return;
-      if (findRoleNarrowing(controllerName, methodLabel, fullPath)) return;
-      if (findIdentityScopedEntry(controllerName, methodLabel, fullPath)) return;
-      violations.push(
-        `${methodLabel} ${fullPath} (${controllerName}) — @Roles (${roles.join(', ')}) is neither ` +
-          'a ROLE_NARROWINGS nor an IDENTITY_SCOPED route; delete it or document why it narrows',
-      );
-    });
+    walkRoutes(
+      ({ controllerName, methodLabel, fullPath, roles, hasPermissionsGuard }) => {
+        if (roles.length === 0) return;
+        // A RolesGuard-only @Roles(SUPER_ADMIN) is a platform route: the role is the whole check.
+        if (!hasPermissionsGuard && roles.length === 1 && roles[0] === UserRole.SUPER_ADMIN) {
+          return;
+        }
+        if (findRoleNarrowing(controllerName, methodLabel, fullPath)) return;
+        if (findIdentityScopedEntry(controllerName, methodLabel, fullPath)) return;
+        violations.push(
+          `${methodLabel} ${fullPath} (${controllerName}) — @Roles (${roles.join(', ')}) is neither ` +
+            'a ROLE_NARROWINGS nor an IDENTITY_SCOPED route; delete it or document why it narrows',
+        );
+      },
+      { includeRolesGuardOnly: true },
+    );
 
     expect(violations).toEqual([]);
   });
