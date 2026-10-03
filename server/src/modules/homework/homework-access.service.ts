@@ -236,7 +236,7 @@ export class HomeworkAccessService {
   /** `Homework.create` takes class_id/subject_id straight from the DTO —
    * confirm both actually belong to this tenant before any teacher-scoping
    * check runs against them, since `assertCanManageClass` short-circuits
-   * without a lookup for TENANT_WIDE_ROLES and would otherwise let an ADMIN
+   * without a lookup for tenant-scope roles (`hasTenantScope`) and would otherwise let an ADMIN
    * create homework pointing at another tenant's class/subject id. */
   async assertClassAndSubjectInTenant(
     classId: string,
