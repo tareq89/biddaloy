@@ -137,7 +137,7 @@ Roles are fixed and defined once in `shared/src/enums/index.ts`
 (`UserRole`), shared by server and every client so they can never drift:
 
 ```
-SUPER_ADMIN → ADMIN → ACCOUNTANT ≈ EXECUTIVE → TEACHER → EXAM_CONTROLLER → OFFICE_STAFF → COMMITTEE → PARENT / STUDENT
+SUPER_ADMIN → ADMIN → ACCOUNTANT → EXECUTIVE → TEACHER → EXAM_CONTROLLER → OFFICE_STAFF → COMMITTEE → PARENT / STUDENT
 ```
 
 (highest to lowest priority — see `ROLE_PRIORITY` in `context.guard.ts`,

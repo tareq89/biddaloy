@@ -271,6 +271,7 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
   });
 
   it('an exam controller (view only) sees an unsubmitted grid read-only with no submit', async () => {
+    const user = userEvent.setup();
     server.use(http.get(GRID_URL, () => HttpResponse.json(baseGrid)));
 
     renderWithRouter(routeTree, {
@@ -283,9 +284,13 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
     const cell = await screen.findByLabelText<HTMLInputElement>('Rafi Ahmed — Written');
     expect(cell.disabled).toBe(true);
     expect(screen.queryByRole('button', { name: /submit/i })).toBeNull();
+    // The Ctrl+Enter shortcut is gated the same way as the button.
+    await user.keyboard('{Control>}{Enter}{/Control}');
+    expect(screen.queryByRole('heading', { name: 'Submit this grid?' })).toBeNull();
   });
 
-  it('a teacher can edit an unsubmitted grid', async () => {
+  it('a teacher can edit an unsubmitted grid and Ctrl+Enter opens submit', async () => {
+    const user = userEvent.setup();
     server.use(http.get(GRID_URL, () => HttpResponse.json(baseGrid)));
 
     renderWithRouter(routeTree, {
@@ -297,6 +302,8 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
 
     const cell = await screen.findByLabelText<HTMLInputElement>('Rafi Ahmed — Written');
     expect(cell.disabled).toBe(false);
+    await user.keyboard('{Control>}{Enter}{/Control}');
+    await screen.findByRole('heading', { name: 'Submit this grid?' });
   });
 
   it('an admin sees a Reopen action on a submitted grid', async () => {

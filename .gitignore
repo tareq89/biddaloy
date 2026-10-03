@@ -77,6 +77,13 @@ server/test/**/*.js.map
 server/test/**/*.d.ts
 server/test/**/*.d.ts.map
 
+# Compiled output of e2e/**/*.ts — Playwright/Vite resolve a stale .js twin
+# ahead of the .ts source (e2e/seed-contract.js, removed in #1383).
+e2e/**/*.js
+e2e/**/*.js.map
+e2e/**/*.d.ts
+e2e/**/*.d.ts.map
+
 # dotenv environment variable files
 .env
 .env.*

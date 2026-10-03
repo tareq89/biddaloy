@@ -51,13 +51,15 @@ test('runs an exam: create, seat plan, read-only marks, publish result', async (
     const klass = classes.find((c) => c.name === 'Class 6');
     if (!klass) throw new Error('Seeded Class 6 not found — has `yarn seed` run?');
     const sections = await get<{ id: string }[]>(ctx, session, `/classes/${klass.id}/sections`);
-    sectionId = sections[0]!.id;
+    if (!sections[0]) throw new Error('Seeded Class 6 has no section — has `yarn seed` run?');
+    sectionId = sections[0].id;
     const { data: students } = await get<{ data: { id: string }[] }>(
       ctx,
       session,
       `/students?section_id=${sectionId}&limit=1`,
     );
-    studentId = students[0]!.id;
+    if (!students[0]) throw new Error(`Section ${sectionId} of Class 6 has no student`);
+    studentId = students[0].id;
     const year = await get<{ name: string; start_date: string }>(
       ctx,
       session,
@@ -87,7 +89,7 @@ test('runs an exam: create, seat plan, read-only marks, publish result', async (
   const exam = (await (await created).json()) as { id: string };
   await expect(dialog).toBeHidden();
 
-  // --- scene part 2 (needs the exam id): subject, schedule, room, one submitted mark
+  // --- scene part 2 (needs the exam id): subject, schedule, room, one saved (unsubmitted) mark
   let subjectId: string;
   let subjectName: string;
   try {
@@ -141,9 +143,10 @@ test('runs an exam: create, seat plan, read-only marks, publish result', async (
   await page.getByRole('link', { name: planName }).click();
   await expect(page.getByRole('heading', { name: planName })).toBeVisible();
 
-  // --- 3. marks grid is view-only: no submit button, and the API refuses a write --
+  // --- 3. marks grid is view-only: disabled cells, no submit button, and the API refuses a write
   await page.goto(`/marks/${exam.id}/${sectionId}/${subjectId}`);
   await expect(page.getByRole('heading', { name: t('exams.marksGrid.caption') })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: / — Written$/ }).first()).toBeDisabled();
   await expect(
     page.getByRole('button', { name: new RegExp(`^${t('exams.submitDialog.confirm')}`) }),
   ).toHaveCount(0);
@@ -168,7 +171,9 @@ test('runs an exam: create, seat plan, read-only marks, publish result', async (
 test('prints documents but cannot manage print templates', async ({ page }) => {
   // Admit cards do not exist yet (Epic 48), so the printable document today is the ID card:
   // the preview opens for this role (DOCUMENT_PRINT) ...
+  // With no ids the preview opens its "who to print" picker; wait for it, then check no denial.
   await page.goto('/print/preview?kind=STUDENT_ID_CARD&subject_type=STUDENT');
+  await expect(page.getByRole('heading', { name: t('printPreview.picker.title') })).toBeVisible();
   await expect(page.getByRole('heading', { name: t('common.accessDenied.title') })).toHaveCount(0);
   // ... but template editing (PRINT_TEMPLATE_MANAGE) is refused.
   await page.goto('/print-templates');
