@@ -187,6 +187,12 @@ describe('staff performance (28.3.6)', () => {
     expect(JSON.stringify(res.body)).not.toContain('e2e body');
   });
 
+  it('a soft-deleted (former) teacher still shows historical classes', async () => {
+    await ds.query(`UPDATE teachers SET deleted_at = NOW() WHERE id = $1`, [teacherId]);
+    const res = await get(TEACHER_USER, adminToken, UserRole.ADMIN).expect(200);
+    expect(res.body.classes).toHaveLength(1);
+  });
+
   it('non-teacher staff gets 200 with classes: []', async () => {
     const res = await get(NON_TEACHER_USER, adminToken, UserRole.ADMIN).expect(200);
     expect(res.body.classes).toEqual([]);

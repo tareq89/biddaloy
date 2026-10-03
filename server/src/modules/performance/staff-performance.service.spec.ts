@@ -103,4 +103,30 @@ describe('StaffPerformanceService', () => {
     expect(res.classes).toEqual([]);
     expect(performance.computeClassOutcomes).not.toHaveBeenCalled();
   });
+
+  it('teacher lookup includes soft-deleted teachers (former staff keep historical classes)', async () => {
+    await service.get(SUBJECT, Q, T, CALLER);
+    expect(teacherRepo.find.mock.calls[0][0]).toMatchObject({
+      where: { user_id: SUBJECT, tenant_id: T },
+      withDeleted: true,
+    });
+  });
+
+  it('bounds class-outcome concurrency and keeps section order', async () => {
+    const ids = Array.from({ length: 10 }, (_, i) => `s${i}`);
+    sectionRepo.find.mockResolvedValue(ids.map((id, i) => ({ id, class_id: `c${i}` })));
+    let inFlight = 0;
+    let max = 0;
+    performance.computeClassOutcomes.mockImplementation(async (_t: string, classId: string) => {
+      max = Math.max(max, ++inFlight);
+      // Reverse-staggered delays: later sections finish first, so order must come from index.
+      await new Promise((r) => setTimeout(r, 20 - Number(classId.slice(1)) * 2));
+      inFlight--;
+      return { classId };
+    });
+    const res = await service.get(SUBJECT, Q, T, CALLER);
+    expect(max).toBeLessThanOrEqual(4);
+    expect(max).toBeGreaterThan(1);
+    expect(res.classes.map((c) => c.classId)).toEqual(ids.map((_, i) => `c${i}`));
+  });
 });
