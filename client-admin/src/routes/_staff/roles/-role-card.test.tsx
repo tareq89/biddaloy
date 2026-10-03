@@ -23,10 +23,14 @@ describe('RoleCard', () => {
     await renderCard(UserRole.COMMITTEE);
 
     expect(await screen.findByRole('heading', { name: 'Committee member' })).toBeTruthy();
-    expect(screen.getByText('Read-only view of school reports and results.')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Read-only view of the dashboard, staff evaluations and the calendar. No student details.',
+      ),
+    ).toBeTruthy();
     expect(screen.getByText('Whole school')).toBeTruthy();
-    expect(ROLE_PERMISSIONS[UserRole.COMMITTEE]).toHaveLength(5);
-    expect(screen.getByText('5 permissions')).toBeTruthy();
+    expect(ROLE_PERMISSIONS[UserRole.COMMITTEE]).toHaveLength(4);
+    expect(screen.getByText('4 permissions')).toBeTruthy();
   });
 
   it("lists all of COMMITTEE's permissions in collapsible groups", async () => {
@@ -36,7 +40,7 @@ describe('RoleCard', () => {
     const groups = document.querySelectorAll('details');
     expect(groups.length).toBeGreaterThan(0);
     const items = document.querySelectorAll('details li');
-    expect(items).toHaveLength(5);
+    expect(items).toHaveLength(4);
     for (const group of groups) expect(group.open).toBe(false);
   });
 

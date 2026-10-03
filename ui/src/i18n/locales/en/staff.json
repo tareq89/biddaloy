@@ -344,7 +344,7 @@
     "EXECUTIVE": "Academic oversight: students, staff, results and reports. No money or settings.",
     "OFFICE_STAFF": "Admissions, student records, printing and SMS. No money or settings.",
     "EXAM_CONTROLLER": "Exams, marks, results and seat plans for the whole school.",
-    "COMMITTEE": "Read-only view of school reports and results."
+    "COMMITTEE": "Read-only view of the dashboard, staff evaluations and the calendar. No student details."
   },
   "rolesAccess": {
     "title": "Roles & access",
