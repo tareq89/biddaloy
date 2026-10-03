@@ -58,7 +58,7 @@ export class CommunicationsController {
   @Post('reminder/single/:studentId/preview')
   @HttpCode(HttpStatus.OK)
   // [10.4] G1 — E tightened off: lacks COMMUNICATION_SEND.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.OFFICE_STAFF)
   @RequirePermissions(Permission.COMMUNICATION_SEND)
   @ApiOperation({
     summary: 'Render a single-student reminder without sending it, for the sender to review first.',
@@ -73,7 +73,7 @@ export class CommunicationsController {
 
   @Post('reminder/single/:studentId')
   // [10.4] G1 — E tightened off.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.OFFICE_STAFF)
   @RequirePermissions(Permission.COMMUNICATION_SEND)
   @ApiOperation({ summary: 'Send a fee reminder to one student/guardian.' })
   sendSingleReminder(

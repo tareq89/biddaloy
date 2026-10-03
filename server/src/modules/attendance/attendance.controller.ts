@@ -52,7 +52,14 @@ export class AttendanceController {
   constructor(private readonly attendanceService: AttendanceService) {}
 
   @Get('my-sections')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+  )
   @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({
     summary:
@@ -73,7 +80,14 @@ export class AttendanceController {
   }
 
   @Get('sections/:sectionId/register')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+  )
   @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({ summary: "A section's register for one day (and optionally one period)." })
   @ApiOkResponse({ type: RegisterResponseDto })
@@ -197,7 +211,14 @@ export class AttendanceController {
   }
 
   @Get('records/:recordId/history')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+  )
   @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({
     summary:
