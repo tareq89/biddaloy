@@ -204,8 +204,9 @@ async function reconcileTenant(
 
       // Remaining units by the same rule as settlePart's per-reservation cap (own reference only).
       let remaining = r.units;
+      let prior: SmsCreditLedger[] = [];
       if (r.reference_id !== null) {
-        const prior = (await ledgerRepo
+        prior = (await ledgerRepo
           .createQueryBuilder('l')
           .where('l.tenant_id = :tenantId', { tenantId })
           .andWhere('l.reference_id = :ref', { ref: r.reference_id })
@@ -215,11 +216,12 @@ async function reconcileTenant(
           .getMany()) as SmsCreditLedger[];
         remaining -= prior.reduce((sum, x) => sum + x.units, 0);
       }
-      // Main's enqueue-failure release settled the bare key (`<key>:settle`, no reference).
+      // Legacy whole-reservation `settle()` wrote `<key>:settle` with reference NULL (the
+      // enqueue-failure release writes `log:<id>:settle`). Skip it if already counted in `prior`.
       const bareSettle = await ledgerRepo.findOne({
         where: { tenant_id: tenantId, idempotency_key: `${key}:settle` },
       });
-      if (bareSettle) remaining -= bareSettle.units;
+      if (bareSettle && !prior.some((x) => x.id === bareSettle.id)) remaining -= bareSettle.units;
       const fullySettled = () => {
         report.settledReserves += 1;
       };

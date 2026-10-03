@@ -8,7 +8,7 @@ import { CommunicationMedium, CommunicationStatus, CommunicationTrigger } from '
 import { Guardian } from '../../students/entities/guardian.entity';
 import { CommunicationLog } from '../entities/communication-log.entity';
 import { SmsCreditBalance } from './entities/sms-credit-balance.entity';
-import { SmsCreditLedger } from './entities/sms-credit-ledger.entity';
+import { SmsCreditLedger, SmsCreditLedgerKind } from './entities/sms-credit-ledger.entity';
 import { SmsCreditService } from './sms-credit.service';
 import { reconcileStrandedSmsCredit, ReconcileRow } from './sms-credit-reconcile';
 
@@ -644,6 +644,38 @@ describe('reconcileStrandedSmsCredit (integration)', () => {
     expect(byReason(rep.rows, 'RESERVE_FAILED:Error')).toMatchObject([{ action: 'ERROR' }]);
     // The run continued past the failure to the next reserve.
     expect(byReason(rep.rows, 'UNKNOWN_KEY')).toHaveLength(1);
+  });
+
+  it('counts a `<key>:settle` row that also carries the reserve reference only once', async () => {
+    await credits.grant(A, 10, { idempotencyKey: `seed:${A}` });
+    const key = 'weird:key';
+    await legacyReserve(A, 4, key, OVER);
+    const reserve = await ledgerRepo.findOneByOrFail({ tenant_id: A, idempotency_key: key });
+    const release = (units: number) =>
+      ledgerRepo.insert({
+        tenant_id: A,
+        kind: SmsCreditLedgerKind.RELEASE,
+        units,
+        reference_type: reserve.reference_type,
+        reference_id: OVER,
+        idempotency_key: `${key}:settle`,
+      });
+
+    await release(4);
+    const [full] = await reconcileStrandedSmsCredit(dataSource, credits, {
+      apply: false,
+      tenantId: A,
+    });
+    expect(full.settledReserves).toBe(1);
+    expect(byReason(full.rows, 'UNKNOWN_KEY')).toHaveLength(0);
+
+    await ledgerRepo.delete({ tenant_id: A, idempotency_key: `${key}:settle` });
+    await release(2);
+    const [part] = await reconcileStrandedSmsCredit(dataSource, credits, {
+      apply: false,
+      tenantId: A,
+    });
+    expect(byReason(part.rows, 'UNKNOWN_KEY')).toMatchObject([{ units: 2 }]);
   });
 
   it('reports units no log accounts for as ORPHAN_UNITS and unknown keys as UNKNOWN_KEY', async () => {
