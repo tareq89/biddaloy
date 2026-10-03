@@ -331,7 +331,8 @@ export class FeeNotificationsListener implements OnModuleInit {
       const reservation = await this.smsCreditService.reserve(
         tenantId,
         totalSmsUnits,
-        batchReservationKey,
+        // Key convention (#1317): reserve `batch:<id>`, the job carries the bare id.
+        `batch:${batchReservationKey}`,
         { type: 'batch', id: feeGenerationId },
       );
       smsReserved = reservation.ok;
@@ -380,6 +381,8 @@ export class FeeNotificationsListener implements OnModuleInit {
             : {}),
         });
       } catch (error) {
+        // No release here on purpose: a replay re-claims this log id and its
+        // settle draws on the units still held (releasing would make it free).
         this.logger.warn(
           `Failed to enqueue fee-notification log ${log.id} for generation ${feeGenerationId}: ${String(error)}`,
         );

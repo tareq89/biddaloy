@@ -125,21 +125,24 @@ describe('ResultSmsService.sendForExam', () => {
     expect(outcome.skipped).toEqual([{ student_id: 'stu-1', reason: 'no_reachable_guardian' }]);
   });
 
-  it('debits the credit ledger once per recipient when metered', async () => {
-    const { service, smsCreditService } = await buildService({ metered: true });
+  it('reserves per-segment under batch:<batchId> and hands batchId + segments to the job', async () => {
+    const { service, smsCreditService, queue } = await buildService({ metered: true });
 
     await service.sendForExam(EXAM_ID, TENANT_ID, 'admin-1');
 
     expect(smsCreditService.reserve).toHaveBeenCalledTimes(1);
     expect(smsCreditService.reserve).toHaveBeenCalledWith(
       TENANT_ID,
-      1,
-      `exam-result-sms:${EXAM_ID}`,
-      {
-        type: 'manual',
-        id: EXAM_ID,
-      },
+      expect.any(Number),
+      expect.stringMatching(new RegExp(`^batch:exam-result-sms:${EXAM_ID}:`)),
+      { type: 'batch', id: expect.any(String) },
     );
+    const key = smsCreditService.reserve.mock.calls[0][2] as string;
+    expect(queue.add).toHaveBeenCalledWith('send', {
+      logId: expect.any(String),
+      batchId: key.replace(/^batch:/, ''),
+      segments: smsCreditService.reserve.mock.calls[0][1],
+    });
   });
 
   it('refuses to send when SMS credit is insufficient', async () => {

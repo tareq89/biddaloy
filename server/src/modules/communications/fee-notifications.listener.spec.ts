@@ -145,7 +145,7 @@ describe('FeeNotificationsListener.handleFeesGenerated — FINE splitting', () =
     is_primary_contact: true,
   } as any);
 
-  function makeListener(bills: unknown[]) {
+  function makeListener(bills: unknown[], opts: { metered?: boolean } = {}) {
     const logRepo = {
       find: vi.fn().mockResolvedValue([]),
       create: vi.fn((v: unknown) => v),
@@ -166,7 +166,10 @@ describe('FeeNotificationsListener.handleFeesGenerated — FINE splitting', () =
         communications: { sms: { provider: 'twilio' }, whatsapp: undefined },
       }),
     };
-    const smsCreditService = { isMetered: vi.fn().mockResolvedValue(false) };
+    const smsCreditService = {
+      isMetered: vi.fn().mockResolvedValue(opts.metered ?? false),
+      reserve: vi.fn().mockResolvedValue({ ok: true }),
+    };
 
     const listener = new FeeNotificationsListener(
       logRepo as any,
@@ -177,7 +180,7 @@ describe('FeeNotificationsListener.handleFeesGenerated — FINE splitting', () =
       smsCreditService as any,
     );
     vi.spyOn(listener as any, 'loadBills').mockResolvedValue(bills);
-    return { listener, queue, logRepo };
+    return { listener, queue, logRepo, smsCreditService };
   }
 
   function billRow(overrides: Record<string, unknown>) {
@@ -192,6 +195,24 @@ describe('FeeNotificationsListener.handleFeesGenerated — FINE splitting', () =
       ...overrides,
     };
   }
+
+  it('metered SMS: reserves under batch:<id> while the job carries the bare id (#1317)', async () => {
+    const { listener, queue, smsCreditService } = makeListener([billRow({})], { metered: true });
+    await listener.handleFeesGenerated({ tenantId, feeGenerationId });
+
+    const bare = `fee-notify:${feeGenerationId}:sms`;
+    expect(smsCreditService.reserve).toHaveBeenCalledWith(
+      tenantId,
+      expect.any(Number),
+      `batch:${bare}`,
+      { type: 'batch', id: feeGenerationId },
+    );
+    expect(queue.add).toHaveBeenCalledWith('send', {
+      logId: 'log1',
+      batchId: bare,
+      segments: expect.any(Number),
+    });
+  });
 
   it('sends two messages (two logs) when one guardian has both a FINE and a non-FINE bill', async () => {
     const { listener, queue } = makeListener([

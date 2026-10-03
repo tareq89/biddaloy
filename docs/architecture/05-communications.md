@@ -152,10 +152,11 @@ elsewhere (e.g. `guardian.preferred_communication`), because a guardian
 can never _choose_ push as a preferred channel the way they can choose
 SMS or email.
 
-No SMS credit is reserved or debited on the push path: credit reservation
-only happens for the bulk-reminder flow's _metered_ SMS batches
-(`isSettleableSmsBatchJob` requires `job.data.batchId`, which `AUTOMATED`
-jobs never carry), so there is nothing to release when push succeeds.
+When push is accepted instead of SMS, the SMS credit reserved for that
+log (fee, payment-receipt and calendar notices reserve credit and carry
+`batchId` + `segments` in the job) is **released** (`settlePart(..., 'RELEASE')`,
+`metadata.credit = RELEASED`), because no SMS goes out. Logs with no
+reservation (unmetered tenant, no `batchId`) touch nothing.
 
 ## Suspended tenants: queued work is cancelled, not paused
 
@@ -224,6 +225,125 @@ etc.) is **not** one of these outcomes: it's invisible to this processor,
 which only sees the gateway's immediate accept/reject response. It stays
 billed — this mirrors how a real carrier charges: you pay to hand the
 message to the network, not for confirmed handset delivery.
+
+### Key convention (#1317)
+
+Every metered-SMS producer follows one rule, so the worker can find the
+reservation it settles:
+
+```mermaid
+flowchart LR
+    P["Producer picks a bare batchId\nfee-notify:G1:sms"] -->|"reserve key"| R["RESERVE\nbatch:fee-notify:G1:sms"]
+    P -->|"job data"| J["{ logId, batchId: fee-notify:G1:sms, segments }"]
+    J --> W["Worker settlePart(\nbatch:fee-notify:G1:sms,\nlog:LOG_ID)"]
+    R -.same key.- W
+```
+
+| Producer              | Bare `batchId` (job) / reserve key = `batch:` + it |
+| --------------------- | -------------------------------------------------- |
+| Bulk reminders        | `<batch.id>`                                       |
+| Calendar notify       | `<batch.id>`                                       |
+| Incident SMS          | `incident:<incidentId>`                            |
+| Fee notification      | `fee-notify:<feeGenerationId>:sms`                 |
+| Payment receipt       | `payment-notify:<paymentId>:<guardianId>`          |
+| Invoice send (manual) | `invoice-send:<invoiceId>:<guardianId>:<sendId>`   |
+| Exam result SMS       | `exam-result-sms:<examId>:<sendId>`                |
+
+Rules:
+
+- A manual re-send gets its own `sendId` (and its own `reference_id`), so
+  each send reserves and is capped on its own.
+- `CommunicationsService.enqueue` releases the reservation itself when no job
+  will ever exist: the log save or lookup throws (`enqueue-failed:<uuid>` part
+  key) or `queue.add` throws (`log:<id>`). The exam-result loop does the same
+  per job: a failed log save releases under `enqueue-failed:<uuid>`, a failed
+  `queue.add` under `log:<id>`, and the loop carries on with the next job.
+- The fee and payment listeners do **not** release on a `queue.add` failure.
+  The log is marked `ENQUEUE_FAILED` and a replayed event re-claims that same
+  log id, so the units stay held for the replay's settle. Releasing would make
+  the re-sent SMS free.
+
+### Reconciling stranded reservations (#1317)
+
+Before the fix, fee, payment-receipt, invoice-send and exam-result reservations
+were made under a key the worker never looked up (no `batch:` prefix). Their
+units stayed in `reserved` forever. An operator command finds them and settles
+the ones whose outcome is certain. It is **not** a migration and never runs on
+boot: you start it by hand.
+
+Run it **after** the fix is deployed **and** the communications queue has
+drained (in-flight rows are skipped, so an early run is safe but incomplete).
+
+**Deploy note:** drain or stop the communications workers before (or while)
+deploying the producers. A rolling deploy lets an OLD worker handle a NEW-key
+job (for example by push-delivering it), which leaves units reserved under a
+`batch:` key. Run the dry-run afterwards: such rows show up as
+`BATCH_REMAINDER`.
+
+```bash
+cd server && yarn sms-credit:reconcile                          # dry run, all tenants (default)
+cd server && yarn sms-credit:reconcile --tenant=<uuid>          # dry run, one tenant
+cd server && yarn sms-credit:reconcile --tenant=<uuid> --apply --confirm-db=<database name>  # act, one tenant
+```
+
+It connects with `DATABASE_URL` from `.env`, like `settings:reencrypt`, but an
+already-exported `DATABASE_URL` wins over `.env`. So `--apply` is refused
+(exit 2) unless `--confirm-db=<name>` equals the database it actually
+connected to (the `database=` value on the first output line; a dry run
+shows it). Dry runs need no confirmation.
+
+How each linked SMS log is decided (the log's own `log:<id>` part key is used,
+the same one the worker uses, so a re-run or a late worker can never charge or
+credit twice):
+
+```mermaid
+flowchart TD
+    L["Linked SMS log"] --> S{"log:ID:settle\nalready in ledger?"}
+    S -->|yes| AS["ALREADY_SETTLED\n(--apply fixes metadata.credit only)"]
+    S -->|no| Q{"status QUEUED?"}
+    Q -->|yes| IF["IN_FLIGHT: untouched"]
+    Q -->|no| E{"ENQUEUE_FAILED?"}
+    E -->|yes| M1["MANUAL_REVIEW\nENQUEUE_FAILED_REPLAYABLE"]
+    E -->|no| ST{"status"}
+    ST -->|"SENT / DELIVERED / READ"| D["DEBIT"]
+    ST -->|"FAILED: tenant suspended,\nno provider, invoice enqueue failed"| R["RELEASE"]
+    ST -->|"any other FAILED"| M2["MANUAL_REVIEW\nFAILED_OUTCOME_UNKNOWN"]
+```
+
+Example dry run (made-up ids; only ids, counts and codes are printed, never
+keys, phones, names or message text):
+
+```text
+sms-credit:reconcile mode=DRY-RUN database=biddaloy
+tenant=0a1b... reserve=7c2d... source=FEE_NOTIFY log=91ef... units=2 action=DEBIT reason=SENT
+tenant=0a1b... reserve=7c2d... source=FEE_NOTIFY log=44aa... units=1 action=RELEASE reason=TENANT_SUSPENDED
+tenant=0a1b... reserve=7c2d... source=FEE_NOTIFY log=5be0... units=1 action=MANUAL_REVIEW reason=FAILED_OUTCOME_UNKNOWN
+tenant=0a1b... stranded_reserves=1 settled_reserves=0 debit=1/2u release=1/1u manual=1/1u already_settled=0 in_flight=0 errors=0
+```
+
+`MANUAL_REVIEW` rows are only listed, never touched. They keep their units
+reserved until a person decides:
+
+| Reason                         | Meaning                                                                                                                                                                                                                                |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FAILED_OUTCOME_UNKNOWN`       | FAILED but we cannot tell rejected from ambiguous on old rows                                                                                                                                                                          |
+| `ENQUEUE_FAILED_REPLAYABLE`    | A replayed event re-claims this log; releasing would make the re-send free                                                                                                                                                             |
+| `ENQUEUE_FAILED_HOLDING_UNITS` | Same, on a post-fix `batch:` reservation. Listed only                                                                                                                                                                                  |
+| `AMBIGUOUS_LINK`               | Invoice-send reserve has no single matching log (time-window match)                                                                                                                                                                    |
+| `NO_LOG_LINK`                  | Exam-result reserve: logs carry no link to the reservation                                                                                                                                                                             |
+| `SHARED_REFERENCE`             | Old invoice-send reserves for one invoice share a reference, so their caps mix; never settled. (Result SMS has one reserve per exam key, so it is never a group.) Reported once per group, as the units not yet settled (any key form) |
+| `BATCH_REMAINDER`              | A `batch:` reserve older than 24h with units left and no QUEUED SMS log since: crashed worker, push-delivered by an old worker, or a rolling deploy. Listed only                                                                       |
+| `SPLIT_ACROSS_DEPLOY`          | Both an old and a `batch:` reserve exist for the same send; their caps would mix                                                                                                                                                       |
+| `EXCEEDS_RESERVATION`          | Settling this log would pass the reserved units                                                                                                                                                                                        |
+| `ORPHAN_UNITS`                 | Reserved units no log accounts for                                                                                                                                                                                                     |
+| `UNKNOWN_KEY`                  | Reserve key matches no known producer                                                                                                                                                                                                  |
+
+Legacy fee and payment SMS that were delivered by **push** (not SMS) have no
+SENT log to debit, so their reserved units show up as `ORPHAN_UNITS`. That is
+manual review too.
+
+Safe to re-run: settled rows show as `ALREADY_SETTLED` and nothing is written
+twice. The exit code is 1 if any row ended in `ERROR`, 2 for bad arguments.
 
 ### Where settlement happens, and why it's outside the log-save transaction
 

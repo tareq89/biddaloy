@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { randomUUID } from 'node:crypto';
 import { Repository } from 'typeorm';
 import { CommunicationLog } from './entities/communication-log.entity';
 import { StudentService, GuardianService } from '../students/students.service';
@@ -49,49 +50,65 @@ export class CommunicationsService {
   ) {}
 
   /**
-   * [16.5.4] Optional SMS-credit reservation reference for a caller (e.g.
-   * `InvoicesController.sendInvoice`) that reserved credit for this one
-   * send with `SmsCreditService.reserve` before calling `enqueue` — mirrors
-   * `FeeNotificationsListener`'s batch job data so
-   * `CommunicationsProcessor` can find and settle (`settlePart`) the
-   * reservation once the send resolves. Omitted entirely for an
-   * unmetered tenant or a non-SMS medium, same as the batch listener.
+   * [16.5.4] Optional SMS-credit reservation reference for a caller that
+   * reserved credit with `SmsCreditService.reserve` before calling `enqueue`.
+   *
+   * Key convention (#1317), shared by every metered-SMS producer: the
+   * producer picks a bare `batchId`, reserves under `batch:${batchId}` and
+   * passes the bare `batchId` (plus `segments`) here. The worker and every
+   * producer-side release use `batch:${batchId}`. Nothing else.
+   *
+   * If no job will ever exist (log save / lookup / `queue.add` throws), the
+   * reservation is released here.
    */
   async enqueue(
     dto: SendCommunicationDto,
     tenantId: string,
     userId: string,
-    smsCreditReservation?: { batchId: string; segments: number; reserveKey?: string },
+    smsCreditReservation?: { batchId: string; segments: number },
   ): Promise<CommunicationResponseDto> {
-    if (dto.student_id) {
-      await this.studentService.findOne(dto.student_id, tenantId);
-    }
-    if (dto.guardian_id) {
-      await this.guardianService.findOne(dto.guardian_id, tenantId);
-    }
+    let log: CommunicationLog;
+    try {
+      if (dto.student_id) {
+        await this.studentService.findOne(dto.student_id, tenantId);
+      }
+      if (dto.guardian_id) {
+        await this.guardianService.findOne(dto.guardian_id, tenantId);
+      }
 
-    const log = await this.repo.save(
-      this.repo.create({
-        tenant_id: tenantId,
-        medium: dto.medium,
-        recipient_address: dto.recipient_address,
-        recipient_name: dto.recipient_name,
-        message_body: dto.message_body,
-        subject: dto.subject ?? null,
-        student_id: dto.student_id ?? null,
-        guardian_id: dto.guardian_id ?? null,
-        sent_by_user_id: userId,
-        status: CommunicationStatus.QUEUED,
-        trigger: CommunicationTrigger.MANUAL,
-        metadata: dto.template_name
-          ? {
-              template_name: dto.template_name,
-              template_language: dto.template_language,
-              template_params: dto.template_params,
-            }
-          : null,
-      }),
-    );
+      log = await this.repo.save(
+        this.repo.create({
+          tenant_id: tenantId,
+          medium: dto.medium,
+          recipient_address: dto.recipient_address,
+          recipient_name: dto.recipient_name,
+          message_body: dto.message_body,
+          subject: dto.subject ?? null,
+          student_id: dto.student_id ?? null,
+          guardian_id: dto.guardian_id ?? null,
+          sent_by_user_id: userId,
+          status: CommunicationStatus.QUEUED,
+          trigger: CommunicationTrigger.MANUAL,
+          metadata: dto.template_name
+            ? {
+                template_name: dto.template_name,
+                template_language: dto.template_language,
+                template_params: dto.template_params,
+              }
+            : null,
+        }),
+      );
+    } catch (err) {
+      // No log and no job exist, so nothing else can release the reservation.
+      if (smsCreditReservation) {
+        await this.releaseReservation(
+          tenantId,
+          smsCreditReservation,
+          `enqueue-failed:${randomUUID()}`,
+        );
+      }
+      throw err;
+    }
 
     try {
       await this.queue.add('send', {
@@ -100,44 +117,46 @@ export class CommunicationsService {
           ? { batchId: smsCreditReservation.batchId, segments: smsCreditReservation.segments }
           : {}),
       });
-    } catch (err) {
+    } catch {
+      // Release first so a failing status save below cannot skip it.
+      if (smsCreditReservation) {
+        await this.releaseReservation(tenantId, smsCreditReservation, `log:${log.id}`, log.id);
+      }
       // The row would otherwise be stuck QUEUED forever with no job to
       // deliver it — surface the failure instead of a false "queued" success.
       log.status = CommunicationStatus.FAILED;
       log.metadata = { ...log.metadata, error: 'Failed to enqueue for delivery' };
       await this.repo.save(log);
 
-      // The job that would have settled `smsCreditReservation` was never
-      // created, so nothing else will ever release it — do it here
-      // instead of leaving units reserved forever, same pattern as
-      // `RemindersService`'s identical enqueue-failure handling. A
-      // failure here must not mask the original enqueue error: it's
-      // logged and the reservation stays stranded pending reconciliation.
-      if (smsCreditReservation) {
-        try {
-          await this.smsCreditService.settlePart(
-            tenantId,
-            // `reserveKey` = the exact key units were reserved under, for
-            // callers whose key differs from the bare batchId (incidents).
-            smsCreditReservation.reserveKey ?? smsCreditReservation.batchId,
-            `log:${log.id}`,
-            smsCreditReservation.segments,
-            'RELEASE',
-          );
-        } catch (releaseErr) {
-          this.logger.error({
-            msg: 'sms credit release on enqueue failure failed — reservation left stranded',
-            communication_log_id: log.id,
-            tenant_id: tenantId,
-            error: releaseErr instanceof Error ? releaseErr.message : String(releaseErr),
-          });
-        }
-      }
-
       throw new InternalServerErrorException('Failed to queue communication for delivery');
     }
 
     return toResponseDto(log);
+  }
+
+  /** Never throws: a failed release must not mask the original error. */
+  private async releaseReservation(
+    tenantId: string,
+    reservation: { batchId: string; segments: number },
+    partKey: string,
+    logId?: string,
+  ): Promise<void> {
+    try {
+      await this.smsCreditService.settlePart(
+        tenantId,
+        `batch:${reservation.batchId}`,
+        partKey,
+        reservation.segments,
+        'RELEASE',
+      );
+    } catch (releaseErr) {
+      this.logger.error({
+        msg: 'sms credit release on enqueue failure failed — reservation left stranded',
+        communication_log_id: logId,
+        tenant_id: tenantId,
+        error: releaseErr instanceof Error ? releaseErr.message : String(releaseErr),
+      });
+    }
   }
 
   async findOne(id: string, tenantId: string): Promise<CommunicationResponseDto> {

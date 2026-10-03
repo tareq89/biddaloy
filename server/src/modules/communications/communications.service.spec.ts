@@ -121,14 +121,10 @@ describe('CommunicationsService', () => {
       message_body: 'Hello',
     };
 
-    it('releases under reserveKey when given (incident batch)', async () => {
+    it('releases under batch:<batchId> when queue.add fails', async () => {
       queue.add.mockRejectedValue(new Error('Redis unreachable'));
       await expect(
-        service.enqueue(dto as any, TENANT_ID, USER_ID, {
-          batchId: 'incident:X',
-          reserveKey: 'batch:incident:X',
-          segments: 2,
-        }),
+        service.enqueue(dto as any, TENANT_ID, USER_ID, { batchId: 'incident:X', segments: 2 }),
       ).rejects.toThrow(InternalServerErrorException);
       expect(smsCreditService.settlePart).toHaveBeenCalledWith(
         TENANT_ID,
@@ -139,18 +135,28 @@ describe('CommunicationsService', () => {
       );
     });
 
-    it('without reserveKey still releases under the bare batchId (other callers)', async () => {
-      queue.add.mockRejectedValue(new Error('Redis unreachable'));
+    it('releases with an enqueue-failed: part key when the log save throws', async () => {
+      const boom = new Error('db down');
+      repo.save.mockRejectedValueOnce(boom);
       await expect(
-        service.enqueue(dto as any, TENANT_ID, USER_ID, { batchId: 'bare-1', segments: 1 }),
-      ).rejects.toThrow(InternalServerErrorException);
+        service.enqueue(dto as any, TENANT_ID, USER_ID, { batchId: 'incident:X', segments: 2 }),
+      ).rejects.toBe(boom);
       expect(smsCreditService.settlePart).toHaveBeenCalledWith(
         TENANT_ID,
-        'bare-1',
-        'log:log-1',
-        1,
+        'batch:incident:X',
+        expect.stringMatching(/^enqueue-failed:/),
+        2,
         'RELEASE',
       );
+      expect(queue.add).not.toHaveBeenCalled();
+    });
+
+    it('no reservation: no settlePart', async () => {
+      queue.add.mockRejectedValue(new Error('Redis unreachable'));
+      await expect(service.enqueue(dto as any, TENANT_ID, USER_ID)).rejects.toThrow(
+        InternalServerErrorException,
+      );
+      expect(smsCreditService.settlePart).not.toHaveBeenCalled();
     });
   });
 

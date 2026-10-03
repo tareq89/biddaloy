@@ -99,9 +99,6 @@ export class IncidentNotifyListener implements OnModuleInit {
         })
         .catch((e) => this.logger.warn(`incident push failed: ${String(e)}`));
       if (sms.on && user.phone) {
-        // ponytail: if `enqueue` throws BEFORE `queue.add` (e.g. the log save
-        // fails) this recipient's share stays reserved (reconciliation case).
-        // Don't release here: once `queue.add` fails, enqueue already releases.
         await this.communications
           .enqueue(
             {
@@ -144,22 +141,18 @@ export class IncidentNotifyListener implements OnModuleInit {
       if (!(await this.smsCredit.isMetered(tenantId))) return { on: true };
 
       const segments = countSmsSegments(INCIDENT_NOTIFICATION_TEXT).segments;
-      // The worker settles under `batch:${batchId}`, so the RESERVE key is that
-      // prefixed form while `enqueue` gets the bare batchId.
+      // Key convention (#1317): reserve under `batch:${batchId}`, pass the bare batchId.
       const batchId = `incident:${incidentId}`;
-      const reserveKey = `batch:${batchId}`;
       const reservation = await this.smsCredit.reserve(
         tenantId,
         segments * smsRecipients,
-        reserveKey,
+        `batch:${batchId}`,
         {
           type: 'batch',
           id: incidentId,
         },
       );
-      return reservation.ok
-        ? { on: true, reservation: { batchId, segments, reserveKey } }
-        : { on: false };
+      return reservation.ok ? { on: true, reservation: { batchId, segments } } : { on: false };
     } catch (e) {
       this.logger.warn(`incident sms setup failed: ${String(e)}`);
       return { on: false };
@@ -170,5 +163,5 @@ export class IncidentNotifyListener implements OnModuleInit {
 /** `reservation` is set only for a metered tenant. */
 interface SmsPlan {
   on: boolean;
-  reservation?: { batchId: string; segments: number; reserveKey: string };
+  reservation?: { batchId: string; segments: number };
 }
