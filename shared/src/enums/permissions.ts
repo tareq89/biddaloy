@@ -586,6 +586,66 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // [32.1.1] Read-only print history (D18/D47).
     Permission.PRINT_HISTORY_READ,
   ],
+  // #1358 office clerk / computer operator: intake, records, communication,
+  // printing. No money-moving, no delete, no lifecycle, no settings.
+  [UserRole.OFFICE_STAFF]: [
+    Permission.STUDENT_CREATE,
+    Permission.STUDENT_READ,
+    Permission.STUDENT_UPDATE,
+    Permission.STUDENT_BULK_UPLOAD,
+    Permission.STUDENT_RECORDS_READ,
+    Permission.STUDENT_RECORDS_WRITE,
+    Permission.GUARDIAN_CREATE,
+    Permission.GUARDIAN_READ,
+    Permission.GUARDIAN_UPDATE,
+    Permission.ADMISSION_REVIEW,
+    Permission.ACADEMIC_STRUCTURE_READ,
+    Permission.ATTENDANCE_READ,
+    Permission.CALENDAR_READ,
+    Permission.ROUTINE_READ,
+    Permission.FEE_READ,
+    Permission.INVOICE_READ,
+    Permission.COMMUNICATION_SEND,
+    Permission.COMMUNICATION_BULK_SEND,
+    Permission.COMMUNICATION_LOG_READ,
+    Permission.DOCUMENT_PRINT,
+    Permission.PRINT_HISTORY_READ,
+    Permission.DASHBOARD_VIEW,
+    Permission.RESULT_READ,
+    Permission.STAFF_ATTENDANCE_READ,
+    Permission.STAFF_ATTENDANCE_MARK,
+  ],
+
+  // #1358 exam controller: runs exams, seat plans and results; reads marks
+  // but never enters them; prints documents but never edits templates.
+  [UserRole.EXAM_CONTROLLER]: [
+    Permission.EXAM_MANAGE,
+    Permission.SEAT_PLAN_MANAGE,
+    Permission.MARK_VIEW,
+    Permission.RESULT_PROCESS,
+    Permission.RESULT_PUBLISH,
+    Permission.RESULT_READ,
+    Permission.DOCUMENT_PRINT,
+    Permission.PRINT_HISTORY_READ,
+    Permission.STUDENT_READ,
+    Permission.ACADEMIC_STRUCTURE_READ,
+    Permission.ATTENDANCE_READ,
+    Permission.ROUTINE_READ,
+    Permission.CALENDAR_READ,
+    Permission.DASHBOARD_VIEW,
+    Permission.STAFF_ATTENDANCE_READ,
+    Permission.STAFF_ATTENDANCE_MARK,
+  ],
+
+  // #1358 school management committee: read-only, no student PII.
+  // REPORT_COLLECTIONS_READ is dropped if that report shows student names (D16).
+  [UserRole.COMMITTEE]: [
+    Permission.DASHBOARD_VIEW,
+    Permission.REPORT_COLLECTIONS_READ,
+    Permission.ACR_READ,
+    Permission.ACADEMIC_STRUCTURE_READ,
+    Permission.CALENDAR_READ,
+  ],
 };
 
 /** True when `role` holds `permission` in ROLE_PERMISSIONS. Unknown or null roles hold nothing.
