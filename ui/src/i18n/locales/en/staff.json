@@ -349,6 +349,7 @@
   "rolesAccess": {
     "title": "Roles & access",
     "subtitle": "What each role can see and do in this school. Read-only.",
+    "scopeLabel": "Data access",
     "scope": {
       "TENANT": "Whole school",
       "ASSIGNED_SECTIONS": "Assigned sections only",

@@ -332,10 +332,35 @@ describe('/staff', () => {
     const dialog = await screen.findByRole('dialog');
     await user.type(within(dialog).getByLabelText('Full name'), 'New Person');
     await user.click(within(dialog).getByRole('combobox', { name: 'Role' }));
-    await user.click(await screen.findByRole('option', { name: 'Accountant' }));
+    await user.click(await screen.findByRole('option', { name: /^Accountant/ }));
     await user.click(within(dialog).getByRole('button', { name: 'Add user' }));
 
     expect(await within(dialog).findByText('A user with this email already exists.')).toBeTruthy();
+  });
+
+  it('add-user dialog shows a description under each role, including EXAM_CONTROLLER', async () => {
+    server.use(http.get('/api/v1/users', () => HttpResponse.json(paginated([]))));
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/staff'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Add user' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('combobox', { name: 'Role' }));
+    const option = await screen.findByRole('option', { name: /^Exam controller/ });
+    expect(
+      within(option).getByText('Exams, marks, results and seat plans for the whole school.'),
+    ).toBeTruthy();
+    await user.click(option);
+    // The trigger shows the label only, not the description.
+    expect(within(dialog).getByRole('combobox', { name: 'Role' }).textContent).toBe(
+      'Exam controller',
+    );
   });
 
   it('self-removal is prevented: the confirm stays disabled with an explanation for your own row', async () => {
