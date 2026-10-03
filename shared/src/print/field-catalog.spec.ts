@@ -12,9 +12,17 @@ describe('FIELD_CATALOG', () => {
         expect(new Set(fields.map((x) => x.key)).size).toBe(fields.length);
       });
 
-      it('has a print.verify_qr qr field', () => {
-        expect(fields.find((x) => x.key === 'print.verify_qr')?.type).toBe('qr');
-      });
+      // ACR is confidential: it must have NO verify QR (the public verify page would expose the holder).
+      it(
+        kind === DocumentKind.ACR_ASSESSMENT
+          ? 'has no verify QR'
+          : 'has a print.verify_qr qr field',
+        () => {
+          const qr = fields.find((x) => x.key === 'print.verify_qr');
+          if (kind === DocumentKind.ACR_ASSESSMENT) expect(qr).toBeUndefined();
+          else expect(qr?.type).toBe('qr');
+        },
+      );
 
       it('gives every field a sample', () => {
         for (const x of fields) expect(x.sample, x.key).not.toBe('');

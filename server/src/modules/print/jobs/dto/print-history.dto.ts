@@ -47,9 +47,9 @@ export class RevokePrintItemDto {
 }
 
 export class SubjectHistoryQueryDto {
-  @ApiProperty({ enum: ['STUDENT', 'STAFF'] })
-  @IsIn(['STUDENT', 'STAFF'])
-  subject_type: 'STUDENT' | 'STAFF';
+  @ApiProperty({ enum: ['STUDENT', 'STAFF', 'ACR'] })
+  @IsIn(['STUDENT', 'STAFF', 'ACR'])
+  subject_type: 'STUDENT' | 'STAFF' | 'ACR';
 
   @ApiProperty()
   @IsUUID()
@@ -59,10 +59,10 @@ export class SubjectHistoryQueryDto {
 export class QueryPrintHistoryDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(40) document_kind?: string;
   @ApiPropertyOptional() @IsOptional() @IsUUID() template_id?: string;
-  @ApiPropertyOptional({ enum: ['STUDENT', 'STAFF'] })
+  @ApiPropertyOptional({ enum: ['STUDENT', 'STAFF', 'ACR'] })
   @IsOptional()
-  @IsIn(['STUDENT', 'STAFF'])
-  subject_type?: 'STUDENT' | 'STAFF';
+  @IsIn(['STUDENT', 'STAFF', 'ACR'])
+  subject_type?: 'STUDENT' | 'STAFF' | 'ACR';
   @ApiPropertyOptional() @IsOptional() @IsUUID() subject_id?: string;
   @ApiPropertyOptional() @IsOptional() @IsUUID() printed_by?: string;
   @ApiPropertyOptional({ description: 'ISO date or datetime, inclusive' })

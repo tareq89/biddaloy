@@ -36,6 +36,7 @@ export class PublicVerifyService {
   async verify(token: string): Promise<PublicVerifyResult> {
     // Hash first, always: an unknown token costs the same as a known one.
     const hash = hashSecret(token);
+    // ACR items are never publicly verifiable (confidential): same 404 as an unknown token.
     // Tokens are globally unique, so this looks across tenants on purpose.
     const rows = await this.ds.query(
       `SELECT i.document_kind, i.subject_label, i.copy_number, i.revoked_at,
@@ -43,7 +44,7 @@ export class PublicVerifyService {
               s.name AS school_name, s.name_bn AS school_name_bn
          FROM print_job_items i
          JOIN schools s ON s.id = i.tenant_id
-        WHERE i.verify_token_hash = $1`,
+        WHERE i.verify_token_hash = $1 AND i.document_kind <> 'ACR_ASSESSMENT'`,
       [hash],
     );
     if (rows.length === 0) throw new NotFoundException('We could not find this document');

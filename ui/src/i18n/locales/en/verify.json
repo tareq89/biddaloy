@@ -6,7 +6,8 @@
   "revokedOn": "Revoked on {{date}}",
   "kind": {
     "STUDENT_ID_CARD": "Student ID card",
-    "STAFF_ID_CARD": "Staff ID card"
+    "STAFF_ID_CARD": "Staff ID card",
+    "ACR_ASSESSMENT": "ACR (confidential report)"
   },
   "rows": {
     "type": "Document",

@@ -10425,7 +10425,7 @@ export interface components {
             tenant: components["schemas"]["School"];
             tenant_id: string;
             /** @enum {string} */
-            document_kind: "STUDENT_ID_CARD" | "STAFF_ID_CARD";
+            document_kind: "STUDENT_ID_CARD" | "STAFF_ID_CARD" | "ACR_ASSESSMENT";
             /** @enum {string} */
             layout_kind: "FIXED" | "FLOWING";
             name: string;
@@ -10521,14 +10521,14 @@ export interface components {
             /** Format: uuid */
             template_id: string;
             /** @enum {string} */
-            subject_type: "STUDENT" | "STAFF";
+            subject_type: "STUDENT" | "STAFF" | "ACR";
             subject_ids: string[];
         };
         CreatePrintJobDto: {
             /** Format: uuid */
             template_id: string;
             /** @enum {string} */
-            subject_type: "STUDENT" | "STAFF";
+            subject_type: "STUDENT" | "STAFF" | "ACR";
             subject_ids: string[];
             /** Format: uuid */
             printer_profile_id?: string;
@@ -24675,7 +24675,7 @@ export interface operations {
     PrintTemplatesController_list_v1: {
         parameters: {
             query?: {
-                document_kind?: "STUDENT_ID_CARD" | "STAFF_ID_CARD";
+                document_kind?: "STUDENT_ID_CARD" | "STAFF_ID_CARD" | "ACR_ASSESSMENT";
                 include_archived?: boolean;
             };
             header: {
@@ -25403,7 +25403,7 @@ export interface operations {
     PrintJobActionsController_subjectHistory_v1: {
         parameters: {
             query: {
-                subject_type: "STUDENT" | "STAFF";
+                subject_type: "STUDENT" | "STAFF" | "ACR";
                 subject_id: string;
             };
             header: {
@@ -25509,7 +25509,7 @@ export interface operations {
             query?: {
                 document_kind?: string;
                 template_id?: string;
-                subject_type?: "STUDENT" | "STAFF";
+                subject_type?: "STUDENT" | "STAFF" | "ACR";
                 subject_id?: string;
                 printed_by?: string;
                 /** @description ISO date or datetime, inclusive */

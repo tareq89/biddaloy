@@ -19,7 +19,8 @@
   "documentValue": "{{name}} সংস্করণ {{version}}",
   "kind": {
     "STUDENT_ID_CARD": "শিক্ষার্থীর পরিচয়পত্র",
-    "STAFF_ID_CARD": "কর্মীর পরিচয়পত্র"
+    "STAFF_ID_CARD": "কর্মীর পরিচয়পত্র",
+    "ACR_ASSESSMENT": "এসিআর (গোপনীয় প্রতিবেদন)"
   },
   "outcome": {
     "OK": "ছাপা হয়েছে",

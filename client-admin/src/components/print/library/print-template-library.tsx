@@ -43,8 +43,12 @@ export interface PrintTemplateLibraryProps {
 
 const PAGE_SIZE_DEFAULT = 10;
 
-/** Student cards first, then staff cards (not alphabetical). */
-const KIND_ORDER: Record<string, number> = { STUDENT_ID_CARD: 0, STAFF_ID_CARD: 1 };
+/** Student cards first, then staff cards, then ACR pages (not alphabetical). */
+const KIND_ORDER: Record<string, number> = {
+  STUDENT_ID_CARD: 0,
+  STAFF_ID_CARD: 1,
+  ACR_ASSESSMENT: 2,
+};
 
 /** The server's own message ("Choose another default first"), shown as is. */
 const messageOf = (error: unknown, fallback: string) =>
@@ -221,7 +225,7 @@ export function PrintTemplateLibrary({ onEdit, openNewDialog = false }: PrintTem
       key: 'kind',
       label: t('filters.kind'),
       allLabel: t('filters.allKinds'),
-      options: (['STUDENT_ID_CARD', 'STAFF_ID_CARD'] as const).map((k) => ({
+      options: (['STUDENT_ID_CARD', 'STAFF_ID_CARD', 'ACR_ASSESSMENT'] as const).map((k) => ({
         value: k,
         label: t(`kind.${k}`),
       })),

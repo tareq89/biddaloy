@@ -79,8 +79,9 @@ export class PrintTemplatesService {
   suggestionArtworkPath(key: string, side: string): string {
     const suggestion = PRINT_SUGGESTIONS.find((s) => s.key === key);
     const found = SIDES.find((s) => s === side);
-    if (!suggestion || !found) throw new NotFoundException('Suggestion artwork not found');
-    return join(ARTWORK_DIR, suggestion.artwork[found]);
+    const file = found && suggestion?.artwork[found];
+    if (!file) throw new NotFoundException('Suggestion artwork not found');
+    return join(ARTWORK_DIR, file);
   }
 
   async list(tenantId: string, q: ListPrintTemplatesQueryDto) {
@@ -134,8 +135,10 @@ export class PrintTemplatesService {
     if (!suggestion) throw new BadRequestException(`Unknown suggestion "${dto.suggestion_key}"`);
 
     // Storage first, DB second: a failed transaction leaves at most an unreferenced object.
+    // A front-only suggestion (the A4 ACR page) has no back artwork.
+    const sides = SIDES.filter((side) => suggestion.artwork[side]);
     const stored = await Promise.all(
-      SIDES.map((side) => this.storeArtwork(tenantId, suggestion, side)),
+      sides.map((side) => this.storeArtwork(tenantId, suggestion, side)),
     );
 
     try {
@@ -148,7 +151,7 @@ export class PrintTemplatesService {
         );
         const draft: TemplateDefinition = structuredClone(suggestion.definition);
         draft.front.background = { assetId: front!.id, print: true };
-        draft.back = { ...draft.back!, background: { assetId: back!.id, print: true } };
+        if (back && draft.back) draft.back.background = { assetId: back.id, print: true };
 
         const repo = manager.getRepository(PrintTemplate);
         const hasDefault = await repo.exists({
@@ -384,7 +387,7 @@ export class PrintTemplatesService {
   }
 
   private async storeArtwork(tenantId: string, suggestion: PrintSuggestion, side: ArtworkSide) {
-    const file = suggestion.artwork[side];
+    const file = suggestion.artwork[side] as string;
     const body = await readFile(join(ARTWORK_DIR, file));
     const storage_key = tenantObjectKey(tenantId, 'print-artwork', 'svg');
     await this.storage.put(storage_key, body, 'image/svg+xml');

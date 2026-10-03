@@ -1,6 +1,9 @@
+import { setActiveRole } from '@biddaloy/ui/api';
 import type { AcrAssessment, AcrCriterion } from '@biddaloy/ui/hooks';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+import { withMemoryRouter } from '../../../../../../ui/.storybook/router-decorator';
 
 import { AcrForm } from './acr-form';
 import { CriterionStep } from './criterion-step';
@@ -88,6 +91,14 @@ export const PartiallyScored: Story = {
 
 /** Completed — read-only, total shown, Reopen available. */
 export const Completed: Story = {
+  // The Print button needs router context and ACR_READ + DOCUMENT_PRINT (ADMIN).
+  decorators: [
+    withMemoryRouter(['/staff/user-1/acr']),
+    (Story) => {
+      setActiveRole('ADMIN');
+      return <Story />;
+    },
+  ],
   args: {
     assessment: assessment({
       status: 'COMPLETED',

@@ -1,4 +1,4 @@
-import { DocumentKind } from '../enums/print';
+import { ACR_CRITERIA_SLOTS, DocumentKind } from '../enums/print';
 
 export interface FieldDef {
   key: string;
@@ -48,6 +48,21 @@ const COMMON_TAIL: FieldDef[] = [
   f('print.verify_qr', 'qr', 'https://example.com/verify/abc123'),
 ];
 
+// No print.verify_qr and no photo: an ACR is confidential and must never be publicly verifiable.
+const ACR_TAIL: FieldDef[] = [
+  f('print.copyLabel', 'text', 'Copy 2'),
+  f('print.issue_date', 'text', '01 Jan 2027'),
+];
+
+const ACR_CRITERIA: FieldDef[] = Array.from(
+  { length: ACR_CRITERIA_SLOTS },
+  (_, i) => i + 1,
+).flatMap((n) => [
+  f(`acr.criterion.${n}.label`, 'text', 'Punctuality and attendance'),
+  f(`acr.criterion.${n}.label_bn`, 'text', 'সময়ানুবর্তিতা ও উপস্থিতি'),
+  f(`acr.criterion.${n}.score`, 'text', '4'),
+]);
+
 export const FIELD_CATALOG: Record<DocumentKind, FieldDef[]> = {
   [DocumentKind.STUDENT_ID_CARD]: [
     ...SCHOOL,
@@ -78,5 +93,16 @@ export const FIELD_CATALOG: Record<DocumentKind, FieldDef[]> = {
     f('staff.phone', 'text', '01911-000000'),
     f('staff.photo', 'image', 'photo'),
     ...COMMON_TAIL,
+  ],
+  [DocumentKind.ACR_ASSESSMENT]: [
+    ...SCHOOL,
+    f('staff.name', 'text', 'Fatema Begum', 'Mst. Fatema Khatun Begum Chowdhury'),
+    f('staff.name_bn', 'text', 'ফাতেমা বেগম', 'মোছাঃ ফাতেমা খাতুন বেগম চৌধুরী'),
+    f('staff.designation', 'text', 'Assistant Teacher', 'Senior Assistant Teacher (Mathematics)'),
+    f('acr.year', 'text', '2026'),
+    f('acr.total', 'text', '82'),
+    f('acr.completed_on', 'text', '31 Dec 2026'),
+    ...ACR_CRITERIA,
+    ...ACR_TAIL,
   ],
 };

@@ -31,6 +31,16 @@ const ROW_FROM = `
   JOIN print_templates t ON t.id = v.template_id
   LEFT JOIN users u ON u.id = j.printed_by`;
 
+/**
+ * ACR rows are confidential: only a caller with ACR_READ sees them, and never their own.
+ * `$n` is the caller id parameter; used by every read and by revoke.
+ */
+const acrGate = (role: string, n: string) =>
+  `(i.document_kind <> 'ACR_ASSESSMENT' OR (${roleHasPermission(role, Permission.ACR_READ)}
+     AND NOT EXISTS (
+       SELECT 1 FROM acr_assessments a
+        WHERE a.id = i.subject_id AND a.tenant_id = i.tenant_id AND a.user_id = ${n}::uuid)))`;
+
 const escapeLike = (v: string) => v.replace(/[\\%_]/g, (c) => `\\${c}`);
 
 @Injectable()
@@ -41,9 +51,9 @@ export class PrintHistoryService {
   ) {}
 
   /** Builds the WHERE for the list. Every value is a bound parameter. */
-  private where(tenantId: string, q: QueryPrintHistoryDto) {
-    const params: unknown[] = [tenantId];
-    const clauses = ['i.tenant_id = $1'];
+  private where(caller: PrintCaller, q: QueryPrintHistoryDto) {
+    const params: unknown[] = [caller.tenantId, caller.userId];
+    const clauses = ['i.tenant_id = $1', acrGate(caller.role, '$2')];
     const add = (sql: (n: string) => string, value: unknown) => {
       params.push(value);
       clauses.push(sql(`$${params.length}`));
@@ -73,7 +83,7 @@ export class PrintHistoryService {
   async list(caller: PrintCaller, q: QueryPrintHistoryDto) {
     const page = q.page || 1;
     const limit = q.limit || 20;
-    const { sql, params } = this.where(caller.tenantId, q);
+    const { sql, params } = this.where(caller, q);
     const [rows, count] = await Promise.all([
       this.ds.query(
         `SELECT ${ROW_SELECT} ${ROW_FROM} WHERE ${sql}
@@ -91,8 +101,8 @@ export class PrintHistoryService {
   async getItem(caller: PrintCaller, itemId: string) {
     const rows = await this.ds.query(
       `SELECT ${ROW_SELECT}, i.data_snapshot, i.revoke_reason, v.definition AS template_definition
-       ${ROW_FROM} WHERE i.tenant_id = $1 AND i.id = $2`,
-      [caller.tenantId, itemId],
+       ${ROW_FROM} WHERE i.tenant_id = $1 AND i.id = $2 AND ${acrGate(caller.role, '$3')}`,
+      [caller.tenantId, itemId, caller.userId],
     );
     if (rows.length === 0) throw new NotFoundException('Print item not found');
     // Staff snapshots are HR data: PRINT_HISTORY_READ alone must not reveal them.
@@ -106,7 +116,11 @@ export class PrintHistoryService {
   }
 
   /** Newest first, at most 100. Feeds the Documents tabs on a student / staff page. */
-  async subjectHistory(caller: PrintCaller, subjectType: 'STUDENT' | 'STAFF', subjectId: string) {
+  async subjectHistory(
+    caller: PrintCaller,
+    subjectType: 'STUDENT' | 'STAFF' | 'ACR',
+    subjectId: string,
+  ) {
     // Staff cards carry HR data, so listing them needs the same permission as printing one (D18).
     if (subjectType === 'STAFF' && !roleHasPermission(caller.role, Permission.STAFF_HR_READ)) {
       throw new ForbiddenException('Missing permission: STAFF_HR_READ');
@@ -114,14 +128,21 @@ export class PrintHistoryService {
     return this.ds.query(
       `SELECT ${ROW_SELECT} ${ROW_FROM}
         WHERE i.tenant_id = $1 AND i.subject_type = $2 AND i.subject_id = $3
+          AND ${acrGate(caller.role, '$4')}
         ORDER BY i.created_at DESC, i.id DESC LIMIT 100`,
-      [caller.tenantId, subjectType, subjectId],
+      [caller.tenantId, subjectType, subjectId, caller.userId],
     );
   }
 
   /** D22 / D47: revoke one copy. The conditional update makes a second revoke a 409, even under a race. */
   async revoke(caller: PrintCaller, itemId: string, reason: string) {
     return this.ds.transaction(async (manager) => {
+      // Hidden ACR rows must not be revocable (or even confirmable as existing): same 404.
+      const visible = await manager.query(
+        `SELECT 1 FROM print_job_items i WHERE i.tenant_id = $1 AND i.id = $2 AND ${acrGate(caller.role, '$3')}`,
+        [caller.tenantId, itemId, caller.userId],
+      );
+      if (visible.length === 0) throw new NotFoundException('Print item not found');
       const revokedAt = new Date();
       // Conditional update = the double-revoke guard, atomic even under a race.
       const updated = await manager.update(
