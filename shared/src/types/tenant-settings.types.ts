@@ -242,6 +242,15 @@ export interface PresetSettings {
   appliedByUserId: string;
 }
 
+/**
+ * `evaluations.*` (28.2.1) — incident notification options. Absent = off.
+ * Push is always on; this only gates the SMS.
+ */
+export interface EvaluationsSettings {
+  /** SMS to ACR_WRITE holders on a new incident (fixed text, never the incident). */
+  incidentSmsEnabled?: boolean;
+}
+
 export interface TenantSettings {
   version: typeof TENANT_SETTINGS_SCHEMA_VERSION;
   region?: RegionSettings;
@@ -253,4 +262,5 @@ export interface TenantSettings {
   auth?: AuthSettings;
   backup?: BackupSettings;
   fees?: FeesSettings;
+  evaluations?: EvaluationsSettings;
 }
