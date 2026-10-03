@@ -637,11 +637,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.STAFF_ATTENDANCE_MARK,
   ],
 
-  // #1358 school management committee: read-only, no student PII.
-  // REPORT_COLLECTIONS_READ is dropped if that report shows student names (D16).
+  // #1358 school management committee: read-only, no student PII (D9).
+  // No REPORT_COLLECTIONS_READ (D16): the collections report and its CSV list
+  // a student_name per payment. An aggregate-only report would need its own
+  // permission.
   [UserRole.COMMITTEE]: [
     Permission.DASHBOARD_VIEW,
-    Permission.REPORT_COLLECTIONS_READ,
     Permission.ACR_READ,
     Permission.ACADEMIC_STRUCTURE_READ,
     Permission.CALENDAR_READ,

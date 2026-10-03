@@ -814,6 +814,8 @@ describe('new role grants [#1358]', () => {
       );
     }
     expect(has(UserRole.COMMITTEE, Permission.STUDENT_READ)).toBe(false);
+    // D16: the collections report lists student_name per payment.
+    expect(has(UserRole.COMMITTEE, Permission.REPORT_COLLECTIONS_READ)).toBe(false);
   });
 
   it('no new role can move money or change settings', () => {
