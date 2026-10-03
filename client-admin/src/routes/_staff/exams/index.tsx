@@ -68,7 +68,26 @@ function ExamsListPage() {
   const examsQuery = useExams(filters);
 
   const search = Route.useSearch();
+  const navigate = Route.useNavigate();
   const [createOpen, setCreateOpen] = React.useState(search.create === '1');
+
+  // The page can already be mounted when the palette navigates to `?create=1`,
+  // so the flag must open the dialog on every change, not only on first render.
+  React.useEffect(() => {
+    if (search.create === '1') setCreateOpen(true);
+  }, [search.create]);
+
+  // Closing also drops the one-shot params, so a later navigation to the same
+  // `?create=1` URL is a real change and re-opens the dialog.
+  const handleCreateOpenChange = (open: boolean) => {
+    setCreateOpen(open);
+    if (!open && (search.create || search.template)) {
+      void navigate({
+        search: (prev) => ({ ...prev, create: undefined, template: undefined }),
+        replace: true,
+      });
+    }
+  };
 
   return (
     <>
@@ -150,13 +169,13 @@ function ExamsListPage() {
       {canManage && (
         <ExamFormDialog
           open={createOpen}
-          onOpenChange={setCreateOpen}
+          onOpenChange={handleCreateOpenChange}
           mode="create"
           {...(search.template ? { defaultTemplateId: search.template } : {})}
           {...(academicYearId && academicYearId !== ALL_VALUE
             ? { defaultAcademicYearId: academicYearId }
             : {})}
-          onSaved={() => setCreateOpen(false)}
+          onSaved={() => handleCreateOpenChange(false)}
         />
       )}
     </>
