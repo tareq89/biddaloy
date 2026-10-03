@@ -231,7 +231,7 @@ describe('Academic Years E2E', () => {
       expect(res.body.name).toBe('Updated Name');
     });
 
-    it('should return 403 for STUDENT role on update', async () => {
+    it('should return 401 for STUDENT role on update (token does not hold STUDENT)', async () => {
       const createRes = await supertest(app.getHttpServer())
         .post('/api/v1/academic-years')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -245,7 +245,7 @@ describe('Academic Years E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
         .send({ name: 'Should Not Update' })
-        .expect(403);
+        .expect(401);
     });
   });
 
@@ -273,7 +273,7 @@ describe('Academic Years E2E', () => {
         .expect(404);
     });
 
-    it('should return 403 for STUDENT role on delete', async () => {
+    it('should return 401 for STUDENT role on delete (token does not hold STUDENT)', async () => {
       const createRes = await supertest(app.getHttpServer())
         .post('/api/v1/academic-years')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -286,7 +286,7 @@ describe('Academic Years E2E', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
-        .expect(403);
+        .expect(401);
     });
   });
 
@@ -377,7 +377,7 @@ describe('Academic Years E2E', () => {
         .expect(404);
     });
 
-    it('should return 403 for STUDENT role', async () => {
+    it('should return 401 for STUDENT role (token does not hold STUDENT)', async () => {
       const createRes = await supertest(app.getHttpServer())
         .post('/api/v1/academic-years')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -390,7 +390,7 @@ describe('Academic Years E2E', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
-        .expect(403);
+        .expect(401);
     });
   });
 });
