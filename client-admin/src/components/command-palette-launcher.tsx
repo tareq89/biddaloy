@@ -30,6 +30,7 @@
  * check alone is not enough to gate a shortcut the sidebar wouldn't
  * already show.
  */
+import { Permission } from '@biddaloy/shared';
 import {
   Button,
   CommandPalette,
@@ -251,14 +252,16 @@ export function CommandPaletteLauncher() {
     { id: 'actions', label: t('commandPalette.groups.actions'), results: actionResults },
   ];
 
-  const tabs: readonly [CommandPaletteTab, CommandPaletteTab, CommandPaletteTab] = [
-    {
-      id: 'people',
-      label: t('commandPalette.tabs.people'),
-      groups: peopleGroups,
-      searchableHint: t('commandPalette.searchableHint'),
-      noResultsText: (searchQuery) => t('commandPalette.noResults', { query: searchQuery }),
-    },
+  const peopleTab: CommandPaletteTab = {
+    id: 'people',
+    label: t('commandPalette.tabs.people'),
+    groups: peopleGroups,
+    searchableHint: t('commandPalette.searchableHint'),
+    noResultsText: (searchQuery) => t('commandPalette.noResults', { query: searchQuery }),
+  };
+  // No STUDENT_READ → no People tab at all (and `usePaletteSearch` makes no /search call).
+  const tabs: readonly [CommandPaletteTab, ...CommandPaletteTab[]] = [
+    ...(hasPermission(activeRole, Permission.STUDENT_READ) ? [peopleTab] : []),
     {
       id: 'page',
       label: t('commandPalette.tabs.page'),
