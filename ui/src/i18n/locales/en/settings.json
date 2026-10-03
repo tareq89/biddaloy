@@ -219,6 +219,9 @@
     "legend": "Evaluations",
     "incidentSmsLabel": "Send an SMS when a new incident report is filed",
     "incidentSmsHint": "The SMS says only that a new report exists, never what it says. SMS is sent only if an SMS provider is set up in the SMS settings above.",
+    "providerConfigured": "An SMS provider is set up, so incident SMS can be sent.",
+    "providerMissingWarning": "No SMS provider is set up yet. Incident SMS will not be sent until you set one up in the SMS settings above.",
+    "providerNotConfigured": "No SMS provider is set up.",
     "pushAlwaysOn": "Push notifications are always on."
   },
   "organisation": {

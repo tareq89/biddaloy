@@ -5,6 +5,7 @@ import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { School } from '../schools/entities/school.entity';
 import { PushModule } from '../push/push.module';
 import { CommunicationsModule } from '../communications/communications.module';
+import { CreditsModule } from '../communications/credits/credits.module';
 import { IncidentsController } from './incidents.controller';
 import { IncidentsService } from './incidents.service';
 import { IncidentNotifyListener } from './incident-notify.listener';
@@ -15,6 +16,7 @@ import { IncidentNotifyListener } from './incident-notify.listener';
     TypeOrmModule.forFeature([StaffIncident, UserTenant, School]),
     PushModule,
     CommunicationsModule,
+    CreditsModule,
   ],
   controllers: [IncidentsController],
   providers: [IncidentsService, IncidentNotifyListener],
