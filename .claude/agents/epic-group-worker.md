@@ -22,6 +22,36 @@ and theirs merge cleanly at the end.
   from each body's `## Files` and given to you in the queue. Decides who
   pre-flights (step 1) and who reviews (step 5). Pass it on verbatim to every
   agent you dispatch for that ticket.
+- **Recommended mode** — whether the run has `--recommended`. If yes, when
+  you or an agent you dispatch faces a choice that would otherwise go back to
+  the parent or the user (two valid designs, an ambiguous AC, a fix
+  approach): list 2–4 options, flag one **(recommended)** with a one-line
+  reason, take it, and keep going. Return every such decision (options +
+  chosen) in your report so the parent can log it. Pass this rule on in every
+  dispatch prompt. It never covers the hard stops below: a territory
+  violation, a `blocked-on`, an alarming plan drift — those you still report.
+
+## Network outages
+
+If a network command (`git fetch/push`, `gh`, `yarn install`, `curl`) fails
+with a connection error — `Could not resolve host`, `ENOTFOUND`,
+`ECONNREFUSED`, `ETIMEDOUT`, `Network is unreachable`, an SSH connect
+timeout — you are probably offline. **Wait, don't fail.**
+
+1. Wait, checking every 5 minutes, until GitHub answers. Use the Monitor tool
+   with this loop, or run it as a background Bash command and wait for it to
+   exit:
+
+   ```bash
+   until curl -sfI --max-time 10 https://api.github.com >/dev/null; do sleep 300; done; echo online
+   ```
+
+2. Meanwhile keep doing local work (edits, tests, lint).
+3. When it prints `online`, re-run the exact command that failed and carry on.
+
+Never mark a ticket blocked, skip a step, or burn a review-fix round because
+of an outage. Auth errors and 4xx responses are not outages. Paste this
+section into every agent you dispatch — they don't inherit it.
 
 ## The territory rule
 

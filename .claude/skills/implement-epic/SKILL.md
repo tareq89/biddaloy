@@ -26,6 +26,7 @@ never be disjoint.
 /implement-epic https://github.com/org/repo/issues/364
 /implement-epic plan 364
 /implement-epic 364 --groups 2 --only w1
+/implement-epic 364 --stack --recommended
 /implement-epic resume
 ```
 
@@ -40,6 +41,87 @@ never be disjoint.
   the default is one lane per sub-issue in the wave, max 8 — see step 3).
 - **`--only w<N>`** → run one wave and stop. `w<N>c` is that wave's close
   sub-wave.
+- **`--recommended`** → decide instead of asking. See
+  [Recommended mode](#recommended-mode---recommended).
+- **`--stack`** → one stacked PR per wave, no stop between waves, until the
+  whole epic is done. See [Stack mode](#stack-mode---stack).
+
+Record both flags in the state file header so `resume` keeps them.
+
+### Recommended mode (`--recommended`)
+
+Every time the run would stop to ask the user — a gate, a re-partition, a
+plan-drift verdict, a fix approach, a plan that could go two ways — do this
+instead:
+
+1. Analyse it: what is the choice, what does each path cost and risk.
+2. Write 2–4 options. Flag exactly one as **(recommended)**, with a one-line
+   reason.
+3. Take the recommended option and keep going.
+4. Log it in the state file under `## Decisions` (and in the PR description
+   of the PR it lands in), so the user can review every call later:
+
+```markdown
+## Decisions
+- D3 (w2, #1240): 2 lanes both touch ui/src/hooks/survey.ts
+  - A: merge both lanes into one (recommended — serial, zero conflict risk)
+  - B: pull survey.ts out as its own hot-path lane
+  - Chosen: A
+```
+
+Passing `--recommended` is the user's approval for GATE 1 and GATE 2. It is
+**not** approval for:
+
+- **GATE 3 — merging to `main`.** Still the user's explicit call, per PR.
+- Anything the rules below forbid outright: `--force` / `-D`, history
+  rewrites, crossing the 90-file chain ceiling or the 100-file PR limit.
+
+Pass the flag down: tell every `epic-group-worker` (and, through it, every
+planner / implementer / reviewer) to resolve its own choices the same way and
+return the options + chosen one in its report, so you can log them.
+
+### Stack mode (`--stack`)
+
+Default behaviour accumulates waves into one PR and stops at GATE 2 every wave.
+`--stack` changes that to **one PR per wave, stacked, without stopping**:
+
+```mermaid
+flowchart LR
+    M[main] --> W1["PR wave 1\nbase: main"]
+    W1 --> W2["PR wave 2\nbase: wave 1 branch"]
+    W2 --> W3["PR wave 3\nbase: wave 2 branch"]
+    W3 --> G3{{"GATE 3\nuser merges bottom-up"}}
+```
+
+For each wave, in order:
+
+1. Run the lanes (step 5) rooted on the previous wave's branch (wave 1 roots
+   on `main`).
+2. Integrate into the wave branch `epic/<slug>/w<N>` and get it green (step 6),
+   including the wave-close task.
+3. Open the wave's PR (step 7) with base = previous wave's branch (`main` for
+   wave 1). The 100-file check runs against that base. If one wave alone
+   exceeds 100 files, split it at a chain boundary into two stacked PRs.
+4. Start step 8 (CI / CodeRabbit rounds) on that PR, and **immediately**
+   start the next wave on top of it. Don't wait for CI.
+
+`--stack` is the user's approval to open these PRs, so GATE 2 reports but does
+not stop. GATE 1 still stops unless `--recommended` is also set. GATE 3 always
+stops.
+
+Stacked-PR rules (each one has already cost this repo time):
+
+- **CodeRabbit only reviews PRs whose base is `main`.** Upper PRs show
+  "Review skipped" until retargeted. So their step-8 CodeRabbit round happens
+  after GATE 3 retargets them; CI still runs on them right away.
+- **A fix pushed to wave N's branch must reach every wave above it.** Rebase
+  the upper branches with `git rebase --onto`, push them with
+  `--force-with-lease`, and keep every branch linear — the user rebase-merges,
+  and `--no-ff` merge commits block that.
+- **The user may merge a stack PR at any time.** `git fetch` and re-check the
+  remote tip before every push.
+- After PR N merges to `main`: retarget PR N+1 to `main`, rebase it onto the
+  new `main`, push, then let CodeRabbit run on it.
 
 ## Mode
 
@@ -61,6 +143,48 @@ scope — never cutting input validation, auth, tenant isolation, or error
 handling at a trust boundary. Say it explicitly in every dispatch prompt; it
 doesn't inherit down the `epic-group-worker` → `issue-planner`/
 `issue-implementer` chain either.
+
+Also paste the [Network outages](#network-outages) rule into every dispatch
+prompt, for the same reason: it has to reach every agent at every level.
+
+## Network outages
+
+A run spans hours, and the network will drop. When it does, **wait and
+resume — never fail the ticket.** This rule is for the orchestrator and every
+agent it starts, at every level.
+
+**What counts as offline:** a network command (`git fetch/push`, `gh`,
+`yarn install`, `curl`) fails with a connection error — `Could not resolve
+host`, `ENOTFOUND`, `ECONNREFUSED`, `ETIMEDOUT`, `Network is unreachable`,
+`ssh: connect to host … timed out`. Confirm with one probe:
+
+```bash
+curl -sfI --max-time 10 https://api.github.com >/dev/null && echo online || echo offline
+```
+
+An auth error, a 4xx, or a red CI job is **not** offline — handle it normally.
+An SSH drop mid-`pre-push` hook while the probe says `online` is also not
+offline; retry the push once.
+
+**When offline:**
+
+1. Wait with a check every 5 minutes, until the probe passes. Use the Monitor
+   tool with an until-loop; if Monitor isn't available, run it as a
+   background Bash command and wait for it to exit:
+
+   ```bash
+   until curl -sfI --max-time 10 https://api.github.com >/dev/null; do sleep 300; done; echo online
+   ```
+
+2. While waiting, keep doing local work that needs no network (edit, unit
+   tests, lint). Don't start anything that will need the network halfway.
+3. Once online, re-run the exact command that failed, then carry on from
+   there.
+
+Never mark a ticket `blocked`, count a step-8 fix round, re-dispatch an agent,
+or skip a step because of an outage. Note the outage window in the state file.
+If the agent itself dies (its API call fails), `resume` picks the run up from
+the state file.
 
 Batch independent tool calls into one message — dispatch all of a wave's
 group agents in a single turn, and fetch every sub-issue body in one batched
@@ -185,6 +309,9 @@ distinct from `main`.
 stops, leaving the accumulating branch exactly where it is — it does not
 force a PR open. `resume` continues from the recorded wave and accumulating
 branch.
+
+`--stack` replaces the accumulate-until-100-files check with one stacked PR
+per wave — see [Stack mode](#stack-mode---stack).
 
 PRs open back-to-back, no pacing wait between them — open the next one as soon
 as the previous `gh pr create` returns, don't wait on CI or CodeRabbit first.
@@ -569,7 +696,8 @@ files changed per chain, and the accumulating branch's running file count
 against `main`. This gate happens **every wave**, whether or not a PR is
 about to open — GATE 3 is the separate, PR-specific approval that only fires
 when the file count forces one open. Stop for approval before opening any
-PR — a PR is outward-facing and hard to unpublish.
+PR — a PR is outward-facing and hard to unpublish. (`--stack` or
+`--recommended` is that approval given up front: report, then keep going.)
 
 ## Step 7 — Open the PRs
 
@@ -717,11 +845,40 @@ standing approval, even if every prior PR in the same run was approved and
 merged the same way.** Green CI is not approval. On approval for a given PR,
 merge it, then rebase and retarget whatever was stacked on it.
 
-After each merge to `main`, close every GitHub issue that landed in it: check
-every box under that issue's `## Acceptance` section (`- [ ]` → `- [x]`) and
-close the issue with a comment naming the merged PR and merge date. Do this
-per issue, not once per wave — a wave-close task doesn't get this treatment
-(it isn't a sub-issue), but every ticket sub-issue that shipped does.
+### After any merge — mark done and close the issues
+
+This runs for **every** merged PR of the run, whether you merged it or the
+user merged it by hand on GitHub. You won't be told about a manual merge, so
+look for one: at the start of every turn, on `resume`, and before every push,
+check each open PR in the state file.
+
+```bash
+gh pr view <n> --json state,mergedAt,baseRefName --jq '"\(.state) \(.mergedAt) \(.baseRefName)"'
+```
+
+For each PR that is newly `MERGED` **into `main`**:
+
+1. List its issues — every `Closes #N` line in its description (step 7).
+2. Per issue: check every box under `## Acceptance` (`- [ ]` → `- [x]`), then
+
+   ```bash
+   gh issue close <N> --reason completed \
+     --comment "Done — shipped in #<pr>, merged <YYYY-MM-DD>."
+   ```
+
+   The project board's default "Item closed" workflow then sets its status
+   to **Done**. Close it even if GitHub's auto-close already did (`gh issue view <N>
+   --json state` first; skip the close, still tick the boxes).
+3. In the state file: mark the PR `merged <date>` and every ticket in it
+   `done`.
+4. If the epic now has no open sub-issues, close the epic issue the same way.
+
+A stacked PR merged into its **parent branch** instead of `main` is not
+shipped yet: copy its `Closes #N` lines into the parent PR's description, and
+its issues close when the parent lands on `main`.
+
+Do this per issue, not once per wave. A wave-close task gets no close (it
+isn't a sub-issue); every ticket sub-issue that shipped does.
 
 ### Then clean up — not optional, not "later"
 
@@ -792,10 +949,18 @@ session model and report it. Never re-plan a ticket that already has a current
   GATE 3: never merge a PR without the user's explicit go-ahead **for that
   specific PR**, every time, no matter how routine or how green its CI is.
   A prior approval to merge one PR is not standing approval for the next one.
+  `--recommended` and `--stack` pre-approve GATE 1 / GATE 2 only, never GATE 3.
+- After any PR of the run merges to `main` — by you or by the user — tick
+  its issues' acceptance boxes and close them. Check for manual merges every
+  turn.
+- A network outage is a wait, not a failure: probe every 5 minutes, resume
+  the failed command when back online.
 - Never let a ticket proceed to commit/integration on an **alarming** plan-drift
   verdict from `issue-reviewer` without surfacing it to the user first — an
   alarming verdict means the diff may not be what was actually approved at
   plan time, which is a different question from whether the code is correct.
+  Under `--recommended`, decide it per Recommended mode instead, and list it
+  first in that PR's "Decisions" section so the user sees it.
 - Never bypass the design system: existing components and tokens first,
   extend it by its own conventions if something is genuinely missing.
 - Never re-plan a ticket that already has a current plan comment.
