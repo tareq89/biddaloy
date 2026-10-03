@@ -2,14 +2,18 @@ import type { Page } from '@playwright/test';
 
 import {
   adminApiSession,
+  completeAcr,
+  createAcr,
   createClassSection,
   createTeacherForSection,
+  currentAcademicYearId,
   get,
   parentApiSession,
   patch,
   post,
 } from '../api';
 import type { AcrResponse } from '../fixtures/evaluations';
+import { acrBody } from '../fixtures/evaluations';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 
@@ -69,33 +73,51 @@ test.describe('ACR print', () => {
     await post(request, session, `/print-templates/${template.id}/publish`, {});
     await post(request, session, `/print-templates/${template.id}/default`, {});
 
-    const [completed] = await get<AcrResponse[]>(
+    // A fresh COMPLETED ACR: it starts on the CURRENT criteria version, so the
+    // expected label can be read from the API. Other specs replace the seeded
+    // form's criteria in the shared e2e DB, so "the first seeded criterion" and
+    // "the first COMPLETED ACR in the list" are not stable.
+    const yearId = await currentAcademicYearId(request, session);
+    const chain = await createClassSection(request, session);
+    const staff = await createTeacherForSection(
       request,
       session,
-      '/acr/assessments?status=COMPLETED',
+      `Tail ACR Staff ${SUFFIX}`,
+      chain.sectionId,
     );
+    const { criteria } = await get<{
+      criteria: { id: string; label_en: string; label_bn: string }[];
+    }>(request, session, '/acr/criteria');
+    expect(criteria.length).toBeGreaterThan(0);
+    const started = await createAcr(request, session, acrBody(staff.userId, yearId));
+    await patch(request, session, `/acr/assessments/${started.id}`, {
+      scores: criteria.map((c) => ({ criterion_id: c.id, score: 4 })),
+    });
+    const completed = await completeAcr(request, session, started.id);
     const [incomplete] = await get<AcrResponse[]>(
       request,
       session,
       '/acr/assessments?status=INCOMPLETE',
     );
-    expect(completed, 'a seeded COMPLETED ACR').toBeTruthy();
     expect(incomplete, 'a seeded INCOMPLETE ACR').toBeTruthy();
 
     await test.step('COMPLETED: Print opens the preview with the total and criteria', async () => {
-      await page.goto(`/staff/${completed!.user_id}/acr/${completed!.id}`);
+      await page.goto(`/staff/${completed.user_id}/acr/${completed.id}`);
       await page.getByRole('button', { name: t('evaluations.acr.print') }).click();
       await expect(page).toHaveURL(/\/print\/preview\?/);
       const url = new URL(page.url());
       expect(url.searchParams.get('kind')).toBe('ACR_ASSESSMENT');
       expect(url.searchParams.get('subject_type')).toBe('ACR');
-      expect(url.searchParams.get('ids')).toBe(completed!.id);
+      expect(url.searchParams.get('ids')).toBe(completed.id);
 
       const sheet = page.getByRole('figure').first();
       await expect(sheet).toBeVisible();
-      await expect(sheet).toContainText(String(completed!.total));
-      // Seeded form v1, first criterion.
-      await expect(sheet).toContainText('Discipline');
+      await expect(sheet).toContainText(String(completed.total));
+      // The first criterion of the current form version (printed in either language).
+      const escape = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      await expect(sheet).toContainText(
+        new RegExp(`${escape(criteria[0]!.label_en)}|${escape(criteria[0]!.label_bn)}`),
+      );
     });
 
     await test.step('INCOMPLETE: no Print button', async () => {
