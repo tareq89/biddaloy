@@ -204,7 +204,7 @@ describe('Leave E2E', () => {
       .expect(403);
   });
 
-  it('returns 401 for a non-LEAVE_APPROVE role (STUDENT, outside the @Roles list) on decide() and PUT /leave/policies/:type', async () => {
+  it('returns 403 for a non-LEAVE_APPROVE role (STUDENT) on decide() and PUT /leave/policies/:type', async () => {
     await dataSource.query(
       `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
        VALUES ('${SEED_ADMIN_USER_ID}', '${TENANT_ID}', '${UserRole.STUDENT}', NOW(), NOW())
@@ -236,7 +236,7 @@ describe('Leave E2E', () => {
       .set('X-Tenant-ID', TENANT_ID)
       .set('X-Role', UserRole.STUDENT)
       .send({ approve: true })
-      .expect(401);
+      .expect(403);
 
     await supertest(app.getHttpServer())
       .put(`/api/v1/leave/policies/${LeaveType.CASUAL}`)
@@ -244,7 +244,7 @@ describe('Leave E2E', () => {
       .set('X-Tenant-ID', TENANT_ID)
       .set('X-Role', UserRole.STUDENT)
       .send({ annual_quota_days: 12 })
-      .expect(401);
+      .expect(403);
   });
 
   it('rejects a calendar-invalid date like 2026-02-31 with 400', async () => {
