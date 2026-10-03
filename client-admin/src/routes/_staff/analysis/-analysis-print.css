@@ -5,13 +5,16 @@
  * (shared id across the three tabs — only one tab is ever mounted at a
  * time, since Radix `Tabs` unmounts inactive `TabsContent` by default).
  */
+/* Every rule is scoped under `body:has(#analysis-print-area)` so this sheet, which
+ * stays loaded after leaving the screen, cannot affect other pages' printouts
+ * (#1322). `@page` cannot be scoped. */
 @media print {
-  body * {
+  body:has(#analysis-print-area) * {
     visibility: hidden;
   }
 
-  #analysis-print-area,
-  #analysis-print-area * {
+  body:has(#analysis-print-area) #analysis-print-area,
+  body:has(#analysis-print-area) #analysis-print-area * {
     visibility: visible;
   }
 
