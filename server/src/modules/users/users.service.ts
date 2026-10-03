@@ -107,8 +107,15 @@ export class UserService {
         // employee_id (mirrors the [36.1.1] migration backfill, which did
         // the same for pre-existing teachers) — creating one here too would
         // hit the `staff_profiles.user_id` unique constraint.
-        const STAFF_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE];
-        if (STAFF_ROLES.includes(dto.role)) {
+        // COMMITTEE is deliberately absent (D16): not an employee.
+        const EMPLOYEE_ROLES: UserRole[] = [
+          UserRole.ADMIN,
+          UserRole.ACCOUNTANT,
+          UserRole.EXECUTIVE,
+          UserRole.OFFICE_STAFF,
+          UserRole.EXAM_CONTROLLER,
+        ];
+        if (EMPLOYEE_ROLES.includes(dto.role)) {
           await this.staffProfilesService.createFor(savedUser.id, tenantId, {}, manager);
         }
 
