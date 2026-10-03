@@ -1,9 +1,21 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type React from 'react';
 import { useEffect, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { renderWithProviders } from '../test';
+
 import { WizardShell, type WizardStep } from './wizard-shell';
+
+/** Default locale is Bengali — force `en` and await the catalog. */
+async function render(ui: React.ReactElement) {
+  const view = renderWithProviders(ui, { locale: 'en' });
+  await act(async () => {
+    await view.localeReady;
+  });
+  return view;
+}
 
 let amountStepMounts = 0;
 
@@ -62,21 +74,21 @@ function Controlled({ irreversible = false }: { irreversible?: boolean }) {
 }
 
 describe('WizardShell', () => {
-  it('renders the title and the first step by default', () => {
-    render(<Controlled />);
+  it('renders the title and the first step by default', async () => {
+    await render(<Controlled />);
     expect(screen.getByRole('heading', { name: 'Record payment' })).toBeTruthy();
     expect(screen.getByRole('textbox', { name: 'Amount' })).toBeTruthy();
   });
 
-  it('marks the current step with aria-current="step"', () => {
-    render(<Controlled />);
+  it('marks the current step with aria-current="step"', async () => {
+    await render(<Controlled />);
     const amountItem = screen.getByText('Amount').closest('li');
     expect(amountItem?.getAttribute('aria-current')).toBe('step');
   });
 
   it('blocks forward navigation until the current step validates', async () => {
     const user = userEvent.setup();
-    render(<Controlled />);
+    await render(<Controlled />);
     expect(screen.getByRole('button', { name: 'Next' }).hasAttribute('disabled')).toBe(true);
 
     await user.type(screen.getByRole('textbox', { name: 'Amount' }), '500');
@@ -87,7 +99,7 @@ describe('WizardShell', () => {
 
   it('advances to the next step once valid, and Back returns to the previous one', async () => {
     const user = userEvent.setup();
-    render(<Controlled />);
+    await render(<Controlled />);
     await user.type(screen.getByRole('textbox', { name: 'Amount' }), '500');
     await user.click(screen.getByRole('button', { name: 'Next' }));
 
@@ -100,7 +112,7 @@ describe('WizardShell', () => {
   it('Back preserves previously entered data — the step is cached, not remounted', async () => {
     amountStepMounts = 0;
     const user = userEvent.setup();
-    render(<Controlled />);
+    await render(<Controlled />);
     await user.type(screen.getByRole('textbox', { name: 'Amount' }), '500');
     expect(amountStepMounts).toBe(1);
 
@@ -117,7 +129,7 @@ describe('WizardShell', () => {
 
   it('completing a previously visited step is reachable by clicking it in the step list', async () => {
     const user = userEvent.setup();
-    render(<Controlled />);
+    await render(<Controlled />);
     await user.type(screen.getByRole('textbox', { name: 'Amount' }), '500');
     await user.click(screen.getByRole('button', { name: 'Next' }));
     await waitFor(() => expect(screen.getByText('Choose a payment method.')).toBeTruthy());
@@ -128,7 +140,7 @@ describe('WizardShell', () => {
 
   it('a reversible wizard has no review step and Submit appears after the last regular step', async () => {
     const user = userEvent.setup();
-    render(<Controlled />);
+    await render(<Controlled />);
     await user.type(screen.getByRole('textbox', { name: 'Amount' }), '500');
     await user.click(screen.getByRole('button', { name: 'Next' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Submit' })).toBeTruthy());
@@ -137,7 +149,7 @@ describe('WizardShell', () => {
 
   it('an irreversible wizard inserts the review step after the regular steps, before Submit', async () => {
     const user = userEvent.setup();
-    render(<Controlled irreversible />);
+    await render(<Controlled irreversible />);
     await user.type(screen.getByRole('textbox', { name: 'Amount' }), '500');
     await user.click(screen.getByRole('button', { name: 'Next' }));
     await user.click(screen.getByRole('button', { name: 'Next' }));
@@ -147,7 +159,7 @@ describe('WizardShell', () => {
 
   it('announces progress on step change via a polite live region', async () => {
     const user = userEvent.setup();
-    render(<Controlled />);
+    await render(<Controlled />);
     expect(screen.getByText('Step 1 of 2: Amount')).toBeTruthy();
 
     await user.type(screen.getByRole('textbox', { name: 'Amount' }), '500');
@@ -157,7 +169,7 @@ describe('WizardShell', () => {
 
   it('replaces the entire step flow with the result screen once submission completes', async () => {
     const user = userEvent.setup();
-    render(<Controlled />);
+    await render(<Controlled />);
     await user.type(screen.getByRole('textbox', { name: 'Amount' }), '500');
     await user.click(screen.getByRole('button', { name: 'Next' }));
     await user.click(screen.getByRole('button', { name: 'Submit' }));
@@ -168,12 +180,12 @@ describe('WizardShell', () => {
   });
 
   it('is axe clean', async () => {
-    const { container } = render(<Controlled />);
+    const { container } = await render(<Controlled />);
     await expect(container).toHaveNoViolations();
   });
 
-  it('shows a loading state on Submit while submitting', () => {
-    render(
+  it('shows a loading state on Submit while submitting', async () => {
+    await render(
       <WizardShell
         title="Generate fees"
         steps={[{ id: 'confirm', label: 'Confirm', content: <p>Confirm generation.</p> }]}

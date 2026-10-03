@@ -187,15 +187,14 @@ export function DetailShell({
       </div>
 
       <Tabs value={activeTab} onValueChange={onTabChange}>
-        {/* [8.14.7] Wraps onto extra rows at narrow widths instead of
-            scrolling in its own container — `expectNoInnerHorizontalScroll`
-            now treats any inner scroll region, not just DataTable's old one,
-            as a phone-usability defect. Each trigger drops the list's
-            equal-width `flex-1` (which would force overflow instead of
-            wrapping) and fixes its own height, since the list's height
-            token no longer bounds a single row once it can wrap to more
-            than one. */}
-        <TabsList className="h-auto max-w-full flex-wrap gap-1">
+        {/* [8.14.7] Wraps onto extra rows at narrow widths (inner scroll is a
+            phone-usability defect, `expectNoInnerHorizontalScroll`). The base
+            TabsList pins its height via a `group-data-[orientation=...]` variant,
+            which a plain `h-auto` cannot override (tailwind-merge keeps both and
+            the variant wins) — so the same variant is repeated here, otherwise
+            wrapped rows spill over the panel below. Each trigger drops the
+            list's equal-width `flex-1` and fixes its own height. */}
+        <TabsList className="h-auto max-w-full flex-wrap gap-1 group-data-[orientation=horizontal]/tabs:h-auto">
           {tabs.map((tab) => (
             <TabsTrigger
               key={tab.id}
