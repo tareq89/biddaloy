@@ -79,7 +79,6 @@ export class ResultsController {
   }
 
   @Post('process')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.RESULT_PROCESS)
   @ApiOperation({ summary: "Compute and store every enrolled student's result for this exam." })
   process(
@@ -99,7 +98,6 @@ export class ResultsController {
   }
 
   @Post('publish')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.RESULT_PUBLISH)
   @ApiOperation({ summary: "Publish a processed exam's results (PROCESSED -> PUBLISHED)." })
   async publish(
@@ -113,7 +111,6 @@ export class ResultsController {
   }
 
   @Post('reopen')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.RESULT_PUBLISH)
   @RequireApproval(ApprovalScope.RESULTS_REOPEN)
   @ApiOperation({
@@ -138,7 +135,6 @@ export class ResultsController {
   }
 
   @Post('sms')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.RESULT_PUBLISH)
   @ApiOperation({ summary: "Send every guardian their child's published result by SMS." })
   sendSms(
@@ -181,7 +177,6 @@ export class StudentResultsController {
   ) {}
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER, UserRole.PARENT, UserRole.STUDENT)
   @RequirePermissions(Permission.RESULT_READ)
   @ApiOperation({
     summary:
@@ -197,7 +192,6 @@ export class StudentResultsController {
   }
 
   @Get(':examId')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER, UserRole.PARENT, UserRole.STUDENT)
   @RequirePermissions(Permission.RESULT_READ)
   @ApiOperation({
     summary:

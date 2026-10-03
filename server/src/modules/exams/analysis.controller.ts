@@ -15,10 +15,9 @@ import type { Response } from 'express';
 import { Readable } from 'stream';
 import { IsNull, Repository } from 'typeorm';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Permission, UserRole, toCsvContent } from '@biddaloy/shared';
+import { Permission, toCsvContent } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -138,7 +137,6 @@ export class AnalysisController {
   }
 
   @Get('merit')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.MARK_VIEW)
   @ApiOperation({ summary: 'Merit list for an exam, optionally section-scoped.' })
   getMerit(
@@ -150,7 +148,6 @@ export class AnalysisController {
   }
 
   @Get('defaulted')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.MARK_VIEW)
   @ApiOperation({ summary: 'Defaulted (failed or absent) students for an exam.' })
   getDefaulted(
@@ -162,7 +159,6 @@ export class AnalysisController {
   }
 
   @Get('pass-fail')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.MARK_VIEW)
   @ApiOperation({ summary: 'Per-subject pass/fail breakdown for an exam.' })
   getPassFail(
@@ -174,7 +170,6 @@ export class AnalysisController {
   }
 
   @Get('pass-fail/components')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.MARK_VIEW)
   @ApiOperation({ summary: 'Per-subject × component pass/fail breakdown for an exam.' })
   getPassFailComponents(
@@ -186,7 +181,6 @@ export class AnalysisController {
   }
 
   @Get('merit.csv')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.MARK_VIEW)
   @ApiOperation({ summary: 'Merit list as CSV.' })
   async getMeritCsv(
@@ -212,7 +206,6 @@ export class AnalysisController {
   }
 
   @Get('defaulted.csv')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.MARK_VIEW)
   @ApiOperation({ summary: 'Defaulted list as CSV.' })
   async getDefaultedCsv(
@@ -233,7 +226,6 @@ export class AnalysisController {
   }
 
   @Get('pass-fail.csv')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.MARK_VIEW)
   @ApiOperation({ summary: 'Per-subject pass/fail breakdown as CSV.' })
   async getPassFailCsv(

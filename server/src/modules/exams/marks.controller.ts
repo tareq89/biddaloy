@@ -43,7 +43,6 @@ export class MarksController {
   ) {}
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.MARK_VIEW)
   @ApiOperation({
     summary:
@@ -66,7 +65,6 @@ export class MarksController {
   }
 
   @Patch()
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
   @RequirePermissions(Permission.MARK_ENTER)
   @ApiOperation({ summary: 'Batch-upsert marks for a section-subject grid.' })
   upsertBatch(
@@ -87,7 +85,6 @@ export class MarksController {
   }
 
   @Post('submit')
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
   @RequirePermissions(Permission.MARK_ENTER)
   @ApiOperation({ summary: 'Submit a section-subject grid (DRAFT -> SUBMITTED).' })
   submit(
@@ -129,7 +126,6 @@ export class MarksController {
   }
 
   @Get('progress')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.MARK_VIEW)
   @ApiOperation({
     summary: 'Grid-submission progress for an exam: counts by state plus the outstanding list.',

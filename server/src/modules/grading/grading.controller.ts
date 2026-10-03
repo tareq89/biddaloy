@@ -15,11 +15,10 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { ApprovalScope, JwtPayload, Permission, UserRole } from '@biddaloy/shared';
+import { ApprovalScope, JwtPayload, Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { ApprovalGuard, ApprovalContext } from '../auth/guards/approval.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { RequireApproval } from '../auth/decorators/require-approval.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
@@ -64,7 +63,6 @@ export class GradingController {
   }
 
   @Post()
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.GRADING_SCALE_MANAGE)
   @ApiOperation({ summary: 'Create a grading scale (no bands yet).' })
   async create(
@@ -77,7 +75,6 @@ export class GradingController {
   }
 
   @Get()
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.GRADING_SCALE_MANAGE)
   @ApiOperation({ summary: 'List grading scales, optionally filtered by academic year.' })
   async findAll(
@@ -95,7 +92,6 @@ export class GradingController {
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.GRADING_SCALE_MANAGE)
   @ApiOperation({ summary: 'Get one grading scale with its bands.' })
   async findOne(
@@ -108,7 +104,6 @@ export class GradingController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.GRADING_SCALE_MANAGE)
   @ApiOperation({ summary: 'Rename a grading scale.' })
   async update(
@@ -123,7 +118,6 @@ export class GradingController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.GRADING_SCALE_MANAGE)
   @ApiOperation({ summary: 'Soft-delete a grading scale and its bands.' })
   async remove(
@@ -136,7 +130,6 @@ export class GradingController {
   }
 
   @Post(':id/copy')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.GRADING_SCALE_MANAGE)
   @ApiOperation({
     summary: "Copy another scale's bands onto this scale. Refused if this scale already has bands.",
@@ -157,7 +150,6 @@ export class GradingController {
   }
 
   @Post(':id/bands/preview')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.GRADING_SCALE_MANAGE)
   @ApiOperation({
     summary: 'Validate a proposed band set and report what would change. Writes nothing.',
@@ -172,7 +164,6 @@ export class GradingController {
   }
 
   @Post(':id/bands/confirm')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.GRADING_SCALE_MANAGE)
   @RequireApproval(ApprovalScope.GRADING_SCALE_MANAGE)
   @ApiOperation({

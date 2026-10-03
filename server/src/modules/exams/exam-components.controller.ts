@@ -16,7 +16,6 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -29,7 +28,7 @@ import {
   QueryExamComponentDto,
   CopyExamComponentsDto,
 } from './dto/exams.dto';
-import { Permission, UserRole, JwtPayload } from '@biddaloy/shared';
+import { Permission, JwtPayload } from '@biddaloy/shared';
 
 @ApiTags('exam-components')
 @ApiTenantAuth()
@@ -39,7 +38,6 @@ export class ExamComponentsController {
   constructor(private readonly service: ExamComponentsService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.EXAM_MANAGE)
   @ApiOperation({ summary: 'Add a component to an exam-subject.' })
   create(
@@ -53,7 +51,6 @@ export class ExamComponentsController {
   }
 
   @Get()
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.EXAM_MANAGE)
   @ApiOperation({ summary: 'List components for an exam, optionally filtered by subject.' })
   findAll(
@@ -68,7 +65,6 @@ export class ExamComponentsController {
   // Ahead of ':id' below — Nest matches routes in declaration order, and
   // ':id' would otherwise swallow the literal 'copy' segment as a
   // (rejected-by-ParseUUIDPipe) id.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.EXAM_MANAGE)
   @ApiOperation({ summary: 'Copy components from another subject/exam into one or more subjects.' })
   copy(
@@ -82,7 +78,6 @@ export class ExamComponentsController {
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.EXAM_MANAGE)
   findOne(
     @Param('examId', ParseUUIDPipe) examId: string,
@@ -93,7 +88,6 @@ export class ExamComponentsController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.EXAM_MANAGE)
   update(
     @Param('examId', ParseUUIDPipe) examId: string,
@@ -107,7 +101,6 @@ export class ExamComponentsController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.EXAM_MANAGE)
   remove(
     @Param('examId', ParseUUIDPipe) examId: string,

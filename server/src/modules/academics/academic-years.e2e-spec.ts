@@ -117,9 +117,9 @@ describe('Academic Years E2E', () => {
           start_date: '2027-01-01',
           end_date: '2027-12-31',
         })
-        .expect(401);
+        .expect(403);
 
-      expect(res.body.message).toContain('Requires one of roles');
+      expect(res.body.message).toContain('Requires permission(s)');
     });
 
     it('should return 400 for invalid DTO (missing required fields)', async () => {
@@ -245,7 +245,7 @@ describe('Academic Years E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
         .send({ name: 'Should Not Update' })
-        .expect(401);
+        .expect(403);
     });
   });
 
@@ -286,7 +286,7 @@ describe('Academic Years E2E', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
-        .expect(401);
+        .expect(403);
     });
   });
 
@@ -377,7 +377,7 @@ describe('Academic Years E2E', () => {
         .expect(404);
     });
 
-    it('should return 401 for STUDENT role', async () => {
+    it('should return 403 for STUDENT role', async () => {
       const createRes = await supertest(app.getHttpServer())
         .post('/api/v1/academic-years')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -390,7 +390,7 @@ describe('Academic Years E2E', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
-        .expect(401);
+        .expect(403);
     });
   });
 });

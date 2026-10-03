@@ -18,7 +18,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -26,7 +25,7 @@ import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator
 import { requestContext } from '../../common/request-context.util';
 import { ExamSchedulesService } from './exam-schedules.service';
 import { CreateExamScheduleDto, UpdateExamScheduleDto } from './dto/exam-schedules.dto';
-import { Permission, UserRole, JwtPayload, isGuardianRole } from '@biddaloy/shared';
+import { Permission, JwtPayload, isGuardianRole } from '@biddaloy/shared';
 import { FamilyAccessService } from '../students/family-access.service';
 import { Student } from '../students/entities/student.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
@@ -47,7 +46,6 @@ export class ExamSchedulesController {
   constructor(private readonly service: ExamSchedulesService) {}
 
   @Get()
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.EXAM_MANAGE)
   @ApiOperation({ summary: "This exam's schedule rows, sorted by date then start time." })
   list(
@@ -58,7 +56,6 @@ export class ExamSchedulesController {
   }
 
   @Post()
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.EXAM_MANAGE)
   @ApiOperation({ summary: 'Schedule one subject of this exam.' })
   create(
@@ -72,7 +69,6 @@ export class ExamSchedulesController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.EXAM_MANAGE)
   @ApiOperation({ summary: 'Update one schedule row.' })
   update(
@@ -87,7 +83,6 @@ export class ExamSchedulesController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.EXAM_MANAGE)
   @ApiOperation({ summary: 'Remove one schedule row.' })
   remove(
@@ -128,7 +123,6 @@ export class StudentExamScheduleController {
   ) {}
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER, UserRole.PARENT, UserRole.STUDENT)
   @RequirePermissions(Permission.RESULT_READ)
   @ApiOperation({
     summary:
