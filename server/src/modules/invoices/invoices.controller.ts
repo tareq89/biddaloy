@@ -117,8 +117,6 @@ export class InvoicesController {
   ) {}
 
   @Post()
-  // [10.4] G1 — E tightened off: lacks INVOICE_CREATE.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.INVOICE_CREATE)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @UseInterceptors(AuditInterceptor)
@@ -138,7 +136,6 @@ export class InvoicesController {
   @Get()
   // [10.4] G9 — E, T tightened off: `/invoices` nav is hidden from them,
   // and student-detail uses `payments/invoices/student/:id` instead.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.PARENT, UserRole.STUDENT)
   @RequirePermissions(Permission.INVOICE_READ)
   @ApiOperation({
     summary:
@@ -187,7 +184,6 @@ export class InvoicesController {
 
   @Get(':id')
   // [10.4] G9 — E, T tightened off; see findAll() above.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.PARENT, UserRole.STUDENT)
   @RequirePermissions(Permission.INVOICE_READ)
   @ApiOperation({
     summary:
@@ -243,7 +239,6 @@ export class InvoicesController {
   // [10.4] G11 — E, T removed (no INVOICE_READ); printing an invoice you may
   // read is a read, so this requires INVOICE_READ, not INVOICE_PRINT.
   // INVOICE_PRINT stays the UI's staff print-button gate.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.PARENT, UserRole.STUDENT)
   @RequirePermissions(Permission.INVOICE_READ)
   @Header('Content-Type', 'text/html; charset=utf-8')
   @ApiOperation({

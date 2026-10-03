@@ -5,13 +5,12 @@ import { Throttle } from '@nestjs/throttler';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
 import { STRICT_RATE_LIMIT } from '../../../rate-limit';
-import { Permission, UserRole, JwtPayload } from '@biddaloy/shared';
+import { Permission, JwtPayload } from '@biddaloy/shared';
 import { FineSweepService } from './fine-sweep.service';
 import {
   FineSweepGenerateDto,
@@ -33,7 +32,6 @@ export class FineSweepController {
   constructor(@Inject(FineSweepService) private readonly fineSweepService: FineSweepService) {}
 
   @Post('generate/preview')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.FEE_GENERATE)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({
@@ -52,7 +50,6 @@ export class FineSweepController {
   }
 
   @Post('generate')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.FEE_GENERATE)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({
