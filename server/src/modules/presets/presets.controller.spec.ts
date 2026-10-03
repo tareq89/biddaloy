@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Reflector } from '@nestjs/core';
 import { Permission, UserRole, roleHasPermission } from '@biddaloy/shared';
-import { RolesGuard } from '../auth/guards/context.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { PresetsController } from './presets.controller';
 import { PresetRegistryService } from './preset-registry.service';
 import { makeTestPack } from './__fixtures__/test-pack';
@@ -35,8 +35,8 @@ describe('PresetsController', () => {
     expect(() => controller.preview('nope')).toThrow(/not found/i);
   });
 
-  it('ADMIN allowed, TEACHER rejected (role guard + permission table)', () => {
-    const guard = new RolesGuard(new Reflector());
+  it('ADMIN allowed, TEACHER rejected with 403 (permission guard)', () => {
+    const guard = new PermissionsGuard(new Reflector());
     const ctx = (role: string) =>
       ({
         getHandler: () => PresetsController.prototype.list,
@@ -44,7 +44,7 @@ describe('PresetsController', () => {
         switchToHttp: () => ({ getRequest: () => ({ currentTenant: { role } }) }),
       }) as never;
     expect(guard.canActivate(ctx(UserRole.ADMIN))).toBe(true);
-    expect(() => guard.canActivate(ctx(UserRole.TEACHER))).toThrow();
+    expect(() => guard.canActivate(ctx(UserRole.TEACHER))).toThrow(/Requires permission/);
     expect(roleHasPermission(UserRole.ADMIN, Permission.CURRICULUM_PRESET_APPLY)).toBe(true);
     expect(roleHasPermission(UserRole.TEACHER, Permission.CURRICULUM_PRESET_APPLY)).toBe(false);
   });
