@@ -116,10 +116,11 @@ describe('MarksAuthorizationService per-role table', () => {
     [UserRole.ADMIN, true, true],
     [UserRole.EXECUTIVE, false, true],
     [UserRole.ACCOUNTANT, false, false],
-    // New in #1362 (ROLE_SCOPE + permission): SUPER_ADMIN holds MARK_ENTER/MARK_VIEW;
-    // EXAM_CONTROLLER reads only (D16); OFFICE_STAFF and COMMITTEE hold no mark
-    // permission, so COMMITTEE never reaches marks (D9).
-    [UserRole.SUPER_ADMIN, true, true],
+    // New in #1362 (ROLE_SCOPE + permission): SUPER_ADMIN reads tenant-wide but is held
+    // out of tenant-wide writes until product decides (D-N); EXAM_CONTROLLER reads only
+    // (D16); OFFICE_STAFF and COMMITTEE hold no mark permission, so COMMITTEE never
+    // reaches marks (D9).
+    [UserRole.SUPER_ADMIN, false, true],
     [UserRole.EXAM_CONTROLLER, false, true],
     [UserRole.OFFICE_STAFF, false, false],
     [UserRole.COMMITTEE, false, false],

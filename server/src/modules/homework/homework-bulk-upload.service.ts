@@ -247,7 +247,7 @@ export class HomeworkBulkUploadService {
     };
   }
 
-  /** Tenant-wide roles skip the check entirely (isTenantWide); a TEACHER
+  /** Tenant-wide managers skip the check entirely (canManageTenantWide); a TEACHER
    * must have a `teacher_class_sections` row for the row's (section,
    * subject) — same gate `HomeworkService.assign` uses for a single
    * assignment, applied per row here. */
@@ -258,7 +258,7 @@ export class HomeworkBulkUploadService {
     tenantId: string,
     cache: Map<string, boolean>,
   ): Promise<void> {
-    if (this.access.isTenantWide(role)) return;
+    if (this.access.canManageTenantWide(role)) return;
     const cacheKey = `${row.sectionId}:${row.subjectId}`;
     if (cache.get(cacheKey)) return;
     try {
