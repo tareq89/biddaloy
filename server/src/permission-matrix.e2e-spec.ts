@@ -464,18 +464,6 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
     reason: 'family-only — the discovery route for a PARENT/STUDENT is meaningless for staff',
   },
   {
-    controller: 'StudentController',
-    method: 'GET',
-    path: '/guardians',
-    reason: 'staff-only directory read, not exposed to PARENT/STUDENT',
-  },
-  {
-    controller: 'StudentController',
-    method: 'GET',
-    path: '/guardians/:id',
-    reason: 'staff-only directory read, not exposed to PARENT/STUDENT',
-  },
-  {
     controller: 'SearchController',
     method: 'GET',
     path: '/search',
@@ -513,12 +501,6 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
     method: 'GET',
     path: '/fees/generations/:id/bills',
     reason: '[16.1.4] staff-only: lists every student billed in a run, across families',
-  },
-  {
-    controller: 'CommunicationsController',
-    method: 'POST',
-    path: '/communications/send',
-    reason: 'staff-only send surface, not exposed to family',
   },
   {
     controller: 'EnrollmentController',
@@ -875,6 +857,46 @@ describe('Permission matrix (regression)', () => {
     });
 
     expect(violations).toEqual([]);
+  });
+
+  it('#1357 every remaining @Roles is a ROLE_NARROWINGS or IDENTITY_SCOPED route', () => {
+    // Epic 24 retired every @Roles that only mirrored the permission map. What is left must be
+    // a documented narrowing or an identity-scoped route — otherwise a new role that holds the
+    // permission would be silently shut out (D32).
+    const violations: string[] = [];
+
+    walkRoutes(({ controllerName, methodLabel, fullPath, roles }) => {
+      if (roles.length === 0) return;
+      if (findRoleNarrowing(controllerName, methodLabel, fullPath)) return;
+      if (findIdentityScopedEntry(controllerName, methodLabel, fullPath)) return;
+      violations.push(
+        `${methodLabel} ${fullPath} (${controllerName}) — @Roles (${roles.join(', ')}) is neither ` +
+          'a ROLE_NARROWINGS nor an IDENTITY_SCOPED route; delete it or document why it narrows',
+      );
+    });
+
+    expect(violations).toEqual([]);
+  });
+
+  it('#1357 every ROLE_NARROWINGS entry still narrows a live route', () => {
+    const allRoles = Object.values(UserRole);
+    const live = new Map<string, { roles: UserRole[]; permissions: Permission[] }>();
+
+    walkRoutes(({ controllerName, methodLabel, fullPath, roles, permissions }) => {
+      live.set(`${controllerName}|${methodLabel}|${fullPath}`, { roles, permissions });
+    });
+
+    const stale = ROLE_NARROWINGS.filter((entry) => {
+      const route = live.get(`${entry.controller}|${entry.method}|${entry.path}`);
+      if (!route || route.roles.length === 0) return true;
+      const holders = allRoles.filter((role) =>
+        route.permissions.every((permission) => roleHasPermission(role, permission)),
+      );
+      const roleSet = new Set<UserRole>([...route.roles, UserRole.SUPER_ADMIN]);
+      return roleSet.size === holders.length && holders.every((role) => roleSet.has(role));
+    }).map((entry) => `${entry.method} ${entry.path} (${entry.controller})`);
+
+    expect(stale).toEqual([]);
   });
 
   it('[10.4] lists every UI-only permission', () => {
