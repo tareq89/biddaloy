@@ -146,7 +146,7 @@ describe('Student status + records access E2E', () => {
       // An ACCOUNTANT lacks STUDENT_LIFECYCLE_MANAGE: refused, nothing changes.
       await as(UserRole.ACCOUNTANT, http().post(`/api/v1/students/${id}/leave`))
         .send({ type: 'WITHDRAWN', occurred_on: '2026-01-05', reason: 'x' })
-        .expect(401);
+        .expect(403);
       expect(await studentStatus(id)).toBe('ACTIVE');
 
       await as(UserRole.ADMIN, http().post(`/api/v1/students/${id}/leave`))
@@ -204,7 +204,7 @@ describe('Student status + records access E2E', () => {
       for (const role of [UserRole.ACCOUNTANT, UserRole.TEACHER]) {
         await as(role, http().patch(`/api/v1/students/${id}/records`))
           .send({ religion: 'Islam' })
-          .expect(401);
+          .expect(403);
       }
       expect(
         (await dataSource.query(`SELECT religion FROM students WHERE id = $1`, [id]))[0].religion,
@@ -388,7 +388,7 @@ describe('Student status + records access E2E', () => {
         .expect(401);
     });
 
-    it('the TEACHER role used above really exists, so its 401s are about permissions', async () => {
+    it('the TEACHER role used above really exists, so its 403s are about permissions', async () => {
       const held = await dataSource.query(
         `SELECT role FROM user_tenants WHERE user_id = $1 AND tenant_id = $2`,
         [SEED_ADMIN_USER_ID, TENANT_ID],

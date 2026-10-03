@@ -146,9 +146,9 @@ describe('Students E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
         .send(createStudentPayload)
-        .expect(401);
+        .expect(403);
 
-      expect(res.body.message).toContain('Requires one of roles');
+      expect(res.body.message).toContain('Requires permission(s)');
     });
 
     it('should return 404 when class_section does not exist', async () => {
@@ -465,7 +465,7 @@ describe('Students E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
         .send({ full_name: 'Should Not Update' })
-        .expect(401);
+        .expect(403);
     });
   });
 
@@ -520,9 +520,9 @@ describe('Students E2E', () => {
         .set('Authorization', `Bearer ${accountantToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ACCOUNTANT)
-        .expect(401);
+        .expect(403);
 
-      expect(res.body.message).toContain('Requires one of roles');
+      expect(res.body.message).toContain('Requires permission(s)');
     });
   });
 
