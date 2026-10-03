@@ -10,6 +10,7 @@ import { DataSource, EntityManager, In } from 'typeorm';
 import {
   AuditAction,
   DocumentKind,
+  FIELD_CATALOG,
   Permission,
   PRINT_BATCH_CEILING,
   roleHasPermission,
@@ -50,6 +51,10 @@ export class PrintJobsService {
     if (kind === DocumentKind.STAFF_ID_CARD && !roleHasPermission(role, Permission.STAFF_HR_READ)) {
       throw new ForbiddenException('Missing permission: STAFF_HR_READ');
     }
+    // ACR is confidential: DOCUMENT_PRINT alone (ACCOUNTANT) is not enough.
+    if (kind === DocumentKind.ACR_ASSESSMENT && !roleHasPermission(role, Permission.ACR_READ)) {
+      throw new ForbiddenException('Missing permission: ACR_READ');
+    }
   }
 
   /** Template + its published version, all scoped to the tenant. */
@@ -84,7 +89,7 @@ export class PrintJobsService {
       id: template.current_version_id,
       tenant_id: caller.tenantId,
     });
-    const resolved = await resolver.resolve(caller.tenantId, ids, manager);
+    const resolved = await resolver.resolve(caller.tenantId, ids, manager, caller.userId);
     // A subject from another tenant simply isn't returned — same as not existing.
     if (ids.some((id) => !resolved.has(id))) throw new NotFoundException('Subject not found');
     return { template, version, ids, resolved };
@@ -249,6 +254,31 @@ export class PrintJobsService {
       if (originals.some((i) => !i.subject_id)) {
         throw new BadRequestException('This item has no subject to reprint');
       }
+      // ACR: re-check the subject now (own ACR -> 404, reopened -> 409); a snapshot never outlives that.
+      if (original.document_kind === DocumentKind.ACR_ASSESSMENT) {
+        const subjectIds = originals.map((i) => i.subject_id as string);
+        const found = await RESOLVERS[original.document_kind].resolve(
+          caller.tenantId,
+          subjectIds,
+          manager,
+          caller.userId,
+        );
+        if (subjectIds.some((id) => !found.has(id)))
+          throw new NotFoundException('Subject not found');
+        // A snapshot records what was printed; if the ACR was re-completed since, it is stale.
+        const done: Array<{ id: string; completed_at: Date | null }> = await manager.query(
+          `SELECT id, completed_at FROM acr_assessments WHERE tenant_id = $1 AND id = ANY($2::uuid[])`,
+          [caller.tenantId, subjectIds],
+        );
+        const completedAt = new Map(done.map((d) => [d.id, d.completed_at]));
+        for (const o of originals) {
+          const at = completedAt.get(o.subject_id as string);
+          const issued = (o.data_snapshot as { issuedAt: string }).issuedAt;
+          if (!at || at.getTime() > new Date(issued).getTime()) {
+            throw new ConflictException('This ACR changed after it was printed. Print it again.');
+          }
+        }
+      }
       const version = await manager.findOneByOrFail(PrintTemplateVersion, {
         id: original.template_version_id,
         tenant_id: caller.tenantId,
@@ -314,7 +344,7 @@ export class PrintJobsService {
     jobId: string,
     s: {
       kind: DocumentKind;
-      subjectType: 'STUDENT' | 'STAFF';
+      subjectType: 'STUDENT' | 'STAFF' | 'ACR';
       subjectId: string;
       label: string;
       baseValues: Record<string, unknown>;
@@ -333,12 +363,15 @@ export class PrintJobsService {
     );
     const copyNumber = Number(n);
     const token = generateSecret();
-    const verifyUrl = `/v/${token}`;
-    const values = {
+    // Confidential kinds (ACR) have no verify QR: no URL is handed out, so the stored hash
+    // belongs to a token nobody holds.
+    const verifiable = FIELD_CATALOG[s.kind].some((f) => f.key === 'print.verify_qr');
+    const verifyUrl = verifiable ? `/v/${token}` : undefined;
+    const values: Record<string, unknown> = {
       ...s.baseValues,
       'print.copyLabel': `Copy ${copyNumber}`,
       'print.issue_date': s.issueDate,
-      'print.verify_qr': verifyUrl,
+      ...(verifyUrl ? { 'print.verify_qr': verifyUrl } : {}),
     };
     const item = await manager.save(
       manager.create(PrintJobItem, {
@@ -351,7 +384,7 @@ export class PrintJobsService {
         copy_number: copyNumber,
         // The token itself is deliberately not part of the snapshot.
         data_snapshot: {
-          values: { ...values, 'print.verify_qr': '' },
+          values: verifiable ? { ...values, 'print.verify_qr': '' } : values,
           photoKey: s.photoKey,
           copyNumber,
           issuedAt: s.issuedAt,

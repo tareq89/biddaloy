@@ -6,7 +6,8 @@
   "revokedOn": "বাতিলের তারিখ: {{date}}",
   "kind": {
     "STUDENT_ID_CARD": "শিক্ষার্থীর পরিচয়পত্র",
-    "STAFF_ID_CARD": "কর্মীর পরিচয়পত্র"
+    "STAFF_ID_CARD": "কর্মীর পরিচয়পত্র",
+    "ACR_ASSESSMENT": "এসিআর (গোপনীয় প্রতিবেদন)"
   },
   "rows": {
     "type": "নথি",

@@ -162,7 +162,9 @@ function StaffDetailPage() {
           {
             id: 'performance',
             label: t('title', { ns: 'performance' }),
-            content: <PerformanceTab userId={userId} />,
+            content: (
+              <PerformanceTab userId={userId} subjectName={userQuery.data?.full_name ?? ''} />
+            ),
           },
         ]
       : []),

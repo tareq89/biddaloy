@@ -156,7 +156,11 @@ function ClassDetailPage() {
                     id: 'performance',
                     label: tPerformance('title'),
                     content: (
-                      <PerformanceTab classId={klass.id} academicYearId={klass.academic_year.id} />
+                      <PerformanceTab
+                        classId={klass.id}
+                        className={klass.name}
+                        academicYearId={klass.academic_year.id}
+                      />
                     ),
                   },
                 ]

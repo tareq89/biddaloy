@@ -20,7 +20,11 @@ import * as React from 'react';
 
 import { SuggestionCard } from './suggestion-card';
 
-const KINDS = [DocumentKind.STUDENT_ID_CARD, DocumentKind.STAFF_ID_CARD] as const;
+const KINDS = [
+  DocumentKind.STUDENT_ID_CARD,
+  DocumentKind.STAFF_ID_CARD,
+  DocumentKind.ACR_ASSESSMENT,
+] as const;
 
 export interface NewTemplateDialogProps {
   open: boolean;
@@ -51,10 +55,12 @@ export function NewTemplateDialog({
   const shown = suggestions.filter((s) => s.documentKind === kind);
   const selected = suggestions.find((s) => s.key === selectedKey);
   const defaultName = selected
-    ? t('defaultName', {
-        style: t(`style.${selected.style}`),
-        orientation: t(`orientation.${selected.orientation}`),
-      })
+    ? selected.documentKind === DocumentKind.ACR_ASSESSMENT
+      ? t('defaultNameAcr')
+      : t('defaultName', {
+          style: t(`style.${selected.style}`),
+          orientation: t(`orientation.${selected.orientation}`),
+        })
     : '';
   const name = typedName ?? defaultName;
   const canCreate = Boolean(selected) && name.trim() !== '' && !create.isPending;

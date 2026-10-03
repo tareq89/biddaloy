@@ -33,6 +33,8 @@ import {
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
+import { slotLabel } from '../editor/element-label';
+
 import { BatchBar } from './batch-bar';
 import { DidAllPrintDialog, type DidAllPrintItem } from './did-all-print-dialog';
 import { PreflightPanel, type PreflightIssue } from './preflight-panel';
@@ -83,12 +85,17 @@ function text(value: unknown): string {
 }
 
 /** A readable name for an element in a pre-flight message: its field, else its text, else its id. */
-function elementName(definition: TemplateDefinition, elementId: string): string {
+function elementName(
+  definition: TemplateDefinition,
+  elementId: string,
+  label: (field: string) => string | undefined,
+): string {
   const all = [...definition.front.elements, ...(definition.back?.elements ?? [])] as Array<
     Record<string, unknown>
   >;
   const el = all.find((e) => e.id === elementId);
-  return text(el?.field ?? el?.text ?? elementId);
+  const field = typeof el?.field === 'string' ? el.field : undefined;
+  return (field && label(field)) || text(el?.field ?? el?.text ?? elementId);
 }
 
 export function PrintPreview({
@@ -100,6 +107,7 @@ export function PrintPreview({
   onDone,
 }: PrintPreviewProps) {
   const { t, i18n } = useTranslation('printPreview');
+  const { t: tEditor } = useTranslation('printEditor');
   const tenantId = getActiveTenant() ?? '';
   const prefix = subjectType === 'STUDENT' ? 'student' : 'staff';
 
@@ -202,7 +210,9 @@ export function PrintPreview({
   const issues: PreflightIssue[] = definition
     ? items.flatMap((item) => {
         const reasons: string[] = [];
-        const fields = (overflow[item.subject_id] ?? []).map((id) => elementName(definition, id));
+        const fields = (overflow[item.subject_id] ?? []).map((id) =>
+          elementName(definition, id, (f) => slotLabel(tEditor, f)),
+        );
         if (fields.length > 0) reasons.push(t('preflight.overflow', { fields: fields.join(', ') }));
         if (usesPhoto && !item.photo_url) reasons.push(t('preflight.noPhoto'));
         const nameKey = `${prefix}.name`;

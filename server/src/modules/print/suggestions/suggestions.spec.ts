@@ -4,9 +4,9 @@ import { validateTemplateDefinition } from '@biddaloy/shared';
 import { ARTWORK_DIR, PRINT_SUGGESTIONS } from './suggestions';
 
 describe('PRINT_SUGGESTIONS', () => {
-  it('has 8 entries with unique keys', () => {
-    expect(PRINT_SUGGESTIONS).toHaveLength(8);
-    expect(new Set(PRINT_SUGGESTIONS.map((s) => s.key)).size).toBe(8);
+  it('has 9 entries with unique keys', () => {
+    expect(PRINT_SUGGESTIONS).toHaveLength(9);
+    expect(new Set(PRINT_SUGGESTIONS.map((s) => s.key)).size).toBe(9);
   });
 
   it.each(PRINT_SUGGESTIONS.map((s) => [s.key, s] as const))(
@@ -15,9 +15,17 @@ describe('PRINT_SUGGESTIONS', () => {
       const result = validateTemplateDefinition(s.definition, s.documentKind);
       expect(result).toEqual({ success: true, data: s.definition });
       expect(existsSync(join(ARTWORK_DIR, s.artwork.front))).toBe(true);
-      expect(existsSync(join(ARTWORK_DIR, s.artwork.back))).toBe(true);
+      if (s.artwork.back) expect(existsSync(join(ARTWORK_DIR, s.artwork.back))).toBe(true);
     },
   );
+
+  it('the ACR suggestion is A4 and front only, with no QR', () => {
+    const acr = PRINT_SUGGESTIONS.find((s) => s.key === 'acr-a4-standard');
+    expect(acr?.definition.page).toEqual({ widthMm: 210, heightMm: 297, sides: ['front'] });
+    expect(acr?.definition.back).toBeUndefined();
+    expect(acr?.artwork.back).toBeUndefined();
+    expect(acr?.definition.front.elements.some((e) => e.type === 'QR')).toBe(false);
+  });
 });
 
 // The artwork is read from disk at runtime, relative to the compiled file. `nest build` only

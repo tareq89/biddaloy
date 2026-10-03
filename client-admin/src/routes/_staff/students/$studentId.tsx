@@ -357,7 +357,12 @@ function StudentDetailPage() {
                       {
                         id: 'performance',
                         label: tPerformance('title'),
-                        content: <PerformanceTab studentId={studentId} />,
+                        content: (
+                          <PerformanceTab
+                            studentId={studentId}
+                            subjectName={studentQuery.data.full_name}
+                          />
+                        ),
                       },
                     ]
                   : []),

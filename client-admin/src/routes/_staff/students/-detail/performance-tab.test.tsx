@@ -8,9 +8,9 @@ import {
   server,
   studentFactory,
 } from '@biddaloy/ui/test';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../../routeTree.gen';
 
@@ -55,7 +55,7 @@ function years() {
 function renderTab() {
   return renderWithProviders(
     <RegionConfigProvider>
-      <PerformanceTab studentId={STUDENT_ID} />
+      <PerformanceTab studentId={STUDENT_ID} subjectName="Rina Akter" />
     </RegionConfigProvider>,
     { locale: 'en', role: 'TEACHER', tenantId: 'tenant-1' },
   );
@@ -72,9 +72,27 @@ describe('student PerformanceTab', () => {
     renderTab();
 
     expect(await screen.findByText('Pass rate')).toBeTruthy();
+    expect(
+      document.querySelector('#performance-print-area h2.performance-print-title')?.textContent,
+    ).toBe('Performance report — Rina Akter');
     expect(screen.getByText('90%')).toBeTruthy();
     expect(screen.getByText('Midterm (A)')).toBeTruthy();
     expect(screen.getByText('4 / 5')).toBeTruthy();
+  });
+
+  it('prints the on-screen content via window.print', async () => {
+    years();
+    server.use(http.get('/api/v1/performance/students/:id', () => HttpResponse.json(base)));
+    renderTab();
+    expect(screen.queryByRole('button', { name: 'Print / Save as PDF' })).toBeNull();
+    await screen.findByText('Pass rate');
+    const print = vi.spyOn(window, 'print').mockImplementation(() => undefined);
+    const button = screen.getByRole('button', { name: 'Print / Save as PDF' });
+    expect(button.parentElement?.className).toContain('print:hidden');
+    expect(button.closest('#performance-print-area')).not.toBeNull();
+    fireEvent.click(button);
+    expect(print).toHaveBeenCalledTimes(1);
+    print.mockRestore();
   });
 
   it('shows "Not enough data yet" per widget when there is nothing', async () => {
@@ -135,6 +153,7 @@ describe('student PerformanceTab', () => {
       await screen.findByText("Couldn't load performance.", {}, { timeout: 4000 }),
     ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Print / Save as PDF' })).toBeNull();
   });
 });
 

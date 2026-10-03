@@ -18,7 +18,8 @@
   },
   "kind": {
     "STUDENT_ID_CARD": "Student ID card",
-    "STAFF_ID_CARD": "Staff ID card"
+    "STAFF_ID_CARD": "Staff ID card",
+    "ACR_ASSESSMENT": "ACR (confidential report)"
   },
   "status": {
     "published": "Published",
@@ -74,5 +75,6 @@
     "copied": "Link copied",
     "copyFailed": "Could not copy the link",
     "back": "Go back"
-  }
+  },
+  "defaultNameAcr": "ACR A4 page"
 }

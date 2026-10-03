@@ -29,6 +29,8 @@ import {
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
+import { slotLabel } from './element-label';
+
 export interface PropertiesPanelProps {
   element: PrintElement | undefined;
   kind: DocumentKind;
@@ -243,8 +245,11 @@ export function PropertiesPanel({
       .filter((f) => f.type === type)
       .map((f) => ({
         value: f.key,
-        label: `${t(`fields.${f.key}`, { defaultValue: f.key })} — ${f.sample}`,
+        label: `${fieldLabel(f.key)} — ${f.sample}`,
       }));
+
+  const fieldLabel = (fieldKey: string) =>
+    slotLabel(t, fieldKey) ?? t(`fields.${fieldKey}`, { defaultValue: fieldKey });
 
   const families = [...new Set([...BUNDLED_PRINT_FONTS.map((f) => f.family), ...extraFonts])];
 

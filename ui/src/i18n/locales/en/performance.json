@@ -1,5 +1,7 @@
 {
+  "print": "Print / Save as PDF",
   "title": "Performance",
+  "printTitle": "Performance report — {{name}}",
   "loading": "Loading performance…",
   "loadError": "Couldn't load performance.",
   "empty": "No data for this period.",

@@ -82,6 +82,8 @@ describe('PrintHistoryService.subjectHistory', () => {
 describe('PrintHistoryService.revoke', () => {
   const withUpdate = (affected: number, exists: number) => {
     const manager = {
+      // The visibility pre-check (ACR gate) finds the row unless the test says it is missing.
+      query: vi.fn(async () => (exists || affected ? [{ '?column?': 1 }] : [])),
       update: vi.fn(async () => ({ affected })),
       count: vi.fn(async () => exists),
     };

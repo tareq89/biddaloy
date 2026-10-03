@@ -6,16 +6,27 @@
  * widgets (SwipeRow); desktop: grid. Bars are CSS only (D24).
  */
 import { ApiError } from '@biddaloy/ui/api';
-import { BarWidget, ErrorState, SummaryCard, SwipeRow, Skeleton } from '@biddaloy/ui/components';
+import {
+  BarWidget,
+  Button,
+  ErrorState,
+  SummaryCard,
+  SwipeRow,
+  Skeleton,
+} from '@biddaloy/ui/components';
 import { useAcademicYears, useStudentPerformance } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { renderDigits } from '@biddaloy/ui/utils';
+import { Printer } from 'lucide-react';
+
+import '../../-performance-print.css';
 
 export interface PerformanceTabProps {
   studentId: string;
+  subjectName: string;
 }
 
-export function PerformanceTab({ studentId }: PerformanceTabProps) {
+export function PerformanceTab({ studentId, subjectName }: PerformanceTabProps) {
   const { t } = useTranslation('performance');
   const years = useAcademicYears({ limit: 100 });
 
@@ -26,14 +37,22 @@ export function PerformanceTab({ studentId }: PerformanceTabProps) {
   if (!current) {
     return <p className="text-sm text-muted-foreground">{t('noYear')}</p>;
   }
-  return <StudentPerformance studentId={studentId} academicYearId={current.id} />;
+  return (
+    <StudentPerformance
+      studentId={studentId}
+      subjectName={subjectName}
+      academicYearId={current.id}
+    />
+  );
 }
 
 function StudentPerformance({
   studentId,
+  subjectName,
   academicYearId,
 }: {
   studentId: string;
+  subjectName: string;
   academicYearId: string;
 }) {
   const { t } = useTranslation('performance');
@@ -55,7 +74,14 @@ function StudentPerformance({
   const hasHomework = d.homework.totalAssignments > 0;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div id="performance-print-area" className="flex flex-col gap-3">
+      <h2 className="performance-print-title">{t('printTitle', { name: subjectName })}</h2>
+      <div className="flex justify-end print:hidden">
+        <Button type="button" variant="outline" onClick={() => window.print()}>
+          <Printer className="size-4" />
+          {t('print')}
+        </Button>
+      </div>
       <SummaryCard
         title={t('title')}
         headline={d.passRate === null ? null : { label: t('passRate'), value: pct(d.passRate) }}

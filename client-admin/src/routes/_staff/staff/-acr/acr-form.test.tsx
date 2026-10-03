@@ -11,6 +11,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AcrForm } from './acr-form';
 
+// The form has no router in tests; the print button only needs navigate + pathname.
+vi.mock('@tanstack/react-router', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tanstack/react-router')>()),
+  useNavigate: () => vi.fn(),
+  useRouterState: () => '/staff/u-1/acr',
+}));
+
 afterEach(async () => {
   await cleanupTestState();
 });
@@ -112,6 +119,14 @@ describe('AcrForm', () => {
     fireEvent.keyDown(document.body, { key: 'Enter', ctrlKey: true });
     await waitFor(() => expect(onServerUpdate).toHaveBeenCalledWith(completed));
     expect(complete).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the Print button on a completed ACR (ADMIN) and not on an incomplete one', async () => {
+    await renderForm(acrAssessmentFactory({ id: 'acr-1', status: 'COMPLETED', total: 7 }));
+    expect(await screen.findByRole('button', { name: 'Print ACR' })).toBeTruthy();
+    await cleanupTestState();
+    await renderForm();
+    expect(screen.queryByRole('button', { name: 'Print ACR' })).toBeNull();
   });
 
   it('renders a completed ACR read-only with a Reopen button', async () => {
