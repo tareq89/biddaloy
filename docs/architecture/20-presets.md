@@ -495,10 +495,8 @@ a template with two, because they would double-count attendance.
 ## 8. Unverified packs
 
 `verified: false` means: **a person must check this against the board's own
-syllabus before trusting it.** In the UI, the pack card carries a badge ("Structure only — marks and grading
-set by your school"), and the options form and the review step show a note:
-"This preset has not been checked against the official curriculum. It sets up
-classes and subjects only. Your school must set marks and grading itself." It
+syllabus before trusting it.** In the UI, the pack card carries a badge ("Not checked — review marks and grading
+before use"), and the options form and the review step show a note: "This preset has not been checked against the official curriculum. Its subjects, and any marks or grading scale it includes, may be wrong. Check them, or set your own, before you rely on them." It
 does not block apply.
 
 Where the data came from, and what is missing:
@@ -509,6 +507,11 @@ Where the data came from, and what is missing:
 | `bd/alia-madrasa`  | Stage names and the Dakhil/Alim GPA scale are sourced. Which subject is taught in which class and which subjects belong to each group were not confirmable. No Fazil/Kamil subjects, no exam templates.          |
 | `bd/qawmi-madrasa` | Structure and subjects only. One class per stage (real boards run several years). `classSubjects` is empty. Subject codes `Q-<n>` are our own. Marks, grading scale, templates and terms are deliberately blank. |
 | `intl/cambridge`   | Percent bands are illustrative (real boundaries change each session); one scale for all stages; years 10 to 13 subjects are "typical, not exhaustive"; Bangla names are translations.                            |
+
+**Some unverified packs do ship marks data.** `bd/nctb` (secondary), `bd/alia-madrasa`
+and `intl/cambridge` each include a grading scale (Alia's GPA scale is sourced;
+Cambridge's percent bands are illustrative). `bd/qawmi-madrasa` has none. So the
+note asks the school to review whatever the pack brings, not to assume it is empty.
 
 **Where marks come from for a school.** If a pack has no templates or scale,
 the school enters its own: grading scale under grading settings, exam

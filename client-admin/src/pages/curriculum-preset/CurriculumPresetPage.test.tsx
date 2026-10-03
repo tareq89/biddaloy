@@ -105,9 +105,9 @@ describe('CurriculumPresetPage', () => {
     });
     expect(await screen.findByText('NCTB National Curriculum')).toBeDefined();
     expect(screen.getByText('Qawmi Madrasa')).toBeDefined();
-    expect(
-      screen.getAllByText('Structure only — marks and grading set by your school'),
-    ).toHaveLength(1);
+    expect(screen.getAllByText('Not checked — review marks and grading before use')).toHaveLength(
+      1,
+    );
     await expect(baseElement).toHaveNoViolations();
   });
 
