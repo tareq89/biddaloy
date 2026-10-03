@@ -103,10 +103,63 @@ locally, not the safety net itself.
 
 ## Development
 
-Bring up Postgres and Redis first — the server won't boot without them:
+### One command
+
+After `yarn install` and `cp .env.example .env`, set `SEED_ADMIN_PASSWORD`
+in `.env`, then:
+
+```bash
+yarn dev
+```
+
+That runs `scripts/start-dev.sh`, which does this:
+
+```mermaid
+flowchart LR
+    D["yarn dev<br/>scripts/start-dev.sh"] --> S["yarn setup<br/>scripts/setup.sh"]
+    S --> S1["docker compose up<br/>db, redis, seaweedfs"]
+    S1 --> S2["build @biddaloy/shared"]
+    S2 --> S3["migration:run"]
+    S3 --> S4["seed<br/>admin@school.com"]
+    S4 --> R["server :3000<br/>+ client-admin :5174<br/>(Ctrl+C stops both)"]
+```
+
+Log in at <http://localhost:5174> as `admin@school.com` with your
+`SEED_ADMIN_PASSWORD`.
+
+What to know:
+
+- **Safe to re-run.** Migrations skip what's already applied, and the seed
+  only creates what's missing. Run `yarn setup` alone after pulling new
+  migrations.
+- **Always development mode.** `.env.example` says `NODE_ENV=production`
+  because it doubles as the deploy template. Both scripts override it to
+  `development`, because the seed refuses to run in production.
+- **`POSTGRES_*` comes from `DATABASE_URL`.** The `db` container is created
+  from `POSTGRES_USER`/`PASSWORD`/`DB`, but the server connects with
+  `DATABASE_URL`. `setup.sh` derives the first from the second so the two
+  can't disagree. Example: `postgres://postgres:secret@localhost:5432/school`
+  gives user `postgres`, password `secret`, database `school`.
+- **Changes to `shared/` need a rebuild.** `yarn dev` builds `shared/` once,
+  at startup. If you edit it while the app is running, run
+  `yarn workspace @biddaloy/shared build:watch` in another terminal.
+- **Production is different.** `scripts/start.sh` is the deploy launcher. It
+  does none of the above.
+
+### Step by step
+
+To run the pieces yourself, bring up Postgres and Redis first. The server
+won't boot without them:
 
 ```bash
 docker compose up -d db redis
+```
+
+On a fresh database, create the tables and the admin user once:
+
+```bash
+yarn workspace @biddaloy/server migration:run
+SEED_ADMIN_PASSWORD=<pick-one> yarn workspace @biddaloy/server seed
 ```
 
 Then run the server and whichever client(s) you're working on, each in its own
