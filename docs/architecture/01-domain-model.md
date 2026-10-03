@@ -105,6 +105,18 @@ erDiagram
     Subject ||--o{ ResultSubject : "line for"
     Student ||--o{ StudentSubjectChoice : "picks a"
     ClassSubject ||--o{ StudentSubjectChoice : "chosen offering"
+    Class ||--o{ ClassSubject : offers
+    Subject ||--o{ ClassSubject : "offered as"
+    ClassSubject {
+        string group_name "stream (Science, ...); NULL = every student"
+        string choice_group "pick-one set (Religion, ...); NULL = none"
+    }
+    StudentSubjectChoice {
+        string choice_group "copied from the class subject by a trigger"
+    }
+
+    School ||--o{ ExamTemplate : scopes
+    ExamTemplate ||--o{ ExamTemplateComponent : "made of"
 
     Class ||--o{ PromotionRun : "source class of"
     School ||--o{ PromotionRun : scopes
@@ -144,6 +156,9 @@ for full field lists.)_
 - **`School`** — a tenant. Every school-scoped table has a `tenant_id` (or
   goes through a relation that resolves to one). See
   [02-auth-and-multitenancy.md](02-auth-and-multitenancy.md).
+  `settings.preset` (`{ id, version, appliedAt, appliedByUserId }`) records
+  which curriculum pack the school applied; only apply and reset write it. See
+  [20-presets.md](20-presets.md).
 - **`User`** — one account per person, **not** scoped to a single school.
   Holds login credentials (`password_hash`, nullable for guardians/students
   who never log in) and profile basics.
@@ -179,6 +194,12 @@ for full field lists.)_
   tenant vocabulary (`organisation.groups`). Unlike shift/version, `group`
   is **not** part of what makes a section unique — two sections named "A"
   in the same class always collide regardless of group.
+- **`ClassSubject`** — "this subject is taught in this class in this year".
+  `is_optional` marks the 4th subject. `group_name` (e.g. "Science") limits it
+  to students in a section of the same group; `NULL` means everyone.
+  `choice_group` (e.g. "Religion") puts it in a _pick one_ set. A choice-group
+  row is never optional and never has a `group_name` (database CHECK). See
+  [20-presets.md](20-presets.md#6-choice-groups-exactly-one-of).
 - **`Teacher`** — a staff profile layered on top of a `User`. Can hold
   multiple designations and be assigned to multiple sections via
   **`TeacherClassSection`**.
@@ -254,6 +275,12 @@ Exam (First Term Exam, Class 6, 2026-2027)   status: DRAFT -> PROCESSED -> PUBLI
   subject's total is the sum of its components. `source` distinguishes
   `MANUAL` (typed on the marks grid) from `DERIVED` (computed server-side —
   currently only `ATTENDANCE`, D11 — never accepts direct grid entry).
+- **`ExamTemplate`** / **`ExamTemplateComponent`** — a reusable set of
+  components (name, kind, full and pass marks) per class grade and subject
+  code. Keyed by `class_grade` and `subject_code`, not ids, so one template
+  works every year. Creating an exam from a template copies the rows onto the
+  exam as `ExamComponent`s; later template edits never change that exam.
+  Curriculum packs ship them. Template names are unique per school.
 - **`MarkGrid`** — one section-subject's entry state for one exam (D12):
   `DRAFT` is editable, `SUBMITTED` locks it. One row per (exam, section,
   subject).
@@ -277,12 +304,15 @@ Exam (First Term Exam, Class 6, 2026-2027)   status: DRAFT -> PROCESSED -> PUBLI
   (D14), per student rather than per class, since two students in the same
   class can pick different fourth subjects. `academic_year_id` is
   denormalised from the chosen `ClassSubject` so "one `is_fourth` choice per
-  student per year" can be enforced by a database index.
+  student per year" can be enforced by a database index. It also has a
+  `choice_group` column, owned by a database trigger (copied from the chosen
+  `ClassSubject`, never written by code), so a pick cannot disagree with its
+  subject.
 
 **Subject choice groups (D44).** Some classes offer a _pick one_ slot: in NCTB
 Class 5 every student takes Religion, but Islam, Hindu, Christianity and
 Buddhism are separate subjects and each student takes exactly one. Those
-subjects share a `class_subjects.choice_group` (e.g. `RELIGION`), and the
+subjects share a `class_subjects.choice_group` (e.g. `Religion`), and the
 student's pick is a `StudentSubjectChoice` row.
 
 ```mermaid

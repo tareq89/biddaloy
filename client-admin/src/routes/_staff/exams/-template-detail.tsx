@@ -1,14 +1,16 @@
 /**
  * [35.4.5] Exam template detail — `DetailShell` with one "Components" tab:
  * an inline rename field above the component grid. No route here
- * ([35.4.9]); the route passes the id. The `PresetWarningBanner` is mounted
- * by [35.4.6], not here.
+ * ([35.4.9]); the route passes the id.
  */
+import { Permission } from '@biddaloy/shared';
 import { Button, Input } from '@biddaloy/ui/components';
-import { useAllSubjects } from '@biddaloy/ui/hooks';
+import { useAllSubjects, useHasPermission } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell } from '@biddaloy/ui/shells';
 import * as React from 'react';
+
+import { PresetWarningBanner } from '../../../components/PresetWarningBanner';
 
 import { NAME_MAX, TemplateGrid } from './-template-grid';
 import { useExamTemplate, useUpdateExamTemplate } from './use-exam-templates';
@@ -22,6 +24,8 @@ export function TemplateDetail({ templateId }: TemplateDetailProps) {
   const query = useExamTemplate(templateId);
   const subjectsQuery = useAllSubjects();
   const update = useUpdateExamTemplate(templateId);
+  // The banner's status call is ADMIN-only; skip it for other viewers.
+  const canSeePresetBanner = useHasPermission(Permission.CURRICULUM_PRESET_APPLY);
   const [name, setName] = React.useState('');
   const [nameError, setNameError] = React.useState<string | null>(null);
   const [tab, setTab] = React.useState('components');
@@ -68,6 +72,7 @@ export function TemplateDetail({ templateId }: TemplateDetailProps) {
           label: t('detail.tabComponents'),
           content: (
             <div className="flex flex-col gap-6">
+              {canSeePresetBanner && <PresetWarningBanner />}
               <form onSubmit={rename} className="flex flex-wrap items-end gap-2">
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor="template-detail-name" className="text-sm font-medium">

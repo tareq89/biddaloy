@@ -78,7 +78,9 @@ test('keyboard-only: type marks, mark one absent, watch autosave settle, submit'
   });
 
   await test.step('tab to the first student’s cell', async () => {
-    await tabUntilFocused(page, firstCellLabel, 60, { tag: 'input' });
+    // The sidebar's links come first in Tab order, so this limit grows with the nav
+    // (60 was exactly enough until Exam templates / Curriculum preset were added).
+    await tabUntilFocused(page, firstCellLabel, 90, { tag: 'input' });
   });
 
   await test.step('type a mark, Enter moves to the next row', async () => {

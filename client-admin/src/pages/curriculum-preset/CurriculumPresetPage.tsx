@@ -49,6 +49,13 @@ export function CurriculumPresetPage({ schoolId }: CurriculumPresetPageProps) {
     startYear: String(new Date().getFullYear()),
   });
   const [previewId, setPreviewId] = React.useState<string | null>(null);
+  // The preview opens from state, not a Radix trigger, so remember who opened it and give focus back on close.
+  const previewOpenerRef = React.useRef<HTMLElement | null>(null);
+  const openPreview = (id: string) => {
+    previewOpenerRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setPreviewId(id);
+  };
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [result, setResult] = React.useState<ApplyPresetResult | null>(null);
 
@@ -148,7 +155,7 @@ export function CurriculumPresetPage({ schoolId }: CurriculumPresetPageProps) {
                 presets={list.data}
                 selectedId={selectedId}
                 onSelect={handleSelect}
-                onPreview={setPreviewId}
+                onPreview={openPreview}
               />
             ),
           },
@@ -202,7 +209,11 @@ export function CurriculumPresetPage({ schoolId }: CurriculumPresetPageProps) {
           setConfirmOpen(true);
         }}
       />
-      <PresetPreviewSheet presetId={previewId} onClose={() => setPreviewId(null)} />
+      <PresetPreviewSheet
+        presetId={previewId}
+        onClose={() => setPreviewId(null)}
+        returnFocusTo={previewOpenerRef}
+      />
       <ConfirmApplyDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}

@@ -67,6 +67,7 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/print-templates/$templateId/edit':
     '[32.4.1] full-screen editor, reached from the print templates library',
   '/_staff/print/preview': "[32.4.1] full-screen print preview, reached from a list's Print action",
+  '/_staff/exams/templates/$templateId': 'detail route reached from the exam templates list',
   '/_staff/exams/seat-plans/$planId': 'detail route reached from the seat plans list',
   '/_staff/marks/':
     '[19.7.1] reached from the exam Progress tab’s outstanding-grid links, not its own sidebar item yet',

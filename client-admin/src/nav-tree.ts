@@ -175,6 +175,13 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.EXAM_MANAGE,
     label: { entity: 'exam' },
   },
+  // [35.5.1] `EXAM_MANAGE` — same gate as `examsResults.exams` (D36).
+  'examsResults.examTemplates': {
+    id: 'examsResults.examTemplates',
+    to: '/exams/templates',
+    permission: Permission.EXAM_MANAGE,
+    label: { key: 'examTemplates' },
+  },
   // [26.5.1] `MARK_VIEW` — same "seeing is weaker than editing" gate
   // `/marks` already uses; analysis is a read-only view over processed
   // results, not a write action like `/results`'s `RESULT_PROCESS`.
@@ -353,6 +360,13 @@ export const STAFF_NAV_ITEMS = {
     permission: Permission.SETTINGS_MANAGE,
     label: { key: 'settings' },
   },
+  // [35.5.1] Settings › Curriculum preset (D12), gated like its route.
+  'administration.curriculumPreset': {
+    id: 'administration.curriculumPreset',
+    to: '/curriculum-preset',
+    permission: Permission.CURRICULUM_PRESET_APPLY,
+    label: { key: 'curriculumPreset' },
+  },
 } as const satisfies Record<string, StaffNavItemDef>;
 
 /**
@@ -428,6 +442,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
     label: { key: 'examsResults' },
     items: [
       STAFF_NAV_ITEMS['examsResults.exams'],
+      STAFF_NAV_ITEMS['examsResults.examTemplates'],
       STAFF_NAV_ITEMS['examsResults.seatPlans'],
       STAFF_NAV_ITEMS['examsResults.gradingScales'],
       STAFF_NAV_ITEMS['examsResults.analysis'],
@@ -469,6 +484,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
       STAFF_NAV_ITEMS['administration.printTemplates'],
       STAFF_NAV_ITEMS['administration.auditLogs'],
       STAFF_NAV_ITEMS['administration.settings'],
+      STAFF_NAV_ITEMS['administration.curriculumPreset'],
     ],
   },
 ];

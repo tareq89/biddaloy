@@ -20,7 +20,7 @@ export const Route = createFileRoute('/_staff/exams/$examId')({
   loader: ({ context: { queryClient }, params }) =>
     Promise.all([
       queryClient.ensureQueryData(examQueryOptions(params.examId)).catch(swallowUnlessOffline),
-      loadRouteNamespaces('exams', 'common'),
+      loadRouteNamespaces('exams', 'common', 'examsTemplateField'),
     ]),
   pendingComponent: ExamDetailPending,
   component: ExamDetailPage,

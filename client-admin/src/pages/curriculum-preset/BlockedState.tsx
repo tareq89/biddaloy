@@ -31,7 +31,7 @@ export function BlockedState({ blockers }: BlockedStateProps) {
               {to && (
                 <>
                   {' · '}
-                  <Link to={to} className="text-primary underline-offset-2 hover:underline">
+                  <Link to={to} className="text-primary underline underline-offset-2">
                     {t('blocked.open', { entity })}
                   </Link>
                 </>

@@ -16,8 +16,8 @@
     "stages": "Stages: {{names}}",
     "withVersions": "Versions: {{names}}"
   },
-  "unverified": "Structure only — marks and grading set by your school",
-  "unverifiedWarning": "This preset has not been checked against the official curriculum. It sets up classes and subjects only. Your school must set marks and grading itself.",
+  "unverified": "Not checked — review marks and grading before use",
+  "unverifiedWarning": "This preset has not been checked against the official curriculum. Its subjects, and any marks or grading scale it includes, may be wrong. Check them, or set your own, before you rely on them.",
   "options": {
     "stages": "Stages to set up",
     "versions": "Versions to set up",
@@ -89,5 +89,11 @@
     "heading": "A preset cannot be applied because these already exist:",
     "item": "{{entity}} — {{count}}",
     "open": "Open {{entity}}"
+  },
+  "settingsLink": {
+    "title": "Curriculum preset",
+    "applied": "Applied: {{id}} · {{version}}",
+    "notApplied": "Not applied",
+    "open": "Open"
   }
 }

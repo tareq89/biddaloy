@@ -83,6 +83,11 @@
       "archetype": "detail"
     },
     {
+      "path": "/curriculum-preset",
+      "role": "admin",
+      "archetype": "bespoke"
+    },
+    {
       "path": "/settings",
       "role": "admin",
       "archetype": "form"
@@ -150,6 +155,19 @@
       "path": "/exams/$examId",
       "params": {
         "examId": "seeded"
+      },
+      "role": "admin",
+      "archetype": "detail"
+    },
+    {
+      "path": "/exams/templates",
+      "role": "admin",
+      "archetype": "list"
+    },
+    {
+      "path": "/exams/templates/$templateId",
+      "params": {
+        "templateId": "seeded"
       },
       "role": "admin",
       "archetype": "detail"

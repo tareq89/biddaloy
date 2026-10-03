@@ -18,6 +18,7 @@ import { EvaluationsSection } from './settings/EvaluationsSection';
 import { FeesSection } from './settings/FeesSection';
 import { MessengerSection } from './settings/MessengerSection';
 import { OrganisationSection } from './settings/OrganisationSection';
+import { PresetLinkCard } from './settings/PresetLinkCard';
 import { PrintersSection } from './settings/PrintersSection';
 import { RegionalSection } from './settings/RegionalSection';
 import { SchoolProfileSection } from './settings/school-profile-section';
@@ -85,6 +86,7 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
 
   const settingsQuery = useSchoolSettings(schoolId ?? '');
   const canEditAcrCriteria = useHasPermission(Permission.ACR_WRITE);
+  const canApplyPreset = useHasPermission(Permission.CURRICULUM_PRESET_APPLY);
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
@@ -109,6 +111,8 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
           tenant (criteria are per school), so not behind the SUPER_ADMIN
           picker; `ACR_WRITE` mirrors `PUT /acr/criteria`. */}
       {canEditAcrCriteria && <AcrCriteriaSection />}
+
+      {canApplyPreset && <PresetLinkCard />}
 
       {isSuperAdmin && (
         <div className="grid gap-1.5">

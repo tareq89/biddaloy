@@ -127,6 +127,9 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // [25.6] `SEAT_PLAN_MANAGE` — matches `SeatPlansController`'s own gate
   // (`@RequirePermissions(Permission.SEAT_PLAN_MANAGE)` on every route,
   // `seat-plans.controller.ts`). There is no separate read-only permission.
+  // [35.5.1] Exam templates — CRUD is the existing `EXAM_MANAGE` (D36).
+  '/_staff/exams/templates/': Permission.EXAM_MANAGE,
+  '/_staff/exams/templates/$templateId': Permission.EXAM_MANAGE,
   '/_staff/exams/seat-plans/': Permission.SEAT_PLAN_MANAGE,
   '/_staff/exams/seat-plans/$planId': Permission.SEAT_PLAN_MANAGE,
   // [19.7.1] MARK_VIEW (not MARK_ENTER) — same "seeing is weaker than
@@ -178,6 +181,8 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/_staff/routines/substitutions': Permission.ROUTINE_MANAGE,
   '/_staff/audit-logs/': Permission.AUDIT_LOG_READ,
   '/_staff/settings': Permission.SETTINGS_MANAGE,
+  // [35.5.1] Preset read + apply (D36).
+  '/_staff/curriculum-preset': Permission.CURRICULUM_PRESET_APPLY,
   // [9.6] Both gated on ATTENDANCE_READ, not ATTENDANCE_MARK — this table
   // (like the nav item it mirrors) answers "may you see this route", and
   // seeing a register is a strictly weaker ask than changing it. Whether

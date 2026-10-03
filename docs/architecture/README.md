@@ -33,6 +33,7 @@ at hand instead of loading the whole set.
 | [19-student-lifecycle.md](19-student-lifecycle.md) | Working on a student leaving, graduating or being readmitted, student profile records / health notes / staff notes / public-exam results, or the admission and leaving report |
 | [17-evaluations-and-performance.md](17-evaluations-and-performance.md) | Working on staff ACR, incident reports, teacher surveys (and the sealed-results rule), or the student/class/staff Performance tabs |
 | [19-print-module.md](19-print-module.md) | Working on `modules/print` or `print/` in shared/client — templates and the editor, printer profiles, print jobs and history, the public `/v/:token` verify page, or adding a new document kind (admit card, certificate) |
+| [20-presets.md](20-presets.md) | Working on `modules/presets` — curriculum packs (NCTB, Alia, Qawmi, Cambridge, Blank), applying or resetting a school's preset, subject choice groups, exam templates from a pack, or adding a new board or country |
 
 For practical "how do I run/develop/test this" instructions, see the root
 [`README.md`](../../README.md) — these docs cover the *why* behind the

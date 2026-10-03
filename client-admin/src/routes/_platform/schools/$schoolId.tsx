@@ -27,6 +27,7 @@ import { z } from 'zod';
 import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { AdminsCard } from './-detail/admins-card';
+import { ResetPresetCard } from './-detail/preset-reset-card';
 import { RestoreWorkbookDialog } from './-detail/restore-workbook-dialog';
 import { SmsCreditsCard } from './-detail/sms-credits-card';
 import { StatsCard } from './-detail/stats-card';
@@ -40,7 +41,7 @@ const schoolDetailSearchSchema = z.object({
 
 export const Route = createFileRoute('/_platform/schools/$schoolId')({
   validateSearch: schoolDetailSearchSchema,
-  loader: () => loadRouteNamespaces('platform', 'backup', 'bulkImport'),
+  loader: () => loadRouteNamespaces('platform', 'backup', 'bulkImport', 'presetReset'),
   component: SchoolDetailPage,
 });
 
@@ -126,6 +127,7 @@ function SchoolDetailPage() {
                   onRetry={() => void adminsQuery.refetch()}
                 />
                 <SmsCreditsCard schoolId={schoolId} />
+                <ResetPresetCard schoolId={schoolId} schoolName={school.name} />
                 <Link
                   to="/settings"
                   className="inline-flex min-h-6 items-center self-start text-sm text-primary underline"

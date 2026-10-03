@@ -183,4 +183,45 @@ describe('SchoolSettingsPage', () => {
     });
     await expect(container).toHaveNoViolations();
   });
+
+  describe('curriculum preset link [35.5.2]', () => {
+    function mount(role: string, state: 'APPLIED' | 'AVAILABLE') {
+      server.use(
+        http.get('/api/v1/presets/status', () =>
+          HttpResponse.json(
+            state === 'APPLIED'
+              ? {
+                  state,
+                  preset: { id: 'nctb', version: '2025.1', appliedAt: '2026-01-01T00:00:00Z' },
+                }
+              : { state },
+          ),
+        ),
+      );
+      renderWithProviders(<PageWithRouter />, {
+        locale: 'en',
+        role,
+        tenantId: 'tenant-1',
+        accessToken: fakeJwtWithMemberships(adminOwnSchool),
+      });
+    }
+
+    it('shows "Not applied" and a link to the page when AVAILABLE', async () => {
+      mount('ADMIN', 'AVAILABLE');
+      expect(await screen.findByText('Not applied')).toBeTruthy();
+      const link = screen.getByRole('link', { name: 'Open' });
+      expect(link.getAttribute('href')).toBe('/curriculum-preset');
+    });
+
+    it('shows the preset id and version when APPLIED', async () => {
+      mount('ADMIN', 'APPLIED');
+      expect(await screen.findByText('Applied: nctb · 2025.1')).toBeTruthy();
+    });
+
+    it('is hidden without CURRICULUM_PRESET_APPLY', async () => {
+      mount('TEACHER', 'AVAILABLE');
+      await screen.findByText('Configuring settings for Greenview School');
+      expect(screen.queryByText('Curriculum preset')).toBeNull();
+    });
+  });
 });

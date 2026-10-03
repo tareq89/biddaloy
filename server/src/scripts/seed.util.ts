@@ -28,7 +28,7 @@ import {
 } from '@biddaloy/shared';
 import type { OrganisationSettings } from '@biddaloy/shared';
 import { EnrollmentStatus } from '@biddaloy/shared';
-import { FindOptionsWhere, IsNull, ObjectLiteral, Repository } from 'typeorm';
+import { EntityManager, FindOptionsWhere, IsNull, ObjectLiteral, Repository } from 'typeorm';
 import { School } from '../modules/schools/entities/school.entity';
 import { User } from '../modules/users/entities/user.entity';
 import { UserTenant } from '../modules/auth/entities/user-tenant.entity';
@@ -158,6 +158,48 @@ export async function ensureSecondSchoolMembership(
     await userTenantRepository.save(membership);
     console.log(`  Role: ${membership.role} at ${secondSchool.name}`);
   }
+}
+
+export const FRESH_DEMO_SCHOOL = {
+  name: 'Fresh Demo School',
+  slug: 'fresh-demo-school',
+  adminEmail: 'fresh-admin@biddaloy.test',
+} as const;
+
+/** [35.5.5] One extra, deliberately EMPTY tenant (no classes, no preset, no
+ * organisation vocabulary) so QA can walk the whole Curriculum-preset apply
+ * flow. Existing demo tenants are running schools and stay untouched
+ * (D8, D26). Idempotent on slug / email. */
+export async function ensurePresetDemoSeed(
+  manager: EntityManager,
+  passwordHash: string,
+): Promise<School> {
+  const schools = manager.getRepository(School);
+  let school = await schools.findOne({ where: { slug: FRESH_DEMO_SCHOOL.slug } });
+  if (!school) {
+    school = await schools.save(
+      schools.create({ name: FRESH_DEMO_SCHOOL.name, slug: FRESH_DEMO_SCHOOL.slug }),
+    );
+    console.log(`  School: ${school.name} (${school.id}) — no preset applied`);
+  }
+  const users = manager.getRepository(User);
+  let user = await users.findOne({ where: { email: FRESH_DEMO_SCHOOL.adminEmail } });
+  if (!user) {
+    user = await users.save(
+      users.create({
+        email: FRESH_DEMO_SCHOOL.adminEmail,
+        password_hash: passwordHash,
+        status: UserStatus.ACTIVE,
+        full_name: 'Fresh School Admin',
+      }),
+    );
+  }
+  const memberships = manager.getRepository(UserTenant);
+  const where = { user_id: user.id, tenant_id: school.id };
+  if (!(await memberships.findOne({ where }))) {
+    await memberships.save(memberships.create({ ...where, role: UserRole.ADMIN }));
+  }
+  return school;
 }
 
 export interface RoleTestUserSeed {

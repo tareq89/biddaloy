@@ -19,6 +19,7 @@ import { Route as PortalRouteImport } from './routes/portal'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SelectSchoolRouteImport } from './routes/select-school'
 import { Route as VerifyEmailRouteImport } from './routes/verify-email'
+import { Route as StaffCurriculumPresetRouteImport } from './routes/_staff/curriculum-preset'
 import { Route as StaffDashboardRouteImport } from './routes/_staff/dashboard'
 import { Route as StaffFeesRouteImport } from './routes/_staff/fees'
 import { Route as StaffNotificationsRouteImport } from './routes/_staff/notifications'
@@ -114,6 +115,8 @@ import { Route as StaffCommunicationsBatchesIndexRouteImport } from './routes/_s
 import { Route as StaffCommunicationsBatchesBatchIdRouteImport } from './routes/_staff/communications/batches/$batchId'
 import { Route as StaffExamsSeatPlansIndexRouteImport } from './routes/_staff/exams/seat-plans/index'
 import { Route as StaffExamsSeatPlansPlanIdRouteImport } from './routes/_staff/exams/seat-plans/$planId'
+import { Route as StaffExamsTemplatesIndexRouteImport } from './routes/_staff/exams/templates/index'
+import { Route as StaffExamsTemplatesTemplateIdRouteImport } from './routes/_staff/exams/templates/$templateId'
 import { Route as StaffFeesFinesIndexRouteImport } from './routes/_staff/fees/fines/index'
 import { Route as StaffFeesFinesRulesRouteImport } from './routes/_staff/fees/fines/rules'
 import { Route as StaffFeesSchedulesIndexRouteImport } from './routes/_staff/fees/schedules/index'
@@ -172,6 +175,11 @@ const VerifyEmailRoute = VerifyEmailRouteImport.update({
   id: '/verify-email',
   path: '/verify-email',
   getParentRoute: () => rootRouteImport,
+} as any)
+const StaffCurriculumPresetRoute = StaffCurriculumPresetRouteImport.update({
+  id: '/curriculum-preset',
+  path: '/curriculum-preset',
+  getParentRoute: () => StaffRoute,
 } as any)
 const StaffDashboardRoute = StaffDashboardRouteImport.update({
   id: '/dashboard',
@@ -674,6 +682,18 @@ const StaffExamsSeatPlansPlanIdRoute =
     path: '/exams/seat-plans/$planId',
     getParentRoute: () => StaffRoute,
   } as any)
+const StaffExamsTemplatesIndexRoute =
+  StaffExamsTemplatesIndexRouteImport.update({
+    id: '/exams/templates/',
+    path: '/exams/templates/',
+    getParentRoute: () => StaffRoute,
+  } as any)
+const StaffExamsTemplatesTemplateIdRoute =
+  StaffExamsTemplatesTemplateIdRouteImport.update({
+    id: '/exams/templates/$templateId',
+    path: '/exams/templates/$templateId',
+    getParentRoute: () => StaffRoute,
+  } as any)
 const StaffFeesFinesIndexRoute = StaffFeesFinesIndexRouteImport.update({
   id: '/fines/',
   path: '/fines/',
@@ -740,6 +760,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/select-school': typeof SelectSchoolRoute
   '/verify-email': typeof VerifyEmailRoute
+  '/curriculum-preset': typeof StaffCurriculumPresetRoute
   '/dashboard': typeof StaffDashboardRoute
   '/fees': typeof StaffFeesRouteWithChildren
   '/notifications': typeof StaffNotificationsRoute
@@ -827,6 +848,7 @@ export interface FileRoutesByFullPath {
   '/attendance/staff/leave': typeof StaffAttendanceStaffLeaveRoute
   '/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
   '/exams/seat-plans/$planId': typeof StaffExamsSeatPlansPlanIdRoute
+  '/exams/templates/$templateId': typeof StaffExamsTemplatesTemplateIdRoute
   '/fees/fines/rules': typeof StaffFeesFinesRulesRoute
   '/fees/schedules/$id': typeof StaffFeesSchedulesIdRoute
   '/print-templates/$templateId/edit': typeof StaffPrintTemplatesTemplateIdEditRoute
@@ -840,6 +862,7 @@ export interface FileRoutesByFullPath {
   '/attendance/staff/': typeof StaffAttendanceStaffIndexRoute
   '/communications/batches/': typeof StaffCommunicationsBatchesIndexRoute
   '/exams/seat-plans/': typeof StaffExamsSeatPlansIndexRoute
+  '/exams/templates/': typeof StaffExamsTemplatesIndexRoute
   '/fees/fines/': typeof StaffFeesFinesIndexRoute
   '/fees/schedules/': typeof StaffFeesSchedulesIndexRoute
   '/marks/$examId/$sectionId/$subjectId': typeof StaffMarksExamIdSectionIdSubjectIdRoute
@@ -854,6 +877,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/select-school': typeof SelectSchoolRoute
   '/verify-email': typeof VerifyEmailRoute
+  '/curriculum-preset': typeof StaffCurriculumPresetRoute
   '/dashboard': typeof StaffDashboardRoute
   '/notifications': typeof StaffNotificationsRoute
   '/security': typeof StaffSecurityRoute
@@ -940,6 +964,7 @@ export interface FileRoutesByTo {
   '/attendance/staff/leave': typeof StaffAttendanceStaffLeaveRoute
   '/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
   '/exams/seat-plans/$planId': typeof StaffExamsSeatPlansPlanIdRoute
+  '/exams/templates/$templateId': typeof StaffExamsTemplatesTemplateIdRoute
   '/fees/fines/rules': typeof StaffFeesFinesRulesRoute
   '/fees/schedules/$id': typeof StaffFeesSchedulesIdRoute
   '/print-templates/$templateId/edit': typeof StaffPrintTemplatesTemplateIdEditRoute
@@ -953,6 +978,7 @@ export interface FileRoutesByTo {
   '/attendance/staff': typeof StaffAttendanceStaffIndexRoute
   '/communications/batches': typeof StaffCommunicationsBatchesIndexRoute
   '/exams/seat-plans': typeof StaffExamsSeatPlansIndexRoute
+  '/exams/templates': typeof StaffExamsTemplatesIndexRoute
   '/fees/fines': typeof StaffFeesFinesIndexRoute
   '/fees/schedules': typeof StaffFeesSchedulesIndexRoute
   '/marks/$examId/$sectionId/$subjectId': typeof StaffMarksExamIdSectionIdSubjectIdRoute
@@ -971,6 +997,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/select-school': typeof SelectSchoolRoute
   '/verify-email': typeof VerifyEmailRoute
+  '/_staff/curriculum-preset': typeof StaffCurriculumPresetRoute
   '/_staff/dashboard': typeof StaffDashboardRoute
   '/_staff/fees': typeof StaffFeesRouteWithChildren
   '/_staff/notifications': typeof StaffNotificationsRoute
@@ -1058,6 +1085,7 @@ export interface FileRoutesById {
   '/_staff/attendance/staff/leave': typeof StaffAttendanceStaffLeaveRoute
   '/_staff/communications/batches/$batchId': typeof StaffCommunicationsBatchesBatchIdRoute
   '/_staff/exams/seat-plans/$planId': typeof StaffExamsSeatPlansPlanIdRoute
+  '/_staff/exams/templates/$templateId': typeof StaffExamsTemplatesTemplateIdRoute
   '/_staff/fees/fines/rules': typeof StaffFeesFinesRulesRoute
   '/_staff/fees/schedules/$id': typeof StaffFeesSchedulesIdRoute
   '/_staff/print-templates/$templateId/edit': typeof StaffPrintTemplatesTemplateIdEditRoute
@@ -1071,6 +1099,7 @@ export interface FileRoutesById {
   '/_staff/attendance/staff/': typeof StaffAttendanceStaffIndexRoute
   '/_staff/communications/batches/': typeof StaffCommunicationsBatchesIndexRoute
   '/_staff/exams/seat-plans/': typeof StaffExamsSeatPlansIndexRoute
+  '/_staff/exams/templates/': typeof StaffExamsTemplatesIndexRoute
   '/_staff/fees/fines/': typeof StaffFeesFinesIndexRoute
   '/_staff/fees/schedules/': typeof StaffFeesSchedulesIndexRoute
   '/_staff/marks/$examId/$sectionId/$subjectId': typeof StaffMarksExamIdSectionIdSubjectIdRoute
@@ -1088,6 +1117,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/select-school'
     | '/verify-email'
+    | '/curriculum-preset'
     | '/dashboard'
     | '/fees'
     | '/notifications'
@@ -1175,6 +1205,7 @@ export interface FileRouteTypes {
     | '/attendance/staff/leave'
     | '/communications/batches/$batchId'
     | '/exams/seat-plans/$planId'
+    | '/exams/templates/$templateId'
     | '/fees/fines/rules'
     | '/fees/schedules/$id'
     | '/print-templates/$templateId/edit'
@@ -1188,6 +1219,7 @@ export interface FileRouteTypes {
     | '/attendance/staff/'
     | '/communications/batches/'
     | '/exams/seat-plans/'
+    | '/exams/templates/'
     | '/fees/fines/'
     | '/fees/schedules/'
     | '/marks/$examId/$sectionId/$subjectId'
@@ -1202,6 +1234,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/select-school'
     | '/verify-email'
+    | '/curriculum-preset'
     | '/dashboard'
     | '/notifications'
     | '/security'
@@ -1288,6 +1321,7 @@ export interface FileRouteTypes {
     | '/attendance/staff/leave'
     | '/communications/batches/$batchId'
     | '/exams/seat-plans/$planId'
+    | '/exams/templates/$templateId'
     | '/fees/fines/rules'
     | '/fees/schedules/$id'
     | '/print-templates/$templateId/edit'
@@ -1301,6 +1335,7 @@ export interface FileRouteTypes {
     | '/attendance/staff'
     | '/communications/batches'
     | '/exams/seat-plans'
+    | '/exams/templates'
     | '/fees/fines'
     | '/fees/schedules'
     | '/marks/$examId/$sectionId/$subjectId'
@@ -1318,6 +1353,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/select-school'
     | '/verify-email'
+    | '/_staff/curriculum-preset'
     | '/_staff/dashboard'
     | '/_staff/fees'
     | '/_staff/notifications'
@@ -1405,6 +1441,7 @@ export interface FileRouteTypes {
     | '/_staff/attendance/staff/leave'
     | '/_staff/communications/batches/$batchId'
     | '/_staff/exams/seat-plans/$planId'
+    | '/_staff/exams/templates/$templateId'
     | '/_staff/fees/fines/rules'
     | '/_staff/fees/schedules/$id'
     | '/_staff/print-templates/$templateId/edit'
@@ -1418,6 +1455,7 @@ export interface FileRouteTypes {
     | '/_staff/attendance/staff/'
     | '/_staff/communications/batches/'
     | '/_staff/exams/seat-plans/'
+    | '/_staff/exams/templates/'
     | '/_staff/fees/fines/'
     | '/_staff/fees/schedules/'
     | '/_staff/marks/$examId/$sectionId/$subjectId'
@@ -1513,6 +1551,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/verify-email'
       preLoaderRoute: typeof VerifyEmailRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_staff/curriculum-preset': {
+      id: '/_staff/curriculum-preset'
+      path: '/curriculum-preset'
+      fullPath: '/curriculum-preset'
+      preLoaderRoute: typeof StaffCurriculumPresetRouteImport
+      parentRoute: typeof StaffRoute
     }
     '/_staff/dashboard': {
       id: '/_staff/dashboard'
@@ -2179,6 +2224,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffExamsSeatPlansPlanIdRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/exams/templates/': {
+      id: '/_staff/exams/templates/'
+      path: '/exams/templates'
+      fullPath: '/exams/templates/'
+      preLoaderRoute: typeof StaffExamsTemplatesIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/exams/templates/$templateId': {
+      id: '/_staff/exams/templates/$templateId'
+      path: '/exams/templates/$templateId'
+      fullPath: '/exams/templates/$templateId'
+      preLoaderRoute: typeof StaffExamsTemplatesTemplateIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/fees/fines/': {
       id: '/_staff/fees/fines/'
       path: '/fines'
@@ -2297,6 +2356,7 @@ const StaffFeesRouteWithChildren = StaffFeesRoute._addFileChildren(
 )
 
 interface StaffRouteChildren {
+  StaffCurriculumPresetRoute: typeof StaffCurriculumPresetRoute
   StaffDashboardRoute: typeof StaffDashboardRoute
   StaffFeesRoute: typeof StaffFeesRouteWithChildren
   StaffNotificationsRoute: typeof StaffNotificationsRoute
@@ -2361,6 +2421,7 @@ interface StaffRouteChildren {
   StaffAttendanceStaffLeaveRoute: typeof StaffAttendanceStaffLeaveRoute
   StaffCommunicationsBatchesBatchIdRoute: typeof StaffCommunicationsBatchesBatchIdRoute
   StaffExamsSeatPlansPlanIdRoute: typeof StaffExamsSeatPlansPlanIdRoute
+  StaffExamsTemplatesTemplateIdRoute: typeof StaffExamsTemplatesTemplateIdRoute
   StaffPrintTemplatesTemplateIdEditRoute: typeof StaffPrintTemplatesTemplateIdEditRoute
   StaffResultsExamIdStudentIdRoute: typeof StaffResultsExamIdStudentIdRoute
   StaffStudentsStudentIdEditRoute: typeof StaffStudentsStudentIdEditRoute
@@ -2372,12 +2433,14 @@ interface StaffRouteChildren {
   StaffAttendanceStaffIndexRoute: typeof StaffAttendanceStaffIndexRoute
   StaffCommunicationsBatchesIndexRoute: typeof StaffCommunicationsBatchesIndexRoute
   StaffExamsSeatPlansIndexRoute: typeof StaffExamsSeatPlansIndexRoute
+  StaffExamsTemplatesIndexRoute: typeof StaffExamsTemplatesIndexRoute
   StaffMarksExamIdSectionIdSubjectIdRoute: typeof StaffMarksExamIdSectionIdSubjectIdRoute
   StaffStaffUserIdAcrAssessmentIdRoute: typeof StaffStaffUserIdAcrAssessmentIdRoute
   StaffStaffEvaluationsSurveysSurveyIdRoute: typeof StaffStaffEvaluationsSurveysSurveyIdRoute
 }
 
 const StaffRouteChildren: StaffRouteChildren = {
+  StaffCurriculumPresetRoute: StaffCurriculumPresetRoute,
   StaffDashboardRoute: StaffDashboardRoute,
   StaffFeesRoute: StaffFeesRouteWithChildren,
   StaffNotificationsRoute: StaffNotificationsRoute,
@@ -2444,6 +2507,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffCommunicationsBatchesBatchIdRoute:
     StaffCommunicationsBatchesBatchIdRoute,
   StaffExamsSeatPlansPlanIdRoute: StaffExamsSeatPlansPlanIdRoute,
+  StaffExamsTemplatesTemplateIdRoute: StaffExamsTemplatesTemplateIdRoute,
   StaffPrintTemplatesTemplateIdEditRoute:
     StaffPrintTemplatesTemplateIdEditRoute,
   StaffResultsExamIdStudentIdRoute: StaffResultsExamIdStudentIdRoute,
@@ -2456,6 +2520,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffAttendanceStaffIndexRoute: StaffAttendanceStaffIndexRoute,
   StaffCommunicationsBatchesIndexRoute: StaffCommunicationsBatchesIndexRoute,
   StaffExamsSeatPlansIndexRoute: StaffExamsSeatPlansIndexRoute,
+  StaffExamsTemplatesIndexRoute: StaffExamsTemplatesIndexRoute,
   StaffMarksExamIdSectionIdSubjectIdRoute:
     StaffMarksExamIdSectionIdSubjectIdRoute,
   StaffStaffUserIdAcrAssessmentIdRoute: StaffStaffUserIdAcrAssessmentIdRoute,

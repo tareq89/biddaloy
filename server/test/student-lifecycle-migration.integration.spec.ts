@@ -147,6 +147,15 @@ describe('StudentLifecycle1790800000000 (integration)', () => {
     expect(byEnrollment.has(ids.enrollments[`${T1}:ACTIVE`])).toBe(false);
   });
 
+  it('leaves later migrations intact: student_notes.rating survives the round-trip', async () => {
+    await seedAndRoundTrip();
+    const rows = await ds.query(
+      `SELECT 1 FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'student_notes' AND column_name = 'rating'`,
+    );
+    expect(rows).toHaveLength(1);
+  });
+
   it('keeps events tenant-scoped', async () => {
     await seedAndRoundTrip();
     const t2 = await ds.query(

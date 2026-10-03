@@ -20,6 +20,7 @@ import * as React from 'react';
 
 import { AttachSubjectDialog } from '../-attach-subject-dialog';
 import { RemoveSubjectDialog } from '../-remove-subject-dialog';
+import { PresetWarningBanner } from '../../../../components/PresetWarningBanner';
 
 export interface SubjectsTabProps {
   classId: string;
@@ -30,6 +31,8 @@ export function SubjectsTab({ classId, academicYearId }: SubjectsTabProps) {
   const { t } = useTranslation('classes');
   const { t: tCommon } = useTranslation('common');
   const canManage = useHasPermission(Permission.CLASS_MANAGE);
+  // The banner's status call is ADMIN-only; skip it for other viewers.
+  const canSeePresetBanner = useHasPermission(Permission.CURRICULUM_PRESET_APPLY);
 
   const query = useClassSubjects(classId, academicYearId);
   const [attachOpen, setAttachOpen] = React.useState(false);
@@ -99,6 +102,7 @@ export function SubjectsTab({ classId, academicYearId }: SubjectsTabProps) {
 
   return (
     <div className="flex flex-col gap-3 p-4">
+      {canSeePresetBanner && <PresetWarningBanner />}
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold">{t('subjects.heading')}</h2>
         {canManage && (

@@ -179,4 +179,29 @@ describe('classes/$classId Subjects tab', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await screen.findByText('No subjects offered yet');
   });
+
+  it.each([
+    ['ADMIN', 'APPLIED', true],
+    ['ADMIN', 'AVAILABLE', false],
+  ] as const)('[35.5.2] preset banner: %s / %s -> shown=%s', async (role, state, shown) => {
+    const klass = classFactory({ id: 'class-1' });
+    server.use(
+      http.get('/api/v1/classes/:id', () => HttpResponse.json(klass)),
+      http.get('/api/v1/classes/:classId/subjects', () => HttpResponse.json([])),
+      http.get('/api/v1/presets/status', () => HttpResponse.json({ state })),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/classes/class-1?tab=subjects'],
+      tenantId: 'tenant-1',
+      role,
+      locale: 'en',
+    });
+    await screen.findByText('No subjects offered yet');
+    if (shown) {
+      expect(await screen.findByText(/This comes from your curriculum preset/)).toBeTruthy();
+    } else {
+      await new Promise((r) => setTimeout(r, 50));
+      expect(screen.queryByText(/This comes from your curriculum preset/)).toBeNull();
+    }
+  });
 });

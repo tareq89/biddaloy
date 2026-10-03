@@ -23,16 +23,25 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState } from '@biddaloy/ui/shells';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import * as React from 'react';
+import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { ExamFormDialog } from './-exam-form-dialog';
 
+// `?create=1` opens the create dialog (palette "Create exam from template",
+// same pattern as seat-plans' `?generate=1`); `?template=<id>` pre-selects it.
+const examsSearchSchema = z.object({
+  create: z.coerce.string().optional().catch(undefined),
+  template: z.string().optional().catch(undefined),
+});
+
 export const Route = createFileRoute('/_staff/exams/')({
+  validateSearch: examsSearchSchema,
   loader: ({ context: { queryClient } }) =>
     Promise.all([
       queryClient.ensureQueryData(examsQueryOptions({})).catch(swallowUnlessOffline),
-      loadRouteNamespaces('exams', 'common'),
+      loadRouteNamespaces('exams', 'common', 'examsTemplateField'),
     ]),
   pendingComponent: ExamsListPending,
   component: ExamsListPage,
@@ -58,7 +67,27 @@ function ExamsListPage() {
   };
   const examsQuery = useExams(filters);
 
-  const [createOpen, setCreateOpen] = React.useState(false);
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const [createOpen, setCreateOpen] = React.useState(search.create === '1');
+
+  // The page can already be mounted when the palette navigates to `?create=1`,
+  // so the flag must open the dialog on every change, not only on first render.
+  React.useEffect(() => {
+    if (search.create === '1') setCreateOpen(true);
+  }, [search.create]);
+
+  // Closing also drops the one-shot params, so a later navigation to the same
+  // `?create=1` URL is a real change and re-opens the dialog.
+  const handleCreateOpenChange = (open: boolean) => {
+    setCreateOpen(open);
+    if (!open && (search.create || search.template)) {
+      void navigate({
+        search: (prev) => ({ ...prev, create: undefined, template: undefined }),
+        replace: true,
+      });
+    }
+  };
 
   return (
     <>
@@ -140,12 +169,13 @@ function ExamsListPage() {
       {canManage && (
         <ExamFormDialog
           open={createOpen}
-          onOpenChange={setCreateOpen}
+          onOpenChange={handleCreateOpenChange}
           mode="create"
+          {...(search.template ? { defaultTemplateId: search.template } : {})}
           {...(academicYearId && academicYearId !== ALL_VALUE
             ? { defaultAcademicYearId: academicYearId }
             : {})}
-          onSaved={() => setCreateOpen(false)}
+          onSaved={() => handleCreateOpenChange(false)}
         />
       )}
     </>

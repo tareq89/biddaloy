@@ -5,7 +5,7 @@ import {
   renderWithRouter,
   server,
 } from '@biddaloy/ui/test';
-import { screen, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -78,5 +78,36 @@ describe('/exams', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await screen.findByText('Academic year and class are required.');
+  });
+
+  it('opens the create dialog when ?create=1 is navigated to while already mounted, and clears the flag on close', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('/api/v1/academic-years', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 0 }),
+      ),
+      http.get('/api/v1/exams', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 0 }),
+      ),
+      http.get('/api/v1/classes', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 100, totalPages: 0 }),
+      ),
+    );
+
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/exams'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByRole('heading', { name: 'Exams' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    await act(() => router.navigate({ to: '/exams', search: { create: '1' } }));
+    await screen.findByRole('dialog');
+
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(router.state.location.search).not.toHaveProperty('create'));
   });
 });
