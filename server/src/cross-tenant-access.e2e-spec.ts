@@ -410,7 +410,7 @@ describe('Cross-tenant access (regression)', () => {
       .get('/api/v1/schools')
       .set('Authorization', `Bearer ${token}`)
       .set('X-Tenant-ID', TENANT_A)
-      .expect(401);
+      .expect(403);
 
     // Missing X-Tenant-ID entirely — ContextGuard's own required-header
     // check, ahead of anything RolesGuard/SUPER_ADMIN-only logic does.

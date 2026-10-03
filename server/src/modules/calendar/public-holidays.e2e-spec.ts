@@ -128,13 +128,13 @@ describe('Public holiday sets (e2e)', () => {
     await app.close();
   });
 
-  it('rejects ADMIN fetching a platform holiday set with 401 (role guard)', async () => {
+  it('rejects ADMIN fetching a platform holiday set with 403 (role guard)', async () => {
     await supertest(app.getHttpServer())
       .post(`${API}/platform/holiday-sets/fetch`)
       .set('Authorization', `Bearer ${adminToken}`)
       .set('X-Tenant-ID', TENANT_ID)
       .send({ country: 'BD', year: 2031 })
-      .expect(401);
+      .expect(403);
   });
 
   it('SUPER_ADMIN can fetch, edit, and publish a BD 2031 set from a mocked source', async () => {

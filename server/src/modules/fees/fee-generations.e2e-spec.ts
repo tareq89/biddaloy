@@ -294,7 +294,7 @@ describe('Fee Generations E2E', () => {
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
-        .expect(401);
+        .expect(403);
     });
 
     it('returns 401 when X-Tenant-ID header is missing', async () => {

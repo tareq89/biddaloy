@@ -110,13 +110,13 @@ describe('Recurring Schedules E2E', () => {
         .expect(403);
     });
 
-    it('denies a TEACHER GET /fees/schedules (401 — role not in @Roles list; unlike FeeGenerationsController, a schedule read exposes tenant-wide audience data, not a class-scoped list)', async () => {
+    it('denies a TEACHER GET /fees/schedules (403 — role not in @Roles list; unlike FeeGenerationsController, a schedule read exposes tenant-wide audience data, not a class-scoped list)', async () => {
       await supertest(app.getHttpServer())
         .get('/api/v1/fees/schedules')
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.TEACHER)
-        .expect(401);
+        .expect(403);
     });
   });
 
