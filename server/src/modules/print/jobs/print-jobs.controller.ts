@@ -15,10 +15,9 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IsIn, IsString, IsUUID } from 'class-validator';
 import type { Response } from 'express';
-import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
+import { JwtPayload, Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -44,7 +43,6 @@ type Tenant = { id: string; role: string };
 @ApiTenantAuth()
 @Controller('print-jobs')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
-@Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
 @RequirePermissions(Permission.DOCUMENT_PRINT)
 export class PrintJobsController {
   constructor(private readonly service: PrintJobsService) {}
