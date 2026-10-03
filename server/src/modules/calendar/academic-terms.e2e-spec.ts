@@ -170,13 +170,8 @@ describe('Academic Terms E2E (17.2.2)', () => {
       .expect(404);
   });
 
-  it('rejects a STUDENT from creating a term (401, RolesGuard)', async () => {
-    // Same @Roles(ADMIN)+@RequirePermissions(CALENDAR_MANAGE) pattern as
-    // academic-year.controller.ts: RolesGuard runs before PermissionsGuard
-    // in the guard chain and throws UnauthorizedException (401) on a role
-    // mismatch, so a non-ADMIN caller never reaches PermissionsGuard's
-    // ForbiddenException (403) here — 401 is the correct, established
-    // status for this codebase's RolesGuard, not a bug in this route.
+  it('rejects a STUDENT from creating a term (403, PermissionsGuard)', async () => {
+    // Role mismatch is rejected by PermissionsGuard (403), not RolesGuard.
     await dataSource.query(
       `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
        SELECT id, $1, $2, NOW(), NOW() FROM users WHERE email = $3
@@ -200,7 +195,7 @@ describe('Academic Terms E2E (17.2.2)', () => {
         start_date: '2026-06-01',
         end_date: '2026-06-30',
       })
-      .expect(401);
+      .expect(403);
   });
 
   it('returns 422 TERM_OVERLAP for an overlapping range via the DB constraint', async () => {

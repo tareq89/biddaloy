@@ -94,14 +94,6 @@ export class PublicHolidaysController {
   // -------------------------------------------------------------------
 
   @Get('calendar/public-holidays')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-    UserRole.EXECUTIVE,
-  )
   @RequirePermissions(Permission.CALENDAR_READ)
   @ApiOperation({
     summary: "Suggested holidays for this tenant's country/year, published sets only.",
@@ -111,7 +103,6 @@ export class PublicHolidaysController {
   }
 
   @Post('calendar/public-holidays/add')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CALENDAR_MANAGE)
   @ApiOperation({ summary: 'Bulk-add ticked suggested holidays as HOLIDAY events on this tenant.' })
   async bulkAdd(
