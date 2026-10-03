@@ -1,5 +1,5 @@
 import type { EntityManager } from 'typeorm';
-import { DocumentKind, UserRole } from '@biddaloy/shared';
+import { DocumentKind, EMPLOYEE_ROLES, UserRole } from '@biddaloy/shared';
 import type { FieldResolver, ResolvedSubject } from './field-resolver';
 import { blankValues, schoolValues } from './field-values';
 
@@ -16,14 +16,9 @@ interface Row {
 
 /** Roles that get a staff ID card: every employee role. Not COMMITTEE (not an
  * employee, D16), PARENT, STUDENT or SUPER_ADMIN. */
-export const STAFF_CARD_ROLES: readonly UserRole[] = [
-  UserRole.ADMIN,
-  UserRole.ACCOUNTANT,
-  UserRole.TEACHER,
-  UserRole.EXECUTIVE,
-  UserRole.OFFICE_STAFF,
-  UserRole.EXAM_CONTROLLER,
-];
+export const STAFF_CARD_ROLES: readonly UserRole[] = EMPLOYEE_ROLES.filter(
+  (role) => role !== UserRole.SUPER_ADMIN,
+);
 
 /** Subject id = user id. Only `STAFF_CARD_ROLES` members of `tenantId` resolve. */
 export class StaffCardResolver implements FieldResolver {

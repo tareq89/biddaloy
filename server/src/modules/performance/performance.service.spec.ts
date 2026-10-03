@@ -232,8 +232,8 @@ describe('PerformanceService', () => {
     [UserRole.ADMIN, true],
     [UserRole.EXECUTIVE, true],
     [UserRole.ACCOUNTANT, false],
-    // New in #1362: needs tenant scope AND MARK_VIEW.
-    [UserRole.SUPER_ADMIN, true],
+    // New in #1362: needs tenant data scope AND MARK_VIEW; SUPER_ADMIN is out (D-N).
+    [UserRole.SUPER_ADMIN, false],
     [UserRole.EXAM_CONTROLLER, true],
     [UserRole.OFFICE_STAFF, false],
     [UserRole.COMMITTEE, false],

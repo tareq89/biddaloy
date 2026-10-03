@@ -142,6 +142,7 @@
     "ariaLabel": "Command palette",
     "title": "Command palette",
     "placeholder": "Search students, guardians, pages, and actions…",
+    "placeholderNoPeople": "Search pages and actions…",
     "description": "Search across people, pages, and actions. Use the arrow keys to move between results and Enter to open one.",
     "searchableHint": "Search by student name, roll number, guardian, staff, or invoice number.",
     "pageSearchableHint": "Search for a page by name.",

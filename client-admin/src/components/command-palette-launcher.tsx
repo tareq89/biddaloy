@@ -337,7 +337,11 @@ export function CommandPaletteLauncher() {
         onSelect={handleSelect}
         aria-label={t('commandPalette.ariaLabel')}
         title={t('commandPalette.title')}
-        placeholder={t('commandPalette.placeholder')}
+        placeholder={
+          tabs[0].id === 'people'
+            ? t('commandPalette.placeholder')
+            : t('commandPalette.placeholderNoPeople')
+        }
         description={t('commandPalette.description')}
         announceResults={(count) =>
           count === 1

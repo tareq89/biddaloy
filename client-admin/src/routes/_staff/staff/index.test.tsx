@@ -353,6 +353,8 @@ describe('/staff', () => {
     const dialog = await screen.findByRole('dialog');
     await user.click(within(dialog).getByRole('combobox', { name: 'Role' }));
     const option = await screen.findByRole('option', { name: /^Exam controller/ });
+    // SUPER_ADMIN is platform-only and POST /users always refuses it (#731).
+    expect(screen.queryByRole('option', { name: /^Super admin/ })).toBeNull();
     expect(
       within(option).getByText('Exams, marks, results and seat plans for the whole school.'),
     ).toBeTruthy();

@@ -16,7 +16,7 @@ import { escapeLikePattern } from '../../common/utils/escape-like.util';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import { BN_COLLATION } from '../../common/constants/collation';
 import { normalizeEmail } from '../auth/normalize-identifier';
-import { UserRole } from '@biddaloy/shared';
+import { EMPLOYEE_ROLES, UserRole } from '@biddaloy/shared';
 import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
 import {
   CreateUserDto,
@@ -107,15 +107,9 @@ export class UserService {
         // employee_id (mirrors the [36.1.1] migration backfill, which did
         // the same for pre-existing teachers) — creating one here too would
         // hit the `staff_profiles.user_id` unique constraint.
-        // COMMITTEE is deliberately absent (D16): not an employee.
-        const EMPLOYEE_ROLES: UserRole[] = [
-          UserRole.ADMIN,
-          UserRole.ACCOUNTANT,
-          UserRole.EXECUTIVE,
-          UserRole.OFFICE_STAFF,
-          UserRole.EXAM_CONTROLLER,
-        ];
-        if (EMPLOYEE_ROLES.includes(dto.role)) {
+        // COMMITTEE is deliberately absent (D16): not an employee, so not in
+        // EMPLOYEE_ROLES. SUPER_ADMIN is refused above (#731).
+        if (dto.role !== UserRole.TEACHER && EMPLOYEE_ROLES.includes(dto.role)) {
           await this.staffProfilesService.createFor(savedUser.id, tenantId, {}, manager);
         }
 

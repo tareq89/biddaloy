@@ -83,13 +83,20 @@ describe('[#1364] new roles vs ROLE_NARROWINGS routes', () => {
     await app.close();
   });
 
-  const reached = (status: number) => expect([200, 201, 404]).toContain(status);
+  // A 404 only counts as "reached" when the handler threw it (unknown id). Nest's own
+  // "Cannot POST /api/v1/…" 404 fires before any guard, so a renamed route must fail here.
+  const reached = (res: { status: number; body: { message?: unknown } }) => {
+    expect([200, 201, 404]).toContain(res.status);
+    if (res.status === 404) {
+      expect(String(res.body.message)).not.toMatch(/^Cannot (GET|POST|PATCH|PUT|DELETE)/);
+    }
+  };
   const DATE = '2026-01-15';
 
   it('EXAM_CONTROLLER reaches results review and publish, never writes marks', async () => {
     const R = UserRole.EXAM_CONTROLLER;
-    reached((await call(R, 'get', `/exams/${UNKNOWN_ID}/results`)).status);
-    reached((await call(R, 'post', `/exams/${UNKNOWN_ID}/results/publish`)).status);
+    reached(await call(R, 'get', `/exams/${UNKNOWN_ID}/results`));
+    reached(await call(R, 'post', `/exams/${UNKNOWN_ID}/results/publish`));
     expect((await call(R, 'patch', `/exams/${UNKNOWN_ID}/marks`, {})).status).toBe(403);
     expect((await call(R, 'post', `/exams/${UNKNOWN_ID}/marks/reopen`, {})).status).toBe(403);
   });
@@ -108,11 +115,9 @@ describe('[#1364] new roles vs ROLE_NARROWINGS routes', () => {
       200,
     );
     reached(
-      (
-        await call(R, 'post', `/communications/reminder/single/${UNKNOWN_ID}/preview`, {
-          message_template: 'Reminder',
-        })
-      ).status,
+      await call(R, 'post', `/communications/reminder/single/${UNKNOWN_ID}/preview`, {
+        message_template: 'Reminder',
+      }),
     );
     // F8: OFFICE_STAFF holds FEE_READ but not PAYMENT_READ — no guardian payment history.
     expect((await call(R, 'get', `/payments/guardian/${UNKNOWN_ID}`)).status).toBe(403);
@@ -125,7 +130,7 @@ describe('[#1364] new roles vs ROLE_NARROWINGS routes', () => {
   it('EXAM_CONTROLLER and OFFICE_STAFF read students, enrollments and the attendance register', async () => {
     for (const R of [UserRole.EXAM_CONTROLLER, UserRole.OFFICE_STAFF]) {
       expect((await call(R, 'get', '/students')).status).toBe(200);
-      reached((await call(R, 'get', `/enrollments/student/${UNKNOWN_ID}`)).status);
+      reached(await call(R, 'get', `/enrollments/student/${UNKNOWN_ID}`));
       expect(
         (await call(R, 'get', `/attendance/sections/${SEED_SECTION_1_ID}/register?date=${DATE}`))
           .status,

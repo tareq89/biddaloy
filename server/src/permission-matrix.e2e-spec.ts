@@ -519,7 +519,7 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
     path: '/payments/guardian/:guardianId',
     reason:
       "staff-only aggregate read across a guardian's students" +
-      ' #1364 OFFICE_STAFF excluded: holds FEE_READ but deliberately not PAYMENT_READ (D16), so no payment history; EXAM_CONTROLLER/COMMITTEE lack FEE_READ.',
+      ' #1364 OFFICE_STAFF not admitted here (holds FEE_READ, deliberately not PAYMENT_READ, D16); per-student payment history (GET /payments/student/:id, /payments/invoices/student/:id) still rides on FEE_READ, see #1381. EXAM_CONTROLLER/COMMITTEE lack FEE_READ.',
   },
   {
     controller: 'FeeGenerationsController',
