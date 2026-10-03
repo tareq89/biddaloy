@@ -6608,7 +6608,7 @@ export interface components {
              * @description The role held in that school.
              * @enum {string}
              */
-            role: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE";
+            role: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE" | "OFFICE_STAFF" | "EXAM_CONTROLLER" | "COMMITTEE";
             /** @description The school's display name. Absent on tokens issued before this field existed, so consumers must fall back to a placeholder rather than assume it is present. */
             name?: string;
         };
@@ -6953,7 +6953,7 @@ export interface components {
             tenant: components["schemas"]["School"];
             tenant_id: string;
             /** @enum {string} */
-            role: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE";
+            role: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE" | "OFFICE_STAFF" | "EXAM_CONTROLLER" | "COMMITTEE";
             metadata: {
                 [key: string]: unknown;
             } | null;
@@ -8291,7 +8291,7 @@ export interface components {
             status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
             full_name: string;
             /** @enum {string|null} */
-            role: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE" | null;
+            role: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE" | "OFFICE_STAFF" | "EXAM_CONTROLLER" | "COMMITTEE" | null;
             /** Format: date-time */
             member_since: string | null;
             profile_picture_url: string | null;
@@ -9099,7 +9099,7 @@ export interface components {
             password?: string;
             full_name: string;
             /** @enum {string} */
-            role: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE";
+            role: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE" | "OFFICE_STAFF" | "EXAM_CONTROLLER" | "COMMITTEE";
             /** Format: uuid */
             tenantId: string;
         };
@@ -18792,7 +18792,7 @@ export interface operations {
     UserController_findAllUsers_v1: {
         parameters: {
             query?: {
-                role?: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE";
+                role?: "SUPER_ADMIN" | "ADMIN" | "ACCOUNTANT" | "TEACHER" | "PARENT" | "STUDENT" | "EXECUTIVE" | "OFFICE_STAFF" | "EXAM_CONTROLLER" | "COMMITTEE";
                 search?: string;
                 status?: "ACTIVE" | "INACTIVE" | "SUSPENDED";
                 invitation_status?: "NONE" | "PENDING" | "EXPIRED" | "REVOKED" | "ACTIVATED";
