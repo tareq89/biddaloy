@@ -27,6 +27,25 @@ describe('EvaluationsSection', () => {
     ).toBeTruthy();
   });
 
+  it('shows provider status and warns when the toggle is on without a provider', async () => {
+    const { rerender } = renderWithProviders(
+      <EvaluationsSection schoolId={SCHOOL_ID} evaluations={{ incidentSmsEnabled: true }} />,
+      opts,
+    );
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'No SMS provider is set up yet',
+    );
+    rerender(
+      <EvaluationsSection
+        schoolId={SCHOOL_ID}
+        evaluations={{ incidentSmsEnabled: true }}
+        smsConfigured
+      />,
+    );
+    expect(await screen.findByText(/SMS provider is set up, so incident SMS/)).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
   it('saves only the evaluations slice with the flag on', async () => {
     const patchBody = vi.fn();
     server.use(

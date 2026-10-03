@@ -186,6 +186,7 @@ export function SchoolSettingsPage({ backupJobId }: SchoolSettingsPageProps = {}
             key={schoolId}
             schoolId={schoolId}
             evaluations={settingsQuery.data.evaluations}
+            smsConfigured={Boolean(settingsQuery.data.communications?.sms?.provider)}
           />
         </div>
       )}

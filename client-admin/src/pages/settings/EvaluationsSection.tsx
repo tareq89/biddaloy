@@ -32,14 +32,21 @@ interface FormValues {
 interface EvaluationsSectionProps {
   schoolId: string;
   evaluations: MaskedTenantSettings['evaluations'] | undefined;
+  /** Same test the server uses before sending (`communications.sms.provider` is set). */
+  smsConfigured?: boolean;
 }
 
-export function EvaluationsSection({ schoolId, evaluations }: EvaluationsSectionProps) {
+export function EvaluationsSection({
+  schoolId,
+  evaluations,
+  smsConfigured = false,
+}: EvaluationsSectionProps) {
   const { t } = useTranslation('settings');
   const form = useForm<FormValues>({
     defaultValues: { incidentSmsEnabled: evaluations?.incidentSmsEnabled ?? false },
     ...useFormShellMode(),
   });
+  const smsOn = form.watch('incidentSmsEnabled');
   useWarnUnsavedChanges(form.formState.isDirty);
   const updateSettings = useUpdateSchoolSettings(schoolId);
 
@@ -79,6 +86,18 @@ export function EvaluationsSection({ schoolId, evaluations }: EvaluationsSection
           />
           <p id="evaluations-incidentSmsHint" className="text-sm text-muted-foreground">
             {t('evaluations.incidentSmsHint')}
+          </p>
+          <p
+            role={smsOn && !smsConfigured ? 'alert' : 'status'}
+            className={
+              smsOn && !smsConfigured ? 'text-sm text-destructive' : 'text-sm text-muted-foreground'
+            }
+          >
+            {smsConfigured
+              ? t('evaluations.providerConfigured')
+              : smsOn
+                ? t('evaluations.providerMissingWarning')
+                : t('evaluations.providerNotConfigured')}
           </p>
           <p className="text-sm text-muted-foreground">{t('evaluations.pushAlwaysOn')}</p>
         </FormSection>
