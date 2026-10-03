@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import supertest = require('supertest');
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -18,6 +18,11 @@ import { UserRole } from '@biddaloy/shared';
 
 const FIXTURES_DIR = join(__dirname, '../../../../test/fixtures/workbook');
 const HAND_FILLED_XLSX = readFileSync(join(FIXTURES_DIR, 'hand-filled.xlsx'));
+
+// Every request here builds (and the round-trip test also validates) a workbook
+// with one sheet per registered tab. The registry keeps growing, and these tests
+// sit right at the default 5s limit on a loaded CI runner, so give them room.
+vi.setConfig({ testTimeout: 30_000 });
 
 /**
  * [14.13.1] E2E tests for GET /backup/template.
