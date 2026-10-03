@@ -296,9 +296,10 @@ TanStack Router parses `?startAcr=1` as the number `1`, so the page schema accep
   with a flag, so "Start ACR" still asks you to pick the person.
 - **Survey results are sealed until CLOSED.** Even the admin who published it
   sees nothing while it is OPEN, by design.
-- **403, except on the role-only survey routes.** A wrong role gets 403 from
-  `PermissionsGuard`. The three survey routes above still carry `@Roles`, so
-  there a wrong role gets 401 from `RolesGuard` until #1360 (#729) lands. Clients should treat both as "not allowed" and not retry.
+- **A wrong role is always 403.** Most routes refuse it in `PermissionsGuard`
+  (`Requires permission(s): …`); the three survey routes above still carry
+  `@Roles`, so there `RolesGuard` refuses it (`Requires one of roles: …`,
+  403 since #1360 / #729). Clients should treat both as "not allowed" and not retry.
 - **Performance averages are unweighted.** The staff tab averages each class's
   pass rate, marks and attendance with equal weight, so a class of 5 counts as
   much as a class of 50.

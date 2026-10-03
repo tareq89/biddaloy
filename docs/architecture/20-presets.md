@@ -160,18 +160,18 @@ transaction rolls back and nothing is left behind.
 
 ### The guards
 
-| Guard                 | Rule                                                                                                                                   | Error                                            |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| Fresh only            | No academic years, classes, subjects, students, exams, grading scales or exam templates, and no preset block (`FRESH_TENANT_ENTITIES`) | `409`, `details.code = 'PRESET_NOT_FRESH'`       |
-| Once                  | A school with a preset block cannot apply again                                                                                        | same `PRESET_NOT_FRESH`                          |
-| One at a time         | The `School` row is locked (`pessimistic_write`) so two applies serialise                                                              | second one sees the first's result               |
-| Reset: super-admin    | **Platform** `SUPER_ADMIN` only (`PlatformSuperAdminGuard`), mandatory `reason` (10 to 500 characters), audited                        | `401` wrong role, `403` not platform (see below) |
-| Reset: needs a preset | Nothing to reset                                                                                                                       | `409`, `details.code = 'PRESET_NOT_APPLIED'`     |
-| Reset blockers        | Any operational data exists (list below)                                                                                               | `409`, `details.code = 'PRESET_RESET_BLOCKED'`   |
+| Guard                 | Rule                                                                                                                                   | Error                                          |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Fresh only            | No academic years, classes, subjects, students, exams, grading scales or exam templates, and no preset block (`FRESH_TENANT_ENTITIES`) | `409`, `details.code = 'PRESET_NOT_FRESH'`     |
+| Once                  | A school with a preset block cannot apply again                                                                                        | same `PRESET_NOT_FRESH`                        |
+| One at a time         | The `School` row is locked (`pessimistic_write`) so two applies serialise                                                              | second one sees the first's result             |
+| Reset: super-admin    | **Platform** `SUPER_ADMIN` only (`PlatformSuperAdminGuard`), mandatory `reason` (10 to 500 characters), audited                        | `403` wrong role or not platform (see below)   |
+| Reset: needs a preset | Nothing to reset                                                                                                                       | `409`, `details.code = 'PRESET_NOT_APPLIED'`   |
+| Reset blockers        | Any operational data exists (list below)                                                                                               | `409`, `details.code = 'PRESET_RESET_BLOCKED'` |
 
-A wrong **role** is `401`, not `403`: `RolesGuard` throws `UnauthorizedException`
-(project issue #729), so an `ADMIN` calling reset gets `401`. `403` is only for
-a missing **permission**. The reset route also runs `PlatformSuperAdminGuard`
+A wrong **role** is `403`: `RolesGuard` throws `ForbiddenException`
+(`Requires one of roles: …`, since #1360 / #729), so an `ADMIN` calling reset
+gets `403`. The reset route also runs `PlatformSuperAdminGuard`
 (added in #1310): it needs genuine platform authority (`isPlatformSuperAdmin`,
 set by `ContextGuard`), so a legacy tenant-local `SUPER_ADMIN` passes the role
 check but gets `403`. (`presets.e2e-spec.ts` asserts these.)
