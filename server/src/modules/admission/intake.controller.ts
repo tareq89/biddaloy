@@ -1,10 +1,18 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -18,7 +26,6 @@ import { UpdateIntakeDto } from './dto/update-intake.dto';
 @ApiTenantAuth()
 @Controller('admission-intakes')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
-@Roles(UserRole.ADMIN)
 @RequirePermissions(Permission.ADMISSION_REVIEW)
 export class IntakeController {
   constructor(private readonly intakes: IntakeService) {}
@@ -37,7 +44,10 @@ export class IntakeController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Read one admission intake.' })
-  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentTenant() tenant: { id: string; role: string }) {
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
     return this.intakes.findOne(id, tenant.id);
   }
 
@@ -53,7 +63,10 @@ export class IntakeController {
 
   @Patch(':id/close')
   @ApiOperation({ summary: 'Close an admission intake immediately.' })
-  close(@Param('id', ParseUUIDPipe) id: string, @CurrentTenant() tenant: { id: string; role: string }) {
+  close(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+  ) {
     return this.intakes.close(id, tenant.id);
   }
 }

@@ -10,10 +10,9 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -30,7 +29,6 @@ import { ListApplicantsDto } from './dto/list-applicants.dto';
 @ApiTenantAuth()
 @Controller('admission/applicants')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
-@Roles(UserRole.ADMIN)
 @RequirePermissions(Permission.ADMISSION_REVIEW)
 export class ApplicantReviewController {
   constructor(private readonly review: ApplicantReviewService) {}

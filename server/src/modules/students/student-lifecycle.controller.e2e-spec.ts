@@ -88,25 +88,25 @@ describe('StudentLifecycleController (guards)', () => {
     expect(res.body.event_type).toBe('READMITTED');
   });
 
-  it('TEACHER leave returns 401', async () => {
+  it('TEACHER leave returns 403', async () => {
     const res = await as(http().post(`/api/v1/students/${studentId}/leave`), UserRole.TEACHER)
       .send(body)
-      .expect(401);
-    expect(res.body.message).toContain('Requires one of roles');
+      .expect(403);
+    expect(res.body.message).toContain('Requires permission(s)');
   });
 
-  it('ACCOUNTANT readmit returns 401', async () => {
+  it('ACCOUNTANT readmit returns 403', async () => {
     const res = await as(http().post(`/api/v1/students/${studentId}/readmit`), UserRole.ACCOUNTANT)
       .send({ occurred_on: '2026-03-02', class_section_id: SEED_SECTION_1_ID })
-      .expect(401);
-    expect(res.body.message).toContain('Requires one of roles');
+      .expect(403);
+    expect(res.body.message).toContain('Requires permission(s)');
   });
 
-  it('ACCOUNTANT lifecycle-events returns 401', async () => {
+  it('ACCOUNTANT lifecycle-events returns 403', async () => {
     await as(
       http().get(`/api/v1/students/${studentId}/lifecycle-events`),
       UserRole.ACCOUNTANT,
-    ).expect(401);
+    ).expect(403);
   });
 
   it('TEACHER lifecycle-events returns 200', async () => {

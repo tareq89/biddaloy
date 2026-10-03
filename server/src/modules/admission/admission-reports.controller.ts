@@ -1,10 +1,9 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -16,7 +15,6 @@ import { LifecycleReportDto, LifecycleReportQueryDto } from './dto/admission-rep
 @ApiTenantAuth()
 @Controller('admission/reports')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
-@Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
 @RequirePermissions(Permission.STUDENT_LIFECYCLE_MANAGE)
 export class AdmissionReportsController {
   constructor(private readonly reports: AdmissionReportsService) {}

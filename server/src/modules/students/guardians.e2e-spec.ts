@@ -121,16 +121,16 @@ describe('Guardians E2E', () => {
       expect(res.body.message).toBe('X-Tenant-ID header is required');
     });
 
-    it('should return 401 for STUDENT role', async () => {
+    it('should return 403 for STUDENT role', async () => {
       const res = await supertest(app.getHttpServer())
         .post('/api/v1/guardians')
         .set('Authorization', `Bearer ${studentToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
         .send({ full_name: 'Role Check', relationship: 'Guardian' })
-        .expect(401);
+        .expect(403);
 
-      expect(res.body.message).toContain('Requires one of roles');
+      expect(res.body.message).toContain('Requires permission(s)');
     });
 
     it('should return 400 for invalid DTO (missing required fields)', async () => {
@@ -511,7 +511,7 @@ describe('Guardians E2E', () => {
       expect(res.body.phone).toBe('+8801711111111');
     });
 
-    it('should return 401 for STUDENT role on update', async () => {
+    it('should return 403 for STUDENT role on update', async () => {
       const createRes = await supertest(app.getHttpServer())
         .post('/api/v1/guardians')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -525,9 +525,9 @@ describe('Guardians E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
         .send({ full_name: 'Should Not Update' })
-        .expect(401);
+        .expect(403);
 
-      expect(res.body.message).toContain('Requires one of roles');
+      expect(res.body.message).toContain('Requires permission(s)');
     });
   });
 
@@ -556,7 +556,7 @@ describe('Guardians E2E', () => {
       expect(listRes.body.data.find((g: any) => g.id === createRes.body.id)).toBeUndefined();
     });
 
-    it('should return 401 for STUDENT role on delete', async () => {
+    it('should return 403 for STUDENT role on delete', async () => {
       const createRes = await supertest(app.getHttpServer())
         .post('/api/v1/guardians')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -569,9 +569,9 @@ describe('Guardians E2E', () => {
         .set('Authorization', `Bearer ${studentToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
-        .expect(401);
+        .expect(403);
 
-      expect(res.body.message).toContain('Requires one of roles');
+      expect(res.body.message).toContain('Requires permission(s)');
     });
   });
 
