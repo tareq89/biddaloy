@@ -36,6 +36,13 @@ export const STAFF_ROLES = [
   UserRole.COMMITTEE,
 ] as const;
 
+/** Staff who are employees of the school: they can be the subject of an ACR,
+ * an incident or a staff-performance page. COMMITTEE uses the staff shell
+ * but is not an employee (D17), so it is left out. */
+export const EMPLOYEE_ROLES: readonly UserRole[] = STAFF_ROLES.filter(
+  (role) => role !== UserRole.COMMITTEE,
+);
+
 /** Takes `string | null` — the shape `auth-state.ts`'s `getActiveRole()`
  * returns, since the active role is decoded from a JWT and is only as
  * trustworthy as that. An unknown or absent role is not a guardian; the

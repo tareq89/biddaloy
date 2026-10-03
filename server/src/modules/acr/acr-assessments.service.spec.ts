@@ -59,6 +59,7 @@ function setup() {
       { user_id: SUBJECT, tenant_id: T, role: 'TEACHER' },
       { user_id: 'other', tenant_id: T, role: 'TEACHER' },
       { user_id: 'guardian', tenant_id: T, role: 'PARENT' },
+      { user_id: 'committee', tenant_id: T, role: 'COMMITTEE' },
     ],
     years: [{ id: YEAR, tenant_id: T }],
   };
@@ -155,6 +156,8 @@ describe('AcrAssessmentsService', () => {
     await expect(start()).rejects.toThrow(/already exists/);
     await expect(start('stranger')).rejects.toThrow(/staff/);
     await expect(start('guardian')).rejects.toThrow(/staff/);
+    // D17: COMMITTEE uses the staff shell but is not an employee.
+    await expect(start('committee')).rejects.toThrow(/staff/);
     await expect(
       svc.start({ user_id: 'other', academic_year_id: 'bad' }, T, ADMIN),
     ).rejects.toThrow(/year/);

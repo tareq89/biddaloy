@@ -225,8 +225,7 @@ export enum Permission {
 
   // Admission (27.x)
   // [27.1] Review an AdmissionApplicant — shortlist/admit/reject and read
-  // the intake/applicant/evaluation rows. Schema-only ticket; no route
-  // consumes it yet.
+  // the intake/applicant/evaluation rows. ADMIN and OFFICE_STAFF (D16).
   ADMISSION_REVIEW = 'ADMISSION_REVIEW',
   // Staff HR (23.x)
   // [23.2.1] Read a Designation/StaffHrRecord/StaffDesignationHistory.
@@ -235,7 +234,7 @@ export enum Permission {
   // member's designation — ADMIN only (D9).
   STAFF_HR_MANAGE = 'STAFF_HR_MANAGE',
   // [28.1.1] Read / write ACR assessments, incidents, surveys and the
-  // Performance views — ADMIN only for now (D6, D8).
+  // Performance views. ADMIN writes (D6, D8); COMMITTEE also reads (#1358 D16).
   ACR_READ = 'ACR_READ',
   ACR_WRITE = 'ACR_WRITE',
 
@@ -360,12 +359,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.PROGRAM_READ,
     Permission.PROGRAM_MANAGE,
     Permission.PROGRAM_RECORD,
-    // [27.1] Admission review — ADMIN only for now; no route consumes it yet.
+    // [27.1] Admission review — also held by OFFICE_STAFF (#1358 D16).
     Permission.ADMISSION_REVIEW,
     // [23.2.1] Staff HR — ADMIN only (D9).
     Permission.STAFF_HR_READ,
     Permission.STAFF_HR_MANAGE,
-    // [28.1.1] ACR — ADMIN only (D6, D8).
+    // [28.1.1] ACR — ADMIN writes (D6, D8); COMMITTEE also reads (#1358 D16).
     Permission.ACR_READ,
     Permission.ACR_WRITE,
     // [36.1.1] Own record + all-staff read, mark own record, approve leave.

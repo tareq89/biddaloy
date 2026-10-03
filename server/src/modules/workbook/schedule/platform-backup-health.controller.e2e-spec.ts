@@ -16,8 +16,8 @@ import { UserRole } from '@biddaloy/shared';
 
 /**
  * [14.12.3/#617] E2E for `GET /platform/backups/health`: SUPER_ADMIN only
- * (401 for ADMIN — `RolesGuard` answers a role mismatch with 401, not 403,
- * see #729), 401 without an `X-Tenant-ID` (the route keeps the same guard
+ * (403 for ADMIN — `RolesGuard` answers a role mismatch with 403 since
+ * #1360 / #729), 401 without an `X-Tenant-ID` (the route keeps the same guard
  * chain as `/schools`, see the controller comment), and the "never backed
  * up" row for a school with no export job.
  */
