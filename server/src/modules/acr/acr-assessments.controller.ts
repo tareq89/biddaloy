@@ -11,10 +11,9 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -38,7 +37,6 @@ export class AcrAssessmentsController {
   constructor(private readonly service: AcrAssessmentsService) {}
 
   @Post('assessments')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ACR_WRITE)
   @ApiOperation({ summary: 'Start an ACR (INCOMPLETE, latest form version).' })
   start(@Body() dto: StartAcrAssessmentDto, @CurrentTenant() t: Tenant, @CurrentUser() u: Caller) {
@@ -46,7 +44,6 @@ export class AcrAssessmentsController {
   }
 
   @Get('assessments')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ACR_READ)
   @ApiOperation({ summary: 'ACR register (own ACR excluded).' })
   list(
@@ -58,7 +55,6 @@ export class AcrAssessmentsController {
   }
 
   @Get('assessments/:id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ACR_READ)
   @ApiOperation({ summary: 'One ACR.' })
   get(
@@ -70,7 +66,6 @@ export class AcrAssessmentsController {
   }
 
   @Patch('assessments/:id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ACR_WRITE)
   @ApiOperation({ summary: 'Autosave step fields and scores.' })
   update(
@@ -83,7 +78,6 @@ export class AcrAssessmentsController {
   }
 
   @Post('assessments/:id/complete')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ACR_WRITE)
   @ApiOperation({ summary: 'Complete an ACR (all criteria scored).' })
   complete(
@@ -95,7 +89,6 @@ export class AcrAssessmentsController {
   }
 
   @Post('assessments/:id/reopen')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ACR_WRITE)
   @ApiOperation({ summary: 'Reopen a completed ACR.' })
   reopen(
@@ -107,7 +100,6 @@ export class AcrAssessmentsController {
   }
 
   @Get('staff/:userId')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ACR_READ)
   @ApiOperation({ summary: "A staff member's ACR history." })
   history(

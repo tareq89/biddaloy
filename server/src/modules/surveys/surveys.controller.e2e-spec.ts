@@ -102,8 +102,8 @@ describe('Surveys E2E', () => {
     targets: [{ teacherId, subjectId }],
   });
 
-  it('TEACHER is refused on create (RolesGuard answers 401)', async () => {
-    await api('post', '/surveys', UserRole.TEACHER).send(body()).expect(401);
+  it('TEACHER is refused on create (PermissionsGuard answers 403)', async () => {
+    await api('post', '/surveys', UserRole.TEACHER).send(body()).expect(403);
   });
 
   it('ADMIN create -> publish -> close, edit blocked once OPEN', async () => {
