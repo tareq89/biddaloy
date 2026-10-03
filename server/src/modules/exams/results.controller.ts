@@ -50,7 +50,13 @@ export class ResultsController {
   }
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+  )
   @RequirePermissions(Permission.RESULT_READ)
   @ApiOperation({ summary: "This exam's per-student results, for the results panel." })
   list(
@@ -61,7 +67,13 @@ export class ResultsController {
   }
 
   @Get(':studentId')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+  )
   @RequirePermissions(Permission.RESULT_READ)
   @ApiOperation({
     summary: "One student's result, with subject/component breakdown — the report card's data.",

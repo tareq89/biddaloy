@@ -141,7 +141,13 @@ export class FeeController {
   }
 
   @Get('fees/dues/flagged')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.ACCOUNTANT,
+    UserRole.EXECUTIVE,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+  )
   @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({ summary: 'List dues flagged for follow-up (e.g. overdue past a threshold).' })
   getFlaggedDues(
@@ -363,7 +369,13 @@ export class FeeController {
   }
 
   @Get('payments/guardian/:guardianId')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.ACCOUNTANT,
+    UserRole.EXECUTIVE,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+  )
   @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({ summary: "Get every payment recorded for a guardian's linked students." })
   findPaymentsByGuardian(

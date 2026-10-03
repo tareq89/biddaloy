@@ -341,65 +341,80 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
     method: 'GET',
     path: '/homework',
     reason:
-      "[22.3.1] staff bulk listing — although PARENT/STUDENT hold HOMEWORK_READ (for their own child's view, not built by this route), this endpoint is the teacher/admin management list, unscoped by student",
+      "[22.3.1] staff bulk listing — although PARENT/STUDENT hold HOMEWORK_READ (for their own child's view, not built by this route), this endpoint is the teacher/admin management list, unscoped by student" +
+      ' #1364 OFFICE_STAFF/EXAM_CONTROLLER/COMMITTEE excluded: none holds HOMEWORK_READ.',
   },
   {
     controller: 'HomeworkController',
     method: 'GET',
     path: '/homework/:id',
-    reason: '[22.3.1] same narrowing as GET /homework',
+    reason:
+      '[22.3.1] same narrowing as GET /homework' +
+      ' #1364 OFFICE_STAFF/EXAM_CONTROLLER/COMMITTEE excluded: none holds HOMEWORK_READ.',
   },
   {
     controller: 'HomeworkController',
     method: 'GET',
     path: '/homework/analytics/student/:studentId',
     reason:
-      "[22.3.6] staff-only rollup dashboard — although PARENT/STUDENT hold HOMEWORK_READ (for their own child's homework view), this analytics endpoint is the teacher/admin completion/defaulter rollup (D13), not a per-family view",
+      "[22.3.6] staff-only rollup dashboard — although PARENT/STUDENT hold HOMEWORK_READ (for their own child's homework view), this analytics endpoint is the teacher/admin completion/defaulter rollup (D13), not a per-family view" +
+      ' #1364 OFFICE_STAFF/EXAM_CONTROLLER/COMMITTEE excluded: none holds HOMEWORK_READ.',
   },
   {
     controller: 'HomeworkController',
     method: 'GET',
     path: '/homework/analytics/section/:sectionId',
-    reason: '[22.3.6] same narrowing as the student rollup — staff-only analytics',
+    reason:
+      '[22.3.6] same narrowing as the student rollup — staff-only analytics' +
+      ' #1364 OFFICE_STAFF/EXAM_CONTROLLER/COMMITTEE excluded: none holds HOMEWORK_READ.',
   },
   {
     controller: 'HomeworkController',
     method: 'GET',
     path: '/homework/analytics/class/:classId',
-    reason: '[22.3.6] same narrowing as the student rollup — staff-only analytics',
+    reason:
+      '[22.3.6] same narrowing as the student rollup — staff-only analytics' +
+      ' #1364 OFFICE_STAFF/EXAM_CONTROLLER/COMMITTEE excluded: none holds HOMEWORK_READ.',
   },
   {
     controller: 'HomeworkSubmissionController',
     method: 'POST',
     path: '/homework-assignments/:id/submissions',
     reason:
-      '[22.3.2] uploading a submission is the STUDENT/PARENT-only self-service action (D26 ownership-scoped) — ADMIN/TEACHER also hold HOMEWORK_READ but grade via PATCH /homework-submissions/:id, not this route',
+      '[22.3.2] uploading a submission is the STUDENT/PARENT-only self-service action (D26 ownership-scoped) — ADMIN/TEACHER also hold HOMEWORK_READ but grade via PATCH /homework-submissions/:id, not this route' +
+      ' #1364 OFFICE_STAFF/EXAM_CONTROLLER/COMMITTEE excluded: none holds HOMEWORK_READ.',
   },
   {
     controller: 'HomeworkSubmissionController',
     method: 'GET',
     path: '/homework-assignments/:id/submissions',
     reason:
-      '[22.3.2] teacher/admin grid view — although PARENT/STUDENT hold HOMEWORK_READ, this endpoint lists every submission for an assignment, not scoped to one guardian/student',
+      '[22.3.2] teacher/admin grid view — although PARENT/STUDENT hold HOMEWORK_READ, this endpoint lists every submission for an assignment, not scoped to one guardian/student' +
+      ' #1364 OFFICE_STAFF/EXAM_CONTROLLER/COMMITTEE excluded: none holds HOMEWORK_READ.',
   },
   {
     controller: 'RecurringSchedulesController',
     method: 'GET',
     path: '/fees/schedules',
     reason:
-      '[16.7.1] recurring schedule definitions are staff-only, although every role (incl. PARENT/STUDENT) holds FEE_READ — a guardian who can read their own fees has no business seeing the billing-automation config',
+      '[16.7.1] recurring schedule definitions are staff-only, although every role (incl. PARENT/STUDENT) holds FEE_READ — a guardian who can read their own fees has no business seeing the billing-automation config' +
+      ' #1364 new roles excluded on purpose: OFFICE_STAFF holds FEE_READ but billing-automation and run history are accountant/admin work (no money-moving); EXAM_CONTROLLER/COMMITTEE lack FEE_READ.',
   },
   {
     controller: 'RecurringSchedulesController',
     method: 'GET',
     path: '/fees/schedules/:id',
-    reason: '[16.7.1] same narrowing as GET /fees/schedules',
+    reason:
+      '[16.7.1] same narrowing as GET /fees/schedules' +
+      ' #1364 new roles excluded on purpose: OFFICE_STAFF holds FEE_READ but billing-automation and run history are accountant/admin work (no money-moving); EXAM_CONTROLLER/COMMITTEE lack FEE_READ.',
   },
   {
     controller: 'RecurringSchedulesController',
     method: 'GET',
     path: '/fees/schedules/:id/preview',
-    reason: '[16.7.1] same narrowing as GET /fees/schedules',
+    reason:
+      '[16.7.1] same narrowing as GET /fees/schedules' +
+      ' #1364 new roles excluded on purpose: OFFICE_STAFF holds FEE_READ but billing-automation and run history are accountant/admin work (no money-moving); EXAM_CONTROLLER/COMMITTEE lack FEE_READ.',
   },
   {
     controller: 'RecurringSchedulesController',
@@ -409,79 +424,96 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
       '[16.8.2] now admits PARENT/STUDENT, who get an allow-listed "what will I be billed ' +
       'next" view (FamilyStudentScheduleDto) after a FamilyAccessService linkage check — never ' +
       'the staff billing-automation config. Still narrower than FEE_READ: TEACHER is excluded, ' +
-      'since a teacher has no fee-schedule surface at all',
+      'since a teacher has no fee-schedule surface at all' +
+      ' #1364 new roles excluded on purpose: OFFICE_STAFF holds FEE_READ but billing-automation and run history are accountant/admin work (no money-moving); EXAM_CONTROLLER/COMMITTEE lack FEE_READ.',
   },
   {
     controller: 'InvoicesController',
     method: 'POST',
     path: '/invoices/:id/share',
     reason:
-      '[#666] minting/listing/revoking a public share link is staff-only, although every role (incl. SUPER_ADMIN/PARENT/STUDENT) holds INVOICE_READ — a guardian who can read their own invoice has no business publishing an unauthenticated link to it',
+      '[#666] minting/listing/revoking a public share link is staff-only, although every role (incl. SUPER_ADMIN/PARENT/STUDENT) holds INVOICE_READ — a guardian who can read their own invoice has no business publishing an unauthenticated link to it' +
+      ' #1364 new roles excluded on purpose: OFFICE_STAFF holds INVOICE_READ but publishing/sending a receipt is accountant/admin work; EXAM_CONTROLLER/COMMITTEE lack INVOICE_READ.',
   },
   {
     controller: 'InvoicesController',
     method: 'GET',
     path: '/invoices/:id/share',
-    reason: '[#666] same narrowing as POST /invoices/:id/share',
+    reason:
+      '[#666] same narrowing as POST /invoices/:id/share' +
+      ' #1364 new roles excluded on purpose: OFFICE_STAFF holds INVOICE_READ but publishing/sending a receipt is accountant/admin work; EXAM_CONTROLLER/COMMITTEE lack INVOICE_READ.',
   },
   {
     controller: 'InvoicesController',
     method: 'DELETE',
     path: '/invoices/:id/share/:tokenId',
-    reason: '[#666] same narrowing as POST /invoices/:id/share',
+    reason:
+      '[#666] same narrowing as POST /invoices/:id/share' +
+      ' #1364 new roles excluded on purpose: OFFICE_STAFF holds INVOICE_READ but publishing/sending a receipt is accountant/admin work; EXAM_CONTROLLER/COMMITTEE lack INVOICE_READ.',
   },
   {
     controller: 'InvoicesController',
     method: 'POST',
     path: '/invoices/:id/send',
     reason:
-      '[16.5.4] sending the receipt out (WhatsApp/SMS, spends SMS credit) is staff-only, although every role (incl. SUPER_ADMIN/PARENT/STUDENT) holds INVOICE_READ — a guardian who can read their own invoice has no business sending it to another guardian, same narrowing as POST /invoices/:id/share',
+      '[16.5.4] sending the receipt out (WhatsApp/SMS, spends SMS credit) is staff-only, although every role (incl. SUPER_ADMIN/PARENT/STUDENT) holds INVOICE_READ — a guardian who can read their own invoice has no business sending it to another guardian, same narrowing as POST /invoices/:id/share' +
+      ' #1364 new roles excluded on purpose: OFFICE_STAFF holds INVOICE_READ but publishing/sending a receipt is accountant/admin work; EXAM_CONTROLLER/COMMITTEE lack INVOICE_READ.',
   },
   {
     controller: 'StudentController',
     method: 'GET',
     path: '/students',
     reason:
-      'the roster is staff-only, although every role (incl. PARENT/STUDENT) holds STUDENT_READ',
+      'the roster is staff-only, although every role (incl. PARENT/STUDENT) holds STUDENT_READ' +
+      ' #1364 OFFICE_STAFF and EXAM_CONTROLLER (both hold STUDENT_READ) joined; COMMITTEE excluded (no student PII).',
   },
   {
     controller: 'FeeController',
     method: 'POST',
     path: '/fees/schedules/run-now',
     reason:
-      '[16.7.2] the manual/ops trigger for the fees-daily sweep is deliberately narrower than SCHEDULE_MANAGE (also held by ACCOUNTANT) — running it is an ops action, not routine fee-collection work',
+      '[16.7.2] the manual/ops trigger for the fees-daily sweep is deliberately narrower than SCHEDULE_MANAGE (also held by ACCOUNTANT) — running it is an ops action, not routine fee-collection work' +
+      ' #1364 new roles excluded: none holds SCHEDULE_MANAGE.',
   },
   {
     controller: 'StudentController',
     method: 'GET',
     path: '/students/ids',
     reason:
-      "[16.3.3] the audience picker's select-all is staff-only, although every role (incl. PARENT/STUDENT) holds STUDENT_READ — same narrowing as GET /students",
+      "[16.3.3] the audience picker's select-all is staff-only, although every role (incl. PARENT/STUDENT) holds STUDENT_READ — same narrowing as GET /students" +
+      ' #1364 OFFICE_STAFF and EXAM_CONTROLLER (both hold STUDENT_READ) joined; COMMITTEE excluded (no student PII).',
   },
   {
     controller: 'StudentController',
     method: 'GET',
     path: '/students/mine',
-    reason: 'family-only — the discovery route for a PARENT/STUDENT is meaningless for staff',
+    reason:
+      'family-only — the discovery route for a PARENT/STUDENT is meaningless for staff' +
+      ' #1364 unchanged: family-only; no new role is PARENT/STUDENT.',
   },
   {
     controller: 'SearchController',
     method: 'GET',
     path: '/search',
     reason:
-      '[30.2.1] staff-only palette query across students/guardians/staff/invoices/payments, same rationale as GET /students and GET /guardians — the object-scoped STUDENT_READ/GUARDIAN_READ/INVOICE_READ/PAYMENT_READ permissions PARENT/STUDENT also hold would otherwise let a guardian search every family in the tenant, not just their own.',
+      '[30.2.1] staff-only palette query across students/guardians/staff/invoices/payments, same rationale as GET /students and GET /guardians — the object-scoped STUDENT_READ/GUARDIAN_READ/INVOICE_READ/PAYMENT_READ permissions PARENT/STUDENT also hold would otherwise let a guardian search every family in the tenant, not just their own.' +
+      " #1364 OFFICE_STAFF and EXAM_CONTROLLER (both hold STUDENT_READ) joined; COMMITTEE excluded (no student PII). Per-group results are still decided in SearchService by the caller's own permissions.",
   },
   {
     controller: 'FeeController',
     method: 'GET',
     path: '/fees/dues/flagged',
-    reason: 'staff-only follow-up queue — returns guardian contact details, not exposed to family',
+    reason:
+      'staff-only follow-up queue — returns guardian contact details, not exposed to family' +
+      ' #1364 OFFICE_STAFF joined (holds FEE_READ; front-office follow-up with guardian contacts); EXAM_CONTROLLER/COMMITTEE lack FEE_READ.',
   },
   {
     controller: 'FeeController',
     method: 'GET',
     path: '/payments/guardian/:guardianId',
-    reason: "staff-only aggregate read across a guardian's students",
+    reason:
+      "staff-only aggregate read across a guardian's students" +
+      ' #1364 OFFICE_STAFF joined (holds FEE_READ, read-only, same as TEACHER); EXAM_CONTROLLER/COMMITTEE lack FEE_READ.',
   },
   {
     controller: 'FeeGenerationsController',
@@ -489,134 +521,160 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
     path: '/fees/generations',
     reason:
       '[16.1.4] staff-only billing-run history — every role holds FEE_READ so a family ' +
-      'caller could otherwise see every batch a school has ever run',
+      'caller could otherwise see every batch a school has ever run' +
+      ' #1364 new roles excluded on purpose: OFFICE_STAFF holds FEE_READ but billing-automation and run history are accountant/admin work (no money-moving); EXAM_CONTROLLER/COMMITTEE lack FEE_READ.',
   },
   {
     controller: 'FeeGenerationsController',
     method: 'GET',
     path: '/fees/generations/:id',
-    reason: '[16.1.4] staff-only billing-run detail, same reason as the list route',
+    reason:
+      '[16.1.4] staff-only billing-run detail, same reason as the list route' +
+      ' #1364 new roles excluded on purpose: OFFICE_STAFF holds FEE_READ but billing-automation and run history are accountant/admin work (no money-moving); EXAM_CONTROLLER/COMMITTEE lack FEE_READ.',
   },
   {
     controller: 'FeeGenerationsController',
     method: 'GET',
     path: '/fees/generations/:id/bills',
-    reason: '[16.1.4] staff-only: lists every student billed in a run, across families',
+    reason:
+      '[16.1.4] staff-only: lists every student billed in a run, across families' +
+      ' #1364 new roles excluded on purpose: OFFICE_STAFF holds FEE_READ but billing-automation and run history are accountant/admin work (no money-moving); EXAM_CONTROLLER/COMMITTEE lack FEE_READ.',
   },
   {
     controller: 'EnrollmentController',
     method: 'GET',
     path: '/enrollments/student/:studentId',
-    reason: 'staff-only enrollment-history view; family holds STUDENT_READ but has no such page',
+    reason:
+      'staff-only enrollment-history view; family holds STUDENT_READ but has no such page' +
+      ' #1364 OFFICE_STAFF and EXAM_CONTROLLER (both hold STUDENT_READ) joined; COMMITTEE excluded (no student PII).',
   },
   {
     controller: 'EnrollmentController',
     method: 'GET',
     path: '/enrollments/:studentId/current',
     reason:
-      'staff-only "move class" starting point; family holds STUDENT_READ but has no such page',
+      'staff-only "move class" starting point; family holds STUDENT_READ but has no such page' +
+      ' #1364 OFFICE_STAFF and EXAM_CONTROLLER (both hold STUDENT_READ) joined; COMMITTEE excluded (no student PII).',
   },
   {
     controller: 'CommunicationsController',
     method: 'POST',
     path: '/communications/reminder/single/:studentId/preview',
     reason:
-      'fee-reminder sending is a front-office action; TEACHER holds COMMUNICATION_SEND for freeform messages only, not reminders',
+      'fee-reminder sending is a front-office action; TEACHER holds COMMUNICATION_SEND for freeform messages only, not reminders' +
+      ' #1364 OFFICE_STAFF joined (holds COMMUNICATION_SEND; front-office action); EXAM_CONTROLLER/COMMITTEE lack it.',
   },
   {
     controller: 'CommunicationsController',
     method: 'POST',
     path: '/communications/reminder/single/:studentId',
     reason:
-      'fee-reminder sending is a front-office action; TEACHER holds COMMUNICATION_SEND for freeform messages only, not reminders',
+      'fee-reminder sending is a front-office action; TEACHER holds COMMUNICATION_SEND for freeform messages only, not reminders' +
+      ' #1364 OFFICE_STAFF joined (holds COMMUNICATION_SEND; front-office action); EXAM_CONTROLLER/COMMITTEE lack it.',
   },
   {
     controller: 'AttendanceController',
     method: 'GET',
     path: '/attendance/my-sections',
     reason:
-      'staff marking landing screen; family holds ATTENDANCE_READ for the read-only family view, not this route',
+      'staff marking landing screen; family holds ATTENDANCE_READ for the read-only family view, not this route' +
+      ' #1364 OFFICE_STAFF and EXAM_CONTROLLER (both hold ATTENDANCE_READ) joined; COMMITTEE lacks ATTENDANCE_READ.',
   },
   {
     controller: 'AttendanceController',
     method: 'GET',
     path: '/attendance/sections/:sectionId/register',
     reason:
-      'staff register view; family holds ATTENDANCE_READ for their own child, not the section register',
+      'staff register view; family holds ATTENDANCE_READ for their own child, not the section register' +
+      ' #1364 OFFICE_STAFF and EXAM_CONTROLLER (both hold ATTENDANCE_READ) joined; COMMITTEE lacks ATTENDANCE_READ.',
   },
   {
     controller: 'AttendanceController',
     method: 'GET',
     path: '/attendance/records/:recordId/history',
-    reason: 'staff-only correction history for a mark; not exposed on the family attendance view',
+    reason:
+      'staff-only correction history for a mark; not exposed on the family attendance view' +
+      ' #1364 OFFICE_STAFF and EXAM_CONTROLLER (both hold ATTENDANCE_READ) joined; COMMITTEE lacks ATTENDANCE_READ.',
   },
   {
     controller: 'AttendanceSummaryController',
     method: 'GET',
     path: '/attendance/sections/:sectionId/summary',
-    reason: 'staff-only section summary; family holds ATTENDANCE_READ for their own child only',
+    reason:
+      'staff-only section summary; family holds ATTENDANCE_READ for their own child only' +
+      ' #1364 OFFICE_STAFF and EXAM_CONTROLLER (both hold ATTENDANCE_READ) joined; COMMITTEE lacks ATTENDANCE_READ.',
   },
   {
     controller: 'AttendanceSummaryController',
     method: 'GET',
     path: '/attendance/sections/:sectionId/register-matrix',
     reason:
-      'staff-only section register matrix; family holds ATTENDANCE_READ for their own child only',
+      'staff-only section register matrix; family holds ATTENDANCE_READ for their own child only' +
+      ' #1364 OFFICE_STAFF and EXAM_CONTROLLER (both hold ATTENDANCE_READ) joined; COMMITTEE lacks ATTENDANCE_READ.',
   },
   {
     controller: 'AttendanceSummaryController',
     method: 'GET',
     path: '/attendance/flags/low',
     reason:
-      'staff-only low-attendance follow-up queue, not TEACHER-visible and not exposed to family',
+      'staff-only low-attendance follow-up queue, not TEACHER-visible and not exposed to family' +
+      ' #1364 OFFICE_STAFF and EXAM_CONTROLLER (both hold ATTENDANCE_READ) joined; COMMITTEE lacks ATTENDANCE_READ.',
   },
   {
     controller: 'AbsenceNoticeController',
     method: 'POST',
     path: '/attendance/sections/:sectionId/absence-notice/preview',
     reason:
-      'school-policy action kept ADMIN-only; ACCOUNTANT holds COMMUNICATION_BULK_SEND for fee reminders, not this',
+      'school-policy action kept ADMIN-only; ACCOUNTANT holds COMMUNICATION_BULK_SEND for fee reminders, not this' +
+      ' #1364 OFFICE_STAFF holds COMMUNICATION_BULK_SEND but stays excluded: school-policy action; EXAM_CONTROLLER/COMMITTEE lack it.',
   },
   {
     controller: 'AbsenceNoticeController',
     method: 'POST',
     path: '/attendance/sections/:sectionId/absence-notice/send',
     reason:
-      'school-policy action kept ADMIN-only; ACCOUNTANT holds COMMUNICATION_BULK_SEND for fee reminders, not this',
+      'school-policy action kept ADMIN-only; ACCOUNTANT holds COMMUNICATION_BULK_SEND for fee reminders, not this' +
+      ' #1364 OFFICE_STAFF holds COMMUNICATION_BULK_SEND but stays excluded: school-policy action; EXAM_CONTROLLER/COMMITTEE lack it.',
   },
   {
     controller: 'MarksController',
     method: 'POST',
     path: '/exams/:examId/marks/reopen',
     reason:
-      "[19.4.1] D12 — reopening a SUBMITTED grid is deliberately ADMIN-only, although TEACHER also holds MARK_ENTER (which gates entering/submitting marks). A teacher may submit their own grid but must not be able to unlock it again once it's in review — reopening is enforced a second time inside MarkGridService.reopen with an explicit role check, not just this route gate.",
+      "[19.4.1] D12 — reopening a SUBMITTED grid is deliberately ADMIN-only, although TEACHER also holds MARK_ENTER (which gates entering/submitting marks). A teacher may submit their own grid but must not be able to unlock it again once it's in review — reopening is enforced a second time inside MarkGridService.reopen with an explicit role check, not just this route gate." +
+      ' #1364 EXAM_CONTROLLER excluded: it holds MARK_VIEW, never MARK_ENTER, so it cannot reopen (or write) marks.',
   },
   {
     controller: 'ResultsController',
     method: 'GET',
     path: '/exams/:examId/results',
     reason:
-      '[19.8.1] This is the staff results-review console (sorting, fail filter, position) — PARENT/STUDENT also hold RESULT_READ, but for `GET /students/:studentId/results` (19.9.1, `StudentResultsController`), not this staff list across every student in the class.',
+      '[19.8.1] This is the staff results-review console (sorting, fail filter, position) — PARENT/STUDENT also hold RESULT_READ, but for `GET /students/:studentId/results` (19.9.1, `StudentResultsController`), not this staff list across every student in the class.' +
+      ' #1364 OFFICE_STAFF and EXAM_CONTROLLER (both hold RESULT_READ) joined; COMMITTEE lacks RESULT_READ.',
   },
   {
     controller: 'ResultsController',
     method: 'GET',
     path: '/exams/:examId/results/:studentId',
-    reason: '[19.8.1] Same narrowing as GET /exams/:examId/results.',
+    reason:
+      '[19.8.1] Same narrowing as GET /exams/:examId/results.' +
+      ' #1364 OFFICE_STAFF and EXAM_CONTROLLER (both hold RESULT_READ) joined; COMMITTEE lacks RESULT_READ.',
   },
   {
     controller: 'ChangeRequestsController',
     method: 'POST',
     path: '/routines/slots/:slotId/change-requests',
     reason:
-      "[21.6.1]/[21.9.1] D11 — raising a change request is the requesting teacher's own action against their own published slot; every other ROUTINE_READ holder (ADMIN, PARENT, STUDENT, EXECUTIVE) reads the routine but has no reason to flag one of a teacher's slots for review",
+      "[21.6.1]/[21.9.1] D11 — raising a change request is the requesting teacher's own action against their own published slot; every other ROUTINE_READ holder (ADMIN, PARENT, STUDENT, EXECUTIVE) reads the routine but has no reason to flag one of a teacher's slots for review" +
+      " #1364 new roles excluded: raising a change request is the teacher's own action.",
   },
   {
     controller: 'ProgramEnrollmentsController',
     method: 'GET',
     path: '/programs/:id/enrollments',
     reason:
-      '[34.2.1] staff-only program roster — although PARENT/STUDENT hold PROGRAM_READ, this is the whole-program enrollment list across every student, not a family view; families use GET /students/:studentId/programs (StudentProgramsController) instead',
+      '[34.2.1] staff-only program roster — although PARENT/STUDENT hold PROGRAM_READ, this is the whole-program enrollment list across every student, not a family view; families use GET /students/:studentId/programs (StudentProgramsController) instead' +
+      ' #1364 new roles excluded: none holds PROGRAM_READ.',
   },
 ];
 
