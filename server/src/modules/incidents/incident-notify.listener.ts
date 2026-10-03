@@ -141,11 +141,13 @@ export class IncidentNotifyListener implements OnModuleInit {
       if (!(await this.smsCredit.isMetered(tenantId))) return { on: true };
 
       const segments = countSmsSegments(INCIDENT_NOTIFICATION_TEXT).segments;
-      const batchId = `incident:${incidentId}:sms`;
+      // The worker settles under `batch:${batchId}`, so the RESERVE key is that
+      // prefixed form while `enqueue` gets the bare batchId.
+      const batchId = `incident:${incidentId}`;
       const reservation = await this.smsCredit.reserve(
         tenantId,
         segments * smsRecipients,
-        batchId,
+        `batch:${batchId}`,
         {
           type: 'batch',
           id: incidentId,

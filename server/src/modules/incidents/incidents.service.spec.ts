@@ -197,12 +197,12 @@ describe('IncidentNotifyListener', () => {
     const [tenantId, units, key, ref] = smsCredit.reserve.mock.calls[0];
     expect([tenantId, key, ref]).toEqual([
       TENANT,
-      'incident:inc-1:sms',
+      'batch:incident:inc-1',
       { type: 'batch', id: 'inc-1' },
     ]);
     expect(units).toBeGreaterThan(0);
     expect(communications.enqueue.mock.calls[0][3]).toEqual({
-      batchId: 'incident:inc-1:sms',
+      batchId: 'incident:inc-1',
       segments: units,
     });
   });

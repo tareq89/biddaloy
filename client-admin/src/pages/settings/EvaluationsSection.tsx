@@ -87,18 +87,17 @@ export function EvaluationsSection({
           <p id="evaluations-incidentSmsHint" className="text-sm text-muted-foreground">
             {t('evaluations.incidentSmsHint')}
           </p>
-          <p
-            role={smsOn && !smsConfigured ? 'alert' : 'status'}
-            className={
-              smsOn && !smsConfigured ? 'text-sm text-destructive' : 'text-sm text-muted-foreground'
-            }
-          >
-            {smsConfigured
-              ? t('evaluations.providerConfigured')
-              : smsOn
-                ? t('evaluations.providerMissingWarning')
+          {smsOn && !smsConfigured ? (
+            <p role="alert" className="text-sm text-destructive">
+              {t('evaluations.providerMissingWarning')}
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {smsConfigured
+                ? t('evaluations.providerConfigured')
                 : t('evaluations.providerNotConfigured')}
-          </p>
+            </p>
+          )}
           <p className="text-sm text-muted-foreground">{t('evaluations.pushAlwaysOn')}</p>
         </FormSection>
         <Button type="submit" loading={updateSettings.isPending}>
