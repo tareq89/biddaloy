@@ -28,12 +28,39 @@ export function surveyFactory(overrides: Partial<Survey> = {}): Survey {
 }
 
 export function surveyDetailFactory(overrides: Partial<SurveyDetail> = {}): SurveyDetail {
+  const survey = surveyFactory();
+  const surveyId = survey.id;
   return {
-    ...surveyFactory(),
+    id: surveyId,
+    tenant_id: survey.tenant_id,
+    title: survey.title,
+    status: survey.status,
+    anonymous: survey.anonymous,
+    respondent: survey.respondent,
+    opens_at: survey.opens_at,
+    closes_at: survey.closes_at,
+    min_responses: survey.min_responses,
+    created_at: survey.created_at,
+    updated_at: survey.updated_at,
     questions: [
-      { id: faker.string.uuid(), text: 'Explains clearly', stars_enabled: true, sort_order: 0 },
+      {
+        id: faker.string.uuid(),
+        tenant_id: survey.tenant_id,
+        survey_id: surveyId,
+        text: 'Explains clearly',
+        stars_enabled: true,
+        sort_order: 0,
+      },
     ],
-    targets: [{ teacher_id: faker.string.uuid(), subject_id: faker.string.uuid() }],
+    targets: [
+      {
+        id: faker.string.uuid(),
+        tenant_id: survey.tenant_id,
+        survey_id: surveyId,
+        teacher_id: faker.string.uuid(),
+        subject_id: faker.string.uuid(),
+      },
+    ],
     ...overrides,
   };
 }

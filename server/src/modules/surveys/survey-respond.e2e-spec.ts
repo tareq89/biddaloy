@@ -5,6 +5,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../app.module';
+import { SurveyResultsService } from './survey-results.service';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { UserRole } from '@biddaloy/shared';
@@ -279,6 +280,12 @@ describe('[28.4.2] Survey respond and results', () => {
       [surveyId],
     );
     expect(rows[0].n).toBe(1);
+    // The losing request must not leave a second answer behind (one question -> one answer).
+    const answers = await ds.query(
+      `SELECT COUNT(*)::int AS n FROM survey_answers WHERE question_id = $1`,
+      [questionId],
+    );
+    expect(answers[0].n).toBe(1);
   });
 
   it('teacher gets 404 (not 403) on the results of a survey targeting them', async () => {
@@ -516,6 +523,61 @@ describe('[28.4.2] Survey respond and results', () => {
       UserRole.ADMIN,
     ).expect(200);
     expect(closed.body.results[0]).toMatchObject({ hidden: false, count: 1 });
+  });
+
+  describe('former (soft-deleted) teacher', () => {
+    const softDeleteTeacher = () =>
+      ds.query(`UPDATE teachers SET deleted_at = NOW() WHERE id = $1`, [teacherId]);
+    const average = () =>
+      app.get(SurveyResultsService).teacherAverage(TEACHER_USER, SEED_TENANT_ID);
+
+    it('teacherAverage still returns the CLOSED, >= min-N average', async () => {
+      await call('post', respondPath(surveyId), tokens[GUARDIAN_TAUGHT], UserRole.PARENT)
+        .send({ ...answer(), answers: [{ questionId, stars: 4 }] })
+        .expect(201);
+      await call('post', respondPath(surveyId), tokens[STUDENT_USER], UserRole.STUDENT)
+        .send({ ...answer(), answers: [{ questionId, stars: 5 }] })
+        .expect(201);
+      await closeSurvey(surveyId);
+      await softDeleteTeacher();
+      expect(await average()).toEqual({ averageStars: 4.5, surveyCount: 1 });
+    });
+
+    it('teacherAverage stays sealed below min-N and while OPEN', async () => {
+      await call('post', respondPath(hiddenSurveyId), tokens[GUARDIAN_TAUGHT], UserRole.PARENT)
+        .send({
+          ...answer(),
+          answers: [{ questionId: await firstQuestion(hiddenSurveyId), stars: 2 }],
+        })
+        .expect(201);
+      await call('post', respondPath(surveyId), tokens[STUDENT_USER], UserRole.STUDENT)
+        .send({ ...answer(), answers: [{ questionId, stars: 5 }] })
+        .expect(201);
+      await closeSurvey(hiddenSurveyId); // 1 response < min 5
+      await softDeleteTeacher(); // surveyId (min 1) is still OPEN
+      expect(await average()).toEqual({ averageStars: null, surveyCount: 0 });
+    });
+
+    it('an ACR_READ admin whose own former Teacher row is a target still gets 404 on results', async () => {
+      const adminTeacher = randomUUID();
+      await ds.query(
+        `WITH sp AS (
+           INSERT INTO staff_profiles (id, user_id, tenant_id, employee_id, created_at, updated_at)
+           VALUES (gen_random_uuid(), $2::uuid, $3::uuid, 'EMP-SRV-ADM2', NOW(), NOW())
+           ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW()
+           RETURNING id
+         )
+         INSERT INTO teachers (id, user_id, employee_id, designations, tenant_id, staff_profile_id, created_at, updated_at, deleted_at)
+         SELECT $1::uuid, $2::uuid, 'E2E-SRV-ADM2', '{}', $3::uuid, sp.id, NOW(), NOW(), NOW() FROM sp`,
+        [adminTeacher, SEED_ADMIN_USER_ID, SEED_TENANT_ID],
+      );
+      await ds.query(
+        `INSERT INTO survey_targets (id, tenant_id, survey_id, teacher_id, subject_id)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4)`,
+        [SEED_TENANT_ID, surveyId, adminTeacher, subjectId],
+      );
+      await call('get', `/surveys/${surveyId}/results`, adminToken, UserRole.ADMIN).expect(404);
+    });
   });
 
   async function firstQuestion(id: string): Promise<string> {

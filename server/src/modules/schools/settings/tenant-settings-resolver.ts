@@ -9,7 +9,7 @@ import {
   DEFAULT_ROUTINE_SETTINGS,
 } from './tenant-settings-defaults';
 import { ApprovalMode } from '@biddaloy/shared';
-import type { RoutineSettings, TenantSettings } from '@biddaloy/shared';
+import type { EvaluationsSettings, RoutineSettings, TenantSettings } from '@biddaloy/shared';
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -169,13 +169,9 @@ export function resolveTenantSettings(stored: Record<string, unknown> | null): T
   const preset = isPlainObject(stored?.preset)
     ? (stored.preset as unknown as TenantSettings['preset'])
     : undefined;
-  // [28.4.7] `evaluations` is not on the shared `TenantSettings` type; pass the
-  // one known boolean through (spread, so no excess-property error) so the
-  // settings GET can show the stored toggle. Anything else is dropped.
-  const storedEvaluations = (
-    stored as { evaluations?: { incidentSmsEnabled?: unknown } } | undefined
-  )?.evaluations;
-  const evaluations =
+  // Only the known boolean passes through; anything else is dropped.
+  const storedEvaluations = isPlainObject(stored?.evaluations) ? stored.evaluations : undefined;
+  const evaluations: EvaluationsSettings | undefined =
     typeof storedEvaluations?.incidentSmsEnabled === 'boolean'
       ? { incidentSmsEnabled: storedEvaluations.incidentSmsEnabled }
       : undefined;

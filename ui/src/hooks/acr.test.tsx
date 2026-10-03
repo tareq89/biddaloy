@@ -11,7 +11,7 @@ import { server } from '../test/msw/server';
 import { renderHookWithProviders } from '../test/render-hook-with-providers';
 import { cleanupTestState } from '../test/render-with-providers';
 
-import { acrKeys, useAcrAutosave, useCompleteAcr } from './acr';
+import { acrKeys, useAcrAutosave, useAcrCriteria, useCompleteAcr } from './acr';
 
 afterEach(async () => {
   await cleanupTestState();
@@ -92,5 +92,35 @@ describe('useCompleteAcr', () => {
 
     expect(queryClient.getQueryState(acrKeys.list({}))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(['acr-staff', 'detail', 'u-1'])?.isInvalidated).toBe(true);
+  });
+});
+
+describe('useAcrCriteria', () => {
+  it('asks for a specific version when given one, the latest otherwise', async () => {
+    const seen: (string | null)[] = [];
+    server.use(
+      http.get('/api/v1/acr/criteria', ({ request }) => {
+        seen.push(new URL(request.url).searchParams.get('versionId'));
+        return HttpResponse.json({ id: 'v1', version: 1, criteria: [] });
+      }),
+    );
+    const pinned = renderHookWithProviders(() => useAcrCriteria('v1'), { tenantId: 'tenant-1' });
+    await waitFor(() => expect(pinned.result.current.isSuccess).toBe(true));
+    const latest = renderHookWithProviders(() => useAcrCriteria(), { tenantId: 'tenant-1' });
+    await waitFor(() => expect(latest.result.current.isSuccess).toBe(true));
+    expect(seen).toEqual(['v1', null]);
+  });
+
+  it('does not fetch while disabled', async () => {
+    let calls = 0;
+    server.use(
+      http.get('/api/v1/acr/criteria', () => {
+        calls += 1;
+        return HttpResponse.json({ id: null, version: 0, criteria: [] });
+      }),
+    );
+    renderHookWithProviders(() => useAcrCriteria(undefined, false), { tenantId: 'tenant-1' });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(calls).toBe(0);
   });
 });

@@ -6,62 +6,26 @@ import type { components } from '../api/schema';
 import { createEntityKeys } from './query-keys';
 import { shouldRetryQuery } from './retry';
 
-// [28.4.1] Wire shapes. `Survey`, `CreateSurveyDto` and `RespondSurveyDto` come from the
-// generated schema (snake_case entity, camelCase DTOs). The detail, `mine` and `results`
-// endpoints are untyped in the OpenAPI doc, so their shapes mirror
-// `server/src/modules/surveys/*.service.ts` by hand.
-export type Survey = components['schemas']['Survey'];
+// [28.4.1] Wire shapes, all taken from the generated schema (snake_case entity/detail,
+// camelCase DTOs and results). Names below are kept as aliases so consumers don't change.
+type Schemas = components['schemas'];
+export type Survey = Schemas['Survey'];
 export type SurveyStatus = Survey['status'];
 export type SurveyRespondent = Survey['respondent'];
-export type CreateSurveyInput = components['schemas']['CreateSurveyDto'];
-export type SurveyQuestionInput = components['schemas']['SurveyQuestionInputDto'];
-export type RespondSurveyInput = components['schemas']['RespondSurveyDto'];
-
-export interface SurveyQuestion {
-  id: string;
-  text: string;
-  stars_enabled: boolean;
-  sort_order: number;
-}
-
-export interface SurveyTarget {
-  teacher_id: string;
-  subject_id: string;
-}
-
-export interface SurveyDetail extends Survey {
-  questions: SurveyQuestion[];
-  targets: SurveyTarget[];
-}
+export type CreateSurveyInput = Schemas['CreateSurveyDto'];
+export type SurveyQuestionInput = Schemas['SurveyQuestionInputDto'];
+export type RespondSurveyInput = Schemas['RespondSurveyDto'];
+export type SurveyQuestion = Schemas['SurveyQuestionDto'];
+export type SurveyTarget = Schemas['SurveyTargetDto'];
+export type SurveyDetail = Schemas['SurveyDetailDto'];
 
 /** One open survey with the caller's still-unanswered teacher-subject pairs (`anonymous` is a UI label only: never "untraceable"). */
-export type PendingSurvey = components['schemas']['PendingSurveyDto'];
+export type PendingSurvey = Schemas['PendingSurveyDto'];
 
-export interface SurveyQuestionResult {
-  questionId: string;
-  text: string;
-  averageStars: number | null;
-  comments: string[];
-}
-
+export type SurveyQuestionResult = Schemas['SurveyQuestionResult'];
 /** `hidden: true` carries only the count — sealed until CLOSED and min responses met. */
-export type SurveyPairResult =
-  | { teacherId: string; subjectId: string; count: number; hidden: true }
-  | {
-      teacherId: string;
-      subjectId: string;
-      count: number;
-      hidden: false;
-      questions: SurveyQuestionResult[];
-    };
-
-export interface SurveyResults {
-  surveyId: string;
-  title: string;
-  anonymous: boolean;
-  minResponses: number;
-  results: SurveyPairResult[];
-}
+export type SurveyPairResult = SurveyResults['results'][number];
+export type SurveyResults = Schemas['SurveyResultsDto'];
 
 export const surveyKeys = createEntityKeys<Record<string, never>>('surveys');
 const mineKey = [...surveyKeys.all, 'mine'] as const;

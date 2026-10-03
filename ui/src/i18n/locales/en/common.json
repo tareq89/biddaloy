@@ -6,6 +6,12 @@
     "close": "Close",
     "moreActions": "More actions"
   },
+  "wizard": {
+    "back": "Back",
+    "next": "Next",
+    "submit": "Submit",
+    "stepAnnouncement": "Step {{current}} of {{total}}: {{label}}"
+  },
   "status": {
     "loading": "Loading…",
     "error": "Something went wrong",

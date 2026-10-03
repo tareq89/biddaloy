@@ -102,7 +102,7 @@ test('invite guardians in bulk from the guardians list', async ({ page, request 
     await dialog.getByRole('button', { name: t('guardians.invite.select.runPreview') }).click();
     // Move from the "select" step to the "preview" review step — the
     // confirm button lives only there.
-    await dialog.getByRole('button', { name: 'Next' }).click();
+    await dialog.getByRole('button', { name: t('common.wizard.next') }).click();
 
     // The selection is "every guardian in this school" (`all: true`) — the
     // dialog has no row-selection UI yet — so other specs' guardians can

@@ -6259,7 +6259,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Latest ACR criteria version. */
+        /** Latest ACR criteria version, or the one named by ?versionId (an ACR keeps its own). */
         get: operations["AcrCriteriaController_getLatest_v1"];
         /** Save the full criteria list as a new version. */
         put: operations["AcrCriteriaController_save_v1"];
@@ -28004,7 +28004,9 @@ export interface operations {
     };
     AcrCriteriaController_getLatest_v1: {
         parameters: {
-            query?: never;
+            query?: {
+                versionId?: string;
+            };
             header: {
                 /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
                 "X-Tenant-ID": string;

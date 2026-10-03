@@ -117,8 +117,18 @@ describe('IncidentNotifyListener', () => {
   let communications: { enqueue: any };
   let schools: { findOne: any };
   let memberships: { find: any };
+  let smsCredit: { isMetered: any; reserve: any };
 
-  function build(settings: Record<string, any> | null) {
+  function build(
+    settings: Record<string, any> | null,
+    credit: { metered?: boolean; reserveOk?: boolean } = {},
+  ) {
+    smsCredit = {
+      isMetered: vi.fn(async () => credit.metered ?? false),
+      reserve: vi.fn(async () =>
+        credit.reserveOk === false ? { ok: false, available: 0 } : { ok: true },
+      ),
+    };
     push = { sendToUser: vi.fn(async () => ({})) };
     communications = { enqueue: vi.fn(async () => ({})) };
     schools = { findOne: vi.fn(async () => ({ id: TENANT, settings })) };
@@ -128,6 +138,7 @@ describe('IncidentNotifyListener', () => {
       schools as any,
       push as any,
       communications as any,
+      smsCredit as any,
     );
   }
 
@@ -167,6 +178,89 @@ describe('IncidentNotifyListener', () => {
     expect(tenantId).toBe(TENANT);
     // Attributed to the reporter, not the recipient.
     expect(communications.enqueue.mock.calls[0][2]).toBe('reporter-x');
+  });
+
+  const SMS_ON = {
+    evaluations: { incidentSmsEnabled: true },
+    communications: { sms: { provider: 'greenweb' } },
+  };
+
+  it('does not reserve credit for an unmetered tenant', async () => {
+    await build(SMS_ON).handleIncidentCreated(EVENT);
+    expect(smsCredit.reserve).not.toHaveBeenCalled();
+    expect(communications.enqueue.mock.calls[0][3]).toBeUndefined();
+  });
+
+  it('reserves once per incident for a metered tenant and hands the reservation to enqueue', async () => {
+    await build(SMS_ON, { metered: true }).handleIncidentCreated(EVENT);
+    expect(smsCredit.reserve).toHaveBeenCalledTimes(1);
+    const [tenantId, units, key, ref] = smsCredit.reserve.mock.calls[0];
+    expect([tenantId, key, ref]).toEqual([
+      TENANT,
+      'batch:incident:inc-1',
+      { type: 'batch', id: 'inc-1' },
+    ]);
+    expect(units).toBeGreaterThan(0);
+    expect(communications.enqueue.mock.calls[0][3]).toEqual({
+      batchId: 'incident:inc-1',
+      segments: units,
+      reserveKey: 'batch:incident:inc-1',
+    });
+  });
+
+  it('reserves segments x recipients that have a phone; phoneless users are not counted', async () => {
+    const listener = build(SMS_ON, { metered: true });
+    const u = (id: string, phone?: string) => ({
+      user_id: id,
+      user: { id, status: 'ACTIVE', full_name: id, phone },
+    });
+    memberships.find.mockResolvedValue([u('a', '+1'), u('b', '+2'), u('c', '+3'), u('d')]);
+    await listener.handleIncidentCreated(EVENT);
+    const segments = communications.enqueue.mock.calls[0][3].segments;
+    expect(smsCredit.reserve.mock.calls[0][1]).toBe(segments * 3);
+    expect(communications.enqueue).toHaveBeenCalledTimes(3);
+    expect(push.sendToUser).toHaveBeenCalledTimes(4);
+  });
+
+  it('makes no reserve call when nobody has a phone', async () => {
+    const listener = build(SMS_ON, { metered: true });
+    memberships.find.mockResolvedValue([
+      { user_id: 'a', user: { id: 'a', status: 'ACTIVE', full_name: 'a' } },
+    ]);
+    await listener.handleIncidentCreated(EVENT);
+    expect(smsCredit.reserve).not.toHaveBeenCalled();
+    expect(communications.enqueue).not.toHaveBeenCalled();
+    expect(push.sendToUser).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends no SMS (push unaffected) when isMetered throws', async () => {
+    const listener = build(SMS_ON, { metered: true });
+    smsCredit.isMetered.mockRejectedValue(new Error('db down'));
+    await expect(listener.handleIncidentCreated(EVENT)).resolves.toBeUndefined();
+    expect(communications.enqueue).not.toHaveBeenCalled();
+    expect(push.sendToUser).toHaveBeenCalledTimes(1);
+  });
+
+  it('swallows an enqueue rejection while holding a reservation', async () => {
+    const listener = build(SMS_ON, { metered: true });
+    communications.enqueue.mockRejectedValue(new Error('queue down'));
+    await expect(listener.handleIncidentCreated(EVENT)).resolves.toBeUndefined();
+    expect(push.sendToUser).toHaveBeenCalledTimes(1);
+    expect(communications.enqueue.mock.calls[0][3].reserveKey).toBe('batch:incident:inc-1');
+  });
+
+  it('skips SMS on insufficient credit but still pushes', async () => {
+    await build(SMS_ON, { metered: true, reserveOk: false }).handleIncidentCreated(EVENT);
+    expect(push.sendToUser).toHaveBeenCalledTimes(1);
+    expect(communications.enqueue).not.toHaveBeenCalled();
+  });
+
+  it('skips SMS (push still goes) when credit reservation throws', async () => {
+    const listener = build(SMS_ON, { metered: true });
+    smsCredit.reserve.mockRejectedValue(new Error('db down'));
+    await listener.handleIncidentCreated(EVENT);
+    expect(push.sendToUser).toHaveBeenCalledTimes(1);
+    expect(communications.enqueue).not.toHaveBeenCalled();
   });
 
   it('no SMS when enabled but no SMS provider is configured', async () => {

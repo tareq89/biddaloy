@@ -147,7 +147,7 @@ test.describe('ACR form accessibility', () => {
   }) => {
     const { userId, acrId } = state.incomplete!;
     await page.goto(`/staff/${userId}/acr/${acrId}`);
-    await page.getByRole('button', { name: 'Next', exact: true }).focus();
+    await page.getByRole('button', { name: t('common.wizard.next'), exact: true }).focus();
     await page.keyboard.press('Enter');
     await expect(page.locator('#acr-keyboard-hint')).toBeVisible();
 

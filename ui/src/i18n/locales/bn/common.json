@@ -6,6 +6,12 @@
     "close": "বন্ধ করুন",
     "moreActions": "আরও অ্যাকশন"
   },
+  "wizard": {
+    "back": "পিছনে",
+    "next": "পরবর্তী",
+    "submit": "জমা দিন",
+    "stepAnnouncement": "ধাপ {{current}}/{{total}}: {{label}}"
+  },
   "status": {
     "loading": "লোড হচ্ছে…",
     "error": "কিছু একটা সমস্যা হয়েছে",

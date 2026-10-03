@@ -25,6 +25,7 @@ function setup() {
     findOne: async ({ where }: any) =>
       versions
         .filter((v) => v.tenant_id === where.tenant_id)
+        .filter((v) => where.id === undefined || v.id === where.id)
         .sort((a, b) => b.version - a.version)[0] ?? null,
   };
   const cRepo: any = {
@@ -71,6 +72,23 @@ describe('AcrCriteriaService', () => {
     await svc.save({ criteria: [crit('a')] }, A, 'u1');
     expect(await svc.getLatest(B)).toEqual({ id: null, version: 0, criteria: [] });
     expect((await svc.save({ criteria: [] }, B, 'u2')).version).toBe(1);
+  });
+
+  it('getByVersion: an older version still resolves its own criteria after a newer save', async () => {
+    const { svc } = setup();
+    const v1 = await svc.save({ criteria: [crit('a'), crit('b')] }, A, 'u1');
+    const v2 = await svc.save({ criteria: [crit('c')] }, A, 'u1');
+    const old = await svc.getByVersion(v1.id as string, A);
+    expect(old.version).toBe(1);
+    expect(old.criteria.map((c) => c.code).sort()).toEqual(['a', 'b']);
+    expect((await svc.getByVersion(v2.id as string, A)).criteria.map((c) => c.code)).toEqual(['c']);
+  });
+
+  it('getByVersion: unknown or other-tenant version is 404', async () => {
+    const { svc } = setup();
+    const v1 = await svc.save({ criteria: [crit('a')] }, A, 'u1');
+    await expect(svc.getByVersion(v1.id as string, B)).rejects.toThrow(/not found/);
+    await expect(svc.getByVersion('nope', A)).rejects.toThrow(/not found/);
   });
 
   it('rejects duplicate codes within a block', async () => {
