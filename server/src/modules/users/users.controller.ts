@@ -51,12 +51,17 @@ import {
   InvitePreviewResponseDto,
 } from '../account-access/dto/batch-invite.dto';
 import { TeacherListResponseDto, TeacherResponseDto } from './dto/teacher-response.dto';
-import { UserRole, JwtPayload, Permission } from '@biddaloy/shared';
+import { JwtPayload, Permission, STAFF_ROLES, GUARDIAN_ROLES } from '@biddaloy/shared';
 import { SETTINGS_RATE_LIMIT, STRICT_RATE_LIMIT } from '../../rate-limit';
 import { InvitationService } from '../account-access/invitation.service';
 import { GuardianProvisioningService } from '../account-access/guardian-provisioning.service';
 import { BatchInviteDto } from '../account-access/dto/batch-invite.dto';
 import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
+
+/** The `users/me` routes act on the caller's own record (id from the JWT), so
+ * every tenant role belongs on them. Derived, not hand-listed, so a new role
+ * cannot be shut out of its own profile again (#1379 F2). */
+const SELF_SERVICE_ROLES = [...STAFF_ROLES, ...GUARDIAN_ROLES];
 
 @ApiTags('users')
 @ApiTenantAuth()
@@ -253,14 +258,7 @@ export class UserController {
    * in declaration order) would otherwise capture `me` as a user id. [5.4a]
    */
   @Get('users/me')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
+  @Roles(...SELF_SERVICE_ROLES)
   @ApiOperation({
     summary:
       "Read the calling user's own record. The id comes from the JWT, never the path — a caller can only ever read themselves.",
@@ -296,14 +294,7 @@ export class UserController {
    */
   @Patch('users/me')
   @Throttle({ default: SETTINGS_RATE_LIMIT })
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
+  @Roles(...SELF_SERVICE_ROLES)
   @ApiOperation({
     summary:
       "Update the calling user's own record. Only full_name/profile_picture_url are accepted — email/phone are rejected with 400 by forbidNonWhitelisted; use POST /users/me/contact-change to change either. [12.7]",
@@ -329,14 +320,7 @@ export class UserController {
   @Post('users/me/contact-change')
   @HttpCode(202)
   @Throttle({ default: SETTINGS_RATE_LIMIT })
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
+  @Roles(...SELF_SERVICE_ROLES)
   @ApiOperation({
     summary:
       'Requests a change to the caller own email or phone. Sends an OTP (phone) or a confirm link (email) to the NEW value; nothing is written to the account until confirmed.',
@@ -353,14 +337,7 @@ export class UserController {
   @Post('users/me/contact-change/confirm-phone')
   @HttpCode(200)
   @Throttle({ default: STRICT_RATE_LIMIT })
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
+  @Roles(...SELF_SERVICE_ROLES)
   @ApiOperation({
     summary: 'Confirms a pending phone change with the OTP sent to the new number.',
   })

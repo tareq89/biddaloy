@@ -1,5 +1,5 @@
 import type { EntityManager } from 'typeorm';
-import { DocumentKind } from '@biddaloy/shared';
+import { DocumentKind, EMPLOYEE_ROLES, UserRole } from '@biddaloy/shared';
 import type { FieldResolver, ResolvedSubject } from './field-resolver';
 import { blankValues, schoolValues } from './field-values';
 
@@ -14,7 +14,13 @@ interface Row {
   photo_key: string | null;
 }
 
-/** Subject id = user id. Only staff-role members of `tenantId` resolve (not PARENT/STUDENT/SUPER_ADMIN). */
+/** Roles that get a staff ID card: every employee role. Not COMMITTEE (not an
+ * employee, D16), PARENT, STUDENT or SUPER_ADMIN. */
+export const STAFF_CARD_ROLES: readonly UserRole[] = EMPLOYEE_ROLES.filter(
+  (role) => role !== UserRole.SUPER_ADMIN,
+);
+
+/** Subject id = user id. Only `STAFF_CARD_ROLES` members of `tenantId` resolve. */
 export class StaffCardResolver implements FieldResolver {
   kind = DocumentKind.STAFF_ID_CARD;
   subjectType = 'STAFF' as const;
@@ -25,7 +31,7 @@ export class StaffCardResolver implements FieldResolver {
               t.employee_id, doc.storage_key AS photo_key
          FROM users u
          JOIN user_tenants ut ON ut.user_id = u.id AND ut.tenant_id = $1
-              AND ut.role IN ('ADMIN', 'ACCOUNTANT', 'TEACHER', 'EXECUTIVE')
+              AND ut.role::text = ANY($3::text[])
          LEFT JOIN staff_hr_records h ON h.user_id = u.id AND h.tenant_id = $1
          LEFT JOIN LATERAL (
            SELECT d2.title_en FROM staff_designation_history sh
@@ -36,7 +42,7 @@ export class StaffCardResolver implements FieldResolver {
          LEFT JOIN staff_documents doc ON doc.staff_user_id = u.id AND doc.tenant_id = $1
               AND doc.document_type = 'PHOTO'
         WHERE u.deleted_at IS NULL AND u.id = ANY($2::uuid[])`,
-      [tenantId, subjectIds],
+      [tenantId, subjectIds, STAFF_CARD_ROLES],
     );
     const school = await schoolValues(tenantId, manager);
     const out = new Map<string, ResolvedSubject>();

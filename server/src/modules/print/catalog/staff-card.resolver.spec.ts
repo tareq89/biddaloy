@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { FIELD_CATALOG } from '@biddaloy/shared';
-import { StaffCardResolver } from './staff-card.resolver';
+import { FIELD_CATALOG, UserRole } from '@biddaloy/shared';
+import { STAFF_CARD_ROLES, StaffCardResolver } from './staff-card.resolver';
 
 const SCHOOL = {
   id: 't1',
@@ -67,5 +67,16 @@ describe('StaffCardResolver', () => {
     expect(m.query).toHaveBeenCalledTimes(1);
     expect(out.get('u1')!.values['staff.employee_id']).toBe('E1');
     expect(out.get('u1')!.photoKey).toContain('p.jpg');
+  });
+
+  it('resolves the new employee roles but never COMMITTEE (#1379 F4)', async () => {
+    const m = manager([]);
+    await new StaffCardResolver().resolve('t1', ['u1'], m);
+    const roles = m.query.mock.calls[0][1][2];
+    expect(roles).toBe(STAFF_CARD_ROLES);
+    expect(roles).toEqual(
+      expect.arrayContaining([UserRole.OFFICE_STAFF, UserRole.EXAM_CONTROLLER]),
+    );
+    expect(roles).not.toContain(UserRole.COMMITTEE);
   });
 });

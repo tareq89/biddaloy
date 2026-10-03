@@ -179,6 +179,7 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // (`SubstitutionsController`), even for the `TEACHER` role entry in its
   // `@Roles` list.
   '/_staff/routines/substitutions': Permission.ROUTINE_MANAGE,
+  '/_staff/roles/': Permission.USER_READ,
   '/_staff/audit-logs/': Permission.AUDIT_LOG_READ,
   '/_staff/settings': Permission.SETTINGS_MANAGE,
   // [35.5.1] Preset read + apply (D36).

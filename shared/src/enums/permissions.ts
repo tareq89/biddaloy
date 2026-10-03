@@ -381,10 +381,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 
   [UserRole.ACCOUNTANT]: [
     Permission.STUDENT_READ,
-    // Matches `@Roles(ADMIN, ACCOUNTANT, EXECUTIVE)` on
-    // `POST /students/bulk-upload`. Without it the endpoint is callable but
-    // the "Import students" button is hidden, which reads as a broken
-    // feature rather than a deliberate restriction.
+    // `POST /students/bulk-upload/{validate,commit}` require this permission
+    // (PermissionsGuard). Without it the "Import students" button is hidden
+    // and the endpoint 403s.
     Permission.STUDENT_BULK_UPLOAD,
     // [10.4] G3 — resolves the "can import 500 but cannot add one by hand"
     // contradiction the map used to flag. ACCOUNTANT is the front-office
@@ -441,10 +440,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   [UserRole.TEACHER]: [
     Permission.STUDENT_READ,
     Permission.GUARDIAN_READ,
-    // Deliberately no FEE_STRUCTURE_READ, even though the controller's
-    // `@Roles` lets a TEACHER call the fee-structure GETs: granting it here
-    // would surface the whole Finance nav group to teachers, which is a
-    // product decision well outside [8.11.5]. Flagged rather than fixed.
+    // Deliberately no FEE_STRUCTURE_READ: the fee-structure GETs only need
+    // FEE_READ, and granting FEE_STRUCTURE_READ here would surface the whole
+    // Finance nav group to teachers — a product decision well outside
+    // [8.11.5].
     Permission.FEE_READ,
     Permission.COMMUNICATION_SEND,
     // [10.4] G5 — per-student Communications tab; see ACCOUNTANT comment.
@@ -542,8 +541,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // (EXECUTIVE removed from `@Roles`) rather than granting an unused read.
     Permission.STUDENT_BULK_UPLOAD,
     // Deliberately no FEE_STRUCTURE_* — same call as TEACHER above. The
-    // controller's `@Roles` does let an EXECUTIVE hit these endpoints, but
-    // `/fees` and `/fee-structures` are both gated on FEE_STRUCTURE_READ,
+    // fee-structure GETs only need FEE_READ, but the `/fees` and
+    // `/fee-structures` pages are both gated on FEE_STRUCTURE_READ,
     // so granting it here surfaces the whole Finance group to a role whose
     // navigation is deliberately scoped to Students
     // (`e2e/journeys/permissions.spec.ts`'s CASES pin that). Widening it is

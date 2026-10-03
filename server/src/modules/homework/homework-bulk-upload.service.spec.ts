@@ -53,7 +53,7 @@ describe('HomeworkBulkUploadService', () => {
   let service: HomeworkBulkUploadService;
   let staging: { stage: ReturnType<typeof vi.fn>; consume: ReturnType<typeof vi.fn> };
   let access: {
-    isTenantWide: ReturnType<typeof vi.fn>;
+    canManageTenantWide: ReturnType<typeof vi.fn>;
     assertCanManageSection: ReturnType<typeof vi.fn>;
   };
   let savedHomework: unknown[];
@@ -89,9 +89,16 @@ describe('HomeworkBulkUploadService', () => {
     staging = { stage: vi.fn(), consume: vi.fn() };
 
     const classRepo = {
-      find: vi.fn().mockResolvedValue([
-        { id: CLASS_ID, name: 'Class One', tenant_id: TENANT_ID, academic_year_id: ACADEMIC_YEAR_ID },
-      ]),
+      find: vi
+        .fn()
+        .mockResolvedValue([
+          {
+            id: CLASS_ID,
+            name: 'Class One',
+            tenant_id: TENANT_ID,
+            academic_year_id: ACADEMIC_YEAR_ID,
+          },
+        ]),
     };
     const sectionRepo = {
       find: vi
@@ -109,7 +116,7 @@ describe('HomeworkBulkUploadService', () => {
     };
     const assignmentRepo = {};
     access = {
-      isTenantWide: vi.fn((role: string) => role === UserRole.ADMIN),
+      canManageTenantWide: vi.fn((role: string) => role === UserRole.ADMIN),
       assertCanManageSection: vi.fn(async () => undefined),
     };
 
@@ -235,7 +242,12 @@ describe('HomeworkBulkUploadService', () => {
       service = new HomeworkBulkUploadService(
         {
           find: vi.fn().mockResolvedValue([
-            { id: CLASS_ID, name: 'Class One', tenant_id: TENANT_ID, academic_year_id: ACADEMIC_YEAR_ID },
+            {
+              id: CLASS_ID,
+              name: 'Class One',
+              tenant_id: TENANT_ID,
+              academic_year_id: ACADEMIC_YEAR_ID,
+            },
             {
               id: AMBIGUOUS_CLASS_ID,
               name: 'Class One',
@@ -256,7 +268,11 @@ describe('HomeworkBulkUploadService', () => {
         {
           find: vi.fn().mockResolvedValue([{ id: SUBJECT_ID, name_en: 'Mathematics' }]),
         } as never,
-        { manager: { transaction: (fn: (manager: unknown) => unknown) => fn(fakeTransactionManager()) } } as never,
+        {
+          manager: {
+            transaction: (fn: (manager: unknown) => unknown) => fn(fakeTransactionManager()),
+          },
+        } as never,
         {} as never,
         staging as never,
         access as never,
@@ -271,7 +287,7 @@ describe('HomeworkBulkUploadService', () => {
     });
 
     it('reports a row-level access error for a teacher not mapped to the section', async () => {
-      access.isTenantWide.mockReturnValue(false);
+      access.canManageTenantWide.mockReturnValue(false);
       access.assertCanManageSection.mockRejectedValue(new ForbiddenException('not linked'));
       staging.stage.mockResolvedValue({ stagingId: 'stage-6', expiresAt: '2026-01-01T00:00:00Z' });
       const file = await buildXlsxFile([...REQUIRED_HEADERS], [rowValues(REQUIRED_HEADERS)]);

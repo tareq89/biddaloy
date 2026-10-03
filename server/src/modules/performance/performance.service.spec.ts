@@ -227,6 +227,25 @@ describe('PerformanceService', () => {
     expect(sectionRepo.createQueryBuilder).not.toHaveBeenCalled();
   });
 
+  // [#1362] Per-role table: true = skips the teacher join (tenant-wide); false = 403.
+  it.each([
+    [UserRole.ADMIN, true],
+    [UserRole.EXECUTIVE, true],
+    [UserRole.ACCOUNTANT, false],
+    // New in #1362: needs tenant data scope AND MARK_VIEW; SUPER_ADMIN is out (D-N).
+    [UserRole.SUPER_ADMIN, false],
+    [UserRole.EXAM_CONTROLLER, true],
+    [UserRole.OFFICE_STAFF, false],
+    [UserRole.COMMITTEE, false],
+    [UserRole.PARENT, false],
+    [UserRole.STUDENT, false],
+  ])('%s: tenant-wide=%s', async (role, wide) => {
+    const call = service.getClassPerformance('c1', Q, { ...teacher, role });
+    if (wide) await expect(call).resolves.toBeDefined();
+    else await expect(call).rejects.toThrow(ForbiddenException);
+    expect(sectionRepo.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
   it('TEACHER without a matching section gets 403', async () => {
     qb.getOne.mockResolvedValue(null);
     await expect(service.getClassPerformance('c1', Q, teacher)).rejects.toThrow(ForbiddenException);

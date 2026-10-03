@@ -81,7 +81,14 @@ export class AttendanceSummaryController {
   }
 
   @Get('sections/:sectionId/summary')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+  )
   @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({
     summary: "A whole section's roster attendance over a range, one row per student.",
@@ -108,7 +115,14 @@ export class AttendanceSummaryController {
   }
 
   @Get('sections/:sectionId/register-matrix')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+  )
   @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({
     summary:
@@ -138,7 +152,13 @@ export class AttendanceSummaryController {
   }
 
   @Get('flags/low')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+  )
   @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({
     summary:

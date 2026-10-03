@@ -137,6 +137,14 @@ describe('pickRole', () => {
     expect(pickRole(memberships)).toBe(UserRole.ADMIN);
   });
 
+  it('follows D23 order for the new roles', () => {
+    const pick = (...roles: UserRole[]) => pickRole(roles.map((role) => makeMembership({ role })));
+    expect(pick(UserRole.OFFICE_STAFF, UserRole.TEACHER)).toBe(UserRole.TEACHER);
+    expect(pick(UserRole.COMMITTEE, UserRole.OFFICE_STAFF)).toBe(UserRole.OFFICE_STAFF);
+    expect(pick(UserRole.OFFICE_STAFF, UserRole.EXAM_CONTROLLER)).toBe(UserRole.EXAM_CONTROLLER);
+    expect(pick(UserRole.PARENT, UserRole.COMMITTEE)).toBe(UserRole.COMMITTEE);
+  });
+
   it('throws when there are no memberships', () => {
     expect(() => pickRole([])).toThrow();
   });
@@ -206,6 +214,17 @@ describe('round trip', () => {
       row: expect.objectContaining({ role: UserRole.ADMIN }),
     });
   });
+});
+
+describe('new roles round trip', () => {
+  it.each([UserRole.OFFICE_STAFF, UserRole.EXAM_CONTROLLER, UserRole.COMMITTEE])(
+    'exports and imports role %s',
+    (role) => {
+      const user = makeUser({}, [makeMembership({ role })]);
+      const result = usersTab.fromRow(toCells(user), 2, importCtx);
+      expect(result).toEqual({ row: expect.objectContaining({ role }) });
+    },
+  );
 });
 
 describe('fromRow validation', () => {

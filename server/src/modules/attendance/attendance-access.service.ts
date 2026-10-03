@@ -1,12 +1,15 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
-import { UserRole } from '@biddaloy/shared';
+import { Permission, UserRole, hasTenantDataScope, roleHasPermission } from '@biddaloy/shared';
 import { ClassSection } from '../academics/entities/class-section.entity';
 
-/** Roles that may mark/read attendance for every section in the tenant,
- * without going through `teacher_class_sections`. */
-const TENANT_WIDE_ROLES: string[] = [UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT];
+/** Tenant data scope + ATTENDANCE_READ reaches every section. This service gates
+ * both reads and writes (marking, finalizing); the routes add ATTENDANCE_MARK on
+ * top. The permission keeps COMMITTEE (no ATTENDANCE_*, D9) out even if a looser
+ * route reaches this service. SUPER_ADMIN: see `hasTenantDataScope` (#1362 D-N). */
+const canAccessTenantWide = (role: string) =>
+  hasTenantDataScope(role) && roleHasPermission(role, Permission.ATTENDANCE_READ);
 
 /**
  * The object-level "may this caller touch this section's attendance?" gate —
@@ -52,7 +55,7 @@ export class AttendanceAccessService {
   }
 
   /**
-   * Sections this caller may mark. ADMIN/EXECUTIVE/ACCOUNTANT: every section
+   * Sections this caller may mark. Tenant-scoped roles (`ROLE_SCOPE`): every section
    * in the tenant. TEACHER: only sections in `teacher_class_sections`.
    * Anyone else: empty — fails closed rather than assuming a new role
    * inherits access.
@@ -62,7 +65,7 @@ export class AttendanceAccessService {
     userId: string,
     tenantId: string,
   ): Promise<ClassSection[]> {
-    if (TENANT_WIDE_ROLES.includes(role)) {
+    if (canAccessTenantWide(role)) {
       return this.sectionRepo.find({
         where: { tenant_id: tenantId },
         relations: ['class'],
@@ -100,7 +103,7 @@ export class AttendanceAccessService {
     sectionId: string,
     tenantId: string,
   ): Promise<ClassSection> {
-    if (TENANT_WIDE_ROLES.includes(role)) {
+    if (canAccessTenantWide(role)) {
       const section = await this.sectionRepo.findOne({
         where: { id: sectionId, tenant_id: tenantId },
       });

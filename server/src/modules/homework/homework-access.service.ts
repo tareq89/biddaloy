@@ -1,16 +1,23 @@
 import { Injectable, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
-import { UserRole } from '@biddaloy/shared';
+import { Permission, UserRole, hasTenantDataScope, roleHasPermission } from '@biddaloy/shared';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Class } from '../academics/entities/class.entity';
 import { Subject } from '../academics/entities/subject.entity';
 import { Student } from '../students/entities/student.entity';
 
-/** Roles that may manage homework for every section in the tenant, without
- * going through `teacher_class_sections`. Same tenant-wide set as attendance. */
-const TENANT_WIDE_ROLES: string[] = [UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT];
+/** Tenant data scope + HOMEWORK_ASSIGN manages homework for every class/section
+ * (and lists it — `HomeworkService.findAll` uses this too, so every listed row opens).
+ * Pairing scope with the permission keeps COMMITTEE (no HOMEWORK_*, D9) out even if a
+ * looser route reaches this service. SUPER_ADMIN: see `hasTenantDataScope` (#1362 D-N). */
+const canManageTenantWide = (role: string) =>
+  hasTenantDataScope(role) && roleHasPermission(role, Permission.HOMEWORK_ASSIGN);
+
+/** Read-side counterpart for the analytics rollups: the permission those routes require. */
+const canViewTenantWide = (role: string) =>
+  hasTenantDataScope(role) && roleHasPermission(role, Permission.HOMEWORK_READ);
 
 /**
  * The object-level "may this caller touch homework for this
@@ -37,10 +44,11 @@ export class HomeworkAccessService {
   ) {}
 
   /** True for roles that manage homework tenant-wide without a
-   * `teacher_class_sections` link (used by callers building their own query,
-   * e.g. `HomeworkService.findAll`'s row-level scoping). */
-  isTenantWide(role: string): boolean {
-    return TENANT_WIDE_ROLES.includes(role);
+   * `teacher_class_sections` link (used by callers building their own query —
+   * `HomeworkService.findAll`'s row-level scoping — and by bulk upload to skip
+   * its per-row check). */
+  canManageTenantWide(role: string): boolean {
+    return canManageTenantWide(role);
   }
 
   /**
@@ -56,7 +64,7 @@ export class HomeworkAccessService {
     subjectId: string,
     tenantId: string,
   ): Promise<void> {
-    if (TENANT_WIDE_ROLES.includes(role)) {
+    if (canManageTenantWide(role)) {
       const section = await this.sectionRepo.findOne({
         where: { id: sectionId, tenant_id: tenantId },
       });
@@ -100,7 +108,7 @@ export class HomeworkAccessService {
     subjectId: string,
     tenantId: string,
   ): Promise<void> {
-    if (TENANT_WIDE_ROLES.includes(role)) {
+    if (canManageTenantWide(role)) {
       return;
     }
 
@@ -159,7 +167,7 @@ export class HomeworkAccessService {
     sectionId: string,
     tenantId: string,
   ): Promise<void> {
-    if (TENANT_WIDE_ROLES.includes(role)) {
+    if (canViewTenantWide(role)) {
       const section = await this.sectionRepo.findOne({
         where: { id: sectionId, tenant_id: tenantId },
       });
@@ -195,7 +203,7 @@ export class HomeworkAccessService {
     classId: string,
     tenantId: string,
   ): Promise<void> {
-    if (TENANT_WIDE_ROLES.includes(role)) {
+    if (canViewTenantWide(role)) {
       return;
     }
 
@@ -240,7 +248,7 @@ export class HomeworkAccessService {
   /** `Homework.create` takes class_id/subject_id straight from the DTO —
    * confirm both actually belong to this tenant before any teacher-scoping
    * check runs against them, since `assertCanManageClass` short-circuits
-   * without a lookup for TENANT_WIDE_ROLES and would otherwise let an ADMIN
+   * without a lookup for tenant-wide roles (`canManageTenantWide`) and would otherwise let an ADMIN
    * create homework pointing at another tenant's class/subject id. */
   async assertClassAndSubjectInTenant(
     classId: string,

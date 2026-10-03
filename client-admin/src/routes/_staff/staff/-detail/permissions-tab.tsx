@@ -27,6 +27,48 @@ function groupPermissions(permissions: readonly Permission[]): Map<string, strin
   return groups;
 }
 
+export interface PermissionGroupListProps {
+  permissions: readonly Permission[];
+  /** Render each domain as a native `<details>` (toggles with Enter/Space,
+   * collapsed by default) instead of an always-open section. */
+  collapsible?: boolean;
+}
+
+/** The grouped, read-only permission list — shared by the staff detail
+ * Permissions tab and the Roles & access cards. */
+export function PermissionGroupList({
+  permissions,
+  collapsible = false,
+}: PermissionGroupListProps) {
+  const groups = groupPermissions(permissions);
+  return (
+    <>
+      {[...groups.entries()].map(([domain, labels]) => {
+        const items = (
+          <ul className="list-inside list-disc text-sm">
+            {labels.map((label) => (
+              <li key={label}>{label}</li>
+            ))}
+          </ul>
+        );
+        return collapsible ? (
+          <details key={domain} className="rounded-md border border-border-subtle px-3 py-2">
+            <summary className="cursor-pointer text-sm font-semibold capitalize">
+              {domain.toLowerCase()} ({labels.length})
+            </summary>
+            <div className="mt-1">{items}</div>
+          </details>
+        ) : (
+          <section key={domain} aria-label={domain}>
+            <h3 className="mb-1 text-sm font-semibold capitalize">{domain.toLowerCase()}</h3>
+            {items}
+          </section>
+        );
+      })}
+    </>
+  );
+}
+
 /**
  * [8.11.8]'s "Permissions tab renders read-only from `ROLE_PERMISSIONS`"
  * AC — the access model made visible to administrators instead of
@@ -49,20 +91,10 @@ export function PermissionsTab({ userId }: PermissionsTabProps) {
             <p className="text-sm text-muted-foreground">{t('detail.permissions.unknownRole')}</p>
           );
         }
-        const groups = groupPermissions(ROLE_PERMISSIONS[user.role as UserRole]);
         return (
           <div className="flex flex-col gap-4">
             <p className="text-sm text-muted-foreground">{t('detail.permissions.explainer')}</p>
-            {[...groups.entries()].map(([domain, labels]) => (
-              <section key={domain} aria-label={domain}>
-                <h3 className="mb-1 text-sm font-semibold capitalize">{domain.toLowerCase()}</h3>
-                <ul className="list-inside list-disc text-sm">
-                  {labels.map((label) => (
-                    <li key={label}>{label}</li>
-                  ))}
-                </ul>
-              </section>
-            ))}
+            <PermissionGroupList permissions={ROLE_PERMISSIONS[user.role as UserRole]} />
           </div>
         );
       }}

@@ -37,7 +37,14 @@ export class EnrollmentController {
   }
 
   @Get('student/:studentId')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.ACCOUNTANT,
+    UserRole.EXECUTIVE,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+  )
   @RequirePermissions(Permission.STUDENT_READ)
   findByStudent(
     @Param('studentId') studentId: string,
@@ -58,7 +65,14 @@ export class EnrollmentController {
   // `Enrollment | null`. Replying explicitly keeps the wire response
   // matching that documented type.
   @Get(':studentId/current')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.ACCOUNTANT,
+    UserRole.EXECUTIVE,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+  )
   @RequirePermissions(Permission.STUDENT_READ)
   @ApiOkResponse({
     description:
