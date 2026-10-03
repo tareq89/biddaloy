@@ -205,7 +205,7 @@ describe('Curriculum presets E2E (35.2.6)', () => {
   it('TEACHER cannot apply, ADMIN cannot reset', async () => {
     const t = await newSchool();
     await as('teacher', UserRole.TEACHER, t).post('/presets/apply').send(body).expect(403);
-    await admin(t).post(`/platform/schools/${t}/preset/reset`).send({ reason: REASON }).expect(401);
+    await admin(t).post(`/platform/schools/${t}/preset/reset`).send({ reason: REASON }).expect(403);
   });
 
   it('a tenant-local SUPER_ADMIN cannot reset a school (platform authority required)', async () => {

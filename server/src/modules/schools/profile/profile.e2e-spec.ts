@@ -95,16 +95,14 @@ describe('School profile (e2e)', () => {
   });
 
   it('rejects an ACCOUNTANT trying to update the profile', async () => {
-    // RolesGuard rejects a held-but-insufficient role with 401, matching
-    // role-resolution.e2e-spec.ts's "Requires one of roles" behavior — not
-    // 403 (which class-level PermissionsGuard checks use).
+    // RolesGuard rejects a held-but-insufficient role with 403 ("Requires one of roles").
     const res = await supertest(app.getHttpServer())
       .patch('/api/v1/schools/me/profile')
       .set('Authorization', `Bearer ${adminToken}`)
       .set('X-Tenant-ID', TENANT_ID)
       .set('X-Role', UserRole.ACCOUNTANT)
       .send({ name: 'Should not apply' })
-      .expect(401);
+      .expect(403);
 
     expect(res.body.message).toContain('Requires one of roles');
   });

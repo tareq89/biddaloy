@@ -87,12 +87,12 @@ describe('Platform Backup Health E2E', () => {
     await app.close();
   });
 
-  it('rejects ADMIN with 401 (role guard)', async () => {
+  it('rejects ADMIN with 403 (role guard)', async () => {
     await supertest(app.getHttpServer())
       .get('/api/v1/platform/backups/health')
       .set('Authorization', `Bearer ${adminToken}`)
       .set('X-Tenant-ID', TENANT_ID)
-      .expect(401);
+      .expect(403);
   });
 
   it('rejects no token with 401', async () => {

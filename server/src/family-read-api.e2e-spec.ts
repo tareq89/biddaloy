@@ -557,17 +557,14 @@ describe('[5.1] Family-facing read API', () => {
       }
     });
 
-    // 401, not the conventional 403: `RolesGuard` throws
-    // `UnauthorizedException` for a role mismatch (its own docstring says
-    // 403, but the code has always thrown 401). Pinned as-is — changing the
-    // status code is a breaking API change well outside [5.1].
+    // 403: `RolesGuard` throws `ForbiddenException` for a role mismatch (#729).
     it('refuses a staff caller — this is the family discovery route, not a roster', async () => {
       for (const token of [adminToken, teacherToken]) {
         await http()
           .get(`${API}/students/mine`)
           .set('Authorization', `Bearer ${token}`)
           .set('X-Tenant-ID', SEED_TENANT_ID)
-          .expect(401);
+          .expect(403);
       }
     });
 
@@ -1191,15 +1188,15 @@ describe('[5.1] Family-facing read API', () => {
   // ─────────────────── Role guards, both directions ───────────────────
 
   /**
-   * A route that still carries a narrowing `@Roles` refuses with 401
-   * (`RolesGuard` throws `UnauthorizedException`). A route whose redundant
+   * A route that still carries a narrowing `@Roles` refuses with 403
+   * (`RolesGuard` throws `ForbiddenException`). A route whose redundant
    * `@Roles` was retired in Epic 24 refuses with 403 from `PermissionsGuard`.
    */
   describe('role guards — routes [5.1] deliberately did not widen', () => {
     const STAFF_ONLY_GETS = [
-      { name: 'GET /students (roster)', path: `${API}/students`, status: 401 },
+      { name: 'GET /students (roster)', path: `${API}/students`, status: 403 },
       { name: 'GET /payments (ledger)', path: `${API}/payments`, status: 403 },
-      { name: 'GET /fees/dues/flagged', path: `${API}/fees/dues/flagged`, status: 401 },
+      { name: 'GET /fees/dues/flagged', path: `${API}/fees/dues/flagged`, status: 403 },
       { name: 'GET /guardians', path: `${API}/guardians`, status: 403 },
     ];
 
@@ -1222,7 +1219,7 @@ describe('[5.1] Family-facing read API', () => {
         .get(`${API}/payments/guardian/${NONEXISTENT_UUID}`)
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
-        .expect(401);
+        .expect(403);
     });
 
     it('POST /invoices still refuses a family caller', async () => {

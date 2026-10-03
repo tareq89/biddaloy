@@ -312,7 +312,7 @@ describe('Students E2E', () => {
       expect(res.body.ids).not.toContain(createRes.body.id);
     });
 
-    it('should return 401 when a STUDENT role tries to use the ids endpoint (not in its allowlist)', async () => {
+    it('should return 403 when a STUDENT role tries to use the ids endpoint (not in its allowlist)', async () => {
       // Same pattern as "POST /students" role check above: give the seed
       // admin user a STUDENT role for this tenant, then re-login so the JWT
       // carries it, and confirm the ids route rejects that role.
@@ -332,7 +332,7 @@ describe('Students E2E', () => {
         .set('Authorization', `Bearer ${studentToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
-        .expect(401);
+        .expect(403);
 
       expect(res.body.message).toContain('Requires one of roles');
     });
