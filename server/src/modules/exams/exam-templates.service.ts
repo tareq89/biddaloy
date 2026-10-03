@@ -141,6 +141,12 @@ export class ExamTemplatesService {
     if (dto.rows) this.validateRows(dto.rows);
 
     await this.run(async (manager) => {
+      // Re-read under a row lock so a concurrent remove() can't leave orphaned rows.
+      const live = await manager.getRepository(ExamTemplate).findOne({
+        where: { id, tenant_id: tenantId, deleted_at: IsNull() },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!live) throw new NotFoundException(`Exam template with ID "${id}" not found`);
       const patch: Partial<ExamTemplate> = {};
       if (dto.name !== undefined) patch.name = dto.name;
       if (dto.kind !== undefined) patch.kind = dto.kind;
@@ -191,6 +197,12 @@ export class ExamTemplatesService {
   ): Promise<void> {
     const existing = await this.findTemplate(id, tenantId);
     await this.repo.manager.transaction(async (manager) => {
+      // Re-read under a row lock so a concurrent update()/remove() serialises.
+      const live = await manager.getRepository(ExamTemplate).findOne({
+        where: { id, tenant_id: tenantId, deleted_at: IsNull() },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!live) throw new NotFoundException(`Exam template with ID "${id}" not found`);
       // Components have no deleted_at and nothing references them: hard-delete.
       await manager
         .getRepository(ExamTemplateComponent)

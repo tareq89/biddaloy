@@ -163,6 +163,22 @@ describe('ExamTemplatesService', () => {
     expect(n.tplRepo.findOne.mock.calls[0][0].where).toMatchObject({ tenant_id: TENANT });
   });
 
+  it('update/remove re-read the template under a write lock; 404 + no writes if it vanished', async () => {
+    const live = { id: TPL, tenant_id: TENANT, name: 'Term', kind: ExamKind.TERM };
+    for (const op of ['update', 'remove'] as const) {
+      const n = build();
+      n.tplRepo.findOne.mockResolvedValueOnce(live).mockResolvedValueOnce(null);
+      const call =
+        op === 'update'
+          ? n.service.update(TPL, { rows: [row()] }, TENANT)
+          : n.service.remove(TPL, TENANT);
+      await expect(call).rejects.toBeInstanceOf(NotFoundException);
+      expect(n.tplRepo.findOne.mock.calls[1][0].lock).toEqual({ mode: 'pessimistic_write' });
+      expect(n.compRepo.delete).not.toHaveBeenCalled();
+      expect(n.compRepo.insert).not.toHaveBeenCalled();
+    }
+  });
+
   it('get groups rows and resolves subjectName (null when absent)', async () => {
     const g = build({
       comps: [comp({}), comp({ subject_code: 'XYZ', name: 'Viva', kind: ExamComponentKind.VIVA })],
