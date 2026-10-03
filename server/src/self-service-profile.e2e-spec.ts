@@ -54,6 +54,8 @@ const API = '/api/v1';
  * a typo.
  */
 const ROLE_DENIED = 401;
+/** A route whose redundant `@Roles` was retired (Epic 24): `PermissionsGuard` refuses with 403. */
+const PERMISSION_DENIED = 403;
 
 const TENANT_B = '00000000-0000-4000-8000-0000054a0001';
 
@@ -343,7 +345,7 @@ describe('[5.4a] Self-service profile', () => {
         .get(`${API}/users/${SEED_ADMIN_USER_ID}`)
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
-        .expect(ROLE_DENIED);
+        .expect(PERMISSION_DENIED);
     });
 
     it('PARENT cannot GET /users/:id even for their OWN id (staff route stays staff)', async () => {
@@ -351,7 +353,7 @@ describe('[5.4a] Self-service profile', () => {
         .get(`${API}/users/${PARENT_USER_ID}`)
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
-        .expect(ROLE_DENIED);
+        .expect(PERMISSION_DENIED);
     });
 
     it('PARENT cannot PATCH /users/:id for another user', async () => {
@@ -360,7 +362,7 @@ describe('[5.4a] Self-service profile', () => {
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .send({ full_name: 'Owned' })
-        .expect(ROLE_DENIED);
+        .expect(PERMISSION_DENIED);
 
       const rows = await dataSource.query(`SELECT full_name FROM users WHERE id = $1`, [
         SEED_ADMIN_USER_ID,
@@ -552,7 +554,7 @@ describe('[5.4a] Self-service profile', () => {
         .set('Authorization', `Bearer ${parentToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .send({ full_name: 'Owned' })
-        .expect(ROLE_DENIED);
+        .expect(PERMISSION_DENIED);
     });
   });
 

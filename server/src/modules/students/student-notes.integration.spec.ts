@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { getDataSourceToken } from '@nestjs/typeorm';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission, UserRole, roleHasPermission } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_SECTION_1_ID, SEED_SECTION_2_ID, SEED_TENANT_ID } from '@test/constants';
@@ -138,12 +138,18 @@ describe('StudentNotesService (integration)', () => {
 describe('StudentNotesController route gating', () => {
   const proto = StudentNotesController.prototype;
 
-  it('excludes PARENT, STUDENT and ACCOUNTANT on every route (class-level @Roles)', () => {
-    const roles: string[] = Reflect.getMetadata(ROLES_KEY, StudentNotesController);
-    expect(roles).toEqual([UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER]);
+  it('excludes PARENT, STUDENT and ACCOUNTANT on every route (permission table, no @Roles)', () => {
+    // Epic 24: the redundant class-level @Roles is gone; PermissionsGuard alone decides.
+    expect(Reflect.getMetadata(ROLES_KEY, StudentNotesController)).toBeUndefined();
     for (const m of ['list', 'create', 'remove'] as const) {
-      // no method-level override that could re-widen the class-level roles
       expect(Reflect.getMetadata(ROLES_KEY, proto[m])).toBeUndefined();
+    }
+    for (const role of [UserRole.PARENT, UserRole.STUDENT, UserRole.ACCOUNTANT]) {
+      expect(roleHasPermission(role, Permission.STUDENT_NOTES_READ)).toBe(false);
+      expect(roleHasPermission(role, Permission.STUDENT_NOTES_WRITE)).toBe(false);
+    }
+    for (const role of [UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER]) {
+      expect(roleHasPermission(role, Permission.STUDENT_NOTES_READ)).toBe(true);
     }
   });
 
