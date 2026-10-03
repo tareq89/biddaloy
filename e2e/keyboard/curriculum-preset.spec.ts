@@ -150,7 +150,7 @@ test.describe('apply a curriculum preset', () => {
         await expect(
           page.getByRole('button', { name: t('curriculumPreset.cards.selected') }),
         ).toHaveAttribute('aria-pressed', 'true');
-        await tabUntilFocused(page, 'Next', 40, { tag: 'BUTTON' });
+        await tabUntilFocused(page, t('common.wizard.next'), 40, { tag: 'BUTTON' });
         await page.keyboard.press('Enter');
         await expect(
           page.getByRole('checkbox', { name: NCTB_STAGES_BN[0]!, exact: true }),
@@ -169,7 +169,7 @@ test.describe('apply a curriculum preset', () => {
         await expect(
           page.getByRole('checkbox', { name: NCTB_VERSION_BANGLA_BN, exact: true }),
         ).toBeChecked();
-        await tabUntilFocused(page, 'Next', 40, { tag: 'BUTTON' });
+        await tabUntilFocused(page, t('common.wizard.next'), 40, { tag: 'BUTTON' });
         await page.keyboard.press('Enter');
         // The pack is unverified: the review step carries the warning.
         await expect(
