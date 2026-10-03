@@ -3265,9 +3265,23 @@ export async function ensureStaffHrSeed(
 
   const profiles: StaffProfile[] = [];
   for (const { userId, employeeId } of staffUserIds) {
+    // `staff_profiles.user_id` is unique across ALL tenants (one profile per
+    // user — same rule `StaffProfilesService.createFor` enforces), so look
+    // up by that key alone. A tenant-scoped lookup misses a profile that
+    // lives in another tenant (e.g. the user is also staff at the second
+    // school) and the insert below fails `UQ_staff_profiles_user`.
     let profile = await repos.staffProfileRepository.findOne({
-      where: { tenant_id: schoolId, user_id: userId },
+      where: { user_id: userId },
     });
+    if (profile && profile.tenant_id !== schoolId) {
+      // Don't reuse it: the sample attendance/leave rows below are written
+      // under `schoolId`, and pointing them at another tenant's profile
+      // would cross tenants.
+      console.warn(
+        `Seed: user ${userId} already has a staff profile in tenant ${profile.tenant_id}; skipping its staff HR seed.`,
+      );
+      continue;
+    }
     if (!profile) {
       profile = await repos.staffProfileRepository.save(
         repos.staffProfileRepository.create({
