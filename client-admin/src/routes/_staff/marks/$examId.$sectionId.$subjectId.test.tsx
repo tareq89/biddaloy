@@ -270,6 +270,35 @@ describe('/marks/$examId/$sectionId/$subjectId', () => {
     expect(screen.queryByRole('button', { name: 'Reopen' })).toBeNull();
   });
 
+  it('an exam controller (view only) sees an unsubmitted grid read-only with no submit', async () => {
+    server.use(http.get(GRID_URL, () => HttpResponse.json(baseGrid)));
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/marks/exam-1/sec-1/subj-1'],
+      tenantId: 'tenant-1',
+      role: 'EXAM_CONTROLLER',
+      locale: 'en',
+    });
+
+    const cell = await screen.findByLabelText<HTMLInputElement>('Rafi Ahmed — Written');
+    expect(cell.disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: /submit/i })).toBeNull();
+  });
+
+  it('a teacher can edit an unsubmitted grid', async () => {
+    server.use(http.get(GRID_URL, () => HttpResponse.json(baseGrid)));
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/marks/exam-1/sec-1/subj-1'],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+
+    const cell = await screen.findByLabelText<HTMLInputElement>('Rafi Ahmed — Written');
+    expect(cell.disabled).toBe(false);
+  });
+
   it('an admin sees a Reopen action on a submitted grid', async () => {
     server.use(
       http.get(GRID_URL, () =>
