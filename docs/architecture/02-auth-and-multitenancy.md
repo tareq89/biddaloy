@@ -20,7 +20,7 @@ erDiagram
     UserTenant {
         uuid user_id
         uuid tenant_id
-        enum role "SUPER_ADMIN | ADMIN | ACCOUNTANT | TEACHER | PARENT | STUDENT | EXECUTIVE"
+        enum role "SUPER_ADMIN | ADMIN | ACCOUNTANT | TEACHER | PARENT | STUDENT | EXECUTIVE | OFFICE_STAFF | EXAM_CONTROLLER | COMMITTEE"
     }
 ```
 
@@ -137,7 +137,7 @@ Roles are fixed and defined once in `shared/src/enums/index.ts`
 (`UserRole`), shared by server and every client so they can never drift:
 
 ```
-SUPER_ADMIN → ADMIN → ACCOUNTANT ≈ EXECUTIVE → TEACHER → PARENT / STUDENT
+SUPER_ADMIN → ADMIN → ACCOUNTANT → EXECUTIVE → TEACHER → EXAM_CONTROLLER → OFFICE_STAFF → COMMITTEE → PARENT / STUDENT
 ```
 
 (highest to lowest priority — see `ROLE_PRIORITY` in `context.guard.ts`,
@@ -145,6 +145,30 @@ used as a tiebreak when a caller has multiple roles in one tenant and omits
 `X-Role`). Routes declare required roles with the `@Roles(...)` decorator;
 `RolesGuard` enforces it after `ContextGuard` has resolved which role the
 caller is acting as.
+
+| Role              | Who it is for                           | Data scope (`ROLE_SCOPE`) |
+| ----------------- | --------------------------------------- | ------------------------- |
+| `SUPER_ADMIN`     | Platform operator                       | `TENANT`                  |
+| `ADMIN`           | School head / IT admin                  | `TENANT`                  |
+| `ACCOUNTANT`      | Fees and payments                       | `TENANT`                  |
+| `EXECUTIVE`       | Principal / management, read-mostly     | `TENANT`                  |
+| `OFFICE_STAFF`    | Front-office clerk: admissions, records | `TENANT`                  |
+| `EXAM_CONTROLLER` | Runs exams, marks and results           | `TENANT`                  |
+| `COMMITTEE`       | Governing / admission committee member  | `TENANT`                  |
+| `TEACHER`         | Classroom teacher                       | `ASSIGNED_SECTIONS`       |
+| `PARENT`          | Guardian                                | `FAMILY`                  |
+| `STUDENT`         | Learner                                 | `SELF`                    |
+
+`SUPER_ADMIN`'s `TENANT` scope does not open a school's own data (marks,
+attendance, homework, performance): `hasTenantDataScope` in
+`shared/src/enums/audiences.ts` holds it out until product decides (#1362
+D-N). Tenant scope is always paired with the route's permission.
+
+These are code roles, not runtime-editable ones: each role is wired into
+guards, menus and data scope at build time, so a school cannot invent one
+(decision D1 of [Epic #786](https://github.com/tareq89/biddaloy/issues/786)).
+Demo accounts for every role live in `ROLE_TEST_USERS`
+(`server/src/scripts/seed.util.ts`), e.g. `office@biddaloy.test`.
 
 This was a deliberate choice over attribute-based access control (ABAC):
 school roles map cleanly onto real staff titles, and finer-grained rules

@@ -374,6 +374,8 @@ describe('workbook-normalize (unit)', () => {
   });
 });
 
+const NEW_ROLES = [UserRole.OFFICE_STAFF, UserRole.EXAM_CONTROLLER, UserRole.COMMITTEE];
+
 describe('workbook round trip (integration)', () => {
   let dataSource: DataSource;
   let auditService: AuditService;
@@ -804,6 +806,23 @@ describe('workbook round trip (integration)', () => {
           .getRepository(UserTenant)
           .create({ user_id: teacherUserTwo.id, tenant_id: TENANT_A, role: UserRole.TEACHER }),
       ]);
+
+    // [24.4.1] One member per new built-in role: the `users` tab must carry
+    // each role through export -> restore (asserted after the re-export).
+    for (const role of NEW_ROLES) {
+      const u = await dataSource.getRepository(User).save(
+        dataSource.getRepository(User).create({
+          email: `roundtrip-2441-${role.toLowerCase()}-${TENANT_A.slice(0, 8)}@test.com`,
+          full_name: `Roundtrip ${role}`,
+          password_hash: 'not-the-asserted-hash',
+        }),
+      );
+      await dataSource
+        .getRepository(UserTenant)
+        .save(
+          dataSource.getRepository(UserTenant).create({ user_id: u.id, tenant_id: TENANT_A, role }),
+        );
+    }
 
     const teacherOne = await dataSource.getRepository(Teacher).save(
       dataSource.getRepository(Teacher).create({
@@ -2044,13 +2063,17 @@ describe('workbook round trip (integration)', () => {
     const presetOf = (w: typeof normalizedA) => JSON.parse(w.school?.[0]?.settings ?? '{}').preset;
     expect(presetOf(normalizedA)).toMatchObject({ id: 'bd-national', version: '1' });
     expect(presetOf(normalizedB)).toEqual(presetOf(normalizedA));
+    // [24.4.1] the three new built-in roles survive backup/restore.
+    for (const role of NEW_ROLES) {
+      expect(normalizedB.users?.filter((r) => r.role === role)).toHaveLength(1);
+    }
     expect(normalizedB.exam_templates).toHaveLength(1);
     expect(normalizedB.exam_template_components).toHaveLength(2);
     expect(normalizedB.class_subjects?.some((r) => r.group_name === 'Science')).toBe(true);
     // [35.1.10] choice groups + trigger-filled pick group round-trip.
-    expect(
-      normalizedB.class_subjects?.filter((r) => r.choice_group === 'Religion'),
-    ).toHaveLength(2);
+    expect(normalizedB.class_subjects?.filter((r) => r.choice_group === 'Religion')).toHaveLength(
+      2,
+    );
     expect(normalizedB.student_subject_choices).toHaveLength(2);
 
     // [32.3.10] `print_assets.storage_key` is the second deliberate exception.
