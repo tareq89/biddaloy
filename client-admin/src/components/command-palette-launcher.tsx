@@ -259,24 +259,27 @@ export function CommandPaletteLauncher() {
     searchableHint: t('commandPalette.searchableHint'),
     noResultsText: (searchQuery) => t('commandPalette.noResults', { query: searchQuery }),
   };
+  const pageTab: CommandPaletteTab = {
+    id: 'page',
+    label: t('commandPalette.tabs.page'),
+    groups: pageGroups,
+    searchableHint: t('commandPalette.pageSearchableHint'),
+    noResultsText: (searchQuery) => t('commandPalette.noResults', { query: searchQuery }),
+  };
+  const actionTab: CommandPaletteTab = {
+    id: 'action',
+    label: t('commandPalette.tabs.action'),
+    groups: actionGroups,
+    searchableHint: t('commandPalette.actionSearchableHint'),
+    noResultsText: (searchQuery) => t('commandPalette.noResults', { query: searchQuery }),
+  };
   // No STUDENT_READ → no People tab at all (and `usePaletteSearch` makes no /search call).
-  const tabs: readonly [CommandPaletteTab, ...CommandPaletteTab[]] = [
-    ...(hasPermission(activeRole, Permission.STUDENT_READ) ? [peopleTab] : []),
-    {
-      id: 'page',
-      label: t('commandPalette.tabs.page'),
-      groups: pageGroups,
-      searchableHint: t('commandPalette.pageSearchableHint'),
-      noResultsText: (searchQuery) => t('commandPalette.noResults', { query: searchQuery }),
-    },
-    {
-      id: 'action',
-      label: t('commandPalette.tabs.action'),
-      groups: actionGroups,
-      searchableHint: t('commandPalette.actionSearchableHint'),
-      noResultsText: (searchQuery) => t('commandPalette.noResults', { query: searchQuery }),
-    },
-  ];
+  const tabs: readonly [CommandPaletteTab, ...CommandPaletteTab[]] = hasPermission(
+    activeRole,
+    Permission.STUDENT_READ,
+  )
+    ? [peopleTab, pageTab, actionTab]
+    : [pageTab, actionTab];
 
   function handleSelect(tabId: (typeof tabs)[number]['id'], groupId: string, resultId: string) {
     if (tabId === 'people') {
