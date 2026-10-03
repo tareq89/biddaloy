@@ -2,12 +2,11 @@ import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
-import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
+import { JwtPayload, Permission } from '@biddaloy/shared';
 import type { PresetApplyResult } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -23,7 +22,6 @@ export class PresetApplyController {
   constructor(private readonly apply: PresetApplyService) {}
 
   @Post('apply')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CURRICULUM_PRESET_APPLY)
   @ApiOperation({
     summary:

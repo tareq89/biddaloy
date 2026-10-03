@@ -20,11 +20,10 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ApiBody, ApiConsumes, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { UserRole, Permission, JwtPayload, toCsvContent } from '@biddaloy/shared';
+import { Permission, JwtPayload, toCsvContent } from '@biddaloy/shared';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -115,7 +114,6 @@ export class ImportController {
   ) {}
 
   @Post('validate')
-  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @RequirePermissions(Permission.BACKUP_MANAGE)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_UPLOAD_BYTES } }))
@@ -215,7 +213,6 @@ export class ImportController {
   }
 
   @Get('validate/:stagingId/errors.csv')
-  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @RequirePermissions(Permission.BACKUP_MANAGE)
   // Same budget as the validate call this replays: a staging id stays
   // readable for its 30-minute TTL, so the download deserves the limit too.

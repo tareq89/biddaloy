@@ -459,8 +459,8 @@ describe('Users & Teachers E2E [8.11.8]', () => {
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', TENANT_A)
         .send({ full_name: 'Should Not Exist', role: UserRole.TEACHER })
-        .expect(401);
-      expect(res.body.message).toContain('Requires one of roles');
+        .expect(403);
+      expect(res.body.message).toContain('Requires permission(s)');
     });
 
     it('denies a TEACHER removing a member (ADMIN only)', async () => {
@@ -468,8 +468,8 @@ describe('Users & Teachers E2E [8.11.8]', () => {
         .delete(`/api/v1/users/${MEMBER_A_ID}`)
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', TENANT_A)
-        .expect(401);
-      expect(res.body.message).toContain('Requires one of roles');
+        .expect(403);
+      expect(res.body.message).toContain('Requires permission(s)');
     });
 
     it('denies a TEACHER reading audit logs (ADMIN only)', async () => {
@@ -477,8 +477,8 @@ describe('Users & Teachers E2E [8.11.8]', () => {
         .get('/api/v1/audit-logs')
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', TENANT_A)
-        .expect(401);
-      expect(res.body.message).toContain('Requires one of roles');
+        .expect(403);
+      expect(res.body.message).toContain('Requires permission(s)');
     });
 
     it('rejects a request with no X-Tenant-ID header', async () => {
@@ -530,10 +530,7 @@ describe('Users & Teachers E2E [8.11.8]', () => {
       await dataSource.query('DELETE FROM users WHERE id = $1', [res.body.user.id]);
     });
 
-    // 401, not 403 — RolesGuard (context.guard.ts) throws UnauthorizedException
-    // for every role mismatch app-wide, not just here; that's an existing,
-    // systemic convention this test isn't the place to change.
-    it('a TEACHER cannot resend an invitation (401)', async () => {
+    it('a TEACHER cannot resend an invitation (403)', async () => {
       // Reuse the teacher token minted in the boundaries suite above.
       const loginRes = await request()
         .post('/api/v1/auth/login')
@@ -544,7 +541,7 @@ describe('Users & Teachers E2E [8.11.8]', () => {
         .post(`/api/v1/users/${MEMBER_A_ID}/invitation/resend`)
         .set('Authorization', `Bearer ${loginRes.body.access_token}`)
         .set('X-Tenant-ID', TENANT_A)
-        .expect(401);
+        .expect(403);
     });
 
     it('resending an invitation for a tenant-B user from tenant A returns 404', async () => {
