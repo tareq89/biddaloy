@@ -198,9 +198,9 @@ describe('staff performance (28.3.6)', () => {
     expect(res.body.classes).toEqual([]);
   });
 
-  it('TEACHER is denied (RolesGuard 401)', async () => {
-    // RolesGuard answers a role mismatch with 401 (same as the ACR routes); the ticket's "403" is that denial.
-    await get(TEACHER_USER, teacherToken, UserRole.TEACHER).expect(401);
+  it('TEACHER is denied (PermissionsGuard 403)', async () => {
+    // PermissionsGuard answers a missing ACR_READ with 403.
+    await get(TEACHER_USER, teacherToken, UserRole.TEACHER).expect(403);
   });
 
   it('the subject gets 404 on their own record (D2)', async () => {

@@ -11,10 +11,9 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags, getSchemaPath } from '@nestjs/swagger';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -36,7 +35,6 @@ export class StaffHrController {
   constructor(private readonly staffHrService: StaffHrService) {}
 
   @Get()
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.STAFF_HR_READ)
   @ApiOperation({ summary: 'List this tenant’s staff HR records, optionally filtered by user.' })
   async findAll(
@@ -47,7 +45,6 @@ export class StaffHrController {
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.STAFF_HR_READ)
   @ApiOperation({ summary: 'Read one staff HR record.' })
   async findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentTenant() tenant: { id: string }) {
@@ -55,7 +52,6 @@ export class StaffHrController {
   }
 
   @Post()
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.STAFF_HR_MANAGE)
   @ApiOperation({ summary: 'Create a staff HR record.' })
   async create(
@@ -67,7 +63,6 @@ export class StaffHrController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.STAFF_HR_MANAGE)
   @ApiOperation({ summary: 'Edit a staff HR record.' })
   async update(
@@ -80,7 +75,6 @@ export class StaffHrController {
   }
 
   @Get(':userId/current-designation')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.STAFF_HR_READ)
   @ApiOperation({ summary: "Read a staff member's current (open) designation history row." })
   @ApiOkResponse({
@@ -94,7 +88,6 @@ export class StaffHrController {
   }
 
   @Get(':userId/designation-history')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.STAFF_HR_READ)
   @ApiOperation({ summary: "List a staff member's whole designation history, newest first." })
   async designationHistory(
@@ -105,7 +98,6 @@ export class StaffHrController {
   }
 
   @Post(':userId/promote')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.STAFF_HR_MANAGE)
   @ApiOperation({ summary: 'Promote a staff member to a new designation, effective a given date.' })
   async promote(

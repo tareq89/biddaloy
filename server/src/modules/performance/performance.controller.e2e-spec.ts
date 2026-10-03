@@ -237,12 +237,12 @@ describe('performance (28.3.5)', () => {
       supertest(app.getHttpServer()).get(`${API}/performance/classes/${SEED_CLASS_1_ID}?${year}`),
       accountantToken,
       UserRole.ACCOUNTANT,
-    ).expect(401); /* RolesGuard denial */
+    ).expect(403); /* PermissionsGuard denial */
     await as(
       supertest(app.getHttpServer()).get(`${API}/performance/students/${studentId}?${year}`),
       accountantToken,
       UserRole.ACCOUNTANT,
-    ).expect(401); /* RolesGuard denial */
+    ).expect(403); /* PermissionsGuard denial */
   });
 
   it('ADMIN reads any class', async () => {

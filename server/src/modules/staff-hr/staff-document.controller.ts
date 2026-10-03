@@ -19,10 +19,9 @@ import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { Permission, StaffDocumentType, UserRole } from '@biddaloy/shared';
+import { Permission, StaffDocumentType } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -72,7 +71,6 @@ export class StaffDocumentController {
   ) {}
 
   @Post(':staffUserId/:documentType')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.STAFF_HR_MANAGE)
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: STAFF_DOCUMENT_MAX_FILE_SIZE } }))
   @ApiOperation({ summary: 'Upload (or replace) one staff document.' })
@@ -101,7 +99,6 @@ export class StaffDocumentController {
   }
 
   @Get(':staffUserId')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.STAFF_HR_READ)
   @ApiOperation({ summary: "List a staff member's uploaded documents." })
   async findAll(
@@ -112,7 +109,6 @@ export class StaffDocumentController {
   }
 
   @Get('download/:id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.STAFF_HR_READ)
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Download one staff document. Tenant-scoped — 404 across tenants.' })
