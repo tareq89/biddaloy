@@ -150,7 +150,7 @@ function MarksEntryPage() {
 
   const grid = gridQuery.data;
   const submitted = grid.state === 'SUBMITTED';
-  const readOnly = submitted;
+  const readOnly = submitted || !canEnter;
   const canReopen = submitted && role === UserRole.ADMIN;
 
   const blankCount = grid.students.reduce((count, student) => {
