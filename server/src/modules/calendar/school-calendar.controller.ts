@@ -11,10 +11,8 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { UserRole } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -46,7 +44,6 @@ export class SchoolCalendarController {
 
   @Get('holidays')
   // [10.4] G4 — reference-data read.
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT, UserRole.TEACHER)
   @RequirePermissions(Permission.ACADEMIC_STRUCTURE_READ)
   @ApiOperation({ summary: 'List holidays for the current tenant, paginated.' })
   listHolidays(
@@ -58,7 +55,6 @@ export class SchoolCalendarController {
 
   @Post('holidays')
   // [10.4] G1 — E tightened off: lacks ACADEMIC_YEAR_MANAGE.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ACADEMIC_YEAR_MANAGE)
   @ApiOperation({ summary: 'Create a holiday (or exam-day/event calendar entry).' })
   createHoliday(
@@ -71,7 +67,6 @@ export class SchoolCalendarController {
 
   @Patch('holidays/:id')
   // [10.4] G1 — E tightened off.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ACADEMIC_YEAR_MANAGE)
   @ApiOperation({ summary: 'Update a holiday.' })
   updateHoliday(
@@ -85,7 +80,6 @@ export class SchoolCalendarController {
 
   @Delete('holidays/:id')
   // [10.4] G1 — E tightened off.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ACADEMIC_YEAR_MANAGE)
   @ApiOperation({ summary: 'Soft-delete a holiday.' })
   removeHoliday(
@@ -99,17 +93,6 @@ export class SchoolCalendarController {
   @Get('working-days')
   // [17.2.1] D16/D19 — moved onto CALENDAR_READ; this reference-data read
   // belongs with the rest of the calendar surface, not academic structure.
-  // @Roles widened to match CALENDAR_READ's actual holder set (PARENT/
-  // STUDENT now included) — permission-matrix.e2e-spec.ts's "documents
-  // every deliberate @Roles narrowing" check requires the two to agree.
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.EXECUTIVE,
-    UserRole.ACCOUNTANT,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
   @RequirePermissions(Permission.CALENDAR_READ)
   @ApiOperation({
     summary:
