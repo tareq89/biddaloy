@@ -369,13 +369,8 @@ export class FeeController {
   }
 
   @Get('payments/guardian/:guardianId')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.OFFICE_STAFF,
-  )
+  // #1379 F8: OFFICE_STAFF holds FEE_READ but deliberately not PAYMENT_READ (D16).
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({ summary: "Get every payment recorded for a guardian's linked students." })
   findPaymentsByGuardian(

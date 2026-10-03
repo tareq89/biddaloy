@@ -19,8 +19,8 @@ const MAX_LIMIT = 10;
 
 /** Not a scope question, so an explicit list rather than `ROLE_SCOPE`: the
  * teacher/staff group has no dedicated `Permission` (see `useGlobalSearch`'s
- * doc). Mirrored client-side in `ui/src/hooks/palette-search.ts` — keep both
- * in step. COMMITTEE is deliberately absent (D9: no student/staff PII). */
+ * doc). The client only gates the whole call on `STUDENT_READ`; this list
+ * decides the staff group. COMMITTEE is deliberately absent (D9: no student/staff PII). */
 const STAFF_SEARCH_ROLES: readonly UserRole[] = [
   UserRole.ADMIN,
   UserRole.ACCOUNTANT,
