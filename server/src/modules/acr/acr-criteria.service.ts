@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuditAction } from '@biddaloy/shared';
@@ -24,6 +24,13 @@ export class AcrCriteriaService {
     });
     if (!latest) return { id: null, version: 0, criteria: [] };
     return this.toResponse(latest, tenantId);
+  }
+
+  /** One specific version (what an ACR was started on); tenant-scoped, 404 otherwise. */
+  async getByVersion(versionId: string, tenantId: string): Promise<AcrCriteriaSetResponseDto> {
+    const v = await this.versions.findOne({ where: { id: versionId, tenant_id: tenantId } });
+    if (!v) throw new NotFoundException('ACR criteria version not found');
+    return this.toResponse(v, tenantId);
   }
 
   async save(

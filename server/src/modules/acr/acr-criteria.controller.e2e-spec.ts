@@ -141,6 +141,15 @@ describe('ACR criteria E2E (28.2.1)', () => {
       [TENANT_A, v2.body.id],
     );
     expect(audit[0].n).toBe(1);
+
+    // D1: ?versionId reads that version's own criteria, not the latest.
+    const old = await as(adminToken, TENANT_A, 'get').query({ versionId: v1.body.id }).expect(200);
+    expect(old.body.version).toBe(1);
+    expect(old.body.criteria).toHaveLength(2);
+    // Other tenant: same id is a 404; teacher 401 first; malformed id 400.
+    await as(adminToken, TENANT_B, 'get').query({ versionId: v1.body.id }).expect(404);
+    await as(teacherToken, TENANT_A, 'get').query({ versionId: v1.body.id }).expect(401);
+    await as(adminToken, TENANT_A, 'get').query({ versionId: 'not-a-uuid' }).expect(400);
   });
 
   it('rejects a malformed body (400)', async () => {
