@@ -238,18 +238,36 @@ Mark the ticket blocked with the reason and report it immediately. Then
 **keep going**: using the dependency map, skip every later ticket in your
 queue that depends on it, and carry on with the ones that don't.
 
-**Never commit a blocked ticket's partial work.** A half-finished ticket sitting
-in a commit looks done to everyone downstream, and its branch would become the
-base of the next ticket in the chain. Stash it, then branch the next ticket
-from the last ticket that actually finished:
+**Never commit a blocked ticket's partial work onto your chain.** A
+half-finished ticket sitting in a commit looks done to everyone downstream,
+and its branch would become the base of the next ticket in the chain. What
+happens to the code depends on why it failed:
+
+| Why it failed | The code |
+|---|---|
+| Needs files outside your territory | **Keep** — side branch |
+| Tests stay red | **Keep** — side branch |
+| Blocked on missing work (`blocked-on: #N`) | Usually none was written. If some was, **keep** — side branch |
+| Plan was wrong | **Discard** — it carries the wrong plan forward |
+
+Keep = commit it to a side branch off your chain, push it, then come back:
 
 ```bash
-git stash push -u -m "blocked #<n>: <reason>"
+git switch -c epic/<slug>/<group>-blocked-<n>
+git add -A && git commit --no-verify -m "WIP #<n> (blocked): <reason>"
+git push -u origin epic/<slug>/<group>-blocked-<n>
+git switch <last-finished-ticket-branch>
 ```
 
-Report the stash name, so it can be inspected or dropped later. The last
-*committed* state of your chain must always be the last ticket that actually
-finished.
+Discard = `git restore --staged --worktree . && git clean -fd` — only
+after you've written down what was wrong with the plan, for the report.
+
+Don't use `git stash`: every worktree of a repo shares one stash list, so
+parallel lanes would mix their entries up.
+
+Either way, the next ticket branches from the last ticket that actually
+finished — your chain's last *committed* state is always a finished ticket.
+Report the side branch (or "discarded" + why) with the failure.
 
 Report failures as they happen rather than at the end. The parent may be able to
 re-partition around you while other lanes are still running.
@@ -279,8 +297,8 @@ gets one of two outcomes. Never just mention it and move on.
 - Design-system additions made.
 - Problems you fixed along the way (commit SHAs), and problems you couldn't
   fix, in the detailed form above.
-- Tickets you skipped, the stash name for each blocked one, and every
-  `--no-verify` commit or push with the hook's error.
+- Tickets you skipped, the side branch (or "discarded" + why) for each
+  failed one, and every `--no-verify` commit or push with the hook's error.
 - Which model ran the second review pass for each ticket (Opus for money tier,
   Sonnet for standard) — or in-agent, if nesting was unavailable — and whether
   the plan came from `issue-preflight`, `issue-planner`, or the implementer's

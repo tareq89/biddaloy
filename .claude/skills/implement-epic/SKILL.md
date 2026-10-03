@@ -407,6 +407,38 @@ that depends on it, in this wave and later ones, and carry on with the rest.
 Record each skip, and why, in the state file under `## Skipped`. Skipped
 issues stay open; they go in the PR description and the final report.
 
+### What happens to a failed ticket's code
+
+The worker never puts half-done code on its chain. It saves it to a pushed
+side branch `epic/<slug>/<group>-blocked-<n>` or discards it, depending on
+why it failed. Then you try to finish it **in this run**:
+
+| Why it failed | What you do |
+|---|---|
+| **Needs files outside its lane** | Right after that wave is integrated, rerun the ticket as a one-lane mini-wave on the accumulating branch, starting from its side branch. With no other lane running, territory no longer matters. It joins the PR like any ticket. |
+| **Tests stay red** | After the last wave, one more attempt: an Opus 5.5 implementer starts from the side branch with the failing output in hand. Green → it joins the open PR (or the next stacked one). Still red → comment on the issue. |
+| **Blocked on missing work** | Nothing to retry until the blocker merges. Comment on the issue. |
+| **Plan was wrong** | The code was discarded. Comment on the issue with what's wrong in the plan and the right approach. |
+
+A ticket that ends up finished also un-skips its dependents — run them in
+the same retry pass, in dependency order.
+
+**The comment on the issue**, for any ticket still unfinished at the end:
+
+```markdown
+## Not finished in Epic #<epic> — context for the next attempt
+- Code: `epic/<slug>/<group>-blocked-<n>` (pushed) — or "discarded: <why>"
+- What failed: <command + output>
+- Why it couldn't be finished in this run: <reason>
+- Next step: <e.g. resume from the branch, fix X in file:line>
+```
+
+The issue stays open. The next `/implement-issue <n>` or
+`/implement-epic resume` reads that comment and continues from the branch
+instead of starting over. The side branch's worktree is removed as soon as
+the code is pushed; the branch itself stays until the ticket ships, then
+goes with that PR's other branches.
+
 ## Step 2 — Plan the whole epic first (discovery)
 
 Build a **provisional** grouping from sources 1 and 3 — enough to order the
@@ -699,7 +731,9 @@ failure this repo hit across the 8.7.x PRs.
 A failed ticket blocks only the tickets that depend on it. Mark it `blocked`
 with the reason and skip it plus its dependents (see
 [Blockers](#blockers--found-up-front-not-mid-run)). The worker carries on
-with the rest of its queue from its last committed ticket. One bad ticket
+with the rest of its queue from its last committed ticket, and you retry the
+failed ticket later in the run (see
+[What happens to a failed ticket's code](#what-happens-to-a-failed-tickets-code)). One bad ticket
 never stalls the fleet, and never silently disappears. Give each worker the
 list of which tickets in its queue depend on which, so it can skip correctly.
 
