@@ -200,23 +200,25 @@ describe('Homework Bulk Upload E2E', () => {
 
     it('holds HOMEWORK_IMPORT but has no teacher_class_sections row for the row (access checked in validate)', async () => {
       const buffer = await buildXlsxBuffer([rowValues(REQUIRED_HEADERS)]);
-      const validateRes = await validate(buffer, { role: UserRole.TEACHER, as: teacherToken }).expect(
-        201,
-      );
+      const validateRes = await validate(buffer, {
+        role: UserRole.TEACHER,
+        as: teacherToken,
+      }).expect(201);
       expect(validateRes.body.hard_error_count).toBe(1);
       expect(validateRes.body.errors[0]).toMatchObject({ column: 'section' });
-      await commit(validateRes.body.staging_id, { role: UserRole.TEACHER, as: teacherToken }).expect(
-        409,
-      );
+      await commit(validateRes.body.staging_id, {
+        role: UserRole.TEACHER,
+        as: teacherToken,
+      }).expect(409);
     });
 
-    it('returns 401 for ACCOUNTANT (role not allowed)', async () => {
+    it('returns 403 for ACCOUNTANT (lacks HOMEWORK_IMPORT)', async () => {
       const buffer = await buildXlsxBuffer([rowValues(REQUIRED_HEADERS)]);
 
       const res = await validate(buffer, { role: UserRole.ACCOUNTANT, as: accountantToken }).expect(
-        401,
+        403,
       );
-      expect(res.body.message).toContain('Requires one of roles');
+      expect(res.body.message).toContain('Requires permission(s)');
     });
 
     it('an unknown class/section/subject blocks commit entirely', async () => {
