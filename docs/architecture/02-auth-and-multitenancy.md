@@ -166,13 +166,22 @@ flowchart LR
 which capability from `ROLE_PERMISSIONS` (`shared/src/enums/permissions.ts`)
 the route exercises. Both run today.
 
-After [10.4] every tenant route declares `@RequirePermissions` and
-`ROLE_PERMISSIONS` agrees with every `@Roles` list. `@Roles` now carries only
-the narrowings listed in `ROLE_NARROWINGS` (`permission-matrix.e2e-spec.ts`).
-It can retire route-by-route: give a narrowed route its own permission (e.g.
-`STUDENT_LIST` for the roster), grant that to the roles in `@Roles`, delete
-the `@Roles` line, delete the `ROLE_NARROWINGS` entry. When the list is
-empty, delete `RolesGuard`. Tracked as a follow-up, not part of Epic 10.0.
+Every tenant route declares `@RequirePermissions`, so the permission is the
+real gate. `@Roles` now exists only on routes listed in `ROLE_NARROWINGS` or
+`IDENTITY_SCOPED` (`permission-matrix.e2e-spec.ts`). Everywhere else it was
+redundant and was deleted (Epic 24.0).
+
+A request with a valid token but the wrong role gets **403**. A missing or
+bad token is still **401**.
+
+Example of a narrowing: `GET /homework`. PARENT and STUDENT hold
+`HOMEWORK_READ` (for their own child's view). This route is the teacher/admin
+list across all students, so it keeps `@Roles(ADMIN, TEACHER)` to keep
+families out.
+
+A narrowing can retire later: give the route its own permission, grant it to
+the roles in `@Roles`, delete the `@Roles` line and the `ROLE_NARROWINGS`
+entry. When the list is empty, delete `RolesGuard`.
 
 ### Step-up approval (16.2) — a second person's OK for a risky action
 
