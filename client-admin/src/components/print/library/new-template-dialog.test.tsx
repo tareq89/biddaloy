@@ -24,6 +24,13 @@ const suggestions: PrintSuggestion[] = [
     nameKey: 'b',
   },
   {
+    key: 'acr-a4-standard',
+    documentKind: 'ACR_ASSESSMENT',
+    orientation: 'portrait',
+    style: 'classic',
+    nameKey: 'd',
+  },
+  {
     key: 'staff-portrait-classic',
     documentKind: 'STAFF_ID_CARD',
     orientation: 'portrait',
@@ -98,6 +105,16 @@ describe('NewTemplateDialog', () => {
       screen.getByRole('button', { name: 'Create and open editor' }).hasAttribute('disabled'),
     ).toBe(true);
     expect(screen.getAllByRole('button', { name: /Classic · portrait/ })).toHaveLength(1);
+  });
+
+  it('labels the ACR design as an A4 page, not "Classic · portrait"', async () => {
+    serve();
+    const { user } = setup();
+    await user.click(await screen.findByRole('button', { name: /ACR \(confidential report\)/ }));
+
+    expect(await screen.findByRole('button', { name: /ACR assessment · A4/ })).toBeTruthy();
+    expect(screen.getByText('A4 page, front only, up to 30 criteria.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Classic · portrait/ })).toBeNull();
   });
 
   it('loads thumbnails through the authenticated client as data URLs, never a bare image URL', async () => {
