@@ -12,7 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -62,7 +62,7 @@ export class ExamTemplatesController {
 
   @Post()
   @ApiOperation({ summary: 'Create an empty exam template.' })
-  @ApiOkResponse({ type: ExamTemplateDetailDto })
+  @ApiCreatedResponse({ type: ExamTemplateDetailDto })
   create(
     @Body() dto: CreateExamTemplateDto,
     @CurrentTenant() tenant: Tenant,

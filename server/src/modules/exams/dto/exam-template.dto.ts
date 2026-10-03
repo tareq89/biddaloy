@@ -1,4 +1,5 @@
 import {
+  ArrayMaxSize,
   IsArray,
   IsEnum,
   IsInt,
@@ -64,6 +65,7 @@ export class ExamTemplateRowInputDto {
 
   /** Order in the array is the component `sequence`. */
   @IsArray()
+  @ArrayMaxSize(50)
   @ValidateNested({ each: true })
   @Type(() => ExamTemplateComponentInputDto)
   components: ExamTemplateComponentInputDto[];
@@ -84,6 +86,7 @@ export class UpdateExamTemplateDto {
   /** When present, replaces ALL component rows of the template. */
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(500)
   @ValidateNested({ each: true })
   @Type(() => ExamTemplateRowInputDto)
   rows?: ExamTemplateRowInputDto[];
