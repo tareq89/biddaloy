@@ -284,6 +284,85 @@ describe('performance (28.3.5)', () => {
     expect(perf.body.averageMarks).toBe(analysis.body.overall.average);
   });
 
+  it('class and student numbers equal Analysis across several exams (unweighted mean per exam)', async () => {
+    const other = await insertStudent(SEED_TENANT_ID, SEED_SECTION_1_ID);
+    await ds.query(
+      `INSERT INTO enrollments (id, tenant_id, student_id, class_id, section_id, academic_year_id, enrollment_status)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, 'ACTIVE')`,
+      [SEED_TENANT_ID, other, SEED_CLASS_1_ID, SEED_SECTION_1_ID, SEED_ACADEMIC_YEAR_ID],
+    );
+    const scaleId = (
+      await ds.query(`SELECT grading_scale_id AS id FROM results WHERE exam_id = $1`, [examId])
+    )[0].id;
+    const insertResult = (exam: string, student: string, marks: number, fail: boolean) =>
+      ds.query(
+        `INSERT INTO results
+           (exam_id, student_id, total_marks, gpa, grade, position, section_id, section_position,
+            is_fail, grading_scale_id, grading_scale_revision, rule_version, computed_at, tenant_id,
+            created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, 1, $6, 1, $7, $8, 1, 'nctb-v1', NOW(), $9, NOW(), NOW())`,
+        [
+          exam,
+          student,
+          marks,
+          fail ? 0 : 3.5,
+          fail ? 'F' : 'A-',
+          SEED_SECTION_1_ID,
+          fail,
+          scaleId,
+          SEED_TENANT_ID,
+        ],
+      );
+    // Exam 1 (seeded): studentId 90 pass. Add `other` failing there, so pass rate is 50.
+    await insertResult(examId, other, 30, true);
+    const exam2 = (
+      await ds.query(
+        `INSERT INTO exams (academic_year_id, class_id, name, kind, status, tenant_id, created_at, updated_at)
+         VALUES ($1, $2, 'Perf Exam 2', $3, $4, $5, NOW(), NOW()) RETURNING id`,
+        [
+          SEED_ACADEMIC_YEAR_ID,
+          SEED_CLASS_1_ID,
+          ExamKind.TERM,
+          ExamStatus.PUBLISHED,
+          SEED_TENANT_ID,
+        ],
+      )
+    )[0].id;
+    await insertResult(exam2, studentId, 55, false);
+    // Exam 2 has ONE row, so the per-exam mean (75 / 57.5) differs from a pooled mean (66.7 / 58.33).
+
+    const get = (path: string) =>
+      as(supertest(app.getHttpServer()).get(`${API}${path}`), adminToken, UserRole.ADMIN).expect(
+        200,
+      );
+    const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+    const r1 = (x: number) => Math.round(x * 10) / 10;
+    const r2 = (x: number) => Math.round(x * 100) / 100;
+
+    const pf = await Promise.all(
+      [examId, exam2].map((id) => get(`/exams/${id}/analysis/pass-fail`)),
+    );
+    const merit = await Promise.all(
+      [examId, exam2].map((id) => get(`/exams/${id}/analysis/merit`)),
+    );
+
+    const cls = await get(`/performance/classes/${SEED_CLASS_1_ID}?${year}`);
+    expect(cls.body.exams).toHaveLength(2);
+    expect(cls.body.passRate).toBe(75);
+    expect(cls.body.averageMarks).toBe(57.5);
+    expect(cls.body.passRate).toBe(r1(mean(pf.map((p) => p.body.overall.pass_pct))));
+    expect(cls.body.averageMarks).toBe(r2(mean(pf.map((p) => p.body.overall.average))));
+
+    const stu = await get(`/performance/students/${studentId}?${year}`);
+    const rows = merit.map((m) =>
+      m.body.rows.find((r: { student_id: string }) => r.student_id === studentId),
+    );
+    expect(stu.body.exams).toHaveLength(2);
+    expect(stu.body.passRate).toBe(r1(mean(rows.map((r) => (r.is_fail ? 0 : 100)))));
+    expect(stu.body.averageMarks).toBe(r2(mean(rows.map((r) => Number(r.total_marks)))));
+    expect(stu.body.averageGpa).toBe(r2(mean(rows.map((r) => Number(r.gpa)))));
+  });
+
   it('missing academicYearId is 400', async () => {
     await as(
       supertest(app.getHttpServer()).get(`${API}/performance/classes/${SEED_CLASS_1_ID}`),

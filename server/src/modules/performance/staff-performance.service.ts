@@ -16,6 +16,26 @@ import {
   StaffPerformanceResponseDto,
 } from './dto/performance.dto';
 
+const CLASS_OUTCOME_CONCURRENCY = 4;
+
+/** Runs fn over items with at most `limit` in flight; results keep input order. */
+async function mapLimit<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
+
 /**
  * [28.3.6] Staff performance. The controller gates the caller to ACR_READ.
  * Privacy (D2/D13): the subject 404s on their own record before any other
@@ -78,6 +98,8 @@ export class StaffPerformanceService {
     const teachers = await this.teacherRepo.find({
       where: { user_id: userId, tenant_id: tenantId },
       select: { id: true },
+      // A former (soft-deleted) teacher's historical classes stay visible to ACR_READ admins.
+      withDeleted: true,
     });
     if (!teachers.length) return [];
     const rows = await this.tcsRepo.find({
@@ -94,8 +116,8 @@ export class StaffPerformanceService {
         class: { tenant_id: tenantId, academic_year_id: range.academicYearId },
       },
     });
-    return Promise.all(
-      sections.map((s) => this.performance.computeClassOutcomes(tenantId, s.class_id, s.id, range)),
+    return mapLimit(sections, CLASS_OUTCOME_CONCURRENCY, (s) =>
+      this.performance.computeClassOutcomes(tenantId, s.class_id, s.id, range),
     );
   }
 }
