@@ -16,10 +16,8 @@ import { EvaluationsAndPerformance1790900000000 } from '../src/migrations/179090
 describe('StudentLifecycle1790800000000 (integration)', () => {
   let ds: DataSource;
   const migration = new StudentLifecycle1790800000000();
-  // The one later migration that builds on this one's tables: it adds
-  // `student_notes.rating`. Plain down()+up() here recreated `student_notes`
-  // without that column, breaking any later spec file on this worker's
-  // database (student-notes, evaluations-performance-migration; #1345).
+  // Later migration that adds student_notes.rating (+ other tables) on top of
+  // the table this one creates; see seedAndRoundTrip().
   const later = new EvaluationsAndPerformance1790900000000();
 
   const T1 = '39000000-0000-4000-8000-000000000001';
@@ -97,12 +95,18 @@ describe('StudentLifecycle1790800000000 (integration)', () => {
     }
     await seedStudentWithEnrollment(T2, ctx2, (n += 1), 'INACTIVE');
     // down() then up(): round-trip on a populated DB, and the backfill runs on real rows.
-    // Revert in real order (newest first), then re-apply, so the schema ends
-    // exactly as global setup left it.
+    // Revert the later migration first, as `migration:revert` would: this
+    // down() drops student_notes and up() recreates it WITHOUT `rating`, which
+    // 1790900000000 adds. Without the revert, every later spec file in this
+    // worker (student-notes, evaluations-performance) sees a rating-less table.
+    // Restore in `finally` so a failed step cannot poison them either.
     await run((qr) => later.down(qr));
-    await run((qr) => migration.down(qr));
-    await run((qr) => migration.up(qr));
-    await run((qr) => later.up(qr));
+    try {
+      await run((qr) => migration.down(qr));
+      await run((qr) => migration.up(qr));
+    } finally {
+      await run((qr) => later.up(qr));
+    }
   }
 
   afterAll(async () => {

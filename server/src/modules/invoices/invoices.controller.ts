@@ -14,6 +14,7 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import {
@@ -362,12 +363,15 @@ export class InvoicesController {
       const metered = await this.smsCreditService.isMetered(tenant.id);
       if (metered) {
         const segments = countSmsSegments(message).segments;
-        const reservationKey = `invoice-send:${id}:${guardian.id}`;
+        // Key convention (#1317): reserve `batch:<batchId>`, pass the bare batchId.
+        // Per-send id: a re-send must reserve (and be capped) on its own.
+        const sendId = randomUUID();
+        const batchId = `invoice-send:${id}:${guardian.id}:${sendId}`;
         const reservation = await this.smsCreditService.reserve(
           tenant.id,
           segments,
-          reservationKey,
-          { type: 'manual', id },
+          `batch:${batchId}`,
+          { type: 'batch', id: sendId },
         );
         if (!reservation.ok) {
           throw new ConflictException({
@@ -379,7 +383,7 @@ export class InvoicesController {
             },
           });
         }
-        smsCreditReservation = { batchId: reservationKey, segments };
+        smsCreditReservation = { batchId, segments };
       }
     }
 

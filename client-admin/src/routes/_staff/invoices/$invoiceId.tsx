@@ -389,6 +389,7 @@ function InvoiceDetailPage() {
                 type="button"
                 variant="outline"
                 className="justify-start"
+                disabled={sendInvoice.isPending}
                 onClick={() => pendingMedium !== null && handleSend(pendingMedium, guardian.id)}
               >
                 {guardian.full_name}

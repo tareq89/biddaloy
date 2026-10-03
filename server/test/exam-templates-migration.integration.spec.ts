@@ -81,16 +81,20 @@ describe('AddExamTemplatesAndClassSubjectGroup1791000000000 (integration)', () =
     // group_name silently drops its CHK_class_subjects_choice_group_exclusive,
     // leaving this worker's DB broken for later spec files.
     await later.down(queryRunner);
-    await migration.down(queryRunner);
-    expect(await tableNames()).toEqual([]);
-    expect(await groupNameColumn()).toEqual([]);
-    const enums: Array<{ typname: string }> = await dataSource.query(
-      `SELECT typname FROM pg_type WHERE typname IN ('exams_kind_enum', 'exam_components_kind_enum')`,
-    );
-    expect(enums).toHaveLength(2);
-
-    await migration.up(queryRunner);
-    await later.up(queryRunner);
+    try {
+      await migration.down(queryRunner);
+      expect(await tableNames()).toEqual([]);
+      expect(await groupNameColumn()).toEqual([]);
+      const enums: Array<{ typname: string }> = await dataSource.query(
+        `SELECT typname FROM pg_type WHERE typname IN ('exams_kind_enum', 'exam_components_kind_enum')`,
+      );
+      expect(enums).toHaveLength(2);
+    } finally {
+      // Always restore: a failed assertion/timeout must not leave class_subjects
+      // without choice_group for later spec files in this worker.
+      if ((await groupNameColumn()).length === 0) await migration.up(queryRunner);
+      await later.up(queryRunner);
+    }
     expect(await tableNames()).toEqual(['exam_template_components', 'exam_templates']);
     expect(await groupNameColumn()).toHaveLength(1);
   });

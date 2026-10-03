@@ -25,6 +25,7 @@
     "db:clear": "ts-node src/scripts/db-clear.ts",
     "db:reset": "ts-node src/scripts/db-reset.ts",
     "settings:reencrypt": "ts-node src/scripts/reencrypt-settings.ts",
+    "sms-credit:reconcile": "ts-node src/scripts/reconcile-sms-credit.ts",
     "docs:generate": "nest build && node dist/scripts/generate-openapi.js"
   },
   "dependencies": {

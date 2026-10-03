@@ -352,6 +352,7 @@ export class SmsCreditService {
     logKey: string,
     units: number,
     outcome: SettleOutcome,
+    reason?: string,
   ): Promise<void> {
     const settleKey = `${logKey}:settle`;
     try {
@@ -406,6 +407,7 @@ export class SmsCreditService {
           reference_type: SmsCreditLedgerReferenceType.BATCH,
           reference_id: reserveRow.reference_id,
           idempotency_key: settleKey,
+          reason: reason ?? null,
         });
       });
     } catch (err) {
