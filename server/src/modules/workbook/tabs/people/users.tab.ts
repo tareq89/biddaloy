@@ -46,6 +46,9 @@ const ROLE_PRECEDENCE: readonly UserRole[] = [
   UserRole.ACCOUNTANT,
   UserRole.EXECUTIVE,
   UserRole.TEACHER,
+  UserRole.EXAM_CONTROLLER,
+  UserRole.OFFICE_STAFF,
+  UserRole.COMMITTEE,
   UserRole.PARENT,
   UserRole.STUDENT,
 ];
