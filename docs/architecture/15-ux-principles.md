@@ -142,7 +142,7 @@ Administration
     shift/version/group field only shows once the tenant has 2+ entries in
     it] · Result templates library [19.0] · Backup & restore [have] · Website sync [N13]
   (Users merged into People › Staff — Epic 24.0; "Add user" is a dialog there)
-  Roles & access [24.0] · Audit logs [have] · Security [have]
+  Roles & access [have, 24.0 — read-only] · Audit logs [have] · Security [have]
 
 User menu → My account (profile, password, switch school/role, language, theme, sign out)
 ```
