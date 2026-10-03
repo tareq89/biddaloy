@@ -218,13 +218,16 @@ export const ROLE_TEST_USERS: readonly RoleTestUserSeed[] = [
   { email: 'parent@biddaloy.test', role: UserRole.PARENT, fullName: 'Parent User' },
   { email: 'student@biddaloy.test', role: UserRole.STUDENT, fullName: 'Student User' },
   { email: 'executive@biddaloy.test', role: UserRole.EXECUTIVE, fullName: 'Executive User' },
+  { email: 'office@biddaloy.test', role: UserRole.OFFICE_STAFF, fullName: 'Office Staff User' },
+  { email: 'exam@biddaloy.test', role: UserRole.EXAM_CONTROLLER, fullName: 'Exam Controller User' },
+  { email: 'committee@biddaloy.test', role: UserRole.COMMITTEE, fullName: 'Committee User' },
 ];
 
 /** Idempotent, same shape as `ensureSecondSchoolMembership`: find-or-
  * create (restoring a soft-deleted account with a fresh password rather
- * than erroring) then find-or-create the membership. All six share
+ * than erroring) then find-or-create the membership. All of them share
  * `passwordHash` — one already-required `SEED_ADMIN_PASSWORD` env var,
- * not six new ones, for local/dev seed accounts that exist to be logged
+ * not one per role, for local/dev seed accounts that exist to be logged
  * into by hand. */
 export async function ensureRoleTestUsers(
   userRepository: Repository<User>,
