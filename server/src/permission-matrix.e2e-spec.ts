@@ -1067,4 +1067,29 @@ describe('Permission matrix (regression)', () => {
       expect(violations).toEqual([]);
     });
   });
+
+  describe('#1361 new role defaults', () => {
+    const NEW_ROLES = [UserRole.OFFICE_STAFF, UserRole.EXAM_CONTROLLER, UserRole.COMMITTEE];
+
+    it('none of the new roles holds a fees capability that moves or unwinds money', () => {
+      const moneyMoving = [
+        Permission.FEE_APPROVE,
+        Permission.FEE_COLLECT,
+        Permission.PAYMENT_RECORD,
+        Permission.PAYMENT_REVERSE,
+        Permission.PAYMENT_REFUND,
+        Permission.INVOICE_DELETE,
+      ];
+      const violations = NEW_ROLES.flatMap((role) =>
+        moneyMoving
+          .filter((permission) => roleHasPermission(role, permission))
+          .map((permission) => `${role} holds ${permission}`),
+      );
+      expect(violations).toEqual([]);
+    });
+
+    it('COMMITTEE holds no STUDENT_READ (D9 — no student PII)', () => {
+      expect(roleHasPermission(UserRole.COMMITTEE, Permission.STUDENT_READ)).toBe(false);
+    });
+  });
 });
