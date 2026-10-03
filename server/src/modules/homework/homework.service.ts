@@ -90,7 +90,7 @@ export class HomeworkService {
   async create(dto: CreateHomeworkDto, ctx: CallerContext): Promise<Homework> {
     // class_id/subject_id must belong to this tenant before any access
     // check runs against them — assertCanManageClass short-circuits without
-    // a lookup for TENANT_WIDE_ROLES, so an ADMIN could otherwise create
+    // a lookup for tenant-scope roles (`hasTenantScope`), so an ADMIN could otherwise create
     // homework pointing at another tenant's class/subject id.
     await this.access.assertClassAndSubjectInTenant(dto.class_id, dto.subject_id, ctx.tenantId);
     // Creation is scoped to a class/subject, not a section/student yet, so
@@ -139,7 +139,7 @@ export class HomeworkService {
       }
     }
 
-    // Same object-level gate as mutations: TENANT_WIDE_ROLES see everything
+    // Same object-level gate as mutations: tenant-scope roles (`hasTenantScope`) see everything
     // in tenant, a TEACHER only sees homework for classes they're linked to
     // via teacher_class_sections (any section, any subject they teach).
     if (!this.access.isTenantWide(ctx.role)) {
