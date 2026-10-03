@@ -204,7 +204,49 @@ describe('IncidentNotifyListener', () => {
     expect(communications.enqueue.mock.calls[0][3]).toEqual({
       batchId: 'incident:inc-1',
       segments: units,
+      reserveKey: 'batch:incident:inc-1',
     });
+  });
+
+  it('reserves segments x recipients that have a phone; phoneless users are not counted', async () => {
+    const listener = build(SMS_ON, { metered: true });
+    const u = (id: string, phone?: string) => ({
+      user_id: id,
+      user: { id, status: 'ACTIVE', full_name: id, phone },
+    });
+    memberships.find.mockResolvedValue([u('a', '+1'), u('b', '+2'), u('c', '+3'), u('d')]);
+    await listener.handleIncidentCreated(EVENT);
+    const segments = communications.enqueue.mock.calls[0][3].segments;
+    expect(smsCredit.reserve.mock.calls[0][1]).toBe(segments * 3);
+    expect(communications.enqueue).toHaveBeenCalledTimes(3);
+    expect(push.sendToUser).toHaveBeenCalledTimes(4);
+  });
+
+  it('makes no reserve call when nobody has a phone', async () => {
+    const listener = build(SMS_ON, { metered: true });
+    memberships.find.mockResolvedValue([
+      { user_id: 'a', user: { id: 'a', status: 'ACTIVE', full_name: 'a' } },
+    ]);
+    await listener.handleIncidentCreated(EVENT);
+    expect(smsCredit.reserve).not.toHaveBeenCalled();
+    expect(communications.enqueue).not.toHaveBeenCalled();
+    expect(push.sendToUser).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends no SMS (push unaffected) when isMetered throws', async () => {
+    const listener = build(SMS_ON, { metered: true });
+    smsCredit.isMetered.mockRejectedValue(new Error('db down'));
+    await expect(listener.handleIncidentCreated(EVENT)).resolves.toBeUndefined();
+    expect(communications.enqueue).not.toHaveBeenCalled();
+    expect(push.sendToUser).toHaveBeenCalledTimes(1);
+  });
+
+  it('swallows an enqueue rejection while holding a reservation', async () => {
+    const listener = build(SMS_ON, { metered: true });
+    communications.enqueue.mockRejectedValue(new Error('queue down'));
+    await expect(listener.handleIncidentCreated(EVENT)).resolves.toBeUndefined();
+    expect(push.sendToUser).toHaveBeenCalledTimes(1);
+    expect(communications.enqueue.mock.calls[0][3].reserveKey).toBe('batch:incident:inc-1');
   });
 
   it('skips SMS on insufficient credit but still pushes', async () => {

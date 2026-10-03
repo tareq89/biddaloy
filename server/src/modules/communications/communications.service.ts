@@ -61,7 +61,7 @@ export class CommunicationsService {
     dto: SendCommunicationDto,
     tenantId: string,
     userId: string,
-    smsCreditReservation?: { batchId: string; segments: number },
+    smsCreditReservation?: { batchId: string; segments: number; reserveKey?: string },
   ): Promise<CommunicationResponseDto> {
     if (dto.student_id) {
       await this.studentService.findOne(dto.student_id, tenantId);
@@ -117,7 +117,9 @@ export class CommunicationsService {
         try {
           await this.smsCreditService.settlePart(
             tenantId,
-            smsCreditReservation.batchId,
+            // `reserveKey` = the exact key units were reserved under, for
+            // callers whose key differs from the bare batchId (incidents).
+            smsCreditReservation.reserveKey ?? smsCreditReservation.batchId,
             `log:${log.id}`,
             smsCreditReservation.segments,
             'RELEASE',

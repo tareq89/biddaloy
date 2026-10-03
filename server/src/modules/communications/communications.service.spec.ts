@@ -9,6 +9,7 @@ describe('CommunicationsService', () => {
   let queue: Record<string, ReturnType<typeof vi.fn>>;
   let studentService: Record<string, ReturnType<typeof vi.fn>>;
   let guardianService: Record<string, ReturnType<typeof vi.fn>>;
+  let smsCreditService: Record<string, ReturnType<typeof vi.fn>>;
 
   const TENANT_ID = 'tenant-1';
   const USER_ID = 'user-1';
@@ -36,12 +37,14 @@ describe('CommunicationsService', () => {
     queue = { add: vi.fn() };
     studentService = { findOne: vi.fn() };
     guardianService = { findOne: vi.fn() };
+    smsCreditService = { settlePart: vi.fn(async () => undefined) };
 
     service = new CommunicationsService(
       repo as any,
       queue as any,
       studentService as any,
       guardianService as any,
+      smsCreditService as any,
     );
   });
 
@@ -106,6 +109,47 @@ describe('CommunicationsService', () => {
 
       expect(repo.save).toHaveBeenLastCalledWith(
         expect.objectContaining({ status: CommunicationStatus.FAILED }),
+      );
+    });
+  });
+
+  describe('enqueue credit release on queue failure', () => {
+    const dto = {
+      medium: CommunicationMedium.SMS,
+      recipient_address: '01712345678',
+      recipient_name: 'Guardian',
+      message_body: 'Hello',
+    };
+
+    it('releases under reserveKey when given (incident batch)', async () => {
+      queue.add.mockRejectedValue(new Error('Redis unreachable'));
+      await expect(
+        service.enqueue(dto as any, TENANT_ID, USER_ID, {
+          batchId: 'incident:X',
+          reserveKey: 'batch:incident:X',
+          segments: 2,
+        }),
+      ).rejects.toThrow(InternalServerErrorException);
+      expect(smsCreditService.settlePart).toHaveBeenCalledWith(
+        TENANT_ID,
+        'batch:incident:X',
+        'log:log-1',
+        2,
+        'RELEASE',
+      );
+    });
+
+    it('without reserveKey still releases under the bare batchId (other callers)', async () => {
+      queue.add.mockRejectedValue(new Error('Redis unreachable'));
+      await expect(
+        service.enqueue(dto as any, TENANT_ID, USER_ID, { batchId: 'bare-1', segments: 1 }),
+      ).rejects.toThrow(InternalServerErrorException);
+      expect(smsCreditService.settlePart).toHaveBeenCalledWith(
+        TENANT_ID,
+        'bare-1',
+        'log:log-1',
+        1,
+        'RELEASE',
       );
     });
   });
