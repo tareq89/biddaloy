@@ -20,6 +20,13 @@ import { SmsCreditBalance } from './credits/entities/sms-credit-balance.entity';
 import { SmsCreditLedger } from './credits/entities/sms-credit-ledger.entity';
 import { FeeNotificationsListener } from './fee-notifications.listener';
 import {
+  balanceFor,
+  ledgerFor,
+  makeMeteredCreditService,
+  makeProcessor,
+  runJob,
+} from '@test/helpers/sms-credit-ledger.helper';
+import {
   CommunicationMedium,
   CommunicationStatus,
   CommunicationTrigger,
@@ -27,6 +34,7 @@ import {
   FeeGenerationSource,
   FeeType,
   PeriodType,
+  countSmsSegments,
 } from '@biddaloy/shared';
 
 /**
@@ -410,5 +418,148 @@ describe('FeeNotificationsListener (integration)', () => {
 
     const logs = await logRepo.find({ where: { guardian_id: guardianId } });
     expect(logs).toHaveLength(0);
+  });
+
+  describe('metered SMS credit (#1317)', () => {
+    let credits: SmsCreditService;
+    let failAdd: boolean;
+
+    function buildMeteredListener(): FeeNotificationsListener {
+      return new FeeNotificationsListener(
+        logRepo,
+        dataSource,
+        {
+          add: async (name: string, data: any) => {
+            if (failAdd) throw new Error('redis down');
+            queuedJobs.push({ name, data });
+          },
+        } as any,
+        feeGenerationsService,
+        {
+          getResolvedSettings: async () => ({
+            communications: { sms: { metering: 'PLATFORM', provider: 'test' } },
+            region: { locale: 'en-US' },
+          }),
+        } as any,
+        credits,
+      );
+    }
+
+    async function setup(): Promise<{ batchId: string; guardianId: string }> {
+      failAdd = false;
+      credits = makeMeteredCreditService(dataSource);
+      await credits.grant(TENANT_ID, 100, { idempotencyKey: 'seed:fee-notify' });
+      const batch = await createBatch();
+      const { studentId, guardianId } = await createStudentWithGuardian({ tenantId: TENANT_ID });
+      await createBill({
+        studentId,
+        feeGenerationId: batch.id,
+        feeStructureId: feeStructureMonthlyId,
+        amount: 4200,
+      });
+      return { batchId: batch.id, guardianId };
+    }
+
+    it('reserves under batch:<id>; worker DEBITs every log against that reserve', async () => {
+      const { batchId, guardianId } = await setup();
+      await buildMeteredListener().handleFeesGenerated({
+        tenantId: TENANT_ID,
+        feeGenerationId: batchId,
+      });
+
+      const log = (await logRepo.find({ where: { guardian_id: guardianId } }))[0];
+      expect(log.medium).toBe(CommunicationMedium.SMS);
+      const units = countSmsSegments(log.message_body).segments;
+      const bare = `fee-notify:${batchId}:sms`;
+
+      const reserves = (await ledgerFor(dataSource, TENANT_ID)).filter((r) => r.kind === 'RESERVE');
+      expect(reserves.map((r) => [r.idempotency_key, r.units])).toEqual([[`batch:${bare}`, units]]);
+      expect(await balanceFor(dataSource, TENANT_ID)).toEqual({
+        available: 100 - units,
+        reserved: units,
+      });
+      expect(queuedJobs.map((j) => j.data)).toEqual([
+        { logId: log.id, batchId: bare, segments: units },
+      ]);
+
+      await runJob(makeProcessor(dataSource, credits, 'ACCEPTED'), queuedJobs[0].data);
+
+      const debit = (await ledgerFor(dataSource, TENANT_ID)).filter((r) => r.kind === 'DEBIT');
+      expect(debit.map((r) => [r.idempotency_key, r.units])).toEqual([
+        [`log:${log.id}:settle`, units],
+      ]);
+      expect(await balanceFor(dataSource, TENANT_ID)).toEqual({
+        available: 100 - units,
+        reserved: 0,
+      });
+      expect(((await logRepo.findOneByOrFail({ id: log.id })).metadata as any).credit).toBe(
+        'DEBITED',
+      );
+    });
+
+    it('REJECTED provider outcome releases the reservation', async () => {
+      const { batchId, guardianId } = await setup();
+      await buildMeteredListener().handleFeesGenerated({
+        tenantId: TENANT_ID,
+        feeGenerationId: batchId,
+      });
+      const log = (await logRepo.find({ where: { guardian_id: guardianId } }))[0];
+
+      await runJob(makeProcessor(dataSource, credits, 'REJECTED'), queuedJobs[0].data);
+
+      expect((await ledgerFor(dataSource, TENANT_ID)).some((r) => r.kind === 'RELEASE')).toBe(true);
+      expect(await balanceFor(dataSource, TENANT_ID)).toEqual({ available: 100, reserved: 0 });
+      expect(((await logRepo.findOneByOrFail({ id: log.id })).metadata as any).credit).toBe(
+        'RELEASED',
+      );
+    });
+
+    it('queue.add failure holds the units; a replay re-claims the same log and settles it', async () => {
+      const { batchId, guardianId } = await setup();
+      const listener = buildMeteredListener();
+      failAdd = true;
+      await listener.handleFeesGenerated({ tenantId: TENANT_ID, feeGenerationId: batchId });
+
+      const failed = (await logRepo.find({ where: { guardian_id: guardianId } }))[0];
+      expect(failed.status).toBe(CommunicationStatus.FAILED);
+      expect((failed.metadata as any).reason).toBe('ENQUEUE_FAILED');
+      const units = countSmsSegments(failed.message_body).segments;
+      expect(await balanceFor(dataSource, TENANT_ID)).toEqual({
+        available: 100 - units,
+        reserved: units,
+      });
+
+      failAdd = false;
+      await listener.handleFeesGenerated({ tenantId: TENANT_ID, feeGenerationId: batchId });
+
+      const logs = await logRepo.find({ where: { guardian_id: guardianId } });
+      expect(logs.map((l) => l.id)).toEqual([failed.id]);
+      const reserves = (await ledgerFor(dataSource, TENANT_ID)).filter((r) => r.kind === 'RESERVE');
+      expect(reserves).toHaveLength(1);
+
+      await runJob(makeProcessor(dataSource, credits, 'ACCEPTED'), queuedJobs[0].data);
+      expect(
+        (await ledgerFor(dataSource, TENANT_ID)).filter((r) => r.kind === 'DEBIT'),
+      ).toHaveLength(1);
+      expect(await balanceFor(dataSource, TENANT_ID)).toEqual({
+        available: 100 - units,
+        reserved: 0,
+      });
+    });
+
+    it("leaves another tenant's balance and ledger untouched", async () => {
+      const { batchId } = await setup();
+      await credits.grant(OTHER_TENANT_ID, 50, { idempotencyKey: 'seed:fee-notify-other' });
+      const otherBefore = await ledgerFor(dataSource, OTHER_TENANT_ID);
+
+      await buildMeteredListener().handleFeesGenerated({
+        tenantId: TENANT_ID,
+        feeGenerationId: batchId,
+      });
+      await runJob(makeProcessor(dataSource, credits, 'ACCEPTED'), queuedJobs[0].data);
+
+      expect(await balanceFor(dataSource, OTHER_TENANT_ID)).toEqual({ available: 50, reserved: 0 });
+      expect(await ledgerFor(dataSource, OTHER_TENANT_ID)).toEqual(otherBefore);
+    });
   });
 });

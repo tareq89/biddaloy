@@ -204,7 +204,6 @@ describe('IncidentNotifyListener', () => {
     expect(communications.enqueue.mock.calls[0][3]).toEqual({
       batchId: 'incident:inc-1',
       segments: units,
-      reserveKey: 'batch:incident:inc-1',
     });
   });
 
@@ -246,7 +245,7 @@ describe('IncidentNotifyListener', () => {
     communications.enqueue.mockRejectedValue(new Error('queue down'));
     await expect(listener.handleIncidentCreated(EVENT)).resolves.toBeUndefined();
     expect(push.sendToUser).toHaveBeenCalledTimes(1);
-    expect(communications.enqueue.mock.calls[0][3].reserveKey).toBe('batch:incident:inc-1');
+    expect(communications.enqueue.mock.calls[0][3].batchId).toBe('incident:inc-1');
   });
 
   it('skips SMS on insufficient credit but still pushes', async () => {

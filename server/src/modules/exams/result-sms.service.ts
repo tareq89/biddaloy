@@ -1,7 +1,8 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { randomUUID } from 'node:crypto';
 import { Repository, IsNull, In } from 'typeorm';
 import {
   AuditAction,
@@ -9,6 +10,7 @@ import {
   CommunicationStatus,
   CommunicationTrigger,
   ExamStatus,
+  countSmsSegments,
 } from '@biddaloy/shared';
 import { Exam } from './entities/exam.entity';
 import { Result } from './entities/result.entity';
@@ -34,6 +36,8 @@ export interface ResultSmsOutcome {
  */
 @Injectable()
 export class ResultSmsService {
+  private readonly logger = new Logger(ResultSmsService.name);
+
   constructor(
     @InjectRepository(Exam)
     private readonly examRepo: Repository<Exam>,
@@ -78,7 +82,7 @@ export class ResultSmsService {
     const studentById = new Map(students.map((s) => [s.id, s]));
 
     const skipped: ResultSmsOutcome['skipped'] = [];
-    const jobs: Array<{ log: CommunicationLog }> = [];
+    const jobs: Array<{ log: CommunicationLog; segments: number }> = [];
 
     for (const result of results) {
       const student = studentById.get(result.student_id);
@@ -93,6 +97,7 @@ export class ResultSmsService {
       }
 
       const body = `${student.full_name}'s result for "${exam.name}": GPA ${result.gpa}, Grade ${result.grade}${result.is_fail ? ' (FAIL)' : ''}.`;
+      const segments = countSmsSegments(body).segments;
       for (const guardian of guardians) {
         // One log per guardian per student — the same "one message per
         // recipient" shape reminders.service.ts uses, not one per exam.
@@ -109,6 +114,7 @@ export class ResultSmsService {
             status: CommunicationStatus.QUEUED,
             trigger: CommunicationTrigger.RESULT_SMS,
           }),
+          segments,
         });
       }
     }
@@ -117,20 +123,25 @@ export class ResultSmsService {
       return { queued: 0, skipped };
     }
 
+    // Key convention (#1317): reserve `batch:<batchId>`, jobs carry the bare
+    // batchId. Credit is per segment (one credit = one segment).
+    const sendId = randomUUID();
+    const batchId = `exam-result-sms:${examId}:${sendId}`;
+    const totalSegments = jobs.reduce((sum, j) => sum + j.segments, 0);
     const metered = await this.smsCreditService.isMetered(tenantId);
     if (metered) {
       const reservation = await this.smsCreditService.reserve(
         tenantId,
-        jobs.length,
-        `exam-result-sms:${examId}`,
-        { type: 'manual', id: examId },
+        totalSegments,
+        `batch:${batchId}`,
+        { type: 'batch', id: sendId },
       );
       if (!reservation.ok) {
         throw new ConflictException({
           message: "Insufficient SMS credit to send this exam's result SMS.",
           details: {
             code: INSUFFICIENT_SMS_CREDIT,
-            required: jobs.length,
+            required: totalSegments,
             available: reservation.available,
           },
         });
@@ -139,11 +150,34 @@ export class ResultSmsService {
 
     let queued = 0;
     for (const job of jobs) {
+      // ponytail: a log-save failure mid-loop leaves the unsent shares reserved (reconcile tool lists it); per-job try + release if it ever happens.
       const saved = await this.logRepo.save(job.log);
       try {
-        await this.queue.add('send', { logId: saved.id });
+        await this.queue.add('send', {
+          logId: saved.id,
+          ...(metered ? { batchId, segments: job.segments } : {}),
+        });
         queued += 1;
       } catch {
+        if (metered) {
+          // No job will ever settle this log's share, so release it here.
+          try {
+            await this.smsCreditService.settlePart(
+              tenantId,
+              `batch:${batchId}`,
+              `log:${saved.id}`,
+              job.segments,
+              'RELEASE',
+            );
+          } catch (releaseErr) {
+            this.logger.error({
+              msg: 'sms credit release on enqueue failure failed — reservation left stranded',
+              communication_log_id: saved.id,
+              tenant_id: tenantId,
+              error: releaseErr instanceof Error ? releaseErr.message : String(releaseErr),
+            });
+          }
+        }
         saved.status = CommunicationStatus.FAILED;
         saved.metadata = { ...saved.metadata, error: 'Failed to enqueue for delivery' };
         await this.logRepo.save(saved);

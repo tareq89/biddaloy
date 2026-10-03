@@ -80,7 +80,7 @@ export class CommunicationsProcessor extends WorkerHost {
    * accepted), leaving `log` untouched so the existing dispatch continues
    * exactly as it did before this method existed.
    */
-  private async tryPushFirst(log: CommunicationLog): Promise<boolean> {
+  private async tryPushFirst(job: Job<SendJobData>, log: CommunicationLog): Promise<boolean> {
     if (log.trigger !== CommunicationTrigger.AUTOMATED || !log.guardian_id) {
       return false;
     }
@@ -106,6 +106,11 @@ export class CommunicationsProcessor extends WorkerHost {
       return false;
     }
 
+    // Read BEFORE `log.medium` is rewritten to PUSH below: a metered SMS job
+    // (fee / payment / calendar notices are AUTOMATED and carry batchId +
+    // segments) reserved credit for an SMS that push now replaces.
+    const settleable = this.isSettleableSmsBatchJob(job, log);
+
     log.medium = PUSH_MEDIUM;
     // No endpoint, no secret — just which user, so this log can never leak
     // a push subscription's endpoint/keys into an audit trail.
@@ -117,11 +122,12 @@ export class CommunicationsProcessor extends WorkerHost {
       transient: result.transient,
       pruned: result.pruned,
     };
-    // settle(), not settleSmsCredit — this path never reserved SMS credit
-    // in the first place (isSettleableSmsBatchJob requires job.data.batchId,
-    // which only the bulk-reminder flow sets; AUTOMATED jobs never carry
-    // one), so there is nothing to release or debit.
     await this.settle(log, 'success');
+    // Push replaced the SMS, so no SMS went out: give this log's share of the
+    // batch reservation back instead of leaving it reserved forever (#1317).
+    if (settleable) {
+      await this.settleSmsCredit(job, log, 'RELEASE');
+    }
     return true;
   }
 
@@ -292,6 +298,16 @@ export class CommunicationsProcessor extends WorkerHost {
           log,
           log.status === CommunicationStatus.SENT ? 'DEBIT' : 'RELEASE',
         );
+      } else if (
+        !credit &&
+        log.medium === PUSH_MEDIUM &&
+        typeof job.data.batchId === 'string' &&
+        job.data.batchId.length > 0 &&
+        typeof job.data.segments === 'number'
+      ) {
+        // Push delivered instead of the reserved SMS and the worker died
+        // before releasing (see `tryPushFirst`): finish the release.
+        await this.settleSmsCredit(job, log, 'RELEASE');
       }
       return;
     }
@@ -313,7 +329,7 @@ export class CommunicationsProcessor extends WorkerHost {
       return;
     }
 
-    if (await this.tryPushFirst(log)) {
+    if (await this.tryPushFirst(job, log)) {
       return;
     }
 

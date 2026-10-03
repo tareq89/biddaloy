@@ -152,10 +152,11 @@ elsewhere (e.g. `guardian.preferred_communication`), because a guardian
 can never _choose_ push as a preferred channel the way they can choose
 SMS or email.
 
-No SMS credit is reserved or debited on the push path: credit reservation
-only happens for the bulk-reminder flow's _metered_ SMS batches
-(`isSettleableSmsBatchJob` requires `job.data.batchId`, which `AUTOMATED`
-jobs never carry), so there is nothing to release when push succeeds.
+When push is accepted instead of SMS, the SMS credit reserved for that
+log (fee, payment-receipt and calendar notices reserve credit and carry
+`batchId` + `segments` in the job) is **released** (`settlePart(..., 'RELEASE')`,
+`metadata.credit = RELEASED`), because no SMS goes out. Logs with no
+reservation (unmetered tenant, no `batchId`) touch nothing.
 
 ## Suspended tenants: queued work is cancelled, not paused
 
@@ -224,6 +225,42 @@ etc.) is **not** one of these outcomes: it's invisible to this processor,
 which only sees the gateway's immediate accept/reject response. It stays
 billed — this mirrors how a real carrier charges: you pay to hand the
 message to the network, not for confirmed handset delivery.
+
+### Key convention (#1317)
+
+Every metered-SMS producer follows one rule, so the worker can find the
+reservation it settles:
+
+```mermaid
+flowchart LR
+    P["Producer picks a bare batchId\nfee-notify:G1:sms"] -->|"reserve key"| R["RESERVE\nbatch:fee-notify:G1:sms"]
+    P -->|"job data"| J["{ logId, batchId: fee-notify:G1:sms, segments }"]
+    J --> W["Worker settlePart(\nbatch:fee-notify:G1:sms,\nlog:LOG_ID)"]
+    R -.same key.- W
+```
+
+| Producer              | Bare `batchId` (job) / reserve key = `batch:` + it |
+| --------------------- | -------------------------------------------------- |
+| Bulk reminders        | `<batch.id>`                                       |
+| Calendar notify       | `<batch.id>`                                       |
+| Incident SMS          | `incident:<incidentId>`                            |
+| Fee notification      | `fee-notify:<feeGenerationId>:sms`                 |
+| Payment receipt       | `payment-notify:<paymentId>:<guardianId>`          |
+| Invoice send (manual) | `invoice-send:<invoiceId>:<guardianId>:<sendId>`   |
+| Exam result SMS       | `exam-result-sms:<examId>:<sendId>`                |
+
+Rules:
+
+- A manual re-send gets its own `sendId` (and its own `reference_id`), so
+  each send reserves and is capped on its own.
+- `CommunicationsService.enqueue` releases the reservation itself when no job
+  will ever exist: the log save or lookup throws (`enqueue-failed:<uuid>` part
+  key) or `queue.add` throws (`log:<id>`). The exam-result loop does the same
+  for its failed `queue.add`.
+- The fee and payment listeners do **not** release on a `queue.add` failure.
+  The log is marked `ENQUEUE_FAILED` and a replayed event re-claims that same
+  log id, so the units stay held for the replay's settle. Releasing would make
+  the re-sent SMS free.
 
 ### Where settlement happens, and why it's outside the log-save transaction
 

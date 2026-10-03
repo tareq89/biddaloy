@@ -242,7 +242,8 @@ export class InvoiceNotificationsListener implements OnModuleInit {
         const reservation = await this.smsCreditService.reserve(
           tenantId,
           segments,
-          reservationKey,
+          // Key convention (#1317): reserve `batch:<id>`, the job carries the bare id.
+          `batch:${reservationKey}`,
           {
             type: 'log',
             id: null,
@@ -287,6 +288,8 @@ export class InvoiceNotificationsListener implements OnModuleInit {
           ...(reservationKey && segments ? { batchId: reservationKey, segments } : {}),
         });
       } catch (error) {
+        // No release here on purpose: a replay re-claims this log id and its
+        // settle draws on the units still held (releasing would make it free).
         this.logger.warn(
           `Failed to enqueue payment-notification log ${log.id} for payment ${paymentId}: ${String(error)}`,
         );
