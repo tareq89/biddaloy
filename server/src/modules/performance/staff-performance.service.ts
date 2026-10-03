@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import { STAFF_ROLES } from '@biddaloy/shared';
+import { EMPLOYEE_ROLES } from '@biddaloy/shared';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
@@ -64,7 +64,7 @@ export class StaffPerformanceService {
     // D2: first, before ACR/incidents (which would silently filter).
     if (userId === callerId) throw new NotFoundException('Staff member not found');
     const member = await this.memberships.findOne({
-      where: { user_id: userId, tenant_id: tenantId, role: In(STAFF_ROLES as unknown as string[]) },
+      where: { user_id: userId, tenant_id: tenantId, role: In([...EMPLOYEE_ROLES]) },
     });
     if (!member) throw new NotFoundException('Staff member not found');
     const range = await this.performance.resolveRange(tenantId, q.academicYearId, q.termId);

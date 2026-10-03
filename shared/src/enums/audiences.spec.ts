@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  EMPLOYEE_ROLES,
   GUARDIAN_ROLES,
   hasTenantScope,
   isGuardianRole,
@@ -55,5 +56,11 @@ describe('ROLE_SCOPE [#1358]', () => {
     expect((STAFF_ROLES as readonly string[]).includes(UserRole.COMMITTEE)).toBe(true);
     expect(hasTenantScope(UserRole.COMMITTEE)).toBe(true);
     expect(hasTenantScope(UserRole.TEACHER)).toBe(false);
+  });
+
+  it('EMPLOYEE_ROLES is every staff role except COMMITTEE (D17)', () => {
+    expect([...EMPLOYEE_ROLES].sort()).toEqual(
+      STAFF_ROLES.filter((r) => r !== UserRole.COMMITTEE).sort(),
+    );
   });
 });
