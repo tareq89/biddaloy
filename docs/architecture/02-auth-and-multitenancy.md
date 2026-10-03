@@ -159,6 +159,11 @@ caller is acting as.
 | `PARENT`          | Guardian                                | `FAMILY`                  |
 | `STUDENT`         | Learner                                 | `SELF`                    |
 
+`SUPER_ADMIN`'s `TENANT` scope does not open a school's own data (marks,
+attendance, homework, performance): `hasTenantDataScope` in
+`shared/src/enums/audiences.ts` holds it out until product decides (#1362
+D-N). Tenant scope is always paired with the route's permission.
+
 These are code roles, not runtime-editable ones: each role is wired into
 guards, menus and data scope at build time, so a school cannot invent one
 (decision D1 of [Epic #786](https://github.com/tareq89/biddaloy/issues/786)).
