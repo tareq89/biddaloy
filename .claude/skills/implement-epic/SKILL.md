@@ -150,47 +150,90 @@ prompt, for the same reason: it has to reach every agent at every level.
 ## Network outages
 
 A run spans hours, and the network will drop. When it does, **wait and
-resume — never fail the ticket.** This rule is for the orchestrator and every
-agent it starts, at every level.
+resume — never fail the work.** This rule is for the orchestrator and every
+agent it starts, at every level. Two kinds of call can fail:
 
-**What counts as offline:** a network command (`git fetch/push`, `gh`,
-`yarn install`, `curl`) fails with a connection error — `Could not resolve
-host`, `ENOTFOUND`, `ECONNREFUSED`, `ETIMEDOUT`, `Network is unreachable`,
-`ssh: connect to host … timed out`. Confirm with one probe:
+| Failed call | Looks like |
+|---|---|
+| **Tool network call** — `git fetch/push`, `gh`, `yarn install`, `curl` | `Could not resolve host`, `ENOTFOUND`, `ECONNREFUSED`, `ETIMEDOUT`, `Network is unreachable`, `ssh: connect to host … timed out` |
+| **LLM call** — a dispatched agent returns an API error instead of a report | `API Error`, `Connection error`, `Request timed out`, `fetch failed`, `overloaded` / 529, any 5xx |
+
+Claude Code already retries a failed LLM call a few times on its own; this
+rule starts when that error finally surfaces.
+
+**Not an outage — handle normally:** an auth error, a 4xx from GitHub, a red
+CI job, a usage-limit message. An SSH drop mid-`pre-push` hook while the probe
+below says online is also not an outage; retry the push once.
+
+### The probe
+
+One command checks both GitHub and the LLM API. Plain `curl` (no `-f`) exits
+0 on any HTTP answer, even a 404 — only "can't connect" fails:
 
 ```bash
-curl -sfI --max-time 10 https://api.github.com >/dev/null && echo online || echo offline
+curl -sI --max-time 10 https://api.github.com >/dev/null \
+  && curl -sI --max-time 10 https://api.anthropic.com >/dev/null \
+  && echo online || echo offline
 ```
 
-An auth error, a 4xx, or a red CI job is **not** offline — handle it normally.
-An SSH drop mid-`pre-push` hook while the probe says `online` is also not
-offline; retry the push once.
+### When a call fails
 
-**When offline:**
+```mermaid
+flowchart TD
+    F["call failed\n(tool or LLM)"] --> P{probe}
+    P -->|online| N["not an outage —\nhandle the error normally"]
+    P -->|offline| W["wait: probe every 5 min\n(keep doing local work)"]
+    W -->|online| R{which call?}
+    R -->|tool| T["re-run the exact command"]
+    R -->|"agent's LLM call"| A["SendMessage the same agent:\n'network is back, continue where you stopped'"]
+    A -->|resume fails| D["re-dispatch a fresh agent on the\nsame worktree + branch, same queue position"]
+```
 
-1. Wait with a check every 5 minutes, until the probe passes. Use the Monitor
-   tool with an until-loop; if Monitor isn't available, run it as a
-   background Bash command and wait for it to exit:
+1. **Wait**, probing every 5 minutes. Use the Monitor tool with this loop; if
+   Monitor isn't available, run it as a background Bash command and wait for
+   it to exit:
 
    ```bash
-   until curl -sfI --max-time 10 https://api.github.com >/dev/null; do sleep 300; done; echo online
+   until curl -sI --max-time 10 https://api.github.com >/dev/null \
+     && curl -sI --max-time 10 https://api.anthropic.com >/dev/null; do sleep 300; done; echo online
    ```
 
 2. While waiting, keep doing local work that needs no network (edit, unit
    tests, lint). Don't start anything that will need the network halfway.
-3. Once online, re-run the exact command that failed, then carry on from
-   there.
+3. **Resume:**
+   - tool call → re-run the exact command that failed.
+   - an agent's LLM call → `SendMessage` the same agent (by its name or
+     agent id) to continue. It keeps its transcript and its worktree, so it
+     picks up mid-ticket. Only if that fails, dispatch a fresh agent of the
+     same type on the **same** worktree and branch, told which ticket and
+     step to resume from (the state file and `git log` say where it was).
 
-Never mark a ticket `blocked`, count a step-8 fix round, re-dispatch an agent,
-or skip a step because of an outage. Note the outage window in the state file.
-If the agent itself dies (its API call fails), `resume` picks the run up from
-the state file.
+Never mark a ticket `blocked`, count a step-8 fix round, or skip a step
+because of an outage. Note each outage window in the state file.
 
-Batch independent tool calls into one message — dispatch all of a wave's
-group agents in a single turn, and fetch every sub-issue body in one batched
-call at Step 0 rather than one `gh issue view` per turn. Every group agent
-pays its own fixed context floor; the orchestrator's job is to keep its own
-turn count low so that floor isn't re-read more than necessary.
+### When the orchestrator's own LLM call fails
+
+Nothing inside the session can react to that — the turn just ends. So a
+timer does it from outside the turn. While the run is working on its own
+(not stopped at a gate for the user), keep a recurring job alive:
+
+```
+CronCreate  cron: "*/5 * * * *"  prompt: "/implement-epic resume"
+```
+
+- Create it when work starts (after GATE 1, or at the start of `resume`).
+  Record its job id in the state file.
+- It only fires when the session is idle. If the session went idle because
+  an LLM call failed, the next fire is a fresh LLM call that resumes the run
+  from the state file — the same 5-minute recheck.
+- **Delete it (`CronDelete`) whenever the run stops for the user** — at any
+  gate, at the end of the run, on a hard error — and create it again when
+  work restarts. Otherwise it fires every 5 minutes while you wait on a human.
+- When it fires and the run is actually still busy (an agent or a wait loop
+  is running), answer in one line and end the turn — don't re-dispatch
+  anything.
+- Cron jobs live only in this session and expire after 7 days. If the whole
+  session dies, the user restarts with `/implement-epic resume`.
 
 ## Architecture
 
@@ -953,8 +996,10 @@ session model and report it. Never re-plan a ticket that already has a current
 - After any PR of the run merges to `main` — by you or by the user — tick
   its issues' acceptance boxes and close them. Check for manual merges every
   turn.
-- A network outage is a wait, not a failure: probe every 5 minutes, resume
-  the failed command when back online.
+- A network outage is a wait, not a failure — for tool calls and LLM calls
+  alike: probe GitHub + the LLM API every 5 minutes, then resume the failed
+  command or agent. Keep the 5-minute resume cron alive while working; delete
+  it at every stop for the user.
 - Never let a ticket proceed to commit/integration on an **alarming** plan-drift
   verdict from `issue-reviewer` without surfacing it to the user first — an
   alarming verdict means the diff may not be what was actually approved at

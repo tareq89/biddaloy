@@ -33,25 +33,38 @@ and theirs merge cleanly at the end.
 
 ## Network outages
 
-If a network command (`git fetch/push`, `gh`, `yarn install`, `curl`) fails
-with a connection error — `Could not resolve host`, `ENOTFOUND`,
-`ECONNREFUSED`, `ETIMEDOUT`, `Network is unreachable`, an SSH connect
-timeout — you are probably offline. **Wait, don't fail.**
+Two kinds of call can fail because the network dropped. **Wait, don't fail.**
 
-1. Wait, checking every 5 minutes, until GitHub answers. Use the Monitor tool
-   with this loop, or run it as a background Bash command and wait for it to
-   exit:
+- **Tool network call** (`git fetch/push`, `gh`, `yarn install`, `curl`):
+  `Could not resolve host`, `ENOTFOUND`, `ECONNREFUSED`, `ETIMEDOUT`,
+  `Network is unreachable`, an SSH connect timeout.
+- **LLM call** — an agent you dispatched returns an API error instead of a
+  report: `API Error`, `Connection error`, `Request timed out`,
+  `fetch failed`, `overloaded` / 529, any 5xx.
+
+Auth errors, 4xx responses and usage-limit messages are not outages.
+
+1. Wait, probing every 5 minutes until both GitHub and the LLM API answer.
+   Use the Monitor tool with this loop, or run it as a background Bash
+   command and wait for it to exit:
 
    ```bash
-   until curl -sfI --max-time 10 https://api.github.com >/dev/null; do sleep 300; done; echo online
+   until curl -sI --max-time 10 https://api.github.com >/dev/null \
+     && curl -sI --max-time 10 https://api.anthropic.com >/dev/null; do sleep 300; done; echo online
    ```
 
 2. Meanwhile keep doing local work (edits, tests, lint).
-3. When it prints `online`, re-run the exact command that failed and carry on.
+3. When it prints `online`, resume:
+   - tool call → re-run the exact command that failed.
+   - dispatched agent → `SendMessage` that same agent to continue where it
+     stopped (it keeps its transcript and worktree). Only if that fails,
+     dispatch a fresh one for the same ticket and step.
 
 Never mark a ticket blocked, skip a step, or burn a review-fix round because
-of an outage. Auth errors and 4xx responses are not outages. Paste this
-section into every agent you dispatch — they don't inherit it.
+of an outage. If **your own** LLM call fails, the parent sees it and resumes
+you the same way — your committed chain and pushed branches are what it
+resumes from. Paste this section into every agent you dispatch — they don't
+inherit it.
 
 ## The territory rule
 
