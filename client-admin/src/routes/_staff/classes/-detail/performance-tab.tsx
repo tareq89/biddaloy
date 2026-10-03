@@ -29,10 +29,11 @@ const ALL = 'all';
 
 export interface PerformanceTabProps {
   classId: string;
+  className: string;
   academicYearId: string;
 }
 
-export function PerformanceTab({ classId, academicYearId }: PerformanceTabProps) {
+export function PerformanceTab({ classId, className, academicYearId }: PerformanceTabProps) {
   const { t } = useTranslation('performance');
   const { t: tCommon } = useTranslation('common');
   const { numerals } = useRegionConfig();
@@ -74,6 +75,11 @@ export function PerformanceTab({ classId, academicYearId }: PerformanceTabProps)
     const d = query.data;
     body = (
       <div id="performance-print-area" className="flex flex-col gap-3">
+        <h2 className="performance-print-title">
+          {t('printTitle', {
+            name: section === ALL ? className : `${className} · ${sectionLabel}`,
+          })}
+        </h2>
         <div className="flex justify-end print:hidden">
           <Button type="button" variant="outline" onClick={() => window.print()}>
             <Printer className="size-4" />

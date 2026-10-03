@@ -55,7 +55,7 @@ function years() {
 function renderTab() {
   return renderWithProviders(
     <RegionConfigProvider>
-      <PerformanceTab studentId={STUDENT_ID} />
+      <PerformanceTab studentId={STUDENT_ID} subjectName="Rina Akter" />
     </RegionConfigProvider>,
     { locale: 'en', role: 'TEACHER', tenantId: 'tenant-1' },
   );
@@ -72,6 +72,9 @@ describe('student PerformanceTab', () => {
     renderTab();
 
     expect(await screen.findByText('Pass rate')).toBeTruthy();
+    expect(
+      document.querySelector('#performance-print-area h2.performance-print-title')?.textContent,
+    ).toBe('Performance report — Rina Akter');
     expect(screen.getByText('90%')).toBeTruthy();
     expect(screen.getByText('Midterm (A)')).toBeTruthy();
     expect(screen.getByText('4 / 5')).toBeTruthy();

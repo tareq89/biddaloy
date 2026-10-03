@@ -3,7 +3,18 @@
  * print area" approach as `analysis/-analysis-print.css`. Only one Performance
  * tab is mounted at a time (Radix Tabs unmounts inactive content).
  */
+/* Print-only subject heading: hidden on screen, shown in print. */
+.performance-print-title {
+  display: none;
+}
+
 @media print {
+  .performance-print-title {
+    display: block;
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
   body:has(#performance-print-area) * {
     visibility: hidden;
   }

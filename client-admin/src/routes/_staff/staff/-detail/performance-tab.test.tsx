@@ -55,7 +55,7 @@ function years() {
 function renderTab() {
   return renderWithProviders(
     <RegionConfigProvider>
-      <PerformanceTab userId={USER_ID} />
+      <PerformanceTab userId={USER_ID} subjectName="Mr. Karim" />
     </RegionConfigProvider>,
     { locale: 'en', role: 'ADMIN', tenantId: 'tenant-1' },
   );
@@ -75,6 +75,9 @@ describe('staff PerformanceTab', () => {
     expect(screen.getByText('4.5 / 5')).toBeTruthy();
     expect(screen.getAllByText('90%').length).toBeGreaterThan(0);
     expect(screen.getByText('3')).toBeTruthy();
+    expect(
+      document.querySelector('#performance-print-area h2.performance-print-title')?.textContent,
+    ).toBe('Performance report — Mr. Karim');
   });
 
   it('prints the on-screen content via window.print', async () => {

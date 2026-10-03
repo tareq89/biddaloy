@@ -27,7 +27,7 @@ function renderTab() {
   server.use(http.get('/api/v1/classes/:id/sections', () => HttpResponse.json([])));
   return renderWithProviders(
     <RegionConfigProvider>
-      <PerformanceTab classId="class-1" academicYearId="year-1" />
+      <PerformanceTab classId="class-1" className="Class 5" academicYearId="year-1" />
     </RegionConfigProvider>,
     { locale: 'en', role: 'ADMIN', tenantId: 'tenant-1' },
   );
@@ -44,6 +44,9 @@ describe('class PerformanceTab', () => {
     expect(await screen.findByText('Midterm')).toBeTruthy();
     expect(screen.getAllByText('88%').length).toBeGreaterThan(0);
     expect(screen.getAllByText('75%').length).toBeGreaterThan(0);
+    expect(
+      document.querySelector('#performance-print-area h2.performance-print-title')?.textContent,
+    ).toBe('Performance report — Class 5');
   });
 
   it('prints the on-screen content via window.print', async () => {
@@ -70,7 +73,7 @@ describe('class PerformanceTab', () => {
     renderTab();
     expect(screen.queryByRole('button', { name: 'Print / Save as PDF' })).toBeNull();
     await screen.findByText('Midterm');
-    const h = document.querySelector('#performance-print-area h2');
+    const h = document.querySelector('#performance-print-area h2.print\\:block');
     expect(h?.textContent).toBe('All sections');
     expect(h?.className).toContain('print:block');
   });

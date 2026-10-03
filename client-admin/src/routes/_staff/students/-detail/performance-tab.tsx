@@ -23,9 +23,10 @@ import '../../-performance-print.css';
 
 export interface PerformanceTabProps {
   studentId: string;
+  subjectName: string;
 }
 
-export function PerformanceTab({ studentId }: PerformanceTabProps) {
+export function PerformanceTab({ studentId, subjectName }: PerformanceTabProps) {
   const { t } = useTranslation('performance');
   const years = useAcademicYears({ limit: 100 });
 
@@ -36,14 +37,22 @@ export function PerformanceTab({ studentId }: PerformanceTabProps) {
   if (!current) {
     return <p className="text-sm text-muted-foreground">{t('noYear')}</p>;
   }
-  return <StudentPerformance studentId={studentId} academicYearId={current.id} />;
+  return (
+    <StudentPerformance
+      studentId={studentId}
+      subjectName={subjectName}
+      academicYearId={current.id}
+    />
+  );
 }
 
 function StudentPerformance({
   studentId,
+  subjectName,
   academicYearId,
 }: {
   studentId: string;
+  subjectName: string;
   academicYearId: string;
 }) {
   const { t } = useTranslation('performance');
@@ -66,6 +75,7 @@ function StudentPerformance({
 
   return (
     <div id="performance-print-area" className="flex flex-col gap-3">
+      <h2 className="performance-print-title">{t('printTitle', { name: subjectName })}</h2>
       <div className="flex justify-end print:hidden">
         <Button type="button" variant="outline" onClick={() => window.print()}>
           <Printer className="size-4" />
