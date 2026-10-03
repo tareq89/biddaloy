@@ -47,7 +47,6 @@ export class ChangeRequestsController {
   }
 
   @Get(':id/change-requests')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ROUTINE_MANAGE)
   @ApiOperation({ summary: "List a routine's change requests." })
   findForRoutine(
@@ -58,7 +57,6 @@ export class ChangeRequestsController {
   }
 
   @Patch('change-requests/:id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ROUTINE_MANAGE)
   @ApiOperation({
     summary: 'Accept or reject a change request. Any ROUTINE_MANAGE holder may resolve it.',
