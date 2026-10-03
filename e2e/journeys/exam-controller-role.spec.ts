@@ -86,7 +86,9 @@ test('runs an exam: create, seat plan, read-only marks, publish result', async (
     (r) => r.url().endsWith('/api/v1/exams') && r.request().method() === 'POST',
   );
   await dialog.getByRole('button', { name: t('exams.examForm.save') }).click();
-  const exam = (await (await created).json()) as { id: string };
+  const response = await created;
+  expect(response.ok(), await response.text()).toBe(true);
+  const exam = (await response.json()) as { id: string };
   await expect(dialog).toBeHidden();
 
   // --- scene part 2 (needs the exam id): subject, schedule, room, one saved (unsubmitted) mark
@@ -162,7 +164,12 @@ test('runs an exam: create, seat plan, read-only marks, publish result', async (
   await expect(page.getByRole('heading', { name: examName })).toBeVisible();
   await new DetailShellPage(page).openTab('exams.detail.tabs.results', 'results');
   await page.getByRole('button', { name: t('exams.resultsPanel.process') }).click();
-  await page.getByRole('button', { name: t('exams.processDialog.confirm') }).click();
+  // The grid is deliberately unsubmitted (step 3) and the second section has none, so the
+  // dialog offers only the audited "process anyway" override. That button renders only once
+  // the progress query reports outstanding grids, so this click also waits for that load.
+  await page
+    .getByRole('button', { name: t('exams.processDialog.processAnyway'), exact: true })
+    .click();
   await page.getByRole('button', { name: t('exams.resultsPanel.publish') }).click();
   await page.getByRole('button', { name: t('exams.publishDialog.confirm') }).click();
   await expect(page.getByRole('button', { name: t('exams.resultsPanel.reopen') })).toBeVisible();
