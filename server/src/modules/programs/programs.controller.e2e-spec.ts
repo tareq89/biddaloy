@@ -106,11 +106,11 @@ describe('Programs E2E', () => {
       await req('get', '/api/v1/programs', UserRole.TEACHER).expect(200);
       await req('post', '/api/v1/programs', UserRole.TEACHER)
         .send({ name: 'Should be refused' })
-        .expect(401);
+        .expect(403);
     });
 
     it('ACCOUNTANT is refused even on GET', async () => {
-      await req('get', '/api/v1/programs', UserRole.ACCOUNTANT).expect(401);
+      await req('get', '/api/v1/programs', UserRole.ACCOUNTANT).expect(403);
     });
   });
 
