@@ -11,10 +11,9 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -22,7 +21,6 @@ import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator
 import { IncidentsService } from './incidents.service';
 import { CreateIncidentDto, IncidentResponseDto, QueryIncidentsDto } from './dto/incident.dto';
 
-/** `@Roles` mirrors ROLE_PERMISSIONS' ACR_READ/ACR_WRITE holders (ADMIN); permission-matrix.e2e-spec checks the mirror. A role outside it is denied by RolesGuard (401), not PermissionsGuard (403). */
 @ApiTags('incidents')
 @ApiTenantAuth()
 @Controller('incidents')
@@ -32,7 +30,6 @@ export class IncidentsController {
 
   @Post()
   @HttpCode(201)
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ACR_WRITE)
   @ApiOperation({ summary: 'Report an incident about a staff member.' })
   @ApiResponse({ status: 201, type: IncidentResponseDto })
@@ -45,7 +42,6 @@ export class IncidentsController {
   }
 
   @Get()
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ACR_READ)
   @ApiOperation({ summary: 'List incidents (never the caller’s own).' })
   @ApiResponse({ status: 200, type: [IncidentResponseDto] })
@@ -58,7 +54,6 @@ export class IncidentsController {
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ACR_READ)
   @ApiOperation({ summary: 'One incident; 404 when it is about the caller.' })
   @ApiResponse({ status: 200, type: IncidentResponseDto })

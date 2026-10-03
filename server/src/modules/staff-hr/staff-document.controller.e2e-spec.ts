@@ -200,9 +200,9 @@ describe('StaffDocument E2E (23.6)', () => {
         filename: 'nid.pdf',
         contentType: 'application/pdf',
       })
-      // RolesGuard throws UnauthorizedException (401), not ForbiddenException,
-      // for a role that doesn't match @Roles() — see context.guard.ts.
-      .expect(401);
+      // PermissionsGuard throws ForbiddenException (403) for a role lacking
+      // STAFF_HR_MANAGE.
+      .expect(403);
   });
 
   it('rejects a request with no X-Tenant-ID header', async () => {

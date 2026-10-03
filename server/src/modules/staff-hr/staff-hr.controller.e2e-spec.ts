@@ -322,7 +322,7 @@ describe('Staff HR E2E (23.2.1)', () => {
     expect(auditRows.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('rejects a genuine non-ADMIN member from creating a designation (RolesGuard)', async () => {
+  it('rejects a genuine non-ADMIN member from creating a designation (PermissionsGuard)', async () => {
     // A real TEACHER-only membership in tenant A — not the seeded admin
     // with an `X-Role` header override, which only proves ContextGuard's
     // role echo works, not that RolesGuard denies a real non-admin.
@@ -337,7 +337,7 @@ describe('Staff HR E2E (23.2.1)', () => {
       .set('Authorization', `Bearer ${teacherToken}`)
       .set('X-Tenant-ID', TENANT_A)
       .send({ title_en: 'Should Be Rejected', is_teaching: true })
-      .expect(401);
+      .expect(403);
   });
 
   it('rejects the DB insert of a second open designation-history row for the same user (partial unique index)', async () => {

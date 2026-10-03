@@ -1,10 +1,9 @@
 import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -21,7 +20,6 @@ export class StaffPerformanceController {
   constructor(private readonly service: StaffPerformanceService) {}
 
   @Get('staff/:userId')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ACR_READ)
   @ApiOkResponse({ type: StaffPerformanceResponseDto })
   staff(

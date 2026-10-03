@@ -142,11 +142,11 @@ describe('ACR assessments E2E (28.2.2)', () => {
     await app.close();
   });
 
-  it('forbids a TEACHER (401 from RolesGuard) on read and write', async () => {
-    await req(teacherToken, TENANT_A, 'get', '/assessments').expect(401);
+  it('forbids a TEACHER (403 from PermissionsGuard) on read and write', async () => {
+    await req(teacherToken, TENANT_A, 'get', '/assessments').expect(403);
     await req(teacherToken, TENANT_A, 'post', '/assessments')
       .send({ user_id: STAFF_USER_ID, academic_year_id: YEAR_ID })
-      .expect(401);
+      .expect(403);
   });
 
   it('subject gets 404 on own ACR by every route and is absent from the register', async () => {

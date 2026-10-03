@@ -177,7 +177,7 @@ describe('incidents (28.2.x)', () => {
     expect(list.body.map((i: { id: string }) => i.id)).not.toContain(id);
   });
 
-  it('TEACHER is denied on every route (RolesGuard 401 — @Roles(ADMIN) mirrors ACR holders)', async () => {
+  it('TEACHER is denied on every route (PermissionsGuard 403)', async () => {
     const id = await insertIncident(SEED_TENANT_ID, SUBJECT_ID);
     await as(
       supertest(app.getHttpServer()).post(`${API}/incidents`),
@@ -185,17 +185,17 @@ describe('incidents (28.2.x)', () => {
       UserRole.TEACHER,
     )
       .send(body)
-      .expect(401);
+      .expect(403);
     await as(
       supertest(app.getHttpServer()).get(`${API}/incidents`),
       teacherToken,
       UserRole.TEACHER,
-    ).expect(401);
+    ).expect(403);
     await as(
       supertest(app.getHttpServer()).get(`${API}/incidents/${id}`),
       teacherToken,
       UserRole.TEACHER,
-    ).expect(401);
+    ).expect(403);
   });
 
   it('cross-tenant: another tenant’s incident is 404 and absent from the list; cross-tenant subject is 404 on create', async () => {

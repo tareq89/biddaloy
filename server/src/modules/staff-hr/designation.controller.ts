@@ -11,10 +11,9 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -31,7 +30,6 @@ export class DesignationController {
   constructor(private readonly designationService: DesignationService) {}
 
   @Get()
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.STAFF_HR_READ)
   @ApiOperation({ summary: 'List this tenant’s designations.' })
   async findAll(@CurrentTenant() tenant: { id: string }) {
@@ -39,7 +37,6 @@ export class DesignationController {
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.STAFF_HR_READ)
   @ApiOperation({ summary: 'Read one designation.' })
   async findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentTenant() tenant: { id: string }) {
@@ -47,7 +44,6 @@ export class DesignationController {
   }
 
   @Post()
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.STAFF_HR_MANAGE)
   @ApiOperation({ summary: 'Create a designation.' })
   async create(
@@ -59,7 +55,6 @@ export class DesignationController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.STAFF_HR_MANAGE)
   @ApiOperation({ summary: 'Edit a designation.' })
   async update(
@@ -72,7 +67,6 @@ export class DesignationController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.STAFF_HR_MANAGE)
   @ApiOperation({ summary: 'Soft-delete a designation.' })
   @ApiOkResponse({ description: 'Deleted' })
