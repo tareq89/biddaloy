@@ -101,3 +101,39 @@ describe('MarksAuthorizationService.assertCanWrite (issue rule #4)', () => {
     ).rejects.toThrow(ForbiddenException);
   });
 });
+
+// [#1362] Per-role table. write = may write marks to an unmapped section-subject;
+// read = may read its grid. TEACHER is section-scoped (denied when unmapped).
+describe('MarksAuthorizationService per-role table', () => {
+  const input = (role: UserRole) => ({
+    role,
+    userId: 'u1',
+    tenantId: TENANT_ID,
+    sectionId: 's1',
+    subjectId: 'subj1',
+  });
+  const TABLE: Array<[UserRole, boolean, boolean]> = [
+    [UserRole.ADMIN, true, true],
+    [UserRole.EXECUTIVE, false, true],
+    [UserRole.ACCOUNTANT, false, false],
+    // New in #1362 (ROLE_SCOPE + permission): SUPER_ADMIN holds MARK_ENTER/MARK_VIEW;
+    // EXAM_CONTROLLER reads only (D16); OFFICE_STAFF and COMMITTEE hold no mark
+    // permission, so COMMITTEE never reaches marks (D9).
+    [UserRole.SUPER_ADMIN, true, true],
+    [UserRole.EXAM_CONTROLLER, false, true],
+    [UserRole.OFFICE_STAFF, false, false],
+    [UserRole.COMMITTEE, false, false],
+    [UserRole.TEACHER, false, false],
+    [UserRole.PARENT, false, false],
+    [UserRole.STUDENT, false, false],
+  ];
+  it.each(TABLE)('%s: write=%s read=%s', async (role, write, read) => {
+    const { service } = await buildService(null);
+    const w = service.assertCanWrite(input(role));
+    const r = service.assertCanRead(input(role));
+    if (write) await expect(w).resolves.toBeUndefined();
+    else await expect(w).rejects.toThrow(ForbiddenException);
+    if (read) await expect(r).resolves.toBeUndefined();
+    else await expect(r).rejects.toThrow(ForbiddenException);
+  });
+});

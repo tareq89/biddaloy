@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission, hasTenantScope } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -29,13 +29,10 @@ import {
 } from './dto/calendar-events.dto';
 import { CalendarEventWithClassIds } from './calendar-events.service';
 
-/** Roles that see the allow-list `FamilyCalendarEventDto` rather than the
- * full staff response (D4, D9) — see `FamilyCalendarEventDto`'s doc. */
-const FAMILY_ROLES: ReadonlySet<string> = new Set([
-  UserRole.PARENT,
-  UserRole.STUDENT,
-  UserRole.TEACHER,
-]);
+/** Every non-tenant-scoped role (PARENT, STUDENT, TEACHER) sees the allow-list
+ * `FamilyCalendarEventDto` rather than the full staff response (D4, D9) — see
+ * `FamilyCalendarEventDto`'s doc. Fails closed for an unknown role. */
+const seesFamilyDto = (role: string) => !hasTenantScope(role);
 
 /**
  * `/calendar/events` — the CRUD surface for `CalendarEvent` (17.x), on top
@@ -118,13 +115,13 @@ export class CalendarEventsController {
     return { success: true };
   }
 
-  /** PARENT/STUDENT/TEACHER get the allow-list DTO; every other role
-   * (ADMIN, EXECUTIVE, ACCOUNTANT) keeps the full staff response. */
+  /** PARENT/STUDENT/TEACHER get the allow-list DTO; every tenant-scoped role
+   * keeps the full staff response. */
   private serializeForRole(
     events: CalendarEventWithClassIds[],
     role: string,
   ): Array<CalendarEventWithClassIds | FamilyCalendarEventDto> {
-    if (!FAMILY_ROLES.has(role)) {
+    if (!seesFamilyDto(role)) {
       return events;
     }
     return events.map((event) => FamilyCalendarEventDto.fromEvent(event));

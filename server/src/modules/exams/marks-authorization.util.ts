@@ -1,19 +1,20 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { UserRole } from '@biddaloy/shared';
+import { Permission, UserRole, hasTenantScope, roleHasPermission } from '@biddaloy/shared';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 
-/** Roles that may write marks for every section-subject in the tenant,
- * without going through `teacher_class_sections` — same list as
- * `AttendanceAccessService`'s `TENANT_WIDE_ROLES`. */
-const ADMIN_LEVEL_ROLES: string[] = [UserRole.ADMIN];
+/** Tenant scope + MARK_ENTER may write marks for every section-subject
+ * without going through `teacher_class_sections`. EXAM_CONTROLLER has no
+ * MARK_ENTER (D16), so it stays out. */
+const canWriteTenantWide = (role: string) =>
+  hasTenantScope(role) && roleHasPermission(role, Permission.MARK_ENTER);
 
-/** Roles that may *read* every section-subject's grid in the tenant.
- * Wider than `ADMIN_LEVEL_ROLES`: EXECUTIVE holds `MARK_VIEW` (route-gated
- * on `MarksController.getGrid`) for tenant-wide read access, but never
- * `MARK_ENTER`, so it has no reason to appear in the write-side list. */
-const TENANT_WIDE_READ_ROLES: string[] = [UserRole.ADMIN, UserRole.EXECUTIVE];
+/** Tenant scope + MARK_VIEW may *read* every section-subject's grid.
+ * Wider than the write side: EXECUTIVE and EXAM_CONTROLLER hold MARK_VIEW
+ * but never MARK_ENTER. COMMITTEE has no MARK_VIEW, so never reaches marks (D9). */
+const canReadTenantWide = (role: string) =>
+  hasTenantScope(role) && roleHasPermission(role, Permission.MARK_VIEW);
 
 /**
  * The single "may this caller write marks for this section-subject?"
@@ -43,7 +44,7 @@ export class MarksAuthorizationService {
     subjectId: string;
   }): Promise<void> {
     const { role, userId, tenantId, sectionId, subjectId } = input;
-    if (ADMIN_LEVEL_ROLES.includes(role)) {
+    if (canWriteTenantWide(role)) {
       return;
     }
 
@@ -83,7 +84,7 @@ export class MarksAuthorizationService {
     subjectId: string;
   }): Promise<void> {
     const { role, userId, tenantId, sectionId, subjectId } = input;
-    if (TENANT_WIDE_READ_ROLES.includes(role)) {
+    if (canReadTenantWide(role)) {
       return;
     }
 
