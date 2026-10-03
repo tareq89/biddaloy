@@ -3,6 +3,7 @@ import { DataSource, QueryRunner } from 'typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { StudentLifecycle1790800000000 } from '../src/migrations/1790800000000-StudentLifecycle';
+import { EvaluationsAndPerformance1790900000000 } from '../src/migrations/1790900000000-EvaluationsAndPerformance';
 
 /**
  * [39.1.2]/#1183 Runs against the real migrated schema (default
@@ -15,6 +16,11 @@ import { StudentLifecycle1790800000000 } from '../src/migrations/1790800000000-S
 describe('StudentLifecycle1790800000000 (integration)', () => {
   let ds: DataSource;
   const migration = new StudentLifecycle1790800000000();
+  // The one later migration that builds on this one's tables: it adds
+  // `student_notes.rating`. Plain down()+up() here recreated `student_notes`
+  // without that column, breaking any later spec file on this worker's
+  // database (student-notes, evaluations-performance-migration; #1345).
+  const later = new EvaluationsAndPerformance1790900000000();
 
   const T1 = '39000000-0000-4000-8000-000000000001';
   const T2 = '39000000-0000-4000-8000-000000000002';
@@ -91,8 +97,12 @@ describe('StudentLifecycle1790800000000 (integration)', () => {
     }
     await seedStudentWithEnrollment(T2, ctx2, (n += 1), 'INACTIVE');
     // down() then up(): round-trip on a populated DB, and the backfill runs on real rows.
+    // Revert in real order (newest first), then re-apply, so the schema ends
+    // exactly as global setup left it.
+    await run((qr) => later.down(qr));
     await run((qr) => migration.down(qr));
     await run((qr) => migration.up(qr));
+    await run((qr) => later.up(qr));
   }
 
   afterAll(async () => {
@@ -131,6 +141,15 @@ describe('StudentLifecycle1790800000000 (integration)', () => {
       });
     }
     expect(byEnrollment.has(ids.enrollments[`${T1}:ACTIVE`])).toBe(false);
+  });
+
+  it('leaves later migrations intact: student_notes.rating survives the round-trip', async () => {
+    await seedAndRoundTrip();
+    const rows = await ds.query(
+      `SELECT 1 FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'student_notes' AND column_name = 'rating'`,
+    );
+    expect(rows).toHaveLength(1);
   });
 
   it('keeps events tenant-scoped', async () => {
