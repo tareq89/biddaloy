@@ -1,0 +1,230 @@
+import { ExamComponentKind, ExamComponentSource } from '@biddaloy/shared';
+import type { PlaywrightWorkerArgs } from '@playwright/test';
+
+import { adminApiSession, apiSession, get, post } from '../api';
+import { expect, test } from '../fixtures/test';
+import { t } from '../i18n';
+import { AppShellPage } from '../pages/app-shell';
+import { DetailShellPage } from '../pages/detail-shell';
+import { SEED_PASSWORD_ENV } from '../seed-contract';
+
+/**
+ * [24.4.2] EXAM_CONTROLLER journey (#1369, D13, D16): the built-in exam controller
+ * runs exams, seat plans and results, can look at marks but never enter them, and
+ * has no access to fees or settings.
+ *
+ * Logs in as `exam@biddaloy.test` (seeded by #1368). `loggedIn()` only knows the
+ * roles in `e2e/seed-contract.ts`, which is outside this ticket's territory, so
+ * the login is done inline here. The API sets the scene as ADMIN in its own
+ * request context (so it never replaces the browser's refresh cookie); the UI
+ * drives the flow under test. Uses the seeded "Class 6" like `seat-plans.spec.ts`
+ * and `result-publish.spec.ts` do.
+ */
+
+const EXAM_EMAIL = 'exam@biddaloy.test';
+const NAV_GROUPS = [
+  'people',
+  'academics',
+  'attendance',
+  'examsResults',
+  'finance',
+  'reports',
+  'communications',
+  'administration',
+];
+
+test.beforeEach(async ({ page }) => {
+  const password = process.env[SEED_PASSWORD_ENV];
+  if (!password) throw new Error(`${SEED_PASSWORD_ENV} is not set`);
+  const login = await page.request.post('/api/v1/auth/login', {
+    data: { email: EXAM_EMAIL, password },
+  });
+  expect(login.ok()).toBe(true);
+  const { memberships } = (await login.json()) as {
+    memberships: { tenantId: string; role: string }[];
+  };
+  const membership = memberships.find((m) => m.role === 'EXAM_CONTROLLER');
+  if (!membership) throw new Error('no EXAM_CONTROLLER membership for the seed exam user');
+  await page.addInitScript(
+    ([tenant, groups]) => {
+      localStorage.setItem('biddaloy:activeTenant', tenant as string);
+      for (const id of groups as string[]) {
+        localStorage.setItem(`nav-group-collapsed-v2:${id}`, 'false');
+      }
+    },
+    [JSON.stringify({ tenantId: membership.tenantId, role: membership.role }), NAV_GROUPS],
+  );
+});
+
+async function adminScene(
+  playwright: PlaywrightWorkerArgs['playwright'],
+  baseURL: string | undefined,
+) {
+  const ctx = await playwright.request.newContext({ baseURL: baseURL ?? '' });
+  return { ctx, session: await adminApiSession(ctx) };
+}
+
+test('runs an exam: create, seat plan, read-only marks, publish result', async ({
+  page,
+  playwright,
+  baseURL,
+}) => {
+  const suffix = Date.now().toString(36).toUpperCase();
+  const examName = `E2E Controller Exam ${suffix}`;
+  const planName = `E2E Controller Plan ${suffix}`;
+  const roomName = `E2E Controller Room ${suffix}`;
+  const { ctx, session } = await adminScene(playwright, baseURL);
+
+  // --- scene: seeded Class 6, its first section and first student ---------------
+  let academicYearName: string;
+  let sectionId: string;
+  let studentId: string;
+  let scheduleDate: Date;
+  try {
+    const { data: classes } = await get<{
+      data: { id: string; name: string; academic_year_id: string }[];
+    }>(ctx, session, '/classes?limit=100');
+    const klass = classes.find((c) => c.name === 'Class 6');
+    if (!klass) throw new Error('Seeded Class 6 not found — has `yarn seed` run?');
+    const sections = await get<{ id: string }[]>(ctx, session, `/classes/${klass.id}/sections`);
+    sectionId = sections[0]!.id;
+    const { data: students } = await get<{ data: { id: string }[] }>(
+      ctx,
+      session,
+      `/students?section_id=${sectionId}&limit=1`,
+    );
+    studentId = students[0]!.id;
+    const year = await get<{ name: string; start_date: string }>(
+      ctx,
+      session,
+      `/academic-years/${klass.academic_year_id}`,
+    );
+    academicYearName = year.name;
+    scheduleDate = new Date(year.start_date);
+    scheduleDate.setUTCDate(scheduleDate.getUTCDate() + 10);
+  } catch (error) {
+    await ctx.dispose();
+    throw error;
+  }
+
+  // --- 1. create the exam from the UI -------------------------------------------
+  await page.goto('/exams');
+  await page.getByRole('button', { name: t('exams.list.addExam') }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel(t('exams.examForm.nameLabel'), { exact: true }).fill(examName);
+  await dialog.getByRole('combobox', { name: t('exams.examForm.academicYearLabel') }).click();
+  await page.getByRole('option', { name: academicYearName, exact: true }).first().click();
+  await dialog.getByRole('combobox', { name: t('exams.examForm.classLabel') }).click();
+  await page.getByRole('option', { name: 'Class 6', exact: true }).first().click();
+  const created = page.waitForResponse(
+    (r) => r.url().endsWith('/api/v1/exams') && r.request().method() === 'POST',
+  );
+  await dialog.getByRole('button', { name: t('exams.examForm.save') }).click();
+  const exam = (await (await created).json()) as { id: string };
+  await expect(dialog).toBeHidden();
+
+  // --- scene part 2 (needs the exam id): subject, schedule, room, one submitted mark
+  let subjectId: string;
+  let subjectName: string;
+  try {
+    const subject = await post<{ id: string; name_en: string }>(ctx, session, '/subjects', {
+      code: `E2EXC-${suffix}`,
+      name_en: `E2E Controller Subject ${suffix}`,
+      name_bn: `ই২ই নিয়ন্ত্রক ${suffix}`,
+    });
+    subjectId = subject.id;
+    subjectName = subject.name_en;
+    await post(ctx, session, `/exams/${exam.id}/schedule`, {
+      subject_id: subjectId,
+      date: scheduleDate.toISOString().slice(0, 10),
+      starts_at: '09:00',
+      ends_at: '11:00',
+    });
+    await post(ctx, session, '/routines/rooms', { room_no: roomName, capacity: 10 });
+    const component = await post<{ id: string }>(ctx, session, `/exams/${exam.id}/components`, {
+      subject_id: subjectId,
+      name: 'Written',
+      kind: ExamComponentKind.WRITTEN,
+      source: ExamComponentSource.MANUAL,
+      full_marks: '100.00',
+      pass_marks: '33.00',
+      sequence: 1,
+    });
+    const marks = await ctx.patch(`/api/v1/exams/${exam.id}/marks`, {
+      headers: { Authorization: `Bearer ${session.token}`, 'X-Tenant-ID': session.tenantId },
+      data: {
+        section_id: sectionId,
+        subject_id: subjectId,
+        cells: [
+          { student_id: studentId, component_id: component.id, value: '88.00', status: 'PRESENT' },
+        ],
+      },
+    });
+    expect(marks.ok()).toBe(true);
+  } finally {
+    await ctx.dispose();
+  }
+
+  // --- 2. seat plan -------------------------------------------------------------
+  await page.goto('/exams/seat-plans');
+  await page.getByRole('button', { name: t('seatPlans.list.generateButton') }).click();
+  await page.getByLabel(t('seatPlans.generate.nameLabel')).fill(planName);
+  await page.getByRole('combobox', { name: t('seatPlans.generate.examLabel') }).click();
+  await page.getByRole('option', { name: examName }).click();
+  await page.getByTestId('schedule-picker').getByRole('checkbox', { name: subjectName }).check();
+  await page.getByTestId('room-picker').getByRole('checkbox', { name: roomName }).check();
+  await page.getByRole('button', { name: t('seatPlans.generate.submit') }).click();
+  await page.getByRole('link', { name: planName }).click();
+  await expect(page.getByRole('heading', { name: planName })).toBeVisible();
+
+  // --- 3. marks grid is view-only: no submit button, and the API refuses a write --
+  await page.goto(`/marks/${exam.id}/${sectionId}/${subjectId}`);
+  await expect(page.getByRole('heading', { name: t('exams.marksGrid.caption') })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: new RegExp(`^${t('exams.submitDialog.confirm')}`) }),
+  ).toHaveCount(0);
+  const controller = await apiSession(page.request, 'EXAM_CONTROLLER');
+  const write = await page.request.patch(`/api/v1/exams/${exam.id}/marks`, {
+    headers: { Authorization: `Bearer ${controller.token}`, 'X-Tenant-ID': controller.tenantId },
+    data: { section_id: sectionId, subject_id: subjectId, cells: [] },
+  });
+  expect(write.status()).toBe(403);
+
+  // --- 4. process and publish the result ----------------------------------------
+  await page.goto(`/exams/${exam.id}`);
+  await expect(page.getByRole('heading', { name: examName })).toBeVisible();
+  await new DetailShellPage(page).openTab('exams.detail.tabs.results', 'results');
+  await page.getByRole('button', { name: t('exams.resultsPanel.process') }).click();
+  await page.getByRole('button', { name: t('exams.processDialog.confirm') }).click();
+  await page.getByRole('button', { name: t('exams.resultsPanel.publish') }).click();
+  await page.getByRole('button', { name: t('exams.publishDialog.confirm') }).click();
+  await expect(page.getByRole('button', { name: t('exams.resultsPanel.reopen') })).toBeVisible();
+});
+
+test('prints documents but cannot manage print templates', async ({ page }) => {
+  // Admit cards do not exist yet (Epic 48), so the printable document today is the ID card:
+  // the preview opens for this role (DOCUMENT_PRINT) ...
+  await page.goto('/print/preview?kind=STUDENT_ID_CARD&subject_type=STUDENT');
+  await expect(page.getByRole('heading', { name: t('common.accessDenied.title') })).toHaveCount(0);
+  // ... but template editing (PRINT_TEMPLATE_MANAGE) is refused.
+  await page.goto('/print-templates');
+  await expect(page.getByRole('heading', { name: t('common.accessDenied.title') })).toBeVisible();
+});
+
+test('cannot reach fees or settings', async ({ page }) => {
+  const shell = new AppShellPage(page);
+  await page.goto('/dashboard');
+  await shell.expectNavItem('nav.items.seatPlans', true);
+  for (const key of [
+    'nav.items.fees',
+    'nav.items.feeStructures',
+    'nav.items.recordPayment',
+    'nav.items.settings',
+  ]) {
+    await shell.expectNavItem(key, false);
+  }
+  for (const route of ['/settings', '/fees']) {
+    await page.goto(route);
+    await expect(page.getByRole('heading', { name: t('common.accessDenied.title') })).toBeVisible();
+  }
+});
