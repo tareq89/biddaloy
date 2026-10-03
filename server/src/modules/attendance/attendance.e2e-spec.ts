@@ -265,7 +265,7 @@ describe('Attendance E2E', () => {
         .expect(403);
     });
 
-    it("returns 401 for a role not in this route's @Roles list (ACCOUNTANT)", async () => {
+    it('returns 403 for a role lacking ATTENDANCE_MARK (ACCOUNTANT)', async () => {
       await dataSource.query(
         `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
          VALUES ('${SEED_ADMIN_USER_ID}', '${TENANT_ID}', '${UserRole.ACCOUNTANT}', NOW(), NOW())
@@ -287,7 +287,7 @@ describe('Attendance E2E', () => {
           client_request_id: randomUUID(),
           entries: [],
         })
-        .expect(401);
+        .expect(403);
     });
   });
 
@@ -318,7 +318,7 @@ describe('Attendance E2E', () => {
   });
 
   describe('PATCH /attendance/records/:recordId', () => {
-    it("returns 401 for a role not in this route's @Roles list (ACCOUNTANT)", async () => {
+    it('returns 403 for a role lacking ATTENDANCE_MARK (ACCOUNTANT)', async () => {
       const putRes = await supertest(app.getHttpServer())
         .put(`/api/v1/attendance/sections/${MAPPED_SECTION_ID}/register`)
         .set('Authorization', `Bearer ${adminToken}`)
@@ -350,7 +350,7 @@ describe('Attendance E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.ACCOUNTANT)
         .send({ status: 'LATE', minutes_late: 10, reason: 'Arrived late today' })
-        .expect(401);
+        .expect(403);
     });
 
     it('requires a reason (400 when missing)', async () => {

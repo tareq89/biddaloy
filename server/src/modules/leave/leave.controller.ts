@@ -64,7 +64,6 @@ export class LeaveController {
   }
 
   @Post('requests/:id/decide')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.LEAVE_APPROVE)
   @ApiOperation({
     summary:
@@ -117,7 +116,6 @@ export class LeaveController {
   }
 
   @Put('policies/:type')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.LEAVE_APPROVE)
   @ApiOperation({ summary: "Edit one leave type's annual quota — same guard as approving." })
   @ApiOkResponse({ type: LeavePolicyDto })
