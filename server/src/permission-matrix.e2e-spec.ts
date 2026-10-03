@@ -1091,5 +1091,9 @@ describe('Permission matrix (regression)', () => {
     it('COMMITTEE holds no STUDENT_READ (D9 — no student PII)', () => {
       expect(roleHasPermission(UserRole.COMMITTEE, Permission.STUDENT_READ)).toBe(false);
     });
+
+    it('COMMITTEE holds no REPORT_COLLECTIONS_READ — the report and CSV name students (D16)', () => {
+      expect(roleHasPermission(UserRole.COMMITTEE, Permission.REPORT_COLLECTIONS_READ)).toBe(false);
+    });
   });
 });
