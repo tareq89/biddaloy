@@ -37,9 +37,12 @@
     "ADMIN": "Admin",
     "ACCOUNTANT": "Accountant",
     "TEACHER": "Teacher",
-    "EXECUTIVE": "Executive",
+    "EXECUTIVE": "Academic coordinator",
     "PARENT": "Parent",
-    "STUDENT": "Student"
+    "STUDENT": "Student",
+    "OFFICE_STAFF": "Office staff",
+    "EXAM_CONTROLLER": "Exam controller",
+    "COMMITTEE": "Committee member"
   },
   "addUser": {
     "title": "Add user",
@@ -332,5 +335,27 @@
     "openHrRecord": "Open HR record",
     "historyTitle": "Printed documents",
     "printButton": "Print ID card"
+  },
+  "roleDescriptions": {
+    "SUPER_ADMIN": "Platform-level access across all schools.",
+    "ADMIN": "Full control of this school: people, fees, exams and settings.",
+    "ACCOUNTANT": "Fees, payments, invoices and finance reports.",
+    "TEACHER": "Own classes and sections: attendance, homework and marks.",
+    "EXECUTIVE": "Academic oversight: students, staff, results and reports. No money or settings.",
+    "OFFICE_STAFF": "Admissions, student records, printing and SMS. No money or settings.",
+    "EXAM_CONTROLLER": "Exams, marks, results and seat plans for the whole school.",
+    "COMMITTEE": "Read-only view of school reports and results."
+  },
+  "rolesAccess": {
+    "title": "Roles & access",
+    "subtitle": "What each role can see and do in this school. Read-only.",
+    "scope": {
+      "TENANT": "Whole school",
+      "ASSIGNED_SECTIONS": "Assigned sections only",
+      "FAMILY": "Own family",
+      "SELF": "Own records"
+    },
+    "permissionCount_one": "{{count}} permission",
+    "permissionCount_other": "{{count}} permissions"
   }
 }
