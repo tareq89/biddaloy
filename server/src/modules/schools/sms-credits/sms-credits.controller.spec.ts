@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Reflector } from '@nestjs/core';
-import { UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException } from '@nestjs/common';
 import { UserRole } from '@biddaloy/shared';
 import { RolesGuard } from '../../auth/guards/context.guard';
 import { SchoolSmsCreditsController } from './sms-credits.controller';
@@ -75,7 +75,7 @@ describe('SchoolSmsCreditsController', () => {
     });
 
     it('denies ADMIN', () => {
-      expect(() => guard.canActivate(context(UserRole.ADMIN))).toThrow(UnauthorizedException);
+      expect(() => guard.canActivate(context(UserRole.ADMIN))).toThrow(ForbiddenException);
     });
   });
 });

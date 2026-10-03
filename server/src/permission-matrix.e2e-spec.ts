@@ -1047,13 +1047,10 @@ describe('Permission matrix (regression)', () => {
         Permission.PAYMENT_REFUND,
         Permission.INVOICE_DELETE,
       ];
-      const nonAdmin = [
-        UserRole.ACCOUNTANT,
-        UserRole.EXECUTIVE,
-        UserRole.TEACHER,
-        UserRole.PARENT,
-        UserRole.STUDENT,
-      ];
+      // Every role but ADMIN/SUPER_ADMIN, so a role added later is covered too.
+      const nonAdmin = Object.values(UserRole).filter(
+        (role) => role !== UserRole.ADMIN && role !== UserRole.SUPER_ADMIN,
+      );
 
       const violations: string[] = [];
       for (const role of nonAdmin) {
@@ -1065,6 +1062,41 @@ describe('Permission matrix (regression)', () => {
       }
 
       expect(violations).toEqual([]);
+    });
+  });
+
+  describe('#1361 new role defaults', () => {
+    const NEW_ROLES = [UserRole.OFFICE_STAFF, UserRole.EXAM_CONTROLLER, UserRole.COMMITTEE];
+
+    // The unwind-money set is pinned for every non-admin role in [16.8.1]
+    // above. These are the money capabilities ACCOUNTANT legitimately holds
+    // but no new role may.
+    it('none of the new roles collects, records, bills or reprices fees', () => {
+      const moneyMoving = [
+        Permission.FEE_COLLECT,
+        Permission.PAYMENT_RECORD,
+        Permission.FEE_GENERATE,
+        Permission.INVOICE_CREATE,
+        Permission.SCHEDULE_MANAGE,
+        Permission.DISCOUNT_RULE_MANAGE,
+        Permission.FEE_STRUCTURE_CREATE,
+        Permission.FEE_STRUCTURE_UPDATE,
+        Permission.FEE_STRUCTURE_DELETE,
+      ];
+      const violations = NEW_ROLES.flatMap((role) =>
+        moneyMoving
+          .filter((permission) => roleHasPermission(role, permission))
+          .map((permission) => `${role} holds ${permission}`),
+      );
+      expect(violations).toEqual([]);
+    });
+
+    it('COMMITTEE holds no STUDENT_READ (D9 — no student PII)', () => {
+      expect(roleHasPermission(UserRole.COMMITTEE, Permission.STUDENT_READ)).toBe(false);
+    });
+
+    it('COMMITTEE holds no REPORT_COLLECTIONS_READ — the report and CSV name students (D16)', () => {
+      expect(roleHasPermission(UserRole.COMMITTEE, Permission.REPORT_COLLECTIONS_READ)).toBe(false);
     });
   });
 });

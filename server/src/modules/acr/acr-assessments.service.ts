@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, In, Not, Repository } from 'typeorm';
-import { AuditAction, STAFF_ROLES } from '@biddaloy/shared';
+import { AuditAction, EMPLOYEE_ROLES } from '@biddaloy/shared';
 import { AcrAssessment, AcrAssessmentStatus } from './entities/acr-assessment.entity';
 import { AcrCriterion } from './entities/acr-criterion.entity';
 import { AcrFormVersion } from './entities/acr-form-version.entity';
@@ -49,7 +49,7 @@ export class AcrAssessmentsService {
     if (dto.user_id === callerId) throw new NotFoundException('ACR assessment not found');
     if (
       !(await this.userTenants.findOne({
-        where: { user_id: dto.user_id, tenant_id: tenantId, role: In([...STAFF_ROLES]) },
+        where: { user_id: dto.user_id, tenant_id: tenantId, role: In([...EMPLOYEE_ROLES]) },
       }))
     )
       throw new BadRequestException('User is not a staff member of this school');

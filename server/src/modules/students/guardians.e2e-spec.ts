@@ -330,7 +330,7 @@ describe('Guardians E2E', () => {
       expect(Number(res.body[0].total_amount)).toBe(1500);
     });
 
-    it('should return 401 for STUDENT role', async () => {
+    it('should return 403 for STUDENT role', async () => {
       const guardianRes = await supertest(app.getHttpServer())
         .post('/api/v1/guardians')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -343,7 +343,7 @@ describe('Guardians E2E', () => {
         .set('Authorization', `Bearer ${studentToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
-        .expect(401);
+        .expect(403);
 
       expect(res.body.message).toContain('Requires one of roles');
     });

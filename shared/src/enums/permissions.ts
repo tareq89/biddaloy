@@ -225,8 +225,7 @@ export enum Permission {
 
   // Admission (27.x)
   // [27.1] Review an AdmissionApplicant — shortlist/admit/reject and read
-  // the intake/applicant/evaluation rows. Schema-only ticket; no route
-  // consumes it yet.
+  // the intake/applicant/evaluation rows. ADMIN and OFFICE_STAFF (D16).
   ADMISSION_REVIEW = 'ADMISSION_REVIEW',
   // Staff HR (23.x)
   // [23.2.1] Read a Designation/StaffHrRecord/StaffDesignationHistory.
@@ -235,7 +234,7 @@ export enum Permission {
   // member's designation — ADMIN only (D9).
   STAFF_HR_MANAGE = 'STAFF_HR_MANAGE',
   // [28.1.1] Read / write ACR assessments, incidents, surveys and the
-  // Performance views — ADMIN only for now (D6, D8).
+  // Performance views. ADMIN writes (D6, D8); COMMITTEE also reads (#1358 D16).
   ACR_READ = 'ACR_READ',
   ACR_WRITE = 'ACR_WRITE',
 
@@ -360,12 +359,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.PROGRAM_READ,
     Permission.PROGRAM_MANAGE,
     Permission.PROGRAM_RECORD,
-    // [27.1] Admission review — ADMIN only for now; no route consumes it yet.
+    // [27.1] Admission review — also held by OFFICE_STAFF (#1358 D16).
     Permission.ADMISSION_REVIEW,
     // [23.2.1] Staff HR — ADMIN only (D9).
     Permission.STAFF_HR_READ,
     Permission.STAFF_HR_MANAGE,
-    // [28.1.1] ACR — ADMIN only (D6, D8).
+    // [28.1.1] ACR — ADMIN writes (D6, D8); COMMITTEE also reads (#1358 D16).
     Permission.ACR_READ,
     Permission.ACR_WRITE,
     // [36.1.1] Own record + all-staff read, mark own record, approve leave.
@@ -585,6 +584,67 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.STUDENT_RECORDS_WRITE,
     // [32.1.1] Read-only print history (D18/D47).
     Permission.PRINT_HISTORY_READ,
+  ],
+  // #1358 office clerk / computer operator: intake, records, communication,
+  // printing. No money-moving, no delete, no lifecycle, no settings.
+  [UserRole.OFFICE_STAFF]: [
+    Permission.STUDENT_CREATE,
+    Permission.STUDENT_READ,
+    Permission.STUDENT_UPDATE,
+    Permission.STUDENT_BULK_UPLOAD,
+    Permission.STUDENT_RECORDS_READ,
+    Permission.STUDENT_RECORDS_WRITE,
+    Permission.GUARDIAN_CREATE,
+    Permission.GUARDIAN_READ,
+    Permission.GUARDIAN_UPDATE,
+    Permission.ADMISSION_REVIEW,
+    Permission.ACADEMIC_STRUCTURE_READ,
+    Permission.ATTENDANCE_READ,
+    Permission.CALENDAR_READ,
+    Permission.ROUTINE_READ,
+    Permission.FEE_READ,
+    Permission.INVOICE_READ,
+    Permission.COMMUNICATION_SEND,
+    Permission.COMMUNICATION_BULK_SEND,
+    Permission.COMMUNICATION_LOG_READ,
+    Permission.DOCUMENT_PRINT,
+    Permission.PRINT_HISTORY_READ,
+    Permission.DASHBOARD_VIEW,
+    Permission.RESULT_READ,
+    Permission.STAFF_ATTENDANCE_READ,
+    Permission.STAFF_ATTENDANCE_MARK,
+  ],
+
+  // #1358 exam controller: runs exams, seat plans and results; reads marks
+  // but never enters them; prints documents but never edits templates.
+  [UserRole.EXAM_CONTROLLER]: [
+    Permission.EXAM_MANAGE,
+    Permission.SEAT_PLAN_MANAGE,
+    Permission.MARK_VIEW,
+    Permission.RESULT_PROCESS,
+    Permission.RESULT_PUBLISH,
+    Permission.RESULT_READ,
+    Permission.DOCUMENT_PRINT,
+    Permission.PRINT_HISTORY_READ,
+    Permission.STUDENT_READ,
+    Permission.ACADEMIC_STRUCTURE_READ,
+    Permission.ATTENDANCE_READ,
+    Permission.ROUTINE_READ,
+    Permission.CALENDAR_READ,
+    Permission.DASHBOARD_VIEW,
+    Permission.STAFF_ATTENDANCE_READ,
+    Permission.STAFF_ATTENDANCE_MARK,
+  ],
+
+  // #1358 school management committee: read-only, no student PII (D9).
+  // No REPORT_COLLECTIONS_READ (D16): the collections report and its CSV list
+  // a student_name per payment. An aggregate-only report would need its own
+  // permission.
+  [UserRole.COMMITTEE]: [
+    Permission.DASHBOARD_VIEW,
+    Permission.ACR_READ,
+    Permission.ACADEMIC_STRUCTURE_READ,
+    Permission.CALENDAR_READ,
   ],
 };
 

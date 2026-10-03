@@ -63,6 +63,13 @@ describe('StaffPerformanceService', () => {
     expect(acr.history).not.toHaveBeenCalled();
   });
 
+  it('only employees have a staff performance page: COMMITTEE is not one (D17)', async () => {
+    await service.get(SUBJECT, Q, T, CALLER);
+    const roles = memberships.findOne.mock.calls[0][0].where.role.value;
+    expect(roles).toContain('TEACHER');
+    expect(roles).not.toContain('COMMITTEE');
+  });
+
   it('survey average is passed through from the sealed service: null below min-N', async () => {
     const res = await service.get(SUBJECT, Q, T, CALLER);
     expect(surveys.teacherAverage).toHaveBeenCalledWith(SUBJECT, T);

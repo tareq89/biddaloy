@@ -101,6 +101,24 @@ describe('ContextGuard', () => {
       expect(req.currentTenant.role).toBe(UserRole.TEACHER);
     });
 
+    it('picks TEACHER over EXAM_CONTROLLER and COMMITTEE over PARENT (D23)', async () => {
+      const run = async (roles: string[]) => {
+        const req: any = {
+          user: {
+            sub: 'user-1',
+            email: 'test@test.com',
+            phone: null,
+            memberships: roles.map((role) => ({ tenantId: 'tenant-1', role })),
+          },
+          headers: { 'x-tenant-id': 'tenant-1' },
+        };
+        await guard.canActivate(createMockContext(req));
+        return req.currentTenant.role;
+      };
+      expect(await run(['EXAM_CONTROLLER', 'TEACHER'])).toBe('TEACHER');
+      expect(await run(['PARENT', 'COMMITTEE'])).toBe('COMMITTEE');
+    });
+
     it('should keep the earlier role when it already has the highest priority', async () => {
       const req = {
         user: {
@@ -735,7 +753,7 @@ describe('RolesGuard', () => {
       const req = { currentTenant: { id: 'tenant-1', role: UserRole.STUDENT } };
       const context = createMockContext(req, [UserRole.ADMIN]);
 
-      expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
+      expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
       expect(() => guard.canActivate(context)).toThrow('Requires one of roles: ADMIN');
     });
 
