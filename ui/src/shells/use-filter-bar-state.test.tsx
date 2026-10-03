@@ -136,6 +136,34 @@ describe('useFilterBarState', () => {
     expect(result.current.localValues.search).toBe('০১২');
   });
 
+  it('keeps a keystroke typed between its own commit and the URL echo landing (dropped-keystroke regression)', async () => {
+    vi.useFakeTimers();
+    try {
+      const onChange = vi.fn();
+      const { result, rerender } = setup({}, onChange);
+
+      act(() => result.current.setLocalValue('search', 'abc'));
+      await vi.advanceTimersByTimeAsync(300);
+      expect(onChange).toHaveBeenCalledWith({ search: 'abc' });
+
+      // The router has not applied the commit yet; the user types one more character.
+      act(() => result.current.setLocalValue('search', 'abcd'));
+      // Now the (older) committed value lands. It is our own write, not an external change.
+      rerender({ values: { search: 'abc' } });
+      expect(result.current.localValues.search).toBe('abcd');
+
+      await vi.advanceTimersByTimeAsync(300);
+      rerender({ values: { search: 'abcd' } });
+      expect(result.current.localValues.search).toBe('abcd');
+
+      // A genuine external change (Back press) afterwards still resyncs.
+      rerender({ values: { search: 'abc' } });
+      expect(result.current.localValues.search).toBe('abc');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('includes a chip for a `values` key no descriptor covers (the invisible-active-filter bug class)', () => {
     const { result } = setup({ student_id: 'stu-1' });
     expect(result.current.chips).toEqual([{ key: 'student_id', value: 'stu-1', label: null }]);
