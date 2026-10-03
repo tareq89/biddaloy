@@ -26,7 +26,7 @@ never be disjoint.
 /implement-epic https://github.com/org/repo/issues/364
 /implement-epic plan 364
 /implement-epic 364 --groups 2 --only w1
-/implement-epic 364 --stack --recommended
+/implement-epic 364 --recommended
 /implement-epic resume
 ```
 
@@ -43,10 +43,8 @@ never be disjoint.
   sub-wave.
 - **`--recommended`** → decide instead of asking. See
   [Recommended mode](#recommended-mode---recommended).
-- **`--stack`** → one stacked PR per wave, no stop between waves, until the
-  whole epic is done. See [Stack mode](#stack-mode---stack).
 
-Record both flags in the state file header so `resume` keeps them.
+Record the flag in the state file header so `resume` keeps it.
 
 ### Recommended mode (`--recommended`)
 
@@ -73,55 +71,13 @@ Passing `--recommended` is the user's approval for GATE 1 and GATE 2. It is
 **not** approval for:
 
 - **GATE 3 — merging to `main`.** Still the user's explicit call, per PR.
+  There is no auto-merge, under any flag, ever.
 - Anything the rules below forbid outright: `--force` / `-D`, history
   rewrites, crossing the 90-file chain ceiling or the 100-file PR limit.
 
 Pass the flag down: tell every `epic-group-worker` (and, through it, every
 planner / implementer / reviewer) to resolve its own choices the same way and
 return the options + chosen one in its report, so you can log them.
-
-### Stack mode (`--stack`)
-
-Default behaviour accumulates waves into one PR and stops at GATE 2 every wave.
-`--stack` changes that to **one PR per wave, stacked, without stopping**:
-
-```mermaid
-flowchart LR
-    M[main] --> W1["PR wave 1\nbase: main"]
-    W1 --> W2["PR wave 2\nbase: wave 1 branch"]
-    W2 --> W3["PR wave 3\nbase: wave 2 branch"]
-    W3 --> G3{{"GATE 3\nuser merges bottom-up"}}
-```
-
-For each wave, in order:
-
-1. Run the lanes (step 5) rooted on the previous wave's branch (wave 1 roots
-   on `main`).
-2. Integrate into the wave branch `epic/<slug>/w<N>` and get it green (step 6),
-   including the wave-close task.
-3. Open the wave's PR (step 7) with base = previous wave's branch (`main` for
-   wave 1). The 100-file check runs against that base. If one wave alone
-   exceeds 100 files, split it at a chain boundary into two stacked PRs.
-4. Start step 8 (CI / CodeRabbit rounds) on that PR, and **immediately**
-   start the next wave on top of it. Don't wait for CI.
-
-`--stack` is the user's approval to open these PRs, so GATE 2 reports but does
-not stop. GATE 1 still stops unless `--recommended` is also set. GATE 3 always
-stops.
-
-Stacked-PR rules (each one has already cost this repo time):
-
-- **CodeRabbit only reviews PRs whose base is `main`.** Upper PRs show
-  "Review skipped" until retargeted. So their step-8 CodeRabbit round happens
-  after GATE 3 retargets them; CI still runs on them right away.
-- **A fix pushed to wave N's branch must reach every wave above it.** Rebase
-  the upper branches with `git rebase --onto`, push them with
-  `--force-with-lease`, and keep every branch linear — the user rebase-merges,
-  and `--no-ff` merge commits block that.
-- **The user may merge a stack PR at any time.** `git fetch` and re-check the
-  remote tip before every push.
-- After PR N merges to `main`: retarget PR N+1 to `main`, rebase it onto the
-  new `main`, push, then let CodeRabbit run on it.
 
 ## Mode
 
@@ -161,9 +117,15 @@ agent it starts, at every level. Two kinds of call can fail:
 Claude Code already retries a failed LLM call a few times on its own; this
 rule starts when that error finally surfaces.
 
+**Usage limit** (`usage limit reached`, `rate_limit_error`, 429 from the LLM
+API) is handled the same way, except the probe can't see it — the network is
+fine. Wait 5 minutes, retry (resume the agent / re-run), and repeat until it
+goes through. Never treat it as a hard error and never delete the resume
+timer for it.
+
 **Not an outage — handle normally:** an auth error, a 4xx from GitHub, a red
-CI job, a usage-limit message. An SSH drop mid-`pre-push` hook while the probe
-below says online is also not an outage; retry the push once.
+CI job. An SSH drop mid-`pre-push` hook while the probe below says online is
+also not an outage; retry the push once.
 
 ### The probe
 
@@ -227,7 +189,8 @@ CronCreate  cron: "*/5 * * * *"  prompt: "/implement-epic resume"
   an LLM call failed, the next fire is a fresh LLM call that resumes the run
   from the state file — the same 5-minute recheck.
 - **Delete it (`CronDelete`) whenever the run stops for the user** — at any
-  gate, at the end of the run, on a hard error — and create it again when
+  gate, at the end of the run, on a hard error (an outage or a usage limit is
+  not one) — and create it again when
   work restarts. Otherwise it fires every 5 minutes while you wait on a human.
 - When it fires and the run is actually still busy (an agent or a wait loop
   is running), answer in one line and end the turn — don't re-dispatch
@@ -252,10 +215,10 @@ flowchart TB
     INT --> G2{{"GATE 2\nwave green on accumulating branch"}}
     G2 --> NW{{"next wave needs a PR yet?\n(100-file cap check)"}}
     NW -->|no, keep going| W
-    NW -->|yes| PR["open one PR for what's accumulated"]
-    PR --> CR["CodeRabbit + CI loop\ncapped at 3 rounds"]
-    CR --> G3{{"GATE 3\nuser approves merge"}}
-    G3 --> M["merge · start fresh accumulating branch on new main"]
+    NW -->|yes| PR["open PR N for what's accumulated\nnext branch stacks on PR N's branch"]
+    PR -->|don't wait| W
+    PR --> CR["Opus review + CI loop\nSonnet fixes · capped at 3 rounds\nstill red → [RED] in title, move on"]
+    CR --> G3{{"GATE 3\nuser merges, bottom-up\n(never automatic)"}}
 ```
 
 ## Model routing
@@ -272,7 +235,8 @@ Delegation to a pinned subagent is the only switch available.
 | Per-ticket implementation | Sonnet | `issue-implementer` subagent |
 | Per-ticket review — **money tier** | Opus | `issue-reviewer` subagent, from the group agent |
 | Per-ticket review — **standard tier** | Sonnet | `Agent(model: "sonnet")` following `issue-reviewer.md`, from the group agent |
-| CI / CodeRabbit fix rounds | Sonnet, then Opus | rounds 1–2 Sonnet; round 3 Opus for money tier only (step 8) |
+| PR review, CodeRabbit-style | Opus 5.5 | `Agent(model: "opus")` running `code-review` on the whole PR (step 8) |
+| Review / CI fix rounds | Sonnet 5.5 | `Agent(model: "sonnet")`, every round (step 8) |
 | Group orchestration | Sonnet | `epic-group-worker`, one per lane |
 
 **Plan-grade** = the sub-issue body carries `## Files`, `## Tests`,
@@ -332,11 +296,12 @@ for each wave N in order:
              branch, add its commit                    (plan-grade epics)
     check the accumulating branch's file count against main
         still ≤ 100  → keep accumulating, go to next wave without opening a PR
-        would cross  → step 7–8: open a PR for what's accumulated,
-                        fix CI/CodeRabbit, GATE 3, merge, start a fresh
-                        accumulating branch rooted on the new main
+        would cross  → step 7: open PR N for what's accumulated,
+                        start step 8 on it, and start a fresh accumulating
+                        branch rooted on PR N's head branch (stacked).
+                        Don't wait for review, CI or a merge.
 next wave — its lanes root at the accumulating branch's current head,
-NOT necessarily at `main` (only a just-merged PR moves `main` itself)
+NOT at `main` (only a merge moves `main`, and merges are the user's)
 ```
 
 Wave N+1 is never started until wave N is **integration-green on the
@@ -352,9 +317,6 @@ distinct from `main`.
 stops, leaving the accumulating branch exactly where it is — it does not
 force a PR open. `resume` continues from the recorded wave and accumulating
 branch.
-
-`--stack` replaces the accumulate-until-100-files check with one stacked PR
-per wave — see [Stack mode](#stack-mode---stack).
 
 PRs open back-to-back, no pacing wait between them — open the next one as soon
 as the previous `gh pr create` returns, don't wait on CI or CodeRabbit first.
@@ -413,6 +375,37 @@ built on sources 1 and 3 alone is a **guess**, and discovering an overlap after
 workers are already editing separate worktrees means two lanes have been writing
 the same file for however long the discovery took. Step 2 therefore plans the
 whole epic before any implementation starts.
+
+### Blockers — found up front, not mid-run
+
+Before any code, look for tickets that **cannot** be built yet. A dependency
+inside the epic is just ordering (waves handle it). A blocker is something
+outside the epic, or missing from `main`:
+
+- a `Depends on #N` where #N is in another epic and still open
+  (`gh issue view <N> --json state`)
+- a seam the body says must already exist — a table, service, endpoint,
+  route — that `graphify query` / a grep shows is not on `main`
+- an epic body that marks the ticket blocked or deferred
+
+For each blocked ticket, write the options and flag one recommended, e.g.:
+
+```markdown
+- #1255 needs the role guard from #786 (Epic 24, open)
+  - A: skip #1255 and #1257 (depends on it); leave both open (recommended)
+  - B: build a minimal guard here — duplicates #786's work
+  - Chosen: A
+```
+
+These go to GATE 1 as decisions (`--recommended` takes the recommended one).
+A skipped ticket takes every ticket that depends on it with it — follow the
+graph: declared edges plus file overlap.
+
+**Found mid-run instead** (a `blocked-on: #N` from pre-flight, or a ticket
+that fails for good): don't stop the run. Skip that ticket and every ticket
+that depends on it, in this wave and later ones, and carry on with the rest.
+Record each skip, and why, in the state file under `## Skipped`. Skipped
+issues stay open; they go in the PR description and the final report.
 
 ## Step 2 — Plan the whole epic first (discovery)
 
@@ -486,8 +479,9 @@ Rules:
     is its own lane, all in parallel, up to 8.
   - A wave's **close** task, when the epic has one ("wave close — seed,
     api-types, e2e"), is not a lane in that wave: it runs as its own one-lane
-    sub-wave `w<N>c` **after wave N has merged to `main`**, because it
-    regenerates committed artifacts and needs every sibling landed.
+    sub-wave `w<N>c` **after wave N is integrated on the accumulating
+    branch**, because it regenerates committed artifacts and needs every
+    sibling in. It never waits for a merge to `main`.
   - **Disjointness is a scripted check, not an eyeball pass — this has already
     failed once.** Epic 14 wave 4's two lanes (w4-g1, w4-g2) both touched
     `ui/src/hooks/backup.ts`, its test file, and
@@ -531,9 +525,26 @@ print and stop for approval:
 - waves and groups, with each group's ticket queue, tier per ticket, and
   territory line
 - the serialized hot-path lane, if any
+- every blocker found up front, with its options and the recommended one
 - how many agents will run and roughly what that costs
+- the permission check below
 
-Do not spawn on assumed approval.
+Do not spawn on assumed approval (`--recommended` is the approval given up
+front).
+
+### Permission check — an unattended run dies on one prompt
+
+A single permission prompt blocks the run until a human answers. Before GATE
+1, read `permissions` from `.claude/settings.json`,
+`.claude/settings.local.json` and `~/.claude/settings.json`. The run needs,
+without prompting: Edit/Write, and Bash for `git`, `gh`, `yarn`, `node`,
+`npx`, `curl`, `graphify`, `rtk`.
+
+If `defaultMode` isn't `auto` / `bypassPermissions` and the `allow` list
+doesn't cover those, print the exact missing rules at GATE 1, e.g.
+`"Bash(gh:*)"`, and suggest the user switch to auto mode or add them. **Never
+edit permission settings yourself** — that is the user's trust boundary.
+Carry on either way; a prompt is a pause, not a failure.
 
 ## Step 4 — Write the state file
 
@@ -570,6 +581,9 @@ Branch chain: epic/8.14/w1-g1-01-sidebar → epic/8.14/w1-g1-02-header
 Branch: epic/8.14/integration   status: not started
 ## PRs
 (none yet)
+## Decisions
+## Skipped
+## Outages
 ```
 
 Update after **every** completed ticket and every state change, not once per
@@ -682,10 +696,12 @@ failure this repo hit across the 8.7.x PRs.
 
 ### Failure isolation
 
-A failed ticket blocks only its own group's downstream tickets. Mark it
-`blocked` with the reason, stop that group, let the other groups finish, and
-report at the end. One bad ticket never stalls the fleet, and never silently
-disappears.
+A failed ticket blocks only the tickets that depend on it. Mark it `blocked`
+with the reason and skip it plus its dependents (see
+[Blockers](#blockers--found-up-front-not-mid-run)). The worker carries on
+with the rest of its queue from its last committed ticket. One bad ticket
+never stalls the fleet, and never silently disappears. Give each worker the
+list of which tickets in its queue depend on which, so it can skip correctly.
 
 ## Step 6 — Integration
 
@@ -739,8 +755,8 @@ files changed per chain, and the accumulating branch's running file count
 against `main`. This gate happens **every wave**, whether or not a PR is
 about to open — GATE 3 is the separate, PR-specific approval that only fires
 when the file count forces one open. Stop for approval before opening any
-PR — a PR is outward-facing and hard to unpublish. (`--stack` or
-`--recommended` is that approval given up front: report, then keep going.)
+PR — a PR is outward-facing and hard to unpublish. (`--recommended` is that
+approval given up front: report, then keep going.)
 
 ## Step 7 — Open the PRs
 
@@ -767,9 +783,31 @@ git diff --name-only main...<accumulating-branch> | wc -l
   not open a PR yet.
 - **Would cross 100 once the next wave lands:** open a PR for what's
   accumulated so far (this closes out PR N), then start a **new** accumulating
-  branch rooted on `main` (not on the just-opened PR's branch — once a PR is
-  open it's outward-facing, treat it as closed to further additions) for the
-  next wave onward. This becomes PR N+1. Repeat.
+  branch rooted on **PR N's head branch** for the next wave onward. Once a PR
+  is open, treat it as closed to new waves. The new branch becomes PR N+1,
+  with **base = PR N's branch, not `main`** — the next wave needs the earlier
+  waves' code, and `main` doesn't have it until the user merges. Repeat.
+
+```mermaid
+flowchart LR
+    M[main] --> P1["PR 1 · waves 1–2\nbase: main"]
+    P1 --> P2["PR 2 · waves 3–4\nbase: PR 1's branch"]
+    P2 --> P3["PR 3 · wave 5\nbase: PR 2's branch"]
+```
+
+Stacked-PR rules (each one has already cost this repo time):
+
+- **CodeRabbit only reviews PRs whose base is `main`.** PR 2+ show "Review
+  skipped" until retargeted — the Opus review in step 8 covers them.
+- **A fix pushed to PR N's branch must reach every PR above it.** Rebase the
+  upper branches with `git rebase --onto`, push them with
+  `--force-with-lease`, and keep every branch linear — the user
+  rebase-merges, and `--no-ff` merge commits block that.
+- **The user may merge a PR at any time.** `git fetch` and re-check the
+  remote tip before every push.
+- After PR N merges to `main`: retarget PR N+1 to `main`, rebase it onto the
+  new `main`, push. CodeRabbit then reviews it; fold its findings into a
+  step-8 round.
 
 So in the common case a small-to-medium epic ships as **one** PR opened after
 the final wave. A large epic ships as **two or three**, each as large as the
@@ -803,8 +841,8 @@ git diff --name-only <target>...<head> | wc -l     # must be ≤ 100, generated 
 
 If it exceeds 100, **do not open the PR.** Cut the accumulating branch at the
 last wave boundary that keeps the count under the limit — open that as PR N,
-then continue accumulating the rest from `main` as a fresh branch for PR N+1
-(per the consolidation logic above). Within a single chain, if a chain alone
+then continue accumulating the rest on a fresh branch stacked on PR N's
+branch, for PR N+1 (per the consolidation logic above). Within a single chain, if a chain alone
 would exceed 100 (rare — the 50/90-file chain cap should prevent this), split
 it at a commit boundary the same way: tickets are separate commits, cut a new
 branch after the last one that keeps the count under the limit. Never trim
@@ -823,10 +861,18 @@ minimum, cut at that boundary if needed.
   before opening the next one. If CodeRabbit reviews a PR shallowly because
   it arrived close behind another, that's a `pr-fix`-round problem to catch
   in step 8, not a reason to sit idle in step 7.
-- Chain heads target `main`; inner chain PRs target their parent branch.
+- PR 1 targets `main`; each later PR targets the PR before it.
 - Each description: the issue, the approach, plan corrections the planner
-  found, design-system additions, how to test, and its position in the merge
-  order.
+  found, design-system additions, how to test, its position in the merge
+  order, and these sections whenever they're non-empty:
+  - **Decisions** — every `--recommended` call that landed in this PR
+    (alarming plan drift first).
+  - **Skipped tickets** — and what blocked them.
+  - **Unresolved review findings** — anything a worker's review pass flagged
+    and didn't fix within its 2 rounds, each with the issue filed for it.
+  - **Issues filed** — every issue filed for a problem found during the run
+    (see [Problems found along the way](#problems-found-along-the-way--fix-it-or-file-it)).
+  - **Commits made with `--no-verify`** — and which hook failed.
 - **The description must list every issue this PR completes**, one line per
   issue, in this pattern:
 
@@ -841,7 +887,27 @@ minimum, cut at that boundary if needed.
   never auto-closes on merge.
 - Record every PR number and timestamp in the state file as it opens.
 
-## Step 8 — CodeRabbit and CI
+## Step 8 — Review and CI
+
+Every PR gets the same loop, right after it opens:
+
+1. **Review (Opus 5.5).** Dispatch `Agent(model: "opus")` to run the
+   `code-review` skill on the PR's full diff against its base, at high effort.
+   It reviews the way CodeRabbit does: a short summary and walkthrough, then
+   each finding with file:line, severity (critical / major / minor / nit), what
+   is wrong, and the suggested fix. It does not fix anything.
+2. **Post it on the PR** as a review comment, so it lives with the PR:
+
+   ```bash
+   gh pr review <n> --comment --body-file <review.md>
+   ```
+
+3. **Fix (Sonnet 5.5).** Dispatch `Agent(model: "sonnet")` with the review,
+   any CodeRabbit comments, and every failing CI check
+   (`gh pr checks <n>`). It addresses all of them in one round, then replies
+   on the review saying what it fixed and what it left, with the reason.
+4. Repeat from 1 for the next round — a fresh review of the new diff, plus
+   CI.
 
 Use the `pr-fix` skill's semantics rather than restating them — including its
 **batch-then-verify** discipline (see that skill's Tests step): diagnose every
@@ -851,9 +917,19 @@ CI failure and every actionable CodeRabbit finding you currently know about
 diagnose-all → fix-all → verify-once → push cycle, not one push per
 individual fix — pushing after each fix re-triggers the entire CI matrix (14+
 jobs) and a fresh CodeRabbit pass for a single line change, which is the
-single largest avoidable cost in this step. After the third round, stop and
-report that PR to the user — an uncapped loop can burn a whole session on one
-stubborn PR.
+single largest avoidable cost in this step. An uncapped loop can burn a whole
+session on one stubborn PR.
+
+**Still red after round 3?** Don't stop the run. Mark the PR red in its title
+and move on to the next wave:
+
+```bash
+gh pr edit <n> --title "[RED] <original title>"
+```
+
+Add a PR comment listing what is still failing or unresolved, and note it in
+the state file. Remove the `[RED] ` prefix if a later fix (e.g. one propagated
+from a lower PR) turns it green.
 
 The exception: a fix you're genuinely unsure about (touches locking,
 concurrency, money-tier correctness, or anything CodeRabbit itself flagged as
@@ -863,12 +939,9 @@ it harder to attribute a regression to the right change, and gives it a
 shallower review pass on the bundled diff. Batch the safe, obviously-correct
 fixes; keep the one risky fix legible on its own.
 
-Route the rounds by cost: **rounds 1 and 2 run on a Sonnet subagent**
-(`Agent(model: "sonnet")` doing the `pr-fix` work — CI failures here are
-mostly mechanical: Node 22 vs 24, the `bn` e2e locale, byte-exact `api-types`,
-the 80 % branch gate). **Round 3 runs on Opus only for a money-tier PR**; a
-standard-tier PR that is still red after two Sonnet rounds stops and is
-reported, because a third cheap attempt on a UI flake is rarely the fix.
+Every fix round runs on Sonnet 5.5 — CI failures here are mostly mechanical:
+Node 22 vs 24, the `bn` e2e locale, byte-exact `api-types`, the 80 % branch
+gate. The Opus review is what catches the hard problems.
 
 If CI fails on something the epic didn't cause (a pre-existing flake — this
 repo runs ~28% CI failure), diagnose the actual root cause rather than
@@ -877,7 +950,7 @@ confirm it's genuinely pre-existing and unrelated to this PR's files, and fix
 the root cause if it's cheap to do so (a genuine flake is often a real, if
 minor, bug — e.g. code relying on an unordered SQL read for a required order —
 not pure bad luck). Say explicitly which it was (root-caused and fixed, or
-confirmed pre-existing and left alone) instead of silently "fixing" unrelated
+confirmed pre-existing and filed as an issue) instead of silently "fixing" unrelated
 code to get green, and never silently re-run a red job without saying so.
 
 ## GATE 3 — merge
@@ -885,15 +958,15 @@ code to get green, and never silently re-run a red job without saying so.
 Present the ordered merge list and stop. **Merge only the PR(s) the user
 explicitly approves, only when they explicitly say so — never on assumed or
 standing approval, even if every prior PR in the same run was approved and
-merged the same way.** Green CI is not approval. On approval for a given PR,
-merge it, then rebase and retarget whatever was stacked on it.
+merged the same way.** Green CI is not approval. There is no auto-merge — no
+flag, no condition, no exception. On approval for a given PR, merge it, then
+rebase and retarget whatever was stacked on it.
 
 ### After any merge — mark done and close the issues
 
 This runs for **every** merged PR of the run, whether you merged it or the
-user merged it by hand on GitHub. You won't be told about a manual merge, so
-look for one: at the start of every turn, on `resume`, and before every push,
-check each open PR in the state file.
+user merged it by hand on GitHub. The user tells you when they merged one by
+hand — no polling. Confirm it before acting:
 
 ```bash
 gh pr view <n> --json state,mergedAt,baseRefName --jq '"\(.state) \(.mergedAt) \(.baseRefName)"'
@@ -938,8 +1011,7 @@ for every later command in every later session.
 
 "Belongs to it" means every worktree whose branch is in that PR:
 
-- the PR's head branch (accumulating branch, or the wave branch under
-  `--stack`),
+- the PR's head branch (the accumulating branch),
 - every lane chain branch merged into it (its `epic-group-worker`
   worktrees, usually under `.claude/worktrees/agent-*`),
 - any step-8 fix-round worktree for that PR.
@@ -948,7 +1020,7 @@ Map branches to paths with `git worktree list --porcelain`; the state file
 lists which branches each PR carries. If an agent is still running in one of
 them, stop it first (`TaskStop`) — the PR is merged, its work is done.
 
-Under `--stack`, retarget the PR above to its new base **before** deleting
+For a split epic, retarget the PR above to its new base **before** deleting
 the merged branch, or GitHub closes that PR along with the deleted base.
 
 ```bash
@@ -983,6 +1055,43 @@ At epic close, sweep: every branch and worktree the run created is gone, or is
 listed in the final report with the reason it survived. Say which in the report
 — "cleaned up" is a claim, so make it a checked one.
 
+## Problems found along the way — fix it or file it
+
+Any problem found during the run — a worker's "couldn't fix" report, an
+unresolved review finding, a still-red check on a `[RED]` PR, a pre-existing
+CI failure, a wrong claim in an issue body, a bug spotted next to the code —
+gets exactly one of two outcomes:
+
+1. **Fix it in this session and commit it.** On the chain or accumulating
+   branch that owns the file, as its own commit, before the PR it belongs in
+   opens (or as a step-8 round after).
+2. **If that isn't possible** (outside the epic's scope, needs a product
+   call, too big, blocked), **file a GitHub issue** with enough detail that
+   someone with no context can act on it. Search first so you don't file a
+   duplicate:
+
+   ```bash
+   gh issue list --state open --search "<key words>"
+   gh issue create --title "<what is wrong, in one line>" --body-file <issue.md>
+   ```
+
+   The body:
+
+   ```markdown
+   ## What's wrong
+   <one paragraph; file:line>
+   ## How it was found
+   Epic #<epic>, ticket #<n>, PR #<pr>, branch <branch>
+   <command + the output that shows it>
+   ## Why it wasn't fixed in the epic
+   <outside scope / needs a product call / too big / blocked by #N>
+   ## Suggested fix
+   <concrete steps, files to touch>
+   ```
+
+Link every filed issue from the PR description and the final report. Nothing
+is left as "noted" only.
+
 ## Resuming
 
 The state file on disk and the plan comments on GitHub are the sources of
@@ -1007,8 +1116,8 @@ session model and report it. Never re-plan a ticket that already has a current
 - Default to one PR for the whole epic — keep merging wave heads into the same
   accumulating branch instead of opening a PR per wave or per chain. Only cut
   a PR when the accumulating branch's diff against `main` would otherwise
-  exceed 100 files; start a fresh accumulating branch on the new `main`
-  immediately after that PR merges.
+  exceed 100 files; then start a fresh accumulating branch stacked on that
+  PR's branch, right away — PR N+1 targets PR N, not `main`.
 - Never open a PR whose diff against its target exceeds 100 files, generated
   files included — cut the accumulating branch at the last wave boundary that
   stays under the limit instead.
@@ -1017,10 +1126,15 @@ session model and report it. Never re-plan a ticket that already has a current
   GATE 3: never merge a PR without the user's explicit go-ahead **for that
   specific PR**, every time, no matter how routine or how green its CI is.
   A prior approval to merge one PR is not standing approval for the next one.
-  `--recommended` and `--stack` pre-approve GATE 1 / GATE 2 only, never GATE 3.
-- After any PR of the run merges to `main` — by you or by the user — tick
-  its issues' acceptance boxes and close them. Check for manual merges every
-  turn.
+  `--recommended` pre-approves GATE 1 / GATE 2 only, never GATE 3. Auto-merge
+  does not exist.
+- After any PR of the run merges to `main` — by you, or by the user who then
+  tells you — tick its issues' acceptance boxes and close them.
+- A PR still red after 3 fix rounds gets `[RED]` in its title; the run moves
+  on. A blocked ticket is skipped with its dependents; the run moves on.
+- If a commit or push fails on a git hook, retry with `--no-verify` and
+  record it for the PR description. Integration's `yarn ci:local` still runs
+  the full checks.
 - After any PR of the run merges — anywhere, by anyone — remove its
   worktrees in that same turn.
 - A network outage is a wait, not a failure — for tool calls and LLM calls
@@ -1043,6 +1157,8 @@ session model and report it. Never re-plan a ticket that already has a current
   self-pre-flight a money-tier one.
 - Never run the Opus reviewer on a standard-tier ticket, and never run the
   Sonnet reviewer on a money-tier one — the tier is on the `## Plan` comment.
+- Every problem found during the run is either fixed and committed in this
+  session, or filed as a detailed GitHub issue. Never just "noted".
 - Update the state file after every ticket and every state change.
 
 ## Report at the end
@@ -1052,6 +1168,8 @@ session model and report it. Never re-plan a ticket that already has a current
 |---|---|---|---|---|---|---|---|
 ```
 
-Plus, in plain sentences: what merged, what is still open and why, tickets that
-came back `blocked` and what blocked them, design-system additions made, and any CI failure judged pre-existing rather
-than caused by this epic.
+Plus, in plain sentences: what merged, what is still open and why, tickets
+skipped and what blocked them, PRs marked `[RED]` and what is still failing,
+every `--recommended` decision, commits made with `--no-verify`, unresolved
+review findings, issues filed during the run, design-system additions made,
+and any CI failure judged pre-existing rather than caused by this epic.
