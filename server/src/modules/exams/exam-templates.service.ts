@@ -137,7 +137,7 @@ export class ExamTemplatesService {
     userId: string | null = null,
     context: RequestContext = NO_CONTEXT,
   ): Promise<ExamTemplateDetailDto> {
-    const existing = await this.findTemplate(id, tenantId);
+    await this.findTemplate(id, tenantId);
     if (dto.rows) this.validateRows(dto.rows);
 
     await this.run(async (manager) => {
@@ -178,7 +178,7 @@ export class ExamTemplatesService {
         tenantId,
         userId,
         context,
-        { name: existing.name, kind: existing.kind },
+        { name: live.name, kind: live.kind },
         {
           ...(dto.name !== undefined && { name: dto.name }),
           ...(dto.kind !== undefined && { kind: dto.kind }),
@@ -195,7 +195,6 @@ export class ExamTemplatesService {
     userId: string | null = null,
     context: RequestContext = NO_CONTEXT,
   ): Promise<void> {
-    const existing = await this.findTemplate(id, tenantId);
     await this.repo.manager.transaction(async (manager) => {
       // Re-read under a row lock so a concurrent update()/remove() serialises.
       const live = await manager.getRepository(ExamTemplate).findOne({
@@ -215,9 +214,7 @@ export class ExamTemplatesService {
         tenantId,
         userId,
         context,
-        {
-          name: existing.name,
-        },
+        { name: live.name },
         null,
       );
     });
@@ -252,6 +249,10 @@ export class ExamTemplatesService {
   }
 
   private validateRows(rows: ExamTemplateRowInputDto[]): void {
+    // 9 columns x 7,281 lines hits Postgres' 65,535 bind-parameter limit; stay well under.
+    if (rows.reduce((n, r) => n + r.components.length, 0) > 5000) {
+      throw new BadRequestException('A template can have at most 5000 components in total.');
+    }
     const seenRows = new Set<string>();
     for (const r of rows) {
       const rowKey = `${r.classGrade}|${r.subjectCode}`;

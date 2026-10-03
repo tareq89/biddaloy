@@ -167,15 +167,22 @@ describe('ExamTemplatesService', () => {
     const live = { id: TPL, tenant_id: TENANT, name: 'Term', kind: ExamKind.TERM };
     for (const op of ['update', 'remove'] as const) {
       const n = build();
-      n.tplRepo.findOne.mockResolvedValueOnce(live).mockResolvedValueOnce(null);
+      // update pre-reads once outside the tx; remove goes straight to the locked read.
+      if (op === 'update') n.tplRepo.findOne.mockResolvedValueOnce(live);
+      n.tplRepo.findOne.mockResolvedValueOnce(null);
       const call =
         op === 'update'
           ? n.service.update(TPL, { rows: [row()] }, TENANT)
           : n.service.remove(TPL, TENANT);
       await expect(call).rejects.toBeInstanceOf(NotFoundException);
-      expect(n.tplRepo.findOne.mock.calls[1][0].lock).toEqual({ mode: 'pessimistic_write' });
+      expect(n.tplRepo.findOne.mock.calls[op === 'update' ? 1 : 0][0].lock).toEqual({
+        mode: 'pessimistic_write',
+      });
       expect(n.compRepo.delete).not.toHaveBeenCalled();
       expect(n.compRepo.insert).not.toHaveBeenCalled();
+      expect(n.tplRepo.update).not.toHaveBeenCalled();
+      expect(n.tplRepo.softDelete).not.toHaveBeenCalled();
+      expect(n.audit.record).not.toHaveBeenCalled();
     }
   });
 
