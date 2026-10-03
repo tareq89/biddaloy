@@ -13,13 +13,16 @@
  * quirks differ Chromium/Firefox/Safari) — this needs a manual
  * print-preview check before this ships, not just `yarn test` green.
  */
+/* Every rule is scoped under `body:has(#attendance-register-print-area)` so this sheet, which
+ * stays loaded after leaving the screen, cannot affect other pages' printouts
+ * (#1322). `@page` cannot be scoped. */
 @media print {
-  body * {
+  body:has(#attendance-register-print-area) * {
     visibility: hidden;
   }
 
-  #attendance-register-print-area,
-  #attendance-register-print-area * {
+  body:has(#attendance-register-print-area) #attendance-register-print-area,
+  body:has(#attendance-register-print-area) #attendance-register-print-area * {
     visibility: visible;
   }
 

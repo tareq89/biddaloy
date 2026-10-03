@@ -66,7 +66,9 @@
   "defaultName": "{{style}} {{orientation}} ID card",
   "suggestion": {
     "alt": "{{style}} {{orientation}} design",
-    "loading": "Loading the design…"
+    "loading": "Loading the design…",
+    "acrLabel": "ACR assessment · A4",
+    "acrHelp": "A4 page, front only, up to 30 criteria."
   },
   "gate": {
     "title": "Open this on a computer to design or print",

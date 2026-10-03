@@ -33,6 +33,10 @@ export class AcrAssessmentResolver implements FieldResolver {
   kind = DocumentKind.ACR_ASSESSMENT;
   subjectType = 'ACR' as const;
 
+  // Lock scope: `FOR SHARE OF a` below only holds when the caller wraps this in a transaction
+  // (create and reprint). Preview runs without one, so it can show an ACR that is reopened a
+  // moment later. That is acceptable: preview is read-only and the printed job re-resolves
+  // under the lock and refuses a non-COMPLETED ACR (409).
   async resolve(tenantId: string, subjectIds: string[], manager: EntityManager, callerId?: string) {
     const rows: Row[] = await manager.query(
       `SELECT a.id, a.status, a.total, u.full_name, h.name_bn,

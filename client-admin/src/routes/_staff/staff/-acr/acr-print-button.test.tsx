@@ -1,3 +1,4 @@
+import { useTranslation } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders } from '@biddaloy/ui/test';
 import { screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -16,12 +17,21 @@ afterEach(async () => {
   await cleanupTestState();
 });
 
+// Shares the button's Suspense boundary and namespace, so it only appears once the button has
+// rendered (or rendered null) for real: a condition to wait on instead of a fixed sleep.
+function Settled() {
+  useTranslation('evaluations');
+  return <span data-testid="settled" />;
+}
+
 function setup(role: string, status: 'COMPLETED' | 'INCOMPLETE') {
-  return renderWithProviders(<AcrPrintButton assessment={{ id: 'acr-1', status }} />, {
-    locale: 'en',
-    role,
-    tenantId: 'tenant-1',
-  });
+  return renderWithProviders(
+    <>
+      <AcrPrintButton assessment={{ id: 'acr-1', status }} />
+      <Settled />
+    </>,
+    { locale: 'en', role, tenantId: 'tenant-1' },
+  );
 }
 
 describe('AcrPrintButton', () => {
@@ -41,20 +51,19 @@ describe('AcrPrintButton', () => {
 
   it('is hidden while the ACR is incomplete', async () => {
     setup('ADMIN', 'INCOMPLETE');
-    // The namespace suspends on first render; wait for a settled frame.
-    await new Promise((r) => setTimeout(r, 50));
+    await screen.findByTestId('settled');
     expect(screen.queryByRole('button', { name: 'Print ACR' })).toBeNull();
   });
 
   it('is hidden without ACR_READ (ACCOUNTANT can print documents but not read ACRs)', async () => {
     setup('ACCOUNTANT', 'COMPLETED');
-    await new Promise((r) => setTimeout(r, 50));
+    await screen.findByTestId('settled');
     expect(screen.queryByRole('button', { name: 'Print ACR' })).toBeNull();
   });
 
   it('is hidden for a role with neither permission (TEACHER)', async () => {
     setup('TEACHER', 'COMPLETED');
-    await new Promise((r) => setTimeout(r, 50));
+    await screen.findByTestId('settled');
     expect(screen.queryByRole('button', { name: 'Print ACR' })).toBeNull();
   });
 });

@@ -3,6 +3,7 @@
  * fetched through the authenticated client as a `data:` URL — a bare `<img src>`
  * to an authenticated route sends no bearer token and would 401.
  */
+import { DocumentKind } from '@biddaloy/shared';
 import { Skeleton } from '@biddaloy/ui/components';
 import type { PrintSuggestion } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
@@ -19,8 +20,11 @@ export function SuggestionCard({ suggestion, selected, onSelect }: SuggestionCar
   const { t } = useTranslation('printTemplates');
   const artworkUrl = `/print-templates/suggestions/${suggestion.key}/artwork/front`;
   const thumbnail = useDataUrls([artworkUrl])[artworkUrl];
+  // An ACR page is not an ID card: style/orientation would read "Classic · portrait".
+  const isAcr = suggestion.documentKind === DocumentKind.ACR_ASSESSMENT;
   const style = t(`style.${suggestion.style}`);
   const orientation = t(`orientation.${suggestion.orientation}`);
+  const label = isAcr ? t('suggestion.acrLabel') : `${style} · ${orientation}`;
 
   return (
     <button
@@ -34,15 +38,14 @@ export function SuggestionCard({ suggestion, selected, onSelect }: SuggestionCar
       {thumbnail ? (
         <img
           src={thumbnail}
-          alt={t('suggestion.alt', { style, orientation })}
+          alt={isAcr ? label : t('suggestion.alt', { style, orientation })}
           className="h-24 w-full rounded-md bg-muted object-contain"
         />
       ) : (
         <Skeleton role="status" aria-label={t('suggestion.loading')} className="h-24 w-full" />
       )}
-      <span className="text-sm font-medium">
-        {style} · {orientation}
-      </span>
+      <span className="text-sm font-medium">{label}</span>
+      {isAcr && <span className="text-xs text-muted-foreground">{t('suggestion.acrHelp')}</span>}
     </button>
   );
 }

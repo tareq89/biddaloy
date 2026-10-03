@@ -157,6 +157,10 @@ export function useFilterBarState({
   onChangeRef.current = onChange;
 
   const timeoutsRef = React.useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  // Last value THIS hook committed per key. The router applies a commit a few ms (or, under CI
+  // load, hundreds) later; if the user typed more meanwhile, that echo is stale, not external,
+  // and resetting the input to it would drop the newer keystrokes.
+  const lastCommittedRef = React.useRef<Record<string, string>>({});
 
   // Content hash of the committed values this hook actually echoes, used as
   // the resync effect's dependency instead of the `values` object itself.
@@ -181,6 +185,8 @@ export function useFilterBarState({
       const next = { ...current };
       for (const key of debouncedKeys) {
         const incoming = valuesRef.current[key] ?? '';
+        if (lastCommittedRef.current[key] === incoming) continue;
+        delete lastCommittedRef.current[key];
         const normalizedEcho = toLatinDigits(current[key] ?? '').trim();
         if (incoming !== normalizedEcho) {
           next[key] = incoming;
@@ -229,6 +235,7 @@ export function useFilterBarState({
         const normalized = toLatinDigits(raw).trim();
         const currentCommitted = valuesRef.current[key] ?? '';
         if (normalized === currentCommitted) return;
+        lastCommittedRef.current[key] = normalized;
         onChangeRef.current({ [key]: normalized === '' ? null : normalized });
       }, debounceMs);
     },
@@ -260,6 +267,7 @@ export function useFilterBarState({
   const clearFilter = React.useCallback(
     (key: string) => {
       cancelPending(key);
+      delete lastCommittedRef.current[key];
       onChangeRef.current({ [key]: null });
     },
     [cancelPending],
@@ -271,6 +279,7 @@ export function useFilterBarState({
       if (valuesRef.current[key] !== undefined && valuesRef.current[key] !== '') patch[key] = null;
     }
     for (const key of Object.keys(timeoutsRef.current)) cancelPending(key);
+    lastCommittedRef.current = {};
     onChangeRef.current(patch);
   }, [cancelPending]);
 
