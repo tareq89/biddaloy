@@ -1,24 +1,21 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Permission, UserRole, hasTenantScope, roleHasPermission } from '@biddaloy/shared';
+import { Permission, hasTenantDataScope, roleHasPermission } from '@biddaloy/shared';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 
 /** Tenant scope + MARK_ENTER may write marks for every section-subject
  * without going through `teacher_class_sections`. EXAM_CONTROLLER has no
- * MARK_ENTER (D16), so it stays out.
- * ponytail: #1362 D-N — SUPER_ADMIN is held out of tenant-wide *writes*
- * (as before Epic 24) until product decides; drop the check to widen it. */
+ * MARK_ENTER (D16), so it stays out. SUPER_ADMIN: see `hasTenantDataScope` (#1362 D-N). */
 const canWriteTenantWide = (role: string) =>
-  role !== UserRole.SUPER_ADMIN &&
-  hasTenantScope(role) &&
-  roleHasPermission(role, Permission.MARK_ENTER);
+  hasTenantDataScope(role) && roleHasPermission(role, Permission.MARK_ENTER);
 
 /** Tenant scope + MARK_VIEW may *read* every section-subject's grid.
  * Wider than the write side: EXECUTIVE and EXAM_CONTROLLER hold MARK_VIEW
- * but never MARK_ENTER. COMMITTEE has no MARK_VIEW, so never reaches marks (D9). */
+ * but never MARK_ENTER. COMMITTEE has no MARK_VIEW, so never reaches marks (D9).
+ * SUPER_ADMIN is out of reads too, so the grid never looks editable and then 403s on save. */
 const canReadTenantWide = (role: string) =>
-  hasTenantScope(role) && roleHasPermission(role, Permission.MARK_VIEW);
+  hasTenantDataScope(role) && roleHasPermission(role, Permission.MARK_VIEW);
 
 /**
  * The single "may this caller write marks for this section-subject?"

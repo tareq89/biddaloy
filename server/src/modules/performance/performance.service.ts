@@ -5,7 +5,7 @@ import {
   ExamStatus,
   Permission,
   UserRole,
-  hasTenantScope,
+  hasTenantDataScope,
   roleHasPermission,
 } from '@biddaloy/shared';
 import { Exam } from '../exams/entities/exam.entity';
@@ -34,10 +34,11 @@ import {
 export type Caller = { tenantId: string; role: string; userId: string };
 export type Range = { academicYearId: string; termId: string | null; from: string; to: string };
 
-/** Tenant-wide performance reads: tenant scope AND the permission the routes
- * require (MARK_VIEW). ACCOUNTANT has tenant scope but not MARK_VIEW, so stays out. */
+/** Tenant-wide performance reads: tenant data scope AND the permission the routes
+ * require (MARK_VIEW). ACCOUNTANT has tenant scope but not MARK_VIEW, so stays out.
+ * SUPER_ADMIN: see `hasTenantDataScope` (#1362 D-N). */
 const canReadTenantWide = (role: string) =>
-  hasTenantScope(role) && roleHasPermission(role, Permission.MARK_VIEW);
+  hasTenantDataScope(role) && roleHasPermission(role, Permission.MARK_VIEW);
 
 // Unweighted mean of existing per-exam/per-section outputs — no new statistics (D17).
 function mean(xs: number[]): number | null {

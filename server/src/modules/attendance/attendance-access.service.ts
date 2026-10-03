@@ -1,15 +1,15 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
-import { UserRole, hasTenantScope } from '@biddaloy/shared';
+import { Permission, UserRole, hasTenantDataScope, roleHasPermission } from '@biddaloy/shared';
 import { ClassSection } from '../academics/entities/class-section.entity';
 
-/** Tenant-scoped roles reach every section. This service gates both reads and
- * writes (marking, finalizing), so it is a write path.
- * ponytail: #1362 D-N — SUPER_ADMIN is held out (as before Epic 24) until
- * product decides whether a platform operator may mark a school's attendance;
- * drop the check to widen it. */
-const canAccessTenantWide = (role: string) => role !== UserRole.SUPER_ADMIN && hasTenantScope(role);
+/** Tenant data scope + ATTENDANCE_READ reaches every section. This service gates
+ * both reads and writes (marking, finalizing); the routes add ATTENDANCE_MARK on
+ * top. The permission keeps COMMITTEE (no ATTENDANCE_*, D9) out even if a looser
+ * route reaches this service. SUPER_ADMIN: see `hasTenantDataScope` (#1362 D-N). */
+const canAccessTenantWide = (role: string) =>
+  hasTenantDataScope(role) && roleHasPermission(role, Permission.ATTENDANCE_READ);
 
 /**
  * The object-level "may this caller touch this section's attendance?" gate —

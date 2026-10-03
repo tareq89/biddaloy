@@ -139,10 +139,10 @@ export class HomeworkService {
       }
     }
 
-    // Same object-level gate as mutations: tenant-scope roles (`hasTenantScope`) see everything
+    // Same object-level gate as mutations: tenant-wide managers (`canManageTenantWide`) see everything
     // in tenant, a TEACHER only sees homework for classes they're linked to
     // via teacher_class_sections (any section, any subject they teach).
-    if (!this.access.isTenantWide(ctx.role)) {
+    if (!this.access.canManageTenantWide(ctx.role)) {
       qb.innerJoin(
         'teacher_class_sections',
         'tcs',

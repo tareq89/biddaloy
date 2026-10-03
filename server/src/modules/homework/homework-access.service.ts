@@ -1,18 +1,23 @@
 import { Injectable, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
-import { UserRole, hasTenantScope } from '@biddaloy/shared';
+import { Permission, UserRole, hasTenantDataScope, roleHasPermission } from '@biddaloy/shared';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Class } from '../academics/entities/class.entity';
 import { Subject } from '../academics/entities/subject.entity';
 import { Student } from '../students/entities/student.entity';
 
-/** Tenant-scoped roles *manage* homework for every class/section.
- * ponytail: #1362 D-N — SUPER_ADMIN is held out of tenant-wide writes (as
- * before Epic 24) until product decides; reads (`isTenantWide`, `assertCanView*`)
- * stay on plain `hasTenantScope`. Drop the check to widen it. */
-const canManageTenantWide = (role: string) => role !== UserRole.SUPER_ADMIN && hasTenantScope(role);
+/** Tenant data scope + HOMEWORK_ASSIGN manages homework for every class/section
+ * (and lists it — `HomeworkService.findAll` uses this too, so every listed row opens).
+ * Pairing scope with the permission keeps COMMITTEE (no HOMEWORK_*, D9) out even if a
+ * looser route reaches this service. SUPER_ADMIN: see `hasTenantDataScope` (#1362 D-N). */
+const canManageTenantWide = (role: string) =>
+  hasTenantDataScope(role) && roleHasPermission(role, Permission.HOMEWORK_ASSIGN);
+
+/** Read-side counterpart for the analytics rollups: the permission those routes require. */
+const canViewTenantWide = (role: string) =>
+  hasTenantDataScope(role) && roleHasPermission(role, Permission.HOMEWORK_READ);
 
 /**
  * The object-level "may this caller touch homework for this
@@ -39,14 +44,9 @@ export class HomeworkAccessService {
   ) {}
 
   /** True for roles that manage homework tenant-wide without a
-   * `teacher_class_sections` link (used by callers building their own query,
-   * e.g. `HomeworkService.findAll`'s row-level scoping). */
-  isTenantWide(role: string): boolean {
-    return hasTenantScope(role);
-  }
-
-  /** Write-side counterpart of `isTenantWide` (bulk upload skips its per-row
-   * check with this). */
+   * `teacher_class_sections` link (used by callers building their own query —
+   * `HomeworkService.findAll`'s row-level scoping — and by bulk upload to skip
+   * its per-row check). */
   canManageTenantWide(role: string): boolean {
     return canManageTenantWide(role);
   }
@@ -167,7 +167,7 @@ export class HomeworkAccessService {
     sectionId: string,
     tenantId: string,
   ): Promise<void> {
-    if (hasTenantScope(role)) {
+    if (canViewTenantWide(role)) {
       const section = await this.sectionRepo.findOne({
         where: { id: sectionId, tenant_id: tenantId },
       });
@@ -203,7 +203,7 @@ export class HomeworkAccessService {
     classId: string,
     tenantId: string,
   ): Promise<void> {
-    if (hasTenantScope(role)) {
+    if (canViewTenantWide(role)) {
       return;
     }
 
@@ -248,7 +248,7 @@ export class HomeworkAccessService {
   /** `Homework.create` takes class_id/subject_id straight from the DTO —
    * confirm both actually belong to this tenant before any teacher-scoping
    * check runs against them, since `assertCanManageClass` short-circuits
-   * without a lookup for tenant-scope roles (`hasTenantScope`) and would otherwise let an ADMIN
+   * without a lookup for tenant-wide roles (`canManageTenantWide`) and would otherwise let an ADMIN
    * create homework pointing at another tenant's class/subject id. */
   async assertClassAndSubjectInTenant(
     classId: string,

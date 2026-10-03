@@ -232,12 +232,12 @@ describe('AttendanceAccessService (integration)', () => {
       [UserRole.ADMIN, true],
       [UserRole.EXECUTIVE, true],
       [UserRole.ACCOUNTANT, true],
-      // #1362 D-N: SUPER_ADMIN stays out until product decides (this service also gates writes).
+      // #1362 D-N: SUPER_ADMIN is out of tenant data scope until product decides.
       [UserRole.SUPER_ADMIN, false],
       // New in #1362 (read ROLE_SCOPE): the three new tenant-scoped roles.
       [UserRole.OFFICE_STAFF, true],
       [UserRole.EXAM_CONTROLLER, true],
-      [UserRole.COMMITTEE, true],
+      [UserRole.COMMITTEE, false], // tenant scope but no ATTENDANCE_READ (D9)
       [UserRole.PARENT, false],
       [UserRole.STUDENT, false],
     ];

@@ -345,19 +345,21 @@ describe('HomeworkAccessService', () => {
     });
   });
 
-  // [#1362] Per-role table: tenant-wide roles manage/view an unmapped section; others are denied.
+  // [#1362] Per-role table: tenant data scope + the homework permission manages/views an
+  // unmapped section; others are denied. Only ADMIN holds HOMEWORK_* among tenant-scoped
+  // roles; EXECUTIVE/ACCOUNTANT/the new roles never pass a homework route's permission gate
+  // anyway, so the service now agrees with the routes instead of granting them.
   describe('per-role access table', () => {
     // [role, manage, view]
     const TABLE: Array<[UserRole, boolean, boolean]> = [
       [UserRole.ADMIN, true, true],
-      [UserRole.EXECUTIVE, true, true],
-      [UserRole.ACCOUNTANT, true, true],
-      // #1362 D-N: SUPER_ADMIN views tenant-wide but never manages until product decides.
-      [UserRole.SUPER_ADMIN, false, true],
-      // New in #1362 (read ROLE_SCOPE): the three new tenant-scoped roles.
-      [UserRole.OFFICE_STAFF, true, true],
-      [UserRole.EXAM_CONTROLLER, true, true],
-      [UserRole.COMMITTEE, true, true],
+      [UserRole.EXECUTIVE, false, false],
+      [UserRole.ACCOUNTANT, false, false],
+      // #1362 D-N: SUPER_ADMIN is out of tenant data scope until product decides.
+      [UserRole.SUPER_ADMIN, false, false],
+      [UserRole.OFFICE_STAFF, false, false],
+      [UserRole.EXAM_CONTROLLER, false, false],
+      [UserRole.COMMITTEE, false, false], // no HOMEWORK_* (D9)
       [UserRole.TEACHER, false, false], // section-scoped: denied when unmapped
       [UserRole.PARENT, false, false],
       [UserRole.STUDENT, false, false],
@@ -365,7 +367,6 @@ describe('HomeworkAccessService', () => {
     it.each(TABLE)('%s: manage=%s view=%s', async (role, canManage, wide) => {
       sectionRepo.findOne.mockResolvedValue({ id: SECTION_ID, tenant_id: TENANT_ID });
       getOne.mockResolvedValue(null); // no teacher_class_sections row
-      expect(service.isTenantWide(role)).toBe(wide);
       expect(service.canManageTenantWide(role)).toBe(canManage);
       const manage = service.assertCanManageSection(
         role,

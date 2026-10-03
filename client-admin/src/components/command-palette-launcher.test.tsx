@@ -180,6 +180,8 @@ describe('CommandPaletteLauncher', () => {
     const user = userEvent.setup();
     await user.click((await screen.findAllByRole('button', { name: 'Search (Ctrl+K)' }))[0]!);
     const input = screen.getByRole('combobox', { name: 'Command palette' });
+    // No People tab, so the placeholder must not promise a people search.
+    expect(input.getAttribute('placeholder')).toBe('Search pages and actions…');
     await user.type(input, 'ab');
 
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Page', 'Action']);

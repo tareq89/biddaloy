@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   EMPLOYEE_ROLES,
   GUARDIAN_ROLES,
+  hasTenantDataScope,
   hasTenantScope,
   isGuardianRole,
   isStaffRole,
@@ -62,5 +63,14 @@ describe('ROLE_SCOPE [#1358]', () => {
     expect([...EMPLOYEE_ROLES].sort()).toEqual(
       STAFF_ROLES.filter((r) => r !== UserRole.COMMITTEE).sort(),
     );
+  });
+
+  it('hasTenantDataScope is tenant scope minus SUPER_ADMIN (#1362 D-N)', () => {
+    for (const role of Object.values(UserRole)) {
+      expect(hasTenantDataScope(role)).toBe(role !== UserRole.SUPER_ADMIN && hasTenantScope(role));
+    }
+    expect(hasTenantDataScope(UserRole.SUPER_ADMIN)).toBe(false);
+    expect(hasTenantDataScope(UserRole.ADMIN)).toBe(true);
+    expect(hasTenantDataScope(null)).toBe(false);
   });
 });
