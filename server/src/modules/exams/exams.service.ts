@@ -5,10 +5,14 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, QueryFailedError } from 'typeorm';
-import { AuditAction } from '@biddaloy/shared';
+import { Repository, IsNull, QueryFailedError, EntityManager } from 'typeorm';
+import { AuditAction, ExamComponentKind, ExamComponentSource } from '@biddaloy/shared';
 import { Exam } from './entities/exam.entity';
 import { Mark } from './entities/mark.entity';
+import { ExamComponent } from './entities/exam-component.entity';
+import { ExamTemplate } from './entities/exam-template.entity';
+import { ExamTemplatesService } from './exam-templates.service';
+import { ClassSubject } from '../academics/entities/class-subject.entity';
 import { Class } from '../academics/entities/class.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { AcademicTerm } from '../calendar/entities/academic-term.entity';
@@ -38,6 +42,7 @@ export class ExamsService {
     @InjectRepository(AcademicTerm)
     private readonly termRepo: Repository<AcademicTerm>,
     private readonly auditService: AuditService,
+    private readonly templatesService: ExamTemplatesService,
   ) {}
 
   /** IDOR guard: every client-supplied foreign key on an Exam must belong
@@ -92,12 +97,30 @@ export class ExamsService {
     tenantId: string,
     userId: string | null = null,
     context: RequestContext = { ip: null, userAgent: null },
-  ): Promise<Exam> {
+  ): Promise<Exam & { components_created: number }> {
     await this.assertReferencesBelongToTenant(tenantId, {
       classId: dto.class_id,
       academicYearId: dto.academic_year_id,
       academicTermId: dto.academic_term_id,
     });
+
+    // Template checks run before any write, so a bad template leaves no exam row.
+    let numericGrade = 0;
+    if (dto.template_id) {
+      const template = await this.repo.manager.getRepository(ExamTemplate).findOne({
+        where: { id: dto.template_id, tenant_id: tenantId, deleted_at: IsNull() },
+      });
+      if (!template) {
+        throw new NotFoundException(`Exam template "${dto.template_id}" not found`);
+      }
+      const cls = await this.classRepo.findOne({
+        where: { id: dto.class_id, tenant_id: tenantId, deleted_at: IsNull() },
+      });
+      if (cls?.numeric_grade == null) {
+        throw new BadRequestException('Class has no numeric grade; templates need one');
+      }
+      numericGrade = cls.numeric_grade;
+    }
 
     try {
       return await this.repo.manager.transaction(async (manager) => {
@@ -111,6 +134,16 @@ export class ExamsService {
           tenant_id: tenantId,
         });
         const saved = await repo.save(entity);
+
+        const componentsCreated = dto.template_id
+          ? await this.copyTemplateComponents(
+              manager,
+              tenantId,
+              saved,
+              dto.template_id,
+              numericGrade,
+            )
+          : 0;
 
         await this.auditService.record(
           {
@@ -127,12 +160,15 @@ export class ExamsService {
               kind: saved.kind,
               academic_year_id: saved.academic_year_id,
               class_id: saved.class_id,
+              ...(dto.template_id
+                ? { template_id: dto.template_id, components_created: componentsCreated }
+                : {}),
             },
           },
           manager,
         );
 
-        return saved;
+        return Object.assign(saved, { components_created: componentsCreated });
       });
     } catch (err) {
       if (isUniqueViolation(err)) {
@@ -142,6 +178,69 @@ export class ExamsService {
       }
       throw err;
     }
+  }
+
+  /** Copies the template's rows for the class's grade onto `exam`, inside the
+   * caller's transaction. Subjects the class does not offer are skipped. */
+  private async copyTemplateComponents(
+    manager: EntityManager,
+    tenantId: string,
+    exam: Exam,
+    templateId: string,
+    numericGrade: number,
+  ): Promise<number> {
+    const offered = await manager
+      .getRepository(ClassSubject)
+      .createQueryBuilder('cs')
+      .innerJoinAndSelect('cs.subject', 's', 's.deleted_at IS NULL AND s.tenant_id = :tenantId')
+      .where('cs.tenant_id = :tenantId', { tenantId })
+      .andWhere('cs.class_id = :classId', { classId: exam.class_id })
+      .andWhere('cs.academic_year_id = :yearId', { yearId: exam.academic_year_id })
+      .andWhere('cs.deleted_at IS NULL')
+      .getMany();
+    const subjectIdByCode = new Map(offered.map((cs) => [cs.subject.code, cs.subject_id]));
+
+    const rows = await this.templatesService.componentsFor(
+      manager,
+      tenantId,
+      templateId,
+      numericGrade,
+      [...subjectIdByCode.keys()],
+    );
+    if (!rows.length) return 0;
+
+    // Imported/preset templates skip validateRows; two ATTENDANCE parts would double-count.
+    const attendanceSeen = new Set<string>();
+    for (const r of rows) {
+      if (r.kind !== ExamComponentKind.ATTENDANCE) continue;
+      if (attendanceSeen.has(r.subject_code)) {
+        throw new BadRequestException(
+          `Template has more than one ATTENDANCE component for subject ${r.subject_code}; fix the template first`,
+        );
+      }
+      attendanceSeen.add(r.subject_code);
+    }
+
+    // numeric(6,2) values stay strings; ATTENDANCE rows must be DERIVED (exam-components rule).
+    await manager.getRepository(ExamComponent).save(
+      rows.map((r) =>
+        manager.getRepository(ExamComponent).create({
+          tenant_id: tenantId,
+          exam_id: exam.id,
+          subject_id: subjectIdByCode.get(r.subject_code)!,
+          name: r.name,
+          kind: r.kind,
+          source:
+            r.kind === ExamComponentKind.ATTENDANCE
+              ? ExamComponentSource.DERIVED
+              : ExamComponentSource.MANUAL,
+          full_marks: r.full_marks,
+          pass_marks: r.pass_marks,
+          sequence: r.sequence,
+        }),
+      ),
+    );
+    return rows.length;
   }
 
   async findAll(

@@ -3937,7 +3937,7 @@ export interface paths {
         /** List exams for the current tenant. */
         get: operations["ExamsController_findAll_v1"];
         put?: never;
-        /** Create an exam. */
+        /** Create an exam, optionally building its components from a template. */
         post: operations["ExamsController_create_v1"];
         delete?: never;
         options?: never;
@@ -4013,6 +4013,43 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["ExamComponentsController_update_v1"];
+        trace?: never;
+    };
+    "/api/v1/exam-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List exam templates. */
+        get: operations["ExamTemplatesController_list_v1"];
+        put?: never;
+        /** Create an empty exam template. */
+        post: operations["ExamTemplatesController_create_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exam-templates/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one exam template with its rows. */
+        get: operations["ExamTemplatesController_get_v1"];
+        put?: never;
+        post?: never;
+        /** Soft-delete a template (its component rows are removed). */
+        delete: operations["ExamTemplatesController_remove_v1"];
+        options?: never;
+        head?: never;
+        /** Rename / change kind / replace all rows of a template. */
+        patch: operations["ExamTemplatesController_update_v1"];
         trace?: never;
     };
     "/api/v1/students/{studentId}/subject-choices": {
@@ -9899,6 +9936,8 @@ export interface components {
             class_id: string;
             /** Format: uuid */
             academic_term_id?: string | null;
+            /** Format: uuid */
+            template_id?: string;
         };
         AcademicTerm: {
             id: string;
@@ -9910,6 +9949,31 @@ export interface components {
             name: string;
             start_date: string;
             end_date: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
+        };
+        CreateExamResponseDto: {
+            components_created: number;
+            id: string;
+            tenant: components["schemas"]["School"];
+            tenant_id: string;
+            academic_year: components["schemas"]["AcademicYear"];
+            academic_year_id: string;
+            class: components["schemas"]["Class"];
+            class_id: string;
+            academic_term: components["schemas"]["AcademicTerm"] | null;
+            academic_term_id: string | null;
+            name: string;
+            /** @enum {string} */
+            kind: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
+            /** @enum {string} */
+            status: "DRAFT" | "PUBLISHED" | "PROCESSED";
+            /** Format: date-time */
+            published_at: string | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -10003,6 +10067,58 @@ export interface components {
             full_marks?: string;
             pass_marks?: string | null;
             sequence?: number;
+        };
+        ExamTemplateSummaryDto: {
+            id: string;
+            name: string;
+            /** @enum {string} */
+            kind: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
+            rowCount: number;
+            classGrades: number[];
+        };
+        ExamTemplateComponentDto: {
+            name: string;
+            /** @enum {string} */
+            kind: "OTHER" | "WRITTEN" | "MCQ" | "VIVA" | "LAB" | "PRACTICAL" | "MONTHLY_TEST" | "ATTENDANCE";
+            full: number;
+            pass: number;
+            sequence: number;
+        };
+        ExamTemplateRowDto: {
+            classGrade: number;
+            subjectCode: string;
+            subjectName: string | null;
+            components: components["schemas"]["ExamTemplateComponentDto"][];
+        };
+        ExamTemplateDetailDto: {
+            id: string;
+            name: string;
+            /** @enum {string} */
+            kind: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
+            rows: components["schemas"]["ExamTemplateRowDto"][];
+        };
+        CreateExamTemplateDto: {
+            name: string;
+            /** @enum {string} */
+            kind: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
+        };
+        ExamTemplateComponentInputDto: {
+            name: string;
+            /** @enum {string} */
+            kind: "OTHER" | "WRITTEN" | "MCQ" | "VIVA" | "LAB" | "PRACTICAL" | "MONTHLY_TEST" | "ATTENDANCE";
+            full: number;
+            pass: number;
+        };
+        ExamTemplateRowInputDto: {
+            classGrade: number;
+            subjectCode: string;
+            components: components["schemas"]["ExamTemplateComponentInputDto"][];
+        };
+        UpdateExamTemplateDto: {
+            name?: string;
+            /** @enum {string} */
+            kind?: "TERM" | "OTHER" | "MONTHLY" | "MODEL";
+            rows?: components["schemas"]["ExamTemplateRowInputDto"][];
         };
         SetSubjectChoiceDto: {
             /** Format: uuid */
@@ -21893,7 +22009,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Exam"];
+                    "application/json": components["schemas"]["CreateExamResponseDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -22208,6 +22324,173 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExamComponent"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ExamTemplatesController_list_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExamTemplateSummaryDto"][];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ExamTemplatesController_create_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateExamTemplateDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExamTemplateDetailDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ExamTemplatesController_get_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExamTemplateDetailDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ExamTemplatesController_remove_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ExamTemplatesController_update_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateExamTemplateDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExamTemplateDetailDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */

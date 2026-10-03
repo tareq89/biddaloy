@@ -12,7 +12,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -23,7 +23,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { requestContext } from '../../common/request-context.util';
 import { ExamsService } from './exams.service';
-import { CreateExamDto, UpdateExamDto, QueryExamDto } from './dto/exams.dto';
+import { CreateExamDto, CreateExamResponseDto, UpdateExamDto, QueryExamDto } from './dto/exams.dto';
 import { Permission, UserRole, JwtPayload } from '@biddaloy/shared';
 
 @ApiTags('exams')
@@ -36,7 +36,8 @@ export class ExamsController {
   @Post()
   @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.EXAM_MANAGE)
-  @ApiOperation({ summary: 'Create an exam.' })
+  @ApiOperation({ summary: 'Create an exam, optionally building its components from a template.' })
+  @ApiCreatedResponse({ type: CreateExamResponseDto })
   create(
     @Body() dto: CreateExamDto,
     @CurrentTenant() tenant: { id: string; role: string },
