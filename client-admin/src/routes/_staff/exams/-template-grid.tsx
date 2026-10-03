@@ -333,7 +333,10 @@ export function TemplateGrid({ rows, subjects, onSave, saving, error }: Template
                                   patchComponent(block, c.key, { kind: v as ComponentKind })
                                 }
                               >
-                                <SelectTrigger aria-label={label('grid.columnKind')}>
+                                <SelectTrigger
+                                  aria-label={label('grid.columnKind')}
+                                  aria-invalid={code === 'attendanceDuplicate'}
+                                >
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
