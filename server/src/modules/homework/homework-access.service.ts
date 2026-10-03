@@ -1,16 +1,12 @@
 import { Injectable, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
-import { UserRole } from '@biddaloy/shared';
+import { UserRole, hasTenantScope } from '@biddaloy/shared';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Class } from '../academics/entities/class.entity';
 import { Subject } from '../academics/entities/subject.entity';
 import { Student } from '../students/entities/student.entity';
-
-/** Roles that may manage homework for every section in the tenant, without
- * going through `teacher_class_sections`. Same tenant-wide set as attendance. */
-const TENANT_WIDE_ROLES: string[] = [UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.ACCOUNTANT];
 
 /**
  * The object-level "may this caller touch homework for this
@@ -40,7 +36,7 @@ export class HomeworkAccessService {
    * `teacher_class_sections` link (used by callers building their own query,
    * e.g. `HomeworkService.findAll`'s row-level scoping). */
   isTenantWide(role: string): boolean {
-    return TENANT_WIDE_ROLES.includes(role);
+    return hasTenantScope(role);
   }
 
   /**
@@ -56,7 +52,7 @@ export class HomeworkAccessService {
     subjectId: string,
     tenantId: string,
   ): Promise<void> {
-    if (TENANT_WIDE_ROLES.includes(role)) {
+    if (hasTenantScope(role)) {
       const section = await this.sectionRepo.findOne({
         where: { id: sectionId, tenant_id: tenantId },
       });
@@ -100,7 +96,7 @@ export class HomeworkAccessService {
     subjectId: string,
     tenantId: string,
   ): Promise<void> {
-    if (TENANT_WIDE_ROLES.includes(role)) {
+    if (hasTenantScope(role)) {
       return;
     }
 
@@ -159,7 +155,7 @@ export class HomeworkAccessService {
     sectionId: string,
     tenantId: string,
   ): Promise<void> {
-    if (TENANT_WIDE_ROLES.includes(role)) {
+    if (hasTenantScope(role)) {
       const section = await this.sectionRepo.findOne({
         where: { id: sectionId, tenant_id: tenantId },
       });
@@ -195,7 +191,7 @@ export class HomeworkAccessService {
     classId: string,
     tenantId: string,
   ): Promise<void> {
-    if (TENANT_WIDE_ROLES.includes(role)) {
+    if (hasTenantScope(role)) {
       return;
     }
 

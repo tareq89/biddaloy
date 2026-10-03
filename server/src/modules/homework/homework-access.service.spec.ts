@@ -344,4 +344,41 @@ describe('HomeworkAccessService', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
+
+  // [#1362] Per-role table: tenant-wide roles manage/view an unmapped section; others are denied.
+  describe('per-role access table', () => {
+    const TABLE: Array<[UserRole, boolean]> = [
+      [UserRole.ADMIN, true],
+      [UserRole.EXECUTIVE, true],
+      [UserRole.ACCOUNTANT, true],
+      // New in #1362 (read ROLE_SCOPE): SUPER_ADMIN + the three new tenant-scoped roles.
+      [UserRole.SUPER_ADMIN, true],
+      [UserRole.OFFICE_STAFF, true],
+      [UserRole.EXAM_CONTROLLER, true],
+      [UserRole.COMMITTEE, true],
+      [UserRole.TEACHER, false], // section-scoped: denied when unmapped
+      [UserRole.PARENT, false],
+      [UserRole.STUDENT, false],
+    ];
+    it.each(TABLE)('%s: tenant-wide=%s', async (role, wide) => {
+      sectionRepo.findOne.mockResolvedValue({ id: SECTION_ID, tenant_id: TENANT_ID });
+      getOne.mockResolvedValue(null); // no teacher_class_sections row
+      expect(service.isTenantWide(role)).toBe(wide);
+      const manage = service.assertCanManageSection(
+        role,
+        USER_ID,
+        SECTION_ID,
+        SUBJECT_ID,
+        TENANT_ID,
+      );
+      const view = service.assertCanViewSection(role, USER_ID, SECTION_ID, TENANT_ID);
+      if (wide) {
+        await expect(manage).resolves.toBeUndefined();
+        await expect(view).resolves.toBeUndefined();
+      } else {
+        await expect(manage).rejects.toBeInstanceOf(ForbiddenException);
+        await expect(view).rejects.toBeInstanceOf(ForbiddenException);
+      }
+    });
+  });
 });
