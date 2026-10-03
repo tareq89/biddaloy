@@ -18,6 +18,9 @@ export const SEED_ROLE_EMAILS = {
   executive: 'executive@biddaloy.test',
   parent: 'parent@biddaloy.test',
   student: 'student@biddaloy.test',
+  office_staff: 'office@biddaloy.test',
+  exam_controller: 'exam@biddaloy.test',
+  committee: 'committee@biddaloy.test',
 } as const;
 
 export type SeedRole = keyof typeof SEED_ROLE_EMAILS;
