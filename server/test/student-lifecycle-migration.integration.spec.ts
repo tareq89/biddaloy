@@ -3,6 +3,7 @@ import { DataSource, QueryRunner } from 'typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { StudentLifecycle1790800000000 } from '../src/migrations/1790800000000-StudentLifecycle';
+import { EvaluationsAndPerformance1790900000000 } from '../src/migrations/1790900000000-EvaluationsAndPerformance';
 
 /**
  * [39.1.2]/#1183 Runs against the real migrated schema (default
@@ -15,6 +16,9 @@ import { StudentLifecycle1790800000000 } from '../src/migrations/1790800000000-S
 describe('StudentLifecycle1790800000000 (integration)', () => {
   let ds: DataSource;
   const migration = new StudentLifecycle1790800000000();
+  // Later migration that adds student_notes.rating (+ other tables) on top of
+  // the table this one creates; see seedAndRoundTrip().
+  const later = new EvaluationsAndPerformance1790900000000();
 
   const T1 = '39000000-0000-4000-8000-000000000001';
   const T2 = '39000000-0000-4000-8000-000000000002';
@@ -91,8 +95,18 @@ describe('StudentLifecycle1790800000000 (integration)', () => {
     }
     await seedStudentWithEnrollment(T2, ctx2, (n += 1), 'INACTIVE');
     // down() then up(): round-trip on a populated DB, and the backfill runs on real rows.
-    await run((qr) => migration.down(qr));
-    await run((qr) => migration.up(qr));
+    // Revert the later migration first, as `migration:revert` would: this
+    // down() drops student_notes and up() recreates it WITHOUT `rating`, which
+    // 1790900000000 adds. Without the revert, every later spec file in this
+    // worker (student-notes, evaluations-performance) sees a rating-less table.
+    // Restore in `finally` so a failed step cannot poison them either.
+    await run((qr) => later.down(qr));
+    try {
+      await run((qr) => migration.down(qr));
+      await run((qr) => migration.up(qr));
+    } finally {
+      await run((qr) => later.up(qr));
+    }
   }
 
   afterAll(async () => {
