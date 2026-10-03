@@ -1,59 +1,24 @@
 import type { Page, PlaywrightWorkerArgs } from '@playwright/test';
 
 import { adminApiSession, createClassSection, createStudent, patch, post } from '../api';
-import { expect, test } from '../fixtures/test';
+import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { AppShellPage } from '../pages/app-shell';
 import { DetailShellPage } from '../pages/detail-shell';
 import { FormShellPage } from '../pages/form-shell';
 import { ListShellPage } from '../pages/list-shell';
-import { SEED_PASSWORD_ENV } from '../seed-contract';
 
 /**
  * [24.4.2] OFFICE_STAFF journey (#1369, D13, D16): the built-in office clerk role
  * can run intake (students, admission applicants) and print documents, and
  * nothing that moves money, changes settings or manages roles.
  *
- * Logs in as `office@biddaloy.test` (seeded by #1368). `loggedIn()` only knows the
- * roles in `e2e/seed-contract.ts`, which is outside this ticket's territory, so
- * the login is done inline here. The API sets the scene as ADMIN in its own
+ * Logs in as `office@biddaloy.test` (seeded by #1368) via `loggedIn()`. The API sets the scene as ADMIN in its own
  * request context (so it never replaces the browser's refresh cookie); the UI
  * drives the flow under test.
  */
 
-const OFFICE_EMAIL = 'office@biddaloy.test';
-const NAV_GROUPS = [
-  'people',
-  'academics',
-  'attendance',
-  'examsResults',
-  'finance',
-  'reports',
-  'communications',
-  'administration',
-];
-
-test.beforeEach(async ({ page }) => {
-  const password = process.env[SEED_PASSWORD_ENV];
-  if (!password) throw new Error(`${SEED_PASSWORD_ENV} is not set`);
-  const login = await page.request.post('/api/v1/auth/login', {
-    data: { email: OFFICE_EMAIL, password },
-  });
-  expect(login.ok()).toBe(true);
-  const { memberships } = (await login.json()) as {
-    memberships: { tenantId: string; role: string }[];
-  };
-  const membership = memberships.find((m) => m.role === 'OFFICE_STAFF');
-  if (!membership) throw new Error('no OFFICE_STAFF membership for the seed office user');
-  await page.addInitScript(
-    ([tenant, groups]) => {
-      localStorage.setItem('biddaloy:activeTenant', tenant as string);
-      for (const id of groups as string[])
-        localStorage.setItem(`nav-group-collapsed-v2:${id}`, 'false');
-    },
-    [JSON.stringify({ tenantId: membership.tenantId, role: membership.role }), NAV_GROUPS],
-  );
-});
+test.use(loggedIn('office_staff'));
 
 /** ADMIN session on a throwaway request context. */
 async function adminScene(
