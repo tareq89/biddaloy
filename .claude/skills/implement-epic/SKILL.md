@@ -236,7 +236,7 @@ Delegation to a pinned subagent is the only switch available.
 | Per-ticket review — **money tier** | Opus | `issue-reviewer` subagent, from the group agent |
 | Per-ticket review — **standard tier** | Sonnet | `Agent(model: "sonnet")` following `issue-reviewer.md`, from the group agent |
 | PR review, CodeRabbit-style | Opus 5.5 | `Agent(model: "opus")` running `code-review` on the whole PR (step 8) |
-| Review / CI fix rounds | Sonnet 5.5 | `Agent(model: "sonnet")`, every round (step 8) |
+| Review / CI fix rounds | Opus 5.5 | `Agent(model: "opus")`, every round (step 8) |
 | Group orchestration | Sonnet | `epic-group-worker`, one per lane |
 
 **Plan-grade** = the sub-issue body carries `## Files`, `## Tests`,
@@ -902,7 +902,7 @@ Every PR gets the same loop, right after it opens:
    gh pr review <n> --comment --body-file <review.md>
    ```
 
-3. **Fix (Sonnet 5.5).** Dispatch `Agent(model: "sonnet")` with the review,
+3. **Fix (Opus 5.5).** Dispatch `Agent(model: "opus")` with the review,
    any CodeRabbit comments, and every failing CI check
    (`gh pr checks <n>`). It addresses all of them in one round, then replies
    on the review saying what it fixed and what it left, with the reason.
@@ -939,9 +939,9 @@ it harder to attribute a regression to the right change, and gives it a
 shallower review pass on the bundled diff. Batch the safe, obviously-correct
 fixes; keep the one risky fix legible on its own.
 
-Every fix round runs on Sonnet 5.5 — CI failures here are mostly mechanical:
+Every fix round runs on Opus 5.5, whatever the tier. Common CI failures here:
 Node 22 vs 24, the `bn` e2e locale, byte-exact `api-types`, the 80 % branch
-gate. The Opus review is what catches the hard problems.
+gate.
 
 If CI fails on something the epic didn't cause (a pre-existing flake — this
 repo runs ~28% CI failure), diagnose the actual root cause rather than
