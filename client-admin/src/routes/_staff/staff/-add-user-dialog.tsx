@@ -134,12 +134,19 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
             <span className="text-sm font-medium">{t('addUser.roleLabel')}</span>
             <Select value={role ?? ''} onValueChange={(value) => setRole(value)}>
               <SelectTrigger aria-label={t('addUser.roleLabel')}>
-                <SelectValue placeholder={t('addUser.rolePlaceholder')} />
+                <SelectValue placeholder={t('addUser.rolePlaceholder')}>
+                  {role ? t(`roles.${role}`) : undefined}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {STAFF_ROLES.map((staffRole) => (
                   <SelectItem key={staffRole} value={staffRole}>
-                    {t(`roles.${staffRole}`)}
+                    <span className="flex flex-col">
+                      <span>{t(`roles.${staffRole}`)}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {t(`roleDescriptions.${staffRole}`)}
+                      </span>
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -83,6 +83,7 @@ import { Route as StaffPromotionsNewRouteImport } from './routes/_staff/promotio
 import { Route as StaffReportsCollectionsRouteImport } from './routes/_staff/reports/collections'
 import { Route as StaffReportsPrintablesRouteImport } from './routes/_staff/reports/printables'
 import { Route as StaffResultsIndexRouteImport } from './routes/_staff/results/index'
+import { Route as StaffRolesIndexRouteImport } from './routes/_staff/roles/index'
 import { Route as StaffRoutinesIndexRouteImport } from './routes/_staff/routines/index'
 import { Route as StaffRoutinesSectionIdRouteImport } from './routes/_staff/routines/$sectionId'
 import { Route as StaffRoutinesMyRouteImport } from './routes/_staff/routines/my'
@@ -504,6 +505,11 @@ const StaffResultsIndexRoute = StaffResultsIndexRouteImport.update({
   path: '/results/',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffRolesIndexRoute = StaffRolesIndexRouteImport.update({
+  id: '/roles/',
+  path: '/roles/',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffRoutinesIndexRoute = StaffRoutinesIndexRouteImport.update({
   id: '/routines/',
   path: '/routines/',
@@ -836,6 +842,7 @@ export interface FileRoutesByFullPath {
   '/programs/': typeof StaffProgramsIndexRoute
   '/promotions/': typeof StaffPromotionsIndexRoute
   '/results/': typeof StaffResultsIndexRoute
+  '/roles/': typeof StaffRolesIndexRoute
   '/routines/': typeof StaffRoutinesIndexRoute
   '/staff/': typeof StaffStaffIndexRoute
   '/students/': typeof StaffStudentsIndexRoute
@@ -952,6 +959,7 @@ export interface FileRoutesByTo {
   '/programs': typeof StaffProgramsIndexRoute
   '/promotions': typeof StaffPromotionsIndexRoute
   '/results': typeof StaffResultsIndexRoute
+  '/roles': typeof StaffRolesIndexRoute
   '/routines': typeof StaffRoutinesIndexRoute
   '/staff': typeof StaffStaffIndexRoute
   '/students': typeof StaffStudentsIndexRoute
@@ -1073,6 +1081,7 @@ export interface FileRoutesById {
   '/_staff/programs/': typeof StaffProgramsIndexRoute
   '/_staff/promotions/': typeof StaffPromotionsIndexRoute
   '/_staff/results/': typeof StaffResultsIndexRoute
+  '/_staff/roles/': typeof StaffRolesIndexRoute
   '/_staff/routines/': typeof StaffRoutinesIndexRoute
   '/_staff/staff/': typeof StaffStaffIndexRoute
   '/_staff/students/': typeof StaffStudentsIndexRoute
@@ -1193,6 +1202,7 @@ export interface FileRouteTypes {
     | '/programs/'
     | '/promotions/'
     | '/results/'
+    | '/roles/'
     | '/routines/'
     | '/staff/'
     | '/students/'
@@ -1309,6 +1319,7 @@ export interface FileRouteTypes {
     | '/programs'
     | '/promotions'
     | '/results'
+    | '/roles'
     | '/routines'
     | '/staff'
     | '/students'
@@ -1429,6 +1440,7 @@ export interface FileRouteTypes {
     | '/_staff/programs/'
     | '/_staff/promotions/'
     | '/_staff/results/'
+    | '/_staff/roles/'
     | '/_staff/routines/'
     | '/_staff/staff/'
     | '/_staff/students/'
@@ -2000,6 +2012,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffResultsIndexRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/roles/': {
+      id: '/_staff/roles/'
+      path: '/roles'
+      fullPath: '/roles/'
+      preLoaderRoute: typeof StaffRolesIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/routines/': {
       id: '/_staff/routines/'
       path: '/routines'
@@ -2410,6 +2429,7 @@ interface StaffRouteChildren {
   StaffProgramsIndexRoute: typeof StaffProgramsIndexRoute
   StaffPromotionsIndexRoute: typeof StaffPromotionsIndexRoute
   StaffResultsIndexRoute: typeof StaffResultsIndexRoute
+  StaffRolesIndexRoute: typeof StaffRolesIndexRoute
   StaffRoutinesIndexRoute: typeof StaffRoutinesIndexRoute
   StaffStaffIndexRoute: typeof StaffStaffIndexRoute
   StaffStudentsIndexRoute: typeof StaffStudentsIndexRoute
@@ -2494,6 +2514,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffProgramsIndexRoute: StaffProgramsIndexRoute,
   StaffPromotionsIndexRoute: StaffPromotionsIndexRoute,
   StaffResultsIndexRoute: StaffResultsIndexRoute,
+  StaffRolesIndexRoute: StaffRolesIndexRoute,
   StaffRoutinesIndexRoute: StaffRoutinesIndexRoute,
   StaffStaffIndexRoute: StaffStaffIndexRoute,
   StaffStudentsIndexRoute: StaffStudentsIndexRoute,
