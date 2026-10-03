@@ -33,6 +33,17 @@ import {
   UpdateLeavePolicyDto,
 } from './dto/leave.dto';
 
+/** Every employee role (they all have a staff profile). COMMITTEE is not an
+ * employee and holds no staff-attendance permission (D17), so it stays out. */
+const LEAVE_SELF_SERVICE_ROLES = [
+  UserRole.ADMIN,
+  UserRole.ACCOUNTANT,
+  UserRole.TEACHER,
+  UserRole.EXECUTIVE,
+  UserRole.OFFICE_STAFF,
+  UserRole.EXAM_CONTROLLER,
+];
+
 /**
  * [36.3] `@Roles` is the coarse gate; `@RequirePermissions` is the actual
  * one. Requesting leave is self-service (every staff role); approving/
@@ -47,7 +58,7 @@ export class LeaveController {
   constructor(private readonly leaveService: LeaveService) {}
 
   @Post('requests')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.TEACHER, UserRole.EXECUTIVE)
+  @Roles(...LEAVE_SELF_SERVICE_ROLES)
   @ApiOperation({
     summary:
       'Request leave for a staff profile. Self-service unless the caller holds LEAVE_APPROVE ' +
@@ -87,7 +98,7 @@ export class LeaveController {
   }
 
   @Get('balance')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.TEACHER, UserRole.EXECUTIVE)
+  @Roles(...LEAVE_SELF_SERVICE_ROLES)
   @ApiOperation({
     summary:
       'Live-computed remaining balance per leave type for one staff member. Self-service ' +
@@ -108,7 +119,7 @@ export class LeaveController {
   }
 
   @Get('policies')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.TEACHER, UserRole.EXECUTIVE)
+  @Roles(...LEAVE_SELF_SERVICE_ROLES)
   @ApiOperation({ summary: "This tenant's leave-type quotas." })
   @ApiOkResponse({ type: LeavePolicyDto, isArray: true })
   async policies(@CurrentTenant() tenant: { id: string }): Promise<LeavePolicyDto[]> {

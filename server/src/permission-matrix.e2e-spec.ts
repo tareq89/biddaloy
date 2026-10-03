@@ -2,7 +2,13 @@ import 'reflect-metadata';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DiscoveryModule, DiscoveryService, MetadataScanner } from '@nestjs/core';
-import { Permission, ROLE_PERMISSIONS, roleHasPermission, UserRole } from '@biddaloy/shared';
+import {
+  Permission,
+  ROLE_PERMISSIONS,
+  roleHasPermission,
+  STAFF_ROLES,
+  UserRole,
+} from '@biddaloy/shared';
 import { AppModule } from './app.module';
 import { PermissionsGuard } from './modules/auth/guards/permissions.guard';
 import { RolesGuard } from './modules/auth/guards/context.guard';
@@ -513,7 +519,7 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
     path: '/payments/guardian/:guardianId',
     reason:
       "staff-only aggregate read across a guardian's students" +
-      ' #1364 OFFICE_STAFF joined (holds FEE_READ, read-only, same as TEACHER); EXAM_CONTROLLER/COMMITTEE lack FEE_READ.',
+      ' #1364 OFFICE_STAFF excluded: holds FEE_READ but deliberately not PAYMENT_READ (D16), so no payment history; EXAM_CONTROLLER/COMMITTEE lack FEE_READ.',
   },
   {
     controller: 'FeeGenerationsController',
@@ -955,6 +961,33 @@ describe('Permission matrix (regression)', () => {
       },
       { includeRolesGuardOnly: true },
     );
+
+    expect(violations).toEqual([]);
+  });
+
+  it('#1379 an IDENTITY_SCOPED route open to every old staff role admits every staff role', () => {
+    // Self-service routes (own profile, own leave, own push) are not ROLE_NARROWINGS, so the
+    // #1364 sweep skipped them and the new roles got 403 on GET /users/me. A route that admits
+    // ADMIN, ACCOUNTANT, EXECUTIVE and TEACHER is "every staff member" — it must admit the
+    // rest of STAFF_ROLES too, unless a role is shut out below with a reason.
+    const OLD_STAFF = [UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER];
+    const SHUT_OUT_ON_PURPOSE: Record<string, UserRole[]> = {
+      // D17: COMMITTEE is not an employee — no staff profile, so no leave.
+      LeaveController: [UserRole.COMMITTEE],
+    };
+    const violations: string[] = [];
+
+    walkRoutes(({ controllerName, methodLabel, fullPath, roles }) => {
+      if (!findIdentityScopedEntry(controllerName, methodLabel, fullPath)) return;
+      if (!OLD_STAFF.every((role) => roles.includes(role))) return;
+      const allowedOut = SHUT_OUT_ON_PURPOSE[controllerName] ?? [];
+      for (const role of STAFF_ROLES) {
+        if (role === UserRole.SUPER_ADMIN || roles.includes(role) || allowedOut.includes(role)) {
+          continue;
+        }
+        violations.push(`${methodLabel} ${fullPath} (${controllerName}) shuts out ${role}`);
+      }
+    });
 
     expect(violations).toEqual([]);
   });

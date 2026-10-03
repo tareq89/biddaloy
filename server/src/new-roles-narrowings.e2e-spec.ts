@@ -17,7 +17,8 @@ import {
 /**
  * [#1364] Guard-level proof of how the three new roles meet the ROLE_NARROWINGS routes.
  * Deliberately stops at the guards: object-level service scoping is #1362's job, so a
- * "reached" assertion here only means "not 401/403", never that the data came back.
+ * "reached" assertion here means the handler answered (200/201, or 404 for an unknown id),
+ * never that the data came back. A 500 fails.
  */
 const API = '/api/v1';
 const UNKNOWN_ID = '00000000-0000-4000-8000-000000000999';
@@ -82,12 +83,13 @@ describe('[#1364] new roles vs ROLE_NARROWINGS routes', () => {
     await app.close();
   });
 
-  const notBlocked = (status: number) => expect([401, 403]).not.toContain(status);
+  const reached = (status: number) => expect([200, 201, 404]).toContain(status);
+  const DATE = '2026-01-15';
 
   it('EXAM_CONTROLLER reaches results review and publish, never writes marks', async () => {
     const R = UserRole.EXAM_CONTROLLER;
-    notBlocked((await call(R, 'get', `/exams/${UNKNOWN_ID}/results`)).status);
-    notBlocked((await call(R, 'post', `/exams/${UNKNOWN_ID}/results/publish`)).status);
+    reached((await call(R, 'get', `/exams/${UNKNOWN_ID}/results`)).status);
+    reached((await call(R, 'post', `/exams/${UNKNOWN_ID}/results/publish`)).status);
     expect((await call(R, 'patch', `/exams/${UNKNOWN_ID}/marks`, {})).status).toBe(403);
     expect((await call(R, 'post', `/exams/${UNKNOWN_ID}/marks/reopen`, {})).status).toBe(403);
   });
@@ -100,11 +102,49 @@ describe('[#1364] new roles vs ROLE_NARROWINGS routes', () => {
       date_of_birth: '2010-05-15',
     });
     expect(created.status).toBe(201);
-    notBlocked((await call(R, 'get', '/students')).status);
+    expect((await call(R, 'get', '/students')).status).toBe(200);
+    expect((await call(R, 'get', '/fees/dues/flagged')).status).toBe(200);
+    expect((await call(R, 'get', `/attendance/flags/low?from=${DATE}&to=${DATE}`)).status).toBe(
+      200,
+    );
+    reached(
+      (
+        await call(R, 'post', `/communications/reminder/single/${UNKNOWN_ID}/preview`, {
+          message_template: 'Reminder',
+        })
+      ).status,
+    );
+    // F8: OFFICE_STAFF holds FEE_READ but not PAYMENT_READ — no guardian payment history.
+    expect((await call(R, 'get', `/payments/guardian/${UNKNOWN_ID}`)).status).toBe(403);
     expect((await call(R, 'post', '/fees/generate', {})).status).toBe(403);
     expect((await call(R, 'patch', `/fees/generations/${UNKNOWN_ID}`, {})).status).toBe(403);
     expect((await call(R, 'get', '/fees/generations')).status).toBe(403);
     expect((await call(R, 'post', `/invoices/${UNKNOWN_ID}/send`, {})).status).toBe(403);
+  });
+
+  it('EXAM_CONTROLLER and OFFICE_STAFF read students, enrollments and the attendance register', async () => {
+    for (const R of [UserRole.EXAM_CONTROLLER, UserRole.OFFICE_STAFF]) {
+      expect((await call(R, 'get', '/students')).status).toBe(200);
+      reached((await call(R, 'get', `/enrollments/student/${UNKNOWN_ID}`)).status);
+      expect(
+        (await call(R, 'get', `/attendance/sections/${SEED_SECTION_1_ID}/register?date=${DATE}`))
+          .status,
+      ).toBe(200);
+    }
+  });
+
+  it('every new role reads its own profile; the two employee roles reach leave', async () => {
+    for (const R of [UserRole.OFFICE_STAFF, UserRole.EXAM_CONTROLLER, UserRole.COMMITTEE]) {
+      const me = await call(R, 'get', '/users/me');
+      expect(me.status).toBe(200);
+      expect(me.body.id).toBe(USERS[R].id);
+      expect((await call(R, 'get', '/me/push/public-key')).status).toBe(200);
+    }
+    for (const R of [UserRole.OFFICE_STAFF, UserRole.EXAM_CONTROLLER]) {
+      expect((await call(R, 'get', '/leave/policies')).status).toBe(200);
+    }
+    // D17: COMMITTEE is not an employee.
+    expect((await call(UserRole.COMMITTEE, 'get', '/leave/policies')).status).toBe(403);
   });
 
   it('COMMITTEE reaches none of the student or results staff routes', async () => {

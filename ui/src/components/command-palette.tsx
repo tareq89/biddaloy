@@ -240,10 +240,10 @@ export function CommandPalette({
                 type="button"
                 role="tab"
                 id={tabElementId(tab.id)}
-                aria-selected={activeTab === tab.id}
+                aria-selected={activeTabData.id === tab.id}
                 aria-controls={`${listboxId}-panel-${tab.id}`}
                 tabIndex={-1}
-                data-active={activeTab === tab.id}
+                data-active={activeTabData.id === tab.id}
                 className="rounded-md px-2 py-1 text-sm text-muted-foreground data-[active=true]:bg-accent data-[active=true]:text-foreground"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => switchTab(tab.id)}
