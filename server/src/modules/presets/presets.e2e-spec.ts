@@ -20,7 +20,7 @@ import {
 /**
  * [35.2.6] API-level e2e for curriculum presets: ADMIN status -> apply -> status ->
  * second apply 409 -> SUPER_ADMIN reset -> status -> re-apply, plus the role and
- * validation edges. A permission mismatch is a 403 from PermissionsGuard (a role mismatch on the platform reset route is still a 401 from RolesGuard, see #729); a missing
+ * validation edges. A permission mismatch is a 403 from PermissionsGuard (a role mismatch on the platform reset route is a 403 from RolesGuard since #1360 / #729); a missing
  * permission is a 403.
  */
 const API = '/api/v1';
