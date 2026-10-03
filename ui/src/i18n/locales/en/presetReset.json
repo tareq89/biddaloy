@@ -11,6 +11,8 @@
     "deletes": "Academic years, terms, classes, subjects, class-subjects, the grading scale, exam templates and preset settings.",
     "blocksWhen": "Only works while the school has no students, exams, fees or other operational data.",
     "reasonLabel": "Reason (required, audited)",
+    "reasonTooShort": "Reason must be at least {{min}} characters.",
+    "reasonTooLong": "Reason can be at most {{max}} characters.",
     "reasonCount": "{{count}} / {{max}} characters (minimum {{min}})",
     "confirm": "Reset preset"
   },

@@ -67,6 +67,7 @@
       "nameDuplicate": "Two components of this subject share a name.",
       "fullInvalid": "Full marks must be above 0 and at most {{max}}, with up to 2 decimals.",
       "passInvalid": "Pass marks must be between 0 and full marks, with up to 2 decimals.",
+      "attendanceDuplicate": "Only one Attendance component is allowed per subject.",
       "noComponents": "Add at least one component, or remove this subject.",
       "gradeInvalid": "Enter a whole number from 1 to 99.",
       "fixErrors": "Fix the highlighted fields before saving."

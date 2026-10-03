@@ -33,10 +33,7 @@ import { classifyResetError, useResetPreset, type ResetPresetFailure } from './u
 export const RESET_REASON_MIN = 10;
 export const RESET_REASON_MAX = 500;
 
-const reasonSchema = z.object({
-  reason: z.string().trim().min(RESET_REASON_MIN).max(RESET_REASON_MAX),
-});
-type ReasonValues = z.infer<typeof reasonSchema>;
+type ReasonValues = { reason: string };
 
 export interface PresetResetDialogProps {
   open: boolean;
@@ -54,6 +51,18 @@ export function PresetResetDialog({
   const { t } = useTranslation('presetReset');
   const reset = useResetPreset(schoolId);
   const [failure, setFailure] = React.useState<ResetPresetFailure | null>(null);
+
+  const reasonSchema = React.useMemo(
+    () =>
+      z.object({
+        reason: z
+          .string()
+          .trim()
+          .min(RESET_REASON_MIN, t('dialog.reasonTooShort', { min: RESET_REASON_MIN }))
+          .max(RESET_REASON_MAX, t('dialog.reasonTooLong', { max: RESET_REASON_MAX })),
+      }),
+    [t],
+  );
 
   const form = useForm<ReasonValues>({
     resolver: zodResolver(reasonSchema),
@@ -89,7 +98,14 @@ export function PresetResetDialog({
   const blockedAlready = failure?.kind === 'notApplied';
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        // Don't let the dialog be dismissed while the destructive request is in flight.
+        if (!next && reset.isPending) return;
+        onOpenChange(next);
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t('dialog.title')}</DialogTitle>
@@ -166,7 +182,7 @@ export function PresetResetDialog({
 
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button" variant="outline">
+            <Button type="button" variant="outline" disabled={reset.isPending}>
               {t('actions.cancel', { ns: 'common' })}
             </Button>
           </DialogClose>

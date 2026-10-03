@@ -103,7 +103,7 @@ export function CurriculumPresetPage({ schoolId }: CurriculumPresetPageProps) {
       />
     );
   }
-  if (!status.data || (result && status.data.state !== 'APPLIED')) {
+  if (!status.data || (result && status.data.state !== 'APPLIED' && status.isFetching)) {
     return <CardsSkeleton />;
   }
 

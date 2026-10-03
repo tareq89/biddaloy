@@ -94,12 +94,19 @@ const plain = (bs: DraftBlock[]) =>
     b.components.map((c) => [c.name, c.kind, c.full, c.pass]),
   ]);
 
-type ErrorCode = 'nameRequired' | 'nameTooLong' | 'nameDuplicate' | 'fullInvalid' | 'passInvalid';
+type ErrorCode =
+  | 'nameRequired'
+  | 'nameTooLong'
+  | 'nameDuplicate'
+  | 'fullInvalid'
+  | 'passInvalid'
+  | 'attendanceDuplicate';
 
 /** Per-component error codes; empty object = valid. Exported for the tests. */
 export function validateBlock(block: DraftBlock): Record<string, ErrorCode> {
   const errors: Record<string, ErrorCode> = {};
   const seen = new Set<string>();
+  let attendanceSeen = false;
   for (const c of block.components) {
     const name = c.name.trim();
     const full = Number(c.full);
@@ -112,6 +119,9 @@ export function validateBlock(block: DraftBlock): Record<string, ErrorCode> {
     else if (seen.has(name)) errors[c.key] = 'nameDuplicate';
     else if (!fullOk) errors[c.key] = 'fullInvalid';
     else if (!passOk) errors[c.key] = 'passInvalid';
+    else if (c.kind === ExamComponentKind.ATTENDANCE && attendanceSeen)
+      errors[c.key] = 'attendanceDuplicate';
+    if (c.kind === ExamComponentKind.ATTENDANCE) attendanceSeen = true;
     seen.add(name);
   }
   return errors;
@@ -334,6 +344,11 @@ export function TemplateGrid({ rows, subjects, onSave, saving, error }: Template
                                   ))}
                                 </SelectContent>
                               </Select>
+                              {code === 'attendanceDuplicate' && (
+                                <p role="alert" className="mt-1 text-xs text-destructive">
+                                  {t('grid.error.attendanceDuplicate')}
+                                </p>
+                              )}
                             </TableCell>
                             <TableCell>
                               <Input

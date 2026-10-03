@@ -137,6 +137,15 @@ describe('validateBlock', () => {
   ])('full=%s pass=%s -> %s', (full, pass, code) => {
     expect(validateBlock(block([{ name: 'A', full, pass }]))).toEqual({ c0: code });
   });
+  it('flags every ATTENDANCE component after the first', () => {
+    const b = block([
+      { name: 'A', full: '10', pass: '4' },
+      { name: 'B', full: '10', pass: '4' },
+      { name: 'C', full: '10', pass: '4' },
+    ]);
+    b.components.forEach((c) => (c.kind = 'ATTENDANCE' as never));
+    expect(validateBlock(b)).toEqual({ c1: 'attendanceDuplicate', c2: 'attendanceDuplicate' });
+  });
   it('accepts boundaries', () => {
     expect(validateBlock(block([{ name: 'A', full: '9999.99', pass: '0' }]))).toEqual({});
   });
