@@ -263,6 +263,13 @@ describe('DetailShell', () => {
       expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
     });
 
+    it('lets a wrapped tab list grow instead of overlapping the panel (height variant overridden)', async () => {
+      await renderInEnglish(<Controlled />);
+      expect(screen.getByRole('tablist').className).toContain(
+        'group-data-[orientation=horizontal]/tabs:h-auto',
+      );
+    });
+
     it('renders secondaries before the primary, right-most', async () => {
       await renderInEnglish(<Controlled actions={tierActions()} />);
       const labels = screen
