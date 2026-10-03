@@ -915,22 +915,41 @@ For each PR that is newly `MERGED` **into `main`**:
 3. In the state file: mark the PR `merged <date>` and every ticket in it
    `done`.
 4. If the epic now has no open sub-issues, close the epic issue the same way.
+5. Remove the PR's worktrees **right away**, in the same turn — see
+   [Then clean up](#then-clean-up--immediately-on-every-merge).
 
 A stacked PR merged into its **parent branch** instead of `main` is not
 shipped yet: copy its `Closes #N` lines into the parent PR's description, and
-its issues close when the parent lands on `main`.
+its issues close when the parent lands on `main`. Its worktrees still go
+right away — its commits now live on the parent branch.
 
 Do this per issue, not once per wave. A wave-close task gets no close (it
 isn't a sub-issue); every ticket sub-issue that shipped does.
 
-### Then clean up — not optional, not "later"
+### Then clean up — immediately, on every merge
 
-Only once a lane's **final PR is merged and its tickets are closed**, tear that
-lane down. Do it immediately, in the same turn as the merge, not at epic close:
-a lane whose cleanup is deferred is a lane whose cleanup never happens. This
-repo reached 109 live worktrees before anyone noticed, and a worktree carries a
-full `node_modules` — the cost is tens of GB and a measurably slower `git` for
-every later command in every later session.
+**The moment a PR is merged** — by you or by the user, into `main` or into a
+parent branch — remove every worktree that belongs to it, in the same turn
+you notice the merge. Not at epic close, not after the next wave: a worktree
+whose cleanup is deferred is one whose cleanup never happens. This repo
+reached 109 live worktrees before anyone noticed, and a worktree carries a
+full `node_modules` — the cost is tens of GB and a measurably slower `git`
+for every later command in every later session.
+
+"Belongs to it" means every worktree whose branch is in that PR:
+
+- the PR's head branch (accumulating branch, or the wave branch under
+  `--stack`),
+- every lane chain branch merged into it (its `epic-group-worker`
+  worktrees, usually under `.claude/worktrees/agent-*`),
+- any step-8 fix-round worktree for that PR.
+
+Map branches to paths with `git worktree list --porcelain`; the state file
+lists which branches each PR carries. If an agent is still running in one of
+them, stop it first (`TaskStop`) — the PR is merged, its work is done.
+
+Under `--stack`, retarget the PR above to its new base **before** deleting
+the merged branch, or GitHub closes that PR along with the deleted base.
 
 ```bash
 git worktree remove <path>        # refuses if the tree is dirty — good
@@ -953,6 +972,12 @@ when a PR was squash-merged, so check patch-equivalence:
 git status --porcelain            # must be empty
 git cherry main <branch> | grep '^+'   # must be empty: no unique commits left
 ```
+
+(For a PR merged into a parent branch, check against that branch instead of
+`main`.) The user rebase-merges, which gives the commits new SHAs, so
+`git branch -d` will often refuse even when `git cherry` is empty. Remove the
+worktree anyway — that is the expensive part — and list the branch in the
+report for the user to delete; don't `-D` it without their say-so.
 
 At epic close, sweep: every branch and worktree the run created is gone, or is
 listed in the final report with the reason it survived. Say which in the report
@@ -996,6 +1021,8 @@ session model and report it. Never re-plan a ticket that already has a current
 - After any PR of the run merges to `main` — by you or by the user — tick
   its issues' acceptance boxes and close them. Check for manual merges every
   turn.
+- After any PR of the run merges — anywhere, by anyone — remove its
+  worktrees in that same turn.
 - A network outage is a wait, not a failure — for tool calls and LLM calls
   alike: probe GitHub + the LLM API every 5 minutes, then resume the failed
   command or agent. Keep the 5-minute resume cron alive while working; delete
