@@ -252,14 +252,14 @@ describe('Attendance Summary E2E', () => {
         .expect(200);
     });
 
-    it("returns 401 for a role not in this route's @Roles list (TEACHER)", async () => {
+    it("returns 403 for a role not in this route's @Roles list (TEACHER)", async () => {
       await supertest(app.getHttpServer())
         .get(`${API}/attendance/flags/low`)
         .query({ from: '2026-09-01', to: '2026-09-05' })
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.TEACHER)
-        .expect(401);
+        .expect(403);
     });
   });
 });

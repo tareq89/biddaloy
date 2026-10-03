@@ -22,6 +22,9 @@ const ROLE_PRIORITY: Record<string, number> = {
   ACCOUNTANT: 80,
   EXECUTIVE: 75,
   TEACHER: 70,
+  EXAM_CONTROLLER: 68,
+  OFFICE_STAFF: 66,
+  COMMITTEE: 64,
   PARENT: 60,
   STUDENT: 50,
 };
@@ -299,7 +302,7 @@ export class RolesGuard implements CanActivate {
 
     const hasRole = requiredRoles.includes(currentTenant.role);
     if (!hasRole) {
-      throw new UnauthorizedException(`Requires one of roles: ${requiredRoles.join(', ')}`);
+      throw new ForbiddenException(`Requires one of roles: ${requiredRoles.join(', ')}`);
     }
 
     return true;

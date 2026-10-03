@@ -297,13 +297,13 @@ describe('[28.4.2] Survey respond and results', () => {
     ).expect(404);
   });
 
-  it('family callers are refused on results (RolesGuard answers 401); unknown survey 404s for admin', async () => {
+  it('family callers are refused on results (RolesGuard answers 403); unknown survey 404s for admin', async () => {
     await call(
       'get',
       `/surveys/${surveyId}/results`,
       tokens[GUARDIAN_TAUGHT],
       UserRole.PARENT,
-    ).expect(401);
+    ).expect(403);
     await call('get', `/surveys/${randomUUID()}/results`, adminToken, UserRole.ADMIN).expect(404);
   });
 

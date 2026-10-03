@@ -53,7 +53,7 @@ const API = '/api/v1';
  * Named here so the refusal assertions below read as intent rather than as
  * a typo.
  */
-const ROLE_DENIED = 401;
+const ROLE_DENIED = 403;
 /** A route whose redundant `@Roles` was retired (Epic 24): `PermissionsGuard` refuses with 403. */
 const PERMISSION_DENIED = 403;
 
