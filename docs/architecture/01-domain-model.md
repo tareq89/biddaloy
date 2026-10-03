@@ -279,6 +279,28 @@ Exam (First Term Exam, Class 6, 2026-2027)   status: DRAFT -> PROCESSED -> PUBLI
   denormalised from the chosen `ClassSubject` so "one `is_fourth` choice per
   student per year" can be enforced by a database index.
 
+**Subject choice groups (D44).** Some classes offer a _pick one_ slot: in NCTB
+Class 5 every student takes Religion, but Islam, Hindu, Christianity and
+Buddhism are separate subjects and each student takes exactly one. Those
+subjects share a `class_subjects.choice_group` (e.g. `RELIGION`), and the
+student's pick is a `StudentSubjectChoice` row.
+
+```mermaid
+flowchart LR
+  A[Student picks Islam] --> B[Result counts Islam only]
+  B --> C[Hindu, Christianity, Buddhism: not in result_subjects]
+  D[No pick, group tested in exam] --> E[process refuses: 409 CHOICE_GROUP_UNPICKED]
+```
+
+- Only the picked member counts toward total, GPA, grade and pass/fail. The
+  non-takers' `ABSENT` cells are never read, so they cannot cause a false `F`.
+- A student with no pick in a group that has components in this exam blocks
+  `process()` with a 409 whose `details` carry `code: CHOICE_GROUP_UNPICKED`,
+  `total`, and the first 50 students by name and roll number. `force` does
+  **not** bypass it.
+- Recompute after a mark edit never throws; it leaves the unpicked group out
+  until a pick is made and the exam is processed again.
+
 **Out of scope, on purpose:** composing several exams' results into one
 term/annual outcome — averaging or weighting marks across TERM + MONTHLY +
 MODEL exams — is deliberately **not** part of this epic (decision D3). Every
@@ -301,6 +323,28 @@ which section a student actually sat the exam in and their merit rank
 within that `(exam, section)` pair — computed once, at process time, so it
 stays correct even if the student is later moved or promoted out of that
 section.
+
+**Stream (group) subjects (D49).** In NCTB classes 9-10 a student takes the
+subjects of one stream (Science, Humanities, Business). A subject with
+`class_subjects.group_name` set counts only for students whose **section**
+has the same `class_sections.group_name`. Subjects with no `group_name` count
+for everyone.
+
+```mermaid
+flowchart LR
+  A[Section group = Science] --> B[Result counts BAN + PHY]
+  B --> C[ECO, Humanities: skipped, no false F]
+  D[Section has no group, ECO tested in exam] --> E[process refuses: 409 STREAM_UNASSIGNED]
+```
+
+Example, class 10: BAN (no group), PHY (`Science`), ECO (`Humanities`). A
+Science-section student with marks only for BAN and PHY is processed normally;
+ECO never appears in their `result_subjects`. A student in a section with no
+group blocks `process()` with a 409 whose `details` carry
+`code: STREAM_UNASSIGNED`, `total` and the first 50 students (`force` does
+**not** bypass it). The block only applies while a group-only subject has
+components in the exam. A student whose stream matches no examined subject
+gets no stream subjects; if nothing at all is countable the grade is `-`, not `F`.
 
 ### Promotions (`modules/promotions`) — Epic 26.6–26.8
 

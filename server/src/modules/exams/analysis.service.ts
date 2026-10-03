@@ -390,6 +390,13 @@ export class AnalysisService {
         'r',
         'r.exam_id = m.exam_id AND r.student_id = m.student_id AND r.tenant_id = m.tenant_id AND r.deleted_at IS NULL',
       )
+      // Only students who actually take the subject (optional not opted
+      // into / unpicked choice-group members have no result_subjects row).
+      .innerJoin(
+        ResultSubject,
+        'rs',
+        'rs.result_id = r.id AND rs.subject_id = ec.subject_id AND rs.deleted_at IS NULL',
+      )
       .where('m.exam_id = :examId', { examId })
       .andWhere('m.tenant_id = :tenantId', { tenantId })
       .andWhere('ec.deleted_at IS NULL');

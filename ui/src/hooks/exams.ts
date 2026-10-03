@@ -240,6 +240,8 @@ export interface SubjectChoiceOption {
   subject_id: string;
   chosen: boolean;
   is_fourth: boolean;
+  /** Raw group label; null = ordinary optional (fourth-subject) option. */
+  choice_group: string | null;
 }
 
 export function subjectChoiceOptionsKey(
@@ -280,7 +282,32 @@ export function useSetSubjectChoice(studentId: string, academicYearId: string | 
     mutationFn: async (input: SetSubjectChoiceInput) => {
       await apiClient.put(`/students/${studentId}/subject-choices`, input);
     },
-    onSuccess: () =>
+    // Choice-group picks update optimistically: the picked member becomes
+    // chosen and its siblings are cleared (the server replaces the pick).
+    onMutate: async (input) => {
+      const key = subjectChoiceOptionsKey(studentId, academicYearId);
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<SubjectChoiceOption[]>(key);
+      const group = previous?.find(
+        (o) => o.class_subject_id === input.class_subject_id,
+      )?.choice_group;
+      if (previous && group && !input.is_fourth) {
+        queryClient.setQueryData<SubjectChoiceOption[]>(
+          key,
+          previous.map((o) =>
+            o.choice_group === group
+              ? { ...o, chosen: o.class_subject_id === input.class_subject_id }
+              : o,
+          ),
+        );
+      }
+      return { previous };
+    },
+    onError: (_err, _input, ctx) => {
+      if (ctx?.previous)
+        queryClient.setQueryData(subjectChoiceOptionsKey(studentId, academicYearId), ctx.previous);
+    },
+    onSettled: () =>
       void queryClient.invalidateQueries({
         queryKey: subjectChoiceOptionsKey(studentId, academicYearId),
       }),

@@ -26,6 +26,7 @@ export function classSubjectFactory(overrides: Partial<ClassSubject> = {}): Clas
     is_optional: false,
     is_graded_only: false,
     group_name: null,
+    choice_group: null,
     created_at: faker.date.past({ refDate: FACTORY_REFERENCE_DATE }).toISOString(),
     updated_at: faker.date.recent({ refDate: FACTORY_REFERENCE_DATE }).toISOString(),
     deleted_at: null,

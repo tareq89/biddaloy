@@ -109,7 +109,10 @@ export class PresetApplyService {
         (c) => c.count > 0,
       );
       if (stored || blockers.length) {
-        throw new ConflictException({ code: 'PRESET_NOT_FRESH', blockers });
+        throw new ConflictException({
+          message: 'A curriculum preset can only be applied to a fresh school',
+          details: { code: 'PRESET_NOT_FRESH', blockers },
+        });
       }
 
       const ctx: ApplyContext = {

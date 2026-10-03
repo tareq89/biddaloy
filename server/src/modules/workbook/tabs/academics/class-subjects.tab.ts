@@ -31,6 +31,7 @@ export interface ClassSubjectRow {
   is_optional: boolean;
   is_graded_only: boolean;
   group_name: string | null;
+  choice_group: string | null;
   // The referenced tabs' own natural keys, kept alongside the resolved
   // local ids so `keyOf` can build the same key format for a row as for an
   // entity, without a uuid ever appearing in a natural key.
@@ -86,6 +87,12 @@ const columns: readonly ColumnSpec[] = [
     // Optional: blank = not group-specific (NULL). Pre-#1266 backups lack it.
     label: { en: 'Group', bn: 'গ্রুপ' },
   },
+  {
+    key: 'choice_group',
+    type: 'string',
+    // Optional: blank = NULL; pre-35.1.10 backups lack it.
+    label: { en: 'Choice group (one of)', bn: 'যেকোনো একটি (বিষয় গুচ্ছ)' },
+  },
 ];
 
 /**
@@ -130,6 +137,7 @@ export const classSubjectsTab: TabSpec<ClassSubject, ClassSubjectRow> = {
       is_optional: entity.is_optional,
       is_graded_only: entity.is_graded_only,
       group_name: entity.group_name,
+      choice_group: entity.choice_group,
     };
   },
 
@@ -247,6 +255,26 @@ export const classSubjectsTab: TabSpec<ClassSubject, ClassSubjectRow> = {
       };
     }
 
+    // Mirrors CHK_class_subjects_choice_group_exclusive as a readable row
+    // error instead of a failed restore transaction.
+    const choiceGroup = ((values.choice_group as string | null) ?? '').trim() || null;
+    const groupName = (values.group_name as string | null) || null;
+    if (choiceGroup && (values.is_optional === true || (groupName ?? '').trim() !== '')) {
+      return {
+        errors: [
+          {
+            tab: 'class_subjects',
+            row: rowNo,
+            column: 'choice_group',
+            message:
+              'Column "choice_group": a subject in a choice group cannot also be optional or group-specific.',
+            severity: 'error',
+            value: choiceGroup,
+          },
+        ],
+      };
+    }
+
     return {
       row: {
         id: values.id as string,
@@ -255,7 +283,8 @@ export const classSubjectsTab: TabSpec<ClassSubject, ClassSubjectRow> = {
         subject_id: subjectId as string,
         is_optional: values.is_optional as boolean,
         is_graded_only: (values.is_graded_only as boolean | null) ?? false,
-        group_name: (values.group_name as string | null) || null,
+        group_name: groupName,
+        choice_group: choiceGroup,
         class_key: classKey,
         academic_year_key: academicYearKey,
         subject_key: subjectKey,
@@ -282,6 +311,8 @@ export const classSubjectsTab: TabSpec<ClassSubject, ClassSubjectRow> = {
     if (row.is_optional !== existing.is_optional) changed.push('is_optional');
     if (row.is_graded_only !== existing.is_graded_only) changed.push('is_graded_only');
     if ((row.group_name ?? null) !== (existing.group_name ?? null)) changed.push('group_name');
+    if ((row.choice_group ?? null) !== (existing.choice_group ?? null))
+      changed.push('choice_group');
     return changed;
   },
 
@@ -299,6 +330,7 @@ export const classSubjectsTab: TabSpec<ClassSubject, ClassSubjectRow> = {
     classSubject.is_optional = row.is_optional;
     classSubject.is_graded_only = row.is_graded_only;
     classSubject.group_name = row.group_name;
+    classSubject.choice_group = row.choice_group;
 
     return m.save(ClassSubject, classSubject);
   },

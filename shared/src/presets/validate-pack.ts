@@ -34,6 +34,27 @@ export function validatePresetPack(pack: PresetPack): string[] {
     }
     if (cs.group !== undefined && cs.optional)
       errs.push(`${at}: cannot be both group and optional`);
+    const cg = cs.choiceGroup;
+    if (cg !== undefined && (!cg.trim() || cg.length > 50))
+      errs.push(`${at}: choiceGroup must be 1-50 characters`);
+    if (cg !== undefined && cs.optional)
+      errs.push(`${at}: cannot be both choiceGroup and optional`);
+    if (cg !== undefined && cs.group !== undefined)
+      errs.push(`${at}: cannot be both choiceGroup and group`);
+  }
+
+  const rowKeys = pack.classSubjects.map((cs) => `${cs.classGrade}/${cs.subjectCode}`);
+  for (const k of new Set(dupes(rowKeys))) errs.push(`duplicate classSubject: ${k}`);
+
+  const choice = new Map<string, number>();
+  for (const cs of pack.classSubjects) {
+    if (cs.choiceGroup === undefined) continue;
+    const k = `${cs.classGrade}|${cs.choiceGroup}`;
+    choice.set(k, (choice.get(k) ?? 0) + 1);
+  }
+  for (const [k, n] of choice) {
+    const [grade, name] = [k.slice(0, k.indexOf('|')), k.slice(k.indexOf('|') + 1)];
+    if (n < 2) errs.push(`choice group ${name} at class ${grade} needs at least 2 subjects`);
   }
 
   const bands = pack.gradingScale?.bands;

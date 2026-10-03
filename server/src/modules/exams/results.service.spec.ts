@@ -3,7 +3,7 @@ import { ConflictException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Brackets } from 'typeorm';
-import { ResultsService } from './results.service';
+import { ResultsService, findMissingPicks, findUnassignedStreams } from './results.service';
 import { Exam } from './entities/exam.entity';
 import { Result } from './entities/result.entity';
 import { ResultSubject } from './entities/result-subject.entity';
@@ -961,5 +961,122 @@ describe('ResultsService.getStudentResultCard — programs (34.2.4, D1, D22)', (
     expect(card?.programs).toEqual([
       { program_name: 'New Program', achieved_count: 0, milestone_total: 0, latest: null },
     ]);
+  });
+});
+
+describe('findMissingPicks', () => {
+  const cs = (id: string, subject_id: string, choice_group: string | null) =>
+    ({ id, subject_id, choice_group }) as any;
+  const st = (id: string) => ({ id, full_name: `N-${id}`, roll_number: 1 }) as any;
+  const classSubjects = [cs('c1', 's1', 'REL'), cs('c2', 's2', 'REL'), cs('c3', 's3', null)];
+
+  it('ignores a group with no components in the exam', () => {
+    expect(findMissingPicks([st('a')], classSubjects, new Map([['s3', []]]), new Map())).toEqual(
+      [],
+    );
+  });
+
+  it('reports a student without a pick once, with name and group', () => {
+    const comps = new Map([
+      ['s1', []],
+      ['s2', []],
+    ]);
+    const picks = new Map([['a:c2', {}]]);
+    expect(findMissingPicks([st('a'), st('b')], classSubjects, comps, picks)).toEqual([
+      { student_id: 'b', full_name: 'N-b', roll_number: 1, choice_group: 'REL' },
+    ]);
+  });
+});
+
+describe('findUnassignedStreams', () => {
+  const cs = (subject_id: string, group_name: string | null) =>
+    ({ id: `c-${subject_id}`, subject_id, group_name }) as any;
+  const st = (id: string) => ({ id, full_name: `N-${id}`, roll_number: 1 }) as any;
+  const classSubjects = [cs('s1', null), cs('s2', 'Science')];
+
+  it('ignores a group subject with no components in the exam', () => {
+    expect(
+      findUnassignedStreams([st('a')], classSubjects, new Map([['s1', []]]), new Map()),
+    ).toEqual([]);
+  });
+
+  it('ignores a class with no group-only subjects', () => {
+    expect(
+      findUnassignedStreams(
+        [st('a')],
+        [cs('s1', null)],
+        new Map([['s1', []]]),
+        new Map([['a', null]]),
+      ),
+    ).toEqual([]);
+  });
+
+  it('reports students with no section group (or no section), once each', () => {
+    const comps = new Map([['s2', []]]);
+    const groups = new Map<string, string | null>([
+      ['a', null],
+      ['b', 'Science'],
+    ]);
+    expect(
+      findUnassignedStreams([st('a'), st('b'), st('c')], classSubjects, comps, groups),
+    ).toEqual([
+      { student_id: 'a', full_name: 'N-a', roll_number: 1 },
+      { student_id: 'c', full_name: 'N-c', roll_number: 1 },
+    ]);
+  });
+});
+
+describe('ResultsService.process (stream subjects, 35.1.14)', () => {
+  const baseCs = { class_id: CLASS_ID, academic_year_id: YEAR_ID, is_optional: false };
+  const comp = (id: string, subject_id: string) => ({
+    id,
+    exam_id: EXAM_ID,
+    subject_id,
+    name: 'Written',
+    kind: ExamComponentKind.WRITTEN,
+    source: ExamComponentSource.MANUAL,
+    full_marks: '100',
+  });
+  const stu = { id: 'stu-1', class_section_id: SECTION_ID, roll_number: 1, full_name: 'Sci' };
+  const present = (component_id: string, value: string) => ({
+    student_id: 'stu-1',
+    component_id,
+    value,
+    status: MarkStatus.PRESENT,
+  });
+
+  it('a Science student gets no Humanities subject and no false F', async () => {
+    const { service, resultSubjectRepo, resultRepo } = await buildService({
+      students: [stu],
+      enrollments: [
+        { student_id: 'stu-1', section_id: SECTION_ID, section: { group_name: 'Science' } },
+      ],
+      classSubjects: [
+        { ...baseCs, id: 'cs-ban', subject_id: 'ban', group_name: null },
+        { ...baseCs, id: 'cs-phy', subject_id: 'phy', group_name: 'Science' },
+        { ...baseCs, id: 'cs-eco', subject_id: 'eco', group_name: 'Humanities' },
+      ],
+      components: [comp('c-ban', 'ban'), comp('c-phy', 'phy'), comp('c-eco', 'eco')],
+      marks: [present('c-ban', '80'), present('c-phy', '70')],
+    });
+    await service.process(EXAM_ID, TENANT_ID, 'u1');
+    const ids = resultSubjectRepo.save.mock.calls.map((c: any) => c[0].subject_id).sort();
+    expect(ids).toEqual(['ban', 'phy']);
+    expect(resultRepo.save.mock.calls[0][0].is_fail).toBe(false);
+  });
+
+  it("a student whose stream matches no examined subject has nothing countable: grade '-', not F", async () => {
+    const { service, resultSubjectRepo, resultRepo } = await buildService({
+      students: [stu],
+      enrollments: [
+        { student_id: 'stu-1', section_id: SECTION_ID, section: { group_name: 'Arts' } },
+      ],
+      classSubjects: [{ ...baseCs, id: 'cs-eco', subject_id: 'eco', group_name: 'Humanities' }],
+      components: [comp('c-eco', 'eco')],
+      marks: [],
+    });
+    await service.process(EXAM_ID, TENANT_ID, 'u1');
+    expect(resultSubjectRepo.save).not.toHaveBeenCalled();
+    expect(resultRepo.save.mock.calls[0][0]).toMatchObject({ grade: '-', is_fail: false });
   });
 });

@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
 import { ExamStatus } from '@biddaloy/shared';
 import { AnalysisService } from './analysis.service';
+import { ResultSubject } from './entities/result-subject.entity';
 
 const TENANT_ID = 'tenant-1';
 const EXAM_ID = 'exam-1';
@@ -219,5 +220,12 @@ describe('AnalysisService', () => {
     const result = await service.getPassFailComponents(EXAM_ID, TENANT_ID);
     expect(result.rows[0].below_pass).toBeNull();
     expect(result.rows[1].below_pass).toBe(3);
+  });
+
+  it('getPassFailComponents joins result_subjects so non-takers are not counted', async () => {
+    const qb = makeQb([]);
+    const service = makeService({ markQbQueue: [qb] });
+    await service.getPassFailComponents(EXAM_ID, TENANT_ID);
+    expect(qb.innerJoin.mock.calls.some((c: unknown[]) => c[0] === ResultSubject)).toBe(true);
   });
 });

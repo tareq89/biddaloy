@@ -3,6 +3,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { PresetApplyService } from './preset-apply.service';
 import { PresetRegistryService } from './preset-registry.service';
 import { makeTestPack } from './__fixtures__/test-pack';
+import { buildErrorResponseBody } from '../../common/filters/error-response';
 import { Class } from '../academics/entities/class.entity';
 
 function make(opts: { storedPreset?: unknown; counts?: Map<unknown, number> } = {}) {
@@ -58,11 +59,21 @@ describe('PresetApplyService guard', () => {
     const err = await svc.apply('t1', 'u1', dto()).catch((e) => e);
     expect(err).toBeInstanceOf(ConflictException);
     expect(err.getResponse()).toMatchObject({
-      code: 'PRESET_NOT_FRESH',
-      blockers: [{ entity: 'classes', count: 2 }],
+      details: { code: 'PRESET_NOT_FRESH', blockers: [{ entity: 'classes', count: 2 }] },
     });
     expect(audit.record).not.toHaveBeenCalled();
     expect(cache.invalidate).not.toHaveBeenCalled();
+  });
+
+  it('final production body keeps details.code and blockers', async () => {
+    const { svc } = make({ counts: new Map([[Class, 2]]) });
+    const err = await svc.apply('t1', 'u1', dto()).catch((e) => e);
+    expect(
+      buildErrorResponseBody(err, { path: '/x', requestId: 'r', nodeEnv: 'production' }).details,
+    ).toEqual({
+      code: 'PRESET_NOT_FRESH',
+      blockers: [{ entity: 'classes', count: 2 }],
+    });
   });
 
   it('stored preset on the locked row -> PRESET_NOT_FRESH', async () => {

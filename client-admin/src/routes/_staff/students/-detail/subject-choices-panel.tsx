@@ -1,5 +1,5 @@
 /**
- * Fourth-subject panel — [19.6.1], mounted as a tab on student detail.
+ * Subject choices panel — [19.6.1] fourth subject + [35.1.13] choice groups, mounted as a tab on student detail.
  * Lists the optional subjects offered to this student's class/year as
  * radio buttons; selecting one replaces any previous fourth-subject
  * choice — `SubjectChoicesService.setChoice` is an idempotent PUT
@@ -58,28 +58,65 @@ export function SubjectChoicesPanel({ studentId }: SubjectChoicesPanelProps) {
 
   const subjectNameById = new Map((subjectsQuery.data?.data ?? []).map((s) => [s.id, s.name_en]));
   const options = optionsQuery.data ?? [];
-  const currentFourth = options.find((o) => o.is_fourth);
+  const fourthOptions = options.filter((o) => o.choice_group === null);
+  const groups = new Map<string, typeof options>();
+  for (const o of options) {
+    if (o.choice_group !== null)
+      groups.set(o.choice_group, [...(groups.get(o.choice_group) ?? []), o]);
+  }
+  const currentFourth = fourthOptions.find((o) => o.is_fourth);
+  const nameOf = (id: string) => subjectNameById.get(id) ?? id;
 
   if (options.length === 0) {
     return <p className="text-sm text-muted-foreground">{t('subjectChoicesPanel.empty')}</p>;
   }
 
   return (
-    <fieldset className="flex flex-col gap-2">
-      <legend className="text-sm font-medium">{t('subjectChoicesPanel.label')}</legend>
-      <RadioGroup
-        value={currentFourth?.class_subject_id ?? ''}
-        onValueChange={(classSubjectId) =>
-          setChoice.mutate({ class_subject_id: classSubjectId, is_fourth: true })
-        }
-      >
-        {options.map((option) => (
-          <label key={option.class_subject_id} className="flex items-center gap-2 text-sm">
-            <RadioGroupItem value={option.class_subject_id} disabled={setChoice.isPending} />
-            {subjectNameById.get(option.subject_id) ?? option.subject_id}
-          </label>
-        ))}
-      </RadioGroup>
+    <div className="flex flex-col gap-4">
+      {[...groups].map(([group, members]) => {
+        const picked = members.find((o) => o.chosen);
+        return (
+          <fieldset key={group} className="flex flex-col gap-2">
+            <legend className="text-sm font-medium">{group}</legend>
+            <RadioGroup
+              value={picked?.class_subject_id ?? ''}
+              onValueChange={(classSubjectId) =>
+                setChoice.mutate({ class_subject_id: classSubjectId, is_fourth: false })
+              }
+            >
+              {members.map((option) => (
+                <label key={option.class_subject_id} className="flex items-center gap-2 text-sm">
+                  <RadioGroupItem value={option.class_subject_id} />
+                  {nameOf(option.subject_id)}
+                </label>
+              ))}
+            </RadioGroup>
+            {!picked && (
+              <p className="text-sm text-muted-foreground">
+                {t('subjectChoicesPanel.groupUnpicked')}
+              </p>
+            )}
+          </fieldset>
+        );
+      })}
+      {fourthOptions.length > 0 && (
+        <fieldset className="flex flex-col gap-2">
+          <legend className="text-sm font-medium">{t('subjectChoicesPanel.label')}</legend>
+          <RadioGroup
+            value={currentFourth?.class_subject_id ?? ''}
+            onValueChange={(classSubjectId) =>
+              setChoice.mutate({ class_subject_id: classSubjectId, is_fourth: true })
+            }
+          >
+            {fourthOptions.map((option) => (
+              <label key={option.class_subject_id} className="flex items-center gap-2 text-sm">
+                <RadioGroupItem value={option.class_subject_id} disabled={setChoice.isPending} />
+                {nameOf(option.subject_id)}
+              </label>
+            ))}
+          </RadioGroup>
+        </fieldset>
+      )}
       {setChoice.isError && (
         <p role="alert" className="text-sm text-destructive">
           {setChoice.error instanceof Error
@@ -87,6 +124,6 @@ export function SubjectChoicesPanel({ studentId }: SubjectChoicesPanelProps) {
             : t('subjectChoicesPanel.errorMessage')}
         </p>
       )}
-    </fieldset>
+    </div>
   );
 }

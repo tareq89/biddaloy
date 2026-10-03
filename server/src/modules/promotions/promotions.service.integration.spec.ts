@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { ConflictException, UnprocessableEntityException } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -206,6 +206,9 @@ describe('PromotionsService (integration)', () => {
     await dataSource.query('DELETE FROM exams');
     await dataSource.query('DELETE FROM grading_scales');
     await dataSource.query('DELETE FROM student_lifecycle_events');
+    await dataSource.query('DELETE FROM student_subject_choices');
+    await dataSource.query('DELETE FROM class_subjects');
+    await dataSource.query('DELETE FROM subjects');
     await dataSource.query('DELETE FROM enrollments');
     await dataSource.query('DELETE FROM student_guardians');
     await dataSource.query('DELETE FROM students');
@@ -692,6 +695,33 @@ describe('PromotionsService (integration)', () => {
       ).toBe(1);
     });
 
+    it('carries no choice-group pick for a whole-class graduation run (D45)', async () => {
+      const { run, student } = await buildGraduationRun();
+      const gradClassId = '00000000-0000-4000-8000-000000010030';
+      const [{ id: subjectId }] = await dataSource.query(
+        `INSERT INTO subjects (tenant_id, name_en, code) VALUES ($1, 'ISL', 'ISL') RETURNING id`,
+        [TENANT_ID],
+      );
+      const [{ id: csId }] = await dataSource.query(
+        `INSERT INTO class_subjects (tenant_id, class_id, subject_id, academic_year_id, choice_group)
+         VALUES ($1, $2, $3, $4, 'Religion') RETURNING id`,
+        [TENANT_ID, gradClassId, subjectId, SOURCE_YEAR_ID],
+      );
+      await dataSource.query(
+        `INSERT INTO student_subject_choices (tenant_id, student_id, class_subject_id, academic_year_id, is_fourth, choice_group)
+         VALUES ($1, $2, $3, $4, false, 'Religion')`,
+        [TENANT_ID, student.id, csId, SOURCE_YEAR_ID],
+      );
+
+      await service.commit(run.id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} });
+
+      const rows = await dataSource.query(
+        `SELECT academic_year_id FROM student_subject_choices WHERE student_id = $1`,
+        [student.id],
+      );
+      expect(rows).toEqual([{ academic_year_id: SOURCE_YEAR_ID }]);
+    });
+
     it('rolls back the GRADUATED event and both status writes if the commit fails after the event insert', async () => {
       const { run, student, enrollment } = await buildGraduationRun();
       const lifecycle = (service as unknown as { studentLifecycleService: StudentLifecycleService })
@@ -794,6 +824,229 @@ describe('PromotionsService (integration)', () => {
       const entry = await entryRepo.findOne({ where: { run_id: run.id, student_id: student.id } });
       expect(committedRun?.status).toBe(PromotionRunStatus.COMMITTED);
       expect(entry?.final_outcome).toBe(PromotionOutcome.PROMOTE);
+    });
+  });
+
+  describe('commit — choice-group carry-forward (D45)', () => {
+    const TENANT_B = '00000000-0000-4000-8000-0000000b0001';
+
+    async function subject(tenant: string, code: string): Promise<string> {
+      const [r] = await dataSource.query(
+        `INSERT INTO subjects (tenant_id, name_en, code) VALUES ($1, $2, $2) RETURNING id`,
+        [tenant, code],
+      );
+      return r.id;
+    }
+    async function classSubject(
+      classId: string,
+      yearId: string,
+      subjectId: string,
+      group: string | null,
+      tenant = TENANT_ID,
+      deleted = false,
+    ): Promise<string> {
+      const [r] = await dataSource.query(
+        `INSERT INTO class_subjects (tenant_id, class_id, subject_id, academic_year_id, choice_group, deleted_at)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+        [tenant, classId, subjectId, yearId, group, deleted ? new Date() : null],
+      );
+      return r.id;
+    }
+    // choice_group is insert:false in the entity and trigger-owned in real DBs;
+    // synchronize:true has no triggers, so it is seeded explicitly here.
+    async function pick(
+      studentId: string,
+      csId: string,
+      yearId: string,
+      group: string | null,
+      isFourth = false,
+      tenant = TENANT_ID,
+    ) {
+      await dataSource.query(
+        `INSERT INTO student_subject_choices (tenant_id, student_id, class_subject_id, academic_year_id, is_fourth, choice_group)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [tenant, studentId, csId, yearId, isFourth, group],
+      );
+    }
+    async function picks(studentId: string) {
+      return dataSource.query(
+        `SELECT class_subject_id, academic_year_id, is_fourth, choice_group
+         FROM student_subject_choices WHERE student_id = $1 AND academic_year_id = $2`,
+        [studentId, TARGET_YEAR_ID],
+      );
+    }
+    // fail=true → suggested (and final) outcome RETAIN into RETAIN_CLASS_ID.
+    async function promote(fail = false) {
+      const student = await buildStudent();
+      await enrollActive(student.id);
+      await addResult(student.id, { isFail: fail, gpa: fail ? 0 : 4.0, total: fail ? 100 : 400 });
+      const run = await service.create(
+        {
+          source_class_id: SOURCE_CLASS_ID,
+          target_academic_year_id: TARGET_YEAR_ID,
+          exam_ids: [examId],
+          algorithm: PlacementAlgorithm.BLOCK,
+        },
+        TENANT_ID,
+        ADMIN_USER_ID,
+      );
+      return { student, run };
+    }
+    const commit = (id: string) =>
+      service.commit(id, TENANT_ID, ADMIN_USER_ID, 'ADMIN', { headers: {} });
+
+    it('carries a same-named group pick into the target year', async () => {
+      const islam = await subject(TENANT_ID, 'ISL');
+      const oldCs = await classSubject(SOURCE_CLASS_ID, SOURCE_YEAR_ID, islam, 'Religion');
+      const newCs = await classSubject(TARGET_CLASS_ID, TARGET_YEAR_ID, islam, 'Religion');
+      const { student, run } = await promote();
+      await pick(student.id, oldCs, SOURCE_YEAR_ID, 'Religion');
+
+      await commit(run.id);
+
+      expect(await picks(student.id)).toEqual([
+        {
+          class_subject_id: newCs,
+          academic_year_id: TARGET_YEAR_ID,
+          is_fourth: false,
+          choice_group: 'Religion',
+        },
+      ]);
+    });
+
+    it("carries a RETAIN student's picks into the retain class, one per group", async () => {
+      const islam = await subject(TENANT_ID, 'ISL');
+      const bio = await subject(TENANT_ID, 'BIO');
+      const oldIsl = await classSubject(SOURCE_CLASS_ID, SOURCE_YEAR_ID, islam, 'Religion');
+      const oldBio = await classSubject(SOURCE_CLASS_ID, SOURCE_YEAR_ID, bio, 'Elective');
+      const newIsl = await classSubject(RETAIN_CLASS_ID, TARGET_YEAR_ID, islam, 'Religion');
+      const newBio = await classSubject(RETAIN_CLASS_ID, TARGET_YEAR_ID, bio, 'Elective');
+      const { student, run } = await promote(true);
+      await pick(student.id, oldIsl, SOURCE_YEAR_ID, 'Religion');
+      await pick(student.id, oldBio, SOURCE_YEAR_ID, 'Elective');
+
+      await commit(run.id);
+
+      const ids = (await picks(student.id)).map((p: any) => p.class_subject_id).sort();
+      expect(ids).toEqual([newIsl, newBio].sort());
+    });
+
+    it('gives no pick when the target offers the subject in a differently-named group or no group', async () => {
+      const islam = await subject(TENANT_ID, 'ISL');
+      const hindu = await subject(TENANT_ID, 'HIN');
+      const oldCs = await classSubject(SOURCE_CLASS_ID, SOURCE_YEAR_ID, islam, 'Religion');
+      await classSubject(TARGET_CLASS_ID, TARGET_YEAR_ID, islam, null);
+      await classSubject(TARGET_CLASS_ID, TARGET_YEAR_ID, hindu, 'Faith');
+      const { student, run } = await promote();
+      await pick(student.id, oldCs, SOURCE_YEAR_ID, 'Religion');
+
+      await commit(run.id);
+
+      expect(await picks(student.id)).toEqual([]);
+    });
+
+    it('does not copy a fourth-subject pick', async () => {
+      const bio = await subject(TENANT_ID, 'BIO');
+      const oldCs = await classSubject(SOURCE_CLASS_ID, SOURCE_YEAR_ID, bio, null);
+      await classSubject(TARGET_CLASS_ID, TARGET_YEAR_ID, bio, null);
+      const { student, run } = await promote();
+      await pick(student.id, oldCs, SOURCE_YEAR_ID, null, true);
+
+      await commit(run.id);
+
+      expect(await picks(student.id)).toEqual([]);
+    });
+
+    it('does not give picks to a detached (soft-deleted) new class subject (D49)', async () => {
+      const islam = await subject(TENANT_ID, 'ISL');
+      const oldCs = await classSubject(SOURCE_CLASS_ID, SOURCE_YEAR_ID, islam, 'Religion');
+      await classSubject(TARGET_CLASS_ID, TARGET_YEAR_ID, islam, 'Religion', TENANT_ID, true);
+      const { student, run } = await promote();
+      await pick(student.id, oldCs, SOURCE_YEAR_ID, 'Religion');
+
+      await commit(run.id);
+
+      expect(await picks(student.id)).toEqual([]);
+    });
+
+    it('still carries a pick whose OLD class subject is soft-deleted', async () => {
+      const islam = await subject(TENANT_ID, 'ISL');
+      const oldCs = await classSubject(
+        SOURCE_CLASS_ID,
+        SOURCE_YEAR_ID,
+        islam,
+        'Religion',
+        TENANT_ID,
+        true,
+      );
+      const newCs = await classSubject(TARGET_CLASS_ID, TARGET_YEAR_ID, islam, 'Religion');
+      const { student, run } = await promote();
+      await pick(student.id, oldCs, SOURCE_YEAR_ID, 'Religion');
+
+      await commit(run.id);
+
+      expect((await picks(student.id)).map((p: any) => p.class_subject_id)).toEqual([newCs]);
+    });
+
+    it('leaves an existing target-year pick untouched (ON CONFLICT DO NOTHING)', async () => {
+      const islam = await subject(TENANT_ID, 'ISL');
+      const hindu = await subject(TENANT_ID, 'HIN');
+      const oldCs = await classSubject(SOURCE_CLASS_ID, SOURCE_YEAR_ID, islam, 'Religion');
+      await classSubject(TARGET_CLASS_ID, TARGET_YEAR_ID, islam, 'Religion');
+      const hinduNew = await classSubject(TARGET_CLASS_ID, TARGET_YEAR_ID, hindu, 'Religion');
+      const { student, run } = await promote();
+      await pick(student.id, oldCs, SOURCE_YEAR_ID, 'Religion');
+      await pick(student.id, hinduNew, TARGET_YEAR_ID, 'Religion'); // already picked in the group
+
+      await commit(run.id);
+
+      expect((await picks(student.id)).map((p: any) => p.class_subject_id)).toEqual([hinduNew]);
+    });
+
+    it("leaves another tenant's picks untouched and never crosses tenants", async () => {
+      await dataSource.query(
+        `INSERT INTO schools (id, name, slug) VALUES ($1, 'B', 'carry-school-b')
+         ON CONFLICT DO NOTHING`,
+        [TENANT_B],
+      );
+      const islam = await subject(TENANT_ID, 'ISL');
+      const islamB = await subject(TENANT_B, 'ISL');
+      const oldCs = await classSubject(SOURCE_CLASS_ID, SOURCE_YEAR_ID, islam, 'Religion');
+      await classSubject(TARGET_CLASS_ID, TARGET_YEAR_ID, islam, 'Religion');
+      // Tenant B offers the same subject-name in the target class: must never receive a pick.
+      const oldCsB = await classSubject(
+        SOURCE_CLASS_ID,
+        SOURCE_YEAR_ID,
+        islamB,
+        'Religion',
+        TENANT_B,
+      );
+      await classSubject(TARGET_CLASS_ID, TARGET_YEAR_ID, islamB, 'Religion', TENANT_B);
+      const { student, run } = await promote();
+      await pick(student.id, oldCs, SOURCE_YEAR_ID, 'Religion');
+      const studentB = await buildStudent({
+        tenant_id: TENANT_B,
+        registration_number: 'REG-B1',
+        roll_number: 9,
+      });
+      await pick(studentB.id, oldCsB, SOURCE_YEAR_ID, 'Religion', false, TENANT_B);
+
+      await commit(run.id);
+
+      const b = await dataSource.query(
+        `SELECT academic_year_id FROM student_subject_choices WHERE tenant_id = $1`,
+        [TENANT_B],
+      );
+      expect(b).toEqual([{ academic_year_id: SOURCE_YEAR_ID }]);
+      expect(await picks(student.id)).toHaveLength(1);
+    });
+
+    afterEach(async () => {
+      await dataSource.query('DELETE FROM student_subject_choices');
+      await dataSource.query('DELETE FROM class_subjects');
+      await dataSource.query('DELETE FROM subjects');
+      await dataSource.query(`DELETE FROM students WHERE tenant_id = $1`, [TENANT_B]);
+      await dataSource.query(`DELETE FROM schools WHERE id = $1`, [TENANT_B]);
     });
   });
 

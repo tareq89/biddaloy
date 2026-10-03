@@ -3,6 +3,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { validate } from 'class-validator';
 import { PresetResetService } from './preset-reset.service';
 import { RESET_BLOCKER_ENTITIES } from './preset-blockers';
+import { buildErrorResponseBody } from '../../common/filters/error-response';
 import { ResetPresetDto } from './dto/reset-preset.dto';
 
 function make(opts: { school?: object | null; blocked?: unknown } = {}) {
@@ -41,8 +42,32 @@ describe('PresetResetService', () => {
     const m = make({ school: { id: 't1', settings: {} } });
     const err = await m.svc.reset('t1', 'u', dto).catch((e) => e);
     expect(err).toBeInstanceOf(ConflictException);
-    expect(err.getResponse()).toMatchObject({ code: 'PRESET_NOT_APPLIED' });
+    expect(err.getResponse()).toMatchObject({ details: { code: 'PRESET_NOT_APPLIED' } });
     expect(m.del).not.toHaveBeenCalled();
+  });
+
+  it('final production body keeps details.code (+ blockers); stage a blocker', async () => {
+    const na = await make({ school: { id: 't1', settings: {} } })
+      .svc.reset('t1', 'u', dto)
+      .catch((e) => e);
+    const naBody = buildErrorResponseBody(na, {
+      path: '/x',
+      requestId: 'r',
+      nodeEnv: 'production',
+    });
+    expect(naBody.details).toEqual({ code: 'PRESET_NOT_APPLIED' });
+    expect(naBody.message).toEqual(expect.any(String));
+
+    const [{ label, entity }] = RESET_BLOCKER_ENTITIES;
+    const bl = await make({ blocked: entity })
+      .svc.reset('t1', 'u', dto)
+      .catch((e) => e);
+    expect(
+      buildErrorResponseBody(bl, { path: '/x', requestId: 'r', nodeEnv: 'production' }).details,
+    ).toEqual({
+      code: 'PRESET_RESET_BLOCKED',
+      blockers: [{ entity: label, count: 2 }],
+    });
   });
 
   it.each(RESET_BLOCKER_ENTITIES.map((b) => [b.label, b.entity] as const))(
@@ -51,8 +76,7 @@ describe('PresetResetService', () => {
       const m = make({ blocked: entity });
       const err = await m.svc.reset('t1', 'u', dto).catch((e) => e);
       expect(err.getResponse()).toMatchObject({
-        code: 'PRESET_RESET_BLOCKED',
-        blockers: [{ entity: label, count: 2 }],
+        details: { code: 'PRESET_RESET_BLOCKED', blockers: [{ entity: label, count: 2 }] },
       });
       expect(m.del).not.toHaveBeenCalled();
       expect(m.audit.record).not.toHaveBeenCalled();
