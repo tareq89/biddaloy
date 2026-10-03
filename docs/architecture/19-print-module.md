@@ -190,8 +190,10 @@ Rules that keep this honest:
 | `PRINT_HISTORY_READ`    |   ✔   |            |     ✔     | See what was printed       |
 | `DOCUMENT_REVOKE`       |   ✔   |            |           | Cancel a printed card      |
 
-A role that is not allowed gets **401** from `RolesGuard` in this codebase (not
-403). Tests assert 401.
+A role that is not allowed gets **403** `Requires permission(s): …` from
+`PermissionsGuard`. No print route carries `@Roles` (Epic 24.0 retired them),
+and `print.e2e-spec.ts` asserts 403 — for example an ACCOUNTANT on
+`GET /print-history` (it lacks `PRINT_HISTORY_READ`).
 
 ## 6. Where the code lives
 

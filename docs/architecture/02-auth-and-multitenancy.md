@@ -171,8 +171,19 @@ real gate. `@Roles` now exists only on routes listed in `ROLE_NARROWINGS` or
 `IDENTITY_SCOPED` (`permission-matrix.e2e-spec.ts`). Everywhere else it was
 redundant and was deleted (Epic 24.0).
 
-A request with a valid token but the wrong role gets **403**. A missing or
-bad token is still **401**.
+Which status a refused request gets depends on which guard refuses it:
+
+| Request                                                                                      | Refused by         | Status                                           |
+| -------------------------------------------------------------------------------------------- | ------------------ | ------------------------------------------------ |
+| Valid token, wrong role, route has **no** `@Roles` (most routes)                             | `PermissionsGuard` | **403** `Requires permission(s): …`              |
+| Valid token, wrong role, route **still has** `@Roles` (a narrowing or identity-scoped route) | `RolesGuard`       | **401** today. #1360 (#729) changes this to 403. |
+| `X-Role` names a role the user does not hold in this tenant                                  | `ContextGuard`     | **401**                                          |
+| Missing or bad token                                                                         | `AuthGuard('jwt')` | **401**                                          |
+
+Example, with a PARENT token for the same school:
+
+- `GET /guardians` (no `@Roles`; PARENT lacks `GUARDIAN_READ`) → `403`.
+- `GET /homework` (keeps `@Roles(ADMIN, TEACHER)`, see below) → `401`.
 
 Example of a narrowing: `GET /homework`. PARENT and STUDENT hold
 `HOMEWORK_READ` (for their own child's view). This route is the teacher/admin
