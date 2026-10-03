@@ -13,10 +13,9 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
+import { JwtPayload, Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -43,7 +42,6 @@ const caller = (tenant: Tenant, user: JwtPayload) => ({
 @ApiTenantAuth()
 @Controller('print-jobs')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
-@Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
 @RequirePermissions(Permission.DOCUMENT_PRINT)
 export class PrintJobActionsController {
   constructor(
@@ -98,7 +96,6 @@ export class PrintHistoryController {
   constructor(private readonly history: PrintHistoryService) {}
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.PRINT_HISTORY_READ)
   @ApiOperation({ summary: 'Search the print history. Rows never carry the data snapshot.' })
   list(
@@ -110,7 +107,6 @@ export class PrintHistoryController {
   }
 
   @Get('items/:id')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.PRINT_HISTORY_READ)
   @ApiOperation({
     summary: 'One printed item with its snapshot and template definition, to re-render it.',
@@ -125,7 +121,6 @@ export class PrintHistoryController {
 
   @Post('items/:id/revoke')
   @HttpCode(HttpStatus.OK)
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.DOCUMENT_REVOKE)
   @ApiOperation({ summary: 'Revoke one printed copy (ADMIN only). 409 if already revoked.' })
   revoke(

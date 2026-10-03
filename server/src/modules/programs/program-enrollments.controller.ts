@@ -80,7 +80,6 @@ export class ProgramEnrollmentsController {
   }
 
   @Post(':id/enrollments')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.PROGRAM_MANAGE)
   @ApiOperation({ summary: 'Bulk-enrol up to 500 students; already-active students are skipped.' })
   @ApiOkResponse({ type: EnrolStudentsResultDto })
@@ -101,7 +100,6 @@ export class ProgramEnrollmentsController {
   }
 
   @Post(':id/achievements')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.PROGRAM_RECORD)
   @ApiOperation({
     summary: "Bulk-record one milestone's achievement across up to 500 enrolments (upsert).",
@@ -132,7 +130,6 @@ export class ProgramEnrollmentStatusController {
   constructor(private readonly enrollmentsService: ProgramEnrollmentsService) {}
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.PROGRAM_MANAGE)
   @ApiOperation({
     summary:
@@ -170,7 +167,6 @@ export class MilestoneAchievementsController {
   constructor(private readonly enrollmentsService: ProgramEnrollmentsService) {}
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.PROGRAM_RECORD)
   @ApiOperation({ summary: 'Untick a recorded achievement.' })
   @ApiOkResponse({ type: DeletedResultDto })
@@ -206,7 +202,6 @@ export class StudentProgramsController {
   ) {}
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER, UserRole.PARENT, UserRole.STUDENT)
   @RequirePermissions(Permission.PROGRAM_READ)
   @ApiOperation({
     summary:
