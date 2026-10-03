@@ -150,9 +150,9 @@ export class ResultSmsService {
 
     let queued = 0;
     for (const job of jobs) {
-      // ponytail: a log-save failure mid-loop leaves the unsent shares reserved (reconcile tool lists it); per-job try + release if it ever happens.
-      const saved = await this.logRepo.save(job.log);
+      let saved: CommunicationLog | undefined;
       try {
+        saved = await this.logRepo.save(job.log);
         await this.queue.add('send', {
           logId: saved.id,
           ...(metered ? { batchId, segments: job.segments } : {}),
@@ -160,27 +160,39 @@ export class ResultSmsService {
         queued += 1;
       } catch {
         if (metered) {
-          // No job will ever settle this log's share, so release it here.
+          // No job will ever settle this share. Before the log exists there is no
+          // `log:<id>` to key on, so use a fresh part key (same as CommunicationsService.enqueue).
           try {
             await this.smsCreditService.settlePart(
               tenantId,
               `batch:${batchId}`,
-              `log:${saved.id}`,
+              saved ? `log:${saved.id}` : `enqueue-failed:${randomUUID()}`,
               job.segments,
               'RELEASE',
             );
           } catch (releaseErr) {
             this.logger.error({
               msg: 'sms credit release on enqueue failure failed — reservation left stranded',
-              communication_log_id: saved.id,
+              communication_log_id: saved?.id,
               tenant_id: tenantId,
               error: releaseErr instanceof Error ? releaseErr.message : String(releaseErr),
             });
           }
         }
-        saved.status = CommunicationStatus.FAILED;
-        saved.metadata = { ...saved.metadata, error: 'Failed to enqueue for delivery' };
-        await this.logRepo.save(saved);
+        if (saved) {
+          try {
+            saved.status = CommunicationStatus.FAILED;
+            saved.metadata = { ...saved.metadata, error: 'Failed to enqueue for delivery' };
+            await this.logRepo.save(saved);
+          } catch (saveErr) {
+            this.logger.error({
+              msg: 'failed to mark result-sms log FAILED after enqueue failure',
+              communication_log_id: saved.id,
+              tenant_id: tenantId,
+              error: saveErr instanceof Error ? saveErr.message : String(saveErr),
+            });
+          }
+        }
       }
     }
 

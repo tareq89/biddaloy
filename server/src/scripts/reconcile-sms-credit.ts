@@ -11,17 +11,36 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * [#1317] Settles SMS credit reservations stranded by the old `batch:` key
- * mismatch. Dry run unless `--apply`; optional `--tenant=<uuid>`. Does not
+ * mismatch. Dry run unless `--apply`, which also needs `--confirm-db=<name>`
+ * equal to the connected database (an exported DATABASE_URL beats .env, so
+ * the operator must name the DB they mean); optional `--tenant=<uuid>`. Does not
  * boot AppModule (no queue workers/crons in the operator's shell). Prints
  * ids, counts and codes only; see docs/architecture/05-communications.md.
  */
+const USAGE =
+  'usage: sms-credit:reconcile [--apply --confirm-db=<database name>] [--tenant=<uuid>]';
+
+/** Returns an error message when `--apply` is not confirmed against the connected DB. */
+export function applyGuardError(
+  apply: boolean,
+  confirmDb: string | undefined,
+  currentDatabase: string,
+): string | null {
+  if (!apply || confirmDb === currentDatabase) return null;
+  return `refusing --apply: connected database is "${currentDatabase}"; re-run with --confirm-db=${currentDatabase} if that is the intended database.`;
+}
+
 export async function main(argv: string[]): Promise<number> {
   const apply = argv.includes('--apply');
   const tenantArg = argv.find((a) => a.startsWith('--tenant='));
   const tenantId = tenantArg?.slice('--tenant='.length);
-  const unknown = argv.filter((a) => a !== '--apply' && !a.startsWith('--tenant='));
+  const confirmArg = argv.find((a) => a.startsWith('--confirm-db='));
+  const confirmDb = confirmArg?.slice('--confirm-db='.length);
+  const unknown = argv.filter(
+    (a) => a !== '--apply' && !a.startsWith('--tenant=') && !a.startsWith('--confirm-db='),
+  );
   if ((tenantId !== undefined && !UUID.test(tenantId)) || unknown.length > 0) {
-    console.error('usage: sms-credit:reconcile [--apply] [--tenant=<uuid>]');
+    console.error(USAGE);
     return 2;
   }
 
@@ -31,6 +50,11 @@ export async function main(argv: string[]): Promise<number> {
     console.log(
       `sms-credit:reconcile mode=${apply ? 'APPLY' : 'DRY-RUN'} database=${current_database}`,
     );
+    const guardError = applyGuardError(apply, confirmDb, current_database);
+    if (guardError) {
+      console.error(guardError);
+      return 2;
+    }
     // isMetered/getCreditsSummary are never called here, settlePart only.
     const credits = new SmsCreditService(
       dataSource.getRepository(SmsCreditBalance),

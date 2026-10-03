@@ -1,11 +1,7 @@
-import { DataSource, Not, Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { CommunicationStatus, CommunicationTrigger, countSmsSegments } from '@biddaloy/shared';
 import { CommunicationLog } from '../entities/communication-log.entity';
-import {
-  SmsCreditLedger,
-  SmsCreditLedgerKind,
-  SmsCreditLedgerReferenceType,
-} from './entities/sms-credit-ledger.entity';
+import { SmsCreditLedger, SmsCreditLedgerKind } from './entities/sms-credit-ledger.entity';
 import type { SmsCreditService } from './sms-credit.service';
 
 /**
@@ -85,7 +81,8 @@ export async function reconcileStrandedSmsCredit(
             WHERE kind = 'RESERVE'
               AND (idempotency_key NOT LIKE 'batch:%'
                    OR idempotency_key LIKE 'batch:fee-notify:%'
-                   OR idempotency_key LIKE 'batch:payment-notify:%')
+                   OR idempotency_key LIKE 'batch:payment-notify:%'
+                   OR created_at < now() - interval '24 hours')
             ORDER BY tenant_id`,
         )) as Array<{ tenant_id: string }>
       ).map((r) => r.tenant_id);
@@ -123,6 +120,8 @@ async function reconcileTenant(
     .addOrderBy('l.id', 'ASC')
     .getMany()) as SmsCreditLedger[];
   report.strandedReserves = legacy.length;
+  // Reference ids of shared groups already reported: no member may be re-listed as BATCH_REMAINDER.
+  const reportedGroupRefs = new Set<string>();
 
   const invoiceReserves = legacy.filter((r) => sourceOf(r.idempotency_key) === 'INVOICE_SEND');
 
@@ -144,177 +143,205 @@ async function reconcileTenant(
     });
 
   for (const r of legacy) {
-    const source = sourceOf(r.idempotency_key);
-    const key = r.idempotency_key;
+    try {
+      const source = sourceOf(r.idempotency_key);
+      const key = r.idempotency_key;
 
-    // A post-fix `batch:` twin shares this reserve's reference_id, which would mix both
-    // reservations in settlePart's cap sum.
-    if (
-      source !== 'RESULT_SMS' &&
-      source !== 'UNKNOWN' &&
-      (await ledgerRepo.count({
-        where: {
-          tenant_id: tenantId,
-          idempotency_key: `batch:${key}`,
-          kind: SmsCreditLedgerKind.RESERVE,
-        },
-      })) > 0
-    ) {
-      push(r, null, r.units, 'MANUAL_REVIEW', 'SPLIT_ACROSS_DEPLOY');
-      continue;
-    }
-
-    // Legacy invoice-send reserves were written as {type:'manual', id: invoiceId}: every
-    // guardian's reserve for one invoice shares a reference_id, so settlePart's cap sum
-    // (and our remaining-units sum) would mix them. Never settle or skip those silently.
-    if (
-      r.reference_id !== null &&
-      (r.reference_type !== SmsCreditLedgerReferenceType.BATCH ||
+      // A post-fix `batch:` twin shares this reserve's reference_id, which would mix both
+      // reservations in settlePart's cap sum.
+      if (
+        source !== 'RESULT_SMS' &&
+        source !== 'UNKNOWN' &&
         (await ledgerRepo.count({
+          where: {
+            tenant_id: tenantId,
+            idempotency_key: `batch:${key}`,
+            kind: SmsCreditLedgerKind.RESERVE,
+          },
+        })) > 0
+      ) {
+        push(r, null, r.units, 'MANUAL_REVIEW', 'SPLIT_ACROSS_DEPLOY');
+        continue;
+      }
+
+      // Legacy invoice-send reserves were written as {type:'manual', id: invoiceId}: every
+      // guardian's reserve for one invoice shares a reference_id, so settlePart's cap sum would
+      // mix them. (Result SMS has one reserve per exam key, so it is never a group.)
+      // Never settle those. Report the group's unsettled remainder once, skip it if nothing is left.
+      if (r.reference_id !== null) {
+        const group = (await ledgerRepo.find({
           where: {
             tenant_id: tenantId,
             kind: SmsCreditLedgerKind.RESERVE,
             reference_id: r.reference_id,
-            id: Not(r.id),
           },
-        })) > 0)
-    ) {
-      push(r, null, r.units, 'MANUAL_REVIEW', 'SHARED_REFERENCE');
-      continue;
-    }
+          order: { created_at: 'ASC', id: 'ASC' },
+        })) as SmsCreditLedger[];
+        if (group.length > 1) {
+          const legacyInGroup = group.filter((x) => !x.idempotency_key.startsWith('batch:'));
+          if (legacyInGroup[0].id !== r.id) continue; // reported once, on the first legacy reserve
+          // Any settlement on this reference counts, whatever its key form (bare-key releases
+          // from main's enqueue-failure path included).
+          const settled = (await ledgerRepo
+            .createQueryBuilder('l')
+            .where('l.tenant_id = :tenantId', { tenantId })
+            .andWhere('(l.reference_id = :ref OR l.idempotency_key IN (:...bare))', {
+              ref: r.reference_id,
+              bare: group.map((x) => `${x.idempotency_key}:settle`),
+            })
+            .andWhere('l.kind IN (:...kinds)', {
+              kinds: [SmsCreditLedgerKind.DEBIT, SmsCreditLedgerKind.RELEASE],
+            })
+            .getMany()) as SmsCreditLedger[];
+          const left =
+            group.reduce((n, x) => n + x.units, 0) - settled.reduce((n, x) => n + x.units, 0);
+          reportedGroupRefs.add(r.reference_id);
+          if (left <= 0) report.settledReserves += legacyInGroup.length;
+          else push(r, null, left, 'MANUAL_REVIEW', 'SHARED_REFERENCE');
+          continue;
+        }
+      }
 
-    // Remaining units by the same rule as settlePart's per-reservation cap (own reference only).
-    let remaining = r.units;
-    if (r.reference_id !== null) {
-      const prior = (await ledgerRepo
-        .createQueryBuilder('l')
-        .where('l.tenant_id = :tenantId', { tenantId })
-        .andWhere('l.reference_type = :t', { t: SmsCreditLedgerReferenceType.BATCH })
-        .andWhere('l.reference_id = :ref', { ref: r.reference_id })
-        .andWhere('l.kind IN (:...kinds)', {
-          kinds: [SmsCreditLedgerKind.DEBIT, SmsCreditLedgerKind.RELEASE],
-        })
-        .getMany()) as SmsCreditLedger[];
-      remaining -= prior.reduce((sum, x) => sum + x.units, 0);
-    }
-    const fullySettled = () => {
-      report.settledReserves += 1;
-    };
-
-    if (source === 'RESULT_SMS' || source === 'UNKNOWN') {
-      if (remaining <= 0) fullySettled();
-      else
-        push(
-          r,
-          null,
-          remaining,
-          'MANUAL_REVIEW',
-          source === 'RESULT_SMS' ? 'NO_LOG_LINK' : 'UNKNOWN_KEY',
-        );
-      continue;
-    }
-
-    const logs = await linkedLogs(logRepo, tenantId, r, invoiceReserves);
-    if (logs === 'AMBIGUOUS') {
-      if (remaining <= 0) fullySettled();
-      else push(r, null, remaining, 'MANUAL_REVIEW', 'AMBIGUOUS_LINK');
-      continue;
-    }
-
-    const settleRows = logs.length
-      ? ((await ledgerRepo
+      // Remaining units by the same rule as settlePart's per-reservation cap (own reference only).
+      let remaining = r.units;
+      if (r.reference_id !== null) {
+        const prior = (await ledgerRepo
           .createQueryBuilder('l')
           .where('l.tenant_id = :tenantId', { tenantId })
-          .andWhere('l.idempotency_key IN (:...keys)', {
-            keys: logs.map((l) => `log:${l.id}:settle`),
+          .andWhere('l.reference_id = :ref', { ref: r.reference_id })
+          .andWhere('l.kind IN (:...kinds)', {
+            kinds: [SmsCreditLedgerKind.DEBIT, SmsCreditLedgerKind.RELEASE],
           })
-          .getMany()) as SmsCreditLedger[])
-      : [];
-    const settleByLog = new Map(settleRows.map((x) => [x.idempotency_key, x]));
-    if (r.reference_id === null) remaining -= settleRows.reduce((sum, x) => sum + x.units, 0);
-    if (remaining <= 0) {
-      fullySettled();
-      continue;
-    }
+          .getMany()) as SmsCreditLedger[];
+        remaining -= prior.reduce((sum, x) => sum + x.units, 0);
+      }
+      // Main's enqueue-failure release settled the bare key (`<key>:settle`, no reference).
+      const bareSettle = await ledgerRepo.findOne({
+        where: { tenant_id: tenantId, idempotency_key: `${key}:settle` },
+      });
+      if (bareSettle) remaining -= bareSettle.units;
+      const fullySettled = () => {
+        report.settledReserves += 1;
+      };
 
-    let planned = 0; // units we will settle
-    let held = 0; // units left for a human / in-flight worker
-    for (const log of logs) {
-      const m = meta(log);
-      if (m.reason === 'SKIPPED_NO_SMS' || m.reason === 'SKIPPED_NO_CREDIT') continue;
-      const units = unitsOf(log);
-      const settled = settleByLog.get(`log:${log.id}:settle`);
+      if (source === 'RESULT_SMS' || source === 'UNKNOWN') {
+        if (remaining <= 0) fullySettled();
+        else
+          push(
+            r,
+            null,
+            remaining,
+            'MANUAL_REVIEW',
+            source === 'RESULT_SMS' ? 'NO_LOG_LINK' : 'UNKNOWN_KEY',
+          );
+        continue;
+      }
 
-      if (settled) {
-        push(r, log.id, settled.units, 'ALREADY_SETTLED', 'ALREADY_SETTLED');
-        const credit = settled.kind === SmsCreditLedgerKind.DEBIT ? 'DEBITED' : 'RELEASED';
-        if (apply && m.credit !== credit) {
-          try {
-            await logRepo.update({ id: log.id, tenant_id: tenantId }, {
-              metadata: { ...m, credit },
-            } as never);
-          } catch (err) {
-            push(r, log.id, 0, 'ERROR', `METADATA_UPDATE_FAILED:${errClass(err)}`);
+      const logs = await linkedLogs(logRepo, tenantId, r, invoiceReserves);
+      if (logs === 'AMBIGUOUS') {
+        if (remaining <= 0) fullySettled();
+        else push(r, null, remaining, 'MANUAL_REVIEW', 'AMBIGUOUS_LINK');
+        continue;
+      }
+
+      const settleRows = logs.length
+        ? ((await ledgerRepo
+            .createQueryBuilder('l')
+            .where('l.tenant_id = :tenantId', { tenantId })
+            .andWhere('l.idempotency_key IN (:...keys)', {
+              keys: logs.map((l) => `log:${l.id}:settle`),
+            })
+            .getMany()) as SmsCreditLedger[])
+        : [];
+      const settleByLog = new Map(settleRows.map((x) => [x.idempotency_key, x]));
+      if (r.reference_id === null) remaining -= settleRows.reduce((sum, x) => sum + x.units, 0);
+      if (remaining <= 0) {
+        fullySettled();
+        continue;
+      }
+
+      let planned = 0; // units we will settle
+      let held = 0; // units left for a human / in-flight worker
+      for (const log of logs) {
+        const m = meta(log);
+        if (m.reason === 'SKIPPED_NO_SMS' || m.reason === 'SKIPPED_NO_CREDIT') continue;
+        const units = unitsOf(log);
+        const settled = settleByLog.get(`log:${log.id}:settle`);
+
+        if (settled) {
+          push(r, log.id, settled.units, 'ALREADY_SETTLED', 'ALREADY_SETTLED');
+          const credit = settled.kind === SmsCreditLedgerKind.DEBIT ? 'DEBITED' : 'RELEASED';
+          if (apply && m.credit !== credit) {
+            try {
+              await logRepo.update({ id: log.id, tenant_id: tenantId }, {
+                metadata: { ...m, credit },
+              } as never);
+            } catch (err) {
+              push(r, log.id, 0, 'ERROR', `METADATA_UPDATE_FAILED:${errClass(err)}`);
+            }
           }
+          continue;
         }
-        continue;
-      }
-      if (log.status === CommunicationStatus.QUEUED) {
-        held += units;
-        push(r, log.id, units, 'IN_FLIGHT', 'IN_FLIGHT');
-        continue;
-      }
-      if (m.reason === 'ENQUEUE_FAILED') {
-        held += units;
-        push(r, log.id, units, 'MANUAL_REVIEW', 'ENQUEUE_FAILED_REPLAYABLE');
-        continue;
-      }
+        if (log.status === CommunicationStatus.QUEUED) {
+          held += units;
+          push(r, log.id, units, 'IN_FLIGHT', 'IN_FLIGHT');
+          continue;
+        }
+        if (m.reason === 'ENQUEUE_FAILED') {
+          held += units;
+          push(r, log.id, units, 'MANUAL_REVIEW', 'ENQUEUE_FAILED_REPLAYABLE');
+          continue;
+        }
 
-      const decision = decide(log, source);
-      if (!decision) {
-        held += units;
-        push(r, log.id, units, 'MANUAL_REVIEW', 'FAILED_OUTCOME_UNKNOWN');
-        continue;
-      }
-      if (planned + units > remaining) {
-        held += units;
-        push(r, log.id, units, 'MANUAL_REVIEW', 'EXCEEDS_RESERVATION');
-        continue;
-      }
-      planned += units;
-      if (!apply) {
+        const decision = decide(log, source);
+        if (!decision) {
+          held += units;
+          push(r, log.id, units, 'MANUAL_REVIEW', 'FAILED_OUTCOME_UNKNOWN');
+          continue;
+        }
+        if (planned + units > remaining) {
+          held += units;
+          push(r, log.id, units, 'MANUAL_REVIEW', 'EXCEEDS_RESERVATION');
+          continue;
+        }
+        planned += units;
+        if (!apply) {
+          push(r, log.id, units, decision.outcome, decision.reason);
+          continue;
+        }
+        try {
+          // Same batch key + `log:<id>` part key the worker uses: replay-safe.
+          await credits.settlePart(
+            tenantId,
+            key,
+            `log:${log.id}`,
+            units,
+            decision.outcome,
+            RECONCILE_REASON,
+          );
+        } catch (err) {
+          // error class only: messages embed reserve keys
+          planned -= units;
+          push(r, log.id, units, 'ERROR', errClass(err));
+          continue;
+        }
+        // Ledger write is done: count it even if the flag update fails (next run repairs it).
         push(r, log.id, units, decision.outcome, decision.reason);
-        continue;
+        try {
+          await logRepo.update({ id: log.id, tenant_id: tenantId }, {
+            metadata: { ...m, credit: decision.outcome === 'DEBIT' ? 'DEBITED' : 'RELEASED' },
+          } as never);
+        } catch (err) {
+          push(r, log.id, 0, 'ERROR', `METADATA_UPDATE_FAILED:${errClass(err)}`);
+        }
       }
-      try {
-        // Same batch key + `log:<id>` part key the worker uses: replay-safe.
-        await credits.settlePart(
-          tenantId,
-          key,
-          `log:${log.id}`,
-          units,
-          decision.outcome,
-          RECONCILE_REASON,
-        );
-      } catch (err) {
-        // error class only: messages embed reserve keys
-        planned -= units;
-        push(r, log.id, units, 'ERROR', errClass(err));
-        continue;
-      }
-      // Ledger write is done: count it even if the flag update fails (next run repairs it).
-      push(r, log.id, units, decision.outcome, decision.reason);
-      try {
-        await logRepo.update({ id: log.id, tenant_id: tenantId }, {
-          metadata: { ...m, credit: decision.outcome === 'DEBIT' ? 'DEBITED' : 'RELEASED' },
-        } as never);
-      } catch (err) {
-        push(r, log.id, 0, 'ERROR', `METADATA_UPDATE_FAILED:${errClass(err)}`);
-      }
-    }
 
-    const orphan = remaining - planned - held;
-    if (orphan > 0) push(r, null, orphan, 'MANUAL_REVIEW', 'ORPHAN_UNITS');
+      const orphan = remaining - planned - held;
+      if (orphan > 0) push(r, null, orphan, 'MANUAL_REVIEW', 'ORPHAN_UNITS');
+    } catch (err) {
+      // One bad reserve must not abort the run: in apply mode earlier rows have already settled.
+      push(r, null, 0, 'ERROR', `RESERVE_FAILED:${errClass(err)}`);
+    }
   }
 
   // Post-fix reservations whose listener enqueue failed hold units until a
@@ -344,6 +371,60 @@ async function reconcileTenant(
       units: countSmsSegments(s.message_body).segments,
       action: 'MANUAL_REVIEW',
       reason: 'ENQUEUE_FAILED_HOLDING_UNITS',
+    });
+  }
+
+  // Post-fix `batch:` reserves (any producer) with units left, older than 24h, and no QUEUED SMS
+  // log linked to it (window fallback: created in the 24h after the reserve, may be in flight): crash between
+  // settle() and release, calendar SMS push-delivered by an old worker, or an old worker handling
+  // a new-key job. List only, never act. A QUEUED log suppresses a reserve only if linked to it
+  // (fee generation / payment reference_key); other producers carry no link, so for them the
+  // narrow window above applies. ponytail: exact per-batch link for those if it hides rows.
+  // Remaining: by reference_id when set; null-reference reserves (payment, `{type:'log'}`) count
+  // the `log:<id>:settle` rows of their own logs (reference_key) plus a bare-key settle.
+  const alreadyListed = new Set(report.rows.map((x) => x.reserveLedgerId));
+  const remainders = (await dataSource.query(
+    `SELECT r.id, r.idempotency_key AS key, r.reference_id AS ref,
+            r.units - COALESCE((
+              SELECT SUM(s.units) FROM sms_credit_ledger s
+               WHERE s.tenant_id = $1 AND s.kind IN ('DEBIT', 'RELEASE')
+                 AND CASE WHEN r.reference_id IS NOT NULL
+                          THEN s.reference_id = r.reference_id
+                          ELSE s.idempotency_key = r.idempotency_key || ':settle'
+                            OR s.idempotency_key IN (
+                              SELECT 'log:' || l.id || ':settle' FROM communication_logs l
+                               WHERE l.tenant_id = $1
+                                 AND l.reference_key = substr(r.idempotency_key, 7))
+                     END), 0) AS remaining
+       FROM sms_credit_ledger r
+      WHERE r.tenant_id = $1 AND r.kind = 'RESERVE'
+        AND r.idempotency_key LIKE 'batch:%'
+        AND r.created_at < now() - interval '24 hours'
+        AND NOT EXISTS (
+          SELECT 1 FROM communication_logs l
+           WHERE l.tenant_id = $1 AND l.medium = 'SMS' AND l.status = 'QUEUED'
+             AND CASE
+                   WHEN r.idempotency_key LIKE 'batch:fee-notify:%'
+                     THEN l.metadata->>'fee_generation_id' = split_part(r.idempotency_key, ':', 3)
+                   WHEN r.idempotency_key LIKE 'batch:payment-notify:%'
+                     THEN l.reference_key = substr(r.idempotency_key, 7)
+                   ELSE l.created_at >= r.created_at
+                    AND l.created_at < r.created_at + interval '24 hours'
+                 END)
+      ORDER BY r.created_at, r.id`,
+    [tenantId],
+  )) as Array<{ id: string; key: string; ref: string | null; remaining: string | number }>;
+  for (const b of remainders) {
+    const left = Number(b.remaining);
+    if (left <= 0 || alreadyListed.has(b.id) || (b.ref && reportedGroupRefs.has(b.ref))) continue;
+    report.rows.push({
+      tenantId,
+      reserveLedgerId: b.id,
+      source: sourceOf(b.key.slice('batch:'.length)),
+      logId: null,
+      units: left,
+      action: 'MANUAL_REVIEW',
+      reason: 'BATCH_REMAINDER',
     });
   }
 

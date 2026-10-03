@@ -307,6 +307,10 @@ export class CommunicationsProcessor extends WorkerHost {
       ) {
         // Push delivered instead of the reserved SMS and the worker died
         // before releasing (see `tryPushFirst`): finish the release.
+        // Invariant: this branch does not check that the original medium was SMS. It is
+        // safe only because non-SMS jobs never carry a numeric `segments` (fee ~378,
+        // invoice listener ~287, calendar ~385, reminders ~679, CommunicationsService.enqueue,
+        // ResultSmsService). Keep it that way.
         await this.settleSmsCredit(job, log, 'RELEASE');
       }
       return;

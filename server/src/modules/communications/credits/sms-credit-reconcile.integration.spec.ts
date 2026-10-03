@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import { randomUUID } from 'node:crypto';
 import { DataSource, Repository } from 'typeorm';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -79,7 +80,9 @@ describe('reconcileStrandedSmsCredit (integration)', () => {
   }
 
   async function legacyReserve(tenantId: string, units: number, key: string, refId: string | null) {
-    const res = await credits.reserve(tenantId, units, key, { type: 'batch', id: refId });
+    // Real legacy shapes differ: invoice-send and result SMS were {type:'manual'}, fee was
+    // {type:'batch', id: feeGenerationId}, payment {type:'log'}. 'manual' is the shared worst case.
+    const res = await credits.reserve(tenantId, units, key, { type: 'manual', id: refId });
     expect(res).toEqual({ ok: true });
   }
 
@@ -407,11 +410,240 @@ describe('reconcileStrandedSmsCredit (integration)', () => {
       tenantId: A,
     });
 
-    expect(rep.rows).toHaveLength(2);
-    expect(rep.rows.every((r) => r.reason === 'SHARED_REFERENCE')).toBe(true);
-    expect(rep.rows.every((r) => r.action === 'MANUAL_REVIEW' && r.units === 1)).toBe(true);
+    // One row for the whole group: the 2 unsettled units, reported once.
+    expect(rep.rows).toHaveLength(1);
+    expect(rep.rows[0]).toMatchObject({
+      action: 'MANUAL_REVIEW',
+      reason: 'SHARED_REFERENCE',
+      units: 2,
+    });
     expect(rep.settledReserves).toBe(0);
     expect((await snapshot(A)).ledger).toEqual(before.ledger);
+  });
+
+  it('reports only the unreleased remainder of a shared group after main-style releases', async () => {
+    await credits.grant(A, 10, { idempotencyKey: `seed:${A}` });
+    const keys: string[] = [];
+    // Reserves of 1 and 2 units: settlePart's mixed-reference cap lets both releases through.
+    for (const [g, units] of [
+      [await makeGuardian(A), 1],
+      [await makeGuardian(A), 2],
+    ] as const) {
+      const key = `invoice-send:${INV1}:${g}`;
+      keys.push(key);
+      await credits.reserve(A, units, key, { type: 'manual', id: INV1 });
+    }
+    // Main's queue.add-failure release: settlePart on the bare reserve key with a log part key
+    // (writes log:<id>:settle with reference_id = invoiceId).
+    for (const k of keys) await credits.settlePart(A, k, `log:${randomUUID()}`, 1, 'RELEASE');
+
+    const [rep] = await reconcileStrandedSmsCredit(dataSource, credits, {
+      apply: false,
+      tenantId: A,
+    });
+    // 3 reserved - 2 released = 1 left, reported once for the group.
+    expect(rep.rows).toHaveLength(1);
+    expect(rep.rows[0]).toMatchObject({ reason: 'SHARED_REFERENCE', units: 1 });
+  });
+
+  it('releases a unique-reference legacy invoice reserve whose enqueue failed (ENQUEUE_FAILED_MANUAL_SEND)', async () => {
+    await credits.grant(A, 10, { idempotencyKey: `seed:${A}` });
+    const g = await makeGuardian(A);
+    await legacyReserve(A, 1, `invoice-send:${INV1}:${g}`, INV1);
+    const log = await addLog(A, {
+      trigger: CommunicationTrigger.MANUAL,
+      guardian_id: g,
+      status: CommunicationStatus.FAILED,
+      message_body: 'Invoice https://x/i/abc',
+      metadata: { error: 'Failed to enqueue for delivery' },
+    });
+
+    const [rep] = await reconcileStrandedSmsCredit(dataSource, credits, {
+      apply: true,
+      tenantId: A,
+    });
+
+    expect(rep.rows.find((r) => r.logId === log.id)).toMatchObject({
+      source: 'INVOICE_SEND',
+      action: 'RELEASE',
+      reason: 'ENQUEUE_FAILED_MANUAL_SEND',
+    });
+    expect((await snapshot(A)).balance).toMatchObject({ available: 10, reserved: 0 });
+  });
+
+  it('lists batch: remainders older than 24h with no QUEUED log as BATCH_REMAINDER, never acting', async () => {
+    await credits.grant(A, 10, { idempotencyKey: `seed:${A}` });
+    const old = '77777777-7777-4777-8777-777777777777';
+    const fresh = '77777777-7777-4777-8777-777777777778';
+    const done = '77777777-7777-4777-8777-777777777779';
+    await credits.reserve(A, 3, `batch:calendar:${old}`, { type: 'batch', id: old });
+    await credits.reserve(A, 1, `batch:calendar:${fresh}`, { type: 'batch', id: fresh });
+    await credits.reserve(A, 1, `batch:calendar:${done}`, { type: 'batch', id: done });
+    await credits.settlePart(A, `batch:calendar:${done}`, 'log:x', 1, 'DEBIT');
+    await dataSource.query(
+      `UPDATE sms_credit_ledger SET created_at = now() - interval '2 days'
+        WHERE tenant_id = $1 AND idempotency_key IN ($2, $3)`,
+      [A, `batch:calendar:${old}`, `batch:calendar:${done}`],
+    );
+    const before = await snapshot(A);
+
+    const [rep] = await reconcileStrandedSmsCredit(dataSource, credits, {
+      apply: true,
+      tenantId: A,
+    });
+
+    expect(rep.rows).toHaveLength(1);
+    expect(rep.rows[0]).toMatchObject({
+      action: 'MANUAL_REVIEW',
+      reason: 'BATCH_REMAINDER',
+      units: 3,
+      logId: null,
+    });
+    expect((await snapshot(A)).ledger).toEqual(before.ledger);
+  });
+
+  it('lists a null-reference batch: payment reserve and nets off its own log settlements', async () => {
+    await credits.grant(A, 10, { idempotencyKey: `seed:${A}` });
+    const old = `payment-notify:${PAY}:${'22222222-2222-4222-8222-222222222222'}`;
+    await credits.reserve(A, 3, `batch:${old}`, { type: 'log', id: null });
+    const l1 = await addLog(A, { reference_key: old });
+    await credits.settlePart(A, `batch:${old}`, `log:${l1.id}`, 1, 'DEBIT');
+    await dataSource.query(
+      `UPDATE sms_credit_ledger SET created_at = now() - interval '2 days' WHERE tenant_id = $1 AND idempotency_key = $2`,
+      [A, `batch:${old}`],
+    );
+
+    const [rep] = await reconcileStrandedSmsCredit(dataSource, credits, {
+      apply: false,
+      tenantId: A,
+    });
+    expect(rep.rows).toHaveLength(1);
+    expect(rep.rows[0]).toMatchObject({ reason: 'BATCH_REMAINDER', units: 2 });
+  });
+
+  it('a QUEUED log long after the reserve does not hide BATCH_REMAINDER', async () => {
+    await credits.grant(A, 10, { idempotencyKey: `seed:${A}` });
+    const ref = '77777777-7777-4777-8777-77777777777b';
+    await credits.reserve(A, 2, `batch:calendar:${ref}`, { type: 'batch', id: ref });
+    await dataSource.query(
+      `UPDATE sms_credit_ledger SET created_at = now() - interval '5 days' WHERE tenant_id = $1 AND idempotency_key = $2`,
+      [A, `batch:calendar:${ref}`],
+    );
+    await addLog(A, { status: CommunicationStatus.QUEUED });
+
+    const [rep] = await reconcileStrandedSmsCredit(dataSource, credits, {
+      apply: false,
+      tenantId: A,
+    });
+    expect(rep.rows.map((r) => r.reason)).toEqual(['BATCH_REMAINDER']);
+  });
+
+  it('suppresses a fee BATCH_REMAINDER only for a QUEUED log of its own generation', async () => {
+    await credits.grant(A, 10, { idempotencyKey: `seed:${A}` });
+    const other = '99999999-9999-4999-8999-99999999999a';
+    await credits.reserve(A, 2, `batch:fee-notify:${G}:sms`, { type: 'batch', id: G });
+    await dataSource.query(
+      `UPDATE sms_credit_ledger SET created_at = now() - interval '2 days' WHERE tenant_id = $1 AND idempotency_key = $2`,
+      [A, `batch:fee-notify:${G}:sms`],
+    );
+    // A QUEUED log of ANOTHER generation, inside the window, must not hide it.
+    const foreign = await addLog(A, {
+      status: CommunicationStatus.QUEUED,
+      metadata: { fee_generation_id: other },
+    });
+    await dataSource.query(
+      `UPDATE communication_logs SET created_at = now() - interval '47 hours' WHERE id = $1`,
+      [foreign.id],
+    );
+    const run = () =>
+      reconcileStrandedSmsCredit(dataSource, credits, { apply: false, tenantId: A });
+    expect((await run())[0].rows.map((r) => r.reason)).toEqual(['BATCH_REMAINDER']);
+
+    // Its own generation's QUEUED log, however old, suppresses it.
+    await addLog(A, { status: CommunicationStatus.QUEUED, metadata: { fee_generation_id: G } });
+    expect((await run())[0].rows).toHaveLength(0);
+  });
+
+  it('does not re-list a batch: member of an already reported shared group', async () => {
+    await credits.grant(A, 10, { idempotencyKey: `seed:${A}` });
+    for (const g of [await makeGuardian(A), await makeGuardian(A)]) {
+      await credits.reserve(A, 1, `invoice-send:${INV1}:${g}`, { type: 'manual', id: INV1 });
+    }
+    await credits.reserve(A, 1, `batch:calendar:${INV1}`, { type: 'batch', id: INV1 });
+    await dataSource.query(
+      `UPDATE sms_credit_ledger SET created_at = now() - interval '2 days' WHERE tenant_id = $1`,
+      [A],
+    );
+
+    const [rep] = await reconcileStrandedSmsCredit(dataSource, credits, {
+      apply: false,
+      tenantId: A,
+    });
+    expect(rep.rows.map((r) => r.reason)).toEqual(['SHARED_REFERENCE']);
+  });
+
+  it('suppresses BATCH_REMAINDER while a QUEUED log exists after the reserve', async () => {
+    await credits.grant(A, 10, { idempotencyKey: `seed:${A}` });
+    const ref = '77777777-7777-4777-8777-77777777777a';
+    await credits.reserve(A, 2, `batch:calendar:${ref}`, { type: 'batch', id: ref });
+    await dataSource.query(
+      `UPDATE sms_credit_ledger SET created_at = now() - interval '2 days' WHERE tenant_id = $1 AND idempotency_key = $2`,
+      [A, `batch:calendar:${ref}`],
+    );
+    const queued = await addLog(A, { status: CommunicationStatus.QUEUED });
+    // A QUEUED log created within 24h after the reserve may still be in flight.
+    await dataSource.query(
+      `UPDATE communication_logs SET created_at = now() - interval '47 hours' WHERE id = $1`,
+      [queued.id],
+    );
+
+    const [rep] = await reconcileStrandedSmsCredit(dataSource, credits, {
+      apply: false,
+      tenantId: A,
+    });
+    expect(rep.rows).toHaveLength(0);
+  });
+
+  it('does not double-list an ENQUEUE_FAILED reserve as BATCH_REMAINDER', async () => {
+    await credits.grant(A, 10, { idempotencyKey: `seed:${A}` });
+    await credits.reserve(A, 1, `batch:fee-notify:${G}:sms`, { type: 'batch', id: G });
+    await dataSource.query(
+      `UPDATE sms_credit_ledger SET created_at = now() - interval '2 days' WHERE tenant_id = $1 AND idempotency_key = $2`,
+      [A, `batch:fee-notify:${G}:sms`],
+    );
+    await addLog(A, {
+      status: CommunicationStatus.FAILED,
+      metadata: { fee_generation_id: G, reason: 'ENQUEUE_FAILED' },
+    });
+
+    const [rep] = await reconcileStrandedSmsCredit(dataSource, credits, {
+      apply: false,
+      tenantId: A,
+    });
+    expect(rep.rows.map((r) => r.reason)).toEqual(['ENQUEUE_FAILED_HOLDING_UNITS']);
+  });
+
+  it('turns a failing per-reserve query into an ERROR row instead of aborting the run', async () => {
+    await credits.grant(A, 10, { idempotencyKey: `seed:${A}` });
+    await legacyReserve(A, 1, `fee-notify:${G}:sms`, G);
+    await legacyReserve(A, 2, 'weird:key', null);
+    const flaky = {
+      query: dataSource.query.bind(dataSource),
+      getRepository: (e: any) =>
+        e === CommunicationLog
+          ? {
+              createQueryBuilder: () => {
+                throw new Error('boom');
+              },
+            }
+          : dataSource.getRepository(e),
+    } as unknown as DataSource;
+
+    const [rep] = await reconcileStrandedSmsCredit(flaky, credits, { apply: true, tenantId: A });
+
+    expect(byReason(rep.rows, 'RESERVE_FAILED:Error')).toMatchObject([{ action: 'ERROR' }]);
+    // The run continued past the failure to the next reserve.
+    expect(byReason(rep.rows, 'UNKNOWN_KEY')).toHaveLength(1);
   });
 
   it('reports units no log accounts for as ORPHAN_UNITS and unknown keys as UNKNOWN_KEY', async () => {

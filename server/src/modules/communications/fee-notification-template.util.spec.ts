@@ -32,9 +32,7 @@ describe('formatFeeNotificationDueDate', () => {
   });
 
   it('accepts a Date object identically to an ISO string', () => {
-    expect(formatFeeNotificationDueDate('en', new Date('2026-01-05T00:00:00Z'))).toBe(
-      '5 January',
-    );
+    expect(formatFeeNotificationDueDate('en', new Date('2026-01-05T00:00:00Z'))).toBe('5 January');
   });
 });
 
@@ -48,7 +46,9 @@ describe('buildFeeNotificationMessage', () => {
       ],
       '2026-09-10',
     );
-    expect(message).toBe('নতুন ফি যোগ হয়েছে: মাসিক ফি ৪,২০০, পরীক্ষা ফি ৮০০ — শেষ তারিখ ১০ সেপ্টেম্বর');
+    expect(message).toBe(
+      'নতুন ফি যোগ হয়েছে: মাসিক ফি ৪,২০০, পরীক্ষা ফি ৮০০ — শেষ তারিখ ১০ সেপ্টেম্বর',
+    );
   });
 
   it('matches the analogous en wording', () => {
@@ -64,14 +64,22 @@ describe('buildFeeNotificationMessage', () => {
   });
 
   it('lists a single bill without a trailing comma', () => {
-    const message = buildFeeNotificationMessage('en', [{ name: 'Monthly Fee', amount: 4200 }], '2026-09-10');
+    const message = buildFeeNotificationMessage(
+      'en',
+      [{ name: 'Monthly Fee', amount: 4200 }],
+      '2026-09-10',
+    );
     expect(message).toBe('New fees added: Monthly Fee 4,200 — Due date 10 September');
   });
 
   it('does not translate the fee structure name itself', () => {
     // A school's own fee name is copied verbatim regardless of locale —
     // this util only translates the surrounding phrase and the numerals.
-    const message = buildFeeNotificationMessage('bn', [{ name: 'Custom English Name', amount: 100 }], '2026-01-01');
+    const message = buildFeeNotificationMessage(
+      'bn',
+      [{ name: 'Custom English Name', amount: 100 }],
+      '2026-01-01',
+    );
     expect(message).toContain('Custom English Name');
   });
 });

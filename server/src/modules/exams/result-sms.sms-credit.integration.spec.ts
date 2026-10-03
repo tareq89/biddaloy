@@ -40,8 +40,12 @@ describe('ResultSmsService metered SMS credit (integration, #1317)', () => {
   let service: ResultSmsService;
   let queuedJobs: Array<{ name: string; data: any }>;
   let failAddFor: Set<number>;
+  let failSaveFor: Set<number>;
+  let saveCalls: number;
   let addCalls: number;
 
+  // Long enough that every body spans 2 SMS segments, so 'segments, not recipients' is observable.
+  const EXAM_NAME = `Mid Term ${'x'.repeat(150)}`;
   const EXAM_ID = '00000000-0000-4000-8000-0000000e1317';
   const OTHER_TENANT_ID = '00000000-0000-4000-8000-000000001319';
   let bodies: string[];
@@ -64,6 +68,8 @@ describe('ResultSmsService metered SMS credit (integration, #1317)', () => {
   beforeEach(async () => {
     queuedJobs = [];
     failAddFor = new Set();
+    failSaveFor = new Set();
+    saveCalls = 0;
     addCalls = 0;
     credits = makeMeteredCreditService(dataSource);
     await credits.grant(TENANT_ID, 100, { idempotencyKey: 'seed:result-sms' });
@@ -93,14 +99,21 @@ describe('ResultSmsService metered SMS credit (integration, #1317)', () => {
 
     service = new ResultSmsService(
       {
-        findOne: async () => ({ id: EXAM_ID, status: ExamStatus.PUBLISHED, name: 'Mid Term' }),
+        findOne: async () => ({ id: EXAM_ID, status: ExamStatus.PUBLISHED, name: EXAM_NAME }),
       } as any,
       {
         find: async () =>
           students.map((s) => ({ student_id: s.id, gpa: 4.5, grade: 'A', is_fail: false })),
       } as any,
       { find: async () => students } as any,
-      logRepo,
+      {
+        create: (v: any) => logRepo.create(v),
+        save: async (v: any) => {
+          saveCalls += 1;
+          if (failSaveFor.has(saveCalls)) throw new Error('db down');
+          return logRepo.save(v);
+        },
+      } as any,
       {
         add: async (name: string, data: any) => {
           addCalls += 1;
@@ -111,11 +124,15 @@ describe('ResultSmsService metered SMS credit (integration, #1317)', () => {
       credits,
       { record: async () => undefined } as any,
     );
-    bodies = students.map((s) => `${s.full_name}'s result for "Mid Term": GPA 4.5, Grade A.`);
+    bodies = students.map((s) => `${s.full_name}'s result for "${EXAM_NAME}": GPA 4.5, Grade A.`);
   }, 30000);
 
   const send = () => service.sendForExam(EXAM_ID, TENANT_ID, SEED_ADMIN_USER_ID);
   const totalUnits = () => bodies.reduce((sum, b) => sum + countSmsSegments(b).segments, 0);
+
+  it('uses multi-segment bodies so segments differ from recipients', () => {
+    expect(bodies.every((b) => countSmsSegments(b).segments === 2)).toBe(true);
+  });
 
   it('reserves total SEGMENTS (not recipients) under batch:<batchId>; worker DEBITs each log', async () => {
     await send();
@@ -177,6 +194,27 @@ describe('ResultSmsService metered SMS credit (integration, #1317)', () => {
     await runJob(makeProcessor(dataSource, credits, 'ACCEPTED'), queuedJobs[0].data);
     expect(await balanceFor(dataSource, TENANT_ID)).toEqual({
       available: 100 - (totalUnits() - failedUnits),
+      reserved: 0,
+    });
+  });
+
+  it('a pre-save log failure releases that share under an enqueue-failed key and keeps going', async () => {
+    failSaveFor.add(1);
+    const outcome = await send();
+    expect(outcome.queued).toBe(1);
+
+    const release = (await ledgerFor(dataSource, TENANT_ID)).filter((r) => r.kind === 'RELEASE');
+    expect(release).toHaveLength(1);
+    expect(release[0].idempotency_key).toMatch(/^enqueue-failed:.+:settle$/);
+    expect(release[0].units).toBe(2);
+    expect(await balanceFor(dataSource, TENANT_ID)).toEqual({
+      available: 100 - (totalUnits() - 2),
+      reserved: totalUnits() - 2,
+    });
+
+    await runJob(makeProcessor(dataSource, credits, 'ACCEPTED'), queuedJobs[0].data);
+    expect(await balanceFor(dataSource, TENANT_ID)).toEqual({
+      available: 100 - (totalUnits() - 2),
       reserved: 0,
     });
   });

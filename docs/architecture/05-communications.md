@@ -256,7 +256,8 @@ Rules:
 - `CommunicationsService.enqueue` releases the reservation itself when no job
   will ever exist: the log save or lookup throws (`enqueue-failed:<uuid>` part
   key) or `queue.add` throws (`log:<id>`). The exam-result loop does the same
-  for its failed `queue.add`.
+  per job: a failed log save releases under `enqueue-failed:<uuid>`, a failed
+  `queue.add` under `log:<id>`, and the loop carries on with the next job.
 - The fee and payment listeners do **not** release on a `queue.add` failure.
   The log is marked `ENQUEUE_FAILED` and a replayed event re-claims that same
   log id, so the units stay held for the replay's settle. Releasing would make
@@ -273,14 +274,23 @@ boot: you start it by hand.
 Run it **after** the fix is deployed **and** the communications queue has
 drained (in-flight rows are skipped, so an early run is safe but incomplete).
 
+**Deploy note:** drain or stop the communications workers before (or while)
+deploying the producers. A rolling deploy lets an OLD worker handle a NEW-key
+job (for example by push-delivering it), which leaves units reserved under a
+`batch:` key. Run the dry-run afterwards: such rows show up as
+`BATCH_REMAINDER`.
+
 ```bash
 cd server && yarn sms-credit:reconcile                          # dry run, all tenants (default)
 cd server && yarn sms-credit:reconcile --tenant=<uuid>          # dry run, one tenant
-cd server && yarn sms-credit:reconcile --tenant=<uuid> --apply  # act, one tenant
+cd server && yarn sms-credit:reconcile --tenant=<uuid> --apply --confirm-db=<database name>  # act, one tenant
 ```
 
-It connects with `DATABASE_URL` from `.env`, like `settings:reencrypt`. **Check
-`database=` on the first output line before using `--apply`.**
+It connects with `DATABASE_URL` from `.env`, like `settings:reencrypt`, but an
+already-exported `DATABASE_URL` wins over `.env`. So `--apply` is refused
+(exit 2) unless `--confirm-db=<name>` equals the database it actually
+connected to (the `database=` value on the first output line; a dry run
+shows it). Dry runs need no confirmation.
 
 How each linked SMS log is decided (the log's own `log:<id>` part key is used,
 the same one the worker uses, so a re-run or a late worker can never charge or
@@ -314,18 +324,19 @@ tenant=0a1b... stranded_reserves=1 settled_reserves=0 debit=1/2u release=1/1u ma
 `MANUAL_REVIEW` rows are only listed, never touched. They keep their units
 reserved until a person decides:
 
-| Reason                         | Meaning                                                                                                  |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| `FAILED_OUTCOME_UNKNOWN`       | FAILED but we cannot tell rejected from ambiguous on old rows                                            |
-| `ENQUEUE_FAILED_REPLAYABLE`    | A replayed event re-claims this log; releasing would make the re-send free                               |
-| `ENQUEUE_FAILED_HOLDING_UNITS` | Same, on a post-fix `batch:` reservation. Listed only                                                    |
-| `AMBIGUOUS_LINK`               | Invoice-send reserve has no single matching log (time-window match)                                      |
-| `NO_LOG_LINK`                  | Exam-result reserve: logs carry no link to the reservation                                               |
-| `SHARED_REFERENCE`             | Old invoice-send reserves for one invoice share a reference, so their caps mix; never settled or skipped |
-| `SPLIT_ACROSS_DEPLOY`          | Both an old and a `batch:` reserve exist for the same send; their caps would mix                         |
-| `EXCEEDS_RESERVATION`          | Settling this log would pass the reserved units                                                          |
-| `ORPHAN_UNITS`                 | Reserved units no log accounts for                                                                       |
-| `UNKNOWN_KEY`                  | Reserve key matches no known producer                                                                    |
+| Reason                         | Meaning                                                                                                                                                                                                                                |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FAILED_OUTCOME_UNKNOWN`       | FAILED but we cannot tell rejected from ambiguous on old rows                                                                                                                                                                          |
+| `ENQUEUE_FAILED_REPLAYABLE`    | A replayed event re-claims this log; releasing would make the re-send free                                                                                                                                                             |
+| `ENQUEUE_FAILED_HOLDING_UNITS` | Same, on a post-fix `batch:` reservation. Listed only                                                                                                                                                                                  |
+| `AMBIGUOUS_LINK`               | Invoice-send reserve has no single matching log (time-window match)                                                                                                                                                                    |
+| `NO_LOG_LINK`                  | Exam-result reserve: logs carry no link to the reservation                                                                                                                                                                             |
+| `SHARED_REFERENCE`             | Old invoice-send reserves for one invoice share a reference, so their caps mix; never settled. (Result SMS has one reserve per exam key, so it is never a group.) Reported once per group, as the units not yet settled (any key form) |
+| `BATCH_REMAINDER`              | A `batch:` reserve older than 24h with units left and no QUEUED SMS log since: crashed worker, push-delivered by an old worker, or a rolling deploy. Listed only                                                                       |
+| `SPLIT_ACROSS_DEPLOY`          | Both an old and a `batch:` reserve exist for the same send; their caps would mix                                                                                                                                                       |
+| `EXCEEDS_RESERVATION`          | Settling this log would pass the reserved units                                                                                                                                                                                        |
+| `ORPHAN_UNITS`                 | Reserved units no log accounts for                                                                                                                                                                                                     |
+| `UNKNOWN_KEY`                  | Reserve key matches no known producer                                                                                                                                                                                                  |
 
 Legacy fee and payment SMS that were delivered by **push** (not SMS) have no
 SENT log to debit, so their reserved units show up as `ORPHAN_UNITS`. That is
