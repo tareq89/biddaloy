@@ -181,8 +181,6 @@ export class CommunicationsController {
   }
 
   @Post('send')
-  // [10.4] G1 — E tightened off: lacks COMMUNICATION_SEND.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.TEACHER)
   @RequirePermissions(Permission.COMMUNICATION_SEND)
   @ApiOperation({ summary: 'Send a freeform (non-reminder) message.' })
   send(

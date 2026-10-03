@@ -156,15 +156,15 @@ describe('Guardians E2E', () => {
       expect(res.body.total).toBeDefined();
     });
 
-    it('should return 401 for STUDENT role', async () => {
+    it('should return 403 for STUDENT role', async () => {
       const res = await supertest(app.getHttpServer())
         .get('/api/v1/guardians')
         .set('Authorization', `Bearer ${studentToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
-        .expect(401);
+        .expect(403);
 
-      expect(res.body.message).toContain('Requires one of roles');
+      expect(res.body.message).toContain('Requires permission(s)');
     });
 
     // [8.11.4]'s list page "Linked students" column, and the global-search
@@ -250,7 +250,7 @@ describe('Guardians E2E', () => {
         .expect(400);
     });
 
-    it('should return 401 for STUDENT role', async () => {
+    it('should return 403 for STUDENT role', async () => {
       const createRes = await supertest(app.getHttpServer())
         .post('/api/v1/guardians')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -263,9 +263,9 @@ describe('Guardians E2E', () => {
         .set('Authorization', `Bearer ${studentToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
-        .expect(401);
+        .expect(403);
 
-      expect(res.body.message).toContain('Requires one of roles');
+      expect(res.body.message).toContain('Requires permission(s)');
     });
   });
 
