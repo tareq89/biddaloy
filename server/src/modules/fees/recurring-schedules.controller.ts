@@ -72,7 +72,6 @@ export class RecurringSchedulesController {
   }
 
   @Post('fees/schedules')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.SCHEDULE_MANAGE)
   @ApiOperation({ summary: 'Create a recurring fee-generation schedule.' })
   create(
@@ -95,7 +94,6 @@ export class RecurringSchedulesController {
   }
 
   @Patch('fees/schedules/:id')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.SCHEDULE_MANAGE)
   @ApiOperation({ summary: 'Update a recurring fee-generation schedule.' })
   update(
@@ -108,7 +106,6 @@ export class RecurringSchedulesController {
   }
 
   @Delete('fees/schedules/:id')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.SCHEDULE_MANAGE)
   @ApiOperation({ summary: 'Soft-delete a recurring fee-generation schedule.' })
   remove(
@@ -120,7 +117,6 @@ export class RecurringSchedulesController {
   }
 
   @Post('fees/schedules/:id/exclusions')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.SCHEDULE_MANAGE)
   @ApiOperation({ summary: 'Exclude one student from a schedule.' })
   addExclusion(
@@ -133,7 +129,6 @@ export class RecurringSchedulesController {
   }
 
   @Delete('fees/schedules/:id/exclusions/:studentId')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.SCHEDULE_MANAGE)
   @ApiOperation({ summary: 'Remove a student exclusion from a schedule.' })
   removeExclusion(
@@ -146,7 +141,6 @@ export class RecurringSchedulesController {
   }
 
   @Post('fees/schedules/:id/clone')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.SCHEDULE_MANAGE)
   @ApiOperation({
     summary:

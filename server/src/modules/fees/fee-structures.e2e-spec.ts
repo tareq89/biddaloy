@@ -153,7 +153,7 @@ describe('Fee Structures E2E', () => {
       expect(res.body.message).toBe('X-Tenant-ID header is required');
     });
 
-    it('should return 401 for STUDENT role', async () => {
+    it('should return 403 for STUDENT role', async () => {
       const res = await supertest(app.getHttpServer())
         .post('/api/v1/fee-structures')
         .set('Authorization', `Bearer ${studentToken}`)
@@ -166,9 +166,9 @@ describe('Fee Structures E2E', () => {
           class_id: SEED_CLASS_1_ID,
           academic_year_id: SEED_ACADEMIC_YEAR_ID,
         })
-        .expect(401);
+        .expect(403);
 
-      expect(res.body.message).toContain('Requires one of roles');
+      expect(res.body.message).toContain('Requires permission(s)');
     });
 
     it('should return 401 for an invalid/non-member X-Tenant-ID', async () => {
@@ -415,7 +415,7 @@ describe('Fee Structures E2E', () => {
       expect(Number(latest.new_values.amount)).toBe(1200);
     });
 
-    it('should return 401 for STUDENT role', async () => {
+    it('should return 403 for STUDENT role', async () => {
       const createRes = await supertest(app.getHttpServer())
         .post('/api/v1/fee-structures')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -435,9 +435,9 @@ describe('Fee Structures E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
         .send({ name: 'Should Not Apply' })
-        .expect(401);
+        .expect(403);
 
-      expect(res.body.message).toContain('Requires one of roles');
+      expect(res.body.message).toContain('Requires permission(s)');
     });
   });
 
@@ -492,7 +492,7 @@ describe('Fee Structures E2E', () => {
       expect(withDeletedList.body.data.find((row: { id: string }) => row.id === id)).toBeDefined();
     });
 
-    it('should return 401 for STUDENT role on delete', async () => {
+    it('should return 403 for STUDENT role on delete', async () => {
       const createRes = await supertest(app.getHttpServer())
         .post('/api/v1/fee-structures')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -511,9 +511,9 @@ describe('Fee Structures E2E', () => {
         .set('Authorization', `Bearer ${studentToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
-        .expect(401);
+        .expect(403);
 
-      expect(res.body.message).toContain('Requires one of roles');
+      expect(res.body.message).toContain('Requires permission(s)');
     });
   });
 });

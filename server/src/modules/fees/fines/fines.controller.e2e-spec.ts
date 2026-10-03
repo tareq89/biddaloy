@@ -203,7 +203,7 @@ describe('Fines E2E (38.2.5)', () => {
         .expect(201);
     });
 
-    it('EXECUTIVE is refused on create (RolesGuard 401 — `@Roles()` mismatch, not a permission 403)', async () => {
+    it('EXECUTIVE is refused on create (PermissionsGuard 403)', async () => {
       const structureId = await createFineStructure();
       await supertest(app.getHttpServer())
         .post(`${API}/fees/fine-rules`)
@@ -217,7 +217,7 @@ describe('Fines E2E (38.2.5)', () => {
           free_per_period: 0,
           conditions: {},
         })
-        .expect(401);
+        .expect(403);
     });
   });
 

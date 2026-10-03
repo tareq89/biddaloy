@@ -15,7 +15,6 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -30,7 +29,7 @@ import {
   QueryFinesDto,
 } from './dto/fines.dto';
 import { toFamilyFine } from '../dto/family.dto';
-import { Permission, UserRole, isGuardianRole } from '@biddaloy/shared';
+import { Permission, isGuardianRole } from '@biddaloy/shared';
 import { JwtPayload } from '@biddaloy/shared';
 
 @ApiTags('fines')
@@ -44,7 +43,6 @@ export class FinesController {
   ) {}
 
   @Post('fees/fines')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.FEE_GENERATE)
   logFine(
     @Body() dto: LogFineDto,
@@ -65,7 +63,6 @@ export class FinesController {
   }
 
   @Post('fees/fines/:id/waive')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.FEE_APPROVE)
   waiveFine(
     @Param('id', ParseUUIDPipe) id: string,
@@ -88,14 +85,6 @@ export class FinesController {
   }
 
   @Get('fees/fines')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
   @RequirePermissions(Permission.FEE_READ)
   async listFines(
     @Query() query: QueryFinesDto,

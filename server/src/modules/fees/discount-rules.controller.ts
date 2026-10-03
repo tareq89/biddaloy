@@ -18,7 +18,6 @@ import type { Request } from 'express';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { ApprovalGuard, ApprovalContext } from '../auth/guards/approval.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { RequireApproval } from '../auth/decorators/require-approval.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
@@ -33,7 +32,7 @@ import {
 } from './dto/discount-rules.dto';
 // [16.8.2] Family-facing shape from the one allow-list module.
 import { toFamilyDiscountRule } from './dto/family.dto';
-import { ApprovalScope, JwtPayload, Permission, UserRole, isGuardianRole } from '@biddaloy/shared';
+import { ApprovalScope, JwtPayload, Permission, isGuardianRole } from '@biddaloy/shared';
 
 /**
  * [16.7.3] `DiscountRule` CRUD. Writes require `DISCOUNT_RULE_MANAGE` +
@@ -60,14 +59,6 @@ export class DiscountRulesController {
   ) {}
 
   @Get('students/:id/discount-rules')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
   @RequirePermissions(Permission.FEE_READ)
   @ApiOperation({
     summary:
@@ -115,7 +106,6 @@ export class DiscountRulesController {
   }
 
   @Post('discount-rules')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.DISCOUNT_RULE_MANAGE)
   @RequireApproval(ApprovalScope.DISCOUNT_RULES_MANAGE)
   @ApiOperation({
@@ -139,7 +129,6 @@ export class DiscountRulesController {
   }
 
   @Patch('discount-rules/:id')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.DISCOUNT_RULE_MANAGE)
   @RequireApproval(ApprovalScope.DISCOUNT_RULES_MANAGE)
   @ApiOperation({
@@ -165,7 +154,6 @@ export class DiscountRulesController {
   }
 
   @Delete('discount-rules/:id')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.DISCOUNT_RULE_MANAGE)
   @RequireApproval(ApprovalScope.DISCOUNT_RULES_MANAGE)
   @ApiOperation({
