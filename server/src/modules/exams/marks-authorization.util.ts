@@ -6,9 +6,13 @@ import { TeacherClassSection } from '../academics/entities/teacher-class-section
 
 /** Tenant scope + MARK_ENTER may write marks for every section-subject
  * without going through `teacher_class_sections`. EXAM_CONTROLLER has no
- * MARK_ENTER (D16), so it stays out. */
+ * MARK_ENTER (D16), so it stays out.
+ * ponytail: #1362 D-N — SUPER_ADMIN is held out of tenant-wide *writes*
+ * (as before Epic 24) until product decides; drop the check to widen it. */
 const canWriteTenantWide = (role: string) =>
-  hasTenantScope(role) && roleHasPermission(role, Permission.MARK_ENTER);
+  role !== UserRole.SUPER_ADMIN &&
+  hasTenantScope(role) &&
+  roleHasPermission(role, Permission.MARK_ENTER);
 
 /** Tenant scope + MARK_VIEW may *read* every section-subject's grid.
  * Wider than the write side: EXECUTIVE and EXAM_CONTROLLER hold MARK_VIEW

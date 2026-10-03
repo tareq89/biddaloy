@@ -347,23 +347,26 @@ describe('HomeworkAccessService', () => {
 
   // [#1362] Per-role table: tenant-wide roles manage/view an unmapped section; others are denied.
   describe('per-role access table', () => {
-    const TABLE: Array<[UserRole, boolean]> = [
-      [UserRole.ADMIN, true],
-      [UserRole.EXECUTIVE, true],
-      [UserRole.ACCOUNTANT, true],
-      // New in #1362 (read ROLE_SCOPE): SUPER_ADMIN + the three new tenant-scoped roles.
-      [UserRole.SUPER_ADMIN, true],
-      [UserRole.OFFICE_STAFF, true],
-      [UserRole.EXAM_CONTROLLER, true],
-      [UserRole.COMMITTEE, true],
-      [UserRole.TEACHER, false], // section-scoped: denied when unmapped
-      [UserRole.PARENT, false],
-      [UserRole.STUDENT, false],
+    // [role, manage, view]
+    const TABLE: Array<[UserRole, boolean, boolean]> = [
+      [UserRole.ADMIN, true, true],
+      [UserRole.EXECUTIVE, true, true],
+      [UserRole.ACCOUNTANT, true, true],
+      // #1362 D-N: SUPER_ADMIN views tenant-wide but never manages until product decides.
+      [UserRole.SUPER_ADMIN, false, true],
+      // New in #1362 (read ROLE_SCOPE): the three new tenant-scoped roles.
+      [UserRole.OFFICE_STAFF, true, true],
+      [UserRole.EXAM_CONTROLLER, true, true],
+      [UserRole.COMMITTEE, true, true],
+      [UserRole.TEACHER, false, false], // section-scoped: denied when unmapped
+      [UserRole.PARENT, false, false],
+      [UserRole.STUDENT, false, false],
     ];
-    it.each(TABLE)('%s: tenant-wide=%s', async (role, wide) => {
+    it.each(TABLE)('%s: manage=%s view=%s', async (role, canManage, wide) => {
       sectionRepo.findOne.mockResolvedValue({ id: SECTION_ID, tenant_id: TENANT_ID });
       getOne.mockResolvedValue(null); // no teacher_class_sections row
       expect(service.isTenantWide(role)).toBe(wide);
+      expect(service.canManageTenantWide(role)).toBe(canManage);
       const manage = service.assertCanManageSection(
         role,
         USER_ID,
@@ -372,13 +375,10 @@ describe('HomeworkAccessService', () => {
         TENANT_ID,
       );
       const view = service.assertCanViewSection(role, USER_ID, SECTION_ID, TENANT_ID);
-      if (wide) {
-        await expect(manage).resolves.toBeUndefined();
-        await expect(view).resolves.toBeUndefined();
-      } else {
-        await expect(manage).rejects.toBeInstanceOf(ForbiddenException);
-        await expect(view).rejects.toBeInstanceOf(ForbiddenException);
-      }
+      if (canManage) await expect(manage).resolves.toBeUndefined();
+      else await expect(manage).rejects.toBeInstanceOf(ForbiddenException);
+      if (wide) await expect(view).resolves.toBeUndefined();
+      else await expect(view).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
 });

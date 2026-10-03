@@ -8,6 +8,12 @@ import { Class } from '../academics/entities/class.entity';
 import { Subject } from '../academics/entities/subject.entity';
 import { Student } from '../students/entities/student.entity';
 
+/** Tenant-scoped roles *manage* homework for every class/section.
+ * ponytail: #1362 D-N — SUPER_ADMIN is held out of tenant-wide writes (as
+ * before Epic 24) until product decides; reads (`isTenantWide`, `assertCanView*`)
+ * stay on plain `hasTenantScope`. Drop the check to widen it. */
+const canManageTenantWide = (role: string) => role !== UserRole.SUPER_ADMIN && hasTenantScope(role);
+
 /**
  * The object-level "may this caller touch homework for this
  * class/section/subject?" gate — clones `AttendanceAccessService`'s shape
@@ -39,6 +45,12 @@ export class HomeworkAccessService {
     return hasTenantScope(role);
   }
 
+  /** Write-side counterpart of `isTenantWide` (bulk upload skips its per-row
+   * check with this). */
+  canManageTenantWide(role: string): boolean {
+    return canManageTenantWide(role);
+  }
+
   /**
    * Throws `ForbiddenException` (403) when the caller may not manage
    * homework for this `(section, subject)` pair, otherwise resolves
@@ -52,7 +64,7 @@ export class HomeworkAccessService {
     subjectId: string,
     tenantId: string,
   ): Promise<void> {
-    if (hasTenantScope(role)) {
+    if (canManageTenantWide(role)) {
       const section = await this.sectionRepo.findOne({
         where: { id: sectionId, tenant_id: tenantId },
       });
@@ -96,7 +108,7 @@ export class HomeworkAccessService {
     subjectId: string,
     tenantId: string,
   ): Promise<void> {
-    if (hasTenantScope(role)) {
+    if (canManageTenantWide(role)) {
       return;
     }
 

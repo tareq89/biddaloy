@@ -4,6 +4,13 @@ import { Repository, SelectQueryBuilder } from 'typeorm';
 import { UserRole, hasTenantScope } from '@biddaloy/shared';
 import { ClassSection } from '../academics/entities/class-section.entity';
 
+/** Tenant-scoped roles reach every section. This service gates both reads and
+ * writes (marking, finalizing), so it is a write path.
+ * ponytail: #1362 D-N — SUPER_ADMIN is held out (as before Epic 24) until
+ * product decides whether a platform operator may mark a school's attendance;
+ * drop the check to widen it. */
+const canAccessTenantWide = (role: string) => role !== UserRole.SUPER_ADMIN && hasTenantScope(role);
+
 /**
  * The object-level "may this caller touch this section's attendance?" gate —
  * a sibling of `FamilyAccessService` (`server/src/modules/students/`), kept
@@ -58,7 +65,7 @@ export class AttendanceAccessService {
     userId: string,
     tenantId: string,
   ): Promise<ClassSection[]> {
-    if (hasTenantScope(role)) {
+    if (canAccessTenantWide(role)) {
       return this.sectionRepo.find({
         where: { tenant_id: tenantId },
         relations: ['class'],
@@ -96,7 +103,7 @@ export class AttendanceAccessService {
     sectionId: string,
     tenantId: string,
   ): Promise<ClassSection> {
-    if (hasTenantScope(role)) {
+    if (canAccessTenantWide(role)) {
       const section = await this.sectionRepo.findOne({
         where: { id: sectionId, tenant_id: tenantId },
       });

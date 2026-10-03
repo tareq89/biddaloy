@@ -232,8 +232,9 @@ describe('AttendanceAccessService (integration)', () => {
       [UserRole.ADMIN, true],
       [UserRole.EXECUTIVE, true],
       [UserRole.ACCOUNTANT, true],
-      // New in #1362 (read ROLE_SCOPE): SUPER_ADMIN + the three new tenant-scoped roles.
-      [UserRole.SUPER_ADMIN, true],
+      // #1362 D-N: SUPER_ADMIN stays out until product decides (this service also gates writes).
+      [UserRole.SUPER_ADMIN, false],
+      // New in #1362 (read ROLE_SCOPE): the three new tenant-scoped roles.
       [UserRole.OFFICE_STAFF, true],
       [UserRole.EXAM_CONTROLLER, true],
       [UserRole.COMMITTEE, true],
