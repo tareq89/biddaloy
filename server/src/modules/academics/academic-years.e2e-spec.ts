@@ -60,6 +60,22 @@ describe('Academic Years E2E', () => {
     await app.close();
   });
 
+  /** Gives the seed admin a STUDENT membership too, then logs in again so
+   * the JWT really holds STUDENT. A wrong-role request with this token gets
+   * past ContextGuard and is refused by PermissionsGuard with 403. */
+  async function mintStudentToken(): Promise<string> {
+    await dataSource.query(
+      `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+       VALUES ('${SEED_ADMIN_USER_ID}', '${SEED_TENANT_ID}', '${UserRole.STUDENT}', NOW(), NOW())
+       ON CONFLICT DO NOTHING`,
+    );
+    const loginRes = await supertest(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
+      .expect(200);
+    return loginRes.body.access_token;
+  }
+
   describe('POST /academic-years', () => {
     it('should create an academic year (ADMIN role)', async () => {
       const res = await supertest(app.getHttpServer())
@@ -94,18 +110,7 @@ describe('Academic Years E2E', () => {
     });
 
     it('should return 403 for STUDENT role', async () => {
-      // Create a user-tenant with STUDENT role for the seed tenant
-      await dataSource.query(
-        `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
-         VALUES ('${SEED_ADMIN_USER_ID}', '${SEED_TENANT_ID}', '${UserRole.STUDENT}', NOW(), NOW())`,
-      );
-
-      // Get a fresh token with the STUDENT role included in the JWT
-      const loginRes = await supertest(app.getHttpServer())
-        .post('/api/v1/auth/login')
-        .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
-        .expect(200);
-      const studentToken = loginRes.body.access_token;
+      const studentToken = await mintStudentToken();
 
       const res = await supertest(app.getHttpServer())
         .post('/api/v1/academic-years')
@@ -247,6 +252,26 @@ describe('Academic Years E2E', () => {
         .send({ name: 'Should Not Update' })
         .expect(401);
     });
+
+    it('should return 403 for a token that really holds STUDENT on update', async () => {
+      const createRes = await supertest(app.getHttpServer())
+        .post('/api/v1/academic-years')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ name: 'Role Check 403', start_date: '2026-01-01', end_date: '2026-12-31' })
+        .expect(201);
+      const studentToken = await mintStudentToken();
+
+      const res = await supertest(app.getHttpServer())
+        .patch(`/api/v1/academic-years/${createRes.body.id}`)
+        .set('Authorization', `Bearer ${studentToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.STUDENT)
+        .send({ name: 'Should Not Update' })
+        .expect(403);
+
+      expect(res.body.message).toBe('Requires permission(s): ACADEMIC_YEAR_MANAGE');
+    });
   });
 
   describe('DELETE /academic-years/:id', () => {
@@ -287,6 +312,25 @@ describe('Academic Years E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
         .expect(401);
+    });
+
+    it('should return 403 for a token that really holds STUDENT on delete', async () => {
+      const createRes = await supertest(app.getHttpServer())
+        .post('/api/v1/academic-years')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ name: 'Protected 403', start_date: '2026-01-01', end_date: '2026-12-31' })
+        .expect(201);
+      const studentToken = await mintStudentToken();
+
+      const res = await supertest(app.getHttpServer())
+        .delete(`/api/v1/academic-years/${createRes.body.id}`)
+        .set('Authorization', `Bearer ${studentToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.STUDENT)
+        .expect(403);
+
+      expect(res.body.message).toBe('Requires permission(s): ACADEMIC_YEAR_MANAGE');
     });
   });
 
@@ -391,6 +435,26 @@ describe('Academic Years E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
         .expect(401);
+    });
+
+    it('should return 403 for a token that really holds STUDENT', async () => {
+      const createRes = await supertest(app.getHttpServer())
+        .post('/api/v1/academic-years')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .send({ name: 'Guarded Year 403', start_date: '2026-01-01', end_date: '2026-12-31' })
+        .expect(201);
+      const studentToken = await mintStudentToken();
+
+      // STUDENT does not hold ACADEMIC_STRUCTURE_READ.
+      const res = await supertest(app.getHttpServer())
+        .get(`/api/v1/academic-years/${createRes.body.id}/stats`)
+        .set('Authorization', `Bearer ${studentToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.STUDENT)
+        .expect(403);
+
+      expect(res.body.message).toBe('Requires permission(s): ACADEMIC_STRUCTURE_READ');
     });
   });
 });

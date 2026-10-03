@@ -182,9 +182,8 @@ describe('GET /payments, GET /payments/:id (16.4.3)', () => {
       [ACCOUNTANT_USER_ID, SEED_TENANT_ID, UserRole.ACCOUNTANT],
     );
 
-    // TEACHER is not in `GET /payments`'s @Roles() list — used below for the
-    // RolesGuard-denial test (see the comment there for why a genuine
-    // PermissionsGuard denial isn't reachable through these two routes).
+    // TEACHER lacks PAYMENT_READ — used below for the PermissionsGuard
+    // 403 tests on `GET /payments` and `GET /payments/:id`.
     await dataSource.query(
       `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
        VALUES ($1, $2, $3, 'Payments Query E2E Teacher', 'ACTIVE', NOW(), NOW())

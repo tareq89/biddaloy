@@ -250,9 +250,9 @@ describe('GET /students/:id/wallet (16.1.5)', () => {
   });
 
   it('rejects a role the caller has no membership for', async () => {
-    // Every real UserRole is listed in the route's own @Roles(), and every
-    // one of them carries FEE_READ in the permission matrix — so the only
-    // way this route ever refuses a request on role/permission grounds is
+    // Every real UserRole carries FEE_READ in the permission matrix, so
+    // PermissionsGuard cannot refuse here — the only way this route ever
+    // refuses a request on role/permission grounds is
     // a role the caller doesn't actually hold in this tenant. The admin
     // token's only membership is ADMIN, so an explicit X-Role it was never
     // granted must be refused before the family-linkage check even runs.

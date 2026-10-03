@@ -103,10 +103,11 @@ describe('StudentLifecycleController (guards)', () => {
   });
 
   it('ACCOUNTANT lifecycle-events returns 403', async () => {
-    await as(
+    const res = await as(
       http().get(`/api/v1/students/${studentId}/lifecycle-events`),
       UserRole.ACCOUNTANT,
     ).expect(403);
+    expect(res.body.message).toContain('Requires permission(s)');
   });
 
   it('TEACHER lifecycle-events returns 200', async () => {

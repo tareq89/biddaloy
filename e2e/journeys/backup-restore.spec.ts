@@ -223,15 +223,12 @@ test.describe.serial('backup and restore', () => {
         },
         data: {},
       });
-      // 401, not the 403 this leg originally asserted: the route is
-      // `@Roles(ADMIN, SUPER_ADMIN)`, and `RolesGuard` runs before
-      // `PermissionsGuard` and answers a role mismatch with
-      // `UnauthorizedException`. That's the wrong code for an
-      // authenticated caller who simply holds the wrong role — filed as
-      // #729. Pinned to the real behaviour on purpose, so fixing #729
-      // fails here loudly instead of silently. Either way the point of
-      // this leg holds: the export never runs for a TEACHER.
-      expect(response.status()).toBe(401);
+      // 403: the route is gated by `BACKUP_MANAGE` alone (Epic 24.0
+      // retired its mirrored `@Roles`), and `PermissionsGuard` answers a
+      // valid token with the wrong role with 403. That settles #729 for
+      // this route. Either way the export never runs for a TEACHER.
+      expect(response.status()).toBe(403);
+      expect(((await response.json()) as { message: string }).message).toContain('BACKUP_MANAGE');
 
       await page.goto('/settings');
       await expect(
