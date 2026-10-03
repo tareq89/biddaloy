@@ -28,17 +28,24 @@ export const acrCriteriaKeys = createEntityKeys('acr-criteria');
 /** A staff member's ACR history, keyed by user id via `detail(userId)`. */
 export const acrStaffKeys = createEntityKeys('acr-staff');
 
-export function acrCriteriaQueryOptions() {
+/** `versionId` reads that version's criteria (an ACR keeps the version it started on, D1). */
+export function acrCriteriaQueryOptions(versionId?: string) {
   return queryOptions({
-    queryKey: acrCriteriaKeys.all,
+    queryKey: versionId ? acrCriteriaKeys.detail(versionId) : acrCriteriaKeys.all,
     queryFn: async ({ signal }) =>
-      (await apiClient.get<AcrCriteriaSet>('/acr/criteria', { signal })).data,
+      (
+        await apiClient.get<AcrCriteriaSet>('/acr/criteria', {
+          signal,
+          params: versionId ? { versionId } : undefined,
+        })
+      ).data,
     retry: shouldRetryQuery,
   });
 }
 
-export function useAcrCriteria() {
-  return useQuery(acrCriteriaQueryOptions());
+/** `enabled: false` holds the fetch until the assessment (and so its version) is known. */
+export function useAcrCriteria(versionId?: string, enabled = true) {
+  return useQuery({ ...acrCriteriaQueryOptions(versionId), enabled });
 }
 
 /** Saves the full list as a NEW version — existing ACRs keep their version. */

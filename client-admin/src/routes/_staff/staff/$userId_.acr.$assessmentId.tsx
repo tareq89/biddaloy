@@ -44,7 +44,9 @@ function AcrPageInner() {
   const { userId, assessmentId } = Route.useParams();
   const { t } = useTranslation('evaluations');
   const assessmentQuery = useAcrAssessment(assessmentId);
-  const criteriaQuery = useAcrCriteria();
+  // Score/render the ASSESSMENT's own criteria version, not the current one (D1).
+  const versionId = assessmentQuery.data?.form_version_id;
+  const criteriaQuery = useAcrCriteria(versionId, versionId !== undefined);
   const userQuery = useUser(userId);
   const [seed, setSeed] = React.useState<AcrAssessment | undefined>(undefined);
   if (assessmentQuery.data && seed === undefined) setSeed(assessmentQuery.data);
@@ -70,7 +72,7 @@ function AcrPageInner() {
         message={t('acr.loadError')}
         onRetry={() => {
           void assessmentQuery.refetch();
-          void criteriaQuery.refetch();
+          if (versionId) void criteriaQuery.refetch();
         }}
       />
     );

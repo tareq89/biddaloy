@@ -27,10 +27,13 @@ const criteria = [
   acrCriterionFactory({ id: 'c2', code: 'TEAMWORK', label_en: 'Teamwork', sort_order: 2 }),
 ];
 
-async function renderForm(assessment = acrAssessmentFactory({ id: 'acr-1' })) {
+async function renderForm(
+  assessment = acrAssessmentFactory({ id: 'acr-1' }),
+  formCriteria: typeof criteria = criteria,
+) {
   const onServerUpdate = vi.fn();
   renderWithProviders(
-    <AcrForm assessment={assessment} criteria={criteria} onServerUpdate={onServerUpdate} />,
+    <AcrForm assessment={assessment} criteria={formCriteria} onServerUpdate={onServerUpdate} />,
     { locale: 'en', tenantId: 'tenant-1', role: 'ADMIN' },
   );
   // The `evaluations` namespace suspends on first render.
@@ -119,6 +122,26 @@ describe('AcrForm', () => {
     fireEvent.keyDown(document.body, { key: 'Enter', ctrlKey: true });
     await waitFor(() => expect(onServerUpdate).toHaveBeenCalledWith(completed));
     expect(complete).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders and scores the criteria it is given (the assessment's own older version)", async () => {
+    // D1: the page feeds the form the ACR's own version, which may be smaller than the current set.
+    const oldSet = [
+      acrCriterionFactory({ id: 'old1', code: 'LEGACY', label_en: 'Legacy criterion' }),
+    ];
+    server.use(
+      http.patch('/api/v1/acr/assessments/:id', () =>
+        HttpResponse.json(acrAssessmentFactory({ id: 'acr-1' })),
+      ),
+    );
+    await renderForm(acrAssessmentFactory({ id: 'acr-1' }), oldSet);
+
+    fireEvent.click(shellNext());
+    expect(screen.getByText('Legacy criterion')).toBeTruthy();
+    expect(screen.queryByText('Teamwork')).toBeNull();
+    expect(shellNext().hasAttribute('disabled')).toBe(true);
+    fireEvent.keyDown(document.body, { key: '4' });
+    expect(shellNext().hasAttribute('disabled')).toBe(false);
   });
 
   it('shows the Print button on a completed ACR (ADMIN) and not on an incomplete one', async () => {

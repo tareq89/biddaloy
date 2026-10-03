@@ -226,4 +226,39 @@ describe('ACR assessments E2E (28.2.2)', () => {
     const reg = await req(adminToken, TENANT_A, 'get', `/assessments?year=${YEAR_ID}`).expect(200);
     expect(reg.body.map((r: { id: string }) => r.id)).toContain(id);
   });
+
+  it('D1: an ACR keeps its criteria version after a newer one is saved, and still completes', async () => {
+    // The per-test fixture saved criteria 'a'; start the ACR on that version.
+    const started = await req(adminToken, TENANT_A, 'post', '/assessments')
+      .send({ user_id: STAFF_USER_ID, academic_year_id: YEAR_ID })
+      .expect(201);
+    const id = started.body.id as string;
+    const v1 = started.body.form_version_id as string;
+    await supertest(app.getHttpServer())
+      .put(`${API}/acr/criteria`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('X-Tenant-ID', TENANT_A)
+      .send({
+        criteria: [{ block: 'BLOCK_2', code: 'b', label_en: 'B', label_bn: 'খ', sort_order: 1 }],
+      })
+      .expect(200);
+
+    const crit = (q: string) =>
+      supertest(app.getHttpServer())
+        .get(`${API}/acr/criteria${q}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_A)
+        .expect(200);
+    const own = await crit(`?versionId=${v1}`);
+    expect(own.body.criteria.map((c: { code: string }) => c.code)).toEqual(['a']);
+    expect((await crit('')).body.criteria.map((c: { code: string }) => c.code)).toEqual(['b']);
+
+    const got = await req(adminToken, TENANT_A, 'get', `/assessments/${id}`).expect(200);
+    expect(got.body.form_version_id).toBe(v1);
+    // Complete needs only v1's criterion scored, even though the latest set has a different one.
+    await req(adminToken, TENANT_A, 'patch', `/assessments/${id}`)
+      .send({ scores: [{ criterion_id: own.body.criteria[0].id, score: 4 }] })
+      .expect(200);
+    await req(adminToken, TENANT_A, 'post', `/assessments/${id}/complete`).expect(201);
+  });
 });

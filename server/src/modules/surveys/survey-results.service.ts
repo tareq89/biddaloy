@@ -46,6 +46,9 @@ export class SurveyResultsService {
       this.teacherRepo.find({
         where: { user_id: userId, tenant_id: tenantId },
         select: { id: true },
+        // Subject-404 must hold for a caller who WAS a target teacher and is now soft-deleted
+        // as a teacher but still reads as an ACR_READ admin; otherwise they could read own results.
+        withDeleted: true,
       }),
     ]);
     const selfIds = new Set(self.map((t) => t.id));
@@ -142,6 +145,8 @@ export class SurveyResultsService {
     const teachers = await this.teacherRepo.find({
       where: { user_id: teacherUserId, tenant_id: tenantId },
       select: { id: true },
+      // A former (soft-deleted) teacher's closed surveys still count; the seal rules below apply.
+      withDeleted: true,
     });
     if (!teachers.length) return { averageStars: null, surveyCount: 0 };
     const [row] = (await this.surveyRepo.query(

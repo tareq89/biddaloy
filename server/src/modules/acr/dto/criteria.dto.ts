@@ -4,7 +4,9 @@ import {
   IsArray,
   IsIn,
   IsInt,
+  IsOptional,
   IsString,
+  IsUUID,
   Matches,
   MaxLength,
   Min,
@@ -62,4 +64,11 @@ export class AcrCriteriaSetResponseDto {
   id: string | null;
   version: number;
   criteria: AcrCriterionResponseDto[];
+}
+
+/** `GET /acr/criteria?versionId=` — omit for the latest version. */
+export class GetAcrCriteriaQueryDto {
+  @IsOptional()
+  @IsUUID()
+  versionId?: string;
 }
