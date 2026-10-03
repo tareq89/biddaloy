@@ -154,7 +154,8 @@ because later writers need ids from earlier ones:
 8. `exam templates` — only rows for selected classes whose subject exists;
    templates left with no rows are skipped.
 
-An apply writes only the caller's `tenant_id`. If any writer throws, the whole
+An apply writes only the caller's `tenant_id`. (A **tenant** is one school: every
+row carries a `tenant_id`, and each school sees only its own rows.) If any writer throws, the whole
 transaction rolls back and nothing is left behind.
 
 ### The guards
@@ -474,6 +475,13 @@ subject `code`, not ids**, so one template works for every year.
 Schools manage templates at `exam-templates` (`GET`, `GET :id`, `POST`,
 `PATCH :id` which replaces all rows, `DELETE :id`), role `ADMIN`, permission
 `EXAM_MANAGE`.
+
+```mermaid
+flowchart LR
+    P["Pack examTemplates<br/>(code, e.g. NCTB)"] -- apply --> T["School exam_templates<br/>+ exam_template_components"]
+    T -- "POST /exams {template_id}" --> E["Exam components<br/>(copied by value)"]
+    T -. "later edits do NOT flow" .-> E
+```
 
 Creating an exam can start from a template: `POST /exams` accepts an optional
 `template_id`. The template's components for that class's grade are **copied by
