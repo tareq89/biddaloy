@@ -112,5 +112,8 @@ describe('[#1364] new roles vs ROLE_NARROWINGS routes', () => {
     expect((await call(R, 'get', '/students')).status).toBe(403);
     expect((await call(R, 'get', `/exams/${UNKNOWN_ID}/results`)).status).toBe(403);
     expect((await call(R, 'get', '/attendance/my-sections')).status).toBe(403);
+    // D16: the collections report (JSON and CSV) lists a student_name per payment.
+    expect((await call(R, 'get', '/reports/collections')).status).toBe(403);
+    expect((await call(R, 'get', '/reports/collections.csv')).status).toBe(403);
   });
 });
