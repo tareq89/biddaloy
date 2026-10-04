@@ -1,6 +1,9 @@
-import { render, screen } from '@testing-library/react';
+import { render as rtlRender, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import type { ReactElement } from 'react';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { I18nProvider, i18n, whenReady } from '../i18n';
 
 import {
   Select,
@@ -27,6 +30,13 @@ function ClassPicker() {
     </Select>
   );
 }
+
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: I18nProvider });
+
+beforeEach(async () => {
+  await whenReady(i18n);
+  await i18n.changeLanguage('en');
+});
 
 describe('Select', () => {
   it('renders the default value on the trigger and is axe clean closed', async () => {
@@ -82,5 +92,41 @@ describe('Select', () => {
     expect(await screen.findByText('Upper')).toBeTruthy();
     await user.click(screen.getByRole('option', { name: 'Seven' }));
     expect(screen.getByRole('combobox', { name: 'Class' }).textContent).toBe('Seven');
+  });
+
+  describe('empty trigger', () => {
+    afterEach(async () => {
+      await i18n.changeLanguage('en');
+    });
+
+    function Empty({ placeholder, className }: { placeholder?: string; className?: string }) {
+      return (
+        <Select>
+          <SelectTrigger aria-label="Class" className={className}>
+            <SelectValue placeholder={placeholder} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="six">Six</SelectItem>
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    it('shows the translated default placeholder and is full width', async () => {
+      render(<Empty />);
+      const trigger = await screen.findByRole('combobox', { name: 'Class' });
+      expect(await within(trigger).findByText('Select')).toBeTruthy();
+      expect(trigger.className).toMatch(/(^| )w-full( |$)/);
+      await i18n.changeLanguage('bn');
+      expect(await screen.findByText('বাছুন')).toBeTruthy();
+    });
+
+    it('lets a caller placeholder and width win', () => {
+      render(<Empty placeholder="Pick one" className="w-48" />);
+      const trigger = screen.getByRole('combobox', { name: 'Class' });
+      expect(trigger.textContent).toBe('Pick one');
+      expect(trigger.className).toContain('w-48');
+      expect(trigger.className).not.toMatch(/(^| )w-full( |$)/);
+    });
   });
 });
