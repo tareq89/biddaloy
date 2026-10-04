@@ -71,6 +71,7 @@ export function formatMonth(value: Date | string | null | undefined, config: Reg
 
 /** Long month name for `month` 1–12 in the config locale. */
 export function formatMonthName(month: number, config: RegionConfig): string {
+  if (!Number.isInteger(month) || month < 1 || month > 12) return NONE;
   return new Intl.DateTimeFormat(config.locale, { month: 'long', timeZone: 'UTC' }).format(
     Date.UTC(2000, month - 1, 1),
   );
@@ -116,6 +117,7 @@ export function formatDateRange(
   try {
     const a = typeof from === 'string' ? parseServerDate(from) : from;
     const b = typeof to === 'string' ? parseServerDate(to) : to;
+    if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return NONE;
     return `${formatDate(a, config)} – ${formatDate(b, config)}`;
   } catch {
     return NONE;
