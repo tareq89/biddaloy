@@ -86,8 +86,8 @@ describe('FilterBar', () => {
 
     expect(screen.getByRole('textbox', { name: 'Search' })).toBeTruthy();
     expect(screen.getByRole('combobox', { name: 'Status' })).toBeTruthy();
-    expect(screen.getByRole('textbox', { name: 'From date' })).toBeTruthy();
-    expect(screen.getByRole('textbox', { name: 'To date' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'From date' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'To date' })).toBeTruthy();
     expect(screen.getByRole('checkbox', { name: 'Flagged' })).toBeTruthy();
     expect(screen.getByRole('textbox', { name: 'Min amount' })).toBeTruthy();
     expect(screen.getByRole('textbox', { name: 'Max amount' })).toBeTruthy();
@@ -167,25 +167,33 @@ describe('FilterBar', () => {
     expect(onChangeSpy).toHaveBeenLastCalledWith({ flagged: null });
   });
 
-  it('typing a full date commits ASCII YYYY-MM-DD, even though the default region config is bn', async () => {
+  // [31.2.2] the date fields are DatePicker buttons now: pick the 15th of the
+  // month the calendar opens on instead of typing into a text input.
+  const pickedIso = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-15`;
+  };
+
+  it('picking a date commits ASCII YYYY-MM-DD, even though the default region config is bn', async () => {
     const user = userEvent.setup();
     const onChangeSpy = vi.fn();
     await renderInEnglish(<FilterBarDemo onChangeSpy={onChangeSpy} />);
 
-    const fromInput = screen.getByRole('textbox', { name: 'From date' });
-    await user.type(fromInput, '2024-01-05');
+    await user.click(screen.getByRole('button', { name: 'From date' }));
+    await user.click(document.querySelector<HTMLElement>(`[data-date="${pickedIso()}"]`)!);
 
-    expect(onChangeSpy).toHaveBeenLastCalledWith({ from_date: '2024-01-05' });
+    expect(onChangeSpy).toHaveBeenLastCalledWith({ from_date: pickedIso() });
   });
 
-  it('typing the second date of a range commits its own key independently', async () => {
+  it('picking the second date of a range commits its own key independently', async () => {
+    const user = userEvent.setup();
     const onChangeSpy = vi.fn();
     await renderInEnglish(<FilterBarDemo onChangeSpy={onChangeSpy} />);
 
-    const toInput = screen.getByRole('textbox', { name: 'To date' });
-    await userEvent.setup().type(toInput, '2024-02-20');
+    await user.click(screen.getByRole('button', { name: 'To date' }));
+    await user.click(document.querySelector<HTMLElement>(`[data-date="${pickedIso()}"]`)!);
 
-    expect(onChangeSpy).toHaveBeenLastCalledWith({ to_date: '2024-02-20' });
+    expect(onChangeSpy).toHaveBeenLastCalledWith({ to_date: pickedIso() });
   });
 
   it('committing min/max number-range inputs calls onChange with each key independently', async () => {
@@ -239,28 +247,15 @@ describe('FilterBar', () => {
   it('Tab visits every control in descriptor order — primary field, disclosure trigger, then each collapsible control', async () => {
     await renderInEnglish(<FilterBarDemo />);
 
-    // The date-range pair's own internal tab stops (each `DatePicker`'s
-    // "Open calendar" icon-button, between its text input and the next
-    // field) are that component's own contract, not `FilterBar`'s — this
-    // only proves descriptor order holds across field *kinds*, using one
-    // representative stop (`From date`) from the date-range pair rather
-    // than enumerating every stop inside it.
-    await expectTabOrder([
-      screen.getByRole('textbox', { name: 'Search' }),
-      screen.getByRole('button', { name: 'Filters' }),
-      screen.getByRole('combobox', { name: 'Status' }),
-      screen.getByRole('textbox', { name: 'From date' }),
-    ]);
-
+    // [31.2.2] each date is one DatePicker button (no separate calendar icon).
     const user = userEvent.setup();
-    // Skip past the two `DatePicker` internals (the `To date` input's own
-    // "Open calendar" button, plus `To date` itself) to resume asserting
-    // order for the remaining descriptor-declared controls.
-    await user.tab();
-    await user.tab();
-    await user.tab();
     await expectTabOrder(
       [
+        screen.getByRole('textbox', { name: 'Search' }),
+        screen.getByRole('button', { name: 'Filters' }),
+        screen.getByRole('combobox', { name: 'Status' }),
+        screen.getByRole('button', { name: 'From date' }),
+        screen.getByRole('button', { name: 'To date' }),
         screen.getByRole('checkbox', { name: 'Flagged' }),
         screen.getByRole('textbox', { name: 'Min amount' }),
         screen.getByRole('textbox', { name: 'Max amount' }),
@@ -311,7 +306,7 @@ describe('FilterBar', () => {
   it('shows a malformed date value as an empty field instead of crashing', async () => {
     await renderInEnglish(<FilterBarDemo initialValues={{ from_date: 'not-a-date' }} />);
 
-    expect(screen.getByRole<HTMLInputElement>('textbox', { name: 'From date' }).value).toBe('');
+    expect(screen.getByRole('button', { name: 'From date' }).textContent).toContain('Pick a date');
   });
 
   it('warns in dev when more than one field declares `primary: true`, without crashing', async () => {
