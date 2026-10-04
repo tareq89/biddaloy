@@ -832,15 +832,15 @@ the trap: the utility name is the token name minus the `--color-` prefix, so
 
 "Comfortable" and "compact" are not adjectives here. They are numbers.
 
-|                                        | **compact**<br/>staff routes (AdminShell), default | **comfortable**<br/>`/portal`, auth screens |
-| -------------------------------------- | -------------------------------------------------- | ------------------------------------------- |
-| Control height (button, input, select) | 32 px (today's `h-8`)                              | **44 px**                                   |
-| Minimum interactive target             | 24 px (existing e2e gate)                          | **44 px** (WCAG SC 2.5.5)                   |
-| Table / list row                       | 40 px                                              | ≥ 48 px                                     |
-| Card padding                           | 16 px                                              | 20 px                                       |
-| Page gutter                            | 24 px (desktop)                                    | 16 px (at 360 px)                           |
-| Section gap                            | 24 px                                              | 24 px                                       |
-| Default body step                      | `body` 14/22                                       | `body-lg` 16/26                             |
+|                                        | **compact**<br/>staff routes at `md` and up                              | **comfortable**<br/>`/portal`, auth screens, and every route below `md`  |
+| -------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| Control height (button, input, select) | 32 px (today's `h-8`)                                                    | **44 px**                                                                |
+| Minimum interactive target             | 24 px (existing e2e gate)                                                | **44 px** (WCAG SC 2.5.5)                                                |
+| Table / list row                       | 40 px                                                                    | ≥ 48 px                                                                  |
+| Card padding                           | 16 px phone / 20 px desktop (`p-4 md:p-5`) — by width, not density (D17) | 16 px phone / 20 px desktop (`p-4 md:p-5`) — by width, not density (D17) |
+| Page gutter                            | 24 px (desktop)                                                          | 16 px (at 360 px)                                                        |
+| Section gap                            | 24 px                                                                    | 24 px                                                                    |
+| Default body step                      | `body` 14/22                                                             | `body-lg` 16/26                                                          |
 
 Why two: a staff member scanning 200 fee rows wants information density. A
 guardian on a 360 px phone tapping one button wants a 44 px target.
@@ -854,7 +854,8 @@ each one to `h-[var(--control-h,<today's height>)]` (and
 `size-[var(--control-h,<today's size>)]` for icon variants): where the
 variable is unset — every compact shell — the fallback keeps today's exact
 height, and the comfortable shell lifts every variant with one declaration,
-`--control-h: 2.75rem`.
+`--control-h: 2.75rem`. Below `md` a media rule in `globals.css` sets the
+same two variables on `:root`, so a staff page on a phone is comfortable too (C2).
 
 ```mermaid
 flowchart LR
@@ -953,6 +954,35 @@ ticket that first needs it.
 
 **No component prop API changes.** No `<Button density="...">`. That
 satisfies the epic's constraint that this layer stays invisible to callers.
+
+### 6.1 Spacing and radius (D17, C10)
+
+One value per container type, in 4 px steps. The classes are the tokens: there is no CSS variable for these, every component writes the Tailwind class.
+
+| Where                      | px                               | Classes                                              |
+| -------------------------- | -------------------------------- | ---------------------------------------------------- |
+| Page gutter                | 16 phone / 24 desktop            | `px-4 md:px-6`                                       |
+| Page top and bottom        | 16 / 24                          | `py-4 md:py-6`                                       |
+| Between sections of a page | 24                               | `space-y-6` or `gap-6`                               |
+| Card padding               | 16 / 20                          | `p-4 md:p-5`                                         |
+| Dialog padding             | 20 on every side                 | header `px-5 pt-5` · body `p-5` · footer `px-5 pb-5` |
+| Between form fields        | 16                               | `gap-4`                                              |
+| Label to control           | 6                                | `gap-1.5`                                            |
+| Title to subtitle          | 2                                | `mt-0.5`                                             |
+| Between buttons in a row   | 8                                | `gap-2`                                              |
+| Table cell                 | 16 sides, row 40 high            | `h-10 px-4 py-1`                                     |
+| Radius                     | controls 8, cards and dialogs 12 | `rounded-md`, `rounded-lg`                           |
+| Elevation                  | card / popover / dialog          | `shadow-e1` / `shadow-e2` / `shadow-e3`              |
+
+Radius rule: controls (button, input, select, picker trigger) are `rounded-md` (8 px). Cards, popovers, dialogs and sheets are `rounded-lg` (12 px). Pills and badges are `rounded-full`.
+
+```mermaid
+flowchart LR
+  P["Page<br/>px-4 md:px-6"] -->|"gap 24"| S["Section"]
+  S --> C["Card<br/>p-4 md:p-5"]
+  C -->|"gap 16"| F["Field"]
+  F -->|"gap 6"| L["Label ↔ control"]
+```
 
 ---
 
@@ -1205,7 +1235,8 @@ editing this table first.
    label, which reads differently from primary's solid fill and inverted
    label — two different fill weights, not two hues fighting each other.
    When it shares the overflow menu with tertiary items, a `MenuSeparator`
-   sits above it.
+   sits above it — except the confirm button of a `ConfirmDialog`, which uses
+   the filled `danger` variant (D29, C4). That is the only filled red button in the app.
 
 5. **Permission-gated actions are hidden, not disabled** via
    `DetailShellAction.allowed`. Hiding one action never re-tiers the

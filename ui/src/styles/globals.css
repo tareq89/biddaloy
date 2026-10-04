@@ -374,6 +374,9 @@
   --color-accent: var(--color-neutral-100);
   --color-accent-foreground: var(--color-text-primary);
   --color-destructive: var(--color-status-overdue-fg);
+  /* Text on a filled destructive surface. White on #b91c1c is the gated
+   * CONTRAST_PAIRS row 'overdue fg on white' (WCAG ratio is symmetric). */
+  --color-destructive-foreground: var(--color-neutral-0);
   --color-border: var(--color-border-functional);
   --color-input: var(--color-border-functional);
   --color-ring: var(--color-brand);
@@ -588,7 +591,7 @@
  * Density (design contract section 6). Two numeric modes, selected by a
  * `data-density` attribute on a shell element, never by a component prop:
  *
- *   compact      staff routes (AdminShell). The DEFAULT, and it is the
+ *   compact      staff routes at `md` and up. The DEFAULT, and it is the
  *                default by ABSENCE — no attribute, no variable, so every
  *                size class falls back to the exact height it shipped with
  *                before this block existed. A staff table is not one pixel
@@ -596,7 +599,9 @@
  *   comfortable  `/portal` and the auth screens. One declaration lifts every
  *                control to the 44 px WCAG SC 2.5.5 target at once.
  *
- * There is deliberately NO `:root { --control-h: ... }` default. Writing one
+ * There is deliberately NO `:root { --control-h: ... }` default. The one
+ * exception is the phone media rule below: under `md` the variable is set on
+ * `:root` for every shell (C2). Writing a general one
  * would mean the fallback in `h-[var(--control-h,2rem)]` never applies, so a
  * typo in a per-variant fallback would be invisible; more importantly a
  * single root default cannot express eight different compact heights
@@ -645,6 +650,16 @@
   --target-inset: 0.875rem; /* 14px — lifts a 16px checkbox/radio target to 44px */
 }
 
+/* C2: below md every shell is comfortable — a phone gets 44 px controls on staff pages too.
+   Same two variables, so every `h-[var(--control-h,…)]` utility lifts with no prop. */
+@media (max-width: 47.99rem) {
+  /* `html`, not `:root`: scripts/check-contrast.mjs bans these variables in a plain `:root` block. */
+  html {
+    --control-h: 2.75rem;
+    --target-inset: 0.875rem;
+  }
+}
+
 /**
  * Sticky header scroll contract ([8.14.2], design contract — see
  * `AppShell`'s own `APP_HEADER_HEIGHT_VAR` export for the full write-up).
@@ -682,6 +697,24 @@
   h1,
   [data-focus-anchor] {
     scroll-margin-top: calc(var(--app-header-h) + 0.5rem);
+  }
+
+  /* D18: clickable things show a pointer; disabled ones say so. */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='tab'],
+  [role='menuitem'],
+  [role='menuitemradio'],
+  [role='menuitemcheckbox'],
+  [role='option'],
+  a[href],
+  summary,
+  label[for] {
+    cursor: pointer;
+  }
+  :disabled,
+  [aria-disabled='true'] {
+    cursor: not-allowed;
   }
 }
 
@@ -726,6 +759,8 @@
        is already the 'dark brand text on dark surface' row in
        CONTRAST_PAIRS, so no new row is needed. */
   --color-primary-foreground: var(--color-neutral-900);
+  /* neutral-900 on #f87171 is the gated row 'overdue fgDark on dark bg'. */
+  --color-destructive-foreground: var(--color-neutral-900);
   --color-muted: var(--color-surface);
   --color-accent: var(--color-surface);
   --color-secondary: var(--color-surface);

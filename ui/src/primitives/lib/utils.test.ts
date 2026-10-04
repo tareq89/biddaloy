@@ -39,4 +39,12 @@ describe('cn', () => {
     expect(cn('p-2', 'p-4')).toBe('p-4');
     expect(cn('bg-card', lifted && 'bg-background', ['text-sm'])).toBe('bg-card text-sm');
   });
+
+  it('treats the type ramp as font-size, not colour', () => {
+    expect(cn('text-label text-text-primary')).toBe('text-label text-text-primary');
+    expect(cn('text-label text-text-secondary')).toBe('text-label text-text-secondary');
+    expect(cn('text-caption text-destructive')).toBe('text-caption text-destructive');
+    expect(cn('text-sm', 'text-label')).toBe('text-label');
+    expect(cn('text-h1', 'text-h2')).toBe('text-h2');
+  });
 });
