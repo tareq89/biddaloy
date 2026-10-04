@@ -207,9 +207,7 @@ describe('DatePicker', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     await setup(<Controlled max={new Date(2024, 0, 10)} />);
     await openGrid(user);
-    expect((screen.getByRole('button', { name: 'Today' }) as HTMLButtonElement).disabled).toBe(
-      true,
-    );
+    expect(screen.getByRole('button', { name: 'Today' }).hasAttribute('disabled')).toBe(true);
   });
 
   describe('year jump', () => {
@@ -242,8 +240,8 @@ describe('DatePicker', () => {
       await setup(<Controlled initial={new Date(2024, 0, 5)} max={new Date(2024, 4, 20)} />);
       await openGrid(user);
       await user.click(screen.getByRole('button', { name: /Choose month and year/ }));
-      expect((screen.getByRole('button', { name: 'May' }) as HTMLButtonElement).disabled).toBe(false);
-      expect((screen.getByRole('button', { name: 'June' }) as HTMLButtonElement).disabled).toBe(true);
+      expect(screen.getByRole('button', { name: 'May' }).hasAttribute('disabled')).toBe(false);
+      expect(screen.getByRole('button', { name: 'June' }).hasAttribute('disabled')).toBe(true);
     });
 
     it('Escape in the months view returns to days before closing', async () => {

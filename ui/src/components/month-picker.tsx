@@ -5,11 +5,11 @@ import * as React from 'react';
 import { useRegionConfig, useTranslation } from '../i18n';
 import type { RegionConfig } from '../i18n/region-config';
 import { cn } from '../primitives/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '../primitives/popover';
 import { formatMonth, formatMonthName } from '../utils/date';
 import { renderDigits } from '../utils/digits';
 
 import { MonthHeader } from './month-header';
-import { Popover, PopoverContent, PopoverTrigger } from '../primitives/popover';
 
 export interface MonthPickerProps extends Omit<
   React.ComponentProps<'button'>,
