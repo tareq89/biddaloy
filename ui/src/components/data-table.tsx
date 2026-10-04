@@ -29,8 +29,8 @@ import * as React from 'react';
 import { useContainerWidth } from '../hooks/use-container-width';
 import { useRegionConfig, useTranslation } from '../i18n';
 import { cn } from '../primitives/lib/utils';
-import { PAGE_SIZE_OPTIONS } from '../routes/use-list-url-state';
 import { formatNumber } from '../utils';
+import { PAGE_SIZE_OPTIONS } from '../utils/page-size';
 
 import { Button } from './button';
 import { Checkbox } from './checkbox';
@@ -638,14 +638,14 @@ export function DataTable<TData extends RowData>({
             size="icon"
             iconOnly
             aria-label={t('pagination.previous')}
-            disabled={page <= 1}
-            onClick={() => onPageChange(page - 1)}
+            disabled={safePage <= 1}
+            onClick={() => onPageChange(safePage - 1)}
           >
             <ChevronLeftIcon aria-hidden="true" />
           </Button>
           <span className="text-text-secondary">
             {t('table.pageOf', {
-              page: formatNumber(page, regionConfig),
+              page: formatNumber(safePage, regionConfig),
               total: formatNumber(totalPages, regionConfig),
             })}
           </span>
@@ -655,8 +655,8 @@ export function DataTable<TData extends RowData>({
             size="icon"
             iconOnly
             aria-label={t('pagination.next')}
-            disabled={page >= totalPages}
-            onClick={() => onPageChange(page + 1)}
+            disabled={safePage >= totalPages}
+            onClick={() => onPageChange(safePage + 1)}
           >
             <ChevronRightIcon aria-hidden="true" />
           </Button>
