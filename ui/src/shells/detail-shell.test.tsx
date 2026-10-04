@@ -75,7 +75,55 @@ function Controlled({ actions = [] }: { actions?: DetailShellAction[] }) {
   );
 }
 
+function panelOf(tabName: string): HTMLElement {
+  const id = screen.getByRole('tab', { name: tabName }).getAttribute('aria-controls');
+  return document.getElementById(id ?? '') as HTMLElement;
+}
+
 describe('DetailShell', () => {
+  it('shows exactly one panel after visiting another tab (B1)', async () => {
+    const user = userEvent.setup();
+    await renderInEnglish(<Controlled />);
+    await user.click(screen.getByRole('tab', { name: 'Payments' }));
+    await user.click(screen.getByRole('tab', { name: 'Overview' }));
+    const panels = screen.getAllByRole('tabpanel');
+    expect(panels).toHaveLength(1);
+    expect(panels[0]).toBe(panelOf('Overview'));
+    expect(panelOf('Payments').hidden).toBe(true);
+  });
+
+  it('renders facts as dt/dd pairs', async () => {
+    await renderInEnglish(
+      <DetailShell name="X" facts={[{ label: 'Class', value: 'Six' }]}>
+        body
+      </DetailShell>,
+    );
+    expect(screen.getByText('Class').tagName).toBe('DT');
+    expect(screen.getByText('Six').tagName).toBe('DD');
+  });
+
+  it.each([undefined, []])('renders children and no tablist when tabs is %j', async (tabs) => {
+    await renderInEnglish(
+      <DetailShell name="Rahim" {...(tabs ? { tabs } : {})}>
+        <p>Body</p>
+      </DetailShell>,
+    );
+    expect(screen.queryByRole('tablist')).toBeNull();
+    expect(screen.getByText('Body')).toBeTruthy();
+  });
+
+  it('scrolls the active tab into view on mount and on change', async () => {
+    const spy = vi.fn();
+    Element.prototype.scrollIntoView = spy;
+    const user = userEvent.setup();
+    await renderInEnglish(<Controlled />);
+    expect(spy.mock.contexts.at(-1)).toBe(screen.getByRole('tab', { name: 'Overview' }));
+    await user.click(screen.getByRole('tab', { name: 'Payments' }));
+    expect(spy.mock.contexts.at(-1)).toBe(screen.getByRole('tab', { name: 'Payments' }));
+    // @ts-expect-error restore jsdom's lack of it
+    delete Element.prototype.scrollIntoView;
+  });
+
   it('renders the header: name, identifiers and status badge', async () => {
     await renderInEnglish(<Controlled />);
     expect(screen.getByRole('heading', { name: 'Rahim Uddin' })).toBeTruthy();
@@ -181,11 +229,13 @@ describe('DetailShell', () => {
     );
 
     await user.click(screen.getByRole('tab', { name: 'Overview' }));
+    expect(panelOf('Payments').hidden).toBe(true);
     await user.click(screen.getByRole('tab', { name: 'Payments' }));
 
     // Still just the one mount from first activation — switching back
     // didn't remount it — and the typed note survived.
     expect(paymentsMounts).toBe(1);
+    expect(panelOf('Payments').hidden).toBe(false);
 
     expect(screen.getByRole<HTMLInputElement>('textbox', { name: 'Payment note' }).value).toBe(
       'called about overdue fee',
@@ -250,7 +300,7 @@ describe('DetailShell', () => {
       expect(within(menu).getByRole('separator')).toBeTruthy();
     });
 
-    it('with no tertiary actions, a lone destructive action renders inline and no overflow trigger appears', async () => {
+    it('with no tertiary actions, a lone destructive action renders inline and the overflow trigger is phone-only', async () => {
       await renderInEnglish(
         <Controlled
           actions={[
@@ -260,14 +310,16 @@ describe('DetailShell', () => {
         />,
       );
       expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy();
-      expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
+      // Phone-only overflow trigger: hidden from md up.
+      expect(screen.getByRole('button', { name: 'More actions' }).className).toContain('md:hidden');
     });
 
-    it('lets a wrapped tab list grow instead of overlapping the panel (height variant overridden)', async () => {
+    it('renders the tab list as a scrolling line row, not a wrapping one', async () => {
       await renderInEnglish(<Controlled />);
-      expect(screen.getByRole('tablist').className).toContain(
-        'group-data-[orientation=horizontal]/tabs:h-auto',
-      );
+      const list = screen.getByRole('tablist');
+      expect(list.className).toContain('overflow-x-auto');
+      expect(list.className).not.toContain('flex-wrap');
+      expect(list.getAttribute('data-variant')).toBe('line');
     });
 
     it('renders secondaries before the primary, right-most', async () => {
