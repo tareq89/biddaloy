@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
+import { renderWithProviders } from '../test';
 import { expectKeyboardOperable } from '../test/a11y';
 
 import { Button } from './button';
@@ -29,13 +30,14 @@ describe('Button', () => {
     await expect(container).toHaveNoViolations();
   });
 
-  it('loading sets aria-busy, disables the button, and announces "Loading" without changing the visible label', () => {
-    render(<Button loading>Save</Button>);
+  it('loading sets aria-busy, disables the button, and announces "Loading" without changing the visible label', async () => {
+    const { localeReady } = renderWithProviders(<Button loading>Save</Button>, { locale: 'en' });
+    await localeReady;
     const button = screen.getByRole('button');
     expect(button.getAttribute('aria-busy')).toBe('true');
     expect(button.hasAttribute('disabled')).toBe(true);
     expect(screen.getByText('Save')).toBeTruthy();
-    expect(screen.getByText('Loading').classList.contains('sr-only')).toBe(true);
+    expect(screen.getByText('Loading…').classList.contains('sr-only')).toBe(true);
   });
 
   it('loading prevents the click handler from firing even if a caller forgets to also disable it', async () => {
@@ -143,5 +145,27 @@ describe('Button', () => {
       expect(button.className).toContain('disabled:opacity-50');
       expect(button.className).not.toContain('disabled:bg-muted');
     }
+  });
+
+  it('[31.2.8b] danger variant is filled destructive; base is rounded-md; disabled keeps its cursor', () => {
+    render(
+      <>
+        <Button variant="danger">Delete</Button>
+        <Button disabled>Off</Button>
+      </>,
+    );
+    const danger = screen.getByRole('button', { name: 'Delete' });
+    expect(danger.getAttribute('data-variant')).toBe('danger');
+    expect(danger.className).toContain('bg-destructive');
+    expect(danger.className).toContain('rounded-md');
+    expect(screen.getByRole('button', { name: 'Off' }).className).not.toContain(
+      'disabled:pointer-events-none',
+    );
+  });
+
+  it('[31.2.8b] loading sr-only text is translated', async () => {
+    const { localeReady } = renderWithProviders(<Button loading>Save</Button>, { locale: 'bn' });
+    await localeReady;
+    expect(screen.getByText('লোড হচ্ছে…')).toBeTruthy();
   });
 });
