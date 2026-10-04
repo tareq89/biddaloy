@@ -8,9 +8,11 @@ import {
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type * as React from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { captureRouteError, recordRouteChunkFallback } from '../api/sentry';
+import { i18n } from '../i18n';
+import { cleanupTestState } from '../test';
 import { renderWithRouter } from '../test/render-with-router';
 
 import { RouteErrorFallback } from './route-error-boundary';
@@ -105,8 +107,20 @@ function buildRouteTree(
 }
 
 describe('RouteErrorFallback', () => {
-  afterEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+  afterEach(async () => {
     vi.clearAllMocks();
+    await cleanupTestState();
+  });
+
+  it('translates the generic fork under bn with no copy props', async () => {
+    await i18n.changeLanguage('bn');
+    renderWithRouter(buildRouteTree(), { initialEntries: ['/broken'] });
+
+    expect(await screen.findByText('পৃষ্ঠাটি লোড করা যায়নি।')).toBeTruthy();
+    expect(screen.queryByText('Something went wrong loading this page.')).toBeNull();
   });
 
   it('renders a recoverable state for the failing route while sibling nav (the shell) survives', async () => {
@@ -140,7 +154,7 @@ describe('RouteErrorFallback', () => {
   it('offers a retry affordance', async () => {
     renderWithRouter(buildRouteTree(), { initialEntries: ['/broken'] });
 
-    expect(await screen.findByRole('button', { name: 'Try again' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Retry' })).toBeTruthy();
   });
 
   it('renders the offline state, and reports nothing, for an uncached route while offline', async () => {
@@ -210,7 +224,7 @@ describe('RouteErrorFallback', () => {
     expect(await screen.findByRole('status')).toBeTruthy();
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.getByRole('heading', { level: 1, name: /newer version/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Reload to update' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reload' })).toBeTruthy();
     expect(screen.queryByText("You're offline")).toBeNull();
   });
 
@@ -276,7 +290,7 @@ describe('RouteErrorFallback', () => {
       { initialEntries: ['/broken'] },
     );
 
-    await user.click(await screen.findByRole('button', { name: 'Reload to update' }));
+    await user.click(await screen.findByRole('button', { name: 'Reload' }));
     expect(onReloadForUpdate).toHaveBeenCalledTimes(1);
   });
 
@@ -310,7 +324,7 @@ describe('RouteErrorFallback', () => {
       renderWithRouter(buildRouteTree(ChromeUncachedRoutePage), { initialEntries: ['/broken'] });
 
       await screen.findByRole('status');
-      expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
       expect(screen.getByRole('button', { name: 'Go home' })).toBeTruthy();
     } finally {
       restore();
