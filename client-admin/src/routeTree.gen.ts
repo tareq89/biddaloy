@@ -70,6 +70,8 @@ import { Route as StaffGuardiansGuardianIdRouteImport } from './routes/_staff/gu
 import { Route as StaffInvoicesIndexRouteImport } from './routes/_staff/invoices/index'
 import { Route as StaffInvoicesInvoiceIdRouteImport } from './routes/_staff/invoices/$invoiceId'
 import { Route as StaffMarksIndexRouteImport } from './routes/_staff/marks/index'
+import { Route as StaffMyClassIndexRouteImport } from './routes/_staff/my-class/index'
+import { Route as StaffMyClassSectionIdRouteImport } from './routes/_staff/my-class/$sectionId'
 import { Route as StaffPaymentsIndexRouteImport } from './routes/_staff/payments/index'
 import { Route as StaffPaymentsIdRouteImport } from './routes/_staff/payments/$id'
 import { Route as StaffPaymentsRecordRouteImport } from './routes/_staff/payments/record'
@@ -439,6 +441,16 @@ const StaffMarksIndexRoute = StaffMarksIndexRouteImport.update({
   path: '/marks/',
   getParentRoute: () => StaffRoute,
 } as any)
+const StaffMyClassIndexRoute = StaffMyClassIndexRouteImport.update({
+  id: '/my-class/',
+  path: '/my-class/',
+  getParentRoute: () => StaffRoute,
+} as any)
+const StaffMyClassSectionIdRoute = StaffMyClassSectionIdRouteImport.update({
+  id: '/my-class/$sectionId',
+  path: '/my-class/$sectionId',
+  getParentRoute: () => StaffRoute,
+} as any)
 const StaffPaymentsIndexRoute = StaffPaymentsIndexRouteImport.update({
   id: '/payments/',
   path: '/payments/',
@@ -802,6 +814,7 @@ export interface FileRoutesByFullPath {
   '/grading-scales/$scaleId': typeof StaffGradingScalesScaleIdRoute
   '/guardians/$guardianId': typeof StaffGuardiansGuardianIdRoute
   '/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
+  '/my-class/$sectionId': typeof StaffMyClassSectionIdRoute
   '/payments/$id': typeof StaffPaymentsIdRoute
   '/payments/record': typeof StaffPaymentsRecordRoute
   '/print/preview': typeof StaffPrintPreviewRoute
@@ -837,6 +850,7 @@ export interface FileRoutesByFullPath {
   '/guardians/': typeof StaffGuardiansIndexRoute
   '/invoices/': typeof StaffInvoicesIndexRoute
   '/marks/': typeof StaffMarksIndexRoute
+  '/my-class/': typeof StaffMyClassIndexRoute
   '/payments/': typeof StaffPaymentsIndexRoute
   '/print-templates/': typeof StaffPrintTemplatesIndexRoute
   '/programs/': typeof StaffProgramsIndexRoute
@@ -919,6 +933,7 @@ export interface FileRoutesByTo {
   '/grading-scales/$scaleId': typeof StaffGradingScalesScaleIdRoute
   '/guardians/$guardianId': typeof StaffGuardiansGuardianIdRoute
   '/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
+  '/my-class/$sectionId': typeof StaffMyClassSectionIdRoute
   '/payments/$id': typeof StaffPaymentsIdRoute
   '/payments/record': typeof StaffPaymentsRecordRoute
   '/print/preview': typeof StaffPrintPreviewRoute
@@ -954,6 +969,7 @@ export interface FileRoutesByTo {
   '/guardians': typeof StaffGuardiansIndexRoute
   '/invoices': typeof StaffInvoicesIndexRoute
   '/marks': typeof StaffMarksIndexRoute
+  '/my-class': typeof StaffMyClassIndexRoute
   '/payments': typeof StaffPaymentsIndexRoute
   '/print-templates': typeof StaffPrintTemplatesIndexRoute
   '/programs': typeof StaffProgramsIndexRoute
@@ -1041,6 +1057,7 @@ export interface FileRoutesById {
   '/_staff/grading-scales/$scaleId': typeof StaffGradingScalesScaleIdRoute
   '/_staff/guardians/$guardianId': typeof StaffGuardiansGuardianIdRoute
   '/_staff/invoices/$invoiceId': typeof StaffInvoicesInvoiceIdRoute
+  '/_staff/my-class/$sectionId': typeof StaffMyClassSectionIdRoute
   '/_staff/payments/$id': typeof StaffPaymentsIdRoute
   '/_staff/payments/record': typeof StaffPaymentsRecordRoute
   '/_staff/print/preview': typeof StaffPrintPreviewRoute
@@ -1076,6 +1093,7 @@ export interface FileRoutesById {
   '/_staff/guardians/': typeof StaffGuardiansIndexRoute
   '/_staff/invoices/': typeof StaffInvoicesIndexRoute
   '/_staff/marks/': typeof StaffMarksIndexRoute
+  '/_staff/my-class/': typeof StaffMyClassIndexRoute
   '/_staff/payments/': typeof StaffPaymentsIndexRoute
   '/_staff/print-templates/': typeof StaffPrintTemplatesIndexRoute
   '/_staff/programs/': typeof StaffProgramsIndexRoute
@@ -1162,6 +1180,7 @@ export interface FileRouteTypes {
     | '/grading-scales/$scaleId'
     | '/guardians/$guardianId'
     | '/invoices/$invoiceId'
+    | '/my-class/$sectionId'
     | '/payments/$id'
     | '/payments/record'
     | '/print/preview'
@@ -1197,6 +1216,7 @@ export interface FileRouteTypes {
     | '/guardians/'
     | '/invoices/'
     | '/marks/'
+    | '/my-class/'
     | '/payments/'
     | '/print-templates/'
     | '/programs/'
@@ -1279,6 +1299,7 @@ export interface FileRouteTypes {
     | '/grading-scales/$scaleId'
     | '/guardians/$guardianId'
     | '/invoices/$invoiceId'
+    | '/my-class/$sectionId'
     | '/payments/$id'
     | '/payments/record'
     | '/print/preview'
@@ -1314,6 +1335,7 @@ export interface FileRouteTypes {
     | '/guardians'
     | '/invoices'
     | '/marks'
+    | '/my-class'
     | '/payments'
     | '/print-templates'
     | '/programs'
@@ -1400,6 +1422,7 @@ export interface FileRouteTypes {
     | '/_staff/grading-scales/$scaleId'
     | '/_staff/guardians/$guardianId'
     | '/_staff/invoices/$invoiceId'
+    | '/_staff/my-class/$sectionId'
     | '/_staff/payments/$id'
     | '/_staff/payments/record'
     | '/_staff/print/preview'
@@ -1435,6 +1458,7 @@ export interface FileRouteTypes {
     | '/_staff/guardians/'
     | '/_staff/invoices/'
     | '/_staff/marks/'
+    | '/_staff/my-class/'
     | '/_staff/payments/'
     | '/_staff/print-templates/'
     | '/_staff/programs/'
@@ -1921,6 +1945,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffMarksIndexRouteImport
       parentRoute: typeof StaffRoute
     }
+    '/_staff/my-class/': {
+      id: '/_staff/my-class/'
+      path: '/my-class'
+      fullPath: '/my-class/'
+      preLoaderRoute: typeof StaffMyClassIndexRouteImport
+      parentRoute: typeof StaffRoute
+    }
+    '/_staff/my-class/$sectionId': {
+      id: '/_staff/my-class/$sectionId'
+      path: '/my-class/$sectionId'
+      fullPath: '/my-class/$sectionId'
+      preLoaderRoute: typeof StaffMyClassSectionIdRouteImport
+      parentRoute: typeof StaffRoute
+    }
     '/_staff/payments/': {
       id: '/_staff/payments/'
       path: '/payments'
@@ -2393,6 +2431,7 @@ interface StaffRouteChildren {
   StaffGradingScalesScaleIdRoute: typeof StaffGradingScalesScaleIdRoute
   StaffGuardiansGuardianIdRoute: typeof StaffGuardiansGuardianIdRoute
   StaffInvoicesInvoiceIdRoute: typeof StaffInvoicesInvoiceIdRoute
+  StaffMyClassSectionIdRoute: typeof StaffMyClassSectionIdRoute
   StaffPaymentsIdRoute: typeof StaffPaymentsIdRoute
   StaffPaymentsRecordRoute: typeof StaffPaymentsRecordRoute
   StaffPrintPreviewRoute: typeof StaffPrintPreviewRoute
@@ -2424,6 +2463,7 @@ interface StaffRouteChildren {
   StaffGuardiansIndexRoute: typeof StaffGuardiansIndexRoute
   StaffInvoicesIndexRoute: typeof StaffInvoicesIndexRoute
   StaffMarksIndexRoute: typeof StaffMarksIndexRoute
+  StaffMyClassIndexRoute: typeof StaffMyClassIndexRoute
   StaffPaymentsIndexRoute: typeof StaffPaymentsIndexRoute
   StaffPrintTemplatesIndexRoute: typeof StaffPrintTemplatesIndexRoute
   StaffProgramsIndexRoute: typeof StaffProgramsIndexRoute
@@ -2478,6 +2518,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffGradingScalesScaleIdRoute: StaffGradingScalesScaleIdRoute,
   StaffGuardiansGuardianIdRoute: StaffGuardiansGuardianIdRoute,
   StaffInvoicesInvoiceIdRoute: StaffInvoicesInvoiceIdRoute,
+  StaffMyClassSectionIdRoute: StaffMyClassSectionIdRoute,
   StaffPaymentsIdRoute: StaffPaymentsIdRoute,
   StaffPaymentsRecordRoute: StaffPaymentsRecordRoute,
   StaffPrintPreviewRoute: StaffPrintPreviewRoute,
@@ -2509,6 +2550,7 @@ const StaffRouteChildren: StaffRouteChildren = {
   StaffGuardiansIndexRoute: StaffGuardiansIndexRoute,
   StaffInvoicesIndexRoute: StaffInvoicesIndexRoute,
   StaffMarksIndexRoute: StaffMarksIndexRoute,
+  StaffMyClassIndexRoute: StaffMyClassIndexRoute,
   StaffPaymentsIndexRoute: StaffPaymentsIndexRoute,
   StaffPrintTemplatesIndexRoute: StaffPrintTemplatesIndexRoute,
   StaffProgramsIndexRoute: StaffProgramsIndexRoute,
