@@ -4,10 +4,31 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { cleanupTestState, renderWithProviders } from '../test/render-with-providers';
 
+import { AuthLayout } from './auth-layout';
 import { SetPasswordForm } from './set-password-form';
 
 afterEach(async () => {
   await cleanupTestState();
+});
+
+describe('SetPasswordForm framing', () => {
+  it('keeps its own card outside AuthLayout, drops it inside', async () => {
+    const outside = renderWithProviders(<SetPasswordForm heading="Welcome" onSubmit={vi.fn()} />, {
+      locale: 'en',
+    });
+    await screen.findByRole('heading', { level: 1 });
+    expect(outside.container.querySelector('form')?.className).toContain('p-8');
+    outside.unmount();
+
+    const { container } = renderWithProviders(
+      <AuthLayout>
+        <SetPasswordForm heading="Welcome" onSubmit={vi.fn()} />
+      </AuthLayout>,
+      { locale: 'en' },
+    );
+    await screen.findByRole('heading', { level: 1 });
+    expect(container.querySelector('form')?.className).not.toContain('p-8');
+  });
 });
 
 describe('SetPasswordForm', () => {

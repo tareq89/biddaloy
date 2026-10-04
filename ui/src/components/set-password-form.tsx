@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { useTranslation } from '../i18n';
 import { cn } from '../primitives/lib/utils';
 
+import { useInsideAuthLayout } from './auth-layout';
 import { Button } from './button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from './form-field';
 import { Input } from './input';
@@ -139,6 +140,8 @@ export function SetPasswordForm({
   submitLabel,
 }: SetPasswordFormProps) {
   const { t } = useTranslation('auth');
+  // Inside <AuthLayout> the layout owns the card.
+  const framed = !useInsideAuthLayout();
 
   const schema = React.useMemo(
     () =>
@@ -170,11 +173,14 @@ export function SetPasswordForm({
       <form
         onSubmit={(event) => void form.handleSubmit(handleValidSubmit)(event)}
         noValidate
-        className="flex flex-col gap-6 rounded-lg border border-border-subtle bg-card p-8"
+        className={cn(
+          'flex flex-col gap-6',
+          framed && 'rounded-lg border border-border-subtle bg-card p-8',
+        )}
       >
-        <div className="flex flex-col gap-1 text-center">
-          <h1 className="text-xl font-semibold text-balance">{heading}</h1>
-          {subtext && <p className="text-sm text-muted-foreground">{subtext}</p>}
+        <div>
+          <h1 className="text-h1 text-balance">{heading}</h1>
+          {subtext && <p className="mt-0.5 text-text-secondary">{subtext}</p>}
         </div>
 
         {error && (
