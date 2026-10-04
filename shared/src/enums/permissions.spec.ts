@@ -904,3 +904,12 @@ describe('new role grants [#1358]', () => {
     expect(has(UserRole.OFFICE_STAFF, Permission.STUDENT_LIFECYCLE_MANAGE)).toBe(false);
   });
 });
+
+describe('MY_CLASS_VIEW [47.1.1] D11', () => {
+  it('is held by TEACHER and no other tenant role (SUPER_ADMIN holds every permission)', () => {
+    const holders = Object.values(UserRole).filter(
+      (r) => r !== UserRole.SUPER_ADMIN && ROLE_PERMISSIONS[r]?.includes(Permission.MY_CLASS_VIEW),
+    );
+    expect(holders).toEqual([UserRole.TEACHER]);
+  });
+});

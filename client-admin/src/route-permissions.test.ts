@@ -115,6 +115,7 @@ const NAV_PATH_TO_ROUTE_ID: Record<string, string> = {
   '/routines/setup': '/_staff/routines/setup',
   '/routines': '/_staff/routines/',
   '/routines/my': '/_staff/routines/my',
+  '/my-class': '/_staff/my-class/',
   '/roles': '/_staff/roles/',
   '/audit-logs': '/_staff/audit-logs/',
   '/settings': '/_staff/settings',

@@ -621,6 +621,14 @@ export const ROLE_NARROWINGS: RoleNarrowing[] = [
   {
     controller: 'AttendanceSummaryController',
     method: 'GET',
+    path: '/attendance/sections/:sectionId/streaks',
+    reason:
+      'staff-only section streak flags (#1395); family holds ATTENDANCE_READ for their own child only,' +
+      ' COMMITTEE lacks ATTENDANCE_READ; OFFICE_STAFF and EXAM_CONTROLLER (both hold it) are included.',
+  },
+  {
+    controller: 'AttendanceSummaryController',
+    method: 'GET',
     path: '/attendance/flags/low',
     reason:
       'staff-only low-attendance follow-up queue, not TEACHER-visible and not exposed to family' +

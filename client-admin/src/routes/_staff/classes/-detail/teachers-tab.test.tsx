@@ -61,6 +61,7 @@ describe('classes/$classId Teachers tab', () => {
             section_name: section.section_name,
             subject_id: null,
             subject_name: null,
+            assignment_type: 'CLASS_TEACHER',
           },
         ]),
       ),
@@ -102,6 +103,7 @@ describe('classes/$classId Teachers tab', () => {
                   section_name: section.section_name,
                   subject_id: null,
                   subject_name: null,
+                  assignment_type: 'CLASS_TEACHER',
                 },
               ]
             : [],
@@ -169,6 +171,7 @@ describe('classes/$classId Teachers tab', () => {
                   section_name: section.section_name,
                   subject_id: null,
                   subject_name: null,
+                  assignment_type: 'CLASS_TEACHER',
                 },
               ],
         ),
@@ -194,5 +197,54 @@ describe('classes/$classId Teachers tab', () => {
 
     await waitFor(() => expect(screen.queryByText(new RegExp(teacher.user.full_name))).toBeNull());
     await screen.findByText('No teachers assigned to this section');
+  });
+
+  it('labels rows from assignment_type, even when subject_name is null', async () => {
+    const klass = classFactory({ id: 'class-1' });
+    const section = classSectionFactory({ id: 'section-1', class: klass, section_name: 'A' });
+    const row = (id: string, name: string, type: string, subject_id: string | null) => ({
+      id,
+      teacher_id: `t-${id}`,
+      employee_id: id,
+      full_name: name,
+      section_id: section.id,
+      section_name: 'A',
+      subject_id,
+      subject_name: null,
+      assignment_type: type,
+    });
+    server.use(
+      http.get('/api/v1/classes/:id', () => HttpResponse.json(klass)),
+      http.get('/api/v1/classes/:classId/sections', () =>
+        HttpResponse.json([{ ...section, enrolled_count: 0 }]),
+      ),
+      http.get('/api/v1/classes/:classId/sections/:sectionId/teachers', () =>
+        HttpResponse.json([
+          row('3', 'Sam Subject', 'SUBJECT_TEACHER', 'subject-gone'),
+          row('2', 'Ann Assistant', 'ASSISTANT_CLASS_TEACHER', null),
+          row('1', 'Cy Class', 'CLASS_TEACHER', null),
+        ]),
+      ),
+    );
+
+    renderWithRouter(routeTree, {
+      initialEntries: ['/classes/class-1?tab=teachers'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByText(/Cy Class/);
+    const items = screen
+      .getAllByRole('listitem')
+      .filter(
+        (li) =>
+          /Class|Assistant|Subject/.test(li.textContent ?? '') && li.textContent?.includes(' — '),
+      );
+    expect(items.map((li) => li.textContent)).toEqual([
+      expect.stringContaining('Cy Class — Class teacher'),
+      expect.stringContaining('Ann Assistant — Assistant class teacher'),
+      expect.stringContaining('Sam Subject — Subject teacher'),
+    ]);
   });
 });

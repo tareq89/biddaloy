@@ -1,11 +1,17 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+  ValidationPipe,
+} from '@nestjs/common';
+import { buildValidationPipeOptions } from '../../validation-pipe';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { UserService, TeacherService } from './users.service';
 import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
 import { StaffProfile } from '../staff-profiles/entities/staff-profile.entity';
-import { CreateUserDto } from './dto/users.dto';
+import { CreateUserDto, CreateTeacherDto, UpdateTeacherDto } from './dto/users.dto';
 import { User } from './entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
@@ -1210,7 +1216,6 @@ describe('TeacherService (integration)', () => {
   let userTenantRepo: Repository<UserTenant>;
   let teacherRepo: Repository<Teacher>;
   let tcsRepo: Repository<TeacherClassSection>;
-  let sectionRepo: Repository<ClassSection>;
   let dataSource: DataSource;
 
   const TENANT_ID = SEED_TENANT_ID;
@@ -1232,7 +1237,6 @@ describe('TeacherService (integration)', () => {
     userTenantRepo = module.get<Repository<UserTenant>>(getRepositoryToken(UserTenant));
     teacherRepo = module.get<Repository<Teacher>>(getRepositoryToken(Teacher));
     tcsRepo = module.get<Repository<TeacherClassSection>>(getRepositoryToken(TeacherClassSection));
-    sectionRepo = module.get<Repository<ClassSection>>(getRepositoryToken(ClassSection));
     dataSource = module.get(DataSource);
 
     await seedReferenceData(dataSource);
@@ -1354,39 +1358,6 @@ describe('TeacherService (integration)', () => {
       await expect(
         teacherService.create({ user_id: user.id, employee_id: 'EMP-B' }, TENANT_ID),
       ).rejects.toThrow('already has a teacher profile');
-    });
-
-    it('should assign sections when provided', async () => {
-      const user = await createTenantUser();
-
-      const teacher = await teacherService.create(
-        {
-          user_id: user.id,
-          employee_id: 'EMP-003',
-          assigned_section_ids: [SEED_SECTION_1_ID],
-        },
-        TENANT_ID,
-      );
-
-      // Verify the TCS entries were created
-      const tcsEntries = await tcsRepo.find({ where: { teacher_id: teacher.id } });
-      expect(tcsEntries).toHaveLength(1);
-      expect(tcsEntries[0].section_id).toBe(SEED_SECTION_1_ID);
-    });
-
-    it('should throw NotFoundException when assigned sections are from another tenant', async () => {
-      const user = await createTenantUser();
-
-      await expect(
-        teacherService.create(
-          {
-            user_id: user.id,
-            employee_id: 'EMP-004',
-            assigned_section_ids: ['00000000-0000-4000-8000-000000000000'],
-          },
-          TENANT_ID,
-        ),
-      ).rejects.toThrow(NotFoundException);
     });
 
     it('should create a teacher without designations or sections', async () => {
@@ -1513,6 +1484,49 @@ describe('TeacherService (integration)', () => {
       expect(result.user.full_name).toBe('Teacher User');
     });
 
+    it('leaves existing class-teacher and subject-teacher rows untouched', async () => {
+      const subjectRepo = dataSource.getRepository(Subject);
+      const subject = await subjectRepo.save(
+        subjectRepo.create({ tenant_id: TENANT_ID, name_en: 'Mathematics', code: 'MATH' }),
+      );
+      const user = await createTenantUser();
+      const teacher = await teacherService.create(
+        { user_id: user.id, employee_id: 'EMP-001' },
+        TENANT_ID,
+      );
+      await tcsRepo.save([
+        tcsRepo.create({
+          teacher_id: teacher.id,
+          section_id: SEED_SECTION_1_ID,
+          tenant_id: TENANT_ID,
+        }),
+        tcsRepo.create({
+          teacher_id: teacher.id,
+          section_id: SEED_SECTION_1_ID,
+          subject_id: subject.id,
+          tenant_id: TENANT_ID,
+        }),
+      ]);
+
+      await teacherService.update(teacher.id, { employee_id: 'EMP-002' }, TENANT_ID);
+
+      expect(await tcsRepo.count({ where: { teacher_id: teacher.id } })).toBe(2);
+    });
+
+    it('rejects assigned_section_ids on create and update DTOs (400)', async () => {
+      const pipe = new ValidationPipe(buildValidationPipeOptions());
+      const body = { assigned_section_ids: [SEED_SECTION_1_ID] };
+      await expect(
+        pipe.transform(
+          { user_id: SEED_SECTION_1_ID, employee_id: 'E', ...body },
+          { type: 'body', metatype: CreateTeacherDto },
+        ),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        pipe.transform(body, { type: 'body', metatype: UpdateTeacherDto }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it('should throw NotFoundException when teacher does not exist', async () => {
       await expect(
         teacherService.findOne('00000000-0000-4000-8000-000000000000', TENANT_ID),
@@ -1564,69 +1578,11 @@ describe('TeacherService (integration)', () => {
       expect(updated.user).toBeDefined();
     });
 
-    it('should replace assigned sections', async () => {
-      const user = await createTenantUser();
-      const teacher = await teacherService.create(
-        { user_id: user.id, employee_id: 'EMP-001' },
-        TENANT_ID,
-      );
-
-      // Assign sections
-      await teacherService.update(
-        teacher.id,
-        { assigned_section_ids: [SEED_SECTION_1_ID] },
-        TENANT_ID,
-      );
-
-      let tcsEntries = await tcsRepo.find({ where: { teacher_id: teacher.id } });
-      expect(tcsEntries).toHaveLength(1);
-
-      // Replace with different sections (empty)
-      await teacherService.update(teacher.id, { assigned_section_ids: [] }, TENANT_ID);
-
-      tcsEntries = await tcsRepo.find({ where: { teacher_id: teacher.id } });
-      expect(tcsEntries).toHaveLength(0);
-    });
-
-    it('should clear sections when assigned_section_ids is empty array', async () => {
-      const user = await createTenantUser();
-      const teacher = await teacherService.create(
-        { user_id: user.id, employee_id: 'EMP-001', assigned_section_ids: [SEED_SECTION_1_ID] },
-        TENANT_ID,
-      );
-
-      // Verify sections were created
-      let tcsEntries = await tcsRepo.find({ where: { teacher_id: teacher.id } });
-      expect(tcsEntries).toHaveLength(1);
-
-      // Clear sections
-      await teacherService.update(teacher.id, { assigned_section_ids: [] }, TENANT_ID);
-
-      tcsEntries = await tcsRepo.find({ where: { teacher_id: teacher.id } });
-      expect(tcsEntries).toHaveLength(0);
-    });
-
     it('should throw NotFoundException when teacher does not exist', async () => {
       await expect(
         teacherService.update(
           '00000000-0000-4000-8000-000000000000',
           { employee_id: 'EMP-001' },
-          TENANT_ID,
-        ),
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it('should throw NotFoundException when assigned section does not belong to tenant', async () => {
-      const user = await createTenantUser();
-      const teacher = await teacherService.create(
-        { user_id: user.id, employee_id: 'EMP-001' },
-        TENANT_ID,
-      );
-
-      await expect(
-        teacherService.update(
-          teacher.id,
-          { assigned_section_ids: ['00000000-0000-4000-8000-000000000000'] },
           TENANT_ID,
         ),
       ).rejects.toThrow(NotFoundException);

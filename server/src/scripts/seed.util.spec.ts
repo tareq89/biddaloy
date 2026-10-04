@@ -1,4 +1,5 @@
-import { AttendanceStatus, UserRole, UserStatus } from '@biddaloy/shared';
+import { AttendanceStatus, TeacherAssignmentType, UserRole, UserStatus } from '@biddaloy/shared';
+import { currentStreaks } from '../modules/attendance/attendance-streaks.util';
 import { describe, expect, it, vi } from 'vitest';
 import type { Repository } from 'typeorm';
 import type { School } from '../modules/schools/entities/school.entity';
@@ -52,6 +53,7 @@ import type { LeaveRecord } from '../modules/leave/entities/leave-record.entity'
 import { hashDeviceKey } from '../modules/attendance/devices/device.service';
 import {
   ATTENDANCE_SEED_ABSENT_DATE,
+  ASSISTANT_TEACHER_EMAIL,
   DEMO_CLASSES,
   DEMO_ORGANISATION,
   DEMO_STUDENTS_PER_SECTION,
@@ -80,6 +82,7 @@ import {
 import {
   ATTENDANCE_SEED_ABSENT_DATE as E2E_ATTENDANCE_SEED_ABSENT_DATE,
   SEED_ACADEMIC_TERM_NAMES,
+  SEED_ASSISTANT_TEACHER_EMAIL,
   SEED_CALENDAR_EVENT_NAMES,
   SEED_DEVICE_KEY as E2E_SEED_DEVICE_KEY,
   SEED_PASSWORD_ENV,
@@ -327,9 +330,16 @@ describe('ensureRoleTestUsers', () => {
 describe('e2e seed contract', () => {
   it('matches ROLE_TEST_USERS exactly — one entry per role, same emails', () => {
     const expected = Object.fromEntries(
-      ROLE_TEST_USERS.map(({ role, email }) => [role.toLowerCase(), email]),
+      ROLE_TEST_USERS.filter(({ email }) => email !== ASSISTANT_TEACHER_EMAIL).map(
+        ({ role, email }) => [role.toLowerCase(), email],
+      ),
     );
     expect(SEED_ROLE_EMAILS).toEqual(expected);
+  });
+
+  it('[47.2.5] names the assistant teacher login the seed creates', () => {
+    expect(SEED_ASSISTANT_TEACHER_EMAIL).toBe(ASSISTANT_TEACHER_EMAIL);
+    expect(ROLE_TEST_USERS.map((u) => u.email)).toContain(ASSISTANT_TEACHER_EMAIL);
   });
 
   it('names the same password env var the seed script requires', () => {
@@ -955,7 +965,7 @@ describe('ensureAttendanceSeed', () => {
       byStudent.set(key, [...(byStudent.get(key) ?? []), record]);
     }
 
-    // student-3's ~9 PRESENT / 26 working days is the only one under the
+    // student-3's ~8 PRESENT / 26 working days is the only one under the
     // default 75% threshold — present-day count alone is enough to prove
     // this without re-implementing the percentage formula.
     const WORKING_DAYS = 26;
@@ -964,7 +974,7 @@ describe('ensureAttendanceSeed', () => {
     );
     const belowThreshold = presentCounts.filter((present) => present / WORKING_DAYS < 0.75);
     expect(belowThreshold).toHaveLength(1);
-    expect(presentCounts[2]).toBe(9);
+    expect(presentCounts[2]).toBe(8);
   });
 
   it('gives every status to at least one student across the roster', async () => {
@@ -1005,7 +1015,47 @@ describe('ensureAttendanceSeed', () => {
       teacher_id: createdTeacher.id,
       section_id: 'section-1',
       subject_id: null,
+      assignment_type: TeacherAssignmentType.CLASS_TEACHER,
     });
+  });
+
+  it('[47.2.5] looks the class-teacher row up by assignment_type, not subject_id', async () => {
+    const repos = attendanceRepos();
+    emptyDatabase(repos);
+
+    await ensureAttendanceSeed(repos, BASE_PARAMS);
+
+    const where = vi.mocked(repos.teacherClassSectionRepository.findOne).mock.calls[0]?.[0]
+      ?.where as Record<string, unknown>;
+    expect(where.assignment_type).toBe(TeacherAssignmentType.CLASS_TEACHER);
+    expect(where).not.toHaveProperty('subject_id');
+  });
+
+  it('[47.2.5] leaves each of the three students on exactly one streak kind at the newest session', async () => {
+    const repos = attendanceRepos();
+    emptyDatabase(repos);
+
+    await ensureAttendanceSeed(repos, BASE_PARAMS);
+
+    const sessions = vi
+      .mocked(repos.attendanceSessionRepository.create)
+      .mock.calls.map(([p]) => p as { id: string; date: string });
+    const statusBySession = new Map<string, Map<string, AttendanceStatus>>();
+    for (const [p] of vi.mocked(repos.attendanceRecordRepository.create).mock.calls) {
+      const r = p as { student_id: string; session_id: string; status: AttendanceStatus };
+      const marks = statusBySession.get(r.student_id) ?? new Map<string, AttendanceStatus>();
+      marks.set(r.session_id, r.status);
+      statusBySession.set(r.student_id, marks);
+    }
+    const newestFirst = [...sessions].sort((a, b) => b.date.localeCompare(a.date));
+    const streaks = currentStreaks(newestFirst, STUDENT_IDS, statusBySession);
+
+    expect(streaks.map((s) => [s.student_id, s.status])).toEqual([
+      ['student-1', AttendanceStatus.PRESENT],
+      ['student-2', AttendanceStatus.LATE],
+      ['student-3', AttendanceStatus.ABSENT],
+    ]);
+    expect(streaks[0]!.length).toBeGreaterThanOrEqual(15);
   });
 
   it("stores the ACTIVE device's key as the SHA-256 hash of SEED_DEVICE_KEY, matching the e2e contract", async () => {
@@ -1717,6 +1767,7 @@ describe('ensureRoutineSeed', () => {
     return {
       userRepository: mockRepo<User>(),
       teacherRepository: mockRepo<Teacher>(),
+      teacherClassSectionRepository: mockRepo<TeacherClassSection>(),
       subjectRepository: mockRepo<Subject>(),
       classRepository: mockRepo<Class>(),
       shiftRepository: mockRepo<Shift>(),
@@ -1764,6 +1815,59 @@ describe('ensureRoutineSeed', () => {
     expect(vi.mocked(repos.classRepository.save)).not.toHaveBeenCalled();
     expect(vi.mocked(repos.routineSlotRepository.create)).not.toHaveBeenCalled();
     expect(vi.mocked(repos.routineChangeRequestRepository.create)).not.toHaveBeenCalled();
+  });
+
+  it('[47.2.5] makes the second teacher ASSISTANT_CLASS_TEACHER of section A, once', async () => {
+    const repos = routineRepos();
+    vi.mocked(repos.userRepository.findOne).mockResolvedValue({ id: 'user-2' } as User);
+    vi.mocked(repos.subjectRepository.findOne).mockResolvedValue({ id: 'math' } as Subject);
+
+    await ensureRoutineSeed(repos, ROUTINE_PARAMS);
+
+    const created = vi.mocked(repos.teacherClassSectionRepository.create).mock.calls;
+    expect(created).toHaveLength(1);
+    expect(created[0]?.[0]).toMatchObject({
+      section_id: 'section-a',
+      subject_id: null,
+      assignment_type: TeacherAssignmentType.ASSISTANT_CLASS_TEACHER,
+    });
+
+    // Re-run: the mapping now exists, so nothing more is created.
+    vi.mocked(repos.teacherClassSectionRepository.findOne).mockResolvedValue({
+      id: 'tcs-1',
+    } as TeacherClassSection);
+    await ensureRoutineSeed(repos, ROUTINE_PARAMS);
+    expect(vi.mocked(repos.teacherClassSectionRepository.create)).toHaveBeenCalledTimes(1);
+  });
+
+  // A database seeded before 47.2.5 holds SEED-TEACHER-0002 (globally unique
+  // employee_id) under the old routine-teacher2 user. Inserting a second row
+  // would 23505, so the existing teacher is re-pointed at the new login.
+  it('[47.2.5] re-points a legacy SEED-TEACHER-0002 at the assistant-teacher login', async () => {
+    const repos = routineRepos();
+    vi.mocked(repos.userRepository.findOne).mockResolvedValue({ id: 'user-2' } as User);
+    vi.mocked(repos.subjectRepository.findOne).mockResolvedValue({ id: 'math' } as Subject);
+    const legacy = {
+      id: 'teacher-2',
+      user_id: 'legacy-user',
+      employee_id: 'SEED-TEACHER-0002',
+      deleted_at: null,
+    } as Teacher;
+    vi.mocked(repos.teacherRepository.findOne).mockResolvedValue(legacy);
+
+    await ensureRoutineSeed(repos, ROUTINE_PARAMS);
+
+    expect(vi.mocked(repos.teacherRepository.create)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.teacherRepository.save)).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'teacher-2', user_id: 'user-2' }),
+    );
+  });
+
+  it('throws when the assistant-teacher login was not seeded first', async () => {
+    const repos = routineRepos();
+    vi.mocked(repos.subjectRepository.findOne).mockResolvedValue({ id: 'math' } as Subject);
+
+    await expect(ensureRoutineSeed(repos, ROUTINE_PARAMS)).rejects.toThrow(/ensureRoleTestUsers/);
   });
 });
 

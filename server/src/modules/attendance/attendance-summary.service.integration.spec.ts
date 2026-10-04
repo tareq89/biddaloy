@@ -242,4 +242,143 @@ describe('AttendanceSummaryService (integration)', () => {
       expect(result.data.map((f) => f.student_id)).not.toContain(studentId);
     });
   });
+
+  describe('getSectionStreaks', () => {
+    async function freshSection(tenantId = TENANT_ID): Promise<string> {
+      const year = await dataSource.getRepository(AcademicYear).save({
+        name: `Streak Year ${Date.now()}-${Math.random()}`,
+        start_date: '2026-01-01',
+        end_date: '2026-12-31',
+        tenant_id: tenantId,
+      });
+      const klass = await dataSource
+        .getRepository(Class)
+        .save({ name: 'Streak Class', academic_year_id: year.id, tenant_id: tenantId });
+      const section = await dataSource
+        .getRepository(ClassSection)
+        .save({ section_name: 'Streak Section', class_id: klass.id, tenant_id: tenantId });
+      return section.id;
+    }
+    async function student(secId: string, roll: number, tenantId = TENANT_ID): Promise<string> {
+      const s = await dataSource.getRepository(Student).save({
+        full_name: `Streak Student ${roll}`,
+        registration_number: `STREAK-${roll}-${Date.now()}-${Math.random()}`,
+        roll_number: roll,
+        class_section_id: secId,
+        tenant_id: tenantId,
+      });
+      return s.id;
+    }
+    /** One whole-day session per date, one record per [studentId, status]. */
+    async function day(
+      secId: string,
+      date: string,
+      marks: Array<[string, AttendanceStatus]>,
+      tenantId = TENANT_ID,
+    ): Promise<void> {
+      const session = await dataSource.getRepository(AttendanceSession).save({
+        tenant_id: tenantId,
+        section_id: secId,
+        date,
+        period_no: null,
+        state: AttendanceSessionState.FINALIZED,
+      });
+      for (const [studentId, status] of marks) {
+        await dataSource.getRepository(AttendanceRecord).save({
+          tenant_id: tenantId,
+          session_id: session.id,
+          student_id: studentId,
+          date,
+          status,
+        });
+      }
+    }
+
+    it('flags runs, orders deterministically, and uses a bounded number of queries', async () => {
+      const sec = await freshSection();
+      const absent = await student(sec, 2);
+      const late = await student(sec, 1);
+      const broken = await student(sec, 3);
+      const P = AttendanceStatus.PRESENT;
+      const A = AttendanceStatus.ABSENT;
+      const L = AttendanceStatus.LATE;
+      await day(sec, '2026-09-01', [
+        [broken, A],
+        [absent, P],
+        [late, P],
+      ]);
+      await day(sec, '2026-09-02', [
+        [broken, AttendanceStatus.LEAVE],
+        [absent, A],
+        [late, L],
+      ]);
+      await day(sec, '2026-09-03', [
+        [broken, A],
+        [absent, A],
+        [late, L],
+      ]);
+      await day(sec, '2026-09-04', [
+        [broken, A],
+        [absent, A],
+        [late, L],
+      ]);
+
+      let queryCount = 0;
+      const originalQuery = dataSource.query.bind(dataSource);
+      (dataSource as unknown as { query: typeof dataSource.query }).query = ((
+        ...args: Parameters<typeof dataSource.query>
+      ) => {
+        if (/^\s*SELECT/i.test(String(args[0]))) queryCount++;
+        return originalQuery(...args);
+      }) as typeof dataSource.query;
+      let result;
+      try {
+        result = await service.getSectionStreaks({ tenantId: TENANT_ID, sectionId: sec });
+      } finally {
+        (dataSource as unknown as { query: typeof dataSource.query }).query = originalQuery;
+      }
+
+      // `broken` has only a 2-run (LEAVE ends it); absent=3 A; late=3 L.
+      expect(result.as_of_date).toBe('2026-09-04');
+      expect(result.items.map((i) => [i.student_id, i.status, i.length, i.since_date])).toEqual([
+        [absent, A, 3, '2026-09-02'],
+        [late, L, 3, '2026-09-02'],
+      ]);
+      expect(queryCount).toBeLessThanOrEqual(3);
+    });
+
+    it('ignores period-level sessions', async () => {
+      const sec = await freshSection();
+      const s1 = await student(sec, 1);
+      for (const d of ['2026-09-01', '2026-09-02', '2026-09-03']) {
+        await day(sec, d, [[s1, AttendanceStatus.ABSENT]]);
+      }
+      // A newer period-level register with no marks must not break/replace the run.
+      await dataSource.getRepository(AttendanceSession).save({
+        tenant_id: TENANT_ID,
+        section_id: sec,
+        date: '2026-09-05',
+        period_no: 2,
+        state: AttendanceSessionState.FINALIZED,
+      });
+      const result = await service.getSectionStreaks({ tenantId: TENANT_ID, sectionId: sec });
+      expect(result.as_of_date).toBe('2026-09-03');
+      expect(result.items).toHaveLength(1);
+    });
+
+    it("never returns another tenant's data (cross-tenant section id)", async () => {
+      const other = await dataSource
+        .getRepository(School)
+        .save({ name: 'Streak Other School', slug: `streak-${Date.now()}` } as any);
+      const otherSec = await freshSection(other.id);
+      const stu = await student(otherSec, 1, other.id);
+      for (const d of ['2026-09-01', '2026-09-02', '2026-09-03']) {
+        await day(otherSec, d, [[stu, AttendanceStatus.ABSENT]], other.id);
+      }
+      const own = await service.getSectionStreaks({ tenantId: TENANT_ID, sectionId: otherSec });
+      expect(own).toEqual({ items: [], as_of_date: null });
+      const theirs = await service.getSectionStreaks({ tenantId: other.id, sectionId: otherSec });
+      expect(theirs.items).toHaveLength(1);
+    });
+  });
 });

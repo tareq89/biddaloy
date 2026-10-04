@@ -11,7 +11,7 @@ import {
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
-import { AssignTeacherDialog } from '../-assign-teacher-dialog';
+import { AssignTeacherDialog, sortByAssignmentType } from '../-assign-teacher-dialog';
 
 import { TabQueryState } from './tab-query-state';
 
@@ -60,15 +60,38 @@ export function TeachersTab({ classId }: TeachersTabProps) {
       </TabQueryState>
 
       {canManage && assigningSection && (
-        <AssignTeacherDialog
-          open={assigningSection !== null}
-          onOpenChange={(open) => !open && setAssigningSection(null)}
+        <AssignDialogForSection
           classId={classId}
-          sectionId={assigningSection.id}
-          onAssigned={() => setAssigningSection(null)}
+          section={assigningSection}
+          onClose={() => setAssigningSection(null)}
         />
       )}
     </div>
+  );
+}
+
+/** Reads the section's current class teacher from the already-cached
+ * `useSectionTeachers` query (same key as the panel's — no extra request). */
+function AssignDialogForSection({
+  classId,
+  section,
+  onClose,
+}: {
+  classId: string;
+  section: ClassSectionWithCount;
+  onClose: () => void;
+}) {
+  const query = useSectionTeachers(classId, section.id);
+  const current = query.data?.find((a) => a.assignment_type === 'CLASS_TEACHER');
+  return (
+    <AssignTeacherDialog
+      open
+      onOpenChange={(open) => !open && onClose()}
+      classId={classId}
+      sectionId={section.id}
+      currentClassTeacher={current && { teacherId: current.teacher_id, name: current.full_name }}
+      onAssigned={onClose}
+    />
   );
 }
 
@@ -86,9 +109,13 @@ function SectionTeachersPanel({
   onAssign,
 }: SectionTeachersPanelProps) {
   const { t } = useTranslation('classes');
-  const { t: tStaff } = useTranslation('staff');
   const query = useSectionTeachers(classId, section.id);
   const unassignTeacher = useUnassignTeacher(classId, section.id);
+  // [47.4.1] Label comes from assignment_type, never subject nullness.
+  const roleLabel = (a: SectionTeacherAssignment) =>
+    a.assignment_type === 'SUBJECT_TEACHER' && a.subject_name
+      ? `${t('assignmentType.SUBJECT_TEACHER')} · ${a.subject_name}`
+      : t(`assignmentType.${a.assignment_type}`);
 
   return (
     <div className="flex flex-col gap-2 rounded-md border p-3">
@@ -134,15 +161,12 @@ function SectionTeachersPanel({
           </p>
         ) : (
           <ul className="flex flex-col gap-1">
-            {query.data.map((assignment: SectionTeacherAssignment) => (
+            {sortByAssignmentType(query.data).map((assignment) => (
               <li key={assignment.id} className="flex items-center justify-between gap-2 text-sm">
                 <span>
                   {assignment.full_name}
                   {' — '}
-                  {assignment.subject_name
-                    ? tStaff('teacherForm.designations.SUBJECT_TEACHER') +
-                      ` (${assignment.subject_name})`
-                    : tStaff('teacherForm.designations.CLASS_TEACHER')}
+                  {roleLabel(assignment)}
                 </span>
                 {canManage && (
                   <button
@@ -154,10 +178,7 @@ function SectionTeachersPanel({
                     onClick={() => unassignTeacher.mutate(assignment.id)}
                     aria-label={t('detail.teachers.removeAria', {
                       name: assignment.full_name,
-                      role: assignment.subject_name
-                        ? tStaff('teacherForm.designations.SUBJECT_TEACHER') +
-                          ` (${assignment.subject_name})`
-                        : tStaff('teacherForm.designations.CLASS_TEACHER'),
+                      role: roleLabel(assignment),
                     })}
                   >
                     {t('detail.teachers.remove')}

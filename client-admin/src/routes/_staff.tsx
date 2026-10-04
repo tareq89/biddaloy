@@ -39,6 +39,7 @@ import {
   SchoolIcon,
   SendIcon,
   SettingsIcon,
+  UserCheckIcon,
   UsersRoundIcon,
   WalletIcon,
 } from 'lucide-react';
@@ -70,6 +71,7 @@ const STAFF_NAV_ICONS: Record<string, ReactNode> = {
   'people.staff': <BriefcaseIcon aria-hidden="true" />,
   'academics.academicYears': <CalendarDaysIcon aria-hidden="true" />,
   'academics.classes': <SchoolIcon aria-hidden="true" />,
+  'academics.myClass': <UserCheckIcon aria-hidden="true" />,
   'academics.homework': <ListChecksIcon aria-hidden="true" />,
   'examsResults.gradingScales': <ClipboardListIcon aria-hidden="true" />,
   'attendance.attendance': <CalendarCheck2Icon aria-hidden="true" />,

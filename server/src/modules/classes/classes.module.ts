@@ -10,6 +10,8 @@ import { AuditModule } from '../audit/audit.module';
 import { SchoolsModule } from '../schools/schools.module';
 import { ClassService, SectionService } from './classes.service';
 import { ClassController } from './classes.controller';
+import { TeacherScopeService } from './teacher-scope.service';
+import { MyClassController } from './my-class.controller';
 
 @Module({
   // Teacher/TeacherClassSection/Student are registered entity-only (no
@@ -28,8 +30,8 @@ import { ClassController } from './classes.controller';
     // same reasoning as its other consumers (16.2.2's step-up flow).
     SchoolsModule,
   ],
-  providers: [ClassService, SectionService],
-  controllers: [ClassController],
-  exports: [ClassService, SectionService],
+  providers: [ClassService, SectionService, TeacherScopeService],
+  controllers: [ClassController, MyClassController],
+  exports: [ClassService, SectionService, TeacherScopeService],
 })
 export class ClassModule {}

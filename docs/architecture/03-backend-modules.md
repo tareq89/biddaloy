@@ -64,7 +64,7 @@ flowchart LR
 | `users`          | `User` + `Teacher` CRUD                                                                                                                                                                                                                                                                                                                                                            | `POST/GET/PATCH/DELETE users`, `POST/GET/PATCH teachers`                                                                                                                                                                                                                                                                                                                            |
 | `schools`        | `School` (tenant) entity + per-tenant settings (comms provider config, currency, etc.)                                                                                                                                                                                                                                                                                             | Internal service only today — no public controller yet                                                                                                                                                                                                                                                                                                                              |
 | `academics`      | `AcademicYear` (no longer owns holidays — see `calendar`)                                                                                                                                                                                                                                                                                                                          | `POST/GET/PATCH/DELETE academic-years`, `POST academic-years/:id/set-current`                                                                                                                                                                                                                                                                                                       |
-| `classes`        | `Class` + `ClassSection`                                                                                                                                                                                                                                                                                                                                                           | `POST/GET/PATCH/DELETE classes`, nested `.../sections` routes                                                                                                                                                                                                                                                                                                                       |
+| `classes`        | `Class` + `ClassSection` + `TeacherScopeService` (teacher role in a section)                                                                                                                                                                                                                                                                                                       | `POST/GET/PATCH/DELETE classes`, nested `.../sections` routes; `GET /my-class/sections`                                                                                                                                                                                                                                                                                             |
 | `students`       | `Student`, `Guardian`, Excel bulk upload                                                                                                                                                                                                                                                                                                                                           | `POST/GET/PATCH/DELETE students`, `POST students/bulk-upload`, `POST/GET/PATCH/DELETE guardians`                                                                                                                                                                                                                                                                                    |
 | `enrollments`    | `Enrollment` history                                                                                                                                                                                                                                                                                                                                                               | `POST enrollments`, `GET enrollments/student/:studentId`, `PATCH enrollments/:id`                                                                                                                                                                                                                                                                                                   |
 | `attendance`     | `AttendanceSession`/`Record`, corrections, summaries, auto-absent notices, device ingest                                                                                                                                                                                                                                                                                           | `GET attendance/my-sections`, `PUT attendance/sections/:id/register`, `PATCH attendance/records/:id`, `GET attendance/flags/low`, `POST attendance/device-events` — see [11-attendance.md](11-attendance.md)                                                                                                                                                                        |
@@ -78,6 +78,44 @@ flowchart LR
 | `audit`          | Read access to `AuditLog`                                                                                                                                                                                                                                                                                                                                                          | `GET audit`                                                                                                                                                                                                                                                                                                                                                                         |
 | `health`         | Liveness check, version-neutral                                                                                                                                                                                                                                                                                                                                                    | `GET /api/health`                                                                                                                                                                                                                                                                                                                                                                   |
 | `routines`       | `Shift`, `PeriodSlot`, `Room`, `Routine`, `RoutineSlot`, `RoutineSlotTeacher`, `RoutineSubstitution`, `RoutineChangeRequest` — see below                                                                                                                                                                                                                                           | `POST/GET/PATCH/DELETE routines/shifts`, `PUT routines/shifts/:id/period-slots`, `POST/GET routines/rooms`, `POST/GET routines`, `POST/GET routines/:id/slots`, `PATCH/DELETE routines/slots/:slotId`, `POST routines/:id/submit-for-review`, `POST routines/:id/publish`, `GET routines/resolve`, `POST routines/substitutions`, `POST routines/slots/:slotId/change-requests`     |
+
+### `TeacherScopeService` (classes module)
+
+`server/src/modules/classes/teacher-scope.service.ts`. It answers one
+question: **what is this teacher's role in this section?** The JWT carries a
+**user** id, so it does the join `user → teachers.user_id →
+teacher_class_sections` for you, with `tenant_id` on every table.
+
+```mermaid
+flowchart LR
+  C["MyClassController<br/>GET /my-class/sections"] --> T["TeacherScopeService"]
+  M["MarksAuthorizationService<br/>(exams)"] --> T
+  T --> R1["rolesInSection(user, section)<br/>→ homeroom: CLASS | ASSISTANT | null<br/>+ live subjectIds"]
+  T --> R2["homeroomSections(user)<br/>→ current-year CLASS/ASSISTANT sections"]
+```
+
+- `rolesInSection` returns `subjectIds` of **live** subjects only. A
+  soft-deleted subject loses its teacher's marks access.
+- `homeroomSections` keeps the current academic year only and skips
+  soft-deleted sections and classes. It backs `GET /my-class/sections`
+  (`MY_CLASS_VIEW`, TEACHER only).
+- It only answers for the teacher's own rows. Tenant-wide roles never reach
+  it: callers check `hasTenantDataScope` first.
+
+**This is the place new teacher-scope checks go.** The older user → teacher →
+tcs joins (about ten of them, in attendance, homework, performance, student notes and surveys) have **not** been migrated.
+They still do their own joins, and some do not filter by academic year, so a
+teacher can still reach past-year sections there. Moving them onto this
+service, and fixing that leak, is a separate follow-up (Epic 47.0 D4).
+Today only My class and marks authorization use it.
+
+**Marks rules** (`MarksAuthorizationService`, `exams/marks-authorization.util.ts`),
+for a teacher without tenant-wide data scope:
+
+| Action | Allowed when                                                                                                   |
+| ------ | -------------------------------------------------------------------------------------------------------------- |
+| Write  | a `SUBJECT_TEACHER` row for that exact, live (not deleted) subject. Homeroom never writes                      |
+| Read   | that same subject row, **or** a `CLASS_TEACHER` / `ASSISTANT_CLASS_TEACHER` row for the section (all subjects) |
 
 ## Routines module
 

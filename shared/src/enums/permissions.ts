@@ -34,6 +34,8 @@ export enum Permission {
   // Student lifecycle (39.x) — D22.
   STUDENT_LIFECYCLE_MANAGE = 'STUDENT_LIFECYCLE_MANAGE',
   STUDENT_NOTES_READ = 'STUDENT_NOTES_READ',
+  /** [47.1.1] D11 — the "My Class" view; TEACHER only. */
+  MY_CLASS_VIEW = 'MY_CLASS_VIEW',
   STUDENT_NOTES_WRITE = 'STUDENT_NOTES_WRITE',
   STUDENT_RECORDS_READ = 'STUDENT_RECORDS_READ',
   STUDENT_RECORDS_WRITE = 'STUDENT_RECORDS_WRITE',
@@ -438,6 +440,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
 
   [UserRole.TEACHER]: [
+    Permission.MY_CLASS_VIEW,
     Permission.STUDENT_READ,
     Permission.GUARDIAN_READ,
     // Deliberately no FEE_STRUCTURE_READ: the fee-structure GETs only need

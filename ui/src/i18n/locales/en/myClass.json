@@ -1,0 +1,50 @@
+{
+  "title": "My class",
+  "empty": "You are not a class teacher of any section yet — ask an admin.",
+  "retry": "Try again",
+  "seeAll": "See all",
+  "roles": {
+    "CLASS_TEACHER": "Class teacher",
+    "ASSISTANT_CLASS_TEACHER": "Assistant class teacher"
+  },
+  "takeAttendance": "Take today's attendance",
+  "cards": {
+    "absentees": "Absent today",
+    "flags": "Attendance flags",
+    "dues": "Dues",
+    "homework": "Homework",
+    "results": "Results",
+    "roster": "Students"
+  },
+  "flagGroups": {
+    "ABSENT": "Absent 3 or more days in a row",
+    "LATE": "Late 3 or more days in a row",
+    "PRESENT": "Present 15 days in a row"
+  },
+  "cardEmpty": {
+    "attendanceNotTaken": "Attendance not taken yet.",
+    "absentees": "No one is absent today.",
+    "flags": "No flags right now.",
+    "dues": "No dues.",
+    "homework": "No homework yet.",
+    "results": "No results yet.",
+    "roster": "No students in this section."
+  },
+  "pageTitle": "My class · {{section}}",
+  "cardError": "Could not load this card.",
+  "roll": "Roll {{roll}}",
+  "flagDays": "{{count}} days",
+  "duesSummary": "{{total}} due from {{count}} students",
+  "homeworkCounts": {
+    "total": "Assignments",
+    "completed": "Completed",
+    "defaulters": "Defaulters"
+  },
+  "resultsSummary": {
+    "average": "Average marks",
+    "passRate": "Pass rate",
+    "failed": "Failed students"
+  },
+  "callGuardian": "Call guardian of {{name}}",
+  "noPhone": "No phone"
+}

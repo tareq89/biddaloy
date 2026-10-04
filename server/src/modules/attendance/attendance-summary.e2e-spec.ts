@@ -262,4 +262,75 @@ describe('Attendance Summary E2E', () => {
         .expect(403);
     });
   });
+
+  describe('GET /attendance/sections/:sectionId/streaks', () => {
+    it('returns 200 for a TEACHER with a row on the section', async () => {
+      await supertest(app.getHttpServer())
+        .get(`${API}/attendance/sections/${MAPPED_SECTION_ID}/streaks`)
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.TEACHER)
+        .expect(200);
+    });
+
+    it('returns 403 for a TEACHER with no row on the section', async () => {
+      await supertest(app.getHttpServer())
+        .get(`${API}/attendance/sections/${UNMAPPED_SECTION_ID}/streaks`)
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.TEACHER)
+        .expect(403);
+    });
+
+    it('returns 200 for ADMIN', async () => {
+      await supertest(app.getHttpServer())
+        .get(`${API}/attendance/sections/${UNMAPPED_SECTION_ID}/streaks`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+    });
+
+    it('returns 403 for a PARENT (role not allowed)', async () => {
+      await supertest(app.getHttpServer())
+        .get(`${API}/attendance/sections/${MAPPED_SECTION_ID}/streaks`)
+        .set('Authorization', `Bearer ${parentToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.PARENT)
+        .expect(403);
+    });
+
+    it('returns 403 for a section id that does not exist in this tenant', async () => {
+      await supertest(app.getHttpServer())
+        .get(`${API}/attendance/sections/${randomUUID()}/streaks`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(403);
+    });
+    // register-matrix has the same @Roles and uses the same access service;
+    // OFFICE_STAFF / EXAM_CONTROLLER are tenant-wide there, so here too.
+    for (const role of [UserRole.OFFICE_STAFF, UserRole.EXAM_CONTROLLER]) {
+      it(`returns 200 for ${role} (tenant-wide, same as register-matrix)`, async () => {
+        await dataSource.query(
+          `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
+           VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+          [SEED_ADMIN_USER_ID, TENANT_ID, role],
+        );
+        // Re-login so the token's memberships include the new role.
+        const token = await login(SEED_ADMIN_EMAIL);
+        await supertest(app.getHttpServer())
+          .get(`${API}/attendance/sections/${UNMAPPED_SECTION_ID}/streaks`)
+          .set('Authorization', `Bearer ${token}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .set('X-Role', role)
+          .expect(200);
+        await supertest(app.getHttpServer())
+          .get(`${API}/attendance/sections/${UNMAPPED_SECTION_ID}/register-matrix`)
+          .query({ month: '2026-09' })
+          .set('Authorization', `Bearer ${token}`)
+          .set('X-Tenant-ID', TENANT_ID)
+          .set('X-Role', role)
+          .expect(200);
+      });
+    }
+  });
 });

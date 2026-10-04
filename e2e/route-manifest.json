@@ -634,6 +634,19 @@
       "archetype": "list"
     },
     {
+      "path": "/my-class",
+      "role": "teacher",
+      "archetype": "redirect"
+    },
+    {
+      "path": "/my-class/$sectionId",
+      "params": {
+        "sectionId": "seeded"
+      },
+      "role": "teacher",
+      "archetype": "detail"
+    },
+    {
       "path": "/attendance",
       "role": "admin",
       "archetype": "list"

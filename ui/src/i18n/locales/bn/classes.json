@@ -182,6 +182,7 @@
     "subjectPlaceholder": "একটি বিষয় নির্বাচন করুন",
     "errorTeacherRequired": "শিক্ষক আবশ্যক",
     "errorSubjectRequired": "বিষয় আবশ্যক",
+    "errorAlreadyHomeroom": "এই শিক্ষক ইতিমধ্যে এই শাখার শ্রেণি শিক্ষক বা সহকারী শ্রেণি শিক্ষক",
     "errorDuplicateAssignment": "এই শিক্ষক ইতিমধ্যে এই শাখায় এই বিষয়ের জন্য নিয়োজিত আছেন",
     "errorMessage": "শিক্ষক নিয়োগ করতে ব্যর্থ হয়েছে",
     "save": "নিয়োগ করুন",
@@ -192,5 +193,13 @@
     "sectionPlaceholder": "একটি শাখা নির্বাচন করুন",
     "errorClassRequired": "শ্রেণি আবশ্যক",
     "errorSectionRequired": "শাখা আবশ্যক"
+  },
+  "assignmentType": {
+    "CLASS_TEACHER": "শ্রেণি শিক্ষক",
+    "ASSISTANT_CLASS_TEACHER": "সহকারী শ্রেণি শিক্ষক",
+    "SUBJECT_TEACHER": "বিষয় শিক্ষক"
+  },
+  "assignDialog": {
+    "replaceWarning": "{{name}} আর শ্রেণি শিক্ষক থাকবেন না, তাঁর জায়গায় নতুন শিক্ষক হবেন"
   }
 }

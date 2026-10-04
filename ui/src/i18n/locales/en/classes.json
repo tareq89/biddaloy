@@ -132,6 +132,7 @@
     "subjectPlaceholder": "Select a subject",
     "errorTeacherRequired": "Teacher is required",
     "errorSubjectRequired": "Subject is required",
+    "errorAlreadyHomeroom": "This teacher is already a class teacher or assistant class teacher of this section",
     "errorDuplicateAssignment": "This teacher is already assigned to this section for this subject",
     "errorMessage": "Failed to assign teacher",
     "save": "Assign",
@@ -192,5 +193,13 @@
       "removeAria": "Remove {{name}} ({{role}})",
       "removeError": "Failed to remove teacher"
     }
+  },
+  "assignmentType": {
+    "CLASS_TEACHER": "Class teacher",
+    "ASSISTANT_CLASS_TEACHER": "Assistant class teacher",
+    "SUBJECT_TEACHER": "Subject teacher"
+  },
+  "assignDialog": {
+    "replaceWarning": "{{name}} will be replaced as class teacher"
   }
 }

@@ -5,8 +5,8 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
-import { EnrollmentStatus, TeacherDesignation, AuditAction } from '@biddaloy/shared';
+import { Repository, IsNull, In } from 'typeorm';
+import { EnrollmentStatus, TeacherAssignmentType, AuditAction } from '@biddaloy/shared';
 import { Class } from '../academics/entities/class.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
@@ -24,6 +24,7 @@ import {
 import { AuditService } from '../audit/audit.service';
 import { RequestContext } from '../../common/request-context.util';
 import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
+import { isUniqueViolationOn } from '../staff-profiles/staff-profiles.service';
 import { assertInVocabulary } from '../schools/settings/organisation-vocabulary.util';
 
 /** [8.11.2] — `SectionService.findAll`'s per-section enrolled count, so the
@@ -41,19 +42,6 @@ export type ClassSectionWithCount = ClassSection & { enrolled_count: number };
  * rows. Same plain-TS-interface convention as `ClassSectionWithCount`
  * above. */
 export type ClassWithCounts = Class & { section_count: number; student_count: number };
-
-/** [8.11.2] — `SectionService.findTeachers`'s response shape: one row per
- * distinct teacher assigned to any section of the class, with every
- * section name they teach folded onto that one row (a teacher can hold
- * more than one section). Read-only projection — teacher CRUD is #177, so
- * this only carries what the class detail page's Teachers tab needs. */
-export interface ClassTeacher {
-  id: string;
-  employee_id: string;
-  full_name: string;
-  designations: TeacherDesignation[];
-  section_names: string[];
-}
 
 @Injectable()
 export class ClassService {
@@ -346,8 +334,7 @@ export class ClassService {
 /** [29.0] One row of `SectionService.listSectionTeachers` /
  * `UserService.getTeacherAssignments` — a section's class-teacher or
  * subject-teacher assignment, shaped for display (Staff detail tab,
- * section teacher list). `subject_name === null` means the class-teacher
- * row. */
+ * section teacher list). `assignment_type` says which role the row is. */
 export interface SectionTeacherAssignment {
   id: string;
   teacher_id: string;
@@ -357,7 +344,11 @@ export interface SectionTeacherAssignment {
   section_name: string;
   subject_id: string | null;
   subject_name: string | null;
+  assignment_type: TeacherAssignmentType;
 }
+
+/** Sort key: CLASS, then ASSISTANT, then SUBJECT rows. */
+export const ASSIGNMENT_TYPE_ORDER_SQL = `CASE tcs.assignment_type WHEN 'CLASS_TEACHER' THEN 0 WHEN 'ASSISTANT_CLASS_TEACHER' THEN 1 ELSE 2 END`;
 
 @Injectable()
 export class SectionService {
@@ -476,61 +467,6 @@ export class SectionService {
     }));
   }
 
-  /** [8.11.2] — class detail page's Teachers tab. Distinct teachers with a
-   * `teacher_class_sections` row on any (non-deleted) section of this
-   * class, each carrying every section name they teach. Read-only: teacher
-   * CRUD is #177, this only reads what the tab needs. */
-  async findTeachers(classId: string, tenantId: string): Promise<ClassTeacher[]> {
-    const cls = await this.classRepo.findOne({
-      where: { id: classId, tenant_id: tenantId, deleted_at: IsNull() },
-    });
-    if (!cls) {
-      throw new NotFoundException(`Class with ID "${classId}" not found`);
-    }
-
-    // `getMany()` (entity rows), not `getRawMany()` — TypeORM only runs a
-    // column's enum-array transform when hydrating an entity. Selecting
-    // `teacher.designations` as a raw column instead returns node-postgres's
-    // untransformed text form of the array (e.g. `"{CLASS_TEACHER,
-    // HEAD_TEACHER}"`, a string, not a `TeacherDesignation[]`), which broke
-    // `teachers-tab.tsx`'s `.map()` over it for any teacher with a
-    // designation.
-    const rows = await this.teacherClassSectionRepo
-      .createQueryBuilder('tcs')
-      .innerJoinAndSelect('tcs.section', 'section')
-      .innerJoinAndSelect('tcs.teacher', 'teacher')
-      .innerJoinAndSelect('teacher.user', 'user')
-      .where('section.class_id = :classId', { classId })
-      .andWhere('section.tenant_id = :tenantId', { tenantId })
-      .andWhere('section.deleted_at IS NULL')
-      .andWhere('teacher.tenant_id = :tenantId', { tenantId })
-      .andWhere('teacher.deleted_at IS NULL')
-      .orderBy('user.full_name', 'ASC')
-      .getMany();
-
-    // Fold every section name a teacher teaches onto that teacher's one
-    // row — a teacher can hold more than one section, and the tab wants
-    // one row per teacher, not one row per (teacher, section) pair.
-    const byTeacher = new Map<string, ClassTeacher>();
-    for (const row of rows) {
-      const existing = byTeacher.get(row.teacher.id);
-      if (existing) {
-        if (!existing.section_names.includes(row.section.section_name)) {
-          existing.section_names.push(row.section.section_name);
-        }
-      } else {
-        byTeacher.set(row.teacher.id, {
-          id: row.teacher.id,
-          employee_id: row.teacher.employee_id,
-          full_name: row.teacher.user.full_name,
-          designations: row.teacher.designations,
-          section_names: [row.section.section_name],
-        });
-      }
-    }
-    return Array.from(byTeacher.values());
-  }
-
   async update(
     classId: string,
     sectionId: string,
@@ -634,14 +570,13 @@ export class SectionService {
     });
   }
 
-  /** [29.0] Assign a teacher to a section, either as the class-teacher
-   * (`dto.subject_id` omitted) or a subject-teacher (`dto.subject_id`
-   * set). D3: assigning a new class-teacher auto-replaces any existing
-   * class-teacher row for the section rather than erroring — a section
-   * only ever has one class-teacher. D8: a duplicate subject-teacher
-   * assignment is checked explicitly before insert and rejected with a
-   * clear `ConflictException`, rather than relying on the DB's unique-
-   * violation (which would surface as an opaque 500). */
+  /** [29.0, 47.0] Assign a teacher to a section as CLASS_TEACHER,
+   * ASSISTANT_CLASS_TEACHER or SUBJECT_TEACHER. `assignment_type` omitted is
+   * inferred (D20): `subject_id` set -> SUBJECT_TEACHER, else CLASS_TEACHER.
+   * D3: a new CLASS_TEACHER replaces the section's existing one (only that
+   * role; assistants stay). Promoting a teacher's own assistant row to
+   * CLASS_TEACHER deletes the assistant row in the same transaction. Every
+   * duplicate is a 409 — explicit pre-checks plus a 23505 catch for races. */
   async assignTeacher(
     classId: string,
     sectionId: string,
@@ -650,6 +585,19 @@ export class SectionService {
     userId: string | null = null,
     context: RequestContext = { ip: null, userAgent: null },
   ): Promise<TeacherClassSection> {
+    const subjectId = dto.subject_id ?? null;
+    const type =
+      dto.assignment_type ??
+      (subjectId !== null
+        ? TeacherAssignmentType.SUBJECT_TEACHER
+        : TeacherAssignmentType.CLASS_TEACHER);
+    if (type === TeacherAssignmentType.SUBJECT_TEACHER && subjectId === null) {
+      throw new BadRequestException('subject_id is required for a SUBJECT_TEACHER assignment');
+    }
+    if (type !== TeacherAssignmentType.SUBJECT_TEACHER && subjectId !== null) {
+      throw new BadRequestException(`subject_id must not be set for a ${type} assignment`);
+    }
+
     const section = await this.repo.findOne({
       where: { id: sectionId, class_id: classId, tenant_id: tenantId, deleted_at: IsNull() },
     });
@@ -664,8 +612,6 @@ export class SectionService {
       throw new NotFoundException(`Teacher with ID "${dto.teacher_id}" not found`);
     }
 
-    const subjectId = dto.subject_id ?? null;
-
     if (subjectId !== null) {
       const subject = await this.subjectRepo.findOne({
         where: { id: subjectId, tenant_id: tenantId, deleted_at: IsNull() },
@@ -675,82 +621,137 @@ export class SectionService {
       }
     }
 
-    return this.teacherClassSectionRepo.manager.transaction(async (manager) => {
-      const repo = manager.getRepository(TeacherClassSection);
+    const conflict = (message: string, code: string) =>
+      new ConflictException({ message, details: { code } });
 
-      if (subjectId === null) {
-        // D3 — a section has at most one class-teacher row; replace it.
-        const replaced = await repo.findOne({
-          where: { section_id: sectionId, subject_id: IsNull(), tenant_id: tenantId },
-        });
-        if (replaced) {
-          await repo.delete({ id: replaced.id });
+    try {
+      return await this.teacherClassSectionRepo.manager.transaction(async (manager) => {
+        const repo = manager.getRepository(TeacherClassSection);
+        const removeRow = async (row: TeacherClassSection) => {
+          await repo.delete({ id: row.id, tenant_id: tenantId });
           await this.auditService.record(
             {
               action: AuditAction.DELETE,
               entity_type: 'TeacherClassSection',
-              entity_id: replaced.id,
+              entity_id: row.id,
               tenant_id: tenantId,
               performed_by_user_id: userId,
               ip_address: context.ip,
               user_agent: context.userAgent,
               old_values: {
-                teacher_id: replaced.teacher_id,
-                section_id: replaced.section_id,
-                subject_id: replaced.subject_id,
+                teacher_id: row.teacher_id,
+                section_id: row.section_id,
+                subject_id: row.subject_id,
+                assignment_type: row.assignment_type,
               },
               new_values: null,
             },
             manager,
           );
+        };
+
+        if (type === TeacherAssignmentType.CLASS_TEACHER) {
+          // D3 — one class-teacher per section; replace only that role.
+          const replaced = await repo.findOne({
+            where: {
+              section_id: sectionId,
+              assignment_type: TeacherAssignmentType.CLASS_TEACHER,
+              tenant_id: tenantId,
+            },
+          });
+          if (replaced) await removeRow(replaced);
+          // Promotion: the same teacher's assistant row goes.
+          const ownAssistant = await repo.findOne({
+            where: {
+              section_id: sectionId,
+              teacher_id: dto.teacher_id,
+              assignment_type: TeacherAssignmentType.ASSISTANT_CLASS_TEACHER,
+              tenant_id: tenantId,
+            },
+          });
+          if (ownAssistant) await removeRow(ownAssistant);
+        } else if (type === TeacherAssignmentType.ASSISTANT_CLASS_TEACHER) {
+          const homeroom = await repo.findOne({
+            where: {
+              section_id: sectionId,
+              teacher_id: dto.teacher_id,
+              assignment_type: In([
+                TeacherAssignmentType.CLASS_TEACHER,
+                TeacherAssignmentType.ASSISTANT_CLASS_TEACHER,
+              ]),
+              tenant_id: tenantId,
+            },
+          });
+          if (homeroom) {
+            throw conflict(
+              `Teacher "${dto.teacher_id}" already holds a class-teacher role in section "${sectionId}"`,
+              'TEACHER_ALREADY_HOMEROOM',
+            );
+          }
+        } else {
+          // D8 — explicit conflict check ahead of insert.
+          const duplicate = await repo.findOne({
+            where: {
+              teacher_id: dto.teacher_id,
+              section_id: sectionId,
+              subject_id: subjectId!,
+              tenant_id: tenantId,
+            },
+          });
+          if (duplicate) {
+            throw conflict(
+              `Teacher "${dto.teacher_id}" is already the subject-teacher for subject "${subjectId}" in section "${sectionId}"`,
+              'TEACHER_ALREADY_SUBJECT_TEACHER',
+            );
+          }
         }
-      } else {
-        // D8 — explicit conflict check ahead of insert, not a DB
-        // unique-violation catch.
-        const duplicate = await repo.findOne({
-          where: {
+
+        const saved = await repo.save(
+          repo.create({
             teacher_id: dto.teacher_id,
             section_id: sectionId,
             subject_id: subjectId,
+            assignment_type: type,
             tenant_id: tenantId,
-          },
-        });
-        if (duplicate) {
-          throw new ConflictException(
-            `Teacher "${dto.teacher_id}" is already the subject-teacher for subject "${subjectId}" in section "${sectionId}"`,
-          );
-        }
-      }
+          }),
+        );
 
-      const entity = repo.create({
-        teacher_id: dto.teacher_id,
-        section_id: sectionId,
-        subject_id: subjectId,
-        tenant_id: tenantId,
+        await this.auditService.record(
+          {
+            action: AuditAction.CREATE,
+            entity_type: 'TeacherClassSection',
+            entity_id: saved.id,
+            tenant_id: tenantId,
+            performed_by_user_id: userId,
+            ip_address: context.ip,
+            user_agent: context.userAgent,
+            old_values: null,
+            new_values: {
+              teacher_id: saved.teacher_id,
+              section_id: saved.section_id,
+              subject_id: saved.subject_id,
+              assignment_type: saved.assignment_type,
+            },
+          },
+          manager,
+        );
+
+        return saved;
       });
-      const saved = await repo.save(entity);
-
-      await this.auditService.record(
-        {
-          action: AuditAction.CREATE,
-          entity_type: 'TeacherClassSection',
-          entity_id: saved.id,
-          tenant_id: tenantId,
-          performed_by_user_id: userId,
-          ip_address: context.ip,
-          user_agent: context.userAgent,
-          old_values: null,
-          new_values: {
-            teacher_id: saved.teacher_id,
-            section_id: saved.section_id,
-            subject_id: saved.subject_id,
-          },
-        },
-        manager,
-      );
-
-      return saved;
-    });
+    } catch (error) {
+      // A concurrent request won the race past the pre-checks.
+      if (
+        isUniqueViolationOn(error, 'UQ_tcs_section_class_teacher') ||
+        isUniqueViolationOn(error, 'UQ_tcs_teacher_section_homeroom') ||
+        isUniqueViolationOn(error, 'IDX_tcs_teacher_section_subject')
+      ) {
+        throw conflict(
+          `This teacher assignment conflicts with an existing one in section "${sectionId}"`,
+          'TEACHER_ASSIGNMENT_CONFLICT',
+        );
+      }
+      throw error;
+    }
   }
 
   /** [29.0] Removes one class-teacher or subject-teacher assignment. */
@@ -793,6 +794,7 @@ export class SectionService {
             teacher_id: assignment.teacher_id,
             section_id: assignment.section_id,
             subject_id: assignment.subject_id,
+            assignment_type: assignment.assignment_type,
           },
           new_values: null,
         },
@@ -823,7 +825,8 @@ export class SectionService {
       .leftJoinAndSelect('tcs.subject', 'subject')
       .where('tcs.section_id = :sectionId', { sectionId })
       .andWhere('tcs.tenant_id = :tenantId', { tenantId })
-      .orderBy('subject.name_en', 'ASC', 'NULLS FIRST')
+      .orderBy(ASSIGNMENT_TYPE_ORDER_SQL, 'ASC')
+      .addOrderBy('user.full_name', 'ASC')
       .getMany();
 
     return rows.map((row) => ({
@@ -835,6 +838,7 @@ export class SectionService {
       section_name: row.section.section_name,
       subject_id: row.subject_id,
       subject_name: row.subject?.name_en ?? null,
+      assignment_type: row.assignment_type,
     }));
   }
 }

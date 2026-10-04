@@ -5,13 +5,12 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In, QueryFailedError } from 'typeorm';
+import { Repository, IsNull, QueryFailedError } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
-import { ClassSection } from '../academics/entities/class-section.entity';
 import { escapeLikePattern } from '../../common/utils/escape-like.util';
 import { normalizeSearchTerm } from '../../common/utils/normalize-search-term.util';
 import { BN_COLLATION } from '../../common/constants/collation';
@@ -27,6 +26,7 @@ import {
   UpdateTeacherDto,
   QueryTeacherDto,
 } from './dto/users.dto';
+import { ASSIGNMENT_TYPE_ORDER_SQL } from '../classes/classes.service';
 import type { SectionTeacherAssignment } from '../classes/classes.service';
 
 /** [#1026 gap fix] `getTeacherAssignments`'s row shape — `SectionTeacherAssignment`
@@ -473,8 +473,6 @@ export class TeacherService {
     private readonly teacherRepo: Repository<Teacher>,
     @InjectRepository(TeacherClassSection)
     private readonly tcsRepo: Repository<TeacherClassSection>,
-    @InjectRepository(ClassSection)
-    private readonly sectionRepo: Repository<ClassSection>,
     private readonly staffProfilesService: StaffProfilesService,
   ) {}
 
@@ -541,30 +539,6 @@ export class TeacherService {
       });
       const teacherSaved = await manager.save(teacher);
 
-      // Assign sections if provided
-      if (dto.assigned_section_ids?.length) {
-        // Validate all sections belong to tenant
-        const sectionCount = await manager.count(ClassSection, {
-          where: {
-            id: In(dto.assigned_section_ids),
-            tenant_id: tenantId,
-            deleted_at: IsNull(),
-          },
-        });
-        if (sectionCount !== dto.assigned_section_ids.length) {
-          throw new NotFoundException('One or more assigned sections not found');
-        }
-
-        const tcsEntries = dto.assigned_section_ids.map((sectionId) =>
-          manager.create(TeacherClassSection, {
-            teacher_id: teacherSaved.id,
-            section_id: sectionId,
-            tenant_id: tenantId,
-          }),
-        );
-        await manager.save(tcsEntries);
-      }
-
       return teacherSaved;
     });
 
@@ -626,34 +600,6 @@ export class TeacherService {
 
     await this.teacherRepo.update({ id, tenant_id: tenantId }, updateData);
 
-    // Replace assigned sections if provided
-    if (dto.assigned_section_ids !== undefined) {
-      await this.tcsRepo.delete({ teacher_id: id });
-
-      if (dto.assigned_section_ids.length > 0) {
-        // Validate all sections belong to tenant
-        const sectionCount = await this.sectionRepo.count({
-          where: {
-            id: In(dto.assigned_section_ids),
-            tenant_id: tenantId,
-            deleted_at: IsNull(),
-          },
-        });
-        if (sectionCount !== dto.assigned_section_ids.length) {
-          throw new NotFoundException('One or more assigned sections not found');
-        }
-
-        const tcsEntries = dto.assigned_section_ids.map((sectionId) =>
-          this.tcsRepo.create({
-            teacher_id: id,
-            section_id: sectionId,
-            tenant_id: tenantId,
-          }),
-        );
-        await this.tcsRepo.save(tcsEntries);
-      }
-    }
-
     return this.teacherRepo.findOne({
       where: { id, tenant_id: tenantId, deleted_at: IsNull() },
       relations: ['user'],
@@ -685,7 +631,8 @@ export class TeacherService {
       .leftJoinAndSelect('tcs.subject', 'subject')
       .where('tcs.teacher_id = :teacherId', { teacherId })
       .andWhere('tcs.tenant_id = :tenantId', { tenantId })
-      .orderBy('subject.name_en', 'ASC', 'NULLS FIRST')
+      .orderBy(ASSIGNMENT_TYPE_ORDER_SQL, 'ASC')
+      .addOrderBy('user.full_name', 'ASC')
       .getMany();
 
     return rows.map((row) => ({
@@ -699,6 +646,7 @@ export class TeacherService {
       class_name: row.section.class.name,
       subject_id: row.subject_id,
       subject_name: row.subject?.name_en ?? null,
+      assignment_type: row.assignment_type,
     }));
   }
 }

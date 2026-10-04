@@ -95,10 +95,9 @@ export function classHomeworkRollupQueryOptions(classId: string) {
   return queryOptions({
     queryKey: [...homeworkKeys.all, 'analytics', 'class', classId] as const,
     queryFn: async ({ signal }) => {
-      const res = await apiClient.get<HomeworkClassRollup>(
-        `/homework/analytics/class/${classId}`,
-        { signal },
-      );
+      const res = await apiClient.get<HomeworkClassRollup>(`/homework/analytics/class/${classId}`, {
+        signal,
+      });
       return res.data;
     },
     retry: shouldRetryQuery,
@@ -107,6 +106,25 @@ export function classHomeworkRollupQueryOptions(classId: string) {
 
 export function useClassHomeworkRollup(classId: string) {
   return useQuery(classHomeworkRollupQueryOptions(classId));
+}
+
+/** [47.4.2] `GET /homework/analytics/section/:sectionId` — counts for the My class card (D25). */
+export function sectionHomeworkRollupQueryOptions(sectionId: string) {
+  return queryOptions({
+    queryKey: [...homeworkKeys.all, 'analytics', 'section', sectionId] as const,
+    queryFn: async ({ signal }) => {
+      const res = await apiClient.get<HomeworkCompletionRollup>(
+        `/homework/analytics/section/${sectionId}`,
+        { signal },
+      );
+      return res.data;
+    },
+    retry: shouldRetryQuery,
+  });
+}
+
+export function useSectionHomeworkRollup(sectionId: string) {
+  return useQuery(sectionHomeworkRollupQueryOptions(sectionId));
 }
 
 export function homeworkListQueryOptions(filters: HomeworkListFilters = {}) {

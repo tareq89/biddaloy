@@ -300,6 +300,22 @@ export const ACTIONS: readonly PaletteAction[] = [
    * already documents for the five actions in `UNREGISTERED_ACTIONS`
    * (flagged here rather than silently pretending it's context-aware).
    */
+  // [47.4.2] D13. `?then=attendance` makes `/my-class` skip straight to the
+  // register when the teacher has exactly one section.
+  {
+    id: 'my-class.open',
+    label: { en: 'Open my class', bn: 'আমার শ্রেণি খুলুন' },
+    permission: Permission.MY_CLASS_VIEW,
+    kind: 'navigate',
+    run: (ctx) => ctx.navigate({ to: '/my-class' }),
+  },
+  {
+    id: 'my-class.take-attendance',
+    label: { en: "Take my class's attendance", bn: 'আমার শ্রেণির উপস্থিতি নিন' },
+    permission: Permission.MY_CLASS_VIEW,
+    kind: 'navigate',
+    run: (ctx) => ctx.navigate({ to: '/my-class?then=attendance' }),
+  },
   {
     id: 'routines.openMyRoutine',
     label: { en: 'Open my routine', bn: 'আমার রুটিন খুলুন' },

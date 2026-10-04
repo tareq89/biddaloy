@@ -54,16 +54,17 @@ test('admin builds a section routine, resolves a teacher clash, fill-assists, an
   const mathSubject = subjects.data.find((s) => s.code === 'MATH');
   if (!mathSubject) throw new Error('seeded "MATH" subject not found — run the seed script first');
 
-  const teachers = await get<{ data: { id: string; employee_id: string }[] }>(
-    request,
-    admin,
-    '/teachers?limit=100',
-  );
+  const teachers = await get<{
+    data: { id: string; employee_id: string; user: { full_name: string } }[];
+  }>(request, admin, '/teachers?limit=100');
   const teacherA = teachers.data.find((tch) => tch.employee_id === 'SEED-TEACHER-0001');
   const teacherB = teachers.data.find((tch) => tch.employee_id === 'SEED-TEACHER-0002');
   if (!teacherA || !teacherB) {
     throw new Error('seeded teachers SEED-TEACHER-000{1,2} not found — run the seed script first');
   }
+  // Typed into the cell picker's teacher filter. Read from the API rather
+  // than hard-coded: the seed renames this teacher when its login changes.
+  const teacherBName = teacherB.user.full_name;
 
   const classes = await get<{ data: { id: string; name: string; academic_year_id: string }[] }>(
     request,
@@ -118,7 +119,7 @@ test('admin builds a section routine, resolves a teacher clash, fill-assists, an
     await page.keyboard.press('Tab');
     await page.keyboard.press('Enter'); // pick the filtered subject
     await tabUntilFocused(page, t('routines.cellPicker.teacherLabel'));
-    await page.keyboard.type('Routine Teacher');
+    await page.keyboard.type(teacherBName);
     await page.keyboard.press('Tab');
     await checkFocusedTeacher(page); // check the first matching teacher
     await tabUntilFocused(page, t('routines.cellPicker.save'));
@@ -160,7 +161,7 @@ test('admin builds a section routine, resolves a teacher clash, fill-assists, an
     await page.keyboard.press('Tab');
     await page.keyboard.press('Enter');
     await tabUntilFocused(page, t('routines.cellPicker.teacherLabel'));
-    await page.keyboard.type('Routine Teacher');
+    await page.keyboard.type(teacherBName);
     await page.keyboard.press('Tab');
     await checkFocusedTeacher(page);
     await tabUntilFocused(page, t('routines.cellPicker.save'));

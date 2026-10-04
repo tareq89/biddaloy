@@ -93,6 +93,7 @@ export interface TeacherAssignment {
   class_name: string;
   subject_id: string | null;
   subject_name: string | null;
+  assignment_type: 'CLASS_TEACHER' | 'ASSISTANT_CLASS_TEACHER' | 'SUBJECT_TEACHER';
 }
 
 export function teacherAssignmentsQueryOptions(teacherId: string | undefined) {
@@ -116,7 +117,7 @@ export function useTeacherAssignments(teacherId: string | undefined) {
 /** "Promote an existing tenant member to a teacher profile" — the server's
  * own framing of `POST /teachers`. 400 = user isn't a member of this
  * tenant; 409 = `employee_id` already exists (globally unique, across
- * every school); 404 = unknown `assigned_section_ids`. */
+ * every school). */
 export function useCreateTeacher() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -130,8 +131,7 @@ export function useCreateTeacher() {
   });
 }
 
-/** `assigned_section_ids` **replaces** the teacher's whole set — a caller
- * editing one section must resend every id it wants kept. */
+/** Teaching assignments are not editable here — use the section-teacher assign endpoint. */
 export function useUpdateTeacher(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
