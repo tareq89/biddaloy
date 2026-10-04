@@ -192,5 +192,13 @@
       "removeAria": "Remove {{name}} ({{role}})",
       "removeError": "Failed to remove teacher"
     }
+  },
+  "assignmentType": {
+    "CLASS_TEACHER": "Class teacher",
+    "ASSISTANT_CLASS_TEACHER": "Assistant class teacher",
+    "SUBJECT_TEACHER": "Subject teacher"
+  },
+  "assignDialog": {
+    "replaceWarning": "{{name}} will be replaced as class teacher"
   }
 }

@@ -1,4 +1,3 @@
-import type { TeacherDesignation } from '@biddaloy/shared';
 import {
   keepPreviousData,
   queryOptions,
@@ -29,18 +28,6 @@ export type UpdateSectionInput = components['schemas']['UpdateSectionDto'];
  * list's inline expansion panel reads this to show each section's
  * enrolled count without an extra request per section. */
 export type ClassSectionWithCount = ClassSection & { enrolled_count: number };
-
-/** [8.11.2] — `SectionService.findTeachers`'s response shape, mirrored
- * from `classes.service.ts`'s own `ClassTeacher`. Read-only: teacher CRUD
- * is #177, this only carries what the class detail page's Teachers tab
- * needs. */
-export interface ClassTeacher {
-  id: string;
-  employee_id: string;
-  full_name: string;
-  designations: TeacherDesignation[];
-  section_names: string[];
-}
 
 /** [8.11.2] — `ClassService.findAll`'s per-class `section_count`/
  * `student_count`, mirroring `classes.service.ts`'s own hand-typed
@@ -229,32 +216,14 @@ export interface SectionTeacherAssignment {
   section_name: string;
   subject_id: string | null;
   subject_name: string | null;
+  assignment_type: 'CLASS_TEACHER' | 'ASSISTANT_CLASS_TEACHER' | 'SUBJECT_TEACHER';
 }
 
 export type AssignTeacherInput = components['schemas']['AssignTeacherDto'];
 
-/** [8.11.2] — class detail page's Teachers tab. Now also backs the
- * assign-teacher dialog's mutations below (invalidated on
- * assign/unassign). */
-export function classTeachersQueryOptions(classId: string | undefined) {
-  return queryOptions({
-    queryKey: [...classKeys.all, 'teachers', classId] as const,
-    queryFn: async ({ signal }) => {
-      const res = await apiClient.get<ClassTeacher[]>(`/classes/${classId}/teachers`, { signal });
-      return res.data;
-    },
-    enabled: classId !== undefined,
-    retry: shouldRetryQuery,
-  });
-}
-
-export function useClassTeachers(classId: string | undefined) {
-  return useQuery(classTeachersQueryOptions(classId));
-}
-
 /** [29.0] Own key branch, same reasoning as `classSectionsKey` — a
  * section's teacher assignments are invalidated independently of (but
- * alongside) `classTeachersQueryOptions(classId)`'s class-wide list. */
+ * alongside) other teacher caches. */
 function sectionTeachersKey(classId: string, sectionId: string) {
   return [...classKeys.all, 'section-teachers', classId, sectionId] as const;
 }
@@ -279,8 +248,7 @@ export function useSectionTeachers(classId: string, sectionId: string) {
 
 /** [29.0] Assign a teacher to a section (class-teacher or subject-teacher,
  * per `AssignTeacherDto.subject_id`'s presence). Invalidates the
- * section-scoped list, the class-wide `classTeachersQueryOptions` list the
- * class detail page's Teachers tab reads, and the teacher-assignments
+ * section-scoped list, and the teacher-assignments
  * prefix (`teacherAssignmentsQueryOptions`, `teachers.ts`) — a broad-prefix
  * invalidation rather than one exact teacher_id, since D3's auto-replace
  * can also silently drop a *different* teacher's class-teacher row, whose
@@ -297,7 +265,6 @@ export function useAssignTeacher(classId: string, sectionId: string) {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: sectionTeachersKey(classId, sectionId) });
-      void queryClient.invalidateQueries({ queryKey: classTeachersQueryOptions(classId).queryKey });
       void queryClient.invalidateQueries({ queryKey: [...teacherKeys.all, 'assignments'] });
     },
   });
@@ -312,7 +279,6 @@ export function useUnassignTeacher(classId: string, sectionId: string) {
     retry: shouldRetryQuery,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: sectionTeachersKey(classId, sectionId) });
-      void queryClient.invalidateQueries({ queryKey: classTeachersQueryOptions(classId).queryKey });
       void queryClient.invalidateQueries({ queryKey: [...teacherKeys.all, 'assignments'] });
     },
   });
@@ -337,6 +303,7 @@ export function useAssignTeacherAssignment() {
       sectionId: string;
       teacher_id: string;
       subject_id?: string;
+      assignment_type?: AssignTeacherInput['assignment_type'];
     }) => {
       const { classId, sectionId, ...body } = input;
       const res = await apiClient.post<SectionTeacherAssignment>(
@@ -347,7 +314,6 @@ export function useAssignTeacherAssignment() {
     },
     onSuccess: (_data, { classId, sectionId }) => {
       void queryClient.invalidateQueries({ queryKey: sectionTeachersKey(classId, sectionId) });
-      void queryClient.invalidateQueries({ queryKey: classTeachersQueryOptions(classId).queryKey });
       void queryClient.invalidateQueries({ queryKey: [...teacherKeys.all, 'assignments'] });
     },
   });
@@ -364,7 +330,6 @@ export function useUnassignTeacherAssignment() {
     retry: shouldRetryQuery,
     onSuccess: (_data, { classId, sectionId }) => {
       void queryClient.invalidateQueries({ queryKey: sectionTeachersKey(classId, sectionId) });
-      void queryClient.invalidateQueries({ queryKey: classTeachersQueryOptions(classId).queryKey });
       // No teacher_id on unassign's input — invalidate broadly by matching
       // key prefix instead of one exact teacher.
       void queryClient.invalidateQueries({ queryKey: [...teacherKeys.all, 'assignments'] });

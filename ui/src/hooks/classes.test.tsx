@@ -1,4 +1,3 @@
-import { TeacherDesignation } from '@biddaloy/shared';
 import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
@@ -16,7 +15,6 @@ import {
   useClass,
   useClasses,
   useClassSections,
-  useClassTeachers,
   useCreateClass,
   useCreateSection,
   useDeleteClass,
@@ -151,48 +149,6 @@ describe('useClass fetches a single class by id', () => {
   });
 });
 
-describe('useClassTeachers resolves the class detail page Teachers tab', () => {
-  it('resolves with the teachers, each carrying every section name they teach', async () => {
-    server.use(
-      http.get('/api/v1/classes/:classId/teachers', () =>
-        HttpResponse.json([
-          {
-            id: 'teacher-1',
-            employee_id: 'EMP-00001',
-            full_name: 'Rahim Uddin',
-            designations: [TeacherDesignation.CLASS_TEACHER],
-            section_names: ['A', 'B'],
-          },
-        ]),
-      ),
-    );
-
-    const { result } = renderHookWithProviders(() => useClassTeachers('class-1'), {
-      tenantId: 'tenant-1',
-    });
-
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data?.[0]?.section_names).toEqual(['A', 'B']);
-  });
-
-  it('stays disabled and issues no request when classId is undefined', () => {
-    let requested = false;
-    server.use(
-      http.get('/api/v1/classes/:classId/teachers', () => {
-        requested = true;
-        return HttpResponse.json([]);
-      }),
-    );
-
-    const { result } = renderHookWithProviders(() => useClassTeachers(undefined), {
-      tenantId: 'tenant-1',
-    });
-
-    expect(result.current.fetchStatus).toBe('idle');
-    expect(requested).toBe(false);
-  });
-});
-
 describe('useSectionTeachers resolves a section teacher list and caches it', () => {
   it('resolves with the section teacher assignments the handler returns', async () => {
     server.use(
@@ -240,7 +196,7 @@ describe('useSectionTeachers resolves a section teacher list and caches it', () 
   });
 });
 
-describe('useAssignTeacher invalidates both the section-scoped and class-wide teacher lists', () => {
+describe('useAssignTeacher invalidates the section-scoped teacher list', () => {
   it('posts the assignment and both lists refetch on success', async () => {
     let postedBody: unknown = null;
     server.use(
@@ -259,7 +215,6 @@ describe('useAssignTeacher invalidates both the section-scoped and class-wide te
       http.get('/api/v1/classes/:classId/sections/:sectionId/teachers', () =>
         HttpResponse.json([]),
       ),
-      http.get('/api/v1/classes/:classId/teachers', () => HttpResponse.json([])),
     );
 
     const queryClient = createTestQueryClient();
@@ -276,7 +231,6 @@ describe('useAssignTeacher invalidates both the section-scoped and class-wide te
     expect(postedBody).toEqual({ teacher_id: 'teacher-1' });
     const invalidatedKeys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
     expect(invalidatedKeys).toContainEqual(['classes', 'section-teachers', 'class-1', 'section-1']);
-    expect(invalidatedKeys).toContainEqual(['classes', 'teachers', 'class-1']);
     expect(invalidatedKeys).toContainEqual(['teachers', 'assignments']);
   });
 
@@ -297,7 +251,7 @@ describe('useAssignTeacher invalidates both the section-scoped and class-wide te
   });
 });
 
-describe('useUnassignTeacher invalidates both the section-scoped and class-wide teacher lists', () => {
+describe('useUnassignTeacher invalidates the section-scoped teacher list', () => {
   it('deletes the assignment and invalidates both keys on success', async () => {
     let deletedAssignmentId: string | null = null;
     server.use(
@@ -324,13 +278,12 @@ describe('useUnassignTeacher invalidates both the section-scoped and class-wide 
     expect(deletedAssignmentId).toBe('assignment-1');
     const invalidatedKeys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
     expect(invalidatedKeys).toContainEqual(['classes', 'section-teachers', 'class-1', 'section-1']);
-    expect(invalidatedKeys).toContainEqual(['classes', 'teachers', 'class-1']);
     expect(invalidatedKeys).toContainEqual(['teachers', 'assignments']);
   });
 });
 
 describe('useAssignTeacherAssignment (unbound) — [#1026 gap fix]', () => {
-  it('posts to the classId/sectionId given per-call and invalidates section, class and teacher-assignments keys', async () => {
+  it('posts to the classId/sectionId given per-call and invalidates section and teacher-assignments keys', async () => {
     let postedBody: unknown = null;
     server.use(
       http.post('/api/v1/classes/:classId/sections/:sectionId/teachers', async ({ request }) => {
@@ -354,13 +307,16 @@ describe('useAssignTeacherAssignment (unbound) — [#1026 gap fix]', () => {
       classId: 'class-1',
       sectionId: 'section-1',
       teacher_id: 'teacher-1',
+      assignment_type: 'ASSISTANT_CLASS_TEACHER',
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(postedBody).toEqual({ teacher_id: 'teacher-1' });
+    expect(postedBody).toEqual({
+      teacher_id: 'teacher-1',
+      assignment_type: 'ASSISTANT_CLASS_TEACHER',
+    });
     const invalidatedKeys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
     expect(invalidatedKeys).toContainEqual(['classes', 'section-teachers', 'class-1', 'section-1']);
-    expect(invalidatedKeys).toContainEqual(['classes', 'teachers', 'class-1']);
     // Broad prefix, not one exact teacher_id — D3 auto-replace can silently
     // drop a *different* teacher's class-teacher row too.
     expect(invalidatedKeys).toContainEqual(['teachers', 'assignments']);
@@ -368,7 +324,7 @@ describe('useAssignTeacherAssignment (unbound) — [#1026 gap fix]', () => {
 });
 
 describe('useUnassignTeacherAssignment (unbound) — [#1026 gap fix]', () => {
-  it('deletes at the classId/sectionId/assignmentId given per-call and invalidates the same three keys', async () => {
+  it('deletes at the classId/sectionId/assignmentId given per-call and invalidates the same keys', async () => {
     let deletedAssignmentId: string | null = null;
     server.use(
       http.delete(
@@ -398,7 +354,6 @@ describe('useUnassignTeacherAssignment (unbound) — [#1026 gap fix]', () => {
     expect(deletedAssignmentId).toBe('assignment-1');
     const invalidatedKeys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
     expect(invalidatedKeys).toContainEqual(['classes', 'section-teachers', 'class-1', 'section-1']);
-    expect(invalidatedKeys).toContainEqual(['classes', 'teachers', 'class-1']);
     expect(invalidatedKeys).toContainEqual(['teachers', 'assignments']);
   });
 });
