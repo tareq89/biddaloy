@@ -46,7 +46,7 @@ export function MonthHeader({
             aria-expanded={labelExpanded}
             aria-label={`${label}, ${t('date.chooseMonthYear')}`}
             onClick={onLabelClick}
-            className="-ms-2 inline-flex h-11 items-center gap-1 rounded-md px-2 text-h3 hover:bg-muted md:h-8"
+            className="-ms-2 inline-flex h-[var(--control-h,2rem)] items-center gap-1 rounded-md px-2 text-h3 hover:bg-muted"
           >
             <span aria-live="polite">{label}</span>
             <ChevronDownIcon className="size-4 text-text-secondary" aria-hidden="true" />

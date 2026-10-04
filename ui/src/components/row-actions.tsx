@@ -75,14 +75,14 @@ export function RowActions({ actions }: RowActionsProps) {
     <div className="flex justify-end">
       {actions
         .filter((action) => action.allowed !== false)
-        .map((action) => {
+        .map((action, index) => {
           const DefaultIcon = DEFAULT_ICON[action.intent];
           const icon = action.icon ?? <DefaultIcon aria-hidden />;
           const anchor = action['data-focus-anchor'];
           if (action.to) {
             return (
               <Button
-                key={action.intent}
+                key={`${action.intent}-${index}`}
                 asChild
                 variant="ghost"
                 size="icon"
@@ -97,7 +97,7 @@ export function RowActions({ actions }: RowActionsProps) {
           }
           return (
             <Button
-              key={action.intent}
+              key={`${action.intent}-${index}`}
               type="button"
               variant="ghost"
               size="icon"
