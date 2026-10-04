@@ -43,12 +43,16 @@ export const WithUnread: Story = {
   decorators: [seed(2)],
 };
 
-/** Two-digit count: the badge is a pill that grows towards the end edge.
- * [31.2.10] No `FourDigits` / `9999+` stories: the store caps history at 50
- * (1000 after 31.2.11), so the real module cannot reach 4 digits — those
- * states are pinned in `notification-bell.test.tsx` with a mocked count. */
+/** Two-digit count: the badge is a pill that grows towards the end edge. */
 export const BadgeOverflow: Story = {
   decorators: [seed(12)],
+};
+
+/** Four digits: the store holds up to 1000 (after 31.2.11), so a full inbox
+ * shows `1000` with no grouping. `9999+` needs a count the real store cannot
+ * reach; the unit test pins it with a mocked count. */
+export const FourDigits: Story = {
+  decorators: [seed(1000)],
 };
 
 export const BadgePillAtPhoneSize: Story = {
