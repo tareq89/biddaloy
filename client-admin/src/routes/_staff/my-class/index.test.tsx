@@ -42,7 +42,7 @@ describe('/my-class', () => {
     mockSections([]);
     render('/my-class');
     expect(
-      await screen.findByText('You are not a class teacher of any section this year.'),
+      await screen.findByText('You are not a class teacher of any section yet — ask an admin.'),
     ).toBeTruthy();
   });
 
