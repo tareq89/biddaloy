@@ -1200,7 +1200,7 @@ describe('[5.1] Family-facing read API', () => {
       { name: 'GET /students (roster)', path: `${API}/students`, status: 401 },
       { name: 'GET /payments (ledger)', path: `${API}/payments`, status: 403 },
       { name: 'GET /fees/dues/flagged', path: `${API}/fees/dues/flagged`, status: 401 },
-      { name: 'GET /guardians', path: `${API}/guardians`, status: 403 },
+      { name: 'GET /guardians', path: `${API}/guardians`, status: 401 },
     ];
 
     for (const route of STAFF_ONLY_GETS) {

@@ -44,6 +44,11 @@ import type { RoutineSlot } from '../modules/routines/entities/routine-slot.enti
 import type { RoutineSlotTeacher } from '../modules/routines/entities/routine-slot-teacher.entity';
 import type { RoutineSubstitution } from '../modules/routines/entities/routine-substitution.entity';
 import type { RoutineChangeRequest } from '../modules/routines/entities/routine-change-request.entity';
+import type { StaffProfile } from '../modules/staff-profiles/entities/staff-profile.entity';
+import type { StaffAttendanceSession } from '../modules/staff-attendance/entities/staff-attendance-session.entity';
+import type { StaffAttendanceRecord } from '../modules/staff-attendance/entities/staff-attendance-record.entity';
+import type { LeavePolicy } from '../modules/leave/entities/leave-policy.entity';
+import type { LeaveRecord } from '../modules/leave/entities/leave-record.entity';
 import { hashDeviceKey } from '../modules/attendance/devices/device.service';
 import {
   ATTENDANCE_SEED_ABSENT_DATE,
@@ -68,6 +73,7 @@ import {
   BD_NCTB_BANDS,
   ensureRoleTestUsers,
   ensureSecondSchoolMembership,
+  ensureStaffHrSeed,
   ROLE_TEST_USERS,
   SEED_DEVICE_KEY,
 } from './seed.util';
@@ -1988,5 +1994,73 @@ describe('ensurePrintHistoryDemoSeed', () => {
     const { run, ports } = setup({ students: 3 });
     expect(await run()).toEqual({ jobs: 0, revoked: 0 });
     expect(ports.createJob).not.toHaveBeenCalled();
+  });
+});
+
+describe('ensureStaffHrSeed', () => {
+  function makeStaffHrRepos() {
+    return {
+      staffProfileRepository: mockRepo<StaffProfile>(),
+      leavePolicyRepository: mockRepo<LeavePolicy>(),
+      staffAttendanceSessionRepository: mockRepo<StaffAttendanceSession>(),
+      staffAttendanceRecordRepository: mockRepo<StaffAttendanceRecord>(),
+      leaveRecordRepository: mockRepo<LeaveRecord>(),
+    };
+  }
+
+  it('creates a staff profile in the seeded school when the user has none', async () => {
+    const repos = makeStaffHrRepos();
+    vi.mocked(repos.staffProfileRepository.findOne).mockResolvedValue(null);
+
+    const result = await ensureStaffHrSeed(repos, 'school-a', [
+      { userId: 'user-1', employeeId: 'EMP-SEED-001' },
+    ]);
+
+    expect(result.staffProfiles).toBe(1);
+    expect(vi.mocked(repos.staffProfileRepository.create).mock.calls[0]?.[0]).toMatchObject({
+      tenant_id: 'school-a',
+      user_id: 'user-1',
+      employee_id: 'EMP-SEED-001',
+    });
+  });
+
+  it('looks a profile up by user alone, matching the global UQ_staff_profiles_user', async () => {
+    const repos = makeStaffHrRepos();
+    vi.mocked(repos.staffProfileRepository.findOne).mockResolvedValue(null);
+
+    await ensureStaffHrSeed(repos, 'school-a', [{ userId: 'user-1', employeeId: 'EMP-SEED-001' }]);
+
+    // A `{ tenant_id, user_id }` lookup would miss a profile in another
+    // tenant, and the insert would then violate the user-only unique key.
+    expect(repos.staffProfileRepository.findOne).toHaveBeenCalledWith({
+      where: { user_id: 'user-1' },
+    });
+  });
+
+  it('skips a user whose only profile is in another tenant instead of crashing', async () => {
+    // Real case: admin@biddaloy.test is ADMIN in both default-school and
+    // rose-valley-school, and its single profile lives in rose-valley.
+    const repos = makeStaffHrRepos();
+    vi.mocked(repos.staffProfileRepository.findOne).mockResolvedValue({
+      id: 'profile-in-b',
+      tenant_id: 'school-b',
+      user_id: 'user-1',
+    } as StaffProfile);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await ensureStaffHrSeed(repos, 'school-a', [
+      { userId: 'user-1', employeeId: 'EMP-SEED-001' },
+    ]);
+
+    // No second profile is inserted for this user...
+    expect(repos.staffProfileRepository.save).not.toHaveBeenCalled();
+    expect(result.staffProfiles).toBe(0);
+    // ...and school-a's sample attendance/leave rows are never attached to
+    // school-b's profile (tenant isolation): with no usable profile, none
+    // are written at all.
+    expect(repos.staffAttendanceRecordRepository.save).not.toHaveBeenCalled();
+    expect(repos.leaveRecordRepository.save).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
   });
 });
