@@ -234,11 +234,6 @@ export class CreateTeacherDto {
   @IsOptional()
   @IsDateString()
   joining_date?: string;
-
-  @IsOptional()
-  @IsArray()
-  @IsUUID('4', { each: true })
-  assigned_section_ids?: string[];
 }
 
 export class UpdateTeacherDto {
@@ -263,11 +258,6 @@ export class UpdateTeacherDto {
   @IsOptional()
   @IsDateString()
   joining_date?: string | null;
-
-  @IsOptional()
-  @IsArray()
-  @IsUUID('4', { each: true })
-  assigned_section_ids?: string[];
 }
 
 export class QueryTeacherDto {
