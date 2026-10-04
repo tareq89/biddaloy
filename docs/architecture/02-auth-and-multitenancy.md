@@ -166,10 +166,16 @@ flowchart LR
 which capability from `ROLE_PERMISSIONS` (`shared/src/enums/permissions.ts`)
 the route exercises. Both run today.
 
-Every tenant route declares `@RequirePermissions`, so the permission is the
-real gate. `@Roles` now exists only on routes listed in `ROLE_NARROWINGS` or
+On a tenant route with `@RequirePermissions`, the permission is the real
+gate. `@Roles` now exists only on routes listed in `ROLE_NARROWINGS` or
 `IDENTITY_SCOPED` (`permission-matrix.e2e-spec.ts`). Everywhere else it was
 redundant and was deleted (Epic 24.0).
+
+`IDENTITY_SCOPED` routes are the exception: some carry no
+`@RequirePermissions` at all, and `PermissionsGuard` lets a route with no
+permission metadata through. There the `@Roles` list plus the service's own
+identity check are the gate. Example: `POST /leave/requests` and
+`GET /leave/balance` act only on the caller's own staff profile.
 
 Which status a refused request gets depends on which guard refuses it:
 
