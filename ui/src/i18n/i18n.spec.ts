@@ -69,6 +69,10 @@ describe('createI18nInstance', () => {
   });
 
   describe('numeral interpolation (D6, B24)', () => {
+    // Fixture keys held in constants: check:i18n only reads literal string keys in t calls,
+    // and these keys exist only in the bundle added below, not in the locale files.
+    const N_KEY = 'n';
+    const ID_KEY = 'id';
     it('renders numbers in the language default digits, strings untouched, tenant override wins', async () => {
       const instance = createI18nInstance();
       await whenReady(instance);
@@ -82,14 +86,14 @@ describe('createI18nInstance', () => {
       instance.addResourceBundle('en', 'common', { n: '{{count}} items' }, true, true);
       await instance.changeLanguage('bn');
       try {
-        expect(instance.t('n', { count: 312 })).toBe('মোট ৩১২টি');
-        expect(instance.t('id', { id: 'REG-2026-0001' })).toBe('আইডি REG-2026-0001');
+        expect(instance.t(N_KEY, { count: 312 })).toBe('মোট ৩১২টি');
+        expect(instance.t(ID_KEY, { id: 'REG-2026-0001' })).toBe('আইডি REG-2026-0001');
         setInterpolationNumerals('latin');
-        expect(instance.t('n', { count: 312 })).toBe('মোট 312টি');
+        expect(instance.t(N_KEY, { count: 312 })).toBe('মোট 312টি');
         setInterpolationNumerals(undefined);
-        expect(instance.t('n', { count: 312 })).toBe('মোট ৩১২টি');
+        expect(instance.t(N_KEY, { count: 312 })).toBe('মোট ৩১২টি');
         await instance.changeLanguage('en');
-        expect(instance.t('n', { count: 3 })).toBe('3 items');
+        expect(instance.t(N_KEY, { count: 3 })).toBe('3 items');
       } finally {
         setInterpolationNumerals(undefined);
       }

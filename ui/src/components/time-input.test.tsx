@@ -46,7 +46,8 @@ describe('TimeInput', () => {
 
   it('shows an off-grid saved value', async () => {
     await setup({ value: '08:10' });
-    expect((screen.getByRole('combobox', { name: 'Start' }) as HTMLInputElement).value).toBe(
+    expect(screen.getByRole('combobox', { name: 'Start' })).toHaveProperty(
+      'value',
       formatTime('08:10', REGION_BD_EN),
     );
   });

@@ -623,7 +623,7 @@ describe('DataTable footer [31.2.4b]', () => {
       <DataTable {...base} data={STUDENTS} page={99} pageSize={2} totalCount={10} />,
     );
     expect(screen.getByText('Page 5 of 5')).toBeTruthy();
-    expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Next' }).hasAttribute('disabled')).toBe(true);
   });
 
   it('hides the pager and count when empty', async () => {
