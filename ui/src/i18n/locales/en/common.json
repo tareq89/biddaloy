@@ -4,7 +4,8 @@
     "cancel": "Cancel",
     "retry": "Retry",
     "close": "Close",
-    "moreActions": "More actions"
+    "moreActions": "More actions",
+    "search": "Search"
   },
   "wizard": {
     "back": "Back",
@@ -182,7 +183,10 @@
     "activeFilters": "Active filters",
     "clearAll": "Clear all",
     "removeFilter": "Remove filter: {{label}}",
-    "unknownFilter": "{{key}}: {{value}}"
+    "unknownFilter": "{{key}}: {{value}}",
+    "showResults_one": "Show {{count}} result",
+    "showResults_other": "Show {{count}} results",
+    "showResultsNone": "Show results"
   },
   "table": {
     "empty": "No results",
@@ -198,7 +202,10 @@
     "selectedCount_other": "{{count}} selected",
     "announceResults_one": "{{count}} of {{total}} result",
     "announceResults_other": "{{count}} of {{total}} results",
-    "pageOf": "Page {{page}} of {{total}}"
+    "pageOf": "Page {{page}} of {{total}}",
+    "actions": "Actions",
+    "total_one": "Total {{count}}",
+    "total_other": "Total {{count}}"
   },
   "weekdays": {
     "1": "Mon",
@@ -221,7 +228,9 @@
     "syncReplayed_one": "{{count}} offline change saved.",
     "syncReplayed_other": "{{count}} offline changes saved.",
     "syncConflict": "An offline change couldn't be saved — the record changed on the server. Check the sync panel.",
-    "syncDead": "An offline change failed repeatedly and won't be retried. Check the sync panel."
+    "syncDead": "An offline change failed repeatedly and won't be retried. Check the sync panel.",
+    "loadingMore": "Loading more…",
+    "endOfList": "That's everything."
   },
   "entities": {
     "class_one": "Class",
@@ -252,5 +261,70 @@
     "programMilestone_other": "Milestones",
     "programEnrollment_one": "Enrolment",
     "programEnrollment_other": "Enrolments"
+  },
+  "form": {
+    "required": "(required)",
+    "selectPlaceholder": "Select"
+  },
+  "date": {
+    "pick": "Pick a date",
+    "pickMonth": "Pick a month",
+    "pickTime": "Pick a time",
+    "today": "Today",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "previousYear": "Previous year",
+    "nextYear": "Next year",
+    "calendar": "Calendar",
+    "chooseMonthYear": "Choose month and year"
+  },
+  "combobox": {
+    "results_one": "{{count}} result",
+    "results_other": "{{count}} results"
+  },
+  "fullPage": {
+    "discardTitle": "Discard your changes?",
+    "discardDescription": "You have changes that are not saved. If you close now, they will be lost.",
+    "discardConfirm": "Discard changes",
+    "keepEditing": "Keep editing"
+  },
+  "dayPanel": {
+    "eventCount_one": "{{count}} event",
+    "eventCount_other": "{{count}} events",
+    "empty": "No events on this day."
+  },
+  "routeError": {
+    "message": "Something went wrong loading this page.",
+    "home": "Go home"
+  },
+  "formShell": {
+    "summary_one": "There is 1 problem with your submission",
+    "summary_other": "There are {{count}} problems with your submission"
+  },
+  "fileUpload": {
+    "chooseFile": "Choose file",
+    "chooseFiles": "Choose files",
+    "done": "Done",
+    "remove": "Remove {{name}}",
+    "selected_one": "{{count}} file selected",
+    "selected_other": "{{count}} files selected"
+  },
+  "sessionList": {
+    "ipAddress": "IP {{ip}}",
+    "signedInAt": "Signed in: {{date}}",
+    "deviceCount_one": "{{count}} device in total",
+    "deviceCount_other": "{{count}} devices in total"
+  },
+  "marksEntry": {
+    "absent": "Absent",
+    "exempt": "Exempt",
+    "emptyTitle": "No students"
+  },
+  "routine": {
+    "periodCount_one": "{{count}} period",
+    "periodCount_other": "{{count}} periods",
+    "until": "until {{time}}",
+    "cellLabel": "{{weekday}}, {{period}}: {{subject}}, {{teachers}}",
+    "cellLabelEmpty": "{{weekday}}, {{period}}: empty"
   }
 }
