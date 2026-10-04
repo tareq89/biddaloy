@@ -193,6 +193,10 @@ export const STAFF_ROUTE_PERMISSIONS: Record<string, Permission> = {
   // its own submit bar when the caller lacks ATTENDANCE_MARK. A route
   // gated on ATTENDANCE_MARK here would also block ATTENDANCE_READ-only
   // roles (a co-ordinator reviewing marks, say) from viewing at all.
+  // [47.4.2] Class teacher's own homeroom page — TEACHER only, server-gated
+  // the same way (`MY_CLASS_VIEW`).
+  '/_staff/my-class/': Permission.MY_CLASS_VIEW,
+  '/_staff/my-class/$sectionId': Permission.MY_CLASS_VIEW,
   '/_staff/attendance/': Permission.ATTENDANCE_READ,
   '/_staff/attendance/$sectionId': Permission.ATTENDANCE_READ,
   // [9.10] Same ATTENDANCE_READ gate — the reports/register/flags surfaces
