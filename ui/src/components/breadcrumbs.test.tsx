@@ -31,19 +31,31 @@ describe('Breadcrumbs', () => {
     expect(current.getAttribute('aria-current')).toBe('page');
   });
 
-  it('marks every separator as decorative', async () => {
+  it('marks every separator as a decorative icon', async () => {
+    const items = [{ label: 'Students', to: '/students' }, { label: 'Class 8A' }];
+    renderWithRouter(buildRouteTree(items), { initialEntries: ['/'] });
+
+    const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    const separators = nav.querySelectorAll('svg');
+    expect(separators.length).toBeGreaterThan(0);
+    for (const separator of separators) {
+      expect(separator.getAttribute('aria-hidden')).toBe('true');
+    }
+  });
+
+  it('[B17] hides the separator of the first crumb visible on a phone', async () => {
     const items = [
+      { label: 'Home', to: '/' },
       { label: 'Students', to: '/students' },
+      { label: 'Sections', to: '/sections' },
       { label: 'Class 8A' },
     ];
     renderWithRouter(buildRouteTree(items), { initialEntries: ['/'] });
 
     const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' });
-    const separators = within(nav).getAllByText('/');
-    expect(separators.length).toBeGreaterThan(0);
-    for (const separator of separators) {
-      expect(separator.getAttribute('aria-hidden')).toBe('true');
-    }
+    const lis = nav.querySelectorAll('li');
+    expect(lis[2]?.querySelector('svg')?.getAttribute('class')).toContain('hidden');
+    expect(lis[3]?.querySelector('svg')?.getAttribute('class')).not.toContain('hidden');
   });
 
   it('renders a single item with no separator', async () => {
@@ -51,7 +63,7 @@ describe('Breadcrumbs', () => {
     renderWithRouter(buildRouteTree(items), { initialEntries: ['/'] });
 
     const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' });
-    expect(within(nav).queryByText('/')).toBeNull();
+    expect(nav.querySelector('svg')).toBeNull();
     expect(within(nav).getByText('Class 8A').getAttribute('aria-current')).toBe('page');
   });
 
