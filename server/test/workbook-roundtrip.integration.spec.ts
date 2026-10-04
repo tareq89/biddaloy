@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { DataSource } from 'typeorm';
 import JSZip from 'jszip';
+import ExcelJS from 'exceljs';
 import {
   FeeType,
   FeeStatus,
@@ -30,6 +31,7 @@ import {
   AttendanceSource,
   LeaveType,
   LeaveStatus,
+  TeacherAssignmentType,
 } from '@biddaloy/shared';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
@@ -121,6 +123,7 @@ import {
   WorkbookJobStatus,
 } from '../src/modules/workbook/jobs/workbook-job.entity';
 import { Teacher } from '../src/modules/academics/entities/teacher.entity';
+import { TeacherClassSection } from '../src/modules/academics/entities/teacher-class-section.entity';
 import { Shift } from '../src/modules/routines/entities/shift.entity';
 import { PeriodSlot } from '../src/modules/routines/entities/period-slot.entity';
 import { Room } from '../src/modules/routines/entities/room.entity';
@@ -840,6 +843,45 @@ describe('workbook round trip (integration)', () => {
         tenant_id: TENANT_A,
       }),
     );
+
+    // [47.x] teacher_assignments with all three roles: a CLASS_TEACHER, an
+    // ASSISTANT beside it, a SUBJECT_TEACHER row, and an ASSISTANT on a
+    // section that has no class teacher. Before the Role column an assistant
+    // came back as CLASS_TEACHER (or failed UQ_tcs_section_class_teacher).
+    const firstSection = await dataSource
+      .getRepository(ClassSection)
+      .findOneOrFail({ where: { tenant_id: TENANT_A, class_id: klass.id, section_name: 'A' } });
+    const tcsRepo = dataSource.getRepository(TeacherClassSection);
+    await tcsRepo.save([
+      tcsRepo.create({
+        tenant_id: TENANT_A,
+        teacher_id: teacherOne.id,
+        section_id: firstSection.id,
+        subject_id: null,
+        assignment_type: TeacherAssignmentType.CLASS_TEACHER,
+      }),
+      tcsRepo.create({
+        tenant_id: TENANT_A,
+        teacher_id: teacherTwo.id,
+        section_id: firstSection.id,
+        subject_id: null,
+        assignment_type: TeacherAssignmentType.ASSISTANT_CLASS_TEACHER,
+      }),
+      tcsRepo.create({
+        tenant_id: TENANT_A,
+        teacher_id: teacherOne.id,
+        section_id: firstSection.id,
+        subject_id: routineSubject.id,
+        assignment_type: TeacherAssignmentType.SUBJECT_TEACHER,
+      }),
+      tcsRepo.create({
+        tenant_id: TENANT_A,
+        teacher_id: teacherOne.id,
+        section_id: secondSection.id,
+        subject_id: null,
+        assignment_type: TeacherAssignmentType.ASSISTANT_CLASS_TEACHER,
+      }),
+    ]);
 
     // [23.5] Wave-1 staff-HR tabs: reuses the real seed helper rather than
     // re-deriving its fixture here, same call `ensureDemoStudents` above
@@ -1771,8 +1813,8 @@ describe('workbook round trip (integration)', () => {
    * tabs the fixture is *supposed* to populate, so "the seed silently stopped
    * working" fails here with a readable message instead of passing as a green
    * round trip. Tabs the fixture deliberately does not cover
-   * (`subjects`, `class_subjects`, `holidays`, `teachers`,
-   * `teacher_assignments`) are listed as a known gap rather than asserted.
+   * (`subjects`, `class_subjects`, `holidays`, `teachers`) are listed as a
+   * known gap rather than asserted.
    */
   function assertFixtureIsMeaty(rowCounts: Record<string, number | undefined>): void {
     const mustBeNonEmpty = [
@@ -1782,6 +1824,7 @@ describe('workbook round trip (integration)', () => {
       'sections',
       'users',
       'guardians',
+      'teacher_assignments',
       'students',
       'enrollments',
       'fee_structures',
@@ -2067,6 +2110,13 @@ describe('workbook round trip (integration)', () => {
     for (const role of NEW_ROLES) {
       expect(normalizedB.users?.filter((r) => r.role === role)).toHaveLength(1);
     }
+    // [47.x] every role survives; none is silently promoted to CLASS_TEACHER.
+    expect(normalizedB.teacher_assignments?.map((r) => r.role).sort()).toEqual([
+      'ASSISTANT_CLASS_TEACHER',
+      'ASSISTANT_CLASS_TEACHER',
+      'CLASS_TEACHER',
+      'SUBJECT_TEACHER',
+    ]);
     expect(normalizedB.exam_templates).toHaveLength(1);
     expect(normalizedB.exam_template_components).toHaveLength(2);
     expect(normalizedB.class_subjects?.some((r) => r.group_name === 'Science')).toBe(true);
@@ -2214,4 +2264,241 @@ describe('workbook round trip (integration)', () => {
     // eslint-disable-next-line no-console
     console.log(`workbook round trip took ${Date.now() - start}ms`);
   }, 90_000);
+
+  // ---- [47.x] teacher_assignments Role column: restore semantics ----------
+  //
+  // A small one-tenant fixture, restored back into the SAME tenant, so the
+  // restore runs through the update / delete-by-absence paths that the
+  // empty-tenant spine test above never reaches.
+  describe('teacher_assignments Role column', () => {
+    interface Fx {
+      tenantId: string;
+      sectionId: string;
+      teacherA: Teacher;
+      teacherB: Teacher;
+      subjectId: string;
+    }
+    const CLASS = TeacherAssignmentType.CLASS_TEACHER;
+    const ASSISTANT = TeacherAssignmentType.ASSISTANT_CLASS_TEACHER;
+    const SUBJECT = TeacherAssignmentType.SUBJECT_TEACHER;
+
+    async function seedSmall(): Promise<Fx> {
+      const tenantId = randomUUID();
+      const tag = tenantId.slice(0, 8);
+      await dataSource.getRepository(School).save(
+        dataSource.getRepository(School).create({
+          id: tenantId,
+          name: `Role Test School ${tag}`,
+          slug: `role-${tag}`,
+        }),
+      );
+      const year = await dataSource.getRepository(AcademicYear).save(
+        dataSource.getRepository(AcademicYear).create({
+          name: `2026-${tag}`,
+          start_date: new Date('2026-01-01'),
+          end_date: new Date('2026-12-31'),
+          is_current: true,
+          tenant_id: tenantId,
+        }),
+      );
+      const klass = await dataSource.getRepository(Class).save(
+        dataSource.getRepository(Class).create({
+          name: `Six-${tag}`,
+          numeric_grade: 6,
+          academic_year_id: year.id,
+          tenant_id: tenantId,
+        }),
+      );
+      const section = await dataSource.getRepository(ClassSection).save(
+        dataSource.getRepository(ClassSection).create({
+          class_id: klass.id,
+          section_name: 'A',
+          capacity: null,
+          tenant_id: tenantId,
+        }),
+      );
+      const subject = await dataSource.getRepository(Subject).save(
+        dataSource.getRepository(Subject).create({
+          name_en: 'Mathematics',
+          code: `MATH-${tag}`,
+          tenant_id: tenantId,
+        }),
+      );
+      const teachers: Teacher[] = [];
+      for (const n of ['a', 'b']) {
+        const user = await dataSource.getRepository(User).save(
+          dataSource.getRepository(User).create({
+            email: `role-${n}-${tag}@test.com`,
+            full_name: `Role Teacher ${n}`,
+            password_hash: 'not-the-asserted-hash',
+          }),
+        );
+        await dataSource
+          .getRepository(UserTenant)
+          .save(
+            dataSource
+              .getRepository(UserTenant)
+              .create({ user_id: user.id, tenant_id: tenantId, role: UserRole.TEACHER }),
+          );
+        teachers.push(
+          await dataSource.getRepository(Teacher).save(
+            dataSource.getRepository(Teacher).create({
+              user_id: user.id,
+              employee_id: `EMP-ROLE-${n}-${tag}`,
+              designations: [TeacherDesignation.SUBJECT_TEACHER],
+              tenant_id: tenantId,
+            }),
+          ),
+        );
+      }
+      return {
+        tenantId,
+        sectionId: section.id,
+        teacherA: teachers[0],
+        teacherB: teachers[1],
+        subjectId: subject.id,
+      };
+    }
+
+    async function setAssignments(
+      fx: Fx,
+      rows: Array<{ teacher: Teacher; type: TeacherAssignmentType; subject?: boolean }>,
+    ): Promise<void> {
+      const repo = dataSource.getRepository(TeacherClassSection);
+      await repo.delete({ tenant_id: fx.tenantId });
+      await repo.save(
+        rows.map((r) =>
+          repo.create({
+            tenant_id: fx.tenantId,
+            teacher_id: r.teacher.id,
+            section_id: fx.sectionId,
+            subject_id: r.subject ? fx.subjectId : null,
+            assignment_type: r.type,
+          }),
+        ),
+      );
+    }
+
+    async function exportOf(tenantId: string): Promise<Buffer> {
+      const job = await dataSource.getRepository(WorkbookJob).save(
+        dataSource.getRepository(WorkbookJob).create({
+          tenant_id: tenantId,
+          kind: WorkbookJobKind.EXPORT,
+          source: WorkbookJobSource.MANUAL,
+          status: WorkbookJobStatus.QUEUED,
+          requested_by_user_id: null,
+        }),
+      );
+      await exportProcessor.process(fakeExportJob(job.id, tenantId));
+      const done = await dataSource
+        .getRepository(WorkbookJob)
+        .findOneOrFail({ where: { id: job.id } });
+      expect(done.status).toBe(WorkbookJobStatus.DONE);
+      return storage.objects.get(done.storage_key as string) as Buffer;
+    }
+
+    async function restoreInto(tenantId: string, buffer: Buffer): Promise<WorkbookJob> {
+      const stagingKey = `staging/${randomUUID()}.xlsx`;
+      await storage.put(stagingKey, buffer);
+      const { stagingId } = await staging.stage(tenantId, OPERATOR_ID, {
+        workbook_storage_key: stagingKey,
+        meta: {},
+        tabs: [],
+        totals: { creates: 0, updates: 0, unchanged: 0, deletes: 0 },
+        hardErrorCount: 0,
+        isEmptyTenant: false,
+        errors: [],
+        warnings: [],
+      });
+      const snapshot = await dataSource.getRepository(WorkbookJob).save(
+        dataSource.getRepository(WorkbookJob).create({
+          tenant_id: tenantId,
+          kind: WorkbookJobKind.SNAPSHOT,
+          source: WorkbookJobSource.SNAPSHOT,
+          status: WorkbookJobStatus.DONE,
+          requested_by_user_id: OPERATOR_ID,
+        }),
+      );
+      const job = await dataSource.getRepository(WorkbookJob).save(
+        dataSource.getRepository(WorkbookJob).create({
+          tenant_id: tenantId,
+          kind: WorkbookJobKind.RESTORE,
+          source: WorkbookJobSource.MANUAL,
+          status: WorkbookJobStatus.QUEUED,
+          requested_by_user_id: OPERATOR_ID,
+          staging_id: stagingId,
+          snapshot_job_id: snapshot.id,
+        }),
+      );
+      await restoreProcessor.process(fakeRestoreJob(job.id));
+      return dataSource.getRepository(WorkbookJob).findOneOrFail({ where: { id: job.id } });
+    }
+
+    async function rolesIn(fx: Fx): Promise<string[]> {
+      const rows = await dataSource
+        .getRepository(TeacherClassSection)
+        .find({ where: { tenant_id: fx.tenantId } });
+      const name = (id: string) => (id === fx.teacherA.id ? 'A' : 'B');
+      return rows.map((r) => `${name(r.teacher_id)}:${r.assignment_type}`).sort();
+    }
+
+    /** Drops the `role` column from the teacher_assignments sheet, i.e. what a pre-47 backup looks like. */
+    async function stripRoleColumn(buffer: Buffer): Promise<Buffer> {
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buffer as any);
+      const sheet = wb.getWorksheet('teacher_assignments')!;
+      const header = (sheet.getRow(1).values as unknown[]).map((v) => String(v ?? ''));
+      const col = header.indexOf('role');
+      expect(col, 'export must carry the role column').toBeGreaterThan(0);
+      sheet.spliceColumns(col, 1);
+      return Buffer.from(await wb.xlsx.writeBuffer());
+    }
+
+    it('restores a pre-47 file (no Role column) with roles inferred', async () => {
+      const fx = await seedSmall();
+      await setAssignments(fx, [
+        { teacher: fx.teacherA, type: CLASS },
+        { teacher: fx.teacherA, type: SUBJECT, subject: true },
+      ]);
+      const old = await stripRoleColumn(await exportOf(fx.tenantId));
+      await dataSource.getRepository(TeacherClassSection).delete({ tenant_id: fx.tenantId });
+
+      const job = await restoreInto(fx.tenantId, old);
+
+      expect(job.status).toBe(WorkbookJobStatus.DONE);
+      expect(await rolesIn(fx)).toEqual(['A:CLASS_TEACHER', 'A:SUBJECT_TEACHER']);
+    }, 60_000);
+
+    it('class-teacher swap A -> B on restore succeeds (#1048): DB has A as CLASS, file has B', async () => {
+      const fx = await seedSmall();
+      await setAssignments(fx, [{ teacher: fx.teacherB, type: CLASS }]);
+      const file = await exportOf(fx.tenantId);
+      await setAssignments(fx, [{ teacher: fx.teacherA, type: CLASS }]);
+
+      const job = await restoreInto(fx.tenantId, file);
+
+      expect(job.status).toBe(WorkbookJobStatus.DONE);
+      expect(job.failed_tab).toBeNull();
+      // B is the class teacher, A has no homeroom row left.
+      expect(await rolesIn(fx)).toEqual(['B:CLASS_TEACHER']);
+    }, 60_000);
+
+    it('swap with the old class teacher kept as ASSISTANT: DB A=CLASS,B=ASSISTANT; file A=ASSISTANT,B=CLASS', async () => {
+      const fx = await seedSmall();
+      await setAssignments(fx, [
+        { teacher: fx.teacherA, type: ASSISTANT },
+        { teacher: fx.teacherB, type: CLASS },
+      ]);
+      const file = await exportOf(fx.tenantId);
+      await setAssignments(fx, [
+        { teacher: fx.teacherA, type: CLASS },
+        { teacher: fx.teacherB, type: ASSISTANT },
+      ]);
+
+      const job = await restoreInto(fx.tenantId, file);
+
+      expect(job.status).toBe(WorkbookJobStatus.DONE);
+      expect(await rolesIn(fx)).toEqual(['A:ASSISTANT_CLASS_TEACHER', 'B:CLASS_TEACHER']);
+    }, 60_000);
+  });
 });
