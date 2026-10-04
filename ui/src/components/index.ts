@@ -61,7 +61,25 @@ export {
   type RoutineAgendaItem,
 } from './routine-agenda';
 export { FileUpload, type FileUploadItem, type FileUploadProps } from './file-upload';
-export { BulkUploadPreview, type BulkUploadPreviewProps } from './bulk-upload-preview';
+export {
+  BulkUploadPreview,
+  type BulkUploadPreviewProps,
+  type BulkUploadPreviewController,
+} from './bulk-upload-preview';
+export { ConfirmDialog, type ConfirmDialogProps } from './confirm-dialog';
+export {
+  RowActions,
+  type RowAction,
+  type RowActionIntent,
+  type RowActionsProps,
+} from './row-actions';
+export { TableCount, type TableCountProps } from './table-count';
+export { FilterSheet, type FilterSheetProps } from './filter-sheet';
+export { MonthHeader, type MonthHeaderProps } from './month-header';
+export { MonthPicker, type MonthPickerProps } from './month-picker';
+export { TimeInput, type TimeInputProps } from './time-input';
+export { DayPanel, type DayPanelProps } from './calendar/day-panel';
+export { AuthLayout, type AuthLayoutProps } from './auth-layout';
 export { BulkImportErrorTable, type BulkImportErrorTableProps } from './bulk-import-error-table';
 export {
   DataTable,

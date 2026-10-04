@@ -20,6 +20,18 @@ export interface BulkUploadPreviewConfirmSlotApi {
   setBlocked: (blocked: boolean) => void;
 }
 
+/** What a host (e.g. a FullPageShell footer) needs to own the Confirm button itself. */
+export interface BulkUploadPreviewController<S, C> {
+  status: 'idle' | 'uploading' | 'preview' | 'committing' | 'done' | 'failed';
+  /** Set in `'preview'` / `'committing'`. */
+  result: PreviewResult<S> | undefined;
+  /** Set in `'done'`. */
+  commitResult: C | undefined;
+  confirmDisabled: boolean;
+  confirm: () => void;
+  reset: () => void;
+}
+
 export interface BulkUploadPreviewProps<S, C> {
   accept?: string;
   /** Bytes. Rejected client-side, before anything is sent — surfaces as a
@@ -39,6 +51,10 @@ export interface BulkUploadPreviewProps<S, C> {
    * in flight. Defaults to the existing `t('confirming')` button label. */
   renderCommitting?: (result: PreviewResult<S>) => React.ReactNode;
   renderDone: (commitResult: C, reset: () => void) => React.ReactNode;
+  /** Accepted, unused until 31.2.14c. */
+  onControllerChange?: (controller: BulkUploadPreviewController<S, C>) => void;
+  /** Accepted, unused until 31.2.14c. */
+  hideConfirm?: boolean;
 }
 
 function formatCountdown(remainingMs: number): string {
