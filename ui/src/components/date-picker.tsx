@@ -30,8 +30,8 @@ export interface DatePickerProps extends Omit<
   /** Default `t('date.pick')`. */
   placeholder?: string;
   /** Inclusive. */
-  min?: Date;
-  max?: Date;
+  min?: Date | undefined;
+  max?: Date | undefined;
 }
 
 export function DatePicker({
@@ -86,8 +86,8 @@ interface CalendarProps {
   month: Date;
   selected: Date | undefined;
   config: RegionConfig;
-  min?: Date;
-  max?: Date;
+  min?: Date | undefined;
+  max?: Date | undefined;
   onMonthChange: (date: Date) => void;
   onSelect: (date: Date) => void;
 }

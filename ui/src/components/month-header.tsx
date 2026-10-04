@@ -14,13 +14,13 @@ export interface MonthHeaderProps {
   onPrevious: () => void;
   onNext: () => void;
   /** Omitted: no "Today" button (MonthPicker). */
-  onToday?: () => void;
+  onToday?: (() => void) | undefined;
   /** Disables the Today button (today is outside the allowed range). */
   todayDisabled?: boolean;
   /** Default `t('date.previousMonth')`. */
-  previousLabel?: string;
+  previousLabel?: string | undefined;
   /** Default `t('date.nextMonth')`. */
-  nextLabel?: string;
+  nextLabel?: string | undefined;
   /** When set, the label becomes a button that opens a month/year chooser (DatePicker's
    * year jump for dates of birth, 31.2.2). */
   onLabelClick?: () => void;
