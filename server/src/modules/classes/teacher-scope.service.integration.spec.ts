@@ -32,6 +32,7 @@ describe('TeacherScopeService (integration)', () => {
   let sec6B: string; // Class 6 / B, current year
   let sec7A: string; // Class 7 / A, current year
   let secDeleted: string; // soft-deleted section, current year
+  let secClassDeleted: string; // section of a soft-deleted class, current year
   let secOld: string; // section of a past (non-current) year
   let secB: string; // tenant B section
 
@@ -83,6 +84,9 @@ describe('TeacherScopeService (integration)', () => {
     const deleted = await makeSection(TENANT_A, class6.id, 'Z');
     secDeleted = deleted.id;
     await sectionRepo.softDelete({ id: deleted.id });
+    const classGone = await makeClass(TENANT_A, currentA.id, 'Class Gone');
+    secClassDeleted = (await makeSection(TENANT_A, classGone.id, 'A')).id;
+    await classRepo.softDelete({ id: classGone.id });
     secOld = (await makeSection(TENANT_A, classOld.id, 'A')).id;
 
     const currentB = await makeYear(TENANT_B, 'Scope Current B', true);
@@ -165,6 +169,13 @@ describe('TeacherScopeService (integration)', () => {
       expect(await ask(sec6B)).toEqual({ homeroom: null, subjectIds: [] });
     });
 
+    it('gives a soft-deleted teacher no roles', async () => {
+      await assign(TeacherAssignmentType.CLASS_TEACHER, sec6A);
+      await assign(TeacherAssignmentType.SUBJECT_TEACHER, sec6A, liveSubjectId);
+      await dataSource.getRepository(Teacher).softDelete({ id: teacherId });
+      expect(await ask(sec6A)).toEqual({ homeroom: null, subjectIds: [] });
+    });
+
     it('excludes a soft-deleted subject (D16)', async () => {
       await assign(TeacherAssignmentType.SUBJECT_TEACHER, sec6A, deletedSubjectId);
       await assign(TeacherAssignmentType.SUBJECT_TEACHER, sec6A, liveSubjectId);
@@ -225,6 +236,17 @@ describe('TeacherScopeService (integration)', () => {
 
     it('excludes a past-year section', async () => {
       await assign(TeacherAssignmentType.CLASS_TEACHER, secOld);
+      expect(await list()).toEqual([]);
+    });
+
+    it('excludes a section whose class is soft-deleted', async () => {
+      await assign(TeacherAssignmentType.CLASS_TEACHER, secClassDeleted);
+      expect(await list()).toEqual([]);
+    });
+
+    it('gives a soft-deleted teacher no sections', async () => {
+      await assign(TeacherAssignmentType.CLASS_TEACHER, sec6A);
+      await dataSource.getRepository(Teacher).softDelete({ id: teacherId });
       expect(await list()).toEqual([]);
     });
 
