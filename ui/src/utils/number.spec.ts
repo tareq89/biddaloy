@@ -55,4 +55,8 @@ describe('parseNumber', () => {
     expect(parseNumber(formatNumber(1234567, REGION_BD_EN))).toBe(1234567);
     expect(parseNumber(formatNumber(1234567, REGION_BD_BN))).toBe(1234567);
   });
+
+  it.each([null, undefined, Number.NaN])('shows the none value for %s', (value) => {
+    expect(formatNumber(value, REGION_BD_EN)).toBe('—');
+  });
 });

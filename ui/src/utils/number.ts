@@ -10,10 +10,11 @@ import { groupDigits } from './grouping';
  * arithmetic error the way chained currency math would.
  */
 export function formatNumber(
-  value: number,
+  value: number | null | undefined,
   config: RegionConfig,
   options: { decimals?: number } = {},
 ): string {
+  if (value == null || !Number.isFinite(value)) return '—';
   const { decimals = 0 } = options;
   const negative = value < 0;
   const fixed = Math.abs(value).toFixed(decimals);
