@@ -98,6 +98,7 @@ Academics
   Subjects [partial → own page; flags: order, unit, effect, merge-with, grade-subject]
   Timetable & routines [21.0]  ("Routines")                         A Ac E T
     Class routine · Auto-generate · Routine setup · Substitutions · Exam routine · My routine (T)
+  My class [47.0]  T  — the section(s) where the teacher is class teacher or assistant (`MY_CLASS_VIEW`)
   Homework [22.0] · Defaulters · Homework report                    A E T
   Syllabus [22.0]                                                   A E T
   Online learning [N6] · Online classes · Online exams              A E T
@@ -180,6 +181,7 @@ Schools [have] · Public holiday sets [17.0] · Preset library [N3]
 | P9  | Teaching assignments bulk view lives under **People › Staff**; also a tab on staff detail and class detail.                                                                                    |
 | P10 | **Resolved (Epic 24.0):** Users merged into **People › Staff**. "Add user" is a dialog (`client-admin/src/routes/_staff/staff/-add-user-dialog.tsx`); there is no `administration.users` item. |
 | P11 | Coaching centres reuse Class/Section, relabelled Course/Batch via tenant label overrides — not Programs. Programs are supplementary tracks (hifz, trades, labs, attachment).                   |
+| P12 | **My class** (Epic 47.0) lives under **Academics**, next to My routine. TEACHER only (`MY_CLASS_VIEW`). Routes `/my-class` and `/my-class/$sectionId`; palette actions `my-class.open` and `my-class.take-attendance` (`/my-class?then=attendance`). One section redirects straight to its page. A section card shows a role badge (class teacher or assistant). Current academic year only. |
 
 ## 4. Command palette — `Ctrl/Cmd+K`
 
