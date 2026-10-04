@@ -1,7 +1,9 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState, type FormEvent } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+
+import { renderWithProviders } from '../test';
 
 import { FormShell, FormSection, type FormShellError } from './form-shell';
 
@@ -74,6 +76,11 @@ describe('FormShell', () => {
     expect(screen.getByRole('group', { name: 'Student details' })).toBeTruthy();
   });
 
+  it('is wrapped in a narrow PageContainer', () => {
+    const { container } = render(<Controlled />);
+    expect(container.querySelector('[data-slot="page-container"]')).toBeTruthy();
+  });
+
   it('shows no error summary before a failed submit', () => {
     render(<Controlled />);
     expect(screen.queryByRole('alert')).toBeNull();
@@ -81,7 +88,10 @@ describe('FormShell', () => {
 
   it('on submit failure, renders an error summary and moves focus to it', async () => {
     const user = userEvent.setup();
-    render(<Controlled />);
+    const view = renderWithProviders(<Controlled />, { locale: 'en' });
+    await act(async () => {
+      await view.localeReady;
+    });
     await user.click(screen.getByRole('button', { name: 'Submit' }));
 
     const summary = await screen.findByRole('alert');

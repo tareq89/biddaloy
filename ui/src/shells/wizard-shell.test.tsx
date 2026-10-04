@@ -80,6 +80,12 @@ describe('WizardShell', () => {
     expect(screen.getByRole('textbox', { name: 'Amount' })).toBeTruthy();
   });
 
+  it('is wrapped in a PageContainer and the title is an h1', async () => {
+    const { container } = await render(<Controlled />);
+    expect(container.querySelector('[data-slot="page-container"]')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'Record payment' })).toBeTruthy();
+  });
+
   it('marks the current step with aria-current="step"', async () => {
     await render(<Controlled />);
     const amountItem = screen.getByText('Amount').closest('li');

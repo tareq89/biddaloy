@@ -76,6 +76,12 @@ describe('ListShell', () => {
     expect(screen.getByText('Rahim Uddin')).toBeTruthy();
   });
 
+  it('is wrapped in a PageContainer and the title is an h1', async () => {
+    const { container } = await renderInEnglish(<Demo />);
+    expect(container.querySelector('[data-slot="page-container"]')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'Students' })).toBeTruthy();
+  });
+
   it('omits the filter bar entirely when none is given, rather than an empty wrapper', async () => {
     await renderInEnglish(
       <ListShell
