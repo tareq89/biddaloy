@@ -766,6 +766,7 @@ export async function createTeacher(
   if (sectionId) {
     // The assign endpoint is keyed by class too; callers only hold the section id.
     const classes = await get<{ data: { id: string }[] }>(request, session, '/classes?limit=1000');
+    let assigned = false;
     for (const { id: classId } of classes.data) {
       const sections = await get<{ id: string }[]>(
         request,
@@ -776,9 +777,11 @@ export async function createTeacher(
         await post(request, session, `/classes/${classId}/sections/${sectionId}/teachers`, {
           teacher_id: teacher.id,
         });
+        assigned = true;
         break;
       }
     }
+    if (!assigned) throw new Error(`createTeacher: no class contains section ${sectionId}`);
   }
   return { email, password, userId: created.user.id, teacherId: teacher.id };
 }

@@ -14,8 +14,8 @@ import { tabUntilFocused } from '../keyboard/keyboard-utils';
  * `MarksAuthorizationService.assertCanWrite` requires a
  * `teacher_class_sections` row whose `subject_id` matches the grid's
  * subject exactly (`marks-authorization.util.ts`) — and no API endpoint in
- * this codebase can create that subject-scoped row (`POST /teachers`'s
- * `assigned_section_ids` only ever creates a `subject_id: null` mapping,
+ * this codebase can create that subject-scoped row (the
+ * section-assign endpoint without a `subject_id` only creates a `subject_id: null` mapping,
  * the same shape `ensureAttendanceSeed` uses). With no DB access from the
  * e2e layer either, this spec logs in as ADMIN instead — `ADMIN_LEVEL_ROLES`
  * bypasses the subject-teacher check, and the grid's keyboard behaviour
