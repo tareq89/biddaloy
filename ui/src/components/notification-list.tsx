@@ -45,6 +45,8 @@ export interface NotificationListProps {
   /** Caps scroll height — the bell's popover passes `max-h-80`, the
    * full-page view passes nothing. */
   className?: string;
+  /** Rows rendered per step; more are added when the end of the list scrolls into view. */
+  pageSize?: number;
 }
 
 function NotificationRow({
@@ -78,9 +80,9 @@ function NotificationRow({
           <span className="sr-only">{t(`notifications.variant.${notification.variant}`)}</span>
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="flex items-center gap-2">
+          <span className="flex items-start gap-2">
             {!notification.read && (
-              <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-primary" />
+              <span aria-hidden="true" className="mt-2 size-1.5 shrink-0 rounded-full bg-primary" />
             )}
             <span className={notification.read ? 'text-muted-foreground' : undefined}>
               {notification.message}
@@ -100,20 +102,52 @@ export function NotificationList({
   onMarkRead,
   emptyLabel,
   className,
+  pageSize = 20,
 }: NotificationListProps) {
-  if (notifications.length === 0) {
+  const { t } = useTranslation('nav');
+  const [visibleCount, setVisibleCount] = React.useState(pageSize);
+  const sentinelRef = React.useRef<HTMLLIElement>(null);
+  const total = notifications.length;
+  const hasMore = visibleCount < total;
+
+  React.useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    if (typeof IntersectionObserver !== 'function') {
+      setVisibleCount(total);
+      return;
+    }
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry?.isIntersecting) setVisibleCount((c) => c + pageSize);
+    });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [visibleCount, total, pageSize]);
+
+  if (total === 0) {
     return <p className="p-2 text-sm text-muted-foreground">{emptyLabel}</p>;
   }
 
   return (
     <ul className={cn('flex flex-col gap-1 overflow-y-auto', className)}>
-      {notifications.map((notification) => (
+      {notifications.slice(0, visibleCount).map((notification) => (
         <NotificationRow
           key={notification.id}
           notification={notification}
           onMarkRead={onMarkRead}
         />
       ))}
+      {hasMore ? (
+        <li data-list-sentinel ref={sentinelRef} className="p-2 text-caption text-muted-foreground">
+          {t('notifications.loadingMore', { ns: 'common' })}
+        </li>
+      ) : (
+        total > pageSize && (
+          <li className="p-2 text-caption text-muted-foreground">
+            {t('notifications.endOfList', { ns: 'common' })}
+          </li>
+        )
+      )}
     </ul>
   );
 }
