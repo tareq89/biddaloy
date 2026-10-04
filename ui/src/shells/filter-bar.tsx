@@ -43,7 +43,7 @@ import {
 } from '../components/select';
 import { useRegionConfig, useTranslation } from '../i18n';
 import { cn } from '../primitives/lib/utils';
-import { formatDate, parseDate, toLatinDigits } from '../utils';
+import { parseDate, toIsoDate } from '../utils';
 
 import { useFilterBarState } from './use-filter-bar-state';
 
@@ -256,9 +256,7 @@ export function FilterBar({ fields, values, onChange, debounceMs }: FilterBarPro
               aria-label={field.fromLabel}
               config={regionConfig}
               value={safeParseDate(values[field.fromKey])}
-              onValueChange={(date) =>
-                setValue(field.fromKey, date ? toLatinDigits(formatDate(date, regionConfig)) : null)
-              }
+              onValueChange={(date) => setValue(field.fromKey, date ? toIsoDate(date) : null)}
             />
             <span aria-hidden="true" className="text-muted-foreground">
               –
@@ -267,9 +265,7 @@ export function FilterBar({ fields, values, onChange, debounceMs }: FilterBarPro
               aria-label={field.toLabel}
               config={regionConfig}
               value={safeParseDate(values[field.toKey])}
-              onValueChange={(date) =>
-                setValue(field.toKey, date ? toLatinDigits(formatDate(date, regionConfig)) : null)
-              }
+              onValueChange={(date) => setValue(field.toKey, date ? toIsoDate(date) : null)}
             />
           </div>
         );

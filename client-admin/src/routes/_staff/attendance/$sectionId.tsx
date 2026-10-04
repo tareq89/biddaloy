@@ -37,7 +37,7 @@ import {
   type RegisterStudent,
 } from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatDate, parseDate } from '@biddaloy/ui/utils';
+import { parseDate, toIsoDate } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import { History, MoreVertical } from 'lucide-react';
 import * as React from 'react';
@@ -412,7 +412,7 @@ function SectionRegisterPage() {
             value={parseDate(date)}
             onValueChange={(next) =>
               void navigate({
-                search: (prev) => ({ ...prev, date: next ? formatDate(next, regionConfig) : date }),
+                search: (prev) => ({ ...prev, date: next ? toIsoDate(next) : date }),
               })
             }
           />
