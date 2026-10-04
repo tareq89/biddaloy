@@ -213,4 +213,16 @@ describe('StatusBadge', () => {
     });
     expect(screen.getByText('আংশিক পরিশোধিত')).toBeTruthy();
   });
+
+  it('[31.2.8b] tone + label form renders the label, tone and an icon', async () => {
+    const { container } = await renderInEnglish(<StatusBadge tone="warning" label="Late" />);
+    const badge = screen.getByText('Late');
+    expect(badge.getAttribute('data-tone')).toBe('warning');
+    expect(container.querySelector('svg')).toBeTruthy();
+  });
+
+  it('[31.2.8b] neutral uses text-text-secondary', async () => {
+    await renderInEnglish(<StatusBadge tone="neutral" label="Draft" />);
+    expect(screen.getByText('Draft').className).toContain('text-text-secondary');
+  });
 });
