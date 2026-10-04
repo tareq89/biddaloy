@@ -94,9 +94,9 @@ export function SchoolPicker({ schools, onSelect }: SchoolPickerProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1 text-center">
-        <h1 className="text-xl font-semibold text-balance">{t('schoolPicker.heading')}</h1>
-        <p className="text-sm text-muted-foreground">{t('schoolPicker.subtext')}</p>
+      <div>
+        <h1 className="text-h1 text-balance">{t('schoolPicker.heading')}</h1>
+        <p className="mt-0.5 text-text-secondary">{t('schoolPicker.subtext')}</p>
       </div>
 
       <RadioGroup

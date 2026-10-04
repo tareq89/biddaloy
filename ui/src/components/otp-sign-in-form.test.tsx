@@ -4,11 +4,34 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { cleanupTestState, renderWithProviders } from '../test/render-with-providers';
 
+import { AuthLayout } from './auth-layout';
 import { OtpSignInForm } from './otp-sign-in-form';
 
 afterEach(async () => {
   await cleanupTestState();
   vi.useRealTimers();
+});
+
+describe('OtpSignInForm framing', () => {
+  it('keeps its own logo and card outside AuthLayout, drops both inside it', async () => {
+    const outside = renderWithProviders(<OtpSignInForm onRequest={vi.fn()} onVerify={vi.fn()} />, {
+      locale: 'en',
+    });
+    await screen.findByRole('heading', { level: 1 });
+    expect(outside.container.querySelector('form')?.className).toContain('p-8');
+    expect(screen.getAllByText('SchoolManager')).toHaveLength(1);
+    outside.unmount();
+
+    const { container } = renderWithProviders(
+      <AuthLayout>
+        <OtpSignInForm onRequest={vi.fn()} onVerify={vi.fn()} />
+      </AuthLayout>,
+      { locale: 'en' },
+    );
+    await screen.findByRole('heading', { level: 1 });
+    expect(container.querySelector('form')?.className).not.toContain('p-8');
+    expect(screen.getAllByText('SchoolManager')).toHaveLength(1);
+  });
 });
 
 describe('OtpSignInForm', () => {
