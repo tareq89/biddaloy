@@ -234,7 +234,12 @@ export function UserMenu({
               <MenuSeparator />
             </>
           )}
-          <MenuItem variant="destructive" onSelect={onSignOut} disabled={signingOut}>
+          <MenuItem
+            variant="destructive"
+            onSelect={onSignOut}
+            disabled={signingOut}
+            className={showAccountControls ? ROW : undefined}
+          >
             <LogOutIcon aria-hidden="true" />
             {signingOut ? t('userMenu.signingOut') : t('userMenu.signOut')}
           </MenuItem>
