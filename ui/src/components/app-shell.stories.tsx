@@ -28,6 +28,7 @@ import {
   UsersRoundIcon,
   WalletIcon,
 } from 'lucide-react';
+import { userEvent, within } from 'storybook/test';
 
 import { withMemoryRouter } from '../../.storybook/router-decorator';
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
@@ -330,4 +331,55 @@ const eightGroups: AppShellNavGroup[] = [
  * `app-shell.test.tsx` already covers it. */
 export const CollapsedByDefault: Story = {
   args: { navGroups: eightGroups },
+};
+
+const phoneBarActions = (
+  <>
+    <button type="button" aria-label="Search" className="size-11">
+      <CreditCardIcon className="mx-auto size-5" aria-hidden="true" />
+    </button>
+    <button type="button" aria-label="Notifications" className="size-11">
+      <HomeIcon className="mx-auto size-5" aria-hidden="true" />
+    </button>
+    <button type="button" aria-label="Account" className="size-11">
+      <UsersRoundIcon className="mx-auto size-5" aria-hidden="true" />
+    </button>
+  </>
+);
+
+/** [31.2.9a] D12 — the opt-in one-row sticky phone top bar: menu, school
+ * name (truncates), actions. */
+export const PhoneTopBar: Story = {
+  args: {
+    navItems,
+    navGroups,
+    mobileTitle: 'নমুনা আদর্শ বিদ্যালয়',
+    mobileActions: phoneBarActions,
+  },
+  decorators: [withMemoryRouter(['/students'])],
+  parameters: { viewport: { defaultViewport: 'mobile1' } },
+};
+
+/** [31.2.9a] D13 — start-edge drawer with a sticky 44 px close. */
+export const DrawerOpen: Story = {
+  ...PhoneTopBar,
+  play: async ({ canvasElement }) => {
+    await userEvent.click(await within(canvasElement).findByRole('button', { name: 'Open menu' }));
+  },
+};
+
+/** [31.2.9a] D10 — `/exams` and `/exams/templates` both exist; only the
+ * more specific one is lit. */
+export const NestedActive: Story = {
+  args: {
+    navItems: [
+      { to: '/exams', label: 'Exams', icon: <WalletIcon aria-hidden="true" /> },
+      {
+        to: '/exams/templates',
+        label: 'Exam templates',
+        icon: <SettingsIcon aria-hidden="true" />,
+      },
+    ],
+  },
+  decorators: [withMemoryRouter(['/exams/templates'])],
 };
