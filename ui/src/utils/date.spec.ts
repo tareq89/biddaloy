@@ -11,6 +11,7 @@ import {
   isPastDueDate,
   parseDate,
   parseServerDate,
+  toIsoDate,
 } from './date';
 
 const julyStart: RegionConfig = { ...REGION_BD_EN, academicYear: { startMonth: 7 } };
@@ -200,5 +201,21 @@ describe('formatRelativeAge', () => {
     // Otherwise a badge whose entire job is to say how far in the past
     // something happened would read "in 3 seconds".
     expect(formatRelativeAge(NOW + 3_000, 'en', NOW)).toBe('now');
+  });
+});
+
+describe('toIsoDate', () => {
+  it('formats local calendar fields as YYYY-MM-DD', () => {
+    expect(toIsoDate(new Date(2024, 0, 5))).toBe('2024-01-05');
+  });
+
+  it('round-trips with parseDate', () => {
+    expect(toIsoDate(parseDate('2024-01-05'))).toBe('2024-01-05');
+  });
+
+  it('pads years below 1000 to four digits', () => {
+    const d = new Date(2000, 0, 1);
+    d.setFullYear(999);
+    expect(toIsoDate(d)).toBe('0999-01-01');
   });
 });

@@ -11,6 +11,12 @@ export {
 export {
   formatDate,
   formatDateTime,
+  formatDateRange,
+  formatMonth,
+  formatMonthName,
+  formatTime,
+  formatWeekday,
+  toIsoDate,
   formatRelativeAge,
   parseDate,
   parseServerDate,
