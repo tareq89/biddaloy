@@ -714,6 +714,9 @@ export const UI_ONLY_PERMISSIONS: Permission[] = [
   // [10.4] G17 — no route deletes a user account; SUPER_ADMIN-only via
   // Object.values(Permission), never granted to a staff role.
   Permission.USER_DELETE,
+  // [47.1.1] MY_CLASS_VIEW — granted to TEACHER before any route requires it;
+  // remove this line when the "My Class" endpoint ships and declares it.
+  Permission.MY_CLASS_VIEW,
   // Pre-existing UI-only gates, unaffected by [10.4]: no route requires
   // these — they gate a button/action inline rather than a whole route
   // (invoice print button, correcting a mark outside the window, collecting

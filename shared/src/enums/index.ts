@@ -32,6 +32,17 @@ export enum CommunicationMedium {
   MESSENGER = 'MESSENGER',
 }
 
+/**
+ * A teacher's role on one `teacher_class_sections` row. Designations
+ * (`TeacherDesignation`) are HR labels; class-teacher-ness comes only from
+ * this enum (47.0 D2).
+ */
+export enum TeacherAssignmentType {
+  CLASS_TEACHER = 'CLASS_TEACHER',
+  ASSISTANT_CLASS_TEACHER = 'ASSISTANT_CLASS_TEACHER',
+  SUBJECT_TEACHER = 'SUBJECT_TEACHER',
+}
+
 export enum TeacherDesignation {
   CLASS_TEACHER = 'CLASS_TEACHER',
   SUBJECT_TEACHER = 'SUBJECT_TEACHER',

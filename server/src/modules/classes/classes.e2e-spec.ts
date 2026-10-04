@@ -636,7 +636,7 @@ describe('Classes & Sections E2E', () => {
       // A *different* teacher for the same section, still `subject_id IS
       // NULL` — the pre-existing `UQ_tcs_teacher_section_no_subject` index
       // (keyed on `(teacher_id, section_id)`) does not stop this; only
-      // this migration's `UQ_tcs_section_no_subject` (keyed on
+      // `UQ_tcs_section_class_teacher` (keyed on
       // `section_id` alone) does. Bypasses `SectionService.assignTeacher`'s
       // D3 auto-replace on purpose — this asserts the DB constraint itself,
       // the actual enforcement backstop, independent of the service guard.
@@ -646,7 +646,7 @@ describe('Classes & Sections E2E', () => {
           [secondTeacher.id, sectionId, TENANT_ID],
         ),
       ).rejects.toThrow(
-        /duplicate key value violates unique constraint "UQ_tcs_section_no_subject"/,
+        /duplicate key value violates unique constraint "UQ_tcs_section_class_teacher"/,
       );
 
       await dataSource.query(`DELETE FROM teacher_class_sections WHERE section_id = $1`, [
