@@ -96,6 +96,10 @@ const buttonVariants = cva(
         // bgDark' — reused, not duplicated.
         destructive:
           'bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-status-overdue-bg dark:hover:bg-status-overdue-bg dark:focus-visible:ring-destructive/40',
+        // Filled red. Only `ConfirmDialog` uses this (D29, C4); inline delete stays
+        // `destructive` (tinted).
+        danger:
+          'bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100',
         link: 'text-primary underline-offset-4 hover:underline',
       },
       size: {

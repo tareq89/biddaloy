@@ -4,7 +4,8 @@
     "cancel": "বাতিল করুন",
     "retry": "আবার চেষ্টা করুন",
     "close": "বন্ধ করুন",
-    "moreActions": "আরও অ্যাকশন"
+    "moreActions": "আরও অ্যাকশন",
+    "search": "খুঁজুন"
   },
   "wizard": {
     "back": "পিছনে",
@@ -182,7 +183,10 @@
     "activeFilters": "সক্রিয় ফিল্টার",
     "clearAll": "সব মুছুন",
     "removeFilter": "ফিল্টার সরান: {{label}}",
-    "unknownFilter": "{{key}}: {{value}}"
+    "unknownFilter": "{{key}}: {{value}}",
+    "showResults_one": "{{count}}টি ফলাফল দেখুন",
+    "showResults_other": "{{count}}টি ফলাফল দেখুন",
+    "showResultsNone": "ফলাফল দেখুন"
   },
   "table": {
     "empty": "কোনো ফলাফল নেই",
@@ -198,7 +202,10 @@
     "selectedCount_other": "{{count}}টি নির্বাচিত",
     "announceResults_one": "{{total}}টির মধ্যে {{count}}টি ফলাফল",
     "announceResults_other": "{{total}}টির মধ্যে {{count}}টি ফলাফল",
-    "pageOf": "{{total}} পাতার মধ্যে {{page}} নম্বর পাতা"
+    "pageOf": "{{total}} পাতার মধ্যে {{page}} নম্বর পাতা",
+    "actions": "কাজ",
+    "total_one": "মোট {{count}}টি",
+    "total_other": "মোট {{count}}টি"
   },
   "weekdays": {
     "1": "সোম",
@@ -221,7 +228,9 @@
     "syncReplayed_one": "{{count}}টি অফলাইন পরিবর্তন সংরক্ষিত হয়েছে।",
     "syncReplayed_other": "{{count}}টি অফলাইন পরিবর্তন সংরক্ষিত হয়েছে।",
     "syncConflict": "একটি অফলাইন পরিবর্তন সংরক্ষণ করা যায়নি — সার্ভারে রেকর্ডটি বদলে গেছে। সিঙ্ক প্যানেলে দেখুন।",
-    "syncDead": "একটি অফলাইন পরিবর্তন বারবার ব্যর্থ হয়েছে এবং আর চেষ্টা করা হবে না। সিঙ্ক প্যানেলে দেখুন।"
+    "syncDead": "একটি অফলাইন পরিবর্তন বারবার ব্যর্থ হয়েছে এবং আর চেষ্টা করা হবে না। সিঙ্ক প্যানেলে দেখুন।",
+    "loadingMore": "আরও লোড হচ্ছে…",
+    "endOfList": "আর কোনো বিজ্ঞপ্তি নেই।"
   },
   "entities": {
     "class_one": "শ্রেণি",
@@ -252,5 +261,70 @@
     "programMilestone_other": "মাইলস্টোন",
     "programEnrollment_one": "তালিকাভুক্তি",
     "programEnrollment_other": "তালিকাভুক্তি"
+  },
+  "form": {
+    "required": "(আবশ্যক)",
+    "selectPlaceholder": "বাছুন"
+  },
+  "date": {
+    "pick": "তারিখ বাছুন",
+    "pickMonth": "মাস বাছুন",
+    "pickTime": "সময় বাছুন",
+    "today": "আজ",
+    "previousMonth": "আগের মাস",
+    "nextMonth": "পরের মাস",
+    "previousYear": "আগের বছর",
+    "nextYear": "পরের বছর",
+    "calendar": "ক্যালেন্ডার",
+    "chooseMonthYear": "মাস ও বছর বাছুন"
+  },
+  "combobox": {
+    "results_one": "{{count}}টি ফলাফল",
+    "results_other": "{{count}}টি ফলাফল"
+  },
+  "fullPage": {
+    "discardTitle": "পরিবর্তনগুলো বাদ দেবেন?",
+    "discardDescription": "কিছু পরিবর্তন এখনো সংরক্ষণ হয়নি। এখন বন্ধ করলে সেগুলো মুছে যাবে।",
+    "discardConfirm": "পরিবর্তন বাদ দিন",
+    "keepEditing": "সম্পাদনা চালিয়ে যান"
+  },
+  "dayPanel": {
+    "eventCount_one": "{{count}}টি ইভেন্ট",
+    "eventCount_other": "{{count}}টি ইভেন্ট",
+    "empty": "এই দিনে কোনো ইভেন্ট নেই।"
+  },
+  "routeError": {
+    "message": "পৃষ্ঠাটি লোড করা যায়নি।",
+    "home": "হোমে ফিরুন"
+  },
+  "formShell": {
+    "summary_one": "জমা দেওয়া তথ্যে ১টি সমস্যা আছে",
+    "summary_other": "জমা দেওয়া তথ্যে {{count}}টি সমস্যা আছে"
+  },
+  "fileUpload": {
+    "chooseFile": "ফাইল বাছুন",
+    "chooseFiles": "ফাইল বাছুন",
+    "done": "সম্পন্ন",
+    "remove": "{{name}} সরান",
+    "selected_one": "{{count}}টি ফাইল বাছাই হয়েছে",
+    "selected_other": "{{count}}টি ফাইল বাছাই হয়েছে"
+  },
+  "sessionList": {
+    "ipAddress": "আইপি {{ip}}",
+    "signedInAt": "সাইন ইন: {{date}}",
+    "deviceCount_one": "মোট {{count}}টি ডিভাইস",
+    "deviceCount_other": "মোট {{count}}টি ডিভাইস"
+  },
+  "marksEntry": {
+    "absent": "অনুপস্থিত",
+    "exempt": "মওকুফ",
+    "emptyTitle": "কোনো শিক্ষার্থী নেই"
+  },
+  "routine": {
+    "periodCount_one": "{{count}}টি পিরিয়ড",
+    "periodCount_other": "{{count}}টি পিরিয়ড",
+    "until": "{{time}} পর্যন্ত",
+    "cellLabel": "{{weekday}}, {{period}}: {{subject}}, {{teachers}}",
+    "cellLabelEmpty": "{{weekday}}, {{period}}: খালি"
   }
 }
