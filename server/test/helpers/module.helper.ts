@@ -64,6 +64,20 @@ export async function createTestModule(
       await ds.query(
         `CREATE TRIGGER "TRG_tcs_default_assignment_type" BEFORE INSERT ON "teacher_class_sections" FOR EACH ROW EXECUTE FUNCTION "tcs_default_assignment_type"()`,
       );
+      // D2 — and the constraints that migration adds (`@Index` cannot
+      // express them), so a synchronize-built schema enforces the same rules.
+      await ds.query(
+        `ALTER TABLE "teacher_class_sections" DROP CONSTRAINT IF EXISTS "CK_tcs_subject_matches_type"`,
+      );
+      await ds.query(
+        `ALTER TABLE "teacher_class_sections" ADD CONSTRAINT "CK_tcs_subject_matches_type" CHECK (("assignment_type" = 'SUBJECT_TEACHER') = ("subject_id" IS NOT NULL))`,
+      );
+      await ds.query(
+        `CREATE UNIQUE INDEX IF NOT EXISTS "UQ_tcs_section_class_teacher" ON "teacher_class_sections" ("section_id") WHERE "assignment_type" = 'CLASS_TEACHER'`,
+      );
+      await ds.query(
+        `CREATE UNIQUE INDEX IF NOT EXISTS "UQ_tcs_teacher_section_homeroom" ON "teacher_class_sections" ("teacher_id", "section_id") WHERE "assignment_type" IN ('CLASS_TEACHER','ASSISTANT_CLASS_TEACHER')`,
+      );
     }
   }
 

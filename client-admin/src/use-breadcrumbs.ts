@@ -1,9 +1,17 @@
 import type { BreadcrumbItem } from '@biddaloy/ui/components';
-import type { AcademicYear, Class, Guardian, PrintTemplateRow, Student } from '@biddaloy/ui/hooks';
+import type {
+  AcademicYear,
+  Class,
+  Guardian,
+  MyClassSection,
+  PrintTemplateRow,
+  Student,
+} from '@biddaloy/ui/hooks';
 import {
   academicYearQueryOptions,
   classQueryOptions,
   guardianQueryOptions,
+  myClassSectionsQueryOptions,
   printTemplateQueryOptions,
   studentQueryOptions,
   useEntityLabel,
@@ -55,7 +63,8 @@ type EntityResolver<TData> = {
   // spreads a single one into `useQuery` and reads its `data` back
   // through this resolver's own `getName`.
   queryOptions: (id: string) => { queryKey: QueryKey } & Record<string, unknown>;
-  getName: (data: TData) => string;
+  /** `id` is for list-shaped caches (one query, many entities). */
+  getName: (data: TData, id: string) => string | undefined;
 };
 
 // Deliberate type erasure: each entry's real `TData` (`Student`,
@@ -83,6 +92,14 @@ const ENTITY_RESOLVERS: Record<string, EntityResolver<any>> = {
   printTemplateEdit: {
     queryOptions: printTemplateQueryOptions,
     getName: (data: PrintTemplateRow) => data.name,
+  },
+  // [47.4.2] The section list `/my-class/$sectionId`'s loader already warmed.
+  myClassSection: {
+    queryOptions: () => myClassSectionsQueryOptions(),
+    getName: (data: MyClassSection[], id: string) => {
+      const section = data.find((s) => s.section_id === id);
+      return section && `${section.class_name}-${section.section_name}`;
+    },
   },
 };
 
@@ -113,7 +130,7 @@ function useResolvedEntityName(
   // here the way a single fixed call site would.
   const query = useQuery({ ...options, enabled: false } as UseQueryOptions<unknown>);
   if (!active || query.data === undefined) return undefined;
-  return resolver.getName(query.data);
+  return resolver.getName(query.data, id);
 }
 
 export interface UseBreadcrumbsResult {

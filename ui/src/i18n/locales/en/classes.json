@@ -132,6 +132,7 @@
     "subjectPlaceholder": "Select a subject",
     "errorTeacherRequired": "Teacher is required",
     "errorSubjectRequired": "Subject is required",
+    "errorAlreadyHomeroom": "This teacher is already a class teacher or assistant class teacher of this section",
     "errorDuplicateAssignment": "This teacher is already assigned to this section for this subject",
     "errorMessage": "Failed to assign teacher",
     "save": "Assign",

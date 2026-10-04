@@ -22,6 +22,7 @@
     "PRESENT": "Present 15 days in a row"
   },
   "cardEmpty": {
+    "attendanceNotTaken": "Attendance not taken yet.",
     "absentees": "No one is absent today.",
     "flags": "No flags right now.",
     "dues": "No dues.",

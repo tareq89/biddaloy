@@ -207,7 +207,7 @@ describe('AssignTeacherDialog', () => {
     expect(screen.queryByText(/will be replaced/)).toBeNull();
   });
 
-  it('shows the server message for TEACHER_ALREADY_HOMEROOM', async () => {
+  it('shows the translated message for TEACHER_ALREADY_HOMEROOM, not the server text', async () => {
     server.use(...referenceHandlers());
     server.use(
       http.post('/api/v1/classes/:classId/sections/:sectionId/teachers', () =>
@@ -234,8 +234,13 @@ describe('AssignTeacherDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Assign' }));
 
     expect(
-      await screen.findByText('Teacher already holds a class-teacher role in this section'),
+      await screen.findByText(
+        'This teacher is already a class teacher or assistant class teacher of this section',
+      ),
     ).toBeTruthy();
+    expect(
+      screen.queryByText('Teacher already holds a class-teacher role in this section'),
+    ).toBeNull();
   });
 
   // [#1026 gap fix] Teacher-centric mode: no classId/sectionId props ->

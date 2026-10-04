@@ -1,6 +1,5 @@
 import { request as pwRequest, type APIRequestContext } from '@playwright/test';
 
-import { markableDateIso } from '../api';
 import { shells } from '../config';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
@@ -8,7 +7,6 @@ import {
   SEED_ASSISTANT_TEACHER_EMAIL,
   SEED_PASSWORD_ENV,
   SEED_ROLE_EMAILS,
-  SEED_STREAK_STUDENTS,
 } from '../seed-contract';
 
 /**
@@ -82,6 +80,15 @@ test.describe('class teacher', () => {
     expect(seeded.sections).toHaveLength(1);
     const section = seeded.sections[0]!;
     expect(section.assignment_type).toBe('CLASS_TEACHER');
+    // Read before the page loads, so the card's own fetch is never older.
+    // Not the seed's three streak names: `journeys/attendance.spec.ts` marks
+    // this section's register for today, which rewrites the streaks. The
+    // seed's streak shape is pinned by `seed.util.spec.ts` instead.
+    const streaks = await seeded.getJson<{ items: { student_name: string }[] }>(
+      `/attendance/sections/${section.section_id}/streaks`,
+    );
+    expect(streaks.items.length).toBeGreaterThan(0);
+    await seeded.api.dispose();
 
     await page.goto('/dashboard');
     await page.getByRole('link', { name: t('nav.items.myClass') }).click();
@@ -105,27 +112,9 @@ test.describe('class teacher', () => {
 
     // Streaks: the card shows exactly what the server computes.
     const flags = page.getByRole('region', { name: t('myClass.cards.flags') });
-    const streaks = await seeded.getJson<{ items: { student_name: string }[] }>(
-      `/attendance/sections/${section.section_id}/streaks`,
-    );
-    expect(streaks.items.length).toBeGreaterThan(0);
     for (const { student_name } of streaks.items) {
       await expect(flags.getByText(student_name)).toBeVisible();
     }
-    // The seed's three streak students come from the seed contract. Another
-    // spec (`journeys/attendance.spec.ts`) marks THIS seeded section's
-    // register for today, which legitimately rewrites the streaks, so the
-    // contract names are only asserted while today's register is untouched.
-    const today = await seeded.getJson<{ students: { status: string | null }[] }>(
-      `/attendance/sections/${section.section_id}/register`,
-      { date: markableDateIso() },
-    );
-    if (today.students.every((s) => s.status === null)) {
-      for (const name of Object.values(SEED_STREAK_STUDENTS)) {
-        await expect(flags.getByText(name)).toBeVisible();
-      }
-    }
-    await seeded.api.dispose();
 
     await page.getByRole('link', { name: t('myClass.takeAttendance') }).click();
     await expect(page).toHaveURL(new RegExp(`/attendance/${section.section_id}`));

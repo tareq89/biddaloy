@@ -1861,31 +1861,25 @@ export async function ensureRoutineSeed(
   }
 
   // --- a second teacher, for the co-taught slot -------------------------
-  let secondTeacherUser = await repos.userRepository.findOne({
+  // [47.2.5] The login itself is `ensureRoleTestUsers`' job (it runs first
+  // and restores a soft-deleted account); this only attaches the Teacher row.
+  const secondTeacherUser = await repos.userRepository.findOne({
     where: { email: ASSISTANT_TEACHER_EMAIL },
-    withDeleted: true,
   });
   if (!secondTeacherUser) {
-    secondTeacherUser = repos.userRepository.create({
-      email: ASSISTANT_TEACHER_EMAIL,
-      full_name: 'Assistant Teacher User',
-      // Never logged into directly — this account exists only to give the
-      // co-taught slot a distinct teacher, unlike `teacher@biddaloy.test`
-      // which is a real login fixture elsewhere in this file.
-      password_hash: 'seed-only-not-a-real-login',
-    });
-    await repos.userRepository.save(secondTeacherUser);
-  } else if (secondTeacherUser.deleted_at) {
-    // `users.email` is a plain unique index (covers deleted rows too), so a
-    // soft-deleted match still owns this email — restore it rather than
-    // re-insert, same reasoning `findLivePreferred`'s docblock gives for
-    // plain-unique-index entities.
-    await repos.userRepository.save(undelete(secondTeacherUser));
+    throw new Error(`${ASSISTANT_TEACHER_EMAIL} missing — run ensureRoleTestUsers first`);
   }
+  // Looked up by employee_id, not user_id: a database seeded before 47.2.5
+  // holds SEED-TEACHER-0002 (globally unique) under the old
+  // `routine-teacher2@biddaloy.test` user, so re-point it rather than insert.
   let secondTeacher = await repos.teacherRepository.findOne({
-    where: { user_id: secondTeacherUser.id },
+    where: { employee_id: 'SEED-TEACHER-0002' },
     withDeleted: true,
   });
+  if (secondTeacher && secondTeacher.user_id !== secondTeacherUser.id) {
+    secondTeacher.user_id = secondTeacherUser.id;
+    await repos.teacherRepository.save(secondTeacher);
+  }
   if (!secondTeacher) {
     secondTeacher = repos.teacherRepository.create({
       user_id: secondTeacherUser.id,

@@ -150,36 +150,47 @@ describe('TeacherAssignmentType1791300000000 (integration)', () => {
     expect(byTeacher[teacher2]).toBe('SUBJECT_TEACHER');
   });
 
+  // All of this runs on `queryRunner` inside one transaction that is rolled
+  // back: down()/up() are DDL on the shared worker DB, and a half-finished
+  // round trip would poison every later spec on it (Epic 35 lesson).
   it('down() aborts while an ASSISTANT row exists; down()+up() backfills legacy rows', async () => {
-    await insert(teacher1, 'ASSISTANT_CLASS_TEACHER');
-    await expect(migration.down(queryRunner)).rejects.toThrow(/ASSISTANT_CLASS_TEACHER/);
-    // Aborted before touching anything: the column is still there.
-    expect(
-      await dataSource.query(
-        `SELECT 1 FROM information_schema.columns WHERE table_name = 'teacher_class_sections' AND column_name = 'assignment_type'`,
-      ),
-    ).toHaveLength(1);
-    await dataSource.query(`DELETE FROM teacher_class_sections`);
-
-    await migration.down(queryRunner);
+    const q = (sql: string, params?: unknown[]) => queryRunner.query(sql, params);
+    await queryRunner.startTransaction();
     try {
+      await q(
+        `INSERT INTO teacher_class_sections (teacher_id, section_id, tenant_id, assignment_type)
+         VALUES ($1, $2, $3, 'ASSISTANT_CLASS_TEACHER')`,
+        [teacher1, sectionId, SEED_TENANT_ID],
+      );
+      await expect(migration.down(queryRunner)).rejects.toThrow(/ASSISTANT_CLASS_TEACHER/);
+      // Aborted before touching anything: the column is still there.
+      expect(
+        await q(
+          `SELECT 1 FROM information_schema.columns WHERE table_name = 'teacher_class_sections' AND column_name = 'assignment_type'`,
+        ),
+      ).toHaveLength(1);
+      await q(`DELETE FROM teacher_class_sections`);
+
+      await migration.down(queryRunner);
       // Legacy shape: no assignment_type; NULL subject = class teacher.
-      await dataSource.query(
+      await q(
         `INSERT INTO teacher_class_sections (teacher_id, section_id, tenant_id) VALUES ($1, $2, $3)`,
         [teacher1, sectionId, SEED_TENANT_ID],
       );
-      await dataSource.query(
+      await q(
         `INSERT INTO teacher_class_sections (teacher_id, section_id, tenant_id, subject_id) VALUES ($1, $2, $3, $4)`,
         [teacher2, sectionId, SEED_TENANT_ID, subjectId],
       );
-    } finally {
       await migration.up(queryRunner);
+
+      const rows: Array<{ teacher_id: string; assignment_type: string }> = await q(
+        `SELECT teacher_id, assignment_type FROM teacher_class_sections`,
+      );
+      const byTeacher = Object.fromEntries(rows.map((r) => [r.teacher_id, r.assignment_type]));
+      expect(byTeacher[teacher1]).toBe('CLASS_TEACHER');
+      expect(byTeacher[teacher2]).toBe('SUBJECT_TEACHER');
+    } finally {
+      await queryRunner.rollbackTransaction();
     }
-    const rows: Array<{ teacher_id: string; assignment_type: string }> = await dataSource.query(
-      `SELECT teacher_id, assignment_type FROM teacher_class_sections`,
-    );
-    const byTeacher = Object.fromEntries(rows.map((r) => [r.teacher_id, r.assignment_type]));
-    expect(byTeacher[teacher1]).toBe('CLASS_TEACHER');
-    expect(byTeacher[teacher2]).toBe('SUBJECT_TEACHER');
   });
 });

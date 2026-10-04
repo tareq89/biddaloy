@@ -350,14 +350,14 @@ describe('SectionService.assignTeacher [29.0]', () => {
       },
     });
 
-    await expect(
-      service.assignTeacher(
-        'c1',
-        's1',
-        { teacher_id: 't1', subject_id: 'subj-1' } as any,
-        TENANT_ID,
-      ),
-    ).rejects.toThrow(ConflictException);
+    const err = await service
+      .assignTeacher('c1', 's1', { teacher_id: 't1', subject_id: 'subj-1' } as any, TENANT_ID)
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    // D7 — same `{ message, details: { code } }` shape as the homeroom 409s.
+    expect((err as ConflictException).getResponse()).toMatchObject({
+      details: { code: 'TEACHER_ALREADY_SUBJECT_TEACHER' },
+    });
     expect(tcsRepo.save).not.toHaveBeenCalled();
   });
 

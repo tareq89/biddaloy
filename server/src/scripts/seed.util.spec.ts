@@ -1819,6 +1819,7 @@ describe('ensureRoutineSeed', () => {
 
   it('[47.2.5] makes the second teacher ASSISTANT_CLASS_TEACHER of section A, once', async () => {
     const repos = routineRepos();
+    vi.mocked(repos.userRepository.findOne).mockResolvedValue({ id: 'user-2' } as User);
     vi.mocked(repos.subjectRepository.findOne).mockResolvedValue({ id: 'math' } as Subject);
 
     await ensureRoutineSeed(repos, ROUTINE_PARAMS);
@@ -1837,6 +1838,36 @@ describe('ensureRoutineSeed', () => {
     } as TeacherClassSection);
     await ensureRoutineSeed(repos, ROUTINE_PARAMS);
     expect(vi.mocked(repos.teacherClassSectionRepository.create)).toHaveBeenCalledTimes(1);
+  });
+
+  // A database seeded before 47.2.5 holds SEED-TEACHER-0002 (globally unique
+  // employee_id) under the old routine-teacher2 user. Inserting a second row
+  // would 23505, so the existing teacher is re-pointed at the new login.
+  it('[47.2.5] re-points a legacy SEED-TEACHER-0002 at the assistant-teacher login', async () => {
+    const repos = routineRepos();
+    vi.mocked(repos.userRepository.findOne).mockResolvedValue({ id: 'user-2' } as User);
+    vi.mocked(repos.subjectRepository.findOne).mockResolvedValue({ id: 'math' } as Subject);
+    const legacy = {
+      id: 'teacher-2',
+      user_id: 'legacy-user',
+      employee_id: 'SEED-TEACHER-0002',
+      deleted_at: null,
+    } as Teacher;
+    vi.mocked(repos.teacherRepository.findOne).mockResolvedValue(legacy);
+
+    await ensureRoutineSeed(repos, ROUTINE_PARAMS);
+
+    expect(vi.mocked(repos.teacherRepository.create)).not.toHaveBeenCalled();
+    expect(vi.mocked(repos.teacherRepository.save)).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'teacher-2', user_id: 'user-2' }),
+    );
+  });
+
+  it('throws when the assistant-teacher login was not seeded first', async () => {
+    const repos = routineRepos();
+    vi.mocked(repos.subjectRepository.findOne).mockResolvedValue({ id: 'math' } as Subject);
+
+    await expect(ensureRoutineSeed(repos, ROUTINE_PARAMS)).rejects.toThrow(/ensureRoleTestUsers/);
   });
 });
 

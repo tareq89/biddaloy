@@ -195,7 +195,7 @@ export function AssignTeacherDialog({
   const assignTeacher = pickerMode ? unboundAssignTeacher : boundAssignTeacher;
   const apiError = assignTeacher.error instanceof ApiError ? assignTeacher.error : null;
   const conflict = assignTeacher.isError && apiError?.statusCode === 409;
-  // [47.4.1] The server's homeroom-conflict message is specific enough to show as-is.
+  // [47.4.1] Keyed on `details.code`, never the server's English message.
   const homeroomConflict = conflict && apiError?.details?.code === 'TEACHER_ALREADY_HOMEROOM';
   const replaced =
     mode === 'CLASS_TEACHER' && currentClassTeacher && currentClassTeacher.teacherId !== teacherId
@@ -308,7 +308,7 @@ export function AssignTeacherDialog({
           {assignTeacher.isError && (
             <p role="alert" className="text-sm text-destructive">
               {homeroomConflict
-                ? apiError?.message
+                ? t('assignTeacherForm.errorAlreadyHomeroom')
                 : conflict
                   ? t('assignTeacherForm.errorDuplicateAssignment')
                   : t('assignTeacherForm.errorMessage')}

@@ -3,6 +3,7 @@
  * owns its own query, so each loads, fails and retries independently (D14):
  * one dead endpoint shows a retry inside that card and the rest still render.
  */
+import { Permission } from '@biddaloy/shared';
 import { Button, Card, Skeleton } from '@biddaloy/ui/components';
 import {
   classPerformanceQueryOptions,
@@ -10,6 +11,7 @@ import {
   useDefaultedList,
   useExams,
   useFeeDues,
+  useHasPermission,
   useSectionHomeworkRollup,
   useSectionRegister,
   useStudents,
@@ -102,7 +104,11 @@ function Row({ left, right }: { left: ReactNode; right?: ReactNode }) {
 export function AbsenteesCard({ sectionId }: { sectionId: string }) {
   const { t } = useTranslation('myClass');
   const query = useSectionRegister(sectionId, todayIso());
-  const absent = (query.data?.students ?? []).filter((s) => s.status === 'ABSENT');
+  const students = query.data?.students ?? [];
+  const absent = students.filter((s) => s.status === 'ABSENT');
+  // Every status null = nobody has marked today's register yet; "no one is
+  // absent" would be a false all-clear.
+  const notTaken = students.length > 0 && students.every((s) => s.status === null);
   return (
     <CardFrame
       id="my-class-absentees"
@@ -112,7 +118,13 @@ export function AbsenteesCard({ sectionId }: { sectionId: string }) {
         isError: query.isError,
         retry: () => void query.refetch(),
       }}
-      empty={absent.length === 0 ? t('cardEmpty.absentees') : undefined}
+      empty={
+        notTaken
+          ? t('cardEmpty.attendanceNotTaken')
+          : absent.length === 0
+            ? t('cardEmpty.absentees')
+            : undefined
+      }
     >
       <ul className="flex flex-col">
         {absent.slice(0, ROWS).map((s) => (
@@ -184,6 +196,9 @@ const DUES_PAGE = 100;
 export function DuesCard({ sectionId }: { sectionId: string }) {
   const { t } = useTranslation('myClass');
   const region = useRegionConfig();
+  // `/fees/dues` needs FEE_COLLECT; a TEACHER only has FEE_READ, so the link
+  // would land on access-denied.
+  const canOpenDues = useHasPermission(Permission.FEE_COLLECT);
   const query = useFeeDues({
     section_id: sectionId,
     sort_by: 'due_amount',
@@ -218,9 +233,11 @@ export function DuesCard({ sectionId }: { sectionId: string }) {
           />
         ))}
       </ul>
-      <Link className={SEE_ALL_CLASS} to="/fees/dues" search={{ section_id: sectionId }}>
-        {t('seeAll')}
-      </Link>
+      {canOpenDues && (
+        <Link className={SEE_ALL_CLASS} to="/fees/dues" search={{ section_id: sectionId }}>
+          {t('seeAll')}
+        </Link>
+      )}
     </CardFrame>
   );
 }

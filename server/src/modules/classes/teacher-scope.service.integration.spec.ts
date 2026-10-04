@@ -31,6 +31,7 @@ describe('TeacherScopeService (integration)', () => {
   let sec6A: string; // Class 6 / A, current year
   let sec6B: string; // Class 6 / B, current year
   let sec7A: string; // Class 7 / A, current year
+  let sec10A: string; // Class 10 / A, current year (numeric_grade ordering)
   let secDeleted: string; // soft-deleted section, current year
   let secClassDeleted: string; // section of a soft-deleted class, current year
   let secOld: string; // section of a past (non-current) year
@@ -68,19 +69,31 @@ describe('TeacherScopeService (integration)', () => {
         is_current: isCurrent,
         tenant_id: tenantId,
       });
-    const makeClass = (tenantId: string, yearId: string, name: string) =>
-      classRepo.save({ name, academic_year_id: yearId, tenant_id: tenantId });
+    const makeClass = (
+      tenantId: string,
+      yearId: string,
+      name: string,
+      numericGrade: number | null = null,
+    ) =>
+      classRepo.save({
+        name,
+        academic_year_id: yearId,
+        tenant_id: tenantId,
+        numeric_grade: numericGrade,
+      });
     const makeSection = (tenantId: string, classId: string, name: string) =>
       sectionRepo.save({ section_name: name, class_id: classId, tenant_id: tenantId });
 
     const currentA = await makeYear(TENANT_A, 'Scope Current', true);
     const pastA = await makeYear(TENANT_A, 'Scope Past', false);
-    const class6 = await makeClass(TENANT_A, currentA.id, 'Class 6');
-    const class7 = await makeClass(TENANT_A, currentA.id, 'Class 7');
+    const class6 = await makeClass(TENANT_A, currentA.id, 'Class 6', 6);
+    const class7 = await makeClass(TENANT_A, currentA.id, 'Class 7', 7);
+    const class10 = await makeClass(TENANT_A, currentA.id, 'Class 10', 10);
     const classOld = await makeClass(TENANT_A, pastA.id, 'Class Old');
     sec6A = (await makeSection(TENANT_A, class6.id, 'A')).id;
     sec6B = (await makeSection(TENANT_A, class6.id, 'B')).id;
     sec7A = (await makeSection(TENANT_A, class7.id, 'A')).id;
+    sec10A = (await makeSection(TENANT_A, class10.id, 'A')).id;
     const deleted = await makeSection(TENANT_A, class6.id, 'Z');
     secDeleted = deleted.id;
     await sectionRepo.softDelete({ id: deleted.id });
@@ -227,6 +240,13 @@ describe('TeacherScopeService (integration)', () => {
         }),
         expect.objectContaining({ section_id: sec7A, class_name: 'Class 7' }),
       ]);
+    });
+
+    it('orders by numeric_grade, so Class 10 comes after Class 7', async () => {
+      await assign(TeacherAssignmentType.CLASS_TEACHER, sec10A);
+      await assign(TeacherAssignmentType.ASSISTANT_CLASS_TEACHER, sec7A);
+      const rows = await list();
+      expect(rows.map((r) => r.class_name)).toEqual(['Class 7', 'Class 10']);
     });
 
     it('returns [] for a subject-only teacher', async () => {

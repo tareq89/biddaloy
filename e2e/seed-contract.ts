@@ -105,13 +105,3 @@ export const SEED_TRANSFER_DESTINATION = 'Dhaka Residential Model College';
  * asserts the two match. Deliberately not in `SEED_ROLE_EMAILS`: that map is
  * one account per role. */
 export const SEED_ASSISTANT_TEACHER_EMAIL = 'assistant-teacher@biddaloy.test';
-
-/** [47.2.5] The three students of `teacher@biddaloy.test`'s section whose
- * newest attendance sessions end on a streak (ABSENT x3, LATE x3, PRESENT
- * x15+ — `STREAK_THRESHOLDS`), by full name. `seed.util.spec.ts` asserts the
- * seeded statuses give exactly these three streaks. */
-export const SEED_STREAK_STUDENTS = {
-  present: 'Nusrat Jahan',
-  late: 'Tanvir Ahmed',
-  absent: 'Sadia Islam',
-} as const;

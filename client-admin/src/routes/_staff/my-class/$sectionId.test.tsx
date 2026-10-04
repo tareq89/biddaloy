@@ -149,6 +149,15 @@ describe('/my-class/$sectionId', () => {
     expect(tel.getAttribute('href')).toBe('tel:01700000000');
   });
 
+  it('names the section, not its id, in the breadcrumb and tab title', async () => {
+    mockAll();
+    render();
+    const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    await waitFor(() => expect(within(nav).getByText('Class 7-A')).toBeTruthy());
+    expect(within(nav).queryByText('section-1')).toBeNull();
+    await waitFor(() => expect(document.title).toContain('Class 7-A'));
+  });
+
   it('keeps the other cards when one card fails, and retries just that card', async () => {
     mockAll([
       http.get('/api/v1/attendance/sections/section-1/streaks', () =>
@@ -168,6 +177,29 @@ describe('/my-class/$sectionId', () => {
     mockAll([http.get('/api/v1/exams', () => HttpResponse.json(paged([])))]);
     render();
     expect(await screen.findByText('No results yet.')).toBeTruthy();
+  });
+
+  // `/fees/dues` needs FEE_COLLECT, which TEACHER lacks (FEE_READ only):
+  // the Dues card must not offer a link that lands on access-denied.
+  it('hides the Dues "See all" link from a TEACHER', async () => {
+    mockAll();
+    render();
+    const dues = (await screen.findByRole('heading', { name: 'Dues' })).closest('section')!;
+    expect(await within(dues).findByText('Rafi Absent')).toBeTruthy();
+    expect(within(dues).queryByRole('link', { name: 'See all' })).toBeNull();
+  });
+
+  it('says attendance is not taken yet when no student has a status', async () => {
+    mockAll([
+      http.get('/api/v1/attendance/sections/section-1/register', () =>
+        HttpResponse.json({
+          students: [{ student_id: 's1', roll_number: 1, full_name: 'Rafi', status: null }],
+        }),
+      ),
+    ]);
+    render();
+    expect(await screen.findByText('Attendance not taken yet.')).toBeTruthy();
+    expect(screen.queryByText('No one is absent today.')).toBeNull();
   });
 
   it('shows the not-found page for a section the teacher does not own', async () => {

@@ -699,8 +699,9 @@ export class SectionService {
             },
           });
           if (duplicate) {
-            throw new ConflictException(
+            throw conflict(
               `Teacher "${dto.teacher_id}" is already the subject-teacher for subject "${subjectId}" in section "${sectionId}"`,
+              'TEACHER_ALREADY_SUBJECT_TEACHER',
             );
           }
         }

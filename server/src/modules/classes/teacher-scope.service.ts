@@ -92,6 +92,7 @@ export class TeacherScopeService {
     tenantId: string;
   }): Promise<HomeroomSectionRow[]> {
     const { userId, tenantId } = input;
+    // numeric_grade first: by name alone "Class 10" sorts before "Class 6".
     return this.tcsRepo
       .createQueryBuilder('tcs')
       .innerJoin(
@@ -126,7 +127,8 @@ export class TeacherScopeService {
       .where('tcs.tenant_id = :tenantId', { tenantId })
       .andWhere('tcs.assignment_type IN (:...types)', { types: HOMEROOM_TYPES })
       .andWhere('t.user_id = :userId', { userId })
-      .orderBy('c.name', 'ASC')
+      .orderBy('c.numeric_grade', 'ASC', 'NULLS LAST')
+      .addOrderBy('c.name', 'ASC')
       .addOrderBy('cs.section_name', 'ASC')
       .getRawMany<HomeroomSectionRow>();
   }
