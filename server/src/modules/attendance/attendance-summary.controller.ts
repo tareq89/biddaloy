@@ -13,6 +13,7 @@ import { AttendanceSummaryService } from './attendance-summary.service';
 import { AttendanceAccessService } from './attendance-access.service';
 import { FamilyAccessService } from '../students/family-access.service';
 import {
+  AttendanceStreaksDto,
   AttendanceSummaryDto,
   LowAttendanceListResponseDto,
   QueryLowAttendanceDto,
@@ -149,6 +150,36 @@ export class AttendanceSummaryController {
       from,
       to,
     });
+  }
+
+  @Get('sections/:sectionId/streaks')
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.EXECUTIVE,
+    UserRole.ACCOUNTANT,
+    UserRole.TEACHER,
+    UserRole.OFFICE_STAFF,
+    UserRole.EXAM_CONTROLLER,
+  )
+  @RequirePermissions(Permission.ATTENDANCE_READ)
+  @ApiOperation({
+    summary:
+      'Students on a current run of 3+ ABSENT, 3+ LATE or 15+ PRESENT day-sessions ' +
+      '(LEAVE and unmarked days end a run).',
+  })
+  @ApiOkResponse({ type: AttendanceStreaksDto })
+  async getSectionStreaks(
+    @Param('sectionId') sectionId: string,
+    @CurrentTenant() tenant: { id: string; role: string },
+    @CurrentUser() user: { sub: string },
+  ) {
+    await this.attendanceAccessService.assertCanAccessSection(
+      tenant.role,
+      user.sub,
+      sectionId,
+      tenant.id,
+    );
+    return this.summaryService.getSectionStreaks({ tenantId: tenant.id, sectionId });
   }
 
   @Get('flags/low')

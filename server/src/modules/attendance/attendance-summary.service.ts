@@ -1,8 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { AttendancePolicySettings, AttendanceStatus } from '@biddaloy/shared';
 import { AttendanceRecord } from './entities/attendance-record.entity';
+import { AttendanceSession } from './entities/attendance-session.entity';
+import { currentStreaks, MAX_STREAK_SESSIONS, StreakStatus } from './attendance-streaks.util';
 import { Student } from '../students/entities/student.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
 import { SchoolCalendarService } from '../calendar/school-calendar.service';
@@ -117,6 +119,8 @@ export class AttendanceSummaryService {
   constructor(
     @InjectRepository(AttendanceRecord)
     private readonly recordRepo: Repository<AttendanceRecord>,
+    @InjectRepository(AttendanceSession)
+    private readonly sessionRepo: Repository<AttendanceSession>,
     @InjectRepository(Student)
     private readonly studentRepo: Repository<Student>,
     @InjectRepository(ClassSection)
@@ -437,6 +441,72 @@ export class AttendanceSummaryService {
     });
 
     return { dates, rows };
+  }
+
+  /**
+   * Current ABSENT / LATE / PRESENT runs for a section ([47.2.4], D22).
+   * Three queries regardless of roster size: sessions, records, students.
+   * The caller has already passed `assertCanAccessSection`.
+   */
+  async getSectionStreaks(input: { tenantId: string; sectionId: string }): Promise<{
+    items: Array<{
+      student_id: string;
+      student_name: string;
+      roll_number: number;
+      status: StreakStatus;
+      length: number;
+      since_date: string;
+    }>;
+    as_of_date: string | null;
+  }> {
+    const { tenantId, sectionId } = input;
+    // Whole-day registers only (period_no IS NULL), newest first.
+    const sessions = await this.sessionRepo.find({
+      where: { tenant_id: tenantId, section_id: sectionId, period_no: IsNull() },
+      order: { date: 'DESC' },
+      take: MAX_STREAK_SESSIONS,
+      select: { id: true, date: true },
+    });
+    if (sessions.length === 0) return { items: [], as_of_date: null };
+
+    const students = await this.studentRepo.find({
+      where: { tenant_id: tenantId, class_section_id: sectionId },
+    });
+    const records =
+      students.length === 0
+        ? []
+        : await this.recordRepo.find({
+            where: {
+              tenant_id: tenantId,
+              session_id: In(sessions.map((s) => s.id)),
+              student_id: In(students.map((s) => s.id)),
+            },
+            select: { student_id: true, session_id: true, status: true },
+          });
+    const statusBySession = new Map<string, Map<string, AttendanceStatus>>();
+    for (const r of records) {
+      if (!statusBySession.has(r.student_id)) statusBySession.set(r.student_id, new Map());
+      statusBySession.get(r.student_id)!.set(r.session_id, r.status);
+    }
+
+    const byId = new Map(students.map((s) => [s.id, s]));
+    const order: Record<string, number> = {
+      [AttendanceStatus.ABSENT]: 0,
+      [AttendanceStatus.LATE]: 1,
+      [AttendanceStatus.PRESENT]: 2,
+    };
+    const items = currentStreaks(sessions, [...byId.keys()], statusBySession)
+      .map((s) => ({
+        ...s,
+        student_name: byId.get(s.student_id)!.full_name,
+        roll_number: byId.get(s.student_id)!.roll_number,
+      }))
+      // Deterministic: status ABSENT, LATE, PRESENT, then longest first, then roll.
+      .sort(
+        (a, b) =>
+          order[a.status] - order[b.status] || b.length - a.length || a.roll_number - b.roll_number,
+      );
+    return { items, as_of_date: sessions[0].date };
   }
 
   async getLowAttendanceFlags(input: {

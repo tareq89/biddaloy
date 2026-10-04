@@ -201,6 +201,27 @@ export class RegisterMatrixDto {
   @ApiProperty({ type: RegisterMatrixRowDto, isArray: true }) rows: RegisterMatrixRowDto[];
 }
 
+export class AttendanceStreakDto {
+  @ApiProperty() student_id: string;
+  @ApiProperty() student_name: string;
+  @ApiProperty() roll_number: number;
+  @ApiProperty({ enum: [AttendanceStatus.ABSENT, AttendanceStatus.LATE, AttendanceStatus.PRESENT] })
+  status: AttendanceStatus.ABSENT | AttendanceStatus.LATE | AttendanceStatus.PRESENT;
+  @ApiProperty() length: number;
+  @ApiProperty({ description: 'Date of the oldest day-session in the run (YYYY-MM-DD).' })
+  since_date: string;
+}
+
+export class AttendanceStreaksDto {
+  @ApiProperty({ type: AttendanceStreakDto, isArray: true }) items: AttendanceStreakDto[];
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: "The section's latest day-session date; null when it has none.",
+  })
+  as_of_date: string | null;
+}
+
 export class LowAttendanceFlagDto extends AttendanceSummaryDto {
   @ApiProperty() student_name: string;
   @ApiProperty() roll_number: number;
