@@ -3,6 +3,7 @@ import { resolve } from 'path';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
+import { queueWorkers } from './common/queue-workers';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -349,9 +350,9 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
       }),
       // One-off scripts boot AppModule for its services but must not start
       // BullMQ workers (they'd consume jobs from a possibly-shared Redis).
-      // Read at import time, so scripts set it first — see
-      // scripts/script-app-context.ts.
-      extraOptions: { manualRegistration: process.env.QUEUE_WORKERS_DISABLED === 'true' },
+      // Read at import time, so scripts flip it first — see
+      // common/queue-workers.ts and scripts/script-app-context.ts.
+      extraOptions: { manualRegistration: !queueWorkers.enabled },
     }),
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
