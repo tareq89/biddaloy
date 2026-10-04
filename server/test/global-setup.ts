@@ -94,10 +94,9 @@ async function withAdminConnection<T>(fn: (admin: DataSource) => Promise<T>): Pr
 }
 
 async function terminateAndDrop(admin: DataSource, dbName: string): Promise<void> {
-  await admin.query(
-    `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1`,
-    [dbName],
-  );
+  await admin.query(`SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1`, [
+    dbName,
+  ]);
   await admin.query(`DROP DATABASE IF EXISTS "${dbName}"`);
 }
 
@@ -140,8 +139,12 @@ async function dropWorkerDatabases(): Promise<void> {
 
 export async function setup(): Promise<void> {
   // .env.test must win even if the shell already exports DATABASE_URL
-  // (e.g. pointing at the real dev DB per .env.example).
-  config({ path: join(__dirname, '..', '.env.test'), override: true });
+  // (e.g. pointing at the real dev DB per .env.example) — except inside
+  // `scripts/test-env.sh`, whose per-run database must win (see setup.ts).
+  config({
+    path: join(__dirname, '..', '.env.test'),
+    override: !process.env.BIDDALOY_TEST_ENV,
+  });
   process.env.NODE_ENV = 'test';
   process.env.DB_SYNCHRONIZE = 'false';
 
