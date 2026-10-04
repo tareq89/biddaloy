@@ -90,14 +90,14 @@ function fieldClassName(align: 'start' | 'end' | undefined): string {
 function SkeletonCard({ index }: { index: number }): React.ReactElement {
   return (
     <li key={`skeleton-${index}`} aria-hidden="true" data-placeholder="skeleton">
-      <Card className="flex flex-col gap-3 p-3.5">
+      <Card className="flex flex-col gap-3 p-4">
         <div className="flex items-start gap-2.5">
           <div className="min-w-0 flex-1 space-y-1.5">
             <Skeleton className="h-5 w-2/3" />
             <Skeleton className="h-4 w-1/3" />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-border-subtle pt-2.5">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-border-subtle pt-3">
           <Skeleton className="h-5 w-full" />
           <Skeleton className="h-5 w-full" />
         </div>
@@ -156,7 +156,7 @@ export function DataTableCards<TData extends RowData>({
         aria-busy={loading || showStaleRows}
         data-fetching={showStaleRows ? 'true' : undefined}
         className={cn(
-          'flex flex-col gap-2',
+          'space-y-3',
           showStaleRows &&
             'opacity-60 transition-opacity duration-(--motion-duration-base) ease-(--motion-ease-standard)',
         )}
@@ -203,7 +203,7 @@ export function DataTableCards<TData extends RowData>({
               <li key={row.id}>
                 <Card
                   data-selected={selectedIds?.has(row.id) || undefined}
-                  className="flex flex-col gap-3 p-3.5"
+                  className="flex flex-col gap-3 p-4"
                 >
                   <div className="flex items-start gap-2.5">
                     {selectable && (
@@ -215,10 +215,10 @@ export function DataTableCards<TData extends RowData>({
                     )}
                     <div className="min-w-0 flex-1">
                       {titleCell && (
-                        <span className="block text-sm font-semibold">{titleCell.value}</span>
+                        <span className="block text-h3">{titleCell.value}</span>
                       )}
                       {subtitleCell && (
-                        <span className="block text-xs text-muted-foreground">
+                        <span className="block text-text-secondary">
                           {subtitleCell.value}
                         </span>
                       )}
@@ -226,13 +226,13 @@ export function DataTableCards<TData extends RowData>({
                     {badgeCell && <div className="shrink-0">{badgeCell.value}</div>}
                   </div>
                   {fieldCells.length > 0 && (
-                    <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-border-subtle pt-2.5">
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-border-subtle pt-3">
                       {fieldCells.map((cell) => {
                         const column = columnById.get(cell.columnId);
                         const align = alignMap.get(cell.columnId);
                         return (
                           <div key={cell.id}>
-                            <dt className="text-[11px] text-muted-foreground uppercase">
+                            <dt className="text-caption text-text-secondary">
                               {column?.header ?? cell.columnId}
                             </dt>
                             <dd className={fieldClassName(align)}>{cell.value}</dd>

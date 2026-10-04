@@ -601,6 +601,57 @@ describe('DataTable pagination', () => {
   });
 });
 
+describe('DataTable footer [31.2.4b]', () => {
+  const base = {
+    tableId: 'footer-test',
+    caption: 'Students',
+    columns: COLUMNS,
+    getRowId: (row: Student) => row.id,
+    sorting: null,
+    onSortingChange: () => undefined,
+  };
+
+  it('shows the range and total', async () => {
+    await renderInEnglish(
+      <DataTable {...base} data={STUDENTS} page={1} pageSize={2} totalCount={10} />,
+    );
+    expect(screen.getByText('Showing 1–2 of 10')).toBeTruthy();
+  });
+
+  it('hides the pager and count when empty', async () => {
+    await renderInEnglish(<DataTable {...base} data={[]} totalCount={0} />);
+    expect(screen.queryByRole('button', { name: 'Previous' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
+    expect(screen.queryByText(/Showing|Total/)).toBeNull();
+  });
+
+  it('hides the footer while loading', async () => {
+    await renderInEnglish(<DataTable {...base} data={[]} totalCount={10} loading />);
+    expect(screen.queryByText(/Showing/)).toBeNull();
+  });
+
+  it('paginated={false} shows only "Total n"', async () => {
+    await renderInEnglish(
+      <DataTable {...base} data={STUDENTS} totalCount={3} paginated={false} />,
+    );
+    expect(screen.getByText('Total 3')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
+  });
+
+  it('emptyState replaces the table', async () => {
+    await renderInEnglish(
+      <DataTable
+        {...base}
+        data={[]}
+        totalCount={0}
+        emptyState={{ title: 'No students yet', explanation: 'Add one.' }}
+      />,
+    );
+    expect(screen.getByText('No students yet')).toBeTruthy();
+    expect(screen.queryByRole('table')).toBeNull();
+  });
+});
+
 describe('DataTable page-size control [8.14.10]', () => {
   afterEach(() => window.localStorage.clear());
 
@@ -609,7 +660,7 @@ describe('DataTable page-size control [8.14.10]', () => {
     expect(screen.queryByRole('combobox', { name: 'Rows per page' })).toBeNull();
   });
 
-  it('renders a labelled combobox with 10/20/50 present, in Latin numerals under the en RegionConfig', async () => {
+  it('renders a labelled combobox with 25/50/100 present, in Latin numerals under the en RegionConfig', async () => {
     const user = userEvent.setup();
     await renderInEnglish(
       <RegionConfigProvider value={REGION_BD_EN}>
@@ -632,8 +683,8 @@ describe('DataTable page-size control [8.14.10]', () => {
     const trigger = screen.getByRole('combobox', { name: 'Rows per page' });
     expect(trigger).toBeTruthy();
     await user.click(trigger);
-    expect(await screen.findByRole('option', { name: '10' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: '20' })).toBeTruthy();
+    expect(await screen.findByRole('option', { name: '25' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: '100' })).toBeTruthy();
     expect(screen.getByRole('option', { name: '50' })).toBeTruthy();
   });
 
@@ -713,8 +764,8 @@ describe('DataTable page-size control [8.14.10]', () => {
       </RegionConfigProvider>,
     );
     await user.click(screen.getByRole('combobox', { name: 'Rows per page' }));
-    expect(await screen.findByRole('option', { name: '১০' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: '২০' })).toBeTruthy();
+    expect(await screen.findByRole('option', { name: '২৫' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: '১০০' })).toBeTruthy();
     expect(screen.getByRole('option', { name: '৫০' })).toBeTruthy();
   });
 
