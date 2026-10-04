@@ -27,7 +27,7 @@ import {
 import { useTranslation } from '@biddaloy/ui/i18n';
 import * as React from 'react';
 
-import { AssignTeacherDialog } from '../../classes/-assign-teacher-dialog';
+import { AssignTeacherDialog, sortByAssignmentType } from '../../classes/-assign-teacher-dialog';
 
 import { TabQueryState } from './tab-query-state';
 
@@ -37,6 +37,7 @@ export interface TeachingAssignmentsTabProps {
 
 export function TeachingAssignmentsTab({ teacherId }: TeachingAssignmentsTabProps) {
   const { t } = useTranslation('staff');
+  const { t: tClasses } = useTranslation('classes');
   const canManage = useHasPermission(Permission.CLASS_MANAGE);
   const query = useTeacherAssignments(teacherId);
   const unassign = useUnassignTeacherAssignment();
@@ -57,10 +58,7 @@ export function TeachingAssignmentsTab({ teacherId }: TeachingAssignmentsTabProp
     {
       id: 'role',
       header: t('detail.teachingAssignments.columnRole'),
-      accessorFn: (row) =>
-        row.subject_id
-          ? t('teacherForm.designations.SUBJECT_TEACHER')
-          : t('teacherForm.designations.CLASS_TEACHER'),
+      accessorFn: (row) => tClasses(`assignmentType.${row.assignment_type}`),
     },
     {
       id: 'subject',
@@ -118,7 +116,7 @@ export function TeachingAssignmentsTab({ teacherId }: TeachingAssignmentsTabProp
             tableId="staff-teaching-assignments"
             caption={t('detail.teachingAssignments.caption')}
             columns={columns}
-            data={rows}
+            data={sortByAssignmentType(rows)}
             getRowId={(row) => row.id}
             sorting={sorting}
             onSortingChange={setSorting}
