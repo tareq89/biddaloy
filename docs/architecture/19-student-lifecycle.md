@@ -169,14 +169,14 @@ with real roles.
 
 ## 5. Who can do what
 
-| Permission                      | Roles                     | Gates                                                                                                            |
-| ------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `STUDENT_LIFECYCLE_MANAGE`      | ADMIN, EXECUTIVE          | leave, readmit, the report                                                                                       |
-| `STUDENT_NOTES_READ` / `_WRITE` | ADMIN, EXECUTIVE, TEACHER | the Notes tab (a TEACHER also needs to teach the student's section)                                              |
-| `STUDENT_RECORDS_READ`          | ADMIN, EXECUTIVE, TEACHER | seeing `health_notes` and the lifecycle history (`GET /students/:id/lifecycle-events`, the Records tab timeline) |
-| `STUDENT_RECORDS_WRITE`         | ADMIN, EXECUTIVE          | `PATCH /students/:id/records`                                                                                    |
+| Permission                      | Roles                                   | Gates                                                                                                            |
+| ------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `STUDENT_LIFECYCLE_MANAGE`      | ADMIN, EXECUTIVE                        | leave, readmit, the report                                                                                       |
+| `STUDENT_NOTES_READ` / `_WRITE` | ADMIN, EXECUTIVE, TEACHER               | the Notes tab (a TEACHER also needs to teach the student's section)                                              |
+| `STUDENT_RECORDS_READ`          | ADMIN, EXECUTIVE, TEACHER, OFFICE_STAFF | seeing `health_notes` and the lifecycle history (`GET /students/:id/lifecycle-events`, the Records tab timeline) |
+| `STUDENT_RECORDS_WRITE`         | ADMIN, EXECUTIVE, OFFICE_STAFF          | `PATCH /students/:id/records`                                                                                    |
 
-ACCOUNTANT has none of these. A role that is not in a route's role list is refused with **401**
+ACCOUNTANT has none of these. A role that is not in a route's role list is refused with **403**
 (for example an ACCOUNTANT or TEACHER calling `POST .../leave`).
 
 **Notes never reach a guardian or student.** `health_notes` is stripped from every response

@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import { GUARDIAN_ROLES, isGuardianRole, isStaffRole, STAFF_ROLES } from './audiences';
+import {
+  EMPLOYEE_ROLES,
+  GUARDIAN_ROLES,
+  hasTenantDataScope,
+  hasTenantScope,
+  isGuardianRole,
+  isStaffRole,
+  ROLE_SCOPE,
+  roleScope,
+  STAFF_ROLES,
+} from './audiences';
 import { UserRole } from './index';
 
 describe('route audiences [8.9.10]', () => {
@@ -26,5 +36,41 @@ describe('route audiences [8.9.10]', () => {
     expect(isStaffRole(null)).toBe(false);
     expect(isGuardianRole('HEADMASTER')).toBe(false);
     expect(isStaffRole('HEADMASTER')).toBe(false);
+  });
+});
+
+describe('ROLE_SCOPE [#1358]', () => {
+  it('has an entry for every UserRole', () => {
+    for (const role of Object.values(UserRole)) {
+      expect(ROLE_SCOPE[role], `${role} needs a ROLE_SCOPE entry`).toBeDefined();
+    }
+  });
+
+  it('fails closed on an unknown role', () => {
+    expect(roleScope('NOPE')).toBeNull();
+    expect(roleScope(null)).toBeNull();
+    expect(roleScope('constructor')).toBeNull();
+    expect(hasTenantScope('NOPE')).toBe(false);
+  });
+
+  it('puts COMMITTEE in the staff shell with tenant scope', () => {
+    expect((STAFF_ROLES as readonly string[]).includes(UserRole.COMMITTEE)).toBe(true);
+    expect(hasTenantScope(UserRole.COMMITTEE)).toBe(true);
+    expect(hasTenantScope(UserRole.TEACHER)).toBe(false);
+  });
+
+  it('EMPLOYEE_ROLES is every staff role except COMMITTEE (D17)', () => {
+    expect([...EMPLOYEE_ROLES].sort()).toEqual(
+      STAFF_ROLES.filter((r) => r !== UserRole.COMMITTEE).sort(),
+    );
+  });
+
+  it('hasTenantDataScope is tenant scope minus SUPER_ADMIN (#1362 D-N)', () => {
+    for (const role of Object.values(UserRole)) {
+      expect(hasTenantDataScope(role)).toBe(role !== UserRole.SUPER_ADMIN && hasTenantScope(role));
+    }
+    expect(hasTenantDataScope(UserRole.SUPER_ADMIN)).toBe(false);
+    expect(hasTenantDataScope(UserRole.ADMIN)).toBe(true);
+    expect(hasTenantDataScope(null)).toBe(false);
   });
 });

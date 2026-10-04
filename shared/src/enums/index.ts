@@ -6,6 +6,9 @@ export enum UserRole {
   PARENT = 'PARENT',
   STUDENT = 'STUDENT',
   EXECUTIVE = 'EXECUTIVE',
+  OFFICE_STAFF = 'OFFICE_STAFF',
+  EXAM_CONTROLLER = 'EXAM_CONTROLLER',
+  COMMITTEE = 'COMMITTEE',
 }
 
 export enum UserStatus {

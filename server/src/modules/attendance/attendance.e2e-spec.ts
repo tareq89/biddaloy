@@ -166,7 +166,7 @@ describe('Attendance E2E', () => {
       expect(res.body.message).toBe(`User is not a member of tenant ${foreignTenantId}`);
     });
 
-    it("returns 401 for a role not in this route's @Roles list (STUDENT)", async () => {
+    it("returns 403 for a role not in this route's @Roles list (STUDENT)", async () => {
       await dataSource.query(
         `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
          VALUES ('${SEED_ADMIN_USER_ID}', '${TENANT_ID}', '${UserRole.STUDENT}', NOW(), NOW())
@@ -182,7 +182,7 @@ describe('Attendance E2E', () => {
         .set('Authorization', `Bearer ${loginRes.body.access_token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
-        .expect(401);
+        .expect(403);
     });
   });
 
@@ -211,7 +211,7 @@ describe('Attendance E2E', () => {
         .expect(403);
     });
 
-    it("returns 401 for a role not in this route's @Roles list (STUDENT)", async () => {
+    it("returns 403 for a role not in this route's @Roles list (STUDENT)", async () => {
       await dataSource.query(
         `INSERT INTO user_tenants (user_id, tenant_id, role, created_at, updated_at)
          VALUES ('${SEED_ADMIN_USER_ID}', '${TENANT_ID}', '${UserRole.STUDENT}', NOW(), NOW())
@@ -228,7 +228,7 @@ describe('Attendance E2E', () => {
         .set('Authorization', `Bearer ${loginRes.body.access_token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
-        .expect(401);
+        .expect(403);
     });
   });
 

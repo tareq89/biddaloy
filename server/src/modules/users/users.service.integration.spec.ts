@@ -259,6 +259,28 @@ describe('UserService (integration)', () => {
       expect(profile).toBeNull();
     });
 
+    it.each([
+      [UserRole.OFFICE_STAFF, true],
+      [UserRole.EXAM_CONTROLLER, true],
+      [UserRole.COMMITTEE, false],
+    ])('[24.3.2] role %s: membership created, staff profile = %s', async (role, hasProfile) => {
+      const result = await service.create(
+        {
+          full_name: `New ${role}`,
+          email: `${role.toLowerCase()}@example.com`,
+          password: 'pw',
+          role,
+        },
+        TENANT_ID,
+      );
+
+      expect(result.membership.role).toBe(role);
+      const profile = await dataSource
+        .getRepository(StaffProfile)
+        .findOne({ where: { user_id: result.user.id } });
+      expect(profile !== null).toBe(hasProfile);
+    });
+
     it('should throw ConflictException when email already exists', async () => {
       await service.create(
         { full_name: 'First', email: 'dup@example.com', password: 'pw', role: UserRole.TEACHER },

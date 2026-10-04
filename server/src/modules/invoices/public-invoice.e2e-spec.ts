@@ -209,11 +209,8 @@ describe('Public Invoice Share E2E', () => {
       // test, a regression here (e.g. someone widening the role list to
       // "anything with INVOICE_READ") would pass every other check in
       // this file silently. (PARENT membership granted in `beforeAll`.)
-      // 401, not 403: this codebase's role-mismatch guard
-      // (`context.guard.ts`'s role check) throws `UnauthorizedException`
-      // on a `@Roles()` mismatch — `ForbiddenException`/403 is reserved
-      // for `PermissionsGuard`'s missing-permission case, which doesn't
-      // apply here since PARENT does hold `INVOICE_READ`.
+      // 403 from RolesGuard's role-mismatch check (`context.guard.ts`) —
+      // PARENT does hold `INVOICE_READ`, so PermissionsGuard is not what refuses.
       const invoiceId = await createInvoice();
 
       await supertest(app.getHttpServer())
@@ -221,7 +218,7 @@ describe('Public Invoice Share E2E', () => {
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.PARENT)
-        .expect(401);
+        .expect(403);
     });
   });
 

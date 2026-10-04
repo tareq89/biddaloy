@@ -6,7 +6,7 @@
  * A 409 (duplicate email — global accounts are unique by email, not
  * per-school) renders its own inline message instead of the generic one.
  */
-import { STAFF_ROLES } from '@biddaloy/shared';
+import { STAFF_ROLES, UserRole } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
@@ -33,6 +33,9 @@ export interface AddUserDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
+/** SUPER_ADMIN is a platform role: `POST /users` always refuses it (#731). */
+const ASSIGNABLE_ROLES = STAFF_ROLES.filter((r) => r !== UserRole.SUPER_ADMIN);
 
 export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
   const { t } = useTranslation('staff');
@@ -134,12 +137,19 @@ export function AddUserDialog({ open, onOpenChange }: AddUserDialogProps) {
             <span className="text-sm font-medium">{t('addUser.roleLabel')}</span>
             <Select value={role ?? ''} onValueChange={(value) => setRole(value)}>
               <SelectTrigger aria-label={t('addUser.roleLabel')}>
-                <SelectValue placeholder={t('addUser.rolePlaceholder')} />
+                <SelectValue placeholder={t('addUser.rolePlaceholder')}>
+                  {role ? t(`roles.${role}`) : undefined}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {STAFF_ROLES.map((staffRole) => (
+                {ASSIGNABLE_ROLES.map((staffRole) => (
                   <SelectItem key={staffRole} value={staffRole}>
-                    {t(`roles.${staffRole}`)}
+                    <span className="flex flex-col">
+                      <span>{t(`roles.${staffRole}`)}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {t(`roleDescriptions.${staffRole}`)}
+                      </span>
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>

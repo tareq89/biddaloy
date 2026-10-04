@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Reflector } from '@nestjs/core';
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { QueryFailedError } from 'typeorm';
 import { SchoolStatus, UserRole } from '@biddaloy/shared';
 import { ProvisioningService } from './provisioning.service';
@@ -343,12 +343,8 @@ describe('ProvisioningService', () => {
       }),
     };
 
-    // RolesGuard maps a disallowed role to UnauthorizedException (401) —
-    // the controller relies on the same guard chain the rest of
-    // SchoolsController's SUPER_ADMIN-only routes use; ContextGuard/JWT
-    // ahead of it is what turns an unauthenticated/wrong-role caller into
-    // the 403 the contract calls for at the HTTP boundary.
-    expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
+    // RolesGuard maps a disallowed role to ForbiddenException (403).
+    expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
 
     const superAdminContext: any = {
       ...context,

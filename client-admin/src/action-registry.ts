@@ -85,6 +85,13 @@ export const ACTIONS: readonly PaletteAction[] = [
     run: (ctx) => ctx.navigate({ to: '/curriculum-preset' }),
   },
   {
+    id: 'roles.view',
+    label: { en: 'Roles & access', bn: 'রোল ও অনুমতি' },
+    permission: Permission.USER_READ,
+    kind: 'navigate',
+    run: (ctx) => ctx.navigate({ to: '/roles' }),
+  },
+  {
     id: 'examTemplates.createExam',
     label: { en: 'Create exam from template', bn: 'টেমপ্লেট থেকে পরীক্ষা তৈরি করুন' },
     permission: Permission.EXAM_MANAGE,

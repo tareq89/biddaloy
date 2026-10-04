@@ -65,7 +65,7 @@ function Demo({
   tabs = [PEOPLE_TAB, PAGE_TAB, ACTION_TAB],
   initialQuery = '',
 }: {
-  tabs?: [CommandPaletteTab, CommandPaletteTab, CommandPaletteTab];
+  tabs?: [CommandPaletteTab, ...CommandPaletteTab[]];
   initialQuery?: string;
 }) {
   const [open, setOpen] = useState(true);
@@ -92,6 +92,11 @@ export const Default: Story = {
 
 export const PeoplePopulated: Story = {
   render: () => <Demo initialQuery="ah" />,
+};
+
+/** Viewer without STUDENT_READ: People tab omitted, palette opens on Page. */
+export const WithoutPeopleTab: Story = {
+  render: () => <Demo tabs={[PAGE_TAB, ACTION_TAB]} />,
 };
 
 export const PageTab: Story = {

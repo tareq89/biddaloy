@@ -2,7 +2,7 @@ import { EventEmitter } from 'events';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Not, Repository } from 'typeorm';
-import { STAFF_ROLES } from '@biddaloy/shared';
+import { EMPLOYEE_ROLES } from '@biddaloy/shared';
 import { StaffIncident } from './entities/staff-incident.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { CreateIncidentDto, IncidentResponseDto, QueryIncidentsDto } from './dto/incident.dto';
@@ -35,7 +35,7 @@ export class IncidentsService {
       where: {
         user_id: dto.staffId,
         tenant_id: tenantId,
-        role: In(STAFF_ROLES as unknown as string[]),
+        role: In([...EMPLOYEE_ROLES]),
       },
     });
     if (!member) throw new NotFoundException('Staff member not found');

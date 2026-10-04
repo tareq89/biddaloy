@@ -176,9 +176,17 @@ describe('FeeDuesService (integration)', () => {
   let dataSource: DataSource;
 
   const TENANT_ID = SEED_TENANT_ID;
-  const YESTERDAY = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const TODAY = new Date();
-  const TOMORROW = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  // `due_date` is a `date` column compared with Postgres CURRENT_DATE (UTC).
+  // TypeORM writes a Date into a `date` column from its *local* parts, so
+  // build each day from the UTC calendar date — otherwise between 00:00 and
+  // the UTC offset (e.g. 00:00–06:00 in Dhaka) "yesterday" lands on today.
+  const utcDay = (offsetDays: number) => {
+    const d = new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000);
+    return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  };
+  const YESTERDAY = utcDay(-1);
+  const TODAY = utcDay(0);
+  const TOMORROW = utcDay(1);
 
   function makeStudent(overrides: Partial<Student> = {}) {
     studentSeq += 1;

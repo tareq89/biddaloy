@@ -87,6 +87,14 @@ describe('IncidentsService', () => {
     expect(repo.save).not.toHaveBeenCalled();
   });
 
+  it('only employees can be the subject: COMMITTEE is not one (D17)', async () => {
+    await service.create(dto, TENANT, ADMIN);
+    const roles = memberships.findOne.mock.calls[0][0].where.role.value;
+    expect(roles).toContain('TEACHER');
+    expect(roles).not.toContain('COMMITTEE');
+    expect(roles).not.toContain('PARENT');
+  });
+
   it('findOne filters tenant_id and 404s on the caller’s own incident', async () => {
     repo.findOne.mockResolvedValue(row({ staff_user_id: ADMIN }));
     await expect(service.findOne('inc-1', TENANT, ADMIN)).rejects.toBeInstanceOf(NotFoundException);
