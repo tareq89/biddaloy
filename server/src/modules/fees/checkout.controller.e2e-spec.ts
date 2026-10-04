@@ -192,14 +192,11 @@ describe('GET /payments/cart (16.4.1)', () => {
   // permission gate.
   //
   // It cannot be replaced with an equivalent real-membership denial:
-  // - every role this route's @Roles() allows (ADMIN/ACCOUNTANT/EXECUTIVE/
-  //   TEACHER/PARENT/STUDENT) also holds FEE_READ in ROLE_PERMISSIONS, so
-  //   PermissionsGuard's 403 branch is unreachable through this route by
-  //   design.
-  // - SUPER_ADMIN, the one role @Roles() excludes, bypasses RolesGuard
-  //   entirely (`context.guard.ts` RolesGuard: "SUPER_ADMIN bypasses all
-  //   role checks") — verified manually while fixing this test: a real
-  //   SUPER_ADMIN membership still gets 200, not 403, on this route.
+  // - every tenant role (ADMIN/ACCOUNTANT/EXECUTIVE/TEACHER/PARENT/STUDENT)
+  //   holds FEE_READ in ROLE_PERMISSIONS, so PermissionsGuard's 403 branch
+  //   is unreachable through this route by design.
+  // - SUPER_ADMIN holds every permission, so it gets 200, not 403, on this
+  //   route.
   // So there is no role/permission combination left to test a denial with
   // on this specific endpoint. What server/CLAUDE.md does mandate and this
   // file was missing — missing/invalid X-Tenant-ID — is added below.

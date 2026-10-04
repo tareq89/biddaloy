@@ -105,7 +105,7 @@ describe('Syllabus Topics E2E (22.3.4)', () => {
     expect(listRes.body.some((t: { id: string }) => t.id === createRes.body.id)).toBe(true);
   });
 
-  it('a STUDENT can read syllabus topics but cannot create one (401, RolesGuard)', async () => {
+  it('a STUDENT can read syllabus topics but cannot create one (403, PermissionsGuard)', async () => {
     const studentToken = await supertest(app.getHttpServer())
       .post(`${API}/auth/login`)
       .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
@@ -131,10 +131,10 @@ describe('Syllabus Topics E2E (22.3.4)', () => {
         name: 'Student Attempt',
         sequence: 2,
       })
-      .expect(401);
+      .expect(403);
   });
 
-  it('a PARENT can read syllabus topics but cannot delete one (401, RolesGuard)', async () => {
+  it('a PARENT can read syllabus topics but cannot delete one (403, PermissionsGuard)', async () => {
     const parentToken = await supertest(app.getHttpServer())
       .post(`${API}/auth/login`)
       .send({ email: SEED_ADMIN_EMAIL, password: SEED_ADMIN_PASSWORD })
@@ -166,7 +166,7 @@ describe('Syllabus Topics E2E (22.3.4)', () => {
       .set('Authorization', `Bearer ${parentToken}`)
       .set('X-Tenant-ID', SEED_TENANT_ID)
       .set('X-Role', UserRole.PARENT)
-      .expect(401);
+      .expect(403);
   });
 
   it('bulk-reorders topics', async () => {

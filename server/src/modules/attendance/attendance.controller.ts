@@ -94,8 +94,6 @@ export class AttendanceController {
   }
 
   @Put('sections/:sectionId/register')
-  // [10.4] G1 — E tightened off: lacks ATTENDANCE_MARK.
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
   @RequirePermissions(Permission.ATTENDANCE_MARK)
   @ApiOperation({
     summary:
@@ -145,8 +143,6 @@ export class AttendanceController {
 
   @Post('sections/:sectionId/register/finalize')
   @HttpCode(HttpStatus.OK)
-  // [10.4] G1 — E tightened off.
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
   @RequirePermissions(Permission.ATTENDANCE_MARK)
   @ApiOperation({
     summary:
@@ -174,8 +170,6 @@ export class AttendanceController {
   }
 
   @Patch('records/:recordId')
-  // [10.4] G1 — E tightened off.
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
   @RequirePermissions(Permission.ATTENDANCE_MARK)
   @ApiOperation({
     summary:

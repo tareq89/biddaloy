@@ -190,7 +190,7 @@ When `anonymous` is false, the portal tells the guardian their name will be show
 | Respondent identity                                                | Never in any payload                                    | `survey-results.service.ts` selects no `respondent_user_id`        |
 | Results while survey is OPEN, or below min N                       | `hidden: true` plus a count only                        | `survey-results.service.ts`                                        |
 | A target teacher asks for their own survey's results               | **404** for the whole route                             | `survey-results.service.ts`                                        |
-| Wrong role (for example a TEACHER on `GET /performance/staff/:id`) | **401**, not 403                                        | `RolesGuard` in `auth/guards/context.guard.ts`                     |
+| Wrong role (for example a TEACHER on `GET /performance/staff/:id`) | **403** `Requires permission(s): ACR_READ`              | `PermissionsGuard` in `auth/guards/permissions.guard.ts`           |
 | Staff Performance survey figure                                    | Sealed average only (`averageStars: null` while sealed) | `SurveyResultsService.teacherAverage`                              |
 | Guardian answering a pair they have no child for                   | 403 "not eligible"                                      | `survey-respond.service.ts`                                        |
 | Answering twice for one teacher and subject                        | 409                                                     | unique index `UQ_survey_responses_once`                            |
@@ -209,9 +209,11 @@ about them, then logs in as that admin and expects 404 on both
 | (role only) `PARENT`, `STUDENT` | portal users              | `GET /surveys/mine`, `POST /surveys/:id/respond`                                                                                                                                                |
 
 Source: `shared/src/enums/permissions.ts` (`ACR_READ`, `ACR_WRITE`, "ADMIN only
-(D6, D8)"). The controllers also list `@Roles(UserRole.ADMIN)`, which mirrors
-those permissions; `server/src/permission-matrix.e2e-spec.ts` checks the mirror
-holds. **ADMIN only until Epic 24.0 (#786)** adds finer roles. Until then a
+(D6, D8)"). The permission alone gates these routes: Epic 24.0 deleted the
+`@Roles(UserRole.ADMIN)` that only mirrored it. The survey routes with no
+permission of their own keep `@Roles`: `GET /surveys/mine` and
+`POST /surveys/:id/respond` (PARENT, STUDENT) and `GET /surveys/:id/results`
+(ADMIN, TEACHER). **ADMIN only until Epic 24.0 (#786)** adds finer roles. Until then a
 TEACHER sees student Performance but nothing about staff.
 
 ## 7. Incidents
@@ -294,8 +296,9 @@ TanStack Router parses `?startAcr=1` as the number `1`, so the page schema accep
   with a flag, so "Start ACR" still asks you to pick the person.
 - **Survey results are sealed until CLOSED.** Even the admin who published it
   sees nothing while it is OPEN, by design.
-- **401, not 403.** A wrong role gets 401 from `RolesGuard`. Clients should
-  treat both as "not allowed" and not retry.
+- **403, except on the role-only survey routes.** A wrong role gets 403 from
+  `PermissionsGuard`. The three survey routes above still carry `@Roles`, so
+  there a wrong role gets 401 from `RolesGuard` until #1360 (#729) lands. Clients should treat both as "not allowed" and not retry.
 - **Performance averages are unweighted.** The staff tab averages each class's
   pass rate, marks and attendance with equal weight, so a class of 5 counts as
   much as a class of 50.

@@ -1,10 +1,9 @@
 import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -26,7 +25,6 @@ export class PerformanceController {
   constructor(private readonly service: PerformanceService) {}
 
   @Get('students/:studentId')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.MARK_VIEW)
   @ApiOkResponse({ type: StudentPerformanceResponseDto })
   student(
@@ -43,7 +41,6 @@ export class PerformanceController {
   }
 
   @Get('classes/:classId')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.MARK_VIEW)
   @ApiOkResponse({ type: ClassPerformanceResponseDto })
   klass(

@@ -10,11 +10,10 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
+import { JwtPayload, Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
-import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
@@ -30,7 +29,6 @@ export class PrintersController {
   constructor(private readonly printers: PrintersService) {}
 
   @Get()
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.DOCUMENT_PRINT)
   @ApiOperation({ summary: 'List non-archived printer profiles, sorted by name.' })
   list(@CurrentTenant() tenant: { id: string }) {
@@ -38,7 +36,6 @@ export class PrintersController {
   }
 
   @Post()
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   @RequirePermissions(Permission.PRINT_TEMPLATE_MANAGE)
   @ApiOperation({ summary: 'Create a printer profile (margins default by type).' })
   create(
@@ -50,7 +47,6 @@ export class PrintersController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   @RequirePermissions(Permission.PRINT_TEMPLATE_MANAGE)
   @ApiOperation({ summary: 'Update a printer profile.' })
   update(
@@ -63,7 +59,6 @@ export class PrintersController {
   }
 
   @Post(':id/archive')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   @RequirePermissions(Permission.PRINT_TEMPLATE_MANAGE)
   @ApiOperation({ summary: 'Archive a printer profile (hides it from the list).' })
   archive(

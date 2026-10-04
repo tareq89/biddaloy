@@ -14,10 +14,9 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -46,7 +45,6 @@ export class CalendarImportController {
   constructor(private readonly service: CalendarImportService) {}
 
   @Get('template')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CALENDAR_MANAGE)
   @ApiOperation({ summary: 'Download the calendar import spreadsheet template.' })
   async template(@Query('format') format: string | undefined, @Res() res: Response): Promise<void> {
@@ -61,7 +59,6 @@ export class CalendarImportController {
   }
 
   @Post('validate')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CALENDAR_MANAGE)
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_UPLOAD_BYTES } }))
   @ApiConsumes('multipart/form-data')
@@ -93,7 +90,6 @@ export class CalendarImportController {
   }
 
   @Post('commit')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CALENDAR_MANAGE)
   @ApiOperation({ summary: 'Commit a previously staged calendar import.' })
   async commit(

@@ -18,7 +18,7 @@ import { t } from '../i18n';
  *    tracked separately);
  *  - teacher: sees the student Performance tab (MARK_VIEW) but never staff
  *    Performance (needs ACR_READ + USER_READ): the page is denied and the API
- *    answers 401.
+ *    answers 403 (PermissionsGuard, ACR_READ).
  */
 const PHONE = { width: 375, height: 812 };
 
@@ -97,7 +97,7 @@ test.describe('teacher', () => {
       ).toHaveCount(0);
     });
 
-    await test.step('the staff Performance API answers 401', async () => {
+    await test.step('the staff Performance API answers 403', async () => {
       const password = process.env[SEED_PASSWORD_ENV];
       const login = await request.post('/api/v1/auth/login', {
         data: { email: SEED_ROLE_EMAILS.teacher, password },
@@ -113,7 +113,8 @@ test.describe('teacher', () => {
       const res = await request.get(`/api/v1/performance/staff/${staff.userId}`, {
         headers: { Authorization: `Bearer ${session.token}`, 'X-Tenant-ID': session.tenantId },
       });
-      expect(res.status()).toBe(401);
+      expect(res.status()).toBe(403);
+      expect(((await res.json()) as { message: string }).message).toContain('ACR_READ');
     });
   });
 });

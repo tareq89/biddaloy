@@ -27,10 +27,10 @@ import { BatchMarksDto, GridQueryDto, GridStateActionDto, QueryProgressDto } fro
 import { Permission, UserRole, JwtPayload } from '@biddaloy/shared';
 
 /**
- * `@Roles(...)` here is only the coarse gate ("a TEACHER may attempt this
- * at all") — `MarksAuthorizationService` is the real, object-level check
- * ("which section-subjects"), matching `attendance.controller.ts`'s same
- * two-layer pattern.
+ * `@RequirePermissions(...)` here is only the coarse gate ("a TEACHER may
+ * attempt this at all") — `MarksAuthorizationService` is the real,
+ * object-level check ("which section-subjects"), matching
+ * `attendance.controller.ts`'s same two-layer pattern.
  */
 @ApiTags('marks')
 @ApiTenantAuth()

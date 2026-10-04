@@ -106,11 +106,11 @@ describe('ACR criteria E2E (28.2.1)', () => {
       .set('Authorization', `Bearer ${token}`)
       .set('X-Tenant-ID', tenant);
 
-  it('forbids a TEACHER (401) on read and write', async () => {
-    await as(teacherToken, TENANT_A, 'get').expect(401);
+  it('forbids a TEACHER (403 from PermissionsGuard) on read and write', async () => {
+    await as(teacherToken, TENANT_A, 'get').expect(403);
     await as(teacherToken, TENANT_A, 'put')
       .send({ criteria: [row('x')] })
-      .expect(401);
+      .expect(403);
   });
 
   it('ADMIN saves v1 then v2; GET returns latest; audit row written', async () => {
@@ -146,9 +146,9 @@ describe('ACR criteria E2E (28.2.1)', () => {
     const old = await as(adminToken, TENANT_A, 'get').query({ versionId: v1.body.id }).expect(200);
     expect(old.body.version).toBe(1);
     expect(old.body.criteria).toHaveLength(2);
-    // Other tenant: same id is a 404; teacher 401 first; malformed id 400.
+    // Other tenant: same id is a 404; teacher 403 first; malformed id 400.
     await as(adminToken, TENANT_B, 'get').query({ versionId: v1.body.id }).expect(404);
-    await as(teacherToken, TENANT_A, 'get').query({ versionId: v1.body.id }).expect(401);
+    await as(teacherToken, TENANT_A, 'get').query({ versionId: v1.body.id }).expect(403);
     await as(adminToken, TENANT_A, 'get').query({ versionId: 'not-a-uuid' }).expect(400);
   });
 

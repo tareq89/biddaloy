@@ -86,7 +86,6 @@ export class HomeworkSubmissionController {
   }
 
   @Patch('homework-submissions/:id')
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
   @RequirePermissions(Permission.HOMEWORK_GRADE)
   @ApiOperation({ summary: 'Teacher grade/tick/override of a submission (D9).' })
   @ApiOkResponse({ type: HomeworkSubmissionResponseDto })

@@ -222,7 +222,7 @@ describe('Program Enrollments E2E', () => {
         UserRole.TEACHER,
       )
         .send({ student_ids: [studentId] })
-        .expect(401);
+        .expect(403);
     });
   });
 

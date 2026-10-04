@@ -113,8 +113,7 @@ function passFailToCsv(subjects: SubjectPassFailRow[], overall: OverallPassFailR
 /**
  * [997] `GET /exams/:examId/analysis/*` — read-only merit/defaulted/
  * pass-fail/components views for a processed exam, each also available as
- * CSV. Cloning `marks.controller.ts:45-47`'s two-layer gate: `@Roles` is
- * the coarse "may attempt this at all" check, `MARK_VIEW` the fine one.
+ * CSV. Every route is gated by `MARK_VIEW` (PermissionsGuard).
  * No writes anywhere in this controller (issue step 7's invariant).
  */
 @ApiTags('exams')
