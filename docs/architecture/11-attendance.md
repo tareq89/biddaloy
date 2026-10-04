@@ -326,11 +326,11 @@ A **streak** is a student who has been absent, late or present for many
 day-registers in a row. The My class screen (Epic 47.0) shows them as one
 "Attendance flags" card, so a class teacher spots a problem early.
 
-| Status    | Flagged at   |
-| --------- | ------------ |
-| `ABSENT`  | 3 in a row   |
-| `LATE`    | 3 in a row   |
-| `PRESENT` | 15 in a row  |
+| Status    | Flagged at  |
+| --------- | ----------- |
+| `ABSENT`  | 3 in a row  |
+| `LATE`    | 3 in a row  |
+| `PRESENT` | 15 in a row |
 
 The numbers are constants (`STREAK_THRESHOLDS` in
 `server/src/modules/attendance/attendance-streaks.util.ts`), not tenant
@@ -358,11 +358,11 @@ flowchart LR
 
 Example, newest day first:
 
-| Student | Last marks (newest first) | Result                            |
-| ------- | ------------------------- | --------------------------------- |
-| Rina    | A, A, A, P                | flagged: `ABSENT`, length 3       |
-| Sumon   | A, A, L                   | not flagged: the run is only 2    |
-| Tania   | L, L, L, L                | flagged: `LATE`, length 4         |
+| Student | Last marks (newest first) | Result                         |
+| ------- | ------------------------- | ------------------------------ |
+| Rina    | A, A, A, P                | flagged: `ABSENT`, length 3    |
+| Sumon   | A, A, L                   | not flagged: the run is only 2 |
+| Tania   | L, L, L, L                | flagged: `LATE`, length 4      |
 
 Endpoint: `GET /attendance/sections/:sectionId/streaks`. It sits in the
 attendance-summary controller, needs `ATTENDANCE_READ`, and is gated by
@@ -373,8 +373,14 @@ the section). Response:
 {
   "as_of_date": "2026-10-03",
   "items": [
-    { "student_id": "…", "student_name": "Rina Akter", "roll_number": 4,
-      "status": "ABSENT", "length": 3, "since_date": "2026-10-01" }
+    {
+      "student_id": "…",
+      "student_name": "Rina Akter",
+      "roll_number": 4,
+      "status": "ABSENT",
+      "length": 3,
+      "since_date": "2026-10-01"
+    }
   ]
 }
 ```
