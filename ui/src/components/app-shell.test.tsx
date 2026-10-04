@@ -1,6 +1,6 @@
 import { Permission } from '@biddaloy/shared';
-import { createRootRoute, createRoute } from '@tanstack/react-router';
-import { screen, waitFor, within } from '@testing-library/react';
+import { createRootRoute, createRoute, Outlet } from '@tanstack/react-router';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HomeIcon, SettingsIcon, UsersRoundIcon, WalletIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -392,28 +392,28 @@ describe('AppShell', () => {
 
       // Mirrors `bottom-nav.test.tsx`'s own assertion shape on the
       // active/inactive `className` split (`bottom-nav.test.tsx:63`).
-      expect(activeLink.className).toContain('text-primary');
-      expect(activeLink.className).toContain('bg-primary/10');
+      expect(activeLink.className).toContain('bg-secondary');
+      expect(activeLink.className).toContain('text-secondary-foreground');
       expect(activeLink.className).toContain('font-semibold');
       expect(activeLink.getAttribute('aria-current')).toBe('page');
 
-      expect(inactiveLink.className).not.toContain('text-primary');
-      expect(inactiveLink.className).not.toContain('bg-primary/10');
-      expect(inactiveLink.className).toContain('hover:bg-accent');
+      expect(inactiveLink.className).not.toContain('bg-secondary');
+      expect(inactiveLink.className).toContain('hover:bg-muted');
       expect(inactiveLink.getAttribute('aria-current')).toBeNull();
 
       // The regression this ticket exists for: before 8.14.1 the active item
       // was `bg-accent`, i.e. pixel-identical to any hovered inactive one.
       // The active item must therefore NOT carry the hover treatment.
-      expect(activeLink.className).not.toContain('hover:bg-accent');
+      expect(activeLink.className).not.toContain('hover:bg-muted');
     });
 
-    it('keeps a visible focus-visible outline — no outline-none anywhere on nav links', async () => {
+    it('uses the canonical focus ring — never a bare outline-none', async () => {
       renderWithRouter(buildRouteTree(), { initialEntries: ['/students'], role: 'SUPER_ADMIN' });
 
       const link = await screen.findByRole('link', { name: 'Dashboard' });
-      expect(link.className).toContain('focus-visible:outline');
-      expect(link.className).not.toContain('outline-none');
+      expect(link.className).toContain('focus-visible:ring-2');
+      // `outline-none` is only acceptable because the ring replaces it.
+      expect(link.className).toContain('focus-visible:ring-ring');
     });
 
     it('renders every nav icon aria-hidden, leaving accessible link names unchanged', async () => {
@@ -690,6 +690,108 @@ describe('AppShell', () => {
       } finally {
         getItem.mockRestore();
       }
+    });
+  });
+
+  describe('[31.2.9a] one active item, re-opening groups, phone top bar, drawer', () => {
+    /** One persistent AppShell over child routes, so navigation does not remount it. */
+    function layoutTree(items: typeof navItems, groups: AppShellNavGroup[], shellProps = {}) {
+      const rootRoute = createRootRoute({
+        component: () => (
+          <AppShell navItems={items} navGroups={groups} brand="SchoolManager" {...shellProps}>
+            <Outlet />
+          </AppShell>
+        ),
+      });
+      const paths = [...items.map((i) => i.to), ...groups.flatMap((g) => g.items.map((i) => i.to))];
+      const routes = [...new Set(paths)].map((path) =>
+        createRoute({ getParentRoute: () => rootRoute, path, component: () => <p>{path}</p> }),
+      );
+      const extra = createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/exams/$id',
+        component: () => <p>exam detail</p>,
+      });
+      return rootRoute.addChildren([...routes, extra]);
+    }
+
+    const examItems = [
+      { to: '/exams', label: 'Exams' },
+      { to: '/exams/templates', label: 'Exam templates' },
+    ];
+
+    it('lights only the most specific item on a nested path', async () => {
+      renderWithRouter(layoutTree(examItems, []), {
+        initialEntries: ['/exams/templates'],
+        role: 'SUPER_ADMIN',
+      });
+      await screen.findByRole('link', { name: 'Exam templates' });
+      const current = screen.getAllByRole('link').filter((l) => l.getAttribute('aria-current'));
+      expect(current.map((l) => l.textContent)).toEqual(['Exam templates']);
+    });
+
+    it('keeps a detail page on its parent item', async () => {
+      renderWithRouter(layoutTree(examItems, []), {
+        initialEntries: ['/exams/abc'],
+        role: 'SUPER_ADMIN',
+      });
+      const exams = await screen.findByRole('link', { name: 'Exams' });
+      expect(exams.getAttribute('aria-current')).toBe('page');
+      expect(
+        screen.getByRole('link', { name: 'Exam templates' }).getAttribute('aria-current'),
+      ).toBeNull();
+    });
+
+    it('re-opens a collapsed group on client navigation without persisting (#879)', async () => {
+      const { router } = renderWithRouter(layoutTree(navItems, navGroups), {
+        initialEntries: ['/students'],
+        role: 'SUPER_ADMIN',
+      });
+      const finance = await screen.findByRole('button', { name: 'Finance' });
+      expect(finance.getAttribute('aria-expanded')).toBe('false');
+
+      await act(() => router.navigate({ to: '/fees' }));
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Finance' }).getAttribute('aria-expanded')).toBe(
+          'true',
+        ),
+      );
+      expect(window.localStorage.getItem('nav-group-collapsed-v2:finance')).toBeNull();
+    });
+
+    it('renders the phone top bar with title, actions and menu button', async () => {
+      renderWithRouter(
+        layoutTree(navItems, [], {
+          mobileTitle: 'Sample School',
+          mobileActions: <button type="button">Bell</button>,
+          mobileHeaderActions: <button type="button">Legacy</button>,
+        }),
+        { initialEntries: ['/'], role: 'SUPER_ADMIN' },
+      );
+      const bar = await screen.findByText('Sample School');
+      const wrapper = bar.closest('[data-app-header]') as HTMLElement;
+      expect(wrapper).not.toBeNull();
+      expect(within(wrapper).getByRole('button', { name: 'Bell' })).toBeTruthy();
+      expect(within(wrapper).getByRole('button', { name: 'Open menu' })).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Legacy' })).toBeNull();
+      expect(document.documentElement.style.getPropertyValue(APP_HEADER_HEIGHT_VAR)).not.toBe('');
+    });
+
+    it('drawer close sits in a sticky header and returns focus to the trigger', async () => {
+      const user = userEvent.setup();
+      renderWithRouter(layoutTree(navItems, [], { mobileTitle: 'Sample School' }), {
+        initialEntries: ['/'],
+        role: 'SUPER_ADMIN',
+      });
+      const trigger = await screen.findByRole('button', { name: 'Open menu' });
+      await user.click(trigger);
+      const dialog = await screen.findByRole('dialog');
+      const close = within(dialog).getByRole('button', { name: 'Close menu' });
+      expect(close.parentElement?.className).toContain('sticky');
+      expect(close.parentElement?.className).toContain('top-0');
+      await user.click(close);
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      expect(document.activeElement).toBe(trigger);
     });
   });
 });
