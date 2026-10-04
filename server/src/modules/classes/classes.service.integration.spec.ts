@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { ConflictException, NotFoundException } from '@nestjs/common';
-import { Repository, DataSource } from 'typeorm';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { Repository, DataSource, QueryFailedError } from 'typeorm';
 import { getRepositoryToken, getDataSourceToken } from '@nestjs/typeorm';
 import { ClassService, SectionService } from './classes.service';
 import { Class } from '../academics/entities/class.entity';
@@ -15,7 +15,13 @@ import { School } from '../schools/entities/school.entity';
 import { createTestModule } from '@test/helpers/module.helper';
 import { ALL_ENTITIES } from '@test/all-entities';
 import { SEED_TENANT_ID } from '@test/constants';
-import { EnrollmentStatus, TeacherDesignation, AuditAction } from '@biddaloy/shared';
+import {
+  EnrollmentStatus,
+  TeacherDesignation,
+  TeacherAssignmentType,
+  AuditAction,
+} from '@biddaloy/shared';
+import { Subject } from '../academics/entities/subject.entity';
 import { AuditService } from '../audit/audit.service';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { SchoolSettingsReader } from '../schools/settings/school-settings-reader.service';
@@ -489,82 +495,232 @@ describe('ClassService / SectionService (integration)', () => {
     });
   });
 
-  describe('SectionService.findTeachers', () => {
-    it('returns distinct teachers with every section name they teach', async () => {
+  describe('SectionService.assignTeacher / listSectionTeachers [47.2.1]', () => {
+    const T = TeacherAssignmentType;
+
+    async function setup() {
       const year = await createYear();
       const klass = await classRepo.save({
         name: 'Class A',
         academic_year_id: year.id,
         tenant_id: TENANT_ID,
       });
-      const sectionRepo = dataSource.getRepository(ClassSection);
-      const sectionA = await sectionRepo.save({
-        class_id: klass.id,
-        section_name: 'A',
-        tenant_id: TENANT_ID,
-      });
-      const sectionB = await sectionRepo.save({
-        class_id: klass.id,
-        section_name: 'B',
-        tenant_id: TENANT_ID,
-      });
-      const teacher = await createTeacherOnSection(sectionA);
-      const tcsRepo = dataSource.getRepository(TeacherClassSection);
-      await tcsRepo.save({
-        teacher_id: teacher.id,
-        section_id: sectionB.id,
-        tenant_id: TENANT_ID,
-      });
+      const section = await dataSource
+        .getRepository(ClassSection)
+        .save({ class_id: klass.id, section_name: 'A', tenant_id: TENANT_ID });
+      const subject = await dataSource
+        .getRepository(Subject)
+        .save({ name_en: 'Math', code: 'MATH', tenant_id: TENANT_ID });
+      return { klass, section, subject };
+    }
 
-      const teachers = await sectionService.findTeachers(klass.id, TENANT_ID);
+    async function newTeacher(name: string, tenantId = TENANT_ID) {
+      const user = await dataSource.getRepository(User).save({
+        full_name: name,
+        email: `t-${Math.random().toString(36).slice(2, 10)}@test.com`,
+      });
+      return dataSource.getRepository(Teacher).save({
+        user_id: user.id,
+        employee_id: `EMP-${Math.random().toString(36).slice(2, 8)}`,
+        designations: [TeacherDesignation.CLASS_TEACHER],
+        tenant_id: tenantId,
+      });
+    }
 
-      expect(teachers).toHaveLength(1);
-      expect(teachers[0]?.section_names.sort()).toEqual(['A', 'B']);
-      // Guards against `findTeachers` regressing to a raw-query selection
-      // of `teacher.designations` — TypeORM only applies the enum-array
-      // transform on entity hydration, so a raw row would return the
-      // Postgres array's untransformed text form (e.g. a string) instead
-      // of a real `TeacherDesignation[]`, and `.map()` over it in
-      // `teachers-tab.tsx` would throw.
-      expect(Array.isArray(teachers[0]?.designations)).toBe(true);
-      expect(teachers[0]?.designations).toEqual([TeacherDesignation.CLASS_TEACHER]);
+    const rows = (sectionId: string) =>
+      dataSource.getRepository(TeacherClassSection).find({ where: { section_id: sectionId } });
+
+    it('CLASS_TEACHER replaces the previous CLASS_TEACHER but not assistants', async () => {
+      const { klass, section } = await setup();
+      const [a, b, c] = [await newTeacher('A'), await newTeacher('B'), await newTeacher('C')];
+      await sectionService.assignTeacher(
+        klass.id,
+        section.id,
+        { teacher_id: c.id, assignment_type: T.ASSISTANT_CLASS_TEACHER },
+        TENANT_ID,
+      );
+      await sectionService.assignTeacher(
+        klass.id,
+        section.id,
+        { teacher_id: a.id, assignment_type: T.CLASS_TEACHER },
+        TENANT_ID,
+      );
+      await sectionService.assignTeacher(
+        klass.id,
+        section.id,
+        { teacher_id: b.id, assignment_type: T.CLASS_TEACHER },
+        TENANT_ID,
+      );
+      const got = await rows(section.id);
+      expect(got.map((r) => [r.teacher_id, r.assignment_type]).sort()).toEqual(
+        [
+          [b.id, T.CLASS_TEACHER],
+          [c.id, T.ASSISTANT_CLASS_TEACHER],
+        ].sort(),
+      );
     });
 
-    it('returns an empty list when no teacher is assigned to any section', async () => {
-      const year = await createYear();
-      const klass = await classRepo.save({
-        name: 'Class A',
-        academic_year_id: year.id,
-        tenant_id: TENANT_ID,
-      });
-      const sectionRepo = dataSource.getRepository(ClassSection);
-      await sectionRepo.save({ class_id: klass.id, section_name: 'A', tenant_id: TENANT_ID });
-
-      const teachers = await sectionService.findTeachers(klass.id, TENANT_ID);
-      expect(teachers).toEqual([]);
+    it('allows several assistants on one section', async () => {
+      const { klass, section } = await setup();
+      const [a, b] = [await newTeacher('A'), await newTeacher('B')];
+      for (const t of [a, b]) {
+        await sectionService.assignTeacher(
+          klass.id,
+          section.id,
+          { teacher_id: t.id, assignment_type: T.ASSISTANT_CLASS_TEACHER },
+          TENANT_ID,
+        );
+      }
+      expect(await rows(section.id)).toHaveLength(2);
     });
 
-    it("is tenant-isolated: does not surface another tenant's teacher", async () => {
-      const year = await createYear();
-      const klass = await classRepo.save({
-        name: 'Class A',
-        academic_year_id: year.id,
-        tenant_id: TENANT_ID,
-      });
-      const sectionRepo = dataSource.getRepository(ClassSection);
-      const section = await sectionRepo.save({
-        class_id: klass.id,
-        section_name: 'A',
-        tenant_id: TENANT_ID,
-      });
-      // A teacher belonging to another tenant, assigned onto this
-      // tenant's section directly via the junction table (bypassing
-      // application-level guards) must still not be returned — the query
-      // itself filters on the teacher's own tenant_id.
-      await createTeacherOnSection(section, OTHER_TENANT);
+    it('409 TEACHER_ALREADY_HOMEROOM for CLASS + ASSISTANT of the same teacher', async () => {
+      const { klass, section } = await setup();
+      const a = await newTeacher('A');
+      await sectionService.assignTeacher(
+        klass.id,
+        section.id,
+        { teacher_id: a.id, assignment_type: T.CLASS_TEACHER },
+        TENANT_ID,
+      );
+      const err = await sectionService
+        .assignTeacher(
+          klass.id,
+          section.id,
+          { teacher_id: a.id, assignment_type: T.ASSISTANT_CLASS_TEACHER },
+          TENANT_ID,
+        )
+        .catch((e) => e);
+      expect(err).toBeInstanceOf(ConflictException);
+      expect(err.getResponse().details.code).toBe('TEACHER_ALREADY_HOMEROOM');
+    });
 
-      const teachers = await sectionService.findTeachers(klass.id, TENANT_ID);
-      expect(teachers).toEqual([]);
+    it('promoting an assistant to CLASS_TEACHER leaves one row', async () => {
+      const { klass, section } = await setup();
+      const a = await newTeacher('A');
+      await sectionService.assignTeacher(
+        klass.id,
+        section.id,
+        { teacher_id: a.id, assignment_type: T.ASSISTANT_CLASS_TEACHER },
+        TENANT_ID,
+      );
+      await sectionService.assignTeacher(
+        klass.id,
+        section.id,
+        { teacher_id: a.id, assignment_type: T.CLASS_TEACHER },
+        TENANT_ID,
+      );
+      const got = await rows(section.id);
+      expect(got).toHaveLength(1);
+      expect(got[0]?.assignment_type).toBe(T.CLASS_TEACHER);
+    });
+
+    it('SUBJECT_TEACHER without subject_id -> 400; CLASS_TEACHER with subject_id -> 400', async () => {
+      const { klass, section, subject } = await setup();
+      const a = await newTeacher('A');
+      await expect(
+        sectionService.assignTeacher(
+          klass.id,
+          section.id,
+          { teacher_id: a.id, assignment_type: T.SUBJECT_TEACHER },
+          TENANT_ID,
+        ),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        sectionService.assignTeacher(
+          klass.id,
+          section.id,
+          { teacher_id: a.id, assignment_type: T.CLASS_TEACHER, subject_id: subject.id },
+          TENANT_ID,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('infers the type when omitted (D20)', async () => {
+      const { klass, section, subject } = await setup();
+      const a = await newTeacher('A');
+      const cls = await sectionService.assignTeacher(
+        klass.id,
+        section.id,
+        { teacher_id: a.id },
+        TENANT_ID,
+      );
+      const sub = await sectionService.assignTeacher(
+        klass.id,
+        section.id,
+        { teacher_id: a.id, subject_id: subject.id },
+        TENANT_ID,
+      );
+      expect(cls.assignment_type).toBe(T.CLASS_TEACHER);
+      expect(sub.assignment_type).toBe(T.SUBJECT_TEACHER);
+    });
+
+    it('maps a simulated 23505 on save to 409', async () => {
+      const { klass, section } = await setup();
+      const a = await newTeacher('A');
+      const spy = vi.spyOn(Repository.prototype, 'save').mockRejectedValueOnce(
+        Object.assign(
+          new QueryFailedError('q', [], {
+            code: '23505',
+            constraint: 'UQ_tcs_section_class_teacher',
+          } as never),
+          {
+            driverError: { code: '23505', constraint: 'UQ_tcs_section_class_teacher' },
+          },
+        ),
+      );
+      try {
+        await expect(
+          sectionService.assignTeacher(klass.id, section.id, { teacher_id: a.id }, TENANT_ID),
+        ).rejects.toThrow(ConflictException);
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    it('404 for a section in another tenant', async () => {
+      const { klass, section } = await setup();
+      const a = await newTeacher('A');
+      await expect(
+        sectionService.assignTeacher(klass.id, section.id, { teacher_id: a.id }, OTHER_TENANT),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('404 for a teacher in another tenant', async () => {
+      const { klass, section } = await setup();
+      const other = await newTeacher('Other', OTHER_TENANT);
+      await expect(
+        sectionService.assignTeacher(klass.id, section.id, { teacher_id: other.id }, TENANT_ID),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('lists assignment_type, ordered CLASS, ASSISTANT, SUBJECT', async () => {
+      const { klass, section, subject } = await setup();
+      const [a, b, c] = [await newTeacher('A'), await newTeacher('B'), await newTeacher('C')];
+      await sectionService.assignTeacher(
+        klass.id,
+        section.id,
+        { teacher_id: a.id, subject_id: subject.id },
+        TENANT_ID,
+      );
+      await sectionService.assignTeacher(
+        klass.id,
+        section.id,
+        { teacher_id: b.id, assignment_type: T.ASSISTANT_CLASS_TEACHER },
+        TENANT_ID,
+      );
+      await sectionService.assignTeacher(
+        klass.id,
+        section.id,
+        { teacher_id: c.id, assignment_type: T.CLASS_TEACHER },
+        TENANT_ID,
+      );
+      const list = await sectionService.listSectionTeachers(klass.id, section.id, TENANT_ID);
+      expect(list.map((r) => r.assignment_type)).toEqual([
+        T.CLASS_TEACHER,
+        T.ASSISTANT_CLASS_TEACHER,
+        T.SUBJECT_TEACHER,
+      ]);
     });
   });
 

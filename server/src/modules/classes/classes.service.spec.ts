@@ -310,7 +310,8 @@ describe('SectionService.assignTeacher [29.0]', () => {
 
     await service.assignTeacher('c1', 's1', { teacher_id: 't1' } as any, TENANT_ID);
 
-    expect(tcsRepo.delete).toHaveBeenCalledWith({ id: 'old-ct' });
+    // Tenant-scoped delete (the mock's findOne also answers the promotion lookup, so it runs twice).
+    expect(tcsRepo.delete).toHaveBeenCalledWith({ id: 'old-ct', tenant_id: TENANT_ID });
     expect(tcsRepo.save).toHaveBeenCalled();
     expect(auditService.record).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -181,19 +181,6 @@ export class ClassController {
     );
   }
 
-  // --- Teachers (read-only; teacher CRUD is #177) ---
-
-  @Get(':classId/teachers')
-  // [10.4] G4 — reference-data read.
-  @RequirePermissions(Permission.ACADEMIC_STRUCTURE_READ)
-  @ApiOperation({ summary: 'List distinct teachers assigned to any section of this class.' })
-  findClassTeachers(
-    @Param('classId', ParseUUIDPipe) classId: string,
-    @CurrentTenant() tenant: { id: string; role: string },
-  ) {
-    return this.sectionService.findTeachers(classId, tenant.id);
-  }
-
   // --- Section teacher assignments ---
 
   @Post(':classId/sections/:sectionId/teachers')
