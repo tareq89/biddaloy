@@ -855,7 +855,7 @@ each one to `h-[var(--control-h,<today's height>)]` (and
 variable is unset — every compact shell — the fallback keeps today's exact
 height, and the comfortable shell lifts every variant with one declaration,
 `--control-h: 2.75rem`. Below `md` a media rule in `globals.css` sets the
-same two variables on `:root`, so a staff page on a phone is comfortable too (C2).
+same two variables on the root element, so a staff page on a phone is comfortable too (C2).
 
 ```mermaid
 flowchart LR
