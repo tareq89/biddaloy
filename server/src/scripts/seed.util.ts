@@ -20,6 +20,7 @@ import {
   SeatOrderMode,
   SeatPlanStatus,
   StaffEmploymentStatus,
+  TeacherAssignmentType,
   TeacherDesignation,
   UserRole,
   UserStatus,
@@ -208,6 +209,9 @@ export interface RoleTestUserSeed {
   fullName: string;
 }
 
+/** `e2e/seed-contract.ts` duplicates this literal; `seed.util.spec.ts` asserts they match. */
+export const ASSISTANT_TEACHER_EMAIL = 'assistant-teacher@biddaloy.test';
+
 /** One test account per role, for manual role-based UI checks and the
  * E2E auth fixtures. */
 export const ROLE_TEST_USERS: readonly RoleTestUserSeed[] = [
@@ -221,6 +225,9 @@ export const ROLE_TEST_USERS: readonly RoleTestUserSeed[] = [
   { email: 'office@biddaloy.test', role: UserRole.OFFICE_STAFF, fullName: 'Office Staff User' },
   { email: 'exam@biddaloy.test', role: UserRole.EXAM_CONTROLLER, fullName: 'Exam Controller User' },
   { email: 'committee@biddaloy.test', role: UserRole.COMMITTEE, fullName: 'Committee User' },
+  // [47.2.5] A second TEACHER login: the ASSISTANT_CLASS_TEACHER of
+  // teacher@biddaloy.test's section (`ensureRoutineSeed` attaches it).
+  { email: ASSISTANT_TEACHER_EMAIL, role: UserRole.TEACHER, fullName: 'Assistant Teacher User' },
 ];
 
 /** Idempotent, same shape as `ensureSecondSchoolMembership`: find-or-
@@ -947,11 +954,17 @@ function statusForDay(studentIndex: number, dayIndex: number): AttendanceStatus 
     // than a roster where the only linked child is always PRESENT.
     return dayIndex === 7 ? AttendanceStatus.ABSENT : AttendanceStatus.PRESENT;
   }
+  // [47.2.5] The newest 3 days end each of these students' run on a streak
+  // threshold (STREAK_THRESHOLDS 3/3/15): student 0's PRESENT run is the 18
+  // days after the one ABSENT day; student 1 ends on 3 LATE; student 2 on 3 ABSENT.
+  const inLastThree = dayIndex >= ATTENDANCE_SEED_WORKING_DAYS.length - 3;
   if (studentIndex === 1) {
+    if (inLastThree) return AttendanceStatus.LATE;
     if (dayIndex === 3 || dayIndex === 9) return AttendanceStatus.LATE;
     if (dayIndex === 12) return AttendanceStatus.LEAVE;
     return AttendanceStatus.PRESENT;
   }
+  if (inLastThree) return AttendanceStatus.ABSENT;
   // studentIndex === 2: present roughly one day in three — comfortably
   // below the 75% threshold regardless of exactly how many working days
   // the month turns out to have.
@@ -1077,7 +1090,11 @@ export async function ensureAttendanceSeed(
   }
 
   const existingMapping = await repos.teacherClassSectionRepository.findOne({
-    where: { teacher_id: teacher.id, section_id: sectionId, subject_id: IsNull() },
+    where: {
+      teacher_id: teacher.id,
+      section_id: sectionId,
+      assignment_type: TeacherAssignmentType.CLASS_TEACHER,
+    },
   });
   if (!existingMapping) {
     await repos.teacherClassSectionRepository.save(
@@ -1086,6 +1103,7 @@ export async function ensureAttendanceSeed(
         section_id: sectionId,
         tenant_id: schoolId,
         subject_id: null,
+        assignment_type: TeacherAssignmentType.CLASS_TEACHER,
       }),
     );
   }
@@ -1637,6 +1655,7 @@ export async function ensureGradingDemoSeed(
 export interface RoutineSeedRepositories {
   userRepository: Repository<User>;
   teacherRepository: Repository<Teacher>;
+  teacherClassSectionRepository: Repository<TeacherClassSection>;
   subjectRepository: Repository<Subject>;
   classRepository: Repository<Class>;
   shiftRepository: Repository<Shift>;
@@ -1843,13 +1862,13 @@ export async function ensureRoutineSeed(
 
   // --- a second teacher, for the co-taught slot -------------------------
   let secondTeacherUser = await repos.userRepository.findOne({
-    where: { email: 'routine-teacher2@biddaloy.test' },
+    where: { email: ASSISTANT_TEACHER_EMAIL },
     withDeleted: true,
   });
   if (!secondTeacherUser) {
     secondTeacherUser = repos.userRepository.create({
-      email: 'routine-teacher2@biddaloy.test',
-      full_name: 'Second Routine Teacher',
+      email: ASSISTANT_TEACHER_EMAIL,
+      full_name: 'Assistant Teacher User',
       // Never logged into directly — this account exists only to give the
       // co-taught slot a distinct teacher, unlike `teacher@biddaloy.test`
       // which is a real login fixture elsewhere in this file.
@@ -1878,6 +1897,23 @@ export async function ensureRoutineSeed(
     result.teachers += 1;
   } else if (secondTeacher.deleted_at) {
     await repos.teacherRepository.save(undelete(secondTeacher));
+  }
+
+  // [47.2.5] Assistant class teacher of section A, alongside
+  // teacher@biddaloy.test's CLASS_TEACHER row.
+  const assistantMapping = await repos.teacherClassSectionRepository.findOne({
+    where: { teacher_id: secondTeacher.id, section_id: sectionAId },
+  });
+  if (!assistantMapping) {
+    await repos.teacherClassSectionRepository.save(
+      repos.teacherClassSectionRepository.create({
+        teacher_id: secondTeacher.id,
+        section_id: sectionAId,
+        tenant_id: schoolId,
+        subject_id: null,
+        assignment_type: TeacherAssignmentType.ASSISTANT_CLASS_TEACHER,
+      }),
+    );
   }
 
   const mathSubject = await repos.subjectRepository.findOne({

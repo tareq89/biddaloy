@@ -2655,23 +2655,6 @@ export interface paths {
         patch: operations["ClassController_updateSection_v1"];
         trace?: never;
     };
-    "/api/v1/classes/{classId}/teachers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List distinct teachers assigned to any section of this class. */
-        get: operations["ClassController_findClassTeachers_v1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/classes/{classId}/sections/{sectionId}/teachers": {
         parameters: {
             query?: never;
@@ -2702,6 +2685,23 @@ export interface paths {
         post?: never;
         /** Remove a teacher assignment from a section. */
         delete: operations["ClassController_unassignSectionTeacher_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/my-class/sections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's class-teacher / assistant sections in the current academic year. */
+        get: operations["MyClassController_listSections_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3090,6 +3090,23 @@ export interface paths {
         };
         /** One month's whole register for a section, as a date x student matrix — the printable paper-register replacement ([9.10] owns rendering). */
         get: operations["AttendanceSummaryController_getSectionRegisterMatrix_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attendance/sections/{sectionId}/streaks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Students on a current run of 3+ ABSENT, 3+ LATE or 15+ PRESENT day-sessions (LEAVE and unmarked days end a run). */
+        get: operations["AttendanceSummaryController_getSectionStreaks_v1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9059,6 +9076,8 @@ export interface components {
             teacher_id: string;
             /** Format: uuid */
             subject_id?: string;
+            /** @enum {string} */
+            assignment_type?: "CLASS_TEACHER" | "ASSISTANT_CLASS_TEACHER" | "SUBJECT_TEACHER";
         };
         Teacher: {
             id: string;
@@ -9093,6 +9112,15 @@ export interface components {
             assignment_type: "CLASS_TEACHER" | "ASSISTANT_CLASS_TEACHER" | "SUBJECT_TEACHER";
             /** Format: date-time */
             created_at: string;
+        };
+        /** @enum {string} */
+        HomeroomAssignmentType: "CLASS_TEACHER" | "ASSISTANT_CLASS_TEACHER";
+        MyClassSectionDto: {
+            section_id: string;
+            section_name: string;
+            class_id: string;
+            class_name: string;
+            assignment_type: components["schemas"]["HomeroomAssignmentType"];
         };
         CreateUserDto: {
             /** Format: email */
@@ -9351,6 +9379,21 @@ export interface components {
         RegisterMatrixDto: {
             dates: components["schemas"]["RegisterMatrixDateDto"][];
             rows: components["schemas"]["RegisterMatrixRowDto"][];
+        };
+        AttendanceStreakDto: {
+            student_id: string;
+            student_name: string;
+            roll_number: number;
+            /** @enum {string} */
+            status: "ABSENT" | "LATE" | "PRESENT";
+            length: number;
+            /** @description Oldest day-session of the run within the last 15 sessions (YYYY-MM-DD); length is therefore capped at 15. */
+            since_date: string;
+        };
+        AttendanceStreaksDto: {
+            items: components["schemas"]["AttendanceStreakDto"][];
+            /** @description The section's latest day-session date; null when it has none. */
+            as_of_date: string | null;
         };
         LowAttendanceFlagDto: {
             student_id: string;
@@ -10149,7 +10192,7 @@ export interface components {
             component_id: string;
             value?: string | null;
             /** @enum {string} */
-            status: "PRESENT" | "ABSENT" | "EXEMPT";
+            status: "ABSENT" | "PRESENT" | "EXEMPT";
         };
         BatchMarksDto: {
             /** Format: uuid */
@@ -18651,39 +18694,6 @@ export interface operations {
             };
         };
     };
-    ClassController_findClassTeachers_v1: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
-                "X-Tenant-ID": string;
-                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
-                "X-Role"?: string;
-            };
-            path: {
-                classId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>[];
-                };
-            };
-            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
     ClassController_findSectionTeachers_v1: {
         parameters: {
             query?: never;
@@ -18779,6 +18789,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MyClassController_listSections_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyClassSectionDto"][];
+                };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
@@ -19800,6 +19841,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RegisterMatrixDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AttendanceSummaryController_getSectionStreaks_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                sectionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttendanceStreaksDto"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
