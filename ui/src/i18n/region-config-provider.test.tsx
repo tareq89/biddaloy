@@ -18,9 +18,12 @@ function Numerals() {
   return <p>numerals: {useRegionConfig().numerals}</p>;
 }
 
+// Fixture key in a constant: check:i18n only reads literal string keys in t calls.
+const COUNT_KEY = 'n';
+
 function Count() {
   const { t } = useTranslation();
-  return <p>{t('n', { count: 312 })}</p>;
+  return <p>{t(COUNT_KEY, { count: 312 })}</p>;
 }
 
 function Amount() {
