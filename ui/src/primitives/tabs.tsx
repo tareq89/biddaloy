@@ -25,7 +25,7 @@ const tabsListVariants = cva(
     variants: {
       variant: {
         default: 'bg-muted',
-        line: 'gap-1 bg-transparent',
+        line: 'flex w-full justify-start gap-0 overflow-x-auto rounded-none border-b border-border-subtle bg-transparent p-0 [scrollbar-width:none] group-data-[orientation=horizontal]/tabs:h-auto',
       },
     },
     defaultVariants: {
@@ -83,6 +83,9 @@ function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPr
         // 7px gap in both densities (it's a fixed padding/fudge overhead,
         // not something that scales with --control-h).
         'before:absolute before:inset-x-0 before:-inset-y-[3.5px]',
+        // Line variant (kit look, patterns.md §4): underline row. The `after:`
+        // mark sits on the list's bottom border instead of the pill's -5px.
+        'group-data-[variant=line]/tabs-list:focus-visible:ring-offset-0group-data-[variant=line]/tabs-list:flex-none group-data-[variant=line]/tabs-list:h-11 group-data-[variant=line]/tabs-list:shrink-0 group-data-[variant=line]/tabs-list:rounded-none group-data-[variant=line]/tabs-list:border-0 group-data-[variant=line]/tabs-list:px-3 group-data-[variant=line]/tabs-list:text-text-secondary group-data-[variant=line]/tabs-list:before:inset-y-0 group-data-[variant=line]/tabs-list:after:bg-primary group-data-[orientation=horizontal]/tabs:group-data-[variant=line]/tabs-list:after:bottom-0 group-data-[variant=line]/tabs-list:hover:text-text-primary group-data-[variant=line]/tabs-list:focus-visible:ring-inset group-data-[variant=line]/tabs-list:data-[state=active]:font-semibold group-data-[variant=line]/tabs-list:data-[state=active]:text-primary md:group-data-[variant=line]/tabs-list:h-10',
         className,
       )}
       {...props}
