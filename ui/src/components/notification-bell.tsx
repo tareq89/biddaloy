@@ -75,10 +75,11 @@ export function NotificationBell({
   const resolvedEmptyLabel = emptyLabel ?? t('notifications.empty');
   const resolvedMarkAllReadLabel = markAllReadLabel ?? t('notifications.markAllRead');
 
+  // The kit writes `9999`, not `9,999` — no grouping.
   const badgeText =
-    unreadCount > 9
-      ? t('notifications.badgeOverflow', { count: 9 })
-      : new Intl.NumberFormat(locale).format(unreadCount);
+    unreadCount > 9999
+      ? t('notifications.badgeOverflow', { count: 9999 })
+      : new Intl.NumberFormat(locale, { useGrouping: false }).format(unreadCount);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -93,13 +94,13 @@ export function NotificationBell({
               ? t('notifications.bellLabelUnread', { count: unreadCount })
               : resolvedLabel
           }
-          className="relative"
+          className="relative size-11 md:size-9"
         >
           <BellIcon />
           {unreadCount > 0 && (
             <span
               aria-hidden="true"
-              className="text-destructive-foreground absolute end-0.5 top-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium"
+              className="absolute start-1/2 top-0.5 ms-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-caption font-medium text-destructive-foreground md:-top-0.5"
             >
               {badgeText}
             </span>
