@@ -320,7 +320,70 @@ The two triggers it reads from this module:
   crosses that number (a `LATE` with `minutes_late` still `NULL` always
   counts — see D23 in 04's decisions table).
 
-## 10. What this epic deliberately did not build
+## 10. Streaks
+
+A **streak** is a student who has been absent, late or present for many
+day-registers in a row. The My class screen (Epic 47.0) shows them as one
+"Attendance flags" card, so a class teacher spots a problem early.
+
+| Status    | Flagged at   |
+| --------- | ------------ |
+| `ABSENT`  | 3 in a row   |
+| `LATE`    | 3 in a row   |
+| `PRESENT` | 15 in a row  |
+
+The numbers are constants (`STREAK_THRESHOLDS` in
+`server/src/modules/attendance/attendance-streaks.util.ts`), not tenant
+settings. Make them settings when a school asks for different numbers.
+
+The rule (47.0 D22):
+
+```mermaid
+flowchart LR
+  A["Take the section's day-sessions,<br/>newest first<br/>(period_no IS NULL only)"] --> B["Look at the student's mark<br/>on the newest session"]
+  B --> C{"ABSENT, LATE<br/>or PRESENT?"}
+  C -- "no (LEAVE or unmarked)" --> X["No streak"]
+  C -- yes --> D["Count back while the mark<br/>stays the same"]
+  D --> E{"Run reaches<br/>the threshold?"}
+  E -- yes --> F["Flag: status, length, since_date"]
+  E -- no --> X
+```
+
+- Counting starts at the section's **latest** day-session, not today.
+- Any other mark breaks the run. `LEAVE` breaks every run, and so does a
+  missing record.
+- Days with no session (holidays, weekends) are skipped. They do not break a
+  run.
+- Period-level sessions are ignored. Only whole-day registers count.
+
+Example, newest day first:
+
+| Student | Last marks (newest first) | Result                            |
+| ------- | ------------------------- | --------------------------------- |
+| Rina    | A, A, A, P                | flagged: `ABSENT`, length 3       |
+| Sumon   | A, A, L                   | not flagged: the run is only 2    |
+| Tania   | L, L, L, L                | flagged: `LATE`, length 4         |
+
+Endpoint: `GET /attendance/sections/:sectionId/streaks`. It sits in the
+attendance-summary controller, needs `ATTENDANCE_READ`, and is gated by
+`AttendanceAccessService.assertCanAccessSection` (a teacher must belong to
+the section). Response:
+
+```json
+{
+  "as_of_date": "2026-10-03",
+  "items": [
+    { "student_id": "…", "student_name": "Rina Akter", "roll_number": 4,
+      "status": "ABSENT", "length": 3, "since_date": "2026-10-01" }
+  ]
+}
+```
+
+`items` is sorted `ABSENT`, `LATE`, `PRESENT`, then longest run first, then
+roll number. `as_of_date` is `null` when the section has no day-session yet.
+The service loads at most the 15 newest sessions (the longest threshold).
+
+## 11. What this epic deliberately did not build
 
 - **Period-level attendance UI** — the columns (`AttendanceSession.period_no`,
   `Subject`) exist end to end, nothing in the UI uses them yet.

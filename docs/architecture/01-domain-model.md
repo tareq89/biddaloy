@@ -202,7 +202,76 @@ for full field lists.)_
   [20-presets.md](20-presets.md#6-choice-groups-exactly-one-of).
 - **`Teacher`** — a staff profile layered on top of a `User`. Can hold
   multiple designations and be assigned to multiple sections via
-  **`TeacherClassSection`**.
+  **`TeacherClassSection`** (see [Teacher assignments](#teacher-assignments-teacher_class_sections)).
+  `teacher.designations` (e.g. `CLASS_TEACHER`) is an **HR label only**. It
+  never decides who the class teacher is. The assignment row does.
+
+#### Teacher assignments (`teacher_class_sections`)
+
+A teacher is linked to a section by a row in `teacher_class_sections`
+(short name: tcs). Each row has an `assignment_type` (Epic 47.0). It is the
+only source of "who is the class teacher". The old rule "`subject_id IS NULL`
+means class teacher" is gone.
+
+| `assignment_type`         | Per section             | `subject_id` | Meaning                                       |
+| ------------------------- | ----------------------- | ------------ | --------------------------------------------- |
+| `CLASS_TEACHER`           | 0 or 1                  | none         | The one accountable teacher (form master).    |
+| `ASSISTANT_CLASS_TEACHER` | many                    | none         | Helps. Same read access as the class teacher. |
+| `SUBJECT_TEACHER`         | one per teacher+subject | required     | Owns one subject in the section.              |
+
+Example: Rahim is `CLASS_TEACHER` of 7-A **and** `SUBJECT_TEACHER` (Maths)
+of 7-A. That is two rows. Karim is `ASSISTANT_CLASS_TEACHER` of 7-A.
+
+```mermaid
+erDiagram
+    Teacher ||--o{ TeacherClassSection : "has rows"
+    ClassSection ||--o{ TeacherClassSection : "has rows"
+    Subject |o--o{ TeacherClassSection : "only SUBJECT_TEACHER rows"
+    TeacherClassSection {
+        enum assignment_type "CLASS / ASSISTANT / SUBJECT"
+        uuid subject_id "set only for SUBJECT_TEACHER"
+    }
+```
+
+The database enforces these rules, not just the service code:
+
+| Rule                                                       | Enforced by                                                                                       |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `subject_id` is set **if and only if** `SUBJECT_TEACHER`   | check constraint `CK_tcs_subject_matches_type`                                                    |
+| One `CLASS_TEACHER` per section                            | partial unique index `UQ_tcs_section_class_teacher`                                               |
+| One CLASS or ASSISTANT row per teacher per section (homeroom) | partial unique index `UQ_tcs_teacher_section_homeroom`                                         |
+| One subject row per teacher, section and subject           | existing unique index `IDX_tcs_teacher_section_subject`                                           |
+
+Because of the check constraint, `subject_id IS NULL` now means exactly
+"CLASS or ASSISTANT". Older code that tests `subject_id IS NULL` (homework,
+routines) therefore covers assistants too, with no change.
+
+How the type gets set:
+
+- **API / UI:** `assignment_type` is optional. If omitted it is inferred:
+  `SUBJECT_TEACHER` when `subject_id` is given, else `CLASS_TEACHER`.
+  `ASSISTANT_CLASS_TEACHER` must always be sent explicitly.
+- **Raw SQL inserts** (seed, old e2e specs): a `BEFORE INSERT` trigger
+  (`TRG_tcs_default_assignment_type`) applies the same inference.
+- **Assigning a new `CLASS_TEACHER`** replaces the old one in one
+  transaction (both changes are audited). The UI warns first
+  ("<name> will be replaced"). If the same teacher was the section's
+  assistant, that assistant row goes too (promotion).
+- **Assigning an `ASSISTANT_CLASS_TEACHER`** to a teacher who already holds a
+  CLASS or ASSISTANT row in that section returns `409`
+  (`details.code = TEACHER_ALREADY_HOMEROOM`). A race on any of the unique
+  indexes also returns `409` (`TEACHER_ASSIGNMENT_CONFLICT`), never `500`.
+- **Hard-deleting a subject** that has a SUBJECT_TEACHER row is blocked by
+  the check constraint (the foreign key would otherwise turn the subject
+  teacher into a class teacher). Subjects are soft-deleted, so this does not
+  come up in normal use.
+- **Migration:** `1791300000000-TeacherAssignmentType.ts` backfills old rows
+  (`subject_id IS NULL` → `CLASS_TEACHER`, else `SUBJECT_TEACHER`). Its
+  `down()` refuses to run while any `ASSISTANT_CLASS_TEACHER` row exists,
+  because the old schema cannot represent it.
+
+Who reads what is covered in [03-backend-modules.md](03-backend-modules.md)
+(`TeacherScopeService`) and [11-attendance.md](11-attendance.md) (streaks).
 
 ### Grading (`modules/grading`)
 
