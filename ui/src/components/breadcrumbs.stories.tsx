@@ -73,6 +73,20 @@ export const LongTrailAtPhoneWidth: Story = {
   parameters: { viewport: { defaultViewport: 'mobile1' } },
 };
 
+/** Four crumbs at phone width (31.2.10 step 9): the first two collapse,
+ * the last two stay visible. */
+export const FourCrumbsAtPhoneWidth: Story = {
+  args: {
+    items: [
+      { label: 'Students', to: '/students' },
+      { label: 'Sections', to: '/students/sections' },
+      { label: 'Class 8A', to: '/students/sections/8a' },
+      { label: 'Attendance' },
+    ],
+  },
+  parameters: { viewport: { defaultViewport: 'mobile1' } },
+};
+
 export const RightToLeft: Story = {
   args: {
     items: [
