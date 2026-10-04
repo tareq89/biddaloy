@@ -10,6 +10,7 @@ import { apiClient } from '../api/client';
 import { offlineCachedQueryFn } from '../api/offline-cache';
 import type { components } from '../api/schema';
 
+import { myClassKeys } from './my-class';
 import { createEntityKeys, fetchAllPages } from './query-keys';
 import { shouldRetryQuery } from './retry';
 import { teacherKeys } from './teachers';
@@ -266,6 +267,7 @@ export function useAssignTeacher(classId: string, sectionId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: sectionTeachersKey(classId, sectionId) });
       void queryClient.invalidateQueries({ queryKey: [...teacherKeys.all, 'assignments'] });
+      void queryClient.invalidateQueries({ queryKey: myClassKeys.all });
     },
   });
 }
@@ -280,6 +282,7 @@ export function useUnassignTeacher(classId: string, sectionId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: sectionTeachersKey(classId, sectionId) });
       void queryClient.invalidateQueries({ queryKey: [...teacherKeys.all, 'assignments'] });
+      void queryClient.invalidateQueries({ queryKey: myClassKeys.all });
     },
   });
 }
@@ -315,6 +318,7 @@ export function useAssignTeacherAssignment() {
     onSuccess: (_data, { classId, sectionId }) => {
       void queryClient.invalidateQueries({ queryKey: sectionTeachersKey(classId, sectionId) });
       void queryClient.invalidateQueries({ queryKey: [...teacherKeys.all, 'assignments'] });
+      void queryClient.invalidateQueries({ queryKey: myClassKeys.all });
     },
   });
 }
@@ -333,6 +337,7 @@ export function useUnassignTeacherAssignment() {
       // No teacher_id on unassign's input — invalidate broadly by matching
       // key prefix instead of one exact teacher.
       void queryClient.invalidateQueries({ queryKey: [...teacherKeys.all, 'assignments'] });
+      void queryClient.invalidateQueries({ queryKey: myClassKeys.all });
     },
   });
 }
