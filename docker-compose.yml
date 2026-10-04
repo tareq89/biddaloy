@@ -34,7 +34,9 @@ services:
 
   redis:
     image: redis:7-alpine
-    command: ['redis-server', '--appendonly', 'yes']
+    # --databases 64: scripts/test-env.sh gives each parallel test run its
+    # own block of 5 db slots (slot 0 stays the app's); 16 fits only 2 runs.
+    command: ['redis-server', '--appendonly', 'yes', '--databases', '64']
     restart: unless-stopped
     volumes:
       - redisdata:/data
@@ -55,6 +57,9 @@ services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    # The default 100 runs out locally: the dev server plus several parallel
+    # test runs (scripts/test-env.sh), each with 4 vitest workers' pools.
+    command: ['postgres', '-c', 'max_connections=300']
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}

@@ -151,6 +151,11 @@ step 1, then confirm it returned a published comment URL before reviewing.
 When it returns, **verify rather than trust**: read the diff, re-run the
 tests touched, created, or modified for this ticket, and lint yourself.
 "Tests pass" is a claim until you have seen the output. Never proceed on red.
+Tests that need Postgres, Redis or S3 run through `yarn test-env run --
+<cmd>` (this worktree's own database / Redis slots / bucket on the shared
+stack, removed afterwards); never start a Docker container yourself. If you
+used `yarn test-env up` for several steps, run `yarn test-env down` right
+after the ticket's commit.
 The full suite runs once, at integration (step 6), after every lane finishes —
 not per ticket here.
 
