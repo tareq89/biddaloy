@@ -67,6 +67,7 @@ function Controlled({
   layout,
   sortMenuLabel,
   sortOptionLabel,
+  rowActions,
 }: {
   data?: Student[];
   totalCount?: number;
@@ -83,6 +84,7 @@ function Controlled({
   layout?: DataTableProps<Student>['layout'];
   sortMenuLabel?: string;
   sortOptionLabel?: DataTableProps<Student>['sortOptionLabel'];
+  rowActions?: DataTableProps<Student>['rowActions'];
 }) {
   const [sorting, setSorting] = useState<DataTableSort | null>(null);
   const [page, setPage] = useState(1);
@@ -123,6 +125,7 @@ function Controlled({
       {...(layout !== undefined ? { layout } : {})}
       {...(sortMenuLabel !== undefined ? { sortMenuLabel } : {})}
       {...(sortOptionLabel !== undefined ? { sortOptionLabel } : {})}
+      {...(rowActions !== undefined ? { rowActions } : {})}
     />
   );
 }
@@ -998,5 +1001,30 @@ describe('DataTable card mode alignment', () => {
     const dd = screen.getAllByText('Six')[0];
     expect(dd?.className).toContain('text-end');
     expect(dd?.className).toContain('tabular-nums');
+  });
+});
+
+describe('rowActions', () => {
+  const rowActions: DataTableProps<Student>['rowActions'] = (row) => [
+    { intent: 'view', label: `View ${row.name}`, onClick: vi.fn() },
+    { intent: 'edit', label: `Edit ${row.name}`, onClick: vi.fn() },
+  ];
+
+  it('appends an Actions column last, with icon buttons on every row', async () => {
+    await renderInEnglish(<Controlled rowActions={rowActions} />);
+    const headers = screen.getAllByRole('columnheader');
+    expect(headers[headers.length - 1]?.textContent).toBe('Actions');
+    expect(screen.getByRole('button', { name: 'View Rahim Uddin' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Edit Fatema Begum' })).toBeTruthy();
+  });
+
+  it('shows labelled buttons in card mode', async () => {
+    await renderInEnglish(<Controlled layout="cards" rowActions={rowActions} />);
+    expect(screen.getByText('Edit Rahim Uddin').tagName).toBe('SPAN');
+  });
+
+  it('adds no Actions header when rowActions is omitted', async () => {
+    await renderInEnglish(<Controlled />);
+    expect(screen.queryByRole('columnheader', { name: 'Actions' })).toBeNull();
   });
 });
