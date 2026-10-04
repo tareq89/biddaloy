@@ -9,7 +9,7 @@ import { formatMonth, formatMonthName } from '../utils/date';
 import { renderDigits } from '../utils/digits';
 
 import { MonthHeader } from './month-header';
-import { Popover, PopoverContent, PopoverTrigger } from './popover';
+import { Popover, PopoverContent, PopoverTrigger } from '../primitives/popover';
 
 export interface MonthPickerProps extends Omit<
   React.ComponentProps<'button'>,
