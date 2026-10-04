@@ -5,11 +5,10 @@
  * fee structures yet. Create one to start generating monthly fees" teaches
  * the product. There is no honest default for either field.
  *
- * `title` renders as an `<h1>` — [8.9.7]: every route in the app is
- * expected to have exactly one page-level heading for `useRouteFocus` to
- * find and focus after navigation, and today `EmptyState` is what a
- * still-a-placeholder route (`/`, `/fees`, the 404 page) renders as its
- * entire content. Same visual size as before, only the element changed.
+ * `title` renders as an `<h2>` by default — a page with a `PageHeader`
+ * already owns the one `<h1>` ([8.9.7]: `useRouteFocus` expects exactly one
+ * per route). A whole-route placeholder (the 404 page) that has no
+ * `PageHeader` passes `headingLevel={1}` (C17).
  *
  * ---
  *
@@ -19,14 +18,12 @@
  * but before this prop they rendered identically, so the only signal a
  * user got was whatever the caller happened to write in `explanation`.
  *
- *   kind="empty"      — nothing exists yet. Dashed outline: a container
- *                       waiting to be filled. The action creates the first
+ *   kind="empty"      — nothing exists yet. The action creates the first
  *                       one.
  *   kind="no-results" — things exist, this view just does not show them.
- *                       Solid outline (the container is real and populated
- *                       elsewhere) and a brand-tinted icon well, because a
- *                       filter is something the user switched on and can
- *                       switch off. The action clears the filter.
+ *                       Brand-tinted icon well, because a filter is
+ *                       something the user switched on and can switch off.
+ *                       The action clears the filter.
  *
  * `secondaryAction` exists for the same reason: "no results" usually has
  * two honest next moves (clear the filter, or create one anyway), and
@@ -47,22 +44,21 @@
  *
  * ---
  *
- * This file's border/elevation/colour choices are the canonical reference
- * for the whole empty/loading/error family — `ErrorState`,
- * `RouteStatusState`, and `AccessDeniedState` point back here rather than
- * re-deriving the same comparison, so a new member only needs one table
- * updated, not every file:
+ * This file's card look is the canonical reference for the whole
+ * empty/error/route-status family — `ErrorState`, `RouteStatusState`, and
+ * `AccessDeniedState` point back here. All four are now the same card
+ * (`rounded-lg border-border-subtle bg-surface shadow-e1`); they differ
+ * only by icon-well tone and role:
  *
- *   component                border    elevation    icon well
- *   EmptyState (empty)       dashed    none         bg-muted (neutral)
- *   EmptyState (no-results)  solid     none         bg-secondary (brand)
- *   RouteStatusState         dashed    none         bg-muted (neutral)
- *   AccessDeniedState        dashed    none         bg-muted (neutral)
- *   ErrorState                solid    shadow-e1    bg-destructive/10
+ *   component                role     icon well
+ *   EmptyState (empty)       —        bg-muted (neutral)
+ *   EmptyState (no-results)  —        bg-secondary (brand)
+ *   RouteStatusState         status   bg-muted (neutral)
+ *   AccessDeniedState        status   bg-muted (neutral)
+ *   ErrorState               alert    bg-status-overdue-bg
  *
- * Solid + elevated is reserved for `ErrorState`, the one member that
- * reports an actual fault — everything else stays flat, so the
- * difference survives a glance on a phone without relying on copy alone.
+ * The one filled primary per view belongs to the page header (D29), so the
+ * action here is an outline button.
  */
 import * as React from 'react';
 
@@ -88,6 +84,9 @@ export interface EmptyStateProps {
    * [8.13.11] already had. */
   kind?: EmptyStateKind;
   icon?: React.ReactNode;
+  /** Defaults to `2`: a page with a `PageHeader` already owns the `<h1>`.
+   * A whole-route placeholder passes `1` (C17). */
+  headingLevel?: 1 | 2 | 3;
 }
 
 export function EmptyState({
@@ -97,36 +96,36 @@ export function EmptyState({
   secondaryAction,
   kind = 'empty',
   icon,
+  headingLevel = 2,
 }: EmptyStateProps) {
+  const Heading: 'h1' | 'h2' | 'h3' = headingLevel === 1 ? 'h1' : headingLevel === 3 ? 'h3' : 'h2';
   const noResults = kind === 'no-results';
   return (
     <div
       data-slot="empty-state"
       data-kind={kind}
       className={cn(
-        'flex flex-col items-center gap-2 rounded-lg border border-border-subtle bg-card p-8 text-center',
-        !noResults && 'border-dashed',
+        'flex flex-col items-center gap-2 rounded-lg border border-border-subtle bg-surface px-4 py-10 text-center shadow-e1',
       )}
     >
       {icon && (
-        // The `[&_svg]:size-8` stays on the wrapper (rather than moving to
-        // the icon itself) so the caller still cannot pass an icon at the
-        // wrong size — the well is new, that contract is not.
+        // The `[&_svg]:size-6` stays on the wrapper (rather than moving to
+        // the icon itself) so the caller cannot pass an icon at the wrong size.
         <div
           className={cn(
-            'mb-1 flex size-14 items-center justify-center rounded-full [&_svg]:size-8',
-            noResults ? 'bg-secondary text-secondary-foreground' : 'bg-muted text-muted-foreground',
+            'flex size-12 items-center justify-center rounded-full [&_svg]:size-6',
+            noResults ? 'bg-secondary text-secondary-foreground' : 'bg-muted text-text-secondary',
           )}
         >
           {icon}
         </div>
       )}
-      <h1 className="font-medium">{title}</h1>
-      <p className="max-w-prose text-sm text-muted-foreground">{explanation}</p>
+      <Heading className="text-h3">{title}</Heading>
+      <p className="max-w-prose text-text-secondary">{explanation}</p>
       {(action || secondaryAction) && (
         <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
           {action && (
-            <Button type="button" onClick={action.onClick}>
+            <Button type="button" variant="outline" onClick={action.onClick}>
               {action.label}
             </Button>
           )}
