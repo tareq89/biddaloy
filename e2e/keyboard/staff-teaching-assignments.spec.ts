@@ -104,19 +104,35 @@ test('keyboard-only: assign a class/section from the staff detail Teaching assig
     });
     await classCombo.focus();
     await page.keyboard.type(className);
-    // Radix `Combobox` portals its listbox to the document body, not as a
-    // DOM descendant of the dialog — scope to `page`, matching every other
-    // Combobox-driving spec in this suite (`command-palette.spec.ts`,
-    // `homework.spec.ts`).
-    await expect(page.getByRole('option', { name: new RegExp(className) })).toBeVisible();
+    // Radix `Combobox` portals its listbox to the document body, not inside
+    // the dialog, so scope to the picker's own listbox by name. An unscoped
+    // `option` match also hits a *closing* listbox: on select the Combobox
+    // clears its query while the popover animates out, so the class listbox
+    // briefly re-renders every class in the tenant.
+    const classOption = page
+      .getByRole('listbox', { name: t('classes.assignTeacherForm.classLabel'), exact: true })
+      .getByRole('option', { name: className, exact: true });
+    await expect(classOption).toBeVisible();
     await page.keyboard.press('ArrowDown');
+    // ArrowDown on a still-empty (loading) list leaves no active option, so
+    // Enter would select nothing — confirm the target is active first.
+    await expect(classOption).toHaveAttribute('data-active', 'true');
     await page.keyboard.press('Enter');
+    await expect(classCombo).toHaveValue(className);
 
+    const sectionCombo = dialog.getByRole('combobox', {
+      name: t('classes.assignTeacherForm.sectionLabel'),
+    });
     await tabUntilFocused(page, t('classes.assignTeacherForm.sectionLabel'), 10);
     await page.keyboard.type(sectionName);
-    await expect(page.getByRole('option', { name: new RegExp(sectionName) })).toBeVisible();
+    const sectionOption = page
+      .getByRole('listbox', { name: t('classes.assignTeacherForm.sectionLabel'), exact: true })
+      .getByRole('option', { name: sectionName, exact: true });
+    await expect(sectionOption).toBeVisible();
     await page.keyboard.press('ArrowDown');
+    await expect(sectionOption).toHaveAttribute('data-active', 'true');
     await page.keyboard.press('Enter');
+    await expect(sectionCombo).toHaveValue(sectionName);
 
     await tabUntilFocused(page, t('classes.assignTeacherForm.save'), 20, { tag: 'BUTTON' });
     await page.keyboard.press('Enter');
