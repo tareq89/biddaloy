@@ -208,7 +208,10 @@ export class AttendanceStreakDto {
   @ApiProperty({ enum: [AttendanceStatus.ABSENT, AttendanceStatus.LATE, AttendanceStatus.PRESENT] })
   status: AttendanceStatus.ABSENT | AttendanceStatus.LATE | AttendanceStatus.PRESENT;
   @ApiProperty() length: number;
-  @ApiProperty({ description: 'Date of the oldest day-session in the run (YYYY-MM-DD).' })
+  @ApiProperty({
+    description:
+      'Oldest day-session of the run within the last 15 sessions (YYYY-MM-DD); length is therefore capped at 15.',
+  })
   since_date: string;
 }
 

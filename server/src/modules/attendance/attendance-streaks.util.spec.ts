@@ -41,6 +41,12 @@ describe('currentStreaks', () => {
     expect(run(rep(S.PRESENT, 15))[0]).toMatchObject({ status: S.PRESENT, length: 15 });
     expect(run(rep(S.PRESENT, 14))).toEqual([]);
   });
+  it('caps a PRESENT run at the 15-session window', () => {
+    expect(run(rep(S.PRESENT, 20).slice(0, 15))[0]).toMatchObject({
+      length: 15,
+      since_date: '2026-09-16',
+    });
+  });
   it('LATE does not count toward PRESENT', () => {
     expect(run([...rep(S.LATE, 2), ...rep(S.PRESENT, 13)])).toEqual([]);
   });
