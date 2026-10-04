@@ -42,7 +42,18 @@ describe('TenantBar', () => {
     expect(screen.queryByText('Greenview School')).toBeNull();
   });
 
-  it('shows the active school name and role as always-visible text, with no switcher for a single membership', async () => {
+  it('the switch button has no visible text, only an aria-label', async () => {
+    renderWithProviders(<TenantBar />, {
+      accessToken: fakeJwt(twoSchools),
+      tenantId: 'tenant-1',
+      locale: 'en',
+    });
+
+    const button = await screen.findByRole('button', { name: 'Switch school' });
+    expect(button.textContent).toBe('');
+  });
+
+  it('renders the role chip, with no switcher for a single membership', async () => {
     renderWithProviders(<TenantBar />, {
       accessToken: fakeJwt(singleSchool),
       tenantId: 'tenant-1',

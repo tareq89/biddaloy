@@ -39,6 +39,11 @@ export const Open: Story = {
   render: () => <LocaleSwitcher />,
 };
 
+/** Guest-page trigger (`AuthLayout`): outline button showing the current language. */
+export const Labelled: Story = {
+  render: () => <LocaleSwitcher trigger="labelled" />,
+};
+
 export const Rtl: Story = {
   decorators: [rtlDecorator],
   render: () => <LocaleSwitcher align="start" />,
