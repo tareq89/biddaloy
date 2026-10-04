@@ -36,9 +36,14 @@ import type { ReactNode } from 'react';
 import { DataTable, type DataTableProps } from '../components/data-table';
 
 import { FilterBar, type FilterBarProps } from './filter-bar';
+import { PageContainer } from './page-container';
+import { PageHeader, type PageAction } from './page-header';
 
 export interface ListShellProps<TData extends RowData> extends DataTableProps<TData> {
   title: string;
+  subtitle?: string;
+  actions?: readonly PageAction[];
+  /** @deprecated Pass `actions`; removed after wave 4. */
   primaryAction?: ReactNode;
   /** @deprecated Untyped escape hatch, kept only until [8.14.10] migrates
    * the last page off it — a page hand-rolls its own markup here, with no
@@ -58,6 +63,8 @@ export interface ListShellProps<TData extends RowData> extends DataTableProps<TD
 
 export function ListShell<TData extends RowData>({
   title,
+  subtitle,
+  actions,
   primaryAction,
   filterBar,
   filters,
@@ -71,14 +78,23 @@ export function ListShell<TData extends RowData>({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-lg font-semibold">{title}</h1>
-        {primaryAction}
-      </div>
+    <PageContainer size="wide">
+      {primaryAction ? (
+        <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-6">
+          <div className="min-w-0">
+            <h1 className="text-h1">{title}</h1>
+            {subtitle && <p className="mt-0.5 truncate text-text-secondary">{subtitle}</p>}
+          </div>
+          <div className="flex w-full items-center gap-2 md:w-auto md:shrink-0">
+            {primaryAction}
+          </div>
+        </header>
+      ) : (
+        <PageHeader title={title} subtitle={subtitle} actions={actions} />
+      )}
       {filters && <FilterBar {...filters} />}
       {filterBar && <div className="flex flex-wrap items-center gap-2">{filterBar}</div>}
       <DataTable {...dataTableProps} />
-    </div>
+    </PageContainer>
   );
 }

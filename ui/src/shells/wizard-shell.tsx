@@ -19,6 +19,9 @@ import * as React from 'react';
 import { Button } from '../components/button';
 import { useTranslation } from '../i18n';
 
+import { PageContainer } from './page-container';
+import { PageHeader } from './page-header';
+
 export interface WizardStep {
   id: string;
   label: string;
@@ -114,16 +117,16 @@ export function WizardShell({
 
   if (result) {
     return (
-      <div className="flex flex-col gap-4">
-        <h1 className="text-lg font-semibold">{title}</h1>
+      <PageContainer size="narrow">
+        <PageHeader title={title} />
         {result}
-      </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-semibold">{title}</h1>
+    <PageContainer size="narrow">
+      <PageHeader title={title} />
 
       <ol className="flex flex-wrap items-center gap-2 text-sm">
         {allSteps.map((step, index) => {
@@ -197,6 +200,6 @@ export function WizardShell({
           </Button>
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 }
