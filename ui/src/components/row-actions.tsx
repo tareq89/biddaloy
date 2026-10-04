@@ -11,6 +11,7 @@ import {
   CircleXIcon,
   CopyIcon,
   DownloadIcon,
+  EllipsisVerticalIcon,
   EyeIcon,
   HandCoinsIcon,
   PencilIcon,
@@ -18,9 +19,13 @@ import {
   SendIcon,
   Trash2Icon,
 } from 'lucide-react';
-import type * as React from 'react';
+import * as React from 'react';
 
-import { Button } from './button';
+import { useTranslation } from '../i18n';
+import { cn } from '../primitives/lib/utils';
+
+import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from './menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip';
 
 export type RowActionIntent =
   | 'view'
@@ -51,65 +56,151 @@ export interface RowAction {
 }
 
 export interface RowActionsProps {
-  actions: RowAction[];
+  actions: readonly RowAction[];
 }
 
-const DEFAULT_ICON: Record<RowActionIntent, React.ComponentType<{ 'aria-hidden'?: boolean }>> = {
-  view: EyeIcon,
-  edit: PencilIcon,
-  delete: Trash2Icon,
-  remove: CircleMinusIcon,
-  print: PrinterIcon,
-  download: DownloadIcon,
-  pay: HandCoinsIcon,
-  approve: CircleCheckIcon,
-  reject: CircleXIcon,
-  duplicate: CopyIcon,
-  archive: ArchiveIcon,
-  restore: ArchiveRestoreIcon,
-  send: SendIcon,
+/** `DataTable` provides `'labelled'` in card mode (C12: phones show text, not bare icons). */
+export const RowActionsLayoutContext = React.createContext<'icons' | 'labelled'>('icons');
+
+type IconType = React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
+
+const INTENTS: Record<RowActionIntent, { icon: IconType; tone: string }> = {
+  view: { icon: EyeIcon, tone: 'text-text-secondary' },
+  print: { icon: PrinterIcon, tone: 'text-text-secondary' },
+  download: { icon: DownloadIcon, tone: 'text-text-secondary' },
+  duplicate: { icon: CopyIcon, tone: 'text-text-secondary' },
+  archive: { icon: ArchiveIcon, tone: 'text-text-secondary' },
+  edit: { icon: PencilIcon, tone: 'text-primary' },
+  restore: { icon: ArchiveRestoreIcon, tone: 'text-primary' },
+  send: { icon: SendIcon, tone: 'text-primary' },
+  delete: { icon: Trash2Icon, tone: 'text-destructive' },
+  remove: { icon: CircleMinusIcon, tone: 'text-destructive' },
+  reject: { icon: CircleXIcon, tone: 'text-destructive' },
+  pay: { icon: HandCoinsIcon, tone: 'text-status-paid-fg' },
+  approve: { icon: CircleCheckIcon, tone: 'text-status-paid-fg' },
 };
 
-export function RowActions({ actions }: RowActionsProps) {
+const ICON_BUTTON =
+  'inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8';
+const LABELLED_BUTTON =
+  'inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md text-label font-medium hover:bg-muted';
+
+const MAX_INLINE = 3;
+
+function ActionControl({ action, labelled }: { action: RowAction; labelled: boolean }) {
+  const { icon: DefaultIcon, tone } = INTENTS[action.intent];
+  const glyph = action.icon ?? <DefaultIcon className="size-4" aria-hidden />;
+  const anchor = action['data-focus-anchor'];
+  const className = cn(labelled ? LABELLED_BUTTON : ICON_BUTTON, tone);
+  const content = (
+    <>
+      {glyph}
+      {labelled && <span className="truncate">{action.label}</span>}
+    </>
+  );
+  const control = action.to ? (
+    <Link
+      to={action.to}
+      className={className}
+      aria-label={labelled ? undefined : action.label}
+      data-focus-anchor={anchor}
+    >
+      {content}
+    </Link>
+  ) : (
+    <button
+      type="button"
+      className={className}
+      aria-label={labelled ? undefined : action.label}
+      onClick={action.onClick}
+      data-focus-anchor={anchor}
+    >
+      {content}
+    </button>
+  );
+  if (labelled) return control;
   return (
-    <div className="flex justify-end">
-      {actions
-        .filter((action) => action.allowed !== false)
-        .map((action, index) => {
-          const DefaultIcon = DEFAULT_ICON[action.intent];
-          const icon = action.icon ?? <DefaultIcon aria-hidden />;
-          const anchor = action['data-focus-anchor'];
-          if (action.to) {
-            return (
-              <Button
-                key={`${action.intent}-${index}`}
-                asChild
-                variant="ghost"
-                size="icon"
-                iconOnly
-                aria-label={action.label}
+    <Tooltip>
+      <TooltipTrigger asChild>{control}</TooltipTrigger>
+      <TooltipContent side="top">{action.label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function MoreItem({ action }: { action: RowAction }) {
+  const { icon: DefaultIcon, tone } = INTENTS[action.intent];
+  const variant =
+    action.intent === 'delete' || action.intent === 'remove' ? 'destructive' : 'default';
+  const inner = (
+    <>
+      <span className={tone}>{action.icon ?? <DefaultIcon className="size-4" aria-hidden />}</span>
+      {action.label}
+    </>
+  );
+  if (action.to) {
+    return (
+      <MenuItem asChild variant={variant}>
+        <Link to={action.to} data-focus-anchor={action['data-focus-anchor']}>
+          {inner}
+        </Link>
+      </MenuItem>
+    );
+  }
+  return (
+    <MenuItem variant={variant} onSelect={() => action.onClick?.()}>
+      {inner}
+    </MenuItem>
+  );
+}
+
+export function RowActions({ actions }: RowActionsProps) {
+  const { t } = useTranslation();
+  const layout = React.useContext(RowActionsLayoutContext);
+  const labelled = layout === 'labelled';
+  const visible = actions.filter((action) => action.allowed !== false);
+  if (visible.length === 0) return null;
+
+  // More than 3: first 3 stay inline, the rest go in the menu with
+  // delete/remove always last, after a separator.
+  const overflow = visible.length > MAX_INLINE;
+  const danger = overflow
+    ? visible.filter((a) => a.intent === 'delete' || a.intent === 'remove')
+    : [];
+  const rest = overflow ? visible.filter((a) => !danger.includes(a)) : visible;
+  const inline = overflow ? rest.slice(0, MAX_INLINE) : rest;
+  const menuRest = overflow ? rest.slice(MAX_INLINE) : [];
+
+  return (
+    <TooltipProvider delayDuration={300}>
+      <div
+        className={labelled ? 'flex w-full items-center' : 'flex items-center justify-end gap-1'}
+      >
+        {inline.map((action, index) => (
+          <ActionControl key={`${action.intent}-${index}`} action={action} labelled={labelled} />
+        ))}
+        {overflow && (
+          <Menu>
+            <MenuTrigger asChild>
+              <button
+                type="button"
+                className={cn(ICON_BUTTON, 'text-text-secondary', labelled && 'flex-none')}
+                aria-label={t('actions.moreActions')}
               >
-                <Link to={action.to} data-focus-anchor={anchor}>
-                  {icon}
-                </Link>
-              </Button>
-            );
-          }
-          return (
-            <Button
-              key={`${action.intent}-${index}`}
-              type="button"
-              variant="ghost"
-              size="icon"
-              iconOnly
-              aria-label={action.label}
-              onClick={action.onClick}
-              data-focus-anchor={anchor}
-            >
-              {icon}
-            </Button>
-          );
-        })}
-    </div>
+                <EllipsisVerticalIcon className="size-4" aria-hidden />
+              </button>
+            </MenuTrigger>
+            <MenuContent align="end">
+              {menuRest.map((action, index) => (
+                <MoreItem key={`${action.intent}-${index}`} action={action} />
+              ))}
+              {menuRest.length > 0 && danger.length > 0 && <MenuSeparator />}
+              {danger.map((action, index) => (
+                <MoreItem key={`${action.intent}-${index}`} action={action} />
+              ))}
+            </MenuContent>
+          </Menu>
+        )}
+      </div>
+    </TooltipProvider>
   );
 }
