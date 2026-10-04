@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="bn" data-density="comfortable">
+<head>
+<!-- app:head -->
+<title>Mockup — guest · v_token</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="flex min-h-screen flex-col bg-bg text-body-lg text-text-primary">
+
+<!-- AuthLayout (D34, foundation 31.2.12): language switcher, logo + product name, one centred max-w-md card. -->
+<div class="flex justify-end p-4">
+  <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted" aria-label="ভাষা পরিবর্তন করুন" aria-haspopup="menu"><i data-lucide="languages"></i>বাংলা<i data-lucide="chevron-down" class="size-4 text-text-secondary"></i></button>
+</div>
+
+<main id="main-content" class="flex flex-1 items-start justify-center px-4 pt-4 pb-16 md:items-center md:pt-0">
+  <div class="w-full max-w-md">
+    <div class="mb-6 flex flex-col items-center gap-2">
+      <span class="flex size-12 items-center justify-center rounded-lg bg-primary text-primary-foreground"><i data-lucide="school"></i></span>
+      <p class="text-h3">SchoolManager</p>
+    </div>
+
+    <section class="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">
+      <h1 class="text-h1">নথি যাচাই</h1>
+      <div role="status" class="mt-4 flex items-center gap-3 rounded-lg bg-status-paid-bg p-4 text-status-paid-fg">
+        <i data-lucide="circle-check" class="size-8 shrink-0"></i>
+        <p class="text-h3">নথিটি সঠিক ও বৈধ</p>
+      </div>
+      <dl class="mt-4 divide-y divide-border-subtle border-y border-border-subtle">
+        <div class="flex justify-between gap-4 py-3"><dt class="text-text-secondary">নথি</dt><dd class="text-end font-medium">শিক্ষার্থীর পরিচয়পত্র</dd></div>
+        <div class="flex justify-between gap-4 py-3"><dt class="text-text-secondary">ধারক</dt><dd class="text-end font-medium">নুসরাত জাহান</dd></div>
+        <div class="flex justify-between gap-4 py-3"><dt class="text-text-secondary">বিদ্যালয়</dt><dd class="text-end font-medium">সবুজ বাগান উচ্চ বিদ্যালয়</dd></div>
+        <div class="flex justify-between gap-4 py-3"><dt class="text-text-secondary">ইস্যুর তারিখ</dt><dd class="text-end font-medium">১২ই জানুয়ারি, ২০২৬</dd></div>
+        <div class="flex justify-between gap-4 py-3"><dt class="text-text-secondary">কপি</dt><dd class="text-end font-medium">১</dd></div>
+      </dl>
+      <p class="mt-4 text-center text-caption text-text-secondary">SchoolManager দ্বারা যাচাইকৃত</p>
+      <!-- New: a way out -->
+      <a href="#" class="flex h-11 w-full items-center justify-center rounded-md px-3 font-medium text-primary hover:bg-muted mt-2">SchoolManager হোম পাতায় যান</a>
+    </section>
+  </div>
+</main>
+
+<script>lucide.createIcons({ attrs: { width: 18, height: 18, "stroke-width": 1.75, "aria-hidden": "true" } });</script>
+</body>
+</html>

@@ -1,0 +1,111 @@
+lane	order	id	title	ticket file	files count
+academic-years	1	31.4.academic-years-1	Academic years list — names, periods, icon actions	PLAN/pages/academic-years/academic-years/ticket.md	6
+academic-years	2	31.4.academic-years-2	Academic year detail — facts header, three kit tabs	PLAN/pages/academic-years/academic-years_academicYearId/ticket.md	11
+admin	1	31.4.admin-1	Activity log — record names, long dates, kit table	PLAN/pages/admin/audit-logs/ticket.md	9
+admin	2	31.4.admin-2	Ready-made curriculum — Bangla names, clear blocked state	PLAN/pages/admin/curriculum-preset/ticket.md	10
+admin	3	31.4.admin-3	Notifications — page header, real button, empty state	PLAN/pages/admin/notifications/ticket.md	2
+admin	4	31.4.admin-4	Security — page header, sessions you can tell apart	PLAN/pages/admin/security/ticket.md	2
+admissions	1	31.4.admissions-1	Admission applicants — labelled filters, status badges, readable dates	PLAN/pages/admissions/admissions_applicants/ticket.md	6
+admissions	2	31.4.admissions-2	Applicant detail — facts header, readable values, reachable notes	PLAN/pages/admissions/admissions_applicants_applicantId/ticket.md	8
+admissions	3	31.4.admissions-3	Admission rounds — class names, date ranges, kit form	PLAN/pages/admissions/admissions_intakes/ticket.md	7
+admissions	4	31.4.admissions-4	Admission reports — kit header, labelled filters, readable counts and table	PLAN/pages/admissions/admissions_reports/ticket.md	7
+admissions	5	31.4.admissions-5	Public admission form and status — guest frame, plain steps	PLAN/pages/admissions/admission_slug/ticket.md	10
+attendance	1	31.4.attendance-1	Attendance + mark attendance — clear today list, calm roster	PLAN/pages/attendance/attendance/ticket.md	13
+attendance	2	31.4.attendance-2	Attendance register + reports — kit pickers, tabs, row actions	PLAN/pages/attendance/attendance_register/ticket.md	7
+attendance	3	31.4.attendance-3	Staff attendance + leave — roster card, plain leave page	PLAN/pages/attendance/attendance_staff/ticket.md	14
+calendar	1	31.4.calendar-1a	Calendar — month grid with day panel, full-page event form	PLAN/pages/calendar/calendar/ticket.md	12
+calendar	2	31.4.calendar-1b	Calendar — holidays full page, clone dialog, shared cards	PLAN/pages/calendar/calendar/ticket-b.md	11
+calendar	3	31.4.calendar-2	Import calendar — full-page modal with clear review step	PLAN/pages/calendar/calendar-import/ticket.md	7
+classes	1	31.4.classes-1	Classes list — kit table, labelled filters, cleaner class form	PLAN/pages/classes/classes-list/ticket.md	6
+classes	2	31.4.classes-2	Class detail — facts header, line tabs, kit tables	PLAN/pages/classes/class-detail/ticket.md	15
+communications	1	31.4.communications-1	Send message — two clear cards, plain labels, translated errors	PLAN/pages/communications/communications_send/ticket.md	7
+communications	2	31.4.communications-2a	Fee reminders — readable placeholders, preview then send	PLAN/pages/communications/communications_reminders/ticket.md	11
+communications	3	31.4.communications-2b	Bulk fee reminders — full-page modal with clear steps	PLAN/pages/communications/communications_reminders/ticket-b.md	9
+communications	4	31.4.communications-3	Reminder history and round detail — readable template, translated failures	PLAN/pages/communications/communications_batches/ticket.md	9
+exams	1	31.4.exams-1	Exams list — class and year columns, status badges, edit	PLAN/pages/exams/exams/ticket.md	7
+exams	2	31.4.exams-2a	Exam detail — facts header, result actions on top, progress tab	PLAN/pages/exams/exams_examId/ticket.md	10
+exams	3	31.4.exams-2b	Exam detail — marks-breakdown and schedule tabs	PLAN/pages/exams/exams_examId/ticket-b.md	9
+exams	4	31.4.exams-3a	Exam structures list — kit table, icon actions, one word	PLAN/pages/exams/exams_templates/ticket.md	9
+exams	5	31.4.exams-3b	Exam structure detail — save in header, one class at a time	PLAN/pages/exams/exams_templates/ticket-b.md	9
+exams	6	31.4.exams-4a	Seat plans list + Generate seat plan as full page	PLAN/pages/exams/exams_seat-plans/ticket.md	8
+exams	7	31.4.exams-4b	Seat plan detail — facts header, one sitting, room cards	PLAN/pages/exams/exams_seat-plans/ticket-b.md	8
+fees	1	31.4.fees-1	Student dues — one primary, icon actions, readable fee lines	PLAN/pages/fees/fees_dues/ticket.md	6
+fees	2	31.4.fees-2	Fee structures — labelled filters, year column, icon actions	PLAN/pages/fees/fee-structures/ticket.md	6
+fees	3	31.4.fees-3a	Create fee bills — readable rounds, one primary, no toast	PLAN/pages/fees/fees_generate/ticket.md	8
+fees	4	31.4.fees-3b	Create fee bills form — full-page modal, plain steps	PLAN/pages/fees/fees_generate/ticket-b.md	12
+fees	5	31.4.fees-4a	Automatic billing — readable rules, full-page rule form	PLAN/pages/fees/fees_schedules/ticket.md	12
+fees	6	31.4.fees-4b	Automatic billing rule — detail header, exclusions, history	PLAN/pages/fees/fees_schedules/ticket-b.md	6
+fines	1	31.4.fines-1a	Fines + fine rules — kit header, labelled filters, icon actions	PLAN/pages/fines/fees_fines/ticket.md	15
+fines	2	31.4.fines-1b	Fines — generate and log as full-page modals	PLAN/pages/fines/fees_fines/ticket-b.md	11
+guardians	1	31.4.guardians-1	Guardians list — one primary, labelled filters, readable values	PLAN/pages/guardians/guardians/ticket.md	11
+guardians	2	31.4.guardians-2	Guardian detail — kit header, carded tabs, full-page edit	PLAN/pages/guardians/guardians_guardianId/ticket.md	10
+guest	1	31.4.guest-1	Sign in and choose school — one card, plain words	PLAN/pages/guest/login/ticket.md	6
+guest	2	31.4.guest-2	Password and link pages — one layout, no dead ends	PLAN/pages/guest/forgot-password/ticket.md	12
+guest	3	31.4.guest-3	Public receipt and document check — framed, translated, with a way out	PLAN/pages/guest/i_token/ticket.md	8
+homework	1	31.4.homework-1	Homework list and detail — kit table, facts header, tidy assign dialog	PLAN/pages/homework/academics_homework/ticket.md	9
+homework	2	31.4.homework-2	New and import homework — two full-page modals	PLAN/pages/homework/academics_homework_new/ticket.md	9
+homework	3	31.4.homework-3	Syllabus — topic list with progress and icon actions	PLAN/pages/homework/academics_syllabus/ticket.md	7
+marks	1	31.4.marks-1	Enter marks — labelled picker, status list, clear marks list	PLAN/pages/marks/marks/ticket.md	7
+marks	2	31.4.marks-2	Results — status and next step, report card header	PLAN/pages/marks/results/ticket.md	12
+marks	3	31.4.marks-3	Result analysis — labelled pickers, one toolbar, readable tables	PLAN/pages/marks/analysis/ticket.md	7
+marks	4	31.4.marks-4a	Grading scales list — names instead of ids, clear create	PLAN/pages/marks/grading-scales/ticket.md	5
+marks	5	31.4.marks-4b	Grading scale editor — context, save on top, readable rows	PLAN/pages/marks/grading-scales/ticket-b.md	14
+payments	1	31.4.payments-1a	Payments — real payment list over GET /payments	PLAN/pages/payments/payments/ticket.md	5
+payments	2	31.4.payments-1b	Payments — record payment as a full page	PLAN/pages/payments/payments/ticket-b.md	20
+payments	3	31.4.payments-2	Payment detail — facts header, print first, reverse tucked away	PLAN/pages/payments/payments_id/ticket.md	9
+payments	4	31.4.payments-3	Invoices — icon row actions, credit-note tag, 25 per page	PLAN/pages/payments/invoices/ticket.md	5
+payments	5	31.4.payments-4	Invoice detail — show the bills, group print and send	PLAN/pages/payments/invoices_invoiceId/ticket.md	5
+platform	1	31.4.platform-1	Schools list + new school — header button, full-page form	PLAN/pages/platform/schools/ticket.md	14
+platform	2	31.4.platform-2	School detail — one header, dialogs instead of inline forms	PLAN/pages/platform/schools_schoolId/ticket.md	15
+platform	3	31.4.platform-3	Holiday lists + list detail — no crash, kit table, date pickers	PLAN/pages/platform/holiday-sets/ticket.md	10
+portal	1	31.4.portal-1	Portal overview — real title, two columns, one card per child	PLAN/pages/portal/portal/ticket.md	7
+portal	2	31.4.portal-2	Portal fees — titled "ফি ও চালান", tables on desktop, quiet empties	PLAN/pages/portal/portal_fees/ticket.md	4
+portal	3	31.4.portal-3	Portal attendance — month header on the grid, day panel instead of dialog	PLAN/pages/portal/portal_attendance/ticket.md	4
+portal	4	31.4.portal-4	Portal calendar — month grid on every width, day panel beside it	PLAN/pages/portal/portal_calendar/ticket.md	5
+portal	5	31.4.portal-5	Portal exam schedule and routine — readable dates, one day at a time	PLAN/pages/portal/portal_exam-schedule/ticket.md	6
+portal	6	31.4.portal-6	Portal results — one card per exam, figures up front	PLAN/pages/portal/portal_results/ticket.md	4
+portal	7	31.4.portal-7	Portal programs — status badge, progress sentence, short milestone list	PLAN/pages/portal/portal_programs/ticket.md	4
+portal	8	31.4.portal-8	Portal syllabus — header, per-subject progress, numbered topic list	PLAN/pages/portal/portal_syllabus/ticket.md	4
+portal	9	31.4.portal-9	Portal surveys — page title always, clearer teacher answer forms	PLAN/pages/portal/portal_surveys/ticket.md	4
+portal	10	31.4.portal-10	Portal account — fix push error key, cap devices, tidy contact card	PLAN/pages/portal/portal_account/ticket.md	5
+print	1	31.4.print-1	Print designs — badges, icon actions, plain words	PLAN/pages/print/print-templates/ticket.md	8
+print	2	31.4.print-2a	Print ID cards — one full-page modal with Close	PLAN/pages/print/print_preview/ticket.md	12
+print	3	31.4.print-2b	Print preview — rounds, checks and cards laid out	PLAN/pages/print/print_preview/ticket-b.md	9
+programs	1	31.4.programs-1	Programs list — subtitle, short table, row actions	PLAN/pages/programs/programs/ticket.md	4
+programs	2	31.4.programs-2a	Program detail — facts header, one primary, kit lists	PLAN/pages/programs/programs_programId/ticket.md	11
+programs	3	31.4.programs-2b	Enrol and Record — full-page modals, kit pickers	PLAN/pages/programs/programs_programId/ticket-b.md	9
+promotions	1	31.4.promotions-1	Promotion lists + new list — status badges, full-page form	PLAN/pages/promotions/promotions/ticket.md	7
+promotions	2	31.4.promotions-2	Promotion list detail — kit header, clickable decisions, safe delete	PLAN/pages/promotions/promotions_runId/ticket.md	7
+reports	1	31.4.reports-1	Fee collection report — fix the crash, net first	PLAN/pages/reports/reports_collections/ticket.md	6
+reports	2	31.4.reports-2	Print & documents — one status, icon actions, print button	PLAN/pages/reports/reports_printables/ticket.md	14
+routines	1	31.4.routines-1a	Class routine — section table, readable builder page	PLAN/pages/routines/routines/ticket.md	14
+routines	2	31.4.routines-1b	Class routine — kit cell picker and fill dialog	PLAN/pages/routines/routines/ticket-b.md	7
+routines	3	31.4.routines-2	My routine — kit header, plain empty states	PLAN/pages/routines/routines_my/ticket.md	4
+routines	4	31.4.routines-3a	Routine review — state header, period table, request dialogs	PLAN/pages/routines/routines_review/ticket.md	10
+routines	5	31.4.routines-3b	Substitute teachers — labelled filters, full table, simpler dialog	PLAN/pages/routines/routines_review/ticket-b.md	6
+routines	6	31.4.routines-4a	Routine setup — tabs, rooms table, rules section	PLAN/pages/routines/routines_setup/ticket.md	8
+routines	7	31.4.routines-4b	Routine setup — shifts card and period-times editor	PLAN/pages/routines/routines_setup/ticket-b.md	8
+settings	1	31.4.settings-1a	Settings — seven categories with a side list	PLAN/pages/settings/settings/ticket.md	11
+settings	2	31.4.settings-1b	Settings — School category: plain labels, Advanced fields	PLAN/pages/settings/settings/ticket-b.md	11
+settings	3	31.4.settings-2	Settings — Academics and Finance categories redesigned	PLAN/pages/settings/settings_academics-finance/ticket.md	14
+settings	4	31.4.settings-3	Settings — Communication category: plain words, visible state	PLAN/pages/settings/settings_communication/ticket.md	13
+settings	5	31.4.settings-4a	Settings — Printing and Sign-in categories redesigned	PLAN/pages/settings/settings_printing-security-backup/ticket.md	10
+settings	6	31.4.settings-4b	Settings — Backup category: two cards, plain words	PLAN/pages/settings/settings_printing-security-backup/ticket-b.md	7
+staff	1	31.4.staff-1	Staff list — labelled filters, icon actions, one status column	PLAN/pages/staff/staff/ticket.md	6
+staff	2	31.4.staff-2a	Staff detail — kit header, Profile cards, translated permissions	PLAN/pages/staff/staff_userId/ticket.md	15
+staff	3	31.4.staff-2b	Staff detail — HR, assignments, documents, attendance tabs as kit cards	PLAN/pages/staff/staff_userId/ticket-b.md	14
+staff	4	31.4.staff-2c	Staff detail — ACR, incidents and performance tabs in kit cards	PLAN/pages/staff/staff_userId/ticket-c.md	7
+staff	5	31.4.staff-3	Teacher assignments — one card per section, assign beside it	PLAN/pages/staff/staff_teaching-assignments/ticket.md	4
+staff	6	31.4.staff-4a	Evaluations and survey page — one header, badges, icon actions	PLAN/pages/staff/staff_evaluations/ticket.md	13
+staff	7	31.4.staff-4b	New teacher survey — full-page form with four sections	PLAN/pages/staff/staff_evaluations/ticket-b.md	7
+staff	8	31.4.staff-5	ACR form — full-page modal, step tabs, calm score buttons	PLAN/pages/staff/staff_userId_acr_assessmentId/ticket.md	12
+students	1	31.4.students-1	Students list — labelled filters, icon actions, one primary	PLAN/pages/students/students/ticket.md	5
+students	2	31.4.students-2	Add / edit student — full-page form, labelled guardian picker	PLAN/pages/students/students_new/ticket.md	11
+students	3	31.4.students-3	Import students — full-page modal, guide folded away	PLAN/pages/students/students_import/ticket.md	6
+students	4	31.4.students-4	Student detail — kit header, grouped tabs, overview card	PLAN/pages/students/students_studentId/ticket.md	8
+students	5	31.4.students-5a	Student detail Fees tab — one summary, clean bill tables	PLAN/pages/students/students_studentId_fees/ticket.md	8
+students	6	31.4.students-5b	Student detail Payments, Invoices, Fines tabs — kit tables	PLAN/pages/students/students_studentId_fees/ticket-b.md	8
+students	7	31.4.students-6a	Student detail Enrollment, Subjects, Programs tabs — cards and names	PLAN/pages/students/students_studentId_enrollment/ticket.md	10
+students	8	31.4.students-6b	Student detail Attendance, Results, Homework, Performance tabs — readable figures	PLAN/pages/students/students_studentId_enrollment/ticket-b.md	10
+students	9	31.4.students-7a	Student detail Guardians, Messages, Activity, Documents tabs + leave/readmit dialogs	PLAN/pages/students/students_studentId_guardians/ticket.md	15
+students	10	31.4.students-7b	Student detail Notes and Records tabs — cards, icon actions, confirm dialogs	PLAN/pages/students/students_studentId_guardians/ticket-b.md	14

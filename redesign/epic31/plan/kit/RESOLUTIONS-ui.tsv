@@ -1,0 +1,98 @@
+# lane	slug	request	decision	foundation ticket	note for the page implementer
+# === I-1 (ui) — every request whose target is under ui/src/** or client-admin/src/components/** ===
+admin	audit-logs	DataTable phone card expand toggle with visible text (expandRowText)	REFUSED	-	use the fallback in the ticket (icon-only chevron named by expandRowLabel); one page, new DataTable API
+admin	notifications	notification-list unread dot aligned to the first line	ACCEPTED	31.2.11	nothing to pass; NotificationList row is items-start, dot mt-2
+admin	security	session-list: IP, sign-in time, device icon, one framed divide-y list, total footer, outline red sign-out-all via ConfirmDialog, no retry in EmptyState	ACCEPTED	31.2.14a	<SessionList …> as today (variant='full' is the default); new strings live in common.json sessionList.* — do not add them to auth.json
+admissions	admission_slug	AuthLayout size='wide' (max-w-2xl) for the public form	ACCEPTED	31.2.12	<AuthLayout size="wide"> (prop typed in 31.1.2a); keep the md:grid-cols-2 grids
+admissions	admission_slug	DatePicker: jump to a year/month for a date of birth	ACCEPTED	31.2.2	no prop: click the month label in the DatePicker popover → month grid with year prev/next; pass max={today}
+admissions	admission_slug	FileUpload: translate Choose file(s) / Done / Remove {name} / n files selected	ACCEPTED	31.2.14c	default labels now come from common.json fileUpload.*; chooseLabel still overrides; the standard file row is fine to keep
+attendance	attendance_reports	FilterBar: format text-filter chip values (tenant digits)	ACCEPTED	31.2.7a	on the text field descriptor: formatChip: (v) => formatNumber(Number(v), rc)
+calendar	calendar	DayPanel row badge for draft events	ACCEPTED	31.2.3a	MonthGridEvent.badge: <StatusBadge tone="neutral" label={t('…draft')} /> — shown after the name in DayPanel (not in grid chips)
+calendar	calendar	formatDateRange formatter	ACCEPTED	31.1.2b + 31.2.1a	formatDateRange(from, to, rc) from @biddaloy/ui/utils (same month: ৮ই – ১০ই অক্টোবর)
+calendar	calendar	ownership: upcoming-calendar-card.tsx + calendar-feed-card.tsx belong to calendar-1	ACCEPTED	-	no foundation ticket edits either file; note 31.2.14c restyles SecretField, which calendar-feed-card renders (look changes, file untouched)
+communications	communications_reminders_bulk	WizardShell headless / full-page mode	REFUSED	-	use the fallback in the ticket (own step row with useWizardShellStep inside FullPageShell); one page, new shell mode
+exams	exams	useDeleteExam() hook for DELETE /exams/:id	ACCEPTED	31.2.14d	import { useDeleteExam } from '@biddaloy/ui/hooks'; mutate(examId); invalidates the exams list
+exams	exams_templates_templateId	PageAction / DetailShellAction disabled + busy	ACCEPTED	31.2.5a (type 31.1.2a)	actions={[{ id: 'save', label, onClick, priority: 'primary', disabled: !isDirty, busy: save.isPending }]}
+fees	fees_generate	FeeGeneration source union includes FINE_RULE	ACCEPTED	31.2.14d	FeeGeneration['source'] / FeeGenerationsFilters['source'] include 'FINE_RULE' — drop the `as string` casts
+fines	fees_fines	PageAction to?: string (render header action as a link)	REFUSED	-	use the fallback in the ticket (button + navigate; e2e keeps tag 'button'); one page
+guest	i_token	AuthLayout print: hide language row + logo, drop card frame	ACCEPTED	31.2.12	nothing to pass; print:hidden / print:border-0 are built into AuthLayout
+marks	marks_examId_sectionId_subjectId	marks-grid / marks-stepper kit tokens, tenant digits shown and accepted, icon saved mark, 44px full-word stepper buttons, EmptyState	ACCEPTED	31.2.14b	no prop change — place MarksGrid / MarksStepper as today
+marks	results_examId_studentId	report-card numbers via formatNumber (GPA decimals 2), text-text-secondary	ACCEPTED	31.2.14b	no prop change
+payments	payments_record	admin-verification-modal: map fees.discount + payments.reverse scopes	ACCEPTED	31.2.14c	still add the approval.json scopes entries in payments-1 / payments-2; the modal shows them as soon as the key exists (guarded with i18n.exists)
+payments	payments_id	DetailShell tabs optional, body via children	ACCEPTED	31.2.5b	<DetailShell name statusBadge facts actions>{body}</DetailShell> — omit tabs/activeTab/onTabChange
+portal	portal_fees, portal_attendance, portal_calendar	student-picker chips restyled to kit tokens	ACCEPTED	31.2.14a	no prop change — place StudentPicker as today
+portal	portal_attendance	attendance-month-grid: MonthHeader, today ring, selected fill, weekly-off muted, sr-only caption, icon pills, legend inside	ACCEPTED	31.2.3b	<AttendanceMonthGrid month days today selectedDate onMonthChange onSelectDay /> — drop the page's own month-link header row
+portal	portal_calendar	DayPanel translated empty-day line	ACCEPTED	31.2.3a (key 31.1.2a dayPanel.empty)	nothing to pass; events=[] renders 'এই দিনে কোনো ইভেন্ট নেই।'
+portal	portal, portal_fees	amounts in tenant digits under the value-less RegionConfigProvider	ACCEPTED	31.2.1b	keep the value-less provider; 31.2.1b adds the guard test (provider + formatServerAmount give ৳০.০০ in bn) and fixes the cause if it fails
+portal	portal	upcoming-calendar-card side-column look	REFUSED	-	use the fallback in the ticket — file is owned by calendar-1 (Addendum 8), not foundation; orchestrator may route the look to calendar-1
+portal	portal_account	session-list compact list: outline red sign-out-all, one ul.divide-y, one meta line, icon sign-out per row, device icon, success badge	ACCEPTED	31.2.14a	<SessionList variant="compact" …> inside the page's Devices card; the page still slices to 5 rows
+portal	portal_account	profile / guardian-contact / change-password / push cards to kit form look	ACCEPTED	31.2.14a	no prop change — place the four components as today
+print	print_preview	grant desktop-only-gate.tsx to the print lane (export useIsWide, copyPageLink)	ACCEPTED	-	granted to print-2a: no foundation ticket touches client-admin/src/components/print/desktop-only-gate.tsx
+programs	programs_programId	milestone-checklist rows 44/32px, kit checkbox look, ghost Undo, kit tokens	ACCEPTED	31.2.14b	pass achievedOn already formatted with formatDate; no other change
+routines	routines_sectionId	routine-grid kit look, period label + time range, empty/warning icons, cell aria-label	ACCEPTED	31.2.3b	no prop change; do NOT add routines.builder.cellAria — the grid uses common.json routine.cellLabel(Empty)
+routines	routines_my	routine-agenda kit look: line-tab day switcher, day card, time column, StatusBadges	ACCEPTED	31.2.3b	no prop change; do NOT add agenda period-count / until keys — the agenda uses common.json routine.periodCount / routine.until
+settings	settings	PageHeader title ReactNode or mobileTitle	REFUSED	-	use the fallback in the ticket (inline PageHeader markup in SchoolSettingsPage.tsx); one page
+settings	settings	NumberInput / Input numerals mode (type in tenant digits)	REFUSED	-	use the fallback in the ticket (Latin digits while typing; display stays formatted) — new component; ponytail until a second form needs it
+settings	settings_communication	SecretField kit sizes + description prop with aria-describedby	ACCEPTED	31.2.14c	<SecretField description={t('…help')} …> — drop the page's own help <p>
+students	students	RowActions item carries data-focus-anchor	ACCEPTED	31.2.4a (type 31.1.2a)	{ intent: 'view', label, to, 'data-focus-anchor': row.id }
+students	students_new	FormShell drops max-w-xl	ACCEPTED	31.2.5a	nothing to pass; width comes from PageContainer narrow / FullPageShell
+students	students_import	BulkUploadPreview exposes state + confirm, can hide its own Confirm	ACCEPTED	31.2.14c (type + props 31.1.2a)	<BulkUploadPreview hideConfirm onControllerChange={setUpload} …/>; footer from upload.status / confirm / confirmDisabled / result / commitResult / reset; type BulkUploadPreviewController<S, C> from @biddaloy/ui/components
+students	students_studentId	DetailShell scrolls the selected tab into view	ACCEPTED	31.2.5b	nothing to pass
+# === judged I-2's (nav / crumbs / registries / layouts / locale / e2e / server) — for reconciliation ===
+admin	curriculum-preset	server presets/status appliedByName	I-2	server	
+admin	notifications	nav.json notifications.* wording + keys	I-2	nav.json	
+admin	security	nav.json security.pageDescription	I-2	nav.json	
+admissions	admissions_applicants_applicantId	use-breadcrumbs admissionApplicant resolver	I-2	crumbs	
+admissions	admissions_intakes_intakeId	use-breadcrumbs admissionIntake resolver	I-2	crumbs	
+admissions	admissions_applicants_applicantId	server reviewer_name on evaluations	I-2	server	
+admissions	admission_slug	server public admission returns school name	I-2	server	
+attendance	attendance_staff	GET /staff-attendance/register + ui/src/api hook	I-2	server (+ ui/src/api/staff-attendance.ts)	hook rides with the server ticket; not a wave-2 ui change
+calendar	calendar-import	server import row name/dates + error code	I-2	server	
+classes	classes-list	server class-delete 409 details	I-2	server	
+classes	class-detail	server section-delete 409 details	I-2	server	
+communications	communications_batches_batchId	server error_code on failed logs (+ ui/src/hooks/reminders.ts type)	I-2	server	
+exams	exams_examId	server overlap warnings as data	I-2	server	
+exams	exams_seat-plans	server exam_name on seat-plan rows	I-2	server	
+exams	exams_seat-plans_planId	server schedules on seat plan	I-2	server	
+fees	fees_dues	nav-tree: drop the /fees item	I-2	nav	
+fees	fees_dues	e2e manifest/smoke/a11y: /fees is a redirect	I-2	e2e	
+fees	fees_generate	action-registry fees.generate URL	I-2	registry	
+fees	fees_schedules	unregistered-actions / registry for ?new=1	I-2	registry	
+fees	fees_schedules_id	use-breadcrumbs scheduleDetail resolver	I-2	crumbs	
+fines	fees_fines_rules	fees.json wording	I-2	locale	
+fines	fees_fines	server structured fine note	I-2	server	
+guardians	guardians	server case-insensitive relationship filter	I-2	server	
+guest	login	e2e config + reduced-motion literal sign-in strings	I-2	e2e	
+marks	marks	nav-tree marksEntry / results items	I-2	nav	
+marks	marks	server progress subject_name (+ ui/src/hooks/exams.ts ExamProgress)	I-2	server	note: 31.2.14d (wave 2) also edits ui/src/hooks/exams.ts — a wave-3+ server ticket that widens ExamProgress runs after it, no file clash inside a wave
+marks	marks_examId_sectionId_subjectId	server submitted_by_name (+ MarkGrid type)	I-2	server	same note as above
+marks	marks_examId_sectionId_subjectId	route-crumbs: static last crumb	I-2	crumbs	
+marks	results_examId_studentId	use-breadcrumbs reportCard resolver	I-2	crumbs	
+marks	grading-scales_scaleId	use-breadcrumbs gradingScaleDetail resolver	I-2	crumbs	
+payments	payments	nav-tree finance.payments item	I-2	nav	
+payments	payments	route-crumbs payments	I-2	crumbs	
+payments	payments_id	use-breadcrumbs payment resolver	I-2	crumbs	
+payments	invoices_invoiceId	server period_start on snapshot line	I-2	server	
+platform	schools_schoolId	use-breadcrumbs schoolDetail resolver	I-2	crumbs	
+platform	holiday-sets_setId	holidaySetDetail resolver label	I-2	crumbs	
+portal	portal	e2e journeys/fines assertion	I-2	e2e	
+portal	portal_routine	server subject names on resolved slots (+ ui/src/hooks/routines.ts)	I-2	server	
+portal	portal_syllabus	server subject names on syllabus topics	I-2	server	
+portal	portal_surveys	portal nav item + nav.json + nav-icons	I-2	nav	
+routines	routines_review	nav-tree review + substitutions items	I-2	nav	
+settings	settings	action-registry settings sections	I-2	registry	
+settings	settings_academics-finance	curriculumPreset.json settingsLink.applied	I-2	locale	
+staff	staff_teaching-assignments	server teacher user_id	I-2	server	
+staff	staff	server GET /users exclude PARENT/STUDENT	I-2	server	
+staff	staff_evaluations_surveys_surveyId	route-crumbs third crumb	I-2	crumbs	
+staff	staff_evaluations	server full_name on ACR/incident rows	I-2	server	
+students	students	e2e url-state + list-transitions assume 10 rows	I-2	e2e	must merge together with 31.2.4b (page size 25) or CI breaks
+students	students_studentId	e2e overlay-openers alertdialog	I-2	e2e	ConfirmDialog is role=alertdialog since 31.2.6
+students	students_studentId_fees	fees.json recurringFeesTab glossary	I-2	locale	
+students	students_studentId_enrollment	promotions.json badge wording	I-2	locale	
+# === cross-lane page-to-page requests — owned by neither I-1 nor I-2 ===
+fines	fees_fines_generate	students fines-tab: open LogFineModal via ?logFine=1	CROSS-LANE	students lane page file	neither I-1 nor I-2: page-to-page
+payments	payments_record	fees/dues.tsx: navigate to /payments/record	CROSS-LANE	fees lane page file	page-to-page
+marks	results	exams results-panel.tsx redesign	CROSS-LANE	exams lane page file	page-to-page
+programs	programs_programId	students programs-panel: dialogs via search param	CROSS-LANE	students lane page file	page-to-page
+staff	staff_userId	ownership note: roles/-role-card.tsx reuses PermissionGroupList	CROSS-LANE	no lane	note only

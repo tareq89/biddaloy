@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<!-- app:head -->
+<title>Mockup — full-page modal</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="flex min-h-screen flex-col bg-bg text-body text-text-primary">
+
+<!-- ============================================================================
+     FullPageShell (D22) — a full-page modal. It covers the app chrome: no top bar,
+     no sidebar, no bottom bar. Used for the tasks listed in D23.
+     Body width: forms → max-w-5xl · a table, list or preview → max-w-5xl.
+     The footer's inner width must be the SAME max-w-* as the body's.
+     ============================================================================ -->
+
+<!-- Sticky header: title on the left, a very visible Close (X + word, 44px) on the right. -->
+<header class="sticky top-0 z-30 border-b border-border-subtle bg-surface">
+  <div class="flex h-14 items-center justify-between gap-4 px-4 md:h-16 md:px-6">
+    <h1 class="min-w-0 truncate text-h2 md:text-h1">একসাথে ফি রিমাইন্ডার</h1>
+    <button type="button" class="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted"><i data-lucide="x"></i>বন্ধ করুন</button>
+  </div>
+</header>
+
+<!-- PROPOSAL — everything inside <main> is the page design. -->
+<main id="main-content" class="flex-1">
+
+  <div class="mx-auto w-full max-w-5xl space-y-6 px-4 py-4 md:px-6 md:py-6">
+    <ol aria-label="ধাপ" class="flex min-h-11 items-center gap-2 overflow-x-auto [scrollbar-width:none]"><li aria-current="step" class="flex shrink-0 items-center gap-2"><span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-label font-semibold text-primary-foreground">১</span><span class="font-semibold">প্রাপক</span></li><li aria-hidden="true" class="h-px w-6 shrink-0 bg-border-functional md:w-12"></li><li class="flex shrink-0 items-center gap-2"><span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-label text-text-secondary">২</span><span class="text-text-secondary">বার্তা</span></li><li aria-hidden="true" class="h-px w-6 shrink-0 bg-border-functional md:w-12"></li><li class="flex shrink-0 items-center gap-2"><span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-label text-text-secondary">৩</span><span class="text-text-secondary">যাচাই ও পাঠানো</span></li></ol>
+    <div>
+      <h2 class="text-h2">কাদের পাঠাবেন</h2>
+      <p class="mt-1 text-text-secondary">বকেয়া আছে এমন শিক্ষার্থীরা নিচে আছে। যাদের পাঠাতে চান টিক দিন — সর্বোচ্চ ৫০০ জন।</p>
+    </div>
+
+    <section aria-label="ফিল্টার" class="space-y-3">
+      <div class="flex items-end gap-2 md:grid md:grid-cols-10 md:gap-4">
+        <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium md:h-8 md:px-3 border border-border-functional bg-surface text-text-primary hover:bg-muted flex-1 md:hidden" aria-haspopup="dialog"><i data-lucide="sliders-horizontal"></i>ফিল্টার (২)</button>
+        <div class="hidden flex-col gap-1.5 md:flex md:col-span-2"><label for="f-class" class="text-label text-text-primary">শ্রেণি</label><button type="button" id="f-class" aria-haspopup="listbox" class="flex items-center justify-between gap-2 text-start h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body "><span class="truncate">সপ্তম</span><i data-lucide="chevron-down" class="size-4 shrink-0 text-text-secondary"></i></button></div>
+        <div class="hidden flex-col gap-1.5 md:flex md:col-span-2"><label for="f-section" class="text-label text-text-primary">শাখা</label><button type="button" id="f-section" aria-haspopup="listbox" class="flex items-center justify-between gap-2 text-start h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body "><span class="truncate text-text-secondary">সব</span><i data-lucide="chevron-down" class="size-4 shrink-0 text-text-secondary"></i></button></div>
+        <div class="hidden flex-col gap-1.5 md:flex md:col-span-2"><label for="f-month" class="text-label text-text-primary">মাস</label><button type="button" id="f-month" aria-haspopup="listbox" class="flex items-center justify-between gap-2 text-start h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body "><span class="truncate text-text-secondary">সব</span><i data-lucide="chevron-down" class="size-4 shrink-0 text-text-secondary"></i></button></div>
+        <div class="hidden flex-col gap-1.5 md:flex md:col-span-2"><label for="f-year" class="text-label text-text-primary">বছর</label><button type="button" id="f-year" aria-haspopup="listbox" class="flex items-center justify-between gap-2 text-start h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body "><span class="truncate">২০২৬</span><i data-lucide="chevron-down" class="size-4 shrink-0 text-text-secondary"></i></button></div>
+        <div class="hidden flex-col gap-1.5 md:flex md:col-span-2"><label for="f-status" class="text-label text-text-primary">ফির অবস্থা</label><button type="button" id="f-status" aria-haspopup="listbox" class="flex items-center justify-between gap-2 text-start h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body "><span class="truncate text-text-secondary">সব</span><i data-lucide="chevron-down" class="size-4 shrink-0 text-text-secondary"></i></button></div>
+      </div>
+      <div class="flex flex-wrap items-center gap-x-2 md:gap-y-2">
+        <button type="button" class="inline-flex h-11 items-center md:h-7" aria-label="ফিল্টার সরান — শ্রেণি: সপ্তম"><span class="inline-flex h-7 items-center gap-1 rounded-full bg-secondary ps-3 pe-2 text-label text-secondary-foreground">শ্রেণি: সপ্তম<i data-lucide="x" class="size-3.5"></i></span></button>
+        <button type="button" class="inline-flex h-11 items-center md:h-7" aria-label="ফিল্টার সরান — বছর: ২০২৬"><span class="inline-flex h-7 items-center gap-1 rounded-full bg-secondary ps-3 pe-2 text-label text-secondary-foreground">বছর: ২০২৬<i data-lucide="x" class="size-3.5"></i></span></button>
+        <button type="button" class="inline-flex h-11 items-center rounded-md px-2 text-label font-medium text-primary hover:bg-muted md:h-7">সব মুছুন</button>
+      </div>
+    </section>
+
+    <p aria-live="polite" class="font-medium">৫০০ জনের মধ্যে ৪ জন শিক্ষার্থী বাছা হয়েছে</p>
+
+    <div class="md:overflow-hidden md:rounded-lg md:border md:border-border-subtle md:bg-surface md:shadow-e1">
+      <div class="hidden overflow-x-auto md:block">
+        <table class="w-full text-start">
+          <caption class="sr-only">বকেয়া ফি আছে এমন শিক্ষার্থী</caption>
+          <thead class="border-b border-border-subtle bg-muted text-label text-text-secondary">
+            <tr>
+              <th scope="col" class="h-10 w-12 px-2"><button type="button" role="checkbox" aria-checked="false" aria-label="এই পাতার সবাইকে বাছুন" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8"><span class="flex size-5 items-center justify-center rounded-sm border border-border-functional bg-surface"></span></button></th>
+              <th scope="col" class="h-10 px-4 font-medium text-start">শিক্ষার্থী</th>
+              <th scope="col" class="h-10 px-4 font-medium text-start">শ্রেণি · শাখা</th>
+              <th scope="col" class="h-10 px-4 font-medium text-right">মোট বকেয়া</th>
+              <th scope="col" class="h-10 px-4 font-medium text-right">কত মাসের বকেয়া</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border-subtle">
+            <tr class="hover:bg-muted">
+                    <td class="h-10 px-2 py-1"><button type="button" role="checkbox" aria-checked="true" aria-label="রহিম উদ্দিন বাছুন" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8"><span class="flex size-5 items-center justify-center rounded-sm bg-primary text-primary-foreground"><i data-lucide="check" class="size-3.5"></i></span></button></td>
+                    <td class="h-10 px-4 py-1"><p class="font-medium">রহিম উদ্দিন</p><p class="text-caption text-text-secondary">REG-2026-0001</p></td>
+                    <td class="h-10 px-4 py-1">সপ্তম · ক</td>
+                    <td class="h-10 px-4 py-1 text-right tabular-nums">৳৩,৬০০.০০</td>
+                    <td class="h-10 px-4 py-1 text-right tabular-nums">৩</td>
+                  </tr><tr class="hover:bg-muted">
+                    <td class="h-10 px-2 py-1"><button type="button" role="checkbox" aria-checked="true" aria-label="করিম শেখ বাছুন" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8"><span class="flex size-5 items-center justify-center rounded-sm bg-primary text-primary-foreground"><i data-lucide="check" class="size-3.5"></i></span></button></td>
+                    <td class="h-10 px-4 py-1"><p class="font-medium">করিম শেখ</p><p class="text-caption text-text-secondary">REG-2026-0002</p></td>
+                    <td class="h-10 px-4 py-1">সপ্তম · ক</td>
+                    <td class="h-10 px-4 py-1 text-right tabular-nums">৳১,২০০.০০</td>
+                    <td class="h-10 px-4 py-1 text-right tabular-nums">১</td>
+                  </tr><tr class="hover:bg-muted">
+                    <td class="h-10 px-2 py-1"><button type="button" role="checkbox" aria-checked="true" aria-label="সালমা খাতুন বাছুন" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8"><span class="flex size-5 items-center justify-center rounded-sm bg-primary text-primary-foreground"><i data-lucide="check" class="size-3.5"></i></span></button></td>
+                    <td class="h-10 px-4 py-1"><p class="font-medium">সালমা খাতুন</p><p class="text-caption text-text-secondary">REG-2026-0003</p></td>
+                    <td class="h-10 px-4 py-1">সপ্তম · খ</td>
+                    <td class="h-10 px-4 py-1 text-right tabular-nums">৳২,৪০০.০০</td>
+                    <td class="h-10 px-4 py-1 text-right tabular-nums">২</td>
+                  </tr><tr class="hover:bg-muted">
+                    <td class="h-10 px-2 py-1"><button type="button" role="checkbox" aria-checked="false" aria-label="জরিনা বেগম বাছুন" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8"><span class="flex size-5 items-center justify-center rounded-sm border border-border-functional bg-surface"></span></button></td>
+                    <td class="h-10 px-4 py-1"><p class="font-medium">জরিনা বেগম</p><p class="text-caption text-text-secondary">REG-2026-0004</p></td>
+                    <td class="h-10 px-4 py-1">সপ্তম · খ</td>
+                    <td class="h-10 px-4 py-1 text-right tabular-nums">৳৬০০.০০</td>
+                    <td class="h-10 px-4 py-1 text-right tabular-nums">১</td>
+                  </tr><tr class="hover:bg-muted">
+                    <td class="h-10 px-2 py-1"><button type="button" role="checkbox" aria-checked="true" aria-label="জব্বার মিয়া বাছুন" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8"><span class="flex size-5 items-center justify-center rounded-sm bg-primary text-primary-foreground"><i data-lucide="check" class="size-3.5"></i></span></button></td>
+                    <td class="h-10 px-4 py-1"><p class="font-medium">জব্বার মিয়া</p><p class="text-caption text-text-secondary">REG-2026-0005</p></td>
+                    <td class="h-10 px-4 py-1">সপ্তম · ক</td>
+                    <td class="h-10 px-4 py-1 text-right tabular-nums">৳৪,৮০০.০০</td>
+                    <td class="h-10 px-4 py-1 text-right tabular-nums">৪</td>
+                  </tr>
+          </tbody>
+        </table>
+      </div>
+      <ul class="space-y-3 md:hidden">
+        <li class="flex items-start gap-1 rounded-lg border border-border-subtle bg-surface py-2 ps-1 pe-4 shadow-e1">
+                <button type="button" role="checkbox" aria-checked="true" aria-label="রহিম উদ্দিন বাছুন" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8"><span class="flex size-5 items-center justify-center rounded-sm bg-primary text-primary-foreground"><i data-lucide="check" class="size-3.5"></i></span></button>
+                <div class="min-w-0 flex-1 py-2">
+                  <div class="flex items-start justify-between gap-3">
+                    <p class="text-h3">রহিম উদ্দিন</p>
+                    <p class="font-medium tabular-nums">৳৩,৬০০.০০</p>
+                  </div>
+                  <p class="text-text-secondary">সপ্তম শ্রেণি · শাখা ক · ৩ মাসের বকেয়া</p>
+                  <p class="text-caption text-text-secondary">REG-2026-0001</p>
+                </div>
+              </li><li class="flex items-start gap-1 rounded-lg border border-border-subtle bg-surface py-2 ps-1 pe-4 shadow-e1">
+                <button type="button" role="checkbox" aria-checked="true" aria-label="করিম শেখ বাছুন" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8"><span class="flex size-5 items-center justify-center rounded-sm bg-primary text-primary-foreground"><i data-lucide="check" class="size-3.5"></i></span></button>
+                <div class="min-w-0 flex-1 py-2">
+                  <div class="flex items-start justify-between gap-3">
+                    <p class="text-h3">করিম শেখ</p>
+                    <p class="font-medium tabular-nums">৳১,২০০.০০</p>
+                  </div>
+                  <p class="text-text-secondary">সপ্তম শ্রেণি · শাখা ক · ১ মাসের বকেয়া</p>
+                  <p class="text-caption text-text-secondary">REG-2026-0002</p>
+                </div>
+              </li><li class="flex items-start gap-1 rounded-lg border border-border-subtle bg-surface py-2 ps-1 pe-4 shadow-e1">
+                <button type="button" role="checkbox" aria-checked="true" aria-label="সালমা খাতুন বাছুন" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8"><span class="flex size-5 items-center justify-center rounded-sm bg-primary text-primary-foreground"><i data-lucide="check" class="size-3.5"></i></span></button>
+                <div class="min-w-0 flex-1 py-2">
+                  <div class="flex items-start justify-between gap-3">
+                    <p class="text-h3">সালমা খাতুন</p>
+                    <p class="font-medium tabular-nums">৳২,৪০০.০০</p>
+                  </div>
+                  <p class="text-text-secondary">সপ্তম শ্রেণি · শাখা খ · ২ মাসের বকেয়া</p>
+                  <p class="text-caption text-text-secondary">REG-2026-0003</p>
+                </div>
+              </li><li class="flex items-start gap-1 rounded-lg border border-border-subtle bg-surface py-2 ps-1 pe-4 shadow-e1">
+                <button type="button" role="checkbox" aria-checked="false" aria-label="জরিনা বেগম বাছুন" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8"><span class="flex size-5 items-center justify-center rounded-sm border border-border-functional bg-surface"></span></button>
+                <div class="min-w-0 flex-1 py-2">
+                  <div class="flex items-start justify-between gap-3">
+                    <p class="text-h3">জরিনা বেগম</p>
+                    <p class="font-medium tabular-nums">৳৬০০.০০</p>
+                  </div>
+                  <p class="text-text-secondary">সপ্তম শ্রেণি · শাখা খ · ১ মাসের বকেয়া</p>
+                  <p class="text-caption text-text-secondary">REG-2026-0004</p>
+                </div>
+              </li><li class="flex items-start gap-1 rounded-lg border border-border-subtle bg-surface py-2 ps-1 pe-4 shadow-e1">
+                <button type="button" role="checkbox" aria-checked="true" aria-label="জব্বার মিয়া বাছুন" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8"><span class="flex size-5 items-center justify-center rounded-sm bg-primary text-primary-foreground"><i data-lucide="check" class="size-3.5"></i></span></button>
+                <div class="min-w-0 flex-1 py-2">
+                  <div class="flex items-start justify-between gap-3">
+                    <p class="text-h3">জব্বার মিয়া</p>
+                    <p class="font-medium tabular-nums">৳৪,৮০০.০০</p>
+                  </div>
+                  <p class="text-text-secondary">সপ্তম শ্রেণি · শাখা ক · ৪ মাসের বকেয়া</p>
+                  <p class="text-caption text-text-secondary">REG-2026-0005</p>
+                </div>
+              </li>
+      </ul>
+      <div class="flex flex-col gap-2 pt-3 md:flex-row md:items-center md:justify-between md:border-t md:border-border-subtle md:px-4 md:py-2">
+        <p class="text-text-secondary">১–৫ দেখানো হচ্ছে, মোট ৫</p>
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex items-center gap-2">
+            <label for="t-size" class="text-text-secondary">প্রতি পাতায়</label>
+            <button type="button" id="t-size" aria-haspopup="listbox" class="flex items-center justify-between gap-2 text-start h-11 w-20 rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">২৫</span><i data-lucide="chevron-down" class="size-4 shrink-0 text-text-secondary"></i></button>
+          </div>
+          <nav class="flex items-center gap-2" aria-label="পাতা">
+            <button type="button" disabled class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 border border-border-functional bg-surface text-text-primary cursor-not-allowed opacity-50" aria-label="আগের পাতা"><i data-lucide="chevron-left"></i></button>
+            <span class="text-text-secondary">পাতা ১ / ১</span>
+            <button type="button" disabled class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 border border-border-functional bg-surface text-text-primary cursor-not-allowed opacity-50" aria-label="পরের পাতা"><i data-lucide="chevron-right"></i></button>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Footer: secondary action on the left, the ONE primary on the right. 44px at every width.
+     IN THE APP it is "sticky bottom-0 z-30". IN A MOCKUP it stays in normal flow (last child of <body>):
+     the screenshot tool captures the whole page as one tall frame, and a sticky footer would be painted
+     across the middle of it. Do not add "sticky bottom-0" or "fixed" here. -->
+<footer class="border-t border-border-subtle bg-surface">
+  <div class="mx-auto flex w-full max-w-5xl items-center justify-between gap-2 px-4 py-3 md:px-6">
+    <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted">বাতিল করুন</button>
+    <button type="submit" class="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-primary px-4 font-medium text-primary-foreground">পরের ধাপ: বার্তা<i data-lucide="arrow-right"></i></button>
+  </div>
+</footer>
+
+<script>lucide.createIcons({ attrs: { width: 18, height: 18, "stroke-width": 1.75, "aria-hidden": "true" } });</script>
+</body>
+</html>

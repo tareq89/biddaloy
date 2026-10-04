@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="bn" data-density="comfortable">
+<head>
+<!-- app:head -->
+<title>Mockup — guest · select-school</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="flex min-h-screen flex-col bg-bg text-body-lg text-text-primary">
+
+<!-- AuthLayout (D34, foundation 31.2.12): language switcher, logo + product name, one centred max-w-md card. -->
+<div class="flex justify-end p-4">
+  <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted" aria-label="ভাষা পরিবর্তন করুন" aria-haspopup="menu"><i data-lucide="languages"></i>বাংলা<i data-lucide="chevron-down" class="size-4 text-text-secondary"></i></button>
+</div>
+
+<main id="main-content" class="flex flex-1 items-start justify-center px-4 pt-4 pb-16 md:items-center md:pt-0">
+  <div class="w-full max-w-md">
+    <div class="mb-6 flex flex-col items-center gap-2">
+      <span class="flex size-12 items-center justify-center rounded-lg bg-primary text-primary-foreground"><i data-lucide="school"></i></span>
+      <p class="text-h3">SchoolManager</p>
+    </div>
+
+    <section class="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">
+      <h1 class="text-h1 text-balance">স্কুল নির্বাচন করুন</h1>
+      <p class="mt-0.5 text-text-secondary">আপনি একাধিক স্কুলের সাথে যুক্ত। এখন যে স্কুলে কাজ করছেন সেটি বেছে নিন।</p>
+      <div role="radiogroup" aria-label="স্কুল নির্বাচন করুন" class="mt-5 flex flex-col gap-2">
+        <label class="flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-lg border p-4 border-primary bg-primary/5">
+          <span class="flex flex-col gap-0.5"><span class="font-semibold">সবুজ বাগান উচ্চ বিদ্যালয়</span><span class="text-text-secondary">অ্যাডমিন</span></span>
+          <button type="button" role="radio" aria-checked="true" aria-label="সবুজ বাগান উচ্চ বিদ্যালয়, অ্যাডমিন" class="inline-flex size-11 shrink-0 items-center justify-center"><span class="flex size-5 items-center justify-center rounded-full border-2 border-primary"><span class="size-2.5 rounded-full bg-primary"></span></span></button>
+        </label>
+        <label class="flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-lg border p-4 border-border-functional hover:bg-muted">
+          <span class="flex flex-col gap-0.5"><span class="font-semibold">সবুজ বাগান উচ্চ বিদ্যালয়</span><span class="text-text-secondary">অভিভাবক</span></span>
+          <button type="button" role="radio" aria-checked="false" aria-label="সবুজ বাগান উচ্চ বিদ্যালয়, অভিভাবক" class="inline-flex size-11 shrink-0 items-center justify-center"><span class="size-5 rounded-full border-2 border-border-functional"></span></button>
+        </label>
+        <label class="flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-lg border p-4 border-border-functional hover:bg-muted">
+          <span class="flex flex-col gap-0.5"><span class="font-semibold">নদীতীর আদর্শ স্কুল</span><span class="text-text-secondary">শিক্ষক</span></span>
+          <button type="button" role="radio" aria-checked="false" aria-label="নদীতীর আদর্শ স্কুল, শিক্ষক" class="inline-flex size-11 shrink-0 items-center justify-center"><span class="size-5 rounded-full border-2 border-border-functional"></span></button>
+        </label>
+      </div>
+      <button type="button" class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 font-medium text-primary-foreground mt-5">চালিয়ে যান</button>
+      <!-- New: a way out when this is the wrong account (logout → /login) -->
+      <button type="button" class="flex h-11 w-full items-center justify-center rounded-md px-3 font-medium text-primary hover:bg-muted mt-2">অন্য অ্যাকাউন্টে সাইন ইন করুন</button>
+    </section>
+  </div>
+</main>
+
+<script>lucide.createIcons({ attrs: { width: 18, height: 18, "stroke-width": 1.75, "aria-hidden": "true" } });</script>
+</body>
+</html>

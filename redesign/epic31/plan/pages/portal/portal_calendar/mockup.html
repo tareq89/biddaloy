@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="bn" data-density="comfortable">
+<head>
+<!-- app:head -->
+<title>Mockup — portal.calendar</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="flex min-h-screen flex-col bg-bg text-body-lg text-text-primary">
+
+<!-- ============================================================================
+     SHELL — copied from the kit. It is NOT part of a page proposal: change only
+     the three marked spots (sidebar active link, open group, bottom-bar cell).
+     ============================================================================ -->
+<!-- TOP BAR. Desktop (D11): school + role · search · bell · language · theme · account.
+     Phone (D12): one sticky 56px row — menu + school name · search · bell · account.
+     Language, theme, security, switch school and sign out live in the account menu on phone. -->
+<header class="sticky top-0 z-30 flex h-14 items-center gap-1 border-b border-border-subtle bg-surface px-1 md:gap-2 md:px-6">
+  <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9 md:hidden" aria-label="মেনু খুলুন"><i data-lucide="menu"></i></button>
+  <span class="min-w-0 truncate text-h3">নমুনা আদর্শ বিদ্যালয়</span>
+  <span class="hidden shrink-0 rounded-full bg-muted px-2 py-0.5 text-caption text-text-secondary md:inline">অভিভাবক</span>
+  <button type="button" class="hidden md:inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="স্কুল বা ভূমিকা পরিবর্তন করুন"><i data-lucide="arrow-left-right"></i></button>
+  <div class="ml-auto flex shrink-0 items-center md:gap-1">
+    <button type="button" class="hidden h-9 w-64 items-center gap-2 rounded-md border border-border-functional bg-surface px-3 text-text-secondary md:flex" aria-label="খুঁজুন (Ctrl+K)"><i data-lucide="search"></i><span>অনুসন্ধান…</span><kbd class="ml-auto font-sans text-caption">Ctrl+K</kbd></button>
+    <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9 md:hidden" aria-label="খুঁজুন"><i data-lucide="search"></i></button>
+    <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9 relative" aria-label="বিজ্ঞপ্তি, ৩টি অপঠিত"><i data-lucide="bell"></i><span class="absolute top-0.5 left-1/2 ml-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-caption font-medium text-primary-foreground md:-top-0.5">৩</span></button>
+    <button type="button" class="hidden md:inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="ভাষা পরিবর্তন করুন"><i data-lucide="languages"></i></button>
+    <button type="button" class="hidden md:inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="থিম"><i data-lucide="moon"></i></button>
+    <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="অ্যাকাউন্ট মেনু"><i data-lucide="circle-user-round"></i></button>
+  </div>
+</header>
+
+<div class="flex flex-1">
+    <!-- SIDEBAR (desktop only). Guardian / student portal — comfortable density: every control is 44px (h-11) at every width.
+         To adapt: move aria-current="page" to the ONE link of this page. -->
+    <nav class="hidden w-60 shrink-0 border-r border-border-subtle bg-surface px-3 py-4 md:block" aria-label="প্রধান">
+      <p class="px-3 pb-3 text-label text-text-secondary">SchoolManager</p>
+      <ul class="space-y-0.5">
+          <li><a href="#" data-nav="portal.overview" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="house"></i><span class="truncate">সারসংক্ষেপ</span></a></li>
+          <li><a href="#" data-nav="portal.fees" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="credit-card"></i><span class="truncate">ফি ও চালান</span></a></li>
+          <li><a href="#" data-nav="portal.attendance" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="calendar-check-2"></i><span class="truncate">উপস্থিতি</span></a></li>
+          <li><a href="#" data-nav="portal.routine" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="calendar-clock"></i><span class="truncate">রুটিন</span></a></li>
+          <li><a href="#" data-nav="portal.calendar" aria-current="page" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="calendar-days"></i><span class="truncate">ক্যালেন্ডার</span></a></li>
+          <li><a href="#" data-nav="portal.results" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="award"></i><span class="truncate">ফলাফল</span></a></li>
+          <li><a href="#" data-nav="portal.programs" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="milestone"></i><span class="truncate">প্রোগ্রাম</span></a></li>
+          <li><a href="#" data-nav="portal.examSchedule" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="file-clock"></i><span class="truncate">পরীক্ষার সময়সূচি</span></a></li>
+          <li><a href="#" data-nav="portal.syllabus" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="book-open"></i><span class="truncate">সিলেবাস</span></a></li>
+          <li><a href="#" data-nav="portal.account" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="user-round"></i><span class="truncate">অ্যাকাউন্ট</span></a></li>
+      </ul>
+    </nav>
+
+    <!-- PROPOSAL — everything inside <main> is the page design. -->
+    <main id="main-content" class="min-w-0 flex-1">
+      <div class="mx-auto w-full max-w-screen-xl space-y-6 px-4 py-4 md:px-6 md:py-6">
+
+        <header class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-6">
+          <div class="min-w-0">
+            <h1 class="text-h1 md:text-display">ক্যালেন্ডার</h1>
+            <p class="mt-0.5 truncate text-text-secondary">আরিফ হাসান · ষষ্ঠ খ · রোল ৩</p>
+          </div>
+        </header>
+
+        <!-- StudentPicker (existing, unchanged): events follow the chosen child's class -->
+        <nav aria-label="একজন শিক্ষার্থী বাছুন" class="flex flex-wrap gap-2">
+          <a href="#" class="flex min-h-11 shrink-0 flex-col justify-center rounded-lg border border-primary bg-secondary px-3 py-1.5"><span class="font-semibold">আরিফ হাসান</span><span class="text-caption text-text-secondary">ষষ্ঠ খ · রোল ৩</span></a>
+          <a href="#" class="flex min-h-11 shrink-0 flex-col justify-center rounded-lg border border-border-subtle bg-surface px-3 py-1.5"><span class="font-semibold">সাদিয়া হাসান</span><span class="text-caption text-text-secondary">অষ্টম ক · রোল ১</span></a>
+          <a href="#" class="flex min-h-11 shrink-0 flex-col justify-center rounded-lg border border-border-subtle bg-surface px-3 py-1.5"><span class="font-semibold">তানভীর হাসান</span><span class="text-caption text-text-secondary">তৃতীয় ক · রোল ৭</span></a>
+        </nav>
+
+        <!-- MonthGrid (header with আজ + prev/next) + DayPanel, D26 -->
+          <div class="flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
+            <div class="rounded-lg border border-border-subtle bg-surface shadow-e1 min-w-0 flex-1 overflow-hidden">
+              <div class="p-3 md:px-4">
+              <div class="flex items-center gap-1">
+                <h2 class="mr-auto text-h3">অক্টোবর ২০২৬</h2>
+                <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium md:h-8 md:px-3 border border-border-functional bg-surface text-text-primary hover:bg-muted">আজ</button>
+                <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-text-secondary" aria-label="পূর্ববর্তী মাস"><i data-lucide="chevron-left"></i></button>
+                <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-text-secondary" aria-label="পরবর্তী মাস"><i data-lucide="chevron-right"></i></button>
+              </div>
+              </div>
+              <div class="grid grid-cols-7 border-t border-border-subtle bg-muted text-center text-label text-text-secondary">
+                <span class="flex h-8 items-center justify-center">রবি</span><span class="flex h-8 items-center justify-center">সোম</span><span class="flex h-8 items-center justify-center">মঙ্গল</span><span class="flex h-8 items-center justify-center">বুধ</span><span class="flex h-8 items-center justify-center">বৃহ</span><span class="flex h-8 items-center justify-center">শুক্র</span><span class="flex h-8 items-center justify-center">শনি</span>
+              </div>
+              <!-- gap-px on a border-coloured ground draws the grid lines; Friday (weekly off) is tinted -->
+              <div class="grid grid-cols-7 gap-px border-t border-border-subtle bg-border-subtle">
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-bg">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-secondary opacity-60">২৭</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-bg">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-secondary opacity-60">২৮</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-bg">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-secondary opacity-60">২৯</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-bg">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-secondary opacity-60">৩০</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">১</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-muted">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">২</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">৩</span>
+                </button>
+                <button type="button" aria-current="date" aria-pressed="true" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-secondary">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label bg-primary font-semibold text-primary-foreground">৪</span>
+                  <span class="flex gap-0.5 md:hidden"><span class="size-1.5 rounded-full bg-primary"></span></span>
+                  <span class="hidden truncate rounded-sm px-1.5 py-0.5 text-caption md:block bg-secondary text-secondary-foreground">অভিভাবক সমাবেশ</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">৫</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">৬</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">৭</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">৮</span>
+                  <span class="flex gap-0.5 md:hidden"><span class="size-1.5 rounded-full bg-status-partial-fg"></span></span>
+                  <span class="hidden truncate rounded-sm px-1.5 py-0.5 text-caption md:block bg-status-partial-bg text-status-partial-fg">অর্ধবার্ষিক পরীক্ষা</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-muted">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">৯</span>
+                  <span class="flex gap-0.5 md:hidden"><span class="size-1.5 rounded-full bg-status-partial-fg"></span></span>
+                  <span class="hidden truncate rounded-sm px-1.5 py-0.5 text-caption md:block bg-status-partial-bg text-status-partial-fg">অর্ধবার্ষিক পরীক্ষা</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">১০</span>
+                  <span class="flex gap-0.5 md:hidden"><span class="size-1.5 rounded-full bg-status-partial-fg"></span></span>
+                  <span class="hidden truncate rounded-sm px-1.5 py-0.5 text-caption md:block bg-status-partial-bg text-status-partial-fg">অর্ধবার্ষিক পরীক্ষা</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">১১</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">১২</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">১৩</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">১৪</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">১৫</span>
+                  <span class="flex gap-0.5 md:hidden"><span class="size-1.5 rounded-full bg-status-due-fg"></span></span>
+                  <span class="hidden truncate rounded-sm px-1.5 py-0.5 text-caption md:block bg-status-due-bg text-status-due-fg">ফি জমার শেষ দিন</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-muted">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">১৬</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">১৭</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">১৮</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">১৯</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">২০</span>
+                  <span class="flex gap-0.5 md:hidden"><span class="size-1.5 rounded-full bg-status-overdue-fg"></span></span>
+                  <span class="hidden truncate rounded-sm px-1.5 py-0.5 text-caption md:block bg-status-overdue-bg text-status-overdue-fg">দুর্গাপূজার ছুটি</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">২১</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">২২</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-muted">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">২৩</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">২৪</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">২৫</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">২৬</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">২৭</span>
+                  <span class="flex gap-0.5 md:hidden"><span class="size-1.5 rounded-full bg-primary"></span></span>
+                  <span class="hidden truncate rounded-sm px-1.5 py-0.5 text-caption md:block bg-secondary text-secondary-foreground">বিজ্ঞান মেলা</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">২৮</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">২৯</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-muted">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">৩০</span>
+                </button>
+                <button type="button" class="flex min-h-12 min-w-0 flex-col items-center gap-1 p-1 text-left md:min-h-24 md:items-stretch md:p-1.5 bg-surface">
+                  <span class="flex size-7 items-center justify-center rounded-full text-label text-text-primary">৩১</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- selected-day panel: right of the grid on desktop, under it on phone -->
+            <aside class="rounded-lg border border-border-subtle bg-surface shadow-e1 p-4 md:w-80 md:shrink-0 md:p-5" aria-labelledby="day-title">
+              <h2 id="day-title" class="text-h3">৪ঠা অক্টোবর, ২০২৬</h2>
+              <p class="text-text-secondary">রবিবার · ১টি ইভেন্ট</p>
+              <ul class="mt-3 divide-y divide-border-subtle">
+                <li class="flex items-start gap-3 py-3">
+                  <span class="mt-2 size-2 shrink-0 rounded-full bg-primary"></span>
+                  <div class="min-w-0"><p class="font-medium">অভিভাবক সমাবেশ</p><p class="text-text-secondary">সভা</p></div>
+                </li>
+              </ul>
+            </aside>
+          </div>
+      </div>
+
+    </main>
+</div>
+
+<!-- BOTTOM BAR (phone only, D14). To adapt: aria-current="page" goes on the ONE cell of this page;
+     if the page is not one of the cells, remove it and set data-active="true" on the "আরও" button instead.
+     IN THE APP this bar is "fixed inset-x-0 bottom-0 z-30" and the content wrapper reserves its height with
+     "pb-16 md:pb-0". IN A MOCKUP it stays in normal flow as the last child of <body>: the screenshot tool
+     captures the whole page as one tall frame, and a fixed bar would be painted across the middle of it.
+     Do not add "fixed" or "sticky bottom-0" to anything in a mockup. -->
+<nav class="flex border-t border-border-subtle bg-surface md:hidden" aria-label="পোর্টাল">
+  <a href="#" data-nav="portal.overview" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="house"></i></span><span class="max-w-full truncate px-1">সারসংক্ষেপ</span></a>
+  <a href="#" data-nav="portal.fees" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="credit-card"></i></span><span class="max-w-full truncate px-1">ফি ও চালান</span></a>
+  <a href="#" data-nav="portal.attendance" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="calendar-check-2"></i></span><span class="max-w-full truncate px-1">উপস্থিতি</span></a>
+  <a href="#" data-nav="portal.results" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="award"></i></span><span class="max-w-full truncate px-1">ফলাফল</span></a>
+  <button type="button" data-active="true" aria-haspopup="dialog" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="ellipsis"></i></span><span class="max-w-full truncate px-1">আরও</span></button>
+</nav>
+
+<script>lucide.createIcons({ attrs: { width: 18, height: 18, "stroke-width": 1.75, "aria-hidden": "true" } });</script>
+</body>
+</html>

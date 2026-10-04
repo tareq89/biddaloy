@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="bn" data-density="comfortable">
+<head>
+<!-- app:head -->
+<title>Mockup — portal_account</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="flex min-h-screen flex-col bg-bg text-body-lg text-text-primary">
+
+<!-- ============================================================================
+     SHELL — copied from the kit. It is NOT part of a page proposal: change only
+     the three marked spots (sidebar active link, open group, bottom-bar cell).
+     ============================================================================ -->
+<!-- TOP BAR. Desktop (D11): school + role · search · bell · language · theme · account.
+     Phone (D12): one sticky 56px row — menu + school name · search · bell · account.
+     Language, theme, security, switch school and sign out live in the account menu on phone. -->
+<header class="sticky top-0 z-30 flex h-14 items-center gap-1 border-b border-border-subtle bg-surface px-1 md:gap-2 md:px-6">
+  <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9 md:hidden" aria-label="মেনু খুলুন"><i data-lucide="menu"></i></button>
+  <span class="min-w-0 truncate text-h3">নমুনা আদর্শ বিদ্যালয়</span>
+  <span class="hidden shrink-0 rounded-full bg-muted px-2 py-0.5 text-caption text-text-secondary md:inline">অভিভাবক</span>
+  <button type="button" class="hidden md:inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="স্কুল বা ভূমিকা পরিবর্তন করুন"><i data-lucide="arrow-left-right"></i></button>
+  <div class="ml-auto flex shrink-0 items-center md:gap-1">
+    <button type="button" class="hidden h-9 w-64 items-center gap-2 rounded-md border border-border-functional bg-surface px-3 text-text-secondary md:flex" aria-label="খুঁজুন (Ctrl+K)"><i data-lucide="search"></i><span>অনুসন্ধান…</span><kbd class="ml-auto font-sans text-caption">Ctrl+K</kbd></button>
+    <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9 md:hidden" aria-label="খুঁজুন"><i data-lucide="search"></i></button>
+    <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9 relative" aria-label="বিজ্ঞপ্তি, ৩টি অপঠিত"><i data-lucide="bell"></i><span class="absolute top-0.5 left-1/2 ml-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-caption font-medium text-primary-foreground md:-top-0.5">৩</span></button>
+    <button type="button" class="hidden md:inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="ভাষা পরিবর্তন করুন"><i data-lucide="languages"></i></button>
+    <button type="button" class="hidden md:inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="থিম"><i data-lucide="moon"></i></button>
+    <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="অ্যাকাউন্ট মেনু"><i data-lucide="circle-user-round"></i></button>
+  </div>
+</header>
+
+<div class="flex flex-1">
+    <!-- SIDEBAR (desktop only). Guardian / student portal — comfortable density: every control is 44px (h-11) at every width.
+         To adapt: move to the ONE link of this page. -->
+    <nav class="hidden w-60 shrink-0 border-r border-border-subtle bg-surface px-3 py-4 md:block" aria-label="প্রধান">
+      <p class="px-3 pb-3 text-label text-text-secondary">SchoolManager</p>
+      <ul class="space-y-0.5">
+          <li><a href="#" data-nav="portal.overview" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="house"></i><span class="truncate">সারসংক্ষেপ</span></a></li>
+          <li><a href="#" data-nav="portal.fees" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="credit-card"></i><span class="truncate">ফি ও চালান</span></a></li>
+          <li><a href="#" data-nav="portal.attendance" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="calendar-check-2"></i><span class="truncate">উপস্থিতি</span></a></li>
+          <li><a href="#" data-nav="portal.routine" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="calendar-clock"></i><span class="truncate">রুটিন</span></a></li>
+          <li><a href="#" data-nav="portal.calendar" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="calendar-days"></i><span class="truncate">ক্যালেন্ডার</span></a></li>
+          <li><a href="#" data-nav="portal.results" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="award"></i><span class="truncate">ফলাফল</span></a></li>
+          <li><a href="#" data-nav="portal.programs" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="milestone"></i><span class="truncate">প্রোগ্রাম</span></a></li>
+          <li><a href="#" data-nav="portal.examSchedule" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="file-clock"></i><span class="truncate">পরীক্ষার সময়সূচি</span></a></li>
+          <li><a href="#" data-nav="portal.syllabus" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="book-open"></i><span class="truncate">সিলেবাস</span></a></li>
+          <li><a href="#" data-nav="portal.account" aria-current="page" class="flex h-11 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="user-round"></i><span class="truncate">অ্যাকাউন্ট</span></a></li>
+      </ul>
+    </nav>
+
+    <!-- PROPOSAL — everything inside <main> is the page design. -->
+    <main id="main-content" class="min-w-0 flex-1">
+      <div class="mx-auto w-full max-w-3xl space-y-6 px-4 py-4 md:px-6 md:py-6">
+
+        <!-- PageHeader (D16) -->
+        <header class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-6">
+          <div class="min-w-0">
+            <h1 class="text-h1 md:text-display">অ্যাকাউন্ট</h1>
+            <p class="mt-0.5 text-text-secondary">আপনার নাম, যোগাযোগ, পাসওয়ার্ড আর সাইন-ইন করা ডিভাইস।</p>
+          </div>
+        </header>
+
+        <!-- ProfileForm (existing, shared) — each card is its own form with its own Save -->
+        <form class="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5" aria-labelledby="c-profile">
+          <h2 id="c-profile" class="text-h2">প্রোফাইল</h2>
+          <div class="mt-4 grid gap-4 md:grid-cols-2">
+            <div class="flex flex-col gap-1.5"><label for="account-full-name" class="text-label text-text-primary">পূর্ণ নাম <span class="text-destructive" aria-hidden="true">*</span><span class="sr-only">(আবশ্যক)</span></label><input id="account-full-name" type="text" value="রাশেদ হাসান" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:text-body"></div>
+          </div>
+          <div class="mt-4 flex justify-end border-t border-border-subtle pt-4">
+            <button type="submit" class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 font-medium text-primary-foreground md:w-auto">পরিবর্তন সংরক্ষণ করুন</button>
+          </div>
+        </form>
+
+        <!-- Email & phone (route) — label, value, verified badge, one outline button per row -->
+        <section class="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5" aria-labelledby="c-contact">
+          <h2 id="c-contact" class="text-h2">ইমেইল ও ফোন</h2>
+          <p class="mt-1 text-text-secondary">সাইন ইন করতে আর পাসওয়ার্ড ভুলে গেলে এগুলো লাগে।</p>
+          <ul class="mt-3 divide-y divide-border-subtle border-t border-border-subtle">
+            <li class="flex flex-wrap items-center gap-x-3 gap-y-2 py-3">
+              <i data-lucide="mail" class="shrink-0 text-text-secondary"></i>
+              <div class="min-w-0 flex-1">
+                <p class="text-caption text-text-secondary">ইমেইল</p>
+                <p class="flex flex-wrap items-center gap-x-2 gap-y-1"><span class="break-all font-medium">rashed.parent@example.test</span><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-due-bg text-status-due-fg"><i data-lucide="clock" class="size-3.5"></i>যাচাই হয়নি</span></p>
+              </div>
+              <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted">পরিবর্তন করুন</button>
+            </li>
+            <li class="flex flex-wrap items-center gap-x-3 gap-y-2 py-3">
+              <i data-lucide="smartphone" class="shrink-0 text-text-secondary"></i>
+              <div class="min-w-0 flex-1">
+                <p class="text-caption text-text-secondary">ফোন</p>
+                <p class="text-text-secondary">যোগ করা হয়নি</p>
+              </div>
+              <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted"><i data-lucide="plus" class="size-4"></i>যোগ করুন</button>
+            </li>
+          </ul>
+        </section>
+
+        <!-- GuardianContactForm (existing, shared; PARENT only) -->
+        <form class="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5" aria-labelledby="c-guardian">
+          <h2 id="c-guardian" class="text-h2">যোগাযোগ নম্বর</h2>
+          <p class="mt-1 text-text-secondary">এই নম্বরগুলোতে স্কুলের ফি রিমাইন্ডার কল ও টেক্সট পাঠানো হয়।</p>
+          <div class="mt-4 grid gap-4 md:grid-cols-2">
+            <div class="flex flex-col gap-1.5"><label for="account-guardian-phone" class="text-label text-text-primary">ফোন</label><input id="account-guardian-phone" type="tel" value="01711-000004" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:text-body"></div>
+            <div class="flex flex-col gap-1.5"><label for="g-alt" class="text-label text-text-primary">বিকল্প ফোন</label><input id="g-alt" type="tel" value="01712-345678" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:text-body"></div>
+            <div class="flex flex-col gap-1.5"><label for="g-email" class="text-label text-text-primary">ইমেইল</label><input id="g-email" type="email" value="rashed.parent@example.test" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:text-body"></div>
+            <div class="flex flex-col gap-1.5"><label for="g-pref" class="text-label text-text-primary">পছন্দের যোগাযোগ মাধ্যম</label><button id="g-pref" type="button" class="flex h-11 w-full items-center justify-between gap-2 rounded-md border border-border-functional bg-surface px-3 text-start text-body-lg text-text-primary md:text-body">এসএমএস<i data-lucide="chevron-down" class="size-4 text-text-secondary"></i></button></div>
+          </div>
+          <button type="button" role="checkbox" aria-checked="true" class="mt-4 flex min-h-11 items-center gap-3 text-start"><span class="flex size-5 shrink-0 items-center justify-center rounded-sm bg-primary text-primary-foreground"><i data-lucide="check" class="size-3.5"></i></span>ফি রিমাইন্ডার ও নোটিফিকেশন গ্রহণ করুন</button>
+          <div class="mt-4 flex justify-end border-t border-border-subtle pt-4">
+            <button type="submit" class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 font-medium text-primary-foreground md:w-auto">পরিবর্তন সংরক্ষণ করুন</button>
+          </div>
+        </form>
+
+        <!-- ChangePasswordForm (existing, shared) -->
+        <form class="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5" aria-labelledby="c-password">
+          <h2 id="c-password" class="text-h2">পাসওয়ার্ড পরিবর্তন করুন</h2>
+          <div class="mt-4 grid gap-4 md:grid-cols-2">
+            <div class="flex flex-col gap-1.5 md:col-span-2"><label for="account-change-current-password" class="text-label text-text-primary">বর্তমান পাসওয়ার্ড</label><input id="account-change-current-password" type="password" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:text-body"></div>
+            <div class="flex flex-col gap-1.5"><label for="account-change-new-password" class="text-label text-text-primary">নতুন পাসওয়ার্ড</label><input id="account-change-new-password" type="password" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:text-body"></div>
+            <div class="flex flex-col gap-1.5"><label for="account-change-confirm-password" class="text-label text-text-primary">নতুন পাসওয়ার্ড নিশ্চিত করুন</label><input id="account-change-confirm-password" type="password" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:text-body"></div>
+          </div>
+          <p class="mt-4 flex items-start gap-2 rounded-md bg-status-due-bg px-3 py-2 text-status-due-fg"><i data-lucide="info" class="mt-0.5 size-4 shrink-0"></i>পাসওয়ার্ড পরিবর্তন করলে আপনি অন্য সব ডিভাইস থেকে সাইন আউট হয়ে যাবেন। এই ডিভাইসে সাইন ইন থাকবে।</p>
+          <div class="mt-4 flex justify-end border-t border-border-subtle pt-4">
+            <button type="submit" class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 font-medium text-primary-foreground md:w-auto">পাসওয়ার্ড পরিবর্তন করুন</button>
+          </div>
+        </form>
+
+        <!-- PushNotificationSettings (existing, shared) — error now translated -->
+        <section class="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5" aria-labelledby="c-push">
+          <h2 id="c-push" class="text-h2">পুশ নোটিফিকেশন</h2>
+          <button type="button" role="checkbox" aria-checked="false" class="mt-3 flex min-h-11 items-start gap-3 text-start">
+            <span class="mt-0.5 flex size-5 shrink-0 rounded-sm border border-border-functional bg-surface"></span>
+            <span><span class="block font-medium">এই ডিভাইসে পুশ নোটিফিকেশন</span><span class="block text-text-secondary">আপনার ব্রাউজার সেটিংসে এই সাইটের জন্য নোটিফিকেশন ব্লক করা আছে। এটি চালু করতে সেখানে অনুমতি দিন।</span></span>
+          </button>
+          <p role="alert" class="mt-3 flex items-center gap-1 text-caption text-destructive"><i data-lucide="circle-alert" class="size-4"></i>আপনার ডিভাইসগুলো লোড করা যায়নি। আবার চেষ্টা করুন।</p>
+        </section>
+
+        <!-- Devices: SessionList (existing, shared) fed at most 5 rows by the route; the rest behind one toggle -->
+        <section class="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5" aria-labelledby="c-devices">
+          <h2 id="c-devices" class="text-h2">ডিভাইসসমূহ</h2>
+          <p class="mt-1 text-text-secondary">আপনার অ্যাকাউন্টে বর্তমানে সাইন ইন থাকা ডিভাইসসমূহ।</p>
+          <ul class="mt-3 divide-y divide-border-subtle border-t border-border-subtle">
+            <li class="flex items-center gap-3 py-2">
+              <i data-lucide="monitor" class="shrink-0 text-text-secondary"></i>
+              <div class="min-w-0 flex-1"><p class="flex flex-wrap items-center gap-x-2 gap-y-1"><span class="font-medium">Chrome · Windows</span><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-paid-bg text-status-paid-fg"><i data-lucide="circle-check" class="size-3.5"></i>এই ডিভাইস</span></p><p class="text-caption text-text-secondary">সর্বশেষ ব্যবহার এখন</p></div>
+              <button type="button" aria-label="সাইন আউট — Chrome · Windows" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-destructive hover:bg-muted"><i data-lucide="log-out"></i></button>
+            </li>
+            <li class="flex items-center gap-3 py-2">
+              <i data-lucide="smartphone" class="shrink-0 text-text-secondary"></i>
+              <div class="min-w-0 flex-1"><p class="font-medium">Chrome · Android</p><p class="text-caption text-text-secondary">সর্বশেষ ব্যবহার ২ ঘণ্টা আগে</p></div>
+              <button type="button" aria-label="সাইন আউট — Chrome · Android" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-destructive hover:bg-muted"><i data-lucide="log-out"></i></button>
+            </li>
+            <li class="flex items-center gap-3 py-2">
+              <i data-lucide="monitor" class="shrink-0 text-text-secondary"></i>
+              <div class="min-w-0 flex-1"><p class="font-medium">Firefox · Windows</p><p class="text-caption text-text-secondary">সর্বশেষ ব্যবহার গতকাল</p></div>
+              <button type="button" aria-label="সাইন আউট — Firefox · Windows" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-destructive hover:bg-muted"><i data-lucide="log-out"></i></button>
+            </li>
+            <li class="flex items-center gap-3 py-2">
+              <i data-lucide="monitor" class="shrink-0 text-text-secondary"></i>
+              <div class="min-w-0 flex-1"><p class="font-medium">Chrome · Windows</p><p class="text-caption text-text-secondary">সর্বশেষ ব্যবহার ৩ দিন আগে</p></div>
+              <button type="button" aria-label="সাইন আউট — Chrome · Windows (২)" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-destructive hover:bg-muted"><i data-lucide="log-out"></i></button>
+            </li>
+            <li class="flex items-center gap-3 py-2">
+              <i data-lucide="smartphone" class="shrink-0 text-text-secondary"></i>
+              <div class="min-w-0 flex-1"><p class="font-medium">Safari · iPhone</p><p class="text-caption text-text-secondary">সর্বশেষ ব্যবহার ৯ দিন আগে</p></div>
+              <button type="button" aria-label="সাইন আউট — Safari · iPhone" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-destructive hover:bg-muted"><i data-lucide="log-out"></i></button>
+            </li>
+          </ul>
+          <button type="button" aria-expanded="false" class="mt-1 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md px-4 font-medium text-text-primary hover:bg-muted md:w-auto"><i data-lucide="chevron-down"></i>সব ২২টি ডিভাইস দেখুন</button>
+          <div class="mt-3 flex flex-col gap-2 border-t border-border-subtle pt-4 md:flex-row md:justify-end">
+            <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-destructive hover:bg-muted"><i data-lucide="log-out" class="size-4"></i>সব জায়গা থেকে সাইন আউট</button>
+          </div>
+        </section>
+
+        <!-- CalendarFeedCard (calendar-1 owns it; placed here unchanged) -->
+        <section class="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5" aria-labelledby="c-feed">
+          <h2 id="c-feed" class="text-h2">ক্যালেন্ডার সাবস্ক্রাইব করুন</h2>
+          <p class="mt-1 text-text-secondary">মেয়াদের তারিখ, ছুটি ও অনুষ্ঠান দেখতে এবং স্বয়ংক্রিয় আপডেট পেতে আপনার ক্যালেন্ডার অ্যাপে এই লিংকটি যোগ করুন।</p>
+          <div class="mt-4 flex flex-col gap-1.5">
+            <label for="feed-url" class="text-label text-text-primary">আপনার ব্যক্তিগত সাবস্ক্রিপশন লিংক</label>
+            <div class="flex gap-2"><input id="feed-url" type="text" readonly value="••••••••••••••••••••••••••••••" class="h-11 min-w-0 flex-1 rounded-md border border-border-functional bg-muted px-3 text-body-lg text-text-secondary md:text-body"><button type="button" class="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted"><i data-lucide="copy" class="size-4"></i>কপি করুন</button></div>
+          </div>
+        </section>
+
+        <!-- Sign out of this device (route) — kept: a guardian on a shared family phone -->
+        <div class="flex flex-col md:flex-row">
+          <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted"><i data-lucide="log-out" class="size-4"></i>সাইন আউট</button>
+        </div>
+
+      </div>
+    </main>
+</div>
+
+<!-- BOTTOM BAR (phone only, D14). To adapt: goes on the ONE cell of this page;
+     if the page is not one of the cells, remove it and set data-active="true" on the "আরও" button instead.
+     IN THE APP this bar is "fixed inset-x-0 bottom-0 z-30" and the content wrapper reserves its height with
+     "pb-16 md:pb-0". IN A MOCKUP it stays in normal flow as the last child of <body>: the screenshot tool
+     captures the whole page as one tall frame, and a fixed bar would be painted across the middle of it.
+     Do not add "fixed" or "sticky bottom-0" to anything in a mockup. -->
+<nav class="flex border-t border-border-subtle bg-surface md:hidden" aria-label="পোর্টাল">
+  <a href="#" data-nav="portal.overview" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="house"></i></span><span class="max-w-full truncate px-1">সারসংক্ষেপ</span></a>
+  <a href="#" data-nav="portal.fees" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="credit-card"></i></span><span class="max-w-full truncate px-1">ফি ও চালান</span></a>
+  <a href="#" data-nav="portal.attendance" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="calendar-check-2"></i></span><span class="max-w-full truncate px-1">উপস্থিতি</span></a>
+  <a href="#" data-nav="portal.results" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="award"></i></span><span class="max-w-full truncate px-1">ফলাফল</span></a>
+  <button type="button" data-active="true" aria-haspopup="dialog" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="ellipsis"></i></span><span class="max-w-full truncate px-1">আরও</span></button>
+</nav>
+
+<script>lucide.createIcons({ attrs: { width: 18, height: 18, "stroke-width": 1.75, "aria-hidden": "true" } });</script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="bn" data-density="comfortable">
+<head>
+<!-- app:head -->
+<title>ভর্তির ফর্ম — mockup</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="flex min-h-screen flex-col bg-bg text-body-lg text-text-primary">
+
+<!-- ============================================================================
+     AuthLayout (D34) — every guest page (sign in, forgot / reset password,
+     activate, verify, select school). Comfortable density: controls are 44px
+     at every width. Logo, centred card max-w-md, language switcher top right.
+     ============================================================================ -->
+
+<div class="flex justify-end p-4">
+  <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted" aria-label="ভাষা পরিবর্তন করুন" aria-haspopup="menu"><i data-lucide="languages"></i>বাংলা<i data-lucide="chevron-down" class="size-4 text-text-secondary"></i></button>
+</div>
+
+<!-- PROPOSAL — everything inside <main> is the page design. Replace only what is inside the card. -->
+<main id="main-content" class="flex flex-1 items-start justify-center px-4 pt-4 pb-16 md:items-center md:pt-0">
+  <div class="w-full max-w-2xl">
+    <div class="mb-6 flex flex-col items-center gap-2">
+      <span class="flex size-12 items-center justify-center rounded-lg bg-primary text-primary-foreground"><i data-lucide="school"></i></span>
+      <p class="text-h3">SchoolManager</p>
+    </div>
+
+    <section class="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">
+      <h1 class="text-h1">ভর্তির ফর্ম</h1>
+      <p class="mt-0.5 text-text-secondary">নিচের ঘরগুলো পূরণ করে ফর্ম জমা দিন। <span class="text-destructive" aria-hidden="true">*</span> চিহ্ন দেওয়া ঘর পূরণ করতেই হবে।</p>
+      <form class="mt-5 space-y-6">
+        <!-- Admission round: Select only when 2+ rounds are open (auto-picked when 1). The facts below come from the chosen round. -->
+        <section class="space-y-3">
+          <div class="flex flex-col gap-1.5">
+            <label for="f-intake" class="text-label text-text-primary">আপনি কোন ভর্তির জন্য আবেদন করছেন? <span class="text-destructive" aria-hidden="true">*</span><span class="sr-only">(আবশ্যক)</span></label>
+            <button type="button" id="f-intake" aria-haspopup="listbox" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary"><span class="truncate">ষষ্ঠ শ্রেণি ভর্তি ২০২৭</span><i data-lucide="chevron-down" class="size-4 shrink-0 text-text-secondary"></i></button>
+            
+          </div>
+          <div class="rounded-md bg-muted p-3">
+            <dl class="grid grid-cols-2 gap-x-4 gap-y-2">
+              <div><dt class="text-caption text-text-secondary">আবেদনের শেষ দিন</dt><dd class="font-medium">৩০শে নভেম্বর, ২০২৬</dd></div>
+              <div><dt class="text-caption text-text-secondary">আসন</dt><dd class="font-medium">১২০টি</dd></div>
+              <div class="col-span-2"><dt class="text-caption text-text-secondary">যে কাগজ লাগবে</dt><dd class="font-medium">শিক্ষার্থীর ছবি, জন্ম নিবন্ধন সনদ</dd></div>
+            </dl>
+          </div>
+        </section>
+
+        <section class="space-y-4 border-t border-border-subtle pt-5">
+          <h2 class="text-h2">শিক্ষার্থীর তথ্য</h2>
+          <div class="grid gap-4 md:grid-cols-2">
+          <div class="flex flex-col gap-1.5 md:col-span-2">
+            <label for="f-name" class="text-label text-text-primary">শিক্ষার্থীর পুরো নাম <span class="text-destructive" aria-hidden="true">*</span><span class="sr-only">(আবশ্যক)</span></label>
+            <input id="f-name" type="text" value="সাদিয়া ইসলাম" autocomplete="off" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary placeholder:text-text-secondary">
+            
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label for="f-dob" class="text-label text-text-primary">শিক্ষার্থীর জন্ম তারিখ <span class="text-destructive" aria-hidden="true">*</span><span class="sr-only">(আবশ্যক)</span></label>
+            <button type="button" id="f-dob" aria-haspopup="dialog" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary"><span class="truncate">১লা জুন, ২০১৫</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button>
+            
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label for="f-gender" class="text-label text-text-primary">শিক্ষার্থীর লিঙ্গ <span class="text-destructive" aria-hidden="true">*</span><span class="sr-only">(আবশ্যক)</span></label>
+            <button type="button" id="f-gender" aria-haspopup="listbox" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary"><span class="truncate">মেয়ে</span><i data-lucide="chevron-down" class="size-4 shrink-0 text-text-secondary"></i></button>
+            
+          </div>
+          </div>
+        </section>
+
+        <section class="space-y-4 border-t border-border-subtle pt-5">
+          <h2 class="text-h2">অভিভাবকের তথ্য</h2>
+          <div class="grid gap-4 md:grid-cols-2">
+          <div class="flex flex-col gap-1.5">
+            <label for="f-gname" class="text-label text-text-primary">অভিভাবকের নাম <span class="text-destructive" aria-hidden="true">*</span><span class="sr-only">(আবশ্যক)</span></label>
+            <input id="f-gname" type="text" value="রফিকুল ইসলাম" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary placeholder:text-text-secondary">
+            
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label for="f-gphone" class="text-label text-text-primary">অভিভাবকের মোবাইল নম্বর <span class="text-destructive" aria-hidden="true">*</span><span class="sr-only">(আবশ্যক)</span></label>
+            <input id="f-gphone" type="tel" value="01711-000004" inputmode="tel" aria-describedby="f-gphone-help" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary placeholder:text-text-secondary">
+            <p id="f-gphone-help" class="text-caption text-text-secondary">এই নম্বর দিয়েই পরে আবেদনের অবস্থা দেখবেন।</p>
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label for="f-gemail" class="text-label text-text-primary">অভিভাবকের ইমেইল (না দিলেও চলবে)</label>
+            <input id="f-gemail" type="email" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary placeholder:text-text-secondary">
+            
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label for="f-addr" class="text-label text-text-primary">বাসার ঠিকানা (না দিলেও চলবে)</label>
+            <input id="f-addr" type="text" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary placeholder:text-text-secondary">
+            
+          </div>
+          </div>
+        </section>
+
+        <section class="space-y-4 border-t border-border-subtle pt-5">
+          <div>
+            <h2 class="text-h2">কাগজপত্র</h2>
+            <p class="mt-1 text-text-secondary">ছবি (JPG, PNG) বা PDF ফাইল দিন, প্রতিটির জন্য একটি।</p>
+          </div>
+          <div class="grid gap-4 md:grid-cols-2">
+            <div class="flex flex-col gap-1.5">
+              <span id="d-photo" class="text-label text-text-primary">শিক্ষার্থীর ছবি <span class="text-destructive" aria-hidden="true">*</span><span class="sr-only">(আবশ্যক)</span></span>
+              <div class="flex items-center gap-2 rounded-md border border-border-subtle p-1 ps-3">
+                <i data-lucide="file-image" class="shrink-0 text-text-secondary"></i>
+                <span class="min-w-0 flex-1 truncate">sadia-photo.jpg</span>
+                <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted text-destructive" aria-label="sadia-photo.jpg সরান"><i data-lucide="x"></i></button>
+              </div>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <span id="d-birth" class="text-label text-text-primary">জন্ম নিবন্ধন সনদ <span class="text-destructive" aria-hidden="true">*</span><span class="sr-only">(আবশ্যক)</span></span>
+              <button type="button" aria-labelledby="d-birth" class="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted w-full md:w-auto md:self-start"><i data-lucide="upload"></i>ফাইল বাছুন</button>
+            </div>
+          </div>
+        </section>
+
+        <button type="submit" class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 font-medium text-primary-foreground">ফর্ম জমা দিন</button>
+      </form>
+      <div class="mt-2 flex justify-center">
+        <a href="#" class="inline-flex h-11 items-center rounded-md px-3 font-medium text-primary hover:bg-muted">আগে আবেদন করেছেন? অবস্থা দেখুন</a>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>lucide.createIcons({ attrs: { width: 18, height: 18, "stroke-width": 1.75, "aria-hidden": "true" } });</script>
+</body>
+</html>

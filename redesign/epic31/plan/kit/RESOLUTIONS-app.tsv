@@ -1,0 +1,96 @@
+lane	slug	request	status	ticket	note for the page implementer
+admin	curriculum-preset	server GET /presets/status appliedByName	DEFERRED	-	use the fallback in the ticket (applied summary without the "applied by" line)
+admin	notifications	nav.json notifications.* text + new keys	ACCEPTED	31.3.4a	keys: nav:notifications.pageDescription (new text), notifications.unreadCount_one/_other, notifications.emptyTitle, notifications.emptyDescription
+admin	security	nav.json security.pageDescription	ACCEPTED	31.3.4a	key: nav:security.pageDescription (new security object)
+admissions	admissions_applicants_applicantId	crumb resolver: applicant name	ACCEPTED	31.3.5	resolver key admissionApplicantDetail reads the applicantQueryOptions(id) cache -> applicant.applicant_name; the page only has to keep using useApplicant(id)
+admissions	admissions_intakes_intakeId	crumb resolver: intake title	ACCEPTED	31.3.5	resolver key admissionIntakeDetail reads the intakeQueryOptions(id) cache -> title; keep using useIntake(id)
+admissions	admissions_applicants_applicantId	server reviewer_name on evaluations	DEFERRED	-	use the fallback in the ticket (history without reviewer name)
+admissions	admission_slug	server school display name on GET /public/admission/:slug	DEFERRED	-	use the fallback in the ticket (no school name subtitle)
+attendance	attendance_staff	server GET /staff-attendance/register?date= + hook	DEFERRED	-	use the fallback in the ticket (each date starts unmarked; saving overwrites)
+calendar	calendar-import	server preview row name/dates + error code	DEFERRED	-	use the fallback in the ticket (row n, status, one translated sentence; never the server message)
+classes	classes-list	server class delete 409 details.code + count	DEFERRED	-	use the fallback in the ticket (one translated sentence, no count, never server text)
+classes	class-detail	server section delete 409 details.code + count	DEFERRED	-	use the fallback in the ticket (one translated sentence, no count)
+communications	communications_batches_batchId	server error_code on reminder logs	DEFERRED	-	use the fallback in the ticket (map the two known messages client-side, else "পাঠানো যায়নি।")
+exams	exams_examId	server overlap warnings as data	DEFERRED	-	use the fallback in the ticket (compute clashes client-side, ignore warnings)
+exams	exams_seat-plans	server exam_name on GET /seat-plans rows	DEFERRED	-	use the fallback in the ticket (no exam column)
+exams	exams_seat-plans_planId	server sittings with bn name, date, time on GET /seat-plans/:id	ACCEPTED	31.3.7b	no schedules[] array: each allocation row gains subject_name_bn, exam_date ('YYYY-MM-DD'), starts_at, ends_at ('HH:mm:ss'); build the sitting label from the first row per exam_schedule_id (bn name when the UI is bn, else subject_name; caption formatDate + formatTime range)
+fees	fees_dues	drop sidebar item "ফি" -> /fees	ACCEPTED	31.3.1	finance.fees removed from nav-tree.ts; /_staff/fees/ added to NOT_IN_NAV; nav:items.fees key stays (crumb)
+fees	fees_dues	/fees as redirect in route-manifest / smoke / a11y	ACCEPTED	31.5.0	manifest /fees archetype becomes "redirect"; smoke does not list /fees and a11y/reflow accept any h1, so fees-1 breaks nothing in between
+fees	fees_generate	palette fees.generate -> /fees/generate?generate=1	ACCEPTED	31.5.1b	run() becomes /fees/generate?generate=1, kind navigate; keep the key name generate
+fees	fees_schedules	palette entry for the rule form (?new=1 / ?edit=<id>)	ACCEPTED	31.5.1b	feeSchedules.create -> /fees/schedules?new=1 (kind navigate, label "স্বয়ংক্রিয় বিলের নিয়ম যোগ করুন"); ?edit=<id> stays a row action, not a palette entry; 31.5.1a adds no flag here
+fees	fees_schedules_id	crumb resolver: rule name	ACCEPTED	31.3.5	resolver key scheduleDetail reads recurringScheduleQueryOptions(id) -> name; keep that query on the page
+fines	fees_fines_rules	fees.json fines.rules.* wording (6 labels)	ACCEPTED	31.3.4b	applied before wave 4: columnCap "মাসে সর্বোচ্চ", columnFreePerPeriod + form.freePerPeriodLabel "মাসে যতবার মওকুফ", activate/deactivate "সক্রিয় করুন / নিষ্ক্রিয় করুন", columnMinMinutesLate "ন্যূনতম দেরি"; the page reads the same keys
+fines	fees_fines	server rule-made fine note not English	ACCEPTED	31.3.7d	new rule-made notes are written in the school's language and numerals ("৩ দিন অনুপস্থিত (১ দিন মওকুফ)"); keep showing note as is; notes written before 31.3.7d stay English (immutable history)
+fines	fees_fines_generate	students route ?logFine=1 (students-lane files)	ACCEPTED	31.5.0	URL: /students/<id>?tab=fines&logFine=1; LogFineModal props unchanged; fines-1b needs nothing
+guardians	guardians	server relationship filter case-insensitive	ACCEPTED	31.3.7d	send the select value (Father, Mother, …, Other) as planned; the server compares LOWER() both sides
+guest	login	e2e/config.ts heading + reduced-motion.spec.ts button literals	ACCEPTED	31.3.8a	both read auth.heading / auth.submit.action from the locale files after 31.3.8a; guest-1 renames the keys' values and edits neither e2e file
+marks	marks	sidebar items for /marks and /results	ACCEPTED	31.3.1	examsResults.marksEntry -> /marks (permission MARK_VIEW, not MARK_ENTER: nav and route gate must match), icon pen-line, label nav:items.marksEntry "নম্বর দেওয়া"; examsResults.results -> /results (RESULT_PROCESS), icon award, nav:items.results "ফলাফল"; first crumbs become links automatically
+marks	marks	server subject_name on progress outstanding rows	ACCEPTED	31.3.7b	fields: outstanding[].subject_name + subject_name_bn (ExamProgress type updated); show bn when the UI is bn
+marks	marks_examId_sectionId_subjectId	server submitted_by_name on getGrid	DEFERRED	-	use the fallback in the ticket (marksSheet.submittedAt sentence without a name)
+marks	marks_examId_sectionId_subjectId	static last crumb instead of $subjectId	ACCEPTED	31.3.5	last crumb = nav:items.marksEntryGrid "নম্বর তালিকা" (dynamic dropped)
+marks	results_examId_studentId	crumb resolver: report card student name	ACCEPTED	31.3.5	resolver key reportCard reads the resultDetailKey(examId, studentId) cache (what useResultDetail fills, not studentQueryOptions) -> student.full_name
+marks	results	results-panel redesign + actions (exams-lane file)	ACCEPTED	31.5.0	exams-2a already redesigns results-panel (DataTable, badges, numerals) and moves its actions to the exam header; 31.5.0 adds the status-driven actions to /results if neither lane did. marks-2: render <ResultsPanel examId /> without examStatus once exams-2a is in
+marks	grading-scales_scaleId	crumb resolver: scale name	ACCEPTED	31.3.5	resolver key gradingScaleDetail -> name from gradingScaleQueryOptions(id)
+payments	payments	sidebar item /payments	ACCEPTED	31.3.1	finance.payments -> /payments, PAYMENT_READ (route-permissions /_staff/payments/ changed to match), icon receipt-text, label nav:items.payments "পেমেন্ট", placed before invoices; dropped from NOT_IN_NAV
+payments	payments	route-crumbs for /payments and /payments/$id	ACCEPTED	31.3.5	/payments crumb = nav:items.payments; /payments/$id = পেমেন্ট (link) › dynamic paymentDetail
+payments	payments_id	crumb resolver: payment	ACCEPTED	31.3.5	resolver key paymentDetail reads paymentKeys.detail(id) (usePayment) -> "<student name> — <formatDate(payment_date)>", date only when student is null
+payments	payments_record	fees dues.tsx opens /payments/record by URL (fees-lane file)	ACCEPTED	-	already done by page ticket fees-1 (Change 7, Step 2); nothing to add
+payments	invoices_invoiceId	server period_start on snapshot lines	ACCEPTED	31.3.7d	field: snapshot.students[].lines[].period_start ('YYYY-MM'; back-filled on read for old invoices) -> formatMonth(period_start); period_label only if period_start is missing
+platform	schools_schoolId	crumb resolver: school name	ACCEPTED	31.3.5	resolver key schoolDetail reads the useSchools() list cache (schoolsKeys.lists()) -> row with this id -> name
+platform	holiday-sets_setId	holiday set crumb label = h1	ACCEPTED	31.3.5	holidaySetDetail label = Intl.DisplayNames region name + year in tenant numerals ("বাংলাদেশ ২০২৬"); build the h1 the same way
+portal	portal	e2e/journeys/fines.spec.ts dueThisMonth assertion	ACCEPTED	31.5.0	conditional: 31.5.0 drops only that assertion if the seeded parent owes nothing this month; portal-1 edits nothing
+portal	portal_routine	server subject names on resolved routine slots	ACCEPTED	31.3.7c	fields: ResolvedSlot.subject_name_en + subject_name_bn (ui/src/hooks/routines.ts updated)
+portal	portal_syllabus	server subject names on syllabus topics	ACCEPTED	31.3.7c	SyllabusTopic.subject_name_en / subject_name_bn (already typed) are now filled; unknownSubject stays as the null case
+portal	portal_surveys	portal sidebar item /portal/surveys	ACCEPTED	31.3.2	after সিলেবাস, label nav:items.portalSurveys "জরিপ", icon clipboard-pen-line, no permission (role-gated), not a bottom-bar cell
+programs	programs_programId	student-route search params for Enrol/Record (students-lane file)	ACCEPTED	31.5.0	URLs: /students/<id>?enrolProgram=1 and ?recordMilestone=<enrollmentId>; EnrolDialog/RecordDialog props unchanged
+routines	routines_review	sidebar items review + substitutions	ACCEPTED	31.3.1	academics.routineReview -> /routines/review (ROUTINE_READ, icon clipboard-check), academics.routineSubstitutions -> /routines/substitutions (ROUTINE_MANAGE, icon replace — not user-round-check, too close to staff attendance's user-check); labels nav:items.routineReview / routineSubstitutions ("বদলি শিক্ষক")
+settings	settings	palette entries per settings category	ACCEPTED	31.5.1b	actions settings.communication / settings.finance / settings.backup -> /settings?section=<id> with SETTINGS_CATEGORY_IDS; print.printers keeps #printers-section
+settings	settings_academics-finance	curriculumPreset.json settingsLink.applied without {{id}}	ACCEPTED	31.3.4b	value becomes "প্রয়োগ করা হয়েছে: {{name}} · {{version}}"; pass name (id may still be passed, unused)
+staff	staff_teaching-assignments	server user_id on SectionTeacherAssignment	DEFERRED	-	use the fallback in the ticket (name + employee id, no link)
+staff	staff_userId	ownership note: roles -role-card imports PermissionGroupList	REFUSED	-	nothing to change in shared code; keep PermissionGroupList's props unchanged as the ticket already says
+staff	staff	server GET /users excludes PARENT/STUDENT by default	DEFERRED	-	use the fallback in the ticket (role filter hides them)
+staff	staff_evaluations_surveys_surveyId	third survey crumb	ACCEPTED	31.3.5	trail কর্মী › মূল্যায়ন (link /staff/evaluations?tab=surveys) › {title}; resolver key surveyDetail; new key nav:items.surveyDetail
+staff	staff_evaluations	server full_name on /acr-assessments and /incidents rows	DEFERRED	-	use the fallback in the ticket (useUser per row, no name search)
+students	students	url-state / list-transitions specs assume 10 rows	ACCEPTED	31.3.8a	specs open /students?limit=25 and seed 26 / 50; students-1 may drop limit: 10 freely
+students	students_studentId	overlay-openers student-delete accepts alertdialog	ACCEPTED	31.3.8a	expectDialogOpen accepts dialog or alertdialog for every opener
+students	students_studentId_fees	fees.json recurringFeesTab.* glossary	ACCEPTED	31.3.4b	same keys, new words (স্বয়ংক্রিয় বিল / স্বয়ংক্রিয় বিলের নিয়ম / plain audience sentence) before wave 4
+students	students_studentId_enrollment	promotions.json badge.* without "ওভাররাইড"	ACCEPTED	31.3.4b	badge.promote/retain/graduate start "বিশেষ বিবেচনায় উত্তীর্ণ / … একই শ্রেণিতে / … পাস সম্পন্ন"; same keys and placeholders
+# --- request lines judged to be I-1's (ui/src/** or shared client-admin/src/components/**); not resolved in this file ---
+admin	audit-logs	data-table-cards expandRowText	I-1	-	-
+admin	notifications	notification-list unread dot alignment	I-1	-	-
+admin	security	session-list rows/footer/confirm	I-1	-	-
+admissions	admission_slug	auth-layout size=wide	I-1	-	-
+admissions	admission_slug	date-picker year jump	I-1	-	-
+admissions	admission_slug	file-upload translated labels	I-1	-	-
+attendance	attendance_reports	filter-bar formatValue for text chips	I-1	-	-
+calendar	calendar	MonthGrid/DayPanel draft badge	I-1	-	-
+calendar	calendar	formatDateRange util	I-1	-	-
+calendar	calendar	ownership note upcoming-calendar-card / calendar-feed-card	I-1	-	-
+communications	communications_reminders_bulk	wizard-shell headless mode	I-1	-	-
+exams	exams	ui/src/hooks/exams.ts useDeleteExam	I-1	-	-
+exams	exams_templates_templateId	PageAction disabled/busy	I-1	-	-
+fees	fees_generate	fee-generations.ts source union FINE_RULE	I-1	-	-
+fines	fees_fines	PageAction to (link)	I-1	-	-
+guest	i_token	auth-layout print classes	I-1	-	-
+marks	marks_examId_sectionId_subjectId	marks-grid / marks-stepper kit look	I-1	-	-
+marks	results_examId_studentId	print/report-card.tsx numerals + tokens	I-1	-	-
+payments	payments_record	admin-verification-modal SCOPE_LABEL_KEYS	I-1	-	-
+payments	payments_id	detail-shell tabs optional	I-1	-	-
+portal	portal_fees/attendance/calendar	student-picker kit tokens	I-1	-	-
+portal	portal_attendance	attendance-month-grid like MonthGrid	I-1	-	-
+portal	portal_calendar	DayPanel empty-day line (key common:calendar.dayEmpty is in 31.3.4a)	I-1	-	-
+portal	portal/portal_fees	currency numerals under value-less RegionConfigProvider	I-1	-	-
+portal	portal	upcoming-calendar-card side-column look	I-1	-	-
+portal	portal_account	session-list	I-1	-	-
+portal	portal_account	profile/guardian-contact/change-password/push forms kit look	I-1	-	-
+print	print_preview	client-admin/src/components/print/desktop-only-gate.tsx	I-1	-	-
+programs	programs_programId	milestone-checklist kit look	I-1	-	-
+routines	routines_sectionId	routine-grid kit look	I-1	-	-
+routines	routines_my	routine-agenda kit look	I-1	-	-
+settings	settings	page-header title ReactNode / mobileTitle	I-1	-	-
+settings	settings	NumberInput with tenant numerals	I-1	-	-
+settings	settings_communication	client-admin/src/components/SecretField.tsx	I-1	-	-
+students	students	RowActions data-focus-anchor	I-1	-	-
+students	students_new	form-shell max-w-xl	I-1	-	-
+students	students_import	bulk-upload-preview host-owned confirm	I-1	-	-
+students	students_studentId	detail-shell scroll selected tab into view	I-1	-	-

@@ -1,0 +1,32 @@
+# Known bugs with confirmed causes (2026-10-04) and who owns the fix
+
+| # | Bug | Cause (file:line) | Owner |
+|---|---|---|---|
+| B1 | Detail tabs append instead of switch | `ui/src/shells/detail-shell.tsx:211` `forceMount: true`; Radix Tabs 1.1.21 then never sets `hidden`; `TabsContent` has no `data-[state=inactive]:hidden` | 31.2.5 |
+| B2 | Sidebar lights several items | `ui/src/components/app-shell.tsx:207-217` Link without `activeOptions.exact` (prefix match) | 31.2.9 |
+| B3 | Sidebar group does not re-open on client nav (#879) | `app-shell.tsx:268-272` state initialised once | 31.2.9 |
+| B4 | Bottom bar in flow + 6rem dead padding, `min-h-screen` | `app-shell.tsx:454,527-534` | 31.2.10 |
+| B5 | Bell badge text has no colour token, caps at "9+" | `ui/src/components/notification-bell.tsx:78-102`; `--color-destructive-foreground` undefined | 31.1.1 + 31.2.10 |
+| B6 | Collections report crashes when a payment exists; filters 400 | `ui/src/hooks/reports.ts:38-60` hand-typed shape ≠ `server/src/modules/reports/dto/collections-report.dto.ts:73-133` (`payment_method/collected/reversed/net`, `user_id/full_name`); client sends `method`/`collector_id`, server accepts `payment_method`/`received_by_user_id`; `formatCurrency(undefined)` throws (`ui/src/utils/currency.ts:23-30`); test mocks wrong shape (`collections.test.tsx:33-36`) | page ticket `reports-1` (granted `ui/src/hooks/reports.ts`) |
+| B7 | `/holiday-sets` crashes | `server/src/modules/calendar/public-holidays.service.ts:58-59` `listSets()` has no `relations: ['entries']`; client reads `set.entries.length` (`_platform/holiday-sets/index.tsx:99`) | 31.3.7 (server); page ticket `platform-3` reads `entries?.length ?? 0` |
+| B8 | Red "no permission" toast on page open for roles without `SETTINGS_MANAGE` (~45 routes call it) | `ui/src/i18n/use-tenant-region-config.ts:46` fires `GET /schools/:id/settings` ungated; global `QueryCache.onError` toasts every 403 (`ui/src/api/query-client.ts:21-25,78`) | 31.3.6 |
+| B9 | Same toast on `/fees/generate` | `fees/-generations/batch-filters.tsx:32` `useUsers()` needs `USER_READ` | page ticket `fees-3` (gate with `useHasPermission`) |
+| B10 | Same toast on `/fees/schedules` | `schedules/index.tsx:363-370` mounts `ScheduleFormDialog` always; its `usePrograms()` (`-schedule-form-dialog.tsx:149`) needs `PROGRAM_READ` | page ticket `fees-4` |
+| B11 | Same toast on `/portal/routine` | `portal/routine.tsx:135,137` `useSubjects({})`, `useTeachers({})` need `ACADEMIC_STRUCTURE_READ` | page ticket `portal-5` |
+| B12 | UUID in intakes "class / section" column | server returns only `class_section_id` (`server/src/modules/admission/intake.service.ts:39-45`); client lookup falls back to the id (`features/admission/IntakeList.tsx:49-50`) | 31.3.7 (server returns names); page ticket `admissions-3` renders them |
+| B13 | UUID in grading-scales year/class columns | `useAcademicYears()` sent without a limit → server default 10 (`grading-scales/index.tsx:52-53,69-78`) | page ticket `marks-4` (pass a large limit, show a skeleton cell while loading, never the id) |
+| B14 | Audit log shows `entity + short id` | DTO has no entity label (`audit-logs/index.tsx:272-276`) | 31.3.7 (server adds `entity_label`); page ticket `admin-1` renders it |
+| B15 | Breadcrumb raw keys `items.new/import/edit/notifications/security/holidaySets/schools` and `entities.exam` | keys missing in `ui/src/i18n/locales/{en,bn}/nav.json` `items`, and `exam_one/exam_other` missing in `common.json` `entities` (`client-admin/src/use-breadcrumbs.ts:179`, `ui/src/hooks/entity-label.ts:20`) | 31.3.4 |
+| B16 | UUID as last crumb on 8 detail routes | no `ENTITY_RESOLVERS` entry (`use-breadcrumbs.ts:64-87`) for section, examTemplateDetail, invoice, staff, batchDetail, survey | 31.3.5 |
+| B17 | Phone crumb trail starts with "/" | `ui/src/components/breadcrumbs.tsx:62,69` separator rendered for a hidden crumb | 31.2.9 |
+| B18 | Leave page shows a message for engineers | `leave.json:35` `approve.notAvailableMessage`, rendered by `attendance/staff/-leave-approve-list.tsx:27`; server has no `GET /leave/requests` | page ticket `attendance-3` (plain "not available yet" empty state; no API work) |
+| B19 | `formatDate` output is also used as data | `ui/src/shells/filter-bar.tsx:260,271` (URL value), `ui/src/components/date-picker.tsx:41,45,64` (input text parsed back), `attendance/$sectionId.tsx:412-415` (search param) | 31.2.1 adds `toIsoDate`; 31.2.2 / 31.2.7 switch to it; page ticket `attendance-1` for its own line |
+| B20 | Calendar "upcoming" uses the UTC day | `calendar/index.tsx:351` `new Date().toISOString().slice(0,10)` | page ticket `calendar-1` |
+| B21 | Times shown with seconds | `ui/src/components/routine-grid.tsx:200`, `routine-agenda.tsx:75` → 31.2.3; route files `portal/exam-schedule.tsx:167`, `seat-plans/-generate-seat-plan-modal.tsx:245`, `routines/review.tsx:125`, `routines/-substitution-dialog.tsx:200`, `routines/-setup/period-slots-panel.tsx:230` → their page tickets (`formatTime`) | split as listed |
+| B22 | Phones rendered raw / three formats | `formatPhone` (`ui/src/utils/phone.ts:39`) returns `+880 …` and throws on invalid → 31.2.1; raw renders in route files (ApplicantList:87, ApplicantDetail:93, AdmitApplicantModal:72, students/-detail/guardians-tab:55, students/-guardian-picker:186, students/import:243, portal/account:371, schools/-detail/admin-row:56, settings/school-profile-section:412, communications/-shared/recipient-list:69) → their page tickets | split as listed |
+| B23 | Page sizes 10/20/25/50 | default `ui/src/routes/use-list-url-state.ts:86` = 10, options `data-table.tsx:230` = [10,20,50] → 31.2.4 makes 25 the default and [25,50,100]; every route passing its own page size removes it in its page ticket | split as listed |
+| B24 | Raw counts in Latin digits (~250 sites) | i18n has no digit post-processing (`ui/src/i18n/i18n.ts:59`) | 31.2.1 adds an i18next number formatter so `{{count}}` follows D6; page tickets wrap raw `{x.length}` renders in `formatNumber` |
+| B25 | Dates displayed without `formatDate` (~24 sites, list in the epic body) | `toLocale*`, ISO slices | each page ticket for its own files |
+
+Not bugs (audit artefacts): the `$examId` crumbs / error cards seen on the marks grid and the result
+detail came from the screenshot run using placeholder ids.

@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<!-- app:head -->
+<title>Holiday list detail</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="flex min-h-screen flex-col bg-bg text-body text-text-primary">
+
+<!-- ============================================================================
+     SHELL — copied from the kit. It is NOT part of a page proposal: change only
+     the three marked spots (sidebar active link, open group, bottom-bar cell).
+     ============================================================================ -->
+<!-- TOP BAR. Desktop (D11): school + role · search · bell · language · theme · account.
+     Phone (D12): one sticky 56px row — menu + school name · search · bell · account.
+     Language, theme, security, switch school and sign out live in the account menu on phone. -->
+<header class="sticky top-0 z-30 flex h-14 items-center gap-1 border-b border-border-subtle bg-surface px-1 md:gap-2 md:px-6">
+  <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9 md:hidden" aria-label="মেনু খুলুন"><i data-lucide="menu"></i></button>
+  <span class="min-w-0 truncate text-h3">প্ল্যাটফর্ম অ্যাডমিন</span>
+  <span class="hidden shrink-0 rounded-full bg-muted px-2 py-0.5 text-caption text-text-secondary md:inline">সুপার অ্যাডমিন</span>
+  <button type="button" class="hidden md:inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="স্কুল বা ভূমিকা পরিবর্তন করুন"><i data-lucide="arrow-left-right"></i></button>
+  <div class="ml-auto flex shrink-0 items-center md:gap-1">
+    <button type="button" class="hidden h-9 w-64 items-center gap-2 rounded-md border border-border-functional bg-surface px-3 text-text-secondary md:flex" aria-label="খুঁজুন (Ctrl+K)"><i data-lucide="search"></i><span>অনুসন্ধান…</span><kbd class="ml-auto font-sans text-caption">Ctrl+K</kbd></button>
+    <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9 md:hidden" aria-label="খুঁজুন"><i data-lucide="search"></i></button>
+    <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9 relative" aria-label="বিজ্ঞপ্তি, ৩টি অপঠিত"><i data-lucide="bell"></i><span class="absolute top-0.5 left-1/2 ml-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-caption font-medium text-primary-foreground md:-top-0.5">৩</span></button>
+    <button type="button" class="hidden md:inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="ভাষা পরিবর্তন করুন"><i data-lucide="languages"></i></button>
+    <button type="button" class="hidden md:inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="থিম"><i data-lucide="moon"></i></button>
+    <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="অ্যাকাউন্ট মেনু"><i data-lucide="circle-user-round"></i></button>
+  </div>
+</header>
+
+<div class="flex flex-1">
+    <!-- SIDEBAR (desktop only). Platform console (D33): Schools, Holiday sets.
+         To adapt: move aria-current="page" to the ONE link of this page. -->
+    <nav class="hidden w-60 shrink-0 border-r border-border-subtle bg-surface px-3 py-4 md:block" aria-label="প্রধান">
+      <p class="px-3 pb-3 text-label text-text-secondary">SchoolManager</p>
+      <ul class="space-y-0.5">
+          <li><a href="#" data-nav="platform.schools" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="building-2"></i><span class="truncate">স্কুল</span></a></li>
+          <li><a href="#" data-nav="platform.holidaySets" aria-current="page" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="tree-palm"></i><span class="truncate">ছুটির তালিকা</span></a></li>
+      </ul>
+    </nav>
+
+    <!-- PROPOSAL — everything inside <main> is the page design. -->
+    <main id="main-content" class="min-w-0 flex-1">
+      <div class="mx-auto w-full max-w-screen-xl space-y-6 px-4 py-4 md:px-6 md:py-6">
+
+        <header class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6">
+          <div class="min-w-0">
+            <nav aria-label="ব্রেডক্রাম্ব">
+              <ol class="flex items-center gap-1 text-label text-text-secondary">
+                <li><a href="#" class="inline-flex min-h-11 items-center hover:text-text-primary md:min-h-0">ছুটির তালিকা</a></li>
+                <li aria-hidden="true" class="flex"><i data-lucide="chevron-right" class="size-3.5"></i></li>
+                <li aria-current="page" class="truncate text-text-primary">বাংলাদেশ ২০২৬</li>
+              </ol>
+            </nav>
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 md:mt-1">
+              <h1 class="text-h1">বাংলাদেশ ২০২৬</h1>
+              <span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full bg-muted px-2 text-label whitespace-nowrap text-text-secondary"><i data-lucide="circle-minus" class="size-3.5"></i>খসড়া</span>
+            </div>
+            <dl class="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 md:flex md:flex-wrap">
+              <div><dt class="text-caption text-text-secondary">উৎস</dt><dd class="font-medium">Nager.Date (অনলাইন তালিকা)</dd></div>
+              <div><dt class="text-caption text-text-secondary">আনা হয়েছে</dt><dd class="font-medium">২রা অক্টোবর, ২০২৬, বিকাল ৩:৪৫</dd></div>
+              <div><dt class="text-caption text-text-secondary">ছুটি</dt><dd class="font-medium">৬টি</dd></div>
+            </dl>
+          </div>
+          <div class="flex shrink-0 flex-col gap-1 md:items-end">
+            <button type="button" disabled aria-describedby="pub-hint" class="inline-flex h-11 cursor-not-allowed items-center justify-center gap-2 rounded-md bg-muted px-4 font-medium text-text-secondary md:h-8 md:px-3"><i data-lucide="globe"></i>প্রকাশ করুন</button>
+            <p id="pub-hint" class="text-caption text-text-secondary">প্রকাশ করার আগে আপনার পরিবর্তনগুলো সংরক্ষণ করুন।</p>
+          </div>
+        </header>
+
+        <section class="overflow-hidden rounded-lg border border-border-subtle bg-surface shadow-e1" aria-labelledby="entries-title">
+          <div class="p-4 md:px-5">
+            <h2 id="entries-title" class="text-h2">ছুটির দিন</h2>
+            <p class="mt-1 text-text-secondary">একদিনের ছুটিতে শুরু আর শেষ একই তারিখ। বাংলা নাম না দিলে স্কুলে ইংরেজি নাম দেখাবে।</p>
+          </div>
+          <table class="hidden w-full text-left md:table">
+            <caption class="sr-only">বাংলাদেশ ২০২৬-এর ছুটির দিন</caption>
+            <thead class="border-y border-border-subtle bg-muted text-label text-text-secondary">
+              <tr>
+                <th scope="col" class="h-10 px-4 font-medium md:px-5">শুরুর তারিখ</th>
+                <th scope="col" class="h-10 px-2 font-medium">শেষ তারিখ</th>
+                <th scope="col" class="h-10 px-2 font-medium">নাম (ইংরেজি)</th>
+                <th scope="col" class="h-10 px-2 font-medium">নাম (বাংলা)</th>
+                <th scope="col" class="h-10 px-4 text-right font-medium">কাজ</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border-subtle">
+                <tr>
+                  <td class="h-12 px-4 py-2 md:px-5"><button type="button" id="d-s0" aria-haspopup="dialog" aria-label="শুরুর তারিখ, ২১শে ফেব্রুয়ারি, ২০২৬" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">২১শে ফেব্রুয়ারি, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button></td>
+                  <td class="h-12 px-2 py-2"><button type="button" id="d-e0" aria-haspopup="dialog" aria-label="শেষ তারিখ, ২১শে ফেব্রুয়ারি, ২০২৬" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">২১শে ফেব্রুয়ারি, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button></td>
+                  <td class="h-12 px-2 py-2"><input id="d-n0" type="text" value="Language Martyrs' Day" aria-label="নাম (ইংরেজি)" placeholder="" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body placeholder:text-text-secondary"></td>
+                  <td class="h-12 px-2 py-2"><input id="d-b0" type="text" value="শহীদ দিবস ও আন্তর্জাতিক মাতৃভাষা দিবস" aria-label="নাম (বাংলা)" placeholder="ঐচ্ছিক" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body placeholder:text-text-secondary"></td>
+                  <td class="h-12 px-2 py-2"><div class="flex justify-end"><button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-destructive hover:bg-muted md:size-8" aria-label="Language Martyrs' Day সরান"><i data-lucide="trash-2"></i></button></div></td>
+                </tr>
+                <tr>
+                  <td class="h-12 px-4 py-2 md:px-5"><button type="button" id="d-s1" aria-haspopup="dialog" aria-label="শুরুর তারিখ, ২০শে মার্চ, ২০২৬" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">২০শে মার্চ, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button></td>
+                  <td class="h-12 px-2 py-2"><button type="button" id="d-e1" aria-haspopup="dialog" aria-label="শেষ তারিখ, ২২শে মার্চ, ২০২৬" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">২২শে মার্চ, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button></td>
+                  <td class="h-12 px-2 py-2"><input id="d-n1" type="text" value="Eid al-Fitr" aria-label="নাম (ইংরেজি)" placeholder="" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body placeholder:text-text-secondary"></td>
+                  <td class="h-12 px-2 py-2"><input id="d-b1" type="text" value="ঈদুল ফিতর" aria-label="নাম (বাংলা)" placeholder="ঐচ্ছিক" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body placeholder:text-text-secondary"></td>
+                  <td class="h-12 px-2 py-2"><div class="flex justify-end"><button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-destructive hover:bg-muted md:size-8" aria-label="Eid al-Fitr সরান"><i data-lucide="trash-2"></i></button></div></td>
+                </tr>
+                <tr>
+                  <td class="h-12 px-4 py-2 md:px-5"><button type="button" id="d-s2" aria-haspopup="dialog" aria-label="শুরুর তারিখ, ২৬শে মার্চ, ২০২৬" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">২৬শে মার্চ, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button></td>
+                  <td class="h-12 px-2 py-2"><button type="button" id="d-e2" aria-haspopup="dialog" aria-label="শেষ তারিখ, ২৬শে মার্চ, ২০২৬" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">২৬শে মার্চ, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button></td>
+                  <td class="h-12 px-2 py-2"><input id="d-n2" type="text" value="Independence Day" aria-label="নাম (ইংরেজি)" placeholder="" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body placeholder:text-text-secondary"></td>
+                  <td class="h-12 px-2 py-2"><input id="d-b2" type="text" value="স্বাধীনতা দিবস" aria-label="নাম (বাংলা)" placeholder="ঐচ্ছিক" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body placeholder:text-text-secondary"></td>
+                  <td class="h-12 px-2 py-2"><div class="flex justify-end"><button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-destructive hover:bg-muted md:size-8" aria-label="Independence Day সরান"><i data-lucide="trash-2"></i></button></div></td>
+                </tr>
+                <tr>
+                  <td class="h-12 px-4 py-2 md:px-5"><button type="button" id="d-s3" aria-haspopup="dialog" aria-label="শুরুর তারিখ, ১৪ই এপ্রিল, ২০২৬" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">১৪ই এপ্রিল, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button></td>
+                  <td class="h-12 px-2 py-2"><button type="button" id="d-e3" aria-haspopup="dialog" aria-label="শেষ তারিখ, ১৪ই এপ্রিল, ২০২৬" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">১৪ই এপ্রিল, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button></td>
+                  <td class="h-12 px-2 py-2"><input id="d-n3" type="text" value="Bengali New Year" aria-label="নাম (ইংরেজি)" placeholder="" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body placeholder:text-text-secondary"></td>
+                  <td class="h-12 px-2 py-2"><input id="d-b3" type="text" value="পহেলা বৈশাখ" aria-label="নাম (বাংলা)" placeholder="ঐচ্ছিক" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body placeholder:text-text-secondary"></td>
+                  <td class="h-12 px-2 py-2"><div class="flex justify-end"><button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-destructive hover:bg-muted md:size-8" aria-label="Bengali New Year সরান"><i data-lucide="trash-2"></i></button></div></td>
+                </tr>
+                <tr>
+                  <td class="h-12 px-4 py-2 md:px-5"><button type="button" id="d-s4" aria-haspopup="dialog" aria-label="শুরুর তারিখ, ১লা মে, ২০২৬" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">১লা মে, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button></td>
+                  <td class="h-12 px-2 py-2"><button type="button" id="d-e4" aria-haspopup="dialog" aria-label="শেষ তারিখ, ১লা মে, ২০২৬" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">১লা মে, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button></td>
+                  <td class="h-12 px-2 py-2"><input id="d-n4" type="text" value="May Day" aria-label="নাম (ইংরেজি)" placeholder="" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body placeholder:text-text-secondary"></td>
+                  <td class="h-12 px-2 py-2"><input id="d-b4" type="text" value="" aria-label="নাম (বাংলা)" placeholder="ঐচ্ছিক" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body placeholder:text-text-secondary"></td>
+                  <td class="h-12 px-2 py-2"><div class="flex justify-end"><button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-destructive hover:bg-muted md:size-8" aria-label="May Day সরান"><i data-lucide="trash-2"></i></button></div></td>
+                </tr>
+                <tr>
+                  <td class="h-12 px-4 py-2 md:px-5"><button type="button" id="d-s5" aria-haspopup="dialog" aria-label="শুরুর তারিখ, ১৬ই ডিসেম্বর, ২০২৬" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">১৬ই ডিসেম্বর, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button></td>
+                  <td class="h-12 px-2 py-2"><button type="button" id="d-e5" aria-haspopup="dialog" aria-label="শেষ তারিখ, ১৬ই ডিসেম্বর, ২০২৬" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">১৬ই ডিসেম্বর, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button></td>
+                  <td class="h-12 px-2 py-2"><input id="d-n5" type="text" value="Victory Day" aria-label="নাম (ইংরেজি)" placeholder="" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body placeholder:text-text-secondary"></td>
+                  <td class="h-12 px-2 py-2"><input id="d-b5" type="text" value="বিজয় দিবস" aria-label="নাম (বাংলা)" placeholder="ঐচ্ছিক" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body placeholder:text-text-secondary"></td>
+                  <td class="h-12 px-2 py-2"><div class="flex justify-end"><button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-destructive hover:bg-muted md:size-8" aria-label="Victory Day সরান"><i data-lucide="trash-2"></i></button></div></td>
+                </tr>
+            </tbody>
+          </table>
+          <ul class="divide-y divide-border-subtle border-t border-border-subtle md:hidden">
+              <li class="space-y-3 p-4">
+                <div class="flex items-center justify-between gap-2">
+                  <h3 class="min-w-0 truncate text-h3">শহীদ দিবস ও আন্তর্জাতিক মাতৃভাষা দিবস</h3>
+                  <button type="button" class="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-md px-3 text-label font-medium text-destructive hover:bg-muted"><i data-lucide="trash-2"></i>সরান</button>
+                </div>
+                <div class="grid gap-3">
+                  <div class="flex min-w-0 flex-col gap-1.5"><label for="m-s0" class="text-label text-text-primary">শুরুর তারিখ</label><button type="button" id="m-s0" aria-haspopup="dialog" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">২১শে ফেব্রুয়ারি, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button></div>
+                  <div class="flex min-w-0 flex-col gap-1.5"><label for="m-e0" class="text-label text-text-primary">শেষ তারিখ</label><button type="button" id="m-e0" aria-haspopup="dialog" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">২১শে ফেব্রুয়ারি, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button></div>
+                </div>
+                <div class="flex flex-col gap-1.5"><label for="m-n0" class="text-label text-text-primary">নাম (ইংরেজি)</label><input id="m-n0" type="text" value="Language Martyrs' Day" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"></div>
+                <div class="flex flex-col gap-1.5"><label for="m-b0" class="text-label text-text-primary">নাম (বাংলা)</label><input id="m-b0" type="text" value="শহীদ দিবস ও আন্তর্জাতিক মাতৃভাষা দিবস" placeholder="ঐচ্ছিক" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body placeholder:text-text-secondary"></div>
+              </li>
+              <li class="space-y-3 p-4">
+                <div class="flex items-center justify-between gap-2">
+                  <h3 class="min-w-0 truncate text-h3">ঈদুল ফিতর</h3>
+                  <button type="button" class="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-md px-3 text-label font-medium text-destructive hover:bg-muted"><i data-lucide="trash-2"></i>সরান</button>
+                </div>
+                <div class="grid gap-3">
+                  <div class="flex min-w-0 flex-col gap-1.5"><label for="m-s1" class="text-label text-text-primary">শুরুর তারিখ</label><button type="button" id="m-s1" aria-haspopup="dialog" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">২০শে মার্চ, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button></div>
+                  <div class="flex min-w-0 flex-col gap-1.5"><label for="m-e1" class="text-label text-text-primary">শেষ তারিখ</label><button type="button" id="m-e1" aria-haspopup="dialog" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">২২শে মার্চ, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button></div>
+                </div>
+                <div class="flex flex-col gap-1.5"><label for="m-n1" class="text-label text-text-primary">নাম (ইংরেজি)</label><input id="m-n1" type="text" value="Eid al-Fitr" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"></div>
+                <div class="flex flex-col gap-1.5"><label for="m-b1" class="text-label text-text-primary">নাম (বাংলা)</label><input id="m-b1" type="text" value="ঈদুল ফিতর" placeholder="ঐচ্ছিক" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body placeholder:text-text-secondary"></div>
+              </li>
+              <li class="space-y-3 p-4">
+                <div class="flex items-center justify-between gap-2">
+                  <h3 class="min-w-0 truncate text-h3">স্বাধীনতা দিবস</h3>
+                  <button type="button" class="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-md px-3 text-label font-medium text-destructive hover:bg-muted"><i data-lucide="trash-2"></i>সরান</button>
+                </div>
+                <div class="grid gap-3">
+                  <div class="flex min-w-0 flex-col gap-1.5"><label for="m-s2" class="text-label text-text-primary">শুরুর তারিখ</label><button type="button" id="m-s2" aria-haspopup="dialog" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">২৬শে মার্চ, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button></div>
+                  <div class="flex min-w-0 flex-col gap-1.5"><label for="m-e2" class="text-label text-text-primary">শেষ তারিখ</label><button type="button" id="m-e2" aria-haspopup="dialog" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">২৬শে মার্চ, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button></div>
+                </div>
+                <div class="flex flex-col gap-1.5"><label for="m-n2" class="text-label text-text-primary">নাম (ইংরেজি)</label><input id="m-n2" type="text" value="Independence Day" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"></div>
+                <div class="flex flex-col gap-1.5"><label for="m-b2" class="text-label text-text-primary">নাম (বাংলা)</label><input id="m-b2" type="text" value="স্বাধীনতা দিবস" placeholder="ঐচ্ছিক" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body placeholder:text-text-secondary"></div>
+              </li>
+              <li class="space-y-3 p-4">
+                <div class="flex items-center justify-between gap-2">
+                  <h3 class="min-w-0 truncate text-h3">পহেলা বৈশাখ</h3>
+                  <button type="button" class="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-md px-3 text-label font-medium text-destructive hover:bg-muted"><i data-lucide="trash-2"></i>সরান</button>
+                </div>
+                <div class="grid gap-3">
+                  <div class="flex min-w-0 flex-col gap-1.5"><label for="m-s3" class="text-label text-text-primary">শুরুর তারিখ</label><button type="button" id="m-s3" aria-haspopup="dialog" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">১৪ই এপ্রিল, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button></div>
+                  <div class="flex min-w-0 flex-col gap-1.5"><label for="m-e3" class="text-label text-text-primary">শেষ তারিখ</label><button type="button" id="m-e3" aria-haspopup="dialog" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">১৪ই এপ্রিল, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button></div>
+                </div>
+                <div class="flex flex-col gap-1.5"><label for="m-n3" class="text-label text-text-primary">নাম (ইংরেজি)</label><input id="m-n3" type="text" value="Bengali New Year" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"></div>
+                <div class="flex flex-col gap-1.5"><label for="m-b3" class="text-label text-text-primary">নাম (বাংলা)</label><input id="m-b3" type="text" value="পহেলা বৈশাখ" placeholder="ঐচ্ছিক" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body placeholder:text-text-secondary"></div>
+              </li>
+              <li class="space-y-3 p-4">
+                <div class="flex items-center justify-between gap-2">
+                  <h3 class="min-w-0 truncate text-h3">May Day</h3>
+                  <button type="button" class="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-md px-3 text-label font-medium text-destructive hover:bg-muted"><i data-lucide="trash-2"></i>সরান</button>
+                </div>
+                <div class="grid gap-3">
+                  <div class="flex min-w-0 flex-col gap-1.5"><label for="m-s4" class="text-label text-text-primary">শুরুর তারিখ</label><button type="button" id="m-s4" aria-haspopup="dialog" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">১লা মে, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button></div>
+                  <div class="flex min-w-0 flex-col gap-1.5"><label for="m-e4" class="text-label text-text-primary">শেষ তারিখ</label><button type="button" id="m-e4" aria-haspopup="dialog" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">১লা মে, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button></div>
+                </div>
+                <div class="flex flex-col gap-1.5"><label for="m-n4" class="text-label text-text-primary">নাম (ইংরেজি)</label><input id="m-n4" type="text" value="May Day" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"></div>
+                <div class="flex flex-col gap-1.5"><label for="m-b4" class="text-label text-text-primary">নাম (বাংলা)</label><input id="m-b4" type="text" value="" placeholder="ঐচ্ছিক" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body placeholder:text-text-secondary"></div>
+              </li>
+              <li class="space-y-3 p-4">
+                <div class="flex items-center justify-between gap-2">
+                  <h3 class="min-w-0 truncate text-h3">বিজয় দিবস</h3>
+                  <button type="button" class="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-md px-3 text-label font-medium text-destructive hover:bg-muted"><i data-lucide="trash-2"></i>সরান</button>
+                </div>
+                <div class="grid gap-3">
+                  <div class="flex min-w-0 flex-col gap-1.5"><label for="m-s5" class="text-label text-text-primary">শুরুর তারিখ</label><button type="button" id="m-s5" aria-haspopup="dialog" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">১৬ই ডিসেম্বর, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button></div>
+                  <div class="flex min-w-0 flex-col gap-1.5"><label for="m-e5" class="text-label text-text-primary">শেষ তারিখ</label><button type="button" id="m-e5" aria-haspopup="dialog" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">১৬ই ডিসেম্বর, ২০২৬</span><i data-lucide="calendar" class="size-4 shrink-0 text-text-secondary"></i></button></div>
+                </div>
+                <div class="flex flex-col gap-1.5"><label for="m-n5" class="text-label text-text-primary">নাম (ইংরেজি)</label><input id="m-n5" type="text" value="Victory Day" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"></div>
+                <div class="flex flex-col gap-1.5"><label for="m-b5" class="text-label text-text-primary">নাম (বাংলা)</label><input id="m-b5" type="text" value="বিজয় দিবস" placeholder="ঐচ্ছিক" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body placeholder:text-text-secondary"></div>
+              </li>
+          </ul>
+          <div class="flex flex-col gap-3 border-t border-border-subtle p-4 md:flex-row md:items-center md:justify-between md:px-5">
+            <div class="flex items-center gap-3">
+              <button type="button" class="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted md:h-8 md:flex-none md:px-3"><i data-lucide="plus"></i>ছুটি যোগ করুন</button>
+              <span class="shrink-0 text-text-secondary">মোট ৬টি</span>
+            </div>
+            <div class="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+              <p class="flex items-center gap-1 text-caption text-status-due-fg"><i data-lucide="circle-alert" class="size-4"></i>সংরক্ষণ হয়নি এমন পরিবর্তন আছে</p>
+              <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-primary px-4 font-medium text-primary-foreground md:h-8 md:px-3"><i data-lucide="save"></i>সংরক্ষণ করুন</button>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+</div>
+
+<!-- BOTTOM BAR (phone only, D14). To adapt: aria-current="page" goes on the ONE cell of this page;
+     if the page is not one of the cells, remove it and set data-active="true" on the "আরও" button instead.
+     IN THE APP this bar is "fixed inset-x-0 bottom-0 z-30" and the content wrapper reserves its height with
+     "pb-16 md:pb-0". IN A MOCKUP it stays in normal flow as the last child of <body>: the screenshot tool
+     captures the whole page as one tall frame, and a fixed bar would be painted across the middle of it.
+     Do not add "fixed" or "sticky bottom-0" to anything in a mockup. -->
+<nav class="flex border-t border-border-subtle bg-surface md:hidden" aria-label="দ্রুত নেভিগেশন">
+  <a href="#" data-nav="platform.schools" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="building-2"></i></span><span class="max-w-full truncate px-1">স্কুল</span></a>
+  <a href="#" data-nav="platform.holidaySets" aria-current="page" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="tree-palm"></i></span><span class="max-w-full truncate px-1">ছুটি</span></a>
+  <a href="#" data-nav="dashboard" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="layout-dashboard"></i></span><span class="max-w-full truncate px-1">ড্যাশবোর্ড</span></a>
+  <button type="button" data-active="false" aria-haspopup="dialog" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="ellipsis"></i></span><span class="max-w-full truncate px-1">আরও</span></button>
+</nav>
+
+<script>lucide.createIcons({ attrs: { width: 18, height: 18, "stroke-width": 1.75, "aria-hidden": "true" } });</script>
+</body>
+</html>

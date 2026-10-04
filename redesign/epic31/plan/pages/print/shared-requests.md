@@ -1,0 +1,3 @@
+# Shared requests — lane print
+
+- print_preview | `client-admin/src/components/print/desktop-only-gate.tsx` (not in the brief's file list; imported only by the two print routes, `print/preview.tsx` and `print-templates/$templateId.edit.tsx`) | grant it to the print lane so print-2a can export the existing `useIsWide` and a `copyPageLink(t)` helper (no visual change to `DesktopOnlyGate`, the editor route is untouched) | print-2a skips that step: on phone the preview route keeps wrapping everything in today's bare `DesktopOnlyGate` page (no FullPageShell header / Close on phone; desktop unchanged)

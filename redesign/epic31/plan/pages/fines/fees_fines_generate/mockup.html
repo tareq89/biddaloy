@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<!-- app:head -->
+<title>নিয়ম থেকে জরিমানা তৈরি</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="flex min-h-screen flex-col bg-bg text-body text-text-primary">
+
+<!-- ============================================================================
+     FullPageShell (D22) — a full-page modal. It covers the app chrome: no top bar,
+     no sidebar, no bottom bar. Used for the tasks listed in D23.
+     Body width: forms → max-w-5xl · a table, list or preview → max-w-5xl.
+     The footer's inner width must be the SAME max-w-* as the body's.
+     ============================================================================ -->
+
+<!-- Sticky header: title on the left, a very visible Close (X + word, 44px) on the right. -->
+<header class="sticky top-0 z-30 border-b border-border-subtle bg-surface">
+  <div class="flex h-14 items-center justify-between gap-4 px-4 md:h-16 md:px-6">
+    <h1 class="min-w-0 truncate text-h2 md:text-h1">নিয়ম থেকে জরিমানা তৈরি</h1>
+    <button type="button" class="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted"><i data-lucide="x"></i>বন্ধ করুন</button>
+  </div>
+</header>
+
+<!-- PROPOSAL — everything inside <main> is the page design. -->
+<main id="main-content" class="flex-1">
+  <div class="mx-auto w-full max-w-5xl space-y-6 px-4 py-4 md:px-6 md:py-6">
+
+    <section aria-labelledby="g-scope" class="rounded-lg border border-border-subtle bg-surface shadow-e1 p-4 md:p-5">
+      <h2 id="g-scope" class="text-h2">কোন মাস, কাদের জন্য</h2>
+      <p class="mt-1 text-text-secondary">এক মাসের উপস্থিতি দেখে সক্রিয় প্রতিটি নিয়ম থেকে জরিমানা তৈরি হবে।</p>
+      <div class="mt-4 grid gap-4 md:grid-cols-3">
+        <div class="flex flex-col gap-1.5 "><label for="g-month" class="text-label text-text-primary">মাস <span class="text-destructive" aria-hidden="true">*</span><span class="sr-only">(আবশ্যক)</span></label><button type="button" id="g-month" aria-haspopup="dialog" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">সেপ্টেম্বর ২০২৬</span><i data-lucide="calendar-range" class="size-4 shrink-0 text-text-secondary"></i></button></div>
+        <div class="flex flex-col gap-1.5 "><label for="g-class" class="text-label text-text-primary">শ্রেণি</label><button type="button" id="g-class" aria-haspopup="listbox" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">সব শ্রেণি</span><i data-lucide="chevron-down" class="size-4 shrink-0 text-text-secondary"></i></button></div>
+        <div class="flex flex-col gap-1.5 "><label for="g-section" class="text-label text-text-primary">শাখা</label><button type="button" id="g-section" aria-haspopup="listbox" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">সব শাখা</span><i data-lucide="chevron-down" class="size-4 shrink-0 text-text-secondary"></i></button></div>
+        <button type="button" role="checkbox" aria-checked="true" class="flex min-h-11 items-center gap-3 text-left md:col-span-3 md:min-h-8">
+          <span class="flex size-5 shrink-0 items-center justify-center rounded-sm bg-primary text-primary-foreground"><i data-lucide="check" class="size-3.5"></i></span>
+          জরিমানা তৈরি হলে পরিবারকে জানান
+        </button>
+      </div>
+    </section>
+
+    <section aria-labelledby="g-preview" class="space-y-3">
+      <div>
+        <h2 id="g-preview" class="text-h2">যা তৈরি হবে</h2>
+        <p class="mt-0.5 text-text-secondary">৫ জন শিক্ষার্থী, মোট ৳১৭০.০০</p>
+      </div>
+      <div class="rounded-lg border border-border-subtle bg-surface shadow-e1 overflow-hidden">
+        <table class="w-full text-left">
+          <caption class="sr-only">যা তৈরি হবে</caption>
+          <thead class="hidden border-b border-border-subtle bg-muted text-label text-text-secondary md:table-header-group">
+            <tr>
+              <th scope="col" class="h-10 px-4 font-medium">শিক্ষার্থী</th>
+              <th scope="col" class="h-10 px-4 font-medium">জরিমানা</th>
+              <th scope="col" class="h-10 px-4 text-right font-medium">কতবার</th>
+              <th scope="col" class="h-10 px-4 text-right font-medium">পরিমাণ</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border-subtle"><tr class="hover:bg-muted"><td class="px-4 py-2 md:h-10 md:py-1"><span class="font-medium">আরিফ হোসেন</span><span class="block text-caption text-text-secondary md:hidden">অনুপস্থিতির জরিমানা · ২ বার</span></td><td class="hidden h-10 px-4 py-1 md:table-cell">অনুপস্থিতির জরিমানা</td><td class="hidden h-10 px-4 py-1 text-right tabular-nums md:table-cell">২ বার</td><td class="px-4 py-2 text-right tabular-nums md:h-10 md:py-1">৳৪০.০০</td></tr><tr class="hover:bg-muted"><td class="px-4 py-2 md:h-10 md:py-1"><span class="font-medium">সাদিয়া ইসলাম</span><span class="block text-caption text-text-secondary md:hidden">অনুপস্থিতির জরিমানা · ৩ বার</span></td><td class="hidden h-10 px-4 py-1 md:table-cell">অনুপস্থিতির জরিমানা</td><td class="hidden h-10 px-4 py-1 text-right tabular-nums md:table-cell">৩ বার</td><td class="px-4 py-2 text-right tabular-nums md:h-10 md:py-1">৳৬০.০০</td></tr><tr class="hover:bg-muted"><td class="px-4 py-2 md:h-10 md:py-1"><span class="font-medium">তানভীর আহমেদ</span><span class="block text-caption text-text-secondary md:hidden">দেরিতে আসার জরিমানা · ২ বার</span></td><td class="hidden h-10 px-4 py-1 md:table-cell">দেরিতে আসার জরিমানা</td><td class="hidden h-10 px-4 py-1 text-right tabular-nums md:table-cell">২ বার</td><td class="px-4 py-2 text-right tabular-nums md:h-10 md:py-1">৳২০.০০</td></tr><tr class="hover:bg-muted"><td class="px-4 py-2 md:h-10 md:py-1"><span class="font-medium">নুসরাত জাহান</span><span class="block text-caption text-text-secondary md:hidden">অনুপস্থিতির জরিমানা · ১ বার</span></td><td class="hidden h-10 px-4 py-1 md:table-cell">অনুপস্থিতির জরিমানা</td><td class="hidden h-10 px-4 py-1 text-right tabular-nums md:table-cell">১ বার</td><td class="px-4 py-2 text-right tabular-nums md:h-10 md:py-1">৳২০.০০</td></tr><tr class="hover:bg-muted"><td class="px-4 py-2 md:h-10 md:py-1"><span class="font-medium">মেহেদী হাসান</span><span class="block text-caption text-text-secondary md:hidden">দেরিতে আসার জরিমানা · ৩ বার</span></td><td class="hidden h-10 px-4 py-1 md:table-cell">দেরিতে আসার জরিমানা</td><td class="hidden h-10 px-4 py-1 text-right tabular-nums md:table-cell">৩ বার</td><td class="px-4 py-2 text-right tabular-nums md:h-10 md:py-1">৳৩০.০০</td></tr></tbody>
+        </table>
+        <p class="border-t border-border-subtle px-4 py-3 text-text-secondary">মোট ৫টি</p>
+      </div>
+    </section>
+
+    <section aria-labelledby="g-dup" class="rounded-lg border border-border-subtle bg-surface shadow-e1 p-4 md:p-5">
+      <h2 id="g-dup" class="flex items-center gap-2 text-h3"><i data-lucide="triangle-alert" class="text-status-due-fg"></i>এই মাসের কিছু জরিমানা আগে থেকেই আছে</h2>
+      <div role="radiogroup" aria-labelledby="g-dup" class="mt-3 flex flex-col gap-1">
+        <button type="button" role="radio" aria-checked="true" class="flex min-h-11 w-full items-start gap-3 rounded-md py-2 text-left"><span class="mt-0.5 flex"><span class="flex size-5 shrink-0 items-center justify-center rounded-full border-2 border-primary"><span class="size-2.5 rounded-full bg-primary"></span></span></span><span><span class="block font-medium">যাদের আগে থেকে আছে তাদের বাদ দিন</span><span class="block text-caption text-text-secondary">যাদের এই মাসের জরিমানা এখনো নেই শুধু তাদের জন্যই নতুন তৈরি হবে।</span></span></button>
+        <button type="button" role="radio" aria-checked="false" class="flex min-h-11 w-full items-start gap-3 rounded-md py-2 text-left"><span class="mt-0.5 flex"><span class="size-5 shrink-0 rounded-full border-2 border-border-functional"></span></span><span><span class="block font-medium">আগেরটা মুছে নতুন তৈরি করুন</span><span class="block text-caption text-text-secondary">নতুনটা তৈরি হওয়ার আগে পুরনো জরিমানা মুছে ফেলা হবে।</span></span></button>
+        <button type="button" role="radio" aria-checked="false" class="flex min-h-11 w-full items-start gap-3 rounded-md py-2 text-left"><span class="mt-0.5 flex"><span class="size-5 shrink-0 rounded-full border-2 border-border-functional"></span></span><span><span class="block font-medium">তবুও নতুন তৈরি করুন</span><span class="block text-caption text-text-secondary">একই মাসের জন্য দ্বিতীয় জরিমানা তৈরি হবে। অ্যাডমিনের অনুমোদন লাগবে।</span></span></button>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<!-- Footer: secondary action on the left, the ONE primary on the right. 44px at every width.
+     IN THE APP it is "sticky bottom-0 z-30". IN A MOCKUP it stays in normal flow (last child of <body>):
+     the screenshot tool captures the whole page as one tall frame, and a sticky footer would be painted
+     across the middle of it. Do not add "sticky bottom-0" or "fixed" here. -->
+<footer class="border-t border-border-subtle bg-surface">
+  <div class="mx-auto flex w-full max-w-5xl items-center justify-between gap-2 px-4 py-3 md:px-6">
+    <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted">বাতিল করুন</button>
+    <button type="submit" class="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-primary px-4 font-medium text-primary-foreground"><i data-lucide="file-plus-2"></i>জরিমানা তৈরি করুন</button>
+  </div>
+</footer>
+
+<script>lucide.createIcons({ attrs: { width: 18, height: 18, "stroke-width": 1.75, "aria-hidden": "true" } });</script>
+</body>
+</html>

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<!-- app:head -->
+<title>প্রিন্ট প্রিভিউ</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="flex min-h-screen flex-col bg-bg text-body text-text-primary">
+
+<!-- ============================================================================
+     FullPageShell (D22) — a full-page modal. It covers the app chrome: no top bar,
+     no sidebar, no bottom bar. Used for the tasks listed in D23.
+     Body width: forms → max-w-3xl · a table, list or preview → max-w-5xl.
+     The footer's inner width must be the SAME max-w-* as the body's.
+     ============================================================================ -->
+
+<!-- Sticky header: title on the left, a very visible Close (X + word, 44px) on the right. -->
+<header class="sticky top-0 z-30 border-b border-border-subtle bg-surface">
+  <div class="flex h-14 items-center justify-between gap-4 px-4 md:h-16 md:px-6">
+    <h1 class="min-w-0 truncate text-h2 md:text-h1">প্রিন্ট প্রিভিউ</h1>
+    <button type="button" class="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted"><i data-lucide="x"></i>বন্ধ করুন</button>
+  </div>
+</header>
+
+<!-- PROPOSAL — everything inside <main> is the page design. -->
+<main id="main-content" class="flex-1">
+  <div class="mx-auto w-full max-w-5xl space-y-6 px-4 py-4 md:px-6 md:py-6">
+    <section class="flex flex-col items-center gap-2 rounded-lg border border-border-subtle bg-surface px-4 py-10 text-center shadow-e1 md:hidden">
+      <span class="flex size-12 items-center justify-center rounded-full bg-muted text-text-secondary"><i data-lucide="monitor"></i></span>
+      <h2 class="text-h3">এটি কম্পিউটারে খুলুন</h2>
+      <p class="text-text-secondary">নকশা আর প্রিন্টের জন্য বড় পর্দা লাগে। নিচের বোতামে লিংক কপি করে কম্পিউটারে খুলুন।</p>
+    </section>
+    <div class="hidden space-y-6 md:block">
+    <section class="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div><h2 class="text-h2">দফা ২ / ৩ · ২৫টি কার্ড</h2><p class="mt-1 text-text-secondary">একটি দফা প্রিন্ট ও নিশ্চিত করলে পরেরটি খুলবে।</p></div>
+        <ol class="flex flex-wrap gap-2" aria-label="দফা"><li class="inline-flex h-8 items-center gap-1.5 rounded-full bg-status-paid-bg px-3 text-label text-status-paid-fg"><i data-lucide="circle-check" class="size-3.5"></i>দফা ১ · ২৫টি</li><li aria-current="step" class="inline-flex h-8 items-center gap-1.5 rounded-full bg-secondary px-3 text-label font-semibold text-secondary-foreground ring-2 ring-primary ring-inset"><i data-lucide="printer" class="size-3.5"></i>দফা ২ · ২৫টি</li><li class="inline-flex h-8 items-center gap-1.5 rounded-full bg-muted px-3 text-label text-text-secondary"><i data-lucide="lock" class="size-3.5"></i>দফা ৩ · ১০টি</li></ol>
+      </div>
+      <div class="mt-4 grid gap-4 md:grid-cols-3">
+        <div class="flex flex-col gap-1.5"><label for="pv-tpl" class="text-label text-text-primary">নকশা</label><button type="button" id="pv-tpl" aria-haspopup="listbox" disabled class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body cursor-not-allowed bg-muted"><span class="truncate">Student ID card</span><i data-lucide="lock" class="size-4 shrink-0 text-text-secondary"></i></button><p class="text-caption text-text-secondary">প্রিন্ট শুরু হলে নকশা বদলানো যায় না।</p></div>
+        <div class="flex flex-col gap-1.5"><label for="pv-printer" class="text-label text-text-primary">প্রিন্টার</label><button type="button" id="pv-printer" aria-haspopup="listbox" class="flex items-center justify-between gap-2 text-left h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"><span class="truncate">অফিসের প্রিন্টার · অফিস প্রিন্টার</span><i data-lucide="chevron-down" class="size-4 shrink-0 text-text-secondary"></i></button></div>
+        <div class="flex flex-col gap-1.5"><label for="pv-round" class="text-label text-text-primary">প্রতি দফায় কার্ড</label><input id="pv-round" type="text" inputmode="numeric" value="২৫" disabled class="h-11 w-full cursor-not-allowed rounded-md border border-border-functional bg-muted px-3 text-body-lg text-text-primary md:h-8 md:text-body"><p class="text-caption text-text-secondary">সর্বোচ্চ ৫০টি</p></div>
+      </div>
+    </section>
+    <section class="rounded-lg border border-border-subtle bg-status-due-bg p-4 text-status-due-fg md:p-5" aria-labelledby="pf-title">
+      <h2 id="pf-title" class="flex items-center gap-2 text-h3"><i data-lucide="triangle-alert"></i>২৫টির মধ্যে ২টি কার্ড দেখা দরকার</h2>
+      <ul class="mt-2 list-disc space-y-1 ps-5"><li><span class="font-medium">সালমা খাতুন</span>: ছবি নেই</li><li><span class="font-medium">আরিফ হোসেন</span>: লেখা জায়গায় ধরছে না: পিতার নাম</li></ul>
+      <label for="pf-ok" class="mt-2 flex min-h-11 cursor-pointer items-center gap-3 font-medium md:min-h-8"><input id="pf-ok" type="checkbox" class="sr-only" checked><span class="flex size-5 items-center justify-center rounded-sm bg-primary text-primary-foreground"><i data-lucide="check" class="size-3.5"></i></span>জেনেও এই দফা প্রিন্ট করুন</label>
+    </section>
+    <section aria-label="কার্ডের প্রিভিউ">
+      <ul class="grid gap-6 md:grid-cols-2"><li class="flex flex-col gap-2"><p class="flex items-center gap-2 font-medium">রহিম উদ্দিন</p><div class="flex flex-wrap gap-2"><figure class="flex flex-col gap-1"><div class="h-28 w-44 overflow-hidden rounded-md border border-border-subtle bg-surface shadow-e1"><div class="flex h-6 items-center bg-primary px-2 text-caption font-medium text-primary-foreground">নমুনা আদর্শ বিদ্যালয়</div>
+            <div class="flex gap-2 p-2"><span class="flex size-12 shrink-0 items-center justify-center rounded-sm bg-muted text-text-secondary"><i data-lucide="user-round"></i></span>
+            <span class="min-w-0"><span class="block truncate text-label font-semibold">রহিম উদ্দিন</span><span class="block text-caption text-text-secondary">সপ্তম · ক · রোল ২৬</span></span></div></div><figcaption class="text-caption text-text-secondary">সামনে</figcaption></figure><figure class="flex flex-col gap-1"><div class="h-28 w-44 overflow-hidden rounded-md border border-border-subtle bg-surface shadow-e1"><div class="flex h-full flex-col items-center justify-center gap-1 p-2 text-center"><span class="flex size-10 items-center justify-center rounded-sm bg-muted text-text-secondary"><i data-lucide="qr-code"></i></span><span class="text-caption text-text-secondary">পাওয়া গেলে বিদ্যালয়ে ফেরত দিন</span></div></div><figcaption class="text-caption text-text-secondary">পেছনে</figcaption></figure></div></li><li class="flex flex-col gap-2"><p class="flex items-center gap-2 font-medium">সালমা খাতুন<span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-due-bg text-status-due-fg"><i data-lucide="clock" class="size-3.5"></i>ছবি নেই</span></p><div class="flex flex-wrap gap-2"><figure class="flex flex-col gap-1"><div class="h-28 w-44 overflow-hidden rounded-md border border-border-subtle bg-surface shadow-e1"><div class="flex h-6 items-center bg-primary px-2 text-caption font-medium text-primary-foreground">নমুনা আদর্শ বিদ্যালয়</div>
+            <div class="flex gap-2 p-2"><span class="flex size-12 shrink-0 items-center justify-center rounded-sm bg-muted text-text-secondary"><i data-lucide="image-off" class="size-4"></i></span>
+            <span class="min-w-0"><span class="block truncate text-label font-semibold">সালমা খাতুন</span><span class="block text-caption text-text-secondary">সপ্তম · ক · রোল ২৭</span></span></div></div><figcaption class="text-caption text-text-secondary">সামনে</figcaption></figure><figure class="flex flex-col gap-1"><div class="h-28 w-44 overflow-hidden rounded-md border border-border-subtle bg-surface shadow-e1"><div class="flex h-full flex-col items-center justify-center gap-1 p-2 text-center"><span class="flex size-10 items-center justify-center rounded-sm bg-muted text-text-secondary"><i data-lucide="qr-code"></i></span><span class="text-caption text-text-secondary">পাওয়া গেলে বিদ্যালয়ে ফেরত দিন</span></div></div><figcaption class="text-caption text-text-secondary">পেছনে</figcaption></figure></div></li><li class="flex flex-col gap-2"><p class="flex items-center gap-2 font-medium">করিম শেখ</p><div class="flex flex-wrap gap-2"><figure class="flex flex-col gap-1"><div class="h-28 w-44 overflow-hidden rounded-md border border-border-subtle bg-surface shadow-e1"><div class="flex h-6 items-center bg-primary px-2 text-caption font-medium text-primary-foreground">নমুনা আদর্শ বিদ্যালয়</div>
+            <div class="flex gap-2 p-2"><span class="flex size-12 shrink-0 items-center justify-center rounded-sm bg-muted text-text-secondary"><i data-lucide="user-round"></i></span>
+            <span class="min-w-0"><span class="block truncate text-label font-semibold">করিম শেখ</span><span class="block text-caption text-text-secondary">সপ্তম · ক · রোল ২৮</span></span></div></div><figcaption class="text-caption text-text-secondary">সামনে</figcaption></figure><figure class="flex flex-col gap-1"><div class="h-28 w-44 overflow-hidden rounded-md border border-border-subtle bg-surface shadow-e1"><div class="flex h-full flex-col items-center justify-center gap-1 p-2 text-center"><span class="flex size-10 items-center justify-center rounded-sm bg-muted text-text-secondary"><i data-lucide="qr-code"></i></span><span class="text-caption text-text-secondary">পাওয়া গেলে বিদ্যালয়ে ফেরত দিন</span></div></div><figcaption class="text-caption text-text-secondary">পেছনে</figcaption></figure></div></li><li class="flex flex-col gap-2"><p class="flex items-center gap-2 font-medium">জরিনা বেগম</p><div class="flex flex-wrap gap-2"><figure class="flex flex-col gap-1"><div class="h-28 w-44 overflow-hidden rounded-md border border-border-subtle bg-surface shadow-e1"><div class="flex h-6 items-center bg-primary px-2 text-caption font-medium text-primary-foreground">নমুনা আদর্শ বিদ্যালয়</div>
+            <div class="flex gap-2 p-2"><span class="flex size-12 shrink-0 items-center justify-center rounded-sm bg-muted text-text-secondary"><i data-lucide="user-round"></i></span>
+            <span class="min-w-0"><span class="block truncate text-label font-semibold">জরিনা বেগম</span><span class="block text-caption text-text-secondary">সপ্তম · ক · রোল ২৯</span></span></div></div><figcaption class="text-caption text-text-secondary">সামনে</figcaption></figure><figure class="flex flex-col gap-1"><div class="h-28 w-44 overflow-hidden rounded-md border border-border-subtle bg-surface shadow-e1"><div class="flex h-full flex-col items-center justify-center gap-1 p-2 text-center"><span class="flex size-10 items-center justify-center rounded-sm bg-muted text-text-secondary"><i data-lucide="qr-code"></i></span><span class="text-caption text-text-secondary">পাওয়া গেলে বিদ্যালয়ে ফেরত দিন</span></div></div><figcaption class="text-caption text-text-secondary">পেছনে</figcaption></figure></div></li></ul>
+      <p class="mt-4 text-text-secondary">এই দফার আরও ২১টি কার্ড নিচে আছে।</p>
+    </section>
+    </div>
+  </div>
+</main>
+
+<!-- Footer: secondary action on the left, the ONE primary on the right. 44px at every width.
+     IN THE APP it is "sticky bottom-0 z-30". IN A MOCKUP it stays in normal flow (last child of <body>):
+     the screenshot tool captures the whole page as one tall frame, and a sticky footer would be painted
+     across the middle of it. Do not add "sticky bottom-0" or "fixed" here. -->
+<footer class="border-t border-border-subtle bg-surface">
+  <div class="mx-auto flex w-full max-w-5xl items-center justify-between gap-2 px-4 py-3 md:px-6">
+    <button type="button" class="hidden md:inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 font-medium border border-border-functional bg-surface text-text-primary hover:bg-muted"><i data-lucide="arrow-left"></i>পিছনে</button>
+    <button type="button" class="hidden md:inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 font-medium bg-primary text-primary-foreground"><i data-lucide="printer"></i>প্রিন্ট করুন</button>
+    <button type="button" class="inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 font-medium bg-primary text-primary-foreground ms-auto md:hidden"><i data-lucide="copy"></i>লিংক কপি করুন</button>
+  </div>
+</footer>
+
+<script>lucide.createIcons({ attrs: { width: 18, height: 18, "stroke-width": 1.75, "aria-hidden": "true" } });</script>
+</body>
+</html>

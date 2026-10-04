@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<!-- app:head -->
+<title>Mockup</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="flex min-h-screen flex-col bg-bg text-body text-text-primary">
+
+<!-- ============================================================================
+     SHELL — copied from the kit. It is NOT part of a page proposal: change only
+     the three marked spots (sidebar active link, open group, bottom-bar cell).
+     ============================================================================ -->
+<!-- TOP BAR. Desktop (D11): school + role · search · bell · language · theme · account.
+     Phone (D12): one sticky 56px row — menu + school name · search · bell · account.
+     Language, theme, security, switch school and sign out live in the account menu on phone. -->
+<header class="sticky top-0 z-30 flex h-14 items-center gap-1 border-b border-border-subtle bg-surface px-1 md:gap-2 md:px-6">
+  <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9 md:hidden" aria-label="মেনু খুলুন"><i data-lucide="menu"></i></button>
+  <span class="min-w-0 truncate text-h3">নমুনা আদর্শ বিদ্যালয়</span>
+  <span class="hidden shrink-0 rounded-full bg-muted px-2 py-0.5 text-caption text-text-secondary md:inline">অ্যাডমিন</span>
+  <button type="button" class="hidden md:inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="স্কুল বা ভূমিকা পরিবর্তন করুন"><i data-lucide="arrow-left-right"></i></button>
+  <div class="ml-auto flex shrink-0 items-center md:gap-1">
+    <button type="button" class="hidden h-9 w-64 items-center gap-2 rounded-md border border-border-functional bg-surface px-3 text-text-secondary md:flex" aria-label="খুঁজুন (Ctrl+K)"><i data-lucide="search"></i><span>অনুসন্ধান…</span><kbd class="ml-auto font-sans text-caption">Ctrl+K</kbd></button>
+    <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9 md:hidden" aria-label="খুঁজুন"><i data-lucide="search"></i></button>
+    <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9 relative" aria-label="বিজ্ঞপ্তি, ৩টি অপঠিত"><i data-lucide="bell"></i><span class="absolute top-0.5 left-1/2 ml-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-caption font-medium text-primary-foreground md:-top-0.5">৩</span></button>
+    <button type="button" class="hidden md:inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="ভাষা পরিবর্তন করুন"><i data-lucide="languages"></i></button>
+    <button type="button" class="hidden md:inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="থিম"><i data-lucide="moon"></i></button>
+    <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-muted hover:text-text-primary md:size-9" aria-label="অ্যাকাউন্ট মেনু"><i data-lucide="circle-user-round"></i></button>
+  </div>
+</header>
+
+<div class="flex flex-1">
+    <!-- SIDEBAR (desktop only). To adapt:
+         1. move aria-current="page" to the ONE link of this page (exactly one in the whole file);
+         2. put the "open" attribute on the <details> that holds it and remove it from the others.
+         Nothing else in the sidebar changes. -->
+    <nav class="hidden w-60 shrink-0 border-r border-border-subtle bg-surface px-3 py-4 md:block" aria-label="প্রধান">
+      <p class="px-3 pb-3 text-label text-text-secondary">SchoolManager</p>
+      <ul class="space-y-0.5 pb-2">
+          <li><a href="#" data-nav="dashboard" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="layout-dashboard"></i><span class="truncate">ড্যাশবোর্ড</span></a></li>
+      </ul>
+      <!-- NAV GROUP people -->
+      <details class="group/nav">
+        <summary class="flex h-9 cursor-pointer list-none items-center justify-between rounded-md px-3 text-label text-text-secondary hover:bg-muted hover:text-text-primary">ব্যক্তিবর্গ<i data-lucide="chevron-right" class="size-4 group-open/nav:rotate-90"></i></summary>
+        <ul class="space-y-0.5 pb-2">
+          <li><a href="#" data-nav="people.students" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="graduation-cap"></i><span class="truncate">শিক্ষার্থী</span></a></li>
+          <li><a href="#" data-nav="people.guardians" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="users-round"></i><span class="truncate">অভিভাবক</span></a></li>
+          <li><a href="#" data-nav="people.calendar" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="calendar-days"></i><span class="truncate">ক্যালেন্ডার</span></a></li>
+          <li><a href="#" data-nav="people.staff" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="briefcase"></i><span class="truncate">কর্মী</span></a></li>
+          <li><a href="#" data-nav="people.programs" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="milestone"></i><span class="truncate">প্রোগ্রাম ও মাইলস্টোন</span></a></li>
+          <li><a href="#" data-nav="people.admissionIntakes" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="door-open"></i><span class="truncate">ভর্তি গ্রহণ</span></a></li>
+          <li><a href="#" data-nav="people.admissionApplicants" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="user-plus"></i><span class="truncate">ভর্তি আবেদনকারী</span></a></li>
+          <li><a href="#" data-nav="people.admissionReports" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="chart-pie"></i><span class="truncate">ভর্তি রিপোর্ট</span></a></li>
+          <li><a href="#" data-nav="people.teachingAssignments" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="presentation"></i><span class="truncate">শিক্ষক নিয়োগ</span></a></li>
+          <li><a href="#" data-nav="people.evaluations" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="star"></i><span class="truncate">মূল্যায়ন</span></a></li>
+        </ul>
+      </details>
+      <!-- NAV GROUP academics -->
+      <details class="group/nav">
+        <summary class="flex h-9 cursor-pointer list-none items-center justify-between rounded-md px-3 text-label text-text-secondary hover:bg-muted hover:text-text-primary">একাডেমিক<i data-lucide="chevron-right" class="size-4 group-open/nav:rotate-90"></i></summary>
+        <ul class="space-y-0.5 pb-2">
+          <li><a href="#" data-nav="academics.academicYears" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="calendar-range"></i><span class="truncate">শিক্ষাবর্ষ</span></a></li>
+          <li><a href="#" data-nav="academics.classes" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="school"></i><span class="truncate">শ্রেণি</span></a></li>
+          <li><a href="#" data-nav="academics.routineSetup" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="sliders-horizontal"></i><span class="truncate">রুটিন সেটআপ</span></a></li>
+          <li><a href="#" data-nav="academics.routineBuilder" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="table"></i><span class="truncate">টাইমটেবিল ও রুটিন</span></a></li>
+          <li><a href="#" data-nav="academics.myRoutine" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="calendar-clock"></i><span class="truncate">আমার রুটিন</span></a></li>
+          <li><a href="#" data-nav="academics.homework" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="notebook-pen"></i><span class="truncate">বাড়ির কাজ</span></a></li>
+          <li><a href="#" data-nav="academics.syllabus" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="book-open"></i><span class="truncate">সিলেবাস</span></a></li>
+        </ul>
+      </details>
+      <!-- NAV GROUP attendance -->
+      <details class="group/nav">
+        <summary class="flex h-9 cursor-pointer list-none items-center justify-between rounded-md px-3 text-label text-text-secondary hover:bg-muted hover:text-text-primary">উপস্থিতি<i data-lucide="chevron-right" class="size-4 group-open/nav:rotate-90"></i></summary>
+        <ul class="space-y-0.5 pb-2">
+          <li><a href="#" data-nav="attendance.attendance" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="calendar-check-2"></i><span class="truncate">উপস্থিতি</span></a></li>
+          <li><a href="#" data-nav="attendance.attendanceReports" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="chart-line"></i><span class="truncate">উপস্থিতি প্রতিবেদন</span></a></li>
+          <li><a href="#" data-nav="attendance.attendanceRegister" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="file-spreadsheet"></i><span class="truncate">প্রিন্টযোগ্য রেজিস্টার</span></a></li>
+          <li><a href="#" data-nav="attendance.staffAttendance" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="user-check"></i><span class="truncate">কর্মী হাজিরা</span></a></li>
+        </ul>
+      </details>
+      <!-- NAV GROUP examsResults -->
+      <details class="group/nav" open>
+        <summary class="flex h-9 cursor-pointer list-none items-center justify-between rounded-md px-3 text-label text-text-secondary hover:bg-muted hover:text-text-primary">পরীক্ষা ও ফলাফল<i data-lucide="chevron-right" class="size-4 group-open/nav:rotate-90"></i></summary>
+        <ul class="space-y-0.5 pb-2">
+          <li><a href="#" data-nav="examsResults.exams" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="file-pen-line"></i><span class="truncate">পরীক্ষা</span></a></li>
+          <li><a href="#" data-nav="examsResults.examTemplates" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="file-stack"></i><span class="truncate">পরীক্ষার টেমপ্লেট</span></a></li>
+          <li><a href="#" data-nav="examsResults.seatPlans" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="armchair"></i><span class="truncate">সিট প্ল্যান</span></a></li>
+          <li><a href="#" data-nav="examsResults.gradingScales" aria-current="page" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="ruler"></i><span class="truncate">গ্রেডিং স্কেল</span></a></li>
+          <li><a href="#" data-nav="examsResults.analysis" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="trending-up"></i><span class="truncate">বিশ্লেষণ</span></a></li>
+          <li><a href="#" data-nav="examsResults.promotion" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="arrow-big-up-dash"></i><span class="truncate">উত্তরণ</span></a></li>
+        </ul>
+      </details>
+      <!-- NAV GROUP finance -->
+      <details class="group/nav">
+        <summary class="flex h-9 cursor-pointer list-none items-center justify-between rounded-md px-3 text-label text-text-secondary hover:bg-muted hover:text-text-primary">অর্থ<i data-lucide="chevron-right" class="size-4 group-open/nav:rotate-90"></i></summary>
+        <ul class="space-y-0.5 pb-2">
+          <li class="px-3 pt-1 text-caption text-text-secondary">দ্রুত পদক্ষেপ</li>
+          <li><a href="#" data-nav="finance.dues" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="hand-coins"></i><span class="truncate">শিক্ষার্থীর বকেয়া</span></a></li>
+          <li><a href="#" data-nav="finance.recordPayment" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="banknote"></i><span class="truncate">পেমেন্ট রেকর্ড করুন</span></a></li>
+          <li class="mx-3 my-1 border-t border-border-subtle" role="separator"></li>
+          <li><a href="#" data-nav="finance.fees" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="wallet"></i><span class="truncate">ফি</span></a></li>
+          <li><a href="#" data-nav="finance.feeStructures" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="layers"></i><span class="truncate">ফি কাঠামো</span></a></li>
+          <li><a href="#" data-nav="finance.generateFees" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="file-plus-2"></i><span class="truncate">ফি তৈরি</span></a></li>
+          <li><a href="#" data-nav="finance.recurringSchedules" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="repeat"></i><span class="truncate">পুনরাবৃত্ত সময়সূচী</span></a></li>
+          <li><a href="#" data-nav="finance.fines" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="gavel"></i><span class="truncate">জরিমানা</span></a></li>
+          <li><a href="#" data-nav="finance.invoices" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="receipt"></i><span class="truncate">চালান</span></a></li>
+        </ul>
+      </details>
+      <!-- NAV GROUP reports -->
+      <details class="group/nav">
+        <summary class="flex h-9 cursor-pointer list-none items-center justify-between rounded-md px-3 text-label text-text-secondary hover:bg-muted hover:text-text-primary">প্রতিবেদন<i data-lucide="chevron-right" class="size-4 group-open/nav:rotate-90"></i></summary>
+        <ul class="space-y-0.5 pb-2">
+          <li><a href="#" data-nav="reports.collectionsReport" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="chart-column"></i><span class="truncate">সংগ্রহ প্রতিবেদন</span></a></li>
+          <li><a href="#" data-nav="reports.printables" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="printer"></i><span class="truncate">প্রিন্ট ও ডকুমেন্ট</span></a></li>
+        </ul>
+      </details>
+      <!-- NAV GROUP communications -->
+      <details class="group/nav">
+        <summary class="flex h-9 cursor-pointer list-none items-center justify-between rounded-md px-3 text-label text-text-secondary hover:bg-muted hover:text-text-primary">যোগাযোগ<i data-lucide="chevron-right" class="size-4 group-open/nav:rotate-90"></i></summary>
+        <ul class="space-y-0.5 pb-2">
+          <li><a href="#" data-nav="communications.sendMessage" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="send"></i><span class="truncate">বার্তা পাঠান</span></a></li>
+          <li><a href="#" data-nav="communications.feeReminders" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="bell-ring"></i><span class="truncate">ফি রিমাইন্ডার</span></a></li>
+          <li><a href="#" data-nav="communications.reminderHistory" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="history"></i><span class="truncate">রিমাইন্ডার ইতিহাস</span></a></li>
+        </ul>
+      </details>
+      <!-- NAV GROUP administration -->
+      <details class="group/nav">
+        <summary class="flex h-9 cursor-pointer list-none items-center justify-between rounded-md px-3 text-label text-text-secondary hover:bg-muted hover:text-text-primary">প্রশাসন<i data-lucide="chevron-right" class="size-4 group-open/nav:rotate-90"></i></summary>
+        <ul class="space-y-0.5 pb-2">
+          <li><a href="#" data-nav="administration.printTemplates" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="id-card"></i><span class="truncate">প্রিন্ট টেমপ্লেট</span></a></li>
+          <li><a href="#" data-nav="administration.roles" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="shield-check"></i><span class="truncate">রোল ও অনুমতি</span></a></li>
+          <li><a href="#" data-nav="administration.auditLogs" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="scroll-text"></i><span class="truncate">নিরীক্ষা লগ</span></a></li>
+          <li><a href="#" data-nav="administration.settings" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="settings"></i><span class="truncate">সেটিংস</span></a></li>
+          <li><a href="#" data-nav="administration.curriculumPreset" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="blocks"></i><span class="truncate">কারিকুলাম প্রিসেট</span></a></li>
+          <!-- SUPER_ADMIN only — uncomment when the mockup is for that role:
+          <li><a href="#" data-nav="platform.schools" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="building-2"></i><span class="truncate">স্কুল (প্ল্যাটফর্ম)</span></a></li>
+          <li><a href="#" data-nav="platform.holidaySets" class="flex h-9 items-center gap-2.5 rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text-primary aria-[current=page]:bg-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground"><i data-lucide="tree-palm"></i><span class="truncate">ছুটির তালিকা (প্ল্যাটফর্ম)</span></a></li>
+          -->
+        </ul>
+      </details>
+    </nav>
+
+    <!-- PROPOSAL — everything inside <main> is the page design. -->
+    <main id="main-content" class="min-w-0 flex-1">
+      <div class="mx-auto w-full max-w-screen-xl space-y-6 px-4 py-4 md:px-6 md:py-6">
+        <!-- DetailShell without tabs: crumbs, name, facts, actions (copy outline + ONE primary Save) -->
+        <header class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6">
+          <div class="min-w-0">
+            <nav aria-label="ব্রেডক্রাম্ব"><ol class="flex items-center gap-1 text-label text-text-secondary"><li><a href="#" class="inline-flex min-h-11 items-center hover:text-text-primary md:min-h-0">গ্রেডিং পদ্ধতি</a></li><li aria-hidden="true" class="flex"><i data-lucide="chevron-right" class="size-3.5"></i></li><li aria-current="page" class="truncate text-text-primary">জাতীয় পাঠ্যক্রম (NCTB)</li></ol></nav>
+            <h1 class="text-h1 md:mt-1">জাতীয় পাঠ্যক্রম (NCTB)</h1>
+            <dl class="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 md:flex md:flex-wrap">
+              <div><dt class="text-caption text-text-secondary">শিক্ষাবর্ষ</dt><dd class="font-medium">২০২৬</dd></div>
+              <div><dt class="text-caption text-text-secondary">কোন শ্রেণির জন্য</dt><dd class="font-medium">সব শ্রেণি</dd></div>
+              <div><dt class="text-caption text-text-secondary">গ্রেড</dt><dd class="font-medium">৭টি</dd></div>
+            </dl>
+          </div>
+          <div class="flex shrink-0 items-center gap-2">
+            <button type="button" class="hidden md:inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium md:h-8 md:px-3 border border-border-functional bg-surface text-text-primary hover:bg-muted"><i data-lucide="copy"></i>অন্য শ্রেণি বা বর্ষে কপি করুন</button>
+            <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium md:h-8 md:px-3 bg-primary text-primary-foreground flex-1 md:flex-none"><i data-lucide="save"></i>সংরক্ষণ করুন</button>
+            <button type="button" class="flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:hidden text-text-secondary" aria-label="আরও অ্যাকশন" aria-haspopup="menu"><i data-lucide="ellipsis"></i></button>
+          </div>
+        </header>
+
+        <!-- PresetWarningBanner (existing component, placed here; renders only when a curriculum preset is applied) -->
+        <p role="note" class="flex items-start gap-2 rounded-lg bg-status-due-bg p-3 text-status-due-fg"><i data-lucide="info" class="mt-0.5 size-4 shrink-0"></i>এটি আপনার কারিকুলাম প্রিসেট থেকে এসেছে। এটি বদলালে ভবিষ্যতের ফলাফল ও রিপোর্টে প্রভাব পড়তে পারে। যেসব ফলাফল ইতিমধ্যে প্রকাশিত হয়েছে, সেগুলো বদলাবে না।</p>
+
+        <!-- CoverageBar in a Card: bar + grade letters under their ranges + status line with an icon -->
+        <section class="rounded-lg border border-border-subtle bg-surface shadow-e1 p-4 md:p-5" aria-labelledby="cov-h">
+          <h2 id="cov-h" class="text-h2">০ থেকে ১০০% — কোন নম্বরে কোন গ্রেড</h2>
+          <div class="mt-4 flex h-4 w-full overflow-hidden rounded-md border border-border-subtle" role="img" aria-label="০ থেকে ১০০ শতাংশ পর্যন্ত গ্রেডের ভাগ"><div class="h-full flex-33 bg-text-secondary"></div><div class="h-full flex-7 bg-chart-5"></div><div class="h-full flex-10 bg-chart-2"></div><div class="h-full flex-10 bg-chart-1"></div><div class="h-full flex-10 bg-chart-3"></div><div class="h-full flex-10 bg-chart-5"></div><div class="h-full flex-21 bg-chart-2"></div></div>
+          <div class="mt-1 flex w-full text-caption font-medium text-text-secondary" aria-hidden="true"><span class="flex-33 min-w-0 truncate text-center">F</span><span class="flex-7 min-w-0 truncate text-center">D</span><span class="flex-10 min-w-0 truncate text-center">C</span><span class="flex-10 min-w-0 truncate text-center">B</span><span class="flex-10 min-w-0 truncate text-center">A-</span><span class="flex-10 min-w-0 truncate text-center">A</span><span class="flex-21 min-w-0 truncate text-center">A+</span></div>
+          <p class="mt-3 flex items-center gap-1.5 text-text-secondary"><i data-lucide="circle-check" class="size-4 shrink-0 text-status-paid-fg"></i>০ থেকে ১০০ পর্যন্ত প্রতিটি নম্বরের একটি করে গ্রেড আছে।</p>
+        </section>
+
+        <!-- BandEditor. Desktop: table in a flush Card. Phone: one Card per row. -->
+        <section class="space-y-3" aria-labelledby="bands-h">
+          <div class="flex items-end justify-between gap-3">
+            <div>
+              <h2 id="bands-h" class="text-h2">গ্রেডের সারি</h2>
+              <p class="mt-1 text-text-secondary">প্রতিটি সারি একটি নম্বরের সীমা আর তার গ্রেড। ফেল গ্রেডের জিপিএ থাকে না।</p>
+            </div>
+          </div>
+          <div class="rounded-lg border border-border-subtle bg-surface shadow-e1 hidden overflow-hidden md:block">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <caption class="sr-only">গ্রেডের সারি</caption>
+                <thead class="border-b border-border-subtle bg-muted text-label text-text-secondary">
+                  <tr>
+                    <th scope="col" class="h-10 px-4 font-medium text-right">সারি</th>
+                    <th scope="col" class="h-10 px-4 font-medium">শুরু (%)</th>
+                    <th scope="col" class="h-10 px-4 font-medium">শেষ (%)</th>
+                    <th scope="col" class="h-10 px-4 font-medium">গ্রেড</th>
+                    <th scope="col" class="h-10 px-4 font-medium">জিপিএ</th>
+                    <th scope="col" class="h-10 px-2 font-medium">ফেল গ্রেড</th>
+                    <th scope="col" class="h-10 px-4 font-medium">মন্তব্য (ঐচ্ছিক)</th>
+                    <th scope="col" class="h-10 px-4 font-medium text-right">কাজ</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-border-subtle">
+                <tr>
+                  <td class="px-4 py-1.5 text-right tabular-nums text-text-secondary">১</td>
+                  <td class="px-4 py-1.5"><input type="text" inputmode="decimal" value="৮০" aria-label="সারি ১ — শুরু (%)" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-right text-body tabular-nums text-text-primary"></td>
+                  <td class="px-4 py-1.5"><input type="text" inputmode="decimal" value="১০০" aria-label="সারি ১ — শেষ (%)" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-right text-body tabular-nums text-text-primary"></td>
+                  <td class="px-4 py-1.5"><input type="text" value="A+" aria-label="সারি ১ — গ্রেড" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-body tabular-nums text-text-primary"></td>
+                  <td class="px-4 py-1.5"><input type="text" inputmode="decimal" value="৫.০০" aria-label="সারি ১ — জিপিএ" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-right text-body tabular-nums text-text-primary"></td>
+                  <td class="px-2 py-1.5"><button type="button" role="checkbox" aria-checked="false" aria-label="সারি ১ — ফেল গ্রেড" class="flex size-11 items-center justify-center md:size-8"><span class="flex size-5 items-center justify-center rounded-sm border border-border-functional bg-surface"></span></button></td>
+                  <td class="px-4 py-1.5"><input type="text" value="অসাধারণ" aria-label="সারি ১ — মন্তব্য" class="h-8 w-full rounded-md border border-border-functional bg-surface px-2 text-body text-text-primary"></td>
+                  <td class="px-2 py-1.5"><div class="flex justify-end"><button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-destructive" aria-label="সারি মুছুন"><i data-lucide="trash-2"></i></button></div></td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-1.5 text-right tabular-nums text-text-secondary">২</td>
+                  <td class="px-4 py-1.5"><input type="text" inputmode="decimal" value="৭০" aria-label="সারি ২ — শুরু (%)" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-right text-body tabular-nums text-text-primary"></td>
+                  <td class="px-4 py-1.5"><input type="text" inputmode="decimal" value="৭৯" aria-label="সারি ২ — শেষ (%)" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-right text-body tabular-nums text-text-primary"></td>
+                  <td class="px-4 py-1.5"><input type="text" value="A" aria-label="সারি ২ — গ্রেড" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-body tabular-nums text-text-primary"></td>
+                  <td class="px-4 py-1.5"><input type="text" inputmode="decimal" value="৪.০০" aria-label="সারি ২ — জিপিএ" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-right text-body tabular-nums text-text-primary"></td>
+                  <td class="px-2 py-1.5"><button type="button" role="checkbox" aria-checked="false" aria-label="সারি ২ — ফেল গ্রেড" class="flex size-11 items-center justify-center md:size-8"><span class="flex size-5 items-center justify-center rounded-sm border border-border-functional bg-surface"></span></button></td>
+                  <td class="px-4 py-1.5"><input type="text" value="" aria-label="সারি ২ — মন্তব্য" class="h-8 w-full rounded-md border border-border-functional bg-surface px-2 text-body text-text-primary"></td>
+                  <td class="px-2 py-1.5"><div class="flex justify-end"><button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-destructive" aria-label="সারি মুছুন"><i data-lucide="trash-2"></i></button></div></td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-1.5 text-right tabular-nums text-text-secondary">৩</td>
+                  <td class="px-4 py-1.5"><input type="text" inputmode="decimal" value="৬০" aria-label="সারি ৩ — শুরু (%)" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-right text-body tabular-nums text-text-primary"></td>
+                  <td class="px-4 py-1.5"><input type="text" inputmode="decimal" value="৬৯" aria-label="সারি ৩ — শেষ (%)" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-right text-body tabular-nums text-text-primary"></td>
+                  <td class="px-4 py-1.5"><input type="text" value="A-" aria-label="সারি ৩ — গ্রেড" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-body tabular-nums text-text-primary"></td>
+                  <td class="px-4 py-1.5"><input type="text" inputmode="decimal" value="৩.৫০" aria-label="সারি ৩ — জিপিএ" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-right text-body tabular-nums text-text-primary"></td>
+                  <td class="px-2 py-1.5"><button type="button" role="checkbox" aria-checked="false" aria-label="সারি ৩ — ফেল গ্রেড" class="flex size-11 items-center justify-center md:size-8"><span class="flex size-5 items-center justify-center rounded-sm border border-border-functional bg-surface"></span></button></td>
+                  <td class="px-4 py-1.5"><input type="text" value="" aria-label="সারি ৩ — মন্তব্য" class="h-8 w-full rounded-md border border-border-functional bg-surface px-2 text-body text-text-primary"></td>
+                  <td class="px-2 py-1.5"><div class="flex justify-end"><button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-destructive" aria-label="সারি মুছুন"><i data-lucide="trash-2"></i></button></div></td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-1.5 text-right tabular-nums text-text-secondary">৪</td>
+                  <td class="px-4 py-1.5"><input type="text" inputmode="decimal" value="৫০" aria-label="সারি ৪ — শুরু (%)" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-right text-body tabular-nums text-text-primary"></td>
+                  <td class="px-4 py-1.5"><input type="text" inputmode="decimal" value="৫৯" aria-label="সারি ৪ — শেষ (%)" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-right text-body tabular-nums text-text-primary"></td>
+                  <td class="px-4 py-1.5"><input type="text" value="B" aria-label="সারি ৪ — গ্রেড" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-body tabular-nums text-text-primary"></td>
+                  <td class="px-4 py-1.5"><input type="text" inputmode="decimal" value="৩.০০" aria-label="সারি ৪ — জিপিএ" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-right text-body tabular-nums text-text-primary"></td>
+                  <td class="px-2 py-1.5"><button type="button" role="checkbox" aria-checked="false" aria-label="সারি ৪ — ফেল গ্রেড" class="flex size-11 items-center justify-center md:size-8"><span class="flex size-5 items-center justify-center rounded-sm border border-border-functional bg-surface"></span></button></td>
+                  <td class="px-4 py-1.5"><input type="text" value="" aria-label="সারি ৪ — মন্তব্য" class="h-8 w-full rounded-md border border-border-functional bg-surface px-2 text-body text-text-primary"></td>
+                  <td class="px-2 py-1.5"><div class="flex justify-end"><button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-destructive" aria-label="সারি মুছুন"><i data-lucide="trash-2"></i></button></div></td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-1.5 text-right tabular-nums text-text-secondary">৫</td>
+                  <td class="px-4 py-1.5"><input type="text" inputmode="decimal" value="৪০" aria-label="সারি ৫ — শুরু (%)" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-right text-body tabular-nums text-text-primary"></td>
+                  <td class="px-4 py-1.5"><input type="text" inputmode="decimal" value="৪৯" aria-label="সারি ৫ — শেষ (%)" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-right text-body tabular-nums text-text-primary"></td>
+                  <td class="px-4 py-1.5"><input type="text" value="C" aria-label="সারি ৫ — গ্রেড" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-body tabular-nums text-text-primary"></td>
+                  <td class="px-4 py-1.5"><input type="text" inputmode="decimal" value="২.০০" aria-label="সারি ৫ — জিপিএ" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-right text-body tabular-nums text-text-primary"></td>
+                  <td class="px-2 py-1.5"><button type="button" role="checkbox" aria-checked="false" aria-label="সারি ৫ — ফেল গ্রেড" class="flex size-11 items-center justify-center md:size-8"><span class="flex size-5 items-center justify-center rounded-sm border border-border-functional bg-surface"></span></button></td>
+                  <td class="px-4 py-1.5"><input type="text" value="" aria-label="সারি ৫ — মন্তব্য" class="h-8 w-full rounded-md border border-border-functional bg-surface px-2 text-body text-text-primary"></td>
+                  <td class="px-2 py-1.5"><div class="flex justify-end"><button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-destructive" aria-label="সারি মুছুন"><i data-lucide="trash-2"></i></button></div></td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-1.5 text-right tabular-nums text-text-secondary">৬</td>
+                  <td class="px-4 py-1.5"><input type="text" inputmode="decimal" value="৩৩" aria-label="সারি ৬ — শুরু (%)" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-right text-body tabular-nums text-text-primary"></td>
+                  <td class="px-4 py-1.5"><input type="text" inputmode="decimal" value="৩৯" aria-label="সারি ৬ — শেষ (%)" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-right text-body tabular-nums text-text-primary"></td>
+                  <td class="px-4 py-1.5"><input type="text" value="D" aria-label="সারি ৬ — গ্রেড" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-body tabular-nums text-text-primary"></td>
+                  <td class="px-4 py-1.5"><input type="text" inputmode="decimal" value="১.০০" aria-label="সারি ৬ — জিপিএ" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-right text-body tabular-nums text-text-primary"></td>
+                  <td class="px-2 py-1.5"><button type="button" role="checkbox" aria-checked="false" aria-label="সারি ৬ — ফেল গ্রেড" class="flex size-11 items-center justify-center md:size-8"><span class="flex size-5 items-center justify-center rounded-sm border border-border-functional bg-surface"></span></button></td>
+                  <td class="px-4 py-1.5"><input type="text" value="" aria-label="সারি ৬ — মন্তব্য" class="h-8 w-full rounded-md border border-border-functional bg-surface px-2 text-body text-text-primary"></td>
+                  <td class="px-2 py-1.5"><div class="flex justify-end"><button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-destructive" aria-label="সারি মুছুন"><i data-lucide="trash-2"></i></button></div></td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-1.5 text-right tabular-nums text-text-secondary">৭</td>
+                  <td class="px-4 py-1.5"><input type="text" inputmode="decimal" value="০" aria-label="সারি ৭ — শুরু (%)" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-right text-body tabular-nums text-text-primary"></td>
+                  <td class="px-4 py-1.5"><input type="text" inputmode="decimal" value="৩২" aria-label="সারি ৭ — শেষ (%)" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-right text-body tabular-nums text-text-primary"></td>
+                  <td class="px-4 py-1.5"><input type="text" value="F" aria-label="সারি ৭ — গ্রেড" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-body tabular-nums text-text-primary"></td>
+                  <td class="px-4 py-1.5"><input type="text" disabled placeholder="—" aria-label="সারি ৭ — জিপিএ" class="h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-right text-body tabular-nums text-text-primary cursor-not-allowed bg-muted"></td>
+                  <td class="px-2 py-1.5"><button type="button" role="checkbox" aria-checked="true" aria-label="সারি ৭ — ফেল গ্রেড" class="flex size-11 items-center justify-center md:size-8"><span class="flex size-5 items-center justify-center rounded-sm bg-primary text-primary-foreground"><i data-lucide="check" class="size-3.5"></i></span></button></td>
+                  <td class="px-4 py-1.5"><input type="text" value="" aria-label="সারি ৭ — মন্তব্য" class="h-8 w-full rounded-md border border-border-functional bg-surface px-2 text-body text-text-primary"></td>
+                  <td class="px-2 py-1.5"><div class="flex justify-end"><button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-destructive" aria-label="সারি মুছুন"><i data-lucide="trash-2"></i></button></div></td>
+                </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-3">
+              <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium md:h-8 md:px-3 border border-border-functional bg-surface text-text-primary hover:bg-muted"><i data-lucide="plus"></i>সারি যোগ করুন</button>
+              <p class="text-caption text-text-secondary">শেষ সারির গ্রেডের ঘরে <kbd class="rounded-sm border border-border-subtle bg-muted px-1 font-sans">Enter</kbd> চাপলেও নতুন সারি যোগ হয়।</p>
+            </div>
+          </div>
+          <ul class="space-y-3 md:hidden">
+            <li class="rounded-lg border border-border-subtle bg-surface shadow-e1 p-4">
+              <div class="flex items-center justify-between gap-2">
+                <h3 class="text-h3">A+ <span class="font-normal text-text-secondary">· ৮০–১০০%</span></h3>
+                <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-destructive" aria-label="সারি ১ মুছুন"><i data-lucide="trash-2"></i></button>
+              </div>
+              <div class="mt-3 grid grid-cols-2 gap-4">
+                <div class="flex flex-col gap-1.5"><label for="m0-f" class="text-label text-text-primary">শুরু (%)</label><input id="m0-f" type="text" inputmode="decimal" value="৮০" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body text-right tabular-nums"></div>
+                <div class="flex flex-col gap-1.5"><label for="m0-t" class="text-label text-text-primary">শেষ (%)</label><input id="m0-t" type="text" inputmode="decimal" value="১০০" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body text-right tabular-nums"></div>
+                <div class="flex flex-col gap-1.5"><label for="m0-g" class="text-label text-text-primary">গ্রেড</label><input id="m0-g" type="text" value="A+" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"></div>
+                <div class="flex flex-col gap-1.5"><label for="m0-gpa" class="text-label text-text-primary">জিপিএ</label><input id="m0-gpa" type="text" inputmode="decimal" value="৫.০০" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body text-right tabular-nums"></div>
+              </div>
+              <label class="mt-2 flex min-h-11 items-center gap-3"><span class="flex size-5 items-center justify-center rounded-sm border border-border-functional bg-surface"></span>ফেল গ্রেড</label>
+              <div class="mt-2 flex flex-col gap-1.5"><label for="m0-c" class="text-label text-text-primary">মন্তব্য (ঐচ্ছিক)</label><input id="m0-c" type="text" value="অসাধারণ" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"></div>
+            </li>
+            <li class="rounded-lg border border-border-subtle bg-surface shadow-e1 p-4">
+              <div class="flex items-center justify-between gap-2">
+                <h3 class="text-h3">A <span class="font-normal text-text-secondary">· ৭০–৭৯%</span></h3>
+                <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-destructive" aria-label="সারি ২ মুছুন"><i data-lucide="trash-2"></i></button>
+              </div>
+              <div class="mt-3 grid grid-cols-2 gap-4">
+                <div class="flex flex-col gap-1.5"><label for="m1-f" class="text-label text-text-primary">শুরু (%)</label><input id="m1-f" type="text" inputmode="decimal" value="৭০" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body text-right tabular-nums"></div>
+                <div class="flex flex-col gap-1.5"><label for="m1-t" class="text-label text-text-primary">শেষ (%)</label><input id="m1-t" type="text" inputmode="decimal" value="৭৯" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body text-right tabular-nums"></div>
+                <div class="flex flex-col gap-1.5"><label for="m1-g" class="text-label text-text-primary">গ্রেড</label><input id="m1-g" type="text" value="A" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"></div>
+                <div class="flex flex-col gap-1.5"><label for="m1-gpa" class="text-label text-text-primary">জিপিএ</label><input id="m1-gpa" type="text" inputmode="decimal" value="৪.০০" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body text-right tabular-nums"></div>
+              </div>
+              <label class="mt-2 flex min-h-11 items-center gap-3"><span class="flex size-5 items-center justify-center rounded-sm border border-border-functional bg-surface"></span>ফেল গ্রেড</label>
+              <div class="mt-2 flex flex-col gap-1.5"><label for="m1-c" class="text-label text-text-primary">মন্তব্য (ঐচ্ছিক)</label><input id="m1-c" type="text" value="" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"></div>
+            </li>
+            <li class="rounded-lg border border-border-subtle bg-surface shadow-e1 p-4">
+              <div class="flex items-center justify-between gap-2">
+                <h3 class="text-h3">A- <span class="font-normal text-text-secondary">· ৬০–৬৯%</span></h3>
+                <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-destructive" aria-label="সারি ৩ মুছুন"><i data-lucide="trash-2"></i></button>
+              </div>
+              <div class="mt-3 grid grid-cols-2 gap-4">
+                <div class="flex flex-col gap-1.5"><label for="m2-f" class="text-label text-text-primary">শুরু (%)</label><input id="m2-f" type="text" inputmode="decimal" value="৬০" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body text-right tabular-nums"></div>
+                <div class="flex flex-col gap-1.5"><label for="m2-t" class="text-label text-text-primary">শেষ (%)</label><input id="m2-t" type="text" inputmode="decimal" value="৬৯" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body text-right tabular-nums"></div>
+                <div class="flex flex-col gap-1.5"><label for="m2-g" class="text-label text-text-primary">গ্রেড</label><input id="m2-g" type="text" value="A-" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"></div>
+                <div class="flex flex-col gap-1.5"><label for="m2-gpa" class="text-label text-text-primary">জিপিএ</label><input id="m2-gpa" type="text" inputmode="decimal" value="৩.৫০" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body text-right tabular-nums"></div>
+              </div>
+              <label class="mt-2 flex min-h-11 items-center gap-3"><span class="flex size-5 items-center justify-center rounded-sm border border-border-functional bg-surface"></span>ফেল গ্রেড</label>
+              <div class="mt-2 flex flex-col gap-1.5"><label for="m2-c" class="text-label text-text-primary">মন্তব্য (ঐচ্ছিক)</label><input id="m2-c" type="text" value="" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"></div>
+            </li>
+            <li class="rounded-lg border border-border-subtle bg-surface shadow-e1 p-4">
+              <div class="flex items-center justify-between gap-2">
+                <h3 class="text-h3">B <span class="font-normal text-text-secondary">· ৫০–৫৯%</span></h3>
+                <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-destructive" aria-label="সারি ৪ মুছুন"><i data-lucide="trash-2"></i></button>
+              </div>
+              <div class="mt-3 grid grid-cols-2 gap-4">
+                <div class="flex flex-col gap-1.5"><label for="m3-f" class="text-label text-text-primary">শুরু (%)</label><input id="m3-f" type="text" inputmode="decimal" value="৫০" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body text-right tabular-nums"></div>
+                <div class="flex flex-col gap-1.5"><label for="m3-t" class="text-label text-text-primary">শেষ (%)</label><input id="m3-t" type="text" inputmode="decimal" value="৫৯" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body text-right tabular-nums"></div>
+                <div class="flex flex-col gap-1.5"><label for="m3-g" class="text-label text-text-primary">গ্রেড</label><input id="m3-g" type="text" value="B" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"></div>
+                <div class="flex flex-col gap-1.5"><label for="m3-gpa" class="text-label text-text-primary">জিপিএ</label><input id="m3-gpa" type="text" inputmode="decimal" value="৩.০০" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body text-right tabular-nums"></div>
+              </div>
+              <label class="mt-2 flex min-h-11 items-center gap-3"><span class="flex size-5 items-center justify-center rounded-sm border border-border-functional bg-surface"></span>ফেল গ্রেড</label>
+              <div class="mt-2 flex flex-col gap-1.5"><label for="m3-c" class="text-label text-text-primary">মন্তব্য (ঐচ্ছিক)</label><input id="m3-c" type="text" value="" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"></div>
+            </li>
+            <li class="rounded-lg border border-border-subtle bg-surface shadow-e1 p-4">
+              <div class="flex items-center justify-between gap-2">
+                <h3 class="text-h3">C <span class="font-normal text-text-secondary">· ৪০–৪৯%</span></h3>
+                <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-destructive" aria-label="সারি ৫ মুছুন"><i data-lucide="trash-2"></i></button>
+              </div>
+              <div class="mt-3 grid grid-cols-2 gap-4">
+                <div class="flex flex-col gap-1.5"><label for="m4-f" class="text-label text-text-primary">শুরু (%)</label><input id="m4-f" type="text" inputmode="decimal" value="৪০" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body text-right tabular-nums"></div>
+                <div class="flex flex-col gap-1.5"><label for="m4-t" class="text-label text-text-primary">শেষ (%)</label><input id="m4-t" type="text" inputmode="decimal" value="৪৯" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body text-right tabular-nums"></div>
+                <div class="flex flex-col gap-1.5"><label for="m4-g" class="text-label text-text-primary">গ্রেড</label><input id="m4-g" type="text" value="C" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"></div>
+                <div class="flex flex-col gap-1.5"><label for="m4-gpa" class="text-label text-text-primary">জিপিএ</label><input id="m4-gpa" type="text" inputmode="decimal" value="২.০০" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body text-right tabular-nums"></div>
+              </div>
+              <label class="mt-2 flex min-h-11 items-center gap-3"><span class="flex size-5 items-center justify-center rounded-sm border border-border-functional bg-surface"></span>ফেল গ্রেড</label>
+              <div class="mt-2 flex flex-col gap-1.5"><label for="m4-c" class="text-label text-text-primary">মন্তব্য (ঐচ্ছিক)</label><input id="m4-c" type="text" value="" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"></div>
+            </li>
+            <li class="rounded-lg border border-border-subtle bg-surface shadow-e1 p-4">
+              <div class="flex items-center justify-between gap-2">
+                <h3 class="text-h3">D <span class="font-normal text-text-secondary">· ৩৩–৩৯%</span></h3>
+                <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-destructive" aria-label="সারি ৬ মুছুন"><i data-lucide="trash-2"></i></button>
+              </div>
+              <div class="mt-3 grid grid-cols-2 gap-4">
+                <div class="flex flex-col gap-1.5"><label for="m5-f" class="text-label text-text-primary">শুরু (%)</label><input id="m5-f" type="text" inputmode="decimal" value="৩৩" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body text-right tabular-nums"></div>
+                <div class="flex flex-col gap-1.5"><label for="m5-t" class="text-label text-text-primary">শেষ (%)</label><input id="m5-t" type="text" inputmode="decimal" value="৩৯" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body text-right tabular-nums"></div>
+                <div class="flex flex-col gap-1.5"><label for="m5-g" class="text-label text-text-primary">গ্রেড</label><input id="m5-g" type="text" value="D" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"></div>
+                <div class="flex flex-col gap-1.5"><label for="m5-gpa" class="text-label text-text-primary">জিপিএ</label><input id="m5-gpa" type="text" inputmode="decimal" value="১.০০" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body text-right tabular-nums"></div>
+              </div>
+              <label class="mt-2 flex min-h-11 items-center gap-3"><span class="flex size-5 items-center justify-center rounded-sm border border-border-functional bg-surface"></span>ফেল গ্রেড</label>
+              <div class="mt-2 flex flex-col gap-1.5"><label for="m5-c" class="text-label text-text-primary">মন্তব্য (ঐচ্ছিক)</label><input id="m5-c" type="text" value="" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"></div>
+            </li>
+            <li class="rounded-lg border border-border-subtle bg-surface shadow-e1 p-4">
+              <div class="flex items-center justify-between gap-2">
+                <h3 class="text-h3">F <span class="font-normal text-text-secondary">· ০–৩২%</span></h3>
+                <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-muted md:size-8 text-destructive" aria-label="সারি ৭ মুছুন"><i data-lucide="trash-2"></i></button>
+              </div>
+              <div class="mt-3 grid grid-cols-2 gap-4">
+                <div class="flex flex-col gap-1.5"><label for="m6-f" class="text-label text-text-primary">শুরু (%)</label><input id="m6-f" type="text" inputmode="decimal" value="০" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body text-right tabular-nums"></div>
+                <div class="flex flex-col gap-1.5"><label for="m6-t" class="text-label text-text-primary">শেষ (%)</label><input id="m6-t" type="text" inputmode="decimal" value="৩২" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body text-right tabular-nums"></div>
+                <div class="flex flex-col gap-1.5"><label for="m6-g" class="text-label text-text-primary">গ্রেড</label><input id="m6-g" type="text" value="F" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"></div>
+                <div class="flex flex-col gap-1.5"><label for="m6-gpa" class="text-label text-text-primary">জিপিএ</label><input id="m6-gpa" type="text" disabled placeholder="—" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body cursor-not-allowed bg-muted text-right"></div>
+              </div>
+              <label class="mt-2 flex min-h-11 items-center gap-3"><span class="flex size-5 items-center justify-center rounded-sm bg-primary text-primary-foreground"><i data-lucide="check" class="size-3.5"></i></span>ফেল গ্রেড</label>
+              <div class="mt-2 flex flex-col gap-1.5"><label for="m6-c" class="text-label text-text-primary">মন্তব্য (ঐচ্ছিক)</label><input id="m6-c" type="text" value="" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary md:h-8 md:text-body"></div>
+            </li>
+          </ul>
+          <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 font-medium md:h-8 md:px-3 border border-border-functional bg-surface text-text-primary hover:bg-muted w-full md:hidden"><i data-lucide="plus"></i>সারি যোগ করুন</button>
+        </section>
+      </div>
+    </main>
+</div>
+
+<!-- BOTTOM BAR (phone only, D14). To adapt: aria-current="page" goes on the ONE cell of this page;
+     if the page is not one of the cells, remove it and set data-active="true" on the "আরও" button instead.
+     IN THE APP this bar is "fixed inset-x-0 bottom-0 z-30" and the content wrapper reserves its height with
+     "pb-16 md:pb-0". IN A MOCKUP it stays in normal flow as the last child of <body>: the screenshot tool
+     captures the whole page as one tall frame, and a fixed bar would be painted across the middle of it.
+     Do not add "fixed" or "sticky bottom-0" to anything in a mockup. -->
+<nav class="flex border-t border-border-subtle bg-surface md:hidden" aria-label="দ্রুত নেভিগেশন">
+  <a href="#" data-nav="dashboard" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="layout-dashboard"></i></span><span class="max-w-full truncate px-1">ড্যাশবোর্ড</span></a>
+  <a href="#" data-nav="people.students" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="graduation-cap"></i></span><span class="max-w-full truncate px-1">শিক্ষার্থী</span></a>
+  <a href="#" data-nav="attendance.attendance" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="calendar-check-2"></i></span><span class="max-w-full truncate px-1">উপস্থিতি</span></a>
+  <a href="#" data-nav="finance.dues" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="hand-coins"></i></span><span class="max-w-full truncate px-1">বকেয়া</span></a>
+  <button type="button" data-active="true" aria-haspopup="dialog" class="group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground"><span class="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary"><i data-lucide="ellipsis"></i></span><span class="max-w-full truncate px-1">আরও</span></button>
+</nav>
+
+<script>lucide.createIcons({ attrs: { width: 18, height: 18, "stroke-width": 1.75, "aria-hidden": "true" } });</script>
+</body>
+</html>

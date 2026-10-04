@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="bn" data-density="comfortable">
+<head>
+<!-- app:head -->
+<title>Mockup — guest · login</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="flex min-h-screen flex-col bg-bg text-body-lg text-text-primary">
+
+<!-- AuthLayout (D34, foundation 31.2.12): language switcher, logo + product name, one centred max-w-md card. -->
+<div class="flex justify-end p-4">
+  <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted" aria-label="ভাষা পরিবর্তন করুন" aria-haspopup="menu"><i data-lucide="languages"></i>বাংলা<i data-lucide="chevron-down" class="size-4 text-text-secondary"></i></button>
+</div>
+
+<main id="main-content" class="flex flex-1 items-start justify-center px-4 pt-4 pb-16 md:items-center md:pt-0">
+  <div class="w-full max-w-md">
+    <div class="mb-6 flex flex-col items-center gap-2">
+      <span class="flex size-12 items-center justify-center rounded-lg bg-primary text-primary-foreground"><i data-lucide="school"></i></span>
+      <p class="text-h3">SchoolManager</p>
+    </div>
+
+    <section class="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">
+      <div role="tablist" aria-label="সাইন ইনের উপায়" class="-mt-1 mb-5 flex border-b border-border-subtle">
+        <button type="button" role="tab" aria-selected="true" class="inline-flex h-11 flex-1 items-center justify-center border-b-2 border-transparent px-3 whitespace-nowrap text-text-secondary hover:text-text-primary aria-selected:border-primary aria-selected:font-semibold aria-selected:text-primary">পাসওয়ার্ড দিয়ে</button>
+        <button type="button" role="tab" aria-selected="false" class="inline-flex h-11 flex-1 items-center justify-center border-b-2 border-transparent px-3 whitespace-nowrap text-text-secondary hover:text-text-primary aria-selected:border-primary aria-selected:font-semibold aria-selected:text-primary">ফোনে কোড দিয়ে</button>
+      </div>
+      <h1 class="text-h1 text-balance">সাইন ইন</h1>
+      <p class="mt-0.5 text-text-secondary">যে ইমেইল বা ফোন নম্বর দিয়ে অ্যাকাউন্ট খুলেছেন তা দিন।</p>
+      <form class="mt-5 flex flex-col gap-4">
+        <div class="flex flex-col gap-1.5">
+          <label for="g-id" class="text-label text-text-primary">ইমেইল বা ফোন নম্বর</label>
+          <input id="g-id" type="text" placeholder="01XXXXXXXXX বা ইমেইল" autocomplete="username"  class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary placeholder:text-text-secondary">
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label for="g-pw" class="text-label text-text-primary">পাসওয়ার্ড</label>
+          <div class="relative">
+            <input id="g-pw" type="password" autocomplete="current-password" value="••••••••" class="h-11 w-full rounded-md border border-border-functional bg-surface px-3 text-body-lg text-text-primary pe-24">
+            <button type="button" aria-pressed="false" aria-controls="g-pw" class="absolute end-0 top-0 inline-flex h-11 items-center rounded-md px-3 text-label text-text-primary hover:bg-muted">পাসওয়ার্ড দেখান</button>
+          </div>
+        </div>
+        <button type="submit" class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 font-medium text-primary-foreground mt-1">সাইন ইন করুন</button>
+        <a href="#" class="flex h-11 w-full items-center justify-center rounded-md px-3 font-medium text-primary hover:bg-muted">পাসওয়ার্ড ভুলে গেছেন?</a>
+      </form>
+    </section>
+  </div>
+</main>
+
+<script>lucide.createIcons({ attrs: { width: 18, height: 18, "stroke-width": 1.75, "aria-hidden": "true" } });</script>
+</body>
+</html>

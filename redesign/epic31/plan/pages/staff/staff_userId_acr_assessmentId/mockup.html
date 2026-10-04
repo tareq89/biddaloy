@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<!-- app:head -->
+<title>এসিআর</title>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="flex min-h-screen flex-col bg-bg text-body text-text-primary">
+
+<!-- ============================================================================
+     FullPageShell (D22) — a full-page modal. It covers the app chrome: no top bar,
+     no sidebar, no bottom bar. Used for the tasks listed in D23.
+     Body width: forms → max-w-3xl · a table, list or preview → max-w-5xl.
+     The footer's inner width must be the SAME max-w-* as the body's.
+     ============================================================================ -->
+
+<!-- Sticky header: title on the left, a very visible Close (X + word, 44px) on the right. -->
+<header class="sticky top-0 z-30 border-b border-border-subtle bg-surface">
+  <div class="flex h-14 items-center justify-between gap-4 px-4 md:h-16 md:px-6">
+    <h1 class="min-w-0 truncate text-h2 md:text-h1">এসিআর — রহিমা খাতুন</h1>
+    <button type="button" class="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted"><i data-lucide="x"></i>বন্ধ করুন</button>
+  </div>
+</header>
+
+<!-- PROPOSAL — everything inside <main> is the page design. -->
+<main id="main-content" class="flex-1">
+
+  <div class="mx-auto w-full max-w-3xl space-y-6 px-4 py-4 md:px-6 md:py-6">
+
+    <!-- whose ACR, which year, its state, and the autosave line -->
+    <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <dl class="flex flex-wrap items-center gap-x-6 gap-y-2">
+        <div><dt class="text-caption text-text-secondary">শিক্ষাবর্ষ</dt><dd class="font-medium">২০২৬-২৭</dd></div>
+        <div><dt class="sr-only">অবস্থা</dt><dd><span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-status-due-bg text-status-due-fg"><i data-lucide="clock" class="size-3.5"></i>চলমান</span></dd></div>
+      </dl>
+      <p role="status" aria-live="polite" class="flex items-center gap-1.5 text-caption text-text-secondary"><i data-lucide="check" class="size-4"></i>সংরক্ষিত</p>
+    </div>
+
+    <div>
+      <!-- Tabs used as the step list: every step is reachable (autosave keeps each one); selected step in ?step= -->
+      <div role="tablist" aria-label="এসিআরের ধাপ" class="flex overflow-x-auto border-b border-border-subtle [scrollbar-width:none]">
+        <button type="button" role="tab" aria-selected="false" class="inline-flex h-11 shrink-0 items-center gap-2 border-b-2 border-transparent px-3 whitespace-nowrap text-text-secondary hover:text-text-primary aria-selected:border-primary aria-selected:font-semibold aria-selected:text-primary md:h-10"><i data-lucide="circle-check" class="size-4 text-status-paid-fg"></i>সময়কাল ও বিবরণ</button>
+        <button type="button" role="tab" aria-selected="true" class="inline-flex h-11 shrink-0 items-center gap-2 border-b-2 border-transparent px-3 whitespace-nowrap text-text-secondary hover:text-text-primary aria-selected:border-primary aria-selected:font-semibold aria-selected:text-primary md:h-10">মানদণ্ড</button>
+        <button type="button" role="tab" aria-selected="false" class="inline-flex h-11 shrink-0 items-center gap-2 border-b-2 border-transparent px-3 whitespace-nowrap text-text-secondary hover:text-text-primary aria-selected:border-primary aria-selected:font-semibold aria-selected:text-primary md:h-10">শেষ মন্তব্য</button>
+      </div>
+
+      <div role="tabpanel" aria-label="মানদণ্ড" class="space-y-4 pt-4 md:pt-6">
+        <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <p class="font-medium" aria-live="polite"><span class="md:hidden">মানদণ্ড ৫ / ১২ · </span>১২টির মধ্যে ৪টিতে নম্বর দেওয়া হয়েছে</p>
+          <p id="acr-keyboard-hint" class="hidden text-text-secondary md:block">নম্বর দিয়ে এগিয়ে যেতে ৪, ৩, ২ বা ১ চাপুন</p>
+        </div>
+
+      <section aria-labelledby="blk0" class="rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">
+        <h2 id="blk0" class="text-h2">অংশ ২: কাজের মান</h2>
+        <ul class="mt-2">
+          <li aria-current="false" class="hidden md:flex flex-col gap-3 py-3 md:border-b md:border-border-subtle md:flex-row md:items-center md:justify-between md:gap-4">
+            <div class="flex min-w-0 flex-wrap items-center gap-2 border-s-2 border-transparent ps-3">
+              <span id="c0" class="font-medium">সময়ানুবর্তিতা</span>
+            </div>
+            <div role="group" aria-labelledby="c0" class="grid shrink-0 grid-cols-2 gap-2 md:flex md:gap-1"><button type="button" aria-pressed="true" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-primary bg-secondary font-semibold text-secondary-foreground"><i data-lucide="check" class="size-4"></i>৪ · অত্যন্ত ভালো</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">৩ · ভালো</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">২ · সন্তোষজনক</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">১ · দুর্বল</button></div>
+          </li>
+          <li aria-current="false" class="hidden md:flex flex-col gap-3 py-3 md:border-b md:border-border-subtle md:flex-row md:items-center md:justify-between md:gap-4">
+            <div class="flex min-w-0 flex-wrap items-center gap-2 border-s-2 border-transparent ps-3">
+              <span id="c1" class="font-medium">পাঠ পরিকল্পনা</span>
+            </div>
+            <div role="group" aria-labelledby="c1" class="grid shrink-0 grid-cols-2 gap-2 md:flex md:gap-1"><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">৪ · অত্যন্ত ভালো</button><button type="button" aria-pressed="true" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-primary bg-secondary font-semibold text-secondary-foreground"><i data-lucide="check" class="size-4"></i>৩ · ভালো</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">২ · সন্তোষজনক</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">১ · দুর্বল</button></div>
+          </li>
+          <li aria-current="false" class="hidden md:flex flex-col gap-3 py-3 md:border-b md:border-border-subtle md:flex-row md:items-center md:justify-between md:gap-4">
+            <div class="flex min-w-0 flex-wrap items-center gap-2 border-s-2 border-transparent ps-3">
+              <span id="c2" class="font-medium">শ্রেণি ব্যবস্থাপনা</span>
+            </div>
+            <div role="group" aria-labelledby="c2" class="grid shrink-0 grid-cols-2 gap-2 md:flex md:gap-1"><button type="button" aria-pressed="true" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-primary bg-secondary font-semibold text-secondary-foreground"><i data-lucide="check" class="size-4"></i>৪ · অত্যন্ত ভালো</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">৩ · ভালো</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">২ · সন্তোষজনক</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">১ · দুর্বল</button></div>
+          </li>
+          <li aria-current="false" class="hidden md:flex flex-col gap-3 py-3 md:border-b md:border-border-subtle md:flex-row md:items-center md:justify-between md:gap-4">
+            <div class="flex min-w-0 flex-wrap items-center gap-2 border-s-2 border-transparent ps-3">
+              <span id="c3" class="font-medium">বিষয়জ্ঞান</span>
+            </div>
+            <div role="group" aria-labelledby="c3" class="grid shrink-0 grid-cols-2 gap-2 md:flex md:gap-1"><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">৪ · অত্যন্ত ভালো</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">৩ · ভালো</button><button type="button" aria-pressed="true" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-primary bg-secondary font-semibold text-secondary-foreground"><i data-lucide="check" class="size-4"></i>২ · সন্তোষজনক</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">১ · দুর্বল</button></div>
+          </li>
+          <li aria-current="true" class="flex flex-col gap-3 py-3 md:border-b md:border-border-subtle md:flex-row md:items-center md:justify-between md:gap-4">
+            <div class="flex min-w-0 flex-wrap items-center gap-2 border-s-2 border-primary ps-3">
+              <span id="c4" class="font-medium">মূল্যায়নের দক্ষতা</span> <span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-muted text-text-secondary"><i data-lucide="circle-minus" class="size-3.5"></i>নম্বর দেওয়া হয়নি</span>
+            </div>
+            <div role="group" aria-labelledby="c4" class="grid shrink-0 grid-cols-2 gap-2 md:flex md:gap-1"><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">৪ · অত্যন্ত ভালো</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">৩ · ভালো</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">২ · সন্তোষজনক</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">১ · দুর্বল</button></div>
+          </li>
+          <li aria-current="false" class="hidden md:flex flex-col gap-3 py-3 md:flex-row md:items-center md:justify-between md:gap-4">
+            <div class="flex min-w-0 flex-wrap items-center gap-2 border-s-2 border-transparent ps-3">
+              <span id="c5" class="font-medium">দলগত কাজ</span> <span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-muted text-text-secondary"><i data-lucide="circle-minus" class="size-3.5"></i>নম্বর দেওয়া হয়নি</span>
+            </div>
+            <div role="group" aria-labelledby="c5" class="grid shrink-0 grid-cols-2 gap-2 md:flex md:gap-1"><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">৪ · অত্যন্ত ভালো</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">৩ · ভালো</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">২ · সন্তোষজনক</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">১ · দুর্বল</button></div>
+          </li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="blk6" class="hidden md:block rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5">
+        <h2 id="blk6" class="text-h2">অংশ ৩: ব্যক্তিগত গুণাবলি</h2>
+        <ul class="mt-2">
+          <li aria-current="false" class="hidden md:flex flex-col gap-3 py-3 md:border-b md:border-border-subtle md:flex-row md:items-center md:justify-between md:gap-4">
+            <div class="flex min-w-0 flex-wrap items-center gap-2 border-s-2 border-transparent ps-3">
+              <span id="c6" class="font-medium">সততা</span> <span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-muted text-text-secondary"><i data-lucide="circle-minus" class="size-3.5"></i>নম্বর দেওয়া হয়নি</span>
+            </div>
+            <div role="group" aria-labelledby="c6" class="grid shrink-0 grid-cols-2 gap-2 md:flex md:gap-1"><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">৪ · অত্যন্ত ভালো</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">৩ · ভালো</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">২ · সন্তোষজনক</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">১ · দুর্বল</button></div>
+          </li>
+          <li aria-current="false" class="hidden md:flex flex-col gap-3 py-3 md:border-b md:border-border-subtle md:flex-row md:items-center md:justify-between md:gap-4">
+            <div class="flex min-w-0 flex-wrap items-center gap-2 border-s-2 border-transparent ps-3">
+              <span id="c7" class="font-medium">শৃঙ্খলাবোধ</span> <span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-muted text-text-secondary"><i data-lucide="circle-minus" class="size-3.5"></i>নম্বর দেওয়া হয়নি</span>
+            </div>
+            <div role="group" aria-labelledby="c7" class="grid shrink-0 grid-cols-2 gap-2 md:flex md:gap-1"><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">৪ · অত্যন্ত ভালো</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">৩ · ভালো</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">২ · সন্তোষজনক</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">১ · দুর্বল</button></div>
+          </li>
+          <li aria-current="false" class="hidden md:flex flex-col gap-3 py-3 md:border-b md:border-border-subtle md:flex-row md:items-center md:justify-between md:gap-4">
+            <div class="flex min-w-0 flex-wrap items-center gap-2 border-s-2 border-transparent ps-3">
+              <span id="c8" class="font-medium">আচরণ</span> <span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-muted text-text-secondary"><i data-lucide="circle-minus" class="size-3.5"></i>নম্বর দেওয়া হয়নি</span>
+            </div>
+            <div role="group" aria-labelledby="c8" class="grid shrink-0 grid-cols-2 gap-2 md:flex md:gap-1"><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">৪ · অত্যন্ত ভালো</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">৩ · ভালো</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">২ · সন্তোষজনক</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">১ · দুর্বল</button></div>
+          </li>
+          <li aria-current="false" class="hidden md:flex flex-col gap-3 py-3 md:border-b md:border-border-subtle md:flex-row md:items-center md:justify-between md:gap-4">
+            <div class="flex min-w-0 flex-wrap items-center gap-2 border-s-2 border-transparent ps-3">
+              <span id="c9" class="font-medium">দায়িত্ববোধ</span> <span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-muted text-text-secondary"><i data-lucide="circle-minus" class="size-3.5"></i>নম্বর দেওয়া হয়নি</span>
+            </div>
+            <div role="group" aria-labelledby="c9" class="grid shrink-0 grid-cols-2 gap-2 md:flex md:gap-1"><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">৪ · অত্যন্ত ভালো</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">৩ · ভালো</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">২ · সন্তোষজনক</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">১ · দুর্বল</button></div>
+          </li>
+          <li aria-current="false" class="hidden md:flex flex-col gap-3 py-3 md:border-b md:border-border-subtle md:flex-row md:items-center md:justify-between md:gap-4">
+            <div class="flex min-w-0 flex-wrap items-center gap-2 border-s-2 border-transparent ps-3">
+              <span id="c10" class="font-medium">উদ্যোগ</span> <span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-muted text-text-secondary"><i data-lucide="circle-minus" class="size-3.5"></i>নম্বর দেওয়া হয়নি</span>
+            </div>
+            <div role="group" aria-labelledby="c10" class="grid shrink-0 grid-cols-2 gap-2 md:flex md:gap-1"><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">৪ · অত্যন্ত ভালো</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">৩ · ভালো</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">২ · সন্তোষজনক</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">১ · দুর্বল</button></div>
+          </li>
+          <li aria-current="false" class="hidden md:flex flex-col gap-3 py-3 md:flex-row md:items-center md:justify-between md:gap-4">
+            <div class="flex min-w-0 flex-wrap items-center gap-2 border-s-2 border-transparent ps-3">
+              <span id="c11" class="font-medium">পোশাক-পরিচ্ছদ</span> <span class="inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap bg-muted text-text-secondary"><i data-lucide="circle-minus" class="size-3.5"></i>নম্বর দেওয়া হয়নি</span>
+            </div>
+            <div role="group" aria-labelledby="c11" class="grid shrink-0 grid-cols-2 gap-2 md:flex md:gap-1"><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">৪ · অত্যন্ত ভালো</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">৩ · ভালো</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">২ · সন্তোষজনক</button><button type="button" aria-pressed="false" class="inline-flex h-14 items-center justify-center gap-1.5 rounded-md border px-3 font-medium md:h-8 md:px-2.5 border-border-functional bg-surface text-text-primary hover:bg-muted">১ · দুর্বল</button></div>
+          </li>
+        </ul>
+      </section>
+
+        <!-- phone only: move between criteria -->
+        <div class="flex justify-between gap-2 md:hidden">
+          <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted"><i data-lucide="chevron-left"></i>আগের মানদণ্ড</button>
+          <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted">পরের মানদণ্ড<i data-lucide="chevron-right"></i></button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</main>
+
+<!-- Footer: secondary action on the left, the ONE primary on the right. 44px at every width.
+     IN THE APP it is "sticky bottom-0 z-30". IN A MOCKUP it stays in normal flow (last child of <body>):
+     the screenshot tool captures the whole page as one tall frame, and a sticky footer would be painted
+     across the middle of it. Do not add "sticky bottom-0" or "fixed" here. -->
+<footer class="border-t border-border-subtle bg-surface">
+
+  <div class="mx-auto flex w-full max-w-3xl items-center justify-between gap-2 px-4 py-3 md:px-6">
+    <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-border-functional bg-surface px-4 font-medium text-text-primary hover:bg-muted"><i data-lucide="chevron-left"></i>পিছনে</button>
+    <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-primary px-4 font-medium text-primary-foreground">পরবর্তী<i data-lucide="chevron-right"></i></button>
+  </div>
+</footer>
+
+<script>lucide.createIcons({ attrs: { width: 18, height: 18, "stroke-width": 1.75, "aria-hidden": "true" } });</script>
+</body>
+</html>

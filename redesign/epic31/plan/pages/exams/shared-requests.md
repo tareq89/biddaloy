@@ -1,0 +1,7 @@
+# Shared requests — lane exams
+
+- exams | `ui/src/hooks/exams.ts` | `useDeleteExam()` hook for the existing `DELETE /exams/:id` (invalidate `examKeys.lists()`) so the list can offer delete (More menu + `ConfirmDialog`) | no delete action on `/exams`; exams are deleted only through the API, as today
+- exams_examId | server `server/src/modules/exams/exam-schedules.service.ts:131` `findOverlapWarnings` | return overlaps as data (`{ subject_id, starts_at, ends_at }[]`) instead of English sentences with `HH:mm:ss` | the Schedule tab ignores `warnings` and computes clashes itself from the loaded rows (exams-2b)
+- exams_templates_templateId | `ui/src/shells` `PageAction` / `DetailShellAction` | optional `disabled?: boolean` and `busy?: boolean` on header actions (rendered like the Button's `disabled` / `loading`) so "সংরক্ষণ করুন" can stay visible but disabled until there are changes | Save is shown only while dirty or saving (`allowed`), and the badge reads "সংরক্ষণ হচ্ছে…" while saving (exams-3b Step 7)
+- exams_seat-plans | server `server/src/modules/seat-plans/seat-plans.service.ts` `findAll` | add `exam_name` (and class name) to each `GET /seat-plans` row | the list has no exam column; plans are told apart by their name only
+- exams_seat-plans_planId | server `seat-plans.service.ts` `findOne` | add `schedules: { id, subject_name, subject_name_bn, date, starts_at, ends_at }[]` to `GET /seat-plans/:id` | the sitting picker shows only `subject_name` (as the server sends it, usually English) with no date or time
