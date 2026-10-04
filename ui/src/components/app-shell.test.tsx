@@ -14,6 +14,7 @@ import {
   APP_SHELL_MAIN_ID,
   AppShell,
   type AppShellNavGroup,
+  type AppShellNavItem,
 } from './app-shell';
 import { BottomNav } from './bottom-nav';
 
@@ -334,17 +335,30 @@ describe('AppShell', () => {
       expect(screen.queryByRole('button', { name: 'Open menu' })).toBeNull();
     });
 
-    it('pads <main> below the bar so content can scroll clear of it', async () => {
+    it('reserves exactly the fixed bar height on the root, not on <main>', async () => {
       renderWithRouter(buildBottomNavTree(portalBar), { initialEntries: ['/'], role: 'PARENT' });
 
       await screen.findByText('Portal content');
-      const main = document.getElementById(APP_SHELL_MAIN_ID);
-      // [8.14.3]: the fixed 'pb-24' became a safe-area-aware calc() so this
-      // bar (and the staff one sharing the same slot) clears the gesture-nav
-      // home indicator in an installed PWA; 'env()' resolves to 0px outside
-      // that one context, so this is a superset of the old fixed value.
-      expect(main?.className).toContain('pb-[calc(6rem+var(--safe-area-bottom))]');
-      expect(main?.className).toContain('md:pb-6');
+      const root = document.querySelector('[data-app-bottom-nav]')?.parentElement;
+      // [31.2.10, B4] 4rem = the `h-16` cell; `--safe-area-bottom` is the
+      // bar's own bottom padding. A short page ends at the bar's top edge.
+      expect(root?.className).toContain('min-h-dvh');
+      expect(root?.className).toContain('pb-[calc(4rem+var(--safe-area-bottom))]');
+      expect(root?.className).toContain('md:pb-0');
+      expect(document.getElementById(APP_SHELL_MAIN_ID)?.className).toBe(
+        'min-w-0 flex-1 p-4 md:p-6',
+      );
+    });
+
+    it('pins the bar to the viewport bottom on phones only', async () => {
+      renderWithRouter(buildBottomNavTree(portalBar), { initialEntries: ['/'], role: 'PARENT' });
+
+      await screen.findByText('Portal content');
+      const bar = document.querySelector('[data-app-bottom-nav]');
+      for (const cls of ['fixed', 'bottom-0', 'inset-x-0', 'md:hidden']) {
+        expect(bar?.className).toContain(cls);
+      }
+      expect(bar?.className).not.toContain('sticky');
     });
 
     it('is axe clean with a bottom bar', async () => {
@@ -362,7 +376,7 @@ describe('AppShell', () => {
       await screen.findByText('Students content');
       expect(screen.getByRole('button', { name: 'Open menu' })).toBeTruthy();
       const main = document.getElementById(APP_SHELL_MAIN_ID);
-      expect(main?.className).toBe('min-w-0 flex-1 p-6');
+      expect(main?.className).toBe('min-w-0 flex-1 p-4 md:p-6');
       expect(screen.queryByRole('navigation', { name: 'Portal' })).toBeNull();
     });
 
@@ -379,7 +393,9 @@ describe('AppShell', () => {
 
       await screen.findByText('Portal content');
       expect(screen.getByRole('button', { name: 'Open menu' })).toBeTruthy();
-      expect(document.getElementById(APP_SHELL_MAIN_ID)?.className).toBe('min-w-0 flex-1 p-6');
+      expect(document.getElementById(APP_SHELL_MAIN_ID)?.className).toBe(
+        'min-w-0 flex-1 p-4 md:p-6',
+      );
     });
   });
 
@@ -602,13 +618,13 @@ describe('AppShell', () => {
       expect(header.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 
-    it('pads <main> with the safe-area-aware bottom offset when bottomNav is set alongside mobileHeaderActions', async () => {
+    it('reserves the safe-area-aware bar height on the root when bottomNav is set alongside mobileHeaderActions', async () => {
       renderWithRouter(buildStaffMobileTree(), { initialEntries: ['/'], role: 'SUPER_ADMIN' });
 
       await screen.findByText('Dashboard content');
-      const main = document.getElementById(APP_SHELL_MAIN_ID);
-      expect(main?.className).toContain('pb-[calc(6rem+var(--safe-area-bottom))]');
-      expect(main?.className).toContain('md:pb-6');
+      const root = document.querySelector('[data-app-bottom-nav]')?.parentElement;
+      expect(root?.className).toContain('pb-[calc(4rem+var(--safe-area-bottom))]');
+      expect(root?.className).toContain('md:pb-0');
     });
 
     // The `[5.2] optional bottomNav slot` block above already
@@ -695,7 +711,11 @@ describe('AppShell', () => {
 
   describe('[31.2.9a] one active item, re-opening groups, phone top bar, drawer', () => {
     /** One persistent AppShell over child routes, so navigation does not remount it. */
-    function layoutTree(items: typeof navItems, groups: AppShellNavGroup[], shellProps = {}) {
+    function layoutTree(
+      items: readonly AppShellNavItem[],
+      groups: AppShellNavGroup[],
+      shellProps = {},
+    ) {
       const rootRoute = createRootRoute({
         component: () => (
           <AppShell navItems={items} navGroups={groups} brand="SchoolManager" {...shellProps}>
