@@ -10,12 +10,7 @@
  * see `empty-state.tsx`'s file comment for the canonical
  * border/elevation/icon-well table this belongs in:
  *
- *   component                border    elevation    icon well
- *   EmptyState (empty)       dashed    none         bg-muted (neutral)
- *   EmptyState (no-results)  solid     none         bg-secondary (brand)
- *   RouteStatusState         dashed    none         bg-muted (neutral)
- *   AccessDeniedState        dashed    none         bg-muted (neutral)
- *   ErrorState                solid    shadow-e1    bg-destructive/10
+ * Same card as the rest of the family (table in `empty-state.tsx`).
  *
  * `role="status"`, not `role="alert"` — a refused permission is not an
  * application fault, exactly the reasoning `RouteStatusState` documents
@@ -65,13 +60,13 @@ export function AccessDeniedState({
     <div
       role="status"
       data-slot="access-denied-state"
-      className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border-subtle bg-card p-8 text-center"
+      className="flex flex-col items-center gap-2 rounded-lg border border-border-subtle bg-surface px-4 py-10 text-center shadow-e1"
     >
-      <div className="mb-1 flex size-14 items-center justify-center rounded-full bg-muted text-muted-foreground [&_svg]:size-8">
+      <div className="flex size-12 items-center justify-center rounded-full bg-muted text-text-secondary [&_svg]:size-6">
         <LockIcon aria-hidden="true" />
       </div>
-      <h1 className="font-medium">{title ?? t('accessDenied.title')}</h1>
-      <p className="max-w-prose text-sm text-muted-foreground">
+      <h1 className="text-h3">{title ?? t('accessDenied.title')}</h1>
+      <p className="max-w-prose text-text-secondary">
         {explanation ?? t('accessDenied.explanation')}
       </p>
       {onAction && (

@@ -18,7 +18,7 @@ describe('EmptyState', () => {
     expect(screen.getByRole('button', { name: 'Create fee structure' })).toBeTruthy();
   });
 
-  it("renders title as a level-1 heading — [8.9.7]'s useRouteFocus depends on every placeholder route having exactly one <h1>", () => {
+  it('renders title as an h2 by default so a page with a PageHeader keeps its only h1 (C17)', () => {
     render(
       <EmptyState
         title="No students"
@@ -26,7 +26,19 @@ describe('EmptyState', () => {
         action={{ label: 'Add student', onClick: vi.fn() }}
       />,
     );
-    expect(screen.getByRole('heading', { level: 1, name: 'No students' })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 2, name: 'No students' })).toBeTruthy();
+  });
+
+  it('headingLevel={1} renders an h1 for a whole-route placeholder', () => {
+    render(<EmptyState headingLevel={1} title="Not found" explanation="Nothing here." />);
+    expect(screen.getByRole('heading', { level: 1, name: 'Not found' })).toBeTruthy();
+  });
+
+  it('renders the action as an outline button', () => {
+    render(<EmptyState title="t" explanation="e" action={{ label: 'Add', onClick: vi.fn() }} />);
+    expect(screen.getByRole('button', { name: 'Add' }).getAttribute('data-variant')).toBe(
+      'outline',
+    );
   });
 
   it('calls the action handler on click', async () => {
@@ -65,8 +77,8 @@ describe('EmptyState', () => {
     );
     const icon = screen.getByTestId('icon');
     const wrapper = icon.parentElement;
-    expect(wrapper?.className).toContain('text-muted-foreground');
-    expect(wrapper?.className).toContain('size-8');
+    expect(wrapper?.className).toContain('text-text-secondary');
+    expect(wrapper?.className).toContain('size-6');
   });
 
   it('renders no icon wrapper at all when no icon is passed', () => {
@@ -90,7 +102,7 @@ describe('EmptyState', () => {
     );
     const root = container.querySelector('[data-slot="empty-state"]');
     expect(root?.getAttribute('data-kind')).toBe('empty');
-    expect(root?.className).toContain('border-dashed');
+    expect(root?.className).not.toContain('border-dashed');
   });
 
   it('renders "no results" as a visually distinct state — a solid outline, because the container is real and populated elsewhere', () => {
