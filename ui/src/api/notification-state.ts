@@ -9,8 +9,17 @@
  * module's own header comment for why this isn't a Zustand/Context store.
  * A future ticket can back this with a real store without changing this
  * module's public surface.
+ *
+ * [31.2.11] History is persisted in `localStorage` per user + school (D4) and
+ * every stored key is purged at logout, like `form-draft-storage.ts`.
  */
-import { getActiveTenant, subscribeAuthState } from './auth-state';
+import {
+  currentSessionGeneration,
+  getAccessToken,
+  getActiveTenant,
+  subscribeAuthState,
+} from './auth-state';
+import { decodeAccessTokenSubject } from './session';
 
 export type NotificationVariant = 'success' | 'error' | 'info';
 
@@ -32,11 +41,66 @@ export interface NotificationRecord {
   variant: NotificationVariant;
 }
 
-// Unbounded growth is a real concern in a long-lived SPA session — same
-// care `use-route-focus.ts`'s module-level anchor map takes. 50 is well
-// past what a bell panel usefully shows before "mark all read" is the
-// obvious next action anyway.
-const MAX_NOTIFICATIONS = 50;
+// Unbounded growth is a real concern in a long-lived SPA session. 1000 per
+// user + school (D4) is far past what anyone scrolls, and still small enough
+// for localStorage.
+const MAX_NOTIFICATIONS = 1000;
+const STORAGE_PREFIX = 'notifications:v1:';
+
+function storageKey(): string | null {
+  const token = getAccessToken();
+  const tenantId = getActiveTenant();
+  const userId = token ? decodeAccessTokenSubject(token) : null;
+  return userId && tenantId ? `${STORAGE_PREFIX}${userId}:${tenantId}` : null;
+}
+
+const VARIANTS: readonly string[] = ['success', 'error', 'info'];
+
+function readStored(key: string): NotificationRecord[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) ?? '[]') as unknown;
+    if (!Array.isArray(parsed)) return [];
+    const tenantId = getActiveTenant();
+    return (parsed as (Partial<NotificationRecord> | null)[])
+      .filter(
+        (r: Partial<NotificationRecord> | null): r is NotificationRecord =>
+          !!r &&
+          typeof r.id === 'string' &&
+          typeof r.message === 'string' &&
+          typeof r.createdAt === 'string' &&
+          typeof r.read === 'boolean' &&
+          VARIANTS.includes(r.variant as string) &&
+          r.tenantId === tenantId,
+      )
+      .slice(0, MAX_NOTIFICATIONS);
+  } catch {
+    return [];
+  }
+}
+
+// ponytail: last writer wins across tabs; listen for the "storage" event if two open tabs must merge their histories.
+function writeStored(): void {
+  const key = storageKey();
+  if (!key) return;
+  try {
+    localStorage.setItem(key, JSON.stringify(notifications));
+  } catch {
+    // quota or blocked storage: the list just stays in memory.
+  }
+}
+
+function purgeStored(): void {
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k?.startsWith(STORAGE_PREFIX)) keys.push(k);
+    }
+    keys.forEach((k) => localStorage.removeItem(k));
+  } catch {
+    // blocked storage: nothing to purge.
+  }
+}
 
 let notifications: NotificationRecord[] = [];
 
@@ -77,6 +141,7 @@ export function pushNotification(
     read: false,
   };
   notifications = [record, ...notifications].slice(0, MAX_NOTIFICATIONS);
+  writeStored();
   notifyNotificationStateChange();
 }
 
@@ -84,30 +149,42 @@ export function markNotificationRead(id: string): void {
   notifications = notifications.map((notification) =>
     notification.id === id ? { ...notification, read: true } : notification,
   );
+  writeStored();
   notifyNotificationStateChange();
 }
 
 export function markAllNotificationsRead(): void {
   notifications = notifications.map((notification) => ({ ...notification, read: true }));
+  writeStored();
   notifyNotificationStateChange();
 }
 
 export function clearNotifications(): void {
   notifications = [];
+  writeStored();
   notifyNotificationStateChange();
 }
 
-// A tenant switch (or logout, which clears the active tenant too) must not
-// let one school's async-outcome history leak into another's bell — the
-// same tenant-isolation instinct as `clearAuthState()`'s own tenant
-// cleanup, just applied to this module's separate piece of state rather
-// than folded into that function directly (this module stays decoupled
-// from auth-state's internals, only subscribing to its change feed).
-let lastSeenTenantId: string | null = getActiveTenant();
+// Auth changes swap the in-memory list for the new user + school's stored one
+// (empty when there is none), so one school's records are never in memory
+// while another is active. A session-generation bump (logout, expiry, failed
+// refresh) also purges every stored key: the next person at this browser must
+// not see them.
+let lastKey = storageKey();
+let lastTenant = getActiveTenant();
+let lastGeneration = currentSessionGeneration();
+notifications = lastKey ? readStored(lastKey) : [];
 subscribeAuthState(() => {
-  const activeTenantId = getActiveTenant();
-  if (activeTenantId !== lastSeenTenantId) {
-    lastSeenTenantId = activeTenantId;
-    clearNotifications();
+  if (currentSessionGeneration() !== lastGeneration) {
+    lastGeneration = currentSessionGeneration();
+    purgeStored();
   }
+  const key = storageKey();
+  const tenant = getActiveTenant();
+  // Tenant is compared too: with no signed-in user the key is null, but a school switch must still empty the list.
+  if (key === lastKey && tenant === lastTenant) return;
+  lastKey = key;
+  lastTenant = tenant;
+  notifications = key ? readStored(key) : [];
+  notifyNotificationStateChange();
 });
