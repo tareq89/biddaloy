@@ -13,10 +13,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuditAction, Permission, UserRole } from '@biddaloy/shared';
+import { AuditAction, Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -62,7 +61,6 @@ export class LanguageController {
   ) {}
 
   @Get()
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.STAFF_HR_READ)
   @ApiOperation({ summary: "List a staff member's language rows." })
   async findAll(
@@ -73,7 +71,6 @@ export class LanguageController {
   }
 
   @Put()
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.STAFF_HR_MANAGE)
   @ApiOperation({ summary: "Replace a staff member's full set of language rows." })
   async replace(

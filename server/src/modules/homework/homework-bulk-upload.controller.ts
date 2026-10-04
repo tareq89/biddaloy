@@ -1,4 +1,12 @@
-import { Body, Controller, Inject, Post, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Inject,
+  Post,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -6,14 +14,13 @@ import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { STRICT_RATE_LIMIT } from '../../rate-limit';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { HomeworkBulkUploadService } from './homework-bulk-upload.service';
 import { CommitHomeworkBulkUploadDto } from './dto/homework-bulk-upload.dto';
-import { UserRole, JwtPayload, Permission } from '@biddaloy/shared';
+import { JwtPayload, Permission } from '@biddaloy/shared';
 
 const BULK_UPLOAD_MAX_FILE_SIZE = 5 * 1024 * 1024;
 
@@ -25,11 +32,11 @@ const BULK_UPLOAD_MAX_FILE_SIZE = 5 * 1024 * 1024;
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
 export class HomeworkBulkUploadController {
   constructor(
-    @Inject(HomeworkBulkUploadService) private readonly bulkUploadService: HomeworkBulkUploadService,
+    @Inject(HomeworkBulkUploadService)
+    private readonly bulkUploadService: HomeworkBulkUploadService,
   ) {}
 
   @Post('validate')
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
   @RequirePermissions(Permission.HOMEWORK_IMPORT)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: BULK_UPLOAD_MAX_FILE_SIZE } }))
@@ -50,7 +57,6 @@ export class HomeworkBulkUploadController {
   }
 
   @Post('commit')
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
   @RequirePermissions(Permission.HOMEWORK_IMPORT)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({

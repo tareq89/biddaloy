@@ -166,13 +166,39 @@ flowchart LR
 which capability from `ROLE_PERMISSIONS` (`shared/src/enums/permissions.ts`)
 the route exercises. Both run today.
 
-After [10.4] every tenant route declares `@RequirePermissions` and
-`ROLE_PERMISSIONS` agrees with every `@Roles` list. `@Roles` now carries only
-the narrowings listed in `ROLE_NARROWINGS` (`permission-matrix.e2e-spec.ts`).
-It can retire route-by-route: give a narrowed route its own permission (e.g.
-`STUDENT_LIST` for the roster), grant that to the roles in `@Roles`, delete
-the `@Roles` line, delete the `ROLE_NARROWINGS` entry. When the list is
-empty, delete `RolesGuard`. Tracked as a follow-up, not part of Epic 10.0.
+On a tenant route with `@RequirePermissions`, the permission is the real
+gate. `@Roles` now exists only on routes listed in `ROLE_NARROWINGS` or
+`IDENTITY_SCOPED` (`permission-matrix.e2e-spec.ts`). Everywhere else it was
+redundant and was deleted (Epic 24.0).
+
+`IDENTITY_SCOPED` routes are the exception: some carry no
+`@RequirePermissions` at all, and `PermissionsGuard` lets a route with no
+permission metadata through. There the `@Roles` list plus the service's own
+identity check are the gate. Example: `POST /leave/requests` and
+`GET /leave/balance` act only on the caller's own staff profile.
+
+Which status a refused request gets depends on which guard refuses it:
+
+| Request                                                                                      | Refused by         | Status                                           |
+| -------------------------------------------------------------------------------------------- | ------------------ | ------------------------------------------------ |
+| Valid token, wrong role, route has **no** `@Roles` (most routes)                             | `PermissionsGuard` | **403** `Requires permission(s): …`              |
+| Valid token, wrong role, route **still has** `@Roles` (a narrowing or identity-scoped route) | `RolesGuard`       | **401** today. #1360 (#729) changes this to 403. |
+| `X-Role` names a role the user does not hold in this tenant                                  | `ContextGuard`     | **401**                                          |
+| Missing or bad token                                                                         | `AuthGuard('jwt')` | **401**                                          |
+
+Example, with a PARENT token for the same school:
+
+- `GET /guardians` (no `@Roles`; PARENT lacks `GUARDIAN_READ`) → `403`.
+- `GET /homework` (keeps `@Roles(ADMIN, TEACHER)`, see below) → `401`.
+
+Example of a narrowing: `GET /homework`. PARENT and STUDENT hold
+`HOMEWORK_READ` (for their own child's view). This route is the teacher/admin
+list across all students, so it keeps `@Roles(ADMIN, TEACHER)` to keep
+families out.
+
+A narrowing can retire later: give the route its own permission, grant it to
+the roles in `@Roles`, delete the `@Roles` line and the `ROLE_NARROWINGS`
+entry. When the list is empty, delete `RolesGuard`.
 
 ### Step-up approval (16.2) — a second person's OK for a risky action
 

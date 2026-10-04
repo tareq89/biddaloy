@@ -46,14 +46,6 @@ export class AttendanceSummaryController {
   ) {}
 
   @Get('students/:studentId/summary')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.EXECUTIVE,
-    UserRole.ACCOUNTANT,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
   @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({
     summary:
@@ -73,14 +65,6 @@ export class AttendanceSummaryController {
   }
 
   @Get('students/:studentId/days')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.EXECUTIVE,
-    UserRole.ACCOUNTANT,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
   @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiOperation({
     summary: "One student's day-by-day marks for one month — drives the portal month grid.",

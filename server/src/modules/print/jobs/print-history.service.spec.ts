@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
 import { PrintHistoryService } from './print-history.service';
 import { PrintJobsService } from './print-jobs.service';
 import { PrintHistoryController, PrintJobActionsController } from './print-history.controller';
@@ -146,26 +146,25 @@ describe('PrintJobsService.confirm / reprint access', () => {
 });
 
 describe('print history route roles (guards)', () => {
-  it('reading the print history is ADMIN + EXECUTIVE only, so ACCOUNTANT is denied', () => {
+  // The permission is the gate; @Roles was retired (Epic 24.0), so no roles metadata.
+  it('reading the print history is gated by PRINT_HISTORY_READ', () => {
     for (const route of ['list', 'item']) {
-      const roles = meta('roles', PrintHistoryController.prototype, route);
-      expect(roles).toEqual([UserRole.ADMIN, UserRole.EXECUTIVE]);
-      expect(roles).not.toContain(UserRole.ACCOUNTANT);
+      expect(meta('roles', PrintHistoryController.prototype, route)).toBeUndefined();
       expect(meta('permissions', PrintHistoryController.prototype, route)).toContain(
         Permission.PRINT_HISTORY_READ,
       );
     }
   });
 
-  it('only ADMIN can revoke, behind DOCUMENT_REVOKE', () => {
-    expect(meta('roles', PrintHistoryController.prototype, 'revoke')).toEqual([UserRole.ADMIN]);
+  it('revoke is gated by DOCUMENT_REVOKE', () => {
+    expect(meta('roles', PrintHistoryController.prototype, 'revoke')).toBeUndefined();
     expect(meta('permissions', PrintHistoryController.prototype, 'revoke')).toContain(
       Permission.DOCUMENT_REVOKE,
     );
   });
 
-  it('subject-history, confirm and reprint are open to ACCOUNTANT via DOCUMENT_PRINT', () => {
-    expect(meta('roles', PrintJobActionsController)).toEqual([UserRole.ADMIN, UserRole.ACCOUNTANT]);
+  it('subject-history, confirm and reprint are gated by DOCUMENT_PRINT', () => {
+    expect(meta('roles', PrintJobActionsController)).toBeUndefined();
     expect(meta('permissions', PrintJobActionsController)).toContain(Permission.DOCUMENT_PRINT);
   });
 });

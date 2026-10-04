@@ -1,6 +1,5 @@
 import { createReadStream } from 'node:fs';
 import {
-  applyDecorators,
   Body,
   Controller,
   Get,
@@ -15,12 +14,11 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
 import type { JwtPayload } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
-import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
@@ -34,18 +32,13 @@ import {
 type Tenant = { id: string };
 
 // Method-level on purpose: the class has both reader and writer routes.
-const read = () =>
-  applyDecorators(
-    Roles(UserRole.ADMIN, UserRole.ACCOUNTANT),
-    RequirePermissions(Permission.DOCUMENT_PRINT),
-  );
-const write = () =>
-  applyDecorators(Roles(UserRole.ADMIN), RequirePermissions(Permission.PRINT_TEMPLATE_MANAGE));
+const read = () => RequirePermissions(Permission.DOCUMENT_PRINT);
+const write = () => RequirePermissions(Permission.PRINT_TEMPLATE_MANAGE);
 
 /**
- * [32.2.1] Print templates. Reads: ADMIN/ACCOUNTANT (EXECUTIVE has no
- * DOCUMENT_PRINT). Writes: ADMIN with PRINT_TEMPLATE_MANAGE. Roles and
- * permissions are per-method on purpose.
+ * [32.2.1] Print templates. Reads need DOCUMENT_PRINT, writes need
+ * PRINT_TEMPLATE_MANAGE; PermissionsGuard alone decides (Epic 24 #1357
+ * retired the @Roles that only mirrored those holders).
  */
 @ApiTags('print-templates')
 @ApiTenantAuth()
