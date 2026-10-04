@@ -26,7 +26,6 @@ export class EnrollmentController {
   @Post()
   // [10.4] G3 grants AC STUDENT_UPDATE (front-office intake); G1 tightens E
   // off (no STUDENT_UPDATE, no write surface).
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.STUDENT_UPDATE)
   create(
     @Body() dto: CreateEnrollmentDto,
@@ -77,7 +76,6 @@ export class EnrollmentController {
 
   @Patch(':id')
   // [10.4] G3, G1 — same reasoning as create() above.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.STUDENT_UPDATE)
   update(
     @Param('id') id: string,

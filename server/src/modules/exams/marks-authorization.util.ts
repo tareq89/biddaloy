@@ -18,7 +18,7 @@ const TENANT_WIDE_READ_ROLES: string[] = [UserRole.ADMIN, UserRole.EXECUTIVE];
 /**
  * The single "may this caller write marks for this section-subject?"
  * gate (19.4.1 D20), a sibling of `AttendanceAccessService`. The route's
- * `@Roles(ADMIN, TEACHER)` + `@RequirePermissions(MARK_ENTER)` is only the
+ * `@RequirePermissions(MARK_ENTER)` (held by ADMIN and TEACHER) is only the
  * coarse gate; this is the real, object-level one. Both
  * `MarksService.upsertBatch` and `MarkGridService.submit` call this
  * directly rather than re-deriving the same join — see the issue's own

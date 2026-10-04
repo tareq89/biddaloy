@@ -14,12 +14,11 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
-import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
+import { JwtPayload, Permission } from '@biddaloy/shared';
 import { requestContext } from '../../common/request-context.util';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -28,12 +27,11 @@ import { CreateStudentNoteDto, StudentNoteResponseDto } from './dto/student-note
 
 type Tenant = { id: string; role: string };
 
-/** [39.2.1] Staff-only (D4): PARENT/STUDENT are excluded by @Roles. */
+/** [39.2.1] Staff-only (D4): PARENT/STUDENT hold no notes permission. */
 @ApiTags('student-notes')
 @ApiTenantAuth()
 @Controller('students')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
-@Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
 export class StudentNotesController {
   constructor(@Inject(StudentNotesService) private readonly service: StudentNotesService) {}
 

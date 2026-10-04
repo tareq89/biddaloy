@@ -112,10 +112,10 @@ describe('Student lifecycle (e2e journey)', () => {
     });
   });
 
-  it('unauthorised role cannot record leave (TEACHER -> 401)', async () => {
+  it('unauthorised role cannot record leave (TEACHER -> 403)', async () => {
     await as(http().post(`/api/v1/students/${studentId}/leave`), UserRole.TEACHER)
       .send({ type: 'WITHDRAWN', occurred_on: '2026-03-01', reason: 'x' })
-      .expect(401);
+      .expect(403);
   });
 
   it('note round-trip: create -> list -> delete -> gone', async () => {

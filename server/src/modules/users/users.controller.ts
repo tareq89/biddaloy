@@ -77,7 +77,6 @@ export class UserController {
 
   @Post('users')
   // [10.4] G1 — E tightened off: lacks USER_CREATE.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_CREATE)
   async createUser(
     @Body() dto: CreateUserDto,
@@ -115,7 +114,6 @@ export class UserController {
   @Post('users/:id/invitation/resend')
   // [10.4] G16 — resending an invite is part of creating a member; G1
   // tightens E off.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_CREATE)
   @HttpCode(200)
   @Throttle({ default: STRICT_RATE_LIMIT })
@@ -135,7 +133,6 @@ export class UserController {
   }
 
   @Post('users/:id/reset-password')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_UPDATE)
   @HttpCode(200)
   @Throttle({ default: STRICT_RATE_LIMIT })
@@ -164,7 +161,6 @@ export class UserController {
   @Delete('users/:id/invitation')
   // [10.4] G16 — revoking an invite is part of creating a member; G1
   // tightens E off.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_CREATE)
   @ApiOperation({ summary: 'Revoke any live invitation link for this user.' })
   async revokeInvitation(
@@ -178,7 +174,6 @@ export class UserController {
   @Get('users')
   // [10.4] G7 — AC, E, T tightened off: `/staff` is hidden from them, and no
   // other page calls this route for those roles.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_READ)
   async findAllUsers(
     @Query() query: QueryUserDto,
@@ -207,7 +202,6 @@ export class UserController {
    * `GET users/me` below. [12.6]
    */
   @Post('users/invitations/preview')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_CREATE)
   @ApiOperation({
     summary:
@@ -222,7 +216,6 @@ export class UserController {
   }
 
   @Post('users/invitations/batch')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_CREATE)
   @HttpCode(202)
   @Throttle({ default: STRICT_RATE_LIMIT })
@@ -244,7 +237,6 @@ export class UserController {
   }
 
   @Get('users/invitations/batch/:batchId')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_CREATE)
   @ApiOperation({ summary: 'Progress of a previously dispatched invitation batch.' })
   @ApiOkResponse({ type: InviteBatchStatusResponseDto })
@@ -382,7 +374,6 @@ export class UserController {
 
   @Get('users/:id')
   // [10.4] G7 — AC, E, T tightened off; see findAllUsers() above.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_READ)
   @ApiResponse({ status: 200, type: UserResponseDto })
   async findOneUser(
@@ -397,7 +388,6 @@ export class UserController {
 
   @Patch('users/:id')
   // [10.4] G1 — E tightened off: lacks USER_UPDATE.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_UPDATE)
   async updateUser(
     @Param('id') id: string,
@@ -411,7 +401,6 @@ export class UserController {
   }
 
   @Delete('users/:id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.MEMBER_REMOVE)
   @ApiOperation({
     summary: "Remove a member's access to this school (deletes the membership, not the account).",
@@ -428,7 +417,6 @@ export class UserController {
 
   @Post('teachers')
   // [10.4] G1 — E tightened off: lacks USER_CREATE.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_CREATE)
   @ApiOperation({ summary: 'Promote an existing tenant member to a teacher profile.' })
   @ApiResponse({ status: 201, type: TeacherResponseDto })
@@ -443,7 +431,6 @@ export class UserController {
   @Get('teachers')
   // [10.4] G7 — reference data (class form, section teacher assignment,
   // global search), same bucket as G4's academic-structure reads.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.ACADEMIC_STRUCTURE_READ)
   @ApiResponse({ status: 200, type: TeacherListResponseDto })
   async findAllTeachers(
@@ -456,7 +443,6 @@ export class UserController {
 
   @Patch('teachers/:id')
   // [10.4] G1 — E tightened off: lacks USER_UPDATE.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.USER_UPDATE)
   @ApiResponse({ status: 200, type: TeacherResponseDto })
   async updateTeacher(
@@ -470,7 +456,6 @@ export class UserController {
 
   @Get('teachers/:teacherId/assignments')
   // [29.0] Same guard stack as `GET('teachers')` above (D5).
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.ACADEMIC_STRUCTURE_READ)
   @ApiOperation({ summary: "List a teacher's section/subject assignments." })
   getTeacherAssignments(

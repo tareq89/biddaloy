@@ -3,7 +3,6 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -11,7 +10,7 @@ import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator
 import { AuditService } from './audit.service';
 import { QueryAuditLogDto } from './dto/audit-log.dto';
 import { AuditLogListResponseDto, AuditLogResponseDto } from './dto/audit-log-response.dto';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
 
 @ApiTags('audit-logs')
 @ApiTenantAuth()
@@ -21,7 +20,6 @@ export class AuditController {
   constructor(@Inject(AuditService) private readonly auditService: AuditService) {}
 
   @Get()
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.AUDIT_LOG_READ)
   @ApiOperation({
     summary:
@@ -43,7 +41,6 @@ export class AuditController {
   @Get('entity/:entityType/:entityId')
   // [10.4] G6 — per-entity Activity tab; object-scoped, distinct from the
   // tenant-wide AUDIT_LOG_READ above.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.AUDIT_ENTITY_HISTORY_READ)
   @ApiOperation({
     summary: "List one entity's audit trail (e.g. a single student's activity tab), newest first.",

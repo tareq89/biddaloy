@@ -850,6 +850,9 @@ describe('Permission matrix (regression)', () => {
 
     walkRoutes(({ controllerName, methodLabel, fullPath, roles, permissions }) => {
       if (permissions.length === 0) return; // self-service / platform — not a narrowing question
+      // #1357: no @Roles means RolesGuard lets every role through and PermissionsGuard alone
+      // decides — that is the epic-24 default, not a narrowing.
+      if (roles.length === 0) return;
 
       const holders = allRoles.filter((role) =>
         permissions.every((permission) => roleHasPermission(role, permission)),

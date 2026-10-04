@@ -548,7 +548,7 @@ describe('Fee Generations E2E', () => {
         .set('Authorization', `Bearer ${token}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.TEACHER)
-        .expect(401);
+        .expect(403);
     });
   });
 });

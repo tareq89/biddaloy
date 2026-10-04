@@ -91,7 +91,7 @@ describe('Recurring Schedules E2E', () => {
   });
 
   describe('permissions', () => {
-    it('denies POST /fees/schedules to a TEACHER (401 — role not in @Roles list)', async () => {
+    it('denies POST /fees/schedules to a TEACHER (403 — lacks SCHEDULE_MANAGE)', async () => {
       const feeStructureId = await createFeeStructure();
 
       await supertest(app.getHttpServer())
@@ -107,7 +107,7 @@ describe('Recurring Schedules E2E', () => {
           fee_structure_ids: [feeStructureId],
           starts_on: '2026-01-01',
         })
-        .expect(401);
+        .expect(403);
     });
 
     it('denies a TEACHER GET /fees/schedules (401 — role not in @Roles list; unlike FeeGenerationsController, a schedule read exposes tenant-wide audience data, not a class-scoped list)', async () => {

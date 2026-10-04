@@ -21,12 +21,11 @@ import type { Request, Response } from 'express';
 import { requestContext } from '../../common/request-context.util';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
-import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
+import { JwtPayload, Permission } from '@biddaloy/shared';
 import { FamilyAccessService } from './family-access.service';
 import { STUDENT_PHOTO_MAX_BYTES, StudentPhotoService } from './student-photo.service';
 
@@ -43,7 +42,6 @@ export class StudentPhotoController {
   // There is no `POST students/:id`, so this static path cannot collide with
   // `POST students/:id/photo`.
   @Post('students/photos/bulk')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.STUDENT_UPDATE)
   @UseInterceptors(
     FilesInterceptor('files', 25, { limits: { fileSize: STUDENT_PHOTO_MAX_BYTES * 2, files: 25 } }),
@@ -71,7 +69,6 @@ export class StudentPhotoController {
   }
 
   @Post('students/:id/photo')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.STUDENT_UPDATE)
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: STUDENT_PHOTO_MAX_BYTES } }))
   @ApiOperation({ summary: 'Upload a student photo (PNG/JPEG/WebP). Re-encoded to JPEG.' })
@@ -92,15 +89,7 @@ export class StudentPhotoController {
   }
 
   @Get('students/:id/photo')
-  // Same roles + permission + linkage check as `GET students/:id`.
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
+  // Same permission + linkage check as `GET students/:id`.
   @RequirePermissions(Permission.STUDENT_READ)
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({

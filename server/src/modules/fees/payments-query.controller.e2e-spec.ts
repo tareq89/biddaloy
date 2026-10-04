@@ -182,9 +182,8 @@ describe('GET /payments, GET /payments/:id (16.4.3)', () => {
       [ACCOUNTANT_USER_ID, SEED_TENANT_ID, UserRole.ACCOUNTANT],
     );
 
-    // TEACHER is not in `GET /payments`'s @Roles() list — used below for the
-    // RolesGuard-denial test (see the comment there for why a genuine
-    // PermissionsGuard denial isn't reachable through these two routes).
+    // TEACHER lacks PAYMENT_READ — used below for the PermissionsGuard
+    // 403 tests on `GET /payments` and `GET /payments/:id`.
     await dataSource.query(
       `INSERT INTO users (id, email, password_hash, full_name, status, created_at, updated_at)
        VALUES ($1, $2, $3, 'Payments Query E2E Teacher', 'ACTIVE', NOW(), NOW())
@@ -243,22 +242,14 @@ describe('GET /payments, GET /payments/:id (16.4.3)', () => {
         .expect(200);
     });
 
-    // `GET /payments`/`GET /payments/:id` only allow ADMIN/ACCOUNTANT via
-    // `@Roles()`, and both hold PAYMENT_READ in ROLE_PERMISSIONS (see
-    // shared/src/enums/permissions.ts) — so, same conclusion as
-    // `checkout.controller.e2e-spec.ts`'s documented finding, there is no
-    // role/membership that reaches PermissionsGuard through *these two
-    // routes* and gets refused there: any role outside @Roles() (e.g.
-    // TEACHER, which lacks PAYMENT_READ) is rejected by RolesGuard first
-    // (401), never reaching PermissionsGuard's 403 branch. This is the
-    // closest verifiable denial these two routes can produce.
-    it('returns 401 for a role outside @Roles() (RolesGuard)', async () => {
+    // TEACHER lacks PAYMENT_READ, so PermissionsGuard refuses it (403).
+    it('returns 403 for a role without PAYMENT_READ (PermissionsGuard)', async () => {
       await supertest(app.getHttpServer())
         .get(`${API}/payments`)
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .set('X-Role', UserRole.TEACHER)
-        .expect(401);
+        .expect(403);
     });
 
     it('returns 401 when X-Tenant-ID is missing', async () => {
@@ -404,7 +395,7 @@ describe('GET /payments, GET /payments/:id (16.4.3)', () => {
         .expect(200);
     });
 
-    it('returns 401 for a role outside @Roles() (RolesGuard)', async () => {
+    it('returns 403 for a role without PAYMENT_READ (PermissionsGuard)', async () => {
       const student = await createStudent();
       const payment = await createPayment(student, SEED_TENANT_ID);
 
@@ -413,7 +404,7 @@ describe('GET /payments, GET /payments/:id (16.4.3)', () => {
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', SEED_TENANT_ID)
         .set('X-Role', UserRole.TEACHER)
-        .expect(401);
+        .expect(403);
     });
 
     it('returns 401 when X-Tenant-ID is missing', async () => {

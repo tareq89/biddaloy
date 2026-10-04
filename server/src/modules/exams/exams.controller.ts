@@ -16,7 +16,6 @@ import { ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -24,7 +23,7 @@ import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator
 import { requestContext } from '../../common/request-context.util';
 import { ExamsService } from './exams.service';
 import { CreateExamDto, CreateExamResponseDto, UpdateExamDto, QueryExamDto } from './dto/exams.dto';
-import { Permission, UserRole, JwtPayload } from '@biddaloy/shared';
+import { Permission, JwtPayload } from '@biddaloy/shared';
 
 @ApiTags('exams')
 @ApiTenantAuth()
@@ -34,7 +33,6 @@ export class ExamsController {
   constructor(private readonly examsService: ExamsService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.EXAM_MANAGE)
   @ApiOperation({ summary: 'Create an exam, optionally building its components from a template.' })
   @ApiCreatedResponse({ type: CreateExamResponseDto })
@@ -54,7 +52,6 @@ export class ExamsController {
   // for any exam id in the tenant. `findOne` and every write stay
   // ADMIN + EXAM_MANAGE.
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.MARK_VIEW)
   @ApiOperation({ summary: 'List exams for the current tenant.' })
   findAll(@Query() query: QueryExamDto, @CurrentTenant() tenant: { id: string; role: string }) {
@@ -62,7 +59,6 @@ export class ExamsController {
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.EXAM_MANAGE)
   @ApiOperation({ summary: 'Get a single exam by ID.' })
   findOne(
@@ -73,7 +69,6 @@ export class ExamsController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.EXAM_MANAGE)
   @ApiOperation({ summary: 'Update an exam.' })
   update(
@@ -87,7 +82,6 @@ export class ExamsController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.EXAM_MANAGE)
   @ApiOperation({ summary: 'Delete an exam.' })
   remove(

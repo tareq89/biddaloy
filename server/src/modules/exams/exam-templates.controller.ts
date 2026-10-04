@@ -16,7 +16,6 @@ import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestj
 import { Request } from 'express';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -29,7 +28,7 @@ import {
   ExamTemplateSummaryDto,
   UpdateExamTemplateDto,
 } from './dto/exam-template.dto';
-import { Permission, UserRole, JwtPayload } from '@biddaloy/shared';
+import { Permission, JwtPayload } from '@biddaloy/shared';
 
 type Tenant = { id: string; role: string };
 
@@ -38,7 +37,6 @@ type Tenant = { id: string; role: string };
 @ApiTenantAuth()
 @Controller('exam-templates')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
-@Roles(UserRole.ADMIN)
 @RequirePermissions(Permission.EXAM_MANAGE)
 export class ExamTemplatesController {
   constructor(private readonly service: ExamTemplatesService) {}

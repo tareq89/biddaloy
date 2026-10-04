@@ -64,7 +64,6 @@ export class SchoolsController {
   }
 
   @Get(':id/settings')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   @RequirePermissions(Permission.SETTINGS_MANAGE)
   // Credential-bearing read: every secret's masked hint is still
   // information about that school's provider accounts, worth a stricter
@@ -89,7 +88,6 @@ export class SchoolsController {
   }
 
   @Patch(':id/settings')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   @RequirePermissions(Permission.SETTINGS_MANAGE)
   @Throttle({ default: SETTINGS_RATE_LIMIT })
   @ApiOperation({

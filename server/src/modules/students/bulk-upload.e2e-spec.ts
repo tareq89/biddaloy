@@ -196,11 +196,11 @@ describe('Bulk Student Upload E2E', () => {
       }
     });
 
-    it('returns 401 for TEACHER role on validate', async () => {
+    it('returns 403 for TEACHER role on validate', async () => {
       const buffer = await buildXlsxBuffer([rowValues(REQUIRED_HEADERS)]);
 
-      const res = await validate(buffer, { role: UserRole.TEACHER }).expect(401);
-      expect(res.body.message).toContain('Requires one of roles');
+      const res = await validate(buffer, { role: UserRole.TEACHER }).expect(403);
+      expect(res.body.message).toContain('Requires permission(s)');
     });
 
     it('a row error blocks commit entirely, even though good rows exist', async () => {

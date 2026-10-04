@@ -231,26 +231,23 @@ describe('Workbook Backup E2E', () => {
         expect(res.status).not.toBe(403);
       });
 
-      // RolesGuard (@Roles(ADMIN, SUPER_ADMIN)) rejects a role outside that
-      // list with 401 (see `RolesGuard.canActivate` — it throws
-      // UnauthorizedException, not Forbidden, on a role mismatch), so
-      // TEACHER and ACCOUNTANT never even reach PermissionsGuard here.
-      it(`${route.name} rejects TEACHER with 401 (role guard)`, async () => {
+      // PermissionsGuard rejects a role without BACKUP_MANAGE with 403.
+      it(`${route.name} rejects TEACHER with 403 (permission guard)`, async () => {
         const id = await insertJob(TENANT_ID);
         await supertest(app.getHttpServer())
           [route.method](route.path(id))
           .set('Authorization', `Bearer ${teacherToken}`)
           .set('X-Tenant-ID', TENANT_ID)
-          .expect(401);
+          .expect(403);
       });
 
-      it(`${route.name} rejects ACCOUNTANT with 401 (role guard, before permission check)`, async () => {
+      it(`${route.name} rejects ACCOUNTANT with 403 (permission guard)`, async () => {
         const id = await insertJob(TENANT_ID);
         await supertest(app.getHttpServer())
           [route.method](route.path(id))
           .set('Authorization', `Bearer ${accountantToken}`)
           .set('X-Tenant-ID', TENANT_ID)
-          .expect(401);
+          .expect(403);
       });
 
       it(`${route.name} rejects no token with 401`, async () => {
@@ -378,13 +375,13 @@ describe('Workbook Backup E2E', () => {
     // Kept to a single guard-rejection request (rather than the full
     // TEACHER/ACCOUNTANT/no-token matrix used for the other routes) because
     // this route alone sits behind STRICT_RATE_LIMIT (5 req/60s per IP).
-    it('rejects TEACHER with 401 (role guard, before permission check)', async () => {
+    it('rejects TEACHER with 403 (permission guard)', async () => {
       await supertest(app.getHttpServer())
         .post('/api/v1/backup/export')
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({})
-        .expect(401);
+        .expect(403);
     });
 
     it('returns 202 with a uuid job_id and inserts a QUEUED row for the caller tenant', async () => {
@@ -411,14 +408,14 @@ describe('Workbook Backup E2E', () => {
   });
 
   describe('PATCH /backup/jobs/:id/pin', () => {
-    it('rejects TEACHER with 401 (role guard)', async () => {
+    it('rejects TEACHER with 403 (permission guard)', async () => {
       const id = await insertJob(TENANT_ID);
       await supertest(app.getHttpServer())
         .patch(`/api/v1/backup/jobs/${id}/pin`)
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .send({ pinned: true })
-        .expect(401);
+        .expect(403);
     });
 
     it('404s for a job under another tenant', async () => {

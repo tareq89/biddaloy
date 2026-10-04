@@ -1,12 +1,11 @@
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
 import type { PresetPack, PresetStatus, PresetSummary } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { PresetRegistryService } from './preset-registry.service';
@@ -45,7 +44,6 @@ export class PresetsController {
   ) {}
 
   @Get()
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CURRICULUM_PRESET_APPLY)
   @ApiOperation({ summary: 'List available curriculum presets.' })
   list(): PresetSummary[] {
@@ -54,7 +52,6 @@ export class PresetsController {
 
   // Declared before `:id` so "status" is not read as an id.
   @Get('status')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CURRICULUM_PRESET_APPLY)
   @ApiOperation({
     summary: 'Whether this school can apply a preset (AVAILABLE / APPLIED / CUSTOM).',
@@ -64,7 +61,6 @@ export class PresetsController {
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.CURRICULUM_PRESET_APPLY)
   @ApiOperation({
     summary: 'Preview one preset pack (clients URL-encode the slash in ids like bd/nctb).',

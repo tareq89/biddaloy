@@ -108,9 +108,9 @@ describe('Classes & Sections E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
         .send({ name: 'Role Check', academic_year_id: SEED_ACADEMIC_YEAR_ID })
-        .expect(401);
+        .expect(403);
 
-      expect(res.body.message).toContain('Requires one of roles');
+      expect(res.body.message).toContain('Requires permission(s)');
     });
 
     it('should return 400 for invalid DTO (missing required fields)', async () => {
@@ -457,14 +457,7 @@ describe('Classes & Sections E2E', () => {
       await userRepo.delete({ id: user.id });
     });
 
-    it('returns 401 for STUDENT role (read roles are ADMIN/ACCOUNTANT/EXECUTIVE/TEACHER only)', async () => {
-      // `RolesGuard` (`context.guard.ts`) throws `UnauthorizedException`,
-      // not `ForbiddenException`, for a role mismatch — 401, not 403 — so
-      // the assertion below matches that guard's actual behaviour rather
-      // than the REST convention of 403 for "authenticated but not
-      // permitted". This is project-wide `RolesGuard` behaviour, not
-      // something specific to this endpoint, and out of scope to change
-      // here.
+    it('returns 403 for STUDENT role (lacks ACADEMIC_STRUCTURE_READ)', async () => {
       // Reuses the STUDENT-role user seeded by the `POST /classes` 403
       // test above — `ON CONFLICT DO NOTHING` makes this safe to repeat.
       await dataSource.query(
@@ -490,9 +483,9 @@ describe('Classes & Sections E2E', () => {
         .set('Authorization', `Bearer ${studentToken}`)
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
-        .expect(401);
+        .expect(403);
 
-      expect(res.body.message).toContain('Requires one of roles');
+      expect(res.body.message).toContain('Requires permission(s)');
     });
 
     it('returns 404 for a class in another tenant', async () => {
@@ -581,7 +574,7 @@ describe('Classes & Sections E2E', () => {
       await cleanup();
     });
 
-    it('returns 401 for a non-ADMIN role (permission-denied)', async () => {
+    it('returns 403 for a non-ADMIN role (permission-denied)', async () => {
       const { classId, sectionId, teacherId, cleanup } = await seedClassSectionTeacher();
 
       const inserted = await dataSource.query(
@@ -604,8 +597,8 @@ describe('Classes & Sections E2E', () => {
           .set('X-Tenant-ID', TENANT_ID)
           .set('X-Role', UserRole.TEACHER)
           .send({ teacher_id: teacherId })
-          .expect(401);
-        expect(res.body.message).toContain('Requires one of roles');
+          .expect(403);
+        expect(res.body.message).toContain('Requires permission(s)');
       } finally {
         // [pr-fix #1035] `ON CONFLICT DO NOTHING` means `inserted` is empty
         // when the seed admin already had a TEACHER membership — only

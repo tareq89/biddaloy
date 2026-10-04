@@ -13,12 +13,11 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
-import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
+import { JwtPayload, Permission } from '@biddaloy/shared';
 import { requestContext } from '../../common/request-context.util';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -39,14 +38,12 @@ export class StudentPublicExamsController {
   constructor(private readonly service: StudentPublicExamsService) {}
 
   @Get(':id/public-exams')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.STUDENT_RECORDS_READ)
   list(@Param('id', ParseUUIDPipe) id: string, @CurrentTenant() tenant: Tenant) {
     return this.service.list(id, tenant.id);
   }
 
   @Post(':id/public-exams')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.STUDENT_RECORDS_WRITE)
   create(
     @Param('id', ParseUUIDPipe) id: string,
@@ -59,7 +56,6 @@ export class StudentPublicExamsController {
   }
 
   @Patch(':id/public-exams/:examId')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.STUDENT_RECORDS_WRITE)
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -73,7 +69,6 @@ export class StudentPublicExamsController {
   }
 
   @Delete(':id/public-exams/:examId')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.STUDENT_RECORDS_WRITE)
   remove(
     @Param('id', ParseUUIDPipe) id: string,

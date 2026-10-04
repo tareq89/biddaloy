@@ -73,7 +73,6 @@ export class StudentController {
   @Post('students')
   // [10.4] G3 grants AC STUDENT_CREATE (front-office intake); G1 tightens E
   // off (no write surface).
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.STUDENT_CREATE)
   async createStudent(
     @Body() dto: CreateStudentDto,
@@ -89,7 +88,6 @@ export class StudentController {
   // workbook import). No shim for the old `POST /students/bulk-upload` —
   // callers must move to the two-step flow.
   @Post('students/bulk-upload/validate')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.STUDENT_BULK_UPLOAD)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: BULK_UPLOAD_MAX_FILE_SIZE } }))
@@ -110,7 +108,6 @@ export class StudentController {
   }
 
   @Post('students/bulk-upload/commit')
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.STUDENT_BULK_UPLOAD)
   @Throttle({ default: STRICT_RATE_LIMIT })
   @ApiOperation({
@@ -176,14 +173,6 @@ export class StudentController {
   }
 
   @Get('students/:id')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.EXECUTIVE,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-  )
   @RequirePermissions(Permission.STUDENT_READ)
   @ApiOperation({
     summary:
@@ -204,7 +193,6 @@ export class StudentController {
 
   @Patch('students/:id')
   // [10.4] G3, G1 — same reasoning as createStudent() above.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.STUDENT_UPDATE)
   async updateStudent(
     @Param('id') id: string,
@@ -231,7 +219,6 @@ export class StudentController {
    * student between sections or change a status.
    */
   @Patch('students/:id/records')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.STUDENT_RECORDS_WRITE)
   async updateStudentRecords(
     @Param('id', ParseUUIDPipe) id: string,
@@ -251,7 +238,6 @@ export class StudentController {
   }
 
   @Delete('students/:id')
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.STUDENT_DELETE)
   removeStudent(@Param('id') id: string, @CurrentTenant() tenant: { id: string; role: string }) {
     return this.studentService.remove(id, tenant.id);
@@ -261,7 +247,6 @@ export class StudentController {
 
   @Post('guardians')
   // [10.4] G3 grants AC GUARDIAN_CREATE; G1 tightens E off.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.GUARDIAN_CREATE)
   async createGuardian(
     @Body() dto: CreateGuardianDto,
@@ -349,7 +334,6 @@ export class StudentController {
 
   @Patch('guardians/:id')
   // [10.4] G3 grants AC GUARDIAN_UPDATE; G1 tightens E off.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT)
   @RequirePermissions(Permission.GUARDIAN_UPDATE)
   async updateGuardian(
     @Param('id') id: string,
@@ -370,7 +354,6 @@ export class StudentController {
 
   @Delete('guardians/:id')
   // [10.4] G15 — new GUARDIAN_DELETE, mirrors STUDENT_DELETE.
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.GUARDIAN_DELETE)
   removeGuardian(
     @Param('id') id: string,

@@ -98,12 +98,12 @@ describe('GET /backup/template E2E', () => {
       expect(res.status).toBe(200);
     });
 
-    it('rejects TEACHER with 401 (role guard, before permission check)', async () => {
+    it('rejects TEACHER with 403 (permission guard)', async () => {
       await supertest(app.getHttpServer())
         .get('/api/v1/backup/template')
         .set('Authorization', `Bearer ${teacherToken}`)
         .set('X-Tenant-ID', TENANT_ID)
-        .expect(401);
+        .expect(403);
     });
 
     it('rejects no token with 401', async () => {

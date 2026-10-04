@@ -389,12 +389,9 @@ describe('POST /payments/checkout (16.4.2)', () => {
     expect(res.body.payment.total_amount).toBe('750.00');
   });
 
-  // RolesGuard (not PermissionsGuard) is what rejects PARENT here — this
-  // route's @Roles() is ADMIN/ACCOUNTANT only, so a PARENT never reaches
-  // the PAYMENT_RECORD check. RolesGuard throws `UnauthorizedException`
-  // (401), matching every other role-gated route in this codebase — see
-  // `context.guard.ts`'s `RolesGuard`.
-  it('denies a PARENT (not ADMIN/ACCOUNTANT) from recording a checkout (401)', async () => {
+  // PermissionsGuard rejects PARENT here: only ADMIN/ACCOUNTANT hold
+  // PAYMENT_RECORD, and the route has no `@Roles`.
+  it('denies a PARENT (not ADMIN/ACCOUNTANT) from recording a checkout (403)', async () => {
     const student = await createStudent();
     const bill = await createFee(student, 500);
 
@@ -408,7 +405,7 @@ describe('POST /payments/checkout (16.4.2)', () => {
       .set('Authorization', `Bearer ${parentToken}`)
       .set('X-Tenant-ID', SEED_TENANT_ID)
       .set('X-Role', UserRole.PARENT)
-      .expect(401);
+      .expect(403);
   });
 });
 
@@ -670,13 +667,8 @@ describe('POST /payments/:id/reverse (16.6.1)', () => {
       .expect(409);
   });
 
-  // The route is `@Roles(ADMIN)` only (`permission-matrix.e2e-spec.ts`'s
-  // "never tightens" check requires every role admitted by `@Roles` to
-  // hold every `@RequirePermissions` permission — ACCOUNTANT doesn't hold
-  // PAYMENT_REVERSE, ADMIN-only per [16.2.1], so it can't be added to
-  // `@Roles` here). RolesGuard rejects ACCOUNTANT with 401 before
-  // PermissionsGuard ever runs, same as any other ADMIN-only route.
-  it('denies ACCOUNTANT (lacks the ADMIN role) from reversing a payment (401)', async () => {
+  // PAYMENT_REVERSE is ADMIN-only ([16.2.1]); PermissionsGuard rejects ACCOUNTANT.
+  it('denies ACCOUNTANT (lacks PAYMENT_REVERSE) from reversing a payment (403)', async () => {
     const student = await createStudent();
     const fee = await createFee(student, 500);
     const paymentId = await recordPayment(student, fee, 500);
@@ -689,6 +681,6 @@ describe('POST /payments/:id/reverse (16.6.1)', () => {
       .set('X-Tenant-ID', SEED_TENANT_ID)
       .set('X-Role', UserRole.ACCOUNTANT)
       .set('X-Approval-Token', approvalToken)
-      .expect(401);
+      .expect(403);
   });
 });

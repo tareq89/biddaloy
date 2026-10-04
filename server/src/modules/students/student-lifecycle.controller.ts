@@ -15,7 +15,6 @@ import { Request } from 'express';
 import { requestContext } from '../../common/request-context.util';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -29,8 +28,7 @@ import {
 } from './dto/student-lifecycle.dto';
 
 /**
- * [39.2.1] `@Roles` must equal the holders of the permission exactly
- * (permission-matrix.e2e-spec.ts), so a denied role gets 401 from RolesGuard.
+ * [39.2.1] Access is gated by `@RequirePermissions` (a denied role gets 403 from PermissionsGuard).
  */
 @ApiTags('students')
 @ApiTenantAuth()
@@ -42,7 +40,6 @@ export class StudentLifecycleController {
   ) {}
 
   @Post(':id/leave')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.STUDENT_LIFECYCLE_MANAGE)
   @ApiOperation({ summary: 'Withdraw, transfer out or graduate a student' })
   @ApiCreatedResponse({ type: StudentLifecycleEventDto })
@@ -57,7 +54,6 @@ export class StudentLifecycleController {
   }
 
   @Post(':id/readmit')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.STUDENT_LIFECYCLE_MANAGE)
   @ApiOperation({ summary: 'Readmit a student who left' })
   @ApiCreatedResponse({ type: StudentLifecycleEventDto })
@@ -72,7 +68,6 @@ export class StudentLifecycleController {
   }
 
   @Get(':id/lifecycle-events')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER)
   @RequirePermissions(Permission.STUDENT_RECORDS_READ)
   @ApiOperation({ summary: "List a student's lifecycle events, newest first" })
   @ApiOkResponse({ type: [StudentLifecycleEventDto] })

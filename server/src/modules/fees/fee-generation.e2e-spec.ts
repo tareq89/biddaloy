@@ -199,7 +199,7 @@ describe('Fee Generation E2E', () => {
       expect(batch[0].generated_count).toBe(1);
     });
 
-    it("denies a role without FEE_GENERATE (STUDENT isn't in the route's @Roles list)", async () => {
+    it('denies a role without FEE_GENERATE (STUDENT lacks the permission)', async () => {
       const studentId = await createStudent();
       const structureId = await createFeeStructure();
 
@@ -215,9 +215,9 @@ describe('Fee Generation E2E', () => {
           student_ids: [studentId],
           fee_structure_ids: [structureId],
         })
-        .expect(401);
+        .expect(403);
 
-      expect(res.body.message).toContain('Requires one of roles');
+      expect(res.body.message).toContain('Requires permission(s): FEE_GENERATE');
     });
   });
 });

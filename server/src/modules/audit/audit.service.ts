@@ -185,8 +185,10 @@ export class AuditService {
    * A narrower, separately-authorized sibling of `findAll` — scoped to one
    * entity (e.g. a single student's activity tab) rather than the tenant's
    * whole audit trail, so it can be granted to roles (ACCOUNTANT, EXECUTIVE,
-   * TEACHER) that must never see `findAll`'s unscoped dump. See
-   * `AuditController`'s `@Roles` on each route for the actual boundary.
+   * TEACHER) that must never see `findAll`'s unscoped dump. The boundary
+   * is the permission each `AuditController` route requires:
+   * `AUDIT_LOG_READ` (ADMIN only) for `findAll` vs
+   * `AUDIT_ENTITY_HISTORY_READ` for this one, per `ROLE_PERMISSIONS`.
    */
   async findByEntity(
     entityType: string,

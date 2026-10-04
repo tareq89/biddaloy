@@ -167,7 +167,7 @@ describe('Invoices E2E', () => {
       expect(res.body.issued_by).not.toHaveProperty('password_hash');
     });
 
-    it('returns 401 for STUDENT role', async () => {
+    it('returns 403 for STUDENT role', async () => {
       const studentId = await createStudent();
       const feeId = await createFee(studentId);
       const paymentId = await createPayment(studentId, feeId, 1000);
@@ -178,9 +178,9 @@ describe('Invoices E2E', () => {
         .set('X-Tenant-ID', TENANT_ID)
         .set('X-Role', UserRole.STUDENT)
         .send({ payment_id: paymentId })
-        .expect(401);
+        .expect(403);
 
-      expect(res.body.message).toContain('Requires one of roles');
+      expect(res.body.message).toContain('Requires permission(s)');
     });
 
     it('returns 404 when payment does not exist', async () => {

@@ -2,12 +2,11 @@ import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
+import { JwtPayload, Permission } from '@biddaloy/shared';
 import { STRICT_RATE_LIMIT } from '../../../rate-limit';
 import { ApiTenantAuth } from '../../../common/decorators/api-tenant-auth.decorator';
 import { ContextGuard, RolesGuard } from '../../auth/guards/context.guard';
 import { PermissionsGuard } from '../../auth/guards/permissions.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -25,7 +24,6 @@ import { RequestRestoreDto, RequestRestoreResponseDto } from './dto/restore.dto'
 @ApiTenantAuth()
 @Controller('backup')
 @UseGuards(AuthGuard('jwt'), ContextGuard, RolesGuard, PermissionsGuard)
-@Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
 @RequirePermissions(Permission.BACKUP_MANAGE)
 export class RestoreController {
   constructor(private readonly restore: RestoreService) {}

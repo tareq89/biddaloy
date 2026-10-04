@@ -206,13 +206,13 @@ describe('POST /backup/restore E2E', () => {
     await app.close();
   });
 
-  it('rejects TEACHER with 401 (role guard, before permission check)', async () => {
+  it('rejects TEACHER with 403 (permission guard)', async () => {
     await supertest(app.getHttpServer())
       .post('/api/v1/backup/restore')
       .set('Authorization', `Bearer ${teacherToken}`)
       .set('X-Tenant-ID', TENANT_ID)
       .send({ staging_id: randomUUID(), confirmation: 'anything' })
-      .expect(401);
+      .expect(403);
   });
 
   it('returns 400 and creates no job when the confirmation phrase is wrong', async () => {
