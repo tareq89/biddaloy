@@ -294,7 +294,7 @@ export function AssignTeacherDialog({
 
           <div aria-live="polite">
             {replaced && (
-              <p className="text-warning-foreground text-sm">
+              <p className="rounded-md bg-status-due-bg p-2 text-sm text-status-due-fg">
                 {t('assignDialog.replaceWarning', { name: replaced.name })}
               </p>
             )}
