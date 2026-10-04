@@ -1,90 +1,76 @@
 /**
- * Typed entry (`formatDate`/`parseDate`, either digit system) plus a
- * point-and-click month grid — typing a date is faster than clicking
- * through months, so the input is the primary path and the calendar is a
- * secondary affordance, not the other way around. No `react-day-picker`
- * dependency: the grid here is small enough to hand-roll with the roving-
- * tabindex + arrow-key pattern directly, and it needs to render Bengali
- * numerals via this package's own `renderDigits`, which an off-the-shelf
- * calendar library has no reason to know about.
+ * Button trigger showing the formatted value; the popover is a hand-rolled
+ * month grid (roving tabindex + arrow keys) with the shared `MonthHeader`.
+ * No `react-day-picker`: the grid must render Bengali numerals via this
+ * package's own `renderDigits` and start the week on the tenant's first day.
+ * The header label opens a month grid (year jump) so a date of birth years
+ * back is reachable without hundreds of month clicks.
  */
+import { CalendarIcon } from 'lucide-react';
 import * as React from 'react';
 
+import { useTranslation } from '../i18n';
 import type { RegionConfig } from '../i18n/region-config';
+import { cn } from '../primitives/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '../primitives/popover';
-import { parseDate, toIsoDate } from '../utils/date';
+import { formatDate, formatMonth, toIsoDate } from '../utils/date';
 import { renderDigits } from '../utils/digits';
 
-import { Button } from './button';
-import { Input } from './input';
+import { MonthHeader } from './month-header';
+import { MonthButtons, pickerTriggerClass } from './month-picker';
 
-export interface DatePickerProps {
+export interface DatePickerProps extends Omit<
+  React.ComponentProps<'button'>,
+  'value' | 'onChange' | 'children' | 'aria-label' | 'type'
+> {
   value: Date | undefined;
   onValueChange: (date: Date | undefined) => void;
   config: RegionConfig;
   'aria-label': string;
-  openCalendarLabel?: string;
-  previousMonthLabel?: string;
-  nextMonthLabel?: string;
+  /** Default `t('date.pick')`. */
+  placeholder?: string;
+  /** Inclusive. */
+  min?: Date;
+  max?: Date;
 }
 
 export function DatePicker({
   value,
   onValueChange,
   config,
-  openCalendarLabel = 'Open calendar',
-  previousMonthLabel = 'Previous month',
-  nextMonthLabel = 'Next month',
+  placeholder,
+  min,
+  max,
+  className,
   ...props
 }: DatePickerProps) {
+  const { t } = useTranslation('common');
   const [open, setOpen] = React.useState(false);
-  const [text, setText] = React.useState(() =>
-    value ? renderDigits(toIsoDate(value), config.numerals) : '',
-  );
   const [viewMonth, setViewMonth] = React.useState(() => value ?? new Date());
 
   React.useEffect(() => {
-    setText(value ? renderDigits(toIsoDate(value), config.numerals) : '');
     if (value) setViewMonth(value);
-  }, [value, config]);
+  }, [value]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <div className="flex gap-1.5">
-        <Input
+      <PopoverTrigger asChild>
+        <button
+          type="button"
           {...props}
-          placeholder="YYYY-MM-DD"
-          value={text}
-          onChange={(event) => {
-            const raw = event.target.value;
-            setText(raw);
-            if (raw.trim() === '') {
-              onValueChange(undefined);
-              return;
-            }
-            try {
-              const date = parseDate(raw);
-              onValueChange(date);
-              setViewMonth(date);
-            } catch {
-              // Typing in progress ("2024-01") isn't a full date yet —
-              // don't clobber the last committed value.
-            }
-          }}
-        />
-        <PopoverTrigger asChild>
-          <Button type="button" variant="outline" iconOnly aria-label={openCalendarLabel}>
-            <span aria-hidden="true">▾</span>
-          </Button>
-        </PopoverTrigger>
-      </div>
-      <PopoverContent className="w-auto p-2">
+          className={cn(pickerTriggerClass, !value && 'text-text-secondary', className)}
+        >
+          <span>{value ? formatDate(value, config) : (placeholder ?? t('date.pick'))}</span>
+          <CalendarIcon className="size-4 text-text-secondary" aria-hidden="true" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-fit rounded-lg border border-border-subtle bg-surface p-3 shadow-e2">
         <Calendar
           month={viewMonth}
           selected={value}
           config={config}
-          previousMonthLabel={previousMonthLabel}
-          nextMonthLabel={nextMonthLabel}
+          min={min}
+          max={max}
           onMonthChange={setViewMonth}
           onSelect={(date) => {
             onValueChange(date);
@@ -100,8 +86,8 @@ interface CalendarProps {
   month: Date;
   selected: Date | undefined;
   config: RegionConfig;
-  previousMonthLabel: string;
-  nextMonthLabel: string;
+  min?: Date;
+  max?: Date;
   onMonthChange: (date: Date) => void;
   onSelect: (date: Date) => void;
 }
@@ -118,6 +104,12 @@ function sameDay(a: Date, b: Date): boolean {
   );
 }
 
+function sameMonth(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+}
+
+const ymKey = (d: Date) => toIsoDate(d).slice(0, 7);
+
 /** Exported for its own story/tests; not part of the package's public
  * `components` surface (not in `index.ts`) — `DatePicker` is the real
  * public API, this is its implementation detail. */
@@ -125,181 +117,221 @@ export function Calendar({
   month,
   selected,
   config,
-  previousMonthLabel,
-  nextMonthLabel,
+  min,
+  max,
   onMonthChange,
   onSelect,
 }: CalendarProps) {
+  const { t } = useTranslation('common');
   const year = month.getFullYear();
   const monthIndex = month.getMonth();
-  const firstWeekday = new Date(year, monthIndex, 1).getDay();
-  const total = daysInMonth(year, monthIndex);
-  const days: Array<number | null> = [
-    ...Array.from({ length: firstWeekday }, () => null),
-    ...Array.from({ length: total }, (_, i) => i + 1),
-  ];
-  const weeks: Array<Array<number | null>> = [];
-  for (let i = 0; i < days.length; i += 7) {
-    weeks.push(days.slice(i, i + 7));
-  }
+  const today = new Date();
+  const firstDow = config.date.firstDayOfWeek;
+  const offset = (new Date(year, monthIndex, 1).getDay() - firstDow + 7) % 7;
+  const weekCount = Math.ceil((offset + daysInMonth(year, monthIndex)) / 7);
+  // Full weeks: leading/trailing days belong to the neighbouring months.
+  const cells = Array.from(
+    { length: weekCount * 7 },
+    (_, i) => new Date(year, monthIndex, 1 - offset + i),
+  );
+  const weeks = Array.from({ length: weekCount }, (_, w) => cells.slice(w * 7, w * 7 + 7));
 
-  // Jan 7–13, 2024 is a Sunday-through-Saturday week — an arbitrary but
-  // real week, used only so `Intl.DateTimeFormat` has 7 consecutive dates
-  // to format. `config.locale` drives the actual language, e.g. "Sun" for
-  // `en-BD`, "রবি" for `bn-BD`.
+  // Jan 7, 2024 is a Sunday: 7 consecutive real dates for `Intl`, rotated to
+  // start on the tenant's first day of week.
   const weekdayLabels = React.useMemo(() => {
     const formatter = new Intl.DateTimeFormat(config.locale, { weekday: 'short' });
-    return Array.from({ length: 7 }, (_, i) => formatter.format(new Date(2024, 0, 7 + i)));
-  }, [config.locale]);
+    return Array.from({ length: 7 }, (_, i) =>
+      formatter.format(new Date(2024, 0, 7 + ((firstDow + i) % 7))),
+    );
+  }, [config.locale, firstDow]);
 
-  const [focusedDay, setFocusedDay] = React.useState(() =>
-    selected && selected.getFullYear() === year && selected.getMonth() === monthIndex
-      ? selected.getDate()
-      : 1,
-  );
+  const [view, setView] = React.useState<'days' | 'months'>('days');
+  const [pickYear, setPickYear] = React.useState(year);
+  const [focused, setFocused] = React.useState<Date>(() => selected ?? new Date());
+  // Roving tab stop: the focused day if it is in the shown month, else the
+  // selected day, else today, else the 1st.
+  const first = new Date(year, monthIndex, 1);
+  const roving = sameMonth(focused, month)
+    ? focused
+    : selected && sameMonth(selected, month)
+      ? selected
+      : sameMonth(today, month)
+        ? today
+        : first;
+
   const gridRef = React.useRef<HTMLDivElement>(null);
-  // Set at the *start* of a keyboard move, before the month/day state
-  // change that can replace the currently-focused button with a different
-  // DOM node (crossing a month boundary changes both the leading-blank
-  // count and the day total, so the old node isn't reliably reused) — by
-  // the time the effect below runs, `document.activeElement` may already
-  // have reverted to `<body>` because that node is gone. Capturing intent
-  // up front, instead of inferring it after the fact, is what makes the
-  // refocus reliable across that boundary.
+  // Set at the *start* of a keyboard move, before the state change that can
+  // replace the focused button with a different DOM node (crossing a month
+  // boundary) — by the time the effect runs, `document.activeElement` may
+  // already be `<body>`. Capturing intent up front keeps the refocus reliable.
   const hadFocusRef = React.useRef(false);
-
-  React.useEffect(() => {
-    if (focusedDay > total) setFocusedDay(total);
-  }, [total, focusedDay]);
 
   React.useEffect(() => {
     if (!hadFocusRef.current) return;
     hadFocusRef.current = false;
     gridRef.current?.querySelector<HTMLButtonElement>('[data-focused="true"]')?.focus();
-  }, [focusedDay, month]);
+  }, [focused, month]);
+
+  // Esc in the months view goes back to days before it closes the popover.
+  // Radix listens on `document` in the capture phase; this listener is
+  // registered at mount (a child effect, so before Radix's) and reads the
+  // view from a ref, so stopping propagation here wins.
+  const viewRef = React.useRef(view);
+  viewRef.current = view;
+  React.useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || viewRef.current !== 'months') return;
+      event.stopImmediatePropagation();
+      setView('days');
+    };
+    document.addEventListener('keydown', onKey, { capture: true });
+    return () => document.removeEventListener('keydown', onKey, { capture: true });
+  }, []);
+
+  const minKey = min ? toIsoDate(min) : undefined;
+  const maxKey = max ? toIsoDate(max) : undefined;
+  const isDisabled = (d: Date) => {
+    const key = toIsoDate(d);
+    return (minKey !== undefined && key < minKey) || (maxKey !== undefined && key > maxKey);
+  };
 
   function moveFocus(delta: number) {
     hadFocusRef.current = !!gridRef.current?.contains(document.activeElement);
-    const next = focusedDay + delta;
-    if (next < 1) {
-      const prevMonth = new Date(year, monthIndex - 1, 1);
-      const prevMonthLength = daysInMonth(prevMonth.getFullYear(), prevMonth.getMonth());
-      onMonthChange(prevMonth);
-      setFocusedDay(prevMonthLength + next);
-    } else if (next > total) {
-      onMonthChange(new Date(year, monthIndex + 1, 1));
-      setFocusedDay(next - total);
-    } else {
-      setFocusedDay(next);
-    }
+    const next = new Date(roving.getFullYear(), roving.getMonth(), roving.getDate() + delta);
+    setFocused(next);
+    if (!sameMonth(next, month)) onMonthChange(new Date(next.getFullYear(), next.getMonth(), 1));
   }
 
+  const inMonths = view === 'months';
   return (
     <div>
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          iconOnly
-          aria-label={previousMonthLabel}
-          onClick={() => onMonthChange(new Date(year, monthIndex - 1, 1))}
-        >
-          <span aria-hidden="true">‹</span>
-        </Button>
-        <span aria-live="polite" className="text-sm font-medium">
-          {renderDigits(`${year}-${String(monthIndex + 1).padStart(2, '0')}`, config.numerals)}
-        </span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          iconOnly
-          aria-label={nextMonthLabel}
-          onClick={() => onMonthChange(new Date(year, monthIndex + 1, 1))}
-        >
-          <span aria-hidden="true">›</span>
-        </Button>
+      <div className="mb-2">
+        <MonthHeader
+          label={
+            inMonths ? renderDigits(String(pickYear), config.numerals) : formatMonth(month, config)
+          }
+          previousLabel={inMonths ? t('date.previousYear') : undefined}
+          nextLabel={inMonths ? t('date.nextYear') : undefined}
+          onPrevious={() =>
+            inMonths ? setPickYear((y) => y - 1) : onMonthChange(new Date(year, monthIndex - 1, 1))
+          }
+          onNext={() =>
+            inMonths ? setPickYear((y) => y + 1) : onMonthChange(new Date(year, monthIndex + 1, 1))
+          }
+          onToday={
+            inMonths
+              ? undefined
+              : () => {
+                  onMonthChange(new Date(today.getFullYear(), today.getMonth(), 1));
+                  setFocused(today);
+                }
+          }
+          onLabelClick={() => {
+            setPickYear(year);
+            setView(inMonths ? 'days' : 'months');
+          }}
+          labelExpanded={inMonths}
+        />
       </div>
-      {/* `role="grid"` requires `row` children containing `columnheader`/
-       * `gridcell` cells — each `role="row"` div below uses `display:
-       * contents` (the `contents` class) so it disappears from the CSS
-       * box tree entirely, letting its children still lay out against
-       * this element's `grid-cols-7`, while still existing in the
-       * accessibility tree to satisfy the required grid hierarchy. */}
-      <div ref={gridRef} role="grid" aria-label="Calendar" className="grid grid-cols-7 gap-1">
-        <div role="row" className="contents">
-          {weekdayLabels.map((label, index) => (
-            <span
-              key={index}
-              role="columnheader"
-              aria-label={label}
-              className="text-center text-xs text-muted-foreground"
-            >
-              {label}
-            </span>
+      {inMonths ? (
+        <MonthButtons
+          year={pickYear}
+          selected={ymKey(month)}
+          min={min ? ymKey(min) : undefined}
+          max={max ? ymKey(max) : undefined}
+          config={config}
+          onPick={(m) => {
+            onMonthChange(new Date(pickYear, m - 1, 1));
+            setView('days');
+          }}
+        />
+      ) : (
+        // `role="grid"` requires `row` children containing cells — each row
+        // uses `display: contents` so its children still lay out against
+        // this element's `grid-cols-7`, while the rows exist in the
+        // accessibility tree.
+        <div ref={gridRef} role="grid" aria-label={t('date.calendar')} className="grid grid-cols-7">
+          <div role="row" className="contents">
+            {weekdayLabels.map((label, index) => (
+              <span
+                key={index}
+                role="columnheader"
+                aria-label={label}
+                className="h-8 text-center text-caption text-text-secondary"
+              >
+                {label}
+              </span>
+            ))}
+          </div>
+          {weeks.map((week, weekIndex) => (
+            <div key={weekIndex} role="row" className="contents">
+              {week.map((date) => {
+                const isFocused = sameDay(date, roving);
+                const isToday = sameDay(date, today);
+                const isSelected = selected ? sameDay(date, selected) : false;
+                const outside = !sameMonth(date, month);
+                const disabled = isDisabled(date);
+                // D26: with no value, today shows the selected look.
+                const filled = isSelected || (!selected && isToday);
+                return (
+                  <button
+                    key={toIsoDate(date)}
+                    type="button"
+                    role="gridcell"
+                    data-focused={isFocused}
+                    data-date={toIsoDate(date)}
+                    data-today={isToday ? '' : undefined}
+                    data-outside={outside ? '' : undefined}
+                    tabIndex={isFocused ? 0 : -1}
+                    aria-selected={isSelected}
+                    aria-label={formatDate(date, config)}
+                    aria-disabled={disabled ? 'true' : undefined}
+                    disabled={disabled}
+                    // [8.14.14]: shared two-tone focus ring, with two
+                    // deliberate deviations: `ring-offset-popover` (this grid
+                    // sits on the popover surface, not the page ground) and
+                    // `relative z-10` so neighbours' backgrounds do not paint
+                    // over the ring.
+                    className={cn(
+                      'flex size-11 items-center justify-center rounded-md outline-none hover:bg-muted focus-visible:relative focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover disabled:pointer-events-none disabled:opacity-40 md:size-9',
+                      outside && 'text-text-secondary opacity-60',
+                    )}
+                    onClick={() => onSelect(date)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'ArrowRight') {
+                        event.preventDefault();
+                        moveFocus(1);
+                      } else if (event.key === 'ArrowLeft') {
+                        event.preventDefault();
+                        moveFocus(-1);
+                      } else if (event.key === 'ArrowDown') {
+                        event.preventDefault();
+                        moveFocus(7);
+                      } else if (event.key === 'ArrowUp') {
+                        event.preventDefault();
+                        moveFocus(-7);
+                      } else if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        if (!disabled) onSelect(date);
+                      }
+                    }}
+                  >
+                    <span
+                      className={cn(
+                        'flex size-7 items-center justify-center rounded-full text-label',
+                        isToday && 'font-semibold text-primary ring-2 ring-primary ring-inset',
+                        filled && 'bg-primary font-semibold text-primary-foreground',
+                      )}
+                    >
+                      {renderDigits(String(date.getDate()), config.numerals)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           ))}
         </div>
-        {weeks.map((week, weekIndex) => (
-          <div key={weekIndex} role="row" className="contents">
-            {week.map((day, dayIndex) => {
-              if (day === null) {
-                return (
-                  <span key={`blank-${weekIndex}-${dayIndex}`} role="gridcell" aria-hidden="true" />
-                );
-              }
-              const date = new Date(year, monthIndex, day);
-              const isFocused = day === focusedDay;
-              const isSelected = selected ? sameDay(date, selected) : false;
-              return (
-                <button
-                  key={day}
-                  type="button"
-                  role="gridcell"
-                  data-focused={isFocused}
-                  tabIndex={isFocused ? 0 : -1}
-                  aria-selected={isSelected}
-                  // [8.14.14]: focus ring aligned to the shared two-tone
-                  // offset treatment, with two deliberate deviations from
-                  // the canonical string (both required, both here):
-                  // - `ring-offset-popover` instead of `ring-offset-
-                  //   background`: this grid renders inside
-                  //   `PopoverContent` (see line ~79/228), so a page-ground
-                  //   offset would paint a visibly mismatched gutter on the
-                  //   popover surface, especially in dark mode.
-                  // - `relative z-10`: the grid uses `grid-cols-7 gap-1`
-                  //   (4px gutter), exactly the ring's width — without
-                  //   stacking above neighbours, adjacent cells'
-                  //   `hover:bg-muted`/`aria-selected:bg-primary`
-                  //   backgrounds would paint over the ring.
-                  className="rounded-md p-1.5 text-sm outline-none hover:bg-muted focus-visible:relative focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover aria-selected:bg-primary aria-selected:text-primary-foreground"
-                  onClick={() => onSelect(date)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'ArrowRight') {
-                      event.preventDefault();
-                      moveFocus(1);
-                    } else if (event.key === 'ArrowLeft') {
-                      event.preventDefault();
-                      moveFocus(-1);
-                    } else if (event.key === 'ArrowDown') {
-                      event.preventDefault();
-                      moveFocus(7);
-                    } else if (event.key === 'ArrowUp') {
-                      event.preventDefault();
-                      moveFocus(-7);
-                    } else if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      onSelect(date);
-                    }
-                  }}
-                >
-                  {renderDigits(String(day), config.numerals)}
-                </button>
-              );
-            })}
-          </div>
-        ))}
-      </div>
+      )}
     </div>
   );
 }
