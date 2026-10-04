@@ -347,6 +347,11 @@ import { PromotionEntry } from './modules/promotions/entities/promotion-entry.en
           url: config.get<string>('REDIS_URL') ?? 'redis://127.0.0.1:6379',
         },
       }),
+      // One-off scripts boot AppModule for its services but must not start
+      // BullMQ workers (they'd consume jobs from a possibly-shared Redis).
+      // Read at import time, so scripts set it first — see
+      // scripts/script-app-context.ts.
+      extraOptions: { manualRegistration: process.env.QUEUE_WORKERS_DISABLED === 'true' },
     }),
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],

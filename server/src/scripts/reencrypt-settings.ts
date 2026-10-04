@@ -1,6 +1,5 @@
-import { NestFactory } from '@nestjs/core';
 import { DataSource } from 'typeorm';
-import { AppModule } from '../app.module';
+import { createScriptAppContext } from './script-app-context';
 import { School } from '../modules/schools/entities/school.entity';
 import { EncryptionService } from '../modules/schools/settings/encryption.service';
 import { BATCH_SIZE, migrateSchools } from './reencrypt-settings.util';
@@ -33,7 +32,7 @@ import { BATCH_SIZE, migrateSchools } from './reencrypt-settings.util';
  * drop, rather than operator judgement.
  */
 export async function reencryptSettings(): Promise<{ migrated: number; skipped: number }> {
-  const app = await NestFactory.createApplicationContext(AppModule);
+  const app = await createScriptAppContext();
   const dataSource = app.get(DataSource);
   const encryption = app.get(EncryptionService);
   const schoolRepository = dataSource.getRepository(School);

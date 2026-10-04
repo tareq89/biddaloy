@@ -1,8 +1,7 @@
 import type { INestApplicationContext } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
 import { Between, DataSource, In, type Repository } from 'typeorm';
-import { AppModule } from '../app.module';
 import * as bcrypt from 'bcrypt';
+import { createScriptAppContext } from './script-app-context';
 import { User } from '../modules/users/entities/user.entity';
 import { School } from '../modules/schools/entities/school.entity';
 import { UserTenant } from '../modules/auth/entities/user-tenant.entity';
@@ -125,7 +124,7 @@ export async function seed() {
     process.exit(1);
   }
 
-  const app = await NestFactory.createApplicationContext(AppModule);
+  const app = await createScriptAppContext();
   const dataSource = app.get(DataSource);
 
   const userRepository = dataSource.getRepository(User);
@@ -699,11 +698,11 @@ const isDirectRun =
 
 if (isDirectRun) {
   seed()
-    // NestFactory.createApplicationContext boots the full AppModule, including
-    // AuthModule/CommunicationsModule's BullMQ workers (@Processor). Those hold
-    // open blocking Redis connections that app.close() doesn't reliably tear
-    // down, so the process can hang indefinitely after seeding finishes —
-    // force-exit once the promise settles instead of waiting on the event loop.
+    // createScriptAppContext boots the full AppModule (workers off, but its
+    // queues and other modules still hold Redis connections that app.close()
+    // doesn't reliably tear down), so the process can hang after seeding
+    // finishes — force-exit once the promise settles instead of waiting on
+    // the event loop.
     .then(() => process.exit(0))
     .catch((err) => {
       console.error('Seed failed:', err);
