@@ -184,6 +184,17 @@ export class ValidationService {
       // a *third* row with the same key is still recognised as another
       // duplicate rather than silently accepted as a fresh row.
       const firstByKey = new Map<string, { rowNo: number; row: unknown }>();
+      // `tab.secondaryKeyOf` bookkeeping (see TabSpec): first row per secondary
+      // key, and what the destination already holds (TEMPLATE check only).
+      const firstBySecondary = new Map<string, { rowNo: number; row: unknown }>();
+      const reportedSecondary = new Set<string>();
+      const existingBySecondary = new Map<string, string>();
+      if (tab.secondaryKeyOf && meta.kind === 'TEMPLATE') {
+        for (const entity of existingEntities) {
+          const sk = tab.secondaryKeyOf(entity);
+          if (sk) existingBySecondary.set(sk, tab.keyOf(entity));
+        }
+      }
       const duplicateKeys = new Set<string>();
 
       for (const { rowNo, cells } of sheet.rows) {
@@ -240,6 +251,48 @@ export class ValidationService {
             message: `Duplicate key "${key}" in sheet "${tab.name}" is also used by row ${first.rowNo}.`,
           });
           continue;
+        }
+
+        const secondary = tab.secondaryKeyOf?.(result.row) ?? null;
+        if (secondary) {
+          const prior = firstBySecondary.get(secondary);
+          if (prior) {
+            const message = `Rows ${prior.rowNo} and ${rowNo} of sheet "${tab.name}" conflict: only one row may hold "${secondary}" (for example one class teacher per section).`;
+            if (!reportedSecondary.has(secondary)) {
+              reportedSecondary.add(secondary);
+              recordError(tabErrors, {
+                tab: tab.name,
+                row: prior.rowNo,
+                column: null,
+                severity: 'error',
+                message,
+              });
+              const idx = rows.indexOf(prior.row);
+              if (idx >= 0) rows.splice(idx, 1);
+            }
+            recordError(tabErrors, {
+              tab: tab.name,
+              row: rowNo,
+              column: null,
+              severity: 'error',
+              message,
+            });
+            continue;
+          }
+          const heldBy = existingBySecondary.get(secondary);
+          if (heldBy !== undefined && heldBy !== key) {
+            // A TEMPLATE import must never delete data, and accepting this row
+            // would replace the existing holder (D10).
+            recordError(tabErrors, {
+              tab: tab.name,
+              row: rowNo,
+              column: null,
+              severity: 'error',
+              message: `Row ${rowNo} of sheet "${tab.name}" would replace an existing "${secondary}" row ("${heldBy}"), and a template import never deletes data. Use a backup restore, or remove that row first.`,
+            });
+            continue;
+          }
+          firstBySecondary.set(secondary, { rowNo, row: result.row });
         }
 
         firstByKey.set(key, { rowNo, row: result.row });

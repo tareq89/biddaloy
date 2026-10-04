@@ -91,6 +91,14 @@ export interface TabSpec<E, R> {
     ctx: ImportContext,
   ): { row: R } | { errors: RowError[] };
   keyOf(x: R | E): string;
+  /**
+   * Optional second uniqueness rule that the natural key cannot express (e.g.
+   * "one CLASS_TEACHER per section"). Return null when the rule does not
+   * apply. `ValidationService` rejects two rows of one file that share a
+   * non-null value, and, for a TEMPLATE workbook (which may never delete),
+   * a row whose value is already held by a different row in the destination.
+   */
+  secondaryKeyOf?(x: R | E): string | null;
   diffFields(row: R, existing: E): string[];
   upsert(row: R, existing: E | null, tenantId: string, m: EntityManager): Promise<E>;
   remove(entity: E, m: EntityManager): Promise<void>;

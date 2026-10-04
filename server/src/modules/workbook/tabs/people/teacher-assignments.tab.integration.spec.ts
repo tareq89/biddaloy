@@ -376,6 +376,52 @@ describe('teacherAssignmentsTab (integration)', () => {
       );
     });
 
+    it('id-matched swap: the teacher cell changed but the id kept, B becomes CLASS and A has none', async () => {
+      const chain = await seedChain(TENANT_A, 'im');
+      const b = await addTeacher(TENANT_A, 'imb');
+      const m = dataSource.manager;
+      await teacherAssignmentsTab.upsert(rowFor(chain, { ...HOMEROOM }), null, TENANT_A, m);
+      // Loaded the way restore loads it: with teacher/section relations attached.
+      const [existing] = await teacherAssignmentsTab.load(TENANT_A, m);
+
+      await teacherAssignmentsTab.upsert(
+        rowFor(chain, { ...HOMEROOM, id: existing.id, teacher_id: b.id }),
+        existing,
+        TENANT_A,
+        m,
+      );
+
+      expect(await typesInSection(chain.section.id)).toEqual([`${b.id}:CLASS_TEACHER`]);
+    });
+
+    it("does not delete another tenant's CLASS row even when it sits on the same section_id", async () => {
+      const chainA = await seedChain(TENANT_A, 'xa');
+      const chainB = await seedChain(TENANT_B, 'xb');
+      const newTeacher = await addTeacher(TENANT_A, 'xa2');
+      const m = dataSource.manager;
+      // Tenant B's row deliberately points at tenant A's section.
+      const foreign = await assignmentRepo.save(
+        assignmentRepo.create({
+          tenant_id: TENANT_B,
+          teacher_id: chainB.teacher.id,
+          section_id: chainA.section.id,
+          subject_id: null,
+          assignment_type: TeacherAssignmentType.CLASS_TEACHER,
+        }),
+      );
+      // The unique index is global, so the insert must fail: the delete is
+      // tenant-scoped and does not remove the other tenant's row to make room.
+      await expect(
+        teacherAssignmentsTab.upsert(
+          rowFor(chainA, { ...HOMEROOM, teacher_id: newTeacher.id }),
+          null,
+          TENANT_A,
+          m,
+        ),
+      ).rejects.toThrow(/UQ_tcs_section_class_teacher/);
+      expect(await assignmentRepo.findOneBy({ id: foreign.id })).not.toBeNull();
+    });
+
     it('swap never touches another tenant, another section, or SUBJECT rows', async () => {
       const chainA = await seedChain(TENANT_A, 'ia');
       const chainB = await seedChain(TENANT_B, 'ib');
