@@ -3,10 +3,13 @@
  * of 145", not just a bare page number, so a screen-reader user gets the
  * same "where am I" signal a sighted user reads off the page instantly.
  */
-import { useRegionConfig, useTranslation } from '../i18n';
-import { formatNumber } from '../utils';
+import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
+
+import { useTranslation } from '../i18n';
+
 
 import { Button } from './button';
+import { TableCount } from './table-count';
 
 export interface PaginationProps {
   page: number;
@@ -26,7 +29,6 @@ export function Pagination({
   nextLabel,
 }: PaginationProps) {
   const { t } = useTranslation();
-  const regionConfig = useRegionConfig();
   // `page` routinely comes straight from a URL query param, and `pageSize`
   // from wherever a caller's page-size selector defaults to before it's
   // loaded — neither is guaranteed in-range. Clamping here means a stale
@@ -41,33 +43,35 @@ export function Pagination({
 
   return (
     <nav aria-label={t('pagination.label')} className="flex items-center justify-between text-sm">
-      <span aria-live="polite" className="text-muted-foreground">
-        {totalCount === 0
-          ? t('table.empty')
-          : t('pagination.range', {
-              start: formatNumber(rangeStart, regionConfig),
-              end: formatNumber(rangeEnd, regionConfig),
-              total: formatNumber(totalCount, regionConfig),
-            })}
+      <span aria-live="polite">
+        {totalCount === 0 ? (
+          <span className="text-text-secondary">{t('table.empty')}</span>
+        ) : (
+          <TableCount total={totalCount} from={rangeStart} to={rangeEnd} />
+        )}
       </span>
       <div className="flex gap-1.5">
         <Button
           type="button"
           variant="outline"
-          size="sm"
+          size="icon"
+          iconOnly
+          aria-label={previousLabel ?? t('pagination.previous')}
           disabled={currentPage <= 1}
           onClick={() => onPageChange(currentPage - 1)}
         >
-          {previousLabel ?? t('pagination.previous')}
+          <ChevronLeftIcon aria-hidden="true" />
         </Button>
         <Button
           type="button"
           variant="outline"
-          size="sm"
+          size="icon"
+          iconOnly
+          aria-label={nextLabel ?? t('pagination.next')}
           disabled={currentPage >= totalPages}
           onClick={() => onPageChange(currentPage + 1)}
         >
-          {nextLabel ?? t('pagination.next')}
+          <ChevronRightIcon aria-hidden="true" />
         </Button>
       </div>
     </nav>

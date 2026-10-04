@@ -18,10 +18,11 @@ test('search + page survive a reload; Back/Forward round-trip a detail tab', asy
 }, testInfo) => {
   const request = page.request;
   const session = await adminApiSession(request);
-  // 11 students with a shared unique prefix: page 2 exists at the
-  // default page size of 10 once the search narrows to exactly these.
+  // 26 students with a shared unique prefix, listed at an explicit
+  // `limit=25`: page 2 holds exactly one once the search narrows to these,
+  // whatever the route's default page size is.
   const prefix = `UrlState${testInfo.workerIndex}x${Date.now()}`;
-  await createStudentsInSection(request, session, prefix, 11);
+  await createStudentsInSection(request, session, prefix, 26);
 
   const list = new ListShellPage(page, {
     titleKey: 'students.list.title',
@@ -30,13 +31,13 @@ test('search + page survive a reload; Back/Forward round-trip a detail tab', asy
   });
 
   await test.step('search, then go to page 2', async () => {
-    await page.goto('/students');
+    await page.goto('/students?limit=25');
     await list.expectLoaded();
     await list.search(prefix);
     // Wait for the debounced search to reach the URL before paging —
     // clicking Next mid-refetch races the button's disabled state.
     await expectUrlParam(page, 'search', prefix);
-    await list.expectResultCount(10);
+    await list.expectResultCount(25);
     await list.nextPage();
     await list.expectResultCount(1);
     await expectUrlParam(page, 'page', '2');
