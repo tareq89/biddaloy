@@ -5,9 +5,9 @@
  * `useSectionTeachers` per section via `useQueries` — same composition
  * pattern `ui/src/hooks/invoices.ts`'s `useInvoiceSendCandidates` already
  * uses. Bounded by the *selected class's* section count (a handful), not
- * a global N+1 — `useClassTeachers(classId)` (one request) was considered
- * but its `ClassTeacher` rows are grouped by teacher with no per-section
- * assignment id, too thin for this table's per-row unassign action.
+ * a global N+1 — the class-wide teachers endpoint (since removed) grouped
+ * rows by teacher with no per-section assignment id, too thin for this
+ * table's per-row unassign action.
  *
  * Row actions reuse `-assign-teacher-dialog.tsx` and the unbound
  * `useUnassignTeacherAssignment` from wave 2

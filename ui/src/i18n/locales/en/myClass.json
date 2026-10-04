@@ -1,0 +1,32 @@
+{
+  "title": "My class",
+  "empty": "You are not a class teacher of any section this year.",
+  "retry": "Try again",
+  "seeAll": "See all",
+  "roles": {
+    "CLASS_TEACHER": "Class teacher",
+    "ASSISTANT_CLASS_TEACHER": "Assistant class teacher"
+  },
+  "takeAttendance": "Take today's attendance",
+  "cards": {
+    "absentees": "Absent today",
+    "flags": "Attendance flags",
+    "dues": "Dues",
+    "homework": "Homework",
+    "results": "Results",
+    "roster": "Students"
+  },
+  "flagGroups": {
+    "ABSENT": "Absent 3 or more days in a row",
+    "LATE": "Late 3 or more days in a row",
+    "PRESENT": "Present 15 days in a row"
+  },
+  "cardEmpty": {
+    "absentees": "No one is absent today.",
+    "flags": "No flags right now.",
+    "dues": "No dues.",
+    "homework": "No homework yet.",
+    "results": "No results yet.",
+    "roster": "No students in this section."
+  }
+}

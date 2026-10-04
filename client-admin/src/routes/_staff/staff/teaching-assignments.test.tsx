@@ -38,6 +38,7 @@ describe('/staff/teaching-assignments', () => {
       section_name: sectionA.section_name,
       subject_id: null,
       subject_name: null,
+      assignment_type: 'CLASS_TEACHER',
     };
     const assignmentB: SectionTeacherAssignment = {
       id: 'assign-b',
@@ -48,6 +49,7 @@ describe('/staff/teaching-assignments', () => {
       section_name: sectionB.section_name,
       subject_id: null,
       subject_name: null,
+      assignment_type: 'CLASS_TEACHER',
     };
 
     server.use(
@@ -143,6 +145,7 @@ describe('/staff/teaching-assignments', () => {
         section_name: section.section_name,
         subject_id: null,
         subject_name: null,
+        assignment_type: 'CLASS_TEACHER',
       },
     ];
 

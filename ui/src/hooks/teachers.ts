@@ -93,6 +93,7 @@ export interface TeacherAssignment {
   class_name: string;
   subject_id: string | null;
   subject_name: string | null;
+  assignment_type: 'CLASS_TEACHER' | 'ASSISTANT_CLASS_TEACHER' | 'SUBJECT_TEACHER';
 }
 
 export function teacherAssignmentsQueryOptions(teacherId: string | undefined) {

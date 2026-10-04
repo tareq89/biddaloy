@@ -192,5 +192,13 @@
     "sectionPlaceholder": "একটি শাখা নির্বাচন করুন",
     "errorClassRequired": "শ্রেণি আবশ্যক",
     "errorSectionRequired": "শাখা আবশ্যক"
+  },
+  "assignmentType": {
+    "CLASS_TEACHER": "শ্রেণি শিক্ষক",
+    "ASSISTANT_CLASS_TEACHER": "সহকারী শ্রেণি শিক্ষক",
+    "SUBJECT_TEACHER": "বিষয় শিক্ষক"
+  },
+  "assignDialog": {
+    "replaceWarning": "{{name}} আর শ্রেণি শিক্ষক থাকবেন না, তাঁর জায়গায় নতুন শিক্ষক হবেন"
   }
 }
