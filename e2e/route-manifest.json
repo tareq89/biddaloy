@@ -321,6 +321,11 @@
       "archetype": "list"
     },
     {
+      "path": "/roles",
+      "role": "admin",
+      "archetype": "bespoke"
+    },
+    {
       "path": "/calendar",
       "role": "admin",
       "archetype": "list"

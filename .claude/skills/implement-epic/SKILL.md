@@ -1171,6 +1171,13 @@ session model and report it. Never re-plan a ticket that already has a current
   the full checks.
 - After any PR of the run merges — anywhere, by anyone — remove its
   worktrees in that same turn.
+- Never start Docker containers — no `docker compose up`, `docker run`, or
+  a compose file of your own — not in a lane, not at integration. Anything
+  that needs Postgres, Redis or S3 runs through `yarn test-env run -- <cmd>`
+  (or `up` … `down` for several steps), which takes a per-worktree database,
+  Redis slot block and bucket on the one shared `biddaloy` stack and removes
+  them afterwards (README "Test infrastructure"). `yarn ci:local` already
+  does this. Run `yarn test-env sweep` when the run ends or is stopped.
 - A network outage is a wait, not a failure — for tool calls and LLM calls
   alike: probe GitHub + the LLM API every 5 minutes, then resume the failed
   command or agent. Keep the 5-minute resume cron alive while working; delete

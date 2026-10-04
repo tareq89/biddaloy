@@ -103,7 +103,10 @@ or `issue-planner`; it does not know or care who wrote it.
    populated), rendered against the design system rather than raw markup.
 5. Run the tests touched, created, or modified for this ticket, and lint.
    Don't hand back red. (The full suite runs once, at epic integration, after
-   every lane finishes — not per ticket here.)
+   every lane finishes — not per ticket here.) A test that needs Postgres,
+   Redis or S3 runs as `yarn test-env run -- <cmd>`, which gives this
+   worktree its own database / Redis slots / bucket on the shared stack and
+   removes them afterwards. Never start a Docker container yourself.
 6. Keep the change scoped to the issue. Unrelated cleanups you notice get
    reported to the parent as a note, not committed into the diff.
 

@@ -51,9 +51,8 @@
     "ci:local": "bash scripts/ci-local.sh",
     "prepare": "husky",
     "check": "node scripts/check.mjs",
-    "test:server": "yarn db:test:up && yarn test:unit && yarn test:integration && yarn test:e2e",
-    "db:test:up": "docker compose -f docker-compose.test.yml up -d --wait postgres redis seaweedfs",
-    "db:test:down": "docker compose -f docker-compose.test.yml down",
+    "test:server": "bash scripts/test-env.sh run -- sh -c \"yarn test:unit && yarn test:integration && yarn test:e2e\"",
+    "test-env": "bash scripts/test-env.sh",
     "e2e:changed": "playwright test --only-changed=origin/main"
   },
   "devDependencies": {

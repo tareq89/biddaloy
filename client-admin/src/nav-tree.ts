@@ -348,6 +348,14 @@ export const STAFF_NAV_ITEMS = {
     label: { key: 'printables' },
     synonyms: ['ID card', 'printed', 'reprint', 'history'],
   },
+  // [24.3.5] Read-only role comparison (D25: gated on USER_READ).
+  'administration.roles': {
+    id: 'administration.roles',
+    to: '/roles',
+    permission: Permission.USER_READ,
+    label: { key: 'rolesAccess' },
+    synonyms: ['role', 'permission', 'access', 'রোল'],
+  },
   'administration.auditLogs': {
     id: 'administration.auditLogs',
     to: '/audit-logs',
@@ -482,6 +490,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
     label: { key: 'administration' },
     items: [
       STAFF_NAV_ITEMS['administration.printTemplates'],
+      STAFF_NAV_ITEMS['administration.roles'],
       STAFF_NAV_ITEMS['administration.auditLogs'],
       STAFF_NAV_ITEMS['administration.settings'],
       STAFF_NAV_ITEMS['administration.curriculumPreset'],

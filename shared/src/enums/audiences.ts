@@ -84,3 +84,13 @@ export function roleScope(role: string | null | undefined): RoleScope | null {
 export function hasTenantScope(role: string | null | undefined): boolean {
   return roleScope(role) === RoleScope.TENANT;
 }
+
+/** Tenant scope over a school's own data (marks, attendance, homework,
+ * performance) — reads and writes alike. Callers still pair it with the
+ * permission their routes require.
+ * ponytail: #1362 D-N — SUPER_ADMIN is held out (as before Epic 24) until
+ * product decides whether a platform operator works inside a school's data.
+ * This is the single revert point: drop the check to widen it. */
+export function hasTenantDataScope(role: string | null | undefined): boolean {
+  return role !== UserRole.SUPER_ADMIN && hasTenantScope(role);
+}

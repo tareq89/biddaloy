@@ -344,4 +344,42 @@ describe('HomeworkAccessService', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
+
+  // [#1362] Per-role table: tenant data scope + the homework permission manages/views an
+  // unmapped section; others are denied. Only ADMIN holds HOMEWORK_* among tenant-scoped
+  // roles; EXECUTIVE/ACCOUNTANT/the new roles never pass a homework route's permission gate
+  // anyway, so the service now agrees with the routes instead of granting them.
+  describe('per-role access table', () => {
+    // [role, manage, view]
+    const TABLE: Array<[UserRole, boolean, boolean]> = [
+      [UserRole.ADMIN, true, true],
+      [UserRole.EXECUTIVE, false, false],
+      [UserRole.ACCOUNTANT, false, false],
+      // #1362 D-N: SUPER_ADMIN is out of tenant data scope until product decides.
+      [UserRole.SUPER_ADMIN, false, false],
+      [UserRole.OFFICE_STAFF, false, false],
+      [UserRole.EXAM_CONTROLLER, false, false],
+      [UserRole.COMMITTEE, false, false], // no HOMEWORK_* (D9)
+      [UserRole.TEACHER, false, false], // section-scoped: denied when unmapped
+      [UserRole.PARENT, false, false],
+      [UserRole.STUDENT, false, false],
+    ];
+    it.each(TABLE)('%s: manage=%s view=%s', async (role, canManage, wide) => {
+      sectionRepo.findOne.mockResolvedValue({ id: SECTION_ID, tenant_id: TENANT_ID });
+      getOne.mockResolvedValue(null); // no teacher_class_sections row
+      expect(service.canManageTenantWide(role)).toBe(canManage);
+      const manage = service.assertCanManageSection(
+        role,
+        USER_ID,
+        SECTION_ID,
+        SUBJECT_ID,
+        TENANT_ID,
+      );
+      const view = service.assertCanViewSection(role, USER_ID, SECTION_ID, TENANT_ID);
+      if (canManage) await expect(manage).resolves.toBeUndefined();
+      else await expect(manage).rejects.toBeInstanceOf(ForbiddenException);
+      if (wide) await expect(view).resolves.toBeUndefined();
+      else await expect(view).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
 });

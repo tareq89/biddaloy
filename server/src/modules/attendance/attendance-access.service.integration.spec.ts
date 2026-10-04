@@ -225,4 +225,42 @@ describe('AttendanceAccessService (integration)', () => {
       ).rejects.toThrow(ForbiddenException);
     });
   });
+
+  // [#1362] Per-role table: tenant-wide roles reach an unmapped section, others do not.
+  describe('per-role access table', () => {
+    const TENANT_WIDE: Array<[UserRole, boolean]> = [
+      [UserRole.ADMIN, true],
+      [UserRole.EXECUTIVE, true],
+      [UserRole.ACCOUNTANT, true],
+      // #1362 D-N: SUPER_ADMIN is out of tenant data scope until product decides.
+      [UserRole.SUPER_ADMIN, false],
+      // New in #1362 (read ROLE_SCOPE): the three new tenant-scoped roles.
+      [UserRole.OFFICE_STAFF, true],
+      [UserRole.EXAM_CONTROLLER, true],
+      [UserRole.COMMITTEE, false], // tenant scope but no ATTENDANCE_READ (D9)
+      [UserRole.PARENT, false],
+      [UserRole.STUDENT, false],
+    ];
+    it.each(TENANT_WIDE)('%s: tenant-wide=%s', async (role, wide) => {
+      const listed = (await service.listMarkableSections(role, teacherAUserId, TENANT_A)).map(
+        (s) => s.id,
+      );
+      const call = service.assertCanAccessSection(role, teacherAUserId, sectionA2Id, TENANT_A);
+      if (wide) {
+        expect(listed).toContain(sectionA2Id);
+        expect((await call).id).toBe(sectionA2Id);
+      } else {
+        expect(listed).toEqual([]);
+        await expect(call).rejects.toThrow(ForbiddenException);
+      }
+    });
+
+    it('TEACHER is section-scoped: sees only the mapped section', async () => {
+      const listed = (
+        await service.listMarkableSections(UserRole.TEACHER, teacherAUserId, TENANT_A)
+      ).map((s) => s.id);
+      expect(listed).toContain(sectionA1Id);
+      expect(listed).not.toContain(sectionA2Id);
+    });
+  });
 });

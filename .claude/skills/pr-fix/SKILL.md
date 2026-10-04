@@ -226,9 +226,19 @@ done — not once per individual fix. Include the tests predicted in step 6
 alongside the tests tied to the original failures/threads. In this repo:
 
 ```bash
-rtk yarn test              # server
-rtk yarn test:frontend --run   # ui / client-admin / client-student
+rtk yarn test-env run -- yarn test   # server (needs Postgres/Redis/S3 — see below)
+rtk yarn test:frontend --run         # ui / client-admin / client-student
 ```
+
+Never start Docker containers for this — no `docker compose up`,
+`docker run`, or a compose file of your own. Anything that
+needs Postgres, Redis or S3 (server tests, `migration:run`, `seed`,
+Playwright) goes through `yarn test-env`, which gives this worktree its own
+database, Redis slot block and bucket on the one shared `biddaloy` stack:
+`run -- <cmd>` creates them, runs the command, and removes them. For
+several steps, `ENV_FILE=$(yarn --silent test-env up)`, prefix each command
+with `set -a; . "$ENV_FILE"; set +a;`, and run `yarn test-env down` right
+after the fix is committed. See README "Test infrastructure".
 
 If a reviewer explicitly asked for test coverage, or your fix touches
 logic that this repo's own testing rules would require coverage for

@@ -53,7 +53,8 @@ function toCsv(rows: CollectionsCsvRow[]): string {
  * `Permission.REPORT_COLLECTIONS_READ`, granted to ADMIN, ACCOUNTANT and
  * EXECUTIVE (see `@biddaloy/shared` `ROLE_PERMISSIONS` —
  * `permissions.spec.ts` documents EXECUTIVE's grant as existing
- * specifically for this report).
+ * specifically for this report). Never COMMITTEE (#1358 D16): the CSV has a
+ * `student_name` column.
  */
 @ApiTags('reports')
 @ApiTenantAuth()

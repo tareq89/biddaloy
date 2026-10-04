@@ -168,7 +168,8 @@ it before the push. Three layers, cheapest first:
    lint + affected unit tests. Example: after touching one file in
    `server/src/students/`, `yarn check --affected` runs only the tests
    that import it, not the whole suite. `yarn test:server` goes one step
-   further — it spins up the test Postgres/Redis containers and runs the
+   further — it takes its own database/Redis/S3 slice of the shared Docker
+   stack (`scripts/test-env.sh`, no new containers) and runs the
    full unit + integration + e2e chain server-side, the same steps
    `ci.yml`'s `verify`/`integration`/`e2e` jobs run, without waiting on a
    push.
