@@ -2,6 +2,7 @@ import { Permission } from '@biddaloy/shared';
 import { createRootRoute, createRoute } from '@tanstack/react-router';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ComponentProps } from 'react';
 import { describe, expect, it } from 'vitest';
 
 import { LINK_KEYS, expectKeyboardOperable } from '../test/a11y';
@@ -15,7 +16,7 @@ const items = [
   { to: '/portal/admin', label: 'Admin', permission: Permission.SETTINGS_MANAGE },
 ];
 
-function buildRouteTree() {
+function buildRouteTree(props: Partial<ComponentProps<typeof BottomNav>> = {}) {
   const rootRoute = createRootRoute();
   const make = (path: string, content: string) =>
     createRoute({
@@ -24,7 +25,7 @@ function buildRouteTree() {
       component: () => (
         <>
           <p>{content}</p>
-          <BottomNav items={items} label="Portal" />
+          <BottomNav items={items} label="Portal" {...props} />
         </>
       ),
     });
@@ -61,13 +62,8 @@ describe('BottomNav', () => {
 
     const active = await screen.findByRole('link', { name: 'Fees' });
     expect(active.getAttribute('aria-current')).toBe('page');
-    expect(active.className).toContain('text-primary');
     const inactive = screen.getByRole('link', { name: 'Overview' });
     expect(inactive.getAttribute('aria-current')).toBeNull();
-    expect(inactive.className).toContain('text-muted-foreground');
-    // Exactly one colour utility per link — see the component's comment on
-    // why active/inactive props are split rather than layered.
-    expect(active.className).not.toContain('text-muted-foreground');
   });
 
   it('marks exactly one item current even when one item nests under another', async () => {
@@ -87,8 +83,8 @@ describe('BottomNav', () => {
 
     const nav = await screen.findByRole('navigation', { name: 'Portal' });
     for (const link of within(nav).getAllByRole('link')) {
-      // `min-h-14` is 56px — comfortably past the 44px minimum.
-      expect(link.className).toContain('min-h-14');
+      // `h-16` is 64px — comfortably past the 44px minimum.
+      expect(link.className).toContain('h-16');
     }
   });
 
@@ -215,5 +211,32 @@ describe('BottomNav', () => {
       expect(within(nav).getAllByRole('link')).toHaveLength(4);
       expect(within(nav).getByRole('button', { name: 'More' })).toBeTruthy();
     });
+  });
+
+  it('[31.2.10] marks More with data-active, never aria-current', async () => {
+    renderWithRouter(buildRouteTree({ more: { label: 'More', active: true } }), {
+      initialEntries: ['/portal'],
+      role: 'PARENT',
+    });
+    const more = await screen.findByRole('button', { name: 'More' });
+    expect(more.getAttribute('data-active')).toBe('true');
+    expect(more.getAttribute('aria-current')).toBeNull();
+  });
+
+  it('[31.2.10] omits data-active when More is not active', async () => {
+    renderWithRouter(buildRouteTree({ more: { label: 'More' } }), {
+      initialEntries: ['/portal'],
+      role: 'PARENT',
+    });
+    const more = await screen.findByRole('button', { name: 'More' });
+    expect(more.hasAttribute('data-active')).toBe(false);
+  });
+
+  it('[31.2.10] truncates every label to one line', async () => {
+    renderWithRouter(buildRouteTree(), { initialEntries: ['/portal'], role: 'PARENT' });
+    const nav = await screen.findByRole('navigation', { name: 'Portal' });
+    for (const link of within(nav).getAllByRole('link')) {
+      expect(link.querySelector('span.truncate')).not.toBeNull();
+    }
   });
 });

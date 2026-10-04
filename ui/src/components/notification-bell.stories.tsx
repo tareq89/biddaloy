@@ -43,8 +43,17 @@ export const WithUnread: Story = {
   decorators: [seed(2)],
 };
 
+/** Two-digit count: the badge is a pill that grows towards the end edge.
+ * [31.2.10] No `FourDigits` / `9999+` stories: the store caps history at 50
+ * (1000 after 31.2.11), so the real module cannot reach 4 digits — those
+ * states are pinned in `notification-bell.test.tsx` with a mocked count. */
 export const BadgeOverflow: Story = {
   decorators: [seed(12)],
+};
+
+export const BadgePillAtPhoneSize: Story = {
+  decorators: [seed(48)],
+  parameters: { viewport: { defaultViewport: 'mobile1' } },
 };
 
 export const PanelOpen: Story = {
