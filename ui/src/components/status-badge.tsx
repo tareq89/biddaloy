@@ -30,7 +30,7 @@ import {
   SyllabusTopicStatus,
   UserStatus,
 } from '@biddaloy/shared';
-import { AlertTriangle, CheckCircle2, CircleDashed, Clock, MinusCircle } from 'lucide-react';
+import { CircleCheck, CircleDashed, CircleMinus, Clock, TriangleAlert } from 'lucide-react';
 import * as React from 'react';
 
 import { useTranslation } from '../i18n';
@@ -42,11 +42,11 @@ const TONE_STYLES: Record<
   StatusTone,
   { fg: string; bg: string; icon: React.ComponentType<{ className?: string }> }
 > = {
-  success: { fg: 'text-status-paid-fg', bg: 'bg-status-paid-bg', icon: CheckCircle2 },
+  success: { fg: 'text-status-paid-fg', bg: 'bg-status-paid-bg', icon: CircleCheck },
   info: { fg: 'text-status-partial-fg', bg: 'bg-status-partial-bg', icon: CircleDashed },
   warning: { fg: 'text-status-due-fg', bg: 'bg-status-due-bg', icon: Clock },
-  danger: { fg: 'text-status-overdue-fg', bg: 'bg-status-overdue-bg', icon: AlertTriangle },
-  neutral: { fg: 'text-muted-foreground', bg: 'bg-muted', icon: MinusCircle },
+  danger: { fg: 'text-status-overdue-fg', bg: 'bg-status-overdue-bg', icon: TriangleAlert },
+  neutral: { fg: 'text-text-secondary', bg: 'bg-muted', icon: CircleMinus },
 };
 
 /** Title-cases an enum key ("PARTIALLY_PAID" -> "Partially paid"). Since
@@ -64,7 +64,7 @@ export function humanizeStatus(key: string): string {
 /** [8.14.15] i18next key for a status label. Exported so callers that
  * render a status *outside* `StatusBadge` (a filter `<SelectItem>`, a CSV
  * cell) show exactly the label the badge shows. Namespace is `common`. */
-export function statusLabelKey(domain: StatusBadgeProps['domain'], status: string): string {
+export function statusLabelKey(domain: StatusDomain, status: string): string {
   return `status.${domain}.${status}`;
 }
 
@@ -245,24 +245,31 @@ const SYLLABUS_TOPIC_STATUS_TONE: Record<SyllabusTopicStatus, StatusTone> = {
   [SyllabusTopicStatus.DONE]: 'success',
 };
 
-export type StatusBadgeProps =
-  | { domain: 'fee'; status: FeeStatus }
-  | { domain: 'feeGeneration'; status: FeeGenerationCollectionStatus }
-  | { domain: 'payment'; status: PaymentStatus }
-  | { domain: 'invoice'; status: InvoiceStatus }
-  | { domain: 'communication'; status: CommunicationStatusValue }
-  | { domain: 'reminderBatch'; status: ReminderBatchStatusValue }
-  | { domain: 'enrollment'; status: EnrollmentStatus }
-  | { domain: 'academicYear'; status: AcademicYearCurrentStatus }
-  | { domain: 'guardian'; status: GuardianPrimaryContactStatus }
-  | { domain: 'feeStructure'; status: FeeStructureRecurrenceStatus }
-  | { domain: 'user'; status: UserStatusValue }
-  | { domain: 'attendance'; status: AttendanceLowStatus }
-  | { domain: 'invitation'; status: InvitationStatus }
-  | { domain: 'school'; status: SchoolStatusValue }
-  | { domain: 'syllabusTopic'; status: SyllabusTopicStatus };
+type NoTone = { tone?: never; label?: never };
 
-function resolveTone(props: StatusBadgeProps): StatusTone {
+/** `{ tone, label }` form: for statuses with no shared enum. */
+export type StatusBadgeProps =
+  | { tone: StatusTone; label: string; domain?: never; status?: never }
+  | ({ domain: 'fee'; status: FeeStatus } & NoTone)
+  | ({ domain: 'feeGeneration'; status: FeeGenerationCollectionStatus } & NoTone)
+  | ({ domain: 'payment'; status: PaymentStatus } & NoTone)
+  | ({ domain: 'invoice'; status: InvoiceStatus } & NoTone)
+  | ({ domain: 'communication'; status: CommunicationStatusValue } & NoTone)
+  | ({ domain: 'reminderBatch'; status: ReminderBatchStatusValue } & NoTone)
+  | ({ domain: 'enrollment'; status: EnrollmentStatus } & NoTone)
+  | ({ domain: 'academicYear'; status: AcademicYearCurrentStatus } & NoTone)
+  | ({ domain: 'guardian'; status: GuardianPrimaryContactStatus } & NoTone)
+  | ({ domain: 'feeStructure'; status: FeeStructureRecurrenceStatus } & NoTone)
+  | ({ domain: 'user'; status: UserStatusValue } & NoTone)
+  | ({ domain: 'attendance'; status: AttendanceLowStatus } & NoTone)
+  | ({ domain: 'invitation'; status: InvitationStatus } & NoTone)
+  | ({ domain: 'school'; status: SchoolStatusValue } & NoTone)
+  | ({ domain: 'syllabusTopic'; status: SyllabusTopicStatus } & NoTone);
+
+type StatusDomain = Exclude<StatusBadgeProps['domain'], undefined>;
+type EnumProps = Extract<StatusBadgeProps, { domain: StatusDomain }>;
+
+function resolveTone(props: EnumProps): StatusTone {
   switch (props.domain) {
     case 'fee':
       return FEE_STATUS_TONE[props.status];
@@ -299,23 +306,30 @@ function resolveTone(props: StatusBadgeProps): StatusTone {
 
 export function StatusBadge(props: StatusBadgeProps) {
   const { t } = useTranslation();
-  const tone = resolveTone(props);
+  let tone: StatusTone;
+  let label: string;
+  if (props.tone) {
+    tone = props.tone;
+    label = props.label;
+  } else {
+    tone = resolveTone(props);
+    label = t(statusLabelKey(props.domain, props.status), {
+      defaultValue: humanizeStatus(props.status),
+    });
+  }
   const { fg, bg, icon: Icon } = TONE_STYLES[tone];
-  const label = t(statusLabelKey(props.domain, props.status), {
-    defaultValue: humanizeStatus(props.status),
-  });
 
   return (
     <span
       data-slot="status-badge"
       data-tone={tone}
       className={cn(
-        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+        'inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-label whitespace-nowrap',
         fg,
         bg,
       )}
     >
-      <Icon className="size-3.5" />
+      <Icon className="size-3.5" aria-hidden />
       {label}
     </span>
   );
