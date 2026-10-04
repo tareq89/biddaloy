@@ -1,0 +1,1 @@
+Mockup screenshots posted by the redesign-page skill.
