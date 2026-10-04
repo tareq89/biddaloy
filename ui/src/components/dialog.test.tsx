@@ -2,6 +2,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
+import { renderWithProviders } from '../test/render-with-providers';
+
 import { Button } from './button';
 import {
   Dialog,
@@ -104,5 +106,55 @@ describe('Dialog', () => {
     const footer = screen.getByRole('button', { name: 'Generate' }).closest('div');
     expect(footer?.className).toContain('sticky');
     expect(footer?.className).toContain('bottom-0');
+  });
+
+  it('sizes: md default 560, sm 400, lg 720; a caller max-w replaces the size class', async () => {
+    const mk = (props: React.ComponentProps<typeof DialogContent>) => (
+      <Dialog open>
+        <DialogContent {...props}>
+          <DialogTitle>T</DialogTitle>
+        </DialogContent>
+      </Dialog>
+    );
+    const { rerender } = render(mk({}));
+    expect((await screen.findByRole('dialog')).className).toContain('max-w-140');
+    rerender(mk({ size: 'sm' }));
+    expect(screen.getByRole('dialog').className).toContain('max-w-100');
+    rerender(mk({ size: 'lg' }));
+    expect(screen.getByRole('dialog').className).toContain('max-w-180');
+    rerender(mk({ className: 'max-w-2xl' }));
+    const cls = screen.getByRole('dialog').className;
+    expect(cls).toContain('max-w-2xl');
+    expect(cls).not.toContain('max-w-140');
+  });
+
+  it('footer has no grey band or top border', async () => {
+    render(
+      <Dialog open>
+        <DialogContent>
+          <DialogTitle>T</DialogTitle>
+          <DialogFooter>
+            <Button>Go</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>,
+    );
+    await screen.findByRole('dialog');
+    const cls = screen.getByRole('button', { name: 'Go' }).closest('div')?.className ?? '';
+    expect(cls).not.toContain('bg-muted/50');
+    expect(cls).not.toContain('border-t');
+  });
+
+  it('close button is named in Bangla under locale bn', async () => {
+    const { localeReady } = renderWithProviders(
+      <Dialog open>
+        <DialogContent>
+          <DialogTitle>T</DialogTitle>
+        </DialogContent>
+      </Dialog>,
+      { locale: 'bn' },
+    );
+    await localeReady;
+    expect(await screen.findByRole('button', { name: 'বন্ধ করুন' })).toBeTruthy();
   });
 });

@@ -43,9 +43,14 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  size = 'md',
+  closeLabel = 'Close',
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
+  /** Exact widths 400 / 560 / 720 px (C14). */
+  size?: 'sm' | 'md' | 'lg';
+  closeLabel?: string;
 }) {
   return (
     <DialogPortal>
@@ -64,7 +69,8 @@ function DialogContent({
           // in both SPAs renders through it, so re-check Storybook (every
           // existing dialog story, plus a new "tall content" one) rather
           // than assuming this one caller's fix is safe everywhere.
-          'fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-xl bg-popover p-4 text-sm text-popover-foreground shadow-e3 ring-1 ring-foreground/10 duration-(--motion-duration-slow) outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-sm dark:ring-border-subtle',
+          'fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-lg border border-border-subtle bg-surface p-5 text-body text-text-primary shadow-e3 duration-(--motion-duration-slow) outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
+          { sm: 'max-w-100', md: 'max-w-140', lg: 'max-w-180' }[size],
           className,
         )}
         {...props}
@@ -72,9 +78,9 @@ function DialogContent({
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
-            <Button variant="ghost" className="absolute top-2 right-2" size="icon-sm">
+            <Button variant="ghost" className="absolute end-3 top-3" size="icon">
               <XIcon />
-              <span className="sr-only">Close</span>
+              <span className="sr-only">{closeLabel}</span>
             </Button>
           </DialogPrimitive.Close>
         )}
@@ -85,17 +91,23 @@ function DialogContent({
 
 function DialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
   return (
-    <div data-slot="dialog-header" className={cn('flex flex-col gap-2', className)} {...props} />
+    <div
+      data-slot="dialog-header"
+      className={cn('flex flex-col gap-1 pe-10', className)}
+      {...props}
+    />
   );
 }
 
 function DialogFooter({
   className,
   showCloseButton = false,
+  closeLabel = 'Close',
   children,
   ...props
 }: React.ComponentProps<'div'> & {
   showCloseButton?: boolean;
+  closeLabel?: string;
 }) {
   return (
     <div
@@ -104,7 +116,7 @@ function DialogFooter({
         // `sticky bottom-0` (plus `shrink-0` so a tall body can't squeeze
         // it) keeps this reachable when `DialogContent` above scrolls —
         // see that component's own comment on why.
-        'sticky bottom-0 -mx-4 -mb-4 flex shrink-0 flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end',
+        'sticky bottom-0 -mx-5 -mb-5 flex shrink-0 flex-col-reverse gap-2 bg-surface px-5 pt-3 pb-5 md:flex-row md:justify-end',
         className,
       )}
       {...props}
@@ -112,7 +124,7 @@ function DialogFooter({
       {children}
       {showCloseButton && (
         <DialogPrimitive.Close asChild>
-          <Button variant="outline">Close</Button>
+          <Button variant="outline">{closeLabel}</Button>
         </DialogPrimitive.Close>
       )}
     </div>
@@ -123,7 +135,7 @@ function DialogTitle({ className, ...props }: React.ComponentProps<typeof Dialog
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn('text-base leading-none font-medium', className)}
+      className={cn('text-h2', className)}
       {...props}
     />
   );
@@ -137,7 +149,7 @@ function DialogDescription({
     <DialogPrimitive.Description
       data-slot="dialog-description"
       className={cn(
-        'text-sm text-muted-foreground *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground',
+        'text-body text-text-secondary *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground',
         className,
       )}
       {...props}
