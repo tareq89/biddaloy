@@ -84,9 +84,9 @@ describe('MonthPicker', () => {
     await setup(<Controlled initial="2026-10" min="2026-03" max="2026-09" />);
     await user.click(trigger());
     const btn = async (n: string) => await screen.findByRole('button', { name: n });
-    expect((await btn('February')).disabled).toBe(true);
-    expect((await btn('March')).disabled).toBe(false);
-    expect((await btn('September')).disabled).toBe(false);
-    expect((await btn('October')).disabled).toBe(true);
+    expect(((await btn('February')) as HTMLButtonElement).disabled).toBe(true);
+    expect(((await btn('March')) as HTMLButtonElement).disabled).toBe(false);
+    expect(((await btn('September')) as HTMLButtonElement).disabled).toBe(false);
+    expect(((await btn('October')) as HTMLButtonElement).disabled).toBe(true);
   });
 });

@@ -242,8 +242,8 @@ describe('DatePicker', () => {
       await setup(<Controlled initial={new Date(2024, 0, 5)} max={new Date(2024, 4, 20)} />);
       await openGrid(user);
       await user.click(screen.getByRole('button', { name: /Choose month and year/ }));
-      expect(screen.getByRole('button', { name: 'May' }).disabled).toBe(false);
-      expect(screen.getByRole('button', { name: 'June' }).disabled).toBe(true);
+      expect((screen.getByRole('button', { name: 'May' }) as HTMLButtonElement).disabled).toBe(false);
+      expect((screen.getByRole('button', { name: 'June' }) as HTMLButtonElement).disabled).toBe(true);
     });
 
     it('Escape in the months view returns to days before closing', async () => {
