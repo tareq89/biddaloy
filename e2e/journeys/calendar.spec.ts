@@ -45,8 +45,15 @@ test.describe.serial('calendar: create -> grid, past-lock, teacher read-only, fe
       await page.getByRole('button', { name: t('calendar.page.addEvent') }).click();
 
       await page.locator('#event-form-name').fill(eventName);
-      await page.getByLabel(t('calendar.eventForm.startDate')).fill(CREATE_DATE);
-      await page.getByLabel(t('calendar.eventForm.endDate')).fill(CREATE_DATE);
+      for (const label of [t('calendar.eventForm.startDate'), t('calendar.eventForm.endDate')]) {
+        await page.getByLabel(label).click();
+        const cell = page.locator(`[role="grid"] [data-date="${CREATE_DATE}"]`);
+        // tomorrow can be next month
+        if (!(await cell.isVisible())) {
+          await page.getByRole('button', { name: t('common.date.nextMonth') }).click();
+        }
+        await cell.click();
+      }
       // Publish immediately is checked by default — leave it, so the
       // event is visible on the grid without an extra publish step.
       await page.getByRole('button', { name: t('calendar.eventForm.save') }).click();
