@@ -108,6 +108,7 @@ test.describe('class teacher', () => {
     const streaks = await seeded.getJson<{ items: { student_name: string }[] }>(
       `/attendance/sections/${section.section_id}/streaks`,
     );
+    expect(streaks.items.length).toBeGreaterThan(0);
     for (const { student_name } of streaks.items) {
       await expect(flags.getByText(student_name)).toBeVisible();
     }
