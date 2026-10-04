@@ -43,6 +43,85 @@ export function formatDateTime(date: Date, config: RegionConfig): string {
   );
 }
 
+/** `YYYY-MM-DD` from the date's local calendar fields, Latin digits always — for URLs, search
+ * params, API bodies and exports (D5). Never for display; use `formatDate`. */
+export function toIsoDate(date: Date): string {
+  const y = String(date.getFullYear()).padStart(4, '0');
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+const NONE = '—';
+
+function isBlank(value: Date | string | null | undefined): value is null | undefined | '' {
+  return value === null || value === undefined || value === '';
+}
+
+/** Placeholder body (31.2.1 rewrites it): numeric `YYYY-MM`. */
+export function formatMonth(value: Date | string | null | undefined, config: RegionConfig): string {
+  if (isBlank(value)) return NONE;
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return NONE;
+    return renderDigits(toIsoDate(value).slice(0, 7), config.numerals);
+  }
+  const head = toLatinDigits(value).slice(0, 7);
+  return /^\d{4}-\d{2}$/.test(head) ? renderDigits(head, config.numerals) : NONE;
+}
+
+/** Long month name for `month` 1–12 in the config locale. */
+export function formatMonthName(month: number, config: RegionConfig): string {
+  return new Intl.DateTimeFormat(config.locale, { month: 'long', timeZone: 'UTC' }).format(
+    Date.UTC(2000, month - 1, 1),
+  );
+}
+
+/** Placeholder body (31.2.1 rewrites it): `HH:mm`. */
+export function formatTime(value: Date | string | null | undefined, config: RegionConfig): string {
+  if (isBlank(value)) return NONE;
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return NONE;
+    const hh = String(value.getHours()).padStart(2, '0');
+    const mm = String(value.getMinutes()).padStart(2, '0');
+    return renderDigits(`${hh}:${mm}`, config.numerals);
+  }
+  const match = /^(\d{1,2}):(\d{2})/.exec(toLatinDigits(value));
+  if (!match) return NONE;
+  return renderDigits(`${(match[1] ?? '').padStart(2, '0')}:${match[2]}`, config.numerals);
+}
+
+/** Long weekday name of a `Date` (local) or a `YYYY-MM-DD…` string. */
+export function formatWeekday(
+  value: Date | string | null | undefined,
+  config: RegionConfig,
+): string {
+  if (isBlank(value)) return NONE;
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return NONE;
+    return new Intl.DateTimeFormat(config.locale, { weekday: 'long' }).format(value);
+  }
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(toLatinDigits(value));
+  if (!match) return NONE;
+  return new Intl.DateTimeFormat(config.locale, { weekday: 'long', timeZone: 'UTC' }).format(
+    Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])),
+  );
+}
+
+/** Placeholder body (31.2.1 rewrites it): `from – to` via `formatDate`. */
+export function formatDateRange(
+  from: Date | string,
+  to: Date | string,
+  config: RegionConfig,
+): string {
+  try {
+    const a = typeof from === 'string' ? parseServerDate(from) : from;
+    const b = typeof to === 'string' ? parseServerDate(to) : to;
+    return `${formatDate(a, config)} – ${formatDate(b, config)}`;
+  } catch {
+    return NONE;
+  }
+}
+
 /** Inverse of `formatDate`. Throws `RangeError` on anything that isn't a
  * `YYYY-MM-DD` shape in either digit system, or a calendar date that
  * doesn't exist (`2024-02-30`) — `new Date(...)` silently rolls invalid

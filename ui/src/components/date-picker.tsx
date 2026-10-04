@@ -12,7 +12,7 @@ import * as React from 'react';
 
 import type { RegionConfig } from '../i18n/region-config';
 import { Popover, PopoverContent, PopoverTrigger } from '../primitives/popover';
-import { formatDate, parseDate } from '../utils/date';
+import { parseDate, toIsoDate } from '../utils/date';
 import { renderDigits } from '../utils/digits';
 
 import { Button } from './button';
@@ -38,11 +38,13 @@ export function DatePicker({
   ...props
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
-  const [text, setText] = React.useState(() => (value ? formatDate(value, config) : ''));
+  const [text, setText] = React.useState(() =>
+    value ? renderDigits(toIsoDate(value), config.numerals) : '',
+  );
   const [viewMonth, setViewMonth] = React.useState(() => value ?? new Date());
 
   React.useEffect(() => {
-    setText(value ? formatDate(value, config) : '');
+    setText(value ? renderDigits(toIsoDate(value), config.numerals) : '');
     if (value) setViewMonth(value);
   }, [value, config]);
 
