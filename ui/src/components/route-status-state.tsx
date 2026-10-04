@@ -6,8 +6,8 @@
  * Deliberately a sibling of `ErrorState` rather than a variant of it,
  * because neither of these is an error and neither should read like one —
  * see `EmptyState`'s file comment for the border/elevation table shared
- * across the family; this one matches `EmptyState`'s dashed, flat
- * treatment, not `ErrorState`'s solid + elevated one. Also:
+ * across the family; all members now share one card look and differ by
+ * icon-well tone and role. Also:
  *
  *   - `role="status"`, not `role="alert"` — a screen reader announces this
  *     politely. "You have no signal", or "a newer version exists", does not
@@ -21,6 +21,8 @@
  * so a consuming app can translate them.
  */
 import * as React from 'react';
+
+import { useTranslation } from '../i18n';
 
 import { Button } from './button';
 
@@ -50,27 +52,28 @@ export function RouteStatusState({
   onRetry,
   retryLabel,
   onHome,
-  homeLabel = 'Go home',
+  homeLabel,
   icon,
 }: RouteStatusStateProps) {
+  const { t } = useTranslation('common');
   return (
     <div
       role="status"
       data-slot="route-status-state"
-      className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border-subtle bg-card p-8 text-center"
+      className="flex flex-col items-center gap-2 rounded-lg border border-border-subtle bg-surface px-4 py-10 text-center shadow-e1"
     >
-      <div className="mb-1 flex size-14 items-center justify-center rounded-full bg-muted text-muted-foreground [&_svg]:size-8">
+      <div className="flex size-12 items-center justify-center rounded-full bg-muted text-text-secondary [&_svg]:size-6">
         {icon}
       </div>
-      <h1 className="font-medium">{title}</h1>
-      <p className="max-w-prose text-sm text-muted-foreground">{explanation}</p>
+      <h1 className="text-h3">{title}</h1>
+      <p className="max-w-prose text-text-secondary">{explanation}</p>
       <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
         <Button type="button" variant="outline" onClick={onRetry}>
           {retryLabel}
         </Button>
         {onHome && (
           <Button type="button" variant="ghost" onClick={onHome}>
-            {homeLabel}
+            {homeLabel ?? t('routeError.home')}
           </Button>
         )}
       </div>

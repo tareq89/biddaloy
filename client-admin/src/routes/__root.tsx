@@ -205,6 +205,7 @@ function NotFoundPage() {
 
   return (
     <EmptyState
+      headingLevel={1}
       title={t('notFound.title')}
       explanation={t('notFound.explanation')}
       action={{ label: t('notFound.action'), onClick: () => void navigate({ to: '/' }) }}
