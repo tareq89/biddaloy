@@ -1,4 +1,14 @@
-import { IsString, IsUUID, IsOptional, IsInt, Min, MaxLength, IsNotEmpty } from 'class-validator';
+import {
+  IsString,
+  IsUUID,
+  IsOptional,
+  IsInt,
+  Min,
+  MaxLength,
+  IsNotEmpty,
+  IsEnum,
+} from 'class-validator';
+import { TeacherAssignmentType } from '@biddaloy/shared';
 import { Type } from 'class-transformer';
 import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
@@ -127,6 +137,11 @@ export class AssignTeacherDto {
   @IsOptional()
   @IsUUID()
   subject_id?: string;
+
+  /** Omitted: inferred (`subject_id` set -> SUBJECT_TEACHER, else CLASS_TEACHER). */
+  @IsOptional()
+  @IsEnum(TeacherAssignmentType)
+  assignment_type?: TeacherAssignmentType;
 }
 
 export class UpdateSectionDto {

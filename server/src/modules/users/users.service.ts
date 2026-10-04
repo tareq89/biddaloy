@@ -26,6 +26,7 @@ import {
   UpdateTeacherDto,
   QueryTeacherDto,
 } from './dto/users.dto';
+import { ASSIGNMENT_TYPE_ORDER_SQL } from '../classes/classes.service';
 import type { SectionTeacherAssignment } from '../classes/classes.service';
 
 /** [#1026 gap fix] `getTeacherAssignments`'s row shape — `SectionTeacherAssignment`
@@ -630,7 +631,8 @@ export class TeacherService {
       .leftJoinAndSelect('tcs.subject', 'subject')
       .where('tcs.teacher_id = :teacherId', { teacherId })
       .andWhere('tcs.tenant_id = :tenantId', { tenantId })
-      .orderBy('subject.name_en', 'ASC', 'NULLS FIRST')
+      .orderBy(ASSIGNMENT_TYPE_ORDER_SQL, 'ASC')
+      .addOrderBy('user.full_name', 'ASC')
       .getMany();
 
     return rows.map((row) => ({
@@ -644,6 +646,7 @@ export class TeacherService {
       class_name: row.section.class.name,
       subject_id: row.subject_id,
       subject_name: row.subject?.name_en ?? null,
+      assignment_type: row.assignment_type,
     }));
   }
 }
