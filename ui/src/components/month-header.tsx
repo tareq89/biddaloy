@@ -15,6 +15,8 @@ export interface MonthHeaderProps {
   onNext: () => void;
   /** Omitted: no "Today" button (MonthPicker). */
   onToday?: () => void;
+  /** Disables the Today button (today is outside the allowed range). */
+  todayDisabled?: boolean;
   /** Default `t('date.previousMonth')`. */
   previousLabel?: string;
   /** Default `t('date.nextMonth')`. */
@@ -31,6 +33,7 @@ export function MonthHeader({
   onPrevious,
   onNext,
   onToday,
+  todayDisabled,
   previousLabel,
   nextLabel,
   onLabelClick,
@@ -58,7 +61,7 @@ export function MonthHeader({
         </p>
       )}
       {onToday && (
-        <Button type="button" variant="outline" onClick={onToday}>
+        <Button type="button" variant="outline" disabled={todayDisabled} onClick={onToday}>
           {t('date.today')}
         </Button>
       )}

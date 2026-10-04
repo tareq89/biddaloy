@@ -148,17 +148,6 @@ export function Calendar({
   const [view, setView] = React.useState<'days' | 'months'>('days');
   const [pickYear, setPickYear] = React.useState(year);
   const [focused, setFocused] = React.useState<Date>(() => selected ?? new Date());
-  // Roving tab stop: the focused day if it is in the shown month, else the
-  // selected day, else today, else the 1st.
-  const first = new Date(year, monthIndex, 1);
-  const roving = sameMonth(focused, month)
-    ? focused
-    : selected && sameMonth(selected, month)
-      ? selected
-      : sameMonth(today, month)
-        ? today
-        : first;
-
   const gridRef = React.useRef<HTMLDivElement>(null);
   // Set at the *start* of a keyboard move, before the state change that can
   // replace the focused button with a different DOM node (crossing a month
@@ -195,9 +184,34 @@ export function Calendar({
     return (minKey !== undefined && key < minKey) || (maxKey !== undefined && key > maxKey);
   };
 
+  // Roving tab stop: the focused day if it is in the shown month, else the
+  // selected day, else today, else the 1st. A disabled candidate falls back
+  // to the first enabled day of the month so the grid stays Tab-reachable.
+  const first = new Date(year, monthIndex, 1);
+  const candidate = sameMonth(focused, month)
+    ? focused
+    : selected && sameMonth(selected, month)
+      ? selected
+      : sameMonth(today, month)
+        ? today
+        : first;
+  const roving = isDisabled(candidate)
+    ? (cells.find((d) => sameMonth(d, month) && !isDisabled(d)) ?? candidate)
+    : candidate;
+
+  // Arrow keys never land on a disabled day: clamp into [min, max].
+  const clamp = (d: Date) =>
+    minKey !== undefined && toIsoDate(d) < minKey
+      ? new Date(min!.getFullYear(), min!.getMonth(), min!.getDate())
+      : maxKey !== undefined && toIsoDate(d) > maxKey
+        ? new Date(max!.getFullYear(), max!.getMonth(), max!.getDate())
+        : d;
+
   function moveFocus(delta: number) {
     hadFocusRef.current = !!gridRef.current?.contains(document.activeElement);
-    const next = new Date(roving.getFullYear(), roving.getMonth(), roving.getDate() + delta);
+    const next = clamp(
+      new Date(roving.getFullYear(), roving.getMonth(), roving.getDate() + delta),
+    );
     setFocused(next);
     if (!sameMonth(next, month)) onMonthChange(new Date(next.getFullYear(), next.getMonth(), 1));
   }
@@ -226,6 +240,7 @@ export function Calendar({
                   setFocused(today);
                 }
           }
+          todayDisabled={isDisabled(today)}
           onLabelClick={() => {
             setPickYear(year);
             setView(inMonths ? 'days' : 'months');
