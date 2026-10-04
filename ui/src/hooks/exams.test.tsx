@@ -21,10 +21,12 @@ describe('useDeleteExam', () => {
       tenantId: 'tenant-1',
     });
     const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    queryClient.setQueryData(examKeys.detail('e1'), { id: 'e1' });
 
     await result.current.mutateAsync('e1');
 
     expect(calledPath).toBe('e1');
+    expect(queryClient.getQueryData(examKeys.detail('e1'))).toBeUndefined();
     await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: examKeys.lists() }));
   });
 });
