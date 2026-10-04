@@ -1,11 +1,16 @@
 /**
- * D29: the one confirm dialog (patterns.md section 7). Stub — filled in by 31.2.6.
+ * D29: the one confirm dialog (patterns.md section 7) and the only place the
+ * filled red `danger` button lives. An `alertdialog`: outside click is ignored
+ * and, while `busy`, so is Esc.
  */
+import { Trash2Icon } from 'lucide-react';
+
 import { useTranslation } from '../i18n';
 
 import { Button } from './button';
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -41,21 +46,32 @@ export function ConfirmDialog({
   const { t } = useTranslation('common');
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent
+        size="sm"
+        role="alertdialog"
+        showCloseButton={false}
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => {
+          if (busy) e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            {cancelLabel ?? t('actions.cancel')}
-          </Button>
+          <DialogClose asChild>
+            <Button type="button" variant="outline" disabled={busy ?? false}>
+              {cancelLabel ?? t('actions.cancel')}
+            </Button>
+          </DialogClose>
           <Button
             type="button"
             variant={tone === 'danger' ? 'danger' : 'default'}
             loading={busy ?? false}
             onClick={onConfirm}
           >
+            {tone === 'danger' && <Trash2Icon aria-hidden="true" />}
             {confirmLabel}
           </Button>
         </DialogFooter>
