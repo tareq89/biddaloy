@@ -200,4 +200,14 @@ describe('minorUnitsToDecimalString', () => {
       expect(serverAmountToMinorUnits(decimalString, REGION_BD_EN)).toBe(minorUnits);
     }
   });
+
+  it.each([undefined, null, Number.NaN])('shows the none value for %s', (value) => {
+    expect(formatCurrency(value, REGION_BD_EN)).toBe('—');
+  });
+
+  it('shows the none value for a missing server amount', () => {
+    expect(formatServerAmount(null, REGION_BD_EN)).toBe('—');
+    expect(formatServerAmount(undefined, REGION_BD_EN)).toBe('—');
+    expect(formatServerAmount('', REGION_BD_EN)).toBe('—');
+  });
 });

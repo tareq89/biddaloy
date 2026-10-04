@@ -50,12 +50,18 @@ export function resolveRegionConfig(
       firstDayOfWeek: tenantRegion.date?.firstDayOfWeek ?? fallback.date.firstDayOfWeek,
       calendar: tenantRegion.date?.calendar ?? fallback.date.calendar,
     },
-    phone: {
-      country: tenantRegion.phone?.country ?? fallback.phone.country,
-      pattern: compilePattern(tenantRegion.phone?.pattern, fallback.phone.pattern),
-      example: tenantRegion.phone?.example ?? fallback.phone.example,
-      displayFormat: tenantRegion.phone?.displayFormat ?? fallback.phone.displayFormat,
-    },
+    // ponytail: the server default stores `country: 'BD'` with a full-number pattern, which
+    // parsePhone cannot use (it needs a calling code and a national-number pattern). Take the
+    // tenant block only when it has the client shape. Upgrade path: server stores the client
+    // shape, then delete this guard.
+    phone: /^\d+$/.test(tenantRegion.phone?.country ?? '')
+      ? {
+          country: tenantRegion.phone?.country ?? fallback.phone.country,
+          pattern: compilePattern(tenantRegion.phone?.pattern, fallback.phone.pattern),
+          example: tenantRegion.phone?.example ?? fallback.phone.example,
+          displayFormat: tenantRegion.phone?.displayFormat ?? fallback.phone.displayFormat,
+        }
+      : fallback.phone,
     address: {
       fields: tenantRegion.address?.fields ?? fallback.address.fields,
       order: tenantRegion.address?.order ?? fallback.address.order,

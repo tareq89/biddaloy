@@ -1,5 +1,8 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
+import { useTranslation } from 'react-i18next';
 import { describe, it, expect } from 'vitest';
+
+import { formatServerAmount } from '../utils/currency';
 
 import { createI18nInstance } from './i18n';
 import { I18nProvider } from './locale-provider';
@@ -15,7 +18,42 @@ function Numerals() {
   return <p>numerals: {useRegionConfig().numerals}</p>;
 }
 
+function Count() {
+  const { t } = useTranslation();
+  return <p>{t('n', { count: 312 })}</p>;
+}
+
+function Amount() {
+  return <p>{formatServerAmount('0.00', useRegionConfig())}</p>;
+}
+
 describe('RegionConfigProvider', () => {
+  it('a value-less provider under bn renders Bengali amounts', async () => {
+    const instance = createI18nInstance();
+    render(
+      <I18nProvider i18n={instance}>
+        <RegionConfigProvider>
+          <Amount />
+        </RegionConfigProvider>
+      </I18nProvider>,
+    );
+    await waitFor(() => expect(screen.getByText('৳০.০০')).toBeTruthy());
+  });
+
+  it('pushes the tenant numerals into {{count}} interpolation', async () => {
+    const instance = createI18nInstance();
+    await instance.changeLanguage('bn');
+    instance.addResourceBundle('bn', 'common', { n: 'মোট {{count}}টি' }, true, true);
+    render(
+      <I18nProvider i18n={instance}>
+        <RegionConfigProvider value={{ ...REGION_BD_BN, numerals: 'latin' }}>
+          <Count />
+        </RegionConfigProvider>
+      </I18nProvider>,
+    );
+    await waitFor(() => expect(screen.getByText('মোট 312টি')).toBeTruthy());
+  });
+
   it('defaults to the BD region matching the active locale, and follows it when the locale switches', async () => {
     const instance = createI18nInstance();
 
