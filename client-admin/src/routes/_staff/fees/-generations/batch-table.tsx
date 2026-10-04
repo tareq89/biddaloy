@@ -83,6 +83,7 @@ const PERIOD_TYPE_LABEL_KEY: Record<FeeGeneration['period_type'], string> = {
 const SOURCE_LABEL_KEY: Record<FeeGeneration['source'], string> = {
   MANUAL: 'generations.sourceManual',
   SCHEDULE: 'generations.sourceSchedule',
+  FINE_RULE: 'generations.sourceFineRule',
 };
 
 const COLLECTION_STATUS_LABEL_KEY: Record<FeeGeneration['collection_status'], string> = {
