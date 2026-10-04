@@ -8,11 +8,13 @@
  * user-approved deviation from its own published plan (see that file's
  * own header comment).
  */
+import { UserRole } from '@biddaloy/shared';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { DownloadIcon } from 'lucide-react';
 import { userEvent, within } from 'storybook/test';
 
 import { rtlDecorator } from '../../.storybook/rtl-decorator';
+import { setAccessToken, setActiveTenant } from '../api/auth-state';
 
 import { MenuItem } from './menu';
 import { UserMenu } from './user-menu';
@@ -93,4 +95,38 @@ export const LongName: Story = {
 export const RightToLeft: Story = {
   decorators: [rtlDecorator],
   play: openMenu,
+};
+
+function fakeJwt(memberships: unknown): string {
+  const payload = btoa(JSON.stringify({ memberships }))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+  return `header.${payload}.signature`;
+}
+
+const twoSchools = [
+  { tenantId: 'tenant-1', role: UserRole.ADMIN, name: 'Greenview School' },
+  { tenantId: 'tenant-2', role: UserRole.TEACHER, name: 'Rose Valley School' },
+];
+
+/** D12: Language, Theme, consumer rows and "Switch school or role" in one menu. */
+export const AccountControls: Story = {
+  args: {
+    showAccountControls: true,
+    profileItem: <MenuItem>Security</MenuItem>,
+  },
+  decorators: [
+    (Story) => {
+      setAccessToken(fakeJwt(twoSchools));
+      setActiveTenant('tenant-1');
+      return <Story />;
+    },
+  ],
+  play: openMenu,
+};
+
+export const AccountControlsMobile: Story = {
+  ...AccountControls,
+  parameters: { viewport: { defaultViewport: 'mobile1' } },
 };
