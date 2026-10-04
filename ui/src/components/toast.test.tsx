@@ -84,9 +84,14 @@ describe('Toaster/toast', () => {
       render(<Toaster />);
       toast('Hi');
       await screen.findByText('Hi');
-      expect(document.querySelector('[data-sonner-toaster]')?.getAttribute('style')).toContain(
-        expected,
-      );
+      const style = document.querySelector('[data-sonner-toaster]')?.getAttribute('style');
+      expect(style).toContain(expected);
+      // Desktop-width offset is only set when the below-md media query matches.
+      if (matches) {
+        expect(style).toContain('--offset-bottom: calc(5rem + var(--safe-area-bottom, 0px))');
+      } else {
+        expect(style).not.toContain('--offset-bottom: calc(5rem');
+      }
     });
   });
 });
