@@ -235,12 +235,12 @@ erDiagram
 
 The database enforces these rules, not just the service code:
 
-| Rule                                                       | Enforced by                                                                                       |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `subject_id` is set **if and only if** `SUBJECT_TEACHER`   | check constraint `CK_tcs_subject_matches_type`                                                    |
-| One `CLASS_TEACHER` per section                            | partial unique index `UQ_tcs_section_class_teacher`                                               |
-| One CLASS or ASSISTANT row per teacher per section (homeroom) | partial unique index `UQ_tcs_teacher_section_homeroom`                                         |
-| One subject row per teacher, section and subject           | existing unique index `IDX_tcs_teacher_section_subject`                                           |
+| Rule                                                          | Enforced by                                             |
+| ------------------------------------------------------------- | ------------------------------------------------------- |
+| `subject_id` is set **if and only if** `SUBJECT_TEACHER`      | check constraint `CK_tcs_subject_matches_type`          |
+| One `CLASS_TEACHER` per section                               | partial unique index `UQ_tcs_section_class_teacher`     |
+| One CLASS or ASSISTANT row per teacher per section (homeroom) | partial unique index `UQ_tcs_teacher_section_homeroom`  |
+| One subject row per teacher, section and subject              | existing unique index `IDX_tcs_teacher_section_subject` |
 
 Because of the check constraint, `subject_id IS NULL` now means exactly
 "CLASS or ASSISTANT". Older code that tests `subject_id IS NULL` (homework,
@@ -270,8 +270,8 @@ How the type gets set:
   `down()` refuses to run while any `ASSISTANT_CLASS_TEACHER` row exists,
   because the old schema cannot represent it.
 
-Who reads what is covered in [03-backend-modules.md](03-backend-modules.md)
-(`TeacherScopeService`) and [11-attendance.md](11-attendance.md) (streaks).
+Who reads what, including the marks read/write rules, is covered in
+[03-backend-modules.md](03-backend-modules.md) (`TeacherScopeService`) and [11-attendance.md](11-attendance.md) (streaks).
 
 ### Grading (`modules/grading`)
 
