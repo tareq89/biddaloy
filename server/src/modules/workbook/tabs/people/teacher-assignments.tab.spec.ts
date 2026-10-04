@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TeacherDesignation } from '@biddaloy/shared';
+import { TeacherAssignmentType, TeacherDesignation } from '@biddaloy/shared';
 import { TeacherClassSection } from '../../../academics/entities/teacher-class-section.entity';
 import { Teacher } from '../../../academics/entities/teacher.entity';
 import { ClassSection } from '../../../academics/entities/class-section.entity';
@@ -104,6 +104,10 @@ function makeAssignment(overrides: Partial<TeacherClassSection> = {}): TeacherCl
     tenant_id: TENANT_ID,
     subject_id: SUBJECT_ID,
     subject: makeSubject(),
+    assignment_type:
+      overrides.subject_id === null
+        ? TeacherAssignmentType.CLASS_TEACHER
+        : TeacherAssignmentType.SUBJECT_TEACHER,
     ...overrides,
   } satisfies Partial<TeacherClassSection>);
 }
@@ -281,6 +285,74 @@ describe('round-trip', () => {
   });
 });
 
+describe('role column (47.x)', () => {
+  const homeroom = { subject_id: null, subject: null };
+  const cellsWithoutRole = (e: TeacherClassSection) => {
+    const cells: Record<string, string> = toCells(e);
+    delete cells.role;
+    return cells;
+  };
+
+  it('exports the role as the enum name and round-trips CLASS, ASSISTANT and SUBJECT', () => {
+    for (const type of Object.values(TeacherAssignmentType)) {
+      const overrides =
+        type === TeacherAssignmentType.SUBJECT_TEACHER
+          ? { assignment_type: type }
+          : { ...homeroom, assignment_type: type };
+      const cells = toCells(makeAssignment(overrides));
+      expect(cells.role).toBe(type);
+      expect(fromRowOrThrow(cells).assignment_type).toBe(type);
+    }
+  });
+
+  it('a file without the Role column parses, with the role inferred (pre-47 backup)', () => {
+    expect(fromRowOrThrow(cellsWithoutRole(makeAssignment())).assignment_type).toBe(
+      TeacherAssignmentType.SUBJECT_TEACHER,
+    );
+    expect(fromRowOrThrow(cellsWithoutRole(makeAssignment(homeroom))).assignment_type).toBe(
+      TeacherAssignmentType.CLASS_TEACHER,
+    );
+  });
+
+  it('a blank Role cell is inferred as in D20', () => {
+    const withSubject = { ...toCells(makeAssignment()), role: '' };
+    expect(fromRowOrThrow(withSubject).assignment_type).toBe(TeacherAssignmentType.SUBJECT_TEACHER);
+    const noSubject = { ...toCells(makeAssignment(homeroom)), role: '' };
+    expect(fromRowOrThrow(noSubject).assignment_type).toBe(TeacherAssignmentType.CLASS_TEACHER);
+  });
+
+  it('an unknown role value is a row error on the role column', () => {
+    const result = teacherAssignmentsTab.fromRow(
+      { ...toCells(makeAssignment()), role: 'PRINCIPAL' },
+      8,
+      importCtx(),
+    );
+    expect((result as { errors: RowError[] }).errors[0].column).toBe('role');
+  });
+
+  it('a role that disagrees with the subject cell is a row error (would trip the DB check)', () => {
+    const assistantWithSubject = { ...toCells(makeAssignment()), role: 'ASSISTANT_CLASS_TEACHER' };
+    const r1 = teacherAssignmentsTab.fromRow(assistantWithSubject, 9, importCtx());
+    expect((r1 as { errors: RowError[] }).errors[0].column).toBe('role');
+
+    const subjectRoleNoSubject = { ...toCells(makeAssignment(homeroom)), role: 'SUBJECT_TEACHER' };
+    const r2 = teacherAssignmentsTab.fromRow(subjectRoleNoSubject, 10, importCtx());
+    expect((r2 as { errors: RowError[] }).errors[0].column).toBe('role');
+  });
+
+  it('CLASS and ASSISTANT for one teacher-section share a natural key (the duplicate-key check rejects the pair)', () => {
+    const asClass = makeAssignment({
+      ...homeroom,
+      assignment_type: TeacherAssignmentType.CLASS_TEACHER,
+    });
+    const asAssistant = makeAssignment({
+      ...homeroom,
+      assignment_type: TeacherAssignmentType.ASSISTANT_CLASS_TEACHER,
+    });
+    expect(teacherAssignmentsTab.keyOf(asClass)).toBe(teacherAssignmentsTab.keyOf(asAssistant));
+  });
+});
+
 describe('diffFields', () => {
   it('reports nothing for a matched row: the fields are all in the natural key', () => {
     const assignment = makeAssignment();
@@ -289,6 +361,7 @@ describe('diffFields', () => {
       teacher_id: assignment.teacher_id,
       section_id: assignment.section_id,
       subject_id: assignment.subject_id,
+      assignment_type: assignment.assignment_type,
       teacher_key: 'EMP001',
       class_key: 'Six|2026',
       academic_year_key: '2026',
@@ -296,5 +369,11 @@ describe('diffFields', () => {
       subject_key: 'MATH',
     };
     expect(teacherAssignmentsTab.diffFields(row, assignment)).toEqual([]);
+  });
+
+  it('reports a role-only change', () => {
+    const assignment = makeAssignment({ subject_id: null, subject: null });
+    const row = fromRowOrThrow({ ...toCells(assignment), role: 'ASSISTANT_CLASS_TEACHER' });
+    expect(teacherAssignmentsTab.diffFields(row, assignment)).toEqual(['assignment_type']);
   });
 });
