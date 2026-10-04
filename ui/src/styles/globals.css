@@ -601,10 +601,10 @@
  *
  * There is deliberately NO `:root { --control-h: ... }` default. The one
  * exception is the phone media rule below: under `md` the variable is set on
- * `:root` for every shell (C2). Writing a general one
- * would mean the fallback in `h-[var(--control-h,2rem)]` never applies, so a
- * typo in a per-variant fallback would be invisible; more importantly a
- * single root default cannot express eight different compact heights
+ * the root element for every shell (C2). Writing a general one would mean the
+ * fallback in `h-[var(--control-h,2rem)]` never applies, so a typo in a
+ * per-variant fallback would be invisible; more importantly a single root
+ * default cannot express eight different compact heights
  * (`h-6`/`h-7`/`h-8`/`h-9` and their `size-*` icon twins). The variable is
  * therefore set in exactly one place — here — and read with a per-variant
  * fallback everywhere else.
