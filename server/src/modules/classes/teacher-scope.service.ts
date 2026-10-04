@@ -21,7 +21,7 @@ const HOMEROOM_TYPES: HomeroomType[] = [
 ];
 
 /**
- * "What is this user's role in this section?" — the one place that joins
+ * "What is this user's role in this section?" — the one place for new call sites that joins
  * user -> `teachers.user_id` -> `teacher_class_sections` (the JWT carries a
  * **user** id, not a teacher id). Every table is filtered on `tenant_id`.
  *
@@ -50,9 +50,12 @@ export class TeacherScopeService {
     const { userId, tenantId, sectionId } = input;
     const rows = await this.tcsRepo
       .createQueryBuilder('tcs')
-      .innerJoin('teachers', 't', 't.id = tcs.teacher_id AND t.tenant_id = :tenantId', {
-        tenantId,
-      })
+      .innerJoin(
+        'teachers',
+        't',
+        't.id = tcs.teacher_id AND t.tenant_id = :tenantId AND t.deleted_at IS NULL',
+        { tenantId },
+      )
       .leftJoin(
         'subjects',
         's',
@@ -91,9 +94,12 @@ export class TeacherScopeService {
     const { userId, tenantId } = input;
     return this.tcsRepo
       .createQueryBuilder('tcs')
-      .innerJoin('teachers', 't', 't.id = tcs.teacher_id AND t.tenant_id = :tenantId', {
-        tenantId,
-      })
+      .innerJoin(
+        'teachers',
+        't',
+        't.id = tcs.teacher_id AND t.tenant_id = :tenantId AND t.deleted_at IS NULL',
+        { tenantId },
+      )
       .innerJoin(
         'class_sections',
         'cs',
