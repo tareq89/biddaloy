@@ -5,7 +5,9 @@ import { REGION_BD_BN, REGION_BD_EN, type RegionConfig } from '../i18n/region-co
 import {
   formatAcademicYear,
   formatDate,
+  formatDateRange,
   formatDateTime,
+  formatMonthName,
   formatRelativeAge,
   getAcademicYear,
   isPastDueDate,
@@ -217,5 +219,20 @@ describe('toIsoDate', () => {
     const d = new Date(2000, 0, 1);
     d.setFullYear(999);
     expect(toIsoDate(d)).toBe('0999-01-01');
+  });
+});
+
+describe('formatMonthName', () => {
+  it('returns the none value for a non-integer or out-of-range month', () => {
+    for (const m of [0, 13, 1.5, Number.NaN]) {
+      expect(formatMonthName(m, REGION_BD_EN)).toBe('—');
+    }
+  });
+});
+
+describe('formatDateRange', () => {
+  it('returns the none value when either date is invalid', () => {
+    expect(formatDateRange(new Date(Number.NaN), new Date(2024, 0, 5), REGION_BD_EN)).toBe('—');
+    expect(formatDateRange(new Date(2024, 0, 5), new Date(Number.NaN), REGION_BD_EN)).toBe('—');
   });
 });
