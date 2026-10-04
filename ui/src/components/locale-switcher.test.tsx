@@ -26,6 +26,14 @@ describe('LocaleSwitcher', () => {
     await expect(baseElement).toHaveNoViolations();
   });
 
+  it('trigger="labelled" shows the current language and keeps it in the accessible name', async () => {
+    renderWithProviders(<LocaleSwitcher trigger="labelled" />, { locale: 'en' });
+
+    const button = await screen.findByRole('button', { name: /English/ });
+    expect(button.textContent).toContain('English');
+    expect(button.getAttribute('aria-label')).toBe('Change language: English');
+  });
+
   it('marks the active locale as checked, not the other one', async () => {
     const { user } = renderWithProviders(<LocaleSwitcher />, { locale: 'en' });
     await waitFor(() =>
