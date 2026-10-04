@@ -1,5 +1,7 @@
 import { useSearch } from '@tanstack/react-router';
 
+import { PAGE_SIZE_OPTIONS } from '../utils/page-size';
+
 import { useSearchNavigate } from './navigate-search';
 
 /**
@@ -50,8 +52,8 @@ export interface ListUrlStatePatch {
   filters?: Record<string, string | null>;
 }
 
-/** Rows-per-page choices; also `DataTable`'s default list (one list, two readers). */
-export const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
+// Lives in a neutral module so `DataTable` need not import this router-aware file.
+export { PAGE_SIZE_OPTIONS };
 
 const RESERVED_KEYS = new Set(['page', 'limit', 'sort', 'order']);
 
