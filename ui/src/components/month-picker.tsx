@@ -21,8 +21,8 @@ export interface MonthPickerProps extends Omit<
   /** Default `t('date.pickMonth')`. */
   placeholder?: string;
   /** `"YYYY-MM"`, inclusive. */
-  min?: string;
-  max?: string;
+  min?: string | undefined;
+  max?: string | undefined;
   'aria-label': string;
 }
 
@@ -45,8 +45,8 @@ export function MonthButtons({
   year: number;
   /** `"YYYY-MM"` */
   selected: string | undefined;
-  min?: string;
-  max?: string;
+  min?: string | undefined;
+  max?: string | undefined;
   onPick: (month: number) => void;
   config: RegionConfig;
 }) {
