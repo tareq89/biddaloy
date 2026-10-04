@@ -35,9 +35,16 @@ import { extendTailwindMerge } from 'tailwind-merge';
  * once for every component that uses `cn`, rather than per call site. Colour
  * modifiers are untouched: `cn('shadow-e1', 'shadow-brand-600')` still keeps
  * both, because a size and a colour genuinely do not conflict.
+ *
+ * **Second deviation: the type ramp of 09 §2 is a font-size, not a colour.**
+ * Stock tailwind-merge reads `text-label` as a text colour, so
+ * `cn('text-label text-text-primary')` dropped the size and kept only the
+ * colour. Registering the ramp names as `text` theme members files them with
+ * the font sizes, where they belong.
  */
 const twMerge = extendTailwindMerge({
   extend: {
+    theme: { text: ['display', 'h1', 'h2', 'h3', 'body-lg', 'body', 'label', 'caption'] },
     classGroups: {
       shadow: [{ shadow: ['e1', 'e2', 'e3'] }],
     },
