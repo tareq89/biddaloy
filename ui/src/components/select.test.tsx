@@ -117,6 +117,7 @@ describe('Select', () => {
       const trigger = await screen.findByRole('combobox', { name: 'Class' });
       expect(await within(trigger).findByText('Select')).toBeTruthy();
       expect(trigger.className).toMatch(/(^| )w-full( |$)/);
+      expect(trigger.hasAttribute('data-placeholder')).toBe(true);
       await i18n.changeLanguage('bn');
       expect(await screen.findByText('বাছুন')).toBeTruthy();
     });
@@ -125,6 +126,7 @@ describe('Select', () => {
       render(<Empty placeholder="Pick one" className="w-48" />);
       const trigger = screen.getByRole('combobox', { name: 'Class' });
       expect(trigger.textContent).toBe('Pick one');
+      expect(trigger.hasAttribute('data-placeholder')).toBe(true);
       expect(trigger.className).toContain('w-48');
       expect(trigger.className).not.toMatch(/(^| )w-full( |$)/);
     });
