@@ -190,6 +190,28 @@ describe('DatePicker', () => {
     expect(cell('2024-01-10')).toBeTruthy();
   });
 
+  it('keeps one Tab stop when max is before today and there is no value', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2024, 0, 20));
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await setup(<Controlled max={new Date(2024, 0, 10)} />);
+    await openGrid(user);
+    const stops = document.querySelectorAll('[data-date][tabindex="0"]');
+    expect(stops).toHaveLength(1);
+    expect(stops[0]!.hasAttribute('disabled')).toBe(false);
+  });
+
+  it('disables Today when today is outside min/max', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2024, 0, 20));
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await setup(<Controlled max={new Date(2024, 0, 10)} />);
+    await openGrid(user);
+    expect((screen.getByRole('button', { name: 'Today' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+  });
+
   describe('year jump', () => {
     it('the month label opens 12 month buttons with the year as label', async () => {
       const user = userEvent.setup();
