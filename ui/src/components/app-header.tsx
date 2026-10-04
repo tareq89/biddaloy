@@ -31,7 +31,7 @@ export function AppHeader({ start, end }: AppHeaderProps) {
     // implicit `banner` landmark, which is what lets screen-reader users
     // jump to the site chrome. `AppShell` renders exactly one of these.
     <header
-      className="flex min-h-(--control-h) w-full items-center justify-between gap-x-3 gap-y-1 border-b border-border-subtle bg-background px-4 py-2 text-sm"
+      className="flex h-14 w-full items-center justify-between gap-2 border-b border-border-subtle bg-surface px-4 md:px-6"
       data-app-header-row
     >
       <div className="flex min-w-0 items-center gap-3">{start}</div>

@@ -34,13 +34,18 @@
  * `navItems`/`navGroups` use real `Link` components (not `<a href>`)
  * specifically so hovering one triggers the router's
  * `defaultPreload: 'intent'` — the route's chunk and its loader data
- * start fetching before the click lands. `activeProps` adds
- * `aria-current="page"` on the current route's link, the same signal
+ * start fetching before the click lands. `aria-current="page"` marks the current route's link, the same signal
  * sighted users get from the highlight.
+ *
+ * [31.2.9a] The router's fuzzy `activeProps` is gone: `pickActiveNavTo`
+ * lights exactly one item (the most specific match, D10) and writes
+ * `aria-current` itself. The phone header is the opt-in 56 px sticky row
+ * (`mobileTitle` / `mobileActions`, D12); the drawer is a start-edge panel
+ * with a sticky close button (D13).
  */
 import type { Permission } from '@biddaloy/shared';
-import { Link, useMatchRoute } from '@tanstack/react-router';
-import { ChevronDownIcon, ChevronRightIcon, MenuIcon, XIcon } from 'lucide-react';
+import { Link, useRouterState } from '@tanstack/react-router';
+import { ChevronRightIcon, MenuIcon, XIcon } from 'lucide-react';
 import { VisuallyHidden } from 'radix-ui';
 import * as React from 'react';
 import type { ReactNode } from 'react';
@@ -154,12 +159,21 @@ export interface AppShellProps {
    * `<md` header row — e.g. a search launcher and a notification bell.
    * Passing this (even alongside `bottomNav`) keeps the header row and its
    * drawer rendering; see `bottomNav`'s own comment. Omitted by every
-   * caller that doesn't need one — the portal today. */
+   * caller that doesn't need one — the portal today.
+   * @deprecated use `mobileTitle` / `mobileActions`; language, theme and
+   * switch-school live in the account menu (D12). */
   mobileHeaderActions?: ReactNode;
+  /** D12: school name in the one-row phone top bar (truncates). Passing this or
+   * `mobileActions` switches the phone header to the 56 px sticky row. */
+  mobileTitle?: string;
+  /** D12: right side of the phone top bar — search, bell, account, in that order. */
+  mobileActions?: ReactNode;
   /** [8.14.3] Rendered inside the drawer `DialogContent`, above the nav
    * landmark — e.g. the staff `TenantBar` plus its own controls, so
    * switching school or role stays one tap away even though the `<md`
-   * header row no longer carries `topBar`'s content directly. */
+   * header row no longer carries `topBar`'s content directly.
+   * @deprecated use `mobileTitle` / `mobileActions`; language, theme and
+   * switch-school live in the account menu (D12). */
   drawerHeader?: ReactNode;
   /** The active route's content — a consuming app's root route renders
    * `<AppShell navItems={...}><Outlet /></AppShell>`. */
@@ -195,26 +209,55 @@ function visibleItems(
   );
 }
 
+/** The longest nav `to` equal to the path or a segment-prefix of it. One item, never two (D10). */
+function pickActiveNavTo(pathname: string, items: readonly AppShellNavItem[]): string | undefined {
+  let best: string | undefined;
+  for (const { to } of items) {
+    const prefix = to.endsWith('/') ? to : `${to}/`;
+    if (
+      (pathname === to || pathname.startsWith(prefix)) &&
+      (best === undefined || to.length > best.length)
+    ) {
+      best = to;
+    }
+  }
+  return best;
+}
+
+type NavSize = 'sidebar' | 'drawer';
+
+const NAV_LINK_BASE =
+  "flex items-center gap-2.5 rounded-md px-3 text-body transition-colors duration-(--motion-duration-fast) ease-(--motion-ease-standard) outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4";
+const NAV_LINK_ACTIVE = 'bg-secondary font-semibold text-secondary-foreground';
+const NAV_LINK_INACTIVE = 'text-text-secondary hover:bg-muted hover:text-text-primary';
+
 function NavLink({
   item,
+  activeTo,
+  size,
   onNavigate,
 }: {
   item: AppShellNavItem;
+  activeTo: string | undefined;
+  size: NavSize;
   onNavigate?: (() => void) | undefined;
 }) {
+  const active = item.to === activeTo;
   return (
     <li>
       <Link
         to={item.to}
         {...(item.search !== undefined && { search: item.search })}
         onClick={onNavigate}
-        className="relative flex items-center gap-2 rounded-md py-2 ps-6 pe-3 text-sm transition-colors duration-(--motion-duration-fast) ease-(--motion-ease-standard) focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-        activeProps={{
-          className:
-            'bg-primary/10 font-semibold text-primary before:absolute before:inset-y-1 before:start-3 before:w-0.5 before:rounded-full before:bg-primary',
-          'aria-current': 'page',
-        }}
-        inactiveProps={{ className: 'text-muted-foreground hover:bg-accent hover:text-foreground' }}
+        // `exact`: `Link` must never claim a fuzzy match (and write its own
+        // `aria-current`) — `pickActiveNavTo` is the single source of truth.
+        activeOptions={{ exact: true }}
+        aria-current={active ? 'page' : undefined}
+        className={cn(
+          NAV_LINK_BASE,
+          size === 'drawer' ? 'h-11' : 'h-9',
+          active ? NAV_LINK_ACTIVE : NAV_LINK_INACTIVE,
+        )}
       >
         {/* [8.14.1] The wrapper — not the caller — is what guarantees the epic's
             "every nav icon is aria-hidden" AC. Call sites also pass
@@ -250,27 +293,34 @@ function readGroupCollapsed(groupId: string, fallback: boolean): boolean {
 function NavGroupSection({
   group,
   role,
+  activeTo,
+  size,
   onNavigate,
 }: {
   group: AppShellNavGroup;
   role: string | null;
+  activeTo: string | undefined;
+  size: NavSize;
   onNavigate?: (() => void) | undefined;
 }) {
   const pinned = visibleItems(group.pinnedItems ?? [], role);
   const rest = visibleItems(group.items, role);
   // [30.1.3] With 8 groups, all-expanded is an unusable sidebar. A group
-  // with no saved preference starts collapsed unless it owns the route the
-  // user is on. `fuzzy: true` matches `Link`'s own `activeProps`
-  // (`activeOptions.exact` defaults to false), so a detail route like
-  // `/students/42` still counts as People's. `search` is deliberately not
-  // passed: Finance owns `/fees` whether or not `?tab=dues` is set.
-  const matchRoute = useMatchRoute();
-  const ownsActiveRoute = [...pinned, ...rest].some((item) =>
-    Boolean(matchRoute({ to: item.to, fuzzy: true })),
-  );
+  // with no saved preference starts collapsed unless it owns the lit item.
+  // `search` is deliberately not part of the match: Finance owns `/fees`
+  // whether or not `?tab=dues` is set.
+  const ownsActiveRoute = [...pinned, ...rest].some((item) => item.to === activeTo);
   const [collapsed, setCollapsed] = React.useState(() =>
     readGroupCollapsed(group.id, !ownsActiveRoute),
   );
+  // [31.2.9a, B3] Client navigation into a collapsed group re-opens it —
+  // in state only, never persisted, and never on first mount (a stored
+  // "collapsed" still wins there). "Adjust state on prop change", no effect.
+  const [prevOwns, setPrevOwns] = React.useState(ownsActiveRoute);
+  if (ownsActiveRoute !== prevOwns) {
+    setPrevOwns(ownsActiveRoute);
+    if (ownsActiveRoute) setCollapsed(false);
+  }
 
   // [30.1.3] The write lives here, not in a mount effect: the effect wrote
   // a value for every group on first render, which made every group's
@@ -293,42 +343,49 @@ function NavGroupSection({
   const panelId = `nav-group-${group.id}`;
 
   return (
-    <div className="mb-1">
+    <div>
       <button
         type="button"
         onClick={toggleCollapsed}
         aria-expanded={!collapsed}
         aria-controls={panelId}
-        className="flex w-full items-center justify-between rounded-md px-3 pt-4 pb-1 text-sm font-semibold tracking-wide text-foreground hover:bg-accent"
+        className={cn(
+          'flex w-full items-center justify-between rounded-md px-3 text-label text-text-secondary hover:bg-muted hover:text-text-primary',
+          size === 'drawer' ? 'h-11' : 'h-9',
+        )}
       >
         <span>{group.label}</span>
-        {collapsed ? (
-          <ChevronRightIcon className="size-4" aria-hidden="true" />
-        ) : (
-          <ChevronDownIcon className="size-4" aria-hidden="true" />
-        )}
+        <ChevronRightIcon
+          className={cn('size-4 transition-transform', !collapsed && 'rotate-90')}
+          aria-hidden="true"
+        />
       </button>
-      <ul
-        id={panelId}
-        hidden={collapsed}
-        className="relative flex flex-col gap-1 before:absolute before:inset-y-0 before:start-3 before:w-px before:bg-border-subtle"
-      >
+      <ul id={panelId} hidden={collapsed} className="flex flex-col gap-0.5 pb-2">
         {pinned.length > 0 && group.pinnedLabel !== undefined && (
-          <li
-            aria-hidden="true"
-            className="mb-1 ps-6 text-caption font-medium tracking-wide text-muted-foreground"
-          >
+          <li aria-hidden="true" className="px-3 text-caption text-text-secondary">
             {group.pinnedLabel}
           </li>
         )}
         {pinned.map((item) => (
-          <NavLink key={`${item.to}:${item.label}`} item={item} onNavigate={onNavigate} />
+          <NavLink
+            key={`${item.to}:${item.label}`}
+            item={item}
+            activeTo={activeTo}
+            size={size}
+            onNavigate={onNavigate}
+          />
         ))}
         {pinned.length > 0 && rest.length > 0 && (
           <li aria-hidden="true" className="my-1 border-t border-border-subtle" />
         )}
         {rest.map((item) => (
-          <NavLink key={`${item.to}:${item.label}`} item={item} onNavigate={onNavigate} />
+          <NavLink
+            key={`${item.to}:${item.label}`}
+            item={item}
+            activeTo={activeTo}
+            size={size}
+            onNavigate={onNavigate}
+          />
         ))}
       </ul>
     </div>
@@ -340,26 +397,94 @@ function NavContent({
   navGroups,
   role,
   navLabel,
+  activeTo,
+  size,
   onNavigate,
 }: {
   navItems: readonly AppShellNavItem[];
   navGroups: readonly AppShellNavGroup[];
   role: string | null;
   navLabel: string;
+  activeTo: string | undefined;
+  size: NavSize;
   onNavigate?: (() => void) | undefined;
 }) {
   const topItems = visibleItems(navItems, role);
   return (
     <nav aria-label={navLabel}>
-      <ul className="mb-2 flex flex-col gap-1">
+      <ul className="mb-2 flex flex-col gap-0.5">
         {topItems.map((item) => (
-          <NavLink key={`${item.to}:${item.label}`} item={item} onNavigate={onNavigate} />
+          <NavLink
+            key={`${item.to}:${item.label}`}
+            item={item}
+            activeTo={activeTo}
+            size={size}
+            onNavigate={onNavigate}
+          />
         ))}
       </ul>
       {navGroups.map((group) => (
-        <NavGroupSection key={group.id} group={group} role={role} onNavigate={onNavigate} />
+        <NavGroupSection
+          key={group.id}
+          group={group}
+          role={role}
+          activeTo={activeTo}
+          size={size}
+          onNavigate={onNavigate}
+        />
       ))}
     </nav>
+  );
+}
+
+/** D13: start-edge drawer. `DialogContent` is the scroll container, so the
+ * sticky header (title + 44 px close) never scrolls away. Overrides the
+ * centred-modal base classes of `primitives/dialog.tsx` through twMerge. */
+function NavDrawer({
+  open,
+  onOpenChange,
+  trigger,
+  brand,
+  closeMenuLabel,
+  drawerHeader,
+  children,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  trigger: ReactNode;
+  brand: ReactNode;
+  closeMenuLabel: string;
+  drawerHeader: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent
+        showCloseButton={false}
+        className="inset-0 h-dvh max-h-none w-full max-w-xs translate-x-0 translate-y-0 gap-0 overflow-y-auto rounded-none p-0 data-[state=closed]:slide-out-to-start data-[state=closed]:zoom-out-100 data-[state=open]:slide-in-from-start data-[state=open]:zoom-in-100 sm:max-w-xs"
+      >
+        <div className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border-subtle bg-surface ps-4 pe-1">
+          {brand !== undefined ? (
+            <DialogTitle className="text-h3">{brand}</DialogTitle>
+          ) : (
+            <VisuallyHidden.Root asChild>
+              <DialogTitle>Navigation</DialogTitle>
+            </VisuallyHidden.Root>
+          )}
+          <DialogClose asChild>
+            <Button type="button" variant="ghost" className="size-11 text-text-secondary">
+              <XIcon className="size-5" />
+              <span className="sr-only">{closeMenuLabel}</span>
+            </Button>
+          </DialogClose>
+        </div>
+        <div className="p-2">
+          {drawerHeader}
+          {children}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -374,10 +499,20 @@ export function AppShell({
   skipLinkLabel = 'Skip to main content',
   bottomNav,
   mobileHeaderActions,
+  mobileTitle,
+  mobileActions,
   drawerHeader,
   children,
 }: AppShellProps) {
   const role = useActiveRole();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const activeTo = pickActiveNavTo(pathname, [
+    ...visibleItems(navItems, role),
+    ...navGroups.flatMap((g) => [
+      ...visibleItems(g.pinnedItems ?? [], role),
+      ...visibleItems(g.items, role),
+    ]),
+  ]);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   // `Boolean`, not `!== undefined`: `ReactNode` admits `null` and `false`,
   // so a caller writing `bottomNav={showBar && <BottomNav />}` would
@@ -392,8 +527,10 @@ export function AppShell({
   // empty fragment is still "I want the row", unlike `bottomNav`'s
   // false/null case above where nothing at all would be left to open.
   const showMobileHeader = !hasBottomNav || mobileHeaderActions !== undefined;
+  const useNewMobileBar = mobileTitle !== undefined || mobileActions !== undefined;
   const headerRef = React.useRef<HTMLDivElement>(null);
   const hasTopBar = topBar !== undefined;
+  const hasStickyHeader = hasTopBar || useNewMobileBar;
   const drawerContextValue = React.useMemo<AppShellDrawerValue>(
     () => ({ open: () => setDrawerOpen(true), isOpen: drawerOpen }),
     [drawerOpen],
@@ -412,7 +549,7 @@ export function AppShell({
   // `0px` forever. Same precedent `theme-provider.tsx` already sets by
   // writing theme state onto `documentElement` rather than a local ref.
   React.useLayoutEffect(() => {
-    if (!hasTopBar) return undefined;
+    if (!hasStickyHeader) return undefined;
     const node = headerRef.current;
     if (!node) return undefined;
 
@@ -447,58 +584,79 @@ export function AppShell({
       observer.disconnect();
       document.documentElement.style.removeProperty(APP_HEADER_HEIGHT_VAR);
     };
-  }, [hasTopBar]);
+  }, [hasStickyHeader]);
+
+  const drawerNav = (
+    <NavContent
+      navItems={navItems}
+      navGroups={navGroups}
+      role={role}
+      navLabel={navLabel}
+      activeTo={activeTo}
+      size="drawer"
+      onNavigate={() => setDrawerOpen(false)}
+    />
+  );
 
   return (
     <AppShellDrawerContext.Provider value={drawerContextValue}>
       <div className="flex min-h-screen flex-col">
         <SkipLink targetId={APP_SHELL_MAIN_ID}>{skipLinkLabel}</SkipLink>
-        {hasTopBar && (
+        {hasStickyHeader && (
           <div ref={headerRef} data-app-header className="sticky top-0 z-30">
+            {useNewMobileBar && (
+              // A `div`, not a `<header>`: jsdom ignores `md:hidden`, so a
+              // second `<header>` would be a duplicate banner landmark.
+              <div
+                data-app-mobile-header
+                className="flex h-14 items-center gap-1 border-b border-border-subtle bg-surface px-1 md:hidden"
+              >
+                <NavDrawer
+                  open={drawerOpen}
+                  onOpenChange={setDrawerOpen}
+                  trigger={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="size-11 shrink-0 text-text-secondary md:hidden"
+                      aria-label={openMenuLabel}
+                    >
+                      <MenuIcon />
+                    </Button>
+                  }
+                  brand={brand}
+                  closeMenuLabel={closeMenuLabel}
+                  drawerHeader={drawerHeader}
+                >
+                  {drawerNav}
+                </NavDrawer>
+                <span className="min-w-0 truncate text-h3">{mobileTitle}</span>
+                <div className="ms-auto flex shrink-0 items-center">{mobileActions}</div>
+              </div>
+            )}
             {topBar}
           </div>
         )}
         <div className="flex flex-1 flex-col md:flex-row">
-          {showMobileHeader && (
+          {showMobileHeader && !useNewMobileBar && (
             <div className="flex items-center justify-between gap-2 border-b border-border-subtle p-2 md:hidden">
               {brand !== undefined && <div className="truncate text-sm font-semibold">{brand}</div>}
               {mobileHeaderActions}
-              <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
-                <DialogTrigger asChild>
+              <NavDrawer
+                open={drawerOpen}
+                onOpenChange={setDrawerOpen}
+                trigger={
                   <Button type="button" variant="ghost" size="icon-sm">
                     <MenuIcon />
                     <span className="sr-only">{openMenuLabel}</span>
                   </Button>
-                </DialogTrigger>
-                <DialogContent
-                  showCloseButton={false}
-                  className="inset-0 h-full w-full max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-none p-4"
-                >
-                  <div className="mb-4 flex items-center justify-between">
-                    {brand !== undefined ? (
-                      <DialogTitle className="text-sm font-semibold">{brand}</DialogTitle>
-                    ) : (
-                      <VisuallyHidden.Root asChild>
-                        <DialogTitle>Navigation</DialogTitle>
-                      </VisuallyHidden.Root>
-                    )}
-                    <DialogClose asChild>
-                      <Button type="button" variant="ghost" size="icon-lg">
-                        <XIcon className="size-5" />
-                        <span className="sr-only">{closeMenuLabel}</span>
-                      </Button>
-                    </DialogClose>
-                  </div>
-                  {drawerHeader}
-                  <NavContent
-                    navItems={navItems}
-                    navGroups={navGroups}
-                    role={role}
-                    navLabel={navLabel}
-                    onNavigate={() => setDrawerOpen(false)}
-                  />
-                </DialogContent>
-              </Dialog>
+                }
+                brand={brand}
+                closeMenuLabel={closeMenuLabel}
+                drawerHeader={drawerHeader}
+              >
+                {drawerNav}
+              </NavDrawer>
             </div>
           )}
 
@@ -510,10 +668,21 @@ export function AppShell({
               the header on any scrolled page. Both the offset and the
               max-height read `--app-header-h`, which the header measures
               into place at runtime. */}
-          <aside className="hidden w-60 shrink-0 flex-col gap-6 overflow-y-auto border-r border-border-subtle bg-muted/30 p-4 md:sticky md:top-[var(--app-header-h,0px)] md:flex md:max-h-[calc(100svh-var(--app-header-h,0px))]">
-            {brand !== undefined && <div className="text-sm font-semibold">{brand}</div>}
-            <NavContent navItems={navItems} navGroups={navGroups} role={role} navLabel={navLabel} />
-          </aside>
+          <div className="hidden w-60 shrink-0 border-r border-border-subtle bg-surface md:block">
+            <aside className="flex flex-col gap-4 overflow-y-auto px-3 py-4 md:sticky md:top-[var(--app-header-h,0px)] md:max-h-[calc(100svh-var(--app-header-h,0px))]">
+              {brand !== undefined && (
+                <div className="px-3 text-label text-text-secondary">{brand}</div>
+              )}
+              <NavContent
+                navItems={navItems}
+                navGroups={navGroups}
+                role={role}
+                navLabel={navLabel}
+                activeTo={activeTo}
+                size="sidebar"
+              />
+            </aside>
+          </div>
 
           {/* `tabIndex={-1}`: not a Tab stop itself, but focusable via the
               skip link's `href="#main-content"` jump and via `useRouteFocus`'s
