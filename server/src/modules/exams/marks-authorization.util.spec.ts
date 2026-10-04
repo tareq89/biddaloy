@@ -1,125 +1,129 @@
 import { describe, it, expect, vi } from 'vitest';
 import { ForbiddenException } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
 import { MarksAuthorizationService } from './marks-authorization.util';
-import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
-import { UserRole } from '@biddaloy/shared';
+import { TeacherScopeService } from '../classes/teacher-scope.service';
+import { TeacherAssignmentType, UserRole } from '@biddaloy/shared';
 
 const TENANT_ID = 'tenant-1';
 
-async function buildService(assignment: unknown = null) {
-  const qb: any = {
-    innerJoin: vi.fn().mockReturnThis(),
-    where: vi.fn().mockReturnThis(),
-    andWhere: vi.fn().mockReturnThis(),
-    getOne: vi.fn(async () => assignment),
-  };
-  const tcsRepo: any = { createQueryBuilder: vi.fn(() => qb) };
+type Roles = Awaited<ReturnType<TeacherScopeService['rolesInSection']>>;
 
-  const moduleRef = await Test.createTestingModule({
-    providers: [
-      MarksAuthorizationService,
-      { provide: getRepositoryToken(TeacherClassSection), useValue: tcsRepo },
-    ],
-  }).compile();
-
-  return { service: moduleRef.get(MarksAuthorizationService), qb };
+/** `TeacherScopeService` is stubbed: its join (live subjects only, tenant
+ * filtering) is covered by `teacher-scope.service.integration.spec.ts`. Here
+ * we only check the decision made from what it returns. */
+function buildService(roles: Roles = { homeroom: null, subjectIds: [] }) {
+  const rolesInSection = vi.fn(async () => roles);
+  const service = new MarksAuthorizationService({
+    rolesInSection,
+  } as unknown as TeacherScopeService);
+  return { service, rolesInSection };
 }
 
-describe('MarksAuthorizationService.assertCanWrite (issue rule #4)', () => {
-  it('allows ADMIN without checking teacher_class_sections', async () => {
-    const { service, qb } = await buildService();
+const input = (role: UserRole, over: Partial<{ sectionId: string; subjectId: string }> = {}) => ({
+  role,
+  userId: 'u1',
+  tenantId: TENANT_ID,
+  sectionId: 's1',
+  subjectId: 'subj1',
+  ...over,
+});
 
-    await expect(
-      service.assertCanWrite({
-        role: UserRole.ADMIN,
-        userId: 'u1',
-        tenantId: TENANT_ID,
-        sectionId: 's1',
-        subjectId: 'subj1',
-      }),
-    ).resolves.toBeUndefined();
-    expect(qb.getOne).not.toHaveBeenCalled();
+describe('MarksAuthorizationService.assertCanWrite', () => {
+  it('allows ADMIN without asking TeacherScopeService', async () => {
+    const { service, rolesInSection } = buildService();
+    await expect(service.assertCanWrite(input(UserRole.ADMIN))).resolves.toBeUndefined();
+    expect(rolesInSection).not.toHaveBeenCalled();
   });
 
-  it('allows a TEACHER with a matching (section, subject) assignment', async () => {
-    const { service } = await buildService({ id: 'tcs-1', section_id: 's1', subject_id: 'subj1' });
-
-    await expect(
-      service.assertCanWrite({
-        role: UserRole.TEACHER,
-        userId: 'u1',
-        tenantId: TENANT_ID,
-        sectionId: 's1',
-        subjectId: 'subj1',
-      }),
-    ).resolves.toBeUndefined();
+  it('allows a TEACHER who teaches the (live) subject in the section', async () => {
+    const { service, rolesInSection } = buildService({ homeroom: null, subjectIds: ['subj1'] });
+    await expect(service.assertCanWrite(input(UserRole.TEACHER))).resolves.toBeUndefined();
+    // The tenant and section reach the scope query — it is the isolation boundary.
+    expect(rolesInSection).toHaveBeenCalledWith({
+      userId: 'u1',
+      tenantId: TENANT_ID,
+      sectionId: 's1',
+    });
   });
 
-  it('rejects a TEACHER with only a class-teacher assignment (subject_id IS NULL)', async () => {
-    // The query itself filters `subject_id = :subjectId`, so a NULL-subject
-    // class-teacher row is never returned by getOne() here.
-    const { service } = await buildService(null);
-
-    await expect(
-      service.assertCanWrite({
-        role: UserRole.TEACHER,
-        userId: 'u1',
-        tenantId: TENANT_ID,
-        sectionId: 's1',
-        subjectId: 'subj1',
-      }),
-    ).rejects.toThrow(ForbiddenException);
+  it('rejects a TEACHER with a different subject in the section', async () => {
+    const { service } = buildService({ homeroom: null, subjectIds: ['other'] });
+    await expect(service.assertCanWrite(input(UserRole.TEACHER))).rejects.toThrow(
+      ForbiddenException,
+    );
   });
 
-  it('rejects a TEACHER assigned to a different section', async () => {
-    const { service } = await buildService(null);
+  // D16: homeroom never grants write.
+  it.each([
+    TeacherAssignmentType.CLASS_TEACHER,
+    TeacherAssignmentType.ASSISTANT_CLASS_TEACHER,
+  ] as const)('rejects a %s homeroom teacher who does not teach the subject', async (homeroom) => {
+    const { service } = buildService({ homeroom, subjectIds: [] });
+    await expect(service.assertCanWrite(input(UserRole.TEACHER))).rejects.toThrow(
+      ForbiddenException,
+    );
+  });
 
-    await expect(
-      service.assertCanWrite({
-        role: UserRole.TEACHER,
-        userId: 'u1',
-        tenantId: TENANT_ID,
-        sectionId: 'other-section',
-        subjectId: 'subj1',
-      }),
-    ).rejects.toThrow(ForbiddenException);
+  // A soft-deleted subject never appears in `subjectIds` (the service filters
+  // it), so its former teacher is denied.
+  it('rejects a TEACHER whose subject was soft-deleted (absent from subjectIds)', async () => {
+    const { service } = buildService({ homeroom: null, subjectIds: [] });
+    await expect(service.assertCanWrite(input(UserRole.TEACHER))).rejects.toThrow(
+      ForbiddenException,
+    );
   });
 
   it('rejects any other role', async () => {
-    const { service } = await buildService(null);
+    const { service } = buildService();
+    await expect(service.assertCanWrite(input(UserRole.ACCOUNTANT))).rejects.toThrow(
+      ForbiddenException,
+    );
+  });
+});
 
-    await expect(
-      service.assertCanWrite({
-        role: UserRole.ACCOUNTANT,
-        userId: 'u1',
-        tenantId: TENANT_ID,
-        sectionId: 's1',
-        subjectId: 'subj1',
-      }),
-    ).rejects.toThrow(ForbiddenException);
+describe('MarksAuthorizationService.assertCanRead', () => {
+  it('allows a TEACHER who teaches the subject', async () => {
+    const { service } = buildService({ homeroom: null, subjectIds: ['subj1'] });
+    await expect(service.assertCanRead(input(UserRole.TEACHER))).resolves.toBeUndefined();
+  });
+
+  // D3: homeroom reads every subject of its own section.
+  it.each([
+    TeacherAssignmentType.CLASS_TEACHER,
+    TeacherAssignmentType.ASSISTANT_CLASS_TEACHER,
+  ] as const)(
+    "allows a %s homeroom teacher to read another teacher's subject",
+    async (homeroom) => {
+      const { service } = buildService({ homeroom, subjectIds: [] });
+      await expect(service.assertCanRead(input(UserRole.TEACHER))).resolves.toBeUndefined();
+    },
+  );
+
+  it('rejects a TEACHER with no row in the section', async () => {
+    const { service } = buildService({ homeroom: null, subjectIds: [] });
+    await expect(service.assertCanRead(input(UserRole.TEACHER))).rejects.toThrow(
+      ForbiddenException,
+    );
+  });
+
+  it('rejects a TEACHER with only another subject in the section', async () => {
+    const { service } = buildService({ homeroom: null, subjectIds: ['other'] });
+    await expect(service.assertCanRead(input(UserRole.TEACHER))).rejects.toThrow(
+      ForbiddenException,
+    );
   });
 });
 
 // [#1362] Per-role table. write = may write marks to an unmapped section-subject;
 // read = may read its grid. TEACHER is section-scoped (denied when unmapped).
 describe('MarksAuthorizationService per-role table', () => {
-  const input = (role: UserRole) => ({
-    role,
-    userId: 'u1',
-    tenantId: TENANT_ID,
-    sectionId: 's1',
-    subjectId: 'subj1',
-  });
   const TABLE: Array<[UserRole, boolean, boolean]> = [
     [UserRole.ADMIN, true, true],
     [UserRole.EXECUTIVE, false, true],
     [UserRole.ACCOUNTANT, false, false],
-    // New in #1362 (ROLE_SCOPE + permission): SUPER_ADMIN is out of tenant data scope,
-    // reads and writes, until product decides (D-N); EXAM_CONTROLLER reads only
-    // (D16); OFFICE_STAFF and COMMITTEE hold no mark permission, so COMMITTEE never
-    // reaches marks (D9).
+    // SUPER_ADMIN is out of tenant data scope, reads and writes, until product
+    // decides (D-N); EXAM_CONTROLLER reads only (D16); OFFICE_STAFF and COMMITTEE
+    // hold no mark permission, so COMMITTEE never reaches marks (D9).
     [UserRole.SUPER_ADMIN, false, false],
     [UserRole.EXAM_CONTROLLER, false, true],
     [UserRole.OFFICE_STAFF, false, false],
@@ -129,7 +133,7 @@ describe('MarksAuthorizationService per-role table', () => {
     [UserRole.STUDENT, false, false],
   ];
   it.each(TABLE)('%s: write=%s read=%s', async (role, write, read) => {
-    const { service } = await buildService(null);
+    const { service } = buildService();
     const w = service.assertCanWrite(input(role));
     const r = service.assertCanRead(input(role));
     if (write) await expect(w).resolves.toBeUndefined();

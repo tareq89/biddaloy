@@ -1,8 +1,6 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { Permission, hasTenantDataScope, roleHasPermission } from '@biddaloy/shared';
-import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
+import { TeacherScopeService } from '../classes/teacher-scope.service';
 
 /** Tenant scope + MARK_ENTER may write marks for every section-subject
  * without going through `teacher_class_sections`. EXAM_CONTROLLER has no
@@ -23,19 +21,18 @@ const canReadTenantWide = (role: string) =>
  * `@RequirePermissions(MARK_ENTER)` (held by ADMIN and TEACHER) is only the
  * coarse gate; this is the real, object-level one. Both
  * `MarksService.upsertBatch` and `MarkGridService.submit` call this
- * directly rather than re-deriving the same join — see the issue's own
- * "do not repeat the check" instruction.
+ * directly rather than re-deriving the same join.
  *
- * `subject_id IS NULL` on `teacher_class_sections` means a class-teacher /
- * whole-day assignment and does **not** grant subject marks entry — only
- * a row with a matching non-null `subject_id` does.
+ * For a non-tenant-scope caller the answer comes from `TeacherScopeService`,
+ * which only counts **live** subjects (D16):
+ * - write: only a SUBJECT_TEACHER row for the exact subject. A class or
+ *   assistant teacher never gets write through their homeroom.
+ * - read: that same subject row, **or** a CLASS_TEACHER / ASSISTANT row for
+ *   the section, which reads every subject's marks (D3).
  */
 @Injectable()
 export class MarksAuthorizationService {
-  constructor(
-    @InjectRepository(TeacherClassSection)
-    private readonly tcsRepo: Repository<TeacherClassSection>,
-  ) {}
+  constructor(private readonly teacherScope: TeacherScopeService) {}
 
   async assertCanWrite(input: {
     role: string;
@@ -49,23 +46,8 @@ export class MarksAuthorizationService {
       return;
     }
 
-    // The JWT carries a **user** id, not a teacher id, so this joins
-    // through `teachers` the same way `AttendanceAccessService` does.
-    // Every table is filtered on `tenant_id`, not just `tcs` — this is
-    // the boundary deciding whether one school's teacher can write marks
-    // for another school's section.
-    const assignment = await this.tcsRepo
-      .createQueryBuilder('tcs')
-      .innerJoin('teachers', 't', 't.id = tcs.teacher_id AND t.tenant_id = :tenantId', {
-        tenantId,
-      })
-      .where('tcs.tenant_id = :tenantId', { tenantId })
-      .andWhere('tcs.section_id = :sectionId', { sectionId })
-      .andWhere('tcs.subject_id = :subjectId', { subjectId })
-      .andWhere('t.user_id = :userId', { userId })
-      .getOne();
-
-    if (!assignment) {
+    const { subjectIds } = await this.teacherScope.rolesInSection({ userId, tenantId, sectionId });
+    if (!subjectIds.includes(subjectId)) {
       throw new ForbiddenException(
         'You are not the assigned subject teacher for this section-subject.',
       );
@@ -74,9 +56,8 @@ export class MarksAuthorizationService {
 
   /** [pr-fix #945] `MarksController.getGrid` had no object-level check at
    * all — any MARK_VIEW holder (which TEACHER has, tenant-wide) could
-   * read any section's marks by supplying an arbitrary section_id. Same
-   * join as `assertCanWrite`, but EXECUTIVE also bypasses it (read-only
-   * tenant-wide access; EXECUTIVE never holds MARK_ENTER). */
+   * read any section's marks by supplying an arbitrary section_id.
+   * Tenant-wide readers (EXECUTIVE included) bypass it. */
   async assertCanRead(input: {
     role: string;
     userId: string;
@@ -89,18 +70,12 @@ export class MarksAuthorizationService {
       return;
     }
 
-    const assignment = await this.tcsRepo
-      .createQueryBuilder('tcs')
-      .innerJoin('teachers', 't', 't.id = tcs.teacher_id AND t.tenant_id = :tenantId', {
-        tenantId,
-      })
-      .where('tcs.tenant_id = :tenantId', { tenantId })
-      .andWhere('tcs.section_id = :sectionId', { sectionId })
-      .andWhere('tcs.subject_id = :subjectId', { subjectId })
-      .andWhere('t.user_id = :userId', { userId })
-      .getOne();
-
-    if (!assignment) {
+    const { homeroom, subjectIds } = await this.teacherScope.rolesInSection({
+      userId,
+      tenantId,
+      sectionId,
+    });
+    if (!homeroom && !subjectIds.includes(subjectId)) {
       throw new ForbiddenException(
         'You are not the assigned subject teacher for this section-subject.',
       );
