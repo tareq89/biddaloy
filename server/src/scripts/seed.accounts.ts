@@ -491,6 +491,7 @@ export async function seedAccounts(
           {
             userRepository: repos.userRepository,
             teacherRepository: repos.teacherRepository,
+            teacherClassSectionRepository: repos.teacherClassSectionRepository,
             subjectRepository: repos.subjectRepository,
             classRepository: repos.classRepository,
             shiftRepository: repos.shiftRepository,
