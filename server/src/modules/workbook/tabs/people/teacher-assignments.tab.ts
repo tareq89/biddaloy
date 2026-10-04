@@ -1,5 +1,6 @@
 import type { EntityManager } from 'typeorm';
 import { IsNull } from 'typeorm';
+import { TeacherAssignmentType } from '@biddaloy/shared';
 import { TeacherClassSection } from '../../../academics/entities/teacher-class-section.entity';
 import { fromCell } from '../../codec/cell-format';
 import type {
@@ -93,6 +94,9 @@ const excluded: readonly string[] = [
   'teacher_id', // exported instead as the `teacher` ref column, keyed by the referenced tab's natural key
   'section_id', // exported instead as the `section` ref column, keyed by the referenced tab's natural key
   'subject_id', // exported instead as the `subject` ref column, keyed by the referenced tab's natural key
+  // [47.1.1] Not exported yet: the DB trigger infers it on import (subject -> SUBJECT_TEACHER, else
+  // CLASS_TEACHER), so ASSISTANT_CLASS_TEACHER rows do not round-trip. Back it up when 47.x adds the column.
+  'assignment_type',
 ];
 
 export const teacherAssignmentsTab: TabSpec<TeacherClassSection, TeacherAssignmentRow> = {
@@ -305,6 +309,14 @@ export const teacherAssignmentsTab: TabSpec<TeacherClassSection, TeacherAssignme
     assignment.teacher_id = row.teacher_id;
     assignment.section_id = row.section_id;
     assignment.subject_id = row.subject_id;
+    // [47.1.1] CK_tcs_subject_matches_type: keep the type consistent with
+    // subject_id (an existing ASSISTANT row with no subject stays ASSISTANT).
+    assignment.assignment_type = row.subject_id
+      ? TeacherAssignmentType.SUBJECT_TEACHER
+      : assignment.assignment_type &&
+          assignment.assignment_type !== TeacherAssignmentType.SUBJECT_TEACHER
+        ? assignment.assignment_type
+        : TeacherAssignmentType.CLASS_TEACHER;
 
     return m.save(TeacherClassSection, assignment);
   },
