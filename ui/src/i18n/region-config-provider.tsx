@@ -1,5 +1,6 @@
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, type ReactNode } from 'react';
 
+import { setInterpolationNumerals } from './i18n';
 import { LOCALE_REGION_DEFAULTS, REGION_BD_BN, type RegionConfig } from './region-config';
 import { useLocale } from './use-locale';
 
@@ -24,6 +25,13 @@ export interface RegionConfigProviderProps {
 export function RegionConfigProvider({ children, value }: RegionConfigProviderProps) {
   const { locale } = useLocale();
   const resolved = value ?? LOCALE_REGION_DEFAULTS[locale];
+
+  // Pushed during render: children call t() in this same pass, before any effect runs.
+  // ponytail: module-level value, last mounted provider wins; a component that does not re-render
+  // after tenant settings load keeps the language-default digits until its next render. Upgrade
+  // path: a numerals field in i18next's per-instance options if two tenants ever render at once.
+  setInterpolationNumerals(resolved.numerals);
+  useEffect(() => () => setInterpolationNumerals(undefined), []);
 
   return <RegionConfigContext.Provider value={resolved}>{children}</RegionConfigContext.Provider>;
 }

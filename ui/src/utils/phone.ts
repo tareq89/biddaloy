@@ -31,24 +31,21 @@ export function parsePhone(input: string, config: RegionConfig): PhoneParseResul
   return { valid: true, value: digits };
 }
 
-/** Formats a national number (already validated — see `parsePhone`) using
+/** D8 display form (`01711-000004`, Latin digits always: D6). Never throws (C20): empty is `—`,
+ * a number the region cannot parse is shown as typed. Uses
  * `config.phone.displayFormat`'s mask (`X` = next digit, everything else
- * a literal) — `'XXXX-XXXXXX'` turns `1712345678` into `1712-345678`.
+ * a literal) — `'0XXXX-XXXXXX'` turns `1712345678` into `01712-345678`.
  * A region with a different grouping is a mask change, not a code
  * change here — proven by `region-config.spec.ts`'s second-region suite. */
-export function formatPhone(nationalNumber: string, config: RegionConfig): string {
-  const result = parsePhone(nationalNumber, config);
-  if (!result.valid) {
-    throw new RangeError(
-      `formatPhone: "${nationalNumber}" is not a valid ${config.phone.country} number`,
-    );
-  }
-
+export function formatPhone(value: string | null | undefined, config: RegionConfig): string {
+  const raw = (value ?? '').trim();
+  if (raw === '') return '—';
+  const result = parsePhone(raw, config);
+  if (!result.valid) return raw;
   const digits = result.value;
   let nextDigit = 0;
-  const nationalFormatted =
+  return (
     config.phone.displayFormat.replace(/X/g, () => digits[nextDigit++] ?? '') +
-    digits.slice(nextDigit);
-
-  return `+${config.phone.country} ${nationalFormatted}`;
+    digits.slice(nextDigit)
+  );
 }

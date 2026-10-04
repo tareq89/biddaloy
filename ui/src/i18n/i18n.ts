@@ -1,6 +1,8 @@
-import i18next, { type i18n as I18nInstance } from 'i18next';
+import i18next, { type FormatterModule, type i18n as I18nInstance } from 'i18next';
 import resourcesToBackend from 'i18next-resources-to-backend';
 import { initReactI18next } from 'react-i18next';
+
+import { renderDigits } from '../utils/digits';
 
 import {
   DEFAULT_LOCALE,
@@ -8,6 +10,35 @@ import {
   getPersistedLocale,
   persistLocale,
 } from './locale-storage';
+import { LOCALE_REGION_DEFAULTS, type NumeralSystem } from './region-config';
+
+/** Tenant override pushed by RegionConfigProvider; undefined means follow the language. */
+let tenantNumerals: NumeralSystem | undefined;
+export function setInterpolationNumerals(numerals: NumeralSystem | undefined): void {
+  tenantNumerals = numerals;
+}
+
+/**
+ * D6/B24: a number interpolated into any string (`{{count}}`, `{{total}}`, ...) is rendered in the
+ * active numeral system. Strings are never touched, so registration numbers, phones and codes stay
+ * Latin as long as callers pass them as strings. No grouping on purpose: a `{{year}}` must not
+ * become ২,০২৬; use formatNumber for grouped amounts. This module replaces i18next's built-in
+ * formatter, so named formats (`{{x, number}}`) no longer work; none exist in the locales.
+ */
+const numeralFormatter: FormatterModule = {
+  type: 'formatter',
+  init() {},
+  add() {},
+  addCached() {},
+  format: (value, _format, lng) => {
+    if (typeof value !== 'number') return value as string;
+    const numerals =
+      tenantNumerals ??
+      LOCALE_REGION_DEFAULTS[lng as keyof typeof LOCALE_REGION_DEFAULTS]?.numerals ??
+      'latin';
+    return renderDigits(String(value), numerals);
+  },
+};
 
 /** Namespace always loaded up front — generic strings (actions, statuses)
  * every screen needs before it can render anything else. Everything past
@@ -47,6 +78,7 @@ export function createI18nInstance(): I18nInstance {
   // needs to block on this promise here.
   void instance
     .use(backend)
+    .use(numeralFormatter)
     .use(initReactI18next)
     .init({
       lng: getPersistedLocale(),
@@ -56,7 +88,7 @@ export function createI18nInstance(): I18nInstance {
       defaultNS: COMMON_NAMESPACE,
       // React already escapes interpolated values when rendering JSX;
       // i18next's own escaping on top of that double-encodes entities.
-      interpolation: { escapeValue: false },
+      interpolation: { escapeValue: false, alwaysFormat: true },
       // Lets a component reading a namespace that hasn't loaded yet
       // suspend instead of rendering raw keys — see I18nProvider, which
       // supplies the Suspense boundary this relies on.
