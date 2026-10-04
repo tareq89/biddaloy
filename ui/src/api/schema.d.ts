@@ -9089,6 +9089,8 @@ export interface components {
             tenant_id: string;
             subject: components["schemas"]["Subject"] | null;
             subject_id: string | null;
+            /** @enum {string} */
+            assignment_type: "CLASS_TEACHER" | "ASSISTANT_CLASS_TEACHER" | "SUBJECT_TEACHER";
             /** Format: date-time */
             created_at: string;
         };
@@ -9178,7 +9180,6 @@ export interface components {
             designations?: ("CLASS_TEACHER" | "SUBJECT_TEACHER" | "HEAD_TEACHER" | "ASSISTANT_TEACHER" | "PRINCIPAL" | "VICE_PRINCIPAL" | "COORDINATOR")[];
             subject_specialization?: string;
             joining_date?: string;
-            assigned_section_ids?: string[];
         };
         TeacherResponseDto: {
             id: string;
@@ -9208,7 +9209,6 @@ export interface components {
             designations?: ("CLASS_TEACHER" | "SUBJECT_TEACHER" | "HEAD_TEACHER" | "ASSISTANT_TEACHER" | "PRINCIPAL" | "VICE_PRINCIPAL" | "COORDINATOR")[];
             subject_specialization?: string | null;
             joining_date?: string | null;
-            assigned_section_ids?: string[];
         };
         MySectionTodayDto: {
             /** @enum {string} */
