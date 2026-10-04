@@ -57,10 +57,27 @@ export interface AssignTeacherDialogProps {
   sectionId?: string | undefined;
   /** Teacher-centric mode: prefills and hides the teacher picker. */
   teacherId?: string | undefined;
+  /** [47.4.1] The section's current CLASS_TEACHER (from the Teachers tab's
+   * already-loaded `useSectionTeachers`, no refetch). Drives the D3
+   * replace warning; only meaningful when `sectionId` is fixed. */
+  currentClassTeacher?: { teacherId: string; name: string } | undefined;
   onAssigned: () => void;
 }
 
-type AssignmentMode = 'class-teacher' | 'subject-teacher';
+type TeacherAssignmentType = 'CLASS_TEACHER' | 'ASSISTANT_CLASS_TEACHER' | 'SUBJECT_TEACHER';
+
+const TYPE_ORDER: Record<TeacherAssignmentType, number> = {
+  CLASS_TEACHER: 0,
+  ASSISTANT_CLASS_TEACHER: 1,
+  SUBJECT_TEACHER: 2,
+};
+
+/** [47.4.1] Display order for every assignment list: CLASS, ASSISTANT, SUBJECT. */
+export function sortByAssignmentType<T extends { assignment_type: TeacherAssignmentType }>(
+  rows: readonly T[],
+): T[] {
+  return [...rows].sort((a, b) => TYPE_ORDER[a.assignment_type] - TYPE_ORDER[b.assignment_type]);
+}
 
 export function AssignTeacherDialog({
   open,
@@ -68,6 +85,7 @@ export function AssignTeacherDialog({
   classId: fixedClassId,
   sectionId: fixedSectionId,
   teacherId: fixedTeacherId,
+  currentClassTeacher,
   onAssigned,
 }: AssignTeacherDialogProps) {
   const { t } = useTranslation('classes');
@@ -94,14 +112,14 @@ export function AssignTeacherDialog({
   const boundAssignTeacher = useAssignTeacher(fixedClassId ?? '', fixedSectionId ?? '');
   const unboundAssignTeacher = useAssignTeacherAssignment();
 
-  const [mode, setMode] = React.useState<AssignmentMode>('class-teacher');
+  const [mode, setMode] = React.useState<TeacherAssignmentType>('CLASS_TEACHER');
   const [teacherId, setTeacherId] = React.useState<string | null>(fixedTeacherId ?? null);
   const [subjectId, setSubjectId] = React.useState<string | null>(null);
   const [validationError, setValidationError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!open) return;
-    setMode('class-teacher');
+    setMode('CLASS_TEACHER');
     setTeacherId(fixedTeacherId ?? null);
     setSubjectId(null);
     setPickedClassId(null);
@@ -144,7 +162,7 @@ export function AssignTeacherDialog({
       setValidationError(t('assignTeacherForm.errorTeacherRequired'));
       return;
     }
-    if (mode === 'subject-teacher' && !subjectId) {
+    if (mode === 'SUBJECT_TEACHER' && !subjectId) {
       setValidationError(t('assignTeacherForm.errorSubjectRequired'));
       return;
     }
@@ -156,7 +174,8 @@ export function AssignTeacherDialog({
           classId: classId!,
           sectionId: sectionId!,
           teacher_id: teacherId,
-          ...(mode === 'subject-teacher' && subjectId ? { subject_id: subjectId } : {}),
+          assignment_type: mode,
+          ...(mode === 'SUBJECT_TEACHER' && subjectId ? { subject_id: subjectId } : {}),
         },
         { onSuccess: onAssigned },
       );
@@ -166,17 +185,22 @@ export function AssignTeacherDialog({
     boundAssignTeacher.mutate(
       {
         teacher_id: teacherId,
-        ...(mode === 'subject-teacher' && subjectId ? { subject_id: subjectId } : {}),
+        assignment_type: mode,
+        ...(mode === 'SUBJECT_TEACHER' && subjectId ? { subject_id: subjectId } : {}),
       },
       { onSuccess: onAssigned },
     );
   }
 
   const assignTeacher = pickerMode ? unboundAssignTeacher : boundAssignTeacher;
-  const conflict =
-    assignTeacher.isError &&
-    assignTeacher.error instanceof ApiError &&
-    assignTeacher.error.statusCode === 409;
+  const apiError = assignTeacher.error instanceof ApiError ? assignTeacher.error : null;
+  const conflict = assignTeacher.isError && apiError?.statusCode === 409;
+  // [47.4.1] The server's homeroom-conflict message is specific enough to show as-is.
+  const homeroomConflict = conflict && apiError?.details?.code === 'TEACHER_ALREADY_HOMEROOM';
+  const replaced =
+    mode === 'CLASS_TEACHER' && currentClassTeacher && currentClassTeacher.teacherId !== teacherId
+      ? currentClassTeacher
+      : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -232,24 +256,30 @@ export function AssignTeacherDialog({
           <RadioGroup
             aria-label={t('assignTeacherForm.modeLabel')}
             value={mode}
-            onValueChange={(value) => setMode(value as AssignmentMode)}
+            onValueChange={(value) => setMode(value as TeacherAssignmentType)}
             className="flex flex-col gap-2"
           >
             <div className="flex items-center gap-2">
-              <RadioGroupItem value="class-teacher" id="assign-teacher-mode-class" />
+              <RadioGroupItem value="CLASS_TEACHER" id="assign-teacher-mode-class" />
               <label htmlFor="assign-teacher-mode-class" className="text-sm">
                 {t('assignTeacherForm.classTeacherOption')}
               </label>
             </div>
             <div className="flex items-center gap-2">
-              <RadioGroupItem value="subject-teacher" id="assign-teacher-mode-subject" />
+              <RadioGroupItem value="ASSISTANT_CLASS_TEACHER" id="assign-teacher-mode-assistant" />
+              <label htmlFor="assign-teacher-mode-assistant" className="text-sm">
+                {t('assignmentType.ASSISTANT_CLASS_TEACHER')}
+              </label>
+            </div>
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="SUBJECT_TEACHER" id="assign-teacher-mode-subject" />
               <label htmlFor="assign-teacher-mode-subject" className="text-sm">
                 {t('assignTeacherForm.subjectTeacherOption')}
               </label>
             </div>
           </RadioGroup>
 
-          {mode === 'subject-teacher' && (
+          {mode === 'SUBJECT_TEACHER' && (
             <div className="flex flex-col gap-1.5">
               <span className="text-sm font-medium">{t('assignTeacherForm.subjectLabel')}</span>
               <Combobox
@@ -262,6 +292,14 @@ export function AssignTeacherDialog({
             </div>
           )}
 
+          <div aria-live="polite">
+            {replaced && (
+              <p className="text-warning-foreground text-sm">
+                {t('assignDialog.replaceWarning', { name: replaced.name })}
+              </p>
+            )}
+          </div>
+
           {validationError && (
             <p role="alert" className="text-sm text-destructive">
               {validationError}
@@ -269,9 +307,11 @@ export function AssignTeacherDialog({
           )}
           {assignTeacher.isError && (
             <p role="alert" className="text-sm text-destructive">
-              {conflict
-                ? t('assignTeacherForm.errorDuplicateAssignment')
-                : t('assignTeacherForm.errorMessage')}
+              {homeroomConflict
+                ? apiError?.message
+                : conflict
+                  ? t('assignTeacherForm.errorDuplicateAssignment')
+                  : t('assignTeacherForm.errorMessage')}
             </p>
           )}
 

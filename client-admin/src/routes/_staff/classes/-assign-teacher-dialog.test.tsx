@@ -85,7 +85,7 @@ describe('AssignTeacherDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Assign' }));
 
     await waitFor(() => expect(onAssigned).toHaveBeenCalled());
-    expect(submittedBody).toEqual({ teacher_id: 'teacher-1' });
+    expect(submittedBody).toEqual({ teacher_id: 'teacher-1', assignment_type: 'CLASS_TEACHER' });
   });
 
   it('submits a subject-teacher assignment with the chosen subject_id', async () => {
@@ -116,7 +116,11 @@ describe('AssignTeacherDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Assign' }));
 
     await waitFor(() => expect(onAssigned).toHaveBeenCalled());
-    expect(submittedBody).toEqual({ teacher_id: 'teacher-1', subject_id: 'subject-1' });
+    expect(submittedBody).toEqual({
+      teacher_id: 'teacher-1',
+      assignment_type: 'SUBJECT_TEACHER',
+      subject_id: 'subject-1',
+    });
   });
 
   it('shows the 409 duplicate-assignment error inline, not as a toast', async () => {
@@ -147,6 +151,91 @@ describe('AssignTeacherDialog', () => {
       await screen.findByText('This teacher is already assigned to this section for this subject'),
     ).toBeTruthy();
     expect(onAssigned).not.toHaveBeenCalled();
+  });
+
+  it('submits an ASSISTANT_CLASS_TEACHER assignment and hides the subject picker', async () => {
+    server.use(...referenceHandlers());
+    let submittedBody: Record<string, unknown> | undefined;
+    server.use(
+      http.post('/api/v1/classes/:classId/sections/:sectionId/teachers', async ({ request }) => {
+        submittedBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ id: 'a-1' }, { status: 201 });
+      }),
+    );
+    const { onAssigned } = await renderDialog();
+    const user = userEvent.setup();
+
+    const combo = await screen.findByRole('combobox', { name: 'Teacher' });
+    combo.focus();
+    await waitFor(() => expect(combo.getAttribute('aria-expanded')).toBe('true'));
+    await user.click(await screen.findByRole('option', { name: /EMP-00001/ }));
+    await user.click(screen.getByRole('radio', { name: 'Assistant class teacher' }));
+    expect(screen.queryByRole('combobox', { name: 'Subject' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Assign' }));
+
+    await waitFor(() => expect(onAssigned).toHaveBeenCalled());
+    expect(submittedBody).toEqual({
+      teacher_id: 'teacher-1',
+      assignment_type: 'ASSISTANT_CLASS_TEACHER',
+    });
+  });
+
+  it('warns that the current class teacher is replaced, only for CLASS_TEACHER', async () => {
+    server.use(...referenceHandlers());
+    await renderDialog({ currentClassTeacher: { teacherId: 'teacher-9', name: 'Rahim Uddin' } });
+    const user = userEvent.setup();
+
+    const combo = await screen.findByRole('combobox', { name: 'Teacher' });
+    combo.focus();
+    await waitFor(() => expect(combo.getAttribute('aria-expanded')).toBe('true'));
+    await user.click(await screen.findByRole('option', { name: /EMP-00001/ }));
+    expect(screen.getByText('Rahim Uddin will be replaced as class teacher')).toBeTruthy();
+
+    await user.click(screen.getByRole('radio', { name: 'Assistant class teacher' }));
+    expect(screen.queryByText(/will be replaced/)).toBeNull();
+  });
+
+  it('shows no replace warning when the picked teacher already is the class teacher', async () => {
+    server.use(...referenceHandlers());
+    await renderDialog({ currentClassTeacher: { teacherId: 'teacher-1', name: 'Same Person' } });
+    const user = userEvent.setup();
+
+    const combo = await screen.findByRole('combobox', { name: 'Teacher' });
+    combo.focus();
+    await waitFor(() => expect(combo.getAttribute('aria-expanded')).toBe('true'));
+    await user.click(await screen.findByRole('option', { name: /EMP-00001/ }));
+    expect(screen.queryByText(/will be replaced/)).toBeNull();
+  });
+
+  it('shows the server message for TEACHER_ALREADY_HOMEROOM', async () => {
+    server.use(...referenceHandlers());
+    server.use(
+      http.post('/api/v1/classes/:classId/sections/:sectionId/teachers', () =>
+        HttpResponse.json(
+          {
+            ...apiErrorBody(
+              409,
+              'Teacher already holds a class-teacher role in this section',
+              '/x',
+            ),
+            details: { code: 'TEACHER_ALREADY_HOMEROOM' },
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    await renderDialog();
+    const user = userEvent.setup();
+
+    const combo = await screen.findByRole('combobox', { name: 'Teacher' });
+    combo.focus();
+    await waitFor(() => expect(combo.getAttribute('aria-expanded')).toBe('true'));
+    await user.click(await screen.findByRole('option', { name: /EMP-00001/ }));
+    await user.click(screen.getByRole('button', { name: 'Assign' }));
+
+    expect(
+      await screen.findByText('Teacher already holds a class-teacher role in this section'),
+    ).toBeTruthy();
   });
 
   // [#1026 gap fix] Teacher-centric mode: no classId/sectionId props ->
@@ -195,7 +284,7 @@ describe('AssignTeacherDialog', () => {
 
       await waitFor(() => expect(onAssigned).toHaveBeenCalled());
       expect(capturedUrl).toBe('class-1/section-1');
-      expect(submittedBody).toEqual({ teacher_id: 'teacher-1' });
+      expect(submittedBody).toEqual({ teacher_id: 'teacher-1', assignment_type: 'CLASS_TEACHER' });
     });
 
     it('shows a class-required validation error when no class is picked', async () => {

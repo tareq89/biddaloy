@@ -55,7 +55,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import * as React from 'react';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
-import { AssignTeacherDialog } from '../classes/-assign-teacher-dialog';
+import { AssignTeacherDialog, sortByAssignmentType } from '../classes/-assign-teacher-dialog';
 
 export const Route = createFileRoute('/_staff/staff/teaching-assignments')({
   loader: ({ context: { queryClient } }) =>
@@ -77,6 +77,7 @@ interface Row extends SectionTeacherAssignment {
 
 function TeachingAssignmentsPage() {
   const { t } = useTranslation('teacherAssignments');
+  const { t: tClasses } = useTranslation('classes');
   const canManage = useHasPermission(Permission.CLASS_MANAGE);
   const [state, actions] = useListShellState({ limit: 50 });
 
@@ -141,8 +142,7 @@ function TeachingAssignmentsPage() {
     {
       id: 'role',
       header: t('list.columnRole'),
-      accessorFn: (row) =>
-        row.subject_id ? t('list.roleSubjectTeacher') : t('list.roleClassTeacher'),
+      accessorFn: (row) => tClasses(`assignmentType.${row.assignment_type}`),
     },
     {
       id: 'subject',
@@ -250,7 +250,7 @@ function TeachingAssignmentsPage() {
         tableId="teaching-assignments-list"
         caption={t('list.caption')}
         columns={columns}
-        data={rows}
+        data={sortByAssignmentType(rows)}
         getRowId={(row) => row.id}
         sorting={state.sorting}
         onSortingChange={actions.setSorting}
