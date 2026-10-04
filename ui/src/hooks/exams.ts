@@ -100,6 +100,19 @@ export function useUpdateExam(id: string) {
   });
 }
 
+export function useDeleteExam() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/exams/${id}`);
+    },
+    onSuccess: (_data, id) => {
+      queryClient.removeQueries({ queryKey: examKeys.detail(id) });
+      void queryClient.invalidateQueries({ queryKey: examKeys.lists() });
+    },
+  });
+}
+
 // --- Exam components ---
 
 export function examComponentsKey(examId: string | undefined, subjectId: string | undefined) {
