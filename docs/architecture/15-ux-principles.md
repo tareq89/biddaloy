@@ -141,7 +141,7 @@ Administration
     Organisation structure [have, 33.0 — Settings section, no new route; a
     shift/version/group field only shows once the tenant has 2+ entries in
     it] · Result templates library [19.0] · Backup & restore [have] · Website sync [N13]
-  Users [have, kept here for now — revisit in Epic 24.0]
+  (Users merged into People › Staff — Epic 24.0; "Add user" is a dialog there)
   Roles & access [24.0] · Audit logs [have] · Security [have]
 
 User menu → My account (profile, password, switch school/role, language, theme, sign out)
@@ -167,19 +167,19 @@ Schools [have] · Public holiday sets [17.0] · Preset library [N3]
 
 ### 3.4 Placement decisions (final)
 
-| #   | Decision                                                                                                                                                                               |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| P1  | Academic years & terms live under **Academics**, next to Calendar.                                                                                                                     |
-| P2  | Staff is **one register** with a staff-type filter and designations — not five registers.                                                                                              |
-| P3  | Subjects get their **own page** under Academics; the class detail keeps a per-class offering tab.                                                                                      |
-| P4  | Exam setup (types/heads/sub-heads, marks distribution, report-card templates) lives under **Exams & Results**, not Settings.                                                           |
-| P5  | Reports is a **hub of links**; a report lives once, where its data lives.                                                                                                              |
-| P6  | Notices live under **Communications**.                                                                                                                                                 |
-| P7  | Fines live under **Finance › Fines** (list + Rules tab); money reuses Finance › Payments. Replaced the Attendance placement in Epic 38 because fines are generic, not attendance-only. |
-| P8  | Online learning is **one item** so a tenant toggle (N3) can hide it whole.                                                                                                             |
-| P9  | Teaching assignments bulk view lives under **People › Staff**; also a tab on staff detail and class detail.                                                                            |
-| P10 | **Users stays under Administration for now**; whether it merges into Staff is decided in Epic 24.0.                                                                                    |
-| P11 | Coaching centres reuse Class/Section, relabelled Course/Batch via tenant label overrides — not Programs. Programs are supplementary tracks (hifz, trades, labs, attachment).           |
+| #   | Decision                                                                                                                                                                                       |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P1  | Academic years & terms live under **Academics**, next to Calendar.                                                                                                                             |
+| P2  | Staff is **one register** with a staff-type filter and designations — not five registers.                                                                                                      |
+| P3  | Subjects get their **own page** under Academics; the class detail keeps a per-class offering tab.                                                                                              |
+| P4  | Exam setup (types/heads/sub-heads, marks distribution, report-card templates) lives under **Exams & Results**, not Settings.                                                                   |
+| P5  | Reports is a **hub of links**; a report lives once, where its data lives.                                                                                                                      |
+| P6  | Notices live under **Communications**.                                                                                                                                                         |
+| P7  | Fines live under **Finance › Fines** (list + Rules tab); money reuses Finance › Payments. Replaced the Attendance placement in Epic 38 because fines are generic, not attendance-only.         |
+| P8  | Online learning is **one item** so a tenant toggle (N3) can hide it whole.                                                                                                                     |
+| P9  | Teaching assignments bulk view lives under **People › Staff**; also a tab on staff detail and class detail.                                                                                    |
+| P10 | **Resolved (Epic 24.0):** Users merged into **People › Staff**. "Add user" is a dialog (`client-admin/src/routes/_staff/staff/-add-user-dialog.tsx`); there is no `administration.users` item. |
+| P11 | Coaching centres reuse Class/Section, relabelled Course/Batch via tenant label overrides — not Programs. Programs are supplementary tracks (hifz, trades, labs, attachment).                   |
 
 ## 4. Command palette — `Ctrl/Cmd+K`
 

@@ -265,9 +265,7 @@ export class StudentController {
   }
 
   @Get('guardians')
-  // [10.4] G12 — E tightened off: no surface for viewing guardians (`/guardians`
-  // hidden, guardians excluded from global search).
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.TEACHER)
+  // GUARDIAN_READ is staff-only (no PARENT/STUDENT/EXECUTIVE), so the permission alone gates this.
   @RequirePermissions(Permission.GUARDIAN_READ)
   async findAllGuardians(
     @Query() query: QueryGuardianDto,
@@ -321,8 +319,6 @@ export class StudentController {
   }
 
   @Get('guardians/:id')
-  // [10.4] G12 — E tightened off; see findAllGuardians() above.
-  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.TEACHER)
   @RequirePermissions(Permission.GUARDIAN_READ)
   async findOneGuardian(
     @Param('id', ParseUUIDPipe) id: string,

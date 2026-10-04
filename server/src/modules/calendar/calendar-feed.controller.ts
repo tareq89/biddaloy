@@ -3,11 +3,10 @@ import { Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiTenantAuth } from '../../common/decorators/api-tenant-auth.decorator';
@@ -20,9 +19,7 @@ import { CalendarFeedDto } from './dto/calendar-feed.dto';
  * (17.4.1): `GET` returns the active token's URL (minting one on first
  * call); `POST .../regenerate` revokes it and issues a fresh one — the
  * only way to cut off a leaked link (D13). Same `@RequirePermissions`
- * shape `CalendarEventsController` uses; `@Roles` mirrors
- * `ROLE_PERMISSIONS`'s current `CALENDAR_READ` holders, spec-checked by
- * `permission-matrix.e2e-spec.ts`.
+ * shape `CalendarEventsController` uses.
  */
 @ApiTags('calendar-feed')
 @ApiTenantAuth()
@@ -32,14 +29,6 @@ export class CalendarFeedController {
   constructor(private readonly service: CalendarFeedService) {}
 
   @Get()
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-    UserRole.EXECUTIVE,
-  )
   @RequirePermissions(Permission.CALENDAR_READ)
   @ApiOperation({ summary: "Caller's active calendar feed URL — created on first call." })
   @ApiOkResponse({ type: CalendarFeedDto })
@@ -51,14 +40,6 @@ export class CalendarFeedController {
   }
 
   @Post('regenerate')
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.ACCOUNTANT,
-    UserRole.TEACHER,
-    UserRole.PARENT,
-    UserRole.STUDENT,
-    UserRole.EXECUTIVE,
-  )
   @RequirePermissions(Permission.CALENDAR_READ)
   @ApiOperation({
     summary: 'Revokes the active calendar feed token and issues a new one.',

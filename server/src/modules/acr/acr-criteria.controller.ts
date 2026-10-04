@@ -1,10 +1,9 @@
 import { Body, Controller, Get, Put, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Permission, UserRole } from '@biddaloy/shared';
+import { Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -21,7 +20,6 @@ export class AcrCriteriaController {
   constructor(private readonly service: AcrCriteriaService) {}
 
   @Get()
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ACR_READ)
   @ApiOperation({
     summary: 'Latest ACR criteria version, or the one named by ?versionId (an ACR keeps its own).',
@@ -33,7 +31,6 @@ export class AcrCriteriaController {
   }
 
   @Put()
-  @Roles(UserRole.ADMIN)
   @RequirePermissions(Permission.ACR_WRITE)
   @ApiOperation({ summary: 'Save the full criteria list as a new version.' })
   save(

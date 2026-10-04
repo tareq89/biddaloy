@@ -15,10 +15,9 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { JwtPayload, Permission, UserRole } from '@biddaloy/shared';
+import { JwtPayload, Permission } from '@biddaloy/shared';
 import { ContextGuard, RolesGuard } from '../auth/guards/context.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -40,9 +39,8 @@ import {
 
 /**
  * [34.1.3] `Program`/`ProgramMilestone` CRUD, archive, and the D23 delete
- * rules. Enrolment and recording endpoints come in 34.2.1. Guarded like
- * `grading.controller.ts` — `@Roles` is the coarse gate, `RequirePermissions`
- * the fine one (`PROGRAM_READ` for reads, `PROGRAM_MANAGE` for writes).
+ * rules. Enrolment and recording endpoints come in 34.2.1. Gated by
+ * `RequirePermissions` (`PROGRAM_READ` for reads, `PROGRAM_MANAGE` for writes).
  */
 @ApiTags('programs')
 @ApiTenantAuth()
@@ -52,7 +50,6 @@ export class ProgramsController {
   constructor(private readonly programsService: ProgramsService) {}
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER, UserRole.STUDENT, UserRole.PARENT)
   @RequirePermissions(Permission.PROGRAM_READ)
   @ApiOperation({ summary: 'List programs with milestone and active-enrolment counts.' })
   async list(
@@ -66,7 +63,6 @@ export class ProgramsController {
   }
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.PROGRAM_MANAGE)
   @ApiOperation({ summary: 'Create a program.' })
   async create(
@@ -85,7 +81,6 @@ export class ProgramsController {
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE, UserRole.TEACHER, UserRole.STUDENT, UserRole.PARENT)
   @RequirePermissions(Permission.PROGRAM_READ)
   @ApiOperation({ summary: 'Get a program with its ordered milestones.' })
   async findOne(
@@ -105,7 +100,6 @@ export class ProgramsController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.PROGRAM_MANAGE)
   @ApiOperation({ summary: 'Update a program, including archiving it (is_active: false).' })
   async update(
@@ -126,7 +120,6 @@ export class ProgramsController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.PROGRAM_MANAGE)
   @ApiOperation({
     summary:
@@ -144,7 +137,6 @@ export class ProgramsController {
   }
 
   @Post(':id/milestones')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.PROGRAM_MANAGE)
   @ApiOperation({ summary: "Append a milestone at the end of the program's sequence." })
   async addMilestone(
@@ -165,7 +157,6 @@ export class ProgramsController {
   }
 
   @Patch(':id/milestones/:milestoneId')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.PROGRAM_MANAGE)
   @ApiOperation({ summary: 'Rename or redescribe a milestone.' })
   async updateMilestone(
@@ -188,7 +179,6 @@ export class ProgramsController {
   }
 
   @Delete(':id/milestones/:milestoneId')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.PROGRAM_MANAGE)
   @ApiOperation({
     summary:
@@ -214,7 +204,6 @@ export class ProgramsController {
   }
 
   @Put(':id/milestones/order')
-  @Roles(UserRole.ADMIN, UserRole.EXECUTIVE)
   @RequirePermissions(Permission.PROGRAM_MANAGE)
   @ApiOperation({ summary: "Rewrite the program's milestone order." })
   async reorder(
