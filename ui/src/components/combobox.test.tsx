@@ -122,6 +122,13 @@ describe('Combobox', () => {
     await waitFor(() => expect(screen.getByText('No results')).toBeTruthy());
   });
 
+  it('announces zero results in the live region when nothing matches', async () => {
+    const user = userEvent.setup();
+    render(<Controlled />);
+    await user.type(screen.getByRole('combobox', { name: 'Class' }), 'zzz');
+    await waitFor(() => expect(screen.getByText('0 results')).toBeTruthy());
+  });
+
   it('default placeholder is the translated Select', async () => {
     render(
       <Combobox
