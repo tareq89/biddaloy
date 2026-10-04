@@ -29,6 +29,7 @@ import { ProgramMilestone } from '../programs/entities/program-milestone.entity'
 import { MilestoneAchievement } from '../programs/entities/milestone-achievement.entity';
 import { AuditModule } from '../audit/audit.module';
 import { AttendanceModule } from '../attendance/attendance.module';
+import { ClassModule } from '../classes/classes.module';
 import { CreditsModule } from '../communications/credits/credits.module';
 import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants';
 import { ExamsService } from './exams.service';
@@ -97,6 +98,9 @@ import {
     ]),
     AuditModule,
     AttendanceModule,
+    // `TeacherScopeService` for `MarksAuthorizationService` (47.2.3).
+    // ClassModule imports no exams code, so there is no cycle.
+    ClassModule,
     CreditsModule,
     // Re-registers the same queue communications.module.ts registers —
     // an accepted pattern in this codebase (health.module.ts does the
