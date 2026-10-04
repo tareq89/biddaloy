@@ -21,6 +21,7 @@ import { cn } from '../primitives/lib/utils';
 import { toLatinDigits } from '../utils';
 import { parsePhone } from '../utils/phone';
 
+import { useInsideAuthLayout } from './auth-layout';
 import { Button } from './button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from './form-field';
 import { OtpInput } from './otp-input';
@@ -103,6 +104,12 @@ export function OtpSignInForm({
   error = null,
 }: OtpSignInFormProps) {
   const { t } = useTranslation('auth');
+  // Inside <AuthLayout> the layout owns the logo and the card.
+  const framed = !useInsideAuthLayout();
+  const cardClass = cn(
+    'flex flex-col gap-6',
+    framed && 'rounded-lg border border-border-subtle bg-card p-8',
+  );
   const regionConfig = useRegionConfig();
   const [phase, setPhase] = React.useState<{ kind: 'phone' } | { kind: 'code'; phone: string }>({
     kind: 'phone',
@@ -177,7 +184,7 @@ export function OtpSignInForm({
     onVerify({ phone, otp: toLatinDigits(otp) });
   }
 
-  const brandMark = (
+  const brandMark = framed ? (
     <div className="flex items-center justify-center gap-2">
       <div
         aria-hidden="true"
@@ -187,16 +194,16 @@ export function OtpSignInForm({
       </div>
       <span className="text-lg font-semibold tracking-tight">{t('brand')}</span>
     </div>
-  );
+  ) : null;
 
   if (phase.kind === 'code') {
     return (
       <div className="flex flex-col gap-6">
         {brandMark}
-        <div className="flex flex-col gap-6 rounded-lg border border-border-subtle bg-card p-8">
-          <div className="flex flex-col gap-1 text-center">
-            <h1 className="text-xl font-semibold text-balance">{t('otp.codeHeading')}</h1>
-            <p className="text-sm text-muted-foreground">
+        <div className={cardClass}>
+          <div>
+            <h1 className="text-h1 text-balance">{t('otp.codeHeading')}</h1>
+            <p className="mt-0.5 text-text-secondary">
               {t('otp.codeSentTo', { phone: phase.phone })}
             </p>
           </div>
@@ -256,11 +263,11 @@ export function OtpSignInForm({
         <form
           onSubmit={(event) => void form.handleSubmit(handlePhoneSubmit)(event)}
           noValidate
-          className="flex flex-col gap-6 rounded-lg border border-border-subtle bg-card p-8"
+          className={cardClass}
         >
-          <div className="flex flex-col gap-1 text-center">
-            <h1 className="text-xl font-semibold text-balance">{t('heading')}</h1>
-            <p className="text-sm text-muted-foreground">{t('otp.subtext')}</p>
+          <div>
+            <h1 className="text-h1 text-balance">{t('heading')}</h1>
+            <p className="mt-0.5 text-text-secondary">{t('otp.subtext')}</p>
           </div>
 
           {error && <ErrorBanner error={error} />}

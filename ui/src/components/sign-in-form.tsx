@@ -26,6 +26,7 @@ import { useRegionConfig, useTranslation } from '../i18n';
 import { cn } from '../primitives/lib/utils';
 import { detectLoginIdentifier } from '../utils';
 
+import { useInsideAuthLayout } from './auth-layout';
 import { Button } from './button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from './form-field';
 import { Input } from './input';
@@ -101,6 +102,8 @@ export function SignInForm({
   secondaryAction,
 }: SignInFormProps) {
   const { t } = useTranslation('auth');
+  // Inside <AuthLayout> the layout owns the logo and the card.
+  const framed = !useInsideAuthLayout();
   const regionConfig = useRegionConfig();
   const [showPassword, setShowPassword] = React.useState(false);
 
@@ -148,25 +151,30 @@ export function SignInForm({
       {/* Decorative logotype, not `t()`-translated: a brand mark keeps a
           fixed glyph the same way a logo image would, regardless of which
           locale's `t('brand')` wordmark sits next to it. */}
-      <div className="flex items-center justify-center gap-2">
-        <div
-          aria-hidden="true"
-          className="flex size-8 shrink-0 items-center justify-center rounded-md bg-brand text-base font-bold text-primary-foreground"
-        >
-          ব
+      {framed && (
+        <div className="flex items-center justify-center gap-2">
+          <div
+            aria-hidden="true"
+            className="flex size-8 shrink-0 items-center justify-center rounded-md bg-brand text-base font-bold text-primary-foreground"
+          >
+            ব
+          </div>
+          <span className="text-lg font-semibold tracking-tight">{t('brand')}</span>
         </div>
-        <span className="text-lg font-semibold tracking-tight">{t('brand')}</span>
-      </div>
+      )}
 
       <Form {...form}>
         <form
           onSubmit={(event) => void form.handleSubmit(handleValidSubmit)(event)}
           noValidate
-          className="flex flex-col gap-6 rounded-lg border border-border-subtle bg-card p-8"
+          className={cn(
+            'flex flex-col gap-6',
+            framed && 'rounded-lg border border-border-subtle bg-card p-8',
+          )}
         >
-          <div className="flex flex-col gap-1 text-center">
-            <h1 className="text-xl font-semibold text-balance">{t('heading')}</h1>
-            <p className="text-sm text-muted-foreground">{t('subtext')}</p>
+          <div>
+            <h1 className="text-h1 text-balance">{t('heading')}</h1>
+            <p className="mt-0.5 text-text-secondary">{t('subtext')}</p>
           </div>
 
           {error && (
