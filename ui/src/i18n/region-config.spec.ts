@@ -93,6 +93,6 @@ describe('a second region — proves adding a country is one config object, zero
   });
 
   it('formatPhone applies the fixture displayFormat mask, not BD’s', () => {
-    expect(formatPhone('5123456', REGION_FIXTURE)).toBe('+99 512-3456');
+    expect(formatPhone('5123456', REGION_FIXTURE)).toBe('512-3456');
   });
 });

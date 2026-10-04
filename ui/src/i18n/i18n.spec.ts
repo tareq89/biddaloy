@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { createI18nInstance, whenReady, COMMON_NAMESPACE } from './i18n';
+import { createI18nInstance, setInterpolationNumerals, whenReady, COMMON_NAMESPACE } from './i18n';
 import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from './locale-storage';
 
 describe('createI18nInstance', () => {
@@ -66,5 +66,33 @@ describe('createI18nInstance', () => {
     // what's under test: the change must not throw even though
     // persistence itself is a no-op in this environment.
     expect(instance.language).toBe('en');
+  });
+
+  describe('numeral interpolation (D6, B24)', () => {
+    it('renders numbers in the language default digits, strings untouched, tenant override wins', async () => {
+      const instance = createI18nInstance();
+      await whenReady(instance);
+      instance.addResourceBundle(
+        'bn',
+        'common',
+        { n: 'মোট {{count}}টি', id: 'আইডি {{id}}' },
+        true,
+        true,
+      );
+      instance.addResourceBundle('en', 'common', { n: '{{count}} items' }, true, true);
+      await instance.changeLanguage('bn');
+      try {
+        expect(instance.t('n', { count: 312 })).toBe('মোট ৩১২টি');
+        expect(instance.t('id', { id: 'REG-2026-0001' })).toBe('আইডি REG-2026-0001');
+        setInterpolationNumerals('latin');
+        expect(instance.t('n', { count: 312 })).toBe('মোট 312টি');
+        setInterpolationNumerals(undefined);
+        expect(instance.t('n', { count: 312 })).toBe('মোট ৩১২টি');
+        await instance.changeLanguage('en');
+        expect(instance.t('n', { count: 3 })).toBe('3 items');
+      } finally {
+        setInterpolationNumerals(undefined);
+      }
+    });
   });
 });

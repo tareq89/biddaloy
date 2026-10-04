@@ -248,9 +248,14 @@ export function makeT(locale: Locale = DEFAULT_LOCALE) {
       throw new Error(`i18n key not found for locale "${locale}": ${key}`);
     }
     if (!params) return node;
-    return node.replace(/\{\{(\w+)\}\}/g, (match, name: string) =>
-      name in params ? String(params[name]) : match,
-    );
+    return node.replace(/\{\{(\w+)\}\}/g, (match, name: string) => {
+      if (!(name in params)) return match;
+      const v = params[name];
+      // Mirrors the app's numeral formatter: numbers follow the locale's digits, strings stay.
+      return locale === 'bn' && typeof v === 'number'
+        ? String(v).replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[Number(d)] ?? d)
+        : String(v);
+    });
   };
 }
 

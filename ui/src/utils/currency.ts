@@ -19,7 +19,11 @@ import { groupDigits } from './grouping';
  * example, `৳১,২৩,৪৫৬.০০` (see `currency.spec.ts`), just with the paisa
  * shown, because BDT genuinely has them.
  */
-export function formatCurrency(amountMinorUnits: number, config: RegionConfig): string {
+export function formatCurrency(
+  amountMinorUnits: number | null | undefined,
+  config: RegionConfig,
+): string {
+  if (amountMinorUnits == null || Number.isNaN(amountMinorUnits)) return '—';
   if (!Number.isSafeInteger(amountMinorUnits)) {
     throw new RangeError(
       `formatCurrency expects an integer amount in minor units, got ${amountMinorUnits}. ` +
@@ -148,7 +152,11 @@ function roundDecimalString(value: number, decimals: number): string {
  * originally [8.10.2]) is the line past which it earns a shared home next
  * to `formatCurrency`/`parseCurrency` instead of staying a local helper.
  */
-export function formatServerAmount(amount: number | string, config: RegionConfig): string {
+export function formatServerAmount(
+  amount: number | string | null | undefined,
+  config: RegionConfig,
+): string {
+  if (amount == null || amount === '') return '—';
   const normalized =
     typeof amount === 'number' ? roundDecimalString(amount, config.currency.decimals) : amount;
   return formatCurrency(parseCurrency(normalized, config), config);

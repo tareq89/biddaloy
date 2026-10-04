@@ -8,6 +8,18 @@ describe('resolveRegionConfig', () => {
     expect(resolveRegionConfig(REGION_BD_BN, undefined)).toBe(REGION_BD_BN);
   });
 
+  it('ignores a server-shaped tenant phone block the client cannot parse', () => {
+    const resolved = resolveRegionConfig(REGION_BD_BN, {
+      phone: {
+        country: 'BD',
+        pattern: '^(?:\\+?880|0)1[3-9]\\d{8}$',
+        example: '01712345678',
+        displayFormat: '+880 XXXX-XXXXXX',
+      },
+    });
+    expect(resolved.phone).toEqual(REGION_BD_BN.phone);
+  });
+
   it('uses every tenant-provided field when the tenant fully overrides the region', () => {
     const tenantRegion = {
       locale: 'en-US',
