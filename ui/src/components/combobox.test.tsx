@@ -1,7 +1,10 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render as rtlRender, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactElement } from 'react';
 import { useState } from 'react';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+
+import { I18nProvider, i18n, whenReady } from '../i18n';
 
 import { Combobox, type ComboboxOption } from './combobox';
 
@@ -23,6 +26,13 @@ function Controlled() {
     />
   );
 }
+
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: I18nProvider });
+
+beforeEach(async () => {
+  await whenReady(i18n);
+  await i18n.changeLanguage('en');
+});
 
 describe('Combobox', () => {
   it('carries the WAI-ARIA combobox role and wiring on the input', () => {
@@ -110,6 +120,18 @@ describe('Combobox', () => {
     render(<Controlled />);
     await user.type(screen.getByRole('combobox', { name: 'Class' }), 'zzz');
     await waitFor(() => expect(screen.getByText('No results')).toBeTruthy());
+  });
+
+  it('default placeholder is the translated Select', async () => {
+    render(
+      <Combobox
+        options={[{ value: 'six', label: 'Six' }]}
+        value={null}
+        onValueChange={() => {}}
+        aria-label="Class"
+      />,
+    );
+    expect(await screen.findByPlaceholderText('Select')).toBeTruthy();
   });
 
   it('ArrowUp moves the active index back up, floored at the first option', async () => {
