@@ -395,6 +395,7 @@ export {
   useSetSubjectChoice,
   useSubjectChoiceOptions,
   useSubmitMarkGrid,
+  useDeleteExam,
   useUpdateExam,
   useUpdateExamComponent,
   useUpdateExamSchedule,
