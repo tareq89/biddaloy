@@ -82,6 +82,8 @@ export const NOT_IN_NAV: Record<string, string> = {
   '/_staff/admissions/applicants/$applicantId':
     'detail route reached from the admission applicants list',
   '/_staff/guardians/$guardianId': 'detail route reached from the guardians list',
+  '/_staff/my-class/$sectionId':
+    'detail route reached from the My class section picker (or its single-section redirect)',
   '/_staff/routines/$sectionId': 'detail route reached from the routine builder section list',
   '/_staff/routines/review':
     '[21.9.1] reached via the "Copy last year\'s routine" palette action and from the routine builder, not its own sidebar item',

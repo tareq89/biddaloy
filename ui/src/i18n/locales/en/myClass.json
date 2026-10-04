@@ -28,5 +28,22 @@
     "homework": "No homework yet.",
     "results": "No results yet.",
     "roster": "No students in this section."
-  }
+  },
+  "pageTitle": "My class · {{section}}",
+  "cardError": "Could not load this card.",
+  "roll": "Roll {{roll}}",
+  "flagDays": "{{count}} days",
+  "duesSummary": "{{total}} due from {{count}} students",
+  "homeworkCounts": {
+    "total": "Assignments",
+    "completed": "Completed",
+    "defaulters": "Defaulters"
+  },
+  "resultsSummary": {
+    "average": "Average marks",
+    "passRate": "Pass rate",
+    "failed": "Failed students"
+  },
+  "callGuardian": "Call guardian of {{name}}",
+  "noPhone": "No phone"
 }

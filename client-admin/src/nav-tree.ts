@@ -231,6 +231,15 @@ export const STAFF_NAV_ITEMS = {
     label: { key: 'myRoutine' },
     synonyms: ['routine', 'timetable', 'agenda'],
   },
+  // [47.4.2] TEACHER-only (`MY_CLASS_VIEW`): the class teacher's one-screen
+  // view of their own homeroom section(s).
+  'academics.myClass': {
+    id: 'academics.myClass',
+    to: '/my-class',
+    permission: Permission.MY_CLASS_VIEW,
+    label: { key: 'myClass' },
+    synonyms: ['class teacher', 'form master', 'homeroom', 'my section'],
+  },
   'attendance.attendance': {
     id: 'attendance.attendance',
     to: '/attendance',
@@ -431,6 +440,7 @@ export const STAFF_NAV_GROUPS: readonly StaffNavGroupDef[] = [
       STAFF_NAV_ITEMS['academics.routineSetup'],
       STAFF_NAV_ITEMS['academics.routineBuilder'],
       STAFF_NAV_ITEMS['academics.myRoutine'],
+      STAFF_NAV_ITEMS['academics.myClass'],
       STAFF_NAV_ITEMS['academics.homework'],
       STAFF_NAV_ITEMS['academics.syllabus'],
     ],
