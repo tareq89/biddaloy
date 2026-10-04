@@ -195,6 +195,23 @@ describe('TeacherScopeService (integration)', () => {
       expect((await ask(sec6A)).subjectIds).toEqual([liveSubjectId]);
     });
 
+    it('gives no homeroom role in a past-year section (it would read every subject)', async () => {
+      await assign(TeacherAssignmentType.CLASS_TEACHER, secOld);
+      expect(await ask(secOld)).toEqual({ homeroom: null, subjectIds: [] });
+    });
+
+    it('gives no homeroom role in a soft-deleted section or class', async () => {
+      await assign(TeacherAssignmentType.ASSISTANT_CLASS_TEACHER, secDeleted);
+      await assign(TeacherAssignmentType.CLASS_TEACHER, secClassDeleted);
+      expect((await ask(secDeleted)).homeroom).toBeNull();
+      expect((await ask(secClassDeleted)).homeroom).toBeNull();
+    });
+
+    it('still reports SUBJECT_TEACHER subjects in a past-year section (unchanged)', async () => {
+      await assign(TeacherAssignmentType.SUBJECT_TEACHER, secOld, liveSubjectId);
+      expect(await ask(secOld)).toEqual({ homeroom: null, subjectIds: [liveSubjectId] });
+    });
+
     it("never shows another teacher's rows", async () => {
       const otherUser = await dataSource
         .getRepository(User)

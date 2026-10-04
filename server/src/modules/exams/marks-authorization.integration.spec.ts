@@ -40,10 +40,13 @@ describe('MarksAuthorizationService with real TeacherScopeService (integration)'
     authz = new MarksAuthorizationService(module.get(TeacherScopeService));
 
     const yearRepo = dataSource.getRepository(AcademicYear);
+    // Homeroom read only applies in the current academic year; one current per tenant.
+    await yearRepo.update({ tenant_id: TENANT }, { is_current: false });
     const year = await yearRepo.save({
       name: 'Marks Authz Year',
       start_date: '2026-01-01',
       end_date: '2026-12-31',
+      is_current: true,
       tenant_id: TENANT,
     });
     const klass = await dataSource

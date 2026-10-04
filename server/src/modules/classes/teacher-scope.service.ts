@@ -62,14 +62,41 @@ export class TeacherScopeService {
         's.id = tcs.subject_id AND s.tenant_id = :tenantId AND s.deleted_at IS NULL',
         { tenantId },
       )
+      // Homeroom (CLASS/ASSISTANT) grants a read of EVERY subject, so it only
+      // counts while the section is live and in the current academic year.
+      // SUBJECT_TEACHER rows keep their existing (year-agnostic) behaviour.
+      .leftJoin(
+        'class_sections',
+        'cs',
+        'cs.id = tcs.section_id AND cs.tenant_id = :tenantId AND cs.deleted_at IS NULL',
+        { tenantId },
+      )
+      .leftJoin(
+        'classes',
+        'c',
+        'c.id = cs.class_id AND c.tenant_id = :tenantId AND c.deleted_at IS NULL',
+        { tenantId },
+      )
+      .leftJoin(
+        'academic_years',
+        'ay',
+        'ay.id = c.academic_year_id AND ay.tenant_id = :tenantId AND ay.is_current = true AND ay.deleted_at IS NULL',
+        { tenantId },
+      )
       .select('tcs.assignment_type', 'assignment_type')
       .addSelect('s.id', 'live_subject_id')
+      .addSelect('ay.id', 'current_year_id')
       .where('tcs.tenant_id = :tenantId', { tenantId })
       .andWhere('tcs.section_id = :sectionId', { sectionId })
       .andWhere('t.user_id = :userId', { userId })
-      .getRawMany<{ assignment_type: TeacherAssignmentType; live_subject_id: string | null }>();
+      .getRawMany<{
+        assignment_type: TeacherAssignmentType;
+        live_subject_id: string | null;
+        current_year_id: string | null;
+      }>();
 
     const homeroomTypes = rows
+      .filter((r) => r.current_year_id)
       .map((r) => r.assignment_type)
       .filter((type): type is HomeroomType => HOMEROOM_TYPES.includes(type as HomeroomType));
     // CLASS_TEACHER wins if (impossibly, per the unique index) both appear.
