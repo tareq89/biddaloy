@@ -163,6 +163,7 @@
     "periodTypeWeek": "Week",
     "sourceManual": "Manual",
     "sourceSchedule": "Schedule",
+    "sourceFineRule": "Fine rule",
     "collectionStatusNone": "None",
     "collectionStatusPartial": "Partial",
     "collectionStatusFull": "Full",

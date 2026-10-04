@@ -163,6 +163,7 @@
     "periodTypeWeek": "সপ্তাহ",
     "sourceManual": "নিজে",
     "sourceSchedule": "নির্ধারিত",
+    "sourceFineRule": "জরিমানার নিয়ম",
     "collectionStatusNone": "কিছুই না",
     "collectionStatusPartial": "আংশিক",
     "collectionStatusFull": "সম্পূর্ণ",
