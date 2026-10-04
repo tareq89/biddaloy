@@ -20,6 +20,7 @@ Run order inside a lane is fixed (each ticket's last line names the one before i
 | guest | guest-1 → guest-2 → guest-3 | 3 | `routes/login.tsx`; `routes/select-school.tsx`; `routes/-guest-status.tsx`; `routes/-auth-screen.tsx`; `routes/forgot-password.tsx`; `routes/reset-password.tsx`; `routes/activate.tsx`; `routes/verify-email.tsx`; `routes/i/`; `routes/v/` · ns: auth, verify |
 | homework | homework-1 → homework-2 → homework-3 | 3 | `S/academics/` · ns: homework, syllabus |
 | marks | marks-1 → marks-2 → marks-3 → marks-4a → marks-4b | 5 | `S/marks/`; `S/results/`; `S/analysis/`; `S/grading-scales/` · ns: grading |
+| my-class | my-class-1 → my-class-2 | 2 | `S/my-class/` · ns: myClass |
 | payments | payments-1a → payments-1b → payments-2 → payments-3 → payments-4 | 5 | `S/payments/`; `S/invoices/` · ns: payments, approval |
 | platform | platform-1 → platform-2 → platform-3 | 3 | `PL/schools/`; `PL/holiday-sets/` · ns: platform |
 | portal | portal-1 → portal-2 → portal-3 → portal-4 → portal-5 → portal-6 → portal-7 → portal-8 → portal-9 → portal-10 | 10 | `PO/* (pages; not portal.tsx)` · ns: portal |

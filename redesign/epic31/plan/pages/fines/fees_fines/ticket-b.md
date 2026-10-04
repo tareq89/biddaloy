@@ -125,4 +125,6 @@ Requests this page filed for shared code, and what was decided. "Accepted" means
 | server rule-made fine note not English | Accepted | 31.3.7d | new rule-made notes are written in the school's language and numerals ("৩ দিন অনুপস্থিত (১ দিন মওকুফ)"); keep showing note as is; notes written before 31.3.7d stay English (immutable history) |
 | students route ?logFine=1 (students-lane files) | Accepted | 31.5.0 | URL: /students/<id>?tab=fines&logFine=1; LogFineModal props unchanged; fines-1b needs nothing |
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: fines   Decisions: D1, D5, D9, D17, D19, D21, D22, D23, D25, D29, D32, D37   Depends on: 31.3.8b, 31.4.fines-1a

@@ -48,7 +48,7 @@ The page lists the classes of one academic year so an admin can open, add, edit 
 - `client-admin/src/routes/_staff/classes/index.tsx` — FilterBar fields, columns, rowActions, page size, EmptyState, drop expansion
 - `client-admin/src/routes/_staff/classes/-class-form-dialog.tsx` — kit dialog form, placeholders, translated errors
 - `client-admin/src/routes/_staff/classes/-delete-class-dialog.tsx` — ConfirmDialog look, translated blocked/failed text
-- `ui/src/i18n/locales/bn/classes.json` — keys below
+- `ui/src/i18n/locales/bn/classes.json` — keys below (main already has #1407's `assignmentType.*`, `assignDialog.replaceWarning`, `assignTeacherForm.errorAlreadyHomeroom` — leave them; classes-2 uses them)
 - `ui/src/i18n/locales/en/classes.json` — keys below
 - `client-admin/src/routes/_staff/classes/index.test.tsx` — update
 
@@ -104,7 +104,7 @@ The page lists the classes of one academic year so an admin can open, add, edit 
 - [ ] Deleting a class that still has students shows the translated sentence, never a UUID.
 
 ## Out of scope
-- Class delete 409 with counts / codes — shared request filed (`classes-list | server classes.service.ts:309-321`).
+- Class delete 409 with counts / codes — shared request filed (`classes-list | server classes.service.ts:297-309` on main after #1407 — the teacher-assign 409s there now carry `details.code`, the class-delete one still does not).
 - `nav.json` "classes": "ক্লাস" (C23) — glossary ticket.
 - Restyle of `SectionsPanel` and the section dialogs — classes-2.
 - Search box on the list — the API has no search param for classes (D1).
@@ -117,5 +117,7 @@ Requests this page filed for shared code, and what was decided. "Accepted" means
 | Request | Outcome | Ticket | Use |
 |---|---|---|---|
 | server class delete 409 details.code + count | Deferred | — | use the fallback in the ticket (one translated sentence, no count, never server text) |
+
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
 
 Wave: 9   Lane: classes   Decisions: D6, D9, D15, D16, D19, D21, D24, D25, D28, D29   Depends on: 31.3.8b

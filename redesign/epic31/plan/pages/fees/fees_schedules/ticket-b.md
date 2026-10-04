@@ -120,4 +120,6 @@ Requests this page filed for shared code, and what was decided. "Accepted" means
 | palette entry for the rule form (?new=1 / ?edit=<id>) | Accepted | 31.5.1b | feeSchedules.create -> /fees/schedules?new=1 (kind navigate, label "স্বয়ংক্রিয় বিলের নিয়ম যোগ করুন"); ?edit=<id> stays a row action, not a palette entry; 31.5.1a adds no flag here |
 | crumb resolver: rule name | Accepted | 31.3.5 | resolver key scheduleDetail reads recurringScheduleQueryOptions(id) -> name; keep that query on the page |
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: fees   Decisions: D5, D6, D9, D16, D19, D20, D22, D25, D27, D28   Depends on: 31.3.8b, 31.4.fees-4a

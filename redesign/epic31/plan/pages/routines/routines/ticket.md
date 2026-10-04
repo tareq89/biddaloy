@@ -107,7 +107,7 @@
 - `-builder-day-list.test.tsx`: renders tabs for the given weekdays; today's weekday selected; a break row has no button; clicking an empty row calls `onActivateCell(weekday, periodId)`; a filled row's accessible name equals the `common:routine.cellLabel` text (en) and an empty row's ends in ": empty".
 - `-workload-panel.test.tsx`: over-limit teacher shows the danger badge; underloaded count in the subtitle; unknown teacher shows "—", never the id.
 - `-conflict-list.test.tsx`: a known code renders its sentence; an unknown code renders `codes.unknown`; the server `message` is never in the DOM.
-- `e2e/journeys/routine-builder.spec.ts`: lines ~97 and ~151 `page.locator('table')` → `page.getByRole('table', { name: t('routines.grid.caption') })` (the workload table is a second table now). Line ~172 asserts the alert by `violationsTitle` — unchanged.
+- `e2e/journeys/routine-builder.spec.ts`: line 98 `const grid = page.locator('table')` (the only bare table locator on main after #1407; `grid` is reused for the cell focus below, and line 150 already uses `getByRole('table', …)`) → `page.getByRole('table', { name: t('routines.grid.caption') })` (the workload table is a second table now). Line ~173 asserts the alert by `conflictList.violationsTitle` — unchanged. #1407 only made the spec type the seeded teacher's real name (`teacherBName`) in the cell picker — no effect on this ticket.
 
 ## Acceptance
 - [ ] Desktop at 1440 px matches the "after" screenshots.
@@ -139,5 +139,7 @@ Requests this page filed for shared code, and what was decided. "Accepted" means
 | Request | Outcome | Ticket | Use |
 |---|---|---|---|
 | routine-grid kit look, period label + time range, empty/warning icons, cell aria-label | Accepted | 31.2.3b | no prop change; do NOT add routines.builder.cellAria — the grid uses common.json routine.cellLabel(Empty) |
+
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
 
 Wave: 9   Lane: routines   Decisions: D5, D6, D9, D15, D16, D17, D19, D25, D27, D28, D29, D32, D37, D38   Depends on: 31.3.8b

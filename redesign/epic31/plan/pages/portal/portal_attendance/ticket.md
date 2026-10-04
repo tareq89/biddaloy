@@ -86,4 +86,6 @@ Requests this page filed for shared code, and what was decided. "Accepted" means
 | student-picker chips restyled to kit tokens | Accepted | 31.2.14a | no prop change — place StudentPicker as today |
 | attendance-month-grid: MonthHeader, today ring, selected fill, weekly-off muted, sr-only caption, icon pills, legend inside | Accepted | 31.2.3b | <AttendanceMonthGrid month days today selectedDate onMonthChange onSelectDay /> — drop the page's own month-link header row |
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: portal   Decisions: D5, D6, D9, D15, D16, D17, D26, D27, D28   Depends on: 31.3.8b, 31.4.portal-2

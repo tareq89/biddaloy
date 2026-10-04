@@ -88,4 +88,6 @@ Requests this page filed for shared code, and what was decided. "Accepted" means
 | route-crumbs for /payments and /payments/$id | Accepted | 31.3.5 | /payments crumb = nav:items.payments; /payments/$id = পেমেন্ট (link) › dynamic paymentDetail |
 | fees dues.tsx opens /payments/record by URL (fees-lane file) | Accepted | — | already done by page ticket fees-1 (Change 7, Step 2); nothing to add |
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: payments   Decisions: D1, D5, D6, D9, D15, D16, D19, D24, D27, D28, D29   Depends on: 31.3.8b

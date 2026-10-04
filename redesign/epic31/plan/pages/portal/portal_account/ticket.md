@@ -91,4 +91,6 @@ Requests this page filed for shared code, and what was decided. "Accepted" means
 | session-list compact list: outline red sign-out-all, one ul.divide-y, one meta line, icon sign-out per row, device icon, success badge | Accepted | 31.2.14a | <SessionList variant="compact" …> inside the page's Devices card; the page still slices to 5 rows |
 | profile / guardian-contact / change-password / push cards to kit form look | Accepted | 31.2.14a | no prop change — place the four components as today |
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: portal   Decisions: D8, D9, D12, D15, D16, D17, D27, D28, D29   Depends on: 31.3.8b, 31.4.portal-9

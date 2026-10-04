@@ -117,4 +117,6 @@ The page shows one academic year: its dates, whether it is current, and the clas
 - Year form and delete dialog — restyled by academic-years-1 (runs earlier); used here unchanged.
 - Terms tab label following the semester/trimester setting — would need a permission-safe settings read in the route; left as "টার্ম".
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: academic-years   Decisions: D5, D6, D9, D16, D19, D20, D21, D25, D28, D29   Depends on: 31.3.8b, 31.4.academic-years-1

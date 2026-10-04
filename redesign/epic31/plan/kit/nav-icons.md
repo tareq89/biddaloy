@@ -7,7 +7,7 @@ checked against `lucide@0.469` (mockups) and `lucide-react@1.45` (the app).
 
 Ids, routes and order come from `client-admin/src/nav-tree.ts`; labels from
 `ui/src/i18n/locales/bn/nav.json` and the entity labels in `common.json`.
-"Today" is the icon in `client-admin/src/routes/_staff.tsx:65-93` (— = the item has none).
+"Today" is the icon in `client-admin/src/routes/_staff.tsx:66-95` (— = the item has none).
 
 ## Staff shell (`_staff.tsx`)
 
@@ -31,6 +31,7 @@ Ids, routes and order come from `client-admin/src/nav-tree.ts`; labels from
 | `academics.routineSetup` | `/routines/setup` | রুটিন সেটআপ | `sliders-horizontal` | — |
 | `academics.routineBuilder` | `/routines` | টাইমটেবিল ও রুটিন | `table` | — |
 | `academics.myRoutine` | `/routines/my` | আমার রুটিন | `calendar-clock` | — |
+| `academics.myClass` | `/my-class` | আমার শ্রেণি | `book-user` | `user-check` (duplicate of Staff attendance below; added by PR #1407, TEACHER only — `MY_CLASS_VIEW`) |
 | `academics.homework` | `/academics/homework` | বাড়ির কাজ | `notebook-pen` | `list-checks` (duplicate of Fee structures) |
 | `academics.syllabus` | `/academics/syllabus` | সিলেবাস | `book-open` | — |
 | **attendance — উপস্থিতি** | | | | |
@@ -70,7 +71,7 @@ Ids, routes and order come from `client-admin/src/nav-tree.ts`; labels from
 | *SUPER_ADMIN extra* (no id in `nav-tree.ts`) | `/schools` | স্কুল (প্ল্যাটফর্ম) | `building-2` | `school` (duplicate of Classes) |
 | *SUPER_ADMIN extra* | `/holiday-sets` | ছুটির তালিকা (প্ল্যাটফর্ম) | `tree-palm` | `calendar-days` (duplicate of Calendar) |
 
-46 staff items + 2 extras, 48 different icons. The top bar reuses none of them
+47 staff items + 2 extras, 49 different icons (31.3.1 adds five more items and their icons). The top bar reuses none of them
 (`menu`, `search`, `bell`, `languages`, `moon`, `circle-user-round`, `arrow-left-right`);
 `ellipsis` is the bottom bar's "আরও".
 
@@ -112,13 +113,15 @@ item's sidebar icon.
 | **ADMIN** (and SUPER_ADMIN inside a school) | `dashboard` — ড্যাশবোর্ড / Dashboard | `people.students` — শিক্ষার্থী / Students | `attendance.attendance` — উপস্থিতি / Attendance | `finance.dues` — বকেয়া / Dues |
 | **ACCOUNTANT** | `dashboard` — ড্যাশবোর্ড / Dashboard | `finance.dues` — বকেয়া / Dues | `finance.recordPayment` — পেমেন্ট / Payment | `finance.invoices` — চালান / Invoices |
 | **EXECUTIVE** | `dashboard` — ড্যাশবোর্ড / Dashboard | `people.students` — শিক্ষার্থী / Students | `attendance.attendance` — উপস্থিতি / Attendance | `reports.collectionsReport` — প্রতিবেদন / Reports |
-| **TEACHER** | `dashboard` — ড্যাশবোর্ড / Dashboard | `attendance.attendance` — উপস্থিতি / Attendance | `academics.myRoutine` — রুটিন / Routine | `academics.homework` — বাড়ির কাজ / Homework |
+| **TEACHER** | `academics.myClass` — শ্রেণি / My class | `attendance.attendance` — উপস্থিতি / Attendance | `academics.myRoutine` — রুটিন / Routine | `academics.homework` — বাড়ির কাজ / Homework |
 | **Guardian / student (portal)** | `/portal` — সারসংক্ষেপ / Overview | `/portal/fees` — ফি ও চালান / Fees | `/portal/attendance` — উপস্থিতি / Attendance | `/portal/results` — ফলাফল / Results |
 | **SUPER_ADMIN (platform console)** | `/schools` — স্কুল / Schools | `/holiday-sets` — ছুটি / Holidays | `/dashboard` — ড্যাশবোর্ড / Dashboard (back to the school app) | — (the console has only two pages; see conflicts.md C8) |
 
 Changes from today: ADMIN's bar swaps "Record payment" for "Attendance" (payment is one
 tap away from Dues through "ফি আদায়"); every other staff role gets its own four instead of
-the admin's four minus what it cannot see. The portal keeps its four.
+the admin's four minus what it cannot see. TEACHER's first cell is My class (its home page) instead of the
+placeholder dashboard; its short label is শ্রেণি, the same way আমার রুটিন shortens to রুটিন — "আমার শ্রেণি" is
+11 characters and is cut off in a 64 px cell. The portal keeps its four.
 
 ### Roles the brief did not list (added in Epic 24 — they need cells too)
 

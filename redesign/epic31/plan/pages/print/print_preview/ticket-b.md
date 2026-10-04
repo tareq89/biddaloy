@@ -97,4 +97,6 @@ Requests this page filed for shared code, and what was decided. "Accepted" means
 |---|---|---|---|
 | grant desktop-only-gate.tsx to the print lane (export useIsWide, copyPageLink) | Accepted | — | granted to print-2a: no foundation ticket touches client-admin/src/components/print/desktop-only-gate.tsx |
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: print   Decisions: D6, D9, D17, D21, D27, D28, D29, D32   Depends on: 31.3.8b, 31.4.print-2a

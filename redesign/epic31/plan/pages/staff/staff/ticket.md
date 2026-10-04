@@ -115,6 +115,7 @@ The "after" shots show the status filter "সক্রিয়" applied and two
 - `data-focus-anchor` on a `RowAction` with `to` — already filed by the students lane (shared-requests.md, students); until then focus restore after Back lands on the h1.
 - The list also shows members whose role is শিক্ষার্থী / অভিভাবক (server `GET /users` returns every member). Filtering them out server-side is an API change (D1) — left alone.
 - Palette registration of "কর্মী যোগ করুন" — 31.5.1b.
+- Promote / edit-teacher dialogs no longer carry section assignments (#1407 removed `assigned_section_ids` from `POST`/`PATCH /teachers`; on main only their header comments changed). Their "পদবি" checkboxes (শ্রেণি শিক্ষক / বিষয় শিক্ষক) are HR labels and do NOT make anyone a class teacher — that role is set per section in the class Teachers tab (47.0 D2). Left as is; do not add a section picker here.
 
 ## Shared requests — outcome
 
@@ -123,5 +124,7 @@ Requests this page filed for shared code, and what was decided. "Accepted" means
 | Request | Outcome | Ticket | Use |
 |---|---|---|---|
 | server GET /users excludes PARENT/STUDENT by default | Deferred | — | use the fallback in the ticket (role filter hides them) |
+
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
 
 Wave: 9   Lane: staff   Decisions: D5, D8, D9, D16, D19, D21, D24, D25, D27, D28, D29, D32   Depends on: 31.3.8b

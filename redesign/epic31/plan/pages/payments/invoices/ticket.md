@@ -72,4 +72,6 @@ The accountant uses this page to find a receipt and reprint it. Today the filter
 - Old `fees:invoices.columnActions` "কার্যক্রম" becomes unused here; deleting it is the fees lane's call (it still has other `columnActions` keys).
 - Status labels ("ইস্যু করা হয়েছে") come from the shared `StatusBadge` invoice domain — not changed here.
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: payments   Decisions: D5, D6, D16, D19, D24, D25, D28, D29   Depends on: 31.3.8b, 31.4.payments-2

@@ -211,3 +211,17 @@ shared-requests you filed, then anything you could not resolve. Nothing else.
    and `-student-form-schema.ts` → students lane; `fees.json` → fees lane (invoice/payment pages add
    their keys to `payments.json`).
 9. Mockups of accountant / teacher pages may keep the starter's admin bottom bar.
+
+## Addendum 2 — main moved (PR #1407, Epic 47.0 "Class teacher & My class", merged 2026-10-04)
+
+- Read app code from the worktree at current main: `SCRATCH/main-wt` (path given in your brief), NOT the
+  original checkout (it is one commit behind). Run `shoot.mjs` from the ORIGINAL repo root (the
+  worktree has no `node_modules`): `cd <original repo> && node .claude/skills/redesign-page/scripts/shoot.mjs <mockup>`.
+- What the PR added: `teacher_class_sections.assignment_type` (class teacher / assistant class teacher /
+  subject teacher), the assign-teacher dialog with a role choice and a "replace" warning (409 body
+  `{ message, details: { code } }`), role display in the class Teachers tab and staff teaching
+  assignments, the `MY_CLASS_VIEW` permission (TEACHER only), new routes `/my-class` and
+  `/my-class/$sectionId` (`client-admin/src/routes/_staff/my-class/`), a new namespace `myClass`,
+  a sidebar item, a palette action "Take my class attendance", `GET /my-class/sections`,
+  `GET /attendance/sections/:id/streaks`.
+- See the change to one file with: `git -C SCRATCH/main-wt show 1bb014b4 -- <path>`.

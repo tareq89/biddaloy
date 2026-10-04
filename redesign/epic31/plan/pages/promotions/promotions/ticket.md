@@ -40,7 +40,7 @@ After results are published, an admin makes a promotion list for a class (who go
 |---|---|---|---|
 | Paginate the list | unpaginated · 25 per page | keep paginated (client-side slice, 25) | One list per class per year adds up past ~20 rows; the server returns all, slicing already exists. |
 | Algorithm labels | keep "ব্লক (ক্রমানুসারে শাখা পূরণ)" · name + help | change `newRunForm.algorithmBlock/Snake` to the bare names, explanation in new `*Help` keys | The list and the run page need the short name; the form shows both. |
-| Source of class names | `useClasses({})` (first 10) · `useAllClasses()` | `useAllClasses()` | Same 10-row trap as B13; the hook already exists in `ui/src/hooks/classes.ts:163`. |
+| Source of class names | `useClasses({})` (first 10) · `useAllClasses()` | `useAllClasses()` | Same 10-row trap as B13; the hook already exists in `ui/src/hooks/classes.ts:151`. |
 | Form frame | page · FullPageShell | FullPageShell on its own route | D23 names "new promotion run"; the route already exists, so the URL is the route. |
 
 ## Files
@@ -104,5 +104,7 @@ After results are published, an admin makes a promotion list for a class (who go
 ## Out of scope
 - Deleting a draft from the list (RowActions `delete`) — the run page owns delete (promotions-2).
 - The sidebar label "প্রমোশন" comes from `nav.json` (31.3.4a); the mockup shows it already renamed.
+
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
 
 Wave: 9   Lane: promotions   Decisions: D9, D16, D19, D21, D22, D23, D25, D27, D28, D29, D32   Depends on: 31.3.8b

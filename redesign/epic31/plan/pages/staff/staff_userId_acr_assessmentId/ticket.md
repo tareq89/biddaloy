@@ -94,4 +94,6 @@ An admin fills a staff member's annual confidential report (ACR) in three steps:
 - The ACR criteria settings editor (`acr.criteriaSettings.*`) — settings lane (settings-2).
 - `e2e/responsive/routes.ts` visits this route; responsive sweeps of chromeless routes belong to the foundation.
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: staff   Decisions: D5, D6, D20, D22, D23, D25, D27, D29   Depends on: 31.3.8b, 31.4.staff-4b

@@ -163,4 +163,6 @@ The audit role had no `BACKUP_MANAGE`, so "Before" (the `admin__settings` page) 
 - Turning restore into a full-page modal (D21): it would change the platform lane's flows that reuse `RestoreWizard`. Left inline; say so on review.
 - The inner look of `BulkUploadPreview` (upload area, error table, Confirm button) belongs to the foundation component.
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: settings   Decisions: D6, D9, D19, D21, D25, D27, D29, D30, D32   Depends on: 31.3.8b, 31.4.settings-4a

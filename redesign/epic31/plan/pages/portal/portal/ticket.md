@@ -98,4 +98,6 @@ Requests this page filed for shared code, and what was decided. "Accepted" means
 | upcoming-calendar-card side-column look | Refused | — | use the fallback in the ticket — file is owned by calendar-1 (Addendum 8), not foundation; orchestrator may route the look to calendar-1 |
 | e2e/journeys/fines.spec.ts dueThisMonth assertion | Accepted | 31.5.0 | conditional: 31.5.0 drops only that assertion if the seeded parent owes nothing this month; portal-1 edits nothing |
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: portal   Decisions: D5, D6, D9, D15, D16, D17, D27, D28, D29, D32   Depends on: 31.3.8b

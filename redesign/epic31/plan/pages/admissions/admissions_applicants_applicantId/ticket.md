@@ -89,4 +89,6 @@ Requests this page filed for shared code, and what was decided. "Accepted" means
 | crumb resolver: applicant name | Accepted | 31.3.5 | resolver key admissionApplicantDetail reads the applicantQueryOptions(id) cache -> applicant.applicant_name; the page only has to keep using useApplicant(id) |
 | server reviewer_name on evaluations | Deferred | — | use the fallback in the ticket (history without reviewer name) |
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: admissions   Decisions: D5, D8, D9, D16, D20, D21, D25, D27, D29   Depends on: 31.3.8b, 31.4.admissions-1

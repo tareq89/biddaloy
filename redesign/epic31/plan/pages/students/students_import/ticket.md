@@ -108,4 +108,6 @@ Requests this page filed for shared code, and what was decided. "Accepted" means
 |---|---|---|---|
 | BulkUploadPreview exposes state + confirm, can hide its own Confirm | Accepted | 31.2.14c (type + props 31.1.2a) | <BulkUploadPreview hideConfirm onControllerChange={setUpload} …/>; footer from upload.status / confirm / confirmDisabled / result / commitResult / reset; type BulkUploadPreviewController<S, C> from @biddaloy/ui/components |
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: students   Decisions: D6, D8, D9, D19, D21, D22, D23, D27, D29, D32   Depends on: 31.3.8b, 31.4.students-2

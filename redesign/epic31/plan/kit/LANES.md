@@ -20,6 +20,7 @@ A ticket marked (2 mockups) covers two pages: one mockup folder per page.
 | calendar | calendar, calendarFeed, calendarImport |
 | routines | routines |
 | homework | homework, syllabus |
+| my-class | myClass |
 | attendance | attendance, staffAttendance, leave |
 | fines | fines |
 | exams | exams, examTemplates, examsTemplateField, seatPlans, seatPlansDetail |
@@ -99,6 +100,10 @@ A ticket marked (2 mockups) covers two pages: one mockup folder per page.
 - homework-1 — `/academics/homework` list + homework detail (2 mockups) — before `admin__academics_homework`, `…_homework_homeworkId`
 - homework-2 — New homework FP + import homework FP (2 mockups) — `S/academics/homework/new.tsx`, `import.tsx`, `client-admin/src/components/homework/**` — before `admin__academics_homework_new`, `…_import`
 - homework-3 — `/academics/syllabus` — before `admin__academics_syllabus`
+
+### my-class  (lane my-class; staff shell, TEACHER only — `MY_CLASS_VIEW`; nav item আমার শ্রেণি; added by PR #1407 after the audit, so there are no "before" shots — capture them as `teacher` first)
+- my-class-1 — `/my-class` — `S/my-class/index.tsx` (+ `index.test.tsx`) — section cards with role badge, the empty state, the one-section redirect (keeps `?then=attendance`). The seed teacher has one section, so the page redirects: mock the 2-section list and the empty state. Today the card name reads "{class} {section}" (`index.tsx:105`) while the crumb says "{class}-{section}" — use one form.
+- my-class-2 — `/my-class/$sectionId` — `S/my-class/$sectionId.tsx`, `S/my-class/-cards.tsx` (+ `$sectionId.test.tsx`) — attendance button first, then the six cards. D16: the `h1` is `myClass.pageTitle` "আমার শ্রেণি · {{section}}" today but the last crumb is the section alone (31.3.5) — make the `h1` equal the crumb.
 
 ### attendance-a  (lane attendance)
 - attendance-1 — `/attendance` + mark attendance `/attendance/$sectionId` (2 mockups) — before `admin__attendance`, `admin__attendance_sectionId`

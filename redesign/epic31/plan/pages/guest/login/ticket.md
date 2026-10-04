@@ -109,4 +109,6 @@ Requests this page filed for shared code, and what was decided. "Accepted" means
 |---|---|---|---|
 | e2e/config.ts heading + reduced-motion.spec.ts button literals | Accepted | 31.3.8a | both read auth.heading / auth.submit.action from the locale files after 31.3.8a; guest-1 renames the keys' values and edits neither e2e file |
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: guest   Decisions: D6, D9, D29, D32, D34   Depends on: 31.3.8b

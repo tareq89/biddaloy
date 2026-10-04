@@ -94,4 +94,6 @@ Requests this page filed for shared code, and what was decided. "Accepted" means
 | DetailShell tabs optional, body via children | Accepted | 31.2.5b | <DetailShell name statusBadge facts actions>{body}</DetailShell> — omit tabs/activeTab/onTabChange |
 | crumb resolver: payment | Accepted | 31.3.5 | resolver key paymentDetail reads paymentKeys.detail(id) (usePayment) -> "<student name> — <formatDate(payment_date)>", date only when student is null |
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: payments   Decisions: D5, D6, D9, D15, D16, D19, D21, D27, D28, D29, D32   Depends on: 31.3.8b, 31.4.payments-1b

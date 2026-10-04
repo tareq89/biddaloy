@@ -109,3 +109,5 @@ students	7	31.4.students-6a	Student detail Enrollment, Subjects, Programs tabs �
 students	8	31.4.students-6b	Student detail Attendance, Results, Homework, Performance tabs — readable figures	PLAN/pages/students/students_studentId_enrollment/ticket-b.md	10
 students	9	31.4.students-7a	Student detail Guardians, Messages, Activity, Documents tabs + leave/readmit dialogs	PLAN/pages/students/students_studentId_guardians/ticket.md	15
 students	10	31.4.students-7b	Student detail Notes and Records tabs — cards, icon actions, confirm dialogs	PLAN/pages/students/students_studentId_guardians/ticket-b.md	14
+my-class	1	31.4.my-class-1	My class picker — kit header, section cards, real states	PLAN/pages/my-class/my-class/ticket.md	4
+my-class	2	31.4.my-class-2	My class section page — phone-first cards, kit header, localised numbers	PLAN/pages/my-class/my-class_sectionId/ticket.md	6

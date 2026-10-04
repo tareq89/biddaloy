@@ -85,4 +85,6 @@ Requests this page filed for shared code, and what was decided. "Accepted" means
 |---|---|---|---|
 | portal sidebar item /portal/surveys | Accepted | 31.3.2 | after সিলেবাস, label nav:items.portalSurveys "জরিপ", icon clipboard-pen-line, no permission (role-gated), not a bottom-bar cell |
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: portal   Decisions: D5, D15, D16, D17, D21, D28, D29   Depends on: 31.3.8b, 31.4.portal-8

@@ -93,4 +93,6 @@ Requests this page filed for shared code, and what was decided. "Accepted" means
 |---|---|---|---|
 | useDeleteExam() hook for DELETE /exams/:id | Accepted | 31.2.14d | import { useDeleteExam } from '@biddaloy/ui/hooks'; mutate(examId); invalidates the exams list |
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: exams   Decisions: D9, D16, D19, D21, D24, D25, D27, D28, D29   Depends on: 31.3.8b

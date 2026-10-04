@@ -118,4 +118,6 @@ Requests this page filed for shared code, and what was decided. "Accepted" means
 | third survey crumb | Accepted | 31.3.5 | trail কর্মী › মূল্যায়ন (link /staff/evaluations?tab=surveys) › {title}; resolver key surveyDetail; new key nav:items.surveyDetail |
 | server full_name on /acr-assessments and /incidents rows | Deferred | — | use the fallback in the ticket (useUser per row, no name search) |
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: staff   Decisions: D5, D6, D9, D16, D19, D20, D24, D27, D28, D29, D32   Depends on: 31.3.8b, 31.4.staff-3

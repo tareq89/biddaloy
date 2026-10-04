@@ -141,4 +141,6 @@
 - Sidebar label "প্রিন্টযোগ্য রেজিস্টার" in the mockup shell — renamed by 31.3.4a.
 - No shared requests filed for this ticket.
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: attendance   Decisions: D5, D6, D9, D14, D15, D16, D17, D21, D25, D27, D28, D29, D32   Depends on: 31.3.8b

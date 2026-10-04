@@ -94,4 +94,6 @@ The page lists the school's programs (Hifz, clubs, courses) so staff can open on
 - `ProgramFormDialog` layout, archive and delete — programs-2a (detail page) owns that change.
 - Sidebar label "প্রোগ্রাম ও মাইলস্টোন" → "প্রোগ্রাম" is already done by 31.3.4a.
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: programs   Decisions: D6, D9, D16, D19, D24, D27, D28   Depends on: 31.3.8b

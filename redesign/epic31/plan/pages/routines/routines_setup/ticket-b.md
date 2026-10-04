@@ -97,4 +97,6 @@ Before any routine can be built, the admin names the shifts and types the start 
 - Editing a shift's name or window after creation (no edit UI today; `useUpdateShift` exists but wiring it is new behaviour).
 - "Suggest period times" (`ChangeoverSuggestion` in the hooks) — not exposed today; not added.
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: routines   Decisions: D6, D7, D9, D15, D17, D19, D21, D25, D28, D29, D37   Depends on: 31.3.8b, 31.4.routines-4a

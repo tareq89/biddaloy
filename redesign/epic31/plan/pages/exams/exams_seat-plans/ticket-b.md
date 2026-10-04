@@ -101,4 +101,6 @@ Requests this page filed for shared code, and what was decided. "Accepted" means
 | server exam_name on GET /seat-plans rows | Deferred | — | use the fallback in the ticket (no exam column) |
 | server sittings with bn name, date, time on GET /seat-plans/:id | Accepted | 31.3.7b | no schedules[] array: each allocation row gains subject_name_bn, exam_date ('YYYY-MM-DD'), starts_at, ends_at ('HH:mm:ss'); build the sitting label from the first row per exam_schedule_id (bn name when the UI is bn, else subject_name; caption formatDate + formatTime range) |
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: exams   Decisions: D6, D9, D16, D19, D21, D25, D27, D28, D29   Depends on: 31.3.8b, 31.4.exams-4a

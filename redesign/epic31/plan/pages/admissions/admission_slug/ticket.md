@@ -172,4 +172,6 @@ Requests this page filed for shared code, and what was decided. "Accepted" means
 | FileUpload: translate Choose file(s) / Done / Remove {name} / n files selected | Accepted | 31.2.14c | default labels now come from common.json fileUpload.*; chooseLabel still overrides; the standard file row is fine to keep |
 | server school display name on GET /public/admission/:slug | Deferred | — | use the fallback in the ticket (no school name subtitle) |
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: admissions   Decisions: D5, D6, D9, D16, D25, D27, D28, D29, D34   Depends on: 31.3.8b, 31.4.admissions-4

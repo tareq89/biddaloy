@@ -146,4 +146,6 @@ Requests this page filed for shared code, and what was decided. "Accepted" means
 | drop sidebar item "ফি" -> /fees | Accepted | 31.3.1 | finance.fees removed from nav-tree.ts; /_staff/fees/ added to NOT_IN_NAV; nav:items.fees key stays (crumb) |
 | /fees as redirect in route-manifest / smoke / a11y | Accepted | 31.5.0 | manifest /fees archetype becomes "redirect"; smoke does not list /fees and a11y/reflow accept any h1, so fees-1 breaks nothing in between |
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: fees   Decisions: D5, D6, D9, D16, D19, D22, D24, D27, D28, D29, D32, D40   Depends on: 31.3.8b

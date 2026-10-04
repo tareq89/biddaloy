@@ -117,4 +117,6 @@ The "after" shots show the academic-year filter "২০২৬" applied. The audi
 - Archived (soft-deleted) structures (`include_deleted`) — the API supports it but the page never showed them; a new feature (D1).
 - The delete-confirm a11y state in `e2e/a11y/overlay-openers.ts` (its own comment notes the gap) — foundation-owned file.
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: fees   Decisions: D9, D16, D17, D19, D21, D24, D25, D28, D29, D32   Depends on: 31.3.8b, 31.4.fees-1

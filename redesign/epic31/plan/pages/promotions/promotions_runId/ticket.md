@@ -116,4 +116,6 @@ The "after" shots show a draft with one placement problem and one decision chang
 - No "before" screenshot exists for this page (the audit run had no promotion list id).
 - Server-side placement messages stay codes; the page translates them.
 
+Reference files: every `PLAN/…` path, `patterns.md`, `nav-icons.md`, `conflicts.md` (C-numbers), `BUGS.md` (B-numbers) and `DECISIONS.md` (D-numbers) live on branch `design-assets` under `redesign/epic31/plan/` (`PLAN/` = that folder). Read one with `git fetch origin design-assets && git show origin/design-assets:redesign/epic31/plan/kit/patterns.md`. Mockup HTML: `redesign/epic31/plan/pages/<lane>/<page>/mockup.html`.
+
 Wave: 9   Lane: promotions   Decisions: D6, D9, D16, D19, D21, D25, D27, D28, D29   Depends on: 31.3.8b, 31.4.promotions-1
