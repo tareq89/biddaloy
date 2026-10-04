@@ -70,6 +70,11 @@ Do not design from the picture alone. Find and read:
   `client-admin/src/routes/`; shared components in `ui/src/components/`.
   Example: Calendar is `client-admin/src/routes/_staff/calendar/index.tsx`
   plus `ui/src/components/calendar/month-grid.tsx`.
+- `docs/architecture/21-ui-patterns.md` — **the pattern contract**: page shapes,
+  which container a task gets (page / full-page modal / dialog), table, filter,
+  form, format and wording rules. Every choice you make must agree with it.
+- [`patterns.md`](patterns.md) in this folder — component names, props and the
+  exact classes of every kit pattern.
 - `docs/architecture/09-design-direction.md` — only the sections you need:
   §4 borders, §5 elevation, §6 density, §7 motion, §11 action hierarchy,
   §12 focus, §13 responsive lists.
@@ -96,15 +101,35 @@ five questions; each "no" is a finding.
 ### 3. Mock up — one responsive HTML file
 
 Work in a temp folder (the session scratchpad if you have one, otherwise
-`mktemp -d`). Copy [`starter.html`](starter.html) to `mockup.html` and replace
-what is inside `<main>`. Keep the `<!-- app:head -->` marker — the screenshot
-script swaps it for the app's real stylesheet and fonts.
+`mktemp -d`). Copy the right starter to `mockup.html` and replace what is inside
+`<main>`. Keep the `<!-- app:head -->` marker — the screenshot script swaps it
+for the app's real stylesheet and fonts.
+
+| The page is… | Starter |
+|---|---|
+| a staff page | [`starter.html`](starter.html) |
+| a guardian / student portal page | [`starter-portal.html`](starter-portal.html) |
+| a platform console page | [`starter-platform.html`](starter-platform.html) |
+| a full-page modal (a task opened from a button) | [`starter-fullpage.html`](starter-fullpage.html) |
+| a signed-out page | [`starter-guest.html`](starter-guest.html) |
+
+Build the content from the kit: [`patterns.html`](patterns.html) shows every
+shared pattern once, between `PATTERN: Name` comments. Find the block with
+`grep -n "PATTERN:" .claude/skills/redesign-page/patterns.html` and copy it —
+do not invent a pattern the kit already has. If the page needs one the kit
+lacks, say so in the ticket (it becomes a shared-component change first).
 
 - One file serves both sizes. Use the same responsive utilities the real
   code will use (`md:`, `lg:`, `hidden md:flex`…).
 - Icons: `<i data-lucide="calendar-days"></i>` — the app uses Lucide.
-- The shell (top bar, sidebar) in the starter is context only. Leave it alone
-  unless the user asked for a shell change.
+- The shell (top bar, sidebar, bottom bar) in the starter is context only.
+  Adapt it in three marked spots and nowhere else: the active sidebar link, the
+  open sidebar group, the active bottom-bar cell (other roles' cells are in
+  [`nav-icons.md`](nav-icons.md)).
+- Never use `fixed` or `sticky bottom-0` in a mockup: the screenshot is one
+  full-page frame, so a fixed bar is painted across the middle of it. The
+  starters keep the bottom bar and the full-page footer in normal flow.
+- Exactly one `<h1>`. The only `max-w-*` is the page container's.
 
 Design rules are in the next section. Apply them while building.
 
@@ -292,8 +317,11 @@ by a week strip; tapping a day lists its events below.">
 
 ## Steps
 
-1. <One concrete, ordered step per change. Name the component, the classes
-   or tokens to use, and any logic that is more than styling.>
+1. <One concrete, ordered step per change. Name the kit component to use
+   ("use `RowActions` from `@biddaloy/ui`" — its name and props are in
+   `patterns.md`), the classes or tokens, and any logic that is more than
+   styling. A page ticket edits its own route files and locale namespace only;
+   a change to shared code is its own ticket.>
 2. …
 
 ## Tests

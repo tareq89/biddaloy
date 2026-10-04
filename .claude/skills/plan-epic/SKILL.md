@@ -110,8 +110,8 @@ Invoke the `grilling` skill on the input. Constraints on top of it:
 ### The UX round (mandatory, last round of Phase 1)
 
 Before Phase 1 ends, run one round on UX using
-`docs/architecture/15-ux-principles.md` (read it in Phase 0 whenever the epic
-has a screen). Ask, with a recommendation each:
+`docs/architecture/15-ux-principles.md` and `docs/architecture/21-ui-patterns.md`
+(read both in Phase 0 whenever the epic has a screen). Ask, with a recommendation each:
 
 1. **Placement** — where does each screen live in the nav tree (§3), and which
    detail tabs / sub-items does it add? Nothing new is top-level without a job.
@@ -120,6 +120,10 @@ has a screen). Ask, with a recommendation each:
    registry (kind: modal / navigate / inline; context prefill).
 4. **Breadcrumb shape** and `document.title` for each route.
 5. **Empty, loading, error states** and the phone layout of each list/detail.
+6. **Shape and patterns** — the page shape of each screen (list / detail / form /
+   wizard), the container of each task (page, full-page modal or dialog —
+   `21-ui-patterns.md` §3), and the kit patterns it uses by name. A pattern the
+   kit lacks is a shared-component ticket first, never a one-off in a route file.
 
 Write the answers into `## UX requirements` (see Phase 5). Skip the round only
 for epics with no UI, and say so in the epic body.
@@ -236,6 +240,14 @@ Slicing rules — these are what make `implement-epic` run without conflicts:
 - **Money-tier tickets** (migrations, fees/invoices/reports/auth internals,
   anything that deletes or bulk-mutates tenant data) get their own line in
   the epic's *Review tier overrides* so nobody has to infer it later.
+- **A ticket with a screen carries a mockup** built from the kit in
+  `.claude/skills/redesign-page/` (steps 3–5 of that skill): desktop 1440 px and
+  phone 390 px screenshots in the body, and steps that say "use `<X>` from
+  `@biddaloy/ui`".
+- **Many screens at once?** Follow `21-ui-patterns.md` §12: shared `ui/` work in
+  foundation tickets, each page in its own ticket that touches only its route
+  files and locale namespace, shared needs decided before tickets are created,
+  lanes verified file-disjoint by script.
 - **`## Steps` names the existing thing to clone** — a component, a service,
   a test file — by path. Sonnet copies well and invents badly.
 - Never restate a decision in a body; cite `Dn`. Never describe the whole

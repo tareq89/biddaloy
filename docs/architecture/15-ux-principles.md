@@ -3,8 +3,10 @@
 Decided 2026-09-17 while planning the academics epics (19.0–29.0) from the
 reference-ERP analysis. This doc is the **interaction** contract; the
 **visual** contract (type, colour, elevation, motion, focus vocabulary,
-table→card grammar) stays in [09-design-direction.md](09-design-direction.md).
-Read both before planning any screen.
+table→card grammar) stays in [09-design-direction.md](09-design-direction.md);
+the **pattern** contract (which component, page shape, container, format and
+wording a screen uses) is [21-ui-patterns.md](21-ui-patterns.md).
+Read all three before planning any screen.
 
 ## 1. The rules in one screen
 
