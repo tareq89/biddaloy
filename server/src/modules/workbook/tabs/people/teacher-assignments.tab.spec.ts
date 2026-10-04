@@ -340,16 +340,24 @@ describe('role column (47.x)', () => {
     expect((r2 as { errors: RowError[] }).errors[0].column).toBe('role');
   });
 
-  it('CLASS and ASSISTANT for one teacher-section share a natural key (the duplicate-key check rejects the pair)', () => {
-    const asClass = makeAssignment({
+  it('CLASS role with a subject is a row error', () => {
+    const cells = { ...toCells(makeAssignment()), role: 'CLASS_TEACHER' };
+    const result = teacherAssignmentsTab.fromRow(cells, 11, importCtx());
+    expect((result as { errors: RowError[] }).errors[0].column).toBe('role');
+  });
+
+  it('only a CLASS_TEACHER row has a secondary (per-section) key', () => {
+    const cls = makeAssignment({
       ...homeroom,
       assignment_type: TeacherAssignmentType.CLASS_TEACHER,
     });
-    const asAssistant = makeAssignment({
+    const asst = makeAssignment({
       ...homeroom,
       assignment_type: TeacherAssignmentType.ASSISTANT_CLASS_TEACHER,
     });
-    expect(teacherAssignmentsTab.keyOf(asClass)).toBe(teacherAssignmentsTab.keyOf(asAssistant));
+    expect(teacherAssignmentsTab.secondaryKeyOf?.(cls)).toContain(SECTION_ID);
+    expect(teacherAssignmentsTab.secondaryKeyOf?.(asst)).toBeNull();
+    expect(teacherAssignmentsTab.secondaryKeyOf?.(makeAssignment())).toBeNull();
   });
 });
 

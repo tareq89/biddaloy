@@ -303,6 +303,15 @@ export const teacherAssignmentsTab: TabSpec<TeacherClassSection, TeacherAssignme
     return `${x.teacher_key}|${x.class_key}|${x.academic_year_key}|${x.section_key}|${x.subject_key}`;
   },
 
+  // One CLASS_TEACHER per section: two different teachers marked CLASS for the
+  // same section in one file is a validation error (D9), and a TEMPLATE import
+  // may not displace the section's current class teacher (D10 replaces).
+  secondaryKeyOf(x: TeacherAssignmentRow | TeacherClassSection): string | null {
+    return x.assignment_type === TeacherAssignmentType.CLASS_TEACHER
+      ? `CLASS_TEACHER of section ${x.section_id}`
+      : null;
+  },
+
   diffFields(row: TeacherAssignmentRow, existing: TeacherClassSection): string[] {
     // In practice `teacher_id`/`section_id`/`subject_id` are all in the
     // natural key, so a matched row differs in nothing — this is reported
@@ -339,6 +348,11 @@ export const teacherAssignmentsTab: TabSpec<TeacherClassSection, TeacherAssignme
       })) ??
       new TeacherClassSection();
 
+    // TypeORM takes the FK from a loaded relation object over the plain
+    // `*_id` column, so an id-matched row whose teacher/section/subject cell
+    // changed would silently save the OLD ids. Drop the loaded relations so
+    // the column values below win.
+    Object.assign(assignment, { teacher: undefined, section: undefined, subject: undefined });
     assignment.tenant_id = tenantId;
     assignment.teacher_id = row.teacher_id;
     assignment.section_id = row.section_id;

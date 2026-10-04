@@ -2500,5 +2500,91 @@ describe('workbook round trip (integration)', () => {
       expect(job.status).toBe(WorkbookJobStatus.DONE);
       expect(await rolesIn(fx)).toEqual(['A:ASSISTANT_CLASS_TEACHER', 'B:CLASS_TEACHER']);
     }, 60_000);
+
+    async function editWorkbook(
+      buffer: Buffer,
+      fn: (wb: ExcelJS.Workbook) => void,
+    ): Promise<Buffer> {
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buffer as any);
+      fn(wb);
+      return Buffer.from(await wb.xlsx.writeBuffer());
+    }
+
+    /** Column number (1-based) of a header in row 1 of a sheet. */
+    function colOf(sheet: ExcelJS.Worksheet, key: string): number {
+      const c = (sheet.getRow(1).values as unknown[]).map((v) => String(v ?? '')).indexOf(key);
+      expect(c, `column ${key}`).toBeGreaterThan(0);
+      return c;
+    }
+
+    async function hardErrors(tenantId: string, buffer: Buffer): Promise<string[]> {
+      const v = await validationService.validate(buffer, tenantId, dataSource.manager);
+      return v.errors.filter((e) => e.severity === 'error').map((e) => e.message);
+    }
+
+    it('id-matched swap on restore: teacher cell changed A -> B, id kept; B is CLASS, A has none', async () => {
+      const fx = await seedSmall();
+      await setAssignments(fx, [{ teacher: fx.teacherA, type: CLASS }]);
+      const file = await editWorkbook(await exportOf(fx.tenantId), (wb) => {
+        const sheet = wb.getWorksheet('teacher_assignments')!;
+        sheet.getRow(2).getCell(colOf(sheet, 'teacher')).value = fx.teacherB.employee_id;
+      });
+
+      const job = await restoreInto(fx.tenantId, file);
+
+      expect(job.status).toBe(WorkbookJobStatus.DONE);
+      expect(await rolesIn(fx)).toEqual(['B:CLASS_TEACHER']);
+    }, 60_000);
+
+    it('validation rejects two different teachers as CLASS for one section in one file', async () => {
+      const fx = await seedSmall();
+      await setAssignments(fx, [{ teacher: fx.teacherA, type: CLASS }]);
+      const file = await editWorkbook(await exportOf(fx.tenantId), (wb) => {
+        const sheet = wb.getWorksheet('teacher_assignments')!;
+        const copy = sheet.getRow(2).values as unknown[];
+        const row = [...copy];
+        row[colOf(sheet, 'id')] = randomUUID();
+        row[colOf(sheet, 'teacher')] = fx.teacherB.employee_id;
+        sheet.addRow(row.slice(1));
+      });
+
+      const errors = await hardErrors(fx.tenantId, file);
+
+      expect(errors.some((m) => m.includes('conflict'))).toBe(true);
+    }, 60_000);
+
+    it('validation rejects CLASS and ASSISTANT for the same teacher and section', async () => {
+      const fx = await seedSmall();
+      await setAssignments(fx, [{ teacher: fx.teacherA, type: CLASS }]);
+      const file = await editWorkbook(await exportOf(fx.tenantId), (wb) => {
+        const sheet = wb.getWorksheet('teacher_assignments')!;
+        const row = [...(sheet.getRow(2).values as unknown[])];
+        row[colOf(sheet, 'id')] = randomUUID();
+        row[colOf(sheet, 'role')] = 'ASSISTANT_CLASS_TEACHER';
+        sheet.addRow(row.slice(1));
+      });
+
+      const errors = await hardErrors(fx.tenantId, file);
+
+      expect(errors.some((m) => m.includes('Duplicate key'))).toBe(true);
+    }, 60_000);
+
+    it("a TEMPLATE workbook cannot displace the section's current class teacher", async () => {
+      const fx = await seedSmall();
+      await setAssignments(fx, [{ teacher: fx.teacherB, type: CLASS }]);
+      const file = await editWorkbook(await exportOf(fx.tenantId), (wb) => {
+        const meta = wb.getWorksheet('_meta')!;
+        meta.eachRow((row) => {
+          if (String(row.getCell(1).value) === 'kind') row.getCell(2).value = 'TEMPLATE';
+        });
+      });
+      await setAssignments(fx, [{ teacher: fx.teacherA, type: CLASS }]);
+
+      const errors = await hardErrors(fx.tenantId, file);
+
+      expect(errors.some((m) => m.includes('never deletes'))).toBe(true);
+      // Control: the same swap as a BACKUP is accepted (covered by the swap test above).
+    }, 60_000);
   });
 });
