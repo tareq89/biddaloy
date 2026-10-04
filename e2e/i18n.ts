@@ -35,6 +35,7 @@ import bnGrading from '../ui/src/i18n/locales/bn/grading.json';
 import bnGuardians from '../ui/src/i18n/locales/bn/guardians.json';
 import bnHomework from '../ui/src/i18n/locales/bn/homework.json';
 import bnLeave from '../ui/src/i18n/locales/bn/leave.json';
+import bnMyClass from '../ui/src/i18n/locales/bn/myClass.json';
 import bnNav from '../ui/src/i18n/locales/bn/nav.json';
 import bnPayments from '../ui/src/i18n/locales/bn/payments.json';
 import bnPerformance from '../ui/src/i18n/locales/bn/performance.json';
@@ -88,6 +89,7 @@ import enGrading from '../ui/src/i18n/locales/en/grading.json';
 import enGuardians from '../ui/src/i18n/locales/en/guardians.json';
 import enHomework from '../ui/src/i18n/locales/en/homework.json';
 import enLeave from '../ui/src/i18n/locales/en/leave.json';
+import enMyClass from '../ui/src/i18n/locales/en/myClass.json';
 import enNav from '../ui/src/i18n/locales/en/nav.json';
 import enPayments from '../ui/src/i18n/locales/en/payments.json';
 import enPerformance from '../ui/src/i18n/locales/en/performance.json';
@@ -145,6 +147,7 @@ const catalogs = {
     guardians: bnGuardians,
     homework: bnHomework,
     leave: bnLeave,
+    myClass: bnMyClass,
     nav: bnNav,
     payments: bnPayments,
     platform: bnPlatform,
@@ -200,6 +203,7 @@ const catalogs = {
     guardians: enGuardians,
     homework: enHomework,
     leave: enLeave,
+    myClass: enMyClass,
     nav: enNav,
     payments: enPayments,
     platform: enPlatform,

@@ -1,4 +1,11 @@
-import { adminApiSession, createClassSection, createTeacher } from '../api';
+import type { Locator, Page } from '@playwright/test';
+
+import {
+  adminApiSession,
+  createClassSection,
+  createTeacher,
+  createTeacherForSection,
+} from '../api';
 import { expect, loggedIn, test } from '../fixtures/test';
 import { t } from '../i18n';
 import { tabUntilFocused } from './keyboard-utils';
@@ -72,4 +79,105 @@ test('keyboard-only: assign a teacher from the class detail Teachers tab', async
 
   await expect(dialog).toBeHidden();
   await expect(page.getByText(new RegExp(teacherName))).toBeVisible();
+});
+
+/** [47.4.4] Shared by the two role tests below: reach the section's "Assign"
+ * button by keyboard (same walk as the first test) and open the dialog. */
+async function openAssignDialogByKeyboard(
+  page: Page,
+  classId: string,
+  className: string,
+  existingTeacher: string,
+) {
+  await page.goto(`/classes/${classId}?tab=teachers`);
+  await expect(page.getByRole('heading', { name: className })).toBeVisible();
+  // Wait for the tab to render its rows: tabbing earlier walks past a button
+  // that is not in the DOM yet.
+  await expect(page.getByText(new RegExp(existingTeacher))).toBeVisible();
+  await page.evaluate(() => {
+    document.body.setAttribute('tabindex', '-1');
+    document.body.focus();
+    document.body.removeAttribute('tabindex');
+  });
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('link', { name: t('nav.skipToContent') })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await tabUntilFocused(page, t('classes.detail.teachers.assign'), 60, { tag: 'BUTTON' });
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog', { name: t('classes.assignTeacherForm.title') });
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+/** Picks `teacherName` in the dialog's combobox by typing. */
+async function pickTeacherByKeyboard(page: Page, dialog: Locator, teacherName: string) {
+  await dialog.getByRole('combobox', { name: t('classes.assignTeacherForm.teacherLabel') }).focus();
+  await page.keyboard.type(teacherName);
+  await expect(page.getByRole('option', { name: new RegExp(teacherName) })).toBeVisible();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+}
+
+/** Radix radios ignore Enter, so submit by focusing the real submit button. */
+async function submitByKeyboard(page: Page) {
+  await tabUntilFocused(page, t('classes.assignTeacherForm.save'), 20, { tag: 'BUTTON' });
+  await page.keyboard.press('Enter');
+}
+
+test('keyboard-only: assign an assistant class teacher, the class teacher stays', async ({
+  page,
+  request,
+}) => {
+  const session = await adminApiSession(request);
+  const { classId, className, sectionId } = await createClassSection(request, session);
+  const suffix = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+  const classTeacherName = `E2E Homeroom ${suffix}`;
+  const assistantName = `E2E Assistant ${suffix}`;
+  await createTeacherForSection(request, session, classTeacherName, sectionId);
+  await createTeacher(request, session, assistantName);
+
+  const dialog = await openAssignDialogByKeyboard(page, classId, className, classTeacherName);
+  await pickTeacherByKeyboard(page, dialog, assistantName);
+  // Tab into the radio group (focus lands on the checked CLASS_TEACHER
+  // radio), ArrowDown moves focus to the ASSISTANT radio and Space selects it.
+  const assistantRadio = dialog.getByRole('radio', {
+    name: t('classes.assignmentType.ASSISTANT_CLASS_TEACHER'),
+  });
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('ArrowDown');
+  await expect(assistantRadio).toBeFocused();
+  await page.keyboard.press('Space');
+  await expect(assistantRadio).toBeChecked();
+  await submitByKeyboard(page);
+
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText(new RegExp(assistantName))).toBeVisible();
+  // An assistant is added alongside, not instead of, the class teacher.
+  await expect(page.getByText(new RegExp(classTeacherName))).toBeVisible();
+});
+
+test('keyboard-only: assigning a new class teacher announces the replace warning', async ({
+  page,
+  request,
+}) => {
+  const session = await adminApiSession(request);
+  const { classId, className, sectionId } = await createClassSection(request, session);
+  const suffix = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+  const oldName = `E2E Old Homeroom ${suffix}`;
+  const newName = `E2E New Homeroom ${suffix}`;
+  await createTeacherForSection(request, session, oldName, sectionId);
+  await createTeacher(request, session, newName);
+
+  const dialog = await openAssignDialogByKeyboard(page, classId, className, oldName);
+  await pickTeacherByKeyboard(page, dialog, newName);
+
+  // CLASS_TEACHER is the default type, so picking a different teacher is
+  // enough. The warning sits in a polite live region so a screen reader
+  // reads it out when it appears.
+  const warning = t('classes.assignDialog.replaceWarning', { name: oldName });
+  await expect(dialog.locator('[aria-live="polite"]').filter({ hasText: warning })).toBeVisible();
+
+  await submitByKeyboard(page);
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText(new RegExp(newName))).toBeVisible();
 });

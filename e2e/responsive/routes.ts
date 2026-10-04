@@ -22,6 +22,7 @@ import {
 } from '../api';
 import { acrBody, surveyBody } from '../fixtures/evaluations';
 import manifest from '../route-manifest.json';
+import { SEED_PASSWORD_ENV, SEED_ROLE_EMAILS } from '../seed-contract';
 
 /** Shared manifest typing + param resolution for the responsive suites
  * (same resolution strategy as the a11y suite). */
@@ -60,6 +61,30 @@ export async function resolvePath(
     const superAdmin = await superAdminApiSession(request);
     const schoolId = await findSchoolIdBySlug(request, superAdmin, 'rose-valley-school');
     return route.path.replace('$schoolId', schoolId);
+  }
+  if (route.path.startsWith('/my-class/')) {
+    // [47.4.4] The page is a 404 for any section the caller is not a class
+    // teacher of, so a fresh admin-made section would not do: use the seeded
+    // class teacher's own first section.
+    const password = process.env[SEED_PASSWORD_ENV];
+    if (!password) throw new Error(`${SEED_PASSWORD_ENV} is not set`);
+    const login = await request.post('/api/v1/auth/login', {
+      data: { email: SEED_ROLE_EMAILS.teacher, password },
+    });
+    if (!login.ok()) throw new Error(`teacher login failed: ${login.status()}`);
+    const body = (await login.json()) as {
+      access_token: string;
+      memberships: { tenantId: string; role: string }[];
+    };
+    const tenantId = body.memberships.find((m) => m.role === 'TEACHER')?.tenantId;
+    if (!tenantId) throw new Error('no TEACHER membership for seed teacher');
+    const sections = await request.get('/api/v1/my-class/sections', {
+      headers: { Authorization: `Bearer ${body.access_token}`, 'X-Tenant-ID': tenantId },
+    });
+    if (!sections.ok()) throw new Error(`GET /my-class/sections failed: ${sections.status()}`);
+    const first = ((await sections.json()) as { section_id: string }[])[0];
+    if (!first) throw new Error('seed teacher has no homeroom section');
+    return route.path.replace('$sectionId', first.section_id);
   }
   const session: ApiSession = await sharedAdminSession(request);
   const stamp = Date.now();

@@ -635,15 +635,15 @@
     },
     {
       "path": "/my-class",
-      "role": "admin",
-      "archetype": "list"
+      "role": "teacher",
+      "archetype": "redirect"
     },
     {
       "path": "/my-class/$sectionId",
       "params": {
         "sectionId": "seeded"
       },
-      "role": "admin",
+      "role": "teacher",
       "archetype": "detail"
     },
     {

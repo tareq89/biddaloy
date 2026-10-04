@@ -86,7 +86,7 @@ function CardFrame({
 }
 
 const SEE_ALL_CLASS =
-  'self-start text-sm font-medium text-primary underline-offset-4 hover:underline';
+  'inline-flex min-h-6 items-center self-start text-sm font-medium text-primary underline-offset-4 hover:underline';
 
 function Row({ left, right }: { left: ReactNode; right?: ReactNode }) {
   return (
@@ -346,7 +346,7 @@ export function RosterCard({ sectionId }: { sectionId: string }) {
                   <a
                     href={`tel:${guardian.phone}`}
                     aria-label={t('callGuardian', { name: s.full_name })}
-                    className="text-primary underline-offset-4 hover:underline"
+                    className="inline-flex min-h-6 items-center text-primary underline-offset-4 hover:underline"
                   >
                     {guardian.phone}
                   </a>
