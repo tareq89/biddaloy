@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { toast, Toaster } from './toast';
 
@@ -66,6 +66,27 @@ describe('Toaster/toast', () => {
       const toaster = document.querySelector('[data-sonner-toaster]');
       expect(toaster?.getAttribute('style')).toContain('--mobile-offset-bottom: 2rem');
       expect(toaster?.getAttribute('style')).not.toContain('--safe-area-bottom');
+    });
+  });
+
+  describe('[31.2.8b] below-md offset', () => {
+    afterEach(() => vi.unstubAllGlobals());
+
+    it.each([
+      [true, '--mobile-offset-bottom: calc(5rem + var(--safe-area-bottom, 0px))'],
+      [false, '--mobile-offset-bottom: calc(1rem + var(--safe-area-bottom, 0px))'],
+    ])('matches=%s', async (matches, expected) => {
+      vi.stubGlobal('matchMedia', () => ({
+        matches,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }));
+      render(<Toaster />);
+      toast('Hi');
+      await screen.findByText('Hi');
+      expect(document.querySelector('[data-sonner-toaster]')?.getAttribute('style')).toContain(
+        expected,
+      );
     });
   });
 });
