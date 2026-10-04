@@ -48,7 +48,7 @@ export function MonthPicker({
           type="button"
           {...props}
           className={cn(
-            'flex h-[var(--control-h,2rem)] w-full items-center justify-between gap-2 rounded-lg border border-input bg-transparent px-2.5 text-start',
+            'flex h-[var(--control-h,2rem)] w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-2.5 text-start outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
             className,
           )}
         >
@@ -64,6 +64,7 @@ export function MonthPicker({
             <button
               key={month}
               type="button"
+              aria-pressed={value === `${year}-${String(month).padStart(2, '0')}`}
               className="rounded-md px-2 py-1 text-start hover:bg-muted"
               onClick={() => {
                 onValueChange(`${year}-${String(month).padStart(2, '0')}`);

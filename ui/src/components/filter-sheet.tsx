@@ -32,7 +32,7 @@ export function FilterSheet({
   const { t } = useTranslation('common');
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent aria-describedby={undefined}>
         <DialogTitle>{title ?? t('filters.showFiltersNone')}</DialogTitle>
         <div className="flex flex-col gap-4">{children}</div>
         <div className="flex gap-2 border-t border-border-subtle p-4">
