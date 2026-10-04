@@ -76,14 +76,18 @@ function MarksEntryPage() {
   const { t } = useTranslation('exams');
   const isMobile = useIsMobile();
   const role = useActiveRole();
-  // Submit needs MARK_ENTER (the controller's own gate for POST submit),
-  // not EXAM_MANAGE — a TEACHER holds MARK_ENTER for their own sections
-  // without holding EXAM_MANAGE.
+  // Entering and submitting marks both need MARK_ENTER (the controller's own
+  // gate for PATCH and POST submit), not EXAM_MANAGE — a TEACHER holds
+  // MARK_ENTER for their own sections without holding EXAM_MANAGE. A
+  // MARK_VIEW-only role (EXAM_CONTROLLER, EXECUTIVE) sees the grid read-only.
   const canEnter = useHasPermission(Permission.MARK_ENTER);
 
   const gridQuery = useMarkGrid(examId, sectionId, subjectId);
   const submitGrid = useSubmitMarkGrid(examId, sectionId, subjectId);
   const reopenGrid = useReopenMarkGrid(examId, sectionId, subjectId);
+  const submitted = gridQuery.data?.state === 'SUBMITTED';
+  // One gate for the Submit button and its Ctrl/Cmd+Enter shortcut.
+  const canSubmit = gridQuery.data !== undefined && !submitted && canEnter;
 
   const [submitOpen, setSubmitOpen] = React.useState(false);
   const [flushing, setFlushing] = React.useState(false);
@@ -134,6 +138,7 @@ function MarksEntryPage() {
 
   React.useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      if (!canSubmit) return;
       if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
         event.preventDefault();
         setSubmitOpen(true);
@@ -141,7 +146,7 @@ function MarksEntryPage() {
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [canSubmit]);
 
   if (gridQuery.isPending) return <Skeleton className="h-64 w-full" />;
   if (gridQuery.isError) {
@@ -149,8 +154,7 @@ function MarksEntryPage() {
   }
 
   const grid = gridQuery.data;
-  const submitted = grid.state === 'SUBMITTED';
-  const readOnly = submitted;
+  const readOnly = submitted || !canEnter;
   const canReopen = submitted && role === UserRole.ADMIN;
 
   const blankCount = grid.students.reduce((count, student) => {
@@ -210,7 +214,7 @@ function MarksEntryPage() {
             )}
           </p>
         )}
-        {!submitted && canEnter && (
+        {canSubmit && (
           <Button
             type="button"
             variant="outline"
