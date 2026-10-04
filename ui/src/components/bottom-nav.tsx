@@ -24,8 +24,8 @@
  * fixed by passing `aria-current` down: `Link` applies its own active
  * attributes last and they always win.
  *
- * `min-h-14` (56px) per item, comfortably past the 44px minimum touch
- * target the portal's accessibility AC calls for, and the label is always
+ * `h-16` (64px) per cell (31.2.8b's toast offset assumes it), comfortably
+ * past the 44px minimum touch target, and the label is always
  * visible text — never an icon alone, which would leave the item with no
  * accessible name for a screen reader and no meaning for anyone who
  * doesn't recognise the glyph.
@@ -54,7 +54,20 @@ import { useAppShellDrawer, type AppShellNavItem } from './app-shell';
  * kept in one place so the trailing cell can never visually drift from the
  * destination cells beside it. */
 const CELL_CLASS =
-  'flex min-h-14 flex-1 flex-col items-center justify-center gap-1 px-2 py-2 text-xs';
+  'group flex h-16 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-text-secondary aria-[current=page]:font-semibold aria-[current=page]:text-secondary-foreground data-[active=true]:font-semibold data-[active=true]:text-secondary-foreground';
+
+/** Icon holder and one-line label shared by every cell. The tinted pill
+ * shows on the current cell (`aria-current`) and on an active More. */
+function CellContent({ icon, label }: { icon: ReactNode; label: string }) {
+  return (
+    <>
+      <span className="flex h-7 w-14 items-center justify-center rounded-full group-aria-[current=page]:bg-secondary group-data-[active=true]:bg-secondary">
+        {icon}
+      </span>
+      <span className="max-w-full truncate px-1">{label}</span>
+    </>
+  );
+}
 
 export interface BottomNavProps {
   /** Same item shape `AppShell` takes, so one array feeds both the
@@ -69,9 +82,12 @@ export interface BottomNavProps {
   label: string;
   /** [8.14.3] Trailing cell opening the `AppShell` drawer via
    * `useAppShellDrawer` — requires an `AppShell` ancestor that also
-   * received `mobileHeaderActions` (see `app-shell.tsx`'s own comment);
-   * without one the drawer never renders and this button does nothing. */
-  more?: { label: string; icon?: ReactNode };
+   * received `mobileHeaderActions` or `mobileTitle` / `mobileActions` (see
+   * `app-shell.tsx`'s own comment); without one the drawer never renders
+   * and this button does nothing. `active`: the current page is in none of
+   * the cells — the caller computes it. Marks the button with
+   * `data-active`, never `aria-current` (it opens a drawer, not a page). */
+  more?: { label: string; icon?: ReactNode; active?: boolean };
   className?: string;
 }
 
@@ -110,7 +126,7 @@ export function BottomNav({ items, label, more, className }: BottomNavProps) {
         // with no size class of its own still renders at this bar's
         // established 20px (portal's stories always pass `size-5`
         // explicitly, so this never overrides an intentional choice).
-        "flex border-t border-border-subtle bg-card pb-(--safe-area-bottom) [&_svg:not([class*='size-'])]:size-5",
+        "flex border-t border-border-subtle bg-surface pb-(--safe-area-bottom) [&_svg:not([class*='size-'])]:size-5",
         className,
       )}
     >
@@ -121,16 +137,8 @@ export function BottomNav({ items, label, more, className }: BottomNavProps) {
           {...(item.search !== undefined && { search: item.search })}
           {...(hasDescendantItem(item.to, visible) && { activeOptions: { exact: true } })}
           className={CELL_CLASS}
-          // Split across active/inactive rather than one base colour
-          // overridden by the other: TanStack concatenates the two class
-          // strings, and two competing Tailwind text-colour utilities
-          // would be resolved by stylesheet order, not by intent. This
-          // way exactly one colour class is ever present.
-          activeProps={{ className: 'font-medium text-primary' }}
-          inactiveProps={{ className: 'text-muted-foreground' }}
         >
-          {item.icon}
-          <span>{item.label}</span>
+          <CellContent icon={item.icon} label={item.label} />
         </Link>
       ))}
       {more !== undefined && (
@@ -139,10 +147,10 @@ export function BottomNav({ items, label, more, className }: BottomNavProps) {
           onClick={open}
           aria-haspopup="dialog"
           aria-expanded={isOpen}
-          className={cn(CELL_CLASS, 'text-muted-foreground')}
+          data-active={more.active ? 'true' : undefined}
+          className={CELL_CLASS}
         >
-          {more.icon}
-          <span>{more.label}</span>
+          <CellContent icon={more.icon} label={more.label} />
         </button>
       )}
     </nav>
