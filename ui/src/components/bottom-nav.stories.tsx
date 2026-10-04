@@ -143,6 +143,31 @@ export const WithMoreAction: Story = {
   },
 };
 
+/** [31.2.10] The current page is in none of the cells (here `/reports`), so
+ * the caller marks More: same pill + semibold label as a current cell. */
+export const MoreActive: Story = {
+  args: {
+    items: staffItems,
+    label: 'Quick navigation',
+    more: { label: 'More', active: true },
+  },
+  decorators: [withMemoryRouter(['/reports'])],
+  parameters: { viewport: { defaultViewport: 'mobile1' } },
+};
+
+/** [31.2.10] A long Bangla label stays on one line and truncates. */
+export const LongLabels: Story = {
+  args: {
+    items: staffItems.map((item, i) =>
+      i === 2 ? { ...item, label: 'শিক্ষার্থীদের বকেয়া ফি পরিশোধ তালিকা' } : item,
+    ),
+    label: 'Quick navigation',
+    more: { label: 'আরও' },
+  },
+  decorators: [withMemoryRouter(['/dashboard'])],
+  parameters: { viewport: { defaultViewport: 'mobile1' } },
+};
+
 /** Documents the `pb-(--safe-area-bottom)` token this bar always carries
  * (`ui/src/styles/globals.css`) by setting it to a non-zero value the way
  * an installed, `viewport-fit=cover` PWA on a gesture-nav device would —

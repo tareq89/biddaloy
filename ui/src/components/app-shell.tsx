@@ -600,7 +600,12 @@ export function AppShell({
 
   return (
     <AppShellDrawerContext.Provider value={drawerContextValue}>
-      <div className="flex min-h-screen flex-col">
+      <div
+        className={cn(
+          'flex min-h-dvh flex-col',
+          hasBottomNav && 'pb-[calc(4rem+var(--safe-area-bottom))] md:pb-0',
+        )}
+      >
         <SkipLink targetId={APP_SHELL_MAIN_ID}>{skipLinkLabel}</SkipLink>
         {hasStickyHeader && (
           <div ref={headerRef} data-app-header className="sticky top-0 z-30">
@@ -692,15 +697,16 @@ export function AppShell({
           <main
             id={APP_SHELL_MAIN_ID}
             tabIndex={-1}
-            className={cn(
-              'min-w-0 flex-1 p-6',
-              hasBottomNav && 'pb-[calc(6rem+var(--safe-area-bottom))] md:pb-6',
-            )}
+            className="min-w-0 flex-1 p-4 md:p-6"
           >
             {children}
           </main>
         </div>
-        {hasBottomNav && <div className="sticky bottom-0 z-10 md:hidden">{bottomNav}</div>}
+        {hasBottomNav && (
+          <div data-app-bottom-nav className="fixed inset-x-0 bottom-0 z-30 md:hidden">
+            {bottomNav}
+          </div>
+        )}
       </div>
     </AppShellDrawerContext.Provider>
   );
