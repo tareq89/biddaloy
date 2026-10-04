@@ -30,6 +30,7 @@ import * as React from 'react';
 
 import { isTenantSuspendedError } from '../api/errors';
 import { captureRouteError, recordRouteChunkFallback } from '../api/sentry';
+import { useTranslation } from '../i18n';
 
 import { ErrorState } from './error-state';
 import { RouteStatusState } from './route-status-state';
@@ -149,19 +150,32 @@ function classifyRouteError(error: unknown): RouteErrorKind {
 export function RouteErrorFallback({
   error,
   reset,
-  message = 'Something went wrong loading this page.',
-  retryLabel = 'Try again',
-  homeLabel = 'Go home',
-  offlineTitle = "You're offline",
-  offlineMessage = 'This page needs a connection to load. Check your network and try again — anything already loaded is still available.',
-  updateTitle = 'A newer version is available',
-  updateMessage = 'This page is from an older version of the app. Reload to pick up the new one — anything you have already saved is safe.',
-  updateRetryLabel = 'Reload to update',
+  message,
+  retryLabel,
+  homeLabel,
+  offlineTitle,
+  offlineMessage,
+  updateTitle,
+  updateMessage,
+  updateRetryLabel,
   onReloadForUpdate = () => window.location.reload(),
-  suspendedTitle = 'This school has been suspended',
-  suspendedMessage = 'Access is paused for this school. Contact your platform administrator to reactivate it.',
+  suspendedTitle,
+  suspendedMessage,
 }: RouteErrorFallbackProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation('common');
+  // Props still override; the defaults are translated here so an app that
+  // passes no copy (or only some) is never stuck with English on a Bangla page.
+  message = message ?? t('routeError.message');
+  retryLabel = retryLabel ?? t('actions.retry');
+  homeLabel = homeLabel ?? t('routeError.home');
+  offlineTitle = offlineTitle ?? t('offline.pageTitle');
+  offlineMessage = offlineMessage ?? t('offline.pageExplanation');
+  updateTitle = updateTitle ?? t('update.pageTitle');
+  updateMessage = updateMessage ?? t('update.pageExplanation');
+  updateRetryLabel = updateRetryLabel ?? t('update.reload');
+  suspendedTitle = suspendedTitle ?? t('suspended.pageTitle');
+  suspendedMessage = suspendedMessage ?? t('suspended.pageExplanation');
 
   // Evaluated once per thrown error rather than on every render, so the
   // component cannot flip from offline to error styling mid-retry just
