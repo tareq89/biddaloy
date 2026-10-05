@@ -1,5 +1,5 @@
-import { audienceForRoles, type PasswordRuleId, type UserRole } from '@biddaloy/shared';
-import { ApiError } from '@biddaloy/ui/api';
+import { audienceForRoles, type PasswordRuleId } from '@biddaloy/shared';
+import { ApiError, decodeAccessTokenMemberships } from '@biddaloy/ui/api';
 import {
   Button,
   Card,
@@ -28,6 +28,7 @@ import {
   logoutAll,
   myGuardianQueryOptions,
   sessionsQueryOptions,
+  useAccessToken,
   useActiveRole,
   useConfirmPhoneChange,
   useCurrentUser,
@@ -110,6 +111,7 @@ function PortalAccount() {
   const config = useRegionConfig();
   const { locale } = useLocale();
   const role = useActiveRole();
+  const accessToken = useAccessToken();
   const isParent = role === 'PARENT';
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -433,7 +435,12 @@ function PortalAccount() {
         onSubmit={(values) => void handlePasswordSubmit(values)}
         submitting={changingPassword}
         serverError={passwordError}
-        audience={audienceForRoles(role ? [role as UserRole] : [])}
+        // Every membership, in every school: the same roles the server's
+        // `assertPasswordAllowedForUser` judges by (a PARENT here who is
+        // also a TEACHER anywhere gets the staff rules).
+        audience={audienceForRoles(
+          decodeAccessTokenMemberships(accessToken ?? '').map((m) => m.role),
+        )}
         failedRules={passwordFailedRules}
       />
 

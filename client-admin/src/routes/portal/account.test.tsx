@@ -26,14 +26,55 @@ describe('/portal/account', () => {
     await cleanupTestState();
   });
 
-  function renderAccount(role: 'PARENT' | 'STUDENT' = 'PARENT') {
+  function renderAccount(role: 'PARENT' | 'STUDENT' = 'PARENT', accessToken?: string) {
     return renderWithRouter(routeTree, {
       initialEntries: ['/portal/account'],
       tenantId: 'tenant-1',
       role,
       locale: 'en',
+      ...(accessToken ? { accessToken } : {}),
     });
   }
+
+  /** `decodeAccessTokenMemberships` never checks a signature. */
+  function fakeJwtWithMemberships(memberships: unknown): string {
+    const payload = btoa(JSON.stringify({ memberships }))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+    return `header.${payload}.signature`;
+  }
+
+  it('password rules follow every membership: a PARENT here who teaches elsewhere gets the staff rules', async () => {
+    server.use(
+      http.get('/api/v1/users/me', () => HttpResponse.json(userResponseFactory())),
+      http.get('/api/v1/guardians/mine', () => HttpResponse.json(guardianFactory())),
+    );
+
+    renderAccount(
+      'PARENT',
+      fakeJwtWithMemberships([
+        { tenantId: 'tenant-1', role: 'PARENT' },
+        { tenantId: 'tenant-2', role: 'TEACHER' },
+      ]),
+    );
+
+    await screen.findByRole('heading', { name: 'Change password' });
+    // `upper` is a staff-only rule; the family rules are length + digit.
+    expect(screen.getByText('One capital letter (A-Z)')).toBeTruthy();
+  });
+
+  it('password rules for a PARENT with no staff role anywhere are the family rules', async () => {
+    server.use(
+      http.get('/api/v1/users/me', () => HttpResponse.json(userResponseFactory())),
+      http.get('/api/v1/guardians/mine', () => HttpResponse.json(guardianFactory())),
+    );
+
+    renderAccount('PARENT', fakeJwtWithMemberships([{ tenantId: 'tenant-1', role: 'PARENT' }]));
+
+    await screen.findByRole('heading', { name: 'Change password' });
+    expect(screen.queryByText('One capital letter (A-Z)')).toBeNull();
+  });
 
   it('renders the profile, password, preferences and sign-out cards, and never issues a /guardians/mine request, for STUDENT', async () => {
     server.use(

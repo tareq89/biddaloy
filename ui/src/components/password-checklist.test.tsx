@@ -31,6 +31,15 @@ describe('PasswordChecklist', () => {
     expect(await screen.findAllByRole('listitem')).toHaveLength(2);
   });
 
+  it('shows the staff rules when the server failed a rule the family list does not have', async () => {
+    renderWithProviders(
+      <PasswordChecklist password="abcdefg1" audience="family" failed={['upper', 'special']} />,
+      { locale: 'en' },
+    );
+    expect(await screen.findAllByRole('listitem')).toHaveLength(5);
+    expect(screen.getByRole('list')).toBeTruthy();
+  });
+
   it('flips rows as the user types, with text (not colour) saying so', async () => {
     const user = userEvent.setup();
     renderWithProviders(<Harness />, { locale: 'en' });
