@@ -254,7 +254,7 @@ describe('/portal', () => {
       mockPortal(students, dues);
       renderPortal();
 
-      const link = await screen.findByRole('link', { name: "View Fatima Rahman's fees" });
+      const link = await screen.findByRole('link', { name: 'View fee breakdown - Fatima Rahman' });
       expect(link.getAttribute('href')).toBe('/portal/fees?student=student-1');
       // The card itself is not a link — it holds a list.
       expect(
@@ -263,7 +263,9 @@ describe('/portal', () => {
 
       // Every child gets their own, including the paid-up one.
       expect(
-        screen.getByRole('link', { name: "View Ayesha Rahman's fees" }).getAttribute('href'),
+        screen
+          .getByRole('link', { name: 'View fee breakdown - Ayesha Rahman' })
+          .getAttribute('href'),
       ).toBe('/portal/fees?student=student-3');
     });
 
@@ -302,7 +304,7 @@ describe('/portal', () => {
       const owing = ['Fatima Rahman', 'Imran Rahman'].map((name) => {
         const card = screen.getByText(name).closest('[data-slot="card"]') as HTMLElement;
         // The headline amount is the first figure in the card.
-        return within(card).getAllByText(/\u09f3/)[0]?.textContent;
+        return (card.querySelector('p.text-h2') as HTMLElement).textContent;
       });
       expect(owing).toEqual(['\u09f35,000.00', '\u09f36,000.00']);
       const paidUp = screen.getByText('Ayesha Rahman').closest('[data-slot="card"]') as HTMLElement;
@@ -706,6 +708,7 @@ describe('/portal', () => {
     expect(screen.getByText('কোনো বকেয়া নেই')).toBeTruthy();
     // bn-BD's region config uses Bengali numerals, so the amount is not
     // just translated copy around Latin digits.
-    expect(screen.getAllByText(/৫,০০০/).length).toBeGreaterThan(0);
+    const total = screen.getByRole('heading', { level: 2, name: 'মোট বকেয়া' }).parentElement;
+    expect(within(total as HTMLElement).getByText('৳৫,০০০.০০')).toBeTruthy();
   });
 });

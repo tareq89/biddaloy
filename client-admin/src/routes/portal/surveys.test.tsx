@@ -105,9 +105,9 @@ describe('/portal/surveys', () => {
     server.use(http.get('/api/v1/surveys/mine', () => HttpResponse.json([survey(true)])));
     render();
 
-    const summary = (
-      await screen.findByText('Rahim Uddin', undefined, { timeout: 4000 })
-    ).closest('summary') as HTMLElement;
+    const summary = (await screen.findByText('Rahim Uddin', undefined, { timeout: 4000 })).closest(
+      'summary',
+    ) as HTMLElement;
     expect(within(summary).getByText('Mathematics')).toBeTruthy();
     expect(within(summary).queryByText(/·/)).toBeNull();
   });
@@ -118,7 +118,9 @@ describe('/portal/surveys', () => {
     await open();
 
     expect(
-      screen.getByText('Every question is optional — give stars, write, or both. Answer at least one.'),
+      screen.getByText(
+        'Every question is optional — give stars, write, or both. Answer at least one.',
+      ),
     ).toBeTruthy();
   });
 
@@ -202,5 +204,19 @@ describe('/portal/surveys', () => {
     await open();
 
     await expect(container).toHaveNoViolations();
+  });
+
+  it('shows the error frame, with no h1, when the surveys fail to load', async () => {
+    server.use(
+      http.get('/api/v1/surveys/mine', () =>
+        HttpResponse.json(apiErrorBody(500, 'boom', '/surveys/mine'), { status: 500 }),
+      ),
+    );
+    render();
+
+    expect(
+      await screen.findByText("Couldn't load your surveys.", undefined, { timeout: 15000 }),
+    ).toBeTruthy();
+    expect(screen.queryAllByRole('heading', { level: 1 })).toHaveLength(0);
   });
 });
