@@ -59,7 +59,7 @@ test('keyboard-only: palette -> pick a student -> preview -> print -> all printe
     await page.getByLabel(name).focus();
     await page.keyboard.press('Space');
     const go = page.getByRole('button', {
-      name: t('printPreview.picker.continue_one', { count: 1 }),
+      name: t('printPreview.picker.continue_one', { n: 1 }),
     });
     await go.focus();
     await page.keyboard.press('Enter');

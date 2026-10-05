@@ -129,7 +129,7 @@ test.describe('ACCOUNTANT prints a whole section', () => {
       await page.getByRole('checkbox').first().check();
       await page.getByRole('button', { name: t('printPreview.confirm.confirm') }).click();
       await page
-        .getByRole('button', { name: t('printPreview.confirm.reprintFailed', { count: 1 }) })
+        .getByRole('button', { name: t('printPreview.confirm.reprintFailed', { n: 1 }) })
         .click();
       // The reprint opens a second print window, whose page is asked about again.
       await expect.poll(async () => (await printedHtml(page)).length).toBeGreaterThan(1);

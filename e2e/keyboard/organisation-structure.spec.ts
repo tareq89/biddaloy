@@ -184,7 +184,7 @@ test.describe('organisation structure', () => {
       // Same late `useRouteFocus` <h1> focus — if it lands after the dialog
       // opens, Radix's trap re-focuses the name input with select: true and
       // the next keystroke wipes what was typed.
-      await expect(page.getByRole('heading', { name: t('classes.list.title') })).toBeFocused();
+      await expect(page.getByRole('heading', { name: t('classes.list.title'), exact: true })).toBeFocused();
     });
 
     await test.step('create a class with the first shift, without touching the mouse', async () => {
