@@ -51,22 +51,19 @@
     "retainClassMissing": "উত্তীর্ণ না হওয়া শিক্ষার্থীদের রাখার জন্য কোনো শ্রেণি সেট করা নেই — প্রথমে একটি যোগ করুন।"
   },
   "grid": {
-    "columnStudent": "রোল · নাম",
+    "columnStudent": "শিক্ষার্থী",
     "columnMeritRank": "মেধাক্রম",
     "columnMeanGpa": "গড় জিপিএ",
-    "columnSuggested": "প্রস্তাবিত",
-    "columnFinal": "চূড়ান্ত",
+    "columnSuggested": "প্রস্তাব",
+    "columnFinal": "চূড়ান্ত সিদ্ধান্ত",
     "columnGroup": "গ্রুপ",
-    "columnTargetSection": "লক্ষ্য শাখা",
-    "columnNewRoll": "নতুন রোল",
-    "columnOverrideNote": "বিশেষ বিবেচনার নোট",
-    "columnPlacementError": "বিন্যাস ত্রুটি",
+    "columnOverrideNote": "কেন বদলালেন",
     "groupNone": "কোনো গ্রুপ নেই",
     "groupClearUnsupported": "গ্রুপ মুছে ফেলার সুবিধা এখনো নেই",
-    "noteRequired": "বিশেষ বিবেচনার জন্য একটি নোট আবশ্যক।",
-    "overrideChip": "বিশেষ বিবেচনা",
-    "refresh": "রিফ্রেশ",
-    "refreshing": "রিফ্রেশ হচ্ছে…",
+    "noteRequired": "নিজে বদলালে কারণ লেখা আবশ্যক।",
+    "overrideChip": "নিজে বদলানো",
+    "refresh": "ফলাফল থেকে হালনাগাদ",
+    "refreshing": "হালনাগাদ হচ্ছে…",
     "delete": "তালিকা মুছুন",
     "deleteConfirm": {
       "title": "এই খসড়া প্রমোশন তালিকাটি মুছবেন?",
@@ -75,18 +72,15 @@
       "cancel": "বাতিল"
     },
     "commit": "চূড়ান্ত করুন",
-    "commitShortcutHint": "Ctrl+Enter",
     "overflowWarning": "এই শাখাটি ধারণক্ষমতার চেয়ে {{count}} বেশি।",
     "staleResultsPrompt": "সর্বশেষ প্রিভিউয়ের পর ফলাফল পরিবর্তিত হয়েছে — রিফ্রেশ করুন",
-    "readOnlyBanner": "{{date}} তারিখে চূড়ান্ত করেছেন {{committedBy}}, অনুমোদন করেছেন {{approvedBy}}",
     "counts": {
       "promoted": "উত্তীর্ণ",
       "retained": "অপরিবর্তিত",
       "graduated": "গ্র্যাজুয়েট",
-      "overrides": "বিশেষ বিবেচনা",
-      "errors": "ত্রুটি"
+      "overrides": "নিজে বদলানো",
+      "errors": "সমস্যা"
     },
-    "runSummary": "{{source}} → {{target}} · {{exams}}টি পরীক্ষা · {{algorithm}}",
     "commitConfirm": {
       "title": "এই প্রমোশন তালিকাটি চূড়ান্ত করবেন?",
       "body": "{{promoted}} জন উত্তীর্ণ, {{retained}} জন অপরিবর্তিত, {{graduated}} জন গ্র্যাজুয়েট হবে। এটি পূর্বাবস্থায় ফেরানো যাবে না।",
@@ -98,22 +92,51 @@
     "cohortChangedPrompt": "এই তালিকাটি তৈরির পর কিছু শিক্ষার্থী শ্রেণি ছেড়ে গেছে বা তাদের অবস্থা বদলেছে। এই খসড়াটি মুছে একটি নতুন তালিকা তৈরি করুন।",
     "commitFailed": "তালিকাটি চূড়ান্ত করা যায়নি। আবার চেষ্টা করুন।",
     "saveFailed": "এই পরিবর্তনটি সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।",
-    "refreshFailed": "তালিকাটি রিফ্রেশ করা যায়নি। আবার চেষ্টা করুন।"
+    "refreshFailed": "তালিকাটি রিফ্রেশ করা যায়নি। আবার চেষ্টা করুন।",
+    "columnPlacement": "নতুন শাখা ও রোল",
+    "columnRoll": "রোল",
+    "notePlaceholder": "কেন বদলালেন?",
+    "studentRoll": "রোল {{roll}}",
+    "placementError": {
+      "OVER_CAPACITY": "শাখায় জায়গা নেই",
+      "NO_ELIGIBLE_SECTION": "মানানসই কোনো শাখা নেই",
+      "unknown": "শাখা ঠিক করা যায়নি"
+    },
+    "errorsTitle": "চূড়ান্ত করার আগে {{n}}টি সমস্যা ঠিক করুন",
+    "errorsBody": "লাল চিহ্ন দেওয়া শিক্ষার্থীদের নতুন শ্রেণির কোনো শাখায় বসানো যায়নি। শাখার ধারণক্ষমতা বাড়িয়ে ফলাফল থেকে হালনাগাদ করুন, অথবা তাদের সিদ্ধান্ত বদলান।",
+    "countsLabel": "সারসংক্ষেপ",
+    "countBadge": "{{label}} {{n}}",
+    "footerHint": "মোট {{n}} জন · কীবোর্ডে: সিদ্ধান্তের ঘরে P, R বা G চাপুন, ↑ ↓ দিয়ে সারি বদলান, Ctrl+Enter দিয়ে চূড়ান্ত করুন।",
+    "footerTotal": "মোট {{n}} জন",
+    "tableCaption": "শিক্ষার্থীদের প্রমোশন সিদ্ধান্ত",
+    "deleteFailed": "তালিকাটি মোছা যায়নি। আবার চেষ্টা করুন।",
+    "facts": {
+      "targetYear": "নতুন শিক্ষাবর্ষ",
+      "exams": "গড় করা পরীক্ষা",
+      "examCount": "{{n}}টি",
+      "algorithm": "বিন্যাস পদ্ধতি",
+      "students": "শিক্ষার্থী",
+      "studentCount": "{{n}} জন",
+      "committedAt": "চূড়ান্ত করার তারিখ",
+      "committedBy": "চূড়ান্ত করেছেন",
+      "approvedBy": "অনুমোদন করেছেন"
+    },
+    "loadError": "প্রমোশন তালিকাটি লোড করা যায়নি।"
   },
   "stepper": {
-    "previous": "পূর্ববর্তী",
-    "next": "পরবর্তী",
-    "progress": "{{total}}-এর মধ্যে {{current}}"
+    "previous": "আগের শিক্ষার্থী",
+    "next": "পরের শিক্ষার্থী",
+    "progress": "{{total}} জনের মধ্যে {{current}} নম্বর"
   },
   "outcome": {
     "promote": "উত্তীর্ণ",
     "retain": "অপরিবর্তিত",
     "graduate": "গ্র্যাজুয়েট"
   },
-  "overrideNote": "অ্যালগরিদমের প্রস্তাবের বদলে বিশেষ বিবেচনা দেওয়া হয়েছে — একটি নোট আবশ্যক।",
+  "overrideNote": "সিস্টেমের প্রস্তাব নিজে বদলানো হয়েছে — কারণ লেখা আবশ্যক।",
   "badge": {
-    "promote": "বিশেষ বিবেচনায় উত্তীর্ণ, {{year}}: {{note}} — {{user}} দ্বারা",
-    "retain": "বিশেষ বিবেচনায় একই শ্রেণিতে, {{year}}: {{note}} — {{user}} দ্বারা",
-    "graduate": "বিশেষ বিবেচনায় পাস সম্পন্ন, {{year}}: {{note}} — {{user}} দ্বারা"
+    "promote": "নিজে বদলে উত্তীর্ণ, {{year}}: {{note}} — {{user}}",
+    "retain": "নিজে বদলে অপরিবর্তিত, {{year}}: {{note}} — {{user}}",
+    "graduate": "নিজে বদলে গ্র্যাজুয়েট, {{year}}: {{note}} — {{user}}"
   }
 }
