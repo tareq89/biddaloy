@@ -187,7 +187,7 @@ export function CheckoutSuccess({ result, studentIds }: CheckoutSuccessProps) {
         open={pendingMedium !== null}
         onOpenChange={(open) => !open && setPendingMedium(null)}
       >
-        <DialogContent>
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>{tFees('invoiceDetail.send.pickGuardian')}</DialogTitle>
           </DialogHeader>
