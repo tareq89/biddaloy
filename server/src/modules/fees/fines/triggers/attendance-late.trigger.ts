@@ -27,6 +27,7 @@ export const attendanceLateTrigger: FineTriggerEvaluator = {
            JOIN students st ON st.id = ar.student_id
           WHERE ar.tenant_id = $1
             AND ar.date BETWEEN $2 AND $3
+            AND s.period_no IS NULL
             AND ar.status = 'LATE'
             AND ar.date <> ALL($4::date[])
             AND ($5::uuid IS NULL OR cs.class_id = $5)
