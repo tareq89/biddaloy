@@ -80,7 +80,6 @@
     "noGuardians": "এই শিক্ষার্থীর কোনো অভিভাবক নথিভুক্ত নেই।",
     "messageLabel": "বার্তা",
     "placeholdersLabel": "বার্তায় বসান",
-    "insertPlaceholder": "{{token}} বসান",
     "unknownPlaceholder": "{{token}} চেনা যায়নি। নিচের বোতাম দিয়ে নাম বা টাকা বসান।",
     "mediumOverrideLabel": "কীভাবে পাঠাবেন",
     "mediumOverrideDefault": "প্রত্যেক অভিভাবকের পছন্দের মাধ্যম ব্যবহার করুন",
@@ -117,50 +116,53 @@
   },
   "bulk": {
     "entryAction": "একসাথে অনেককে রিমাইন্ডার",
-    "backToSingle": "একক রিমাইন্ডার",
     "title": "একসাথে ফি রিমাইন্ডার",
     "steps": {
       "recipients": "প্রাপক",
       "message": "বার্তা",
-      "review": "পর্যালোচনা"
+      "review": "যাচাই ও পাঠানো"
     },
     "recipients": {
       "filterClass": "শ্রেণি",
       "filterSection": "শাখা",
       "filterMonth": "মাস",
       "filterYear": "বছর",
-      "filterStatus": "অবস্থা",
+      "filterStatus": "ফির অবস্থা",
       "allOption": "সব",
       "statusPending": "বকেয়া",
       "statusPartiallyPaid": "আংশিক পরিশোধিত",
       "tableCaption": "বকেয়া ফি আছে এমন শিক্ষার্থী",
       "nameHeader": "শিক্ষার্থী",
-      "classHeader": "শ্রেণি",
-      "sectionHeader": "শাখা",
       "dueHeader": "মোট বকেয়া",
       "monthsOverdueHeader": "কত মাসের বকেয়া",
       "empty": "এই ফিল্টারে কোনো শিক্ষার্থী মেলেনি।",
-      "selectedCount": "{{max}} জনের মধ্যে {{count}} জন শিক্ষার্থী নির্বাচিত",
+      "selectedCount": "{{max}} জনের মধ্যে {{n}} জন শিক্ষার্থী বাছা হয়েছে",
       "overCap": "সর্বোচ্চ {{max}} জন শিক্ষার্থী নির্বাচন করুন — এগোতে {{excess}} জন বাদ দিন।",
-      "loadError": "শিক্ষার্থীর তালিকা লোড করা যায়নি।"
+      "loadError": "শিক্ষার্থীর তালিকা লোড করা যায়নি।",
+      "title": "কাদের পাঠাবেন",
+      "help": "বকেয়া আছে এমন শিক্ষার্থীরা নিচে আছে। যাদের পাঠাতে চান টিক দিন — সর্বোচ্চ ৫০০ জন।",
+      "classSectionHeader": "শ্রেণি · শাখা",
+      "emptyHelp": "আরও শিক্ষার্থী দেখতে ফিল্টার বদলান।"
     },
     "message": {
       "batchNameLabel": "দফার নাম",
       "messageLabel": "বার্তার টেমপ্লেট",
-      "mediumsLabel": "মাধ্যম"
+      "mediumsLabel": "মাধ্যম",
+      "title": "কী লিখবেন",
+      "help": "দফার এমন একটা নাম দিন যা পরে রিমাইন্ডার ইতিহাসে চিনতে পারবেন।"
     },
     "review": {
       "previewAction": "প্রাপকদের প্রিভিউ করুন",
       "previewing": "প্রিভিউ হচ্ছে…",
       "summary": "{{recipients}} জন অভিভাবক এই রিমাইন্ডার পাবেন · {{skipped}} জন বাদ",
       "skippedByReasonTitle": "কারণ অনুযায়ী বাদ পড়া",
-      "reasonCount_one": "{{count}} জন প্রাপক",
-      "reasonCount_other": "{{count}} জন প্রাপক",
+      "reasonCount_one": "{{n}} জন প্রাপক",
+      "reasonCount_other": "{{n}} জন প্রাপক",
       "perStudentTitle": "শিক্ষার্থী-ভিত্তিক বিবরণ",
-      "studentRecipients_one": "{{count}} জন প্রাপক",
-      "studentRecipients_other": "{{count}} জন প্রাপক",
-      "studentSkipped_one": "{{count}} জন বাদ",
-      "studentSkipped_other": "{{count}} জন বাদ",
+      "studentRecipients_one": "{{n}} জন প্রাপক",
+      "studentRecipients_other": "{{n}} জন প্রাপক",
+      "studentSkipped_one": "{{n}} জন বাদ",
+      "studentSkipped_other": "{{n}} জন বাদ",
       "stale": "শেষ প্রিভিউয়ের পর আগের ধাপগুলো বদলেছে — পাঠানোর আগে আবার প্রিভিউ করুন।",
       "notPreviewedHint": "পাঠানো চালু করতে আগে প্রিভিউ দেখুন।",
       "noRecipients": "কেউ এই রিমাইন্ডার পাবেন না — আগের ধাপগুলো ঠিক করুন।",
@@ -174,14 +176,22 @@
         "available": "উপলব্ধ",
         "shortfall": "পর্যাপ্ত এসএমএস ক্রেডিট নেই: {{required}} ইউনিট প্রয়োজন, মাত্র {{available}} উপলব্ধ ({{shortfall}} কম)। ব্যালেন্স পূরণ না হওয়া পর্যন্ত পাঠানো বন্ধ থাকবে।",
         "insufficientCredit": "পাঠানোর জন্য পর্যাপ্ত এসএমএস ক্রেডিট নেই: {{required}} ইউনিট প্রয়োজন, মাত্র {{available}} উপলব্ধ।"
-      }
+      },
+      "title": "যাচাই করে পাঠান",
+      "previewInvalid": "প্রিভিউ দেখানো যায়নি — আগের ধাপে গিয়ে শিক্ষার্থী ও বার্তা দেখুন।",
+      "sendInvalid": "রিমাইন্ডার পাঠানো যায়নি — আগের ধাপগুলো দেখে আবার প্রিভিউ করুন।"
     },
-    "submitLabel": "রিমাইন্ডার পাঠান",
     "result": {
       "title": "রিমাইন্ডার পাঠানো শুরু হয়েছে",
       "queued": "“{{name}}” পটভূমিতে পাঠানো হচ্ছে।",
       "viewBatch": "পাঠানোর অগ্রগতি দেখুন"
-    }
+    },
+    "stepsLabel": "ধাপ",
+    "back": "আগের ধাপ",
+    "nextToMessage": "পরের ধাপ: বার্তা",
+    "nextToReview": "পরের ধাপ: যাচাই",
+    "sendToCount_one": "{{n}} জনকে রিমাইন্ডার পাঠান",
+    "sendToCount_other": "{{n}} জনকে রিমাইন্ডার পাঠান"
   },
   "batches": {
     "title": "রিমাইন্ডার ইতিহাস",
