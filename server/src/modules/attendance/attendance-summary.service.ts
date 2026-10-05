@@ -135,17 +135,22 @@ export class AttendanceSummaryService {
   }
 
   /**
-   * Bulk building block every method below composes on. Issues exactly
-   * **two** grouped queries regardless of how many student ids are passed
-   * — never loop this per student. A 60-student section summary is O(1)
-   * queries, not O(n); a reviewer who "simplifies" this into a per-student
-   * loop is reintroducing the N+1 this ticket exists to prevent.
+   * Bulk building block every method below composes on. Issues two grouped
+   * record queries **per class** (plus one working-day call per class)
+   * regardless of how many student ids are passed — never loop this per
+   * student. A 60-student section summary is O(1) queries, not O(n); a
+   * reviewer who "simplifies" this into a per-student loop is reintroducing
+   * the N+1 this ticket exists to prevent.
+   *
+   * `sectionId` is only used when the roster is empty, to still resolve the
+   * section's class so class-scoped holidays apply to its working days.
    */
   private async computeSummaries(
     tenantId: string,
     studentIds: string[],
     from: string,
     to: string,
+    sectionId?: string,
   ): Promise<{
     summaries: Map<string, AttendanceSummary>;
     workingDays: string[];
@@ -171,11 +176,18 @@ export class AttendanceSummaryService {
     const groups = new Map<string | undefined, string[]>();
     for (const id of studentIds) {
       const key = classByStudent.get(id);
-      groups.set(key, [...(groups.get(key) ?? []), id]);
+      const ids = groups.get(key);
+      if (ids) ids.push(id);
+      else groups.set(key, [id]);
     }
     // A section (or an empty roster) has one class, or none: that group's
     // days are what the section-level callers report.
-    if (groups.size === 0) groups.set(undefined, []);
+    if (groups.size === 0) {
+      const section = sectionId
+        ? await this.sectionRepo.findOne({ where: { id: sectionId, tenant_id: tenantId } })
+        : null;
+      groups.set(section?.class_id, []);
+    }
 
     let first: { dates: string[]; count: number } | undefined;
     for (const [classId, ids] of groups) {
@@ -339,17 +351,18 @@ export class AttendanceSummaryService {
     }>
   > {
     const { tenantId, studentId, from, to } = input;
-    await this.assertStudentExists(tenantId, studentId);
-
     const student = await this.studentRepo.findOne({
       where: { id: studentId, tenant_id: tenantId },
       relations: { class_section: true },
     });
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
     const workingDays = await this.schoolCalendarService.getWorkingDays({
       tenantId,
       from,
       to,
-      classId: student?.class_section?.class_id,
+      classId: student.class_section?.class_id,
     });
     const workingDaySet = new Set(workingDays.dates);
 
@@ -416,6 +429,7 @@ export class AttendanceSummaryService {
       studentIds,
       from,
       to,
+      sectionId,
     );
     const studentSummaries = students.map((s) => summaries.get(s.id)!);
 
@@ -461,7 +475,13 @@ export class AttendanceSummaryService {
     });
     const studentIds = students.map((s) => s.id);
 
-    const { summaries, workingDays } = await this.computeSummaries(tenantId, studentIds, from, to);
+    const { summaries, workingDays } = await this.computeSummaries(
+      tenantId,
+      studentIds,
+      from,
+      to,
+      sectionId,
+    );
     const workingDaySet = new Set(workingDays);
     const dates = everyDateInRange(from, to).map((date) => ({
       date,
@@ -616,7 +636,7 @@ export class AttendanceSummaryService {
     }
     const students = await qb.orderBy('student.roll_number', 'ASC').getMany();
 
-    // One grouped query for the whole matched roster, however large — see
+    // One grouped query per class for the whole matched roster — see
     // `computeSummaries`'s own docstring for why this must never become a
     // per-student loop.
     const { summaries } = await this.computeSummaries(
