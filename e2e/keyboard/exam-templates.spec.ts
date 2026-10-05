@@ -155,12 +155,16 @@ test('create a template, fill the grid, save, then create an exam from it', asyn
     await expect(cell('examTemplates.grid.columnFull', 2)).toHaveValue(/^(30|৩০)$/);
   });
 
-  await test.step('Esc discards an unsaved extra row', async () => {
+  await test.step('Esc leaves the field; the header Discard drops an unsaved extra row', async () => {
     await cell('examTemplates.grid.columnPass', 2).focus();
     await page.keyboard.press('Enter');
     await expect(cell('examTemplates.grid.columnName', 3)).toBeFocused();
     await page.keyboard.type('Temp');
     await page.keyboard.press('Escape');
+    // Esc must not throw the draft away silently.
+    await expect(cell('examTemplates.grid.columnName', 3)).toHaveValue('Temp');
+    await page.getByRole('button', { name: t('examTemplates.detail.discard') }).focus();
+    await page.keyboard.press('Enter');
     await expect(cell('examTemplates.grid.columnName', 3)).toHaveCount(0);
     await expect(cell('examTemplates.grid.columnName', 2)).toHaveValue('MCQ');
   });

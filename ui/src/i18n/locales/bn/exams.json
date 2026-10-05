@@ -87,7 +87,12 @@
     "addTitle": "সময়সূচিতে বিষয় যোগ করুন",
     "emptyTitle": "এখনো কোনো সময়সূচি নেই",
     "emptyText": "নিচে বিষয় বেছে তারিখ ও সময় দিন।",
-    "editCell": "{{column}} বদলান — {{subject}}"
+    "editCell": "{{column}} বদলান — {{subject}}",
+    "saveError": "সময়সূচির পরিবর্তন সংরক্ষণ করা যায়নি।",
+    "removeTitle": "সময়সূচি থেকে সরাবেন?",
+    "removeDescription": "„{{subject}}“ এই পরীক্ষার সময়সূচি থেকে সরে যাবে।",
+    "removeConfirm": "সরান",
+    "removeError": "সরানো যায়নি।"
   },
   "progressPanel": {
     "loadError": "জমাদানের অগ্রগতি লোড করা যায়নি।",
@@ -128,10 +133,11 @@
     "addTitle": "নতুন অংশ যোগ করুন",
     "emptyTitle": "এই বিষয়ে এখনো কোনো অংশ নেই",
     "emptyText": "নিচে প্রথম অংশ যোগ করুন, অথবা অন্য বিষয় থেকে কপি করুন।",
-    "totals": "মোট {{count}}টি অংশ · পূর্ণমান {{marks}}",
+    "totals": "মোট {{n}}টি অংশ · পূর্ণমান {{marks}}",
     "deleteTitle": "এই অংশটি মুছবেন?",
     "deleteDescription": "„{{name}}“ {{subject}} থেকে মুছে যাবে।",
-    "delete": "মুছুন"
+    "delete": "মুছুন",
+    "deleteError": "অংশটি মোছা যায়নি।"
   },
   "componentKind": {
     "WRITTEN": "লিখিত",
@@ -155,7 +161,7 @@
     "sourceExamPlaceholder": "একটি পরীক্ষা নির্বাচন করুন",
     "targetsLabel": "যেখানে কপি হবে",
     "previewTitle": "পূর্বরূপ",
-    "previewCreated": "{{count}} টি তৈরি হবে: {{names}}",
+    "previewCreated": "{{n}} টি তৈরি হবে: {{names}}",
     "previewNothing": "কপি করার কিছু নেই।",
     "reasonNameExists": "এই নামে একটি অংশ ইতিমধ্যে আছে",
     "reasonAttendanceExists": "এই বিষয়ে ইতিমধ্যে একটি উপস্থিতি অংশ আছে",
@@ -188,10 +194,7 @@
     "title": "নম্বর এন্ট্রি",
     "examLabel": "পরীক্ষা",
     "examPlaceholder": "একটি পরীক্ষা নির্বাচন করুন",
-    "stateFilterLabel": "অবস্থা অনুযায়ী ফিল্টার করুন",
-    "stateAll": "সব",
     "stateDraft": "খসড়া",
-    "stateSubmitted": "জমাকৃত",
     "tableCaption": "আপনি যেসব নম্বর তালিকায় নম্বর দিতে পারবেন",
     "columnSection": "শাখা · বিষয়",
     "columnState": "অবস্থা",
@@ -363,8 +366,7 @@
       "columnAbsent": "অনুপস্থিত",
       "columnPassPct": "পাসের হার %",
       "columnHighest": "সর্বোচ্চ",
-      "columnAverage": "গড়",
-      "overallRow": "সামগ্রিক"
+      "columnAverage": "গড়"
     },
     "passFailComponent": {
       "columnSubject": "বিষয়",

@@ -34,7 +34,7 @@ import { applicantQueryOptions } from './features/admission/hooks/useApplicants'
 import { intakeQueryOptions } from './features/admission/hooks/useIntakes';
 import { STAFF_NAV_ITEMS, type StaffNavLabel } from './nav-tree';
 import { ROUTE_CRUMBS, type RouteCrumbs } from './route-crumbs';
-import { examTemplateQueryOptions } from './routes/_staff/exams/use-exam-templates';
+import { examTemplateQueryOptions } from './routes/_staff/exams/-use-exam-templates';
 
 /**
  * [30.3.3] wires [30.3.1]'s `ROUTE_CRUMBS` map and [30.3.2]'s

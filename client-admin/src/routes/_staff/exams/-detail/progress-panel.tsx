@@ -7,7 +7,8 @@
  */
 import { DataTable, EmptyState, ErrorState, Skeleton } from '@biddaloy/ui/components';
 import { useExamProgress } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { CircleCheck } from 'lucide-react';
 import * as React from 'react';
 
@@ -24,6 +25,7 @@ const CARD = 'rounded-lg border border-border-subtle bg-surface shadow-e1';
 
 export function ProgressPanel({ examId, onGoToSetup }: ProgressPanelProps) {
   const { t, i18n } = useTranslation('exams');
+  const config = useRegionConfig();
   const progressQuery = useExamProgress(examId);
   const [page, setPage] = React.useState(1);
 
@@ -64,7 +66,10 @@ export function ProgressPanel({ examId, onGoToSetup }: ProgressPanelProps) {
     <div className="flex flex-col gap-4">
       <section className={`${CARD} p-4 md:p-5`}>
         <h2 className="text-h2">{t('progressPanel.title')}</h2>
-        <p className="mt-1 text-h3">{t('progressPanel.submittedOf', { submitted, total })}</p>
+        <p className="mt-1 text-h3">{t('progressPanel.submittedOf', {
+            submitted: formatNumber(submitted, config),
+            total: formatNumber(total, config),
+          })}</p>
         <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
           <div
             role="progressbar"

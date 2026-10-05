@@ -8,7 +8,7 @@ import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { TemplateGrid, validateBlock, type TemplateGridHandle } from './-template-grid';
-import type { ExamTemplateDetail } from './use-exam-templates';
+import type { ExamTemplateDetail } from './-use-exam-templates';
 
 const SUBJECTS = [
   { code: 'BAN', name: 'Bangla', label: 'Bangla' },
@@ -169,13 +169,13 @@ describe('TemplateGrid', () => {
     expect(onSave.mock.calls[0]?.[0][0].components[0]).toMatchObject({ full: 70, pass: 23 });
   });
 
-  it('Esc in a field discards unsaved edits', async () => {
+  it('Esc in a field never discards the draft', async () => {
     const { user } = setup();
     const name = await cell('Part name');
     await user.type(name, 'X');
     expect(name.value).toBe('WrittenX');
     await user.keyboard('{Escape}');
-    expect((await cell('Part name')).value).toBe('Written');
+    expect((await cell('Part name')).value).toBe('WrittenX');
   });
 
   it('adds a class through the dialog and a subject to it', async () => {

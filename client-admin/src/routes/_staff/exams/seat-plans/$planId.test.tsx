@@ -159,6 +159,42 @@ describe('SeatPlanDetail', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
+  it('converts a Bangla-numeral seat number to Latin before sending', async () => {
+    const user = userEvent.setup();
+    mockBaseline();
+    let body: unknown = null;
+    server.use(
+      http.patch('/api/v1/seat-plans/:id/allocations/:allocationId', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ ...ALLOCATION_1, seat_number: '12' });
+      }),
+    );
+    renderDetail();
+    await user.click(await screen.findByRole('button', { name: 'Change seat — Rahim Uddin' }));
+    const seat = await screen.findByLabelText('Seat number');
+    await user.clear(seat);
+    await user.type(seat, '১২');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(body).toMatchObject({ seat_number: '12' }));
+  });
+
+  it('a failed room reseat keeps its dialog open with a translated message', async () => {
+    const user = userEvent.setup();
+    mockBaseline();
+    server.use(
+      http.post('/api/v1/seat-plans/:id/rooms/:roomId/reshuffle', () =>
+        HttpResponse.json({ message: 'db exploded' }, { status: 500 }),
+      ),
+    );
+    renderDetail();
+    const buttons = await screen.findAllByRole('button', { name: 'Reseat this room' });
+    await user.click(buttons[0]!);
+    const confirm = await screen.findByRole('alertdialog');
+    await user.click(within(confirm).getByRole('button', { name: 'Reseat' }));
+    expect(await within(confirm).findByText(/Couldn't reseat the room\./)).toBeTruthy();
+    expect(screen.queryByText(/db exploded/)).toBeNull();
+  });
+
   it.each([
     [409, 'SEAT_ALREADY_TAKEN', 'Someone already sits in this seat.'],
     [400, 'SEAT_CAPACITY_SHORTFALL', 'This room has no free seat.'],

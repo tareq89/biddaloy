@@ -94,7 +94,7 @@ describe('CopyComponentsDialog', () => {
 
     // Mathematics is the source subject *and* still a valid target here.
     await user.click(within(dialog).getByRole('checkbox', { name: 'Mathematics' }));
-    await within(dialog).findByText('1 to create: Written');
+    await within(dialog).findByText('১ to create: Written');
 
     await user.click(within(dialog).getByRole('button', { name: 'Copy' }));
     await waitFor(() =>
@@ -192,7 +192,7 @@ describe('CopyComponentsDialog', () => {
     await user.click(within(dialog).getByLabelText('Subject'));
     await user.click(await screen.findByRole('option', { name: 'Mathematics' }));
     await user.click(within(dialog).getByRole('checkbox', { name: 'English' }));
-    await within(dialog).findByText('1 to create: Written');
+    await within(dialog).findByText('১ to create: Written');
     await user.click(within(dialog).getByRole('button', { name: 'Copy' }));
 
     await within(dialog).findByRole('alert');

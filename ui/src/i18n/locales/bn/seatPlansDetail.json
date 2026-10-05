@@ -11,8 +11,8 @@
       "students": "শিক্ষার্থী",
       "seatOrder": "আসন ক্রম"
     },
-    "countItems": "{{count}}টি",
-    "countPeople": "{{count}} জন",
+    "countItems": "{{n}}টি",
+    "countPeople": "{{n}} জন",
     "seatOrder": {
       "SEQUENTIAL": "ক্রমানুসারে",
       "RANDOM": "এলোমেলো"
@@ -37,7 +37,8 @@
     "columnSeat": "আসন",
     "tableCaption": "{{room}} কক্ষে বসা শিক্ষার্থীরা",
     "empty": "এই বিষয়ে এই কক্ষে কেউ বসেনি।",
-    "seated": "{{count}} জন বসেছে · {{capacity}}"
+    "seated": "{{n}} জন বসেছে · {{capacity}}",
+    "invigilatorError": "পরিদর্শক বদলানো যায়নি।"
   },
   "reseat": {
     "title": "আসন বদলান",
@@ -57,7 +58,8 @@
   "reshuffle": {
     "title": "এই কক্ষের আসন আবার সাজাবেন?",
     "description": "{{room}}-এর সব আসন নতুন করে দেওয়া হবে। আগের আসন বদল হারিয়ে যাবে।",
-    "confirm": "আবার সাজান"
+    "confirm": "আবার সাজান",
+    "errorMessage": "কক্ষের আসন আবার সাজানো যায়নি।"
   },
   "errors": {
     "unknown": "কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।"

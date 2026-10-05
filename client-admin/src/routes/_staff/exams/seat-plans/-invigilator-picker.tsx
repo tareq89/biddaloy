@@ -45,6 +45,7 @@ export function InvigilatorPicker({
   }
 
   return (
+    <div className="flex flex-col gap-1.5">
     <Select
       value={invigilatorUserId ?? UNASSIGNED}
       onValueChange={handleChange}
@@ -65,5 +66,11 @@ export function InvigilatorPicker({
         ))}
       </SelectContent>
     </Select>
+    {updateInvigilator.isError && (
+      <p role="alert" className="text-sm text-destructive">
+        {t('room.invigilatorError')}
+      </p>
+    )}
+    </div>
   );
 }
