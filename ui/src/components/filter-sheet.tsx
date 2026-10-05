@@ -1,13 +1,18 @@
 /**
- * D24: phone filter sheet. Stub — filled in by 31.2.7 (bottom-sheet placement,
- * 44 px close, the trigger).
+ * D24: the phone filter sheet — a bottom sheet holding every filter field full
+ * width. Filters apply live as they change, so the footer's primary button only
+ * closes the sheet and tells the user how many results they now have.
+ * No sheet primitive exists in `ui`, so this builds on Radix Dialog the same way
+ * `primitives/dialog.tsx` does (focus trap, Esc, focus return are Radix's).
  */
+import { XIcon } from 'lucide-react';
+import { Dialog as DialogPrimitive } from 'radix-ui';
 import type * as React from 'react';
 
 import { useTranslation } from '../i18n';
+import { DialogOverlay, DialogPortal } from '../primitives/dialog';
 
 import { Button } from './button';
-import { Dialog, DialogContent, DialogTitle } from './dialog';
 
 export interface FilterSheetProps {
   open: boolean;
@@ -31,21 +36,42 @@ export function FilterSheet({
 }: FilterSheetProps) {
   const { t } = useTranslation('common');
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent aria-describedby={undefined}>
-        <DialogTitle>{title ?? t('filters.showFiltersNone')}</DialogTitle>
-        <div className="flex flex-col gap-4">{children}</div>
-        <div className="flex gap-2 border-t border-border-subtle p-4">
-          <Button type="button" variant="outline" className="flex-1" onClick={onClearAll}>
-            {t('filters.clearAll')}
-          </Button>
-          <Button type="button" className="flex-1" onClick={() => onOpenChange(false)}>
-            {resultCount === undefined
-              ? t('filters.showResultsNone')
-              : t('filters.showResults', { count: resultCount })}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPortal>
+        <DialogOverlay />
+        <DialogPrimitive.Content
+          aria-describedby={undefined}
+          className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col rounded-t-lg bg-surface pb-(--safe-area-bottom) text-body text-text-primary shadow-e3 outline-none data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom"
+        >
+          <div className="flex items-center justify-between py-1.5 ps-4 pe-1.5">
+            <DialogPrimitive.Title className="text-h2">
+              {title ?? t('filters.showFiltersNone')}
+            </DialogPrimitive.Title>
+            <DialogPrimitive.Close asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                iconOnly
+                className="size-11"
+                aria-label={t('actions.close')}
+              >
+                <XIcon aria-hidden="true" />
+              </Button>
+            </DialogPrimitive.Close>
+          </div>
+          <div className="flex flex-col gap-4 overflow-y-auto px-4 pb-4">{children}</div>
+          <div className="flex gap-2 border-t border-border-subtle p-4">
+            <Button type="button" variant="outline" className="h-11 flex-1" onClick={onClearAll}>
+              {t('filters.clearAll')}
+            </Button>
+            <Button type="button" className="h-11 flex-1" onClick={() => onOpenChange(false)}>
+              {resultCount === undefined
+                ? t('filters.showResultsNone')
+                : t('filters.showResults', { count: resultCount })}
+            </Button>
+          </div>
+        </DialogPrimitive.Content>
+      </DialogPortal>
+    </DialogPrimitive.Root>
   );
 }
