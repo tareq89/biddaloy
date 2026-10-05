@@ -606,7 +606,12 @@ export class TeacherService {
     private readonly staffProfilesService: StaffProfilesService,
   ) {}
 
-  async create(dto: CreateTeacherDto, tenantId: string): Promise<Teacher> {
+  async create(
+    // `employee_id` is optional for the staff import ([13.3.2]): left out, the staff profile
+    // generates one and the Teacher row reuses it.
+    dto: Omit<CreateTeacherDto, 'employee_id'> & { employee_id?: string },
+    tenantId: string,
+  ): Promise<Teacher> {
     const user = await this.userRepo.findOne({
       where: { id: dto.user_id, deleted_at: IsNull() },
     });
@@ -634,9 +639,9 @@ export class TeacherService {
     }
 
     // Check for duplicate employee_id
-    const existing = await this.teacherRepo.findOne({
-      where: { employee_id: dto.employee_id },
-    });
+    const existing = dto.employee_id
+      ? await this.teacherRepo.findOne({ where: { employee_id: dto.employee_id } })
+      : null;
     if (existing) {
       throw new ConflictException(`Teacher with employee ID "${dto.employee_id}" already exists`);
     }
@@ -660,7 +665,7 @@ export class TeacherService {
 
       const teacher = manager.create(Teacher, {
         user_id: dto.user_id,
-        employee_id: dto.employee_id,
+        employee_id: staffProfile.employee_id,
         designations: dto.designations ?? [],
         subject_specialization: dto.subject_specialization ?? null,
         joining_date: joiningDate,
