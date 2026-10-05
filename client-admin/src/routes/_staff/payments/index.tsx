@@ -9,14 +9,13 @@ import {
 } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
 import { formatDate, formatServerAmount } from '@biddaloy/ui/utils';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { Banknote, Receipt } from 'lucide-react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 
 import { usePaymentsList } from './-list/use-payments-list';
-import { RecordPaymentModal } from './-record/record-payment-modal';
 
 const paymentsSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
@@ -32,7 +31,8 @@ const paymentsSearchSchema = z.object({
   include_reversed: z.coerce.string().optional().catch(undefined),
   // Reserved key `use-list-shell-state.ts` stores row selection under.
   selected: z.string().optional().catch(undefined),
-  // `'1'` opens the modal. `z.coerce.string()`, not `z.string()` — the
+  // `'1'` is the legacy "open the record form" link; `beforeLoad` redirects it to
+  // `/payments/record`. `z.coerce.string()`, not `z.string()` — the
   // router's default search parser coerces a numeric-looking query value
   // (`?record=1`) to the *number* `1`, not the string `'1'`, before this
   // schema ever sees it; a plain `z.string()` would fail that and
@@ -44,43 +44,37 @@ const paymentsSearchSchema = z.object({
 
 export const Route = createFileRoute('/_staff/payments/')({
   validateSearch: paymentsSearchSchema,
+  // Old `?record=1` links (and the fees dues deep link) land on the full-page form.
+  beforeLoad: ({ search }) => {
+    if (search.record === '1') {
+      // eslint-disable-next-line @typescript-eslint/only-throw-error
+      throw redirect({
+        to: '/payments/record',
+        search: {
+          ...(search.student_id !== undefined ? { student_id: search.student_id } : {}),
+          ...(search.guardian_id !== undefined ? { guardian_id: search.guardian_id } : {}),
+        },
+      });
+    }
+  },
   loader: () => loadRouteNamespaces('payments', 'common'),
   pendingComponent: PaymentsPending,
   component: PaymentsPage,
 });
 
 function PaymentsPage() {
-  const navigate = Route.useNavigate();
-  const search = Route.useSearch();
+  const navigate = useNavigate();
   const canRecord = useHasPermission(Permission.PAYMENT_RECORD);
   // No ambient `RegionConfigProvider` above the route tree — every amount
-  // the modal renders (`MoneyInput`, the cart, the tender section) would
-  // otherwise fall back to the provider's hardcoded default region
-  // instead of the active tenant's, same reasoning `record.tsx` gave.
+  // the list renders would otherwise fall back to the provider's hardcoded
+  // default region instead of the active tenant's.
   const regionConfig = useTenantRegionConfig();
-
-  function setModalOpen(open: boolean) {
-    void navigate({
-      search: (prev) =>
-        open
-          ? { ...prev, record: '1' }
-          : {
-              ...prev,
-              record: undefined,
-              student_id: undefined,
-              guardian_id: undefined,
-            },
-    });
-  }
 
   return (
     <RegionConfigProvider value={regionConfig}>
-      <PaymentsList canRecord={canRecord} onRecord={() => setModalOpen(true)} />
-      <RecordPaymentModal
-        open={search.record === '1'}
-        onOpenChange={setModalOpen}
-        {...(search.student_id !== undefined ? { studentId: search.student_id } : {})}
-        {...(search.guardian_id !== undefined ? { guardianId: search.guardian_id } : {})}
+      <PaymentsList
+        canRecord={canRecord}
+        onRecord={() => void navigate({ to: '/payments/record' })}
       />
     </RegionConfigProvider>
   );

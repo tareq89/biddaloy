@@ -28,22 +28,21 @@
   },
   "record": {
     "title": "Record a payment",
-    "description": "Search or pick a student, allocate the amount received across their open bills, then take tender.",
     "submitAction": "Record payment",
     "cancel": "Cancel",
     "students": {
-      "label": "Students",
       "searchLabel": "Search for a student",
       "searchPlaceholder": "Search by name or roll number",
       "noResults": "No students match that search.",
       "rollAndClass": "Roll {{roll}} · {{className}} {{sectionName}}",
       "addSibling": "+ add sibling",
       "removeStudent": "Remove {{name}}",
-      "maxReached": "Up to 10 students can be paid for in one checkout."
+      "maxReached": "Up to 10 students can be paid for in one checkout.",
+      "addAnotherLabel": "Add another student",
+      "chip": "{{name}} · {{className}} {{sectionName}}"
     },
     "amountReceived": {
-      "label": "Amount received",
-      "hint": "Distributed oldest-due-date first across the open bills below."
+      "label": "Amount received"
     },
     "cart": {
       "columnFee": "Fee",
@@ -52,7 +51,6 @@
       "columnBalance": "Balance",
       "columnPay": "Pay",
       "columnDiscount": "Discount",
-      "columnTotal": "Total",
       "overdue": "Overdue",
       "lateFee": "Late fee",
       "empty": "This student has no open bills.",
@@ -61,14 +59,16 @@
       "subtotal": "Subtotal",
       "walletCredit": "Use credit balance ({{amount}} available)",
       "walletAvailable": "{{amount}} available",
-      "amountDue": "Amount due"
+      "amountDue": "Amount due",
+      "pickStudent": "Pick a student first to see the bills due.",
+      "columnStatus": "Status"
     },
     "discount": {
       "label": "Discount",
-      "unlock": "Unlock to edit discount",
       "discountTheRest": "Discount the rest",
       "needsApproval": "This discount needs admin approval to submit.",
-      "exceedsBalance": "Pay plus discount can't exceed the balance."
+      "exceedsBalance": "Pay plus discount can't exceed the balance.",
+      "give": "Give discount"
     },
     "method": {
       "label": "Payment method",
@@ -85,11 +85,12 @@
       }
     },
     "tender": {
-      "tenderedLabel": "Tendered",
-      "changeLabel": "Change",
+      "tenderedLabel": "Cash handed over",
+      "changeLabel": "Change to give back",
       "changeReturn": "Return change",
       "changeToWallet": "Keep the change as credit",
-      "tenderTooLow": "Tendered amount plus credit balance doesn't cover the amount due."
+      "tenderTooLow": "Tendered amount plus credit balance doesn't cover the amount due.",
+      "hint": "Only to work out the change; you can leave it empty."
     },
     "notifications": {
       "recorded": "{{amount}} recorded.",
@@ -104,7 +105,16 @@
       "invoiceNumber": "Invoice",
       "recordAnother": "Record another",
       "viewInvoice": "View invoice"
-    }
+    },
+    "sections": {
+      "students": "1. Student",
+      "studentsHelp": "Find the student you are taking money from. Add siblings to take it together (up to 10).",
+      "bills": "2. Bills due",
+      "billsHelp": "Type the amount received and it is split from the oldest bill. You can change any line.",
+      "money": "3. Take the money"
+    },
+    "submitWithAmount": "Record {{amount}}",
+    "changeHandlingLabel": "Change"
   },
   "detail": {
     "back": "Back to payments",
@@ -138,5 +148,11 @@
       "errorMessage": "Reversing this payment failed.",
       "errorLaterPayments": "Later payments must be reversed first:"
     }
+  },
+  "printFormat": {
+    "label": "Paper size",
+    "a4": "A4 page",
+    "pos80": "Receipt printer — 80 mm",
+    "pos58": "Receipt printer — 58 mm"
   }
 }
