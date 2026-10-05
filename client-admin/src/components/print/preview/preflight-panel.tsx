@@ -5,6 +5,7 @@
  */
 import { Checkbox } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { TriangleAlertIcon } from 'lucide-react';
 
 export interface PreflightIssue {
   subjectId: string;
@@ -33,17 +34,20 @@ export function PreflightPanel({
   return (
     <section
       aria-label={t('preflight.title', { bad: issues.length, total })}
-      className="flex flex-col gap-2 rounded-lg border border-status-due-fg/40 bg-status-due-bg p-4 text-sm text-status-due-fg"
+      className="rounded-lg border border-border-subtle bg-status-due-bg p-4 text-status-due-fg md:p-5"
     >
-      <h2 className="font-semibold">{t('preflight.title', { bad: issues.length, total })}</h2>
-      <ul className="list-disc ps-5">
+      <h2 className="flex items-center gap-2 text-h3">
+        <TriangleAlertIcon className="size-5" aria-hidden />
+        {t('preflight.title', { bad: issues.length, total })}
+      </h2>
+      <ul className="mt-2 list-disc space-y-1 ps-5">
         {issues.map((issue) => (
           <li key={issue.subjectId}>
             <span className="font-medium">{issue.label}</span>: {issue.reasons.join(' · ')}
           </li>
         ))}
       </ul>
-      <label className="flex items-center gap-2 font-medium">
+      <label className="mt-2 flex min-h-11 cursor-pointer items-center gap-3 font-medium md:min-h-8">
         <Checkbox
           checked={acknowledged}
           onCheckedChange={(next) => onAcknowledgedChange(next === true)}

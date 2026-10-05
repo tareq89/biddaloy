@@ -71,4 +71,9 @@ describe('DidAllPrintDialog', () => {
     await user.click(await screen.findByRole('button', { name: 'Continue' }));
     expect(onContinue).toHaveBeenCalledOnce();
   });
+
+  it('is a small dialog', async () => {
+    setup();
+    expect((await screen.findByRole('dialog')).className).toContain('max-w-100');
+  });
 });

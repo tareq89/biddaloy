@@ -2,7 +2,7 @@ import '@biddaloy/ui/test';
 
 import type { PrinterRow, PrintTemplateRow } from '@biddaloy/ui/hooks';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -198,7 +198,7 @@ describe('PrintPreview', () => {
     serveLists([], [printer()]);
     const { user, onCreateTemplate, onClose } = setup();
 
-    expect(await screen.findByText('No template for this document yet')).toBeTruthy();
+    expect(await screen.findByText('No design for this document yet')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Create one from a suggestion' }));
     expect(onCreateTemplate).toHaveBeenCalledOnce();
     await user.click(screen.getByRole('button', { name: 'Close' }));
@@ -228,7 +228,7 @@ describe('PrintPreview', () => {
   it('ignores an unpublished template (no current version)', async () => {
     serveLists([template({ current_version_id: null })], [printer()]);
     setup();
-    expect(await screen.findByText('No template for this document yet')).toBeTruthy();
+    expect(await screen.findByText('No design for this document yet')).toBeTruthy();
   });
 
   it('keeps Print disabled until a printer exists, and offers to add one', async () => {
@@ -259,7 +259,7 @@ describe('PrintPreview', () => {
     const print = screen.getByRole<HTMLButtonElement>('button', { name: 'Print' });
     expect(print.disabled).toBe(true);
 
-    await user.click(screen.getByRole('checkbox', { name: 'Print anyway' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Print this round anyway' }));
     expect(print.disabled).toBe(false);
   });
 
@@ -300,5 +300,104 @@ describe('PrintPreview', () => {
     await user.click(await screen.findByRole('button', { name: 'Continue' }));
 
     await waitFor(() => expect(onDone).toHaveBeenCalledOnce());
+  });
+
+  it('the round heading is the exact header.batch text, with a stepper marking done / current / locked', async () => {
+    serveLists([template()], [printer()]);
+    servePreview();
+    server.use(
+      http.patch('/api/v1/print-jobs/:id/confirm', () =>
+        HttpResponse.json({ job_id: 'job-1', status: 'CONFIRMED', failed_item_ids: [] }),
+      ),
+    );
+    vi.mocked(runPrint).mockResolvedValue(printResult(50));
+    const { user } = setup(ids(120));
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Round 1 of 3 · 50 cards' }),
+    ).toBeTruthy();
+    const states = () =>
+      within(screen.getByRole('list', { name: 'Rounds' }))
+        .getAllByRole('listitem')
+        .map((li) => li.getAttribute('data-state'));
+    expect(states()).toEqual(['current', 'locked', 'locked']);
+
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(false),
+    );
+    await user.click(screen.getByRole('button', { name: 'Print' }));
+    await user.click(await screen.findByRole('button', { name: 'Yes, all printed' }));
+    await user.click(await screen.findByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(states()).toEqual(['done', 'current', 'locked']));
+  });
+
+  it('flags a card with no photo with a badge on that card', async () => {
+    serveLists([template()], [printer()]);
+    servePreview(
+      definition([
+        element({ field: 'student.name' }),
+        element({ id: 'ph', type: 'IMAGE', field: 'student.photo' }),
+      ]),
+      null,
+    );
+    setup(ids(1));
+
+    const section = await screen.findByRole('region', { name: 'Card preview' });
+    expect(within(section).getByText('No photo')).toBeTruthy();
+  });
+
+  it('names the missing field by its label, never by its raw key', async () => {
+    serveLists([template()], [printer()]);
+    servePreview();
+    server.use(
+      http.post('/api/v1/print-jobs/preview', () =>
+        HttpResponse.json({
+          template: {
+            id: 't-1',
+            batch_size: 50,
+            version: {
+              id: 'v-1',
+              version: 1,
+              definition: definition([element({ field: 'student.name' })]),
+            },
+          },
+          items: [
+            {
+              subject_id: 's-1',
+              label: 'Student s-1',
+              values: { 'student.name': '' },
+              photo_url: null,
+            },
+          ],
+        }),
+      ),
+    );
+    setup(ids(1));
+
+    expect(await screen.findAllByText(/Missing: Name/)).toBeTruthy();
+    expect(screen.queryByText(/student\.name/)).toBeNull();
+  });
+
+  it('locks the design select once the first round is printed', async () => {
+    serveLists(
+      [template(), template({ id: 't-2', name: 'Modern', is_default: false })],
+      [printer()],
+    );
+    servePreview();
+    vi.mocked(runPrint).mockResolvedValue(printResult(3));
+    const { user } = setup(ids(3));
+
+    const select = await screen.findByRole('combobox', { name: 'Design' });
+    expect(select.hasAttribute('disabled')).toBe(false);
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Print' }).disabled).toBe(false),
+    );
+    await user.click(screen.getByRole('button', { name: 'Print' }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole('combobox', { name: 'Design', hidden: true }).hasAttribute('disabled'),
+      ).toBe(true),
+    );
+    expect(screen.getByText("The design can't change once printing starts.")).toBeTruthy();
   });
 });
