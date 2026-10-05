@@ -4,28 +4,24 @@ import {
   AppShell,
   BottomNav,
   Breadcrumbs,
+  LocaleSwitcher,
+  NotificationBell,
   SyncStatusIndicator,
   TenantBar,
   ThemeToggle,
 } from '@biddaloy/ui/components';
-import { useDensity } from '@biddaloy/ui/hooks';
+import { hasPermission, useActiveRole, useDensity } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { RequireRole } from '@biddaloy/ui/routes';
-import { createFileRoute, Outlet } from '@tanstack/react-router';
-import {
-  BookOpenIcon,
-  CalendarClockIcon,
-  CalendarDaysIcon,
-  CreditCardIcon,
-  GraduationCapIcon,
-  HomeIcon,
-  MilestoneIcon,
-  MoreHorizontalIcon,
-  UserRoundIcon,
-} from 'lucide-react';
+import { createFileRoute, Outlet, useRouterState } from '@tanstack/react-router';
 import * as React from 'react';
 
+import { CommandPaletteLauncher } from '../components/command-palette-launcher';
+import { StaffUserMenu } from '../components/staff-user-menu';
+import { MORE_ICON, PORTAL_NAV_ICONS } from '../nav-icons';
+import { isPathUnder } from '../nav-tree';
 import { loadRouteNamespaces } from '../route-loaders';
+import { useActiveSchoolName } from '../use-active-school-name';
 import { useBreadcrumbs } from '../use-breadcrumbs';
 
 /**
@@ -41,10 +37,10 @@ import { useBreadcrumbs } from '../use-breadcrumbs';
  * to the server. Not a data leak — the server held — but a dead end,
  * because there was nowhere else to send them.
  *
- * A lighter shell than `_staff.tsx`: same `AppShell`, but no
- * `CommandPaletteLauncher` (staff search over students/receipts) and no
- * `NotificationBell` (staff notifications), because neither has a
- * guardian-scoped API behind it yet. `TenantBar` stays — a parent with
+ * Same `AppShell` rules as `_staff.tsx` (D33): one phone row, account menu,
+ * distinct icons. The palette runs in pages-only mode (it searches the
+ * portal's own nav items, no staff search API) and the bell reads the
+ * client-side store, so neither needs a guardian-scoped API. `TenantBar` stays — a parent with
  * children at two schools switches the same way staff do, and [8.9.11]'s
  * role switcher is how a dual-role user gets back to their staff view
  * without logging out.
@@ -63,17 +59,18 @@ export const Route = createFileRoute('/portal')({
   component: PortalLayout,
 });
 
-/** The four destinations `BottomNav` shows directly below `md`; every other
- * one is reachable through its `more` drawer. */
-const BOTTOM_NAV_PATHS = new Set([
-  '/portal',
-  '/portal/fees',
-  '/portal/attendance',
-  '/portal/results',
-]);
+/** The four destinations `BottomNav` shows directly below `md`, with their
+ * `bottomNavCells` short-label key; every other one is reachable through `more`. */
+const BOTTOM_NAV_CELLS: Record<string, string> = {
+  '/portal': 'overview',
+  '/portal/fees': 'fees',
+  '/portal/attendance': 'attendance',
+  '/portal/results': 'results',
+};
 
 function PortalLayout() {
   const { t } = useTranslation('nav');
+  const activeRole = useActiveRole();
 
   // [8.13.8] Comfortable density (contract section 6): one attribute lifts
   // every control under the guardian shell to the 44 px WCAG SC 2.5.5 target,
@@ -116,19 +113,16 @@ function PortalLayout() {
     {
       to: '/portal',
       label: t('items.portalOverview'),
-      icon: <HomeIcon className="size-5" aria-hidden="true" />,
       permission: Permission.FEE_READ,
     },
     {
       to: '/portal/fees',
       label: t('items.portalFees'),
-      icon: <CreditCardIcon className="size-5" aria-hidden="true" />,
       permission: Permission.INVOICE_READ,
     },
     {
       to: '/portal/attendance',
       label: t('items.portalAttendance'),
-      icon: <CalendarDaysIcon className="size-5" aria-hidden="true" />,
       // [9.9] No `permission`: attendance's family-facing reads
       // (`AttendanceSummaryController`) are gated with `@Roles(...,
       // PARENT, STUDENT)` directly, not a `Permission` — there is no
@@ -139,13 +133,11 @@ function PortalLayout() {
     {
       to: '/portal/routine',
       label: t('items.portalRoutine'),
-      icon: <CalendarClockIcon className="size-5" aria-hidden="true" />,
       permission: Permission.ROUTINE_READ,
     },
     {
       to: '/portal/calendar',
       label: t('items.portalCalendar'),
-      icon: <CalendarDaysIcon className="size-5" aria-hidden="true" />,
       // [17.5.2] Same reasoning as `/portal/attendance` above: family
       // visibility is role-gated server-side (`@Roles(..., PARENT,
       // STUDENT)`), not behind a `Permission`, so no `permission` here.
@@ -153,7 +145,6 @@ function PortalLayout() {
     {
       to: '/portal/results',
       label: t('items.portalResults'),
-      icon: <GraduationCapIcon className="size-5" aria-hidden="true" />,
       // [19.9.1] `StudentResultsController` gates on `RESULT_READ`, which
       // `ROLE_PERMISSIONS[PARENT]`/`[STUDENT]` both hold — same pattern as
       // `/portal/fees`'s `INVOICE_READ` above.
@@ -162,7 +153,6 @@ function PortalLayout() {
     {
       to: '/portal/programs',
       label: t('items.portalPrograms'),
-      icon: <MilestoneIcon className="size-5" aria-hidden="true" />,
       // [34.5.2] `StudentProgramsController` (D24) gates
       // `GET /students/:id/programs` on `PROGRAM_READ`, which
       // `ROLE_PERMISSIONS[PARENT]`/`[STUDENT]` both hold — same pattern as
@@ -172,7 +162,6 @@ function PortalLayout() {
     {
       to: '/portal/exam-schedule',
       label: t('items.portalExamSchedule'),
-      icon: <GraduationCapIcon className="size-5" aria-hidden="true" />,
       // [19.11.1] `StudentExamScheduleController` gates on `RESULT_READ`,
       // same as `/portal/results` above.
       permission: Permission.RESULT_READ,
@@ -180,19 +169,41 @@ function PortalLayout() {
     {
       to: '/portal/syllabus',
       label: t('items.portalSyllabus'),
-      icon: <BookOpenIcon className="size-5" aria-hidden="true" />,
       // [22.4.5] PARENT and STUDENT both hold `SYLLABUS_READ`.
       permission: Permission.SYLLABUS_READ,
     },
     {
+      to: '/portal/surveys',
+      label: t('items.portalSurveys'),
+      // No `permission`: `SurveyRespondController` is `@Roles(PARENT, STUDENT)`,
+      // the same role-gated case as `/portal/attendance` above.
+    },
+    {
       to: '/portal/account',
       label: t('items.portalAccount'),
-      icon: <UserRoundIcon className="size-5" aria-hidden="true" />,
       // [8.14.4] No `permission`: every signed-in role in this shell owns
       // its own account — this is the exact "everyone in the shell sees
       // it" case `app-shell.tsx`'s `NavItem.permission` documents.
     },
-  ];
+  ].map((item) => {
+    const Icon = PORTAL_NAV_ICONS[item.to]!;
+    return { ...item, icon: <Icon aria-hidden="true" /> };
+  });
+  const portalPages = navItems.map((i) => ({ id: i.to, label: i.label, to: i.to }));
+
+  // [31.3.2] Same "More" rule as the staff bar. `/portal` is an ancestor of
+  // every other path, so it only owns the exact path.
+  const pathname = useRouterState({ select: (st) => st.location.pathname });
+  const bottomItems = navItems
+    .filter((item) => item.to in BOTTOM_NAV_CELLS)
+    .map((item) => ({ ...item, label: t(`bottomNavCells.${BOTTOM_NAV_CELLS[item.to]}`) }));
+  const visibleCells = bottomItems.filter(
+    (i) => i.permission === undefined || hasPermission(activeRole, i.permission),
+  );
+  const moreActive = !visibleCells.some((i) =>
+    i.to === '/portal' ? pathname === '/portal' : isPathUnder(pathname, i.to),
+  );
+  const schoolName = useActiveSchoolName();
 
   return (
     <RequireRole allow={GUARDIAN_ROLES} redirectTo="/dashboard">
@@ -205,7 +216,11 @@ function PortalLayout() {
             end={
               <>
                 <SyncStatusIndicator />
+                <CommandPaletteLauncher pages={portalPages} />
+                <NotificationBell />
+                <LocaleSwitcher />
                 <ThemeToggle />
+                <StaffUserMenu securityTo="/portal/account" />
               </>
             }
           />
@@ -217,16 +232,24 @@ function PortalLayout() {
         // [19.11.1] Seven destinations overflow `BottomNav`'s 5-cell cap at
         // 320px (WCAG 1.4.10), so the bar keeps the four a parent opens most
         // plus `more`, which opens the drawer holding the full list — the
-        // staff shell's pattern. An empty `mobileHeaderActions` is what
-        // makes `AppShell` render that drawer at all (see its own comment).
-        mobileHeaderActions={<></>}
+        // staff shell's pattern. `mobileTitle` / `mobileActions` give the one
+        // 56 px phone row (D12).
+        mobileTitle={schoolName}
+        mobileActions={
+          <>
+            <CommandPaletteLauncher pages={portalPages} />
+            <NotificationBell />
+            <StaffUserMenu securityTo="/portal/account" />
+          </>
+        }
         bottomNav={
           <BottomNav
-            items={navItems.filter((item) => BOTTOM_NAV_PATHS.has(item.to))}
+            items={bottomItems}
             label={t('bottomNavLabel')}
             more={{
               label: t('items.more'),
-              icon: <MoreHorizontalIcon className="size-5" aria-hidden="true" />,
+              icon: <MORE_ICON className="size-5" aria-hidden="true" />,
+              active: moreActive,
             }}
           />
         }
