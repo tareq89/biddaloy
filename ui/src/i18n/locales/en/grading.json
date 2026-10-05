@@ -61,7 +61,8 @@
     "leaveTitle": "Leave without saving?",
     "leaveText": "Your grade changes are not saved yet and will be lost.",
     "stay": "Stay",
-    "leave": "Leave anyway"
+    "leave": "Leave anyway",
+    "previewError": "Couldn't check the grades. Please try again."
   },
   "bandEditor": {
     "columnFrom": "From (%)",
@@ -78,7 +79,8 @@
     "columnRow": "Row",
     "cellLabel": "Row {{row}} — {{column}}",
     "cardTitle": "{{grade}} · {{from}}–{{to}}%",
-    "enterHint": "Press <k>Enter</k> in the last row's grade to add a row."
+    "enterHint": "Press <k>Enter</k> in the last row's grade to add a row.",
+    "cardTitleNoGrade": "{{from}}–{{to}}%"
   },
   "coverageBar": {
     "label": "Grade ranges from 0 to 100 percent",
@@ -139,7 +141,6 @@
     "studentCount_other": "{{n}} students",
     "keyboardHelp": "Type a mark and press <k>Enter</k> to move down. Press <k>A</k> for absent, <k>E</k> for exempt. Press <k>Ctrl+Enter</k> to submit when done.",
     "submittedAt": "Submitted on {{time}}. Only an admin can reopen it.",
-    "submittedAtBy": "Submitted by {{name}} on {{time}}. Only an admin can reopen it.",
     "reopen": "Reopen",
     "leaveTitle": "Leave without saving?",
     "leaveText_one": "{{n}} change is not saved yet and will be lost.",
@@ -148,7 +149,9 @@
     "saveError_one": "{{n}} change not saved — retrying",
     "saveError_other": "{{n}} changes not saved — retrying",
     "blankCount_one": "{{n}} blank cell will be submitted as-is.",
-    "blankCount_other": "{{n}} blank cells will be submitted as-is."
+    "blankCount_other": "{{n}} blank cells will be submitted as-is.",
+    "submitError": "Couldn't submit this marks list. Please try again.",
+    "reopenError": "Couldn't reopen this marks list. Please try again."
   },
   "resultsPage": {
     "subtitle": "Pick an exam, work out its results, then publish them.",
@@ -182,13 +185,14 @@
     "columnResult": "Result",
     "reasonFailed": "Failed: {{subjects}}",
     "reasonAbsent": "Absent: {{subjects}}",
-    "gradeCount": "{{grade}}: {{count}}",
+    "gradeCount": "{{grade}}: {{n}}",
     "notProcessedTitle": "Results are not ready yet",
     "notProcessedText": "Once the results are processed, the merit list, failed students and pass rates show here.",
     "openExam": "Open the exam",
     "noRowsTitle": "No results for this choice",
-    "noRowsText": "Try another section.",
+    "noRowsText": "There are no results to show yet.",
     "noDefaultersTitle": "Everyone passed",
-    "noDefaultersText": "No student failed or missed a subject in this exam."
+    "noDefaultersText": "No student failed or missed a subject in this exam.",
+    "noRowsSectionText": "Try another section."
   }
 }

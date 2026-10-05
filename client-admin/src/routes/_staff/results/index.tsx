@@ -35,7 +35,7 @@ import { ResultsPanel } from '../exams/-detail/results-panel';
 export const Route = createFileRoute('/_staff/results/')({
   loader: ({ context: { queryClient } }) =>
     Promise.all([
-      queryClient.ensureQueryData(examsQueryOptions({})).catch(swallowUnlessOffline),
+      queryClient.ensureQueryData(examsQueryOptions({ limit: 50 })).catch(swallowUnlessOffline),
       loadRouteNamespaces('exams', 'grading', 'common'),
     ]),
   pendingComponent: ResultsListPending,

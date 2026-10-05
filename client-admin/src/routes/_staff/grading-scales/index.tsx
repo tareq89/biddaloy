@@ -87,6 +87,16 @@ function GradingScalesListPage() {
     return years.find((year) => year.id === scale.academic_year_id)?.name ?? '—';
   }
 
+  function handleCreateOpenChange(open: boolean) {
+    setCreateOpen(open);
+    if (!open) {
+      createScale.reset();
+      setName('');
+      setAcademicYearId('');
+      setClassId(ALL_VALUE);
+    }
+  }
+
   function handleCreateSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!name.trim() || !academicYearId) return;
@@ -195,7 +205,7 @@ function GradingScalesListPage() {
       />
 
       {canManage && (
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <Dialog open={createOpen} onOpenChange={handleCreateOpenChange}>
           <DialogContent size="sm" closeLabel={t('actions.close', { ns: 'common' })}>
             <form onSubmit={handleCreateSubmit} className="flex flex-col gap-4">
               <DialogHeader>
@@ -229,7 +239,7 @@ function GradingScalesListPage() {
                   </span>
                 </Label>
                 <Select value={academicYearId} onValueChange={setAcademicYearId}>
-                  <SelectTrigger id="scale-year" className="w-full">
+                  <SelectTrigger id="scale-year" className="w-full" aria-required="true">
                     <SelectValue placeholder={t('createDialog.academicYearPlaceholder')} />
                   </SelectTrigger>
                   <SelectContent>
@@ -273,7 +283,11 @@ function GradingScalesListPage() {
                     {t('actions.cancel', { ns: 'common' })}
                   </Button>
                 </DialogClose>
-                <Button type="submit" loading={createScale.isPending}>
+                <Button
+                  type="submit"
+                  loading={createScale.isPending}
+                  disabled={!name.trim() || !academicYearId}
+                >
                   {createScale.isPending ? t('createDialog.saving') : t('createDialog.save')}
                 </Button>
               </DialogFooter>

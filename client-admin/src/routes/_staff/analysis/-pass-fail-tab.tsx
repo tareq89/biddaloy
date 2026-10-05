@@ -151,7 +151,7 @@ export function PassFailTab({
         <GradeChips
           distribution={row.grade_distribution}
           label={(grade, count) =>
-            tg('analysisPage.gradeCount', { grade, count: formatNumber(count, config) })
+            tg('analysisPage.gradeCount', { grade, n: formatNumber(count, config) })
           }
         />
       ),
@@ -202,13 +202,15 @@ export function PassFailTab({
     },
   ];
 
-  const subjectRows: Row[] = passFailQuery.data
-    ? [...passFailQuery.data.subjects, passFailQuery.data.overall]
-    : [];
+  // The overall row only makes sense next to subjects; with none, show the empty state.
+  const subjectRows: Row[] =
+    passFailQuery.data && passFailQuery.data.subjects.length > 0
+      ? [...passFailQuery.data.subjects, passFailQuery.data.overall]
+      : [];
   const emptyState = {
     icon: <ListXIcon />,
     title: tg('analysisPage.noRowsTitle'),
-    explanation: tg('analysisPage.noRowsText'),
+    explanation: sectionId ? tg('analysisPage.noRowsSectionText') : tg('analysisPage.noRowsText'),
   };
   const componentRows = componentQuery.data?.rows ?? [];
 
