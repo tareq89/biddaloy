@@ -63,8 +63,18 @@ function StatCell({
 }) {
   const stats = useAcademicYearStats(academicYearId);
   const regionConfig = useRegionConfig();
+  const { t } = useTranslation('academicYears');
   if (stats.isPending) return <Skeleton className="ms-auto h-3 w-6" />;
-  return <>{formatNumber(stats.data?.[field] ?? 0, regionConfig)}</>;
+  const value = stats.data?.[field];
+  if (stats.isError || value === undefined) {
+    return (
+      <>
+        <span aria-hidden="true">—</span>
+        <span className="sr-only">{t('detail.statsUnavailable')}</span>
+      </>
+    );
+  }
+  return <>{formatNumber(value, regionConfig)}</>;
 }
 
 function AcademicYearsListPage() {
@@ -171,7 +181,10 @@ function AcademicYearsListPage() {
             intent: 'edit',
             label: t('list.edit'),
             allowed: canManage,
-            onClick: () => setEditing(row),
+            onClick: () => {
+              updateYear.reset();
+              setEditing(row);
+            },
           },
           {
             intent: 'delete',
@@ -193,7 +206,7 @@ function AcademicYearsListPage() {
           icon: <CalendarRangeIcon />,
           title: t('list.emptyMessage'),
           explanation: t('list.emptyExplanation'),
-          ...(canManage ? { action: { label: t('list.addYear'), onClick: openCreate } } : {}),
+          ...(canManage ? { action: { label: t('list.emptyAction'), onClick: openCreate } } : {}),
         }}
       />
 
