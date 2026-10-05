@@ -22,7 +22,7 @@ test.use(loggedIn('admin'));
 // hardcoded `{ en, bn }` pair, not a `t()` catalog key — the default e2e
 // locale is `bn` (`i18n.ts`'s `DEFAULT_LOCALE`), so this must match that
 // literal Bangla string exactly, not a translation lookup.
-const MARK_STAFF_ATTENDANCE_ACTION_LABEL = 'কর্মী হাজিরা নিন';
+const MARK_STAFF_ATTENDANCE_ACTION_LABEL = 'কর্মীর উপস্থিতি নিন';
 
 test('staff attendance + leave request/approval, keyboard only', async ({ page, request }) => {
   const session = await adminApiSession(request);
