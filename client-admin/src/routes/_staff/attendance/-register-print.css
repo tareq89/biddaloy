@@ -32,6 +32,12 @@
     width: 100%;
   }
 
+  /* The card wraps a scroll region; print must show every column. */
+  #attendance-register-print-area,
+  #attendance-register-print-area * {
+    overflow: visible;
+  }
+
   #attendance-register-print-area table {
     width: 100%;
     border-collapse: collapse;
