@@ -22,6 +22,7 @@
  * `0`, `+880`, or nothing at all.
  */
 import { zodResolver } from '@hookform/resolvers/zod';
+import { CircleAlertIcon } from 'lucide-react';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -141,133 +142,135 @@ export function GuardianContactForm({
   }
 
   return (
-    <Card className="flex flex-col gap-4 p-4">
-      <h2 className="text-sm font-semibold">{t('account.guardian.title')}</h2>
-      <p className="text-xs text-muted-foreground">{t('account.guardian.explanation')}</p>
+    <Card padded>
+      <h2 className="text-h2">{t('account.guardian.title')}</h2>
+      <p className="mt-1 text-text-secondary">{t('account.guardian.explanation')}</p>
       {serverError?.message && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="mt-3 flex items-center gap-1 text-caption text-destructive">
+          <CircleAlertIcon className="size-4" aria-hidden="true" />
           {serverError.message}
         </p>
       )}
       <Form {...form}>
-        <form
-          onSubmit={(event) => void form.handleSubmit(handleValidSubmit)(event)}
-          noValidate
-          className="flex flex-col gap-4"
-        >
-          <FormField
-            control={form.control}
-            name="phone"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="account-guardian-phone">
-                  {t('account.guardian.fields.phone')}
-                </FormLabel>
-                <FormControl>
-                  <PhoneInput
-                    {...field}
-                    id="account-guardian-phone"
-                    config={config}
-                    disabled={submitting}
-                    onValueChange={(value) => field.onChange(value)}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="alternate_phone"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="account-guardian-alternate-phone">
-                  {t('account.guardian.fields.alternatePhone')}
-                </FormLabel>
-                <FormControl>
-                  <PhoneInput
-                    {...field}
-                    id="account-guardian-alternate-phone"
-                    config={config}
-                    disabled={submitting}
-                    onValueChange={(value) => field.onChange(value)}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="account-guardian-email">
-                  {t('account.guardian.fields.email')}
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    id="account-guardian-email"
-                    type="email"
-                    autoComplete="email"
-                    disabled={submitting}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="preferred_communication"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel htmlFor="account-guardian-preferred-communication">
-                  {t('account.guardian.fields.preferredCommunication')}
-                </FormLabel>
-                <FormControl>
-                  <Select value={field.value} onValueChange={field.onChange} disabled={submitting}>
-                    <SelectTrigger id="account-guardian-preferred-communication">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PREFERRED_COMMUNICATION_OPTIONS.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {t(`account.guardian.preferredCommunicationOptions.${option}`)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="flex items-start gap-2">
-            <Checkbox
-              id="account-guardian-notifications-enabled"
-              checked={form.watch('notifications_enabled')}
-              onCheckedChange={(checked) =>
-                form.setValue('notifications_enabled', checked === true, { shouldDirty: true })
-              }
-              disabled={submitting}
+        <form onSubmit={(event) => void form.handleSubmit(handleValidSubmit)(event)} noValidate>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="account-guardian-phone">
+                    {t('account.guardian.fields.phone')}
+                  </FormLabel>
+                  <FormControl>
+                    <PhoneInput
+                      {...field}
+                      id="account-guardian-phone"
+                      config={config}
+                      disabled={submitting}
+                      onValueChange={(value) => field.onChange(value)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-            <label
-              htmlFor="account-guardian-notifications-enabled"
-              className="text-sm text-muted-foreground"
-            >
-              {t('account.guardian.fields.notificationsEnabled')}
-            </label>
+
+            <FormField
+              control={form.control}
+              name="alternate_phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="account-guardian-alternate-phone">
+                    {t('account.guardian.fields.alternatePhone')}
+                  </FormLabel>
+                  <FormControl>
+                    <PhoneInput
+                      {...field}
+                      id="account-guardian-alternate-phone"
+                      config={config}
+                      disabled={submitting}
+                      onValueChange={(value) => field.onChange(value)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="account-guardian-email">
+                    {t('account.guardian.fields.email')}
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      id="account-guardian-email"
+                      type="email"
+                      autoComplete="email"
+                      disabled={submitting}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="preferred_communication"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="account-guardian-preferred-communication">
+                    {t('account.guardian.fields.preferredCommunication')}
+                  </FormLabel>
+                  <FormControl>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={submitting}
+                    >
+                      <SelectTrigger id="account-guardian-preferred-communication">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PREFERRED_COMMUNICATION_OPTIONS.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {t(`account.guardian.preferredCommunicationOptions.${option}`)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="flex min-h-11 items-center gap-3 md:col-span-2">
+              <Checkbox
+                id="account-guardian-notifications-enabled"
+                checked={form.watch('notifications_enabled')}
+                onCheckedChange={(checked) =>
+                  form.setValue('notifications_enabled', checked === true, { shouldDirty: true })
+                }
+                disabled={submitting}
+              />
+              <label htmlFor="account-guardian-notifications-enabled" className="text-text-primary">
+                {t('account.guardian.fields.notificationsEnabled')}
+              </label>
+            </div>
           </div>
 
-          <Button type="submit" loading={submitting} className="self-start">
-            {submitting ? t('account.guardian.saving') : t('account.guardian.save')}
-          </Button>
+          <div className="mt-4 flex justify-end border-t border-border-subtle pt-4">
+            <Button type="submit" loading={submitting} className="w-full md:w-auto">
+              {submitting ? t('account.guardian.saving') : t('account.guardian.save')}
+            </Button>
+          </div>
         </form>
       </Form>
     </Card>

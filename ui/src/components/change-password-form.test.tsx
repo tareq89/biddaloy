@@ -11,6 +11,16 @@ afterEach(async () => {
 });
 
 describe('ChangePasswordForm', () => {
+  it('[31.2.14a] titles the card with an h2 and a right-aligned auto-width submit', async () => {
+    renderWithProviders(<ChangePasswordForm onSubmit={vi.fn()} />, { locale: 'en' });
+    expect(
+      (await screen.findByRole('heading', { level: 2, name: 'Change password' })).tagName,
+    ).toBe('H2');
+    expect(screen.getByRole('button', { name: 'Change password' }).className).toContain(
+      'md:w-auto',
+    );
+  });
+
   it('submits { current_password, new_password } only — never the confirm field', async () => {
     const onSubmit = vi.fn();
     const user = userEvent.setup();

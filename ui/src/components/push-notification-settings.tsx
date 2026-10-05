@@ -10,6 +10,8 @@
  * `permission === 'unsupported'` renders a single explanatory line and
  * nothing else — no toggle, per #557's own acceptance criterion.
  */
+import { CircleAlertIcon } from 'lucide-react';
+
 import { useTranslation } from '../i18n';
 import { formatRelativeAge } from '../utils';
 
@@ -58,9 +60,9 @@ export function PushNotificationSettings({
 
   if (permission === 'unsupported') {
     return (
-      <Card className="flex flex-col gap-2 p-4">
-        <h2 className="text-sm font-medium">{t('settings.title')}</h2>
-        <p className="text-sm text-muted-foreground">{t('settings.unsupported')}</p>
+      <Card padded>
+        <h2 className="text-h2">{t('settings.title')}</h2>
+        <p className="mt-1 text-text-secondary">{t('settings.unsupported')}</p>
       </Card>
     );
   }
@@ -70,10 +72,10 @@ export function PushNotificationSettings({
   const otherDevices = (subscriptions ?? []).filter((row) => row.id !== thisDeviceSubscriptionId);
 
   return (
-    <Card className="flex flex-col gap-4 p-4">
-      <h2 className="text-sm font-medium">{t('settings.title')}</h2>
+    <Card padded>
+      <h2 className="text-h2">{t('settings.title')}</h2>
 
-      <div className="flex items-start gap-3">
+      <div className="mt-3 flex min-h-11 items-start gap-3 text-start">
         <Checkbox
           id="push-toggle-this-device"
           checked={isSubscribedOnThisDevice}
@@ -82,7 +84,7 @@ export function PushNotificationSettings({
         />
         <div className="flex flex-col gap-1">
           <Label htmlFor="push-toggle-this-device">{t('settings.toggleLabel')}</Label>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-text-secondary">
             {permission === 'denied'
               ? t('settings.denied')
               : isSubscribedOnThisDevice
@@ -92,26 +94,26 @@ export function PushNotificationSettings({
         </div>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-3 flex items-center gap-1 text-caption text-destructive">
+          <CircleAlertIcon className="size-4" aria-hidden="true" />
+          {error}
+        </p>
+      )}
 
-      <div className="flex flex-col gap-2">
-        <h3 className="text-xs font-medium text-muted-foreground uppercase">
-          {t('settings.otherDevices')}
-        </h3>
+      <div className="mt-4 flex flex-col gap-2">
+        <h3 className="text-label text-text-secondary">{t('settings.otherDevices')}</h3>
         {loading ? (
           <Skeleton className="h-14 w-full rounded-lg" />
         ) : otherDevices.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('settings.noOtherDevices')}</p>
+          <p className="text-text-secondary">{t('settings.noOtherDevices')}</p>
         ) : (
-          <div className="flex flex-col gap-2">
+          <ul className="mt-3 divide-y divide-border-subtle border-t border-border-subtle">
             {otherDevices.map((row) => (
-              <div
-                key={row.id}
-                className="flex items-center justify-between gap-3 rounded-lg border border-border-subtle bg-card p-3"
-              >
+              <li key={row.id} className="flex items-center justify-between gap-3 py-3">
                 <div className="flex flex-col">
-                  <span className="text-sm">{row.user_agent ?? t('settings.unknownDevice')}</span>
-                  <span className="text-xs text-muted-foreground">
+                  <span>{row.user_agent ?? t('settings.unknownDevice')}</span>
+                  <span className="text-caption text-text-secondary">
                     {row.last_used_at
                       ? t('settings.lastUsed', {
                           when: formatRelativeAge(new Date(row.last_used_at).getTime(), locale),
@@ -128,9 +130,9 @@ export function PushNotificationSettings({
                 >
                   {t('settings.remove')}
                 </Button>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
     </Card>
