@@ -134,7 +134,9 @@ Example, a Monday in the demo school (`yarn seed` creates exactly this):
 ```
 
 Only the whole-day register counts here; a period register on the same date
-never shows up in `today`.
+never shows up in `today`. A future `date` is 422 `ATTENDANCE_FUTURE_DATE`
+(the same rule as saving a register) unless the school has `allowFutureDates`
+on.
 
 ### Saving a whole month: `PUT /attendance/sections/:id/register-matrix`
 
@@ -146,7 +148,10 @@ whole save, so the grid never half-saves.
 flowchart TD
     S[PUT register-matrix] --> V{Valid shape?<br/>one month, no duplicate days,<br/>body under 1 MB}
     V -- no --> E400[400 / 413]
-    V -- yes --> L{Any day in the future<br/>or not a school day?}
+    V -- yes --> R{client_request_id already<br/>stored on these days?}
+    R -- on every day --> RP[200 replay, nothing written]
+    R -- on only some --> ER[409 ATTENDANCE_MATRIX_REQUEST_REUSED + dates]
+    R -- on none --> L{Any day in the future<br/>or not a school day?}
     L -- yes --> E422[422 ATTENDANCE_MATRIX_LOCKED_DATE + dates]
     L -- no --> C{Any day's base_version<br/>differs from the stored one?}
     C -- yes --> E409[409 ATTENDANCE_MATRIX_CONFLICT + dates]
@@ -165,6 +170,19 @@ Things worth knowing:
   `DRAFT`**. An existing register keeps its state. A new day must carry at
   least one mark, because a finalized empty day could only be fixed with
   `ATTENDANCE_CORRECT`.
+- **Send only the days you changed.** Every day in the request is checked as
+  a correction, even if its marks are the same. So a `FINALIZED` day in the
+  request is rejected (403 `ATTENDANCE_WINDOW_CLOSED`) unless the caller holds
+  `ATTENDANCE_CORRECT` and gives a `reason`.
+- `client_request_id` is one key for the whole request. A replay (the id is
+  already on every day) returns 200 and writes nothing. If the id is on only
+  some of the days, it was reused for a different save: 409
+  `ATTENDANCE_MATRIX_REQUEST_REUSED`, nothing written.
+- The grid sends a status only. A **new** `LATE` mark is saved with
+  `minutes_late = NULL` (a mark that was already `LATE` keeps its minutes). A
+  fine rule with `min_minutes_late` still counts a `NULL` (see
+  [section 9](#9-attendance-fines)). **Open product question:** should a
+  grid-entered `LATE` count toward a minimum-minutes rule? Kept as-is for now.
 - It never touches period registers and never queues a guardian notification.
 - JSON bodies are capped at 1 MB (`JSON_BODY_LIMIT`, `server/src/body-parser.ts`),
   which is far above a 31-day section grid.
@@ -506,10 +524,47 @@ value. Fields you send replace the stored value whole. So sending
 `shiftTimes: []` clears every shift, and sending one entry removes the
 others.
 
+Example: an older settings form that knows nothing about shifts or period
+registers sends the whole `attendance` object it knows, without those two keys.
+
 ```jsonc
-// stored:  { "lateAfter": "08:15", "shiftTimes": [{ "shiftId": "day", ... }], "periodAttendance": { "enabled": true } }
-// PATCH:   { "attendance": { "lateAfter": "08:30" } }
-// result:  { "lateAfter": "08:30", "shiftTimes": [{ "shiftId": "day", ... }], "periodAttendance": { "enabled": true } }
+// stored
+{
+  "attendance": {
+    "weeklyOffDays": [5], "lateAfter": "08:15", "absentAfter": "10:00",
+    "shiftTimes": [
+      { "shiftId": "0b6f8a52-3c1e-4d7a-9f20-5e8c1a2b3c4d", "lateAfter": "07:45", "absentAfter": "09:30" }
+    ],
+    "periodAttendance": { "enabled": true }
+  }
+}
+
+// PATCH /schools/:id/settings — every attendance field except shiftTimes and periodAttendance
+{
+  "version": 1,
+  "attendance": {
+    "weeklyOffDays": [5], "lateAfter": "08:30", "absentAfter": "10:00",
+    "correctionWindowDays": 2, "lowAttendanceThresholdPercent": 75,
+    "lateCountsAsPresent": true, "leaveCountsAsWorkingDay": false,
+    "percentageDenominator": "WORKING_DAYS", "allowFutureDates": false,
+    "autoAbsentNotification": { "enabled": false, "cutoffTime": "11:00" }
+  }
+}
+
+// result: lateAfter is now "08:30"; shiftTimes and periodAttendance are unchanged
+{
+  "attendance": {
+    "weeklyOffDays": [5], "lateAfter": "08:30", "absentAfter": "10:00",
+    "correctionWindowDays": 2, "lowAttendanceThresholdPercent": 75,
+    "lateCountsAsPresent": true, "leaveCountsAsWorkingDay": false,
+    "percentageDenominator": "WORKING_DAYS", "allowFutureDates": false,
+    "autoAbsentNotification": { "enabled": false, "cutoffTime": "11:00" },
+    "shiftTimes": [
+      { "shiftId": "0b6f8a52-3c1e-4d7a-9f20-5e8c1a2b3c4d", "lateAfter": "07:45", "absentAfter": "09:30" }
+    ],
+    "periodAttendance": { "enabled": true }
+  }
+}
 ```
 
 `yarn seed` turns `periodAttendance.enabled` on for the demo school, but only
@@ -529,7 +584,9 @@ The two triggers it reads from this module:
 - **`ATTENDANCE_LATE`** — counts `LATE` marks in the month; a rule can add
   `min_minutes_late` to only count a `LATE` mark once its `minutes_late`
   crosses that number (a `LATE` with `minutes_late` still `NULL` always
-  counts — see D23 in 04's decisions table).
+  counts — see D23 in 04's decisions table). The month grid always saves a
+  new `LATE` with `NULL` minutes, so with such a rule every grid-entered
+  `LATE` counts. Whether it should is an open product question.
 
 ## 10. Streaks
 

@@ -15,12 +15,14 @@ function toPatch(plain: Record<string, unknown>): Record<string, unknown> {
 
 describe('mergeTenantSettings', () => {
   it('shallow-merges attendance: omitted keys survive, sent keys replace', () => {
+    const MORNING = '0b6f8a52-3c1e-4d7a-9f20-5e8c1a2b3c4d';
+    const DAY = '7d2e9c41-8a5b-4f3e-b1c6-2a9d8e7f6b5a';
     const existing = {
       version: 1,
       attendance: {
         lateAfter: '09:00',
         absentAfter: '10:00',
-        shiftTimes: { Morning: { start: '08:00' } },
+        shiftTimes: [{ shiftId: MORNING, lateAfter: '08:15', absentAfter: '10:00' }],
         periodAttendance: { enabled: true },
       },
     };
@@ -32,17 +34,17 @@ describe('mergeTenantSettings', () => {
     expect(kept.attendance).toEqual({
       lateAfter: '09:30',
       absentAfter: '10:30',
-      shiftTimes: { Morning: { start: '08:00' } },
+      shiftTimes: [{ shiftId: MORNING, lateAfter: '08:15', absentAfter: '10:00' }],
       periodAttendance: { enabled: true },
     });
 
     const replaced = mergeTenantSettings(existing, {
       version: 1,
-      attendance: { shiftTimes: { Day: { start: '09:00' } } },
+      attendance: { shiftTimes: [{ shiftId: DAY, lateAfter: '09:15', absentAfter: '11:00' }] },
     });
-    expect((replaced.attendance as Record<string, unknown>).shiftTimes).toEqual({
-      Day: { start: '09:00' },
-    });
+    expect((replaced.attendance as Record<string, unknown>).shiftTimes).toEqual([
+      { shiftId: DAY, lateAfter: '09:15', absentAfter: '11:00' },
+    ]);
   });
 
   it('starts from an empty object when nothing was stored yet', () => {

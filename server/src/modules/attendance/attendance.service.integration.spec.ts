@@ -829,10 +829,21 @@ describe('AttendanceService (integration)', () => {
       expect(items.find((x) => x.section_id === other.sectionId)!.is_working_day).toBe(true);
     });
 
-    it('refuses a future date with ATTENDANCE_FUTURE_DATE', async () => {
+    it('refuses a future date with 422 ATTENDANCE_FUTURE_DATE', async () => {
       await expect(adminList(FUTURE())).rejects.toMatchObject({
+        status: 422,
         response: { details: { code: 'ATTENDANCE_FUTURE_DATE' } },
       });
+    });
+
+    it('lists a future date when the tenant allows future dates', async () => {
+      await setTenantSettings(TENANT_ID, {
+        weeklyOffDays: [],
+        correctionWindowDays: 2,
+        allowFutureDates: true,
+      });
+      const items = await adminList(FUTURE());
+      expect(items.some((x) => x.section_id === sectionId)).toBe(true);
     });
 
     it('refuses a future date even for a caller with no sections', async () => {

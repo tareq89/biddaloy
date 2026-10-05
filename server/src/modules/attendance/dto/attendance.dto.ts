@@ -46,7 +46,8 @@ export class QueryRegisterDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  @Max(30)
+  @Min(0)
+  @Max(32767) // PeriodSlot.sequence is a smallint
   period_no?: number;
 }
 
@@ -89,7 +90,8 @@ export class PutRegisterDto {
 
   @IsOptional()
   @IsInt()
-  @Max(30)
+  @Min(0)
+  @Max(32767) // PeriodSlot.sequence is a smallint
   period_no?: number | null;
 
   /** The `session.version` this write was based on — `0` when no session
@@ -171,6 +173,15 @@ export class PutRegisterMatrixDto {
   @SanitizeText()
   reason?: string;
 
+  @ApiProperty({
+    type: MatrixDayDto,
+    isArray: true,
+    description:
+      'Send only the days you changed. A FINALIZED day in the request is rejected (403 ' +
+      'ATTENDANCE_WINDOW_CLOSED) unless the caller holds ATTENDANCE_CORRECT and gives a reason, ' +
+      'even if its marks are unchanged. A new LATE mark is saved with minutes_late = null, ' +
+      'and a fine rule with a minimum-minutes condition still counts it.',
+  })
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(31)
@@ -190,7 +201,8 @@ export class FinalizeRegisterDto {
 
   @IsOptional()
   @IsInt()
-  @Max(30)
+  @Min(0)
+  @Max(32767) // PeriodSlot.sequence is a smallint
   period_no?: number | null;
 }
 

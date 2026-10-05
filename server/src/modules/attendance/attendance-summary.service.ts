@@ -680,7 +680,7 @@ export class AttendanceSummaryService {
             marked === 0
               ? null
               : computeAttendancePercentage(
-                  { ...c, working_days: held, marked_days: held },
+                  { ...c, working_days: held, marked_days: marked },
                   policy,
                 ),
         };
