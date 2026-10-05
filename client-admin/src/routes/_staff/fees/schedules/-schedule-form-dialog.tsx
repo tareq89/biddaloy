@@ -25,6 +25,7 @@ import {
   Button,
   Card,
   Checkbox,
+  ConfirmDialog,
   DatePicker,
   Input,
   Label,
@@ -52,7 +53,13 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { FullPageShell } from '@biddaloy/ui/shells';
-import { formatDate, formatNumber, formatServerAmount, parseServerDate } from '@biddaloy/ui/utils';
+import {
+  formatDate,
+  formatNumber,
+  formatServerAmount,
+  parseServerDate,
+  toLatinDigits,
+} from '@biddaloy/ui/utils';
 import { useQuery } from '@tanstack/react-query';
 import { CircleAlertIcon } from 'lucide-react';
 import * as React from 'react';
@@ -79,6 +86,7 @@ interface FormErrors {
   academicYear?: string;
   fees?: string;
   weekdays?: string;
+  dueDays?: string;
 }
 
 function toDateInput(date: Date): string {
@@ -211,7 +219,9 @@ function ScheduleFormPage({
     schedule?.rule.day_of_month ?? 1,
   );
   const [weekdays, setWeekdays] = React.useState<Weekday[]>(schedule?.rule.weekdays ?? []);
-  const [dueDays, setDueDays] = React.useState(schedule?.due_days_after_period_start ?? 7);
+  // Kept as text so a blank box stays blank (not 0) until the user is told it is required.
+  const [dueDays, setDueDays] = React.useState(String(schedule?.due_days_after_period_start ?? 7));
+  const [confirmingCancel, setConfirmingCancel] = React.useState(false);
   const [startsOn, setStartsOn] = React.useState<Date | undefined>(
     schedule ? parseServerDate(schedule.starts_on) : new Date(),
   );
@@ -243,7 +253,7 @@ function ScheduleFormPage({
   const dirty = snapshot() !== initialSnapshot.current;
 
   const feesQuery = useFeeStructures(
-    academicYearId !== '' ? { academic_year_id: academicYearId } : {},
+    academicYearId !== '' ? { academic_year_id: academicYearId, limit: 100 } : {},
   );
   const classesQuery = useClasses(
     academicYearId !== '' ? { academic_year_id: academicYearId } : {},
@@ -285,7 +295,17 @@ function ScheduleFormPage({
     if (feeIds.length === 0) next.fees = t('schedules.form.feesRequired');
     if (ruleKind === 'WEEKLY' && weekdays.length === 0)
       next.weekdays = t('schedules.form.weekdaysRequired');
+    // Server: `@Max(60)` on due_days_after_period_start.
+    const dueDaysNumber = Number(dueDays);
+    if (dueDays.trim() === '') next.dueDays = t('schedules.form.dueDaysRequired');
+    else if (dueDaysNumber < 0 || dueDaysNumber > 60) {
+      next.dueDays = t('schedules.form.dueDaysRange');
+    }
     setErrors(next);
+    if (next.dueDays && !next.name && !next.academicYear && !next.fees && !next.weekdays) {
+      document.getElementById('schedule-form-due-days')?.focus();
+      return null;
+    }
     if (next.name || next.academicYear || next.fees || next.weekdays) {
       const firstInvalid = next.name
         ? 'schedule-form-name'
@@ -315,7 +335,7 @@ function ScheduleFormPage({
         ruleKind === 'MONTHLY'
           ? { kind: 'MONTHLY' as const, day_of_month: dayOfMonth }
           : { kind: 'WEEKLY' as const, weekdays },
-      due_days_after_period_start: dueDays,
+      due_days_after_period_start: dueDaysNumber,
       starts_on: toDateInput(startsOn ?? new Date()),
       ...(endsOn ? { ends_on: toDateInput(endsOn) } : {}),
       notify_families: notifyFamilies,
@@ -350,7 +370,11 @@ function ScheduleFormPage({
         onClick: () => handleSubmit(),
         busy: mutation.isPending,
       }}
-      secondary={{ label: t('schedules.form.cancel'), onClick: onClose }}
+      // Cancel asks first when something changed, same as Close / Esc.
+      secondary={{
+        label: t('schedules.form.cancel'),
+        onClick: () => (dirty ? setConfirmingCancel(true) : onClose()),
+      }}
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card padded>
@@ -604,12 +628,17 @@ function ScheduleFormPage({
               id="schedule-form-due-days"
               label={t('schedules.form.dueDaysLabel')}
               help={t('schedules.form.dueDaysHelp')}
+              error={errors.dueDays}
             >
               <Input
                 id="schedule-form-due-days"
                 inputMode="numeric"
-                value={String(dueDays)}
-                onChange={(event) => setDueDays(Number(event.target.value.replace(/\D/g, '')))}
+                value={dueDays}
+                // Bangla digits are converted, not stripped.
+                onChange={(event) =>
+                  setDueDays(toLatinDigits(event.target.value).replace(/\D/g, ''))
+                }
+                {...invalidProps('schedule-form-due-days', errors.dueDays)}
               />
             </Field>
             <div className="hidden md:block" />
@@ -693,6 +722,19 @@ function ScheduleFormPage({
           </p>
         )}
       </form>
+      <ConfirmDialog
+        open={confirmingCancel}
+        onOpenChange={setConfirmingCancel}
+        tone="danger"
+        title={t('fullPage.discardTitle', { ns: 'common' })}
+        description={t('fullPage.discardDescription', { ns: 'common' })}
+        confirmLabel={t('fullPage.discardConfirm', { ns: 'common' })}
+        cancelLabel={t('fullPage.keepEditing', { ns: 'common' })}
+        onConfirm={() => {
+          setConfirmingCancel(false);
+          onClose();
+        }}
+      />
     </FullPageShell>
   );
 }
