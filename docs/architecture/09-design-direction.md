@@ -1290,7 +1290,7 @@ Canonical instance: `ui/src/primitives/button.tsx:54`.
 | Component                                                                                         | Deviation                                                              | Why allowed                                                                                                                                                                                                                                                    |
 | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ui/src/components/skip-link.tsx:24`                                                              | No `ring-offset-*`                                                     | The link renders `focus-visible:fixed` at the page's own top-left corner — there is no surrounding surface to offset against.                                                                                                                                  |
-| `ui/src/components/global-search.tsx:193`                                                         | `focus-visible:ring-0`                                                 | The ring would draw inside the combobox's own chrome, doubling up with the input's existing border.                                                                                                                                                            |
+| `ui/src/components/command-palette.tsx` (search input)                                            | `focus-visible:ring-0`                                                 | The ring would draw inside the combobox's own chrome, doubling up with the input's existing border.                                                                                                                                                            |
 | Date-picker popover day cells, `ui/src/components/date-picker.tsx` (`PopoverContent`, grid cells) | `ring-offset-popover` plus `focus-visible:relative focus-visible:z-10` | The offset must match the surface the cell sits on (the popover, not the page), and neighbouring day cells in the same grid would clip an un-elevated ring.                                                                                                    |
 | Tabs trigger, `ui/src/primitives/tabs.tsx:72`                                                     | Adds `focus-visible:z-10` on top of the canonical string               | See "the `z-10` decision" below.                                                                                                                                                                                                                               |
 | Menu items                                                                                        | `focus:bg-accent` instead of a ring                                    | Roving focus inside a floating menu reads as a filled row, not a ring around one — a ring on every item in a tight list is visually noisier than a fill, and collides with §3.3's white-on-white hazard (`:393`) if the fill and the ring ever share a colour. |
@@ -1398,13 +1398,39 @@ sort and match together. This was verified on `postgres:16-alpine`
 
 ### 13.4 — Page-size and filter defaults (#374)
 
+Page size is **not** set per route. `PAGE_SIZE_OPTIONS` (`[25, 50, 100]`,
+`ui/src/utils/page-size.ts`) is the one list, the default is 25, and the list-state
+hook (`useListShellState`) owns it. A route does not pass its own.
+
 `client-admin/src/routes/_staff/classes/index.tsx` uses a `__all__` sentinel
-value (`:53`) so a `SelectFilterField` can represent "no filter applied"
+value (`ALL_VALUE`) so a `SelectFilterField` can represent "no filter applied"
 without needing a separate `disabled` prop on the field itself — the field
 doesn't natively support one, so #374 approximated a conditionally-enabled
 filter with an empty options array instead, because changing
 `filter-bar.tsx`'s own internals was out of #374's scope. Named follow-up
 candidate, not a bug — see §17.7.
+
+### 13.5 — Row actions and the table count (D19, C12)
+
+Doc 21 owns the component rules ([`RowActions`](21-ui-patterns.md#10-component-catalogue),
+[lists](21-ui-patterns.md#5-lists-and-tables)). The short version:
+
+- Row actions are **icon buttons with a tooltip**, coloured by intent
+  (view and print neutral, edit brand, pay and approve success, delete and reject danger).
+- **At most 3 icons**, then a "More" menu; delete sits last, below a separator.
+- Phone cards show the **same actions with a visible label** (there is no hover).
+- Every table shows its count: `Showing 1–25 of 312` when paginated, `Total 12` when not.
+- Page sizes are `[25, 50, 100]`, default 25, owned by the list-state hook (C15).
+- An empty table is an empty state with no pager.
+
+```tsx
+const rowActions = (row: Student): RowAction[] => [
+  { intent: 'view', label: 'View', to: `/students/${row.id}` },
+  { intent: 'edit', label: 'Edit', to: `/students/${row.id}/edit`, allowed: canEdit },
+  { intent: 'delete', label: 'Delete', onClick: () => askDelete(row), allowed: canDelete },
+];
+// <DataTable rowActions={rowActions} … />   (labels are translated in real code)
+```
 
 ## 14. i18n defaults in `ui/`
 
@@ -1427,6 +1453,15 @@ How a status label resolves, concretely:
 **Guard, and its known gap.** #458's own phase 15b added a
 `no-hardcoded-jsx-text` ESLint rule that catches literal JSX text, but it
 does not catch every remaining site — see §17.5, `#467`.
+
+### Formats (D5–D8)
+
+Every date, time, number and phone on screen goes through one function in
+`ui/src/utils`: long dates (`9th September, 2026`), the school's numerals, 12-hour
+time, phones as `01711-000004`. Latin digits stay only in things a person copies or
+dials (D6). The table of functions, examples and Bangla variants is in
+[21-ui-patterns.md §7](21-ui-patterns.md#7-formats--one-function-each-uisrcutils) —
+it is not repeated here.
 
 ## 15. Route and action access states
 
@@ -1475,27 +1510,43 @@ authorisation contract on its own has read it wrong — see §17.4.
 
 **Sources: #365, #366, #367, #368, #369, #370.**
 
-- **Sidebar active state (#365).** `ui/src/components/app-shell.tsx:208-213`
-  uses TanStack Router's `activeProps` to add `aria-current="page"` plus a
-  filled background on the current route's own link; inactive links get
-  `text-muted-foreground hover:bg-accent hover:text-foreground` (`:213`).
+- **Sidebar active state (#365, D10, C11).** Exactly **one** item is active:
+  the most specific match wins (`pickActiveNavTo` in
+  `ui/src/components/app-shell.tsx`; `/exams/templates` lights "Exam templates",
+  not "Exams"). The active look is `bg-secondary font-semibold text-secondary-foreground`
+  with `aria-current="page"`. Groups re-open when you navigate into one.
+- **Phone top bar (D12).** One sticky 56 px row: menu button and school name on the
+  left; search, bell and account on the right (`mobileTitle` / `mobileActions` on
+  `AppShell`). Language, theme and switch school live in the account menu.
+- **Drawer (D13).** A full-height sheet from the start edge with a sticky header:
+  brand left, a 44 px close button right that never scrolls away.
+- **Bottom bar (D14, C1, C8).** `fixed` to the bottom on phone; the page reserves
+  its height; hidden only inside a full-page modal; up to 4 cells plus "More";
+  never an empty or duplicate cell. Cells per role: `STAFF_BOTTOM_NAV` in
+  `client-admin/src/nav-tree.ts`.
+- **One shell for everyone (D33).** Portal and platform use the same `AppShell`
+  as staff; only their item lists differ.
+- **Pointer cursor (C24).** One global rule in `ui/src/styles/globals.css` gives
+  `cursor: pointer` to `button:not(:disabled)`, `[role='button']`, `[role='tab']`,
+  `[role='menuitem']`, `[role='menuitemradio']`, `[role='menuitemcheckbox']`,
+  `[role='option']`, `a[href]`, `summary` and `label[for]`, and `not-allowed` to
+  anything disabled. Never add `cursor-pointer` by hand.
+
+Each bullet above is spelled out, with markup and classes, in
+[21-ui-patterns.md §2](21-ui-patterns.md#2-anatomy-of-a-page); the code is
+`ui/src/components/app-shell.tsx`.
+
 - **Desktop header — identity, controls, sticky chrome (#366).** Header
   height is exposed as the `--app-header-h` CSS variable
   (`ui/src/components/app-shell.tsx:65`), which #369's view-transition and
   focus-restore logic depends on for scroll-offset math.
 - **Staff bottom-nav (#367).** `ui/src/components/bottom-nav.tsx` handles
   safe-area insets for devices with a home indicator.
-- **The profile-menu decision.** No staff `/account` route exists yet —
-  only the guardian-facing `/portal/account` (#368). The header comment at
-  `client-admin/src/components/staff-user-menu.tsx:8-16` records this as a
-  **user-approved deviation from the published plan**: the plan's own
-  "needs decision" section had picked "ship name/role/Sign out and leave
-  the profile row unset"; the user overrode that in favour of a
-  **placeholder, not an omission** — a disabled `MenuItem` renders in the
-  profile slot so the menu's shape doesn't change once a real staff
-  account page lands, and so the row doesn't silently disappear against
-  the epic's own header mockup, which shows one. Follow-up ticket to build
-  the actual page — see §17.6.
+- **The profile-menu decision.** There is no staff `/account` page, and the
+  menu no longer pretends there is one: the old disabled "profile" placeholder row
+  is gone. "My account" is the security page (`securityTo`: `/security`, or
+  `/portal/account` in the portal) —
+  `client-admin/src/components/staff-user-menu.tsx`.
 - **Portal account surface (#368).** `client-admin/src/routes/portal/account.tsx`.
 - **No-flash route transitions (#369, #370).** Route change plays a view
   transition (`ui/src/utils/view-transition.ts`) and restores focus to the
@@ -1556,13 +1607,13 @@ does not close them.
    remaining sites (`status-badge.stories.tsx`, `pagination.tsx`, `FeeType`
    and `TeacherDesignation` label sources, among others). Follow-up
    already filed as **#467**.
-6. **Staff account page does not exist.** §16's profile-menu placeholder
-   is deliberate, but it is a placeholder for a page that still needs to
-   be built. **Follow-up: #471.**
+6. **Staff account page does not exist.** §16's account menu points at the
+   security page instead; a real staff profile page still needs to be
+   built. **Follow-up: #471.**
 7. **Smaller accepted trade-offs**, one line each, "accepted, not
    scheduled":
    - `ring-offset-background`'s halo inside `TabsList` (§12).
-   - `app-shell.tsx:207`'s sidebar nav item uses `outline`, not `ring` —
+   - The sidebar nav item in `app-shell.tsx` (`NAV_LINK_BASE`) uses `outline`, not `ring` —
      a third undocumented focus vocabulary (§12).
    - `SelectFilterField` has no `disabled` prop, approximated with empty
      options arrays (§13.4).
@@ -1572,3 +1623,9 @@ does not close them.
    - `students.service.ts` and `guardians` list endpoints default
      `order=asc` when no sort param is given, which is inconsistent with
      `users.service.ts`'s own pinned default sort (#373).
+
+## 18. Page grammar
+
+The page grammar lives in [21-ui-patterns.md](21-ui-patterns.md): page archetypes,
+dialog versus full-page modal, states, buttons, formats. The lint guards that
+enforce part of it are listed in [15-ux-principles.md §2](15-ux-principles.md).

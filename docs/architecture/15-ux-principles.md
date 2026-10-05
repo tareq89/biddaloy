@@ -10,15 +10,15 @@ Read all three before planning any screen.
 
 ## 1. The rules in one screen
 
-| #   | Rule                                            | What it means in practice                                                                                                                                                                                          |
-| --- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| U1  | **Every feature has one natural place.**        | Each screen is placed in the nav tree below (§3). Sub-features nest under their parent; nothing new is a top-level item unless a user job needs it. Every epic states _where each screen lives_ against this tree. |
-| U2  | **No silent gaps.**                             | Every registry that enumerates screens, entities or actions has a guard that **fails CI** when a new thing isn't registered (§2). A new screen may be wrong; it can never be _unchecked_.                          |
-| U3  | **Keyboard and accessibility are first-class.** | Every screen is fully keyboard-operable; the axe gate stays blocking; a keyboard-journey e2e ships with every new screen; a manual screen-reader pass closes every epic (§6).                                      |
-| U4  | **One palette, `Ctrl/Cmd+K`.**                  | Three tabs — _People · Page · Action_ — switchable by keyboard. Actions come from a registry, not from ad-hoc buttons (§4).                                                                                        |
-| U5  | **Breadcrumbs mirror the URL.**                 | Derived from the route tree, entity names when loaded, clickable, identical on every screen (§5).                                                                                                                  |
-| U6  | **Nothing new is unrecoverable.**               | Any epic that adds an entity ships its workbook tab (export + restore + round-trip test) and seed coverage in its wave-close ticket (§7).                                                                          |
-| U7  | **Reuse the shell, reuse the form.**            | New screens use `ui/src/shells/*` (list / detail / form / wizard). A palette action that opens a modal renders the _same_ form component as the page — never a second copy.                                        |
+| #   | Rule                                            | What it means in practice                                                                                                                                                                                                 |
+| --- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| U1  | **Every feature has one natural place.**        | Each screen is placed in the nav tree below (§3). Sub-features nest under their parent; nothing new is a top-level item unless a user job needs it. Every epic states _where each screen lives_ against this tree.        |
+| U2  | **No silent gaps.**                             | Every registry that enumerates screens, entities or actions has a guard that **fails CI** when a new thing isn't registered (§2). A new screen may be wrong; it can never be _unchecked_.                                 |
+| U3  | **Keyboard and accessibility are first-class.** | Every screen is fully keyboard-operable; the axe gate stays blocking; every nav group has one keyboard-journey spec and a new screen adds a test to its group's spec; a manual screen-reader pass closes every epic (§6). |
+| U4  | **One palette, `Ctrl/Cmd+K`.**                  | Three tabs — _People · Page · Action_ — switchable by keyboard. Actions come from a registry, not from ad-hoc buttons (§4).                                                                                               |
+| U5  | **Breadcrumbs mirror the URL.**                 | Derived from the route tree, entity names when loaded (a skeleton bar, never an id, while loading), clickable, shown only from 2 levels, identical on every screen (§5).                                                  |
+| U6  | **Nothing new is unrecoverable.**               | Any epic that adds an entity ships its workbook tab (export + restore + round-trip test) and seed coverage in its wave-close ticket (§7).                                                                                 |
+| U7  | **Reuse the shell, reuse the form.**            | New screens use `ui/src/shells/*` (list / detail / form / wizard). A palette action that opens a modal renders the _same_ form component as the page — never a second copy.                                               |
 
 ## 2. No silent gaps — the registries and their guards
 
@@ -36,18 +36,34 @@ flowchart LR
   T[Nav tree<br/>this doc §3] -->|every route has a home| N[navGroups / navItems]
   P[Palette action registry] -->|every action declares permission, kind, prefill| K[Ctrl+K › Action]
   I[i18n keys en/bn] -->|no missing key on any route| L[locale completeness]
+  U[UI source files] -->|no native picker, raw date, page max-width, bare actions column| X[ESLint ux-guards<br/>ui/eslint-rules/ux-guards.mjs]
+  D[Dialog files under client-admin/src/routes] -->|registered, allow-listed or deferred| P2[action-registry.test.ts]
 ```
 
-| Registry                                                                                    | Enumerates                                           | Guard today                                                                                                                                                                                                                                     | Guard required                                                                                                                                                                                                           | Owner     |
-| ------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| `e2e/route-manifest.json`                                                                   | Routes + overlays for the a11y and responsive suites | `client-admin/src/route-manifest.test.ts` — bidirectional diff between the manifest and the router's own route tree                                                                                                                             | fails on any route missing from the manifest, or any manifest entry with no matching route                                                                                                                               | Epic 30.0 |
-| `client-admin/src/route-permissions.ts` (`STAFF_ROUTE_PERMISSIONS`)                         | Which permission gates each staff route              | `client-admin/src/route-permissions.test.ts` — bidirectional diff between the map's keys and the router's route tree                                                                                                                            | fails closed: a route with no entry is refused to everyone, and the test still flags it so it's caught before merge                                                                                                      | Epic 30.0 |
-| Workbook tab registry (`server/src/modules/workbook/codec/registry.ts`)                     | Which entities export/restore                        | `registry.completeness.spec.ts` checks every entity in `ALL_ENTITIES` has a tab or sits in `entity-coverage.ts`'s explicit allowlist, with a reason                                                                                             | entity-level check: same as today                                                                                                                                                                                        | Epic 30.0 |
-| Nav tree (§3) → `navGroups`/`navItems`                                                      | Where every screen lives                             | `client-admin/src/nav-tree.test.ts` + `nav-not-in-nav.ts` — every route is either in the nav tree or on the explicit `NOT_IN_NAV` allowlist (auth pages, framework plumbing)                                                                    | fails if a route is reachable but appears in neither list                                                                                                                                                                | Epic 30.0 |
-| Palette action registry (`client-admin/src/action-registry.ts` + `unregistered-actions.ts`) | Every user-invocable palette action                  | **in review** — the Epic 30.4.2 PR adds `ACTIONS` (registered actions, each with a `run()` and a matching `STAFF_ROUTE_PERMISSIONS` entry) and `UNREGISTERED_ACTIONS` (dialogs not yet wired in, each tagged with the epic that owns wiring it) | once merged: a route-and-permission check on every `ACTIONS` entry, plus a stale-epic check on every `UNREGISTERED_ACTIONS` entry (see the registry table in [06-frontend-architecture.md](06-frontend-architecture.md)) | Epic 30.4 |
-| i18n locale files (`en`/`bn`)                                                               | Every user-visible string                            | `ui/scripts/check-i18n-keys.mjs`, blocking in CI ("UI missing-translation-key check", `.github/workflows/ci.yml:220`)                                                                                                                           | fails on a key present in one locale but not the other, or a `t()` call with no matching key in either locale                                                                                                            | Epic 8.7  |
-| Route breadcrumbs (`client-admin/src/route-crumbs.ts`)                                      | Breadcrumb label per route                           | **planned, not yet merged** — PR [#873](https://github.com/tareq89/biddaloy/pull/873) adds `route-crumbs.test.ts`, same bidirectional-diff shape as the two guards above                                                                        | once merged: fails if a route has no crumb entry, or an entry points at a route that no longer exists                                                                                                                    | Epic 30.0 |
-| Seed data                                                                                   | Demo/dev rows for every entity                       | wave-close convention                                                                                                                                                                                                                           | wave-close ticket checklist item; entity without seed fails the seed smoke test                                                                                                                                          | each epic |
+| Registry                                                                                    | Enumerates                                                                                 | Guard today                                                                                                                                                                                                                                                                                                                                                                       | Guard required                                                                                                      | Owner             |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `e2e/route-manifest.json`                                                                   | Routes + overlays for the a11y and responsive suites                                       | `client-admin/src/route-manifest.test.ts` — bidirectional diff between the manifest and the router's own route tree                                                                                                                                                                                                                                                               | fails on any route missing from the manifest, or any manifest entry with no matching route                          | Epic 30.0         |
+| `client-admin/src/route-permissions.ts` (`STAFF_ROUTE_PERMISSIONS`)                         | Which permission gates each staff route                                                    | `client-admin/src/route-permissions.test.ts` — bidirectional diff between the map's keys and the router's route tree                                                                                                                                                                                                                                                              | fails closed: a route with no entry is refused to everyone, and the test still flags it so it's caught before merge | Epic 30.0         |
+| Workbook tab registry (`server/src/modules/workbook/codec/registry.ts`)                     | Which entities export/restore                                                              | `registry.completeness.spec.ts` checks every entity in `ALL_ENTITIES` has a tab or sits in `entity-coverage.ts`'s explicit allowlist, with a reason                                                                                                                                                                                                                               | entity-level check: same as today                                                                                   | Epic 30.0         |
+| Nav tree (§3) → `navGroups`/`navItems`                                                      | Where every screen lives                                                                   | `client-admin/src/nav-tree.test.ts` + `nav-not-in-nav.ts` — every route is either in the nav tree or on the explicit `NOT_IN_NAV` allowlist (auth pages, framework plumbing)                                                                                                                                                                                                      | fails if a route is reachable but appears in neither list                                                           | Epic 30.0         |
+| Palette action registry (`client-admin/src/action-registry.ts` + `unregistered-actions.ts`) | Every user-invocable palette action, and every dialog file under `client-admin/src/routes` | `action-registry.test.ts`: every `ACTIONS` entry has a `run()`, a permission matching `STAFF_ROUTE_PERMISSIONS` (or a listed stricter exception) and a unique id; **every dialog file is in exactly one of three lists** (below); the page a `?flag=1` action lands on declares that flag. `unregistered-actions.test.ts` checks each deferred file exists and names an open epic | the three lists below                                                                                               | Epic 30.4, 31.5.1 |
+| i18n locale files (`en`/`bn`)                                                               | Every user-visible string                                                                  | `ui/scripts/check-i18n-keys.mjs`, blocking in CI ("UI missing-translation-key check", `.github/workflows/ci.yml:220`)                                                                                                                                                                                                                                                             | fails on a key present in one locale but not the other, or a `t()` call with no matching key in either locale       | Epic 8.7          |
+| Route breadcrumbs (`client-admin/src/route-crumbs.ts`)                                      | Breadcrumb label per route                                                                 | `client-admin/src/route-crumbs.test.ts` — same bidirectional-diff shape as the two guards above                                                                                                                                                                                                                                                                                   | fails if a route has no crumb entry, or an entry points at a route that no longer exists                            | Epic 30.0         |
+| UX lint guards (D37)                                                                        | Four mechanical UX rules on UI source                                                      | `ui/eslint-rules/ux-guards.mjs` — `no-native-picker`, `no-raw-date-display`, `no-page-max-width`, `row-actions-column`; the allow-list is each config block's `ignores` (`ui/eslint.config.mjs`, `client-admin/eslint.config.mjs`), one comment per entry; runs in CI lint (`yarn lint`), in pre-commit (`lint-staged`) and in pre-push (`yarn run check --affected`)             | a new violation fails lint; an entry leaves the allow-list only when its file is fixed                              | Epic 31.5.3       |
+| UI pattern contract                                                                         | Which component, page shape, format and wording a screen uses                              | [21-ui-patterns.md](21-ui-patterns.md) (the contract) and its "Known gaps" section                                                                                                                                                                                                                                                                                                | reviewed per ticket; the lint guards above enforce part of it                                                       | Epic 31.0         |
+| Seed data                                                                                   | Demo/dev rows for every entity                                                             | wave-close convention                                                                                                                                                                                                                                                                                                                                                             | wave-close ticket checklist item; entity without seed fails the seed smoke test                                     | each epic         |
+
+**The three palette lists** (every dialog file under `client-admin/src/routes` that holds `<Dialog`, `DialogContent`, `<Sheet`, `SheetContent` or `<FullPageShell` must be in exactly one):
+
+```mermaid
+flowchart LR
+  F["A dialog file in routes/"] --> Q{"Is it in the palette?"}
+  Q -->|"yes"| A["ACTIONS<br/>(registered: run() + permission;<br/>its file is in REGISTERED_ACTION_FILES)"]
+  Q -->|"no, on purpose"| W["PALETTE_ALLOW_LIST<br/>(one reason each)"]
+  Q -->|"no, not yet"| U["UNREGISTERED_ACTIONS<br/>(owed by an open epic; empty today)"]
+```
+
+If a file is in none of them, `action-registry.test.ts` fails with: `Dialog file(s) with no palette decision: client-admin/src/routes/_staff/x/-new-dialog.tsx. Fix: (1) register an action in ACTIONS and add its id to REGISTERED_ACTION_FILES, (2) add it to PALETTE_ALLOW_LIST with a reason, or (3) add it to UNREGISTERED_ACTIONS with an owning epic.`
 
 Concrete example of the rule applied: Epic 21.0 adds `/routines/class`.
 The wave-close ticket must (a) add it to the route manifest, (b) add it to
@@ -195,12 +211,9 @@ browser meaning** rather than switching tabs — the palette's search input
 is a `role="combobox"` that must keep focus for the whole interaction, and
 binding `Tab` inside it would break the browser's own focus-trap-escape
 that keyboard users rely on (`ui/src/components/command-palette.tsx`'s own
-comment block spells this out — **in review**, PR
-[epic/30/w4-g1-01-command-palette](https://github.com/tareq89/biddaloy/tree/epic/30/w4-g1-01-command-palette),
-not yet merged). The existing
-`ui/src/components/global-search.tsx` + `client-admin/src/components/global-search-launcher.tsx`
-is the base to generalise — it already has the keyboard model, role
-gating and per-entity capped requests.
+comment block spells this out). It is the whole palette:
+`CommandPaletteLauncher` (`client-admin/src/components/command-palette-launcher.tsx`)
+opens it from the top bar, and the old `global-search` files no longer exist.
 
 ```mermaid
 sequenceDiagram
@@ -238,31 +251,46 @@ sequenceDiagram
 Rules: no field-count restriction on modal actions — a modal may hold a
 whole flow (pick person → see applied fees → record). Modal actions render
 the same form component as the page (U7). Every action carries i18n labels
-in both locales. The actual seed list lives in
-`client-admin/src/action-registry.ts` (`ACTIONS` — actions already wired
-into the palette) and `client-admin/src/unregistered-actions.ts`
-(`UNREGISTERED_ACTIONS` — dialogs that exist in the app but aren't in the
-palette yet, each tagged with the epic that owns wiring it in); there is
-no separately-persisted "first 34 actions" list — that count was never
-more than a plan-time estimate.
+in both locales. The actual list lives in
+`client-admin/src/action-registry.ts` (`ACTIONS` — registered actions, each with
+a `run()` and a permission that matches `STAFF_ROUTE_PERMISSIONS` or a listed
+stricter exception) and `client-admin/src/unregistered-actions.ts`
+(`PALETTE_ALLOW_LIST` — dialog files deliberately not in the palette, one reason
+each — and `UNREGISTERED_ACTIONS` — dialogs deferred to an open epic). See the
+three-list diagram in §2.
+
+`run()` can land on a page with a one-shot search flag. Example: `classes.create`
+runs `navigate({ to: '/classes?new=1' })`; the Classes page opens its create
+dialog through the shared `useLandingFlag` hook, and closing the dialog clears
+only `new`, so list filters survive.
 
 ## 5. Breadcrumbs
 
 - Derived from the TanStack route tree, never hand-written per page.
-- Entity segments show the entity name once loaded (`Students › Rahim Uddin › Fees`), the ID as fallback while loading.
+- Entity segments show the entity name once loaded. While it loads, the crumb is a
+  skeleton bar (`h-3 w-24 rounded-sm bg-muted`) — **never an id** (D9). The tab
+  title (`document.title`) uses the parent label meanwhile.
+- The crumb row renders only when the trail has **2 or more crumbs**. A top-level
+  page starts at its `h1`.
 - Every crumb but the last is a link. The trail also feeds `document.title` (`Fees · Rahim Uddin · SchoolManager`).
 - Sits **above** the page title inside the shell header; on phones only the last two crumbs show.
-- Identical placement and behaviour on every screen — staff and portal.
+- Identical placement and behaviour on every screen — staff, portal and platform.
+
+```mermaid
+flowchart LR
+  A["/students"] --> B["1 crumb → no crumb row<br/>h1 'শিক্ষার্থী'"]
+  C["/students/&lt;id&gt;/fees"] --> D["শিক্ষার্থী › রহিম উদ্দিন › ফি<br/>(grey bar instead of the name while it loads)"]
+```
 
 ## 6. Accessibility and keyboard gates
 
-| Gate                                          | Today                                     | Rule                                                                                                 |
-| --------------------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| axe per route × locale × theme, plus overlays | blocking (`e2e/a11y/routes.a11y.spec.ts`) | stays blocking; manifest guard (§2) makes it complete                                                |
-| Keyboard journey per screen                   | some (`e2e/keyboard/*`)                   | one per new screen, in the wave-close ticket: open from nav, do the primary task, leave — mouse-free |
-| Focus vocabulary                              | 09-design-direction §12                   | unchanged                                                                                            |
-| Screen reader                                 | none                                      | manual VoiceOver/NVDA pass at every epic close, findings filed as issues                             |
-| Target size / reflow                          | blocking (`e2e/responsive/*`)             | unchanged                                                                                            |
+| Gate                                          | Today                                                                                                                                                       | Rule                                                                                                                                                                                                                    |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| axe per route × locale × theme, plus overlays | blocking (`e2e/a11y/routes.a11y.spec.ts`)                                                                                                                   | stays blocking; manifest guard (§2) makes it complete                                                                                                                                                                   |
+| Keyboard journey per nav group                | one spec per nav group (`e2e/keyboard/nav-<group>.spec.ts`: academics, administration, attendance, communications, exams-results, finance, people, reports) | one test per nav route: open it from the sidebar by keyboard, then open and close the page's primary task (or, where a page has none, check it is reachable) — mouse-free. A new screen adds a test to its group's spec |
+| Focus vocabulary                              | 09-design-direction §12                                                                                                                                     | unchanged                                                                                                                                                                                                               |
+| Screen reader                                 | none                                                                                                                                                        | manual VoiceOver/NVDA pass at every epic close, findings filed as issues                                                                                                                                                |
+| Target size / reflow                          | blocking (`e2e/responsive/*`)                                                                                                                               | unchanged                                                                                                                                                                                                               |
 
 ## 7. Backup and restore coverage
 
