@@ -6,6 +6,8 @@ import {
   noWindowAlertConfig,
   typeCheckedRules,
   typeCheckedTestOverrides,
+  uxControlsGuardConfig,
+  uxPageGuardConfig,
   waitForTextContentConfig,
 } from '@biddaloy/ui/eslint-config';
 import globals from 'globals';
@@ -88,6 +90,41 @@ export default tseslint.config(
   {
     files: ['src/**/*.{ts,tsx}'],
     ...noWindowAlertConfig,
+  },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: [
+      'src/**/*.test.{ts,tsx}',
+      // Follow-up: UTC `toISOString()` slices; `toIsoDate` is local-time, so the
+      // swap needs a per-site UTC-vs-local decision. (calendar/index.tsx is also
+      // lane-g1 territory, so it is not edited here.)
+      'src/routes/_staff/calendar/index.tsx',
+      'src/routes/portal/calendar.tsx',
+    ],
+    ...uxControlsGuardConfig,
+  },
+  {
+    files: [
+      'src/routes/**/*.tsx',
+      'src/pages/**/*.tsx',
+      'src/features/**/*.tsx',
+      'src/components/**/*.tsx',
+    ],
+    ignores: [
+      'src/**/*.test.tsx',
+      'src/components/print/editor/**', // desktop canvas editor, not redesigned (D2)
+      // False positive: a command-palette result group, not a table column.
+      'src/components/command-palette-launcher.tsx',
+      // Follow-up: dialogs/sheets sizing themselves with max-w-*; move to Dialog `size`.
+      'src/pages/curriculum-preset/PresetPreviewSheet.tsx',
+      'src/routes/_staff/staff/-detail/report-incident-dialog.tsx',
+      'src/routes/_staff/staff/-detail/start-acr-dialog.tsx',
+      // Follow-up: student form/import pages not yet on PageContainer.
+      'src/routes/_staff/students/$studentId_.edit.tsx',
+      'src/routes/_staff/students/-student-form.tsx',
+      'src/routes/_staff/students/import.tsx',
+    ],
+    ...uxPageGuardConfig,
   },
   {
     files: ['src/**/*.test.{ts,tsx}'],
