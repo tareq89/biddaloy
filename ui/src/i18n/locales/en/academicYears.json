@@ -2,21 +2,20 @@
   "list": {
     "title": "Academic Years",
     "caption": "Academic years",
-    "addYear": "Add year",
-    "columnYear": "Year",
-    "columnStartDate": "Start date",
-    "columnEndDate": "End date",
-    "columnCurrent": "Current",
+    "addYear": "Add academic year",
+    "columnYear": "Academic year",
+    "columnCurrent": "Status",
     "columnClasses": "Classes",
     "columnStudents": "Students",
-    "columnActions": "Actions",
     "edit": "Edit",
     "delete": "Delete",
     "setCurrent": "Set as current",
-    "emptyMessage": "No academic years found",
+    "emptyMessage": "No academic years yet",
     "errorMessage": "Failed to load academic years",
-    "announceResults_one": "{{visible}} of {{total}} academic year",
-    "announceResults_other": "{{visible}} of {{total}} academic years"
+    "subtitle": "One year is current at a time.",
+    "columnPeriod": "Period",
+    "view": "View",
+    "emptyExplanation": "Classes, fee structures and admissions belong to a year — add one first."
   },
   "form": {
     "createTitle": "Add academic year",
@@ -41,7 +40,6 @@
     "title": "Delete academic year",
     "description": "Delete \"{{name}}\"? This cannot be undone.",
     "confirm": "Delete",
-    "deleting": "Deleting…",
     "errorMessage": "Failed to delete academic year"
   },
   "setCurrentDialog": {
