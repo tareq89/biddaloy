@@ -9,8 +9,20 @@
     "columnKind": "ধরন",
     "columnStatus": "অবস্থা",
     "errorMessage": "পরীক্ষার তালিকা লোড করা যায়নি।",
-    "emptyMessage": "এখনো কোনো পরীক্ষা নেই।",
-    "announceResults": "{{total}} টির মধ্যে {{visible}} টি পরীক্ষা দেখানো হচ্ছে"
+    "announceResults": "{{total}} টির মধ্যে {{visible}} টি পরীক্ষা দেখানো হচ্ছে",
+    "subtitle": "প্রতিটি পরীক্ষা একটি শ্রেণি ও একটি শিক্ষাবর্ষের।",
+    "columnClass": "শ্রেণি",
+    "columnAcademicYear": "শিক্ষাবর্ষ",
+    "classLabel": "শ্রেণি",
+    "allClasses": "সব শ্রেণি",
+    "classNeedsYear": "আগে শিক্ষাবর্ষ বাছুন",
+    "view": "দেখুন",
+    "edit": "সম্পাদনা",
+    "emptyTitle": "এখনো কোনো পরীক্ষা নেই",
+    "emptyText": "প্রথম পরীক্ষা যোগ করলে নম্বর দেওয়া শুরু করা যাবে।",
+    "noMatchTitle": "এই ফিল্টারে কোনো পরীক্ষা নেই",
+    "noMatchText": "ফিল্টার বদলে আবার দেখুন।",
+    "clearFilters": "সব মুছুন"
   },
   "kind": {
     "TERM": "টার্ম",
@@ -31,14 +43,15 @@
     "namePlaceholder": "যেমন: অর্ধ-বার্ষিক ২০২৬",
     "kindLabel": "ধরন",
     "academicYearLabel": "শিক্ষাবর্ষ",
-    "academicYearPlaceholder": "একটি শিক্ষাবর্ষ নির্বাচন করুন",
+    "academicYearPlaceholder": "বাছুন",
     "classLabel": "শ্রেণি",
-    "classPlaceholder": "একটি শ্রেণি নির্বাচন করুন",
+    "classPlaceholder": "বাছুন",
     "errorNameRequired": "নাম আবশ্যক।",
     "errorAcademicYearClassRequired": "শিক্ষাবর্ষ ও শ্রেণি আবশ্যক।",
     "errorMessage": "পরীক্ষা সংরক্ষণ করা যায়নি।",
     "saving": "সংরক্ষণ হচ্ছে…",
-    "save": "সংরক্ষণ করুন"
+    "save": "সংরক্ষণ করুন",
+    "classNeedsYear": "আগে শিক্ষাবর্ষ বাছুন"
   },
   "detail": {
     "back": "পরীক্ষার তালিকায় ফিরে যান",
