@@ -1,15 +1,8 @@
-import {
-  Pagination,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@biddaloy/ui/components';
+import { DataTable, type DataTableColumn } from '@biddaloy/ui/components';
 import { useFeeStructures } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatServerAmount } from '@biddaloy/ui/utils';
+import { LayersIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { TabQueryState } from './tab-query-state';
@@ -18,7 +11,7 @@ export interface FeeStructuresTabProps {
   academicYearId: string;
 }
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 25;
 
 /** A year with more than a page's worth of fee structures must page
  * through the rest, not silently truncate at a fixed `limit` — see
@@ -36,52 +29,61 @@ export function FeeStructuresTab({ academicYearId }: FeeStructuresTabProps) {
   const [page, setPage] = React.useState(1);
   const query = useFeeStructures({ academic_year_id: academicYearId, page, limit: PAGE_SIZE });
 
+  const columns: DataTableColumn<NonNullable<typeof query.data>['data'][number]>[] = [
+    {
+      id: 'name',
+      header: t('detail.feeStructures.columnName'),
+      card: 'title',
+      accessorFn: (structure) => <span className="font-medium">{structure.name}</span>,
+    },
+    {
+      id: 'fee_type',
+      header: t('detail.feeStructures.columnType'),
+      card: 'field',
+      accessorFn: (structure) => t(`feeTypes.${structure.fee_type}`, { ns: 'feeStructures' }),
+    },
+    {
+      id: 'class',
+      header: t('detail.feeStructures.columnClass'),
+      card: 'field',
+      accessorFn: (structure) =>
+        structure.class === null ? t('detail.feeStructures.wholeSchool') : structure.class.name,
+    },
+    {
+      id: 'amount',
+      header: t('detail.feeStructures.columnAmount'),
+      align: 'end',
+      card: 'field',
+      accessorFn: (structure) => formatServerAmount(structure.amount, regionConfig),
+    },
+  ];
+
   return (
     <TabQueryState
       query={query}
       forbiddenMessage={t('detail.forbidden')}
       errorMessage={t('detail.feeStructures.errorMessage')}
     >
-      {(feeStructures) =>
-        feeStructures.data.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('detail.feeStructures.emptyMessage')}</p>
-        ) : (
-          <>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('detail.feeStructures.columnName')}</TableHead>
-                  <TableHead>{t('detail.feeStructures.columnType')}</TableHead>
-                  <TableHead>{t('detail.feeStructures.columnClass')}</TableHead>
-                  <TableHead>{t('detail.feeStructures.columnAmount')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {feeStructures.data.map((structure) => (
-                  <TableRow key={structure.id}>
-                    <TableCell>{structure.name}</TableCell>
-                    <TableCell>
-                      {t(`feeTypes.${structure.fee_type}`, { ns: 'feeStructures' })}
-                    </TableCell>
-                    <TableCell>
-                      {structure.class === null
-                        ? t('detail.feeStructures.wholeSchool')
-                        : structure.class.name}
-                    </TableCell>
-                    <TableCell>{formatServerAmount(structure.amount, regionConfig)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <Pagination
-              page={page}
-              pageSize={PAGE_SIZE}
-              totalCount={feeStructures.total}
-              onPageChange={setPage}
-            />
-          </>
-        )
-      }
+      {(feeStructures) => (
+        <DataTable
+          tableId="academic-year-fee-structures"
+          caption={t('detail.tabFeeStructures')}
+          columns={columns}
+          data={feeStructures.data}
+          getRowId={(structure) => structure.id}
+          sorting={null}
+          onSortingChange={() => {}}
+          page={page}
+          pageSize={PAGE_SIZE}
+          totalCount={feeStructures.total}
+          onPageChange={setPage}
+          emptyState={{
+            icon: <LayersIcon />,
+            title: t('detail.feeStructures.emptyMessage'),
+            explanation: t('detail.feeStructures.emptyExplanation'),
+          }}
+        />
+      )}
     </TabQueryState>
   );
 }
