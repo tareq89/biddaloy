@@ -210,7 +210,12 @@ function ReportsPageContent() {
     {
       id: 'roll_number',
       header: t('reports.columnRoll'),
-      accessorFn: (row) => t('mark.rollNumber', { roll: row.roll_number }),
+      accessorFn: (row) => (
+        <>
+          <span className="hidden md:inline">{formatNumber(row.roll_number, regionConfig)}</span>
+          <span className="md:hidden">{t('mark.rollNumber', { roll: row.roll_number })}</span>
+        </>
+      ),
       card: 'subtitle',
     },
     {
@@ -266,7 +271,12 @@ function ReportsPageContent() {
     {
       id: 'roll_number',
       header: t('reports.columnRoll'),
-      accessorFn: (row) => t('mark.rollNumber', { roll: row.roll_number }),
+      accessorFn: (row) => (
+        <>
+          <span className="hidden md:inline">{formatNumber(row.roll_number, regionConfig)}</span>
+          <span className="md:hidden">{t('mark.rollNumber', { roll: row.roll_number })}</span>
+        </>
+      ),
       card: 'subtitle',
     },
     {
@@ -356,6 +366,8 @@ function ReportsPageContent() {
   const isFetching = view === 'summary' ? registerQuery.isFetching : flagsQuery.isFetching;
   const isError = view === 'summary' ? registerQuery.isError : flagsQuery.isError;
 
+  // `DataTable` shows `error` before `emptyState`, and the section-less summary never
+  // fires a request (so never errors): same precedence as before, no-section first.
   const emptyState = noSectionSelected
     ? {
         icon: <ChartLine />,

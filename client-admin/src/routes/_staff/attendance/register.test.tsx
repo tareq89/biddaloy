@@ -224,4 +224,32 @@ describe('/attendance/register', () => {
     await waitFor(() => expect(screen.getByText('Could not load the register.')).toBeTruthy());
     expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
   });
+
+  it('falls back to the locale default region for a user without SETTINGS_MANAGE', async () => {
+    let settingsRequested = false;
+    server.use(
+      http.get('/api/v1/schools/:schoolId/settings', () => {
+        settingsRequested = true;
+        return HttpResponse.json({ version: 1, region: { ...REGION_BD_EN, numerals: 'bengali' } });
+      }),
+      http.get('/api/v1/attendance/sections/:sectionId/register-matrix', () =>
+        HttpResponse.json({ dates: dates31('2026-01'), rows: [registerRow()] }),
+      ),
+    );
+
+    const { localeReady } = renderWithRouter(routeTree, {
+      initialEntries: [
+        `/attendance/register?class_id=${CLASS_ID}&section_id=${SECTION_ID}&month=2026-01`,
+      ],
+      tenantId: 'tenant-1',
+      role: 'TEACHER',
+      locale: 'en',
+    });
+    await localeReady;
+
+    // The school settings are never read for a teacher, so the tenant's Bengali digits
+    // never apply: the totals footer uses the locale-default (English) region.
+    expect(await screen.findByText('Total 1')).toBeTruthy();
+    expect(settingsRequested).toBe(false);
+  });
 });

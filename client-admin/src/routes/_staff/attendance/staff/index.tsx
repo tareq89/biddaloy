@@ -37,10 +37,21 @@ function todayIso(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
+// `parseDate` throws on e.g. 2026-13-45; such a URL falls back to today.
+function isRealDate(value: string): boolean {
+  try {
+    parseDate(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const searchSchema = z.object({
   date: z
     .string()
     .regex(DATE_PATTERN)
+    .refine(isRealDate)
     .optional()
     .catch(() => undefined),
 });

@@ -109,6 +109,17 @@ describe('/attendance/staff', () => {
       );
     });
 
+    it('falls back to today instead of crashing on a malformed ?date=', async () => {
+      server.use(pinEnglishRegion, twoStaff());
+      const { localeReady } = renderPage('?date=2026-13-45');
+      await localeReady;
+
+      expect(
+        await screen.findByRole('heading', { level: 1, name: 'Staff attendance' }),
+      ).toBeTruthy();
+      expect(await screen.findByRole('button', { name: 'Karim' })).toBeTruthy();
+    });
+
     it('writes an ISO date to the URL when a day is picked', async () => {
       server.use(pinEnglishRegion, twoStaff());
       const user = userEvent.setup();
