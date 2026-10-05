@@ -15,14 +15,16 @@
 import { FeeStatus, FeeType } from '@biddaloy/shared';
 import { statusLabelKey } from '@biddaloy/ui/components';
 import type { FeeStructure } from '@biddaloy/ui/hooks';
+import type { RegionConfig } from '@biddaloy/ui/i18n';
 import type { FilterFieldDescriptor } from '@biddaloy/ui/shells';
+import { formatMonthName } from '@biddaloy/ui/utils';
 import type { TFunction } from 'i18next';
 
 export interface FinesFilterSources {
   classes: { id: string; name: string }[];
   sections: { id: string; section_name: string }[];
   fineStructures: FeeStructure[];
-  monthOptions: string[];
+  regionConfig: RegionConfig;
 }
 
 /** `t` is the `fines` namespace's own `t` for every fines-only label, plus
@@ -31,7 +33,7 @@ export interface FinesFilterSources {
 export function buildFinesFilterFields(
   t: TFunction<'fines', undefined>,
   tCommon: TFunction<'common', undefined>,
-  { classes, sections, fineStructures, monthOptions }: FinesFilterSources,
+  { classes, sections, fineStructures, regionConfig }: FinesFilterSources,
 ): FilterFieldDescriptor[] {
   return [
     {
@@ -39,7 +41,10 @@ export function buildFinesFilterFields(
       key: 'month',
       label: t('filters.monthLabel', { ns: 'fines' }),
       allLabel: t('filters.allMonths', { ns: 'fines' }),
-      options: monthOptions.map((month, index) => ({ value: String(index + 1), label: month })),
+      options: Array.from({ length: 12 }, (_, index) => ({
+        value: String(index + 1),
+        label: formatMonthName(index + 1, regionConfig),
+      })),
     },
     {
       kind: 'select',
@@ -58,7 +63,7 @@ export function buildFinesFilterFields(
     {
       kind: 'select',
       key: 'fee_structure_id',
-      label: t('columns.fine', { ns: 'fines' }),
+      label: t('filters.fineTypeLabel', { ns: 'fines' }),
       allLabel: t('filters.allFineTypes', { ns: 'fines' }),
       options: fineStructures.map((structure) => ({ value: structure.id, label: structure.name })),
     },
