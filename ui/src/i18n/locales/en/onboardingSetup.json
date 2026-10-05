@@ -46,7 +46,8 @@
       "hint": "Add the sections each class has, for example A and B.",
       "perClass": "Sections in {{className}}",
       "addSection": "Add a section",
-      "created": "{{count}} sections created"
+      "created_one": "{{count}} section created",
+      "created_other": "{{count}} sections created"
     }
   },
   "excel": {
@@ -57,7 +58,8 @@
     "download": "Download sample file",
     "upload": "Upload file",
     "checking": "Checking your file…",
-    "errorsFound": "{{count}} problems found — fix them in the file and upload again",
+    "errorsFound_one": "{{count}} problem found — fix it in the file and upload again",
+    "errorsFound_other": "{{count}} problems found — fix them in the file and upload again",
     "downloadErrors": "Download the list of problems",
     "preview": "This is what will be created",
     "confirm": "Create these",
