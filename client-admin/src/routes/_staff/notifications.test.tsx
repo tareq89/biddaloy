@@ -35,10 +35,25 @@ describe('/notifications', () => {
     await cleanupTestState();
   });
 
-  it('renders the empty state when the session has no notifications', async () => {
+  it('renders the EmptyState, with no list and no "mark all read", when there are none', async () => {
     renderNotificationsPage();
 
-    expect(await screen.findByText("You're all caught up.")).toBeTruthy();
+    expect(await screen.findByRole('heading', { level: 2, name: 'No notifications' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Mark all read' })).toBeNull();
+    expect(screen.queryByText("You're all caught up.")).toBeNull();
+  });
+
+  it('shows one h1 and the unread count in the subtitle only while something is unread', async () => {
+    const user = userEvent.setup();
+    seed('First finished');
+    seed('Second finished');
+    renderNotificationsPage();
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Notifications' })).toBeTruthy();
+    expect(screen.getByText(/2 unread/)).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Mark all read' }));
+    await waitFor(() => expect(screen.queryByText(/unread/)).toBeNull());
   });
 
   it('lists the session history, newest first', async () => {
@@ -70,24 +85,18 @@ describe('/notifications', () => {
     });
   });
 
-  it('disables "mark all read" when nothing is unread, and clears the unread count when used', async () => {
+  it('"mark all read" marks every row read, then disappears', async () => {
     const user = userEvent.setup();
     seed('First finished');
     seed('Second finished');
     renderNotificationsPage();
 
-    const markAllRead = await screen.findByRole<HTMLButtonElement>('button', {
-      name: 'Mark all read',
-    });
-    expect(markAllRead.disabled).toBe(false);
+    await user.click(await screen.findByRole('button', { name: 'Mark all read' }));
 
-    await user.click(markAllRead);
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole<HTMLButtonElement>('button', { name: 'Mark all read' }).disabled,
-      ).toBe(true);
-    });
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Mark all read' })).toBeNull());
+    for (const row of screen.getAllByRole<HTMLButtonElement>('button', { name: /finished/ })) {
+      expect(row.disabled).toBe(true);
+    }
   });
 
   it('has no accessibility violations', async () => {
