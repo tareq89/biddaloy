@@ -1,7 +1,7 @@
 import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import { formatCurrency, serverAmountToMinorUnits } from '@biddaloy/ui/utils';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -25,6 +25,15 @@ describe('GenerateFinesModal', () => {
 
   it('renders the preview count and total', async () => {
     server.use(
+      http.get('/api/v1/fee-structures', () =>
+        HttpResponse.json({
+          data: [{ id: 'f1', name: 'Late fine', amount: 100 }],
+          total: 1,
+          page: 1,
+          limit: 100,
+          totalPages: 1,
+        }),
+      ),
       http.post('/api/v1/fees/fines/generate/preview', () =>
         HttpResponse.json({
           students: [
@@ -53,11 +62,75 @@ describe('GenerateFinesModal', () => {
 
     const user = userEvent.setup();
     await renderModal();
-    await user.click(await screen.findByRole('button', { name: 'Generate fines' }));
+    await user.click(await screen.findByRole('button', { name: 'See what will be made' }));
 
     await screen.findByText(
       `1 students, ${formatCurrency(serverAmountToMinorUnits(200, REGION_BD_BN), REGION_BD_BN)}`,
     );
+    // The preview table shows the row total, not "count x amount".
+    const rows = within(screen.getByTestId('fine-preview-rows'));
+    expect(await rows.findByText('Late fine')).toBeTruthy();
+    expect(
+      rows.getByText(formatCurrency(serverAmountToMinorUnits(100, REGION_BD_BN), REGION_BD_BN)),
+    ).toBeTruthy();
+    expect(rows.queryByText(/2 ×/)).toBeNull();
+    // After the preview the primary reads "Generate fines".
+    expect(screen.getByRole('button', { name: 'Generate fines' })).toBeTruthy();
+  });
+
+  it('does not call the generate endpoint until the second click, then resets on a month change', async () => {
+    let generated = 0;
+    server.use(
+      http.post('/api/v1/fees/fines/generate/preview', () =>
+        HttpResponse.json({
+          students: [
+            {
+              student_id: 's1',
+              rule_id: 'r1',
+              fee_structure_id: 'f1',
+              count: 3,
+              amount: 60,
+              note: 'x',
+            },
+          ],
+          total_amount: 60,
+          would_create: 1,
+          duplicates: [],
+        }),
+      ),
+      http.post('/api/v1/fees/fines/generate', () => {
+        generated += 1;
+        return HttpResponse.json(
+          { fee_generation_ids: ['g'], generated_count: 1, skipped_count: 0 },
+          { status: 201 },
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    await renderModal();
+    await user.click(await screen.findByRole('button', { name: 'See what will be made' }));
+    await screen.findByRole('button', { name: 'Generate fines' });
+    expect(generated).toBe(0);
+
+    await user.click(screen.getByRole('combobox', { name: 'Class' }));
+    await user.click(await screen.findByRole('option', { name: 'All classes' }));
+    expect(screen.getByRole('button', { name: 'Generate fines' })).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Generate fines' }));
+    await waitFor(() => expect(generated).toBe(1));
+  });
+
+  it('shows a translated sentence, never the server text, when preview fails', async () => {
+    server.use(
+      http.post('/api/v1/fees/fines/generate/preview', () =>
+        HttpResponse.json({ statusCode: 422, message: 'Server says no' }, { status: 422 }),
+      ),
+    );
+    const user = userEvent.setup();
+    await renderModal();
+    await user.click(await screen.findByRole('button', { name: 'See what will be made' }));
+    expect(await screen.findByText('Failed to generate fines')).toBeTruthy();
+    expect(screen.queryByText('Server says no')).toBeNull();
   });
 
   it('disables confirm on a zero preview', async () => {
@@ -69,7 +142,7 @@ describe('GenerateFinesModal', () => {
 
     const user = userEvent.setup();
     await renderModal();
-    await user.click(await screen.findByRole('button', { name: 'Generate fines' }));
+    await user.click(await screen.findByRole('button', { name: 'See what will be made' }));
 
     await screen.findByText('No fines would be generated for this month.');
     const submitButton = screen.getByRole<HTMLButtonElement>('button', { name: 'Generate fines' });
@@ -117,7 +190,7 @@ describe('GenerateFinesModal', () => {
 
     const user = userEvent.setup();
     await renderModal();
-    await user.click(await screen.findByRole('button', { name: 'Generate fines' }));
+    await user.click(await screen.findByRole('button', { name: 'See what will be made' }));
     await screen.findByText('Some fines already exist for this month');
 
     await user.click(screen.getByRole('radio', { name: /Remove the older fine first/ }));
@@ -148,7 +221,7 @@ describe('GenerateFinesModal', () => {
 
     const user = userEvent.setup();
     await renderModal();
-    await user.click(await screen.findByRole('button', { name: 'Generate fines' }));
+    await user.click(await screen.findByRole('button', { name: 'See what will be made' }));
 
     // The "REMOVE_OLDER" choice is the only way forward here, so it must show.
     expect(await screen.findByRole('radio', { name: /Remove the older fine first/ })).toBeTruthy();
