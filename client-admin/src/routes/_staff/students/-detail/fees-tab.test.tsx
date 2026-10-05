@@ -129,8 +129,11 @@ describe('students/-detail/fees-tab', () => {
     const summary = await screen.findByLabelText('Fee summary');
     expect(within(summary).getByText('Total billed')).toBeTruthy();
     expect(within(summary).getByText('Total paid')).toBeTruthy();
-    const balance = within(summary).getAllByText('৳500.00').at(-1)!;
-    expect(balance.className).toContain('text-status-overdue-fg');
+    // Billed and balance are both ৳500.00 here: exactly two cells, only the balance is flagged.
+    const [billed, balance] = within(summary).getAllByText('৳500.00');
+    expect(within(summary).getAllByText('৳500.00')).toHaveLength(2);
+    expect(billed!.className).not.toContain('text-status-overdue-fg');
+    expect(balance!.className).toContain('text-status-overdue-fg');
   });
 
   it('shows the period as a month, a late-fee badge, and an empty state with an explanation', async () => {

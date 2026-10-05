@@ -28,8 +28,7 @@ export interface ResultsPanelProps {
 
 export function ResultsPanel({ studentId }: ResultsPanelProps) {
   const { t } = useTranslation('exams');
-  // Loads `students` so the `detail.results.*` copy below resolves.
-  useTranslation('students');
+  const { t: tStudents } = useTranslation('students');
   const regionConfig = useRegionConfig();
   const resultsQuery = useStudentResults(studentId);
 
@@ -94,13 +93,13 @@ export function ResultsPanel({ studentId }: ResultsPanelProps) {
       rowActions={(row) => [
         {
           intent: 'view',
-          label: t('detail.results.view', { ns: 'students' }),
+          label: tStudents('detail.results.view'),
           to: `/results/${row.exam_id}/${studentId}`,
         },
       ]}
       emptyState={{
         title: t('studentResultsPanel.empty'),
-        explanation: t('detail.results.emptyExplanation', { ns: 'students' }),
+        explanation: tStudents('detail.results.emptyExplanation'),
         icon: <AwardIcon aria-hidden="true" />,
       }}
     />
