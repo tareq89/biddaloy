@@ -33,7 +33,7 @@ describe('/promotions/new', () => {
     start_date: '2027-01-01T00:00:00.000Z',
   });
   const class6 = classFactory({
-    id: 'class-6',
+    id: '00000000-0000-4000-8000-000000000006',
     name: 'Class 6',
     academic_year: year2026,
     academic_year_id: year2026.id,
@@ -116,46 +116,46 @@ describe('/promotions/new', () => {
   it('prefills the source class from ?classId=', async () => {
     stubBase();
     renderWithRouter(routeTree, {
-      initialEntries: ['/promotions/new?classId=class-6'],
+      initialEntries: ['/promotions/new?classId=00000000-0000-4000-8000-000000000006'],
       tenantId: 'tenant-1',
       role: 'ADMIN',
       locale: 'en',
     });
 
-    const sourceClassSelect = await screen.findByRole('combobox', { name: 'Source class' });
+    const sourceClassSelect = await screen.findByRole('combobox', { name: 'Current class' });
     await within(sourceClassSelect).findByText('Class 6 (2026-2027)');
   });
 
   it('defaults the target year to the next year by start_date', async () => {
     stubBase();
     renderWithRouter(routeTree, {
-      initialEntries: ['/promotions/new?classId=class-6'],
+      initialEntries: ['/promotions/new?classId=00000000-0000-4000-8000-000000000006'],
       tenantId: 'tenant-1',
       role: 'ADMIN',
       locale: 'en',
     });
 
-    const targetYearSelect = await screen.findByRole('combobox', { name: 'Target academic year' });
+    const targetYearSelect = await screen.findByRole('combobox', { name: 'Next academic year' });
     await within(targetYearSelect).findByText('2027-2028');
   });
 
   it('shows the suggested target class', async () => {
     stubBase();
     renderWithRouter(routeTree, {
-      initialEntries: ['/promotions/new?classId=class-6'],
+      initialEntries: ['/promotions/new?classId=00000000-0000-4000-8000-000000000006'],
       tenantId: 'tenant-1',
       role: 'ADMIN',
       locale: 'en',
     });
 
-    const targetClassSelect = await screen.findByRole('combobox', { name: 'Target class' });
+    const targetClassSelect = await screen.findByRole('combobox', { name: 'Next class' });
     await within(targetClassSelect).findByText('Class 7');
   });
 
   it('only lists PUBLISHED exams, preselected', async () => {
     stubBase();
     renderWithRouter(routeTree, {
-      initialEntries: ['/promotions/new?classId=class-6'],
+      initialEntries: ['/promotions/new?classId=00000000-0000-4000-8000-000000000006'],
       tenantId: 'tenant-1',
       role: 'ADMIN',
       locale: 'en',
@@ -172,7 +172,7 @@ describe('/promotions/new', () => {
     const user = userEvent.setup();
     stubBase();
     renderWithRouter(routeTree, {
-      initialEntries: ['/promotions/new?classId=class-6'],
+      initialEntries: ['/promotions/new?classId=00000000-0000-4000-8000-000000000006'],
       tenantId: 'tenant-1',
       role: 'ADMIN',
       locale: 'en',
@@ -195,7 +195,7 @@ describe('/promotions/new', () => {
       },
     });
     renderWithRouter(routeTree, {
-      initialEntries: ['/promotions/new?classId=class-6'],
+      initialEntries: ['/promotions/new?classId=00000000-0000-4000-8000-000000000006'],
       tenantId: 'tenant-1',
       role: 'ADMIN',
       locale: 'en',
@@ -220,7 +220,7 @@ describe('/promotions/new', () => {
       },
     });
     renderWithRouter(routeTree, {
-      initialEntries: ['/promotions/new?classId=class-6'],
+      initialEntries: ['/promotions/new?classId=00000000-0000-4000-8000-000000000006'],
       tenantId: 'tenant-1',
       role: 'ADMIN',
       locale: 'en',
@@ -229,7 +229,7 @@ describe('/promotions/new', () => {
     await screen.findByText('Choose a target class, or graduate the source class.');
     expect(screen.getByRole('button', { name: 'Create list' }).hasAttribute('disabled')).toBe(true);
 
-    const targetClassSelect = screen.getByRole('combobox', { name: 'Target class' });
+    const targetClassSelect = screen.getByRole('combobox', { name: 'Next class' });
     await user.click(targetClassSelect);
     await user.click(await screen.findByRole('option', { name: 'Class 7' }));
 
@@ -252,15 +252,15 @@ describe('/promotions/new', () => {
     );
 
     renderWithRouter(routeTree, {
-      initialEntries: ['/promotions/new?classId=class-6'],
+      initialEntries: ['/promotions/new?classId=00000000-0000-4000-8000-000000000006'],
       tenantId: 'tenant-1',
       role: 'ADMIN',
       locale: 'en',
     });
 
-    const targetClassSelect = await screen.findByRole('combobox', { name: 'Target class' });
+    const targetClassSelect = await screen.findByRole('combobox', { name: 'Next class' });
     await within(targetClassSelect).findByText('Class 7');
-    await user.click(screen.getByRole('radio', { name: 'Snake (balance across sections)' }));
+    await user.click(screen.getByRole('radio', { name: /^Snake/ }));
 
     const submit = await waitFor(() => {
       const button = screen.getByRole('button', { name: 'Create list' });
@@ -271,12 +271,76 @@ describe('/promotions/new', () => {
 
     await waitFor(() =>
       expect(posted).toEqual({
-        source_class_id: 'class-6',
+        source_class_id: '00000000-0000-4000-8000-000000000006',
         target_academic_year_id: 'year-2027',
         exam_ids: ['exam-published'],
         algorithm: 'SNAKE',
         target_class_id: 'class-7',
       }),
     );
+  });
+
+  it('is a full-page form: h1, Close, labelled placeholders, Create disabled until valid', async () => {
+    stubBase();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/promotions/new'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await screen.findByRole('heading', { level: 1, name: 'New promotion list' });
+    expect(screen.getByRole('button', { name: 'Close' })).toBeTruthy();
+    const source = await screen.findByRole('combobox', { name: 'Current class' });
+    expect(within(source).getByText('Select')).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Next academic year' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Create list' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it.each(['Close', 'Cancel'])('%s with a changed form asks before leaving', async (name) => {
+    const user = userEvent.setup();
+    stubBase();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/promotions/new?classId=00000000-0000-4000-8000-000000000006'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    await user.click(await screen.findByRole('radio', { name: /^Snake/ }));
+    await user.click(screen.getByRole('button', { name }));
+
+    await screen.findByText('Discard your changes?');
+    await user.click(screen.getByRole('button', { name: 'Keep editing' }));
+    await waitFor(() => expect(screen.queryByText('Discard your changes?')).toBeNull());
+    expect(screen.getByRole('heading', { level: 1, name: 'New promotion list' })).toBeTruthy();
+  });
+
+  it('shows a translated error, not the server message, when creating fails', async () => {
+    const user = userEvent.setup();
+    stubBase();
+    server.use(
+      http.post('/api/v1/promotions', () =>
+        HttpResponse.json({ message: 'raw server text' }, { status: 500 }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/promotions/new?classId=00000000-0000-4000-8000-000000000006'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+
+    const targetClass = await screen.findByRole('combobox', { name: 'Next class' });
+    await within(targetClass).findByText('Class 7');
+    const submit = await waitFor(() => {
+      const button = screen.getByRole('button', { name: 'Create list' });
+      expect(button.hasAttribute('disabled')).toBe(false);
+      return button;
+    });
+    await user.click(submit);
+
+    await screen.findByText("Couldn't create the list. Please try again.");
+    expect(screen.queryByText('raw server text')).toBeNull();
   });
 });
