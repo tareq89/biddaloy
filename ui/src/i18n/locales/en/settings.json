@@ -49,7 +49,7 @@
   },
   "regional": {
     "legend": "Regional",
-    "locale": "Locale",
+    "locale": "Language and number format",
     "numerals": "Numeral system",
     "numeralsLatin": "Latin (0-9)",
     "numeralsBengali": "Bengali (০-৯)",
@@ -169,7 +169,7 @@
         "ADJUST": "Adjust"
       },
       "referenceType": {
-        "batch": "Batch",
+        "batch": "Reminder round",
         "log": "Message",
         "manual": "Manual"
       }
@@ -200,7 +200,7 @@
     }
   },
   "fees": {
-    "approvalLegend": "Step-up approval",
+    "approvalLegend": "Extra approval",
     "approvalModeLabel": "Approval method",
     "approvalModeOtp": "OTP only",
     "approvalModeOtpOrPassword": "OTP or password",
@@ -208,7 +208,7 @@
     "notifyOnScheduleDefault": "Notify by default for scheduled fee generation",
     "notifyOnManualGenerationDefault": "Notify by default for manual fee generation",
     "lateFeeLegend": "Late fees",
-    "lateFeeAppliesFromTomorrow": "Changes apply from tomorrow's fee-generation run.",
+    "lateFeeAppliesFromTomorrow": "Changes apply from tomorrow's fee bills.",
     "lateFeeGraceDays": "Grace days",
     "lateFeeKind": "Kind",
     "lateFeeKindPercent": "Percent",

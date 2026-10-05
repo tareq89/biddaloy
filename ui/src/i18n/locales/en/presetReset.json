@@ -1,20 +1,20 @@
 {
   "card": {
-    "title": "Curriculum preset",
-    "description": "Undo the curriculum preset applied to this school. Only possible while the school has no operational data.",
-    "button": "Reset curriculum preset"
+    "title": "Ready-made curriculum",
+    "description": "Undo the ready-made curriculum applied to this school. Only possible while the school has no operational data.",
+    "button": "Undo ready-made curriculum"
   },
   "dialog": {
-    "title": "Reset curriculum preset",
-    "description": "This permanently undoes the preset for {{name}}. It cannot be undone.",
+    "title": "Undo ready-made curriculum",
+    "description": "This permanently undoes the ready-made curriculum for {{name}}. It cannot be undone.",
     "deletesHeading": "What will be deleted",
-    "deletes": "Academic years, terms, classes, subjects, class-subjects, the grading scale, exam templates and preset settings.",
+    "deletes": "Academic years, terms, classes, subjects, class-subjects, the grading scale, exam templates and ready-made curriculum settings.",
     "blocksWhen": "Only works while the school has no students, exams, fees or other operational data.",
     "reasonLabel": "Reason (required, audited)",
     "reasonTooShort": "Reason must be at least {{min}} characters.",
     "reasonTooLong": "Reason can be at most {{max}} characters.",
     "reasonCount": "{{count}} / {{max}} characters (minimum {{min}})",
-    "confirm": "Reset preset"
+    "confirm": "Undo it"
   },
   "blocked": {
     "heading": "Cannot reset: this school already has data",
@@ -27,16 +27,16 @@
       "syllabus_topics": "Syllabus topics",
       "routine_slots": "Routine slots",
       "calendar_events": "Calendar events",
-      "promotion_runs": "Promotion runs",
+      "promotion_runs": "Promotion lists",
       "attendance_sessions": "Attendance sessions",
       "teacher_assignments": "Teacher assignments",
       "routines": "Routines",
-      "admission_intakes": "Admission intakes",
+      "admission_intakes": "Admission rounds",
       "recurring_fee_schedules": "Recurring fee schedules",
       "fine_rules": "Fine rules"
     }
   },
-  "notApplied": "This school has no preset to reset",
-  "error": "Could not reset the preset. Try again.",
-  "success": "Preset reset. {{count}} records removed."
+  "notApplied": "This school has no ready-made curriculum to undo",
+  "error": "Could not undo the ready-made curriculum. Try again.",
+  "success": "Ready-made curriculum undone. {{count}} records removed."
 }

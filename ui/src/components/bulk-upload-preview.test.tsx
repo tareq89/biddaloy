@@ -178,7 +178,7 @@ describe('BulkUploadPreview', () => {
 
     const confirmButton = await screen.findByRole('button', { name: 'Confirm' });
     await waitFor(() => expect(confirmButton.hasAttribute('disabled')).toBe(true));
-    expect(await screen.findByText('This preview has expired')).toBeTruthy();
+    expect(await screen.findByText('This check has expired')).toBeTruthy();
   });
 
   it('an expired commit (410) renders the re-upload copy', async () => {
@@ -192,7 +192,7 @@ describe('BulkUploadPreview', () => {
 
     expect(await screen.findByRole('alert')).toHaveProperty(
       'textContent',
-      'This preview expired — upload again',
+      'This check expired — upload the file again',
     );
   });
 
@@ -218,7 +218,7 @@ describe('BulkUploadPreview', () => {
     await selectFile();
     await screen.findByText('Rows with problems');
     expect(screen.getByText('Sheet1')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Export errors as CSV' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Download problem rows (CSV)' })).toBeTruthy();
   });
 
   it('omits the tab column when no error carries a tab', async () => {

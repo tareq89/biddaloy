@@ -133,7 +133,7 @@
       "loadError": "The student list could not be loaded."
     },
     "message": {
-      "batchNameLabel": "Batch name",
+      "batchNameLabel": "Round name",
       "messageLabel": "Message template",
       "mediumsLabel": "Channels"
     },
@@ -150,9 +150,9 @@
       "studentSkipped_one": "{{count}} skipped",
       "studentSkipped_other": "{{count}} skipped",
       "stale": "The earlier steps changed since the last preview — preview again before sending.",
-      "notPreviewedHint": "Run the preview to enable sending.",
+      "notPreviewedHint": "Check the preview to enable sending.",
       "noRecipients": "No one would receive this reminder — adjust the earlier steps.",
-      "previewErrorMessage": "The preview could not be run.",
+      "previewErrorMessage": "The preview could not be loaded.",
       "sendErrorMessage": "The reminders could not be queued.",
       "rateLimited": "Too many bulk requests in a row — wait a moment and try again.",
       "projection": {
@@ -166,16 +166,16 @@
     },
     "submitLabel": "Send reminders",
     "result": {
-      "title": "Batch created",
+      "title": "Reminders queued",
       "queued": "“{{name}}” is being sent in the background.",
-      "viewBatch": "View batch progress"
+      "viewBatch": "See sending progress"
     }
   },
   "batches": {
     "title": "Reminder History",
-    "tableCaption": "Reminder batches",
+    "tableCaption": "Reminder rounds",
     "searchLabel": "Search",
-    "searchPlaceholder": "Batch name",
+    "searchPlaceholder": "Round name",
     "statusFilterLabel": "Status",
     "allStatuses": "All statuses",
     "dateRangeLabel": "Created",
@@ -187,11 +187,11 @@
     "recipientsHeader": "Recipients",
     "successfulHeader": "Successful",
     "failedHeader": "Failed",
-    "empty": "No reminder batches yet.",
-    "error": "Could not load reminder batches.",
+    "empty": "No reminder rounds yet.",
+    "error": "Could not load reminder rounds.",
     "detail": {
-      "backToList": "All batches",
-      "loadError": "Could not load this batch.",
+      "backToList": "All rounds",
+      "loadError": "Could not load this round.",
       "createdLabel": "Created",
       "totalLabel": "Recipients",
       "successLabel": "Successful",
@@ -205,28 +205,28 @@
       "statusHeader": "Status",
       "errorHeader": "Error",
       "logsError": "Could not load delivery logs.",
-      "logsEmpty": "No deliveries recorded for this batch.",
+      "logsEmpty": "No deliveries recorded for this round.",
       "skippedTitle": "Skipped before sending ({{count}})",
       "noneSkipped": "No recipients were skipped.",
       "skippedStudents_one": "{{count}} student",
       "skippedStudents_other": "{{count}} students",
       "retryAction": "Retry failed",
       "retryTitle": "Retry failed deliveries?",
-      "retryDescription": "Sends this batch's message again, only to the students whose delivery failed, as a new batch named “{{name}}”.",
+      "retryDescription": "Sends this round's message again, only to the students whose delivery failed, as a new round named “{{name}}”.",
       "retryConfirm": "Retry",
       "retryCancel": "Cancel",
       "retryPreparing": "Preparing…",
       "retryErrorMessage": "The retry could not be started.",
       "retryNothingFailed": "No failed deliveries with a student on file to retry.",
-      "retryNoTemplate": "This batch has no stored message template, so it cannot be retried automatically.",
+      "retryNoTemplate": "This round has no stored message template, so it cannot be retried automatically.",
       "retryNamePrefix": "Retry of {{name}}",
       "retryResendWarning": "Every guardian of these {{count}} students is messaged again, including any whose earlier message was delivered — the send targets students, not individual guardians."
     }
   },
   "notifications": {
-    "batchQueued": "Reminder batch queued.",
-    "batchQueueFailed": "Queuing the reminder batch failed.",
-    "batchCompleted": "Reminder batch finished: {{sent}} sent.",
-    "batchFailed": "Reminder batch finished with failures: {{failed}} failed."
+    "batchQueued": "Reminder round queued.",
+    "batchQueueFailed": "Queuing the reminder round failed.",
+    "batchCompleted": "Reminder round finished: {{sent}} sent.",
+    "batchFailed": "Reminder round finished with failures: {{failed}} failed."
   }
 }

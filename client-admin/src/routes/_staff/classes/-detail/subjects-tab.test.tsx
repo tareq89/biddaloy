@@ -198,10 +198,10 @@ describe('classes/$classId Subjects tab', () => {
     });
     await screen.findByText('No subjects offered yet');
     if (shown) {
-      expect(await screen.findByText(/This comes from your curriculum preset/)).toBeTruthy();
+      expect(await screen.findByText(/This comes from your ready-made curriculum/)).toBeTruthy();
     } else {
       await new Promise((r) => setTimeout(r, 50));
-      expect(screen.queryByText(/This comes from your curriculum preset/)).toBeNull();
+      expect(screen.queryByText(/This comes from your ready-made curriculum/)).toBeNull();
     }
   });
 });

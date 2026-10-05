@@ -85,7 +85,7 @@ async function openConfirm(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: 'Next' }));
   await user.click(screen.getByLabelText('Bangla'));
   await user.click(screen.getByRole('button', { name: 'Next' }));
-  await user.click(screen.getByRole('button', { name: 'Apply preset' }));
+  await user.click(screen.getByRole('button', { name: 'Use this curriculum' }));
 }
 
 describe('CurriculumPresetPage', () => {
@@ -246,7 +246,7 @@ describe('CurriculumPresetPage', () => {
     mockApi({ state: 'CUSTOM', blockers: [{ entity: 'students', count: 40 }] });
     renderPage();
     expect(
-      await screen.findByText('Your school was set up without a curriculum preset.'),
+      await screen.findByText('Your school was set up without a ready-made curriculum.'),
     ).toBeDefined();
     expect(screen.getByText('students — 40')).toBeDefined();
     expect(screen.queryByRole('button', { name: /apply/i })).toBeNull();
@@ -260,7 +260,7 @@ describe('CurriculumPresetPage', () => {
       http.get('/api/v1/presets', () => HttpResponse.json([])),
     );
     renderPage();
-    expect(await screen.findByText('Could not load the curriculum presets.')).toBeDefined();
+    expect(await screen.findByText('Could not load the ready-made curricula.')).toBeDefined();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined();
   });
 });

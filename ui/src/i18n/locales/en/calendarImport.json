@@ -34,10 +34,10 @@
     "continue": "Continue"
   },
   "step3": {
-    "title": "Commit import",
+    "title": "Confirm import",
     "publishImmediately": "Publish immediately",
     "publishImmediatelyHint": "Off imports these as drafts — publish them later from the calendar.",
-    "commit": "Commit import",
+    "commit": "Confirm import",
     "committing": "Importing…",
     "commitFailed": "Import failed"
   },

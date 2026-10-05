@@ -81,7 +81,7 @@ describe('/communications/batches', () => {
     server.use(communicationHandlers.listBulkRemindersEmpty);
     render();
 
-    expect(await screen.findByText('No reminder batches yet.')).toBeTruthy();
+    expect(await screen.findByText('No reminder rounds yet.')).toBeTruthy();
   });
 
   it('shows the error state when the list cannot load', async () => {
@@ -90,7 +90,7 @@ describe('/communications/batches', () => {
     server.use(errorHandler('get', '/api/v1/communications/reminder/bulk', 404));
     render();
 
-    expect(await screen.findByText('Could not load reminder batches.')).toBeTruthy();
+    expect(await screen.findByText('Could not load reminder rounds.')).toBeTruthy();
   });
 
   // [8.14.17]: `_staff.tsx`'s `RequirePermission` now refuses the whole
@@ -123,7 +123,7 @@ describe('/communications/batches', () => {
 
     const { router } = render();
     const user = userEvent.setup();
-    await screen.findByRole('region', { name: 'Reminder batches' });
+    await screen.findByRole('region', { name: 'Reminder rounds' });
     await user.type(screen.getByRole('textbox', { name: 'Search' }), 'August');
 
     await waitFor(() => expect(lastSearch).toBe('August'), { timeout: 1000 });
@@ -143,7 +143,7 @@ describe('/communications/batches', () => {
 
     render();
     const user = userEvent.setup();
-    await screen.findByRole('region', { name: 'Reminder batches' });
+    await screen.findByRole('region', { name: 'Reminder rounds' });
     await user.click(screen.getByRole('combobox', { name: 'Status' }));
     await user.click(await screen.findByRole('option', { name: 'Completed' }));
 
@@ -184,7 +184,7 @@ describe('/communications/batches', () => {
     });
 
     const user = userEvent.setup();
-    await screen.findByRole('region', { name: 'Reminder batches' });
+    await screen.findByRole('region', { name: 'Reminder rounds' });
     await user.click(await screen.findByRole('combobox', { name: 'Rows per page' }));
     // Option labels render in the tenant's own region digits (Bengali
     // numerals here), independent of the `en` UI locale — same reasoning
@@ -206,7 +206,7 @@ describe('/communications/batches', () => {
 
     const { router } = render();
     const user = userEvent.setup();
-    await screen.findByRole('region', { name: 'Reminder batches' });
+    await screen.findByRole('region', { name: 'Reminder rounds' });
     await user.click(screen.getByRole('button', { name: 'Name' }));
 
     await waitFor(() =>

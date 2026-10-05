@@ -32,7 +32,7 @@ describe('InviteGuardiansDialog', () => {
     // Advancing straight to the review step without previewing first —
     // the mandatory gate lives on Submit, not on Next.
     await user.click(await screen.findByRole('button', { name: 'Next' }));
-    expect(await screen.findByText('Run the preview to see who will be invited.')).toBeTruthy();
+    expect(await screen.findByText('Check the preview to see who will be invited.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Send invitations' }).hasAttribute('disabled')).toBe(
       true,
     );
