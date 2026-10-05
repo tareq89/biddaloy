@@ -21,14 +21,14 @@ export function ruleSummary(
   if (schedule.rule.kind === 'MONTHLY') {
     const day = schedule.rule.day_of_month;
     return day === 'LAST'
-      ? t('schedules.ruleMonthlyLast')
-      : t('schedules.ruleMonthly', { day: formatNumber(day, config) });
+      ? t('schedules.ruleMonthlyLast', { ns: 'fees' })
+      : t('schedules.ruleMonthly', { day: formatNumber(day, config), ns: 'fees' });
   }
   const names = (schedule.rule.weekdays ?? []).map((day) =>
     t(`weekdays.${day}`, { ns: 'common', defaultValue: String(day) }),
   );
   const days = new Intl.ListFormat(language, { type: 'conjunction' }).format(names);
-  return t('schedules.ruleWeekly', { days });
+  return t('schedules.ruleWeekly', { days, ns: 'fees' });
 }
 
 /** `classesById`/`sectionsById`/`programsById` resolve the audience ids into real names — without
@@ -47,17 +47,18 @@ export function audienceSummary(
   // `RecurringScheduleAudienceDto` allows `section_id` without `class_id`, so branch on either.
   if (class_id || section_id) {
     const className = class_id
-      ? (classesById.get(class_id) ?? t('schedules.unknownClass'))
-      : t('schedules.unknownClass');
+      ? (classesById.get(class_id) ?? t('schedules.unknownClass', { ns: 'fees' }))
+      : t('schedules.unknownClass', { ns: 'fees' });
     parts.push(
       section_id
-        ? `${className} · ${sectionsById.get(section_id) ?? t('schedules.unknownSection')}`
+        ? `${className} · ${sectionsById.get(section_id) ?? t('schedules.unknownSection', { ns: 'fees' })}`
         : className,
     );
   } else {
-    parts.push(t('schedules.wholeSchool'));
+    parts.push(t('schedules.wholeSchool', { ns: 'fees' }));
   }
-  if (program_id) parts.push(programsById.get(program_id) ?? t('schedules.someProgram'));
+  if (program_id)
+    parts.push(programsById.get(program_id) ?? t('schedules.someProgram', { ns: 'fees' }));
   return parts.join(' · ');
 }
 
@@ -144,7 +145,7 @@ export function lastBilledLabel(
   t: FeesT,
   config: RegionConfig,
 ): string {
-  if (schedule.last_run_period === null) return t('schedules.neverBilled');
+  if (schedule.last_run_period === null) return t('schedules.neverBilled', { ns: 'fees' });
   return schedule.rule.kind === 'MONTHLY'
     ? formatMonth(schedule.last_run_period.slice(0, 7), config)
     : formatDate(schedule.last_run_period, config);
