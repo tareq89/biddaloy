@@ -94,6 +94,34 @@ describe('EnrollmentTab', () => {
     expect(screen.getAllByText(/Repeated failure in Math/)).toHaveLength(1);
   });
 
+  it('shows one merged class column, a long-form date, and newest year first', async () => {
+    server.use(
+      http.get('/api/v1/enrollments/student/:studentId', () =>
+        HttpResponse.json([
+          enrollment({
+            id: 'enrollment-old',
+            academic_year: { id: 'year-0', name: '2024-2025' },
+            enrolled_at: '2024-06-01T00:00:00.000Z',
+          }),
+          enrollment({ id: 'enrollment-new' }),
+        ]),
+      ),
+      http.get('/api/v1/students/:studentId/promotion-overrides', () => HttpResponse.json([])),
+    );
+
+    renderTab();
+
+    await screen.findByText('2025-2026');
+    expect(screen.queryByRole('columnheader', { name: 'Section' })).toBeNull();
+    expect(screen.queryByText('2025-06-01T00:00:00.000Z')).toBeNull();
+    const rows = screen.getAllByRole('row');
+    expect(rows[1]?.textContent).toContain('2025-2026');
+    expect(rows[2]?.textContent).toContain('2024-2025');
+    expect(screen.getByRole('button', { name: 'Move class' }).getAttribute('data-variant')).toBe(
+      'outline',
+    );
+  });
+
   it('renders no override line when there are no overrides', async () => {
     server.use(
       http.get('/api/v1/enrollments/student/:studentId', () => HttpResponse.json([enrollment()])),
@@ -102,7 +130,7 @@ describe('EnrollmentTab', () => {
 
     renderTab();
 
-    await waitFor(() => expect(screen.getByText('Class 6')).not.toBeNull());
+    await waitFor(() => expect(screen.getByText('Class 6 · Section A')).not.toBeNull());
     expect(screen.queryByText(/by override/)).toBeNull();
   });
 });
