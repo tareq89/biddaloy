@@ -1,27 +1,41 @@
 /**
- * [21.7.1] "Period slots" panel — a selected shift's whole period-slot set,
+ * [21.7.1] "Period times" panel — a selected shift's whole period-slot set,
  * edited as rows (`sequence · kind · name · starts_at · ends_at`) and saved
  * in one `PUT .../period-slots` (`ReplacePeriodSlotsDto`, whole-set replace
  * — see `period-slots.service.ts`).
  *
- * D7 changeover gap: pressing `Enter` in the last row's `ends_at` field
- * appends a new row whose `starts_at` is pre-filled with that row's
- * `ends_at` plus `TenantSettings.routine.defaultChangeoverMinutes`
- * (`changeoverGapMinutes` prop, read from `RoutineSettingsPanel`'s already
- * loaded settings query rather than a second fetch). It's a suggestion,
- * not a lock — every field stays a plain editable input, so a manual edit
- * is never silently overwritten (D7's own acceptance criterion).
+ * D7 changeover gap: "Add period" appends a row whose `starts_at` is the
+ * previous row's `ends_at` plus `TenantSettings.routine.defaultChangeoverMinutes`
+ * (`changeoverGapMinutes` prop, read from the already loaded settings query
+ * rather than a second fetch). It's a suggestion, not a lock — every field
+ * stays editable, so a manual edit is never silently overwritten.
  *
- * `kind: BREAK` rows hide the "name" concept — a break has no subject to
- * name — and get a visually distinct row background, satisfying "BREAK
- * hides subject/teacher concepts entirely, visually distinct."
+ * [31.4] Rows are checked as you type with the same three rules as
+ * `PeriodSlotsService.validateSlots` (the server stays the authority):
+ * ends before it starts, outside the shift's day, overlaps the row above.
+ * A break may carry a name — the routine table shows it. The Enter-to-add
+ * shortcut is gone (the time picker owns Enter); the add button applies the
+ * same gap.
  *
- * The timeline strip below the table is a plain flex bar spanning the
- * shift's day window, one block per slot sized by its duration — enough to
- * make a missing/short period visually obvious while typing, without
- * pulling in a calendar/gantt component for a same-day, single-row strip.
+ * The timeline strip is a plain bar spanning the shift's day window, one
+ * block per slot sized by its duration — enough to make a missing or short
+ * period obvious while typing.
  */
-import { Button, Input } from '@biddaloy/ui/components';
+import { ApiError } from '@biddaloy/ui/api';
+import {
+  Button,
+  Card,
+  EmptyState,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  TimeInput,
+  toast,
+} from '@biddaloy/ui/components';
 import {
   useReplacePeriodSlots,
   usePeriodSlots,
@@ -29,10 +43,11 @@ import {
   type PeriodSlotKind,
   type Shift,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { useWarnUnsavedChanges } from '@biddaloy/ui/shells';
+import { formatNumber, formatTime } from '@biddaloy/ui/utils';
+import { CircleAlertIcon, CircleMinusIcon, ClockIcon, PlusIcon } from 'lucide-react';
 import * as React from 'react';
-
-import { MutationErrorMessage } from '../../../../components/MutationErrorMessage';
 
 function timeToMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number);
@@ -46,18 +61,29 @@ function minutesToTime(minutes: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
+type RowError = 'endBeforeStart' | 'outsideShift' | 'overlapsPrevious';
+
 export interface PeriodSlotsPanelProps {
+  shifts: Shift[];
   shift: Shift | undefined;
+  onSelectShift: (shiftId: string) => void;
   changeoverGapMinutes: number;
 }
 
-export function PeriodSlotsPanel({ shift, changeoverGapMinutes }: PeriodSlotsPanelProps) {
+export function PeriodSlotsPanel({
+  shifts,
+  shift,
+  onSelectShift,
+  changeoverGapMinutes,
+}: PeriodSlotsPanelProps) {
   const { t } = useTranslation('routines');
+  const config = useRegionConfig();
   const slotsQuery = usePeriodSlots(shift?.id);
   const replaceSlots = useReplacePeriodSlots(shift?.id ?? '');
 
   const [rows, setRows] = React.useState<PeriodSlotItem[]>([]);
   const loadedShiftId = React.useRef<string | undefined>(undefined);
+  const loadedRows = React.useRef<PeriodSlotItem[]>([]);
 
   // [21.8.1] On a shift switch, `slotsQuery.data` is `undefined` until the
   // new shift's fetch resolves — clear `rows` for that window instead of
@@ -72,15 +98,15 @@ export function PeriodSlotsPanel({ shift, changeoverGapMinutes }: PeriodSlotsPan
     }
     if (slotsQuery.data === undefined || loadedShiftId.current === shift.id) return;
     loadedShiftId.current = shift.id;
-    setRows(
-      slotsQuery.data.map((slot) => ({
-        sequence: slot.sequence,
-        kind: slot.kind,
-        name: slot.name,
-        starts_at: slot.starts_at,
-        ends_at: slot.ends_at,
-      })),
-    );
+    const loaded = slotsQuery.data.map((slot) => ({
+      sequence: slot.sequence,
+      kind: slot.kind,
+      name: slot.name,
+      starts_at: slot.starts_at,
+      ends_at: slot.ends_at,
+    }));
+    loadedRows.current = loaded;
+    setRows(loaded);
   }, [shift, slotsQuery.data]);
 
   // `loadedShiftId.current === shift?.id` already proves the data for
@@ -88,6 +114,8 @@ export function PeriodSlotsPanel({ shift, changeoverGapMinutes }: PeriodSlotsPan
   // `error` on a failed background refetch even though `rows` still
   // holds good data, and would wrongly disable Save.
   const ready = Boolean(shift) && loadedShiftId.current === shift?.id;
+  const dirty = ready && JSON.stringify(rows) !== JSON.stringify(loadedRows.current);
+  useWarnUnsavedChanges(dirty);
 
   function updateRow(index: number, patch: Partial<PeriodSlotItem>) {
     setRows((current) => current.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -116,134 +144,369 @@ export function PeriodSlotsPanel({ shift, changeoverGapMinutes }: PeriodSlotsPan
     );
   }
 
-  function handleEndsAtKeyDown(event: React.KeyboardEvent<HTMLInputElement>, index: number) {
-    if (event.key !== 'Enter') return;
-    event.preventDefault();
-    if (index === rows.length - 1) appendRow(index);
-  }
-
   function handleSave() {
     if (!ready) return;
-    replaceSlots.mutate(rows);
+    const saved = rows;
+    replaceSlots.mutate(rows, {
+      onSuccess: () => {
+        loadedRows.current = saved;
+        toast.success(t('save.success'));
+      },
+      onError: (error) =>
+        toast.error(
+          t(
+            error instanceof ApiError && error.statusCode === 409
+              ? 'periodSlotsPanel.inUseError'
+              : error instanceof ApiError && error.statusCode === 400
+                ? 'periodSlotsPanel.invalidError'
+                : 'periodSlotsPanel.saveError',
+          ),
+        ),
+    });
   }
 
-  if (!shift) {
-    return <p className="text-sm text-muted-foreground">{t('periodSlotsPanel.selectShift')}</p>;
-  }
-
-  const dayStart = timeToMinutes(shift.day_starts_at);
-  const dayEnd = timeToMinutes(shift.day_ends_at);
+  const dayStart = shift ? timeToMinutes(shift.day_starts_at) : 0;
+  const dayEnd = shift ? timeToMinutes(shift.day_ends_at) : 0;
   const dayMinutes = Math.max(dayEnd - dayStart, 1);
 
-  return (
-    <section className="flex flex-col gap-4">
-      <h2 className="text-base font-medium">
-        {t('periodSlotsPanel.legend', { shiftName: shift.name })}
-      </h2>
+  const rowErrors: (RowError | null)[] = rows.map((row, index) => {
+    const start = timeToMinutes(row.starts_at);
+    const end = timeToMinutes(row.ends_at);
+    if (end <= start) return 'endBeforeStart';
+    if (shift && (start < dayStart || end > dayEnd)) return 'outsideShift';
+    const previous = rows[index - 1];
+    if (previous && start < timeToMinutes(previous.ends_at)) return 'overlapsPrevious';
+    return null;
+  });
+  const hasErrors = rowErrors.some(Boolean);
 
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b text-left text-muted-foreground">
-            <th className="py-1.5 font-normal">{t('periodSlotsPanel.sequence')}</th>
-            <th className="py-1.5 font-normal">{t('periodSlotsPanel.kind')}</th>
-            <th className="py-1.5 font-normal">{t('periodSlotsPanel.name')}</th>
-            <th className="py-1.5 font-normal">{t('periodSlotsPanel.startsAt')}</th>
-            <th className="py-1.5 font-normal">{t('periodSlotsPanel.endsAt')}</th>
-            <th className="py-1.5" />
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) => (
-            <tr key={index} className={row.kind === 'BREAK' ? 'border-b bg-muted' : 'border-b'}>
-              <td className="py-1.5">{row.sequence}</td>
-              <td className="py-1.5">
-                <select
-                  className="h-8 rounded-md border border-input bg-card px-2 text-sm"
-                  value={row.kind}
-                  onChange={(event) => {
-                    const kind = event.target.value as PeriodSlotKind;
-                    updateRow(index, { kind, name: kind === 'BREAK' ? null : (row.name ?? null) });
-                  }}
-                >
-                  <option value="CLASS">{t('periodSlotsPanel.kindClass')}</option>
-                  <option value="BREAK">{t('periodSlotsPanel.kindBreak')}</option>
-                </select>
-              </td>
-              <td className="py-1.5">
-                {row.kind === 'BREAK' ? (
-                  <span className="text-muted-foreground">{t('periodSlotsPanel.breakNoName')}</span>
-                ) : (
-                  <Input
-                    aria-label={t('periodSlotsPanel.name')}
-                    value={row.name ?? ''}
-                    onChange={(event) => updateRow(index, { name: event.target.value })}
-                  />
-                )}
-              </td>
-              <td className="py-1.5">
-                <Input
-                  aria-label={t('periodSlotsPanel.startsAt')}
-                  type="time"
-                  value={row.starts_at}
-                  onChange={(event) => updateRow(index, { starts_at: event.target.value })}
-                />
-              </td>
-              <td className="py-1.5">
-                <Input
-                  aria-label={t('periodSlotsPanel.endsAt')}
-                  type="time"
-                  value={row.ends_at}
-                  onChange={(event) => updateRow(index, { ends_at: event.target.value })}
-                  onKeyDown={(event) => handleEndsAtKeyDown(event, index)}
-                />
-              </td>
-              <td className="py-1.5 text-right">
-                <Button type="button" variant="outline" size="sm" onClick={() => removeRow(index)}>
-                  {t('delete.action')}
-                </Button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+  const errorText = (error: RowError) =>
+    t(`periodSlotsPanel.errors.${error}`, {
+      start: shift ? formatTime(shift.day_starts_at, config) : '',
+      end: shift ? formatTime(shift.day_ends_at, config) : '',
+    });
+  const n = (index: number) => formatNumber(index + 1, config);
+  const inRow = (field: string, index: number) =>
+    t('periodSlotsPanel.fieldInRow', { field, n: n(index) });
+  const kindLabel = (kind: PeriodSlotKind) =>
+    t(kind === 'BREAK' ? 'periodSlotsPanel.kindBreak' : 'periodSlotsPanel.kindClass');
 
-      <Button type="button" variant="outline" onClick={() => appendRow(rows.length - 1)}>
-        {t('periodSlotsPanel.addRowAction')}
-      </Button>
+  const minTime = shift?.day_starts_at.slice(0, 5);
+  const maxTime = shift?.day_ends_at.slice(0, 5);
 
-      {/* Timeline strip: one block per slot, positioned/sized by its share
-          of the shift's day window — a gap between two blocks is a missing
-          period, visible at a glance while still typing rows above. */}
-      <div
-        role="img"
-        aria-label={t('periodSlotsPanel.timelineLabel')}
-        className="relative h-6 w-full overflow-hidden rounded-md border border-border-subtle bg-muted"
+  function kindSelect(index: number, row: PeriodSlotItem, idPrefix: string) {
+    return (
+      <Select
+        value={row.kind}
+        onValueChange={(value) => updateRow(index, { kind: value as PeriodSlotKind })}
       >
-        {rows.map((row, index) => {
-          const start = timeToMinutes(row.starts_at);
-          const end = timeToMinutes(row.ends_at);
-          const widthPercent = (Math.max(end - start, 0) / dayMinutes) * 100;
-          const offsetPercent = (Math.max(start - dayStart, 0) / dayMinutes) * 100;
-          return (
-            <div
-              key={index}
-              title={`${row.starts_at}–${row.ends_at}`}
-              className={
-                row.kind === 'BREAK'
-                  ? 'absolute h-6 bg-muted-foreground/40'
-                  : 'absolute h-6 bg-primary/60'
-              }
-              style={{ left: `${offsetPercent}%`, width: `${widthPercent}%` }}
-            />
-          );
-        })}
-      </div>
+        <SelectTrigger
+          id={`${idPrefix}-kind-${index}`}
+          className="w-full"
+          aria-label={inRow(t('periodSlotsPanel.kind'), index)}
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="CLASS">{kindLabel('CLASS')}</SelectItem>
+          <SelectItem value="BREAK">{kindLabel('BREAK')}</SelectItem>
+        </SelectContent>
+      </Select>
+    );
+  }
 
-      <Button type="button" onClick={handleSave} disabled={!ready} loading={replaceSlots.isPending}>
-        {t('save.action')}
-      </Button>
-      {replaceSlots.isSuccess && <p role="status">{t('save.success')}</p>}
-      {replaceSlots.isError && <MutationErrorMessage error={replaceSlots.error} />}
-    </section>
+  function nameInput(index: number, row: PeriodSlotItem, idPrefix: string) {
+    return (
+      <Input
+        id={`${idPrefix}-name-${index}`}
+        aria-label={inRow(t('periodSlotsPanel.name'), index)}
+        placeholder={t('periodSlotsPanel.namePlaceholder')}
+        value={row.name ?? ''}
+        onChange={(event) => updateRow(index, { name: event.target.value || null })}
+      />
+    );
+  }
+
+  function timeField(
+    index: number,
+    row: PeriodSlotItem,
+    key: 'starts_at' | 'ends_at',
+    idPrefix: string,
+  ) {
+    const label = t(key === 'starts_at' ? 'periodSlotsPanel.startsAt' : 'periodSlotsPanel.endsAt');
+    return (
+      <TimeInput
+        id={`${idPrefix}-${key}-${index}`}
+        aria-label={inRow(label, index)}
+        value={row[key]}
+        onValueChange={(value) => updateRow(index, { [key]: value })}
+        stepMinutes={5}
+        {...(minTime ? { min: minTime } : {})}
+        {...(maxTime ? { max: maxTime } : {})}
+      />
+    );
+  }
+
+  const lessonCount = rows.filter((row) => row.kind === 'CLASS').length;
+  const breakCount = rows.length - lessonCount;
+
+  let lessonsSoFar = 0;
+  const phoneHeadings = rows.map((row) => {
+    if (row.kind === 'BREAK') return kindLabel('BREAK');
+    lessonsSoFar += 1;
+    return t('agenda.periodLabel', { sequence: formatNumber(lessonsSoFar, config) });
+  });
+
+  return (
+    <Card padded={false} className="overflow-hidden">
+      <section aria-label={t('periodSlotsPanel.legend')}>
+        <div className="flex flex-col gap-4 p-4 md:flex-row md:items-end md:justify-between md:p-5">
+          <div>
+            <h2 className="text-h2">{t('periodSlotsPanel.legend')}</h2>
+            <p className="mt-1 text-text-secondary">{t('periodSlotsPanel.subtitle')}</p>
+          </div>
+          <div className="flex flex-col gap-1 md:w-64">
+            <Label htmlFor="period-slots-shift">{t('periodSlotsPanel.shiftLabel')}</Label>
+            <Select value={shift?.id ?? ''} onValueChange={onSelectShift}>
+              <SelectTrigger id="period-slots-shift" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {shifts.map((candidate) => (
+                  <SelectItem key={candidate.id} value={candidate.id}>
+                    {candidate.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {!shift ? (
+          <div className="p-4 pt-0 md:p-5 md:pt-0">
+            <EmptyState
+              icon={<ClockIcon aria-hidden="true" />}
+              title={t('periodSlotsPanel.noShiftTitle')}
+              explanation={t('periodSlotsPanel.selectShift')}
+            />
+          </div>
+        ) : (
+          <>
+            <div className="hidden md:block">
+              <table className="w-full">
+                <caption className="sr-only">
+                  {t('periodSlotsPanel.caption', { shiftName: shift.name })}
+                </caption>
+                <thead className="border-y border-border-subtle bg-muted text-label text-text-secondary">
+                  <tr className="text-start">
+                    <th className="w-16 px-2 py-2 text-start font-medium">
+                      {t('periodSlotsPanel.sequence')}
+                    </th>
+                    <th className="w-40 px-2 py-2 text-start font-medium">
+                      {t('periodSlotsPanel.kind')}
+                    </th>
+                    <th className="px-2 py-2 text-start font-medium">
+                      {t('periodSlotsPanel.name')}
+                    </th>
+                    <th className="w-44 px-2 py-2 text-start font-medium">
+                      {t('periodSlotsPanel.startsAt')}
+                    </th>
+                    <th className="w-44 px-2 py-2 text-start font-medium">
+                      {t('periodSlotsPanel.endsAt')}
+                    </th>
+                    <th className="w-20 px-2 py-2 text-end">
+                      <span className="sr-only">{t('delete.action')}</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, index) => {
+                    const error = rowErrors[index];
+                    return (
+                      <React.Fragment key={index}>
+                        <tr className={row.kind === 'BREAK' ? 'bg-muted' : undefined}>
+                          <td className="h-12 px-2 py-1">{n(index)}</td>
+                          <td className="h-12 px-2 py-1">{kindSelect(index, row, 'd')}</td>
+                          <td className="h-12 px-2 py-1">{nameInput(index, row, 'd')}</td>
+                          <td className="h-12 px-2 py-1">
+                            {timeField(index, row, 'starts_at', 'd')}
+                          </td>
+                          <td className="h-12 px-2 py-1">
+                            {timeField(index, row, 'ends_at', 'd')}
+                          </td>
+                          <td className="h-12 px-2 py-1 text-end">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive"
+                              aria-label={t('periodSlotsPanel.removeRow', { n: n(index) })}
+                              onClick={() => removeRow(index)}
+                            >
+                              <CircleMinusIcon aria-hidden="true" />
+                            </Button>
+                          </td>
+                        </tr>
+                        {error && (
+                          <tr className={row.kind === 'BREAK' ? 'bg-muted' : undefined}>
+                            <td colSpan={6} className="px-4 pb-2">
+                              <p className="flex items-center gap-1 text-caption text-destructive">
+                                <CircleAlertIcon className="size-4" aria-hidden="true" />
+                                {errorText(error)}
+                              </p>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <ul className="divide-y divide-border-subtle border-t border-border-subtle md:hidden">
+              {rows.map((row, index) => {
+                const error = rowErrors[index];
+                return (
+                  <li
+                    key={index}
+                    className={`space-y-3 p-4 ${row.kind === 'BREAK' ? 'bg-muted' : ''}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="font-medium">
+                        {t('periodSlotsPanel.rowHeading', {
+                          what: phoneHeadings[index],
+                          n: n(index),
+                        })}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="-me-2 text-destructive"
+                        aria-label={t('periodSlotsPanel.removeRow', { n: n(index) })}
+                        onClick={() => removeRow(index)}
+                      >
+                        <CircleMinusIcon aria-hidden="true" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex flex-col gap-1">
+                        <Label htmlFor={`m-starts_at-${index}`}>
+                          {t('periodSlotsPanel.startsAt')}
+                        </Label>
+                        {timeField(index, row, 'starts_at', 'm')}
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <Label htmlFor={`m-ends_at-${index}`}>{t('periodSlotsPanel.endsAt')}</Label>
+                        {timeField(index, row, 'ends_at', 'm')}
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <Label htmlFor={`m-kind-${index}`}>{t('periodSlotsPanel.kind')}</Label>
+                        {kindSelect(index, row, 'm')}
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <Label htmlFor={`m-name-${index}`}>{t('periodSlotsPanel.name')}</Label>
+                        {nameInput(index, row, 'm')}
+                      </div>
+                    </div>
+                    {error && (
+                      <p className="flex items-center gap-1 text-caption text-destructive">
+                        <CircleAlertIcon className="size-4" aria-hidden="true" />
+                        {errorText(error)}
+                      </p>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+
+            {rows.length === 0 && (
+              <p className="px-4 py-3 text-text-secondary md:px-5">
+                {t('periodSlotsPanel.noRows')}
+              </p>
+            )}
+
+            {/* Timeline strip: one block per slot, positioned/sized by its
+                share of the shift's day window — a gap between two blocks is
+                a missing period, visible at a glance while still typing. */}
+            <div className="space-y-2 border-t border-border-subtle p-4 md:px-5">
+              <p className="text-label">{t('periodSlotsPanel.timelineLabel')}</p>
+              <div
+                role="img"
+                aria-label={t('periodSlotsPanel.timelineAria', {
+                  start: formatTime(shift.day_starts_at, config),
+                  end: formatTime(shift.day_ends_at, config),
+                  lessons: formatNumber(lessonCount, config),
+                  breaks: formatNumber(breakCount, config),
+                })}
+                className="relative flex h-6 w-full gap-px overflow-hidden rounded-md border border-border-subtle bg-muted"
+              >
+                {rows.map((row, index) => {
+                  const start = timeToMinutes(row.starts_at);
+                  const end = timeToMinutes(row.ends_at);
+                  const widthPercent = (Math.max(end - start, 0) / dayMinutes) * 100;
+                  const offsetPercent = (Math.max(start - dayStart, 0) / dayMinutes) * 100;
+                  return (
+                    <div
+                      key={index}
+                      title={`${formatTime(row.starts_at, config)} – ${formatTime(row.ends_at, config)}`}
+                      className={
+                        row.kind === 'BREAK'
+                          ? 'absolute h-6 bg-text-secondary opacity-40'
+                          : 'absolute h-6 bg-primary opacity-60'
+                      }
+                      style={{ insetInlineStart: `${offsetPercent}%`, width: `${widthPercent}%` }}
+                    />
+                  );
+                })}
+              </div>
+              <div className="flex items-center justify-between text-caption text-text-secondary">
+                <span>{formatTime(shift.day_starts_at, config)}</span>
+                <span className="flex items-center gap-3">
+                  <span className="flex items-center gap-1">
+                    <span
+                      className="size-2 rounded-full bg-primary opacity-60"
+                      aria-hidden="true"
+                    />
+                    {kindLabel('CLASS')}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span
+                      className="size-2 rounded-full bg-text-secondary opacity-40"
+                      aria-hidden="true"
+                    />
+                    {kindLabel('BREAK')}
+                  </span>
+                </span>
+                <span>{formatTime(shift.day_ends_at, config)}</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 border-t border-border-subtle p-4 md:flex-row md:items-center md:justify-between md:px-5">
+              <p className="hidden text-caption text-text-secondary md:block">
+                {t('periodSlotsPanel.changeoverHint', {
+                  minutes: formatNumber(changeoverGapMinutes, config),
+                })}
+              </p>
+              <div className="flex flex-col-reverse gap-2 md:flex-row">
+                <Button type="button" variant="outline" onClick={() => appendRow(rows.length - 1)}>
+                  <PlusIcon aria-hidden="true" />
+                  {t('periodSlotsPanel.addRowAction')}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={!ready || hasErrors}
+                  loading={replaceSlots.isPending}
+                >
+                  {t('save.action')}
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </section>
+    </Card>
   );
 }
