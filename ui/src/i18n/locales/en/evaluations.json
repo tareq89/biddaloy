@@ -99,7 +99,10 @@
       "empty": "No ACR has been started for this staff member.",
       "errorMessage": "Couldn't load ACR history.",
       "trendTitle": "Year over year",
-      "trendLabel": "{{year}}: {{total}}"
+      "trendLabel": "{{year}}: {{total}}",
+      "columnYear": "Academic year",
+      "columnTotal": "Total",
+      "columnStatus": "Status"
     },
     "criteriaSettings": {
       "title": "ACR criteria",
