@@ -106,6 +106,9 @@ export class SyllabusTopicResponseDto {
   id: string;
   class_id: string;
   subject_id: string;
+  /** Families get 403 on `GET /subjects`; null when the relation was not loaded (create/update). */
+  subject_name_en: string | null;
+  subject_name_bn: string | null;
   name: string;
   description: string | null;
   sequence: number;
@@ -117,6 +120,8 @@ export function toSyllabusTopicResponseDto(topic: SyllabusTopic): SyllabusTopicR
     id: topic.id,
     class_id: topic.class_id,
     subject_id: topic.subject_id,
+    subject_name_en: topic.subject?.name_en ?? null,
+    subject_name_bn: topic.subject?.name_bn ?? null,
     name: topic.name,
     description: topic.description,
     sequence: topic.sequence,
