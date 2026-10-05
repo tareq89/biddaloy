@@ -2,7 +2,7 @@
   "list": {
     "title": "Guardians",
     "caption": "Guardians",
-    "searchLabel": "Search by name, phone, or email",
+    "searchLabel": "Search",
     "columnName": "Name",
     "columnRelationship": "Relationship",
     "columnPhone": "Phone",
@@ -15,7 +15,12 @@
     "emptyValue": "—",
     "emptyMessage": "No guardians found",
     "errorMessage": "Failed to load guardians",
-    "announceResults": "{{count}} of {{total}} guardians shown"
+    "announceResults": "{{count}} of {{total}} guardians shown",
+    "searchPlaceholder": "Name, phone or email",
+    "allRelationships": "All relationships",
+    "primaryOnlyFilter": "Primary contacts only",
+    "moreStudents": "+{{n}} more",
+    "emptyExplanation": "Guardians appear here when you add them with a student."
   },
   "preferredCommunicationOptions": {
     "SMS": "SMS",

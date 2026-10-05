@@ -2,20 +2,25 @@
   "list": {
     "title": "অভিভাবক",
     "caption": "অভিভাবক",
-    "searchLabel": "নাম, ফোন বা ইমেইল দিয়ে খুঁজুন",
+    "searchLabel": "খুঁজুন",
     "columnName": "নাম",
     "columnRelationship": "সম্পর্ক",
     "columnPhone": "ফোন",
     "columnPreferredCommunication": "পছন্দের যোগাযোগ মাধ্যম",
     "columnLinkedStudents": "যুক্ত শিক্ষার্থী",
     "columnPrimaryContact": "প্রধান যোগাযোগ",
-    "columnActions": "কার্যক্রম",
+    "columnActions": "কাজ",
     "allPreferredCommunication": "সকল মাধ্যম",
     "view": "দেখুন",
     "emptyValue": "—",
     "emptyMessage": "কোনো অভিভাবক পাওয়া যায়নি",
     "errorMessage": "অভিভাবকের তথ্য লোড করা যায়নি",
-    "announceResults": "{{total}} জনের মধ্যে {{count}} জন অভিভাবক দেখানো হচ্ছে"
+    "announceResults": "{{total}} জনের মধ্যে {{count}} জন অভিভাবক দেখানো হচ্ছে",
+    "searchPlaceholder": "নাম, ফোন বা ইমেইল",
+    "allRelationships": "সকল সম্পর্ক",
+    "primaryOnlyFilter": "শুধু প্রধান যোগাযোগ",
+    "moreStudents": "+{{n}} জন",
+    "emptyExplanation": "শিক্ষার্থী যোগ করার সময় তার অভিভাবক যোগ করলে এখানে দেখা যাবে।"
   },
   "preferredCommunicationOptions": {
     "SMS": "এসএমএস",
