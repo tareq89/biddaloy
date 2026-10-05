@@ -82,18 +82,36 @@ describe('createAppQueryClient', () => {
     expect(callCount).toBe(1);
   });
 
-  it('shows a permission-denied toast for a 403, in the active language', async () => {
-    await i18n.changeLanguage('en');
+  it('does not toast when a query fails with 403', async () => {
     const toastErrorSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
     const queryClient = createAppQueryClient();
 
     await expect(
       queryClient.fetchQuery({
-        queryKey: ['test', 'toast-403'],
+        queryKey: ['test', 'query-403'],
         queryFn: () => {
           throw apiError(403);
         },
       }),
+    ).rejects.toThrow();
+
+    expect(toastErrorSpy).not.toHaveBeenCalled();
+  });
+
+  it('shows a permission-denied toast for a mutation 403, in the active language', async () => {
+    await i18n.changeLanguage('en');
+    const toastErrorSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    const queryClient = createAppQueryClient();
+
+    await expect(
+      queryClient
+        .getMutationCache()
+        .build(queryClient, {
+          mutationFn: () => {
+            throw apiError(403);
+          },
+        })
+        .execute(undefined),
     ).rejects.toThrow();
 
     expect(toastErrorSpy).toHaveBeenCalledExactlyOnceWith("You don't have permission to do that.");
@@ -154,12 +172,14 @@ describe('createAppQueryClient', () => {
       const queryClient = createAppQueryClient();
 
       await expect(
-        queryClient.fetchQuery({
-          queryKey: ['test', 'suspended-403'],
-          queryFn: () => {
-            throw suspendedError();
-          },
-        }),
+        queryClient
+          .getMutationCache()
+          .build(queryClient, {
+            mutationFn: () => {
+              throw suspendedError();
+            },
+          })
+          .execute(undefined),
       ).rejects.toThrow();
 
       expect(toastErrorSpy).not.toHaveBeenCalled();
