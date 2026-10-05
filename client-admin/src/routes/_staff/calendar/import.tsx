@@ -1,9 +1,9 @@
 /**
- * [17.5.3] `/calendar/import` — 3-step wizard: upload a spreadsheet (or
- * arrive pre-loaded from the clone dialog with a staged preview already
- * in hand), review the row-by-row preview, then commit. Nothing writes
- * until "Commit import" on step 3 — `validate`/`clone` only stage a
- * preview server-side.
+ * [17.5.3] / [31.4] `/calendar/import` — a full-page modal (D23) with two
+ * steps: upload a spreadsheet (or arrive pre-loaded from the clone dialog
+ * with a staged preview already in hand), then review the row-by-row
+ * preview and commit. Nothing writes until "Confirm import" —
+ * `validate`/`clone` only stage a preview server-side.
  *
  * Clone hands its result through router state (`Route.useLoaderData`
  * isn't right here — the preview is produced by a mutation the clone
@@ -13,14 +13,16 @@
  * works in this app when TanStack Router's own `state` isn't a fit for a
  * throwaway payload.
  */
-import { Button, Checkbox, Label } from '@biddaloy/ui/components';
+import { Button, Card } from '@biddaloy/ui/components';
 import {
   useCommitCalendarImport,
   useValidateCalendarImport,
   type CalendarImportValidateResponse,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { FullPageShell } from '@biddaloy/ui/shells';
+import { createFileRoute } from '@tanstack/react-router';
+import { CircleCheckIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
@@ -44,17 +46,41 @@ export function getPendingClonePreview(): CalendarImportValidateResponse | undef
 }
 
 export const Route = createFileRoute('/_staff/calendar/import')({
+  // `_staff.tsx` renders this route without the sidebar and header (D22).
+  staticData: { chromeless: true },
   loader: () => loadRouteNamespaces('calendarImport', 'common').catch(swallowUnlessOffline),
   component: CalendarImportPage,
 });
 
 type WizardState =
   | { step: 'upload' }
-  | { step: 'preview'; result: CalendarImportValidateResponse }
+  | { step: 'preview'; result: CalendarImportValidateResponse; fileName?: string }
   | { step: 'done'; created: number; updated: number; published: boolean };
+
+function StepHeading({
+  current,
+  title,
+  fileName,
+}: {
+  current: number;
+  title: string;
+  fileName?: string | undefined;
+}) {
+  const { t } = useTranslation('calendarImport');
+  return (
+    <div>
+      <p className="text-label text-text-secondary">{t('stepOf', { current, total: 2 })}</p>
+      <h2 className="text-h2">{title}</h2>
+      {fileName && (
+        <p className="mt-0.5 text-text-secondary">{t('step2.fileName', { name: fileName })}</p>
+      )}
+    </div>
+  );
+}
 
 function CalendarImportPage() {
   const { t } = useTranslation('calendarImport');
+  const navigate = Route.useNavigate();
 
   const [state, setState] = React.useState<WizardState>(() => {
     const preview = getPendingClonePreview();
@@ -64,6 +90,7 @@ function CalendarImportPage() {
     setPendingClonePreview(undefined);
   }, []);
 
+  const [selectedFile, setSelectedFile] = React.useState<File | undefined>(undefined);
   const [allowPartial, setAllowPartial] = React.useState(false);
   const [publishImmediately, setPublishImmediately] = React.useState(false);
   const [uploadError, setUploadError] = React.useState<string | undefined>(undefined);
@@ -71,16 +98,21 @@ function CalendarImportPage() {
   const validateMutation = useValidateCalendarImport();
   const commitMutation = useCommitCalendarImport();
 
-  function handleFileSelected(file: File) {
+  // A pending request must not be abandoned by Close / Esc / Cancel.
+  const busy = validateMutation.isPending || commitMutation.isPending;
+  const close = () => {
+    if (!busy) void navigate({ to: '/calendar' });
+  };
+
+  function handleValidate() {
+    if (!selectedFile) return;
     setUploadError(undefined);
-    validateMutation.mutate(file, {
+    validateMutation.mutate(selectedFile, {
       onSuccess: (result) => {
         setAllowPartial(false);
-        setState({ step: 'preview', result });
+        setState({ step: 'preview', result, fileName: selectedFile.name });
       },
-      onError: (error: unknown) => {
-        setUploadError(error instanceof Error ? error.message : t('step1.uploadFailed'));
-      },
+      onError: () => setUploadError(t('step1.uploadFailed')),
     });
   }
 
@@ -103,18 +135,31 @@ function CalendarImportPage() {
 
   if (state.step === 'upload') {
     return (
-      <div className="mx-auto max-w-2xl space-y-4">
-        <h1 className="text-lg font-semibold">{t('pageTitle')}</h1>
-        <h2 className="text-base font-medium">{t('step1.title')}</h2>
+      <FullPageShell
+        title={t('pageTitle')}
+        size="wide"
+        onClose={close}
+        secondary={{ label: t('clone.cancel'), onClick: close }}
+        primary={{
+          label: t('step1.check'),
+          onClick: handleValidate,
+          disabled: !selectedFile,
+          busy: validateMutation.isPending,
+        }}
+      >
+        <StepHeading current={1} title={t('step1.title')} />
         <ImportDropzone
-          onFileSelected={handleFileSelected}
+          onFileChange={(file) => {
+            setSelectedFile(file);
+            setUploadError(undefined);
+          }}
           disabled={validateMutation.isPending}
           {...(uploadError ? { error: uploadError } : {})}
         />
         {validateMutation.isPending && (
-          <p className="text-sm text-muted-foreground">{t('step1.validating')}</p>
+          <p className="text-text-secondary">{t('step1.validating')}</p>
         )}
-      </div>
+      </FullPageShell>
     );
   }
 
@@ -122,66 +167,78 @@ function CalendarImportPage() {
     const hasErrors = state.result.summary.error > 0;
     const canCommit = !hasErrors || allowPartial;
     return (
-      <div className="mx-auto max-w-3xl space-y-4">
-        <h1 className="text-lg font-semibold">{t('pageTitle')}</h1>
-        <h2 className="text-base font-medium">{t('step2.title')}</h2>
-
+      <FullPageShell
+        title={t('pageTitle')}
+        size="wide"
+        dirty
+        onClose={close}
+        secondary={{
+          label: t('step2.back'),
+          onClick: () => {
+            if (busy) return;
+            setSelectedFile(undefined);
+            setState({ step: 'upload' });
+          },
+        }}
+        primary={{
+          label: commitMutation.isPending ? t('step3.committing') : t('step3.commit'),
+          onClick: handleCommit,
+          disabled: !canCommit,
+          busy: commitMutation.isPending,
+        }}
+      >
+        <StepHeading current={2} title={t('step2.title')} fileName={state.fileName} />
+        {commitMutation.isError && (
+          <p role="alert" className="text-destructive">
+            {t('step3.commitFailed')}
+          </p>
+        )}
         <ImportPreviewTable
           summary={state.result.summary}
           rows={state.result.rows}
           allowPartial={allowPartial}
           onAllowPartialChange={setAllowPartial}
+          publishImmediately={publishImmediately}
+          onPublishImmediatelyChange={setPublishImmediately}
         />
-
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="import-publish-immediately"
-            checked={publishImmediately}
-            onCheckedChange={(checked) => setPublishImmediately(checked === true)}
-          />
-          <Label htmlFor="import-publish-immediately">{t('step3.publishImmediately')}</Label>
-        </div>
-        <p className="text-sm text-muted-foreground">{t('step3.publishImmediatelyHint')}</p>
-
-        <div className="flex gap-2">
-          <Button type="button" variant="outline" onClick={() => setState({ step: 'upload' })}>
-            {t('step2.back')}
-          </Button>
-          <Button
-            type="button"
-            disabled={!canCommit || commitMutation.isPending}
-            onClick={handleCommit}
-          >
-            {commitMutation.isPending ? t('step3.committing') : t('step3.commit')}
-          </Button>
-        </div>
-        {commitMutation.isError && (
-          <p className="text-sm text-destructive" role="alert">
-            {t('step3.commitFailed')}
-          </p>
-        )}
-      </div>
+      </FullPageShell>
     );
   }
 
   // state.step === 'done'
   const total = state.created + state.updated;
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
-      <h1 className="text-lg font-semibold">{t('success.title')}</h1>
-      <p>
-        {state.published
-          ? t('success.publishedMessage', { count: total })
-          : t('success.draftMessage', { count: total })}
-      </p>
-      <div className="flex gap-2">
-        <Button asChild variant="outline">
-          <Link to="/calendar">{t('success.viewOnCalendar')}</Link>
-        </Button>
-        <Button type="button" onClick={() => setState({ step: 'upload' })}>
+    <FullPageShell
+      title={t('pageTitle')}
+      size="wide"
+      onClose={close}
+      primary={{ label: t('success.viewOnCalendar'), onClick: close }}
+    >
+      <Card className="flex flex-col items-center gap-2 px-4 py-10 text-center">
+        <span
+          aria-hidden="true"
+          className="flex size-12 items-center justify-center rounded-full bg-status-paid-bg text-status-paid-fg"
+        >
+          <CircleCheckIcon className="size-6" />
+        </span>
+        <h2 className="text-h3">{t('success.title')}</h2>
+        <p className="text-text-secondary">
+          {state.published
+            ? t('success.publishedMessage', { count: total })
+            : t('success.draftMessage', { count: total })}
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          className="mt-2"
+          onClick={() => {
+            setSelectedFile(undefined);
+            setState({ step: 'upload' });
+          }}
+        >
           {t('success.importAnother')}
         </Button>
-      </div>
-    </div>
+      </Card>
+    </FullPageShell>
   );
 }
