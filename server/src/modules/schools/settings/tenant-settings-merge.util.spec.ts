@@ -50,6 +50,15 @@ describe('mergeTenantSettings', () => {
     ]);
   });
 
+  it('ignores a non-object stored attendance instead of spreading it', () => {
+    const patch = toPatch({ version: 1, attendance: { lateAfter: '09:30', absentAfter: '10:30' } });
+
+    for (const stored of ['garbage', [1, 2]]) {
+      const merged = mergeTenantSettings({ version: 1, attendance: stored }, patch);
+      expect(merged.attendance).toEqual({ lateAfter: '09:30', absentAfter: '10:30' });
+    }
+  });
+
   it('starts from an empty object when nothing was stored yet', () => {
     const patch = toPatch({ version: 1, region: DEFAULT_REGION_SETTINGS });
 

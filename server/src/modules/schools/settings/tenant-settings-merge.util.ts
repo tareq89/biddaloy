@@ -87,7 +87,7 @@ export function mergeTenantSettings(
 
   if (patch.attendance !== undefined) {
     merged.attendance = {
-      ...(merged.attendance as Record<string, unknown> | undefined),
+      ...(isPlainObject(merged.attendance) ? merged.attendance : {}),
       ...(patch.attendance as Record<string, unknown>),
     };
   }
