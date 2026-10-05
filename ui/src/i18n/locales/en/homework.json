@@ -64,7 +64,6 @@
     },
     "submit": "Save",
     "submitting": "Saving…",
-    "errorRequired": "Please fill in all required fields.",
     "dueBeforeAssigned": "Due date must be on or after the assigned date.",
     "assignFailedAfterCreate": "Homework was created, but assigning it failed. Try again from its detail page:",
     "viewCreatedHomework": "Go to homework",
@@ -73,7 +72,20 @@
     "required": "(required)",
     "errorSection": "Pick a section.",
     "errorStudent": "Pick a student.",
-    "errorDate": "Pick a date."
+    "errorDate": "Pick a date.",
+    "submitCreate": "Give homework",
+    "sectionWhat": "1. What to do",
+    "sectionWhatHint": "Pick the class and subject, then write the task.",
+    "sectionWho": "2. Who and when",
+    "sectionWhoHint": "Give it to a whole section or to one student.",
+    "gradingModeHelp": {
+      "TICK": "You mark each student done or not done.",
+      "PARTIAL": "You mark each student not done, partly done or done.",
+      "MARKS": "You give each student a mark."
+    },
+    "errorClass": "Pick a class.",
+    "errorSubject": "Pick a subject.",
+    "errorTitle": "Write a title."
   },
   "upload": {
     "dropHint": "Drag and drop files here, or choose files below. PDF, JPG, PNG or WEBP, up to 5MB each, {{maxFiles}} files max.",
@@ -104,23 +116,31 @@
     "title": "Import homework",
     "template": {
       "title": "1. Download the template",
-      "explanation": "Fill in the template with one homework assignment per row, then upload it below. Keep the first row of headers exactly as it is. Row 2 is a filled-in example — delete it before you upload, or that homework will be imported too.",
+      "explanation": "Write one homework per row. Do not change the header row, and delete example row 2.",
       "download": "Download template"
     },
     "reference": {
       "caption": "Column reference",
-      "column": "Column",
-      "required": "Required?",
-      "format": "What goes here",
       "requiredYes": "Required",
       "requiredNo": "Optional",
       "columns": {
-        "class": "A class name that already exists for the current academic year, e.g. Class 5.",
+        "class": "The name of a class that exists in the current academic year, e.g. Class 5.",
         "section": "A section of that class, e.g. A.",
         "subject": "A subject name that already exists, e.g. Mathematics.",
-        "assigned_date": "The date homework is assigned, in YYYY-MM-DD format.",
-        "due_date": "The date homework is due, in YYYY-MM-DD format. Must be on or after the assigned date.",
-        "description": "Optional notes about the homework. Leave empty to skip."
+        "assigned_date": "Year-month-day, e.g. 2026-10-01.",
+        "due_date": "Year-month-day, e.g. 2026-10-05. It cannot be before the date given.",
+        "description": "A short note about the task. You can leave it empty."
+      },
+      "count_one": "{{n}} column",
+      "count_other": "{{n}} columns",
+      "headerName": "Column header:",
+      "labels": {
+        "class": "Class",
+        "section": "Section",
+        "subject": "Subject",
+        "assigned_date": "Date given",
+        "due_date": "Due date",
+        "description": "Description"
       }
     },
     "upload": {
@@ -130,15 +150,16 @@
     "preview": {
       "willCreate_one": "{{count}} homework will be created.",
       "willCreate_other": "{{count}} homework will be created.",
-      "previewCaption_one": "First {{count}} row",
-      "previewCaption_other": "First {{count}} rows",
       "columns": {
-        "class": "Class",
-        "section": "Section",
-        "subject": "Subject",
         "assignedDate": "Assigned date",
-        "dueDate": "Due date"
-      }
+        "dueDate": "Due date",
+        "where": "Class · Section · Subject"
+      },
+      "title": "Preview",
+      "subtitle_one": "The first {{n}} row of your file will be added like this.",
+      "subtitle_other": "The first {{n}} rows of your file will be added like this.",
+      "noProblems": "No problems",
+      "shown": "Showing the first {{shown}} of {{total}}"
     },
     "result": {
       "title": "3. Result",
@@ -146,12 +167,17 @@
       "created_other": "{{count}} homework created.",
       "partialSummary": "{{success}} of {{total}} homework imported. {{errors}} rows had problems.",
       "importAnother": "Import another file",
-      "backToList": "Back to homework"
+      "backToList": "Back to homework",
+      "badgeDone": "Done",
+      "badgePartial": "Some rows failed"
     },
     "notifications": {
       "imported": "{{success}} of {{total}} homework imported.",
       "partial": "{{success}} of {{total}} homework imported, {{errors}} failed.",
       "failed": "Import failed."
-    }
+    },
+    "confirm_one": "Import {{n}} homework",
+    "confirm_other": "Import {{n}} homework",
+    "confirmIdle": "Import"
   }
 }
