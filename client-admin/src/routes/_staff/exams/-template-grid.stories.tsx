@@ -1,11 +1,13 @@
+import { useTranslation } from '@biddaloy/ui/i18n';
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import * as React from 'react';
 
-import { TemplateGrid, type TemplateGridProps } from './-template-grid';
+import { TemplateGrid, type TemplateGridHandle, type TemplateGridProps } from './-template-grid';
 
 const SUBJECTS = [
-  { code: 'BAN', name: 'Bangla' },
-  { code: 'ENG', name: 'English' },
-  { code: 'MAT', name: 'Mathematics' },
+  { code: 'BAN', name: 'Bangla', label: 'Bangla' },
+  { code: 'ENG', name: 'English', label: 'English' },
+  { code: 'MAT', name: 'Mathematics', label: 'Mathematics' },
 ];
 
 const ROWS: TemplateGridProps['rows'] = [
@@ -32,29 +34,46 @@ const ROWS: TemplateGridProps['rows'] = [
   },
 ];
 
+/** The page header owns Save / Discard; the story stands in for it. */
 function Grid(props: Partial<TemplateGridProps>) {
-  return <TemplateGrid rows={ROWS} subjects={SUBJECTS} onSave={() => undefined} {...props} />;
+  const { t } = useTranslation('examTemplates');
+  const ref = React.useRef<TemplateGridHandle>(null);
+  const [grade, setGrade] = React.useState<number | undefined>(props.selectedGrade);
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex gap-2">
+        <button type="button" onClick={() => ref.current?.discard()}>
+          {t('detail.discard')}
+        </button>
+        <button type="button" onClick={() => ref.current?.save()}>
+          {t('detail.save')}
+        </button>
+      </div>
+      <TemplateGrid
+        ref={ref}
+        rows={ROWS}
+        subjects={SUBJECTS}
+        onSave={() => undefined}
+        {...props}
+        selectedGrade={grade}
+        onGradeChange={setGrade}
+      />
+    </div>
+  );
 }
 
 const meta: Meta<typeof TemplateGrid> = { component: TemplateGrid };
 export default meta;
 type Story = StoryObj<typeof TemplateGrid>;
 
-/** One section per class grade, one table per subject. */
+/** One tab per class, one Card per subject of the selected class. */
 export const Populated: Story = { render: () => <Grid /> };
 
-/** Nothing yet — only the "add class grade" control. */
+/** The second class selected. */
+export const SecondClass: Story = { render: () => <Grid selectedGrade={6} /> };
+
+/** Nothing yet — an empty state whose action adds the first class. */
 export const Empty: Story = { render: () => <Grid rows={[]} /> };
-
-/** Save in flight. */
-export const Saving: Story = {
-  render: () => <Grid saving />,
-};
-
-/** The server rejected the save (e.g. a 400/409 message). */
-export const ServerError: Story = {
-  render: () => <Grid error='Duplicate component name "Written" for class 5, BAN.' />,
-};
 
 /** pass > full: Save is blocked and the field explains why. */
 export const InvalidPassMarks: Story = {
@@ -65,7 +84,7 @@ export const InvalidPassMarks: Story = {
     const pass = await canvas.findByLabelText('Pass marks — BAN — Bangla, class 5, row 1');
     await userEvent.clear(pass);
     await userEvent.type(pass, '90');
-    await userEvent.click(canvas.getByRole('button', { name: 'Save template' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Save' }));
   },
 };
 
