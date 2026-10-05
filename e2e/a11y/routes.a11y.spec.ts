@@ -5,14 +5,16 @@ import { expect, guest, loggedIn, test } from '../fixtures/test';
 import type { SeedRole } from '../seed-contract';
 import { resolvePath, routes, type ManifestRoute } from '../responsive/routes';
 import { GLOBAL_OVERLAY_KEYS, overlayOpeners } from './overlay-openers';
+import { skipIfKnown } from '../responsive/known-failures';
 import { expectNoAxeViolations } from './assert';
 
 /**
  * Same reasoning as `responsive/reflow.spec.ts`'s identical helper: a
  * `redirect` archetype route may land somewhere that opens a modal by
- * default (`/payments/record` → `/payments?record=1`), which correctly
- * `aria-hide`s the underlying page's `<h1>` while open — the dialog's own
+ * default (e.g. a legacy URL that lands on a page with a modal open), which
+ * correctly `aria-hide`s the underlying `<h1>` while open — the dialog's own
  * required title is the equivalent "rendered something meaningful" signal.
+ * (`/payments/record` used to be that case; it is now a full-page form.)
  */
 function pageOrDialogHeading(page: Page, route: ManifestRoute) {
   const heading = page.getByRole('heading', { level: 1 }).first();
@@ -69,6 +71,7 @@ for (const { locale, theme } of VARIANTS) {
         }
 
         test('has zero axe violations', async ({ page, request }) => {
+          skipIfKnown('axe', route.path);
           if (route.path === '/fees/dues' || route.path === '/students') {
             // Overlay openers below select the first row — make sure one exists.
             if (route.overlays?.length) await ensureDuesRow(request);

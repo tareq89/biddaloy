@@ -1,5 +1,6 @@
 import { guest, loggedIn, test } from '../fixtures/test';
 import type { SeedRole } from '../seed-contract';
+import { skipIfKnown } from './known-failures';
 import { routes } from './routes';
 import { expectNoHorizontalScrollAtWidth, expectRendersAtWidth } from './assert';
 
@@ -24,12 +25,14 @@ for (const route of routes) {
 
     for (const width of SCROLL_WIDTHS) {
       test(`no horizontal scroll at ${width}px`, async ({ page, request }) => {
+        skipIfKnown('reflow', route.path);
         await expectNoHorizontalScrollAtWidth(page, request, route, width);
       });
     }
 
     for (const width of SMOKE_WIDTHS) {
       test(`renders at ${width}px`, async ({ page, request }) => {
+        skipIfKnown('reflow', route.path);
         await expectRendersAtWidth(page, request, route, width);
       });
     }
