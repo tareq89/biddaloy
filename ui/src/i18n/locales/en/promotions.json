@@ -121,7 +121,8 @@
       "committedBy": "Finalised by",
       "approvedBy": "Approved by"
     },
-    "loadError": "Couldn't load this promotion list."
+    "loadError": "Couldn't load this promotion list.",
+    "deleteConflict": "This list can't be deleted any more — someone may have finalised it. The page has been refreshed."
   },
   "stepper": {
     "previous": "Previous student",

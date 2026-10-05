@@ -429,7 +429,7 @@ describe('/promotions/$runId', () => {
       locale: 'en',
     });
 
-    await within(await screen.findByRole('status')).findByText(/^Promoted [1১]$/);
+    await within(await screen.findByRole('status')).findByText('Promoted ১');
     expect(screen.queryByRole('button', { name: /Finalise/ })).toBeNull();
     // No decision control on a finalised list: plain text, no combobox.
     expect(screen.queryByRole('combobox', { name: 'Final decision' })).toBeNull();
@@ -586,5 +586,124 @@ describe('/promotions/$runId', () => {
     await user.keyboard('{Control>}{Enter}{/Control}');
     await sleep(50);
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('letters other than P/R/G typed on the closed decision change nothing', async () => {
+    const user = userEvent.setup();
+    stubCommon();
+    const record = statefulRun();
+    renderRun();
+
+    const trigger = await screen.findByRole('combobox', { name: 'Final decision' });
+    trigger.focus();
+    await user.keyboard('অউxa');
+    await sleep(100);
+
+    expect(record.patches).toHaveLength(0);
+    expect(trigger.textContent).toContain('Promote');
+  });
+
+  it('Ctrl+R on the decision sets nothing', async () => {
+    const user = userEvent.setup();
+    stubCommon();
+    const record = statefulRun();
+    renderRun();
+
+    const trigger = await screen.findByRole('combobox', { name: 'Final decision' });
+    trigger.focus();
+    await user.keyboard('{Control>}r{/Control}');
+    await sleep(100);
+
+    expect(record.patches).toHaveLength(0);
+  });
+
+  it('arrow keys move between rows on the decision trigger', async () => {
+    const user = userEvent.setup();
+    stubCommon();
+    statefulRun(
+      baseRun({
+        entries: [
+          entry(),
+          entry({ student_id: 's2', id: 'e2', merit_rank: 2, student_name: 'Two' }),
+        ],
+      }),
+    );
+    renderRun();
+
+    const triggers = await screen.findAllByRole('combobox', { name: 'Final decision' });
+    triggers[0]?.focus();
+    await user.keyboard('{ArrowDown}');
+    expect(document.activeElement).toBe(triggers[1]);
+    await user.keyboard('{ArrowUp}');
+    expect(document.activeElement).toBe(triggers[0]);
+  });
+
+  it('picking an override from the open list moves focus to the reason box', async () => {
+    const user = userEvent.setup();
+    stubCommon();
+    statefulRun();
+    renderRun();
+
+    await user.click(await screen.findByRole('combobox', { name: 'Final decision' }));
+    await user.click(await screen.findByRole('option', { name: 'Graduate' }));
+    const note = await screen.findByRole('textbox', { name: 'Why changed' });
+    await waitFor(() => expect(document.activeElement).toBe(note));
+  });
+
+  it('a delete that fails with 409 says so and reloads the run', async () => {
+    const user = userEvent.setup();
+    const toastError = vi.spyOn(toast, 'error');
+    stubCommon();
+    statefulRun();
+    server.use(
+      http.delete(RUN_URL, () =>
+        HttpResponse.json(apiErrorBody(409, 'Conflict', RUN_URL), { status: 409 }),
+      ),
+    );
+    renderRun();
+
+    await screen.findByRole('combobox', { name: 'Final decision' });
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete list' }));
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete' }),
+    );
+
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith(
+        "This list can't be deleted any more — someone may have finalised it. The page has been refreshed.",
+      ),
+    );
+  });
+
+  it('Ctrl+Enter while the delete confirm is open does not stack the commit dialog', async () => {
+    const user = userEvent.setup();
+    stubCommon();
+    statefulRun();
+    renderRun();
+
+    await screen.findByRole('combobox', { name: 'Final decision' });
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete list' }));
+    await screen.findByRole('alertdialog');
+    await user.keyboard('{Control>}{Enter}{/Control}');
+    await sleep(50);
+    expect(screen.queryByRole('button', { name: 'Finalise' })).toBeNull();
+  });
+
+  it('a finalised run shows each decision as plain text', async () => {
+    stubCommon();
+    server.use(
+      http.get(RUN_URL, () =>
+        HttpResponse.json(
+          baseRun({ status: 'COMMITTED', committed_at: '2026-02-01T00:00:00.000Z' }),
+        ),
+      ),
+    );
+    renderRun();
+
+    const row = (await screen.findByText('Rafi Ahmed')).closest('tr') as HTMLElement;
+    expect(within(row).getAllByText('Promote').length).toBeGreaterThan(0);
+    expect(within(row).queryByRole('combobox', { name: 'Final decision' })).toBeNull();
   });
 });
