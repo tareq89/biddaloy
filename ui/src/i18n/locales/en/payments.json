@@ -175,5 +175,43 @@
     "amountRangeLabel": "Amount (৳)",
     "minAmount": "Minimum",
     "maxAmount": "Maximum"
+  },
+  "invoiceDetail": {
+    "student": "Student",
+    "payment": "Payment",
+    "paymentValue": "{{method}} · {{date}}",
+    "originalInvoice": "Original invoice",
+    "creditNote": "Credit note",
+    "lines": {
+      "caption": "Bills for {{name}}",
+      "fee": "Fee",
+      "period": "Period",
+      "billed": "Bill",
+      "discount": "Discount",
+      "paidNow": "Paid now",
+      "balance": "Left to pay",
+      "phoneLine": "{{period}} · Bill {{billed}}"
+    },
+    "totals": {
+      "billed": "Total billed",
+      "discount": "Discount",
+      "tax": "Tax",
+      "wallet": "From wallet",
+      "paid": "Paid",
+      "change": "Change given"
+    },
+    "notes": "Notes",
+    "printTitle": "Print",
+    "printAction": "Print",
+    "sendTitle": "Send to guardian",
+    "sendWhatsapp": "WhatsApp",
+    "sendSms": "SMS",
+    "shareTitle": "Share link",
+    "shareHelp": "Anyone with the link can see this receipt without signing in.",
+    "shareCreate": "Create link",
+    "shareRevoke": "Turn off link",
+    "shareRevokeTitle": "Turn off this link?",
+    "shareFailed": "The share link couldn't be created.",
+    "revokeFailed": "The link couldn't be turned off."
   }
 }

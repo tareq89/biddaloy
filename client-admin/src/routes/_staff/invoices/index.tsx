@@ -124,9 +124,6 @@ export const Route = createFileRoute('/_staff/invoices/')({
 
 function InvoicesListPage() {
   const { t } = useTranslation('fees');
-  // Second binding for the payments namespace (this lane's keys); the i18n key
-  // check resolves `t()` against the first `useTranslation` in a file.
-  const { t: tPay } = useTranslation('payments');
   const regionConfig = useRegionConfig();
   const [state, actions] = useListShellState();
   // `student_id` round-trips through this generic `filters` bag same as
@@ -177,9 +174,9 @@ function InvoicesListPage() {
       kind: 'number-range',
       minKey: 'min_amount',
       maxKey: 'max_amount',
-      label: tPay('invoices.amountRangeLabel'),
-      minLabel: tPay('invoices.minAmount'),
-      maxLabel: tPay('invoices.maxAmount'),
+      label: t('invoices.amountRangeLabel', { ns: 'payments' }),
+      minLabel: t('invoices.minAmount', { ns: 'payments' }),
+      maxLabel: t('invoices.maxAmount', { ns: 'payments' }),
     },
   ];
 
@@ -192,7 +189,7 @@ function InvoicesListPage() {
           {row.invoice_number}
           {row.kind === 'CREDIT_NOTE' && (
             <span className="ms-1 inline-flex h-6 items-center rounded-full bg-muted px-2 text-label text-text-secondary">
-              {tPay('invoices.creditNote')}
+              {t('invoices.creditNote', { ns: 'payments' })}
             </span>
           )}
         </span>
@@ -206,7 +203,7 @@ function InvoicesListPage() {
       header: t('invoices.columnStudent'),
       accessorFn: (row) =>
         row.kind === 'CREDIT_NOTE'
-          ? `${row.student.full_name} · ${tPay('invoices.creditNote')}`
+          ? `${row.student.full_name} · ${t('invoices.creditNote', { ns: 'payments' })}`
           : row.student.full_name,
       card: 'subtitle',
     },
@@ -246,7 +243,7 @@ function InvoicesListPage() {
   return (
     <ListShell
       title={t('invoices.title')}
-      subtitle={tPay('invoices.subtitle')}
+      subtitle={t('invoices.subtitle', { ns: 'payments' })}
       filters={{ fields: filterFields, values: state.filters, onChange: actions.setFilters }}
       tableId="invoices-list"
       caption={t('invoices.caption')}
@@ -254,7 +251,7 @@ function InvoicesListPage() {
       rowActions={(row) => [
         {
           intent: 'view',
-          label: tPay('invoices.view'),
+          label: t('invoices.view', { ns: 'payments' }),
           to: `/invoices/${row.id}`,
         },
         {
@@ -281,7 +278,7 @@ function InvoicesListPage() {
       emptyState={{
         icon: <Receipt aria-hidden />,
         title: t('invoices.emptyMessage'),
-        explanation: tPay('invoices.emptyText'),
+        explanation: t('invoices.emptyText', { ns: 'payments' }),
       }}
       announceResults={(count, total) =>
         t('invoices.announceResults', { visible: count, total, count: total })
