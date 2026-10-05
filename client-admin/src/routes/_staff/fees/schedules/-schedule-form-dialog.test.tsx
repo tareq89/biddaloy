@@ -15,6 +15,7 @@
  * Assert the shape `CreateRecurringScheduleDto` actually validates.
  */
 import type { RecurringSchedule } from '@biddaloy/ui/hooks';
+import { REGION_BD_EN, RegionConfigProvider } from '@biddaloy/ui/i18n';
 import {
   academicYearFactory,
   cleanupTestState,
@@ -71,18 +72,24 @@ function schedule(overrides: Partial<RecurringSchedule> = {}): RecurringSchedule
   };
 }
 
-async function renderDialog(props: Partial<React.ComponentProps<typeof ScheduleFormDialog>> = {}) {
+// The default test RegionConfig is Bangla; pin English digits. ADMIN holds PROGRAM_READ.
+async function renderDialog(
+  props: Partial<React.ComponentProps<typeof ScheduleFormDialog>> = {},
+  role = 'ADMIN',
+) {
   const onOpenChange = vi.fn();
   const onSaved = vi.fn();
   const view = renderWithProviders(
-    <ScheduleFormDialog
-      open
-      onOpenChange={onOpenChange}
-      mode="create"
-      onSaved={onSaved}
-      {...props}
-    />,
-    { tenantId: 'tenant-1', role: 'ADMIN', locale: 'en' },
+    <RegionConfigProvider value={REGION_BD_EN}>
+      <ScheduleFormDialog
+        open
+        onOpenChange={onOpenChange}
+        mode="create"
+        onSaved={onSaved}
+        {...props}
+      />
+    </RegionConfigProvider>,
+    { tenantId: 'tenant-1', role, locale: 'en' },
   );
   await view.localeReady;
   return { ...view, onOpenChange, onSaved };
@@ -106,11 +113,13 @@ describe('ScheduleFormDialog', () => {
     const { onSaved } = await renderDialog();
     const user = userEvent.setup();
 
-    await user.type(await screen.findByLabelText('Name'), 'Monthly tuition');
-    await user.click(await screen.findByRole('combobox', { name: 'Academic year' }));
+    await user.type(await screen.findByLabelText('Rule name * (required)'), 'Monthly tuition');
+    await user.click(await screen.findByRole('combobox', { name: /^Academic year/ }));
     await user.click(await screen.findByRole('option', { name: '2026-2027' }));
-    await waitFor(() => expect(screen.getByLabelText('Monthly Tuition')).toBeTruthy());
-    await user.click(screen.getByLabelText('Monthly Tuition'));
+    await waitFor(() =>
+      expect(screen.getByRole('checkbox', { name: /Monthly Tuition/ })).toBeTruthy(),
+    );
+    await user.click(screen.getByRole('checkbox', { name: /Monthly Tuition/ }));
 
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -139,14 +148,16 @@ describe('ScheduleFormDialog', () => {
     const { onSaved } = await renderDialog();
     const user = userEvent.setup();
 
-    await user.type(await screen.findByLabelText('Name'), 'Weekly transport');
-    await user.click(await screen.findByRole('combobox', { name: 'Academic year' }));
+    await user.type(await screen.findByLabelText('Rule name * (required)'), 'Weekly transport');
+    await user.click(await screen.findByRole('combobox', { name: /^Academic year/ }));
     await user.click(await screen.findByRole('option', { name: '2026-2027' }));
-    await waitFor(() => expect(screen.getByLabelText('Monthly Tuition')).toBeTruthy());
-    await user.click(screen.getByLabelText('Monthly Tuition'));
+    await waitFor(() =>
+      expect(screen.getByRole('checkbox', { name: /Monthly Tuition/ })).toBeTruthy(),
+    );
+    await user.click(screen.getByRole('checkbox', { name: /Monthly Tuition/ }));
 
-    await user.click(await screen.findByRole('combobox', { name: 'Rule' }));
-    await user.click(await screen.findByRole('option', { name: 'Weekly' }));
+    await user.click(await screen.findByRole('combobox', { name: 'How often' }));
+    await user.click(await screen.findByRole('option', { name: 'Every week' }));
     // Chips are labelled from `common:weekdays.<iso>` — Mon = 1, Thu = 4.
     await user.click(await screen.findByRole('button', { name: 'Mon', pressed: false }));
     await user.click(screen.getByRole('button', { name: 'Thu', pressed: false }));
@@ -166,8 +177,8 @@ describe('ScheduleFormDialog', () => {
 
     await renderDialog({ mode: 'edit', schedule: existing });
 
-    const daySelect = await screen.findByLabelText('Day of month');
-    expect(daySelect.textContent).toContain('15');
+    const daySelect = await screen.findByLabelText('Day of the month');
+    expect(daySelect.textContent).toBe('Day 15');
   });
 
   it('caps ends-on to the selected academic year end date', async () => {
@@ -178,37 +189,68 @@ describe('ScheduleFormDialog', () => {
 
     // The year's `end_date` (2026-12-31) is earlier than the saved
     // `ends_on` (2027-06-30) — the clamp effect should pull it back.
-    await waitFor(() => {
-      const endsOnInput = screen.getByLabelText<HTMLInputElement>('Ends on');
-      expect(endsOnInput.value).not.toContain('2027');
-    });
+    expect(await screen.findByText('31st December, 2026')).toBeTruthy();
   });
 
-  it('shows the right validation error for each unmet requirement, in order', async () => {
+  it('shows every unmet requirement at once, under its field', async () => {
     server.use(...referenceHandlers());
     const { onSaved } = await renderDialog();
     const user = userEvent.setup();
 
-    // Empty name -- first check, before fees or the rule are even looked at.
     await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    // Name, year and fees are all reported together, each under its own control.
     expect(await screen.findByText('Name is required')).toBeTruthy();
+    expect(screen.getByText('Choose an academic year')).toBeTruthy();
+    expect(screen.getByText('Select at least one fee')).toBeTruthy();
+    const name = screen.getByLabelText('Rule name * (required)');
+    expect(name.getAttribute('aria-invalid')).toBe('true');
+    expect(name.getAttribute('aria-describedby')).toBe('schedule-form-name-error');
+    expect(document.activeElement).toBe(name);
 
-    // Name filled, still no fees selected.
-    await user.type(await screen.findByLabelText('Name'), 'Monthly tuition');
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-    expect(await screen.findByText('Select at least one fee')).toBeTruthy();
-
-    // Fees selected, switch to Weekly, leave no day checked.
-    await user.click(await screen.findByRole('combobox', { name: 'Academic year' }));
-    await user.click(await screen.findByRole('option', { name: '2026-2027' }));
-    await waitFor(() => expect(screen.getByLabelText('Monthly Tuition')).toBeTruthy());
-    await user.click(screen.getByLabelText('Monthly Tuition'));
-    await user.click(await screen.findByRole('combobox', { name: 'Rule' }));
-    await user.click(await screen.findByRole('option', { name: 'Weekly' }));
+    // Weekly with no day chosen is reported the same way.
+    await user.click(await screen.findByRole('combobox', { name: 'How often' }));
+    await user.click(await screen.findByRole('option', { name: 'Every week' }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByText('Select at least one day')).toBeTruthy();
 
     expect(onSaved).not.toHaveBeenCalled();
+  });
+
+  it('renders nothing when closed', async () => {
+    server.use(...referenceHandlers());
+    await renderDialog({ open: false });
+    expect(screen.queryByRole('heading', { name: 'New automatic billing rule' })).toBeNull();
+  });
+
+  it('asks before discarding once the name is edited', async () => {
+    server.use(...referenceHandlers());
+    const { onOpenChange } = await renderDialog();
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByLabelText('Rule name * (required)'), 'Monthly');
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+
+    const confirm = within(await screen.findByRole('alertdialog'));
+    expect(confirm.getByText('Discard your changes?')).toBeTruthy();
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it('has no program field and requests no programs without PROGRAM_READ', async () => {
+    let programsRequested = false;
+    server.use(
+      ...referenceHandlers(),
+      http.get('/api/v1/programs', () => {
+        programsRequested = true;
+        return HttpResponse.json([]);
+      }),
+    );
+
+    await renderDialog({}, 'ACCOUNTANT');
+    await screen.findByLabelText('Rule name * (required)');
+
+    expect(screen.queryByRole('combobox', { name: 'Program' })).toBeNull();
+    expect(programsRequested).toBe(false);
   });
 
   it('saves an edited schedule via PATCH, not POST', async () => {
@@ -224,7 +266,7 @@ describe('ScheduleFormDialog', () => {
 
     const { onSaved } = await renderDialog({ mode: 'edit', schedule: existing });
     const user = userEvent.setup();
-    await screen.findByLabelText('Day of month');
+    await screen.findByLabelText('Day of the month');
 
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -297,11 +339,13 @@ describe('ScheduleFormDialog', () => {
     const { onSaved } = await renderDialog();
     const user = userEvent.setup();
 
-    await user.type(await screen.findByLabelText('Name'), 'Hifz monthly fee');
-    await user.click(await screen.findByRole('combobox', { name: 'Academic year' }));
+    await user.type(await screen.findByLabelText('Rule name * (required)'), 'Hifz monthly fee');
+    await user.click(await screen.findByRole('combobox', { name: /^Academic year/ }));
     await user.click(await screen.findByRole('option', { name: '2026-2027' }));
-    await waitFor(() => expect(screen.getByLabelText('Monthly Tuition')).toBeTruthy());
-    await user.click(screen.getByLabelText('Monthly Tuition'));
+    await waitFor(() =>
+      expect(screen.getByRole('checkbox', { name: /Monthly Tuition/ })).toBeTruthy(),
+    );
+    await user.click(screen.getByRole('checkbox', { name: /Monthly Tuition/ }));
 
     await user.click(await screen.findByRole('combobox', { name: 'Program' }));
     await user.click(await screen.findByRole('option', { name: 'Hifz' }));
