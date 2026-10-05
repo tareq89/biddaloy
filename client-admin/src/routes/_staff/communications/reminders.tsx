@@ -47,6 +47,7 @@ import { SmsSegmentCounter } from './-shared/sms-segment-counter';
 import { StudentSearch } from './-shared/student-search';
 import {
   findUnknownLabels,
+  hasStrayBraces,
   findUnsupportedPlaceholders,
   toServerTemplate,
   usePlaceholderLabels,
@@ -164,6 +165,7 @@ function SingleReminderForm() {
   }, [student]);
 
   const serverTemplate = toServerTemplate(template, labels);
+  const strayBraces = hasStrayBraces(template, labels);
   const unknownTokens = [
     ...findUnknownLabels(template, labels).map((word) => `{${word}}`),
     ...findUnsupportedPlaceholders(serverTemplate),
@@ -191,6 +193,7 @@ function SingleReminderForm() {
     studentId !== null &&
     template.trim() !== '' &&
     unknownTokens.length === 0 &&
+    !strayBraces &&
     guardianIds.length > 0 &&
     !preview.isPending;
 
@@ -331,7 +334,10 @@ function SingleReminderForm() {
             {t('reminders.resultTitle')}
           </h2>
           <h3 className="mt-4 text-h3">
-            {t('reminders.resultSentTitle', { count: result.sent.length })}
+            {t('reminders.resultSentTitle', {
+              count: result.sent.length,
+              n: formatNumber(result.sent.length, config),
+            })}
           </h3>
           <ul className="divide-y divide-border-subtle">
             {result.sent.map((entry) => (
@@ -347,7 +353,10 @@ function SingleReminderForm() {
             ))}
           </ul>
           <h3 className="mt-4 text-h3">
-            {t('reminders.resultSkippedTitle', { count: result.skipped.length })}
+            {t('reminders.resultSkippedTitle', {
+              count: result.skipped.length,
+              n: formatNumber(result.skipped.length, config),
+            })}
           </h3>
           {result.skipped.length === 0 ? (
             <p className="mt-2 text-text-secondary">{t('recipientList.noneSkipped')}</p>
@@ -517,10 +526,12 @@ function SingleReminderForm() {
                     </p>
                   </>
                 )}
-                {unknownTokens.length > 0 && (
+                {(unknownTokens.length > 0 || strayBraces) && (
                   <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
                     <CircleAlertIcon className="size-4 shrink-0" aria-hidden />
-                    {t('reminders.unknownPlaceholder', { token: unknownTokens.join(', ') })}
+                    {strayBraces
+                      ? t('reminders.strayBrace')
+                      : t('reminders.unknownPlaceholder', { token: unknownTokens.join(', ') })}
                   </p>
                 )}
               </div>

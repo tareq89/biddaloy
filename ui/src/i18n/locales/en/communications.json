@@ -20,8 +20,8 @@
     "unknown": "Skipped for another reason"
   },
   "recipientList": {
-    "recipientsTitle": "Will receive ({{count}})",
-    "skippedTitle": "Skipped ({{count}})",
+    "recipientsTitle": "Will receive ({{n}})",
+    "skippedTitle": "Skipped ({{n}})",
     "subjectHeader": "Subject",
     "emptyRecipients": "No one will receive this reminder — every guardian was skipped.",
     "noneSkipped": "No guardians were skipped."
@@ -90,8 +90,8 @@
     "sending": "Sending…",
     "sendHint": "Sending is enabled only after a preview of the current inputs.",
     "resultTitle": "Reminder sent",
-    "resultSentTitle": "Sent ({{count}})",
-    "resultSkippedTitle": "Skipped ({{count}})",
+    "resultSentTitle": "Sent ({{n}})",
+    "resultSkippedTitle": "Skipped ({{n}})",
     "errorMessage": "The reminder could not be sent.",
     "previewErrorMessage": "The preview could not be loaded.",
     "smsEstimateNote": "Estimate — the exact count shows in the preview once names and amounts are filled in.",
@@ -107,7 +107,8 @@
     "sendToCount_other": "Send reminder to {{n}} people",
     "previewInvalid": "The preview could not be made — check the student, guardians and message.",
     "sendInvalid": "The reminder was not sent — check the guardians and message, then preview again.",
-    "startAnother": "Remind another student"
+    "startAnother": "Remind another student",
+    "strayBrace": "A curly bracket is not closed. Use the buttons below to insert a name or amount."
   },
   "whatsapp": {
     "templateNameLabel": "Template name",

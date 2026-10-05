@@ -36,7 +36,7 @@ import {
   useTranslation,
 } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
-import { formatPhone } from '@biddaloy/ui/utils';
+import { formatPhone, toLatinDigits } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import { CircleAlertIcon, SendIcon } from 'lucide-react';
 import * as React from 'react';
@@ -128,11 +128,15 @@ function SendMessageBody() {
         student !== null),
   );
 
+  // A phone typed in Bangla digits must go out in Latin digits; an email stays as typed.
+  const normalizedAddress =
+    medium === 'EMAIL' ? recipientAddress.trim() : toLatinDigits(recipientAddress.trim());
+
   function buildPayload(): SendCommunicationInput {
     const params = splitTemplateParams(templateParams);
     return {
       medium,
-      recipient_address: recipientAddress.trim(),
+      recipient_address: normalizedAddress,
       recipient_name: recipientName.trim(),
       message_body: messageBody,
       // `exactOptionalPropertyTypes` — omit rather than set `undefined`.
@@ -159,6 +163,9 @@ function SendMessageBody() {
 
   // A stale send error must not greet the next open of the dialog.
   function handleConfirmOpenChange(open: boolean) {
+    // Closing mid-request would detach the mutation: the send still lands but
+    // the success state never renders, inviting a double send.
+    if (!open && sendMessage.isPending) return;
     if (!open) sendMessage.reset();
     setConfirmOpen(open);
   }
@@ -260,7 +267,11 @@ function SendMessageBody() {
           <p className="mt-1 text-text-secondary">{t('send.recipientSectionHelp')}</p>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <div className="flex flex-col gap-1.5 md:col-span-2">
-              <Label htmlFor="send-student-search">{t('send.linkStudentTitle')}</Label>
+              {student === null ? (
+                <Label htmlFor="send-student-search">{t('send.linkStudentTitle')}</Label>
+              ) : (
+                <span className="text-label text-text-primary">{t('send.linkStudentTitle')}</span>
+              )}
               {student === null ? (
                 <StudentSearch
                   inputId="send-student-search"
@@ -359,10 +370,8 @@ function SendMessageBody() {
           </div>
         </Card>
 
-        <Card padded aria-labelledby="send-message-title">
-          <h2 id="send-message-title" className="text-h2">
-            {t('send.messageSectionTitle')}
-          </h2>
+        <Card padded>
+          <h2 className="text-h2">{t('send.messageSectionTitle')}</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="send-medium">{t('send.mediumLabel')}</Label>
@@ -445,7 +454,7 @@ function SendMessageBody() {
             <div className="grid gap-0.5">
               <dt className="font-medium">{t('send.confirmRecipientLabel')}</dt>
               <dd>
-                {recipientName.trim()} · {formatAddress(recipientAddress.trim())}
+                {recipientName.trim()} · {formatAddress(normalizedAddress)}
               </dd>
             </div>
             <div className="grid gap-0.5">
@@ -481,7 +490,7 @@ function SendMessageBody() {
           )}
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="outline">
+              <Button type="button" variant="outline" disabled={sendMessage.isPending}>
                 {t('actions.cancel', { ns: 'common' })}
               </Button>
             </DialogClose>
