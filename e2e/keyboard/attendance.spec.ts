@@ -89,14 +89,16 @@ test('teacher marks and submits a whole section without touching the mouse', asy
     // than navigating. Pin the match to the link itself.
     await tabUntilFocused(page, t('nav.items.attendance'), 90, { tag: 'a' });
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('heading', { name: t('attendance.list.title') })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: t('attendance.list.title') }),
+    ).toBeVisible();
   });
 
   await test.step('open the only mapped section', async () => {
     await tabUntilFocused(page, chain.className);
     await page.keyboard.press('Enter');
     await expect(
-      page.getByRole('heading', { name: `${chain.className} A`, exact: false }),
+      page.getByRole('heading', { name: `${chain.className} – A`, exact: false }),
     ).toBeVisible();
   });
 
@@ -111,7 +113,7 @@ test('teacher marks and submits a whole section without touching the mouse', asy
     // route's search schema rejects (falling back to today).
     await page.goto(`/attendance/${chain.sectionId}?date=${markDate}`);
     await expect(
-      page.getByRole('heading', { name: `${chain.className} A`, exact: false }),
+      page.getByRole('heading', { name: `${chain.className} – A`, exact: false }),
     ).toBeVisible();
   });
 
@@ -120,7 +122,9 @@ test('teacher marks and submits a whole section without touching the mouse', asy
     await page.keyboard.press('Shift+P');
     await expect(page.getByText(t('attendance.mark.presentCount', { n: 5 }))).toBeVisible();
     await page.keyboard.press('ControlOrMeta+Enter');
-    await expect(page.getByRole('heading', { name: t('attendance.list.title') })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: t('attendance.list.title') }),
+    ).toBeVisible();
   });
 
   await test.step('the server actually recorded it', async () => {

@@ -56,7 +56,7 @@ function HistoryRow({ entry }: { entry: RecordHistoryEntry }) {
   const actor = entry.performed_by_name
     ? t('history.entryActor', { actor: entry.performed_by_name })
     : entry.performed_by_user_id
-      ? t('history.entryActorUnknownName', { actorId: entry.performed_by_user_id })
+      ? t('history.entryActorUnknownName')
       : null;
 
   return (

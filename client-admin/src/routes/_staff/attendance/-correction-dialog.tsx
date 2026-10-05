@@ -127,7 +127,7 @@ export function CorrectionDialog({
             form.setError('reason', { type: 'server', message: error.message });
             return;
           }
-          toast.error(error instanceof Error ? error.message : t('correction.errorToast'));
+          toast.error(t('correction.errorToast'));
         },
       },
     );
@@ -135,7 +135,7 @@ export function CorrectionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>{t('correction.title')}</DialogTitle>
           <DialogDescription>
