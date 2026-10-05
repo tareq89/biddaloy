@@ -2,6 +2,7 @@ import '@biddaloy/ui/test';
 
 import { toast } from '@biddaloy/ui/components';
 import type { WorkbookJob } from '@biddaloy/ui/hooks';
+import { REGION_BD_EN, RegionConfigProvider } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import { screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
@@ -58,11 +59,16 @@ describe('BackupSection', () => {
       ),
     );
 
-    const { user } = renderWithProviders(<BackupSection />, {
-      locale: 'en',
-      role: 'ADMIN',
-      tenantId: SCHOOL_ID,
-    });
+    const { user } = renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection />
+      </RegionConfigProvider>,
+      {
+        locale: 'en',
+        role: 'ADMIN',
+        tenantId: SCHOOL_ID,
+      },
+    );
 
     await user.click(await screen.findByRole('button', { name: 'Create a new backup' }));
 
@@ -82,7 +88,12 @@ describe('BackupSection', () => {
       ),
     );
 
-    renderWithProviders(<BackupSection />, { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID });
+    renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection />
+      </RegionConfigProvider>,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
 
     expect(await screen.findByText('Rahim Uddin')).toBeTruthy();
     expect(await screen.findByText('2.0 KB')).toBeTruthy();
@@ -109,11 +120,16 @@ describe('BackupSection', () => {
       }),
     );
 
-    const { user } = renderWithProviders(<BackupSection />, {
-      locale: 'en',
-      role: 'ADMIN',
-      tenantId: SCHOOL_ID,
-    });
+    const { user } = renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection />
+      </RegionConfigProvider>,
+      {
+        locale: 'en',
+        role: 'ADMIN',
+        tenantId: SCHOOL_ID,
+      },
+    );
 
     const downloadButton = await screen.findByRole('button', { name: 'Download' });
     await user.click(downloadButton);
@@ -122,7 +138,7 @@ describe('BackupSection', () => {
     expect(screen.queryByText("Couldn't download this backup. Try again.")).toBeNull();
   });
 
-  it('shows an expired row as text instead of a Download button after a 410', async () => {
+  it('shows an expired row as a "Download expired" badge instead of a Download action after a 410', async () => {
     server.use(
       http.get('/api/v1/backup/jobs', () =>
         HttpResponse.json({
@@ -136,19 +152,25 @@ describe('BackupSection', () => {
       http.get('/api/v1/backup/jobs/:id/download', () => new HttpResponse(null, { status: 410 })),
     );
 
-    const { user } = renderWithProviders(<BackupSection />, {
-      locale: 'en',
-      role: 'ADMIN',
-      tenantId: SCHOOL_ID,
-    });
+    const { user } = renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection />
+      </RegionConfigProvider>,
+      {
+        locale: 'en',
+        role: 'ADMIN',
+        tenantId: SCHOOL_ID,
+      },
+    );
 
     const downloadButton = await screen.findByRole('button', { name: 'Download' });
     await user.click(downloadButton);
 
-    expect(await screen.findByText('Expired')).toBeTruthy();
+    expect(await screen.findByText('Download expired')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Download' })).toBeNull();
   });
 
-  it('shows a failure reason (job.error, not job.error_message) instead of a Download action', async () => {
+  it('shows only a Failed badge for a failed job: never the server error text, and no Download action', async () => {
     server.use(
       http.get('/api/v1/backup/jobs', () =>
         HttpResponse.json({
@@ -169,9 +191,16 @@ describe('BackupSection', () => {
       ),
     );
 
-    renderWithProviders(<BackupSection />, { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID });
+    renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection />
+      </RegionConfigProvider>,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
 
-    expect(await screen.findByText('Failed: Disk quota exceeded')).toBeTruthy();
+    expect(await screen.findByText('Failed')).toBeTruthy();
+    expect(screen.queryByText(/Disk quota exceeded/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Download' })).toBeNull();
   });
 
   it('shows the empty state when there are no jobs yet', async () => {
@@ -181,7 +210,12 @@ describe('BackupSection', () => {
       ),
     );
 
-    renderWithProviders(<BackupSection />, { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID });
+    renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection />
+      </RegionConfigProvider>,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
 
     expect(await screen.findByText('No backups yet')).toBeTruthy();
   });
@@ -189,7 +223,12 @@ describe('BackupSection', () => {
   it('shows the error state, not the empty state, when the jobs list request fails', async () => {
     server.use(http.get('/api/v1/backup/jobs', () => HttpResponse.json(null, { status: 500 })));
 
-    renderWithProviders(<BackupSection />, { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID });
+    renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection />
+      </RegionConfigProvider>,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
 
     expect(await screen.findByText("Couldn't start the backup. Try again.")).toBeTruthy();
     expect(screen.queryByText('No backups yet')).toBeNull();
@@ -213,11 +252,16 @@ describe('BackupSection', () => {
       }),
     );
 
-    renderWithProviders(<BackupSection backupJobId="job-linked" />, {
-      locale: 'en',
-      role: 'ADMIN',
-      tenantId: SCHOOL_ID,
-    });
+    renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection backupJobId="job-linked" />
+      </RegionConfigProvider>,
+      {
+        locale: 'en',
+        role: 'ADMIN',
+        tenantId: SCHOOL_ID,
+      },
+    );
 
     await waitFor(() => expect(downloadHits).toBe(1));
   });
@@ -248,15 +292,24 @@ describe('BackupSection', () => {
       }),
     );
 
-    const { rerender } = renderWithProviders(<BackupSection backupJobId="job-gone" />, {
-      locale: 'en',
-      role: 'ADMIN',
-      tenantId: SCHOOL_ID,
-    });
+    const { rerender } = renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection backupJobId="job-gone" />
+      </RegionConfigProvider>,
+      {
+        locale: 'en',
+        role: 'ADMIN',
+        tenantId: SCHOOL_ID,
+      },
+    );
 
     expect(await screen.findByText('This backup has expired — request a new one.')).toBeTruthy();
 
-    rerender(<BackupSection backupJobId="job-second" />);
+    rerender(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection backupJobId="job-second" />
+      </RegionConfigProvider>,
+    );
 
     await waitFor(() => expect(downloaded).toEqual(['job-second']));
     // The first link's message must not outlive the link itself.
@@ -271,11 +324,16 @@ describe('BackupSection', () => {
       http.get('/api/v1/backup/jobs/:id', () => HttpResponse.json(null, { status: 404 })),
     );
 
-    renderWithProviders(<BackupSection backupJobId="job-unknown" />, {
-      locale: 'en',
-      role: 'ADMIN',
-      tenantId: SCHOOL_ID,
-    });
+    renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection backupJobId="job-unknown" />
+      </RegionConfigProvider>,
+      {
+        locale: 'en',
+        role: 'ADMIN',
+        tenantId: SCHOOL_ID,
+      },
+    );
 
     expect(await screen.findByText('This backup has expired — request a new one.')).toBeTruthy();
   });
@@ -297,11 +355,16 @@ describe('BackupSection', () => {
       ),
     );
 
-    renderWithProviders(<BackupSection backupJobId="job-failed" />, {
-      locale: 'en',
-      role: 'ADMIN',
-      tenantId: SCHOOL_ID,
-    });
+    renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection backupJobId="job-failed" />
+      </RegionConfigProvider>,
+      {
+        locale: 'en',
+        role: 'ADMIN',
+        tenantId: SCHOOL_ID,
+      },
+    );
 
     expect(
       await screen.findByText('Something went wrong while creating this backup.'),
@@ -324,18 +387,23 @@ describe('BackupSection', () => {
       }),
     );
 
-    const { user } = renderWithProviders(<BackupSection />, {
-      locale: 'en',
-      role: 'ADMIN',
-      tenantId: SCHOOL_ID,
-    });
+    const { user } = renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection />
+      </RegionConfigProvider>,
+      {
+        locale: 'en',
+        role: 'ADMIN',
+        tenantId: SCHOOL_ID,
+      },
+    );
 
-    // The select stays `disabled` until `useSchoolSettings` resolves —
-    // wait for that before interacting, or `userEvent.selectOptions` on a
-    // disabled element fires no `change` event at all.
-    const select = await screen.findByLabelText<HTMLSelectElement>('Automatic backup schedule');
-    await waitFor(() => expect(select.disabled).toBe(false));
-    await user.selectOptions(select, 'WEEKLY');
+    // The select stays `disabled` until `useSchoolSettings` resolves — wait
+    // for that before interacting.
+    const select = await screen.findByLabelText('Automatic backup');
+    await waitFor(() => expect((select as HTMLButtonElement).disabled).toBe(false));
+    await user.click(select);
+    await user.click(await screen.findByRole('option', { name: 'Weekly' }));
 
     await waitFor(() =>
       expect(patchBody).toHaveBeenCalledWith({ version: 1, backup: { schedule: 'WEEKLY' } }),
@@ -361,11 +429,16 @@ describe('BackupSection', () => {
       }),
     );
 
-    renderWithProviders(<BackupSection />, {
-      locale: 'en',
-      role: 'SUPER_ADMIN',
-      tenantId: SCHOOL_ID,
-    });
+    renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection />
+      </RegionConfigProvider>,
+      {
+        locale: 'en',
+        role: 'SUPER_ADMIN',
+        tenantId: SCHOOL_ID,
+      },
+    );
 
     // The job list still renders — that part is what the `?backup=` deep
     // link needs and is unaffected.
@@ -391,22 +464,28 @@ describe('BackupSection', () => {
       }),
     );
 
-    const { user } = renderWithProviders(<BackupSection />, {
-      locale: 'en',
-      role: 'ADMIN',
-      tenantId: SCHOOL_ID,
-    });
+    const { user } = renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection />
+      </RegionConfigProvider>,
+      {
+        locale: 'en',
+        role: 'ADMIN',
+        tenantId: SCHOOL_ID,
+      },
+    );
 
-    const select = await screen.findByLabelText<HTMLSelectElement>('Automatic backup schedule');
-    await waitFor(() => expect(select.disabled).toBe(false));
-    await user.selectOptions(select, 'WEEKLY');
+    const select = await screen.findByLabelText('Automatic backup');
+    await waitFor(() => expect((select as HTMLButtonElement).disabled).toBe(false));
+    await user.click(select);
+    await user.click(await screen.findByRole('option', { name: 'Weekly' }));
 
     // `SchoolsService.updateSettings` has no request-order check, so an
     // older PATCH could persist after a newer one — the only defence is
     // not letting a second selection start until the first settles.
-    await waitFor(() => expect(select.disabled).toBe(true));
+    await waitFor(() => expect((select as HTMLButtonElement).disabled).toBe(true));
     releasePatch();
-    await waitFor(() => expect(select.disabled).toBe(false));
+    await waitFor(() => expect((select as HTMLButtonElement).disabled).toBe(false));
   });
 
   it("toggling a job's pin calls PATCH /backup/jobs/:id/pin", async () => {
@@ -429,13 +508,18 @@ describe('BackupSection', () => {
       }),
     );
 
-    const { user } = renderWithProviders(<BackupSection />, {
-      locale: 'en',
-      role: 'ADMIN',
-      tenantId: SCHOOL_ID,
-    });
+    const { user } = renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection />
+      </RegionConfigProvider>,
+      {
+        locale: 'en',
+        role: 'ADMIN',
+        tenantId: SCHOOL_ID,
+      },
+    );
 
-    const pinButton = await screen.findByRole('button', { name: 'Pin' });
+    const pinButton = await screen.findByRole('button', { name: 'Keep forever' });
     await user.click(pinButton);
 
     await waitFor(() => expect(pinnedSent).toBe(true));
@@ -464,18 +548,23 @@ describe('BackupSection', () => {
       ),
     );
 
-    const { user } = renderWithProviders(<BackupSection />, {
-      locale: 'en',
-      role: 'ADMIN',
-      tenantId: SCHOOL_ID,
-    });
+    const { user } = renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection />
+      </RegionConfigProvider>,
+      {
+        locale: 'en',
+        role: 'ADMIN',
+        tenantId: SCHOOL_ID,
+      },
+    );
 
-    await user.click(await screen.findByRole('button', { name: 'Pin' }));
+    await user.click(await screen.findByRole('button', { name: 'Keep forever' }));
 
     await waitFor(() => expect(listRequests).toBe(2));
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Pin' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Keep forever' })).toBeNull());
     expect(toastError).toHaveBeenCalledWith(
-      'This backup was already removed by retention. The list has been refreshed.',
+      'This backup was already removed by the automatic clean-up. The list has been refreshed.',
     );
   });
 
@@ -493,9 +582,96 @@ describe('BackupSection', () => {
       ),
     );
 
-    renderWithProviders(<BackupSection />, { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID });
+    renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection />
+      </RegionConfigProvider>,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
 
-    expect(await screen.findByText('Storage used: 120.0 MB of 500.0 MB')).toBeTruthy();
+    expect(await screen.findByText('120.0 MB of 500.0 MB used')).toBeTruthy();
+  });
+
+  it('shows a pinned row with the "Kept forever" icon and a "Stop keeping forever" action', async () => {
+    server.use(
+      http.get('/api/v1/backup/jobs', () =>
+        HttpResponse.json({
+          data: [jobFixture({ id: 'job-pinned', pinned: true })],
+          total: 1,
+          page: 1,
+          limit: 25,
+          totalPages: 1,
+        }),
+      ),
+    );
+    renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection />
+      </RegionConfigProvider>,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+
+    expect(await screen.findByRole('button', { name: 'Stop keeping forever' })).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'Kept forever' })).toBeTruthy();
+  });
+
+  it('shows "Automatic" for a scheduled backup with no requester', async () => {
+    server.use(
+      http.get('/api/v1/backup/jobs', () =>
+        HttpResponse.json({
+          data: [jobFixture({ id: 'job-auto', requested_by: null })],
+          total: 1,
+          page: 1,
+          limit: 25,
+          totalPages: 1,
+        }),
+      ),
+    );
+    renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection />
+      </RegionConfigProvider>,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+
+    expect(await screen.findByText('Automatic')).toBeTruthy();
+  });
+
+  it('has one "Create a new backup" action with jobs, and only the empty state without', async () => {
+    server.use(
+      http.get('/api/v1/backup/jobs', () =>
+        HttpResponse.json({
+          data: [jobFixture()],
+          total: 1,
+          page: 1,
+          limit: 25,
+          totalPages: 1,
+        }),
+      ),
+    );
+    const { unmount } = renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection />
+      </RegionConfigProvider>,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+    await screen.findByText('Rahim Uddin');
+    expect(screen.getAllByRole('button', { name: 'Create a new backup' })).toHaveLength(1);
+    unmount();
+
+    server.use(
+      http.get('/api/v1/backup/jobs', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 1 }),
+      ),
+    );
+    renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection />
+      </RegionConfigProvider>,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+    await screen.findByText('No backups yet');
+    expect(screen.getAllByRole('button', { name: 'Create a new backup' })).toHaveLength(1);
   });
 
   it('renders nothing without BACKUP_MANAGE permission', () => {
@@ -508,11 +684,16 @@ describe('BackupSection', () => {
     // ACCOUNTANT has no BACKUP_MANAGE grant (see
     // `shared/src/enums/permissions.spec.ts`) — the section must render
     // nothing rather than an empty shell.
-    const { container } = renderWithProviders(<BackupSection />, {
-      locale: 'en',
-      role: 'ACCOUNTANT',
-      tenantId: SCHOOL_ID,
-    });
+    const { container } = renderWithProviders(
+      <RegionConfigProvider value={REGION_BD_EN}>
+        <BackupSection />
+      </RegionConfigProvider>,
+      {
+        locale: 'en',
+        role: 'ACCOUNTANT',
+        tenantId: SCHOOL_ID,
+      },
+    );
 
     expect(container.firstChild).toBeNull();
   });
