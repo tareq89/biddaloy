@@ -153,9 +153,9 @@ describe('/my-class/$sectionId', () => {
     mockAll();
     render();
     const nav = await screen.findByRole('navigation', { name: 'You are here' });
-    await waitFor(() => expect(within(nav).getByText('Class 7-A')).toBeTruthy());
+    await waitFor(() => expect(within(nav).getByText('Class 7 – A')).toBeTruthy());
     expect(within(nav).queryByText('section-1')).toBeNull();
-    await waitFor(() => expect(document.title).toContain('Class 7-A'));
+    await waitFor(() => expect(document.title).toContain('Class 7 – A'));
   });
 
   it('keeps the other cards when one card fails, and retries just that card', async () => {
