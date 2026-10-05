@@ -398,6 +398,7 @@ export class DeviceEventsService {
 
     // [41.0] Judge lateness against the student's own shift, not the
     // school-wide pair. A class with no shift keeps the tenant pair.
+    // Lateness follows the student's own class shift, not the device-bound section.
     const studentSection = await manager.getRepository(ClassSection).findOne({
       where: { id: student.class_section_id, tenant_id: device.tenant_id },
       relations: { class: true },
