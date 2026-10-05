@@ -54,7 +54,7 @@ function MyClassSectionPage() {
     if (section) attendanceRef.current?.focus();
   }, [section]);
 
-  if (query.isError) {
+  if (query.isError && !section) {
     return (
       <PageContainer>
         <ErrorState

@@ -1,5 +1,5 @@
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -73,14 +73,21 @@ describe('/my-class', () => {
     expect(screen.getByText('Pick a section to open.')).toBeTruthy();
   });
 
-  it('offers a retry when the sections request fails', async () => {
-    server.use(http.get('/api/v1/my-class/sections', () => HttpResponse.json({}, { status: 500 })));
+  it('offers a retry when the sections request fails, and retrying refetches', async () => {
+    let calls = 0;
+    server.use(
+      http.get('/api/v1/my-class/sections', () => {
+        calls += 1;
+        return HttpResponse.json({}, { status: 500 });
+      }),
+    );
     render('/my-class');
     // 5xx is retried twice with backoff (~3s) before the error state shows.
-    expect(
-      await screen.findByRole('button', { name: 'Try again' }, { timeout: 8000 }),
-    ).toBeTruthy();
+    const retry = await screen.findByRole('button', { name: 'Try again' }, { timeout: 8000 });
     expect(screen.getByRole('heading', { level: 1, name: 'My class' })).toBeTruthy();
     expect(screen.getByText('Could not load your sections.')).toBeTruthy();
+    const before = calls;
+    fireEvent.click(retry);
+    await waitFor(() => expect(calls).toBeGreaterThan(before));
   }, 15_000);
 });

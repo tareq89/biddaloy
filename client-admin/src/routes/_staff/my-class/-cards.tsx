@@ -17,7 +17,7 @@ import {
   useStudents,
   type AttendanceStreak,
 } from '@biddaloy/ui/hooks';
-import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation, type RegionConfig } from '@biddaloy/ui/i18n';
 import { formatNumber, formatPhone, formatServerAmount } from '@biddaloy/ui/utils';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
@@ -121,12 +121,17 @@ function Name({ children }: { children: ReactNode }) {
   return <span className="block truncate font-medium">{children}</span>;
 }
 
+// A null roll must not print "NaN".
+function rollText(roll: number | string | null | undefined, region: RegionConfig): string {
+  return roll == null ? '—' : formatNumber(Number(roll), region);
+}
+
 function RollLine({ roll }: { roll: number | string | null | undefined }) {
   const { t } = useTranslation('myClass');
   const region = useRegionConfig();
   return (
     <span className="block text-caption text-text-secondary">
-      {t('roll', { roll: formatNumber(Number(roll), region) })}
+      {t('roll', { roll: rollText(roll, region) })}
     </span>
   );
 }
@@ -190,7 +195,7 @@ export function AbsenteesCard({ sectionId }: { sectionId: string }) {
           <Row
             key={s.student_id}
             left={<Name>{s.full_name}</Name>}
-            right={t('roll', { roll: formatNumber(s.roll_number, region) })}
+            right={t('roll', { roll: rollText(s.roll_number, region) })}
           />
         ))}
       </List>
@@ -436,7 +441,7 @@ export function ResultsCard({ sectionId, classId }: { sectionId: string; classId
               <Row
                 key={r.student_id}
                 left={<Name>{r.full_name}</Name>}
-                right={t('roll', { roll: formatNumber(r.roll_number, region) })}
+                right={t('roll', { roll: rollText(r.roll_number, region) })}
               />
             ))}
           </List>
