@@ -631,6 +631,8 @@ export interface ResolvedSlot {
   period_slot_id: string;
   weekday: number;
   subject_id: string;
+  subject_name_en: string | null;
+  subject_name_bn: string | null;
   room_id: string | null;
   kind: string;
   teacher_ids: string[];
