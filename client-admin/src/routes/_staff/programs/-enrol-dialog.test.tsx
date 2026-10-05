@@ -145,6 +145,9 @@ describe('EnrolDialog', () => {
     vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 9, 4, 1, 0, 0) });
     try {
       await renderDialog({ studentIdPrefill: 'student-1' });
+      await user.click(screen.getByRole('combobox', { name: /Class/ }));
+      await user.click(await screen.findByRole('option', { name: 'Class 5' }));
+      await screen.findByText('Anika Rahman');
       await user.click(screen.getByRole('button', { name: 'Enrol' }));
       await waitFor(() => expect(requestBody.started_on).toBe('2026-10-04'));
     } finally {
@@ -162,5 +165,23 @@ describe('EnrolDialog', () => {
     expect(onOpenChange).not.toHaveBeenCalled();
     await user.click(within(confirm).getByRole('button', { name: 'Discard changes' }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('does not submit a prefilled student who is not in the visible list', async () => {
+    await renderDialog({ studentIdPrefill: 'student-1' });
+    await screen.findByRole('heading', { level: 1, name: 'Enrol students' });
+    expect(screen.getByRole('button', { name: 'Enrol' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('treats swapping the prefilled student for another as a change', async () => {
+    const user = userEvent.setup();
+    const { onOpenChange } = await renderDialog({ studentIdPrefill: 'student-1' });
+    await user.click(screen.getByRole('combobox', { name: /Class/ }));
+    await user.click(await screen.findByRole('option', { name: 'Class 5' }));
+    await user.click(await screen.findByRole('checkbox', { name: 'Anika Rahman' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Bilal Hasan' }));
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await screen.findByRole('alertdialog');
+    expect(onOpenChange).not.toHaveBeenCalled();
   });
 });

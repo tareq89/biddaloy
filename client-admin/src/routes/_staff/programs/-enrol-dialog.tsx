@@ -30,8 +30,12 @@ import { formatNumber, toIsoDate } from '@biddaloy/ui/utils';
 import { CircleAlertIcon, InfoIcon } from 'lucide-react';
 import * as React from 'react';
 
+import { DiscardConfirm } from './-discard-confirm';
 import { LabelledField } from './-labelled-field';
-import { DiscardConfirm, StudentPickCard } from './-student-pick-card';
+import { StudentPickCard } from './-student-pick-card';
+
+const sameSet = (a: ReadonlySet<string>, b: readonly string[]) =>
+  a.size === b.length && b.every((x) => a.has(x));
 
 export interface EnrolDialogProps {
   open: boolean;
@@ -87,12 +91,14 @@ export function EnrolDialog({
 
   const students = studentsQuery.data?.data ?? [];
   const busy = enrolStudents.isPending;
+  // Only ids the user can see are submitted: a prefilled id outside the loaded list is ignored.
+  const visibleIds = students.filter((s) => studentIds.has(s.id)).map((s) => s.id);
   const dirty =
     skipped === null &&
     (selectedProgramId !== programId ||
       classId !== '' ||
       sectionId !== '' ||
-      studentIds.size !== (studentIdPrefill ? 1 : 0) ||
+      !sameSet(studentIds, studentIdPrefill ? [studentIdPrefill] : []) ||
       toIsoDate(startedOn) !== toIsoDate(new Date()));
 
   function toggleStudent(id: string) {
@@ -114,9 +120,9 @@ export function EnrolDialog({
   }
 
   function submit() {
-    if (!selectedProgramId || studentIds.size === 0) return;
+    if (!selectedProgramId || visibleIds.length === 0 || skipped !== null) return;
     enrolStudents.mutate(
-      { student_ids: Array.from(studentIds), started_on: toIsoDate(startedOn) },
+      { student_ids: visibleIds, started_on: toIsoDate(startedOn) },
       {
         onSuccess: (result) => {
           if (result.skipped > 0) setSkipped(result.skipped);
@@ -137,7 +143,7 @@ export function EnrolDialog({
         label: t('students.enrol'),
         onClick: submit,
         busy,
-        disabled: !selectedProgramId || studentIds.size === 0,
+        disabled: !selectedProgramId || visibleIds.length === 0 || skipped !== null,
       }}
       secondary={{
         label: tCommon('actions.cancel'),

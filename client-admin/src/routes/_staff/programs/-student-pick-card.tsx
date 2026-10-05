@@ -3,7 +3,7 @@
  * "n of m selected", select-all / clear-all) over kit checkbox rows. No inner scroll box —
  * the full-page modal scrolls.
  */
-import { Button, Checkbox, ConfirmDialog } from '@biddaloy/ui/components';
+import { Button, Checkbox } from '@biddaloy/ui/components';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatNumber } from '@biddaloy/ui/utils';
 
@@ -80,30 +80,5 @@ export function StudentPickCard({
         </ul>
       )}
     </section>
-  );
-}
-
-/** Cancel in a FullPageShell footer bypasses the shell's own close guard, so it asks here. */
-export function DiscardConfirm({
-  open,
-  onOpenChange,
-  onDiscard,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onDiscard: () => void;
-}) {
-  const { t } = useTranslation('common');
-  return (
-    <ConfirmDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      tone="danger"
-      title={t('fullPage.discardTitle')}
-      description={t('fullPage.discardDescription')}
-      confirmLabel={t('fullPage.discardConfirm')}
-      cancelLabel={t('fullPage.keepEditing')}
-      onConfirm={onDiscard}
-    />
   );
 }

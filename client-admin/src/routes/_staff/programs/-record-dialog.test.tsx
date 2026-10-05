@@ -232,4 +232,37 @@ describe('RecordDialog', () => {
     await user.click(within(confirm).getByRole('button', { name: 'Discard changes' }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
+
+  it('ignores a deep-linked enrolment id that is not in the list', async () => {
+    await renderDialog({ milestoneId: 'm-1', enrollmentIdPrefill: 'not-in-list' });
+    await screen.findByText('Bilal Hasan');
+    expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it.each(['1e2', '-5', '0x10', '1.234', '10000'])('rejects the score %s', async (bad) => {
+    const user = userEvent.setup();
+    const { onRecorded } = await renderDialog({
+      milestoneId: 'm-1',
+      enrollmentIdPrefill: 'enr-1',
+      studentId: 'student-1',
+    });
+    await user.type(screen.getByLabelText('Score'), bad);
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await screen.findByText('Enter the score as a number.');
+    expect(onRecorded).not.toHaveBeenCalled();
+  });
+
+  it('treats swapping the prefilled student for another as a change', async () => {
+    const user = userEvent.setup();
+    const { onOpenChange } = await renderDialog({
+      milestoneId: 'm-1',
+      enrollmentIdPrefill: 'enr-1',
+    });
+    await screen.findByText('Bilal Hasan');
+    await user.click(screen.getByRole('checkbox', { name: /Anika Rahman/ }));
+    await user.click(screen.getByRole('checkbox', { name: /Bilal Hasan/ }));
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await screen.findByRole('alertdialog');
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
 });

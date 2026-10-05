@@ -28,7 +28,11 @@ export function LabelledField({
           </span>
         )}
       </Label>
-      {children}
+      {required && React.isValidElement<{ id?: string }>(children) && children.props.id === id
+        ? React.cloneElement(children as React.ReactElement<Record<string, unknown>>, {
+            'aria-required': true,
+          })
+        : children}
     </div>
   );
 }

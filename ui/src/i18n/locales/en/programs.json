@@ -15,7 +15,7 @@
     "yes": "Yes",
     "no": "No",
     "view": "View",
-    "mobileSummary": "{{milestones}} milestones · {{students}} active",
+    "mobileSummary": "Milestones: {{milestones}} · Active: {{students}}",
     "emptyExplanation": "Add a program for Hifz, a club or a course, then set its milestones."
   },
   "detail": {
