@@ -19,5 +19,6 @@
   "deleteError": "Could not delete the note. Try again.",
   "ratingLabel": "Rating (optional)",
   "ratingStar": "{{count}} out of 5",
-  "ratingShown": "Rated {{count}} out of 5"
+  "ratingShown": "Rated {{count}} out of 5",
+  "deleteNote": "Delete note"
 }

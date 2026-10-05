@@ -2,6 +2,9 @@
 import { Permission } from '@biddaloy/shared';
 import {
   Button,
+  Card,
+  ConfirmDialog,
+  DataTable,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -14,12 +17,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  toast,
+  type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
   useDeletePublicExam,
@@ -28,7 +27,9 @@ import {
   useSavePublicExam,
   type StudentPublicExam,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber, renderDigits } from '@biddaloy/ui/utils';
+import { PlusIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { TabQueryState } from '../tab-query-state';
@@ -38,6 +39,7 @@ type ExamType = (typeof EXAM_TYPES)[number];
 
 export function PublicExamsSection({ studentId }: { studentId: string }) {
   const { t } = useTranslation('student-records');
+  const regionConfig = useRegionConfig();
   const canWrite = useHasPermission(Permission.STUDENT_RECORDS_WRITE);
   const query = usePublicExams(studentId);
   // `null` = closed, `'new'` = add dialog, otherwise the row being edited.
@@ -45,94 +47,101 @@ export function PublicExamsSection({ studentId }: { studentId: string }) {
   const [deleting, setDeleting] = React.useState<StudentPublicExam | null>(null);
 
   return (
-    <section aria-labelledby="exams-title" className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <h3 id="exams-title" className="text-base font-semibold">
-          {t('exams.title')}
-        </h3>
-        {canWrite && (
-          <Button type="button" size="sm" onClick={() => setEditing('new')}>
-            {t('exams.add')}
-          </Button>
+    <Card asChild className="overflow-hidden">
+      <div>
+        <div className="flex items-center justify-between gap-3 p-4 md:px-5">
+          <h2 className="text-h2">{t('exams.title')}</h2>
+          {canWrite && (
+            <Button type="button" variant="outline" onClick={() => setEditing('new')}>
+              <PlusIcon className="size-4" aria-hidden />
+              {t('exams.add')}
+            </Button>
+          )}
+        </div>
+        <TabQueryState
+          query={query}
+          forbiddenMessage={t('tab.forbidden')}
+          errorMessage={t('tab.error')}
+        >
+          {(exams) => {
+            const columns: DataTableColumn<StudentPublicExam>[] = [
+              {
+                id: 'type',
+                header: t('exams.columns.type'),
+                accessorFn: (exam) => t(`exams.types.${exam.exam_type}`),
+                card: 'title',
+              },
+              { id: 'board', header: t('exams.columns.board'), accessorFn: (exam) => exam.board },
+              { id: 'roll', header: t('exams.columns.roll'), accessorFn: (exam) => exam.roll_no },
+              {
+                id: 'registration',
+                header: t('exams.columns.registration'),
+                accessorFn: (exam) => exam.registration_no,
+              },
+              {
+                id: 'gpa',
+                header: t('exams.columns.gpa'),
+                align: 'end',
+                accessorFn: (exam) =>
+                  exam.gpa === null || exam.gpa === undefined
+                    ? '—'
+                    : formatNumber(Number(exam.gpa), regionConfig, { decimals: 2 }),
+              },
+              {
+                id: 'year',
+                header: t('exams.columns.year'),
+                // Not `formatNumber`: it would group the digits ("২,০২৪").
+                accessorFn: (exam) =>
+                  renderDigits(String(exam.passing_year), regionConfig.numerals),
+              },
+            ];
+            return (
+              <DataTable
+                tableId="student-public-exams"
+                caption={t('exams.title')}
+                paginated={false}
+                sorting={null}
+                onSortingChange={() => {}}
+                columns={columns}
+                data={exams}
+                getRowId={(exam) => exam.id}
+                totalCount={exams.length}
+                rowActions={(exam) => [
+                  {
+                    intent: 'edit',
+                    label: t('exams.edit'),
+                    onClick: () => setEditing(exam),
+                    allowed: canWrite,
+                  },
+                  {
+                    intent: 'delete',
+                    label: t('exams.delete'),
+                    onClick: () => setDeleting(exam),
+                    allowed: canWrite,
+                  },
+                ]}
+                emptyState={{ title: t('exams.empty'), explanation: '' }}
+              />
+            );
+          }}
+        </TabQueryState>
+
+        {canWrite && editing !== null && (
+          <ExamDialog
+            studentId={studentId}
+            exam={editing === 'new' ? null : editing}
+            onClose={() => setEditing(null)}
+          />
+        )}
+        {canWrite && deleting !== null && (
+          <DeleteExamDialog
+            studentId={studentId}
+            exam={deleting}
+            onClose={() => setDeleting(null)}
+          />
         )}
       </div>
-      <TabQueryState
-        query={query}
-        forbiddenMessage={t('tab.forbidden')}
-        errorMessage={t('tab.error')}
-      >
-        {(exams) =>
-          exams.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-border-subtle p-6 text-center text-sm text-muted-foreground">
-              {t('exams.empty')}
-            </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('exams.columns.type')}</TableHead>
-                  <TableHead>{t('exams.columns.board')}</TableHead>
-                  <TableHead>{t('exams.columns.roll')}</TableHead>
-                  <TableHead>{t('exams.columns.registration')}</TableHead>
-                  <TableHead>{t('exams.columns.gpa')}</TableHead>
-                  <TableHead>{t('exams.columns.year')}</TableHead>
-                  {canWrite && (
-                    <TableHead>
-                      <span className="sr-only">{t('exams.edit')}</span>
-                    </TableHead>
-                  )}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {exams.map((exam) => (
-                  <TableRow key={exam.id}>
-                    <TableCell>{t(`exams.types.${exam.exam_type}`)}</TableCell>
-                    <TableCell>{exam.board}</TableCell>
-                    <TableCell>{exam.roll_no}</TableCell>
-                    <TableCell>{exam.registration_no}</TableCell>
-                    <TableCell>{exam.gpa ?? '—'}</TableCell>
-                    <TableCell>{exam.passing_year}</TableCell>
-                    {canWrite && (
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setEditing(exam)}
-                          >
-                            {t('exams.edit')}
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setDeleting(exam)}
-                          >
-                            {t('exams.delete')}
-                          </Button>
-                        </div>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )
-        }
-      </TabQueryState>
-
-      {canWrite && editing !== null && (
-        <ExamDialog
-          studentId={studentId}
-          exam={editing === 'new' ? null : editing}
-          onClose={() => setEditing(null)}
-        />
-      )}
-      {canWrite && deleting !== null && (
-        <DeleteExamDialog studentId={studentId} exam={deleting} onClose={() => setDeleting(null)} />
-      )}
-    </section>
+    </Card>
   );
 }
 
@@ -183,14 +192,14 @@ function ExamDialog({
   const title = exam ? t('exams.form.editTitle') : t('exams.form.addTitle');
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent size="md" closeLabel={t('actions.close', { ns: 'common' })}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription className="sr-only">{title}</DialogDescription>
         </DialogHeader>
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('exams.form.type')}</span>
+            <span className="font-medium">{t('exams.form.type')}</span>
             {/* exam_type is immutable on PATCH (UpdateStudentPublicExamDto has no such field). */}
             <Select
               value={examType}
@@ -242,12 +251,12 @@ function ExamDialog({
             inputMode="numeric"
           />
           {save.isError && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-destructive">
               {t('exams.form.saveError')}
             </p>
           )}
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose}>
               {t('actions.cancel', { ns: 'common' })}
             </Button>
             <Button type="submit" disabled={!valid} loading={save.isPending}>
@@ -275,7 +284,7 @@ function TextField({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium">
+      <label htmlFor={id} className="font-medium">
         {label}
       </label>
       <Input
@@ -300,34 +309,20 @@ function DeleteExamDialog({
   const { t } = useTranslation('student-records');
   const del = useDeletePublicExam(studentId);
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t('exams.deleteConfirm.title')}</DialogTitle>
-          <DialogDescription>
-            {t(`exams.types.${exam.exam_type}`)} · {exam.passing_year}.{' '}
-            {t('exams.deleteConfirm.body')}
-          </DialogDescription>
-        </DialogHeader>
-        {del.isError && (
-          <p role="alert" className="text-sm text-destructive">
-            {t('exams.deleteConfirm.error')}
-          </p>
-        )}
-        <DialogFooter>
-          <Button type="button" variant="ghost" onClick={onClose}>
-            {t('actions.cancel', { ns: 'common' })}
-          </Button>
-          <Button
-            type="button"
-            variant="destructive"
-            loading={del.isPending}
-            onClick={() => del.mutate(exam.id, { onSuccess: onClose })}
-          >
-            {t('exams.deleteConfirm.confirm')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog
+      open
+      onOpenChange={(open) => !open && onClose()}
+      tone="danger"
+      title={t('exams.deleteConfirm.title')}
+      description={`${t(`exams.types.${exam.exam_type}`)} · ${exam.passing_year}. ${t('exams.deleteConfirm.body')}`}
+      confirmLabel={t('exams.deleteConfirm.confirm')}
+      busy={del.isPending}
+      onConfirm={() =>
+        del.mutate(exam.id, {
+          onSuccess: onClose,
+          onError: () => toast.error(t('exams.deleteConfirm.error')),
+        })
+      }
+    />
   );
 }
