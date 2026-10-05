@@ -5,14 +5,17 @@
  * - 0 sections: empty state (D14).
  * - 1 section: redirect straight to its page, or to the attendance register
  *   when the palette sent `?then=attendance` (D13).
- * - 2+: one card per section with a role badge.
+ * - 2+: one link card per section (role as plain text).
  *
  * The redirect lives in the loader so the picker never flashes.
  */
 import { EmptyState, ErrorState, RoutePending, Skeleton } from '@biddaloy/ui/components';
 import { myClassSectionsQueryOptions, useMyClassSections } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
 import { createFileRoute, Link, redirect } from '@tanstack/react-router';
+import { BookUserIcon, ChevronRightIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
@@ -51,66 +54,90 @@ export const Route = createFileRoute('/_staff/my-class/')({
       throw redirect({ to: '/my-class/$sectionId', params: { sectionId: only.section_id } });
     }
   },
-  pendingComponent: () => <RoutePending variant="list" label="Loading" />,
+  pendingComponent: MyClassPending,
   component: MyClassPickerPage,
 });
+
+function MyClassPending() {
+  const { t } = useTranslation('myClass');
+  return <RoutePending variant="list" label={t('loading')} />;
+}
+
+const GRID = 'grid gap-3 md:grid-cols-2 xl:grid-cols-3';
 
 function MyClassPickerPage() {
   const { t } = useTranslation('myClass');
   const query = useMyClassSections();
-
-  if (query.isPending) {
-    return (
-      <div className="flex flex-col gap-2 p-4" aria-hidden="true">
-        <Skeleton className="h-14 w-full" />
-        <Skeleton className="h-14 w-full" />
-      </div>
-    );
-  }
-
-  if (query.isError) {
-    return (
-      <div className="p-4">
-        <ErrorState
-          message={t('cardError')}
-          retryLabel={t('retry')}
-          onRetry={() => void query.refetch()}
-        />
-      </div>
-    );
-  }
-
   const sections = query.data ?? [];
 
-  if (sections.length === 0) {
-    return (
-      <div className="p-4">
-        <EmptyState title={t('title')} explanation={t('empty')} />
+  let body: ReactNode;
+  if (query.isPending) {
+    body = (
+      <div aria-busy="true" className={GRID}>
+        <Skeleton className="h-20 rounded-lg" />
+        <Skeleton className="h-20 rounded-lg" />
       </div>
+    );
+  } else if (query.isError) {
+    body = (
+      <ErrorState
+        message={t('loadError')}
+        retryLabel={t('retry')}
+        onRetry={() => void query.refetch()}
+      />
+    );
+  } else if (sections.length === 0) {
+    body = (
+      <EmptyState
+        icon={<BookUserIcon aria-hidden="true" />}
+        title={t('emptyTitle')}
+        explanation={t('empty')}
+      />
+    );
+  } else {
+    body = (
+      <section aria-labelledby="mc-sections">
+        <h2 id="mc-sections" className="sr-only">
+          {t('sectionsHeading')}
+        </h2>
+        <ul className={GRID}>
+          {sections.map((section) => (
+            <li key={section.section_id}>
+              <Link
+                to="/my-class/$sectionId"
+                params={{ sectionId: section.section_id }}
+                className="flex min-h-16 items-center gap-3 rounded-lg border border-border-subtle bg-surface p-4 no-underline shadow-e1 hover:bg-muted md:p-5"
+              >
+                <span
+                  aria-hidden="true"
+                  className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground"
+                >
+                  <BookUserIcon />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-h3">
+                    {`${section.class_name} – ${section.section_name}`}
+                  </span>
+                  <span className="mt-0.5 block text-text-secondary">
+                    {t(`roles.${section.assignment_type}`)}
+                  </span>
+                </span>
+                <ChevronRightIcon
+                  aria-hidden="true"
+                  className="size-4 shrink-0 text-text-secondary"
+                />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
     );
   }
 
   return (
-    <div className="flex flex-col gap-3 p-4">
-      <h1 className="text-lg font-semibold">{t('title')}</h1>
-      <ul className="flex flex-col gap-2">
-        {sections.map((section) => (
-          <li key={section.section_id}>
-            <Link
-              to="/my-class/$sectionId"
-              params={{ sectionId: section.section_id }}
-              className="flex min-h-14 items-center justify-between gap-3 rounded-lg border border-border-subtle bg-card px-4 py-2 no-underline hover:bg-muted"
-            >
-              <span className="font-medium">
-                {section.class_name} {section.section_name}
-              </span>
-              <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                {t(`roles.${section.assignment_type}`)}
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <PageContainer>
+      <PageHeader title={t('title')} subtitle={t('pickerSubtitle')} />
+      {body}
+    </PageContainer>
   );
 }
