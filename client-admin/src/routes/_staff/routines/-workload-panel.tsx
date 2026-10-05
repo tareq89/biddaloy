@@ -35,6 +35,7 @@ export function WorkloadPanel({ routineId, maxPeriodsPerTeacherPerDay }: Workloa
     teachersQuery.data?.data.find((teacher) => teacher.id === teacherId)?.user.full_name ?? '—';
 
   const entries = workloadQuery.data ?? [];
+  const totalPeriods = entries.reduce((sum, entry) => sum + entry.periods_per_week, 0);
   const underloaded = entries.filter((entry) => entry.periods_per_week === 0);
 
   const columns: DataTableColumn<TeacherWorkload>[] = [
@@ -78,7 +79,10 @@ export function WorkloadPanel({ routineId, maxPeriodsPerTeacherPerDay }: Workloa
           <h2 className="text-h2">{t('workloadPanel.legend')}</h2>
           {underloaded.length > 0 && (
             <p className="mt-1 text-text-secondary">
-              {t('workloadPanel.underloaded', { count: underloaded.length })}
+              {t('workloadPanel.underloaded', {
+                count: underloaded.length,
+                formattedCount: formatNumber(underloaded.length, config),
+              })}
             </p>
           )}
         </div>
@@ -97,6 +101,14 @@ export function WorkloadPanel({ routineId, maxPeriodsPerTeacherPerDay }: Workloa
             totalCount={entries.length}
             loading={workloadQuery.isPending}
           />
+        )}
+        {entries.length > 0 && (
+          <p className="px-4 py-3 text-text-secondary md:px-5">
+            {t('workloadPanel.total', {
+              count: totalPeriods,
+              formattedCount: formatNumber(totalPeriods, config),
+            })}
+          </p>
         )}
       </section>
     </Card>

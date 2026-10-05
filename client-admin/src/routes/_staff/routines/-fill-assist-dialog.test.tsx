@@ -283,4 +283,26 @@ describe('FillAssistDialog', () => {
     );
     expect(screen.queryByText(/Room 204/)).toBeNull();
   });
+
+  it('shows a translated error line when the proposals cannot be loaded', async () => {
+    server.use(
+      http.get('/api/v1/routines/routine-1/greedy-fill', () =>
+        HttpResponse.json({ statusCode: 500, message: 'boom' }, { status: 500 }),
+      ),
+    );
+    renderWithProviders(
+      <FillAssistDialog
+        open
+        onOpenChange={vi.fn()}
+        routineId="routine-1"
+        sectionId="section-1"
+        weekdayLabels={{}}
+        onDone={vi.fn()}
+      />,
+      { tenantId: 'tenant-1', locale: 'en' },
+    );
+
+    expect(await screen.findByRole('alert', {}, { timeout: 8000 })).toBeTruthy();
+    expect(screen.getByText(/Couldn't work out the periods to fill/)).toBeTruthy();
+  });
 });

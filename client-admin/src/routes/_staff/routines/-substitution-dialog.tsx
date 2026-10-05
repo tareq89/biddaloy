@@ -64,9 +64,13 @@ export function useCurrentRoutineSlots() {
   const academicYearsQuery = useAcademicYears({});
   const currentYearId = academicYearsQuery.data?.data.find((year) => year.is_current)?.id;
   const routinesQuery = useRoutines();
-  const routine = routinesQuery.data?.find(
+  const forYear = (routinesQuery.data ?? []).filter(
     (candidate) => candidate.academic_year_id === currentYearId,
   );
+  // Same pick as `$sectionId.tsx`: the published routine, else the newest.
+  const routine =
+    forYear.find((candidate) => candidate.state === 'PUBLISHED') ??
+    [...forYear].sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0];
   const slotsQuery = useRoutineSlots(routine?.id);
   const slots = slotsQuery.data;
   const slotsById = React.useMemo(
