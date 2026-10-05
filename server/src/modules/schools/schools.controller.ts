@@ -46,6 +46,7 @@ export class SchoolsController {
 
   @Get()
   @Roles(UserRole.SUPER_ADMIN)
+  @UseGuards(PlatformSuperAdminGuard)
   @ApiOperation({
     summary:
       "List every school (id, name, slug, status, created_at) — #8.7.13's super-admin school picker, extended by #533's platform schools list. An ADMIN doesn't get this route at all; they already know their one school from their own tenant context.",
@@ -57,6 +58,7 @@ export class SchoolsController {
 
   @Get(':id/stats')
   @Roles(UserRole.SUPER_ADMIN)
+  @UseGuards(PlatformSuperAdminGuard)
   @ApiOperation({
     summary:
       'Five cheap platform metrics for a school (#532) — active users, students, queued/recently-failed communications, and last activity. SUPER_ADMIN only.',
@@ -67,6 +69,7 @@ export class SchoolsController {
 
   @Patch(':id/status')
   @Roles(UserRole.SUPER_ADMIN)
+  @UseGuards(PlatformSuperAdminGuard)
   @ApiOperation({
     summary:
       "Suspend or reactivate a school (#530). SUPER_ADMIN only. A mandatory reason is audited (SUSPEND/REACTIVATE), and the tenant status cache is invalidated so the change takes effect on the school's very next request.",
