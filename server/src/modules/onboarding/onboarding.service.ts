@@ -93,30 +93,42 @@ export class OnboardingService {
     userId: string,
     dto: UpdateOnboardingDto,
   ): Promise<OnboardingStatus> {
-    const repo = this.dataSource.getRepository(School);
-    const school = await repo.findOne({ where: { id: tenantId } });
-    if (!school) throw new NotFoundException('School not found');
+    // Row lock around read-modify-write: the trial job merges `trial_warnings` into the same
+    // jsonb with its own UPDATE, which queues behind this lock, so no write is lost. Only the
+    // keys this endpoint owns are changed; every other key is carried over untouched.
+    const { before, next } = await this.dataSource.transaction(async (m) => {
+      const rows: { onboarding: Record<string, any> | null }[] = await m.query(
+        'SELECT onboarding FROM schools WHERE id = $1 FOR NO KEY UPDATE',
+        [tenantId],
+      );
+      if (rows.length === 0) throw new NotFoundException('School not found');
 
-    const before = school.onboarding ?? {};
-    const next: Record<string, any> = { ...before };
-    const now = new Date().toISOString();
+      const before = rows[0].onboarding ?? {};
+      const next: Record<string, any> = { ...before };
+      const now = new Date().toISOString();
 
-    if (dto.setup_path !== undefined) next.setup_path = dto.setup_path;
-    if (dto.finished !== undefined) {
-      next.finished_at = dto.finished ? (before.finished_at ?? now) : null;
-    }
-    if (dto.dismissed !== undefined) {
-      next.dismissed_at = dto.dismissed ? (before.dismissed_at ?? now) : null;
-    }
-    if (dto.seen !== undefined) {
-      const seenBy = new Set<string>(before.seen_by ?? []);
-      if (dto.seen) seenBy.add(userId);
-      else seenBy.delete(userId);
-      next.seen_by = [...seenBy];
-    }
+      if (dto.setup_path !== undefined) next.setup_path = dto.setup_path;
+      if (dto.finished !== undefined) {
+        next.finished_at = dto.finished ? (before.finished_at ?? now) : null;
+      }
+      if (dto.dismissed !== undefined) {
+        next.dismissed_at = dto.dismissed ? (before.dismissed_at ?? now) : null;
+      }
+      if (dto.seen !== undefined) {
+        const seenBy = new Set<string>(before.seen_by ?? []);
+        if (dto.seen) seenBy.add(userId);
+        else seenBy.delete(userId);
+        next.seen_by = [...seenBy];
+      }
 
-    // Column-scoped update: nothing but `onboarding` can be written from here.
-    await repo.update({ id: tenantId }, { onboarding: next });
+      // Column-scoped update: nothing but `onboarding` can be written from here.
+      await m.query('UPDATE schools SET onboarding = $2::jsonb WHERE id = $1', [
+        tenantId,
+        JSON.stringify(next),
+      ]);
+      return { before, next };
+    });
+
     await this.audit.record({
       action: AuditAction.UPDATE,
       entity_type: 'School',

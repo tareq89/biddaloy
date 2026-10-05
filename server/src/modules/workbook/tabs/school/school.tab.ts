@@ -240,6 +240,9 @@ export const schoolTab: TabSpec<School, SchoolRow> = {
       });
     }
 
+    // Accept any case, store upper-case, so a lowercase stored value still round-trips.
+    if (typeof values.country_code === 'string')
+      values.country_code = values.country_code.toUpperCase();
     // An ISO 3166-1 alpha-2 code; anything else would store junk the region logic can't read.
     if (typeof values.country_code === 'string' && !/^[A-Z]{2}$/.test(values.country_code)) {
       errors.push({

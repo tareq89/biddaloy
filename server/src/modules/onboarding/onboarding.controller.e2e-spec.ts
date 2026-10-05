@@ -186,6 +186,21 @@ describe('onboarding E2E', () => {
     expect(audit.length).toBeGreaterThan(0);
   });
 
+  it("PATCH keeps keys it does not own (trial_warnings) and other users' seen_by", async () => {
+    await dataSource.query(
+      `UPDATE schools SET onboarding = COALESCE(onboarding, '{}'::jsonb)
+         || jsonb_build_object('trial_warnings', jsonb_build_array(7), 'seen_by', jsonb_build_array($2::text))
+       WHERE id = $1`,
+      [TENANT_ID, ADMIN_2.id],
+    );
+    await patch(tokens.admin1, { seen: true }).expect(200);
+    const [row] = await dataSource.query(`SELECT onboarding FROM schools WHERE id = $1`, [
+      TENANT_ID,
+    ]);
+    expect(row.onboarding.trial_warnings).toEqual([7]);
+    expect(row.onboarding.seen_by).toEqual(expect.arrayContaining([ADMIN_2.id, ADMIN_1.id]));
+  });
+
   it('rejects an unknown setup_path with 400', async () => {
     await patch(tokens.admin1, { setup_path: 'magic' }).expect(400);
   });
