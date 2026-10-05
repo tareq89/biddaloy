@@ -333,4 +333,67 @@ describe('Attendance Summary E2E', () => {
       });
     }
   });
+
+  describe('GET /attendance/sections/:sectionId/subject-summary (#1591)', () => {
+    const range = 'from=2026-09-01&to=2026-09-30';
+    const url = (sectionId: string) =>
+      `${API}/attendance/sections/${sectionId}/subject-summary?${range}`;
+    let originalSettings: unknown;
+
+    async function setPeriods(enabled: boolean) {
+      await dataSource.query(`UPDATE schools SET settings = $1 WHERE id = $2`, [
+        JSON.stringify({ version: 1, attendance: { periodAttendance: { enabled } } }),
+        TENANT_ID,
+      ]);
+    }
+    beforeAll(async () => {
+      const [row] = await dataSource.query(`SELECT settings FROM schools WHERE id = $1`, [
+        TENANT_ID,
+      ]);
+      originalSettings = row.settings;
+    });
+    afterAll(async () => {
+      await dataSource.query(`UPDATE schools SET settings = $1 WHERE id = $2`, [
+        JSON.stringify(originalSettings),
+        TENANT_ID,
+      ]);
+    });
+
+    it('returns 200 for ADMIN and for the mapped TEACHER', async () => {
+      await setPeriods(true);
+      await supertest(app.getHttpServer())
+        .get(url(MAPPED_SECTION_ID))
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(200);
+      const res = await supertest(app.getHttpServer())
+        .get(url(MAPPED_SECTION_ID))
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.TEACHER)
+        .expect(200);
+      expect(res.body).toHaveProperty('subjects');
+      expect(res.body).toHaveProperty('rows');
+    });
+
+    it('returns 403 for a TEACHER not mapped to the section', async () => {
+      await setPeriods(true);
+      await supertest(app.getHttpServer())
+        .get(url(UNMAPPED_SECTION_ID))
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .set('X-Role', UserRole.TEACHER)
+        .expect(403);
+    });
+
+    it('returns 403 ATTENDANCE_PERIOD_DISABLED when the period switch is off', async () => {
+      await setPeriods(false);
+      const res = await supertest(app.getHttpServer())
+        .get(url(MAPPED_SECTION_ID))
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('X-Tenant-ID', TENANT_ID)
+        .expect(403);
+      expect(JSON.stringify(res.body)).toContain('ATTENDANCE_PERIOD_DISABLED');
+    });
+  });
 });

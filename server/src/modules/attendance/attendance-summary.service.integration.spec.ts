@@ -17,6 +17,7 @@ import { ClassSection } from '../academics/entities/class-section.entity';
 import { Student } from '../students/entities/student.entity';
 import { CalendarEvent } from '../calendar/entities/calendar-event.entity';
 import { CalendarEventClass } from '../calendar/entities/calendar-event-class.entity';
+import { Subject } from '../academics/entities/subject.entity';
 import { AttendanceSessionState, AttendanceStatus } from '@biddaloy/shared';
 
 /**
@@ -538,6 +539,191 @@ describe('AttendanceSummaryService (integration)', () => {
       expect(own).toEqual({ items: [], as_of_date: null });
       const theirs = await service.getSectionStreaks({ tenantId: other.id, sectionId: otherSec });
       expect(theirs.items).toHaveLength(1);
+    });
+  });
+
+  describe('getSectionSubjectSummary + matrix versions (#1591)', () => {
+    async function setSettings(periodsOn: boolean, leaveCounts = true): Promise<void> {
+      await dataSource.getRepository(School).update(
+        { id: TENANT_ID },
+        {
+          settings: {
+            version: 1,
+            attendance: {
+              weeklyOffDays: [],
+              periodAttendance: { enabled: periodsOn },
+              leaveCountsAsWorkingDay: leaveCounts,
+            },
+          } as any,
+        },
+      );
+    }
+    async function freshSec(tenantId = TENANT_ID): Promise<string> {
+      const year = await dataSource.getRepository(AcademicYear).save({
+        name: `SubjSum Year ${Date.now()}-${Math.random()}`,
+        start_date: '2026-01-01',
+        end_date: '2026-12-31',
+        tenant_id: tenantId,
+      });
+      const klass = await dataSource
+        .getRepository(Class)
+        .save({ name: 'SubjSum Class', academic_year_id: year.id, tenant_id: tenantId });
+      const sec = await dataSource
+        .getRepository(ClassSection)
+        .save({ section_name: 'S', class_id: klass.id, tenant_id: tenantId });
+      return sec.id;
+    }
+    async function subject(name: string, tenantId = TENANT_ID): Promise<string> {
+      const s = await dataSource.getRepository(Subject).save({
+        name_en: name,
+        code: `${name}-${Math.random().toString(36).slice(2, 8)}`,
+        tenant_id: tenantId,
+      } as any);
+      return s.id;
+    }
+    async function stu(sec: string, roll: number, tenantId = TENANT_ID): Promise<string> {
+      const s = await dataSource.getRepository(Student).save({
+        full_name: `SS ${roll}`,
+        registration_number: `SS-${roll}-${Date.now()}-${Math.random()}`,
+        roll_number: roll,
+        class_section_id: sec,
+        tenant_id: tenantId,
+      });
+      return s.id;
+    }
+    async function reg(
+      sec: string,
+      date: string,
+      periodNo: number | null,
+      subjectId: string | null,
+      marks: Array<[string, AttendanceStatus]>,
+      tenantId = TENANT_ID,
+    ) {
+      const session = await dataSource.getRepository(AttendanceSession).save({
+        tenant_id: tenantId,
+        section_id: sec,
+        date,
+        period_no: periodNo,
+        subject_id: subjectId,
+        state: AttendanceSessionState.FINALIZED,
+      });
+      for (const [studentId, status] of marks) {
+        await dataSource.getRepository(AttendanceRecord).save({
+          tenant_id: tenantId,
+          session_id: session.id,
+          student_id: studentId,
+          date,
+          status,
+        });
+      }
+      return session;
+    }
+    const range = { from: '2026-09-01', to: '2026-09-30' };
+    const ask = (sectionId: string, tenantId = TENANT_ID) =>
+      service.getSectionSubjectSummary({ tenantId, sectionId, ...range });
+
+    it('counts period registers per subject; ignores day, other section, other tenant', async () => {
+      await setSettings(true);
+      const sec = await freshSec();
+      const bangla = await subject('Bangla');
+      const rahim = await stu(sec, 1);
+      const statuses = [
+        ...Array(6).fill(AttendanceStatus.PRESENT),
+        AttendanceStatus.LATE,
+        AttendanceStatus.ABSENT,
+      ];
+      for (let i = 0; i < statuses.length; i++) {
+        const date = `2026-09-${String(i + 1).padStart(2, '0')}`;
+        await reg(sec, date, 1, bangla, [[rahim, statuses[i]]]);
+      }
+      // A whole-day register is not a period class: ignored.
+      await reg(sec, '2026-09-20', null, null, [[rahim, AttendanceStatus.ABSENT]]);
+      const otherSec = await freshSec();
+      const otherStu = await stu(otherSec, 1);
+      await reg(otherSec, '2026-09-02', 1, bangla, [[otherStu, AttendanceStatus.PRESENT]]);
+      const other = await dataSource
+        .getRepository(School)
+        .save({ name: 'SubjSum Other', slug: `ss-${Date.now()}` } as any);
+      const oSec = await freshSec(other.id);
+      const oSub = await subject('Bangla', other.id);
+      const oStu = await stu(oSec, 1, other.id);
+      await reg(oSec, '2026-09-02', 1, oSub, [[oStu, AttendanceStatus.ABSENT]], other.id);
+
+      const res = await ask(sec);
+      expect(res.subjects).toEqual([{ subject_id: bangla, name: 'Bangla', held: 8 }]);
+      expect(res.rows).toHaveLength(1);
+      // 6 present + 1 late (counts as present) of 8 held -> 7 / 8 = 87.5
+      expect(res.rows[0].by_subject[bangla]).toEqual({
+        present: 6,
+        late: 1,
+        absent: 1,
+        leave: 0,
+        attended: 7,
+        percentage: 87.5,
+      });
+      // Tenant isolation: tenant A asking for tenant B's section sees nothing.
+      expect(await ask(oSec)).toEqual({ subjects: [], rows: [] });
+    });
+
+    it('removes LEAVE from the denominator when leaveCountsAsWorkingDay is false', async () => {
+      await setSettings(true, false);
+      const sec = await freshSec();
+      const sub = await subject('Math');
+      const s1 = await stu(sec, 1);
+      await reg(sec, '2026-09-01', 1, sub, [[s1, AttendanceStatus.PRESENT]]);
+      await reg(sec, '2026-09-02', 1, sub, [[s1, AttendanceStatus.LEAVE]]);
+      // 1 present of (2 held - 1 leave) = 100%
+      expect((await ask(sec)).rows[0].by_subject[sub].percentage).toBe(100);
+    });
+
+    it('no period registers -> empty subjects; student without records -> zeros + null', async () => {
+      await setSettings(true);
+      const sec = await freshSec();
+      await stu(sec, 1);
+      expect(await ask(sec)).toMatchObject({ subjects: [], rows: [{ by_subject: {} }] });
+      const sub = await subject('Eng');
+      const marked = await stu(sec, 2);
+      await reg(sec, '2026-09-01', 1, sub, [[marked, AttendanceStatus.PRESENT]]);
+      const res = await ask(sec);
+      expect(res.rows[0].by_subject[sub]).toMatchObject({
+        present: 0,
+        attended: 0,
+        percentage: null,
+      });
+    });
+
+    it('keeps a soft-deleted subject by name', async () => {
+      await setSettings(true);
+      const sec = await freshSec();
+      const sub = await subject('Gone');
+      await reg(sec, '2026-09-01', 1, sub, []);
+      await dataSource.getRepository(Subject).softDelete({ id: sub });
+      expect((await ask(sec)).subjects).toEqual([{ subject_id: sub, name: 'Gone', held: 1 }]);
+    });
+
+    it('refuses with ATTENDANCE_PERIOD_DISABLED when the switch is off', async () => {
+      await setSettings(false);
+      const sec = await freshSec();
+      await expect(ask(sec)).rejects.toMatchObject({
+        response: { details: { code: 'ATTENDANCE_PERIOD_DISABLED' } },
+      });
+    });
+
+    it('matrix returns versions for marked whole-day sessions only, and it grows on update', async () => {
+      await setSettings(true);
+      const sec = await freshSec();
+      const a = await stu(sec, 1);
+      const day = await reg(sec, '2026-09-03', null, null, [[a, AttendanceStatus.PRESENT]]);
+      await reg(sec, '2026-09-04', 1, null, []); // period session: not in versions
+      const m = { tenantId: TENANT_ID, sectionId: sec, ...range };
+      const before = await service.getSectionRegisterMatrix(m);
+      expect(Object.keys(before.versions)).toEqual(['2026-09-03']);
+      await dataSource
+        .getRepository(AttendanceSession)
+        .update({ id: day.id }, { state: AttendanceSessionState.DRAFT });
+      await dataSource.getRepository(AttendanceSession).increment({ id: day.id }, 'version', 1);
+      const after = await service.getSectionRegisterMatrix(m);
+      expect(after.versions['2026-09-03']).toBeGreaterThan(before.versions['2026-09-03']);
     });
   });
 });
