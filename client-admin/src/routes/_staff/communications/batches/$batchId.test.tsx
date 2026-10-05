@@ -12,7 +12,7 @@
  */
 import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
-import { formatNumber } from '@biddaloy/ui/utils';
+import { formatNumber, formatPhone } from '@biddaloy/ui/utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -87,28 +87,84 @@ describe('/communications/batches/$batchId', () => {
               student_id: STUDENT_B,
               error: 'Provider rejected the number',
             }),
+            logRow({
+              id: 'log-3',
+              recipient_name: 'Guardian Three',
+              status: 'FAILED',
+              student_id: STUDENT_C,
+              error:
+                'SMS (Greenweb) is not configured for this tenant, and no platform-wide fallback is set. Set GREENWEB_API_KEY as a platform-wide fallback.',
+            }),
           ],
-          total: 2,
+          total: 3,
           page: 1,
-          limit: 50,
+          limit: 25,
           totalPages: 1,
         }),
       ),
     );
     render();
 
-    expect(await screen.findByRole('heading', { name: 'August dues reminder' })).toBeTruthy();
-    expect(screen.getByText('Partially failed')).toBeTruthy();
-    // Per-recipient rows, including the FAILED one's error — "FAILED" is
-    // never unexplained.
-    expect(await screen.findByText('Guardian Two')).toBeTruthy();
-    expect(screen.getByText('Provider rejected the number')).toBeTruthy();
-    // Skipped grouped by reason with a count, not a UUID list.
     expect(
-      screen.getByText(`No guardians on file — ${formatNumber(2, REGION_BD_BN)} students`, {
-        exact: false,
-      }),
+      await screen.findByRole('heading', { level: 1, name: 'August dues reminder' }),
     ).toBeTruthy();
+    expect(screen.getByText('Partially failed')).toBeTruthy();
+    // No "All rounds" back link — the layout's crumbs own that.
+    expect(screen.queryByRole('link', { name: 'All rounds' })).toBeNull();
+    // Facts render through the tenant numeral formatter.
+    // The tenant's region settings load after the page; wait for the Bangla digits.
+    expect(await screen.findByText(formatNumber(3, REGION_BD_BN))).toBeTruthy();
+    // Per-recipient rows, including the FAILED ones' reasons — "FAILED" is
+    // never unexplained, and never the worker's English text.
+    expect(await screen.findByText('Guardian Two')).toBeTruthy();
+    expect(screen.getByText('Could not be sent.')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Sending by SMS is not set up for this school. Turn it on in Settings › Communication.',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/GREENWEB_API_KEY/)).toBeNull();
+    expect(screen.queryByText('Provider rejected the number')).toBeNull();
+    // Phones read in the grouped local format.
+    expect(screen.getAllByText(formatPhone('+8801700000000', REGION_BD_BN)).length).toBeGreaterThan(
+      0,
+    );
+    // Skipped grouped by reason with a count, not a UUID list.
+    expect(screen.getByText('No guardians on file')).toBeTruthy();
+    expect(screen.getByText(`${formatNumber(2, REGION_BD_BN)} students`)).toBeTruthy();
+  });
+
+  it('shows sent template tokens as labelled chips, never as raw braces', async () => {
+    server.use(
+      http.get('/api/v1/communications/reminder/bulk/:id', () => HttpResponse.json(batchBody())),
+      http.get('/api/v1/communications/reminder/bulk/:id/logs', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 0 }),
+      ),
+    );
+    render();
+
+    const chip = await screen.findByText('Guardian name');
+    expect(chip.className).toContain('bg-secondary');
+    expect(screen.queryByText(/\{\{/)).toBeNull();
+    expect(screen.getByText(/dues are open\./)).toBeTruthy();
+  });
+
+  it('shows a retryable error state when the round cannot load', async () => {
+    server.use(
+      http.get('/api/v1/communications/reminder/bulk/:id', () =>
+        HttpResponse.json(
+          { statusCode: 404, message: 'x', timestamp: '', path: '' },
+          { status: 404 },
+        ),
+      ),
+    );
+    render();
+
+    // The query retries once before it gives up, so give it time.
+    expect(
+      await screen.findByText('Could not load this round.', undefined, { timeout: 8000 }),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
   });
 
   it('polls while PROCESSING and stops once the batch settles', async () => {
@@ -370,7 +426,7 @@ describe('/communications/batches/$batchId', () => {
     expect(await screen.findByText('Queued')).toBeTruthy();
     // Once the batch settles, the table refetches rather than staying frozen.
     expect(
-      await screen.findByText('Gateway rejected the number', undefined, { timeout: 10000 }),
+      await screen.findByText('Could not be sent.', undefined, { timeout: 10000 }),
     ).toBeTruthy();
   });
 
