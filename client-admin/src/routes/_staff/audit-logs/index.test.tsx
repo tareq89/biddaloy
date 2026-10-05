@@ -6,6 +6,7 @@
  * here rather than in a component test that mocked them away.
  */
 import { AUDIT_ENTITY_TYPES } from '@biddaloy/shared';
+import { REGION_BD_EN } from '@biddaloy/ui/i18n';
 import {
   auditEntryFactory,
   auditLogHandlers,
@@ -16,12 +17,17 @@ import {
   server,
   type AuditEntry,
 } from '@biddaloy/ui/test';
+import { formatDateTime } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
+import { pickDate } from '../../../test/pick-date';
+
+/** Entries render on the school's clock in its region format. */
+const at = (iso: string) => formatDateTime(iso, REGION_BD_EN);
 
 /** `DataTable` names its scroll container with the table `caption`, so
  * this is the page's own `list.caption` string, not its `<h1>`. */
@@ -112,7 +118,7 @@ describe('/audit-logs', () => {
     // `mixedActionFixtures[0]` is 2026-01-05T10:30:00Z; Asia/Dhaka is
     // UTC+6, and timestamps render on the school's clock.
     expect(mixedActionFixtures[0]?.created_at).toBe('2026-01-05T10:30:00.000Z');
-    expect(await screen.findByText('2026-01-05 16:30')).toBeTruthy();
+    expect(await screen.findByText(at('2026-01-05T10:30:00.000Z'))).toBeTruthy();
   });
 
   it('reads its initial filter state from the URL, not a default', async () => {
@@ -275,7 +281,7 @@ describe('/audit-logs', () => {
 
     const user = userEvent.setup();
     await screen.findByRole('region', { name: TABLE_REGION });
-    await user.type(screen.getByRole('textbox', { name: 'From date' }), '2026-01-01');
+    await pickDate(user, 'From date', '2026-01-01');
 
     await waitFor(() =>
       expect(router.state.location.search).toMatchObject({ from_date: '2026-01-01' }),
@@ -297,7 +303,7 @@ describe('/audit-logs', () => {
     // Forwarding it would silently filter by a date nobody chose while the
     // picker sat empty, giving no hint that it had happened.
     expect(seen.params!.get('to_date')).toBeNull();
-    expect(screen.getByRole('textbox', { name: 'To date' }).getAttribute('value')).toBe('');
+    expect(screen.getByRole('button', { name: 'To date' }).textContent).toBe('Pick a date');
   });
 
   // Same reasoning as the dates: `?action=foo` fails the server's
@@ -355,7 +361,7 @@ describe('/audit-logs', () => {
     renderAuditLogs();
 
     const toggle = await screen.findByRole('button', {
-      name: 'Show changes: 3 fields were changed on this student., 2026-01-05 16:30',
+      name: `Show changes: 3 fields were changed on this student., ${at('2026-01-05T10:30:00.000Z')}`,
     });
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
     // Collapsed: the panel isn't in the DOM, so naming it would point at
@@ -379,7 +385,7 @@ describe('/audit-logs', () => {
     renderAuditLogs();
 
     const toggle = await screen.findByRole('button', {
-      name: 'Show changes: Signed in to the school., 2026-01-02 13:00',
+      name: `Show changes: Signed in to the school., ${at('2026-01-02T07:00:00.000Z')}`,
     });
 
     const user = userEvent.setup();
@@ -540,7 +546,8 @@ describe('/audit-logs', () => {
   // [8.14.10]: FilterBar migration — the rows-per-page control changes
   // `limit` and resets `page` in one URL update.
   it('changing rows per page writes limit and resets page', async () => {
-    captureParams({ data: [], total: 0, page: 2, limit: 10, totalPages: 1 });
+    // The footer (and its page-size select) only exists while there are rows.
+    captureParams({ data: [auditEntryFactory()], total: 1, page: 2, limit: 10, totalPages: 1 });
 
     const { router } = renderAuditLogs({ initialEntries: ['/audit-logs?page=2'] });
 
@@ -549,8 +556,8 @@ describe('/audit-logs', () => {
     await user.click(screen.getByRole('combobox', { name: 'Rows per page' }));
     // Option labels render in the tenant's own region digits (Bengali
     // numerals here), independent of the `en` UI locale.
-    await user.click(await screen.findByRole('option', { name: '২০' }));
+    await user.click(await screen.findByRole('option', { name: '৫০' }));
 
-    await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 20, page: 1 }));
+    await waitFor(() => expect(router.state.location.search).toMatchObject({ limit: 50, page: 1 }));
   });
 });
