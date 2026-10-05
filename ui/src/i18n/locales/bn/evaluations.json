@@ -99,7 +99,10 @@
       "empty": "এই কর্মীর জন্য কোনো এসিআর শুরু হয়নি।",
       "errorMessage": "এসিআরের ইতিহাস লোড করা যায়নি।",
       "trendTitle": "বছর অনুযায়ী",
-      "trendLabel": "{{year}}: {{total}}"
+      "trendLabel": "{{year}}: {{total}}",
+      "columnYear": "শিক্ষাবর্ষ",
+      "columnTotal": "মোট নম্বর",
+      "columnStatus": "অবস্থা"
     },
     "criteriaSettings": {
       "title": "এসিআরের মানদণ্ড",
