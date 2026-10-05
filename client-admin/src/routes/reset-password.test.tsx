@@ -20,11 +20,16 @@ describe('/reset-password', () => {
   it('shows an honest "invalid link" state when the link has no token', async () => {
     server.use(authHandlers.refreshFailure);
 
-    renderWithRouter(routeTree, { initialEntries: ['/reset-password'], locale: 'en' });
+    const { router } = renderWithRouter(routeTree, {
+      initialEntries: ['/reset-password'],
+      locale: 'en',
+    });
 
     await waitFor(() =>
       expect(screen.getByText('This link is incomplete — ask for a new one.')).toBeTruthy(),
     );
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Ask for a new link' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/forgot-password'));
   });
 
   it('a valid token lets the visitor set a new password and navigates to the dashboard', async () => {

@@ -8,7 +8,7 @@ import { routeTree } from '../routeTree.gen';
 async function submitIdentifier(value: string): Promise<void> {
   const user = userEvent.setup({ delay: null });
   await user.type(await screen.findByLabelText('Email or phone number'), value);
-  await user.click(screen.getByRole('button', { name: 'Continue' }));
+  await user.click(screen.getByRole('button', { name: 'Send code or link' }));
 }
 
 describe('/forgot-password', () => {
@@ -36,6 +36,7 @@ describe('/forgot-password', () => {
     await user.type(screen.getByLabelText('6-digit code'), '123456');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
 
+    expect(await screen.findByRole('heading', { name: 'Choose a new password' })).toBeTruthy();
     await user.type(await screen.findByLabelText('New password'), 'a-strong-password');
     await user.type(screen.getByLabelText('Confirm password'), 'a-strong-password');
     await user.click(screen.getByRole('button', { name: 'Set password' }));
@@ -55,6 +56,7 @@ describe('/forgot-password', () => {
         screen.getByText('If an account exists for that email, a reset link has been sent.'),
       ).toBeTruthy(),
     );
+    expect(screen.getByText(/check your spam folder/)).toBeTruthy();
   });
 
   it('shows a calm rate-limit banner on 429, without leaving the identifier step', async () => {

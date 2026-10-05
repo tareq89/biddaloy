@@ -7,15 +7,21 @@
  * `/forgot-password`'s OTP step exists to do.
  */
 import { ApiError, RateLimitedError } from '@biddaloy/ui/api';
-import { RouteStatusState, SetPasswordForm, type SignInFormError } from '@biddaloy/ui/components';
+import {
+  AuthLayout,
+  Button,
+  SetPasswordForm,
+  type SignInFormError,
+} from '@biddaloy/ui/components';
 import { resetPassword } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import type { TFunction } from 'i18next';
+import { Link2Off } from 'lucide-react';
 import { z } from 'zod';
 
-import { AuthScreen } from './-auth-screen';
+import { GuestStatus } from './-guest-status';
 
 /** Same "a bad link is a real, reachable case" reasoning as `activate.tsx`'s
  * identical schema comment — a missing/malformed `?token=` falls back to
@@ -28,26 +34,6 @@ export const Route = createFileRoute('/reset-password')({
   validateSearch: resetPasswordSearchSchema,
   component: ResetPasswordPage,
 });
-
-/** Decorative, `aria-hidden` — matches `activate.tsx`'s `LinkIcon`. */
-function LinkIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="size-8">
-      <path
-        d="M8.5 11.5a3 3 0 0 0 4.24 0l2-2a3 3 0 1 0-4.24-4.24l-.5.5"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-      <path
-        d="M11.5 8.5a3 3 0 0 0-4.24 0l-2 2a3 3 0 1 0 4.24 4.24l.5-.5"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
 
 /** Mirrors `activate.tsx`'s `buildActivateError` — a 401 here means the
  * token is invalid/expired/consumed, handled by the caller switching to
@@ -67,6 +53,30 @@ function buildResetError(error: unknown, t: TFunction<'auth'>): SignInFormError 
   }
 
   return { message: t('errors.generic'), tone: 'alert' };
+}
+
+function BadLink({ title }: { title: string }) {
+  const { t } = useTranslation('auth');
+  const navigate = useNavigate();
+  return (
+    <GuestStatus
+      icon={Link2Off}
+      tone="warning"
+      title={title}
+      explanation={t('forgot.linkExplanation')}
+    >
+      <Button className="w-full" onClick={() => void navigate({ to: '/forgot-password' })}>
+        {t('forgot.requestNew')}
+      </Button>
+      <Button
+        variant="ghost"
+        className="w-full text-primary"
+        onClick={() => void navigate({ to: '/login' })}
+      >
+        {t('toSignIn')}
+      </Button>
+    </GuestStatus>
+  );
 }
 
 function ResetPasswordPage() {
@@ -89,41 +99,30 @@ function ResetPasswordPage() {
 
   if (!token) {
     return (
-      <AuthScreen>
-        <RouteStatusState
-          title={t('forgot.invalidLink')}
-          explanation={t('forgot.linkExplanation')}
-          icon={<LinkIcon />}
-          onRetry={() => void navigate({ to: '/forgot-password' })}
-          retryLabel={t('forgot.link')}
-        />
-      </AuthScreen>
+      <AuthLayout>
+        <BadLink title={t('forgot.invalidLink')} />
+      </AuthLayout>
     );
   }
 
   if (mutation.isError && mutation.error instanceof ApiError && mutation.error.statusCode === 401) {
     return (
-      <AuthScreen>
-        <RouteStatusState
-          title={t('forgot.linkExpired')}
-          explanation={t('forgot.linkExplanation')}
-          icon={<LinkIcon />}
-          onRetry={() => void navigate({ to: '/forgot-password' })}
-          retryLabel={t('forgot.link')}
-        />
-      </AuthScreen>
+      <AuthLayout>
+        <BadLink title={t('forgot.linkExpired')} />
+      </AuthLayout>
     );
   }
 
   return (
-    <AuthScreen>
+    <AuthLayout>
       <SetPasswordForm
-        heading={t('forgot.heading')}
+        heading={t('reset.heading')}
+        subtext={t('reset.subtext')}
         onSubmit={(password) => mutation.mutate(password)}
         loading={mutation.isPending}
         error={buildResetError(mutation.error, t)}
         submitLabel={t('setPassword.submit')}
       />
-    </AuthScreen>
+    </AuthLayout>
   );
 }
