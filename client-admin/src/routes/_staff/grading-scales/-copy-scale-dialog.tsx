@@ -82,6 +82,10 @@ export function CopyScaleDialog({
   );
 
   // Checked as soon as a target is picked (not after clicking Copy).
+  // Copying a scale onto itself (same year and class) is not a copy.
+  const sameAsSource =
+    academicYearId === sourceScale.academic_year_id &&
+    classId === (sourceScale.class_id ?? NO_CLASS_VALUE);
   const occupied = targetScale !== undefined && targetScale.bands.length > 0;
 
   const queryClient = useQueryClient();
@@ -104,17 +108,22 @@ export function CopyScaleDialog({
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (occupied) return;
+    if (occupied || sameAsSource || !academicYearId) return;
 
-    const targetId =
-      targetScale?.id ??
-      (
-        await createScale.mutateAsync({
-          academic_year_id: academicYearId,
-          class_id: classId === NO_CLASS_VALUE ? null : classId,
-          name: sourceScale.name,
-        })
-      ).id;
+    let targetId = targetScale?.id;
+    if (!targetId) {
+      try {
+        targetId = (
+          await createScale.mutateAsync({
+            academic_year_id: academicYearId,
+            class_id: classId === NO_CLASS_VALUE ? null : classId,
+            name: sourceScale.name,
+          })
+        ).id;
+      } catch {
+        return; // shown below from `createScale.isError`
+      }
+    }
 
     copyScale.mutate({ targetId }, { onSuccess: onCopied });
   }
@@ -192,7 +201,11 @@ export function CopyScaleDialog({
                 {t('actions.cancel', { ns: 'common' })}
               </Button>
             </DialogClose>
-            <Button type="submit" loading={isPending} disabled={occupied}>
+            <Button
+              type="submit"
+              loading={isPending}
+              disabled={occupied || sameAsSource || !academicYearId}
+            >
               {isPending ? t('copyDialog.copying') : t('copyDialog.copy')}
             </Button>
           </DialogFooter>

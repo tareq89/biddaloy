@@ -14,6 +14,7 @@ import {
 } from '@biddaloy/ui/components';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { formatNumber } from '@biddaloy/ui/utils';
+import { CircleAlertIcon } from 'lucide-react';
 
 export interface SubmitDialogProps {
   open: boolean;
@@ -21,6 +22,8 @@ export interface SubmitDialogProps {
   blankCount: number;
   onConfirm: () => void;
   confirming: boolean;
+  /** Translated line shown when the submit request failed. */
+  error?: string | undefined;
 }
 
 export function SubmitDialog({
@@ -29,6 +32,7 @@ export function SubmitDialog({
   blankCount,
   onConfirm,
   confirming,
+  error,
 }: SubmitDialogProps) {
   const { t } = useTranslation('exams');
   const { t: tg } = useTranslation('grading');
@@ -47,6 +51,12 @@ export function SubmitDialog({
               count: blankCount,
               n: formatNumber(blankCount, config),
             })}
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+            <CircleAlertIcon aria-hidden="true" className="size-3.5" />
+            {error}
           </p>
         )}
         <DialogFooter>

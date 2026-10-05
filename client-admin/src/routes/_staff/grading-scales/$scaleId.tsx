@@ -31,10 +31,9 @@ import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, PageContainer } from '@biddaloy/ui/shells';
 import { formatNumber } from '@biddaloy/ui/utils';
 import { createFileRoute, useBlocker } from '@tanstack/react-router';
-import { CopyIcon, ListPlusIcon, SaveIcon, TriangleAlertIcon } from 'lucide-react';
+import { CircleAlertIcon, CopyIcon, ListPlusIcon, SaveIcon, TriangleAlertIcon } from 'lucide-react';
 import * as React from 'react';
 
-import { MutationErrorMessage } from '../../../components/MutationErrorMessage';
 import { PresetWarningBanner } from '../../../components/PresetWarningBanner';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
@@ -176,19 +175,21 @@ function ScaleEditorPage() {
     }
   }, [scaleQuery.data, bands]);
 
+  const previewBands = usePreviewBands(scaleId);
+
   function changeBands(next: BandInput[]) {
     savedRef.current = false;
+    // The shown problems / error described the rows as they were.
+    previewBands.reset();
     setBands(next);
   }
-
-  const previewBands = usePreviewBands(scaleId);
 
   const dirty =
     bands !== undefined &&
     scaleQuery.data !== undefined &&
     JSON.stringify(bands) !== JSON.stringify(scaleQuery.data.bands.map(toBandInput));
   const blocker = useBlocker({
-    shouldBlockFn: () => dirty && !savedRef.current,
+    shouldBlockFn: () => canManage && dirty && !savedRef.current,
     withResolver: true,
   });
 
@@ -314,7 +315,12 @@ function ScaleEditorPage() {
           </div>
         )}
 
-        {previewBands.isError && <MutationErrorMessage error={previewBands.error} />}
+        {previewBands.isError && (
+          <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+            <CircleAlertIcon aria-hidden="true" className="size-3.5" />
+            {t('detail.previewError')}
+          </p>
+        )}
 
         <CoverageBar bands={bands} />
 
@@ -330,17 +336,21 @@ function ScaleEditorPage() {
               icon={<ListPlusIcon />}
               title={t('detail.emptyTitle')}
               explanation={t('detail.emptyText')}
-              action={{
-                label: t('detail.startFromNctb'),
-                onClick: () => changeBands(NCTB_BANDS.map((band) => ({ ...band }))),
-              }}
-              secondaryAction={{
-                label: t('bandEditor.addBand'),
-                onClick: () => changeBands([emptyBandAfter([])]),
-              }}
+              {...(canManage
+                ? {
+                    action: {
+                      label: t('detail.startFromNctb'),
+                      onClick: () => changeBands(NCTB_BANDS.map((band) => ({ ...band }))),
+                    },
+                    secondaryAction: {
+                      label: t('bandEditor.addBand'),
+                      onClick: () => changeBands([emptyBandAfter([])]),
+                    },
+                  }
+                : {})}
             />
           ) : (
-            <BandEditor bands={bands} onChange={changeBands} />
+            <BandEditor bands={bands} onChange={changeBands} readOnly={!canManage} />
           )}
         </section>
       </DetailShell>

@@ -136,6 +136,26 @@ describe('/grading-scales/$scaleId', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('a failed preview shows our own line, and editing clears stale problems', async () => {
+    const user = userEvent.setup();
+    mockLookups();
+    server.use(
+      http.get('/api/v1/grading/scales/:id', () => HttpResponse.json(SCALE)),
+      http.post('/api/v1/grading/scales/:id/bands/preview', () =>
+        HttpResponse.json({ message: 'raw server text' }, { status: 500 }),
+      ),
+    );
+    renderScale();
+
+    await makeEdit(user);
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText("Couldn't check the grades. Please try again.")).toBeTruthy();
+    expect(screen.queryByText(/raw server text/)).toBeNull();
+
+    await makeEdit(user);
+    expect(screen.queryByText("Couldn't check the grades. Please try again.")).toBeNull();
+  });
+
   it('save proceeds to the recompute preview dialog once the preview is valid', async () => {
     const user = userEvent.setup();
     mockLookups();

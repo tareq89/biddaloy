@@ -1,7 +1,7 @@
 import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, examFactory, renderWithRouter, server } from '@biddaloy/ui/test';
 import { formatNumber } from '@biddaloy/ui/utils';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -46,7 +46,7 @@ const rowLinks = (name: string) =>
 const findRowLinks = (name: string) =>
   waitFor(() => {
     const links = rowLinks(name);
-    expect(links.length).toBeGreaterThan(0);
+    expect(links).not.toHaveLength(0);
     return links;
   });
 
@@ -68,13 +68,18 @@ describe('/marks', () => {
     render('TEACHER');
 
     await screen.findByRole('heading', { name: 'Enter marks' });
-    const [enter] = await findRowLinks('Enter marks');
-    expect(enter!.getAttribute('href')).toBe('/marks/exam-1/sec-1/subj-1');
-    const [view] = rowLinks('View marks');
-    expect(view!.getAttribute('href')).toBe('/marks/exam-1/sec-2/subj-2');
-    // Both status badges are visible.
-    expect(screen.getAllByText('Submitted').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Not submitted').length).toBeGreaterThan(0);
+    const enterLinks = await findRowLinks('Enter marks');
+    expect(enterLinks).toHaveLength(1);
+    expect(enterLinks[0]!.getAttribute('href')).toBe('/marks/exam-1/sec-1/subj-1');
+    const viewLinks = rowLinks('View marks');
+    expect(viewLinks).toHaveLength(1);
+    expect(viewLinks[0]!.getAttribute('href')).toBe('/marks/exam-1/sec-2/subj-2');
+    // Each row carries its own status badge.
+    const draftRow = within(enterLinks[0]!.closest('tr, li')!);
+    const doneRow = within(viewLinks[0]!.closest('tr, li')!);
+    expect(draftRow.getByText('Not submitted')).toBeTruthy();
+    expect(draftRow.queryByText('Submitted')).toBeNull();
+    expect(doneRow.getByText('Submitted')).toBeTruthy();
   });
 
   it('labels the exam picker, names the class, and shows progress in the subtitle', async () => {
