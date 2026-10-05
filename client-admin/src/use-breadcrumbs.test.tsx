@@ -36,7 +36,10 @@ describe('useBreadcrumbs (wired into _staff.tsx)', () => {
     await cleanupTestState();
   });
 
-  it('a three-level route (students list · student · edit) builds three crumb items', async () => {
+  // [31.4] The student edit form is a chromeless full page (`FullPageShell`, which owns its own
+  // header and Close), so the staff layout renders no breadcrumb bar on it. The three-crumb
+  // contract is covered by the survey case below.
+  it('a chromeless full-page route (student edit) renders no breadcrumb bar', async () => {
     const student = studentFactory({ id: 'student-1', full_name: 'Rahim Uddin' });
     server.use(http.get('/api/v1/students/:id', () => HttpResponse.json(student)));
 
@@ -47,12 +50,8 @@ describe('useBreadcrumbs (wired into _staff.tsx)', () => {
       locale: 'en',
     });
 
-    const nav = await screen.findByRole('navigation', { name: 'You are here' });
-    const crumbItems = within(nav).getAllByRole('listitem');
-    expect(crumbItems).toHaveLength(3);
-    // Last crumb is the current page, rendered as text (`aria-current`),
-    // not a link — `Breadcrumbs`' own contract.
-    await waitFor(() => expect(within(nav).getByText('Rahim Uddin')).toBeTruthy());
+    await waitFor(() => expect(screen.getByDisplayValue('Rahim Uddin')).toBeTruthy());
+    expect(screen.queryByRole('navigation', { name: 'You are here' })).toBeNull();
   });
 
   it('a $param route shows a skeleton + the generic noun (never the id) before the entity loads, then the name', async () => {
