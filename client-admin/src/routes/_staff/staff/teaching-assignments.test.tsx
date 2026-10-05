@@ -1,3 +1,4 @@
+import { toast } from '@biddaloy/ui/components';
 import type { SectionTeacherAssignment } from '@biddaloy/ui/hooks';
 import {
   classFactory,
@@ -10,7 +11,7 @@ import {
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -247,5 +248,33 @@ describe('/staff/teaching-assignments', () => {
     expect(
       await within(dialog).findByText('Rahim Uddin will be replaced as class teacher'),
     ).toBeTruthy();
+  });
+
+  it('closes the confirm and shows a translated toast when removing fails', async () => {
+    const klass = classFactory({ id: 'class-a', name: 'Class 6' });
+    const section = classSectionFactory({ id: 'section-a', class_id: klass.id, class: klass });
+    const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    server.use(
+      http.get('/api/v1/classes', () => HttpResponse.json(paged([klass]))),
+      http.get('/api/v1/classes/:classId/sections', () => HttpResponse.json([section])),
+      http.get('/api/v1/classes/:classId/sections/:sectionId/teachers', () =>
+        HttpResponse.json([assignment('a', section, 'CLASS_TEACHER', 'Teacher A')]),
+      ),
+      http.delete('/api/v1/classes/:classId/sections/:sectionId/teachers/:assignmentId', () =>
+        HttpResponse.json({ statusCode: 400, message: 'raw server text' }, { status: 400 }),
+      ),
+    );
+
+    render();
+    await screen.findByText('Teacher A');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Remove from section' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Remove' }));
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(toastSpy).toHaveBeenCalledWith("Couldn't remove. Try again.");
+    expect(screen.queryByText(/raw server text/)).toBeNull();
+    toastSpy.mockRestore();
   });
 });

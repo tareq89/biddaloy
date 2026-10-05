@@ -343,23 +343,25 @@ export function AcrForm({
 
   const context = (
     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-      <dl className="flex flex-wrap items-center gap-x-6 gap-y-2">
-        <div className="flex items-center gap-2">
-          <dt className="text-caption text-text-secondary">{t('acr.yearLabel')}</dt>
-          <dd className="font-medium">{yearName}</dd>
-        </div>
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+        <dl className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <div className="flex items-center gap-2">
+            <dt className="text-caption text-text-secondary">{t('acr.yearLabel')}</dt>
+            <dd className="font-medium">{yearName}</dd>
+          </div>
+          {completed && (
+            <div className="flex items-center gap-2">
+              <dt className="text-caption text-text-secondary">{t('acr.total')}</dt>
+              <dd className="font-medium">{formatNumber(assessment.total, regionConfig)}</dd>
+            </div>
+          )}
+        </dl>
         <StatusBadge
           tone={completed ? 'success' : 'warning'}
           label={t(`acr.status.${assessment.status}`)}
         />
-        {completed && (
-          <div className="flex items-center gap-2">
-            <dt className="text-caption text-text-secondary">{t('acr.total')}</dt>
-            <dd className="font-medium">{formatNumber(assessment.total, regionConfig)}</dd>
-          </div>
-        )}
         {completed && <AcrPrintButton assessment={assessment} />}
-      </dl>
+      </div>
       <p
         role="status"
         aria-live="polite"

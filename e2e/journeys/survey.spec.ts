@@ -65,7 +65,8 @@ test.describe('admin publishes', () => {
     await page
       .getByRole('button', { name: t('evaluations.surveys.detail.publish'), exact: true })
       .click();
-    await expect(page.getByText(t('evaluations.surveys.detail.sealedOpen'))).toBeVisible();
+    // A published survey with a target shows its sealed pair (the badge), not the empty-state line.
+    await expect(page.getByText(t('evaluations.surveys.detail.waitingBadge'))).toBeVisible();
   });
 });
 

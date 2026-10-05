@@ -97,7 +97,8 @@ function SurveyPage() {
             id: 'publish',
             label: publish.isPending ? t('surveys.detail.publishing') : t('surveys.detail.publish'),
             priority: 'primary',
-            allowed: canWrite && survey.status === 'DRAFT' && !publish.isPending,
+            allowed: canWrite && survey.status === 'DRAFT',
+            busy: publish.isPending,
             onClick: () =>
               publish.mutate(survey.id, {
                 onSuccess: () => toast.success(t('surveys.form.published')),
@@ -108,7 +109,8 @@ function SurveyPage() {
             id: 'close',
             label: close.isPending ? t('surveys.detail.closing') : t('surveys.detail.close'),
             priority: 'primary',
-            allowed: canWrite && survey.status === 'OPEN' && !close.isPending,
+            allowed: canWrite && survey.status === 'OPEN',
+            busy: close.isPending,
             onClick: () => setCloseOpen(true),
           },
         ]}

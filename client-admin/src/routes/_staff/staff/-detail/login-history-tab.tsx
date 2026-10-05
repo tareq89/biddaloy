@@ -60,7 +60,7 @@ export function LoginHistoryTab({ userId }: LoginHistoryTabProps) {
           getRowId={(entry) => entry.id}
           sorting={null}
           onSortingChange={() => undefined}
-          totalCount={page.data.length}
+          totalCount={page.total}
           paginated={false}
           emptyState={{
             title: t('detail.loginHistory.empty'),

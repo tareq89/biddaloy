@@ -161,8 +161,10 @@ export function SurveyFormPage({ onDone }: { onDone: () => void }) {
     label: `${locale === 'bn' && x.name_bn ? x.name_bn : x.name_en} (${x.code})`,
   }));
 
-  const patchTarget = (key: number, patch: Partial<TargetRow>) =>
+  const patchTarget = (key: number, patch: Partial<TargetRow>) => {
+    setTargetsServerError(null);
     setTargets((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  };
   const patchQuestion = (key: number, patch: Partial<QuestionRow>) =>
     setQuestions((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
 
@@ -361,7 +363,9 @@ export function SurveyFormPage({ onDone }: { onDone: () => void }) {
                       </Label>
                       <Combobox
                         id={`survey-teacher-${row.key}`}
-                        aria-label={`${t('surveys.form.teacherLabel')} ${i + 1}`}
+                        aria-label={t('surveys.form.teacherN', { n: n(i + 1) })}
+                        aria-invalid={rowError && !row.teacherId ? true : undefined}
+                        aria-describedby={rowError ? `survey-row-error-${row.key}` : undefined}
                         options={teacherOptions}
                         value={row.teacherId}
                         onValueChange={(v) => patchTarget(row.key, { teacherId: v })}
@@ -374,7 +378,9 @@ export function SurveyFormPage({ onDone }: { onDone: () => void }) {
                       </Label>
                       <Combobox
                         id={`survey-subject-${row.key}`}
-                        aria-label={`${t('surveys.form.subjectLabel')} ${i + 1}`}
+                        aria-label={t('surveys.form.subjectN', { n: n(i + 1) })}
+                        aria-invalid={rowError && row.teacherId ? true : undefined}
+                        aria-describedby={rowError ? `survey-row-error-${row.key}` : undefined}
                         options={subjectOptions}
                         value={row.subjectId}
                         onValueChange={(v) => patchTarget(row.key, { subjectId: v })}
@@ -385,10 +391,13 @@ export function SurveyFormPage({ onDone }: { onDone: () => void }) {
                       type="button"
                       variant="ghost"
                       className="h-11 self-start px-4 text-destructive md:mt-6 md:size-8 md:px-0"
-                      aria-label={t('surveys.form.removeTargetN', { n: i + 1 })}
+                      aria-label={t('surveys.form.removeTargetN', { n: n(i + 1) })}
                       title={t('surveys.form.removeTarget')}
                       disabled={targets.length === 1}
-                      onClick={() => setTargets((rows) => rows.filter((r) => r.key !== row.key))}
+                      onClick={() => {
+                        setTargetsServerError(null);
+                        setTargets((rows) => rows.filter((r) => r.key !== row.key));
+                      }}
                     >
                       <CircleMinusIcon aria-hidden="true" />
                       <span className="md:sr-only">{t('surveys.form.removeTarget')}</span>
@@ -422,12 +431,13 @@ export function SurveyFormPage({ onDone }: { onDone: () => void }) {
             {questions.map((q, i) => (
               <li key={q.key} className="flex flex-col gap-2 py-4 first:pt-0">
                 <Label htmlFor={`survey-q-${q.key}`}>
-                  {t('surveys.form.questionLabel', { n: i + 1 })}
+                  {t('surveys.form.questionLabel', { n: n(i + 1) })}
                 </Label>
                 <Input
                   id={`survey-q-${q.key}`}
                   value={q.text}
                   aria-invalid={questionErrors[q.key] ? true : undefined}
+                  aria-describedby={questionErrors[q.key] ? `survey-q-error-${q.key}` : undefined}
                   className={questionErrors[q.key] ? INVALID : undefined}
                   onChange={(e) => patchQuestion(q.key, { text: e.target.value })}
                 />
@@ -444,7 +454,7 @@ export function SurveyFormPage({ onDone }: { onDone: () => void }) {
                     type="button"
                     variant="ghost"
                     className="size-11 text-destructive md:size-8"
-                    aria-label={t('surveys.form.removeQuestionN', { n: i + 1 })}
+                    aria-label={t('surveys.form.removeQuestionN', { n: n(i + 1) })}
                     title={t('surveys.form.removeQuestion')}
                     onClick={() => setQuestions((rows) => rows.filter((r) => r.key !== q.key))}
                   >
