@@ -2,14 +2,15 @@ import { setActiveRole } from '@biddaloy/ui/api';
 import type { AcrAssessment, AcrCriterion } from '@biddaloy/ui/hooks';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import * as React from 'react';
 
 import { withMemoryRouter } from '../../../../../../ui/.storybook/router-decorator';
 
-import { AcrForm } from './acr-form';
+import { AcrForm, type AcrFormProps, type AcrStep } from './acr-form';
 import { CriterionStep } from './criterion-step';
 
 /**
- * [28.3.2] The ACR form's states: the wizard (step 1), the criteria step
+ * [28.3.2] The ACR form's states: the full-page form (one story per step), the criteria step
  * (desktop list, and the phone's one-criterion-per-screen via the
  * viewport toolbar), and a completed, read-only ACR.
  *
@@ -66,34 +67,59 @@ function assessment(overrides: Partial<AcrAssessment> = {}): AcrAssessment {
   };
 }
 
-const meta: Meta<typeof AcrForm> = {
-  component: AcrForm,
+/** The page owns `?step=`; the stories keep it in state so the tabs and footer work. */
+function WithStep({
+  initialStep,
+  ...props
+}: Omit<AcrFormProps, 'step' | 'onStepChange'> & { initialStep: AcrStep }) {
+  const [step, setStep] = React.useState<AcrStep>(initialStep);
+  return <AcrForm {...props} step={step} onStepChange={setStep} />;
+}
+
+const base = {
+  criteria,
+  onServerUpdate: () => undefined,
+  title: 'ACR — Abdul Karim',
+  onClose: () => undefined,
+  yearName: '2026',
+};
+
+const meta: Meta<typeof WithStep> = {
+  component: WithStep,
   decorators: [
+    withMemoryRouter(['/staff/user-1/acr/acr-1']),
     (Story) => (
       <QueryClientProvider client={new QueryClient()}>
         <Story />
       </QueryClientProvider>
     ),
   ],
-  args: { criteria, onServerUpdate: () => undefined },
+  args: { ...base, initialStep: 'period' },
 };
 export default meta;
 
-type Story = StoryObj<typeof AcrForm>;
+type Story = StoryObj<typeof WithStep>;
 
-/** Step 1 — period, employment duration, description. */
+/** Step 1 — period (date pickers), employment duration, description. */
 export const PeriodStep: Story = { args: { assessment: assessment() } };
 
-/** Partly scored — the wizard opens on step 1; Next to reach the criteria. */
-export const PartiallyScored: Story = {
-  args: { assessment: assessment({ scores: [{ criterion_id: 'c1', score: 4 }] }) },
+/** Step 2 — partly scored; the progress line counts the scored criteria. */
+export const CriteriaScoring: Story = {
+  args: {
+    initialStep: 'criteria',
+    assessment: assessment({ scores: [{ criterion_id: 'c1', score: 4 }] }),
+  },
 };
 
-/** Completed — read-only, total shown, Reopen available. */
+/** Step 3 — closing remarks; the footer primary is "Complete ACR". */
+export const ClosingStep: Story = {
+  args: { initialStep: 'closing', assessment: assessment() },
+};
+
+/** Completed — read-only, total shown, Reopen is the footer primary. */
 export const Completed: Story = {
-  // The Print button needs router context and ACR_READ + DOCUMENT_PRINT (ADMIN).
+  // The Print button needs ACR_READ + DOCUMENT_PRINT (ADMIN).
   decorators: [
-    withMemoryRouter(['/staff/user-1/acr']),
     (Story) => {
       setActiveRole('ADMIN');
       return <Story />;
@@ -114,7 +140,7 @@ export const Completed: Story = {
 };
 
 /** The criteria step alone. Switch the viewport to a phone to see one criterion per screen. */
-export const CriteriaStep: StoryObj<typeof CriterionStep> = {
+export const CriteriaStepOnly: StoryObj<typeof CriterionStep> = {
   render: (args) => <CriterionStep {...args} />,
   args: {
     criteria,

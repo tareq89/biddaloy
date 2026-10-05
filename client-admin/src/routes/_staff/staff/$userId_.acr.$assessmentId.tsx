@@ -16,14 +16,19 @@ import {
   type AcrAssessment,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { FullPageShell, useCloseFullPage } from '@biddaloy/ui/shells';
 import { createFileRoute } from '@tanstack/react-router';
 import * as React from 'react';
+import { z } from 'zod';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 
-import { AcrForm } from './-acr/acr-form';
+import { AcrForm, ACR_STEPS } from './-acr/acr-form';
 
 export const Route = createFileRoute('/_staff/staff/$userId_/acr/$assessmentId')({
+  // A full-page modal: no app chrome (D22, D23).
+  staticData: { chromeless: true },
+  validateSearch: z.object({ step: z.enum(ACR_STEPS).optional().catch(undefined) }),
   loader: () => loadRouteNamespaces('evaluations', 'staff', 'common'),
   pendingComponent: AcrPending,
   component: AcrPage,
@@ -43,6 +48,11 @@ function AcrPage() {
 function AcrPageInner() {
   const { userId, assessmentId } = Route.useParams();
   const { t } = useTranslation('evaluations');
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const close = useCloseFullPage(
+    () => void navigate({ to: '/staff/$userId', params: { userId }, search: { tab: 'acr' } }),
+  );
   const assessmentQuery = useAcrAssessment(assessmentId);
   // Score/render the ASSESSMENT's own criteria version, not the current one (D1).
   const versionId = assessmentQuery.data?.form_version_id;
@@ -66,36 +76,48 @@ function AcrPageInner() {
     return () => clearTimeout(timer);
   }, [titleReady, title]);
 
+  const frame = (children: React.ReactNode) => (
+    <FullPageShell
+      title={t('acr.title')}
+      onClose={close}
+      primary={{ label: t('actions.close', { ns: 'common' }), onClick: close }}
+    >
+      {children}
+    </FullPageShell>
+  );
+
   if (assessmentQuery.isError || criteriaQuery.isError) {
-    return (
+    return frame(
       <ErrorState
         message={t('acr.loadError')}
         onRetry={() => {
           void assessmentQuery.refetch();
           if (versionId) void criteriaQuery.refetch();
         }}
-      />
+      />,
     );
   }
   // A URL whose user does not match the assessment's is not this ACR.
   if (seed && seed.user_id !== userId) {
-    return (
-      <ErrorState message={t('acr.loadError')} onRetry={() => void assessmentQuery.refetch()} />
+    return frame(
+      <ErrorState message={t('acr.loadError')} onRetry={() => void assessmentQuery.refetch()} />,
     );
   }
   if (!seed || !criteriaQuery.data) {
-    return <Skeleton className="h-64 w-full" />;
+    return frame(<Skeleton className="h-64 w-full" />);
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <p className="text-sm text-muted-foreground">{title}</p>
-      <AcrForm
-        key={`${seed.status}:${seed.completed_at ?? ''}`}
-        assessment={seed}
-        criteria={criteriaQuery.data.criteria}
-        onServerUpdate={setSeed}
-      />
-    </div>
+    <AcrForm
+      key={`${seed.status}:${seed.completed_at ?? ''}`}
+      assessment={seed}
+      criteria={criteriaQuery.data.criteria}
+      onServerUpdate={setSeed}
+      title={t('acr.pageTitle', { name })}
+      onClose={close}
+      step={search.step ?? 'period'}
+      onStepChange={(step) => void navigate({ search: { step }, replace: true })}
+      yearName={year}
+    />
   );
 }

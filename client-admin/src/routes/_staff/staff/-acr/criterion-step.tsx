@@ -7,9 +7,11 @@
  * large buttons — the non-active rows and block headings are `hidden`
  * below `md`, so they leave the tab order too.
  */
-import { Button } from '@biddaloy/ui/components';
+import { Button, StatusBadge } from '@biddaloy/ui/components';
 import type { AcrCriterion } from '@biddaloy/ui/hooks';
-import { useLocale, useTranslation } from '@biddaloy/ui/i18n';
+import { useLocale, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 
 export const SCORE_VALUES = [4, 3, 2, 1] as const;
 export type ScoreValue = (typeof SCORE_VALUES)[number];
@@ -34,6 +36,8 @@ export function CriterionStep({
 }: CriterionStepProps) {
   const { t } = useTranslation('evaluations');
   const { locale } = useLocale();
+  const cfg = useTenantRegionConfig();
+  const scored = criteria.filter((c) => scores[c.id] !== undefined).length;
   const active = criteria[activeIndex];
   const blocks = [
     { block: 'BLOCK_2' as const, title: t('acr.step2.block2') },
@@ -42,14 +46,26 @@ export function CriterionStep({
 
   return (
     <div className="flex flex-col gap-4">
-      {!readOnly && (
-        <p className="text-sm text-muted-foreground" id="acr-keyboard-hint">
-          {t('acr.keyboardHint')}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+        <p className="font-medium" aria-live="polite">
+          <span className="md:hidden">
+            {t('acr.criterionOf', {
+              current: formatNumber(activeIndex + 1, cfg),
+              total: formatNumber(criteria.length, cfg),
+            })}{' '}
+            ·{' '}
+          </span>
+          {t('acr.scoredOf', {
+            scored: formatNumber(scored, cfg),
+            total: formatNumber(criteria.length, cfg),
+          })}
         </p>
-      )}
-      <p className="text-sm font-medium md:hidden" aria-live="polite">
-        {t('acr.criterionOf', { current: activeIndex + 1, total: criteria.length })}
-      </p>
+        {!readOnly && (
+          <p className="hidden text-text-secondary md:block" id="acr-keyboard-hint">
+            {t('acr.keyboardHint')}
+          </p>
+        )}
+      </div>
       {blocks.map(({ block, title }) => {
         const inBlock = criteria
           .map((criterion, index) => ({ criterion, index }))
@@ -60,13 +76,13 @@ export function CriterionStep({
           <section
             key={block}
             aria-labelledby={`acr-${block}`}
-            className={`${holdsActive ? '' : 'hidden md:block'} flex flex-col gap-3`}
+            className={`${holdsActive ? '' : 'hidden md:block'} rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5`}
           >
-            <h3 id={`acr-${block}`} className="text-base font-semibold">
+            <h2 id={`acr-${block}`} className="text-h2">
               {title}
-            </h3>
-            <ul className="flex flex-col gap-3">
-              {inBlock.map(({ criterion, index }) => {
+            </h2>
+            <ul className="mt-2">
+              {inBlock.map(({ criterion, index }, position) => {
                 const isActive = index === activeIndex;
                 const score = scores[criterion.id];
                 const label = locale === 'bn' ? criterion.label_bn : criterion.label_en;
@@ -75,35 +91,43 @@ export function CriterionStep({
                     key={criterion.id}
                     aria-current={isActive ? 'true' : undefined}
                     data-active={isActive}
-                    className={`${isActive ? '' : 'hidden md:flex'} flex flex-col gap-2 rounded-lg border p-3 md:flex-row md:items-center md:justify-between ${
-                      isActive ? 'border-primary' : 'border-border-subtle'
+                    className={`${isActive ? '' : 'hidden md:flex'} flex flex-col gap-3 py-3 md:flex-row md:items-center md:justify-between md:gap-4 ${
+                      position < inBlock.length - 1 ? 'md:border-b md:border-border-subtle' : ''
                     }`}
                   >
-                    <span id={`acr-c-${criterion.id}`} className="text-sm font-medium">
+                    <span
+                      id={`acr-c-${criterion.id}`}
+                      className={`flex min-w-0 flex-wrap items-center gap-2 border-s-2 ps-3 font-medium ${
+                        isActive ? 'border-primary' : 'border-transparent'
+                      }`}
+                    >
                       {label}
                       {score === undefined && (
-                        <span className="ms-2 text-xs font-normal text-muted-foreground">
-                          {t('acr.step2.unscored')}
-                        </span>
+                        <StatusBadge tone="neutral" label={t('acr.step2.unscored')} />
                       )}
                     </span>
                     <div
                       role="group"
                       aria-labelledby={`acr-c-${criterion.id}`}
-                      className="grid grid-cols-2 gap-2 md:flex"
+                      className="grid shrink-0 grid-cols-2 gap-2 md:flex md:gap-1"
                     >
                       {SCORE_VALUES.map((value) => (
                         <Button
                           key={value}
                           type="button"
-                          variant={score === value ? 'default' : 'outline'}
+                          variant="outline"
                           aria-pressed={score === value}
                           disabled={readOnly}
                           onFocus={() => onActiveChange(index)}
                           onClick={() => onScore(index, value)}
-                          className="h-14 text-base md:h-(--control-h,2rem) md:text-sm"
+                          className={`h-14 md:h-8 md:px-2.5 ${
+                            score === value
+                              ? 'border-primary bg-secondary font-semibold text-secondary-foreground'
+                              : ''
+                          }`}
                         >
-                          {value} · {t(`acr.scores.${value}`)}
+                          {score === value && <CheckIcon className="size-4" aria-hidden="true" />}
+                          {formatNumber(value, cfg)} · {t(`acr.scores.${value}`)}
                         </Button>
                       ))}
                     </div>
@@ -121,7 +145,8 @@ export function CriterionStep({
           disabled={activeIndex === 0}
           onClick={() => onActiveChange(activeIndex - 1)}
         >
-          {t('acr.back')}
+          <ChevronLeftIcon aria-hidden="true" />
+          {t('acr.prevCriterion')}
         </Button>
         <Button
           type="button"
@@ -129,7 +154,8 @@ export function CriterionStep({
           disabled={activeIndex >= criteria.length - 1}
           onClick={() => onActiveChange(activeIndex + 1)}
         >
-          {t('acr.next')}
+          {t('acr.nextCriterion')}
+          <ChevronRightIcon aria-hidden="true" />
         </Button>
       </div>
     </div>
