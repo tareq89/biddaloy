@@ -3,8 +3,8 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { AdminsCard } from './admins-card';
 
 /**
- * #535's admins card — a list with one pending invitation, requested
- * explicitly by the issue's acceptance criteria. Same not-wired-into-
+ * #535's admins card — a table with one pending and one activated admin,
+ * and the empty state. Same not-wired-into-
  * `client-admin`-Storybook gap #533/#534's own stories note.
  */
 const meta: Meta<typeof AdminsCard> = {
@@ -12,6 +12,7 @@ const meta: Meta<typeof AdminsCard> = {
   args: {
     schoolId: '00000000-0000-4000-8000-000000000001',
     loading: false,
+    onAdd: () => undefined,
   },
 };
 export default meta;
