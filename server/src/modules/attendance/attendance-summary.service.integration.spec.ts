@@ -250,7 +250,11 @@ describe('AttendanceSummaryService (integration)', () => {
   describe('period registers are ignored (D1)', () => {
     const DATE = '2026-10-06';
     /** Day register `dayStatus` plus three period registers, all ABSENT. */
-    async function seed(roll: number, dayStatus: AttendanceStatus): Promise<string> {
+    async function seed(
+      roll: number,
+      dayStatus: AttendanceStatus,
+      periodStatus: AttendanceStatus = AttendanceStatus.ABSENT,
+    ): Promise<string> {
       const studentId = await makeStudent(roll);
       await markDay(studentId, DATE, dayStatus);
       for (const periodNo of [1, 2, 3]) {
@@ -275,7 +279,7 @@ describe('AttendanceSummaryService (integration)', () => {
           session_id: session.id,
           student_id: studentId,
           date: DATE,
-          status: AttendanceStatus.ABSENT,
+          status: periodStatus,
         });
       }
       return studentId;
@@ -303,8 +307,7 @@ describe('AttendanceSummaryService (integration)', () => {
         from: DATE,
         to: DATE,
       });
-      expect(days).toHaveLength(1);
-      expect(days[0].status).toBe(AttendanceStatus.PRESENT);
+      expect(days.find((d) => d.date === DATE)?.status).toBe(AttendanceStatus.PRESENT);
     });
 
     it('getSectionRegisterMatrix shows the day register status in the cell', async () => {
@@ -319,15 +322,18 @@ describe('AttendanceSummaryService (integration)', () => {
       expect(row.marks[DATE]).toBe(AttendanceStatus.PRESENT);
     });
 
-    it('getLowAttendanceFlags does not flag a day-PRESENT student absent in 3 periods', async () => {
-      const studentId = await seed(403, AttendanceStatus.PRESENT);
+    it('getLowAttendanceFlags flags a day-ABSENT student on the day register, ignoring PRESENT periods', async () => {
+      const studentId = await seed(403, AttendanceStatus.ABSENT, AttendanceStatus.PRESENT);
       const result = await service.getLowAttendanceFlags({
         tenantId: TENANT_ID,
         from: DATE,
         to: DATE,
         thresholdPercent: 90,
+        limit: 1000,
       });
-      expect(result.data.map((f) => f.student_id)).not.toContain(studentId);
+      const flag = result.data.find((f) => f.student_id === studentId);
+      expect(flag).toBeDefined();
+      expect(flag!.attendance_percentage).toBe(0);
     });
   });
 
@@ -381,6 +387,15 @@ describe('AttendanceSummaryService (integration)', () => {
 
         const days = await service.getStudentDays({ ...range, studentId: inScoped });
         expect(days.find((d) => d.date === '2026-09-10')?.is_working_day).toBe(false);
+
+        // Empty roster: the section's own class still drives working days.
+        const emptySection = await dataSource.getRepository(ClassSection).save({
+          section_name: 'Scoped Empty Section',
+          class_id: classIdOf,
+          tenant_id: TENANT_ID,
+        });
+        const empty = await service.getSectionSummary({ ...range, sectionId: emptySection.id });
+        expect(empty.working_days).toBe(4);
       } finally {
         await dataSource.getRepository(CalendarEvent).delete({ id: event.id });
       }
