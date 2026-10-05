@@ -298,6 +298,7 @@ function PortalOverview() {
     // rather than offering a retry as if the request had failed.
     return (
       <EmptyState
+        headingLevel={1}
         title={t('empty.title')}
         explanation={t('empty.explanation')}
         action={{
@@ -406,8 +407,8 @@ function MultiChildView({
       <Card className="flex flex-col gap-1 p-4">
         {/* The page's one `<h1>` in this frame. Element choice only — the
             visual weight stays the mockup's small muted label, the same
-            way `EmptyState`'s title is an `<h1>` that doesn't look like
-            one. */}
+            way the unlinked-account `EmptyState` title is an `<h1>`
+            that doesn't look like one. */}
         <h1 className="text-sm font-normal text-muted-foreground">{t('hero.label')}</h1>
         <div
           className={`text-3xl leading-tight font-bold tabular-nums ${toneFor(
@@ -626,8 +627,8 @@ function RecentPayments({
           />
         </div>
       ) : query.data.length === 0 ? (
-        // Deliberately not `EmptyState`: its `title` renders an `<h1>`,
-        // and this frame's `<h1>` is already the student's name.
+        // Deliberately not `EmptyState`: this frame's `<h1>` is already
+        // the student's name, and a nested empty block adds a heading.
         <p className="p-3.5 text-sm text-muted-foreground">{t('payments.none')}</p>
       ) : (
         <>
