@@ -1,22 +1,22 @@
 {
   "list": {
-    "title": "Promotions",
-    "newRun": "New promotion run",
-    "caption": "Promotion runs",
+    "title": "Class promotion",
+    "newRun": "New promotion list",
+    "caption": "Promotion lists",
     "columnSourceClass": "Source class",
     "columnTargetClass": "Target class",
     "columnTargetYear": "Target year",
     "columnStatus": "Status",
     "columnAlgorithm": "Algorithm",
     "columnOverrides": "Overrides",
-    "columnCommittedAt": "Committed at",
-    "empty": "No promotion runs yet.",
-    "errorMessage": "Couldn't load promotion runs.",
+    "columnCommittedAt": "Finalised at",
+    "empty": "No promotion lists yet.",
+    "errorMessage": "Couldn't load promotion lists.",
     "statusDraft": "Draft",
-    "statusCommitted": "Committed"
+    "statusCommitted": "Finalised"
   },
   "newRunForm": {
-    "title": "New promotion run",
+    "title": "New promotion list",
     "sourceClassLabel": "Source class",
     "targetYearLabel": "Target academic year",
     "targetClassLabel": "Target class",
@@ -28,7 +28,7 @@
     "algorithmLabel": "Placement algorithm",
     "algorithmBlock": "Block (fill sections in order)",
     "algorithmSnake": "Snake (balance across sections)",
-    "create": "Create run",
+    "create": "Create list",
     "cancel": "Cancel"
   },
   "blocking": {
@@ -53,18 +53,18 @@
     "overrideChip": "Override",
     "refresh": "Refresh",
     "refreshing": "Refreshing…",
-    "delete": "Delete run",
+    "delete": "Delete list",
     "deleteConfirm": {
       "title": "Delete this promotion draft?",
-      "body": "This removes every entry in the run. This cannot be undone.",
+      "body": "This removes every entry in the list. This cannot be undone.",
       "confirm": "Delete",
       "cancel": "Cancel"
     },
-    "commit": "Commit",
+    "commit": "Finalise",
     "commitShortcutHint": "Ctrl+Enter",
     "overflowWarning": "This section is over capacity by {{count}}.",
     "staleResultsPrompt": "Results changed since this preview — refresh",
-    "readOnlyBanner": "Committed {{date}} by {{committedBy}}, approved by {{approvedBy}}",
+    "readOnlyBanner": "Finalised {{date}} by {{committedBy}}, approved by {{approvedBy}}",
     "counts": {
       "promoted": "Promoted",
       "retained": "Retained",
@@ -74,17 +74,17 @@
     },
     "runSummary": "{{source}} → {{target}} · {{exams}} exams · {{algorithm}}",
     "commitConfirm": {
-      "title": "Commit this promotion run?",
+      "title": "Finalise this promotion list?",
       "body": "{{promoted}} promoted, {{retained}} retained, {{graduated}} graduated. This cannot be undone.",
-      "blockedByErrors": "Fix every placement error before committing.",
-      "blockedByNotes": "Every override needs a note before committing.",
-      "confirm": "Commit",
+      "blockedByErrors": "Fix every placement error before finalising.",
+      "blockedByNotes": "Every override needs a note before finalising.",
+      "confirm": "Finalise",
       "cancel": "Cancel"
     },
-    "cohortChangedPrompt": "Some students in this run have left the class or changed status since it was created. Delete this draft and create a new run.",
-    "commitFailed": "Could not commit this run. Please try again.",
+    "cohortChangedPrompt": "Some students in this list have left the class or changed status since it was created. Delete this draft and create a new list.",
+    "commitFailed": "Could not finalise this list. Please try again.",
     "saveFailed": "Could not save this change. Please try again.",
-    "refreshFailed": "Could not refresh this run. Please try again."
+    "refreshFailed": "Could not refresh this list. Please try again."
   },
   "stepper": {
     "previous": "Previous",
@@ -98,8 +98,8 @@
   },
   "overrideNote": "Overridden from the algorithm's suggestion — a note is required.",
   "badge": {
-    "promote": "Promoted by override, {{year}}: {{note}} — by {{user}}",
-    "retain": "Retained by override, {{year}}: {{note}} — by {{user}}",
-    "graduate": "Graduated by override, {{year}}: {{note}} — by {{user}}"
+    "promote": "Promoted by special decision, {{year}}: {{note}} — by {{user}}",
+    "retain": "Kept in the same class by special decision, {{year}}: {{note}} — by {{user}}",
+    "graduate": "Completed by special decision, {{year}}: {{note}} — by {{user}}"
   }
 }

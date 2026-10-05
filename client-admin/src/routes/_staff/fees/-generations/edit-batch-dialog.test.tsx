@@ -63,7 +63,7 @@ describe('EditBatchDialog', () => {
     await waitFor(() => expect(screen.getByText('Abdul Karim')).toBeTruthy());
     expect(screen.getByText('Fatema Begum')).toBeTruthy();
     expect(
-      screen.getByText('This period already conflicts with an existing batch for:'),
+      screen.getByText('This period already conflicts with an existing billing round for:'),
     ).toBeTruthy();
   });
 });

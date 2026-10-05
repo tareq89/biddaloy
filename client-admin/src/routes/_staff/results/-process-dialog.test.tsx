@@ -57,7 +57,7 @@ describe('ProcessDialog', () => {
     expect(await screen.findByText('Section A')).toBeTruthy();
     expect(
       screen.getByText(
-        'Processing anyway includes unsubmitted grids as-is. This override is recorded in the audit log.',
+        'Processing anyway includes unsubmitted marks lists as-is. This override is recorded in the audit log.',
       ),
     ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Process anyway' })).toBeTruthy();

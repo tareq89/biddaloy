@@ -47,7 +47,7 @@ describe('exams/$examId Progress tab', () => {
       locale: 'en',
     });
 
-    await screen.findByText('1 of 2 grids submitted');
+    await screen.findByText('1 of 2 marks lists submitted');
     const sectionARow = await screen.findByRole('link', { name: 'Section A' });
     expect(sectionARow.getAttribute('href')).toBe('/marks/exam-1/section-a/subject-math');
     expect(screen.getByRole('link', { name: 'Section B' })).toBeTruthy();
