@@ -510,6 +510,31 @@ describe('/classes', () => {
     expect(screen.getByText('Class 6 Morning')).toBeTruthy();
   });
 
+  // A shift filter that matches nothing is not "no classes yet".
+  it('shows "no classes match" and no migrate link when a filter yields zero rows', async () => {
+    const morningClass = classFactory({ id: 'class-1', name: 'Class 6 Morning', shift: 'Morning' });
+    server.use(
+      classHandlers.vocabularyPopulated,
+      http.get('/api/v1/classes', ({ request }) => {
+        const data = new URL(request.url).searchParams.get('shift') ? [] : [morningClass];
+        return HttpResponse.json({ data, total: data.length, page: 1, limit: 25, totalPages: 1 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithRouter(routeTree, {
+      initialEntries: ['/classes'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByText('Class 6 Morning');
+    await user.click(await screen.findByLabelText('Shift'));
+    await user.click(await screen.findByRole('option', { name: 'Day' }));
+    await screen.findByText('No classes match these filters');
+    expect(screen.queryByText('No classes yet')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Use the full workbook template' })).toBeNull();
+  });
+
   // [CodeRabbit, PR #916] A shift genuinely named the same text as the
   // "All shifts"/"no shift" sentinel must stay selectable as itself, not
   // get swallowed into "All"/"unset" — proven behaviourally (not just by

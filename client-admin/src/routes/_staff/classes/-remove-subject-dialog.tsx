@@ -1,6 +1,7 @@
-import { ConfirmDialog } from '@biddaloy/ui/components';
 import { useDetachClassSubject } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+
+import { DangerConfirmDialog } from './-dialog-kit';
 
 export interface RemoveSubjectDialogProps {
   open: boolean;
@@ -26,16 +27,12 @@ export function RemoveSubjectDialog({
   const detachSubject = useDetachClassSubject(classId, academicYearId);
 
   return (
-    <ConfirmDialog
+    <DangerConfirmDialog
       open={open}
       onOpenChange={onOpenChange}
-      tone="danger"
       title={t('removeSubjectDialog.title')}
-      description={
-        detachSubject.isError
-          ? t('removeSubjectDialog.errorMessage')
-          : t('removeSubjectDialog.description', { name: subjectName })
-      }
+      description={t('removeSubjectDialog.description', { name: subjectName })}
+      error={detachSubject.isError ? t('removeSubjectDialog.errorMessage') : undefined}
       confirmLabel={
         detachSubject.isPending
           ? t('removeSubjectDialog.removing')

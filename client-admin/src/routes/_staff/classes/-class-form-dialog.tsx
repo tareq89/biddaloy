@@ -94,11 +94,12 @@ export function ClassFormDialog({
   const updateClass = useUpdateClass(classId ?? '');
   const mutation = mode === 'create' ? createClass : updateClass;
 
-  const initial = initialValues ?? EMPTY_VALUES;
+  // Snapshot once: a background refetch changing the props must not read as an edit.
+  const [initial] = React.useState(() => initialValues ?? EMPTY_VALUES);
+  const [initialYear] = React.useState(() => defaultAcademicYearId ?? '');
   const initialGrade = initial.numericGrade !== undefined ? String(initial.numericGrade) : '';
   const initialShift = initial.shift ?? NONE_VALUE;
   const initialVersion = initial.version ?? NONE_VALUE;
-  const initialYear = defaultAcademicYearId ?? '';
   // Callers mount this dialog only while it is open, so state starts fresh
   // on every open (no reset effect needed).
   const [name, setName] = React.useState(initial.name);

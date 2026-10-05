@@ -106,7 +106,6 @@ function ClassDetailPage() {
             label: t('detail.factSections'),
             value: t('detail.sectionCount', {
               count: klass.sections.length,
-              n: formatNumber(klass.sections.length, regionConfig),
             }),
           },
         ]}
