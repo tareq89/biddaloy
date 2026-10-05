@@ -1,20 +1,15 @@
 /**
- * [35.4.5] Exam templates list — `ListShell` (table on desktop, cards on
- * phone via DataTable's card mode), "New template" dialog, and a per-row
- * delete behind a confirm dialog. No route here ([35.4.9] adds it): the
+ * [35.4.5] Exam structures list — `ListShell` (table on desktop, cards on
+ * phone via DataTable's card mode), "Add exam structure" dialog, icon row actions
+ * (edit opens the detail, delete behind a confirm dialog); unpaginated — the API
+ * returns every row. Redesigned in [31.4.exams-3a]. No route here ([35.4.9] adds it): the
  * route supplies `renderName` (the link into the detail) and `onCreated`.
  */
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@biddaloy/ui/components';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { ConfirmDialog } from '@biddaloy/ui/components';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell } from '@biddaloy/ui/shells';
+import { formatNumber } from '@biddaloy/ui/utils';
+import { FileStack, Plus } from 'lucide-react';
 import * as React from 'react';
 
 import { TemplateFormDialog } from './-template-form-dialog';
@@ -33,10 +28,17 @@ export interface TemplatesListProps {
 
 export function TemplatesList({ renderName, onCreated }: TemplatesListProps) {
   const { t } = useTranslation('examTemplates');
+  const config = useRegionConfig();
   const query = useExamTemplates();
   const remove = useDeleteExamTemplate();
   const [createOpen, setCreateOpen] = React.useState(false);
   const [toDelete, setToDelete] = React.useState<ExamTemplateSummary | null>(null);
+
+  const gradesLabel = (grades: number[]) =>
+    [...grades]
+      .sort((a, b) => a - b)
+      .map((g) => formatNumber(g, config))
+      .join(', ') || '—';
 
   function confirmDelete() {
     if (!toDelete) return;
@@ -47,13 +49,19 @@ export function TemplatesList({ renderName, onCreated }: TemplatesListProps) {
     <>
       <ListShell
         title={t('list.title')}
-        primaryAction={
-          <Button type="button" onClick={() => setCreateOpen(true)}>
-            {t('list.add')}
-          </Button>
-        }
+        subtitle={t('list.subtitle')}
+        actions={[
+          {
+            id: 'add',
+            label: t('list.add'),
+            icon: <Plus aria-hidden className="size-4" />,
+            priority: 'primary',
+            onClick: () => setCreateOpen(true),
+          },
+        ]}
         tableId="exam-templates-list"
         caption={t('list.caption')}
+        paginated={false}
         columns={[
           {
             id: 'name',
@@ -67,35 +75,26 @@ export function TemplatesList({ renderName, onCreated }: TemplatesListProps) {
             accessorFn: (row) => t(`kind.${row.kind}`, { ns: 'exams' }),
           },
           {
+            id: 'grades',
+            header: t('list.columnGrades'),
+            accessorFn: (row) => gradesLabel(row.classGrades),
+          },
+          {
             id: 'rows',
             header: t('list.columnRows'),
             align: 'end',
-            accessorFn: (row) => row.rowCount,
+            accessorFn: (row) => formatNumber(row.rowCount, config),
           },
+        ]}
+        rowActions={(row) => [
+          { intent: 'edit', label: t('list.edit'), to: `/exams/templates/${row.id}` },
           {
-            id: 'grades',
-            header: t('list.columnGrades'),
-            accessorFn: (row) => row.classGrades.join(', ') || '—',
-          },
-          {
-            id: 'actions',
-            header: t('list.columnActions'),
-            pinned: true,
-            card: 'actions',
-            accessorFn: (row) => (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                aria-label={t('list.deleteRow', { name: row.name })}
-                onClick={() => {
-                  remove.reset();
-                  setToDelete(row);
-                }}
-              >
-                {t('list.delete')}
-              </Button>
-            ),
+            intent: 'delete',
+            label: t('list.deleteRow', { name: row.name }),
+            onClick: () => {
+              remove.reset();
+              setToDelete(row);
+            },
           },
         ]}
         data={query.data ?? []}
@@ -104,15 +103,18 @@ export function TemplatesList({ renderName, onCreated }: TemplatesListProps) {
         sorting={null}
         onSortingChange={() => undefined}
         page={1}
-        pageSize={Math.max(query.data?.length ?? 0, 10)}
+        pageSize={Math.max(query.data?.length ?? 0, 1)}
         totalCount={query.data?.length ?? 0}
         onPageChange={() => undefined}
-        onPageSizeChange={() => undefined}
-        pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
         loading={query.isLoading}
         isFetching={query.isFetching}
         {...(query.isError ? { error: t('list.errorMessage') } : {})}
-        emptyMessage={t('list.emptyMessage')}
+        emptyState={{
+          icon: <FileStack aria-hidden className="size-6" />,
+          title: t('list.emptyTitle'),
+          explanation: t('list.emptyText'),
+          action: { label: t('list.add'), onClick: () => setCreateOpen(true) },
+        }}
         announceResults={(count, total) =>
           t('list.announceResults', { visible: count, total, count: total })
         }
@@ -127,34 +129,20 @@ export function TemplatesList({ renderName, onCreated }: TemplatesListProps) {
         }}
       />
 
-      <Dialog open={toDelete !== null} onOpenChange={(open) => !open && setToDelete(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('delete.title')}</DialogTitle>
-            <DialogDescription>
-              {t('delete.description', { name: toDelete?.name ?? '' })}
-            </DialogDescription>
-          </DialogHeader>
-          {remove.isError && (
-            <p role="alert" className="text-sm text-destructive">
-              {remove.error instanceof Error ? remove.error.message : t('delete.errorMessage')}
-            </p>
-          )}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setToDelete(null)}>
-              {t('actions.cancel', { ns: 'common' })}
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              loading={remove.isPending}
-              onClick={confirmDelete}
-            >
-              {t('delete.confirm')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={toDelete !== null}
+        onOpenChange={(open) => !open && setToDelete(null)}
+        title={t('delete.title')}
+        description={
+          remove.isError
+            ? `${t('delete.description', { name: toDelete?.name ?? '' })} ${t('delete.errorMessage')}`
+            : t('delete.description', { name: toDelete?.name ?? '' })
+        }
+        confirmLabel={t('delete.confirm')}
+        tone="danger"
+        busy={remove.isPending}
+        onConfirm={confirmDelete}
+      />
     </>
   );
 }
