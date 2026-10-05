@@ -1,8 +1,7 @@
 import { SkeletonFieldList, StatusBadge } from '@biddaloy/ui/components';
 import { useGuardian } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-
-import { formatGuardianPhone } from '../-format-guardian-phone';
+import { formatPhone } from '@biddaloy/ui/utils';
 
 import { TabQueryState } from './tab-query-state';
 
@@ -32,8 +31,9 @@ export function InformationTab({ guardianId }: InformationTabProps) {
           <div>
             <dt className="text-sm text-muted-foreground">{t('detail.information.columnPhone')}</dt>
             <dd>
-              {formatGuardianPhone(guardian.phone, regionConfig) ??
-                t('detail.information.emptyValue')}
+              {guardian.phone
+                ? formatPhone(guardian.phone, regionConfig)
+                : t('detail.information.emptyValue')}
             </dd>
           </div>
           <div>
@@ -41,8 +41,9 @@ export function InformationTab({ guardianId }: InformationTabProps) {
               {t('detail.information.columnAlternatePhone')}
             </dt>
             <dd>
-              {formatGuardianPhone(guardian.alternate_phone, regionConfig) ??
-                t('detail.information.emptyValue')}
+              {guardian.alternate_phone
+                ? formatPhone(guardian.alternate_phone, regionConfig)
+                : t('detail.information.emptyValue')}
             </dd>
           </div>
           <div>
