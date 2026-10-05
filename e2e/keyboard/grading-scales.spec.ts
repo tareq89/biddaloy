@@ -127,6 +127,7 @@ test('keyboard-only: start from BD NCTB, edit a boundary, watch coverage, save',
 
   await test.step('the scale appears on the list', async () => {
     await page.goto('/grading-scales');
-    await expect(page.getByRole('link', { name: scaleName })).toBeVisible();
+    // The name is plain text now; the row's pencil is the way into the editor.
+    await expect(page.getByRole('cell', { name: scaleName })).toBeVisible();
   });
 });
