@@ -22,7 +22,9 @@ describe('/reset-password', () => {
 
     renderWithRouter(routeTree, { initialEntries: ['/reset-password'], locale: 'en' });
 
-    await waitFor(() => expect(screen.getByText('This link is missing its token.')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByText('This link is incomplete — ask for a new one.')).toBeTruthy(),
+    );
   });
 
   it('a valid token lets the visitor set a new password and navigates to the dashboard', async () => {

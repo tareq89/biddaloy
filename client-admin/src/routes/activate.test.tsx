@@ -22,7 +22,9 @@ describe('/activate', () => {
 
     renderWithRouter(routeTree, { initialEntries: ['/activate'], locale: 'en' });
 
-    await waitFor(() => expect(screen.getByText('This link is missing its token.')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByText('This link is incomplete — ask for a new one.')).toBeTruthy(),
+    );
   });
 
   it('renders the welcome heading and set-password form for a valid token', async () => {

@@ -61,7 +61,7 @@
   "restoreConsequencesIntro": "Restoring replaces all of this school's current data with the data in this backup. This cannot be undone.",
   "restoreConsequenceOverwrite": "Every student, guardian, class, fee and payment record will be replaced with what's in the backup.",
   "restoreConsequenceDataLoss": "Anything created or changed after the backup was made will be lost.",
-  "restoreConsequenceUsers": "Staff accounts and permissions are not affected.",
+  "restoreConsequenceUsers": "User accounts and permissions are not affected.",
   "restoreConsequenceDowntime": "The school will be temporarily unavailable to other users while the restore runs.",
   "confirmTypeNamePrompt": "Type the school's name, \"{{schoolName}}\", to confirm you understand this will replace all current data.",
   "confirmTypeNamePlaceholder": "Type the school's name to confirm",

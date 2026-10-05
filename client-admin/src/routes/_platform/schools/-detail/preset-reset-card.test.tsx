@@ -17,13 +17,13 @@ async function openDialog() {
     role: 'SUPER_ADMIN',
     tenantId: 'super-admin-own-tenant',
   });
-  fireEvent.click(await screen.findByRole('button', { name: 'Reset curriculum preset' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Undo ready-made curriculum' }));
 }
 
 async function fill(text: string) {
   fireEvent.change(await screen.findByLabelText(/Reason/), { target: { value: text } });
 }
-const submit = () => screen.getByRole('button', { name: 'Reset preset' });
+const submit = () => screen.getByRole('button', { name: 'Undo it' });
 
 describe('ResetPresetCard', () => {
   afterEach(async () => {
@@ -45,7 +45,9 @@ describe('ResetPresetCard', () => {
     await openDialog();
     await fill('wrong preset applied');
     fireEvent.click(submit());
-    await waitFor(() => expect(spy).toHaveBeenCalledWith('Preset reset. 5 records removed.'));
+    await waitFor(() =>
+      expect(spy).toHaveBeenCalledWith('Ready-made curriculum undone. 5 records removed.'),
+    );
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
@@ -95,6 +97,8 @@ describe('ResetPresetCard', () => {
     await openDialog();
     await fill('wrong preset applied');
     fireEvent.click(submit());
-    expect(await screen.findByText('This school has no preset to reset')).toBeTruthy();
+    expect(
+      await screen.findByText('This school has no ready-made curriculum to undo'),
+    ).toBeTruthy();
   });
 });

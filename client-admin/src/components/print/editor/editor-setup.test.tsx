@@ -152,7 +152,7 @@ describe('template editor: page, files and publishing', () => {
     const { user } = setup();
     await openTab(user, 'Page');
 
-    const batch = screen.getByLabelText<HTMLInputElement>('Cards per batch');
+    const batch = screen.getByLabelText<HTMLInputElement>('Cards per round');
     await user.clear(batch);
     await user.type(batch, '201');
     await user.tab(); // commit

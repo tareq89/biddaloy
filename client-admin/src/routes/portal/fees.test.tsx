@@ -764,7 +764,7 @@ describe('/portal/fees', () => {
       renderFees();
 
       await screen.findByText('September 2025');
-      expect(screen.getByText('Wallet')).toBeTruthy();
+      expect(screen.getByText('Credit balance')).toBeTruthy();
       expect(screen.getAllByText('৳1,500.00').length).toBeGreaterThan(0);
       expect(screen.getByText('Overpayment credit')).toBeTruthy();
       // Withheld field: the family shape carries no `note`, so nothing
@@ -776,7 +776,7 @@ describe('/portal/fees', () => {
       renderFees();
 
       await screen.findByText('September 2025');
-      expect(screen.getByText('No wallet activity yet.')).toBeTruthy();
+      expect(screen.getByText('No credit balance activity yet.')).toBeTruthy();
     });
   });
 

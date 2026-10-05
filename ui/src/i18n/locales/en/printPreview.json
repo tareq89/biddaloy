@@ -1,13 +1,13 @@
 {
   "title": "Print preview",
   "header": {
-    "batch": "Batch {{current}} of {{total}} · {{count}} cards",
+    "batch": "Round {{current}} of {{total}} · {{count}} cards",
     "printer": "{{name}} · {{type}}"
   },
   "controls": {
     "template": "Template",
     "printer": "Printer",
-    "batchSize": "Cards per batch (max {{max}})",
+    "batchSize": "Cards per round (max {{max}})",
     "choosePrinter": "Choose a printer"
   },
   "printerType": {
@@ -27,7 +27,7 @@
   "printing": "Opening the print window…",
   "popupBlocked": "Your browser blocked the print window. Allow pop-ups for this site, then press Print again.",
   "printFailed": "Could not start printing. Nothing was printed.",
-  "locked": "Confirm the current batch before the next one unlocks.",
+  "locked": "Confirm the current round before the next one unlocks.",
   "sides": {
     "front": "Front",
     "back": "Back"
