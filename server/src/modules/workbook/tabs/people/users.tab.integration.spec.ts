@@ -267,6 +267,19 @@ describe('usersTab (integration)', () => {
       expect(memberships).toHaveLength(1);
     });
 
+    it('[13.2.1] restores a former (soft-deleted) membership instead of hitting the unique index', async () => {
+      const user = await makeUser({ email: 'former@tenant-a.test', full_name: 'Former User' });
+      const membership = await makeMembership(user.id, TENANT_A, UserRole.TEACHER);
+      await userTenantRepo.softDelete({ id: membership.id });
+
+      const row = rowFor({ email: 'former@tenant-a.test', role: UserRole.TEACHER });
+      await usersTab.upsert(row, null, TENANT_A, dataSource.manager);
+
+      const rows = await userTenantRepo.find({ where: { user_id: user.id, tenant_id: TENANT_A } });
+      expect(rows.map((r) => r.id)).toEqual([membership.id]);
+      expect(rows[0].deleted_at).toBeNull();
+    });
+
     it('updates the membership role in place rather than adding a second row', async () => {
       const user = await makeUser({ email: 'rerole@tenant-a.test', full_name: 'Rerole User' });
       await makeMembership(user.id, TENANT_A, UserRole.TEACHER);

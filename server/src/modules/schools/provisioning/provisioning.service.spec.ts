@@ -262,9 +262,28 @@ describe('ProvisioningService', () => {
 
     expect(userTenantRepo.findOne).toHaveBeenCalledWith({
       where: { user_id: 'existing-user', tenant_id: 'school-1', role: UserRole.ADMIN },
+      withDeleted: true,
     });
     expect(userTenantRepo.save).not.toHaveBeenCalled();
     expect(authTokenRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('[13.2.1] restores a former (soft-deleted) ADMIN membership instead of inserting a duplicate', async () => {
+    userRepo.__setFound({ id: 'existing-user', email: dto.admin.email, full_name: 'Admin One' });
+    userTenantRepo.findOne.mockResolvedValue({
+      id: 'old-membership',
+      user_id: 'existing-user',
+      tenant_id: 'school-1',
+      role: UserRole.ADMIN,
+      deleted_at: new Date(),
+    });
+    userTenantRepo.restore = vi.fn(async () => ({ affected: 1 }));
+
+    await service.provisionAdminForSchool('school-1', dto.admin, ACTOR, manager);
+
+    // The unique index ignores soft-deletion, so an insert would 23505.
+    expect(userTenantRepo.restore).toHaveBeenCalledWith('old-membership');
+    expect(userTenantRepo.save).not.toHaveBeenCalled();
   });
 
   it('replays the identical stored result on a repeated idempotency_key without creating new rows', async () => {

@@ -141,9 +141,19 @@ export class InvitationBatchProcessor extends WorkerHost {
         where: { user_id: user.id, tenant_id: tenantId },
       });
       if (!membership) {
-        await userTenantRepo.save(
-          userTenantRepo.create({ user_id: user.id, tenant_id: tenantId, role: UserRole.PARENT }),
-        );
+        // The unique index ignores soft-deletion, so a guardian who was
+        // removed earlier is restored rather than re-inserted (23505).
+        const former = await userTenantRepo.findOne({
+          where: { user_id: user.id, tenant_id: tenantId, role: UserRole.PARENT },
+          withDeleted: true,
+        });
+        if (former) {
+          await userTenantRepo.restore(former.id);
+        } else {
+          await userTenantRepo.save(
+            userTenantRepo.create({ user_id: user.id, tenant_id: tenantId, role: UserRole.PARENT }),
+          );
+        }
       }
 
       return user;

@@ -31,6 +31,7 @@ export class StaffCardResolver implements FieldResolver {
               t.employee_id, doc.storage_key AS photo_key
          FROM users u
          JOIN user_tenants ut ON ut.user_id = u.id AND ut.tenant_id = $1
+              AND ut.deleted_at IS NULL
               AND ut.role::text = ANY($3::text[])
          LEFT JOIN staff_hr_records h ON h.user_id = u.id AND h.tenant_id = $1
          LEFT JOIN LATERAL (

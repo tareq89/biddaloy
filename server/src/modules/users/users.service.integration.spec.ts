@@ -9,6 +9,7 @@ import { buildValidationPipeOptions } from '../../validation-pipe';
 import { Repository, DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { UserService, TeacherService } from './users.service';
+import { AuditService } from '../audit/audit.service';
 import { StaffProfilesService } from '../staff-profiles/staff-profiles.service';
 import { StaffProfile } from '../staff-profiles/entities/staff-profile.entity';
 import { CreateUserDto, CreateTeacherDto, UpdateTeacherDto } from './dto/users.dto';
@@ -147,7 +148,7 @@ describe('UserService (integration)', () => {
   beforeAll(async () => {
     const module = await createTestModule(
       ALL_ENTITIES,
-      [UserService, TeacherService, StaffProfilesService],
+      [UserService, TeacherService, StaffProfilesService, AuditService],
       [],
       {
         synchronize: true,
@@ -175,6 +176,12 @@ describe('UserService (integration)', () => {
       await dataSource.query('DELETE FROM teachers');
       await dataSource.query('DELETE FROM user_tenants');
       await dataSource.query('DELETE FROM users');
+      // remove() writes an audit row naming the actor, and that column is a FK.
+      await dataSource.query(
+        `INSERT INTO users (id, email, full_name, status, created_at, updated_at)
+         VALUES ($1, 'requesting-admin@example.com', 'Requesting Admin', 'ACTIVE', NOW(), NOW())`,
+        [REQUESTING_ADMIN_ID],
+      );
     }
   });
 
@@ -1223,7 +1230,7 @@ describe('TeacherService (integration)', () => {
   beforeAll(async () => {
     const module = await createTestModule(
       ALL_ENTITIES,
-      [UserService, TeacherService, StaffProfilesService],
+      [UserService, TeacherService, StaffProfilesService, AuditService],
       [],
       {
         synchronize: true,

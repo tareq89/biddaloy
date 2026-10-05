@@ -163,6 +163,12 @@ export class QueryUserDto {
   @IsEnum(UserStatus)
   status?: UserStatus;
 
+  /** `current` (default) lists active members; `former` lists members who left
+   * or were removed (soft-deleted `user_tenants` rows) and can be restored. */
+  @IsOptional()
+  @IsEnum(['current', 'former'])
+  membership?: 'current' | 'former';
+
   /**
    * Filters on the derived lifecycle `deriveInvitationStatus` computes from
    * `password_hash` + the newest INVITE `auth_tokens` row (12.6) — not a
