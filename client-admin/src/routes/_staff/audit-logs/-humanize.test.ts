@@ -8,7 +8,6 @@ import {
   humanizeFieldName,
   humanizeValue,
   isEventOnly,
-  shortEntityId,
   type HumanizeOptions,
 } from './-humanize';
 
@@ -211,15 +210,5 @@ describe('humanizeValue', () => {
   it('renders an empty array and an empty object as the empty marker', () => {
     expect(humanizeValue([], options())).toEqual(['—']);
     expect(humanizeValue({}, options())).toEqual(['—']);
-  });
-});
-
-describe('shortEntityId', () => {
-  it('keeps only the first UUID segment', () => {
-    expect(shortEntityId('3f2a1b4c-1111-2222-3333-444455556666')).toBe('3f2a1b4c');
-  });
-
-  it('is null when the row has no entity id', () => {
-    expect(shortEntityId(null)).toBeNull();
   });
 });
