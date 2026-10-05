@@ -1,3 +1,4 @@
+import { toast } from '@biddaloy/ui/components';
 import {
   apiErrorBody,
   classFactory,
@@ -90,11 +91,14 @@ describe('/portal/results', () => {
     };
   }
 
+  const cardRequests: string[] = [];
+
   function mockResults(options: {
     students: unknown[];
     results: Record<string, unknown[]>;
     cards?: Record<string, unknown>;
   }) {
+    cardRequests.length = 0;
     server.use(
       http.get('/api/v1/students/mine', () => HttpResponse.json(options.students)),
       http.get('/api/v1/students/:studentId/results', ({ params }) => {
@@ -102,6 +106,7 @@ describe('/portal/results', () => {
         return HttpResponse.json(options.results[id] ?? []);
       }),
       http.get('/api/v1/students/:studentId/results/:examId', ({ params }) => {
+        cardRequests.push(String(params.examId));
         const key = `${String(params.studentId)}:${String(params.examId)}`;
         const found = options.cards?.[key];
         if (!found) return HttpResponse.json({ message: 'Not found' }, { status: 404 });
@@ -192,8 +197,54 @@ describe('/portal/results', () => {
     expect(printTargetHiddenInPrint).toBe(false);
   });
 
+  it('shows a translated error and clears the print state when the report card cannot load', async () => {
+    mockResults({
+      students: [fatima],
+      results: { 'student-1': [resultRow('exam-1', 'First Term Exam', true)] },
+      // No card entry: the request 404s.
+    });
+    const toastSpy = vi.spyOn(toast, 'error').mockImplementation(() => '');
+    const printSpy = vi.fn();
+    vi.stubGlobal('print', printSpy);
+    try {
+      renderResults();
+
+      const button = await screen.findByRole('button', { name: 'Print First Term Exam' });
+      await userEvent.click(button);
+
+      await waitFor(() =>
+        expect(toastSpy).toHaveBeenCalledWith(
+          'Could not load this report card to print. Try again.',
+        ),
+      );
+      expect(printSpy).not.toHaveBeenCalled();
+      // The print state cleared: a second click tries again.
+      await waitFor(() => expect(button.getAttribute('aria-busy')).not.toBe('true'));
+      await userEvent.click(button);
+      await waitFor(() => expect(toastSpy).toHaveBeenCalledTimes(2));
+    } finally {
+      toastSpy.mockRestore();
+    }
+  });
+
+  it('shows the Print button busy while the report card loads', async () => {
+    mockResults({
+      students: [fatima],
+      results: { 'student-1': [resultRow('exam-1', 'First Term Exam', true)] },
+    });
+    server.use(
+      http.get('/api/v1/students/:studentId/results/:examId', () => new Promise(() => undefined)),
+    );
+    renderResults();
+
+    const button = await screen.findByRole('button', { name: 'Print First Term Exam' });
+    expect(button.getAttribute('aria-busy')).not.toBe('true');
+    await userEvent.click(button);
+
+    await waitFor(() => expect(button.getAttribute('aria-busy')).toBe('true'));
+  });
+
   it('opens the newest card on load and the others only when asked', async () => {
-    const requested: string[] = [];
     mockResults({
       students: [fatima],
       results: {
@@ -210,17 +261,12 @@ describe('/portal/results', () => {
         },
       },
     });
-    server.events.on('request:start', ({ request }) => {
-      requested.push(new URL(request.url).pathname);
-    });
     renderResults();
 
     // The newest (first) card's table is there without a click.
     expect(await screen.findByText('Mathematics')).toBeTruthy();
     expect(screen.queryByText('Physics')).toBeNull();
-    expect(requested.filter((path) => path.includes('/results/'))).toEqual([
-      '/api/v1/students/student-1/results/exam-2',
-    ]);
+    expect(cardRequests).toEqual(['exam-2']);
 
     const buttons = screen.getAllByRole('button', { name: 'Show subject marks' });
     expect(buttons).toHaveLength(1);
@@ -233,7 +279,6 @@ describe('/portal/results', () => {
 
     expect(await screen.findByText('Physics')).toBeTruthy();
     expect(buttons[0]?.getAttribute('aria-expanded')).toBe('true');
-    server.events.removeAllListeners();
   });
 
   it('shows an inline message when an open card cannot load its breakdown', async () => {

@@ -310,7 +310,7 @@ function PortalRoutine() {
       const periodText = periodLabel(slot.period_slot_id);
       return {
         slotId: slot.routine_slot_id,
-        title: subject ?? periodText,
+        title: subject || periodText || t('routine.periodFallback'),
         meta: [subject ? periodText : null, roomLabel(slot.room_id)].filter(Boolean).join(' · '),
         startsAt: period?.starts_at ?? '',
         endsAt: period?.ends_at ?? '',
