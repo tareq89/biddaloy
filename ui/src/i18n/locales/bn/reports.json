@@ -1,5 +1,5 @@
 {
-  "title": "সংগ্রহ প্রতিবেদন",
+  "title": "ফি আদায়ের প্রতিবেদন",
   "errorMessage": "সংগ্রহ প্রতিবেদন লোড করা যায়নি।",
   "actions": {
     "downloadCsv": "সিএসভি ডাউনলোড করুন",
@@ -18,12 +18,12 @@
     "methodLabel": "পদ্ধতি",
     "allMethods": "সকল পদ্ধতি",
     "method": {
-      "CASH": "নগদ",
+      "CASH": "নগদ টাকা",
       "CHEQUE": "চেক",
       "BANK_TRANSFER": "ব্যাংক ট্রান্সফার",
       "CARD": "কার্ড",
       "BKASH": "বিকাশ",
-      "NAGAD": "নগদ (Nagad)",
+      "NAGAD": "নগদ (মোবাইল ব্যাংকিং)",
       "ROCKET": "রকেট"
     },
     "collectorLabel": "সংগ্রহকারী",
@@ -35,8 +35,8 @@
     "net": "নিট",
     "standingDiscount": "স্থায়ী ছাড়",
     "oneOffDiscount": "একবারের ছাড়",
-    "walletUsed": "ওয়ালেট ব্যবহৃত",
-    "walletAdded": "ওয়ালেট যোগ",
+    "walletUsed": "জমা টাকা ব্যবহার",
+    "walletAdded": "জমা টাকা যোগ",
     "changeReturned": "ফেরত দেওয়া ভাংতি"
   },
   "print": {

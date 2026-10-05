@@ -1,5 +1,5 @@
 {
-  "title": "Print templates",
+  "title": "Print designs",
   "caption": "Your school's print templates",
   "new": "New template",
   "empty": {
@@ -12,7 +12,7 @@
     "type": "Type",
     "status": "Status",
     "default": "Default",
-    "batch": "Batch size",
+    "batch": "Cards per round",
     "updated": "Last updated",
     "actions": "Actions"
   },

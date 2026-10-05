@@ -87,7 +87,7 @@ describe('students/-detail/fees-tab', () => {
     renderFeesTab([feeLine()]);
 
     await screen.findByRole('tab', { name: 'Open bills', selected: true });
-    expect(screen.getByRole('tab', { name: 'Wallet' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Credit balance' })).toBeTruthy();
     expect(screen.getByRole('tab', { name: 'History' })).toBeTruthy();
   });
 
@@ -105,9 +105,9 @@ describe('students/-detail/fees-tab', () => {
     renderFeesTab([feeLine()]);
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('tab', { name: 'Wallet' }));
+    await user.click(await screen.findByRole('tab', { name: 'Credit balance' }));
 
-    const panel = await screen.findByRole('tabpanel', { name: 'Wallet' });
+    const panel = await screen.findByRole('tabpanel', { name: 'Credit balance' });
     // `renderFeesTab` overrides `/schools/:schoolId/settings` to `{}` —
     // `useTenantRegionConfig` falls back to the locale-derived default
     // (latin digits, 2 decimals), same reasoning `$studentId.test.tsx`
@@ -136,9 +136,9 @@ describe('students/-detail/fees-tab', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('tab', { name: 'Wallet' }));
+    await user.click(await screen.findByRole('tab', { name: 'Credit balance' }));
 
-    const panel = await screen.findByRole('tabpanel', { name: 'Wallet' });
+    const panel = await screen.findByRole('tabpanel', { name: 'Credit balance' });
     expect(await within(panel).findByText('Overpayment credit')).toBeTruthy();
     expect(within(panel).queryByText('CREDIT_OVERPAYMENT')).toBeNull();
   });

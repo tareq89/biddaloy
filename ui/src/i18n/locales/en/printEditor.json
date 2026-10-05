@@ -185,8 +185,8 @@
       "front": "Front only",
       "both": "Front and back"
     },
-    "batchSize": "Cards per batch",
-    "batchHelp": "Heavier designs print more reliably in smaller batches. The most is {{max}}.",
+    "batchSize": "Cards per round",
+    "batchHelp": "Heavier designs print more reliably in smaller rounds. The most is {{max}}.",
     "copyLabel": "Label on reprints",
     "copyLabelHelp": "Printed on copy 2 and later, for example \"Copy {n}\" or \"DUPLICATE\". Leave empty for none.",
     "copyLabelExample": "Example on copy 3: {{example}}"
