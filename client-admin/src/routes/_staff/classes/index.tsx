@@ -24,13 +24,17 @@ import { formatNumber } from '@biddaloy/ui/utils';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { PlusIcon, SchoolIcon } from 'lucide-react';
 import * as React from 'react';
+import { z } from 'zod';
 
+import { useLandingFlag } from '../-use-landing-flag';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { ClassFormDialog } from './-class-form-dialog';
 import { DeleteClassDialog } from './-delete-class-dialog';
 
+// `z.looseObject`, not `z.object`: a plain object would strip the list-state params.
 export const Route = createFileRoute('/_staff/classes/')({
+  validateSearch: z.looseObject({ new: z.coerce.string().optional().catch(undefined) }),
   loader: ({ context: { queryClient } }) =>
     Promise.all([
       // [8.14.5]: swallowed — see `academic-years/index.tsx`'s identical
@@ -115,7 +119,7 @@ function ClassesListPage() {
   const isEmpty =
     !classesQuery.isLoading && !classesQuery.isError && (classesQuery.data?.total ?? 0) === 0;
 
-  const [createOpen, setCreateOpen] = React.useState(false);
+  const [createOpen, setCreateOpen] = useLandingFlag('new', canManage);
   const [editing, setEditing] = React.useState<ClassWithCounts | null>(null);
   const [deleting, setDeleting] = React.useState<ClassWithCounts | null>(null);
 

@@ -17,9 +17,9 @@ import { ListShell, useListShellState, type FilterFieldDescriptor } from '@bidda
 import { formatNumber, formatPhone } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import { SendIcon } from 'lucide-react';
-import * as React from 'react';
 import { z } from 'zod';
 
+import { useLandingFlag } from '../-use-landing-flag';
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
 
 import { InviteGuardiansDialog } from './-invite-guardians-dialog';
@@ -34,6 +34,7 @@ interface GuardianFilters {
 
 const guardiansSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
+  invite: z.coerce.string().optional().catch(undefined),
   limit: z.number().int().positive().optional().catch(undefined),
   sort: z.string().optional().catch(undefined),
   order: z.enum(['asc', 'desc']).optional().catch(undefined),
@@ -100,7 +101,7 @@ function GuardiansListPage() {
   const [state, actions] = useListShellState();
   const filters = state.filters as GuardianFilters;
   const canInvite = useHasPermission(Permission.USER_CREATE);
-  const [inviteOpen, setInviteOpen] = React.useState(false);
+  const [inviteOpen, setInviteOpen] = useLandingFlag('invite', canInvite);
 
   const sortField = state.sorting ? SORT_FIELD_BY_COLUMN[state.sorting.id] : undefined;
   const guardiansQuery = useGuardians({
