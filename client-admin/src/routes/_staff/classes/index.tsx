@@ -130,6 +130,8 @@ function ClassesListPage() {
     ...(showVersionFilter && filters.version ? { version: filters.version } : {}),
   };
 
+  const filtered = Object.keys(filterValues).length > 0;
+
   const rowActions = (row: ClassWithCounts): RowAction[] => [
     { intent: 'view', label: t('list.view'), to: `/classes/${row.id}` },
     { intent: 'edit', label: t('list.edit'), onClick: () => setEditing(row), allowed: canManage },
@@ -271,12 +273,16 @@ function ClassesListPage() {
         rowActions={rowActions}
         emptyState={{
           icon: <SchoolIcon aria-hidden="true" />,
-          title: t('list.emptyMessage'),
-          explanation: t('list.emptyExplanation'),
-          ...(canManage
+          title: filtered ? t('list.noMatchMessage') : t('list.emptyMessage'),
+          explanation: filtered
+            ? t('list.noMatchExplanation')
+            : canManageBackup
+              ? `${t('list.emptyExplanation')} ${tBackup('migrateWholeSchool')}`
+              : t('list.emptyExplanation'),
+          ...(canManage && !filtered
             ? { action: { label: t('list.addClass'), onClick: () => setCreateOpen(true) } }
             : {}),
-          ...(isEmpty && canManageBackup
+          ...(isEmpty && !filtered && canManageBackup
             ? {
                 secondaryAction: {
                   label: tBackup('migrateWholeSchoolLink'),
