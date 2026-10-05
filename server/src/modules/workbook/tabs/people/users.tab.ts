@@ -344,8 +344,20 @@ export const usersTab: TabSpec<User, UserRow> = {
           // Update in place: inserting a second row for the same
           // (user_id, tenant_id) would violate
           // `@Unique(['user_id','tenant_id','role'])` on a re-run.
-          memberships[0].role = row.role;
-          await m.save(UserTenant, memberships[0]);
+          // An older soft-deleted row with the target role would make the
+          // role change hit the unique index (23505): revive that row and
+          // soft-delete the current one instead.
+          const formerTarget = await m.findOne(UserTenant, {
+            where: { user_id: user.id, tenant_id: tenantId, role: row.role },
+            withDeleted: true,
+          });
+          if (formerTarget) {
+            await m.restore(UserTenant, { id: formerTarget.id });
+            await m.softDelete(UserTenant, { id: memberships[0].id });
+          } else {
+            memberships[0].role = row.role;
+            await m.save(UserTenant, memberships[0]);
+          }
           // This tab represents one role per tenant per user (D2); any other
           // stale membership rows for this tenant would otherwise survive the
           // restore as an extra, no-longer-intended role.
@@ -391,9 +403,9 @@ export const usersTab: TabSpec<User, UserRow> = {
 
   remove(entity: User, m: EntityManager): Promise<void> {
     // The ids come from `load(tenantId)`'s tenant-filtered join, so this can
-    // never reach another tenant's membership. Hard delete because
-    // `UserTenant` has no `deleted_at`. The `User` itself is never deleted:
-    // it may be a member elsewhere.
+    // never reach another tenant's membership. Soft delete (13.2.1): the
+    // member becomes a "former member" an admin can restore. The `User`
+    // itself is never deleted: it may be a member elsewhere.
     //
     // EXEMPTION: never remove the membership `ProvisioningService.provision`
     // itself created (tagged `metadata.provisioned === true`). Restoring a
@@ -408,6 +420,6 @@ export const usersTab: TabSpec<User, UserRow> = {
       .filter((ut) => !(ut.metadata as { provisioned?: boolean } | null)?.provisioned)
       .map((ut) => ut.id);
     if (ids.length === 0) return Promise.resolve();
-    return m.delete(UserTenant, { id: In(ids) }).then(() => undefined);
+    return m.softDelete(UserTenant, { id: In(ids) }).then(() => undefined);
   },
 };

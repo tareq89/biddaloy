@@ -282,7 +282,9 @@ describe('ProvisioningService', () => {
     await service.provisionAdminForSchool('school-1', dto.admin, ACTOR, manager);
 
     // The unique index ignores soft-deletion, so an insert would 23505.
-    expect(userTenantRepo.restore).toHaveBeenCalledWith('old-membership');
+    expect(userTenantRepo.restore).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'old-membership' }),
+    );
     expect(userTenantRepo.save).not.toHaveBeenCalled();
   });
 
