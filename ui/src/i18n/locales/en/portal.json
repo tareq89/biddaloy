@@ -103,19 +103,20 @@
       "late": "Late",
       "leave": "Leave",
       "percentage": "Attendance",
-      "notEnoughData": "Not enough marked days this month"
+      "notEnoughData": "Not enough marked days this month",
+      "rateFor": "Attendance rate · {{month}}"
     },
     "dialog": {
       "statusLabel": "Status",
       "minutesLateLabel": "Minutes late",
-      "remarksLabel": "Remarks",
-      "close": "Close"
+      "remarksLabel": "Remarks"
     },
     "noRecordsThisMonth": "No attendance records for this month yet.",
     "error": {
       "message": "Could not load this student's attendance. Something went wrong reaching the school's records — check your connection and try again.",
       "retry": "Try again"
-    }
+    },
+    "pickDay": "Pick a day on the calendar to see its details"
   },
   "syllabus": {
     "title": "Syllabus",
