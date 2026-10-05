@@ -1,10 +1,12 @@
+import type { Page } from '@playwright/test';
+
 import { adminApiSession, get, post } from './api';
 import { expect, loggedIn, test } from './fixtures/test';
 import { t } from './i18n';
 
 /**
  * [36.4.5/#1102] Epic 36's two client screens (`Attendance → Staff` and
- * `Leave`), KEYBOARD ONLY — no `page.mouse`, no `.click(`. Marks one staff
+ * `Leave`), KEYBOARD ONLY — no `page.mouse`, no `.click(` (bar the kit DatePicker). Marks one staff
  * member present via the command palette + Tab/Enter, then submits a leave
  * request via the same keyboard model, and finally proves the balance
  * actually moves once the request is approved.
@@ -17,6 +19,15 @@ import { t } from './i18n';
  */
 
 test.use(loggedIn('admin'));
+
+async function pickDate(page: Page, label: string, iso: string) {
+  await page.getByLabel(label).click();
+  const cell = page.locator(`[role="grid"] [data-date="${iso}"]`);
+  for (let i = 0; i < 24 && !(await cell.isVisible()); i++) {
+    await page.getByRole('button', { name: t('common.date.previousMonth') }).click();
+  }
+  await cell.click();
+}
 
 // [36.4] `action-registry.ts`'s `attendance.markStaff` action label is a
 // hardcoded `{ en, bn }` pair, not a `t()` catalog key — the default e2e
@@ -111,18 +122,11 @@ test('staff attendance + leave request/approval, keyboard only', async ({ page, 
     // Leave type stays the default (CASUAL) — the ticket only asks for a
     // request to exist, not to exercise the type dropdown.
     //
-    // `.fill()` on a native `<input type="date">` sets the value directly
-    // in its real ISO format, same pattern `calendar.spec.ts`'s
-    // `CREATE_DATE` uses — typing `page.keyboard.type('03/10/2026')`
-    // depends on the browser's locale-specific date-typing segment
-    // order, which silently produced a 32-day span instead of 2 here.
-    // `.fill()` isn't a mouse event, same "keyboard only" bar this file's
-    // own header comment sets for the text inputs below.
-    const startInput = page.getByLabel(t('leave.request.startDateLabel'));
-    await startInput.fill('2026-03-10');
-
-    const endInput = page.getByLabel(t('leave.request.endDateLabel'));
-    await endInput.fill('2026-03-11');
+    // Dates go through the kit `DatePicker`: open it, step back to the target
+    // month (capped), then click the day cell. Real clicks on purpose — this
+    // control has no text input to `.fill()`.
+    await pickDate(page, t('leave.request.startDateLabel'), '2026-03-10');
+    await pickDate(page, t('leave.request.endDateLabel'), '2026-03-11');
 
     const reasonInput = page.getByLabel(t('leave.request.reasonLabel'));
     await reasonInput.focus();
