@@ -13,14 +13,22 @@
  * escape hatch), and `ui/src/components/programs/**` is another lane's
  * territory this wave. No print button (unlike `results.tsx` — nothing
  * here is a document to hand a guardian).
+ *
+ * Layout: one card per enrolment — name and status badge, a progress
+ * sentence, and a short milestone list (the last three achieved plus the
+ * next one when a program has more than four) with a toggle for the full
+ * list. Region config comes from a value-less `RegionConfigProvider`
+ * (same reasoning as `fees.tsx`).
  */
 import {
+  Button,
   Card,
   EmptyState,
   ErrorState,
   ProgressBar,
   RoutePending,
   Skeleton,
+  StatusBadge,
   StudentPicker,
 } from '@biddaloy/ui/components';
 import {
@@ -29,8 +37,19 @@ import {
   useStudentPrograms,
   type Student,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { RegionConfigProvider, useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import type { RegionConfig } from '@biddaloy/ui/i18n';
+import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
+import { formatDate, formatNumber } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  CircleCheckIcon,
+  CircleIcon,
+  MilestoneIcon,
+} from 'lucide-react';
+import * as React from 'react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../route-loaders';
@@ -50,28 +69,37 @@ export const Route = createFileRoute('/portal/programs')({
       loadRouteNamespaces('portal', 'common', 'programs'),
     ]),
   pendingComponent: PortalProgramsPending,
-  component: PortalPrograms,
+  component: PortalProgramsRoute,
 });
+
+function PortalProgramsRoute() {
+  return (
+    <RegionConfigProvider>
+      <PortalPrograms />
+    </RegionConfigProvider>
+  );
+}
 
 /** Same "class section · roll" line `portal/results.tsx`'s own
  * `useStudentMeta` renders, from the same two keys. */
 function useStudentMeta(): (student: Student) => string {
   const { t } = useTranslation('portal');
+  const config = useRegionConfig();
   return (student: Student) => {
     const className = student.class_section?.class?.name ?? null;
+    const roll = formatNumber(student.roll_number, config);
     return className === null
-      ? t('children.metaNoClass', { roll: student.roll_number })
+      ? t('children.metaNoClass', { roll })
       : t('children.meta', {
           className,
           section: student.class_section?.section_name ?? '',
-          roll: student.roll_number,
+          roll,
         });
   };
 }
 
 function PortalPrograms() {
   const { t } = useTranslation('portal');
-  const { t: tPrograms } = useTranslation('programs');
   const search = Route.useSearch();
   const studentMeta = useStudentMeta();
 
@@ -97,11 +125,14 @@ function PortalPrograms() {
 
   if (students.length === 0 || selected === undefined) {
     return (
-      <EmptyState
-        title={t('empty.title')}
-        explanation={t('empty.explanation')}
-        action={{ label: t('empty.action'), onClick: () => void studentsQuery.refetch() }}
-      />
+      <PageContainer size="narrow">
+        <PageHeader title={t('programs.title')} />
+        <EmptyState
+          title={t('empty.title')}
+          explanation={t('empty.explanation')}
+          action={{ label: t('empty.action'), onClick: () => void studentsQuery.refetch() }}
+        />
+      </PageContainer>
     );
   }
 
@@ -120,13 +151,11 @@ function PortalPrograms() {
   }
 
   return (
-    <div className="flex max-w-2xl flex-col gap-3">
-      <div className="flex flex-col gap-0.5">
-        <h1 className="text-lg font-semibold tracking-tight">{t('programs.title')}</h1>
-        <p className="text-xs text-muted-foreground">
-          {`${selected.full_name} · ${studentMeta(selected)}`}
-        </p>
-      </div>
+    <PageContainer size="narrow">
+      <PageHeader
+        title={t('programs.title')}
+        subtitle={`${selected.full_name} · ${studentMeta(selected)}`}
+      />
       {students.length > 1 && (
         <StudentPicker
           label={t('fees.pickerLabel')}
@@ -141,101 +170,179 @@ function PortalPrograms() {
       )}
 
       {programsQuery.data.length === 0 ? (
-        <p className="p-3.5 text-sm text-muted-foreground">{t('programs.empty')}</p>
+        <EmptyState
+          icon={<MilestoneIcon />}
+          title={t('programs.emptyTitle')}
+          explanation={t('programs.emptyExplanation')}
+        />
       ) : (
-        <Card className="flex flex-col">
-          {programsQuery.data.map((entry, index) => (
-            <ProgramCard
-              key={entry.enrollment.id}
-              entry={entry}
-              bordered={index > 0}
-              statusLabel={tPrograms(`status.${entry.enrollment.status}`)}
-            />
+        <div className="space-y-6">
+          {programsQuery.data.map((entry) => (
+            <ProgramCard key={entry.enrollment.id} entry={entry} />
           ))}
-        </Card>
+        </div>
       )}
-    </div>
+    </PageContainer>
   );
 }
 
 interface ProgramEntry {
   program: { id: string; name: string };
   enrollment: { id: string; status: string };
-  milestones: {
-    id: string;
-    name: string;
-    achievement: { achieved_on: string; score: string | null; grade: string | null } | null;
-  }[];
+  milestones: ProgramMilestone[];
   achieved_count: number;
   milestone_total: number;
 }
 
-function ProgramCard({
-  entry,
-  bordered,
-  statusLabel,
-}: {
-  entry: ProgramEntry;
-  bordered: boolean;
-  statusLabel: string;
-}) {
+interface ProgramMilestone {
+  id: string;
+  name: string;
+  achievement: { achieved_on: string; score: string | null; grade: string | null } | null;
+}
+
+const STATUS_TONE = { ACTIVE: 'info', COMPLETED: 'success', WITHDRAWN: 'neutral' } as const;
+
+/** Which milestone rows to show. A long program (more than four) shows only
+ * the last three achieved plus the next one until expanded — the bar answers
+ * "how far", the next row answers "what's next". */
+export function visibleMilestones(
+  milestones: ProgramMilestone[],
+  expanded: boolean,
+): ProgramMilestone[] {
+  if (expanded || milestones.length <= 4) return milestones;
+  const keep = new Set<number>();
+  const achieved = milestones.flatMap((m, i) => (m.achievement !== null ? [i] : []));
+  achieved.slice(-3).forEach((i) => keep.add(i));
+  const nextIndex = milestones.findIndex((m) => m.achievement === null);
+  if (nextIndex >= 0) keep.add(nextIndex);
+  return milestones.filter((_, i) => keep.has(i));
+}
+
+function ProgramCard({ entry }: { entry: ProgramEntry }) {
+  const { t } = useTranslation('portal');
   const { t: tPrograms } = useTranslation('programs');
+  const config = useRegionConfig();
+  const [expanded, setExpanded] = React.useState(false);
+  const titleId = `program-${entry.enrollment.id}`;
+  // Never the raw enum: an unknown status simply shows no badge.
+  const statusLabel = tPrograms(`status.${entry.enrollment.status}`, { defaultValue: '' });
+  const tone = STATUS_TONE[entry.enrollment.status as keyof typeof STATUS_TONE] ?? 'neutral';
+  const nextId = entry.milestones.find((m) => m.achievement === null)?.id;
+  const rows = visibleMilestones(entry.milestones, expanded);
 
   return (
-    <div
-      className={
-        bordered
-          ? 'flex flex-col gap-2 border-t border-border-subtle p-3.5'
-          : 'flex flex-col gap-2 p-3.5'
-      }
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="font-semibold">{entry.program.name}</span>
-        <span className="text-xs text-muted-foreground">{statusLabel}</span>
-      </div>
-      {entry.milestone_total > 0 && (
-        <ProgressBar
-          done={entry.achieved_count}
-          total={entry.milestone_total}
-          label={tPrograms('students.progress', {
-            done: entry.achieved_count,
-            total: entry.milestone_total,
-          })}
+    <Card asChild>
+      <article className="p-4 md:p-5" aria-labelledby={titleId}>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <h2 id={titleId} className="text-h2">
+            {entry.program.name}
+          </h2>
+          {statusLabel && <StatusBadge tone={tone} label={statusLabel} />}
+        </div>
+        {entry.milestone_total > 0 && (
+          <div className="mt-3">
+            <ProgressBar
+              done={entry.achieved_count}
+              total={entry.milestone_total}
+              label={t('programs.progressLabel', {
+                done: formatNumber(entry.achieved_count, config),
+                total: formatNumber(entry.milestone_total, config),
+              })}
+            />
+          </div>
+        )}
+        {/* Static rows, not `MilestoneChecklist` — see this file's header
+         * comment: that component is another lane's shared territory this
+         * wave and offers no read-only mode. */}
+        <ul className="mt-3 divide-y divide-border-subtle border-t border-border-subtle">
+          {rows.map((milestone) => (
+            <MilestoneRow
+              key={milestone.id}
+              milestone={milestone}
+              isNext={milestone.id === nextId}
+              config={config}
+            />
+          ))}
+        </ul>
+        {entry.milestones.length > 4 && (
+          <Button
+            type="button"
+            variant="ghost"
+            className="mt-2 h-11 w-full md:h-8 md:w-auto"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((value) => !value)}
+          >
+            {expanded ? (
+              <ChevronUpIcon aria-hidden="true" />
+            ) : (
+              <ChevronDownIcon aria-hidden="true" />
+            )}
+            {expanded
+              ? t('programs.showFewer')
+              : t('programs.showAll', { count: entry.milestones.length })}
+          </Button>
+        )}
+      </article>
+    </Card>
+  );
+}
+
+function MilestoneRow({
+  milestone,
+  isNext,
+  config,
+}: {
+  milestone: ProgramMilestone;
+  isNext: boolean;
+  config: RegionConfig;
+}) {
+  const { t } = useTranslation('portal');
+  const achievement = milestone.achievement;
+  const score =
+    achievement?.score != null && Number.isFinite(Number(achievement.score))
+      ? formatNumber(Number(achievement.score), config)
+      : achievement?.score;
+  const scoreGrade = [score, achievement?.grade].filter(Boolean).join(' / ');
+
+  return (
+    <li className="flex min-h-11 items-center gap-3 py-2">
+      {achievement !== null ? (
+        <CircleCheckIcon
+          className="size-5 shrink-0 text-status-paid-fg"
+          role="img"
+          aria-label={t('programs.achieved')}
+        />
+      ) : (
+        <CircleIcon
+          className="size-5 shrink-0 text-text-secondary"
+          role="img"
+          aria-label={t('programs.notYet')}
         />
       )}
-      {/* Static ticks, not `MilestoneChecklist` — see this file's header
-       * comment: that component is another lane's shared territory this
-       * wave and offers no read-only mode. */}
-      <ul className="flex flex-col gap-1">
-        {entry.milestones.map((milestone) => (
-          <li key={milestone.id} className="flex items-center gap-2 text-sm">
-            <span aria-hidden="true">{milestone.achievement !== null ? '☑' : '☐'}</span>
-            <span className="flex-1">{milestone.name}</span>
-            {milestone.achievement !== null && (
-              <span className="text-xs text-muted-foreground">
-                {milestone.achievement.achieved_on}
-                {milestone.achievement.score || milestone.achievement.grade
-                  ? ` · ${[milestone.achievement.score, milestone.achievement.grade].filter(Boolean).join(' / ')}`
-                  : ''}
-              </span>
-            )}
-          </li>
-        ))}
-      </ul>
-    </div>
+      <span className={`min-w-0 flex-1 ${isNext ? 'font-medium' : ''}`}>{milestone.name}</span>
+      {achievement !== null ? (
+        <span className="shrink-0 text-end text-caption text-text-secondary">
+          {formatDate(achievement.achieved_on, config)}
+          {scoreGrade ? ` · ${scoreGrade}` : ''}
+        </span>
+      ) : isNext ? (
+        <StatusBadge tone="neutral" label={t('programs.next')} />
+      ) : null}
+    </li>
   );
 }
 
 function ProgramsSkeleton({ label, showPicker = false }: { label: string; showPicker?: boolean }) {
   return (
-    <div className="flex max-w-2xl flex-col gap-3" aria-busy="true" aria-live="polite">
+    <div className="flex flex-col gap-3" aria-busy="true" aria-live="polite">
       <span className="sr-only">{label}</span>
       <div className="flex flex-col gap-0.5">
-        <Skeleton className="h-7 w-2/5" />
+        <Skeleton className="h-8 w-2/5" />
         <Skeleton className="h-4 w-3/5" />
       </div>
       {showPicker && <Skeleton className="h-12 w-full rounded-lg" />}
-      <Skeleton className="h-32 w-full rounded-lg" />
+      <Skeleton className="h-40 w-full rounded-lg" />
+      <Skeleton className="h-40 w-full rounded-lg" />
     </div>
   );
 }
