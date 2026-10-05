@@ -1,19 +1,15 @@
 /**
  * [26.5.1] Defaulters tab — `MeritTab`'s table plus a reasons cell built
  * from `DefaultedRow.failed_subjects`/`absent_subjects`.
+ *
+ * [31.4.marks-3] No toolbar (Print and CSV are in the page header); reasons
+ * on two lines; tenant numerals; a friendly empty state.
  */
-import {
-  Button,
-  DataTable,
-  ErrorState,
-  Skeleton,
-  toast,
-  type DataTableColumn,
-} from '@biddaloy/ui/components';
-import { downloadAnalysisCsv, useDefaultedList, type DefaultedRow } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
-import { Printer } from 'lucide-react';
-import * as React from 'react';
+import { DataTable, ErrorState, type DataTableColumn } from '@biddaloy/ui/components';
+import { useDefaultedList, type DefaultedRow } from '@biddaloy/ui/hooks';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
+import { CircleCheckIcon } from 'lucide-react';
 
 import type { AnalysisTabProps } from './-merit-tab';
 
@@ -25,22 +21,11 @@ export function DefaultedTab({
   className,
 }: AnalysisTabProps) {
   const { t } = useTranslation('exams');
+  const { t: tg } = useTranslation('grading');
+  const config = useRegionConfig();
   const defaultedQuery = useDefaultedList(examId, sectionId);
   const rows = defaultedQuery.data?.rows ?? [];
 
-  const [csvBusy, setCsvBusy] = React.useState(false);
-  async function handleDownloadCsv() {
-    setCsvBusy(true);
-    try {
-      await downloadAnalysisCsv(examId, 'defaulted', sectionId, examName);
-    } catch {
-      toast.error(t('analysis.downloadCsvError'));
-    } finally {
-      setCsvBusy(false);
-    }
-  }
-
-  if (defaultedQuery.isLoading) return <Skeleton className="h-32 w-full" />;
   if (defaultedQuery.isError)
     return (
       <ErrorState
@@ -51,9 +36,16 @@ export function DefaultedTab({
 
   const columns: DataTableColumn<DefaultedRow>[] = [
     {
-      id: 'student',
-      header: t('analysis.defaulted.columnStudent'),
-      accessorFn: (row) => `${row.roll_number} · ${row.full_name}`,
+      id: 'roll',
+      header: tg('analysisPage.columnRoll'),
+      accessorFn: (row) => formatNumber(row.roll_number, config),
+      align: 'end',
+      card: 'subtitle',
+    },
+    {
+      id: 'name',
+      header: tg('analysisPage.columnName'),
+      accessorFn: (row) => <span className="font-medium">{row.full_name}</span>,
       card: 'title',
     },
     ...(!sectionId
@@ -61,42 +53,44 @@ export function DefaultedTab({
           {
             id: 'section',
             header: t('analysis.defaulted.columnSection'),
-            accessorFn: (row: DefaultedRow) => row.section_name ?? '—',
+            accessorFn: (row: DefaultedRow) =>
+              row.section_name ? tg('marksEntry.sectionValue', { name: row.section_name }) : '—',
+            card: 'subtitle',
           } satisfies DataTableColumn<DefaultedRow>,
         ]
       : []),
     {
       id: 'reasons',
       header: t('analysis.defaulted.columnReasons'),
-      accessorFn: (row) => {
-        const parts: string[] = [];
-        if (row.failed_subjects.length > 0) {
-          parts.push(
-            t('analysis.reasons.failed', {
-              subjects: row.failed_subjects.map((s) => s.name).join(', '),
-            }),
-          );
-        }
-        if (row.absent_subjects.length > 0) {
-          parts.push(
-            t('analysis.reasons.absent', {
-              subjects: row.absent_subjects.map((s) => s.name).join(', '),
-            }),
-          );
-        }
-        return parts.join(' · ');
-      },
+      accessorFn: (row) => (
+        <div className="flex flex-col">
+          {row.failed_subjects.length > 0 && (
+            <span>
+              {tg('analysisPage.reasonFailed', {
+                subjects: row.failed_subjects.map((s) => s.name).join(', '),
+              })}
+            </span>
+          )}
+          {row.absent_subjects.length > 0 && (
+            <span>
+              {tg('analysisPage.reasonAbsent', {
+                subjects: row.absent_subjects.map((s) => s.name).join(', '),
+              })}
+            </span>
+          )}
+        </div>
+      ),
     },
     {
       id: 'total',
-      header: t('analysis.defaulted.columnTotal'),
-      accessorFn: (row) => row.total_marks,
+      header: tg('analysisPage.columnTotal'),
+      accessorFn: (row) => formatNumber(row.total_marks, config),
       align: 'end',
     },
     {
       id: 'gpa',
       header: t('analysis.defaulted.columnGpa'),
-      accessorFn: (row) => row.gpa.toFixed(2),
+      accessorFn: (row) => formatNumber(row.gpa, config, { decimals: 2 }),
       align: 'end',
     },
     { id: 'grade', header: t('analysis.defaulted.columnGrade'), accessorFn: (row) => row.grade },
@@ -111,34 +105,22 @@ export function DefaultedTab({
           {sectionName ? ` · ${sectionName}` : ''}
         </p>
       </div>
-      <div className="flex justify-end gap-2 print:hidden">
-        <Button type="button" variant="outline" onClick={() => window.print()}>
-          <Printer className="size-4" />
-          {t('analysis.print')}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => void handleDownloadCsv()}
-          disabled={csvBusy}
-          loading={csvBusy}
-        >
-          {t('analysis.downloadCsv')}
-        </Button>
-      </div>
       <DataTable
         tableId="analysis-defaulted"
-        caption={t('analysis.tabs.defaulted')}
+        caption={tg('analysisPage.tabs.defaulted')}
         columns={columns}
         data={rows}
         getRowId={(row) => row.student_id}
         sorting={null}
         onSortingChange={() => undefined}
-        page={1}
-        pageSize={Math.max(1, rows.length)}
         totalCount={rows.length}
-        onPageChange={() => undefined}
-        emptyMessage={t('analysis.empty.noDefaulters')}
+        paginated={false}
+        loading={defaultedQuery.isLoading}
+        emptyState={{
+          icon: <CircleCheckIcon />,
+          title: tg('analysisPage.noDefaultersTitle'),
+          explanation: tg('analysisPage.noDefaultersText'),
+        }}
       />
     </div>
   );

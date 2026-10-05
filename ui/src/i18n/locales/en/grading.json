@@ -126,5 +126,32 @@
     "reopenImpact": "{{n}} published result(s) will be unpublished and marks become editable again. This needs extra approval.",
     "smsDescription": "Up to {{n}} guardian(s) will be sent their child's result by SMS. Each message uses one SMS credit.",
     "smsQueued": "{{n}} message(s) queued."
+  },
+  "analysisPage": {
+    "subtitle": "Pick an exam to see the merit list, failed students and pass rates by subject.",
+    "allSections": "All sections",
+    "tabs": {
+      "merit": "Merit list",
+      "defaulted": "Failed or absent",
+      "passFail": "Pass/fail by subject"
+    },
+    "print": "Print",
+    "downloadCsv": "Download CSV",
+    "byPart": "By part",
+    "columnPart": "Part",
+    "columnRoll": "Roll",
+    "columnName": "Name",
+    "columnTotal": "Total marks",
+    "columnResult": "Result",
+    "reasonFailed": "Failed: {{subjects}}",
+    "reasonAbsent": "Absent: {{subjects}}",
+    "gradeCount": "{{grade}}: {{count}}",
+    "notProcessedTitle": "Results are not ready yet",
+    "notProcessedText": "Once the results are processed, the merit list, failed students and pass rates show here.",
+    "openExam": "Open the exam",
+    "noRowsTitle": "No results for this choice",
+    "noRowsText": "Try another section.",
+    "noDefaultersTitle": "Everyone passed",
+    "noDefaultersText": "No student failed or missed a subject in this exam."
   }
 }
