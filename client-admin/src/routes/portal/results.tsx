@@ -13,15 +13,25 @@
  * expanded) and offers Print, which renders `ReportCard` — the same
  * component the staff-only `/results/$examId/$studentId` route (#904)
  * prints from, reused rather than re-declared.
+ *
+ * Layout: one card per exam with the figures (GPA, grade, total marks,
+ * position) up front, a pass / fail badge, and a footer with a disclosure
+ * for the subject table and a labelled Print button. The newest exam
+ * starts open. Region config comes from a value-less
+ * `RegionConfigProvider` (same reasoning as `fees.tsx`).
  */
 import {
+  Button,
   Card,
+  DataTable,
   EmptyState,
   ErrorState,
   ReportCard,
   RoutePending,
   Skeleton,
+  StatusBadge,
   StudentPicker,
+  type DataTableColumn,
   type ReportCardData,
 } from '@biddaloy/ui/components';
 import {
@@ -29,11 +39,15 @@ import {
   useMyStudents,
   useStudentResultCard,
   useStudentResults,
+  type ResultSubjectDetail,
   type Student,
+  type StudentResultRow,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { RegionConfigProvider, useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { createFileRoute } from '@tanstack/react-router';
-import { PrinterIcon } from 'lucide-react';
+import { AwardIcon, ChevronDownIcon, ChevronUpIcon, PrinterIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
@@ -53,21 +67,31 @@ export const Route = createFileRoute('/portal/results')({
       loadRouteNamespaces('portal', 'common', 'exams'),
     ]),
   pendingComponent: PortalResultsPending,
-  component: PortalResults,
+  component: PortalResultsRoute,
 });
+
+function PortalResultsRoute() {
+  return (
+    <RegionConfigProvider>
+      <PortalResults />
+    </RegionConfigProvider>
+  );
+}
 
 /** The same "class section · roll" line `portal/fees.tsx`'s own
  * `useStudentMeta` renders, from the same two keys. */
 function useStudentMeta(): (student: Student) => string {
   const { t } = useTranslation('portal');
+  const config = useRegionConfig();
   return (student: Student) => {
     const className = student.class_section?.class?.name ?? null;
+    const roll = formatNumber(student.roll_number, config);
     return className === null
-      ? t('children.metaNoClass', { roll: student.roll_number })
+      ? t('children.metaNoClass', { roll })
       : t('children.meta', {
           className,
           section: student.class_section?.section_name ?? '',
-          roll: student.roll_number,
+          roll,
         });
   };
 }
@@ -100,11 +124,14 @@ function PortalResults() {
 
   if (students.length === 0 || selected === undefined) {
     return (
-      <EmptyState
-        title={t('empty.title')}
-        explanation={t('empty.explanation')}
-        action={{ label: t('empty.action'), onClick: () => void studentsQuery.refetch() }}
-      />
+      <PageContainer size="narrow">
+        <PageHeader title={t('results.title')} />
+        <EmptyState
+          title={t('empty.title')}
+          explanation={t('empty.explanation')}
+          action={{ label: t('empty.action'), onClick: () => void studentsQuery.refetch() }}
+        />
+      </PageContainer>
     );
   }
 
@@ -127,44 +154,47 @@ function PortalResults() {
   // and the report card would print blank.
   return (
     <>
-      <div className="flex max-w-2xl flex-col gap-3 print:hidden">
-        <div className="flex flex-col gap-0.5">
-          <h1 className="text-lg font-semibold tracking-tight">{t('results.title')}</h1>
-          <p className="text-xs text-muted-foreground">
-            {`${selected.full_name} · ${studentMeta(selected)}`}
-          </p>
-        </div>
-        {students.length > 1 && (
-          <StudentPicker
-            label={t('fees.pickerLabel')}
-            items={students.map((student) => ({
-              id: student.id,
-              name: student.full_name,
-              meta: studentMeta(student),
-            }))}
-            selectedId={selected.id}
-            to="/portal/results"
+      <div className="print:hidden">
+        <PageContainer size="narrow">
+          <PageHeader
+            title={t('results.title')}
+            subtitle={`${selected.full_name} · ${studentMeta(selected)}`}
           />
-        )}
+          {students.length > 1 && (
+            <StudentPicker
+              label={t('fees.pickerLabel')}
+              items={students.map((student) => ({
+                id: student.id,
+                name: student.full_name,
+                meta: studentMeta(student),
+              }))}
+              selectedId={selected.id}
+              to="/portal/results"
+            />
+          )}
 
-        {resultsQuery.data.length === 0 ? (
-          // Not an error: results appear once the school publishes them
-          // (D19, issue step 5) — plain paragraph, not `EmptyState`, since
-          // this frame already has its `<h1>` above.
-          <p className="p-3.5 text-sm text-muted-foreground">{t('results.empty')}</p>
-        ) : (
-          <Card className="flex flex-col">
-            {resultsQuery.data.map((row, index) => (
-              <ResultRow
-                key={row.exam_id}
-                row={row}
-                studentId={selected.id}
-                bordered={index > 0}
-                onPrint={() => setPrintingExamId(row.exam_id)}
-              />
-            ))}
-          </Card>
-        )}
+          {resultsQuery.data.length === 0 ? (
+            // Not an error: results appear once the school publishes them
+            // (D19, issue step 5).
+            <EmptyState
+              icon={<AwardIcon />}
+              title={t('results.emptyTitle')}
+              explanation={t('results.emptyExplanation')}
+            />
+          ) : (
+            <div className="space-y-6">
+              {resultsQuery.data.map((row, index) => (
+                <ResultCard
+                  key={row.exam_id}
+                  row={row}
+                  studentId={selected.id}
+                  defaultOpen={index === 0}
+                  onPrint={() => setPrintingExamId(row.exam_id)}
+                />
+              ))}
+            </div>
+          )}
+        </PageContainer>
       </div>
 
       {printingExamId !== null && (
@@ -178,88 +208,183 @@ function PortalResults() {
   );
 }
 
-interface StudentResultRow {
-  exam_id: string;
-  exam_name: string;
-  exam_kind: string;
-  published: boolean;
-  total_marks: number;
-  gpa: number;
-  grade: string;
-  position: number | null;
-  is_fail: boolean;
-}
-
-function ResultRow({
+function ResultCard({
   row,
   studentId,
-  bordered,
+  defaultOpen,
   onPrint,
 }: {
   row: StudentResultRow;
   studentId: string;
-  bordered: boolean;
+  defaultOpen: boolean;
   onPrint: () => void;
 }) {
   const { t } = useTranslation('portal');
-  const [expanded, setExpanded] = React.useState(false);
+  const { t: tExams } = useTranslation('exams');
+  const config = useRegionConfig();
+  const [open, setOpen] = React.useState(defaultOpen);
+  const titleId = `result-${row.exam_id}`;
+  const subjectsId = `result-subjects-${row.exam_id}`;
+  // Four literal kinds, never the raw enum for an unknown one.
+  const kindLabel =
+    row.exam_kind === 'TERM'
+      ? tExams('kind.TERM')
+      : row.exam_kind === 'MONTHLY'
+        ? tExams('kind.MONTHLY')
+        : row.exam_kind === 'MODEL'
+          ? tExams('kind.MODEL')
+          : row.exam_kind === 'OTHER'
+            ? tExams('kind.OTHER')
+            : '';
+
+  const facts = [
+    {
+      label: tExams('reportCard.gpa'),
+      value: formatNumber(row.gpa, config, { decimals: 2 }),
+    },
+    { label: tExams('reportCard.grade'), value: row.grade },
+    { label: tExams('reportCard.totalMarks'), value: formatNumber(row.total_marks, config) },
+    {
+      label: tExams('reportCard.position'),
+      value: row.position === null ? '—' : formatNumber(row.position, config),
+    },
+  ];
 
   return (
-    <details
-      className={bordered ? 'border-t border-border-subtle' : undefined}
-      onToggle={(e) => setExpanded(e.currentTarget.open)}
-    >
-      <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 px-3.5 py-3 text-sm">
-        <span className="min-w-0 flex-1">
-          <span className="font-semibold">{row.exam_name}</span>
-          {row.is_fail && (
-            <span className="ms-1.5 text-[11px] font-normal text-destructive">
-              {t('results.failTag')}
-            </span>
-          )}
-        </span>
-        <span className="text-sm font-semibold tabular-nums">{row.grade}</span>
-        <button
-          type="button"
-          aria-label={t('results.printLabel', { name: row.exam_name })}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onPrint();
-          }}
-          className="flex size-11 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground"
-        >
-          <PrinterIcon className="size-4.5" aria-hidden="true" />
-        </button>
-      </summary>
-      {expanded && <ResultBreakdown studentId={studentId} examId={row.exam_id} />}
-    </details>
+    <Card asChild>
+      <article className="overflow-hidden p-0" aria-labelledby={titleId}>
+        <div className="p-4 md:p-5">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <h2 id={titleId} className="text-h2">
+              {row.exam_name}
+            </h2>
+            <StatusBadge
+              tone={row.is_fail ? 'danger' : 'success'}
+              label={row.is_fail ? t('results.failTag') : t('results.passTag')}
+            />
+          </div>
+          {kindLabel && <p className="text-text-secondary">{kindLabel}</p>}
+          <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 md:flex md:flex-wrap md:gap-x-10">
+            {facts.map((fact) => (
+              <div key={fact.label}>
+                <dt className="text-caption text-text-secondary">{fact.label}</dt>
+                <dd className="text-h2 tabular-nums">{fact.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+        <div className="flex flex-col gap-2 border-t border-border-subtle px-4 py-3 md:flex-row md:px-5">
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-11 md:h-8"
+            aria-expanded={open}
+            aria-controls={subjectsId}
+            onClick={() => setOpen((value) => !value)}
+          >
+            {open ? <ChevronUpIcon aria-hidden="true" /> : <ChevronDownIcon aria-hidden="true" />}
+            {open ? t('results.hideSubjects') : t('results.showSubjects')}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 md:ms-auto md:h-8"
+            aria-label={t('results.printLabel', { name: row.exam_name })}
+            onClick={onPrint}
+          >
+            <PrinterIcon aria-hidden="true" />
+            {tExams('reportCard.print')}
+          </Button>
+        </div>
+        <div id={subjectsId}>
+          {open && <ResultBreakdown studentId={studentId} examId={row.exam_id} />}
+        </div>
+      </article>
+    </Card>
   );
 }
 
 function ResultBreakdown({ studentId, examId }: { studentId: string; examId: string }) {
   const { t } = useTranslation('portal');
+  const { t: tExams } = useTranslation('exams');
+  const config = useRegionConfig();
   const cardQuery = useStudentResultCard(studentId, examId);
 
-  if (cardQuery.isPending) return <Skeleton className="mx-3.5 mb-3 h-16 w-auto" />;
+  if (cardQuery.isPending) {
+    return (
+      <div className="space-y-2 border-t border-border-subtle p-4" aria-busy="true">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+      </div>
+    );
+  }
   if (cardQuery.isError) {
-    return <p className="px-3.5 pb-3 text-xs text-destructive">{t('results.breakdownError')}</p>;
+    return (
+      <p className="border-t border-border-subtle px-4 py-3 text-caption text-destructive">
+        {t('results.breakdownError')}
+      </p>
+    );
   }
 
   const card = cardQuery.data;
+  const columns: DataTableColumn<ResultSubjectDetail>[] = [
+    {
+      id: 'subject',
+      header: tExams('reportCard.subject'),
+      card: 'title',
+      accessorFn: (subject) => (
+        <>
+          {subject.subject_name}
+          {subject.is_fourth_subject && (
+            <span className="block text-caption text-text-secondary md:ms-2 md:inline">
+              {tExams('reportCard.fourthSubject')}
+            </span>
+          )}
+        </>
+      ),
+    },
+    {
+      id: 'obtained',
+      header: tExams('reportCard.obtained'),
+      align: 'end',
+      accessorFn: (subject) => formatNumber(subject.obtained, config),
+    },
+    {
+      id: 'grade',
+      header: tExams('reportCard.grade'),
+      accessorFn: (subject) => (
+        <span className={subject.is_fail ? 'text-status-overdue-fg' : ''}>{subject.grade}</span>
+      ),
+    },
+    {
+      // Hidden in the phone card layout; shown as a column on desktop.
+      id: 'gpa',
+      header: tExams('reportCard.gpa'),
+      align: 'end',
+      card: 'hidden',
+      accessorFn: (subject) => formatNumber(subject.gpa, config, { decimals: 2 }),
+    },
+  ];
+
   return (
-    <dl className="flex flex-col gap-1.5 px-3.5 pb-3">
-      {card.subjects.map((subject) => (
-        <div key={subject.subject_name} className="flex items-center justify-between gap-2 text-xs">
-          <dt className="text-muted-foreground">{subject.subject_name}</dt>
-          <dd className="tabular-nums">
-            {subject.obtained} — {subject.grade}
-          </dd>
-        </div>
-      ))}
-    </dl>
+    <div className="border-t border-border-subtle">
+      <DataTable
+        tableId={`portal-result-${examId}`}
+        caption={t('results.subjectsCaption', { name: card.exam_name })}
+        columns={columns}
+        data={card.subjects}
+        getRowId={(subject) => subject.subject_id}
+        sorting={null}
+        onSortingChange={noop}
+        paginated={false}
+        totalCount={card.subjects.length}
+      />
+    </div>
   );
 }
+
+function noop(): void {}
 
 /** Off-screen render of `ReportCard`, printed once its data has loaded,
  * then discarded. `print:hidden` on the page's own content above hides
@@ -338,10 +463,10 @@ function PrintTarget({
 
 function ResultsSkeleton({ label, showPicker = false }: { label: string; showPicker?: boolean }) {
   return (
-    <div className="flex max-w-2xl flex-col gap-3" aria-busy="true" aria-live="polite">
+    <div className="flex flex-col gap-3" aria-busy="true" aria-live="polite">
       <span className="sr-only">{label}</span>
       <div className="flex flex-col gap-0.5">
-        <Skeleton className="h-7 w-2/5" />
+        <Skeleton className="h-8 w-2/5" />
         <Skeleton className="h-4 w-3/5" />
       </div>
       {showPicker && <Skeleton className="h-12 w-full rounded-lg" />}
