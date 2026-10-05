@@ -33,6 +33,9 @@ export interface BreadcrumbItem {
    * `AppShellNavItem.to`'s own comment on staying route-tree-agnostic).
    * Omitted for a crumb that has no destination of its own. */
   to?: string;
+  /** The name is still loading: a skeleton bar shows in place of the text
+   * (the label stays as screen-reader text) and the crumb is never a link. */
+  loading?: boolean;
 }
 
 export interface BreadcrumbsProps {
@@ -78,7 +81,15 @@ export function Breadcrumbs({ items, 'aria-label': ariaLabel, className }: Bread
                   )}
                 />
               )}
-              {isLast ? (
+              {item.loading ? (
+                <span aria-current={isLast ? 'page' : undefined}>
+                  <span
+                    aria-hidden="true"
+                    className="inline-block h-3 w-24 rounded-sm bg-muted"
+                  />
+                  <span className="sr-only">{item.label}</span>
+                </span>
+              ) : isLast ? (
                 <span aria-current="page" className="text-text-primary">
                   {item.label}
                 </span>

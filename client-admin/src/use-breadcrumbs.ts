@@ -1,105 +1,208 @@
 import type { BreadcrumbItem } from '@biddaloy/ui/components';
-import type {
-  AcademicYear,
-  Class,
-  Guardian,
-  MyClassSection,
-  PrintTemplateRow,
-  Student,
-} from '@biddaloy/ui/hooks';
 import {
   academicYearQueryOptions,
+  attendanceKeys,
+  classKeys,
   classQueryOptions,
+  examQueryOptions,
+  gradingScaleQueryOptions,
   guardianQueryOptions,
+  homeworkQueryOptions,
+  invoiceQueryOptions,
   myClassSectionsQueryOptions,
+  paymentKeys,
   printTemplateQueryOptions,
+  programQueryOptions,
+  publicHolidaySetQueryOptions,
+  recurringScheduleQueryOptions,
+  reminderBatchQueryOptions,
+  resultDetailKey,
+  schoolsKeys,
+  seatPlanDetailQueryOptions,
   studentQueryOptions,
+  surveyKeys,
   useEntityLabel,
+  userQueryOptions,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
-import { useQuery, type QueryKey, type UseQueryOptions } from '@tanstack/react-query';
+import { useRegionConfig, useTranslation, type RegionConfig } from '@biddaloy/ui/i18n';
+import { formatDate, renderDigits } from '@biddaloy/ui/utils';
+import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useMatches } from '@tanstack/react-router';
+import * as React from 'react';
 
+import { applicantQueryOptions } from './features/admission/hooks/useApplicants';
+import { intakeQueryOptions } from './features/admission/hooks/useIntakes';
 import { STAFF_NAV_ITEMS, type StaffNavLabel } from './nav-tree';
 import { ROUTE_CRUMBS, type RouteCrumbs } from './route-crumbs';
+import { examTemplateQueryOptions } from './routes/_staff/exams/use-exam-templates';
 
 /**
  * [30.3.3] wires [30.3.1]'s `ROUTE_CRUMBS` map and [30.3.2]'s
- * `Breadcrumbs` component into the two shells (`_staff.tsx`, `portal.tsx`)
- * — the piece both earlier tickets built but neither wired in.
+ * `Breadcrumbs` component into the shells (`_staff.tsx`, `portal.tsx`,
+ * `_platform/route.tsx`).
  *
  * `ROUTE_CRUMBS` is keyed by the *leaf* route id and stores that leaf's
  * whole trail already, so resolving it is one lookup by
- * `matches[matches.length - 1].routeId` — the exact pattern `_staff.tsx`
- * already uses for `STAFF_ROUTE_PERMISSIONS` (see that file's own
- * `useMatches()` call) and `use-route-focus.ts` doesn't need to repeat
- * here.
+ * `matches[matches.length - 1].routeId`.
  *
  * A `dynamic: 'entity'` segment's *label* (e.g. `{ entity: 'student' }`)
- * is only ever a generic noun — it is not the instance's name. The real
- * display text for that segment comes from `ENTITY_RESOLVERS` below,
- * which reads the same react-query cache the page's own detail route
- * already warmed via its loader's `ensureQueryData` call, so this hook
- * never fires its own network request. `enabled: false` keeps the read
- * reactive (it re-renders if the cached entity is later updated, e.g. by
- * an edit) without ever triggering a fetch of its own.
+ * is only ever the generic noun. The real display text comes from
+ * `ENTITY_RESOLVERS` below, which reads the react-query cache the page's own
+ * detail route already warmed — by key *prefix*, so a page whose cache key
+ * carries extra parts (the attendance register: date + period) still
+ * resolves. It never fetches, and it never shows an id (D9): name found →
+ * the name; resolver registered but nothing cached yet → the generic noun
+ * with `loading: true` (a skeleton bar, C5); no resolver → the noun.
  *
- * Only entities with a confirmed, simple single-string display field are
- * registered (student, guardian, class, academic year). Staff members,
- * invoices, payments, attendance sections, fee schedules and reminder
- * batches don't have an equally simple "name" field wired to a shared
- * query-options export the same way, so their dynamic crumb stays as the
- * raw id — same as this hook's designed "still loading" fallback, just
- * permanent for those routes. This is a deliberate scope line for this
- * wave-close ticket, not an oversight; widening it is separate follow-up
- * work, not silently expanded here.
+ * C7: a trail of fewer than 2 crumbs returns no `items` (the layouts render
+ * the row only when there are some), but still returns a `title`.
  */
 
-type EntityResolver<TData> = {
-  // Deliberately untyped beyond `queryKey` — each entry's real
-  // `queryOptions` function (`studentQueryOptions`, etc.) has its own
-  // precise `UseQueryOptions<TData>` shape; the union of all of them
-  // isn't worth expressing here, since `useResolvedEntityName` only ever
-  // spreads a single one into `useQuery` and reads its `data` back
-  // through this resolver's own `getName`.
-  queryOptions: (id: string) => { queryKey: QueryKey } & Record<string, unknown>;
-  /** `id` is for list-shaped caches (one query, many entities). */
-  getName: (data: TData, id: string) => string | undefined;
+export type CrumbContext = { language: string; region: RegionConfig };
+
+type EntityResolver = {
+  /** Which route param is the id (default: the first one). */
+  param?: string;
+  /** Cache key prefixes to read; the first one with a name wins. */
+  queryKeys: (id: string, params: Record<string, string>) => readonly QueryKey[];
+  getName: (data: unknown, id: string, ctx: CrumbContext) => string | undefined;
 };
 
-// Deliberate type erasure: each entry's real `TData` (`Student`,
-// `Guardian`, …) is already pinned by its own `getName` below; the map
-// itself just needs to hold heterogeneous entries.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const ENTITY_RESOLVERS: Record<string, EntityResolver<any>> = {
-  student: {
-    queryOptions: studentQueryOptions,
-    getName: (data: Student) => data.full_name,
-  },
+/** A non-empty string field of an untyped cache value. */
+function field(data: unknown, key: string): string | undefined {
+  const v = (data as Record<string, unknown> | null | undefined)?.[key];
+  return typeof v === 'string' && v !== '' ? v : undefined;
+}
+const byField = (key: string) => (data: unknown) => field(data, key);
+
+/** Exported for tests: pages with partial seeded data crash their own render. */
+export const ENTITY_RESOLVERS: Record<string, EntityResolver> = {
+  student: { queryKeys: (id) => [studentQueryOptions(id).queryKey], getName: byField('full_name') },
   guardian: {
-    queryOptions: guardianQueryOptions,
-    getName: (data: Guardian) => data.full_name,
+    queryKeys: (id) => [guardianQueryOptions(id).queryKey],
+    getName: byField('full_name'),
   },
-  class: {
-    queryOptions: classQueryOptions,
-    getName: (data: Class) => data.name,
-  },
+  class: { queryKeys: (id) => [classQueryOptions(id).queryKey], getName: byField('name') },
   academicYear: {
-    queryOptions: academicYearQueryOptions,
-    getName: (data: AcademicYear) => data.name,
+    queryKeys: (id) => [academicYearQueryOptions(id).queryKey],
+    getName: byField('name'),
   },
   // [32.4.1] Keyed by the crumb's own label key: "template" has no `EntityLabel` noun.
   printTemplateEdit: {
-    queryOptions: printTemplateQueryOptions,
-    getName: (data: PrintTemplateRow) => data.name,
+    queryKeys: (id) => [printTemplateQueryOptions(id).queryKey],
+    getName: byField('name'),
   },
   // [47.4.2] The section list `/my-class/$sectionId`'s loader already warmed.
   myClassSection: {
-    queryOptions: () => myClassSectionsQueryOptions(),
-    getName: (data: MyClassSection[], id: string) => {
-      const section = data.find((s) => s.section_id === id);
-      return section && `${section.class_name}-${section.section_name}`;
+    queryKeys: () => [myClassSectionsQueryOptions().queryKey],
+    getName: (data, id) => {
+      const section = (
+        Array.isArray(data)
+          ? (data as { section_id: string; class_name: string; section_name: string }[])
+          : []
+      ).find((s) => s.section_id === id);
+      return section && `${section.class_name} – ${section.section_name}`;
     },
+  },
+  // Attendance register (cached by section + date + period) or the sections list.
+  section: {
+    queryKeys: (id) => [[...attendanceKeys.all, 'register', id], [...classKeys.all, 'sections']],
+    getName: (data, id) => {
+      if (Array.isArray(data)) {
+        const row = (
+          data as { id?: string; section_name?: string; class?: { name?: string } }[]
+        ).find((r) => r.id === id);
+        if (!row?.section_name) return undefined;
+        return `${row.class?.name ?? ''} – ${row.section_name}`.replace(/^ – /, '');
+      }
+      const section = (data as { section?: { class_name?: string; section_name?: string } })
+        .section;
+      return section?.class_name && section.section_name
+        ? `${section.class_name} – ${section.section_name}`
+        : undefined;
+    },
+  },
+  examTemplateDetail: {
+    queryKeys: (id) => [examTemplateQueryOptions(id).queryKey],
+    getName: byField('name'),
+  },
+  invoice: {
+    queryKeys: (id) => [invoiceQueryOptions(id).queryKey],
+    getName: byField('invoice_number'),
+  },
+  staff: {
+    param: 'userId',
+    queryKeys: (id) => [userQueryOptions(id).queryKey],
+    getName: byField('full_name'),
+  },
+  batchDetail: {
+    queryKeys: (id) => [reminderBatchQueryOptions(id).queryKey],
+    getName: byField('batch_name'),
+  },
+  surveyDetail: { queryKeys: (id) => [surveyKeys.detail(id)], getName: byField('title') },
+  exam: { queryKeys: (id) => [examQueryOptions(id).queryKey], getName: byField('name') },
+  programDetail: {
+    queryKeys: (id) => [programQueryOptions(id).queryKey],
+    getName: byField('name'),
+  },
+  homeworkDetail: {
+    queryKeys: (id) => [homeworkQueryOptions(id).queryKey],
+    getName: byField('title'),
+  },
+  gradingScaleDetail: {
+    queryKeys: (id) => [gradingScaleQueryOptions(id).queryKey],
+    getName: byField('name'),
+  },
+  seatPlanDetail: {
+    queryKeys: (id) => [seatPlanDetailQueryOptions(id).queryKey],
+    getName: byField('name'),
+  },
+  scheduleDetail: {
+    queryKeys: (id) => [recurringScheduleQueryOptions(id).queryKey],
+    getName: byField('name'),
+  },
+  // "বাংলাদেশ ২০২৬" — equal to the page's h1; never the raw "BD 2026" (D9).
+  holidaySetDetail: {
+    queryKeys: (id) => [publicHolidaySetQueryOptions(id).queryKey],
+    getName: (data, _id, ctx) => {
+      const country = field(data, 'country');
+      const year = (data as { year?: unknown } | undefined)?.year;
+      if (!country || typeof year !== 'number') return undefined;
+      const place =
+        new Intl.DisplayNames([ctx.language], { type: 'region' }).of(country) ?? country;
+      return `${place} ${renderDigits(String(year), ctx.region.numerals)}`;
+    },
+  },
+  // There is no `GET /schools/:id`; the page reads the `useSchools()` list.
+  schoolDetail: {
+    queryKeys: () => [schoolsKeys.lists()],
+    getName: (data, id) =>
+      (Array.isArray(data) ? (data as { id?: string; name?: string }[]) : []).find(
+        (r) => r.id === id,
+      )?.name,
+  },
+  admissionIntakeDetail: {
+    queryKeys: (id) => [intakeQueryOptions(id).queryKey],
+    getName: byField('title'),
+  },
+  admissionApplicantDetail: {
+    queryKeys: (id) => [applicantQueryOptions(id).queryKey],
+    getName: (data) =>
+      field((data as { applicant?: unknown } | undefined)?.applicant, 'applicant_name'),
+  },
+  paymentDetail: {
+    queryKeys: (id) => [paymentKeys.detail(id)],
+    getName: (data, _id, ctx) => {
+      const d = data as { student?: { full_name?: string } | null; payment_date?: string };
+      const date = d.payment_date ? formatDate(d.payment_date, ctx.region) : undefined;
+      return [d.student?.full_name, date].filter(Boolean).join(' — ') || undefined;
+    },
+  },
+  // The page reads `useResultDetail`, so key by (examId, studentId), not `useStudent`.
+  reportCard: {
+    param: 'studentId',
+    queryKeys: (id, params) => [resultDetailKey(params.examId, id)],
+    getName: (data) => field((data as { student?: unknown } | undefined)?.student, 'full_name'),
   },
 };
 
@@ -115,38 +218,50 @@ function findNavPath(label: StaffNavLabel): string | undefined {
   return match?.to;
 }
 
-function useResolvedEntityName(
+/** Reads the cached name for a dynamic segment. Never fetches. */
+function useCachedEntityName(
   entityKey: string | undefined,
-  id: string | undefined,
-): string | undefined {
+  params: Record<string, string>,
+  ctx: CrumbContext,
+): { id: string | undefined; name: string | undefined; hasResolver: boolean } {
   const resolver = entityKey ? ENTITY_RESOLVERS[entityKey] : undefined;
-  const active = resolver !== undefined && id !== undefined;
-  const options = active
-    ? resolver.queryOptions(id)
-    : { queryKey: ['breadcrumb-inactive'] as QueryKey, queryFn: () => Promise.resolve(undefined) };
-  // `enabled: false` matches this hook's whole point (see the module
-  // comment): read whatever's already cached, never fetch on our own —
-  // the query type varies per entity, so `useQuery` can't infer `TData`
-  // here the way a single fixed call site would.
-  const query = useQuery({ ...options, enabled: false } as UseQueryOptions<unknown>);
-  if (!active || query.data === undefined) return undefined;
-  return resolver.getName(query.data, id);
+  const id = resolver?.param ? params[resolver.param] : Object.values(params)[0];
+  const queryClient = useQueryClient();
+  const read = (): string | undefined => {
+    if (!resolver || !id) return undefined;
+    for (const key of resolver.queryKeys(id, params)) {
+      for (const [, data] of queryClient.getQueriesData({ queryKey: key })) {
+        if (data === undefined) continue;
+        const name = resolver.getName(data, id, ctx);
+        if (name) return name;
+      }
+    }
+    return undefined;
+  };
+  // Returns a string or undefined, so this re-renders only when the name changes.
+  const name = React.useSyncExternalStore(
+    (cb) => queryClient.getQueryCache().subscribe(cb),
+    read,
+    read,
+  );
+  return { id, name, hasResolver: resolver !== undefined };
 }
 
 export interface UseBreadcrumbsResult {
   /** Ready for `Breadcrumbs`' `items` prop — empty for any route
-   * `ROUTE_CRUMBS` marks `null` (no chrome, e.g. the guardian portal's
-   * placeholder pages), so `Breadcrumbs` itself renders nothing there. */
+   * `ROUTE_CRUMBS` marks `null` and for any one-crumb trail (C7), so the
+   * layouts render no row there. */
   items: BreadcrumbItem[];
   /** Reversed trail joined with ` · `, e.g. `Fees · Rahim Uddin ·
    * SchoolManager` — the tab title for routes that do have a trail.
-   * `undefined` when there is no trail, so the caller can leave
-   * `document.title` to whatever already owns it for that route. */
+   * Loading crumbs are left out (C5). `undefined` when there is no trail,
+   * so the caller can leave `document.title` to whatever already owns it. */
   title: string | undefined;
 }
 
 export function useBreadcrumbs(appName: string): UseBreadcrumbsResult {
-  const { t } = useTranslation('nav');
+  const { t, i18n } = useTranslation('nav');
+  const region = useRegionConfig();
   const matches = useMatches();
   const leafMatch = matches[matches.length - 1];
   const leafRouteId = leafMatch?.routeId;
@@ -154,11 +269,7 @@ export function useBreadcrumbs(appName: string): UseBreadcrumbsResult {
   const segments: RouteCrumbs = Array.isArray(entry) ? entry : [];
 
   const lastIndex = segments.length - 1;
-  const dynamicIndex = segments.findIndex((segment) => segment.dynamic === 'entity');
-  const dynamicSegment = dynamicIndex >= 0 ? segments[dynamicIndex] : undefined;
-  // Exactly one dynamic param on any leaf that has one — `route-crumbs.ts`
-  // never nests two dynamic segments in the same trail.
-  const dynamicId = dynamicSegment && leafMatch ? Object.values(leafMatch.params)[0] : undefined;
+  const dynamicSegment = segments.find((segment) => segment.dynamic === 'entity');
   const dynamicLabel = dynamicSegment?.label;
   const dynamicEntityKey =
     dynamicLabel === undefined
@@ -170,24 +281,35 @@ export function useBreadcrumbs(appName: string): UseBreadcrumbsResult {
   // Same plural count `_staff.tsx`'s own `entityLabels` map uses for
   // these nouns in the sidebar — a breadcrumb list segment is the same
   // "Students" collection link, not a fresh string.
-  const studentLabel = useEntityLabel('student', { count: 2 });
-  const guardianLabel = useEntityLabel('guardian', { count: 2 });
-  const staffLabel = useEntityLabel('staff', { count: 2 });
-  const classLabel = useEntityLabel('class', { count: 2 });
-  const academicYearLabel = useEntityLabel('academicYear', { count: 2 });
-  const invoiceLabel = useEntityLabel('invoice', { count: 2 });
-  const examLabel = useEntityLabel('exam', { count: 2 });
   const entityLabels: Record<string, string> = {
-    student: studentLabel,
-    guardian: guardianLabel,
-    staff: staffLabel,
-    class: classLabel,
-    academicYear: academicYearLabel,
-    invoice: invoiceLabel,
-    exam: examLabel,
+    student: useEntityLabel('student', { count: 2 }),
+    guardian: useEntityLabel('guardian', { count: 2 }),
+    staff: useEntityLabel('staff', { count: 2 }),
+    class: useEntityLabel('class', { count: 2 }),
+    academicYear: useEntityLabel('academicYear', { count: 2 }),
+    invoice: useEntityLabel('invoice', { count: 2 }),
+    exam: useEntityLabel('exam', { count: 2 }),
+  };
+  // The generic noun for a detail crumb that has no name to show.
+  const entityNouns: Record<string, string> = {
+    student: useEntityLabel('student', { count: 1 }),
+    guardian: useEntityLabel('guardian', { count: 1 }),
+    staff: useEntityLabel('staff', { count: 1 }),
+    class: useEntityLabel('class', { count: 1 }),
+    academicYear: useEntityLabel('academicYear', { count: 1 }),
+    invoice: useEntityLabel('invoice', { count: 1 }),
+    exam: useEntityLabel('exam', { count: 1 }),
   };
 
-  const resolvedName = useResolvedEntityName(dynamicEntityKey, dynamicId);
+  const {
+    id: dynamicId,
+    name: resolvedName,
+    hasResolver,
+  } = useCachedEntityName(
+    dynamicSegment ? dynamicEntityKey : undefined,
+    dynamicSegment && leafMatch ? leafMatch.params : {},
+    { language: i18n.language, region },
+  );
 
   if (segments.length === 0) {
     return { items: [], title: undefined };
@@ -196,25 +318,33 @@ export function useBreadcrumbs(appName: string): UseBreadcrumbsResult {
   const items: BreadcrumbItem[] = segments.map((segment, index) => {
     const isLast = index === lastIndex;
     if (segment.dynamic === 'entity') {
-      const label = resolvedName ?? dynamicId ?? '';
-      const to = !isLast && dynamicId ? deriveEntityPath(segment.label, dynamicId) : undefined;
-      return to ? { label, to } : { label };
+      if (resolvedName !== undefined) {
+        const to = !isLast && dynamicId ? deriveEntityPath(segment.label, dynamicId) : undefined;
+        return to ? { label: resolvedName, to } : { label: resolvedName };
+      }
+      const noun =
+        'entity' in segment.label
+          ? (entityNouns[segment.label.entity] ?? '')
+          : t(`items.${segment.label.key}`);
+      return hasResolver ? { label: noun, loading: true } : { label: noun };
     }
     const label =
       'entity' in segment.label
         ? (entityLabels[segment.label.entity] ?? '')
         : t(`items.${segment.label.key}`);
-    const to = !isLast ? findNavPath(segment.label) : undefined;
+    const to = !isLast ? (segment.to ?? findNavPath(segment.label)) : undefined;
     return to ? { label, to } : { label };
   });
 
-  const title = [...items]
+  const title = items
+    .filter((item) => !item.loading)
     .reverse()
     .map((item) => item.label)
     .concat(appName)
     .join(' · ');
 
-  return { items, title };
+  // C7: the crumb row only shows from two levels.
+  return { items: items.length >= 2 ? items : [], title };
 }
 
 function deriveEntityPath(label: StaffNavLabel, id: string): string | undefined {
