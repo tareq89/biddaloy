@@ -12,10 +12,17 @@
  * the grid's real `<input>` elements, arrow keys navigate freely, `A`/`E`
  * set ABSENT/EXEMPT without needing a numeric value.
  */
+import { CircleCheckIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { useTranslation } from '../i18n';
+import type { RegionConfig } from '../i18n/region-config';
+import { useRegionConfig } from '../i18n/region-config-provider';
 import { cn } from '../primitives/lib/utils';
+import { renderDigits, toLatinDigits } from '../utils/digits';
+import { formatNumber } from '../utils/number';
+
+import { EmptyState } from './empty-state';
 
 export type MarksGridStatus = 'PRESENT' | 'ABSENT' | 'EXEMPT';
 
@@ -55,6 +62,18 @@ export function toStagedMark(raw: string): string | null {
   return complete === '' ? null : complete;
 }
 
+/** Full marks in the tenant's numerals. The server may send "100.00". */
+export function formatMax(component: MarksGridComponent, config: RegionConfig): string {
+  return formatNumber(Number(component.full_marks), config);
+}
+
+/** Derived values arrive as strings; numbers show in tenant numerals, anything else as-is. */
+export function formatDerived(raw: string | null | undefined, config: RegionConfig): string {
+  if (raw == null || raw === '') return '—';
+  if (Number.isNaN(Number(raw))) return raw;
+  return formatNumber(Number(raw), config, { decimals: raw.split('.')[1]?.length ?? 0 });
+}
+
 export interface MarksGridProps {
   students: MarksGridStudent[];
   components: MarksGridComponent[];
@@ -92,6 +111,7 @@ export function MarksGrid({
   failedKeys = new Set(),
 }: MarksGridProps) {
   const { t } = useTranslation('exams');
+  const config = useRegionConfig();
   const editableComponents = components.filter((c) => c.source !== 'DERIVED');
   const derivedComponents = components.filter((c) => c.source === 'DERIVED');
   const orderedComponents = [...editableComponents, ...derivedComponents];
@@ -159,7 +179,7 @@ export function MarksGrid({
     const numeric = Number(raw);
     if (!Number.isNaN(numeric) && numeric > Number(component.full_marks)) {
       setCellErrors((prev) =>
-        new Map(prev).set(key, t('marksGrid.cellMax', { max: component.full_marks })),
+        new Map(prev).set(key, t('marksGrid.cellMax', { max: formatMax(component, config) })),
       );
       return; // refused at the cell — never collected as a submit-time error
     }
@@ -224,16 +244,21 @@ export function MarksGrid({
   }
 
   if (students.length === 0) {
-    return <p className="p-4 text-sm text-muted-foreground">{t('marksGrid.empty')}</p>;
+    return (
+      <EmptyState
+        title={t('marksEntry.emptyTitle', { ns: 'common' })}
+        explanation={t('marksGrid.empty')}
+      />
+    );
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-sm">
+    <div className="overflow-x-auto rounded-lg border border-border-functional bg-surface">
+      <table className="w-full border-collapse text-body">
         <caption className="sr-only">{t('marksGrid.caption')}</caption>
         <thead>
-          <tr className="border-b text-start text-muted-foreground">
-            <th className="sticky start-0 z-10 min-w-40 bg-background px-2 py-2">
+          <tr className="bg-muted text-label text-text-secondary">
+            <th className="sticky start-0 z-10 h-10 min-w-40 bg-muted px-4 text-start font-medium">
               {t('marksGrid.columnStudent')}
             </th>
             {orderedComponents.map((component) => (
@@ -241,37 +266,40 @@ export function MarksGrid({
                 key={component.id}
                 scope="col"
                 className={cn(
-                  'min-w-24 px-2 py-2',
-                  component.source === 'DERIVED' && 'bg-muted text-muted-foreground',
+                  'h-10 min-w-24 px-4 text-start font-medium',
+                  component.source === 'DERIVED' && 'bg-muted text-text-secondary',
                 )}
               >
                 {component.name}
-                <span className="block text-xs font-normal">
-                  {t('marksGrid.fullMarks', { max: component.full_marks })}
+                <span className="block text-caption font-normal">
+                  {t('marksGrid.fullMarks', { max: formatMax(component, config) })}
                 </span>
               </th>
             ))}
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-border-subtle">
           {students.map((student, rowIndex) => {
             const rowSaved = editableComponents.every((component) => {
               const key = cellKey(student.id, component.id);
               return !pendingKeys.has(key) && !failedKeys.has(key);
             });
             return (
-              <tr key={student.id} className="border-b">
-                <td className="sticky start-0 z-10 bg-background px-2 py-2">
-                  <span className="font-medium">{student.roll_number}</span> {student.full_name}
-                  {rowSaved && (
-                    <span
-                      aria-label={t('marksGrid.rowSaved')}
-                      className="ms-1 text-status-paid-fg"
-                      data-testid={`row-saved-${student.id}`}
-                    >
-                      ✓
+              <tr key={student.id}>
+                <td className="sticky start-0 z-10 bg-surface px-4 py-1.5 align-top">
+                  <span className="flex h-8 items-center gap-2">
+                    <span className="w-6 text-end text-text-secondary tabular-nums">
+                      {renderDigits(String(student.roll_number), config.numerals)}
                     </span>
-                  )}
+                    <span className="font-medium">{student.full_name}</span>
+                    {rowSaved && (
+                      <CircleCheckIcon
+                        className="size-4 text-status-paid-fg"
+                        aria-label={t('marksGrid.rowSaved')}
+                        data-testid={`row-saved-${student.id}`}
+                      />
+                    )}
+                  </span>
                 </td>
                 {editableComponents.map((component, colIndex) => {
                   const key = cellKey(student.id, component.id);
@@ -284,9 +312,9 @@ export function MarksGrid({
                       ? t('marksGrid.absentShort')
                       : cellValue.status === 'EXEMPT'
                         ? t('marksGrid.exemptShort')
-                        : (cellValue.value ?? '');
+                        : renderDigits(cellValue.value ?? '', config.numerals);
                   return (
-                    <td key={component.id} className="px-2 py-1 align-top">
+                    <td key={component.id} className="px-4 py-1.5 align-top">
                       <input
                         ref={(el) => {
                           if (el) inputRefs.current.set(refKey(rowIndex, colIndex), el);
@@ -301,45 +329,40 @@ export function MarksGrid({
                         })}
                         value={displayValue}
                         className={cn(
-                          'h-9 w-20 rounded-md border border-input bg-background px-2 text-end',
+                          'h-8 w-20 rounded-md border border-border-functional bg-surface px-2 text-end text-body text-text-primary tabular-nums',
                           isFailed && 'border-destructive',
                           isPending && 'border-status-due-fg',
                         )}
                         onChange={(event) => {
+                          const typed = toLatinDigits(event.target.value);
                           if (cellValue.status !== 'PRESENT') {
                             // Typing over ABSENT/EXEMPT restores PRESENT semantics.
                             handleValueInput(
                               student.id,
                               component,
-                              event.target.value.replace(/[^\d.]/g, ''),
+                              typed.replace(/[^\d.]/g, ''),
                               rowIndex,
                               colIndex,
                             );
                             return;
                           }
-                          handleValueInput(
-                            student.id,
-                            component,
-                            event.target.value,
-                            rowIndex,
-                            colIndex,
-                          );
+                          handleValueInput(student.id, component, typed, rowIndex, colIndex);
                         }}
                         onKeyDown={(event) =>
                           handleKeyDown(event, student.id, component, rowIndex, colIndex)
                         }
                       />
-                      {error && <p className="text-xs text-destructive">{error}</p>}
+                      {error && <p className="text-caption text-destructive">{error}</p>}
                     </td>
                   );
                 })}
                 {derivedComponents.map((component) => (
                   <td
                     key={component.id}
-                    className="bg-muted px-2 py-1 text-end text-muted-foreground"
+                    className="bg-muted px-4 py-1.5 text-end text-text-secondary"
                     aria-label={t('marksGrid.derivedCellLabel', { name: component.name })}
                   >
-                    {derived[component.id]?.values[student.id] ?? '—'}
+                    {formatDerived(derived[component.id]?.values[student.id], config)}
                   </td>
                 ))}
               </tr>
