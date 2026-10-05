@@ -72,6 +72,7 @@ function FilterBarDemo({ initialValues = {} }: { initialValues?: Record<string, 
   return (
     <FilterBar
       fields={FIELDS}
+      resultCount={48}
       values={values}
       onChange={(patch) =>
         setValues((current) => {
@@ -112,18 +113,15 @@ export const DeepLinkedUnknownFilter: Story = {
 };
 
 /** Narrowed below `md`: the primary search field stays inline, every
- * other control collapses behind the "Filters (n)" trigger — same
- * `aria-expanded`/`aria-controls` grammar `app-shell.tsx`'s nav-group
- * disclosure already uses. Two filters active, so the trigger reads
- * "Filters (2)". */
+ * other control moves into the bottom sheet behind the "Filters (n)"
+ * button. Two filters active, so the button reads "Filters (2)". */
 export const Mobile: Story = {
   render: () => <FilterBarDemo initialValues={{ status: 'active', flagged: 'true' }} />,
   parameters: { viewport: { defaultViewport: 'mobile1' } },
 };
 
-/** Same viewport as `Mobile`, panel expanded — click the trigger below or
- * open this story directly to see every control the collapsed state was
- * hiding, with the table (in a real page) still above the fold. */
+/** Same viewport as `Mobile`, sheet open — every field full width with its
+ * label, "Clear all" and "Show 48 results" in the footer. */
 export const MobileExpanded: Story = {
   render: () => <FilterBarDemo initialValues={{ status: 'active', flagged: 'true' }} />,
   parameters: { viewport: { defaultViewport: 'mobile1' } },
