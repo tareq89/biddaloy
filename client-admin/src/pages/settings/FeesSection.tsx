@@ -36,15 +36,14 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { useFormShellMode, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
-import { boundedNumericString } from '@biddaloy/ui/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-import { MutationErrorMessage } from '../../components/MutationErrorMessage';
-
+import { latinBounded } from './latin-digits';
 import { SettingsSaved, SettingsSection } from './settings-layout';
+import { SettingsMutationError } from './settings-mutation-error';
 import { useIsPhone } from './use-is-phone';
 
 const LATE_FEE_TYPES = Object.values(FeeType).filter((type) => type !== FeeType.LATE_FEE);
@@ -52,14 +51,14 @@ const LATE_FEE_TYPES = Object.values(FeeType).filter((type) => type !== FeeType.
 const lateFeeSchema = z
   .object({
     enabled: z.boolean(),
-    graceDays: boundedNumericString(0, 60),
+    graceDays: latinBounded(0, 60),
     kind: z.enum(['PERCENT', 'FLAT']),
     // No server-side cap exists on a FLAT late fee (same as fee-structure
     // `amount`, itself unbounded) — `boundedNumericString` requires a max,
     // so use an effectively-unbounded sentinel here rather than inventing
     // a client-only ceiling the server would happily accept past. The
     // real, meaningful bound (0-100) is PERCENT-only, enforced below.
-    value: boundedNumericString(0, Number.MAX_SAFE_INTEGER),
+    value: latinBounded(0, Number.MAX_SAFE_INTEGER),
   })
   .refine((row) => row.kind !== 'PERCENT' || Number(row.value) <= 100, {
     message: 'Percent late fees must be between 0 and 100.',
@@ -290,7 +289,7 @@ export function FeesSection({ schoolId, fees }: FeesSectionProps) {
         footerStart={
           <>
             {updateSettings.isSuccess && <SettingsSaved />}
-            {updateSettings.isError && <MutationErrorMessage error={updateSettings.error} />}
+            {updateSettings.isError && <SettingsMutationError error={updateSettings.error} />}
           </>
         }
       >

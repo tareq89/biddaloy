@@ -30,10 +30,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, type FieldPath } from 'react-hook-form';
 import { z } from 'zod';
 
-import { MutationErrorMessage } from '../../components/MutationErrorMessage';
-
 import { COUNTRIES, WEEKDAY_KEYS } from './CalendarSection';
 import { SettingsSaved, SettingsSection } from './settings-layout';
+import { SettingsMutationError } from './settings-mutation-error';
 
 const regionalSchema = z.object({
   locale: z.string().min(1),
@@ -125,7 +124,9 @@ export function RegionalSection({ schoolId, region }: RegionalSectionProps) {
     ...useFormShellMode(),
   });
 
-  useWarnUnsavedChanges(form.formState.isDirty && !form.formState.isSubmitSuccessful);
+  // `isDirty` alone: `.mutate()` is not awaited, so `isSubmitSuccessful` would silence the
+  // warning after a failed save. `onSuccess` resets the form, which clears `isDirty`.
+  useWarnUnsavedChanges(form.formState.isDirty);
 
   const updateSettings = useUpdateSchoolSettings(schoolId);
 
@@ -347,7 +348,7 @@ export function RegionalSection({ schoolId, region }: RegionalSectionProps) {
         footerStart={
           <>
             {updateSettings.isSuccess && <SettingsSaved />}
-            {updateSettings.isError && <MutationErrorMessage error={updateSettings.error} />}
+            {updateSettings.isError && <SettingsMutationError error={updateSettings.error} />}
           </>
         }
         advanced={advanced}

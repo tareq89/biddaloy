@@ -16,6 +16,21 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { RegionalSection } from './RegionalSection';
 
+const SERVER_TEXT = 'SERVER_SECRET_TEXT';
+const failing = (path: string, method: 'patch' | 'put' | 'post' = 'patch') =>
+  http[method](path, () =>
+    HttpResponse.json(
+      {
+        statusCode: 400,
+        message: SERVER_TEXT,
+        timestamp: new Date().toISOString(),
+        path,
+        requestId: 'r',
+      },
+      { status: 400 },
+    ),
+  );
+
 const SCHOOL_ID = 'school-1';
 
 const REGION: MaskedRegionSettings = {
@@ -128,5 +143,41 @@ describe('RegionalSection', () => {
     await user.click(await screen.findByRole('option', { name: 'Thousand' }));
 
     expect(screen.getByText('Example: ৳1,234,567.00')).toBeTruthy();
+  });
+
+  it('saves with an empty student-ID rule (the server accepts it), but national stays required', async () => {
+    const patchBody = vi.fn();
+    server.use(
+      http.patch('/api/v1/schools/:id/settings', async ({ request }) => {
+        patchBody(await request.json());
+        return HttpResponse.json({ version: 1, region: REGION });
+      }),
+    );
+    const { user } = mount();
+
+    await user.clear(await screen.findByLabelText(/^Student ID check rule/));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(patchBody).toHaveBeenCalled());
+    expect(patchBody.mock.calls[0]![0].region.identifiers.student).toBe('');
+
+    patchBody.mockClear();
+    await user.clear(screen.getByLabelText(/^National ID check rule/));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(screen.getByLabelText(/^National ID check rule/).getAttribute('aria-invalid')).toBe(
+        'true',
+      ),
+    );
+    expect(patchBody).not.toHaveBeenCalled();
+  });
+
+  it('shows a translated error, never the server text, when the save fails', async () => {
+    server.use(failing('/api/v1/schools/:id/settings'));
+    const { user } = mount();
+
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
+
+    expect((await screen.findByRole('alert')).textContent).toBe("Couldn't save. Try again.");
+    expect(screen.queryByText(SERVER_TEXT)).toBeNull();
   });
 });

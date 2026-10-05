@@ -8,6 +8,21 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AttendanceSection } from './AttendanceSection';
 import { WithTestRouter } from './with-test-router';
 
+const SERVER_TEXT = 'SERVER_SECRET_TEXT';
+const failing = (path: string, method: 'patch' | 'put' | 'post' = 'patch') =>
+  http[method](path, () =>
+    HttpResponse.json(
+      {
+        statusCode: 400,
+        message: SERVER_TEXT,
+        timestamp: new Date().toISOString(),
+        path,
+        requestId: 'r',
+      },
+      { status: 400 },
+    ),
+  );
+
 const SCHOOL_ID = 'school-1';
 
 const ATTENDANCE = {
@@ -152,5 +167,20 @@ describe('AttendanceSection', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(patchBody).toHaveBeenCalled());
     expect(patchBody.mock.calls[0]![0].attendance.autoAbsentNotification.enabled).toBe(true);
+  });
+
+  it('shows a translated error, never the server text, when the save fails', async () => {
+    server.use(failing('/api/v1/schools/:id/settings'));
+    const { user } = renderWithProviders(
+      <WithTestRouter>
+        <AttendanceSection schoolId={SCHOOL_ID} attendance={ATTENDANCE} />
+      </WithTestRouter>,
+      { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
+
+    expect((await screen.findByRole('alert')).textContent).toBe("Couldn't save. Try again.");
+    expect(screen.queryByText(SERVER_TEXT)).toBeNull();
   });
 });

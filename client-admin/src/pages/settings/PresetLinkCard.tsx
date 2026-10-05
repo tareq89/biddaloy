@@ -20,10 +20,14 @@ export function PresetLinkCard() {
         return found ? pick(found.name) : applied.id;
       })()
     : undefined;
-  const state = applied
-    ? // `id` and `name` both passed: the wording lives in a shared file that drops `{{id}}` separately.
-      t('settingsLink.applied', { id: presetName, name: presetName, version: applied.version })
-    : t('settingsLink.notApplied');
+  // Never the raw id: until the list loads, show nothing for the state line.
+  const listLoading = applied !== undefined && presets === undefined;
+  const state = listLoading
+    ? ''
+    : applied
+      ? // `id` and `name` both passed: the wording lives in a shared file that drops `{{id}}` separately.
+        t('settingsLink.applied', { id: presetName, name: presetName, version: applied.version })
+      : t('settingsLink.notApplied');
   return (
     <section className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:flex-row md:items-center md:justify-between md:p-5">
       <div className="min-w-0">

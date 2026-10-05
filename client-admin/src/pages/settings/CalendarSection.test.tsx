@@ -15,6 +15,21 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { CalendarSection } from './CalendarSection';
 
+const SERVER_TEXT = 'SERVER_SECRET_TEXT';
+const failing = (path: string, method: 'patch' | 'put' | 'post' = 'patch') =>
+  http[method](path, () =>
+    HttpResponse.json(
+      {
+        statusCode: 400,
+        message: SERVER_TEXT,
+        timestamp: new Date().toISOString(),
+        path,
+        requestId: 'r',
+      },
+      { status: 400 },
+    ),
+  );
+
 const SCHOOL_ID = 'school-1';
 
 // The section's two "change in …" links are router links, so it needs a router.
@@ -110,5 +125,20 @@ describe('CalendarSection', () => {
     });
 
     expect(await screen.findByText('Week starts Friday, weekend is Friday.')).toBeTruthy();
+  });
+
+  it('shows a translated error, never the server text, when the save fails', async () => {
+    mockCalendarSettings();
+    server.use(failing('/api/v1/schools/:id/settings'));
+    const { user } = renderWithProviders(<WithRouter region={REGION} />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: SCHOOL_ID,
+    });
+
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
+
+    expect((await screen.findByRole('alert')).textContent).toBe("Couldn't save. Try again.");
+    expect(screen.queryByText(SERVER_TEXT)).toBeNull();
   });
 });

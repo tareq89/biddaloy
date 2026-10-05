@@ -16,7 +16,6 @@ import {
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { useFormShellMode, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
-import { boundedNumericString } from '@biddaloy/ui/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
@@ -25,6 +24,7 @@ import { z } from 'zod';
 import { SecretField } from '../../components/SecretField';
 
 import { ChannelFooter, ChannelStatusBadge } from './connection-test-status';
+import { latinBounded } from './latin-digits';
 import { SettingsSection } from './settings-layout';
 
 const emailSchema = z.object({
@@ -34,7 +34,7 @@ const emailSchema = z.object({
   // resolver's post-validation "output" shape, and a coerced field needs
   // `useForm`'s three type parameters wired to match; simpler to keep the
   // field a string end to end and parse it once in `buildConfig` below.
-  port: boundedNumericString(1, 65535),
+  port: latinBounded(1, 65535),
   user: z.string().min(1),
   from: z.email(),
 });
