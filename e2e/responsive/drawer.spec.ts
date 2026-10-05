@@ -58,7 +58,10 @@ test('drawer is a start-edge full-height sheet with a sticky 44 px close (D13)',
   expect(box.x).toBe(0);
   expect(Math.abs(box.height - page.viewportSize()!.height)).toBeLessThanOrEqual(1);
 
+  // not vacuous: the nav list is longer than the viewport, so it really scrolls
+  expect(await drawer.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeGreaterThan(0);
   await drawer.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+  expect(await drawer.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
   const close = drawer.getByRole('button', { name: t('nav.closeMenuLabel') });
   const closeBox = (await close.boundingBox())!;
   expect(closeBox.y).toBeGreaterThanOrEqual(0);

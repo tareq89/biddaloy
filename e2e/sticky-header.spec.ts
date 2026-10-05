@@ -1,4 +1,5 @@
 import { expect, loggedIn, test } from './fixtures/test';
+import { t } from './i18n';
 
 /**
  * [8.14.2]'s sticky-header scroll contract — the three things
@@ -23,7 +24,7 @@ test.describe('sticky header scroll contract', () => {
     page,
   }) => {
     await page.goto('/students');
-    await expect(page.getByRole('heading', { name: 'শিক্ষার্থী' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: t('students.list.title') })).toBeVisible();
 
     // Scroll the page down first — the whole point of the contract is
     // that a *scrolled* page still lands its jump target below the
@@ -68,12 +69,12 @@ test.describe('sticky header scroll contract', () => {
     page,
   }) => {
     await page.goto('/students');
-    await expect(page.getByRole('heading', { name: 'শিক্ষার্থী' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: t('students.list.title') })).toBeVisible();
 
     await page.mouse.wheel(0, 800);
-    await page.getByRole('link', { name: 'ড্যাশবোর্ড', exact: true }).click();
+    await page.getByRole('link', { name: t('nav.items.dashboard'), exact: true }).click();
 
-    const heading = page.getByRole('heading', { name: 'ড্যাশবোর্ড' });
+    const heading = page.getByRole('heading', { name: t('nav.dashboard.title') });
     await expect(heading).toBeFocused();
 
     const header = page.locator('[data-app-header]');
@@ -93,16 +94,19 @@ test.describe('sticky header scroll contract', () => {
       page,
     }) => {
       await page.goto('/students');
-      await expect(page.getByRole('heading', { name: 'শিক্ষার্থী' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: t('students.list.title') })).toBeVisible();
 
       await page.mouse.wheel(0, 1000);
       const bar = page.locator('[data-app-mobile-header]');
       await expect.poll(async () => (await bar.boundingBox())?.y).toBe(0);
 
-      await page.getByRole('button', { name: 'মেনু খুলুন' }).click();
-      await page.getByRole('dialog').getByRole('link', { name: 'ড্যাশবোর্ড', exact: true }).click();
+      await page.getByRole('button', { name: t('nav.openMenuLabel') }).click();
+      await page
+        .getByRole('dialog')
+        .getByRole('link', { name: t('nav.items.dashboard'), exact: true })
+        .click();
 
-      const heading = page.getByRole('heading', { name: 'ড্যাশবোর্ড' });
+      const heading = page.getByRole('heading', { name: t('nav.dashboard.title') });
       await expect(heading).toBeFocused();
       const [barBox, headingBox] = await Promise.all([bar.boundingBox(), heading.boundingBox()]);
       expect(headingBox!.y).toBeGreaterThanOrEqual(barBox!.y + barBox!.height - 1);
