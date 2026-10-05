@@ -352,15 +352,25 @@ export const usersTab: TabSpec<User, UserRow> = {
           const stale = memberships.slice(1).map((ut) => ut.id);
           if (stale.length > 0) await m.delete(UserTenant, { id: In(stale) });
         } else {
-          await m.save(
-            UserTenant,
-            m.create(UserTenant, {
-              user_id: user.id,
-              tenant_id: tenantId,
-              role: row.role,
-              metadata: null,
-            }),
-          );
+          // The unique index ignores soft-deletion: a former member (left or
+          // removed) is restored, not re-inserted (23505).
+          const former = await m.findOne(UserTenant, {
+            where: { user_id: user.id, tenant_id: tenantId, role: row.role },
+            withDeleted: true,
+          });
+          if (former) {
+            await m.restore(UserTenant, { id: former.id });
+          } else {
+            await m.save(
+              UserTenant,
+              m.create(UserTenant, {
+                user_id: user.id,
+                tenant_id: tenantId,
+                role: row.role,
+                metadata: null,
+              }),
+            );
+          }
         }
       } else {
         // Right role already present — drop any OTHER role rows so D2's
