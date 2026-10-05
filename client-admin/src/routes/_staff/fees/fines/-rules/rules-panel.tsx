@@ -21,15 +21,17 @@
  */
 import { Permission } from '@biddaloy/shared';
 import {
-  Button,
+  ConfirmDialog,
   DataTable,
   type DataTableColumn,
-  EmptyState,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
+  StatusBadge,
+  toast,
+  type RowAction,
 } from '@biddaloy/ui/components';
 import {
   useAcademicYears,
@@ -40,7 +42,9 @@ import {
   type FineRule,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatServerAmount } from '@biddaloy/ui/utils';
+import { PageHeader } from '@biddaloy/ui/shells';
+import { formatNumber, formatServerAmount } from '@biddaloy/ui/utils';
+import { CirclePause, CirclePlay, Copy, Gavel, Plus } from 'lucide-react';
 import * as React from 'react';
 
 import { CopyRulesDialog } from './copy-rules-dialog';
@@ -60,60 +64,6 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return target.closest('[role="combobox"]') !== null;
 }
 
-/** Row actions own `useUpdateFineRule`/`useDeleteFineRule` bound to this
- * row's id — hooks can't be called conditionally per row from one shared
- * call site, same reasoning `schedules/index.tsx`'s `ScheduleRowActions`
- * gives. */
-function RuleRowActions({
-  rule,
-  canUpdate,
-  canDelete,
-  onEdit,
-}: {
-  rule: FineRule;
-  canUpdate: boolean;
-  canDelete: boolean;
-  onEdit: () => void;
-}) {
-  const { t } = useTranslation('fees');
-  const updateRule = useUpdateFineRule(rule.academic_year_id);
-  const deleteRule = useDeleteFineRule(rule.academic_year_id);
-
-  return (
-    <div className="flex flex-wrap gap-3">
-      {canUpdate && (
-        <button
-          type="button"
-          className="text-sm font-medium text-primary underline-offset-2 hover:underline"
-          onClick={onEdit}
-        >
-          {t('fines.rules.edit')}
-        </button>
-      )}
-      {canUpdate && (
-        <button
-          type="button"
-          className="text-sm font-medium text-primary underline-offset-2 hover:underline"
-          disabled={updateRule.isPending}
-          onClick={() => updateRule.mutate({ id: rule.id, is_active: !rule.is_active })}
-        >
-          {rule.is_active ? t('fines.rules.deactivate') : t('fines.rules.activate')}
-        </button>
-      )}
-      {canDelete && (
-        <button
-          type="button"
-          className="text-sm font-medium text-destructive underline-offset-2 hover:underline"
-          disabled={deleteRule.isPending}
-          onClick={() => deleteRule.mutate({ id: rule.id })}
-        >
-          {t('fines.rules.delete')}
-        </button>
-      )}
-    </div>
-  );
-}
-
 function minMinutesLateOf(rule: FineRule): number | null {
   return rule.trigger === 'ATTENDANCE_LATE' && typeof rule.conditions.min_minutes_late === 'number'
     ? rule.conditions.min_minutes_late
@@ -121,7 +71,7 @@ function minMinutesLateOf(rule: FineRule): number | null {
 }
 
 export function RulesPanel() {
-  const { t } = useTranslation('fees');
+  const { t } = useTranslation(['fees', 'fines']);
   const regionConfig = useRegionConfig();
 
   const yearsQuery = useAcademicYears();
@@ -143,18 +93,63 @@ export function RulesPanel() {
   const [createOpen, setCreateOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<FineRule | null>(null);
   const [copyOpen, setCopyOpen] = React.useState(false);
+  const [deleting, setDeleting] = React.useState<FineRule | null>(null);
+
+  const updateRule = useUpdateFineRule(academicYearId);
+  const deleteRule = useDeleteFineRule(academicYearId);
 
   React.useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key !== 'n' || event.ctrlKey || event.metaKey || event.altKey) return;
       if (isEditableTarget(event.target)) return;
-      if (!canCreate || createOpen || editing || copyOpen) return;
+      if (!canCreate || createOpen || editing || copyOpen || deleting) return;
       event.preventDefault();
       setCreateOpen(true);
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [canCreate, createOpen, editing, copyOpen]);
+  }, [canCreate, createOpen, editing, copyOpen, deleting]);
+
+  const triggerLabel = (rule: FineRule | null) =>
+    rule?.trigger === 'ATTENDANCE_LATE'
+      ? t('fines.rules.triggerLate')
+      : t('fines.rules.triggerAbsent');
+
+  const toggleRule = (rule: FineRule, isActive: boolean) =>
+    updateRule.mutate(
+      { id: rule.id, is_active: isActive },
+      { onError: () => toast.error(t('fines.rules.form.errorMessage')) },
+    );
+
+  const rowActions = (row: FineRule): RowAction[] => [
+    {
+      intent: 'edit',
+      label: t('fines.rules.edit'),
+      allowed: canUpdate,
+      onClick: () => setEditing(row),
+    },
+    row.is_active
+      ? {
+          intent: 'archive',
+          icon: <CirclePause />,
+          label: t('fines.rules.deactivate'),
+          allowed: canUpdate,
+          onClick: () => toggleRule(row, false),
+        }
+      : {
+          intent: 'restore',
+          icon: <CirclePlay />,
+          label: t('fines.rules.activate'),
+          allowed: canUpdate,
+          onClick: () => toggleRule(row, true),
+        },
+    {
+      intent: 'delete',
+      label: t('fines.rules.delete'),
+      allowed: canDelete,
+      onClick: () => setDeleting(row),
+    },
+  ];
 
   const columns: DataTableColumn<FineRule>[] = [
     {
@@ -181,7 +176,7 @@ export function RulesPanel() {
     {
       id: 'freePerPeriod',
       header: t('fines.rules.columnFreePerPeriod'),
-      accessorFn: (row) => row.free_per_period,
+      accessorFn: (row) => formatNumber(row.free_per_period, regionConfig),
       align: 'end',
     },
     {
@@ -194,38 +189,63 @@ export function RulesPanel() {
     {
       id: 'minMinutesLate',
       header: t('fines.rules.columnMinMinutesLate'),
-      accessorFn: (row) => minMinutesLateOf(row) ?? '—',
+      accessorFn: (row) => {
+        const minutes = minMinutesLateOf(row);
+        return minutes === null
+          ? '—'
+          : t('rules.minutes', {
+              ns: 'fines',
+              count: minutes,
+              n: formatNumber(minutes, regionConfig),
+            });
+      },
       align: 'end',
     },
     {
       id: 'active',
       header: t('fines.rules.columnActive'),
-      accessorFn: (row) =>
-        row.is_active ? t('fines.rules.statusActive') : t('fines.rules.statusInactive'),
-      card: 'badge',
-    },
-    {
-      id: 'actions',
-      header: t('fines.rules.columnActions'),
-      pinned: true,
       accessorFn: (row) => (
-        <RuleRowActions
-          rule={row}
-          canUpdate={canUpdate}
-          canDelete={canDelete}
-          onEdit={() => setEditing(row)}
+        <StatusBadge
+          tone={row.is_active ? 'success' : 'neutral'}
+          label={row.is_active ? t('fines.rules.statusActive') : t('fines.rules.statusInactive')}
         />
       ),
+      card: 'badge',
     },
   ];
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium">{t('fines.rules.academicYearLabel')}</span>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title={t('rules.title', { ns: 'fines' })}
+        subtitle={t('rules.subtitle', { ns: 'fines' })}
+        actions={[
+          {
+            id: 'copy',
+            label: t('fines.rules.copyFromLastYear'),
+            priority: 'secondary',
+            icon: <Copy />,
+            allowed: canCreate,
+            onClick: () => setCopyOpen(true),
+          },
+          {
+            id: 'add',
+            label: t('fines.rules.addRule'),
+            priority: 'primary',
+            icon: <Plus />,
+            allowed: canCreate,
+            onClick: () => setCreateOpen(true),
+          },
+        ]}
+      />
+
+      <div className="md:grid md:grid-cols-12 md:gap-4">
+        <div className="flex flex-col gap-1.5 md:col-span-3">
+          <label htmlFor="fine-rules-year" className="text-label">
+            {t('fines.rules.academicYearLabel')}
+          </label>
           <Select value={academicYearId} onValueChange={setAcademicYearId}>
-            <SelectTrigger aria-label={t('fines.rules.academicYearLabel')}>
+            <SelectTrigger id="fine-rules-year">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -237,46 +257,55 @@ export function RulesPanel() {
             </SelectContent>
           </Select>
         </div>
-
-        {canCreate && (
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={() => setCopyOpen(true)}>
-              {t('fines.rules.copyFromLastYear')}
-            </Button>
-            <Button type="button" onClick={() => setCreateOpen(true)}>
-              {t('fines.rules.addRule')}
-            </Button>
-          </div>
-        )}
       </div>
 
-      {!rulesQuery.isLoading && !rulesQuery.isError && rules.length === 0 ? (
-        <EmptyState
-          title={t('fines.rules.emptyTitle')}
-          explanation={t('fines.rules.emptyMessage')}
-          {...(canCreate
+      <DataTable
+        tableId="fines-rules-list"
+        caption={t('fines.rules.title')}
+        columns={columns}
+        rowActions={rowActions}
+        data={rules}
+        getRowId={(row) => row.id}
+        sorting={null}
+        onSortingChange={() => {}}
+        paginated={false}
+        totalCount={rules.length}
+        loading={rulesQuery.isLoading}
+        isFetching={rulesQuery.isFetching}
+        {...(rulesQuery.isError ? { error: t('fines.rules.errorMessage') } : {})}
+        emptyState={{
+          icon: <Gavel />,
+          title: t('fines.rules.emptyTitle'),
+          explanation: t('fines.rules.emptyMessage'),
+          ...(canCreate
             ? { action: { label: t('fines.rules.addRule'), onClick: () => setCreateOpen(true) } }
-            : {})}
-        />
-      ) : (
-        <DataTable
-          tableId="fines-rules-list"
-          caption={t('fines.rules.title')}
-          columns={columns}
-          data={rules}
-          getRowId={(row) => row.id}
-          sorting={null}
-          onSortingChange={() => {}}
-          page={1}
-          pageSize={Math.max(rules.length, 1)}
-          totalCount={rules.length}
-          onPageChange={() => {}}
-          loading={rulesQuery.isLoading}
-          isFetching={rulesQuery.isFetching}
-          {...(rulesQuery.isError ? { error: t('fines.rules.errorMessage') } : {})}
-          emptyMessage={t('fines.rules.emptyMessage')}
-        />
-      )}
+            : {}),
+        }}
+      />
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(open) => !open && !deleteRule.isPending && setDeleting(null)}
+        tone="danger"
+        title={t('deleteRuleDialog.title', { ns: 'fines' })}
+        description={t('deleteRuleDialog.description', {
+          ns: 'fines',
+          trigger: triggerLabel(deleting),
+          appliesTo: deleting?.class_name ?? t('fines.rules.wholeSchool'),
+        })}
+        confirmLabel={t('deleteRuleDialog.confirm', { ns: 'fines' })}
+        busy={deleteRule.isPending}
+        onConfirm={() =>
+          deleting &&
+          deleteRule.mutate(
+            { id: deleting.id },
+            {
+              onSuccess: () => setDeleting(null),
+              onError: () => toast.error(t('deleteRuleDialog.errorMessage', { ns: 'fines' })),
+            },
+          )
+        }
+      />
 
       {canCreate && academicYearId !== '' && (
         <RuleFormDialog
