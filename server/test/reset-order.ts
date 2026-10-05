@@ -182,6 +182,8 @@ export const TRANSACTIONAL_TABLES_CHILD_FIRST = [
   'subjects',
   'audit_logs',
   'students',
+  // [13.1.2] only FK is to `users` (reset later, per-file).
+  'user_identities',
 ] as const;
 
 /**

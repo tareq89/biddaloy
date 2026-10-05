@@ -37,6 +37,8 @@ export class OnboardingFoundation1791400000000 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP TABLE "user_identities"`);
+    // Before this migration a removed member had no row; dropping the column alone would revive them.
+    await queryRunner.query(`DELETE FROM "user_tenants" WHERE "deleted_at" IS NOT NULL`);
     await queryRunner.query(`ALTER TABLE "user_tenants" DROP COLUMN "deleted_at"`);
     await queryRunner.query(`ALTER TABLE "schools" DROP COLUMN "onboarding"`);
     await queryRunner.query(`ALTER TABLE "schools" DROP CONSTRAINT "CHK_schools_seat_limit"`);
