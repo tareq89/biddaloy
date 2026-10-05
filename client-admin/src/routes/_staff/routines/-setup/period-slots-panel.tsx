@@ -98,13 +98,17 @@ export function PeriodSlotsPanel({
     }
     if (slotsQuery.data === undefined || loadedShiftId.current === shift.id) return;
     loadedShiftId.current = shift.id;
-    const loaded = slotsQuery.data.map((slot) => ({
-      sequence: slot.sequence,
-      kind: slot.kind,
-      name: slot.name,
-      starts_at: slot.starts_at,
-      ends_at: slot.ends_at,
-    }));
+    // Numbered 1..n by order, so every screen (this editor, the routine
+    // table, the phone list) shows the same period numbers.
+    const loaded = [...slotsQuery.data]
+      .sort((a, b) => a.sequence - b.sequence)
+      .map((slot, index) => ({
+        sequence: index + 1,
+        kind: slot.kind,
+        name: slot.name,
+        starts_at: slot.starts_at,
+        ends_at: slot.ends_at,
+      }));
     loadedRows.current = loaded;
     setRows(loaded);
   }, [shift, slotsQuery.data]);
@@ -128,7 +132,7 @@ export function PeriodSlotsPanel({
         ? minutesToTime(timeToMinutes(previous.ends_at) + changeoverGapMinutes)
         : (shift?.day_starts_at ?? '08:00');
       const next: PeriodSlotItem = {
-        sequence: current.length,
+        sequence: current.length + 1,
         kind: 'CLASS',
         name: null,
         starts_at: startsAt,
@@ -140,7 +144,7 @@ export function PeriodSlotsPanel({
 
   function removeRow(index: number) {
     setRows((current) =>
-      current.filter((_, i) => i !== index).map((row, i) => ({ ...row, sequence: i })),
+      current.filter((_, i) => i !== index).map((row, i) => ({ ...row, sequence: i + 1 })),
     );
   }
 
@@ -250,12 +254,11 @@ export function PeriodSlotsPanel({
   const lessonCount = rows.filter((row) => row.kind === 'CLASS').length;
   const breakCount = rows.length - lessonCount;
 
-  let lessonsSoFar = 0;
-  const phoneHeadings = rows.map((row) => {
-    if (row.kind === 'BREAK') return kindLabel('BREAK');
-    lessonsSoFar += 1;
-    return t('agenda.periodLabel', { sequence: formatNumber(lessonsSoFar, config) });
-  });
+  const phoneHeadings = rows.map((row) =>
+    row.kind === 'BREAK'
+      ? kindLabel('BREAK')
+      : t('agenda.periodLabel', { sequence: formatNumber(row.sequence, config) }),
+  );
 
   return (
     <Card padded={false} className="overflow-hidden">

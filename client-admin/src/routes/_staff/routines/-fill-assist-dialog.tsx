@@ -148,6 +148,12 @@ export function FillAssistDialog({
           </div>
         )}
 
+        {greedyFill.isError && (
+          <p role="alert" className="text-caption text-destructive">
+            {t('fillAssist.loadError')}
+          </p>
+        )}
+
         {proposals !== null && proposals.length === 0 && (
           <p className="text-text-secondary">{t('fillAssist.empty')}</p>
         )}
