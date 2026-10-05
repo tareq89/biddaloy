@@ -3,10 +3,11 @@
  * already been printed for this student.
  */
 import { Permission } from '@biddaloy/shared';
-import { Button } from '@biddaloy/ui/components';
+import { Button, Card } from '@biddaloy/ui/components';
 import { useHasPermission } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
+import { IdCardIcon } from 'lucide-react';
 
 import { SubjectPrintHistory } from '../../../../components/print/history/subject-print-history';
 import { StudentPhotoCard } from '../../../../components/print/student-photo-card';
@@ -23,6 +24,7 @@ export function DocumentsTab({ studentId }: { studentId: string }) {
       <div>
         <Button
           type="button"
+          variant="outline"
           onClick={() =>
             void navigate({
               to: '/print/preview',
@@ -35,13 +37,16 @@ export function DocumentsTab({ studentId }: { studentId: string }) {
             })
           }
         >
+          <IdCardIcon className="size-4" aria-hidden />
           {t('detail.actions.printIdCard')}
         </Button>
       </div>
-      <section aria-label={t('documents.historyTitle')} className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold">{t('documents.historyTitle')}</h2>
-        <SubjectPrintHistory subjectType="STUDENT" subjectId={studentId} />
-      </section>
+      <Card padded>
+        <h2 className="text-h2">{t('documents.historyTitle')}</h2>
+        <div className="mt-4">
+          <SubjectPrintHistory subjectType="STUDENT" subjectId={studentId} />
+        </div>
+      </Card>
     </div>
   );
 }

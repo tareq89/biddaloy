@@ -3,7 +3,6 @@
  * academic year; the server derives the enrollment year from the section.
  * A 409 (e.g. already active) shows inline. Not wired here (#1197).
  */
-import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   Dialog,
@@ -12,7 +11,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Input,
+  DatePicker,
   Select,
   SelectContent,
   SelectItem,
@@ -27,7 +26,8 @@ import {
   useReadmitStudent,
   type AcademicYear,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { parseServerDate, toIsoDate } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 import { todayDateInputValue } from './leave-dialog';
@@ -41,6 +41,7 @@ export interface ReadmitDialogProps {
 
 export function ReadmitDialog({ open, onOpenChange, studentId, studentName }: ReadmitDialogProps) {
   const { t } = useTranslation('student-lifecycle');
+  const config = useRegionConfig();
   const [occurredOn, setOccurredOn] = React.useState(todayDateInputValue());
   const [classId, setClassId] = React.useState('');
   const [sectionId, setSectionId] = React.useState('');
@@ -101,7 +102,7 @@ export function ReadmitDialog({ open, onOpenChange, studentId, studentName }: Re
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="md" closeLabel={t('actions.close', { ns: 'common' })}>
         {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Ctrl+Enter bubbles from the focused field */}
         <form
           className="flex flex-col gap-4"
@@ -115,27 +116,32 @@ export function ReadmitDialog({ open, onOpenChange, studentId, studentName }: Re
           </DialogHeader>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="readmit-date" className="text-sm font-medium">
+            <label htmlFor="readmit-date" className="font-medium">
               {t('readmit.dateLabel')}
             </label>
-            <Input
+            <DatePicker
               id="readmit-date"
-              type="date"
-              value={occurredOn}
-              max={todayDateInputValue()}
-              onChange={(event) => setOccurredOn(event.target.value)}
+              aria-label={t('readmit.dateLabel')}
+              config={config}
+              value={occurredOn ? parseServerDate(occurredOn) : undefined}
+              onValueChange={(date) => setOccurredOn(date ? toIsoDate(date) : '')}
+              max={new Date()}
               aria-invalid={submitted && dateError !== null}
               aria-describedby={submitted && dateError ? 'readmit-date-error' : undefined}
             />
             {submitted && dateError && (
-              <p id="readmit-date-error" role="alert" className="text-sm text-destructive">
+              <p
+                id="readmit-date-error"
+                role="alert"
+                className="flex items-center gap-1 text-caption text-destructive"
+              >
                 {dateError}
               </p>
             )}
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="readmit-class" className="text-sm font-medium">
+            <label htmlFor="readmit-class" className="font-medium">
               {t('readmit.classLabel')}
             </label>
             <Select
@@ -159,7 +165,7 @@ export function ReadmitDialog({ open, onOpenChange, studentId, studentName }: Re
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="readmit-section" className="text-sm font-medium">
+            <label htmlFor="readmit-section" className="font-medium">
               {t('readmit.sectionLabel')}
             </label>
             <Select value={sectionId} onValueChange={setSectionId} disabled={!classId}>
@@ -179,14 +185,14 @@ export function ReadmitDialog({ open, onOpenChange, studentId, studentName }: Re
               </SelectContent>
             </Select>
             {submitted && sectionError && (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
                 {sectionError}
               </p>
             )}
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="readmit-reason" className="text-sm font-medium">
+            <label htmlFor="readmit-reason" className="font-medium">
               {t('readmit.reasonLabel')}
             </label>
             <Textarea
@@ -198,7 +204,7 @@ export function ReadmitDialog({ open, onOpenChange, studentId, studentName }: Re
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="readmit-remark" className="text-sm font-medium">
+            <label htmlFor="readmit-remark" className="font-medium">
               {t('readmit.remarkLabel')}
             </label>
             <Textarea
@@ -210,8 +216,8 @@ export function ReadmitDialog({ open, onOpenChange, studentId, studentName }: Re
           </div>
 
           {readmit.isError && (
-            <p role="alert" className="text-sm text-destructive">
-              {readmit.error instanceof ApiError ? readmit.error.message : t('errors.generic')}
+            <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+              {t('errors.generic')}
             </p>
           )}
 
