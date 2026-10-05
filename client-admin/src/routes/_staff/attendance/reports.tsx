@@ -24,8 +24,9 @@
  * one needs no section picked, since it's already per-student across the
  * whole filter scope.
  *
- * Same `ListShell` + `FilterBar` + `DataTable` composition, and the same
- * `useListShellState` URL wiring, as `fees/dues.tsx`.
+ * Composed from `PageContainer` + `PageHeader` + `Tabs` + `FilterBar` +
+ * `DataTable` directly (`ListShell` has no slot for tabs above the filters),
+ * with the same `useListShellState` URL wiring as `fees/dues.tsx`.
  *
  * `attendance_percentage` is `null` whenever `marked_days === 0` — [9.4]'s
  * own contract, already excluded from `/flags/low`'s results server-side.
@@ -33,7 +34,15 @@
  * renders as an em dash, never `0%`.
  */
 import { Permission } from '@biddaloy/shared';
-import { Button, RoutePending, StatusBadge, type DataTableColumn } from '@biddaloy/ui/components';
+import {
+  RoutePending,
+  StatusBadge,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  type DataTableColumn,
+  DataTable,
+} from '@biddaloy/ui/components';
 import {
   useClasses,
   useClassSections,
@@ -49,9 +58,16 @@ import {
   useTenantRegionConfig,
   useTranslation,
 } from '@biddaloy/ui/i18n';
-import { ListShell, useListShellState, type FilterFieldDescriptor } from '@biddaloy/ui/shells';
-import { formatNumber } from '@biddaloy/ui/utils';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import {
+  FilterBar,
+  PageContainer,
+  PageHeader,
+  useListShellState,
+  type FilterFieldDescriptor,
+} from '@biddaloy/ui/shells';
+import { formatMonth, formatNumber } from '@biddaloy/ui/utils';
+import { createFileRoute } from '@tanstack/react-router';
+import { ChartLine } from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
@@ -65,16 +81,13 @@ interface ReportsFilters {
   view?: string | undefined;
 }
 
-/** Trailing 12 months plus the current one, most recent first — plain
- * `YYYY-MM` values as both the option value *and* its label, so no
- * localized month name is needed (`fees/dues.tsx`'s own comment on why
- * `boundary/no-raw-intl` rules out `Intl.DateTimeFormat` here). */
-function trailingMonthOptions(now: Date): { value: string; label: string }[] {
-  const options: { value: string; label: string }[] = [];
+/** Trailing 12 months plus the current one, most recent first. The value
+ * stays `YYYY-MM` (URL contract); the label is formatted at the call site. */
+function trailingMonthOptions(now: Date): string[] {
+  const options: string[] = [];
   for (let i = 0; i < 13; i++) {
     const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
-    const iso = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-    options.push({ value: iso, label: iso });
+    options.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`);
   }
   return options;
 }
@@ -118,7 +131,7 @@ function ReportsPage() {
 function ReportsPageContent() {
   const { t } = useTranslation('attendance');
   const regionConfig = useRegionConfig();
-  const [state, actions] = useListShellState({ limit: 20 });
+  const [state, actions] = useListShellState();
   const filters = state.filters as ReportsFilters;
   const view = filters.view === 'flags' ? 'flags' : 'summary';
   const month = filters.month ?? currentMonthIso();
@@ -177,31 +190,27 @@ function ReportsPageContent() {
     );
   }
 
-  function renderActions(studentId: string) {
-    return (
-      <span className="inline-flex items-center gap-2">
-        <Link to="/students/$studentId" params={{ studentId }} className="text-sm font-medium">
-          {t('reports.viewStudent')}
-        </Link>
-        {canSendReminder && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setReminderStudentId(studentId)}
-          >
-            {t('reports.sendReminder')}
-          </Button>
-        )}
-      </span>
-    );
+  function rowActions(row: { student_id: string }) {
+    return [
+      {
+        intent: 'view' as const,
+        label: t('reports.viewStudent'),
+        to: `/students/${row.student_id}`,
+      },
+      {
+        intent: 'send' as const,
+        label: t('reports.sendReminder'),
+        onClick: () => setReminderStudentId(row.student_id),
+        allowed: canSendReminder,
+      },
+    ];
   }
 
   const summaryColumns: DataTableColumn<RegisterMatrixRow>[] = [
     {
       id: 'roll_number',
       header: t('reports.columnRoll'),
-      accessorFn: (row) => formatNumber(row.roll_number, regionConfig),
+      accessorFn: (row) => t('mark.rollNumber', { roll: row.roll_number }),
       card: 'subtitle',
     },
     {
@@ -251,20 +260,13 @@ function ReportsPageContent() {
       align: 'end',
       card: 'badge',
     },
-    {
-      id: 'actions',
-      header: t('reports.columnActions'),
-      accessorFn: (row) => renderActions(row.student_id),
-      pinned: true,
-      card: 'actions',
-    },
   ];
 
   const flagsColumns: DataTableColumn<LowAttendanceFlag>[] = [
     {
       id: 'roll_number',
       header: t('reports.columnRoll'),
-      accessorFn: (row) => formatNumber(row.roll_number, regionConfig),
+      accessorFn: (row) => t('mark.rollNumber', { roll: row.roll_number }),
       card: 'subtitle',
     },
     {
@@ -305,29 +307,17 @@ function ReportsPageContent() {
       align: 'end',
       card: 'badge',
     },
-    {
-      id: 'actions',
-      header: t('reports.columnActions'),
-      accessorFn: (row) => renderActions(row.student_id),
-      pinned: true,
-      card: 'actions',
-    },
   ];
 
   const filterFields: FilterFieldDescriptor[] = [
     {
       kind: 'select',
-      key: 'view',
-      label: t('reports.viewLabel'),
-      allLabel: t('reports.viewSummary'),
-      options: [{ value: 'flags', label: t('reports.viewFlags') }],
-    },
-    {
-      kind: 'select',
       key: 'month',
       label: t('reports.monthLabel'),
-      allLabel: currentMonthIso(),
-      options: trailingMonthOptions(new Date()),
+      allLabel: formatMonth(currentMonthIso(), regionConfig),
+      options: trailingMonthOptions(new Date())
+        .slice(1)
+        .map((value) => ({ value, label: formatMonth(value, regionConfig) })),
     },
     {
       kind: 'select',
@@ -354,6 +344,7 @@ function ReportsPageContent() {
       key: 'threshold',
       label: t('reports.thresholdLabel'),
       placeholder: t('reports.thresholdPlaceholder'),
+      formatChip: (value) => formatNumber(Number(value), regionConfig),
     },
   ];
 
@@ -365,11 +356,36 @@ function ReportsPageContent() {
   const isFetching = view === 'summary' ? registerQuery.isFetching : flagsQuery.isFetching;
   const isError = view === 'summary' ? registerQuery.isError : flagsQuery.isError;
 
+  const emptyState = noSectionSelected
+    ? {
+        icon: <ChartLine />,
+        title: t('reports.selectSectionTitle'),
+        explanation: t('reports.selectSectionPrompt'),
+      }
+    : {
+        title: view === 'flags' ? t('reports.flagsEmptyTitle') : t('reports.emptyTitle'),
+        explanation: t('reports.emptyMessage'),
+      };
+
   return (
-    <>
-      <ListShell
-        title={t('reports.title')}
-        filters={{ fields: filterFields, values: state.filters, onChange: handleFilterChange }}
+    <PageContainer>
+      <PageHeader title={t('reports.title')} subtitle={t('reports.subtitle')} />
+      <Tabs
+        value={view}
+        onValueChange={(next) => actions.setFilters({ view: next === 'flags' ? 'flags' : null })}
+      >
+        <TabsList variant="line" aria-label={t('reports.viewLabel')}>
+          <TabsTrigger value="summary">{t('reports.viewSummary')}</TabsTrigger>
+          <TabsTrigger value="flags">{t('reports.viewFlags')}</TabsTrigger>
+        </TabsList>
+      </Tabs>
+      <FilterBar
+        fields={filterFields}
+        values={state.filters}
+        onChange={handleFilterChange}
+        resultCount={totalCount}
+      />
+      <DataTable
         tableId="attendance-reports"
         caption={t('reports.caption')}
         // Two distinct row shapes (`RegisterMatrixRow` vs `LowAttendanceFlag`)
@@ -387,15 +403,16 @@ function ReportsPageContent() {
         // mistake in either direction.
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
         columns={(view === 'summary' ? summaryColumns : flagsColumns) as DataTableColumn<never>[]}
-
         data={rows as never[]}
         getRowId={(row: { student_id: string }) => row.student_id}
+        rowActions={rowActions}
         // Neither view is server-sortable — no `sort_by` column on either
-        // `register-matrix` or `flags/low` — so this is always `null`,
-        // never wired to a header click the way `fees/dues.tsx`'s
-        // `state.sorting` is.
+        // `register-matrix` or `flags/low`.
         sorting={null}
         onSortingChange={() => undefined}
+        // Summary is one whole section (total shown as "Total N"); only the
+        // flags view pages through the server.
+        paginated={view === 'flags'}
         page={state.page}
         pageSize={state.limit}
         totalCount={totalCount}
@@ -404,11 +421,8 @@ function ReportsPageContent() {
         pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
         loading={loading}
         isFetching={isFetching}
-        {...(noSectionSelected
-          ? { emptyMessage: t('reports.selectSectionPrompt') }
-          : isError
-            ? { error: t('reports.errorMessage') }
-            : { emptyMessage: t('reports.emptyMessage') })}
+        emptyState={emptyState}
+        {...(isError ? { error: t('reports.errorMessage') } : {})}
         announceResults={(count, total) => t('reports.announceResults', { visible: count, total })}
       />
       <SendReminderDialog
@@ -417,7 +431,7 @@ function ReportsPageContent() {
         studentIds={reminderStudentId ? [reminderStudentId] : []}
         onSent={() => setReminderStudentId(null)}
       />
-    </>
+    </PageContainer>
   );
 }
 
