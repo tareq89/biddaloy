@@ -99,14 +99,21 @@ test.describe('staff bottom nav', () => {
       row.getByRole('button', { name: t('nav.commandPalette.buttonLabel') }),
     ).toBeVisible();
     await expect(row.getByRole('button', { name: t('nav.userMenu.label') })).toBeVisible();
+    await expect(row.getByText(/\S/).first()).toBeVisible();
+    // the school name is in the row (truncating span)
+    expect((await row.locator('span.truncate').first().innerText()).trim().length).toBeGreaterThan(
+      0,
+    );
     // menu + search + bell + account, nothing else crowds the row
     await expect(row.getByRole('button')).toHaveCount(4);
 
     // language + theme live in the account menu below md
-    await expect(page.getByRole('button', { name: t('nav.theme.label') })).toBeHidden();
-    await expect(
-      page.getByRole('button', { name: new RegExp(t('nav.language.label')) }),
-    ).toBeHidden();
+    const themeButton = page.getByLabel(t('nav.theme.label'), { exact: true });
+    const languageButton = page.getByLabel(new RegExp(t('nav.language.label')));
+    await expect(themeButton).toHaveCount(1);
+    await expect(themeButton).toBeHidden();
+    await expect(languageButton).toHaveCount(1);
+    await expect(languageButton).toBeHidden();
     // the desktop tenant/role row is hidden
     await expect(page.locator('[data-app-header-row]')).toBeHidden();
   });
