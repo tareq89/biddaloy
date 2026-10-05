@@ -1,13 +1,8 @@
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@biddaloy/ui/components';
+import { DataTable, type DataTableColumn } from '@biddaloy/ui/components';
 import { useAuditLogsByEntity } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatDateTime } from '@biddaloy/ui/utils';
+import { HistoryIcon } from 'lucide-react';
 
 import { TabQueryState } from './tab-query-state';
 
@@ -17,6 +12,9 @@ export interface ActivityTabProps {
 
 export function ActivityTab({ studentId }: ActivityTabProps) {
   const { t } = useTranslation('students');
+  // The route loader preloads `auditLogs`, so the action labels resolve without suspending.
+  const { t: tAudit } = useTranslation('auditLogs');
+  const config = useRegionConfig();
   const query = useAuditLogsByEntity('Student', studentId);
 
   return (
@@ -25,28 +23,46 @@ export function ActivityTab({ studentId }: ActivityTabProps) {
       forbiddenMessage={t('detail.forbidden')}
       errorMessage={t('detail.activity.errorMessage')}
     >
-      {(auditLogsPage) =>
-        auditLogsPage.data.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('detail.activity.emptyMessage')}</p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('detail.activity.columnDate')}</TableHead>
-                <TableHead>{t('detail.activity.columnAction')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {auditLogsPage.data.map((log) => (
-                <TableRow key={log.id}>
-                  <TableCell>{log.created_at}</TableCell>
-                  <TableCell>{log.action}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )
-      }
+      {(auditLogsPage) => {
+        type Row = (typeof auditLogsPage.data)[number];
+        const columns: DataTableColumn<Row>[] = [
+          {
+            id: 'date',
+            header: t('detail.activity.columnDate'),
+            accessorFn: (log) => formatDateTime(log.created_at, config),
+          },
+          {
+            id: 'action',
+            header: t('detail.activity.columnAction'),
+            accessorFn: (log) => tAudit(`actions.${log.action}`, { defaultValue: log.action }),
+            card: 'title',
+          },
+          {
+            id: 'by',
+            header: t('detail.activity.columnBy'),
+            accessorFn: (log) => log.performed_by_name ?? '—',
+            card: 'subtitle',
+          },
+        ];
+        return (
+          <DataTable
+            tableId="student-activity"
+            caption={t('detail.tabs.activity')}
+            paginated={false}
+            sorting={null}
+            onSortingChange={() => {}}
+            columns={columns}
+            data={auditLogsPage.data}
+            getRowId={(log) => log.id}
+            totalCount={auditLogsPage.data.length}
+            emptyState={{
+              title: t('detail.activity.emptyMessage'),
+              explanation: t('detail.activity.emptyExplanation'),
+              icon: <HistoryIcon aria-hidden="true" />,
+            }}
+          />
+        );
+      }}
     </TabQueryState>
   );
 }
