@@ -192,4 +192,46 @@ describe('SecretField', () => {
     // A cleared secret shows "Set", not "Clear" again — nothing left to clear.
     expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull();
   });
+
+  it('renders a description that the status text and the edit input both reference', async () => {
+    const { user } = renderWithProviders(
+      <SecretField
+        id="test-secret"
+        label="Access token"
+        masked={{ configured: true, hint: '••••4821' }}
+        value={undefined}
+        onChange={vi.fn()}
+        description="Stored encrypted."
+      />,
+      { locale: 'en' },
+    );
+
+    const help = await screen.findByText('Stored encrypted.');
+    expect(help.id).toBe('test-secret-help');
+    const status = screen.getByText('Configured — ends ••••4821');
+    expect(status.getAttribute('aria-describedby')).toBe('test-secret-help');
+
+    await user.click(screen.getByRole('button', { name: 'Replace' }));
+    expect(screen.getByLabelText('Access token').getAttribute('aria-describedby')).toBe(
+      'test-secret-help',
+    );
+  });
+
+  it('uses kit-sized buttons, not the small size', async () => {
+    renderWithProviders(
+      <SecretField
+        id="test-secret"
+        label="Access token"
+        masked={{ configured: true }}
+        value={undefined}
+        onChange={vi.fn()}
+      />,
+      { locale: 'en' },
+    );
+
+    for (const name of ['Replace', 'Clear']) {
+      const button = await screen.findByRole('button', { name });
+      expect(button.getAttribute('data-size')).not.toBe('sm');
+    }
+  });
 });
