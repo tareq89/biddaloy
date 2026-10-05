@@ -180,6 +180,22 @@ describe('/fees/fines', () => {
     },
   );
 
+  it('reflects the modal in the URL: opening sets ?generateFines, Close removes it', async () => {
+    server.use(finesHandler([]), ...referenceHandlers());
+    const { router } = render();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Make fines from rules' }));
+    expect(await screen.findByRole('dialog', { name: 'Make fines from rules' })).toBeTruthy();
+    expect(router.state.location.search).toMatchObject({ generateFines: '1' });
+
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(router.state.location.search).not.toHaveProperty('generateFines'));
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Make fines from rules' })).toBeNull(),
+    );
+  });
+
   it('hides Log fine / Generate fines for an EXECUTIVE (no FEE_GENERATE)', async () => {
     const fine = fineFactory({
       id: 'fine-1',
@@ -194,6 +210,13 @@ describe('/fees/fines', () => {
     // Logging a fine needs FEE_GENERATE too, so both entry points are gone.
     expect(screen.queryByRole('button', { name: 'Log fine' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Make fines from rules' })).toBeNull();
+  });
+
+  it('shows no modal to an EXECUTIVE who lands on ?logFine=1', async () => {
+    server.use(finesHandler([]), ...referenceHandlers());
+    render('EXECUTIVE', '/fees/fines?logFine=1');
+    await screen.findByRole('heading', { name: 'Fines' });
+    expect(screen.queryByRole('dialog', { name: 'Log fine' })).toBeNull();
   });
 
   it('shows the Waive row action to an ADMIN but not to an ACCOUNTANT (no FEE_APPROVE)', async () => {
