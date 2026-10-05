@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
@@ -19,11 +19,25 @@ export interface CallbackOutcome {
   location: string;
   /** Set when the callback signed the user in; the controller sets the cookie. */
   session?: AuthResult;
+  /** Registration ticket id; the controller puts it in a cookie, not the URL. */
+  ticket?: string;
 }
 
-/** Only same-origin paths may be carried through the flow (no open redirect). */
-function safeRedirect(value: string | undefined): string | undefined {
-  return value && /^\/(?![/\\])/.test(value) ? value : undefined;
+/**
+ * Only same-origin paths may be carried through the flow (no open redirect).
+ * Resolved with the URL parser so tab/newline/backslash tricks that browsers
+ * normalise (`/\t/evil.com`) are judged as the browser would read them.
+ */
+export function safeRedirect(value: string | undefined, appBase: string): string | undefined {
+  if (!value || !value.startsWith('/')) return undefined;
+  try {
+    const base = new URL(appBase);
+    const url = new URL(value, base);
+    if (url.origin !== base.origin) return undefined;
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return undefined;
+  }
 }
 
 @Injectable()
@@ -72,7 +86,7 @@ export class SocialAuthService {
       provider: provider.name,
       intent,
       userId,
-      redirect: safeRedirect(redirect),
+      redirect: safeRedirect(redirect, resolveAppBaseUrl(this.config)),
     });
     const url = provider.authorizeUrl({
       state,
@@ -95,7 +109,8 @@ export class SocialAuthService {
     const saved = await this.state.consume(query.state);
     // The state must also be the one this browser started (login-CSRF guard).
     if (!saved || saved.provider !== provider.name || boundState !== query.state) {
-      throw new BadRequestException('Invalid or expired sign-in state');
+      // Full-page navigation: send the person back with a message, no session.
+      return { location: this.appUrl('/login?social=failed') };
     }
 
     const back = this.backPath(saved.intent);
@@ -110,8 +125,8 @@ export class SocialAuthService {
         redirectUri: this.redirectUri(provider),
       });
     } catch (error) {
-      // The message never contains tokens; log it for operators only.
-      this.logger.warn(`${provider.name} exchange failed: ${(error as Error).message}`);
+      // Class name only: the message could quote token text.
+      this.logger.warn(`${provider.name} exchange failed: ${(error as Error).name}`);
       return { location: this.appUrl(`${back}?social=failed`) };
     }
 
@@ -142,7 +157,7 @@ export class SocialAuthService {
 
     if (saved.intent === 'register') {
       const ticket = await this.tickets.issue({ provider: provider.name, ...profile });
-      return { location: this.appUrl(`/register?social_ticket=${ticket}`) };
+      return { location: this.appUrl(`/register?social=${provider.name}`), ticket };
     }
     // Never connect by matching email (D9): an unknown identity just isn't linked.
     return { location: this.appUrl('/login?social=not_linked') };
