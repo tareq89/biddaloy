@@ -60,7 +60,7 @@ const EMPTY_VALUES: YearFormInitialValues = {
 };
 
 /** Label with a visual required mark; the control carries `aria-required`. */
-function Field({
+export function Field({
   label,
   htmlFor,
   children,
