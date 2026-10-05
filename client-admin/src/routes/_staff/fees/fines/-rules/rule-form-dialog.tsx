@@ -185,7 +185,7 @@ export function RuleFormDialog({
 
   const duplicateMessage =
     mutation.error instanceof ApiError && mutation.error.statusCode === 409
-      ? mutation.error.message
+      ? t('fines.rules.form.duplicateMessage')
       : null;
 
   const isEdit = mode === 'edit';

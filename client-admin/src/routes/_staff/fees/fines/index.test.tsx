@@ -196,6 +196,23 @@ describe('/fees/fines', () => {
     );
   });
 
+  it('starts clean on reopen after the modal was left with browser Back', async () => {
+    server.use(finesHandler([]), ...referenceHandlers());
+    const { router } = render();
+    const user = userEvent.setup();
+
+    await user.click((await screen.findAllByRole('button', { name: 'Log fine' }))[0]!);
+    const dialog = await screen.findByRole('dialog', { name: 'Log fine' });
+    await user.type(within(dialog).getByRole('textbox', { name: 'Reason' }), 'Typed then left');
+
+    router.history.back();
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Log fine' })).toBeNull());
+
+    await user.click((await screen.findAllByRole('button', { name: 'Log fine' }))[0]!);
+    const reopened = await screen.findByRole('dialog', { name: 'Log fine' });
+    expect(within(reopened).getByRole('textbox', { name: 'Reason' })).toHaveProperty('value', '');
+  });
+
   it('hides Log fine / Generate fines for an EXECUTIVE (no FEE_GENERATE)', async () => {
     const fine = fineFactory({
       id: 'fine-1',

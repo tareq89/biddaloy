@@ -81,7 +81,7 @@
     "allClasses": "সব শ্রেণি",
     "sectionLabel": "শাখা",
     "allSections": "সব শাখা",
-    "previewLine": "{{count}} জন শিক্ষার্থী, {{total}}",
+    "previewLine": "{{n}} জন শিক্ষার্থী, {{total}}",
     "previewZero": "এই মাসে কোনো জরিমানা তৈরি হবে না।",
     "duplicates": {
       "heading": "এই মাসের কিছু জরিমানা আগে থেকেই আছে",
