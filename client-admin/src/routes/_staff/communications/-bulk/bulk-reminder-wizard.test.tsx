@@ -180,6 +180,18 @@ describe('bulk reminder wizard', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Bulk Fee Reminders' })).toBeTruthy();
   });
 
+  it('asks before the footer Cancel discards ticked students', async () => {
+    server.use(duesHandler());
+    const user = userEvent.setup();
+    render();
+
+    await user.click(await screen.findByRole('checkbox', { name: `Select row ${n(1)}` }));
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(await screen.findByText('Discard your changes?')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Keep editing' }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Bulk Fee Reminders' })).toBeTruthy();
+  });
+
   it('lists months by name, asks for 25 rows by default and shows the step row', async () => {
     let limit: string | null = null;
     server.use(
