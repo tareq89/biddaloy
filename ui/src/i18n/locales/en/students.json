@@ -129,10 +129,7 @@
       "columnDiscount": "Discount",
       "columnBalance": "Balance",
       "columnStatus": "Status",
-      "columnActions": "Actions",
       "lateFeeBadge": "Late fee",
-      "recordPayment": "Record payment",
-      "recordPaymentSeamToast": "Record payment — coming soon ({{feeCount}} fee(s) selected)",
       "emptyMessage": "No open bills.",
       "errorMessage": "Couldn't load fee details.",
       "openBillsTab": "Open bills",
@@ -149,7 +146,12 @@
       "previousPage": "Previous",
       "nextPage": "Next",
       "pageOf": "Page {{page}} of {{totalPages}}",
-      "discountsTab": "Discounts"
+      "discountsTab": "Discounts",
+      "summaryLabel": "Fee summary",
+      "cardSubtitle": "Due {{due}} · Balance {{balance}}",
+      "emptyExplanation": "Every bill for this student is paid.",
+      "historyEmptyExplanation": "Paid bills will show up here.",
+      "walletEmptyExplanation": "Overpayments are kept here as credit."
     },
     "payments": {
       "columnDate": "Date",
@@ -367,7 +369,10 @@
       "errorReason": "Reason must be at least 3 characters.",
       "errorDateRange": "End date must be on or after the start date.",
       "errorSave": "Couldn't save the discount rule."
-    }
+    },
+    "emptyExplanation": "Add a rule and matching bills get the discount automatically.",
+    "fromDate": "From {{date}}",
+    "deleteConfirmDescriptionNamed": "The rule {{rule}} will be deleted. This can't be undone; future bills won't get the discount."
   },
   "photo": {
     "title": "Photo",
