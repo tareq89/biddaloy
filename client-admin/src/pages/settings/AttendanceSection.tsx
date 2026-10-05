@@ -34,15 +34,14 @@ import {
 import { useUpdateSchoolSettings, type AttendancePolicySettings } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
 import { useFormShellMode, useWarnUnsavedChanges } from '@biddaloy/ui/shells';
-import { boundedNumericString } from '@biddaloy/ui/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-import { MutationErrorMessage } from '../../components/MutationErrorMessage';
-
+import { latinBounded } from './latin-digits';
 import { SettingsSaved, SettingsSection } from './settings-layout';
+import { SettingsMutationError } from './settings-mutation-error';
 
 const HH_MM_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const;
@@ -70,8 +69,8 @@ const attendanceSchema = z.object({
   weeklyOff6: z.boolean(),
   lateAfter: z.string().regex(HH_MM_PATTERN),
   absentAfter: z.string().regex(HH_MM_PATTERN),
-  correctionWindowDays: boundedNumericString(0, 365),
-  lowAttendanceThresholdPercent: boundedNumericString(0, 100),
+  correctionWindowDays: latinBounded(0, 365),
+  lowAttendanceThresholdPercent: latinBounded(0, 100),
   lateCountsAsPresent: z.boolean(),
   leaveCountsAsWorkingDay: z.boolean(),
   allowFutureDates: z.boolean(),
@@ -292,7 +291,7 @@ export function AttendanceSection({ schoolId, attendance }: AttendanceSectionPro
         footerStart={
           <>
             {updateSettings.isSuccess && <SettingsSaved />}
-            {updateSettings.isError && <MutationErrorMessage error={updateSettings.error} />}
+            {updateSettings.isError && <SettingsMutationError error={updateSettings.error} />}
           </>
         }
       >

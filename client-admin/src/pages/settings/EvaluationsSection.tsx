@@ -20,9 +20,8 @@ import { Link } from '@tanstack/react-router';
 import { ArrowRightIcon, CircleAlertIcon } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 
-import { MutationErrorMessage } from '../../components/MutationErrorMessage';
-
 import { SettingsSaved, SettingsSection } from './settings-layout';
+import { SettingsMutationError } from './settings-mutation-error';
 
 interface FormValues {
   incidentSmsEnabled: boolean;
@@ -67,7 +66,7 @@ export function EvaluationsSection({
         footerStart={
           <>
             {updateSettings.isSuccess && <SettingsSaved />}
-            {updateSettings.isError && <MutationErrorMessage error={updateSettings.error} />}
+            {updateSettings.isError && <SettingsMutationError error={updateSettings.error} />}
           </>
         }
       >

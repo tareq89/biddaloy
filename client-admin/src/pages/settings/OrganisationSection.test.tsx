@@ -230,7 +230,8 @@ describe('OrganisationSection', () => {
     await user.click(groups.getByRole('button', { name: 'Add' }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect((await screen.findByRole('alert')).textContent).toBe('Something else went wrong.');
+    expect((await screen.findByRole('alert')).textContent).toBe("Couldn't save. Try again.");
+    expect(screen.queryByText('Something else went wrong.')).toBeNull();
 
     // A new edit makes the earlier error stale.
     await user.type(groups.getByPlaceholderText('Add a value'), 'Arts');

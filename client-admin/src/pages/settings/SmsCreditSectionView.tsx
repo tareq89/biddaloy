@@ -104,7 +104,7 @@ export function SmsCreditSectionView({
       ) : (
         <>
           {platform && (
-            <dl className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <dl className="mt-4 grid grid-cols-2 gap-3">
               <div className="rounded-md bg-muted p-3">
                 <dt className="text-caption text-text-secondary">{t('smsCredit.available')}</dt>
                 <dd className="text-h2 tabular-nums">{formatNumber(credits.available, config)}</dd>

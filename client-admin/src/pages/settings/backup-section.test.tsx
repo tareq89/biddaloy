@@ -230,7 +230,7 @@ describe('BackupSection', () => {
       { locale: 'en', role: 'ADMIN', tenantId: SCHOOL_ID },
     );
 
-    expect(await screen.findByText("Couldn't start the backup. Try again.")).toBeTruthy();
+    expect(await screen.findByText("Couldn't load your backups. Try again.")).toBeTruthy();
     expect(screen.queryByText('No backups yet')).toBeNull();
   });
 
