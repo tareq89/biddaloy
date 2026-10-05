@@ -260,7 +260,9 @@
     "programMilestone_one": "Milestone",
     "programMilestone_other": "Milestones",
     "programEnrollment_one": "Enrolment",
-    "programEnrollment_other": "Enrolments"
+    "programEnrollment_other": "Enrolments",
+    "exam_one": "Exam",
+    "exam_other": "Exams"
   },
   "form": {
     "required": "(required)",
@@ -326,5 +328,27 @@
     "until": "until {{time}}",
     "cellLabel": "{{weekday}}, {{period}}: {{subject}}, {{teachers}}",
     "cellLabelEmpty": "{{weekday}}, {{period}}: empty"
+  },
+  "enums": {
+    "paymentMethod": {
+      "CASH": "Cash",
+      "CHEQUE": "Cheque",
+      "BANK_TRANSFER": "Bank transfer",
+      "CARD": "Card",
+      "BKASH": "bKash",
+      "NAGAD": "Nagad",
+      "ROCKET": "Rocket"
+    },
+    "relationship": {
+      "father": "Father",
+      "mother": "Mother",
+      "brother": "Brother",
+      "sister": "Sister",
+      "grandfather": "Grandfather",
+      "grandmother": "Grandmother",
+      "uncle": "Uncle",
+      "aunt": "Aunt",
+      "other": "Other"
+    }
   }
 }

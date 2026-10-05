@@ -29,7 +29,7 @@ describe('useBreadcrumbs (wired into _staff.tsx)', () => {
       locale: 'en',
     });
 
-    const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    const nav = await screen.findByRole('navigation', { name: 'You are here' });
     const crumbItems = within(nav).getAllByRole('listitem');
     expect(crumbItems).toHaveLength(3);
     // Last crumb is the current page, rendered as text (`aria-current`),
@@ -57,7 +57,7 @@ describe('useBreadcrumbs (wired into _staff.tsx)', () => {
       locale: 'en',
     });
 
-    const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    const nav = await screen.findByRole('navigation', { name: 'You are here' });
     // Loader hasn't resolved yet — the dynamic crumb shows the raw id.
     await waitFor(() => expect(within(nav).getByText('student-1')).toBeTruthy());
 
@@ -89,7 +89,7 @@ describe('useBreadcrumbs (wired into _staff.tsx)', () => {
     });
 
     await screen.findByRole('heading', { level: 1 });
-    expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'You are here' })).toBeNull();
 
     vi.doUnmock('./route-crumbs');
     vi.resetModules();
