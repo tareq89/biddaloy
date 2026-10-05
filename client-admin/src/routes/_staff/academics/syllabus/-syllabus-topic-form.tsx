@@ -24,6 +24,7 @@ import {
   Textarea,
 } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { CircleAlert } from 'lucide-react';
 import * as React from 'react';
 
 export interface SyllabusTopicFormPayload {
@@ -64,6 +65,7 @@ export function SyllabusTopicFormDialog({
   onSubmit,
 }: SyllabusTopicFormDialogProps) {
   const { t } = useTranslation('syllabus');
+  const { t: tCommon } = useTranslation('common');
 
   const [name, setName] = React.useState(initialValues?.name ?? '');
   const [description, setDescription] = React.useState(initialValues?.description ?? '');
@@ -106,25 +108,40 @@ export function SyllabusTopicFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="md" closeLabel={tCommon('actions.close')}>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
           </DialogHeader>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="syllabus-topic-name" className="text-sm font-medium">
-              {t('form.nameLabel')}
+            <label htmlFor="syllabus-topic-name" className="text-label text-text-primary">
+              {t('form.nameLabel')}{' '}
+              <span className="text-destructive" aria-hidden="true">
+                *
+              </span>
+              <span className="sr-only">{t('form.required')}</span>
             </label>
             <Input
               id="syllabus-topic-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
+              aria-invalid={validationError ? true : undefined}
+              aria-describedby={validationError ? 'syllabus-topic-name-error' : undefined}
             />
+            {validationError && (
+              <p
+                id="syllabus-topic-name-error"
+                className="flex items-center gap-1 text-caption text-destructive"
+              >
+                <CircleAlert className="size-3.5" aria-hidden="true" />
+                {validationError}
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="syllabus-topic-description" className="text-sm font-medium">
+            <label htmlFor="syllabus-topic-description" className="text-label text-text-primary">
               {t('form.descriptionLabel')}
             </label>
             <Textarea
@@ -135,13 +152,15 @@ export function SyllabusTopicFormDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">{t('form.statusLabel')}</span>
+            <label htmlFor="syllabus-topic-status" className="text-label text-text-primary">
+              {t('form.statusLabel')}
+            </label>
             <Select
               value={status}
               onValueChange={(value) => setStatus(value as SyllabusTopicStatus)}
             >
-              <SelectTrigger aria-label={t('form.statusLabel')}>
-                <SelectValue />
+              <SelectTrigger id="syllabus-topic-status">
+                <SelectValue placeholder={tCommon('form.selectPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {Object.values(SyllabusTopicStatus).map((value) => (
@@ -153,11 +172,6 @@ export function SyllabusTopicFormDialog({
             </Select>
           </div>
 
-          {validationError && (
-            <p role="alert" className="text-sm text-destructive">
-              {validationError}
-            </p>
-          )}
           {isError && (
             <p role="alert" className="text-sm text-destructive">
               {t('form.genericError')}
@@ -166,8 +180,8 @@ export function SyllabusTopicFormDialog({
 
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="outline">
-                {t('form.cancel')}
+              <Button type="button" variant="outline" disabled={isPending}>
+                {tCommon('actions.cancel')}
               </Button>
             </DialogClose>
             <Button type="submit" loading={isPending}>
