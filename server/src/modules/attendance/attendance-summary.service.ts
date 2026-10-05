@@ -174,7 +174,9 @@ export class AttendanceSummaryService {
             .select('r.student_id', 'student_id')
             .addSelect('r.status', 'status')
             .addSelect('COUNT(*)', 'count')
+            .innerJoin('r.session', 's')
             .where('r.tenant_id = :tenantId', { tenantId })
+            .andWhere('s.period_no IS NULL')
             .andWhere('r.date = ANY(:workingDates)', { workingDates: workingDays.dates })
             .andWhere('r.student_id IN (:...studentIds)', { studentIds })
             .groupBy('r.student_id')
@@ -191,7 +193,9 @@ export class AttendanceSummaryService {
             .createQueryBuilder('r')
             .select('r.student_id', 'student_id')
             .addSelect('COUNT(DISTINCT r.date)', 'marked_days')
+            .innerJoin('r.session', 's')
             .where('r.tenant_id = :tenantId', { tenantId })
+            .andWhere('s.period_no IS NULL')
             .andWhere('r.date = ANY(:workingDates)', { workingDates: workingDays.dates })
             .andWhere('r.student_id IN (:...studentIds)', { studentIds })
             .groupBy('r.student_id')
@@ -298,7 +302,12 @@ export class AttendanceSummaryService {
     const workingDaySet = new Set(workingDays.dates);
 
     const records = await this.recordRepo.find({
-      where: { tenant_id: tenantId, student_id: studentId, date: In(everyDateInRange(from, to)) },
+      where: {
+        tenant_id: tenantId,
+        student_id: studentId,
+        date: In(everyDateInRange(from, to)),
+        session: { period_no: IsNull() },
+      },
     });
     const recordByDate = new Map(records.map((r) => [r.date, r]));
 
@@ -415,6 +424,7 @@ export class AttendanceSummaryService {
               tenant_id: tenantId,
               student_id: In(studentIds),
               date: In(everyDateInRange(from, to)),
+              session: { period_no: IsNull() },
             },
           });
     const marksByStudent = new Map<string, Map<string, AttendanceStatus>>();

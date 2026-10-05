@@ -143,13 +143,11 @@ describe('attendance fine triggers (integration)', () => {
     });
 
     it("is invisible to another tenant's records", async () => {
-      const otherSchool = await dataSource
-        .getRepository(School)
-        .save({
-          name: `Other Tenant ${Date.now()}`,
-          slug: `other-tenant-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          settings: { version: 1 } as any,
-        });
+      const otherSchool = await dataSource.getRepository(School).save({
+        name: `Other Tenant ${Date.now()}`,
+        slug: `other-tenant-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        settings: { version: 1 } as any,
+      });
       const otherYear = await dataSource.getRepository(AcademicYear).save({
         name: 'Other Tenant Year',
         start_date: '2026-01-01',
@@ -238,14 +236,7 @@ describe('attendance fine triggers (integration)', () => {
   describe('attendanceLateTrigger', () => {
     it('counts a LATE record with null minutes_late regardless of a min_minutes_late condition', async () => {
       const studentId = await makeStudent('LateNull');
-      await mark(
-        tenantId,
-        sectionId,
-        studentId,
-        '2026-11-01',
-        AttendanceStatus.LATE,
-        null,
-      );
+      await mark(tenantId, sectionId, studentId, '2026-11-01', AttendanceStatus.LATE, null);
 
       const result = await attendanceLateTrigger.count(
         dataSource.manager,
@@ -274,6 +265,75 @@ describe('attendance fine triggers (integration)', () => {
         [],
       );
 
+      expect(result.has(studentId)).toBe(false);
+    });
+  });
+
+  describe('period registers are ignored (D1)', () => {
+    async function markPeriods(
+      studentId: string,
+      date: string,
+      status: AttendanceStatus,
+    ): Promise<void> {
+      for (const periodNo of [1, 2, 3]) {
+        const sessionRepo = dataSource.getRepository(AttendanceSession);
+        const where = {
+          tenant_id: tenantId,
+          section_id: sectionId,
+          date: date,
+          period_no: periodNo,
+        };
+        const session =
+          (await sessionRepo.findOne({ where })) ??
+          (await sessionRepo.save({
+            tenant_id: tenantId,
+            section_id: sectionId,
+            date,
+            period_no: periodNo,
+            state: AttendanceSessionState.FINALIZED,
+          }));
+        await dataSource.getRepository(AttendanceRecord).save({
+          tenant_id: tenantId,
+          session_id: session.id,
+          student_id: studentId,
+          date,
+          status,
+          minutes_late: 30,
+        });
+      }
+    }
+
+    it('ATTENDANCE_ABSENT: absent in 3 periods but present for the day counts 0', async () => {
+      const studentId = await makeStudent('PeriodAbsent');
+      await mark(tenantId, sectionId, studentId, '2026-12-02', AttendanceStatus.PRESENT);
+      await markPeriods(studentId, '2026-12-02', AttendanceStatus.ABSENT);
+
+      const result = await attendanceAbsentTrigger.count(
+        dataSource.manager,
+        tenantId,
+        '2026-12-01',
+        '2026-12-05',
+        {},
+        {},
+        [],
+      );
+      expect(result.has(studentId)).toBe(false);
+    });
+
+    it('ATTENDANCE_LATE: late in 3 periods but present for the day counts 0', async () => {
+      const studentId = await makeStudent('PeriodLate');
+      await mark(tenantId, sectionId, studentId, '2026-12-02', AttendanceStatus.PRESENT);
+      await markPeriods(studentId, '2026-12-02', AttendanceStatus.LATE);
+
+      const result = await attendanceLateTrigger.count(
+        dataSource.manager,
+        tenantId,
+        '2026-12-01',
+        '2026-12-05',
+        {},
+        {},
+        [],
+      );
       expect(result.has(studentId)).toBe(false);
     });
   });
