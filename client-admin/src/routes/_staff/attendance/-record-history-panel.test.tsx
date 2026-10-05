@@ -65,7 +65,7 @@ describe('RecordHistoryPanel', () => {
     expect(within(rows[1]!).getByText(/inter-school meet/)).toBeTruthy();
   });
 
-  it('renders the raw performed_by_user_id when no name was joined', async () => {
+  it('renders a generic actor line, never the user id, when no name was joined', async () => {
     server.use(
       http.get('/api/v1/attendance/records/record-1/history', () =>
         HttpResponse.json({
@@ -79,7 +79,8 @@ describe('RecordHistoryPanel', () => {
     );
 
     renderPanel();
-    expect(await screen.findByText(/user-1/)).toBeTruthy();
+    expect(await screen.findByText(/Corrected by a user/)).toBeTruthy();
+    expect(screen.queryByText(/user-1/)).toBeNull();
   });
 
   it('renders an empty state when the record has never been corrected', async () => {
