@@ -188,9 +188,12 @@ test.describe.serial('seat plans: generate -> reseat -> reshuffle -> publish', (
     await expect(page.getByRole('heading', { name: planName })).toBeVisible();
 
     // --- reseat one student to the other room -------------------------------
-    const reseatButtons = page.getByRole('button', {
-      name: t('seatPlansDetail.room.reseatButton'),
-    });
+    // The icon button is named "<Change seat> — <student>": match on the fixed part.
+    const reseatLabel = t('seatPlansDetail.room.reseatButton', { name: '' }).replace(
+      /\s*[—-]\s*$/,
+      '',
+    );
+    const reseatButtons = page.getByRole('button', { name: reseatLabel });
     await reseatButtons.first().click();
     await expect(page.getByRole('dialog')).toBeVisible();
     const roomCombobox = page.getByRole('combobox', {
@@ -214,24 +217,29 @@ test.describe.serial('seat plans: generate -> reseat -> reshuffle -> publish', (
       .getByRole('button', { name: t('seatPlansDetail.room.reshuffleButton') })
       .first()
       .click();
+    // Reseating a room throws away manual moves, so it asks first.
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: t('seatPlansDetail.reshuffle.confirm') })
+      .click();
     await expect(page.getByRole('alert')).toHaveCount(0);
 
     // --- publish --------------------------------------------------------------
     await page.getByRole('button', { name: t('seatPlansDetail.detail.publishButton') }).click();
-    await expect(page.getByRole('dialog')).toBeVisible();
-    await page.getByRole('button', { name: t('seatPlansDetail.publish.confirm') }).click();
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: t('seatPlansDetail.publish.confirm') })
+      .click();
     await expect(page.getByText(t('seatPlansDetail.detail.publishedBanner'))).toBeVisible();
 
-    // Edit controls are disabled once published.
+    // Edit controls are gone (hidden, not disabled) once published.
+    await expect(page.getByRole('button', { name: reseatLabel })).toHaveCount(0);
     await expect(
-      page.getByRole('button', { name: t('seatPlansDetail.room.reseatButton') }).first(),
-    ).toBeDisabled();
-    await expect(
-      page.getByRole('button', { name: t('seatPlansDetail.room.reshuffleButton') }).first(),
-    ).toBeDisabled();
+      page.getByRole('button', { name: t('seatPlansDetail.room.reshuffleButton') }),
+    ).toHaveCount(0);
     await expect(
       page.getByRole('button', { name: t('seatPlansDetail.detail.publishButton') }),
-    ).toBeDisabled();
+    ).toHaveCount(0);
 
     // --- re-generating against an already-published schedule is rejected ----
     const response = await request.post('/api/v1/seat-plans/generate', {

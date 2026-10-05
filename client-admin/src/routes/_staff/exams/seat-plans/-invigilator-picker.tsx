@@ -17,6 +17,8 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 const UNASSIGNED = '__unassigned__';
 
 export interface InvigilatorPickerProps {
+  /** Id for the trigger, so a visible `<Label htmlFor>` names it. Without it an `aria-label` does. */
+  id?: string;
   planId: string;
   roomId: string;
   invigilatorUserId: string | null;
@@ -24,6 +26,7 @@ export interface InvigilatorPickerProps {
 }
 
 export function InvigilatorPicker({
+  id,
   planId,
   roomId,
   invigilatorUserId,
@@ -47,7 +50,10 @@ export function InvigilatorPicker({
       onValueChange={handleChange}
       disabled={disabled}
     >
-      <SelectTrigger aria-label={t('room.invigilatorLabel')} className="w-56">
+      <SelectTrigger
+        {...(id ? { id } : { 'aria-label': t('room.invigilatorLabel') })}
+        className="w-full md:w-56"
+      >
         <SelectValue placeholder={t('room.invigilatorPlaceholder')} />
       </SelectTrigger>
       <SelectContent>
