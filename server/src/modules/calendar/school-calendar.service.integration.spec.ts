@@ -12,6 +12,8 @@ import { SchoolCalendarService } from './school-calendar.service';
 import { School } from '../schools/entities/school.entity';
 import { AcademicYear } from '../academics/entities/academic-year.entity';
 import { CalendarEvent } from './entities/calendar-event.entity';
+import { CalendarEventClass } from './entities/calendar-event-class.entity';
+import { Class } from '../academics/entities/class.entity';
 
 /**
  * Integration tests for `SchoolCalendarService`'s working-day math — the
@@ -212,6 +214,68 @@ describe('SchoolCalendarService (integration)', () => {
       });
       expect(result.dates).toEqual(['2026-09-01', '2026-09-02', '2026-09-03']);
       expect(result.count).toBe(3);
+    });
+  });
+
+  describe('getWorkingDays with classId (D25)', () => {
+    let class9: string;
+    let class11: string;
+
+    beforeAll(async () => {
+      const repo = dataSource.getRepository(Class);
+      class9 = (
+        await repo.save({ name: 'Cal 9', academic_year_id: academicYearAId, tenant_id: TENANT_A })
+      ).id;
+      class11 = (
+        await repo.save({ name: 'Cal 11', academic_year_id: academicYearAId, tenant_id: TENANT_A })
+      ).id;
+    });
+
+    async function holiday(scopedTo: string[], published = true): Promise<void> {
+      const event = await dataSource.getRepository(CalendarEvent).save({
+        tenant_id: TENANT_A,
+        academic_year_id: academicYearAId,
+        start_date: '2026-09-02',
+        end_date: '2026-09-02',
+        name: 'Scoped Break',
+        counts_as_working_day: false,
+        published_at: published ? new Date() : null,
+      });
+      for (const classId of scopedTo) {
+        await dataSource
+          .getRepository(CalendarEventClass)
+          .save({ event_id: event.id, class_id: classId, tenant_id: TENANT_A });
+      }
+    }
+    const count = (classId?: string) =>
+      service
+        .getWorkingDays({ tenantId: TENANT_A, from: '2026-09-01', to: '2026-09-03', classId })
+        .then((r) => r.count);
+
+    it('a school-wide event counts for any class and for none', async () => {
+      await holiday([]);
+      expect(await count(class9)).toBe(2);
+      expect(await count(class11)).toBe(2);
+      expect(await count()).toBe(2);
+    });
+
+    it('a class-scoped event counts for its class only, not for another or for none', async () => {
+      await holiday([class9]);
+      expect(await count(class9)).toBe(2);
+      expect(await count(class11)).toBe(3);
+      expect(await count()).toBe(3);
+    });
+
+    it('a draft class-scoped event never counts', async () => {
+      await holiday([class9], false);
+      expect(await count(class9)).toBe(3);
+    });
+
+    it('isNonWorkingDay honours classId', async () => {
+      await holiday([class9]);
+      const day = { tenantId: TENANT_A, date: '2026-09-02' };
+      expect(await service.isNonWorkingDay({ ...day, classId: class9 })).toBe(true);
+      expect(await service.isNonWorkingDay({ ...day, classId: class11 })).toBe(false);
     });
   });
 
