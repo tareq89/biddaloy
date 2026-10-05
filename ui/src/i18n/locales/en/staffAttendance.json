@@ -9,7 +9,17 @@
     "loading": "Loading staff…",
     "emptyTitle": "No staff yet",
     "emptyMessage": "Add a staff member before marking attendance.",
-    "emptyAction": "Add staff"
+    "emptyAction": "Add staff",
+    "staffCount_one": "{{count}} staff member",
+    "staffCount_other": "{{count}} staff members",
+    "rosterHeading": "Staff",
+    "countPresent": "Present {{n}}",
+    "countAbsent": "Absent {{n}}",
+    "countLate": "Late {{n}}",
+    "countLeave": "Leave {{n}}",
+    "countUnmarked": "Unmarked {{n}}",
+    "unmarkedRemaining": "{{n}} unmarked",
+    "shortcutHint": "Shortcuts: Enter on a name marks present · L marks leave · clicking a name switches present and absent"
   },
   "summary": {
     "title": "Attendance summary",
