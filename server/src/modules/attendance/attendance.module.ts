@@ -7,6 +7,7 @@ import { AttendanceDevice } from './entities/attendance-device.entity';
 import { AttendanceDeviceEvent } from './entities/attendance-device-event.entity';
 import { Student } from '../students/entities/student.entity';
 import { ClassSection } from '../academics/entities/class-section.entity';
+import { Teacher } from '../academics/entities/teacher.entity';
 import { TeacherClassSection } from '../academics/entities/teacher-class-section.entity';
 import { UserTenant } from '../auth/entities/user-tenant.entity';
 import { ReminderBatch } from '../communications/entities/reminder-batch.entity';
@@ -15,6 +16,8 @@ import { COMMUNICATIONS_QUEUE } from '../communications/communications.constants
 import { AuditModule } from '../audit/audit.module';
 import { SchoolsModule } from '../schools/schools.module';
 import { CalendarModule } from '../calendar/calendar.module';
+import { RoutinesModule } from '../routines/routines.module';
+import { PeriodSlot } from '../routines/entities/period-slot.entity';
 import { StudentModule } from '../students/students.module';
 import { AttendanceController } from './attendance.controller';
 import { AttendanceService } from './attendance.service';
@@ -60,6 +63,8 @@ import { DeviceIngestController } from './devices/device-ingest.controller';
       Student,
       ClassSection,
       TeacherClassSection,
+      Teacher,
+      PeriodSlot,
       UserTenant,
       // ReminderBatch/CommunicationLog: [9.8]'s AbsenceNoticeService writes
       // ordinary ReminderBatch/CommunicationLog rows through the same
@@ -73,6 +78,7 @@ import { DeviceIngestController } from './devices/device-ingest.controller';
     SchoolsModule,
     CalendarModule,
     StudentModule,
+    RoutinesModule,
     // Registered here (not exported from CommunicationsModule) so
     // AbsenceNoticeService can enqueue onto the exact same Redis-backed
     // queue the communications worker already consumes — same queue name,
