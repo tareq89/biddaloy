@@ -100,7 +100,9 @@ export const CoveringDay: Story = {
 export const Holiday: Story = {
   render: () => (
     <Wrapper
-      days={BASE_DAYS.map((day, i) => (i === 0 ? { ...day, offReason: 'Holiday — Eid ul-Fitr' } : day))}
+      days={BASE_DAYS.map((day, i) =>
+        i === 0 ? { ...day, offReason: 'Holiday — Eid ul-Fitr' } : day,
+      )}
     />
   ),
 };
