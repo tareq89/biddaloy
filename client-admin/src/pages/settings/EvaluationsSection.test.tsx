@@ -40,12 +40,12 @@ describe('EvaluationsSection', () => {
       </WithTestRouter>,
       opts,
     );
-    expect(await screen.findByText('No SMS provider is set up.')).toBeTruthy();
+    expect(await screen.findByText('No SMS company added.')).toBeTruthy();
     expect(
-      screen.getByRole('link', { name: 'Communication › set up SMS' }).getAttribute('href'),
+      screen.getByRole('link', { name: 'Communication › add SMS company' }).getAttribute('href'),
     ).toBe('/settings?section=communication');
     expect((await screen.findByRole('alert')).textContent).toContain(
-      'Incident SMS will not be sent until an SMS provider is set up in Communication.',
+      'Incident SMS will not be sent until an SMS company is added in Communication.',
     );
   });
 
@@ -60,8 +60,8 @@ describe('EvaluationsSection', () => {
       </WithTestRouter>,
       opts,
     );
-    expect(await screen.findByText('SMS provider is set up')).toBeTruthy();
-    expect(screen.queryByRole('link', { name: 'Communication › set up SMS' })).toBeNull();
+    expect(await screen.findByText('SMS company added')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Communication › add SMS company' })).toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
