@@ -153,7 +153,10 @@
     "error": {
       "message": "সিলেবাস লোড করা যায়নি।",
       "retry": "আবার চেষ্টা করুন"
-    }
+    },
+    "progressLabel": "{{total}}টির মধ্যে {{done}}টি বিষয়বস্তু সম্পন্ন",
+    "noClassTitle": "এখনও কোনো শ্রেণিতে যুক্ত নয়",
+    "emptyTitle": "এখনও কোনো সিলেবাস নেই"
   },
   "attendanceGrid": {
     "caption": "{{month}} {{year}}",

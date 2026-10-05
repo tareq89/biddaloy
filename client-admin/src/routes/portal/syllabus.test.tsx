@@ -135,12 +135,51 @@ describe('/portal/syllabus', () => {
 
     const mathHeading = headings[1];
     expect(mathHeading).toBeTruthy();
-    const mathCard = mathHeading?.closest('div');
+    const mathCard = mathHeading?.closest('article');
     expect(mathCard).toBeTruthy();
     const items = within(mathCard as HTMLElement).getAllByRole('listitem');
     expect(items.map((li) => li.textContent)).toEqual([
       expect.stringContaining('Algebra'),
       expect.stringContaining('Geometry'),
+    ]);
+  });
+
+  it('shows per-subject progress and numbers the rows 1…n, not by sequence', async () => {
+    mockSyllabus({
+      students: [fatima],
+      topicsByClass: {
+        [classA.id]: [10, 11, 20, 30, 40].map((sequence, i) =>
+          topic({
+            id: `t${i}`,
+            subject_id: 's-math',
+            subject_name_en: 'Mathematics',
+            name: `Topic ${i + 1}`,
+            sequence,
+            status: i < 2 ? 'DONE' : 'PLANNED',
+          }),
+        ),
+      },
+    });
+    renderSyllabus();
+
+    const card = (await screen.findByRole('heading', { level: 2, name: 'Mathematics' })).closest(
+      'article',
+    ) as HTMLElement;
+    expect(within(card).getByText('2 of 5 topics done')).toBeTruthy();
+    expect(within(card).getByRole('progressbar').getAttribute('aria-valuenow')).toBe('2');
+    const numbers = within(card)
+      .getAllByRole('listitem')
+      .map((li) => li.firstElementChild?.textContent);
+    expect(numbers).toEqual(['1', '2', '3', '4', '5']);
+  });
+
+  it('shows the child in the subtitle and exactly one h1', async () => {
+    mockSyllabus({ students: [fatima], topicsByClass: { [classA.id]: [] } });
+    renderSyllabus();
+
+    expect(await screen.findByText(/^Fatima Rahman · /)).toBeTruthy();
+    expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual([
+      'Syllabus',
     ]);
   });
 
@@ -170,7 +209,10 @@ describe('/portal/syllabus', () => {
     mockSyllabus({ students: [child('No Class Kid', FATIMA_ID, 3, null)], topicsByClass: {} });
     renderSyllabus();
 
-    expect(await screen.findByText(/isn't assigned to a class yet/)).toBeTruthy();
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Not in a class yet' }),
+    ).toBeTruthy();
+    expect(screen.getByText(/isn't assigned to a class yet/)).toBeTruthy();
     expect(syllabusRequests).toHaveLength(0);
   });
 
@@ -178,9 +220,8 @@ describe('/portal/syllabus', () => {
     mockSyllabus({ students: [fatima], topicsByClass: { [classA.id]: [] } });
     renderSyllabus();
 
-    expect(
-      await screen.findByText('No syllabus topics have been added for this class yet.'),
-    ).toBeTruthy();
+    expect(await screen.findByRole('heading', { level: 2, name: 'No syllabus yet' })).toBeTruthy();
+    expect(screen.getByText('No syllabus topics have been added for this class yet.')).toBeTruthy();
   });
 
   it('shows a retryable error and refetches on retry', async () => {
@@ -231,5 +272,27 @@ describe('/portal/syllabus', () => {
     const sidebar = screen.getByRole('navigation', { name: 'Main' });
     expect(within(sidebar).getAllByRole('link')).toHaveLength(11);
     expect(within(sidebar).getByRole('link', { name: 'Syllabus' })).toBeTruthy();
+  });
+
+  it('is axe clean', async () => {
+    mockSyllabus({
+      students: [fatima],
+      topicsByClass: {
+        [classA.id]: [
+          topic({
+            id: 't1',
+            subject_id: 's-math',
+            subject_name_en: 'Mathematics',
+            name: 'Algebra',
+            sequence: 0,
+            status: 'DONE',
+          }),
+        ],
+      },
+    });
+    const { container } = renderSyllabus();
+
+    await screen.findByText('Algebra');
+    await expect(container).toHaveNoViolations();
   });
 });
