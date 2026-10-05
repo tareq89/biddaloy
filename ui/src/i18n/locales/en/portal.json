@@ -153,7 +153,10 @@
     "error": {
       "message": "Couldn't load the syllabus.",
       "retry": "Try again"
-    }
+    },
+    "progressLabel": "{{done}} of {{total}} topics done",
+    "noClassTitle": "Not in a class yet",
+    "emptyTitle": "No syllabus yet"
   },
   "attendanceGrid": {
     "caption": "{{month}} {{year}}",
