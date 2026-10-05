@@ -186,6 +186,81 @@ describe('studentsTab (integration)', () => {
   }
 
   describe('upsert', () => {
+    describe('seat limit [13.2.3]', () => {
+      const ctx = async (limit: number | null) => {
+        await schoolRepo.update(TENANT_A, { seat_limit: limit });
+        return seedChain(TENANT_A, 'seat');
+      };
+
+      it('refuses a NEW active student past the limit and writes nothing', async () => {
+        const chain = await ctx(1);
+        await studentsTab.upsert(rowFor(chain), null, TENANT_A, dataSource.manager);
+
+        await expect(
+          studentsTab.upsert(
+            rowFor(chain, { registration_number: 'STU-002', roll_number: 2 }),
+            null,
+            TENANT_A,
+            dataSource.manager,
+          ),
+        ).rejects.toMatchObject({ response: { details: { code: 'SEAT_LIMIT_REACHED' } } });
+        expect(await studentRepo.count({ where: { tenant_id: TENANT_A } })).toBe(1);
+      });
+
+      it('updating an already-active student never needs a new seat', async () => {
+        const chain = await ctx(1);
+        const first = await studentsTab.upsert(rowFor(chain), null, TENANT_A, dataSource.manager);
+        await expect(
+          studentsTab.upsert(
+            rowFor(chain, { full_name: 'Renamed' }),
+            first,
+            TENANT_A,
+            dataSource.manager,
+          ),
+        ).resolves.toBeDefined();
+      });
+
+      it('a non-ACTIVE row takes no seat, but re-activating one does', async () => {
+        const chain = await ctx(1);
+        await studentsTab.upsert(rowFor(chain), null, TENANT_A, dataSource.manager);
+        const left = await studentsTab.upsert(
+          rowFor(chain, {
+            registration_number: 'STU-002',
+            roll_number: 2,
+            enrollment_status: EnrollmentStatus.INACTIVE,
+          }),
+          null,
+          TENANT_A,
+          dataSource.manager,
+        );
+        await expect(
+          studentsTab.upsert(
+            rowFor(chain, {
+              registration_number: 'STU-002',
+              roll_number: 2,
+              enrollment_status: EnrollmentStatus.ACTIVE,
+            }),
+            left,
+            TENANT_A,
+            dataSource.manager,
+          ),
+        ).rejects.toMatchObject({ response: { details: { code: 'SEAT_LIMIT_REACHED' } } });
+      });
+
+      it('null limit is unlimited', async () => {
+        const chain = await ctx(null);
+        await studentsTab.upsert(rowFor(chain), null, TENANT_A, dataSource.manager);
+        await expect(
+          studentsTab.upsert(
+            rowFor(chain, { registration_number: 'STU-002', roll_number: 2 }),
+            null,
+            TENANT_A,
+            dataSource.manager,
+          ),
+        ).resolves.toBeDefined();
+      });
+    });
+
     it('creates a new student with the right class_section_id and join rows', async () => {
       const chain = await seedChain(TENANT_A, 'cws');
       const g1 = await makeGuardian(TENANT_A, { phone: '01711111111' });
