@@ -1,4 +1,5 @@
 import { act, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type * as React from 'react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -200,5 +201,72 @@ describe('ListShell — typed `filters` prop', () => {
     expect(screen.getByRole('textbox', { name: 'Legacy search' })).toBeTruthy();
     expect(screen.getByRole('textbox', { name: 'Search' })).toBeTruthy();
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('both `filterBar`'));
+  });
+});
+
+describe('ListShell — phone filter sheet and empty state', () => {
+  const SELECT_FIELDS: FilterFieldDescriptor[] = [
+    {
+      kind: 'select',
+      key: 'class',
+      label: 'Class',
+      allLabel: 'All classes',
+      options: [{ value: 'six', label: 'Six' }],
+    },
+  ];
+
+  function renderShell(extra: { loading?: boolean; data?: Student[]; totalCount: number }) {
+    return renderInEnglish(
+      <ListShell
+        title="Students"
+        filters={{ fields: SELECT_FIELDS, values: {}, onChange: vi.fn() }}
+        tableId="students-sheet"
+        caption="Students"
+        columns={COLUMNS}
+        data={extra.data ?? STUDENTS}
+        getRowId={(row) => row.id}
+        sorting={null}
+        onSortingChange={vi.fn()}
+        page={1}
+        pageSize={20}
+        totalCount={extra.totalCount}
+        onPageChange={vi.fn()}
+        {...(extra.loading ? { loading: true } : {})}
+      />,
+    );
+  }
+
+  it("the filter sheet's primary button shows the list total", async () => {
+    await renderShell({ totalCount: 48 });
+    await userEvent.click(screen.getByRole('button', { name: 'Filters' }));
+    expect(await screen.findByRole('button', { name: 'Show 48 results' })).toBeTruthy();
+  });
+
+  it('while loading, the sheet says "Show results" instead of a stale number', async () => {
+    await renderShell({ totalCount: 48, loading: true });
+    await userEvent.click(screen.getByRole('button', { name: 'Filters' }));
+    expect(await screen.findByRole('button', { name: 'Show results' })).toBeTruthy();
+  });
+
+  it('an `emptyState` renders the kit EmptyState instead of the table', async () => {
+    await renderInEnglish(
+      <ListShell
+        title="Students"
+        emptyState={{ title: 'No students yet', explanation: 'Add the first one.' }}
+        tableId="students-empty"
+        caption="Students"
+        columns={COLUMNS}
+        data={[]}
+        getRowId={(row) => row.id}
+        sorting={null}
+        onSortingChange={vi.fn()}
+        page={1}
+        pageSize={20}
+        totalCount={0}
+        onPageChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('heading', { name: 'No students yet' })).toBeTruthy();
+    expect(screen.queryByRole('table')).toBeNull();
   });
 });
