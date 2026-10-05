@@ -21,12 +21,16 @@ import {
   conflictViolations,
   useCreateRoutineSlot,
   useGreedyFill,
+  usePeriodSlotLookup,
   useSubjects,
   useTeachers,
   type ProposedSlot,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
 import * as React from 'react';
+
+import { subjectName } from './-subject-name';
 
 export interface FillAssistDialogProps {
   open: boolean;
@@ -45,7 +49,9 @@ export function FillAssistDialog({
   weekdayLabels,
   onDone,
 }: FillAssistDialogProps) {
-  const { t } = useTranslation('routines');
+  const { t, i18n } = useTranslation('routines');
+  const config = useRegionConfig();
+  const periodLookup = usePeriodSlotLookup();
   const greedyFill = useGreedyFill(routineId);
   const createSlot = useCreateRoutineSlot(routineId);
   const subjectsQuery = useSubjects({});
@@ -65,13 +71,25 @@ export function FillAssistDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch fresh proposals every time the dialog opens
   }, [open]);
 
-  const subjectName = (id: string) =>
-    subjectsQuery.data?.data.find((subject) => subject.id === id)?.name_en ?? id;
+  const subjectLabel = (id: string) =>
+    subjectName(
+      subjectsQuery.data?.data.find((subject) => subject.id === id),
+      i18n.language,
+    );
   const teacherNames = (ids: string[]) =>
     ids
-      .map((id) => teachersQuery.data?.data.find((teacher) => teacher.id === id)?.user.full_name)
-      .filter(Boolean)
+      .map(
+        (id) =>
+          teachersQuery.data?.data.find((teacher) => teacher.id === id)?.user.full_name ?? '—',
+      )
       .join(', ');
+  const whenLabel = (proposal: ProposedSlot) => {
+    const sequence = periodLookup.data?.[proposal.period_slot_id]?.sequence;
+    const day = weekdayLabels[proposal.weekday] ?? '';
+    return sequence === undefined
+      ? day
+      : t('fillAssist.rowWhen', { day, period: t('agenda.periodLabel', { sequence }) });
+  };
 
   async function handleConfirm() {
     if (!proposals || proposals.length === 0) return;
@@ -102,7 +120,12 @@ export function FillAssistDialog({
     } catch (error) {
       setProposals((current) => current?.slice(applied) ?? null);
       const violations = conflictViolations(error);
-      toast.error(violations?.map((v) => v.message).join('\n') ?? t('builder.saveErrorToast'));
+      const first = violations?.[0];
+      toast.error(
+        first
+          ? t(`conflictList.codes.${first.code}`, { defaultValue: t('conflictList.codes.unknown') })
+          : t('builder.saveErrorToast'),
+      );
       if (applied > 0) onDone();
     } finally {
       setApplying(false);
@@ -111,7 +134,7 @@ export function FillAssistDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>{t('fillAssist.title')}</DialogTitle>
           <DialogDescription>{t('fillAssist.description')}</DialogDescription>
@@ -119,31 +142,39 @@ export function FillAssistDialog({
 
         {greedyFill.isPending && (
           <div className="flex flex-col gap-2" aria-hidden="true">
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
           </div>
         )}
 
         {proposals !== null && proposals.length === 0 && (
-          <p className="text-sm text-muted-foreground">{t('fillAssist.empty')}</p>
+          <p className="text-text-secondary">{t('fillAssist.empty')}</p>
         )}
 
         {proposals !== null && proposals.length > 0 && (
-          <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto text-sm">
+          <ul className="max-h-80 divide-y divide-border-subtle overflow-y-auto">
             {proposals.map((proposal, index) => (
               <li
                 key={`${proposal.weekday}-${proposal.period_slot_id}-${index}`}
-                className="rounded-md border border-border-subtle p-2"
+                className="flex items-start gap-3 py-2"
               >
-                <span className="font-medium">{weekdayLabels[proposal.weekday]}</span> ·{' '}
-                {subjectName(proposal.subject_id)} · {teacherNames(proposal.teacher_ids)}
+                <div>
+                  <p className="font-medium">{whenLabel(proposal)}</p>
+                  <p className="text-text-secondary">
+                    {t('fillAssist.rowWhat', {
+                      subject: subjectLabel(proposal.subject_id),
+                      teachers: teacherNames(proposal.teacher_ids),
+                    })}
+                  </p>
+                </div>
               </li>
             ))}
           </ul>
         )}
 
         <DialogFooter>
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {t('fillAssist.cancel')}
           </Button>
           <Button
@@ -152,7 +183,10 @@ export function FillAssistDialog({
             loading={applying}
             onClick={() => void handleConfirm()}
           >
-            {t('fillAssist.confirm', { count: proposals?.length ?? 0 })}
+            {t('fillAssist.confirm', {
+              count: proposals?.length ?? 0,
+              formattedCount: formatNumber(proposals?.length ?? 0, config),
+            })}
           </Button>
         </DialogFooter>
       </DialogContent>

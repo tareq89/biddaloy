@@ -21,6 +21,13 @@ import {
   DialogTitle,
   Input,
   Label,
+  RadioGroup,
+  RadioGroupItem,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@biddaloy/ui/components';
 import {
   useSubjects,
@@ -28,10 +35,13 @@ import {
   type ConstraintViolation,
   type SlotRecurrenceValue,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
+import { CheckIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { ConflictList } from './-conflict-list';
+import { subjectName } from './-subject-name';
 
 export interface CellPickerValue {
   subjectId: string;
@@ -58,7 +68,18 @@ export interface CellPickerProps {
    * keeps the user's in-progress subject/teacher picks intact so they can
    * fix and retry without reopening the picker. */
   violations?: ConstraintViolation[];
+  /** Name the cell in the description ("Mon · Period 3 · 9:20 AM"); all
+   * three or the generic description is used. */
+  dayLabel?: string | undefined;
+  periodLabel?: string | undefined;
+  timeLabel?: string | undefined;
 }
+
+const RECURRENCE_LABEL = {
+  WEEKLY: 'cellPicker.recurrenceWeekly',
+  BIWEEKLY: 'cellPicker.recurrenceBiweekly',
+  MONTHLY: 'cellPicker.recurrenceMonthly',
+} as const;
 
 export function CellPicker({
   open,
@@ -68,8 +89,12 @@ export function CellPicker({
   onSave,
   saving = false,
   violations = [],
+  dayLabel,
+  periodLabel,
+  timeLabel,
 }: CellPickerProps) {
-  const { t } = useTranslation('routines');
+  const { t, i18n } = useTranslation('routines');
+  const config = useRegionConfig();
   const subjectsQuery = useSubjects({});
   const teachersQuery = useTeachers({});
 
@@ -95,8 +120,11 @@ export function CellPicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reseed only on open, not every keystroke
   }, [open]);
 
-  const subjects = (subjectsQuery.data?.data ?? []).filter((subject) =>
-    subject.name_en.toLowerCase().startsWith(subjectFilter.trim().toLowerCase()),
+  const subjectQuery = subjectFilter.trim().toLowerCase();
+  const subjects = (subjectsQuery.data?.data ?? []).filter(
+    (subject) =>
+      subject.name_en.toLowerCase().startsWith(subjectQuery) ||
+      (subject.name_bn ?? '').toLowerCase().startsWith(subjectQuery),
   );
   const teachers = (teachersQuery.data?.data ?? []).filter((teacher) =>
     teacher.user.full_name.toLowerCase().includes(teacherFilter.trim().toLowerCase()),
@@ -121,6 +149,7 @@ export function CellPicker({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        size="md"
         onOpenAutoFocus={(event) => {
           event.preventDefault();
           subjectFilterRef.current?.focus();
@@ -128,7 +157,11 @@ export function CellPicker({
       >
         <DialogHeader>
           <DialogTitle>{t('cellPicker.title')}</DialogTitle>
-          <DialogDescription>{t('cellPicker.description')}</DialogDescription>
+          <DialogDescription>
+            {dayLabel && periodLabel && timeLabel
+              ? t('cellPicker.cellLabel', { day: dayLabel, period: periodLabel, time: timeLabel })
+              : t('cellPicker.description')}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
@@ -141,25 +174,28 @@ export function CellPicker({
               onChange={(event) => setSubjectFilter(event.target.value)}
               placeholder={t('cellPicker.subjectFilterPlaceholder')}
             />
-            <ul className="flex max-h-32 flex-col gap-0.5 overflow-y-auto rounded-md border border-border-subtle p-1">
+            <ul className="max-h-48 overflow-y-auto rounded-md border border-border-functional p-1">
               {subjects.map((subject) => (
                 <li key={subject.id}>
                   <button
                     type="button"
                     onClick={() => setSubjectId(subject.id)}
                     aria-pressed={subjectId === subject.id}
-                    className={`w-full rounded px-2 py-1 text-left text-sm ${
-                      subjectId === subject.id ? 'bg-muted font-medium' : ''
+                    className={`flex h-11 w-full items-center justify-between rounded-md px-3 text-start md:h-8 ${
+                      subjectId === subject.id
+                        ? 'bg-secondary font-semibold text-secondary-foreground'
+                        : ''
                     }`}
                   >
-                    {subject.name_en}
+                    {subjectName(subject, i18n.language)}
+                    {subjectId === subject.id && (
+                      <CheckIcon className="size-4" aria-hidden="true" />
+                    )}
                   </button>
                 </li>
               ))}
               {subjects.length === 0 && (
-                <li className="px-2 py-1 text-sm text-muted-foreground">
-                  {t('cellPicker.noResults')}
-                </li>
+                <li className="px-3 py-2 text-text-secondary">{t('cellPicker.noResults')}</li>
               )}
             </ul>
           </div>
@@ -172,88 +208,85 @@ export function CellPicker({
               onChange={(event) => setTeacherFilter(event.target.value)}
               placeholder={t('cellPicker.teacherFilterPlaceholder')}
             />
-            <ul className="flex max-h-32 flex-col gap-0.5 overflow-y-auto rounded-md border border-border-subtle p-1">
+            <ul className="max-h-48 overflow-y-auto rounded-md border border-border-functional p-1">
               {teachers.map((teacher) => (
-                <li key={teacher.id} className="flex items-center gap-2 px-2 py-1">
+                <li key={teacher.id} className="flex min-h-11 items-center gap-3 px-3 md:min-h-8">
                   <Checkbox
                     id={`cell-picker-teacher-${teacher.id}`}
                     checked={teacherIds.includes(teacher.id)}
                     onCheckedChange={() => toggleTeacher(teacher.id)}
                   />
-                  <Label htmlFor={`cell-picker-teacher-${teacher.id}`} className="text-sm">
+                  <Label
+                    htmlFor={`cell-picker-teacher-${teacher.id}`}
+                    className="min-h-11 flex-1 items-center md:min-h-8"
+                  >
                     {teacher.user.full_name}
                   </Label>
                 </li>
               ))}
               {teachers.length === 0 && (
-                <li className="px-2 py-1 text-sm text-muted-foreground">
-                  {t('cellPicker.noResults')}
-                </li>
+                <li className="px-3 py-2 text-text-secondary">{t('cellPicker.noResults')}</li>
               )}
             </ul>
           </div>
 
-          <fieldset className="flex flex-col gap-1">
-            <legend className="text-sm font-medium">{t('cellPicker.recurrenceLabel')}</legend>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="cell-picker-recurrence"
-                checked={recurrence === 'WEEKLY'}
-                onChange={() => setRecurrence('WEEKLY')}
-              />
-              {t('cellPicker.recurrenceWeekly')}
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="cell-picker-recurrence"
-                checked={recurrence === 'BIWEEKLY'}
-                onChange={() => setRecurrence('BIWEEKLY')}
-              />
-              {t('cellPicker.recurrenceBiweekly')}
-              {recurrence === 'BIWEEKLY' && (
-                <select
-                  aria-label={t('cellPicker.recurrenceOffsetLabel')}
-                  className="h-7 rounded-md border border-input bg-card px-1.5 text-sm"
-                  value={recurrenceOffset}
-                  onChange={(event) => setRecurrenceOffset(Number(event.target.value))}
+          <div className="flex flex-col gap-1">
+            <Label id="cell-picker-recurrence-label">{t('cellPicker.recurrenceLabel')}</Label>
+            <RadioGroup
+              aria-labelledby="cell-picker-recurrence-label"
+              value={recurrence}
+              onValueChange={(value) => {
+                setRecurrence(value as SlotRecurrenceValue);
+                setRecurrenceOffset(0);
+              }}
+            >
+              {(['WEEKLY', 'BIWEEKLY', 'MONTHLY'] as const).map((value) => (
+                <div key={value} className="flex min-h-11 items-center gap-3 md:min-h-8">
+                  <RadioGroupItem id={`cell-picker-recurrence-${value}`} value={value} />
+                  <Label
+                    htmlFor={`cell-picker-recurrence-${value}`}
+                    className="min-h-11 flex-1 items-center md:min-h-8"
+                  >
+                    {t(RECURRENCE_LABEL[value])}
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+            {recurrence !== 'WEEKLY' && (
+              <div className="mt-2 flex flex-col gap-1">
+                <Label htmlFor="cell-picker-offset">{t('cellPicker.recurrenceOffsetLabel')}</Label>
+                <Select
+                  value={String(recurrenceOffset)}
+                  onValueChange={(value) => setRecurrenceOffset(Number(value))}
                 >
-                  <option value={0}>{t('cellPicker.recurrenceWeekA')}</option>
-                  <option value={1}>{t('cellPicker.recurrenceWeekB')}</option>
-                </select>
-              )}
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="cell-picker-recurrence"
-                checked={recurrence === 'MONTHLY'}
-                onChange={() => setRecurrence('MONTHLY')}
-              />
-              {t('cellPicker.recurrenceMonthly')}
-              {recurrence === 'MONTHLY' && (
-                <select
-                  aria-label={t('cellPicker.recurrenceOffsetLabel')}
-                  className="h-7 rounded-md border border-input bg-card px-1.5 text-sm"
-                  value={recurrenceOffset}
-                  onChange={(event) => setRecurrenceOffset(Number(event.target.value))}
-                >
-                  {[0, 1, 2, 3].map((occurrence) => (
-                    <option key={occurrence} value={occurrence}>
-                      {t('cellPicker.recurrenceOccurrence', { n: occurrence + 1 })}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </label>
-          </fieldset>
+                  <SelectTrigger id="cell-picker-offset" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(recurrence === 'BIWEEKLY' ? [0, 1] : [0, 1, 2, 3]).map((offset) => (
+                      <SelectItem key={offset} value={String(offset)}>
+                        {recurrence === 'BIWEEKLY'
+                          ? t(
+                              offset === 0
+                                ? 'cellPicker.recurrenceWeekA'
+                                : 'cellPicker.recurrenceWeekB',
+                            )
+                          : t('cellPicker.recurrenceOccurrence', {
+                              n: formatNumber(offset + 1, config),
+                            })}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
         </div>
 
         <ConflictList violations={violations} />
 
         <DialogFooter>
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {t('cellPicker.cancel')}
           </Button>
           <Button type="button" disabled={!canSave} loading={saving} onClick={handleSave}>
