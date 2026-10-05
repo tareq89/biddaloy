@@ -65,7 +65,10 @@ describe('ReadmitDialog', () => {
         HttpResponse.json([{ id: 'sec1', section_name: 'A', capacity: 40, enrolled_count: 3 }]),
       ),
       http.post('/api/v1/students/s1/readmit', () =>
-        HttpResponse.json({ statusCode: 409, message: 'Student is already active' }, { status: 409 }),
+        HttpResponse.json(
+          { statusCode: 409, message: 'Student is already active' },
+          { status: 409 },
+        ),
       ),
     );
     const { user } = await renderDialog();
