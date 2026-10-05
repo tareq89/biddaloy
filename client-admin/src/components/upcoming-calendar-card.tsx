@@ -14,18 +14,33 @@
  * already role-gated server-side, same pattern [17.5.1]/[17.5.2] use.
  */
 import { CalendarEventType, Permission } from '@biddaloy/shared';
-import { Card, EventTypeBadge, Skeleton } from '@biddaloy/ui/components';
+import { Button, Card, Skeleton } from '@biddaloy/ui/components';
 import { calendarEventsQueryOptions, useHasPermission } from '@biddaloy/ui/hooks';
 import type { CalendarEvent } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatDate, formatNumber, parseServerDate } from '@biddaloy/ui/utils';
+import {
+  formatDate,
+  formatDateRange,
+  formatNumber,
+  parseServerDate,
+  toIsoDate,
+} from '@biddaloy/ui/utils';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
+import { RotateCcwIcon } from 'lucide-react';
 
 const WINDOW_DAYS = 60;
 const FETCH_LIMIT = 6;
 const DISPLAY_LIMIT = 5;
 const MS_PER_DAY = 86_400_000;
+
+const DOT: Record<CalendarEventType, string> = {
+  HOLIDAY: 'bg-status-overdue-fg',
+  EXAM: 'bg-status-partial-fg',
+  DEADLINE: 'bg-status-due-fg',
+  EVENT: 'bg-primary',
+  MEETING: 'bg-primary',
+};
 
 export interface UpcomingCalendarCardProps {
   /** `/calendar` on the staff dashboard, `/portal/calendar` on portal home. */
@@ -41,18 +56,12 @@ function addDays(date: Date, days: number): Date {
   return next;
 }
 
-function toIsoDate(date: Date): string {
-  const year = String(date.getFullYear()).padStart(4, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 export function UpcomingCalendarCard({
   calendarPath,
   requirePermission = false,
 }: UpcomingCalendarCardProps) {
   const { t } = useTranslation('calendar');
+  const { t: tCommon } = useTranslation('common');
   const regionConfig = useRegionConfig();
   // Always called (rules-of-hooks) even on the portal variant, where the
   // result is simply ignored — the portal route is already role-gated
@@ -74,7 +83,7 @@ export function UpcomingCalendarCard({
 
   if (eventsQuery.isPending) {
     return (
-      <Card className="flex flex-col gap-2 p-4" aria-busy="true">
+      <Card className="flex flex-col gap-2 p-4 md:p-5" aria-busy="true">
         <Skeleton className="h-4 w-32" />
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-full" />
@@ -84,9 +93,18 @@ export function UpcomingCalendarCard({
 
   if (eventsQuery.isError) {
     return (
-      <Card className="p-4">
-        <h2 className="mb-1 text-sm font-semibold">{t('upcomingPanel.title')}</h2>
-        <p className="text-sm text-destructive">{t('page.errorMessage')}</p>
+      <Card className="p-4 md:p-5">
+        <h2 className="text-h2">{t('upcomingPanel.title')}</h2>
+        <p className="mt-1 text-text-secondary">{t('page.errorMessage')}</p>
+        <Button
+          type="button"
+          variant="outline"
+          className="mt-3"
+          onClick={() => void eventsQuery.refetch()}
+        >
+          <RotateCcwIcon aria-hidden="true" />
+          {tCommon('actions.retry')}
+        </Button>
       </Card>
     );
   }
@@ -107,11 +125,11 @@ export function UpcomingCalendarCard({
     Math.round((parseServerDate(event.start_date).getTime() - startOfToday.getTime()) / MS_PER_DAY);
 
   return (
-    <Card className="flex flex-col gap-2 p-4">
-      <h2 className="text-sm font-semibold">{t('upcomingPanel.title')}</h2>
+    <Card className="p-4 md:p-5">
+      <h2 className="text-h2">{t('upcomingPanel.title')}</h2>
 
       {nextHoliday && (
-        <p className="text-sm text-muted-foreground">
+        <p className="mt-1 text-text-secondary">
           {t('upcomingPanel.nextHoliday', {
             name: nextHoliday.name,
             n: formatNumber(daysUntil(nextHoliday), regionConfig),
@@ -120,19 +138,24 @@ export function UpcomingCalendarCard({
       )}
 
       {events.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('upcomingPanel.empty')}</p>
+        <p className="mt-2 text-text-secondary">{t('upcomingPanel.empty')}</p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="mt-2">
           {events.map((event) => (
             <li key={event.id}>
               <Link
                 to={calendarPath}
-                className="flex w-full items-center gap-2 rounded p-1 text-left no-underline hover:bg-muted"
+                className="flex min-h-11 w-full items-center gap-3 py-2 no-underline hover:bg-muted"
               >
-                <EventTypeBadge type={event.type} label={t(`types.${event.type}`)} />
-                <span className="text-sm">{event.name}</span>
-                <span className="ml-auto text-xs text-muted-foreground">
-                  {formatDate(parseServerDate(event.start_date), regionConfig)}
+                <span
+                  aria-hidden="true"
+                  className={`size-2 shrink-0 rounded-full ${DOT[event.type]}`}
+                />
+                <span className="min-w-0 flex-1 truncate font-medium">{event.name}</span>
+                <span className="shrink-0 text-text-secondary">
+                  {event.end_date !== event.start_date
+                    ? formatDateRange(event.start_date, event.end_date, regionConfig)
+                    : formatDate(event.start_date, regionConfig)}
                 </span>
               </Link>
             </li>

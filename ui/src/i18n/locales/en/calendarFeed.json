@@ -17,7 +17,8 @@
     "confirmDescription": "Your old link stops working right away. Any calendar app still using it will need the new link below.",
     "confirmAction": "Regenerate",
     "cancel": "Cancel",
-    "loading": "Regenerating"
+    "loading": "Regenerating",
+    "failed": "Couldn't regenerate the link. Try again."
   },
   "howTo": {
     "title": "How to subscribe",

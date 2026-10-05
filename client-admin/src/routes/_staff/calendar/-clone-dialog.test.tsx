@@ -90,7 +90,7 @@ describe('calendar/-clone-dialog', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it('renders the "include holidays" checkbox as permanently disabled and unchecked', async () => {
+  it('has no "include holidays" checkbox', async () => {
     const { localeReady } = renderWithProviders(
       <CloneDialog
         open
@@ -103,9 +103,26 @@ describe('calendar/-clone-dialog', () => {
     );
     await localeReady;
 
-    const checkbox = await screen.findByRole('checkbox', { name: 'Include holidays' });
-    expect(checkbox.hasAttribute('disabled')).toBe(true);
-    expect(checkbox.getAttribute('aria-checked')).toBe('false');
+    await screen.findByRole('combobox', { name: 'Copy from' });
+    expect(screen.queryByRole('checkbox')).toBeNull();
+  });
+
+  it('shows no failure alert before a request has failed', async () => {
+    const { localeReady } = renderWithProviders(
+      <CloneDialog
+        open
+        onOpenChange={vi.fn()}
+        academicYears={YEARS}
+        isPending={false}
+        error={null}
+        onSubmit={vi.fn()}
+      />,
+      { locale: 'en', role: 'ADMIN', tenantId: 'tenant-1' },
+    );
+    await localeReady;
+
+    await screen.findByRole('combobox', { name: 'Copy from' });
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('resets the picked years when reopened', async () => {
@@ -208,6 +225,8 @@ describe('calendar/-clone-dialog', () => {
     );
     await localeReady;
 
-    expect(await screen.findByRole('alert')).toBeTruthy();
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe('Clone failed');
+    expect(alert.textContent).not.toContain('Could not clone');
   });
 });
