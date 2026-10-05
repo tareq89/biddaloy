@@ -1,10 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository, SelectQueryBuilder } from 'typeorm';
+import { EntityManager, EntityTarget, Repository, SelectQueryBuilder } from 'typeorm';
 import { AuditLog } from './entities/audit-log.entity';
 import { ApprovalScope, AuditAction, AuditEntityType } from '@biddaloy/shared';
 import { redactSensitiveFields } from './redact.util';
 import { QueryAuditLogDto } from './dto/audit-log.dto';
+import { Student } from '../students/entities/student.entity';
+import { Guardian } from '../students/entities/guardian.entity';
+import { Class } from '../academics/entities/class.entity';
+import { ClassSection } from '../academics/entities/class-section.entity';
+import { Exam } from '../exams/entities/exam.entity';
+import { FeeStructure } from '../fees/entities/fee-structure.entity';
+import { Invoice } from '../invoices/entities/invoice.entity';
+import { User } from '../users/entities/user.entity';
 
 export interface RecordAuditEntryInput {
   action: AuditAction;
@@ -177,8 +185,80 @@ export class AuditService {
     }
 
     const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
+    const entityLabels = await this.resolveEntityLabels(data, tenantId);
 
-    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit), entityLabels };
+  }
+
+  /**
+   * [31.3.7a] Display names for the page's audited records, keyed
+   * `${entity_type}:${entity_id}`. Whitelisted types only (one small query
+   * each); every query is tenant-scoped by hand and includes soft-deleted
+   * records so a deleted student is still named. Unknown types get no entry.
+   */
+  private async resolveEntityLabels(
+    rows: AuditLog[],
+    tenantId: string,
+  ): Promise<Map<string, string>> {
+    const labels = new Map<string, string>();
+    const idsByType = new Map<string, Set<string>>();
+    for (const r of rows) {
+      if (!r.entity_id) continue;
+      const set = idsByType.get(r.entity_type) ?? new Set<string>();
+      set.add(r.entity_id);
+      idsByType.set(r.entity_type, set);
+    }
+
+    for (const [type, idSet] of idsByType) {
+      const ids = [...idSet];
+      const qb = this.labelQuery(type, ids, tenantId);
+      if (!qb) continue;
+      const found: { id: string; label: string | null }[] = await qb.getRawMany();
+      for (const f of found) {
+        if (f.label) labels.set(`${type}:${f.id}`, f.label);
+      }
+    }
+    return labels;
+  }
+
+  private labelQuery(type: string, ids: string[], tenantId: string) {
+    const base = (entity: EntityTarget<object>, label: string) =>
+      this.repo.manager
+        .createQueryBuilder(entity, 'e')
+        .withDeleted()
+        .select('e.id', 'id')
+        .addSelect(label, 'label')
+        .where('e.id IN (:...ids)', { ids });
+    const scoped = (entity: EntityTarget<object>, label: string) =>
+      base(entity, label).andWhere('e.tenant_id = :tenantId', { tenantId });
+
+    switch (type) {
+      case 'Student':
+        return scoped(Student, 'e.full_name');
+      case 'Guardian':
+        return scoped(Guardian, 'e.full_name');
+      case 'Class':
+        return scoped(Class, 'e.name');
+      case 'ClassSection':
+        return scoped(ClassSection, "c.name || ' – ' || e.section_name").leftJoin('e.class', 'c');
+      case 'Exam':
+        return scoped(Exam, 'e.name');
+      case 'FeeStructure':
+        return scoped(FeeStructure, 'e.name');
+      case 'Invoice':
+        // no tenant_id column — scope through the student
+        return base(Invoice, 'e.invoice_number')
+          .innerJoin('e.student', 's')
+          .andWhere('s.tenant_id = :tenantId', { tenantId });
+      case 'User':
+        // global table — only users who belong to this tenant
+        return base(User, 'e.full_name').andWhere(
+          'EXISTS (SELECT 1 FROM user_tenants ut WHERE ut.user_id = e.id AND ut.tenant_id = :tenantId)',
+          { tenantId },
+        );
+      default:
+        return null;
+    }
   }
 
   /**

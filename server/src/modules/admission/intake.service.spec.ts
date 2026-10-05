@@ -69,12 +69,20 @@ describe('IntakeService', () => {
     expect(result.tenant_id).toBe(TENANT_A);
   });
 
-  it('lists only intakes for the caller tenant', async () => {
-    repo.find.mockResolvedValue([makeIntake()]);
-    await service.findAll(TENANT_A);
-    expect(repo.find).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ tenant_id: TENANT_A }) }),
-    );
+  it('lists only intakes for the caller tenant, with class and section names', async () => {
+    repo.find.mockResolvedValue([
+      makeIntake({
+        class_section: { section_name: 'A', class: { name: 'Class 6' } },
+      } as Partial<AdmissionIntake>),
+    ]);
+    const rows = await service.findAll(TENANT_A);
+    const arg = repo.find.mock.calls[0][0];
+    expect(arg.where.tenant_id).toBe(TENANT_A);
+    expect(arg.where.class_section.tenant_id).toBe(TENANT_A);
+    expect(arg.where.class_section.class.tenant_id).toBe(TENANT_A);
+    expect(arg.relations.class_section.class).toBe(true);
+    expect(rows[0]).toMatchObject({ class_name: 'Class 6', section_name: 'A' });
+    expect(rows[0]).not.toHaveProperty('class_section');
   });
 
   it('rejects findOne for an intake belonging to a different tenant', async () => {
