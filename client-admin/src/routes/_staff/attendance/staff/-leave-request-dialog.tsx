@@ -9,8 +9,8 @@ import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
   DatePicker,
+  ConfirmDialog,
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -51,6 +51,7 @@ export function LeaveRequestDialog({
   const [startDate, setStartDate] = React.useState('');
   const [endDate, setEndDate] = React.useState('');
   const [reason, setReason] = React.useState('');
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = React.useState(false);
   const [validationError, setValidationError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -60,6 +61,7 @@ export function LeaveRequestDialog({
     setEndDate('');
     setReason('');
     setValidationError(null);
+    setConfirmDiscardOpen(false);
     createRequest.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open/close
   }, [open]);
@@ -95,8 +97,20 @@ export function LeaveRequestDialog({
       ? t('request.errorBalance')
       : t('request.errorMessage');
 
+  const dirty =
+    leaveType !== LeaveType.CASUAL || startDate !== '' || endDate !== '' || reason !== '';
+
+  // Esc / X / Cancel: never while sending; ask first when something was typed.
+  function requestClose(next: boolean) {
+    if (next) return onOpenChange(true);
+    if (createRequest.isPending) return;
+    if (dirty) return setConfirmDiscardOpen(true);
+    onOpenChange(false);
+  }
+
   return (
-    <Dialog open={open} onOpenChange={(next) => !createRequest.isPending && onOpenChange(next)}>
+    <>
+    <Dialog open={open} onOpenChange={requestClose}>
       <DialogContent size="md" closeLabel={t('actions.close', { ns: 'common' })}>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <DialogHeader>
@@ -166,11 +180,14 @@ export function LeaveRequestDialog({
           )}
 
           <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline" disabled={createRequest.isPending}>
-                {t('actions.cancel', { ns: 'common' })}
-              </Button>
-            </DialogClose>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={createRequest.isPending}
+              onClick={() => requestClose(false)}
+            >
+              {t('actions.cancel', { ns: 'common' })}
+            </Button>
             <Button type="submit" loading={createRequest.isPending}>
               {createRequest.isPending ? t('request.submitting') : t('request.submit')}
             </Button>
@@ -178,5 +195,19 @@ export function LeaveRequestDialog({
         </form>
       </DialogContent>
     </Dialog>
+    <ConfirmDialog
+      open={confirmDiscardOpen}
+      onOpenChange={setConfirmDiscardOpen}
+      title={t('request.discardTitle')}
+      description={t('request.discardBody')}
+      confirmLabel={t('request.discardConfirm')}
+      cancelLabel={t('request.discardKeep')}
+      tone="danger"
+      onConfirm={() => {
+        setConfirmDiscardOpen(false);
+        onOpenChange(false);
+      }}
+    />
+    </>
   );
 }
