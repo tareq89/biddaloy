@@ -57,7 +57,7 @@ describe('/invoices', () => {
       locale: 'en',
     });
 
-    expect(await screen.findByRole('link', { name: 'INV-00000001' })).toBeTruthy();
+    expect(await screen.findByText('INV-00000001')).toBeTruthy();
     expect(screen.getByText('Rahim Uddin')).toBeTruthy();
     expect(screen.getByText('Issued')).toBeTruthy();
   });
@@ -77,7 +77,7 @@ describe('/invoices', () => {
     });
 
     const user = userEvent.setup();
-    await screen.findByRole('region', { name: 'Invoices' });
+    await screen.findByRole('heading', { level: 1, name: 'Invoices' });
     await user.click(screen.getByRole('combobox', { name: 'Status' }));
     await user.click(await screen.findByRole('option', { name: 'Paid' }));
 
@@ -99,7 +99,7 @@ describe('/invoices', () => {
     });
 
     const user = userEvent.setup();
-    await screen.findByRole('region', { name: 'Invoices' });
+    await screen.findByRole('heading', { level: 1, name: 'Invoices' });
     await pickDate(user, 'Issued from', '2026-01-01');
 
     await waitFor(() =>
@@ -184,6 +184,84 @@ describe('/invoices', () => {
   // this ticket the route rendered for TEACHER with only the `Print`
   // button hidden, a partial view [8.14.17] intentionally replaces with
   // a blanket refusal.
+  it('requests 25 rows by default and shows the subtitle', async () => {
+    let lastLimit: string | null = null;
+    server.use(
+      http.get('/api/v1/invoices', ({ request }) => {
+        lastLimit = new URL(request.url).searchParams.get('limit');
+        return HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 1 });
+      }),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/invoices'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    expect(
+      await screen.findByText("Every payment's receipt and credit note, newest first."),
+    ).toBeTruthy();
+    await waitFor(() => expect(lastLimit).toBe('25'));
+  });
+
+  it('the number is plain text, a credit note is tagged, and View links to the detail', async () => {
+    const receipt = invoiceFactory({ id: 'invoice-1', invoice_number: 'INV-1' });
+    const creditNote = {
+      ...invoiceFactory({ id: 'invoice-2', invoice_number: 'CN-1' }),
+      kind: 'CREDIT_NOTE',
+    };
+    server.use(
+      http.get('/api/v1/invoices', () =>
+        HttpResponse.json({
+          data: [receipt, creditNote],
+          total: 2,
+          page: 1,
+          limit: 25,
+          totalPages: 1,
+        }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/invoices'],
+      tenantId: 'tenant-1',
+      role: 'ACCOUNTANT',
+      locale: 'en',
+    });
+
+    const numberCell = await screen.findByText('INV-1');
+    expect(numberCell.closest('a')).toBeNull();
+    expect(screen.getAllByText('Credit note')).toHaveLength(1);
+    const links = screen.getAllByRole('link', { name: 'View' });
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      '/invoices/invoice-1',
+      '/invoices/invoice-2',
+    ]);
+  });
+
+  it('offers Print only with INVOICE_PRINT (absent, not disabled, without it)', async () => {
+    server.use(
+      http.get('/api/v1/invoices', () =>
+        HttpResponse.json({
+          data: [invoiceFactory()],
+          total: 1,
+          page: 1,
+          limit: 25,
+          totalPages: 1,
+        }),
+      ),
+    );
+    renderWithRouter(routeTree, {
+      initialEntries: ['/invoices'],
+      tenantId: 'tenant-1',
+      role: 'OFFICE_STAFF',
+      locale: 'en',
+    });
+
+    await screen.findByRole('link', { name: 'View' });
+    expect(screen.queryByRole('button', { name: 'Print' })).toBeNull();
+  });
+
   it('refuses the whole route for a role without INVOICE_READ', async () => {
     const invoice = invoiceFactory({ id: 'invoice-1' });
     server.use(
@@ -200,7 +278,7 @@ describe('/invoices', () => {
     });
 
     expect(await screen.findByText("You don't have access to this page.")).toBeTruthy();
-    expect(screen.queryByRole('link', { name: invoice.invoice_number })).toBeNull();
+    expect(screen.queryByText(invoice.invoice_number)).toBeNull();
   });
 
   it('renders the empty state when no invoices match', async () => {
@@ -218,6 +296,8 @@ describe('/invoices', () => {
     });
 
     expect(await screen.findByText('No invoices found')).toBeTruthy();
+    expect(screen.getByText('When you record a payment its invoice appears here.')).toBeTruthy();
+    expect(screen.queryByRole('combobox', { name: 'Rows per page' })).toBeNull();
   });
 
   it('is axe clean', async () => {
@@ -235,7 +315,7 @@ describe('/invoices', () => {
       locale: 'en',
     });
 
-    await screen.findByRole('link', { name: invoice.invoice_number });
+    await screen.findByText(invoice.invoice_number);
     await expect(container).toHaveNoViolations();
   });
 
@@ -261,7 +341,7 @@ describe('/invoices', () => {
       locale: 'en',
     });
 
-    await screen.findByRole('region', { name: 'Invoices' });
+    await screen.findByRole('heading', { level: 1, name: 'Invoices' });
     await waitFor(() => expect(lastStudentId).toBe('student-1'));
 
     const user = userEvent.setup();
@@ -293,8 +373,8 @@ describe('/invoices', () => {
     });
 
     const user = userEvent.setup();
-    await screen.findByRole('region', { name: 'Invoices' });
-    await user.type(screen.getByRole('textbox', { name: 'Minimum amount' }), '500');
+    await screen.findByRole('heading', { level: 1, name: 'Invoices' });
+    await user.type(screen.getByRole('textbox', { name: 'Minimum' }), '500');
 
     await waitFor(() => expect(lastMin).toBe('500'), { timeout: 1000 });
     expect(lastMax).toBeNull();
@@ -324,7 +404,7 @@ describe('/invoices', () => {
     });
 
     const user = userEvent.setup();
-    await screen.findByRole('region', { name: 'Invoices' });
+    await screen.findByRole('heading', { level: 1, name: 'Invoices' });
     await user.click(await screen.findByRole('combobox', { name: 'Rows per page' }));
     // Option labels render in the tenant's own region digits (Bengali
     // numerals here), independent of the `en` UI locale.
@@ -339,7 +419,13 @@ describe('/invoices', () => {
   it('clicking the Amount column header writes sort/order to the URL', async () => {
     server.use(
       http.get('/api/v1/invoices', () =>
-        HttpResponse.json({ data: [], total: 0, page: 1, limit: 10, totalPages: 1 }),
+        HttpResponse.json({
+          data: [invoiceFactory()],
+          total: 1,
+          page: 1,
+          limit: 25,
+          totalPages: 1,
+        }),
       ),
     );
 
@@ -351,8 +437,7 @@ describe('/invoices', () => {
     });
 
     const user = userEvent.setup();
-    await screen.findByRole('region', { name: 'Invoices' });
-    await user.click(screen.getByRole('button', { name: 'Amount' }));
+    await user.click(await screen.findByRole('button', { name: 'Amount' }));
 
     await waitFor(() => {
       const search = router.state.location.search as Record<string, unknown>;
