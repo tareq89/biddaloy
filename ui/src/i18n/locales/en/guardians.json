@@ -30,8 +30,6 @@
     "MESSENGER": "Messenger"
   },
   "detail": {
-    "back": "Back to guardians",
-    "identifiers": "{{relationship}}",
     "forbidden": "You don't have permission to view this.",
     "loadError": "Couldn't load this guardian.",
     "tabs": {
@@ -51,18 +49,24 @@
       "columnOccupation": "Occupation",
       "columnPreferredCommunication": "Preferred channel",
       "columnPrimaryContact": "Primary contact",
-      "emptyValue": "—"
+      "emptyValue": "—",
+      "title": "Contact details",
+      "columnRelationship": "Relationship"
     },
     "linkedStudents": {
       "columnName": "Name",
       "columnClass": "Class",
-      "columnSection": "Section",
       "editAction": "Edit linked students",
       "saveAction": "Save",
       "saving": "Saving…",
       "cancelAction": "Cancel",
       "emptyMessage": "No students linked yet.",
-      "saveErrorMessage": "Couldn't update linked students. Try again."
+      "saveErrorMessage": "Couldn't update linked students. Try again.",
+      "title": "Linked students",
+      "description": "The students this guardian looks after.",
+      "columnRoll": "Roll",
+      "columnRegistration": "Registration number",
+      "emptyExplanation": "Linked students will show up here."
     },
     "communication": {
       "columnDate": "Date",
@@ -70,7 +74,8 @@
       "columnRecipient": "Recipient",
       "columnStatus": "Status",
       "emptyMessage": "No messages sent yet.",
-      "errorMessage": "Couldn't load message history."
+      "errorMessage": "Couldn't load message history.",
+      "emptyExplanation": "Messages sent to this guardian will show up here."
     },
     "payments": {
       "columnDate": "Date",
@@ -79,7 +84,13 @@
       "columnReference": "Reference",
       "columnStudent": "Student",
       "emptyMessage": "No payments recorded yet.",
-      "errorMessage": "Couldn't load payment history."
+      "errorMessage": "Couldn't load payment history.",
+      "view": "View payment",
+      "emptyExplanation": "Payments for this guardian's children will show up here."
+    },
+    "facts": {
+      "studentCount_one": "{{n}} student",
+      "studentCount_other": "{{n}} students"
     }
   },
   "editDialog": {
@@ -98,7 +109,8 @@
     "fullNameRequired": "Full name is required.",
     "save": "Save changes",
     "saving": "Saving…",
-    "errorMessage": "Couldn't update the guardian. Try again."
+    "errorMessage": "Couldn't update the guardian. Try again.",
+    "sectionTitle": "Guardian details"
   },
   "studentPicker": {
     "selectedLabel": "Linked students",
