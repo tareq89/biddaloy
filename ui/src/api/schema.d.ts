@@ -1841,6 +1841,23 @@ export interface paths {
         patch: operations["SchoolsController_updateStatus_v1"];
         trace?: never;
     };
+    "/api/v1/schools/{id}/trial": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Extend a school trial by N days and optionally raise its seat limit (#1625). Platform SUPER_ADMIN only. An expired trial reactivates the school. Audited with the reason. */
+        patch: operations["SchoolsController_extendTrial_v1"];
+        trace?: never;
+    };
     "/api/v1/schools/{id}/settings": {
         parameters: {
             query?: never;
@@ -2989,6 +3006,40 @@ export interface paths {
         get: operations["UserController_getTeacherAssignments_v1"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/bulk-upload/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate a CSV/XLSX of teachers and staff (max 5MB) and stage the accepted rows. Writes nothing. */
+        post: operations["StaffBulkUploadController_validate_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/bulk-upload/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commit a validated staff import: creates or restores members, optionally invites. */
+        post: operations["StaffBulkUploadController_commit_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6664,6 +6715,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/register/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stage a registration and send a code to the phone (or email outside the SMS list). */
+        post: operations["RegistrationController_start_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/register/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send the code again (60 second cooldown). */
+        post: operations["RegistrationController_resend_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/register/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Prove the code: creates the school (in trial), the admin, and a signed-in session. */
+        post: operations["RegistrationController_verify_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/social/providers": {
         parameters: {
             query?: never;
@@ -6764,6 +6866,40 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onboarding/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How far the school's setup is, derived from real data [13.3.3]. */
+        get: operations["OnboardingController_status_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onboarding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Record setup path / finished / dismissed / seen. Writes only schools.onboarding. */
+        patch: operations["OnboardingController_update_v1"];
         trace?: never;
     };
 }
@@ -8678,10 +8814,20 @@ export interface components {
             status: "ACTIVE" | "SUSPENDED";
             /** Format: date-time */
             created_at: string;
+            country_code: string | null;
+            /** Format: date-time */
+            trial_ends_at: string | null;
+            seat_limit: number | null;
+            status_reason: string | null;
         };
         UpdateSchoolStatusDto: {
             /** @enum {string} */
             status: "ACTIVE" | "SUSPENDED";
+            reason: string;
+        };
+        ExtendTrialDto: {
+            days: number;
+            seat_limit?: number;
             reason: string;
         };
         RegionCurrencyDto: {
@@ -8928,6 +9074,8 @@ export interface components {
             admin: components["schemas"]["ProvisionSchoolAdminDto"];
             /** Format: uuid */
             idempotency_key: string;
+            country_code?: string;
+            address?: string;
         };
         AddSchoolAdminDto: {
             name: string;
@@ -9470,6 +9618,48 @@ export interface components {
             designations?: ("CLASS_TEACHER" | "SUBJECT_TEACHER" | "HEAD_TEACHER" | "ASSISTANT_TEACHER" | "PRINCIPAL" | "VICE_PRINCIPAL" | "COORDINATOR")[];
             subject_specialization?: string | null;
             joining_date?: string | null;
+        };
+        StaffImportPreviewRowDto: {
+            /** @enum {string} */
+            action: "create" | "restore" | "skip";
+            row: number;
+            name: string;
+            mobile?: string;
+            email?: string;
+            role: string;
+            designation?: string;
+            notes: string[];
+        };
+        StaffImportValidateResultDto: {
+            staging_id: string;
+            expires_at: string;
+            summary: {
+                create: number;
+                restore: number;
+                skip: number;
+            };
+            rows: components["schemas"]["StaffImportPreviewRowDto"][];
+            errors: components["schemas"]["BulkImportErrorDto"][];
+            hard_error_count: number;
+        };
+        StaffImportCommitDto: {
+            /** Format: uuid */
+            staging_id: string;
+            send_invitations: boolean;
+        };
+        StaffImportResultDto: {
+            created: number;
+            restored: number;
+            skipped: number;
+            invited: number;
+            failed: {
+                row: number;
+                reason: string;
+            }[];
+            invite_failed: {
+                row: number;
+                reason: string;
+            }[];
         };
         MySectionTodayDto: {
             /** @enum {string} */
@@ -10753,7 +10943,7 @@ export interface components {
             home_address: string | null;
             documents: Record<string, never>[];
             /** @enum {string} */
-            status: "PENDING" | "REJECTED" | "SHORTLISTED" | "ADMITTED";
+            status: "REJECTED" | "PENDING" | "SHORTLISTED" | "ADMITTED";
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -11862,6 +12052,30 @@ export interface components {
             /** @description Sections whose class belongs to the requested academic year. */
             classes: components["schemas"]["ClassPerformanceResponseDto"][];
         };
+        RegisterStartDto: {
+            admin_name: string;
+            school_name: string;
+            /** @example BD */
+            country_code: string;
+            address: string;
+            phone: string;
+            /** Format: email */
+            email: string;
+            /** @description Must be true. */
+            terms_accepted: boolean;
+            /** @description Cloudflare Turnstile token. */
+            captcha_token: string;
+        };
+        RegisterResendDto: {
+            /** Format: uuid */
+            registration_id: string;
+        };
+        RegisterVerifyDto: {
+            /** Format: uuid */
+            registration_id: string;
+            /** @description The 6-digit code sent by SMS or email. */
+            otp: string;
+        };
         SocialProvidersDto: {
             providers: ("google" | "facebook")[];
         };
@@ -11875,6 +12089,13 @@ export interface components {
         SocialLinkStartDto: {
             /** @description Provider authorization URL to send the browser to. */
             url: string;
+        };
+        UpdateOnboardingDto: {
+            /** @enum {string} */
+            setup_path?: "guided" | "excel" | "later";
+            finished?: boolean;
+            dismissed?: boolean;
+            seen?: boolean;
         };
     };
     responses: never;
@@ -16400,7 +16621,9 @@ export interface operations {
     };
     SchoolsController_findAll_v1: {
         parameters: {
-            query?: never;
+            query?: {
+                trial?: "active" | "expired";
+            };
             header: {
                 /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
                 "X-Tenant-ID": string;
@@ -16529,6 +16752,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchoolsController_extendTrial_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtendTrialDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["School"];
                 };
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
@@ -19880,6 +20140,79 @@ export interface operations {
             };
         };
     };
+    StaffBulkUploadController_validate_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file?: string;
+                };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffImportValidateResultDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StaffBulkUploadController_commit_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffImportCommitDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffImportResultDto"];
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     AttendanceController_listMySections_v1: {
         parameters: {
             query?: {
@@ -22111,6 +22444,7 @@ export interface operations {
         parameters: {
             query?: {
                 lang?: "bn" | "en";
+                variant?: "full" | "starter";
             };
             header: {
                 /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
@@ -29402,6 +29736,75 @@ export interface operations {
             };
         };
     };
+    RegistrationController_start_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterStartDto"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    RegistrationController_resend_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterResendDto"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    RegistrationController_verify_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterVerifyDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     SocialAuthController_providers_v1: {
         parameters: {
             query?: never;
@@ -29518,6 +29921,72 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OnboardingController_status_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OnboardingController_update_v1: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Active tenant's school ID — validated against the caller's memberships by ContextGuard. */
+                "X-Tenant-ID": string;
+                /** @description Explicit role to act as, for a caller with more than one membership. Defaults to the first membership found when omitted. */
+                "X-Role"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOnboardingDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
