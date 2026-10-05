@@ -391,5 +391,11 @@
     "devices": {
       "title": "Devices"
     }
+  },
+  "surveys": {
+    "subtitle": "Tell the school what you think of your teachers.",
+    "pendingCount_one": "{{count}} teacher left to answer",
+    "pendingCount_other": "{{count}} teachers left to answer",
+    "optionalHint": "Every question is optional — give stars, write, or both. Answer at least one."
   }
 }
