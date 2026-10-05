@@ -50,6 +50,11 @@ const studentDetailSearchSchema = z.object({
   // its own `tabIds` list, so an invalid value here isn't validated away
   // by this schema — it's handled once, there, not duplicated here.
   tab: z.string().optional(),
+  // [31.5.0] Full-page modals opened from this page, so Back closes them and a refresh keeps them.
+  logFine: z.coerce.string().optional().catch(undefined),
+  enrolProgram: z.coerce.string().optional().catch(undefined),
+  // Enrolment id of the programme row whose milestone is being recorded.
+  recordMilestone: z.string().uuid().optional().catch(undefined),
 });
 
 /**
@@ -148,6 +153,13 @@ function StudentDetailPage() {
   const { studentId } = Route.useParams();
   const { t } = useTranslation('students');
   const navigate = useNavigate();
+  const search = Route.useSearch();
+  const setKey = (key: 'logFine' | 'enrolProgram' | 'recordMilestone', value: string | undefined) =>
+    void navigate({
+      to: '.',
+      search: (prev) => ({ ...prev, [key]: value }),
+      replace: value === undefined,
+    });
   const studentQuery = useStudent(studentId);
   const [activeTab, setActiveTab] = useDetailShellTab(TAB_IDS);
 
@@ -375,7 +387,15 @@ function StudentDetailPage() {
                 id: 'programs',
                 // [34.5.1] — 'programs' namespace, same pattern as above.
                 label: t('detail.tabs.programs', { ns: 'programs' }),
-                content: <ProgramsPanel studentId={studentId} />,
+                content: (
+                  <ProgramsPanel
+                    studentId={studentId}
+                    enrolOpen={search.enrolProgram === '1'}
+                    onEnrolOpenChange={(open) => setKey('enrolProgram', open ? '1' : undefined)}
+                    recordEnrollmentId={search.recordMilestone}
+                    onRecordChange={(id) => setKey('recordMilestone', id)}
+                  />
+                ),
               },
               ...(canViewPerformance
                 ? [
@@ -399,7 +419,13 @@ function StudentDetailPage() {
               {
                 id: 'fines',
                 label: t('detail.tabs.fines'),
-                content: <FinesTab studentId={studentId} />,
+                content: (
+                  <FinesTab
+                    studentId={studentId}
+                    logOpen={search.logFine === '1'}
+                    onLogOpenChange={(open) => setKey('logFine', open ? '1' : undefined)}
+                  />
+                ),
               },
               {
                 id: 'recurring-fees',
