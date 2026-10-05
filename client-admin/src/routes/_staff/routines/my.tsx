@@ -11,7 +11,9 @@
  * year — rather than re-deriving it from an empty `resolveRoutine`
  * response, which is also empty on an ordinary holiday.
  */
+import { Permission } from '@biddaloy/shared';
 import {
+  EmptyState,
   ErrorState,
   RoutePending,
   RoutineAgenda,
@@ -24,6 +26,7 @@ import {
   useCalendarEvents,
   useCalendarSettings,
   useCurrentUserId,
+  useHasPermission,
   useResolveRoutine,
   useRoutines,
   useRooms,
@@ -35,24 +38,18 @@ import {
   type Routine,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { createFileRoute } from '@tanstack/react-router';
+import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
+import { toIsoDate } from '@biddaloy/ui/utils';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { CalendarClockIcon, UserRoundXIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces } from '../../../route-loaders';
 
+import { subjectName } from './-subject-name';
+
 const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 const AGENDA_WINDOW_DAYS = 7;
-
-function todayIso(): string {
-  const now = new Date();
-  return isoOf(now);
-}
-
-function isoOf(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
-    date.getDate(),
-  ).padStart(2, '0')}`;
-}
 
 /** A rolling window starting today, not a calendar week — "today first"
  * (D18) is simplest as "today plus the next six days" rather than
@@ -63,7 +60,7 @@ function agendaDates(): string[] {
   return Array.from({ length: AGENDA_WINDOW_DAYS }, (_, i) => {
     const d = new Date(start);
     d.setDate(d.getDate() + i);
-    return isoOf(d);
+    return toIsoDate(d);
   });
 }
 
@@ -86,7 +83,9 @@ export const Route = createFileRoute('/_staff/routines/my')({
 });
 
 function MyRoutinePage() {
-  const { t } = useTranslation('routines');
+  const { t, i18n } = useTranslation('routines');
+  const navigate = useNavigate();
+  const canManage = useHasPermission(Permission.ROUTINE_MANAGE);
   const currentUserId = useCurrentUserId();
   const dates = React.useMemo(agendaDates, []);
   const from = dates[0]!;
@@ -115,12 +114,19 @@ function MyRoutinePage() {
   const calendarSettingsQuery = useCalendarSettings();
   const calendarEventsQuery = useCalendarEvents({ from, to });
 
+  const frame = (body: React.ReactNode) => (
+    <PageContainer size="narrow">
+      <PageHeader title={t('myRoutine.title')} subtitle={t('myRoutine.subtitle')} />
+      {body}
+    </PageContainer>
+  );
+
   if (routinesQuery.isPending || ownTeacherQuery.isPending || academicYearsQuery.isPending) {
-    return <MyRoutineSkeleton label={t('myRoutine.loading')} />;
+    return frame(<MyRoutineSkeleton label={t('myRoutine.loading')} />);
   }
 
   if (routinesQuery.isError || ownTeacherQuery.isError || academicYearsQuery.isError) {
-    return (
+    return frame(
       <ErrorState
         message={t('myRoutine.error.message')}
         retryLabel={t('myRoutine.error.retry')}
@@ -129,19 +135,35 @@ function MyRoutinePage() {
           void ownTeacherQuery.refetch();
           void academicYearsQuery.refetch();
         }}
-      />
+      />,
     );
   }
 
   if (!ownTeacher) {
-    return (
-      <p className="p-4 text-sm text-muted-foreground">{t('myRoutine.notATeacherExplanation')}</p>
+    return frame(
+      <EmptyState
+        icon={<UserRoundXIcon aria-hidden="true" />}
+        title={t('myRoutine.notATeacherTitle')}
+        explanation={t('myRoutine.notATeacherExplanation')}
+        {...(canManage
+          ? {
+              action: {
+                label: t('myRoutine.openClassRoutine'),
+                onClick: () => void navigate({ to: '/routines' }),
+              },
+            }
+          : {})}
+      />,
     );
   }
 
   if (!routine) {
-    return (
-      <p className="p-4 text-sm text-muted-foreground">{t('myRoutine.noRoutineExplanation')}</p>
+    return frame(
+      <EmptyState
+        icon={<CalendarClockIcon aria-hidden="true" />}
+        title={t('myRoutine.noRoutineTitle')}
+        explanation={t('myRoutine.noRoutineExplanation')}
+      />,
     );
   }
 
@@ -154,7 +176,7 @@ function MyRoutinePage() {
     calendarSettingsQuery.isPending ||
     calendarEventsQuery.isPending
   ) {
-    return <MyRoutineSkeleton label={t('myRoutine.loading')} />;
+    return frame(<MyRoutineSkeleton label={t('myRoutine.loading')} />);
   }
 
   if (
@@ -166,7 +188,7 @@ function MyRoutinePage() {
     calendarSettingsQuery.isError ||
     calendarEventsQuery.isError
   ) {
-    return (
+    return frame(
       <ErrorState
         message={t('myRoutine.error.message')}
         retryLabel={t('myRoutine.error.retry')}
@@ -179,12 +201,15 @@ function MyRoutinePage() {
           void calendarSettingsQuery.refetch();
           void calendarEventsQuery.refetch();
         }}
-      />
+      />,
     );
   }
 
-  const subjectName = (id: string) =>
-    subjectsQuery.data?.data.find((subject) => subject.id === id)?.name_en ?? id;
+  const subjectLabel = (id: string) =>
+    subjectName(
+      subjectsQuery.data?.data.find((subject) => subject.id === id),
+      i18n.language,
+    );
   const roomLabel = (id: string | null) => {
     if (!id) return null;
     const room = roomsQuery.data?.data.find((r) => r.id === id);
@@ -192,14 +217,14 @@ function MyRoutinePage() {
     return room.building ? `${room.building} ${room.room_no}` : room.room_no;
   };
   const teacherName = (id: string) =>
-    teachersQuery.data?.data.find((teacher) => teacher.id === id)?.user.full_name ?? id;
+    teachersQuery.data?.data.find((teacher) => teacher.id === id)?.user.full_name ?? '—';
   const sectionLabel = (id: string) => {
     const entry = sectionLookupQuery.data?.[id];
-    return entry ? `${entry.className} ${entry.sectionName}` : id;
+    return entry ? `${entry.className} – ${entry.sectionName}` : '—';
   };
   const periodLabel = (id: string) => {
     const entry = periodLookupQuery.data?.[id];
-    return entry ? t('agenda.periodLabel', { sequence: entry.sequence }) : id;
+    return entry ? t('agenda.periodLabel', { sequence: entry.sequence }) : '—';
   };
   const weeklyOffDays = new Set(calendarSettingsQuery.data?.weeklyOffDays ?? []);
   const holidayFor = (date: string) =>
@@ -232,7 +257,7 @@ function MyRoutinePage() {
         startsAt: period?.starts_at ?? '',
         endsAt: period?.ends_at ?? '',
         sectionLabel: sectionLabel(slot.section_id),
-        subjectLabel: subjectName(slot.subject_id),
+        subjectLabel: subjectLabel(slot.subject_id),
         roomLabel: roomLabel(slot.room_id),
         cancelled: slot.cancelled,
         coveringForLabel: slot.substituted
@@ -246,18 +271,13 @@ function MyRoutinePage() {
     return {
       date,
       weekdayLabel: t(`grid.weekday.${WEEKDAY_KEYS[weekday]}`),
-      isToday: date === todayIso(),
+      isToday: date === toIsoDate(new Date()),
       offReason,
       items,
     };
   });
 
-  return (
-    <div className="flex max-w-2xl flex-col gap-3 p-4">
-      <h1 className="text-lg font-semibold">{t('myRoutine.title')}</h1>
-      <MyRoutineAgenda days={days} />
-    </div>
-  );
+  return frame(<MyRoutineAgenda days={days} />);
 }
 
 /** Isolated so the day/week-view selection state doesn't force the whole
@@ -278,12 +298,15 @@ function MyRoutineAgenda({ days }: { days: RoutineAgendaDay[] }) {
 
 function MyRoutineSkeleton({ label }: { label: string }) {
   return (
-    <div className="flex max-w-2xl flex-col gap-3 p-4" aria-busy="true" aria-live="polite">
+    <div className="flex flex-col gap-3" aria-busy="true" aria-live="polite">
       <span className="sr-only">{label}</span>
-      <Skeleton className="h-7 w-2/5" />
       <Skeleton className="h-9 w-full rounded-lg" />
-      <Skeleton className="h-16 w-full rounded-lg" />
-      <Skeleton className="h-16 w-full rounded-lg" />
+      <div className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface p-4">
+        <Skeleton className="h-3 w-1/3" />
+        {Array.from({ length: 4 }, (_, index) => (
+          <Skeleton key={index} className="h-14 w-full" />
+        ))}
+      </div>
     </div>
   );
 }
