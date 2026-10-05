@@ -51,7 +51,7 @@ import { useBreadcrumbs } from '../../use-breadcrumbs';
  * Holidays · Dashboard (back to the school app) plus More (C8).
  */
 export const Route = createFileRoute('/_platform')({
-  loader: () => loadRouteNamespaces('nav', 'platform'),
+  loader: () => loadRouteNamespaces('nav', 'platform', 'auth'),
   component: PlatformLayout,
 });
 
