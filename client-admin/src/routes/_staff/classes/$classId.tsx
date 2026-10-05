@@ -4,7 +4,9 @@ import { ErrorState, RoutePending, Skeleton } from '@biddaloy/ui/components';
 import { classQueryOptions, useClass, useHasPermission } from '@biddaloy/ui/hooks';
 import { RegionConfigProvider, useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { DetailShell, useDetailShellTab } from '@biddaloy/ui/shells';
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { formatNumber } from '@biddaloy/ui/utils';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { PencilIcon, Trash2Icon } from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
@@ -87,110 +89,123 @@ function ClassDetailPage() {
 
   return (
     <RegionConfigProvider value={regionConfig}>
-      <div className="flex flex-col gap-4">
-        <Link
-          to="/classes"
-          className="inline-flex min-h-6 min-w-6 items-center self-start text-sm text-primary underline"
-        >
-          {t('list.title')}
-        </Link>
+      <DetailShell
+        name={klass.name}
+        facts={[
+          {
+            label: t('detail.factGrade'),
+            value:
+              klass.numeric_grade == null
+                ? t('list.noGrade')
+                : formatNumber(klass.numeric_grade, regionConfig),
+          },
+          { label: t('detail.factAcademicYear'), value: klass.academic_year.name },
+          ...(klass.shift ? [{ label: t('list.shiftLabel'), value: klass.shift }] : []),
+          ...(klass.version ? [{ label: t('list.versionLabel'), value: klass.version }] : []),
+          {
+            label: t('detail.factSections'),
+            value: t('detail.sectionCount', {
+              count: klass.sections.length,
+              n: formatNumber(klass.sections.length, regionConfig),
+            }),
+          },
+        ]}
+        actions={[
+          {
+            id: 'edit',
+            label: t('list.edit'),
+            icon: <PencilIcon aria-hidden="true" />,
+            onClick: () => setEditOpen(true),
+            allowed: canManage,
+            priority: 'secondary',
+          },
+          {
+            id: 'delete',
+            label: t('list.delete'),
+            icon: <Trash2Icon aria-hidden="true" />,
+            onClick: () => setDeleteOpen(true),
+            priority: 'destructive',
+            allowed: canManage,
+          },
+        ]}
+        tabs={[
+          {
+            id: 'sections',
+            label: t('detail.tabSections'),
+            content: <SectionsTab classId={klass.id} />,
+          },
+          {
+            id: 'students',
+            label: t('detail.tabStudents'),
+            content: <StudentsTab classId={klass.id} />,
+          },
+          {
+            id: 'feeStructures',
+            label: t('detail.tabFeeStructures'),
+            content: <FeeStructuresTab classId={klass.id} />,
+          },
+          {
+            id: 'teachers',
+            label: t('detail.tabTeachers'),
+            content: <TeachersTab classId={klass.id} />,
+          },
+          {
+            id: 'subjects',
+            label: t('detail.tabSubjects'),
+            content: <SubjectsTab classId={klass.id} academicYearId={klass.academic_year.id} />,
+          },
+          {
+            id: 'homework',
+            label: t('detail.tabHomework'),
+            content: <HomeworkTab classId={klass.id} />,
+          },
+          ...(canViewPerformance
+            ? [
+                {
+                  id: 'performance',
+                  label: tPerformance('title'),
+                  content: (
+                    <PerformanceTab
+                      classId={klass.id}
+                      className={klass.name}
+                      academicYearId={klass.academic_year.id}
+                    />
+                  ),
+                },
+              ]
+            : []),
+        ]}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      />
 
-        <DetailShell
-          name={klass.name}
-          identifiers={
-            <>
-              {t('detail.grade', { grade: klass.numeric_grade ?? t('list.noGrade') })} ·{' '}
-              {klass.academic_year.name}
-            </>
-          }
-          actions={[
-            {
-              id: 'edit',
-              label: t('list.edit'),
-              onClick: () => setEditOpen(true),
-              allowed: canManage,
-              priority: 'primary',
-            },
-            {
-              id: 'delete',
-              label: t('list.delete'),
-              onClick: () => setDeleteOpen(true),
-              priority: 'destructive',
-              allowed: canManage,
-            },
-          ]}
-          tabs={[
-            {
-              id: 'sections',
-              label: t('detail.tabSections'),
-              content: <SectionsTab classId={klass.id} className={klass.name} />,
-            },
-            {
-              id: 'students',
-              label: t('detail.tabStudents'),
-              content: <StudentsTab classId={klass.id} />,
-            },
-            {
-              id: 'feeStructures',
-              label: t('detail.tabFeeStructures'),
-              content: <FeeStructuresTab classId={klass.id} />,
-            },
-            {
-              id: 'teachers',
-              label: t('detail.tabTeachers'),
-              content: <TeachersTab classId={klass.id} />,
-            },
-            {
-              id: 'subjects',
-              label: t('detail.tabSubjects'),
-              content: <SubjectsTab classId={klass.id} academicYearId={klass.academic_year.id} />,
-            },
-            {
-              id: 'homework',
-              label: t('detail.tabHomework'),
-              content: <HomeworkTab classId={klass.id} />,
-            },
-            ...(canViewPerformance
-              ? [
-                  {
-                    id: 'performance',
-                    label: tPerformance('title'),
-                    content: (
-                      <PerformanceTab
-                        classId={klass.id}
-                        className={klass.name}
-                        academicYearId={klass.academic_year.id}
-                      />
-                    ),
-                  },
-                ]
-              : []),
-          ]}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
+      {canManage && editOpen && (
+        <ClassFormDialog
+          open
+          onOpenChange={setEditOpen}
+          mode="edit"
+          classId={klass.id}
+          initialValues={{
+            name: klass.name,
+            numericGrade: klass.numeric_grade ?? undefined,
+            // Without these, saving from this page sent shift/version null
+            // and erased them.
+            shift: klass.shift ?? null,
+            version: klass.version ?? null,
+          }}
+          onSaved={() => setEditOpen(false)}
         />
+      )}
 
-        {canManage && editOpen && (
-          <ClassFormDialog
-            open
-            onOpenChange={setEditOpen}
-            mode="edit"
-            classId={klass.id}
-            initialValues={{ name: klass.name, numericGrade: klass.numeric_grade ?? undefined }}
-            onSaved={() => setEditOpen(false)}
-          />
-        )}
-
-        {canManage && deleteOpen && (
-          <DeleteClassDialog
-            open
-            onOpenChange={setDeleteOpen}
-            classId={klass.id}
-            className={klass.name}
-            onDeleted={() => void navigate({ to: '/classes' })}
-          />
-        )}
-      </div>
+      {canManage && deleteOpen && (
+        <DeleteClassDialog
+          open
+          onOpenChange={setDeleteOpen}
+          classId={klass.id}
+          className={klass.name}
+          onDeleted={() => void navigate({ to: '/classes' })}
+        />
+      )}
     </RegionConfigProvider>
   );
 }

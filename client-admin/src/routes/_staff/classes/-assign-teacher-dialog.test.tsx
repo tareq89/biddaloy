@@ -195,6 +195,25 @@ describe('AssignTeacherDialog', () => {
     expect(screen.queryByText(/will be replaced/)).toBeNull();
   });
 
+  it('the role group has a visible legend and three radios; the replace warning sits in the polite live region', async () => {
+    server.use(...referenceHandlers());
+    await renderDialog({ currentClassTeacher: { teacherId: 'teacher-9', name: 'Rahim Uddin' } });
+    const user = userEvent.setup();
+
+    const legend = await screen.findByText('Assignment type', { selector: 'legend' });
+    expect(legend).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Class teacher' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Assistant class teacher' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Subject teacher' })).toBeTruthy();
+
+    const combo = await screen.findByRole('combobox', { name: 'Teacher' });
+    combo.focus();
+    await waitFor(() => expect(combo.getAttribute('aria-expanded')).toBe('true'));
+    await user.click(await screen.findByRole('option', { name: /EMP-00001/ }));
+    const warning = screen.getByText('Rahim Uddin will be replaced as class teacher');
+    expect(warning.closest('[aria-live="polite"]')).not.toBeNull();
+  });
+
   it('shows no replace warning when the picked teacher already is the class teacher', async () => {
     server.use(...referenceHandlers());
     await renderDialog({ currentClassTeacher: { teacherId: 'teacher-1', name: 'Same Person' } });
