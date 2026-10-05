@@ -3,7 +3,7 @@ import type { CalendarEvent, PublicHolidayEntry } from '@biddaloy/ui/hooks';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { EventDetailsSheet } from './-event-details-sheet';
-import { EventFormDialog } from './-event-form-dialog';
+import { EventFormPage } from './-event-form-dialog';
 import { GovernmentHolidaysDialog } from './-government-holidays-dialog';
 
 /**
@@ -78,12 +78,11 @@ export const EventDetailsDraft: StoryObj = {
 
 export const EventFormCreate: StoryObj = {
   render: () => (
-    <EventFormDialog
-      open
-      onOpenChange={() => {}}
+    <EventFormPage
       mode="create"
       isPending={false}
       error={undefined}
+      onClose={() => {}}
       onSubmit={() => {}}
     />
   ),
@@ -91,13 +90,12 @@ export const EventFormCreate: StoryObj = {
 
 export const EventFormEdit: StoryObj = {
   render: () => (
-    <EventFormDialog
-      open
-      onOpenChange={() => {}}
+    <EventFormPage
       mode="edit"
       initialValues={event()}
       isPending={false}
       error={undefined}
+      onClose={() => {}}
       onSubmit={() => {}}
     />
   ),
