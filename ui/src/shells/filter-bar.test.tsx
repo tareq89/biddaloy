@@ -291,7 +291,7 @@ describe('FilterBar', () => {
     expect(onChangeSpy).toHaveBeenCalledWith({ status: null });
   });
 
-  it('Tab visits every control in descriptor order — primary field, disclosure trigger, then each collapsible control', async () => {
+  it('Tab visits every control in descriptor order — primary field, Filters button, then each collapsible control', async () => {
     await renderInEnglish(<FilterBarDemo />);
 
     // [31.2.2] each date is one DatePicker button (no separate calendar icon).
