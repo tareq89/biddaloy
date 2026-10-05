@@ -569,10 +569,9 @@ export function BulkReminderWizard() {
                 <h2 className="text-sm font-semibold">{t('bulk.review.skippedByReasonTitle')}</h2>
                 <ul className="mt-2 flex flex-col gap-1 text-sm">
                   {Array.from(skippedByReason.entries()).map(([reason, count]) => {
-                    const reasonKey = skipReasonKey(reason);
                     return (
                       <li key={reason}>
-                        {reasonKey !== undefined ? t(reasonKey) : reason} —{' '}
+                        {t(skipReasonKey(reason))} —{' '}
                         {t('bulk.review.reasonCount', { count: count })}
                       </li>
                     );

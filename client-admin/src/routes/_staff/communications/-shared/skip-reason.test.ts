@@ -29,7 +29,10 @@ describe('skipReasonKey', () => {
     expect(bn_value).not.toBe(en_value);
   });
 
-  it('returns undefined for a reason this UI predates, so the caller can fall back', () => {
-    expect(skipReasonKey('some_future_reason')).toBeUndefined();
+  it('returns the plain "other reason" key for a reason this UI predates', () => {
+    const key = skipReasonKey('some_future_reason');
+    expect(key).toBe('skipReasons.unknown');
+    expect((en.skipReasons as Record<string, string>)['unknown']).toBeTruthy();
+    expect((bn.skipReasons as Record<string, string>)['unknown']).toBeTruthy();
   });
 });
