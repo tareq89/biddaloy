@@ -123,6 +123,12 @@ describe('round trip', () => {
     });
   });
 
+  it('upper-cases a lowercase country_code', () => {
+    const cells = { ...toCells(makeSchool()), country_code: 'bd' };
+    const result = schoolTab.fromRow(cells, 2, importCtx);
+    expect(result).toHaveProperty('row.country_code', 'BD');
+  });
+
   it('rejects a country_code that is not two capital letters', () => {
     const cells = { ...toCells(makeSchool()), country_code: 'bangladesh' };
     const result = schoolTab.fromRow(cells, 2, importCtx);
