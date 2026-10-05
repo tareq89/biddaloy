@@ -13,7 +13,7 @@
 import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithRouter, server } from '@biddaloy/ui/test';
 import { formatNumber, formatPhone } from '@biddaloy/ui/utils';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -126,9 +126,11 @@ describe('/communications/batches/$batchId', () => {
     expect(screen.queryByText(/GREENWEB_API_KEY/)).toBeNull();
     expect(screen.queryByText('Provider rejected the number')).toBeNull();
     // Phones read in the grouped local format.
-    expect(screen.getAllByText(formatPhone('+8801700000000', REGION_BD_BN)).length).toBeGreaterThan(
-      0,
-    );
+    const oneRow = screen.getByText('Guardian One').closest('tr');
+    expect(oneRow).toBeTruthy();
+    expect(
+      within(oneRow as HTMLElement).getByText(formatPhone('+8801700000000', REGION_BD_BN)),
+    ).toBeTruthy();
     // Skipped grouped by reason with a count, not a UUID list.
     expect(screen.getByText('No guardians on file')).toBeTruthy();
     expect(screen.getByText(`${formatNumber(2, REGION_BD_BN)} students`)).toBeTruthy();
@@ -147,6 +149,30 @@ describe('/communications/batches/$batchId', () => {
     expect(chip.className).toContain('bg-secondary');
     expect(screen.queryByText(/\{\{/)).toBeNull();
     expect(screen.getByText(/dues are open\./)).toBeTruthy();
+  });
+
+  it('keeps the page when a background refetch fails and data is cached', async () => {
+    let calls = 0;
+    server.use(
+      http.get('/api/v1/communications/reminder/bulk/:id', () => {
+        calls += 1;
+        return calls === 1
+          ? HttpResponse.json(batchBody())
+          : HttpResponse.json(
+              { statusCode: 404, message: 'x', timestamp: '', path: '' },
+              { status: 404 },
+            );
+      }),
+      http.get('/api/v1/communications/reminder/bulk/:id/logs', () =>
+        HttpResponse.json({ data: [], total: 0, page: 1, limit: 25, totalPages: 0 }),
+      ),
+    );
+    const { queryClient } = render();
+    await screen.findByRole('heading', { level: 1, name: 'August dues reminder' });
+    await queryClient.refetchQueries({ type: 'active' });
+    await waitFor(() => expect(calls).toBeGreaterThan(1));
+    expect(screen.getByRole('heading', { level: 1, name: 'August dues reminder' })).toBeTruthy();
+    expect(screen.queryByText('Could not load this round.')).toBeNull();
   });
 
   it('shows a retryable error state when the round cannot load', async () => {

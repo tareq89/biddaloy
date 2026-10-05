@@ -86,3 +86,11 @@ export function findUnknownLabels(display: string, labels: PlaceholderLabels): s
   }
   return unknown;
 }
+
+/** A `{` or `}` left over once every complete `{{token}}` / `{word}` is removed — a half-typed token that would otherwise be sent literally. */
+export function hasStrayBraces(display: string, labels: PlaceholderLabels): boolean {
+  const rest = toServerTemplate(display, labels)
+    .replace(/\{\{[^{}]*\}\}/g, '')
+    .replace(/\{[^{}]*\}/g, '');
+  return /[{}]/.test(rest);
+}
