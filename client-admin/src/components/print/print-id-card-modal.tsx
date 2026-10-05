@@ -29,8 +29,9 @@ import {
   useStudents,
   usersQueryOptions,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { FullPageShell } from '@biddaloy/ui/shells';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { useQuery } from '@tanstack/react-query';
 import { BriefcaseIcon, GraduationCapIcon, SearchIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
@@ -53,6 +54,7 @@ const PICK_LIMIT = 20;
 export function PrintIdCardModal({ initialType, onClose, onConfirm }: PrintIdCardModalProps) {
   const { t } = useTranslation('printPreview');
   const { t: tc } = useTranslation('common');
+  const region = useRegionConfig();
   // D18: a staff card exposes HR data, so the Staff choice needs STAFF_HR_READ.
   const canPrintStaff = useHasPermission(Permission.STAFF_HR_READ);
   const [chosenType, setType] = React.useState<PrintSubjectType>(initialType);
@@ -122,7 +124,7 @@ export function PrintIdCardModal({ initialType, onClose, onConfirm }: PrintIdCar
   const primary =
     activeMode === 'names'
       ? {
-          label: t('picker.continue', { count: picked.size }),
+          label: t('picker.continue', { count: picked.size, n: formatNumber(picked.size, region) }),
           disabled: picked.size === 0,
           onClick: () => onConfirm({ subjectType: type, ids: [...picked.keys()].join(',') }),
         }
@@ -223,7 +225,12 @@ export function PrintIdCardModal({ initialType, onClose, onConfirm }: PrintIdCar
 
           {picked.size > 0 ? (
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="text-label">{t('picker.pickedLabel', { count: picked.size })}</span>
+              <span className="text-label">
+                {t('picker.pickedLabel', {
+                  count: picked.size,
+                  n: formatNumber(picked.size, region),
+                })}
+              </span>
               {[...picked.entries()].map(([id, name]) => (
                 <button
                   key={id}
@@ -272,7 +279,9 @@ export function PrintIdCardModal({ initialType, onClose, onConfirm }: PrintIdCar
             ))}
           </ul>
           {rows.length === PICK_LIMIT ? (
-            <p className="mt-2 text-caption text-text-secondary">{t('picker.limitHelp')}</p>
+            <p className="mt-2 text-caption text-text-secondary">
+              {t('picker.limitHelp', { limit: formatNumber(PICK_LIMIT, region) })}
+            </p>
           ) : null}
         </Card>
       ) : (
