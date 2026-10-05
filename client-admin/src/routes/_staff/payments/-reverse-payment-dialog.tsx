@@ -78,7 +78,7 @@ export function ReversePaymentDialog({ open, onOpenChange, paymentId }: ReverseP
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent>
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>{t('detail.reverseDialog.title')}</DialogTitle>
             <DialogDescription>{t('detail.reverseDialog.description')}</DialogDescription>
@@ -92,7 +92,9 @@ export function ReversePaymentDialog({ open, onOpenChange, paymentId }: ReverseP
 
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-0.5 text-sm font-medium">
-              <label htmlFor="reverse-payment-reason">{t('detail.reverseDialog.reasonLabel')}</label>
+              <label htmlFor="reverse-payment-reason">
+                {t('detail.reverseDialog.reasonLabel')}
+              </label>
               <span aria-hidden="true" className="text-destructive">
                 *
               </span>

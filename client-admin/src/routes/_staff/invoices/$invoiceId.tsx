@@ -2,21 +2,25 @@ import { InvoiceStatus, Permission } from '@biddaloy/shared';
 import { ApiError } from '@biddaloy/ui/api';
 import {
   Button,
+  ConfirmDialog,
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   ErrorState,
-  Field,
-  FieldGrid,
   Input,
+  Label,
   RadioGroup,
   RadioGroupItem,
   RoutePending,
   Skeleton,
   StatusBadge,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
   toast,
 } from '@biddaloy/ui/components';
 import {
@@ -33,8 +37,10 @@ import {
   type SendInvoiceMedium,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { DetailShell, PageContainer } from '@biddaloy/ui/shells';
 import {
   formatDate,
+  formatMonth,
   formatServerAmount,
   getPersistedPrintFormat,
   parseServerDate,
@@ -42,26 +48,23 @@ import {
   type InvoicePrintFormat,
 } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
+import { Link2, MessageCircle, MessageSquare, Printer } from 'lucide-react';
 import * as React from 'react';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../route-loaders';
+import { optionRowClass } from '../payments/-record/option-row';
 
 /**
  * `/invoices/$invoiceId` — [8.9.9]'s Cmd/Ctrl+K palette and [8.10.6]'s
  * `/invoices` list both link here. `GET /invoices/:id` (`invoices.
  * controller.ts`) already existed before this route did — printing
- * (`invoices/:id/print`) has shipped since [#14] — so [8.10.6] only
- * fleshes out the fields this page renders, not a new backend surface.
+ * (`invoices/:id/print`) has shipped since [#14].
  *
- * `line_items` isn't rendered: the generated `Invoice` schema types the
- * response field `Record<string, never> | null` (jsonb has no OpenAPI
- * shape for Swagger to infer), so reading it here would mean an unsound
- * cast for a field the acceptance criteria don't actually ask for.
- *
- * [16.5.5] adds the format radio / print / share / revoke / send actions
- * below. `snapshot.students` line items are still not rendered — 16.6's
- * multi-student invoice view is out of scope here, same reasoning as
- * `line_items` above.
+ * [31.4] Redesign: `DetailShell` header (number, status, facts with links to
+ * the payment and, for a credit note, the original invoice), one card per
+ * student of `snapshot.students` with a totals band, and an aside with the
+ * Print and Send/Share cards. Presentation only: print, send, share and
+ * revoke behave as before.
  */
 export const Route = createFileRoute('/_staff/invoices/$invoiceId')({
   loader: ({ context: { queryClient }, params }) =>
@@ -71,11 +74,15 @@ export const Route = createFileRoute('/_staff/invoices/$invoiceId')({
       queryClient
         .ensureQueryData(invoiceQueryOptions(params.invoiceId))
         .catch(swallowUnlessOffline),
-      loadRouteNamespaces('fees'),
+      loadRouteNamespaces('fees', 'payments'),
     ]),
   pendingComponent: InvoiceDetailPending,
   component: InvoiceDetailPage,
 });
+
+const CARD_CLASS = 'rounded-lg border border-border-subtle bg-surface p-4 shadow-e1 md:p-5';
+const LINK_CLASS =
+  'inline-flex min-h-11 items-center font-medium text-primary underline underline-offset-2 md:min-h-0';
 
 function InvoiceDetailPage() {
   const { invoiceId } = Route.useParams();
@@ -84,6 +91,7 @@ function InvoiceDetailPage() {
   const invoiceQuery = useInvoice(invoiceId);
   const canPrint = useHasPermission(Permission.INVOICE_PRINT);
   const canShare = useHasPermission(Permission.INVOICE_READ);
+  const formatLegendId = React.useId();
 
   const [format, setFormat] = React.useState<InvoicePrintFormat>(
     () => getPersistedPrintFormat() ?? 'a4',
@@ -160,225 +168,414 @@ function InvoiceDetailPage() {
     }
   }
 
-  return (
-    <div className="flex flex-col gap-4">
-      <Link
-        to="/invoices"
-        className="inline-flex min-h-6 items-center self-start text-sm text-primary underline"
-      >
-        {t('invoiceDetail.back')}
-      </Link>
-      {invoiceQuery.isPending ? (
-        <Skeleton className="h-7 w-48" />
-      ) : invoiceQuery.isError || invoice === undefined ? (
+  if (invoiceQuery.isPending) {
+    return (
+      <PageContainer size="wide">
+        <div aria-busy="true" className="flex flex-col gap-3">
+          <Skeleton className="h-7 w-48" />
+          <div className="flex flex-wrap gap-6">
+            {[0, 1, 2, 3].map((n) => (
+              <Skeleton key={n} className="h-3 w-24 rounded-sm" />
+            ))}
+          </div>
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-40 w-full" />
+        </div>
+      </PageContainer>
+    );
+  }
+
+  if (invoiceQuery.isError || invoice === undefined) {
+    return (
+      <PageContainer size="wide">
         <ErrorState
           message={t('invoiceDetail.loadError')}
           retryLabel={t('invoiceDetail.retry')}
           onRetry={() => void invoiceQuery.refetch()}
         />
-      ) : (
+      </PageContainer>
+    );
+  }
+
+  const { snapshot } = invoice;
+  const settled = invoice.status === 'PAID' || invoice.status === 'CANCELLED';
+  const lastStudentIndex = snapshot.students.length - 1;
+
+  const facts = [
+    {
+      label: t('invoiceDetail.student', { ns: 'payments' }),
+      value: `${invoice.student.full_name} · ${invoice.student.registration_number}`,
+    },
+    {
+      label: t('invoiceDetail.issuedDate'),
+      value: formatDate(parseServerDate(invoice.issued_date), regionConfig),
+    },
+    ...(settled
+      ? []
+      : [
+          {
+            label: t('invoiceDetail.dueDate'),
+            value: formatDate(parseServerDate(invoice.due_date), regionConfig),
+          },
+        ]),
+    {
+      label: t('invoiceDetail.totalAmount'),
+      value: formatServerAmount(invoice.total_amount, regionConfig),
+    },
+    ...(invoice.payment_id !== null
+      ? [
+          {
+            label: t('invoiceDetail.payment', { ns: 'payments' }),
+            value: (
+              <Link to="/payments/$id" params={{ id: invoice.payment_id }} className={LINK_CLASS}>
+                {t('invoiceDetail.paymentValue', {
+                  method: t(`record.method.methods.${snapshot.payment.method}`, { ns: 'payments' }),
+                  date: formatDate(parseServerDate(snapshot.payment.payment_date), regionConfig),
+                  ns: 'payments',
+                })}
+              </Link>
+            ),
+          },
+        ]
+      : []),
+    ...(invoice.kind === 'CREDIT_NOTE' &&
+    invoice.related_invoice_id !== null &&
+    invoice.related_invoice !== null
+      ? [
+          {
+            label: t('invoiceDetail.originalInvoice', { ns: 'payments' }),
+            value: (
+              <Link
+                to="/invoices/$invoiceId"
+                params={{ invoiceId: invoice.related_invoice_id }}
+                className={LINK_CLASS}
+              >
+                {invoice.related_invoice.invoice_number}
+              </Link>
+            ),
+          },
+        ]
+      : []),
+  ];
+
+  const totalsBand = (
+    <dl className="space-y-2 border-t border-border-subtle bg-muted p-4 md:px-5">
+      <div className="flex justify-between gap-4">
+        <dt>{t('invoiceDetail.totals.billed', { ns: 'payments' })}</dt>
+        <dd className="tabular-nums">{formatServerAmount(snapshot.totals.billed, regionConfig)}</dd>
+      </div>
+      <div className="flex justify-between gap-4">
+        <dt>{t('invoiceDetail.totals.discount', { ns: 'payments' })}</dt>
+        <dd className="tabular-nums">
+          {formatServerAmount(snapshot.totals.discount, regionConfig)}
+        </dd>
+      </div>
+      {invoice.tax_amount > 0 && (
+        <div className="flex justify-between gap-4">
+          <dt>{t('invoiceDetail.totals.tax', { ns: 'payments' })}</dt>
+          <dd className="tabular-nums">{formatServerAmount(invoice.tax_amount, regionConfig)}</dd>
+        </div>
+      )}
+      {snapshot.totals.wallet_used > 0 && (
+        <div className="flex justify-between gap-4">
+          <dt>{t('invoiceDetail.totals.wallet', { ns: 'payments' })}</dt>
+          <dd className="tabular-nums">
+            {formatServerAmount(snapshot.totals.wallet_used, regionConfig)}
+          </dd>
+        </div>
+      )}
+      <div className="flex justify-between gap-4 border-t border-border-subtle pt-2">
+        <dt className="font-medium">{t('invoiceDetail.totals.paid', { ns: 'payments' })}</dt>
+        <dd className="text-h3 tabular-nums">
+          {formatServerAmount(snapshot.totals.paid, regionConfig)}
+        </dd>
+      </div>
+      {snapshot.totals.change > 0 && (
+        <div className="flex justify-between gap-4">
+          <dt>{t('invoiceDetail.totals.change', { ns: 'payments' })}</dt>
+          <dd className="tabular-nums">
+            {formatServerAmount(snapshot.totals.change, regionConfig)}
+          </dd>
+        </div>
+      )}
+    </dl>
+  );
+
+  return (
+    <DetailShell
+      name={invoice.invoice_number}
+      statusBadge={
         <>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-semibold">{invoice.invoice_number}</h1>
-                {invoice.kind === 'CREDIT_NOTE' && (
-                  <span className="rounded-full border border-destructive px-2 py-0.5 text-xs text-destructive">
-                    {t('invoiceDetail.creditNoteBadge')}
-                  </span>
-                )}
+          <StatusBadge domain="invoice" status={invoice.status as InvoiceStatus} />
+          {invoice.kind === 'CREDIT_NOTE' && (
+            <StatusBadge tone="neutral" label={t('invoiceDetail.creditNote', { ns: 'payments' })} />
+          )}
+        </>
+      }
+      facts={facts}
+    >
+      <div className="flex flex-col gap-6 md:flex-row md:items-start">
+        <div className="order-2 min-w-0 flex-1 space-y-6 md:order-1">
+          {snapshot.students.map((student, index) => (
+            <section
+              key={student.id}
+              className="overflow-hidden rounded-lg border border-border-subtle bg-surface shadow-e1"
+            >
+              <div className="p-4 md:p-5">
+                <h2 className="text-h2">{student.full_name}</h2>
+                <p className="mt-1 text-text-secondary">
+                  {student.class_name !== null
+                    ? `${student.class_name} · ${student.registration_number}`
+                    : student.registration_number}
+                </p>
               </div>
-              <p className="text-sm text-muted-foreground">{invoice.student.full_name}</p>
-            </div>
-            <StatusBadge domain="invoice" status={invoice.status as InvoiceStatus} />
-          </div>
+              <Table>
+                <caption className="sr-only">
+                  {t('invoiceDetail.lines.caption', { name: student.full_name, ns: 'payments' })}
+                </caption>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('invoiceDetail.lines.fee', { ns: 'payments' })}</TableHead>
+                    <TableHead className="hidden md:table-cell">
+                      {t('invoiceDetail.lines.period', { ns: 'payments' })}
+                    </TableHead>
+                    <TableHead className="hidden text-right md:table-cell">
+                      {t('invoiceDetail.lines.billed', { ns: 'payments' })}
+                    </TableHead>
+                    <TableHead className="hidden text-right md:table-cell">
+                      {t('invoiceDetail.lines.discount', { ns: 'payments' })}
+                    </TableHead>
+                    <TableHead className="text-right">
+                      {t('invoiceDetail.lines.paidNow', { ns: 'payments' })}
+                    </TableHead>
+                    <TableHead className="hidden text-right md:table-cell">
+                      {t('invoiceDetail.lines.balance', { ns: 'payments' })}
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {student.lines.map((line, lineIndex) => {
+                    const period =
+                      line.period_start !== undefined
+                        ? formatMonth(line.period_start, regionConfig)
+                        : line.period_label || '—';
+                    const billed = formatServerAmount(line.amount, regionConfig);
+                    return (
+                      <TableRow key={`${line.fee_name}-${lineIndex}`}>
+                        <TableCell>
+                          <span className="font-medium">{line.fee_name}</span>
+                          {/* Phone: period and bill drop under the fee name. */}
+                          <span className="block text-text-secondary md:hidden">
+                            {t('invoiceDetail.lines.phoneLine', { period, billed, ns: 'payments' })}
+                          </span>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">{period}</TableCell>
+                        <TableCell className="hidden text-right tabular-nums md:table-cell">
+                          {billed}
+                        </TableCell>
+                        <TableCell className="hidden text-right tabular-nums md:table-cell">
+                          {formatServerAmount(line.discount, regionConfig)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatServerAmount(line.paid_this_time, regionConfig)}
+                        </TableCell>
+                        <TableCell className="hidden text-right tabular-nums md:table-cell">
+                          {formatServerAmount(line.balance_after, regionConfig)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+              {index === lastStudentIndex && totalsBand}
+            </section>
+          ))}
 
-          <FieldGrid className="text-sm">
-            <Field label={t('invoiceDetail.issuedDate')}>
-              {formatDate(parseServerDate(invoice.issued_date), regionConfig)}
-            </Field>
-            <Field label={t('invoiceDetail.dueDate')}>
-              {formatDate(parseServerDate(invoice.due_date), regionConfig)}
-            </Field>
-            <Field label={t('invoiceDetail.taxAmount')}>
-              {formatServerAmount(invoice.tax_amount, regionConfig)}
-            </Field>
-            <Field label={t('invoiceDetail.discountAmount')}>
-              {formatServerAmount(invoice.discount_amount, regionConfig)}
-            </Field>
-            <Field label={t('invoiceDetail.totalAmount')}>
-              <span className="font-medium">
-                {formatServerAmount(invoice.total_amount, regionConfig)}
-              </span>
-            </Field>
-          </FieldGrid>
-
-          {invoice.notes !== null && (
-            <p className="text-sm text-muted-foreground">{invoice.notes}</p>
+          {snapshot.students.length === 0 && (
+            <section className="overflow-hidden rounded-lg border border-border-subtle bg-surface shadow-e1">
+              {totalsBand}
+            </section>
           )}
 
-          {(canPrint || canShare) && (
-            <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
-              {canPrint && (
-                <div className="flex flex-col gap-2">
-                  <span className="text-sm font-medium">
-                    {t('invoiceDetail.printFormat.label')}
+          {invoice.notes !== null && (
+            <section className={CARD_CLASS}>
+              <h2 className="text-h2">{t('invoiceDetail.notes', { ns: 'payments' })}</h2>
+              <p className="mt-1">{invoice.notes}</p>
+            </section>
+          )}
+        </div>
+
+        {(canPrint || canShare) && (
+          <div className="order-1 space-y-6 md:order-2 md:w-80 md:shrink-0">
+            {canPrint && (
+              <section className={CARD_CLASS}>
+                <h2 className="text-h2">{t('invoiceDetail.printTitle', { ns: 'payments' })}</h2>
+                <div className="mt-3 flex flex-col gap-2">
+                  <span id={formatLegendId} className="text-sm font-medium">
+                    {t('printFormat.label', { ns: 'payments' })}
                   </span>
                   <RadioGroup
                     value={format}
                     onValueChange={(value) => handleFormatChange(value as InvoicePrintFormat)}
-                    className="flex flex-wrap gap-2"
+                    aria-labelledby={formatLegendId}
+                    className="grid gap-2"
                   >
-                    {(['a4', 'pos80', 'pos58'] as const).map((option) => (
-                      <label
-                        key={option}
-                        className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs has-[[data-state=checked]]:border-primary"
-                      >
-                        <RadioGroupItem value={option} />
-                        {t(`invoiceDetail.printFormat.${option}`)}
-                      </label>
-                    ))}
+                    <label className={optionRowClass}>
+                      <RadioGroupItem value="a4" />
+                      {t('printFormat.a4', { ns: 'payments' })}
+                    </label>
+                    <label className={optionRowClass}>
+                      <RadioGroupItem value="pos80" />
+                      {t('printFormat.pos80', { ns: 'payments' })}
+                    </label>
+                    <label className={optionRowClass}>
+                      <RadioGroupItem value="pos58" />
+                      {t('printFormat.pos58', { ns: 'payments' })}
+                    </label>
                   </RadioGroup>
+                </div>
+                <Button
+                  type="button"
+                  className="mt-4 h-11 w-full"
+                  onClick={() => printInvoice(invoice.id, format)}
+                >
+                  <Printer aria-hidden="true" />
+                  {t('invoiceDetail.printAction', { ns: 'payments' })}
+                </Button>
+              </section>
+            )}
+
+            {canShare && (
+              <section className={CARD_CLASS}>
+                <h2 className="text-h2">{t('invoiceDetail.sendTitle', { ns: 'payments' })}</h2>
+                <div className="mt-3 grid grid-cols-2 gap-2">
                   <Button
                     type="button"
-                    className="self-start"
-                    onClick={() => printInvoice(invoice.id, format)}
+                    variant="outline"
+                    className="h-11"
+                    disabled={sendCandidates.length === 0}
+                    loading={sendInvoice.isPending}
+                    onClick={() => startSend('WHATSAPP')}
                   >
-                    {t('invoiceDetail.print')}
+                    <MessageCircle aria-hidden="true" />
+                    {t('invoiceDetail.sendWhatsapp', { ns: 'payments' })}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11"
+                    disabled={sendCandidates.length === 0}
+                    loading={sendInvoice.isPending}
+                    onClick={() => startSend('SMS')}
+                  >
+                    <MessageSquare aria-hidden="true" />
+                    {t('invoiceDetail.sendSms', { ns: 'payments' })}
                   </Button>
                 </div>
-              )}
+                {sendCandidates.length === 0 && (
+                  <p className="mt-2 text-label text-text-secondary">
+                    {t('invoiceDetail.send.noGuardians')}
+                  </p>
+                )}
 
-              {canShare && (
-                <div className="flex flex-col gap-2 border-t border-border-subtle pt-3">
+                <div className="mt-4 flex flex-col gap-2 border-t border-border-subtle pt-4">
+                  <h3 className="text-h3">{t('invoiceDetail.shareTitle', { ns: 'payments' })}</h3>
+                  <p className="text-text-secondary">
+                    {t('invoiceDetail.shareHelp', { ns: 'payments' })}
+                  </p>
                   {liveShare === undefined ? (
                     <Button
                       type="button"
                       variant="outline"
-                      className="self-start"
+                      className="h-11 w-full"
                       loading={shareInvoice.isPending}
-                      onClick={() =>
+                      onClick={() => {
+                        shareInvoice.reset();
                         // `useShareInvoice`'s mutation resolves to
                         // `{ invoiceId, result }`, not the create response
                         // directly — see its own doc comment.
                         shareInvoice.mutate(invoiceId, {
                           onSuccess: ({ result }) => setCreatedShareUrl(result.url),
-                        })
-                      }
+                        });
+                      }}
                     >
-                      {t('invoiceDetail.share.create')}
+                      <Link2 aria-hidden="true" />
+                      {t('invoiceDetail.shareCreate', { ns: 'payments' })}
                     </Button>
                   ) : (
-                    <div className="flex flex-wrap items-center gap-2">
-                      {createdShareUrl !== null && (
-                        <Input
-                          readOnly
-                          aria-label={t('invoiceDetail.share.urlLabel')}
-                          value={createdShareUrl}
-                          className="max-w-sm"
-                        />
-                      )}
-                      {createdShareUrl !== null && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => void handleCopyLink(createdShareUrl)}
-                        >
-                          {t('invoiceDetail.share.copyLink')}
-                        </Button>
-                      )}
-                      {createdShareUrl === null && (
-                        <p className="text-sm text-muted-foreground">
-                          {t('invoiceDetail.share.linkHidden')}
-                        </p>
+                    <div className="flex flex-col gap-2">
+                      {createdShareUrl !== null ? (
+                        <>
+                          <Label htmlFor="invoice-share-url">
+                            {t('invoiceDetail.share.urlLabel')}
+                          </Label>
+                          <Input id="invoice-share-url" readOnly value={createdShareUrl} />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-11 w-full"
+                            onClick={() => void handleCopyLink(createdShareUrl)}
+                          >
+                            {t('invoiceDetail.share.copyLink')}
+                          </Button>
+                        </>
+                      ) : (
+                        <p className="text-text-secondary">{t('invoiceDetail.share.linkHidden')}</p>
                       )}
                       <Button
                         type="button"
                         variant="ghost"
-                        size="sm"
-                        onClick={() => setRevokeTargetId(liveShare.id)}
+                        className="h-11 w-full text-destructive"
+                        onClick={() => {
+                          revokeShare.reset();
+                          setRevokeTargetId(liveShare.id);
+                        }}
                       >
-                        {t('invoiceDetail.share.revoke')}
+                        {t('invoiceDetail.shareRevoke', { ns: 'payments' })}
                       </Button>
                     </div>
                   )}
-                </div>
-              )}
-
-              {canShare && (
-                <div className="flex flex-wrap gap-2 border-t border-border-subtle pt-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={sendCandidates.length === 0}
-                    loading={sendInvoice.isPending}
-                    onClick={() => startSend('WHATSAPP')}
-                  >
-                    {t('invoiceDetail.send.whatsapp')}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={sendCandidates.length === 0}
-                    loading={sendInvoice.isPending}
-                    onClick={() => startSend('SMS')}
-                  >
-                    {t('invoiceDetail.send.sms')}
-                  </Button>
-                  {sendCandidates.length === 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      {t('invoiceDetail.send.noGuardians')}
+                  {(shareInvoice.isError || revokeShare.isError) && (
+                    <p role="alert" className="text-sm text-destructive">
+                      {shareInvoice.isError
+                        ? t('invoiceDetail.shareFailed', { ns: 'payments' })
+                        : t('invoiceDetail.revokeFailed', { ns: 'payments' })}
                     </p>
                   )}
                 </div>
-              )}
-            </div>
-          )}
-        </>
-      )}
+              </section>
+            )}
+          </div>
+        )}
+      </div>
 
-      <Dialog
+      <ConfirmDialog
         open={revokeTargetId !== null}
         onOpenChange={(open) => !open && setRevokeTargetId(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('invoiceDetail.share.revokeConfirmTitle')}</DialogTitle>
-            <DialogDescription>
-              {t('invoiceDetail.share.revokeConfirmExplanation')}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => setRevokeTargetId(null)}>
-              {t('invoiceDetail.share.cancel')}
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              loading={revokeShare.isPending}
-              onClick={() => {
-                if (revokeTargetId === null) return;
-                revokeShare.mutate(revokeTargetId, {
-                  onSuccess: () => {
-                    toast.success(t('invoiceDetail.share.revoked'));
-                    setRevokeTargetId(null);
-                    setCreatedShareUrl(null);
-                  },
-                });
-              }}
-            >
-              {t('invoiceDetail.share.revoke')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        tone="danger"
+        title={t('invoiceDetail.shareRevokeTitle', { ns: 'payments' })}
+        description={t('invoiceDetail.share.revokeConfirmExplanation')}
+        confirmLabel={t('invoiceDetail.shareRevoke', { ns: 'payments' })}
+        busy={revokeShare.isPending}
+        onConfirm={() => {
+          if (revokeTargetId === null) return;
+          revokeShare.mutate(revokeTargetId, {
+            onSuccess: () => {
+              toast.success(t('invoiceDetail.share.revoked'));
+              setCreatedShareUrl(null);
+            },
+            // The failure line lives in the card behind the dialog, so close the
+            // dialog on both outcomes: the user must see it.
+            onSettled: () => setRevokeTargetId(null),
+          });
+        }}
+      />
 
       <Dialog
         open={pendingMedium !== null}
         onOpenChange={(open) => !open && setPendingMedium(null)}
       >
-        <DialogContent>
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>{t('invoiceDetail.send.pickGuardian')}</DialogTitle>
           </DialogHeader>
@@ -388,7 +585,7 @@ function InvoiceDetailPage() {
                 key={guardian.id}
                 type="button"
                 variant="outline"
-                className="justify-start"
+                className="h-11 justify-start"
                 disabled={sendInvoice.isPending}
                 onClick={() => pendingMedium !== null && handleSend(pendingMedium, guardian.id)}
               >
@@ -398,7 +595,7 @@ function InvoiceDetailPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </DetailShell>
   );
 }
 
