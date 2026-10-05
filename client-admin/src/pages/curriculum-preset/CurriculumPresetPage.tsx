@@ -4,9 +4,10 @@
  * summary, CUSTOM -> read-only message + what blocks it (never an apply button).
  */
 import { ApiError } from '@biddaloy/ui/api';
-import { ErrorState, Skeleton } from '@biddaloy/ui/components';
+import { Card, ErrorState, Skeleton } from '@biddaloy/ui/components';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { useWizardShellStep, WizardShell } from '@biddaloy/ui/shells';
+import { PageContainer, PageHeader, useWizardShellStep, WizardShell } from '@biddaloy/ui/shells';
+import { Info } from 'lucide-react';
 import * as React from 'react';
 
 import { AppliedSummary } from './AppliedSummary';
@@ -26,7 +27,7 @@ export interface CurriculumPresetPageProps {
 
 function CardsSkeleton() {
   return (
-    <div aria-busy="true" className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div aria-busy="true" className="grid grid-cols-1 gap-4 md:grid-cols-2">
       {[0, 1].map((i) => (
         <Skeleton key={i} className="h-44 w-full" />
       ))}
@@ -97,9 +98,16 @@ export function CurriculumPresetPage({ schoolId }: CurriculumPresetPageProps) {
   }
 
   const title = t('title');
+  // Every non-wizard state sits in the same frame so the title never disappears.
+  const framed = (body: React.ReactNode) => (
+    <PageContainer size="narrow">
+      <PageHeader title={title} subtitle={t('subtitle')} />
+      {body}
+    </PageContainer>
+  );
 
   if (status.isError || list.isError) {
-    return (
+    return framed(
       <ErrorState
         message={t('loadError')}
         retryLabel={t('retry')}
@@ -107,35 +115,44 @@ export function CurriculumPresetPage({ schoolId }: CurriculumPresetPageProps) {
           void status.refetch();
           void list.refetch();
         }}
-      />
+      />,
     );
   }
   if (!status.data || (result && status.data.state !== 'APPLIED' && status.isFetching)) {
-    return <CardsSkeleton />;
+    return framed(<CardsSkeleton />);
   }
 
   const { state, preset, blockers } = status.data;
 
   if (state === 'APPLIED' && preset) {
-    return (
-      <div className="flex flex-col gap-4">
-        <h1 className="text-lg font-semibold">{title}</h1>
-        <AppliedSummary preset={preset} created={result?.created} />
-      </div>
+    const presetEntry = list.data?.find((p) => p.id === preset.id);
+    return framed(
+      <AppliedSummary
+        preset={preset}
+        presetName={presetEntry ? pick(presetEntry.name) : undefined}
+        created={result?.created}
+      />,
     );
   }
 
   if (state === 'CUSTOM') {
-    return (
-      <div className="flex flex-col gap-4">
-        <h1 className="text-lg font-semibold">{title}</h1>
-        <p role="status">{t('custom.message')}</p>
+    return framed(
+      <>
+        <Card padded role="status" className="flex items-start gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-status-partial-bg text-status-partial-fg">
+            <Info aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-h2">{t('custom.title')}</h2>
+            <p className="mt-1 text-text-secondary">{t('custom.message')}</p>
+          </div>
+        </Card>
         <BlockedState blockers={blockers ?? []} />
-      </div>
+      </>,
     );
   }
 
-  if (!list.data) return <CardsSkeleton />;
+  if (!list.data) return framed(<CardsSkeleton />);
 
   const optionsValid = selected ? isApplyOptionsValid(selected, options) : false;
 
@@ -173,7 +190,7 @@ export function CurriculumPresetPage({ schoolId }: CurriculumPresetPageProps) {
           id: 'review',
           label: t('steps.confirm'),
           content: selected && (
-            <div className="flex flex-col gap-2 text-sm">
+            <div className="flex flex-col gap-2">
               <p>
                 {t('review.summary', {
                   name: pick(selected.name),
@@ -199,7 +216,7 @@ export function CurriculumPresetPage({ schoolId }: CurriculumPresetPageProps) {
                   {t('unverifiedWarning')}
                 </p>
               )}
-              <p className="text-muted-foreground">{t('review.next')}</p>
+              <p className="text-text-secondary">{t('review.next')}</p>
             </div>
           ),
         }}
