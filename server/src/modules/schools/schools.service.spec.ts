@@ -1396,7 +1396,7 @@ describe('SchoolsService', () => {
     }
 
     // The daily trial job would re-suspend a reactivated school whose trial is over, so the
-    // manual route refuses until the trial is extended (PATCH :id/trial does both in one step).
+    // manual route refuses until the trial is extended (PATCH :id/trial).
     it('refuses to reactivate a school whose trial already ended', async () => {
       const { service, repo } = buildService({
         id: 's1',
@@ -1423,6 +1423,17 @@ describe('SchoolsService', () => {
         'admin-1',
       );
       expect(res.status).toBe('ACTIVE');
+    });
+
+    it('the 409 names the second step when the suspension was not the trial one', async () => {
+      const ended = new Date(Date.now() - 1000);
+      const refuse = (status_reason: string) =>
+        buildService({ id: 's1', status: 'SUSPENDED', status_reason, trial_ends_at: ended })
+          .service.updateStatus('s1', { status: 'ACTIVE', reason: 'Paid up again' }, 'admin-1')
+          .catch((e) => e.getResponse().message);
+
+      expect(await refuse('TRIAL_EXPIRED')).toMatch(/to reactivate it$/);
+      expect(await refuse('Non-payment')).toMatch(/first, then reactivate it$/);
     });
 
     it('findAll filters: active = trial_ends_at in the future, expired = TRIAL_EXPIRED reason', async () => {

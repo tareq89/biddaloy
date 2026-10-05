@@ -665,14 +665,18 @@ export class SchoolsService {
       }
 
       // A manual reactivate of a school whose trial already ended would be undone by the next
-      // daily trial job; the extend route is the one action that fixes both.
+      // daily trial job, so the trial must be extended first. Extend lifts only the trial's own
+      // suspension; a school suspended for another reason still needs this call afterwards.
       if (
         dto.status === 'ACTIVE' &&
         school.trial_ends_at &&
         school.trial_ends_at.getTime() <= now.getTime()
       ) {
         throw new ConflictException({
-          message: 'The trial has ended; extend it (PATCH /schools/:id/trial) to reactivate',
+          message:
+            school.status_reason === TRIAL_EXPIRED_REASON
+              ? "This school's trial has ended — extend the trial (PATCH /schools/:id/trial) to reactivate it"
+              : "This school's trial has ended — extend the trial (PATCH /schools/:id/trial) first, then reactivate it",
           details: { code: 'TRIAL_EXPIRED' },
         });
       }
