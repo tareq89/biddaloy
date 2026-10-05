@@ -153,13 +153,17 @@ describe('Syllabus Topics E2E (22.3.4)', () => {
       })
       .expect(201);
 
-    await supertest(app.getHttpServer())
+    const parentList = await supertest(app.getHttpServer())
       .get(`${API}/syllabus-topics`)
       .query({ class_id: SEED_CLASS_1_ID, subject_id: subjectId })
       .set('Authorization', `Bearer ${parentToken}`)
       .set('X-Tenant-ID', SEED_TENANT_ID)
       .set('X-Role', UserRole.PARENT)
       .expect(200);
+
+    // [31.3.7c] families get 403 on /subjects, so the topic carries the name.
+    const readBack = parentList.body.find((t: { id: string }) => t.id === createRes.body.id);
+    expect(readBack.subject_name_en).toBe('Syllabus E2E Subject');
 
     await supertest(app.getHttpServer())
       .delete(`${API}/syllabus-topics/${createRes.body.id}`)
