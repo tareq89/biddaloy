@@ -8605,6 +8605,15 @@ export interface components {
             enabled: boolean;
             cutoffTime: string;
         };
+        ShiftTimeDto: {
+            /** Format: uuid */
+            shiftId: string;
+            lateAfter: string;
+            absentAfter: string;
+        };
+        PeriodAttendanceDto: {
+            enabled: boolean;
+        };
         AttendancePolicyDto: {
             weeklyOffDays: number[];
             lateAfter: string;
@@ -8617,6 +8626,8 @@ export interface components {
             percentageDenominator: "WORKING_DAYS" | "MARKED_DAYS";
             allowFutureDates: boolean;
             autoAbsentNotification: components["schemas"]["AutoAbsentNotificationDto"];
+            shiftTimes?: components["schemas"]["ShiftTimeDto"][];
+            periodAttendance?: components["schemas"]["PeriodAttendanceDto"];
         };
         RoutineSettingsDto: {
             defaultChangeoverMinutes: number;

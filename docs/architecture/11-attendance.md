@@ -140,6 +140,29 @@ This exact case (23 working days → 95.45%) is asserted in
 `attendance-percentage.spec.ts`, so the doc cannot silently drift from the
 code.
 
+### Which holidays count for which student
+
+A holiday counts for a student when it is **school-wide** (no class rows)
+or **scoped to the student's class**. Summaries call `getWorkingDays` once
+per class, never once per student.
+
+```mermaid
+flowchart LR
+  E[Published holiday<br/>counts_as_working_day = false] --> Q{Has class rows?}
+  Q -- no --> A[Removes the day for every class]
+  Q -- yes --> R{Student's class<br/>in the rows?}
+  R -- yes --> A
+  R -- no --> B[Ignored for this student]
+```
+
+**Example.** A published holiday on 2026-09-10 is scoped to Class 9 only.
+A Class 9 student has `working_days = 22` for September. A Class 11
+student has `23`. The 95.45% case above is unchanged.
+
+**Whole days only.** Percentage, the month matrix, low-attendance flags and
+fines read whole-day registers only (`period_no IS NULL`). A period
+register (see `periodAttendance` in section 8) never counts toward them.
+
 **`null`, never `0`.** A student with zero working days in the requested
 range (a brand-new enrollment, a range entirely on holidays) gets `null`,
 not `0` — `0%` would read as "attended nothing," which is a different claim
@@ -290,19 +313,32 @@ without bound; there is no retention job for it yet (see below).
 Every field lives under `School.settings.attendance`, resolved against
 these defaults (`tenant-settings-defaults.ts`):
 
-| Field                               | Default        | What visibly changes when you move it                                                    |
-| ----------------------------------- | -------------- | ---------------------------------------------------------------------------------------- |
-| `weeklyOffDays`                     | `[5]` (Friday) | Which weekdays never need marking and never count as a working day.                      |
-| `lateAfter`                         | `08:15`        | The check-in cutoff (local time) after which a mark becomes `LATE` instead of `PRESENT`. |
-| `absentAfter`                       | `10:00`        | The cutoff after which a mark becomes `ABSENT` instead of `LATE`.                        |
-| `correctionWindowDays`              | `2`            | How many days after a register's date it stays editable without `ATTENDANCE_CORRECT`.    |
-| `lowAttendanceThresholdPercent`     | `75`           | The cutoff `GET /attendance/flags/low` and the reports page use to flag a student.       |
-| `lateCountsAsPresent`               | `true`         | Whether a `LATE` day adds to the percentage's numerator.                                 |
-| `leaveCountsAsWorkingDay`           | `false`        | Whether an approved `LEAVE` day is removed from the percentage's denominator.            |
-| `percentageDenominator`             | `WORKING_DAYS` | Whether the percentage divides by calendar working days or by days actually marked.      |
-| `allowFutureDates`                  | `false`        | Whether a future date can be marked at all (and then, only `LEAVE`).                     |
-| `autoAbsentNotification.enabled`    | `false`        | Whether finalizing a register triggers guardian notifications for that day's absences.   |
-| `autoAbsentNotification.cutoffTime` | `11:00`        | The local time after which the auto-absent sweep considers a register due.               |
+| Field                               | Default        | What visibly changes when you move it                                                                                                                       |
+| ----------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `weeklyOffDays`                     | `[5]` (Friday) | Which weekdays never need marking and never count as a working day.                                                                                         |
+| `lateAfter`                         | `08:15`        | The check-in cutoff (local time) after which a mark becomes `LATE` instead of `PRESENT`.                                                                    |
+| `absentAfter`                       | `10:00`        | The cutoff after which a mark becomes `ABSENT` instead of `LATE`.                                                                                           |
+| `correctionWindowDays`              | `2`            | How many days after a register's date it stays editable without `ATTENDANCE_CORRECT`.                                                                       |
+| `lowAttendanceThresholdPercent`     | `75`           | The cutoff `GET /attendance/flags/low` and the reports page use to flag a student.                                                                          |
+| `lateCountsAsPresent`               | `true`         | Whether a `LATE` day adds to the percentage's numerator.                                                                                                    |
+| `leaveCountsAsWorkingDay`           | `false`        | Whether an approved `LEAVE` day is removed from the percentage's denominator.                                                                               |
+| `percentageDenominator`             | `WORKING_DAYS` | Whether the percentage divides by calendar working days or by days actually marked.                                                                         |
+| `allowFutureDates`                  | `false`        | Whether a future date can be marked at all (and then, only `LEAVE`).                                                                                        |
+| `shiftTimes`                        | `[]`           | Per-shift `lateAfter` / `absentAfter` (`{ shiftId, lateAfter, absentAfter }`). A shift with an entry uses its own cutoffs; others use the two fields above. |
+| `periodAttendance.enabled`          | `false`        | Whether teachers can take a per-period register on top of the whole-day one. Period registers never feed the percentage or fines.                           |
+| `autoAbsentNotification.enabled`    | `false`        | Whether finalizing a register triggers guardian notifications for that day's absences.                                                                      |
+| `autoAbsentNotification.cutoffTime` | `11:00`        | The local time after which the auto-absent sweep considers a register due.                                                                                  |
+
+`policyForShift(policy, shiftId)` (`attendance-policy.util.ts`) returns the
+policy with that shift's cutoffs swapped in. No shift id, or no entry for
+it, returns the policy unchanged.
+
+**Saving is a shallow merge.** `PATCH` on settings merges `attendance` one
+level deep: fields you omit (for example `shiftTimes` or
+`periodAttendance`, which an older form never sends) keep their stored
+value. Fields you send replace the stored value whole. So sending
+`shiftTimes: []` clears every shift, and sending one entry removes the
+others.
 
 ## 9. Attendance fines
 
