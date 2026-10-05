@@ -5,8 +5,9 @@
  * it. Same hand-rolled provider stack as `-recompute-preview-dialog.test.tsx`.
  */
 import { setActiveRole, setActiveTenant } from '@biddaloy/ui/api';
-import { I18nProvider, i18n } from '@biddaloy/ui/i18n';
+import { I18nProvider, REGION_BD_BN, i18n } from '@biddaloy/ui/i18n';
 import { cleanupTestState, createTestQueryClient, server } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -79,19 +80,23 @@ describe('CopyScaleDialog', () => {
   it('shows how many bands will be created and no error initially', async () => {
     await renderDialog();
 
-    expect(await screen.findByText(/Creates 1 band/)).toBeTruthy();
+    expect(
+      await screen.findByText(`${formatNumber(1, REGION_BD_BN)} grade will be copied.`),
+    ).toBeTruthy();
     expect(screen.queryByRole('alert')).toBeNull();
+    // The controls are tied to their labels.
+    expect(screen.getByLabelText('To academic year')).toBeTruthy();
+    expect(screen.getByLabelText('To class')).toBeTruthy();
   });
 
   it('refuses an occupied target — an existing scale for that year/class already has bands', async () => {
-    const user = userEvent.setup();
     await renderDialog({}, [
       { id: 'scale-target', academic_year_id: 'year-2026', class_id: null, bands: [{ id: 'b' }] },
     ]);
 
-    await user.click(screen.getByRole('button', { name: 'Copy' }));
-
-    expect((await screen.findByRole('alert')).textContent).toMatch(/already/i);
+    // The warning shows as soon as the occupied target is picked — no click needed.
+    expect((await screen.findByRole('alert')).textContent).toMatch(/already has grades/i);
+    expect(screen.getByRole('button', { name: 'Copy' }).hasAttribute('disabled')).toBe(true);
   });
 
   it('creates the target scale then copies into it when no target exists yet', async () => {
@@ -158,6 +163,6 @@ describe('CopyScaleDialog', () => {
 
     await user.click(screen.getByRole('button', { name: 'Copy' }));
 
-    expect((await screen.findByRole('alert')).textContent).toMatch(/failed to copy/i);
+    expect((await screen.findByRole('alert')).textContent).toMatch(/couldn't copy/i);
   });
 });

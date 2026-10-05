@@ -68,7 +68,7 @@ test('keyboard-only: start from BD NCTB, edit a boundary, watch coverage, save',
     // Opens a gap: A+'s floor moves from 80 to 85, leaving 80-84
     // uncovered until A's own ceiling is edited too — this spec is
     // checking the coverage bar reacts live, not building a valid scale.
-    await tabUntilFocused(page, t('grading.bandEditor.columnFrom'), 30, { tag: 'INPUT' });
+    await tabUntilFocused(page, t('grading.bandEditor.columnFrom'), 60, { tag: 'INPUT' });
     await page.keyboard.press('ControlOrMeta+a');
     await page.keyboard.type('85');
     await page.keyboard.press('Tab'); // commit the change, move to "To %"
@@ -91,11 +91,9 @@ test('keyboard-only: start from BD NCTB, edit a boundary, watch coverage, save',
   });
 
   await test.step('save, approve the step-up, confirm', async () => {
-    // 60, not 40: focus sits on row 0's "To %" cell here, so this must
-    // clear the rest of that row plus all 6 remaining BD NCTB rows (7
-    // cells each: from/to/grade/gpa/fail/comment/delete) and "Add band"
-    // before reaching Save — roughly 49 cells, not a handful.
-    await tabUntilFocused(page, t('grading.detail.save'), 90, { tag: 'BUTTON' });
+    // Save is the page header's primary now, before the table in Tab order:
+    // walk backwards from row 0's "To (%)" cell, past the coverage card.
+    await tabUntilFocused(page, t('grading.detail.save'), 90, { tag: 'BUTTON', shift: true });
     await page.keyboard.press('Enter');
 
     await expect(page.getByText(t('grading.recomputePreview.title'))).toBeVisible();
