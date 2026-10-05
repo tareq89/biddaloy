@@ -1,18 +1,26 @@
 /**
  * [32.4.2] "Print ID card" from the command palette (D32): choose Student or Staff, then
  * either pick people by name or (students only) a whole class section, and go to the print
- * preview. Shown by `/print/preview` when it is opened with nobody chosen yet.
+ * preview. Shown by `/print/preview` when it is opened with nobody chosen yet. A full-page
+ * modal (D22/D23): Close top right, actions in the footer.
  */
 import { Permission, PrintSubjectType } from '@biddaloy/shared';
 import {
   Button,
+  Card,
   Checkbox,
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  ConfirmDialog,
   Input,
+  RadioGroup,
+  RadioGroupItem,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Tabs,
+  TabsList,
+  TabsTrigger,
 } from '@biddaloy/ui/components';
 import {
   useClasses,
@@ -22,7 +30,9 @@ import {
   usersQueryOptions,
 } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { FullPageShell } from '@biddaloy/ui/shells';
 import { useQuery } from '@tanstack/react-query';
+import { BriefcaseIcon, GraduationCapIcon, SearchIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
 
 /** What the modal decided. `ids` is a comma list of student ids (students) or user ids (staff). */
@@ -31,28 +41,27 @@ export type PrintIdCardChoice =
   | { subjectType: 'STUDENT'; classSectionId: string };
 
 export interface PrintIdCardModalProps {
-  open: boolean;
   initialType: PrintSubjectType;
-  onCancel: () => void;
+  onClose: () => void;
   onConfirm: (choice: PrintIdCardChoice) => void;
 }
 
+type Mode = 'names' | 'section';
+
 const PICK_LIMIT = 20;
 
-export function PrintIdCardModal({
-  open,
-  initialType,
-  onCancel,
-  onConfirm,
-}: PrintIdCardModalProps) {
+export function PrintIdCardModal({ initialType, onClose, onConfirm }: PrintIdCardModalProps) {
   const { t } = useTranslation('printPreview');
+  const { t: tc } = useTranslation('common');
   // D18: a staff card exposes HR data, so the Staff choice needs STAFF_HR_READ.
   const canPrintStaff = useHasPermission(Permission.STAFF_HR_READ);
   const [chosenType, setType] = React.useState<PrintSubjectType>(initialType);
+  const [mode, setMode] = React.useState<Mode>('names');
   const [search, setSearch] = React.useState('');
   const [picked, setPicked] = React.useState<Map<string, string>>(new Map());
   const [classId, setClassId] = React.useState('');
   const [sectionId, setSectionId] = React.useState('');
+  const [discarding, setDiscarding] = React.useState(false);
 
   // Staff without (or no longer with) STAFF_HR_READ: fall back to Students and drop what was
   // chosen for Staff. `type` is derived so no query ever sees STAFF in the meantime; the state
@@ -63,6 +72,8 @@ export function PrintIdCardModal({
     setPicked(new Map());
     setSearch('');
   }
+  // Staff have no "whole section".
+  const activeMode: Mode = type === 'STAFF' ? 'names' : mode;
 
   const students = useStudents(
     { limit: PICK_LIMIT, ...(search.trim() ? { search: search.trim() } : {}) },
@@ -80,9 +91,13 @@ export function PrintIdCardModal({
   const classes = useClasses();
   const sections = useClassSections(classId || undefined);
 
-  const rows: Array<{ id: string; name: string }> =
+  const rows: Array<{ id: string; name: string; caption?: string }> =
     type === 'STUDENT'
-      ? (students.data?.data ?? []).map((s) => ({ id: s.id, name: s.full_name }))
+      ? (students.data?.data ?? []).map((s) => ({
+          id: s.id,
+          name: s.full_name,
+          caption: s.registration_number,
+        }))
       : (staff.data?.data ?? []).map((u) => ({ id: u.id, name: u.full_name }));
 
   function toggle(id: string, name: string) {
@@ -94,127 +109,233 @@ export function PrintIdCardModal({
     });
   }
 
-  function switchType(next: PrintSubjectType) {
-    setType(next);
+  function switchType(next: string) {
+    setType(next as PrintSubjectType);
     setPicked(new Map());
     setSearch('');
   }
 
+  const dirty = picked.size > 0 || sectionId !== '';
+  // The shell's footer `secondary` bypasses its own close guard, so Cancel asks here.
+  const cancel = () => (dirty ? setDiscarding(true) : onClose());
+
+  const primary =
+    activeMode === 'names'
+      ? {
+          label: t('picker.continue', { count: picked.size }),
+          disabled: picked.size === 0,
+          onClick: () => onConfirm({ subjectType: type, ids: [...picked.keys()].join(',') }),
+        }
+      : {
+          label: t('picker.continueSection'),
+          disabled: sectionId === '',
+          onClick: () => onConfirm({ subjectType: 'STUDENT', classSectionId: sectionId }),
+        };
+
   return (
-    <Dialog open={open} onOpenChange={(next) => (next ? undefined : onCancel())}>
-      <DialogContent>
-        <DialogHeader>
-          {/* This modal IS the page (the route shows nothing behind it), so its title is the page's h1. */}
-          <DialogTitle asChild>
-            <h1>{t('picker.title')}</h1>
-          </DialogTitle>
-        </DialogHeader>
-
-        <div role="group" aria-label={t('picker.who')} className="flex gap-2">
-          {(['STUDENT', 'STAFF'] as const)
-            .filter((value) => value === 'STUDENT' || canPrintStaff)
-            .map((value) => (
-              <Button
-                key={value}
-                type="button"
-                size="sm"
-                variant={type === value ? 'default' : 'outline'}
-                aria-pressed={type === value}
-                onClick={() => switchType(value)}
-              >
-                {t(`picker.type.${value}`)}
-              </Button>
-            ))}
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label htmlFor="print-picker-search" className="text-sm font-medium">
-            {t('picker.search')}
-          </label>
-          <Input
-            id="print-picker-search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-
-        <ul className="flex max-h-56 flex-col gap-1 overflow-auto" aria-label={t('picker.results')}>
-          {rows.map((row) => (
-            <li key={row.id} className="flex items-center gap-2 text-sm">
-              <Checkbox
-                id={`pick-${row.id}`}
-                checked={picked.has(row.id)}
-                onCheckedChange={() => toggle(row.id, row.name)}
-              />
-              <label htmlFor={`pick-${row.id}`}>{row.name}</label>
-            </li>
-          ))}
-        </ul>
-        {picked.size > 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {t('picker.selected', { count: picked.size })}
-          </p>
-        ) : null}
+    <FullPageShell
+      title={t('picker.title')}
+      size="form"
+      onClose={onClose}
+      dirty={dirty}
+      secondary={{ label: t('picker.cancel'), onClick: cancel }}
+      primary={primary}
+    >
+      <Card padded className="space-y-4">
+        <Tabs value={type} onValueChange={switchType}>
+          <TabsList variant="line" aria-label={t('picker.who')}>
+            <TabsTrigger value="STUDENT" className="h-11 md:h-auto">
+              <GraduationCapIcon aria-hidden />
+              {t('picker.type.STUDENT')}
+            </TabsTrigger>
+            {canPrintStaff ? (
+              <TabsTrigger value="STAFF" className="h-11 md:h-auto">
+                <BriefcaseIcon aria-hidden />
+                {t('picker.type.STAFF')}
+              </TabsTrigger>
+            ) : null}
+          </TabsList>
+        </Tabs>
 
         {type === 'STUDENT' ? (
-          <fieldset className="flex flex-col gap-2 border-t border-border-subtle pt-3">
-            <legend className="text-sm font-medium">{t('picker.wholeSection')}</legend>
-            <div className="grid grid-cols-2 gap-2">
-              <select
-                aria-label={t('picker.class')}
-                className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+          <div>
+            <p className="text-label" id="print-picker-mode">
+              {t('picker.modeLabel')}
+            </p>
+            <RadioGroup
+              aria-labelledby="print-picker-mode"
+              value={mode}
+              onValueChange={(v) => setMode(v as Mode)}
+              className="mt-1.5 grid gap-2 md:grid-cols-2"
+            >
+              {(['names', 'section'] as const).map((value) => (
+                <label
+                  key={value}
+                  htmlFor={`print-picker-mode-${value}`}
+                  className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-md border p-3 ${
+                    mode === value
+                      ? 'border-primary bg-secondary'
+                      : 'border-border-subtle bg-surface hover:bg-muted'
+                  }`}
+                >
+                  <RadioGroupItem
+                    id={`print-picker-mode-${value}`}
+                    value={value}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="block font-medium">
+                      {value === 'names' ? t('picker.modeNames') : t('picker.modeSection')}
+                    </span>
+                    <span className="block text-caption text-text-secondary">
+                      {value === 'names' ? t('picker.modeNamesHelp') : t('picker.modeSectionHelp')}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </RadioGroup>
+          </div>
+        ) : null}
+      </Card>
+
+      {activeMode === 'names' ? (
+        <Card padded>
+          <h2 className="text-h2">{t('picker.namesTitle')}</h2>
+          <p className="mt-1 text-text-secondary">{t('picker.namesHelp')}</p>
+
+          <div className="mt-4 flex flex-col gap-1.5">
+            <label htmlFor="print-picker-search" className="text-label">
+              {t('picker.search')}
+            </label>
+            <div className="relative">
+              <SearchIcon
+                aria-hidden
+                className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-text-secondary"
+              />
+              <Input
+                id="print-picker-search"
+                className="ps-10"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {picked.size > 0 ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-label">{t('picker.pickedLabel', { count: picked.size })}</span>
+              {[...picked.entries()].map(([id, name]) => (
+                <button
+                  key={id}
+                  type="button"
+                  aria-label={t('picker.removePicked', { name })}
+                  onClick={() => toggle(id, name)}
+                  className="inline-flex h-11 items-center gap-1 rounded-full bg-secondary px-3 text-label text-secondary-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring md:h-8"
+                >
+                  {name}
+                  <XIcon className="size-3.5" aria-hidden />
+                </button>
+              ))}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-11 md:h-8"
+                onClick={() => setPicked(new Map())}
+              >
+                {t('picker.clearPicked')}
+              </Button>
+            </div>
+          ) : null}
+
+          <ul
+            className="mt-3 divide-y divide-border-subtle rounded-md border border-border-subtle"
+            aria-label={t('picker.results')}
+          >
+            {rows.map((row) => (
+              <li key={row.id}>
+                <label
+                  htmlFor={`pick-${row.id}`}
+                  className="flex min-h-11 cursor-pointer items-center gap-3 px-3 hover:bg-muted md:min-h-10"
+                >
+                  <Checkbox
+                    id={`pick-${row.id}`}
+                    checked={picked.has(row.id)}
+                    onCheckedChange={() => toggle(row.id, row.name)}
+                  />
+                  <span className="font-medium">{row.name}</span>
+                  {row.caption ? (
+                    <span className="text-caption text-text-secondary">{row.caption}</span>
+                  ) : null}
+                </label>
+              </li>
+            ))}
+          </ul>
+          {rows.length === PICK_LIMIT ? (
+            <p className="mt-2 text-caption text-text-secondary">{t('picker.limitHelp')}</p>
+          ) : null}
+        </Card>
+      ) : (
+        <Card padded>
+          <h2 className="text-h2">{t('picker.sectionTitle')}</h2>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-label" id="print-picker-class">
+                {t('picker.class')}
+              </span>
+              <Select
                 value={classId}
-                onChange={(e) => {
-                  setClassId(e.target.value);
+                onValueChange={(v) => {
+                  setClassId(v);
                   setSectionId('');
                 }}
               >
-                <option value="">{t('picker.classPlaceholder')}</option>
-                {(classes.data?.data ?? []).map((k) => (
-                  <option key={k.id} value={k.id}>
-                    {k.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                aria-label={t('picker.section')}
-                className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-                value={sectionId}
-                disabled={classId === ''}
-                onChange={(e) => setSectionId(e.target.value)}
-              >
-                <option value="">{t('picker.sectionPlaceholder')}</option>
-                {(sections.data ?? []).map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.section_name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger aria-labelledby="print-picker-class" className="w-full">
+                  <SelectValue placeholder={t('picker.classPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {(classes.data?.data ?? []).map((k) => (
+                    <SelectItem key={k.id} value={k.id}>
+                      {k.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          </fieldset>
-        ) : null}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-label" id="print-picker-section">
+                {t('picker.section')}
+              </span>
+              <Select value={sectionId} onValueChange={setSectionId} disabled={classId === ''}>
+                <SelectTrigger aria-labelledby="print-picker-section" className="w-full">
+                  <SelectValue placeholder={t('picker.sectionPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {(sections.data ?? []).map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.section_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </Card>
+      )}
 
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onCancel}>
-            {t('picker.cancel')}
-          </Button>
-          {type === 'STUDENT' && sectionId !== '' ? (
-            <Button
-              type="button"
-              onClick={() => onConfirm({ subjectType: 'STUDENT', classSectionId: sectionId })}
-            >
-              {t('picker.printSection')}
-            </Button>
-          ) : null}
-          <Button
-            type="button"
-            disabled={picked.size === 0}
-            onClick={() => onConfirm({ subjectType: type, ids: [...picked.keys()].join(',') })}
-          >
-            {t('picker.continue', { count: picked.size })}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <ConfirmDialog
+        open={discarding}
+        onOpenChange={setDiscarding}
+        tone="danger"
+        title={tc('fullPage.discardTitle')}
+        description={tc('fullPage.discardDescription')}
+        confirmLabel={tc('fullPage.discardConfirm')}
+        cancelLabel={tc('fullPage.keepEditing')}
+        onConfirm={() => {
+          setDiscarding(false);
+          onClose();
+        }}
+      />
+    </FullPageShell>
   );
 }
