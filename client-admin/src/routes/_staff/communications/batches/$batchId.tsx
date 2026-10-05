@@ -160,13 +160,15 @@ function BatchDetail() {
           variant: failedCount > 0 ? 'error' : 'success',
           message:
             failedCount > 0
-              ? t('notifications.batchFailed', { failed: failedCount })
-              : t('notifications.batchCompleted', { sent: successfulCount }),
+              ? t('notifications.batchFailed', { failed: formatNumber(failedCount, config) })
+              : t('notifications.batchCompleted', {
+                  sent: formatNumber(successfulCount, config),
+                }),
         });
       }
     }
     previousStatus.current = batchStatus;
-  }, [batchStatus, batchId, queryClient, batchQuery.data, t]);
+  }, [batchStatus, batchId, queryClient, batchQuery.data, t, config]);
 
   const [retryOpen, setRetryOpen] = React.useState(false);
   const [retryPreparing, setRetryPreparing] = React.useState(false);
@@ -282,7 +284,7 @@ function BatchDetail() {
     skippedByReason.set(entry.reason, (skippedByReason.get(entry.reason) ?? 0) + 1);
   }
 
-  if (batchQuery.isError) {
+  if (batchQuery.isError && batchQuery.data === undefined) {
     return (
       <ErrorState
         message={t('batches.detail.loadError')}

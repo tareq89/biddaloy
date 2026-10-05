@@ -1,6 +1,6 @@
 import type { ReminderPreviewRecipient } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { formatPhone } from '@biddaloy/ui/utils';
+import { formatNumber, formatPhone } from '@biddaloy/ui/utils';
 
 import { skipReasonKey } from './skip-reason';
 import { SmsSegmentCounter } from './sms-segment-counter';
@@ -35,9 +35,17 @@ export function RecipientList({ recipients, skipped }: RecipientListProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      <section aria-label={t('recipientList.recipientsTitle', { count: recipients.length })}>
+      <section
+        aria-label={t('recipientList.recipientsTitle', {
+          count: recipients.length,
+          n: formatNumber(recipients.length, config),
+        })}
+      >
         <h3 className="text-h3">
-          {t('recipientList.recipientsTitle', { count: recipients.length })}
+          {t('recipientList.recipientsTitle', {
+            count: recipients.length,
+            n: formatNumber(recipients.length, config),
+          })}
         </h3>
         {recipients.length === 0 ? (
           <p role="alert" className="mt-2 flex items-center gap-1 text-caption text-destructive">
@@ -79,8 +87,18 @@ export function RecipientList({ recipients, skipped }: RecipientListProps) {
         )}
       </section>
 
-      <section aria-label={t('recipientList.skippedTitle', { count: skipped.length })}>
-        <h3 className="text-h3">{t('recipientList.skippedTitle', { count: skipped.length })}</h3>
+      <section
+        aria-label={t('recipientList.skippedTitle', {
+          count: skipped.length,
+          n: formatNumber(skipped.length, config),
+        })}
+      >
+        <h3 className="text-h3">
+          {t('recipientList.skippedTitle', {
+            count: skipped.length,
+            n: formatNumber(skipped.length, config),
+          })}
+        </h3>
         {skipped.length === 0 ? (
           <p className="mt-2 text-text-secondary">{t('recipientList.noneSkipped')}</p>
         ) : (
