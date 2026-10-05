@@ -184,7 +184,7 @@ test.describe('(b) Rules: tab -> n -> create an ABSENT rule -> save', () => {
         document.body.removeAttribute('tabindex');
       });
       await page.keyboard.press('Tab');
-      await tabUntilFocused(page, t('fines.tabs.rules'), 90, { tag: 'a' });
+      await tabUntilFocused(page, t('fines.tabs.rules'), 90, { tag: 'button' });
       await page.keyboard.press('Enter');
     });
 

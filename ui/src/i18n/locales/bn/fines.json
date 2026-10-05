@@ -1,10 +1,12 @@
 {
   "title": "জরিমানা",
   "rules": {
-    "title": "জরিমানার নিয়ম"
+    "title": "জরিমানার নিয়ম",
+    "subtitle": "অনুপস্থিতি বা দেরিতে আসার জন্য কত জরিমানা হবে",
+    "minutes_one": "{{n}} মিনিট",
+    "minutes_other": "{{n}} মিনিট"
   },
   "tabs": {
-    "fines": "জরিমানা",
     "rules": "জরিমানার নিয়ম"
   },
   "filters": {
@@ -15,22 +17,24 @@
     "sectionLabel": "শাখা",
     "allSections": "সব শাখা",
     "originLabel": "উৎস",
-    "allOrigins": "সব",
+    "allOrigins": "সব উৎস",
     "allFineTypes": "সব ধরনের জরিমানা",
     "statusLabel": "অবস্থা",
-    "allStatuses": "সব অবস্থা"
+    "allStatuses": "সব অবস্থা",
+    "fineTypeLabel": "জরিমানার ধরন"
   },
   "totals": {
     "charged": "ধার্য করা হয়েছে",
     "collected": "আদায় হয়েছে",
-    "waived": "মাফ করা হয়েছে",
-    "outstanding": "বাকি আছে"
+    "waived": "মওকুফ হয়েছে",
+    "outstanding": "বাকি আছে",
+    "heading": "এই তালিকার হিসাব"
   },
   "columns": {
     "student": "শিক্ষার্থী",
     "fine": "জরিমানা",
     "reason": "কারণ",
-    "incidentDate": "ঘটনার তারিখ",
+    "incidentDate": "তারিখ",
     "month": "মাস",
     "amount": "পরিমাণ",
     "paid": "পরিশোধিত",
@@ -46,10 +50,6 @@
   "empty": {
     "title": "এখনো কোনো জরিমানা নেই",
     "description": "নিজে যোগ করা বা নিয়ম থেকে তৈরি জরিমানা এখানে দেখা যাবে।"
-  },
-  "rulesEmpty": {
-    "title": "এখনো কোনো জরিমানার নিয়ম নেই",
-    "description": "অনুপস্থিতি বা দেরিতে আসার জন্য স্বয়ংক্রিয়ভাবে জরিমানা করতে একটি নিয়ম যোগ করুন।"
   },
   "logForm": {
     "title": "জরিমানা যোগ করুন",
@@ -72,7 +72,7 @@
     "errorMessage": "জরিমানা যোগ করা যায়নি"
   },
   "generate": {
-    "title": "জরিমানা তৈরি করুন",
+    "title": "নিয়ম থেকে জরিমানা তৈরি",
     "description": "এক মাসের উপস্থিতি দেখে সক্রিয় প্রতিটি নিয়ম থেকে জরিমানা তৈরি করুন।",
     "monthLabel": "মাস",
     "classLabel": "শ্রেণি",
@@ -139,7 +139,7 @@
   },
   "deleteRuleDialog": {
     "title": "জরিমানার নিয়ম মুছুন",
-    "description": "এই জরিমানার নিয়ম মুছে ফেলবেন?",
+    "description": "“{{trigger}} — {{appliesTo}}” নিয়মটি মুছে ফেলবেন? এটি আর ফেরানো যাবে না।",
     "confirm": "মুছুন",
     "deleting": "মোছা হচ্ছে…",
     "errorMessage": "জরিমানার নিয়ম মুছতে ব্যর্থ হয়েছে"
@@ -150,5 +150,11 @@
     "waiveFine": "জরিমানা মাফ করুন",
     "synonymPenalty": "penalty",
     "synonymBangla": "জরিমানা"
+  },
+  "subtitle": "হাতে লেখা আর নিয়ম থেকে তৈরি সব জরিমানা",
+  "loadError": "জরিমানার তালিকা আনা যায়নি।",
+  "emptyFiltered": {
+    "title": "এই ফিল্টারে কোনো জরিমানা নেই",
+    "description": "অন্য মাস বা অবস্থা বাছুন, কিংবা ফিল্টার মুছে দিন।"
   }
 }

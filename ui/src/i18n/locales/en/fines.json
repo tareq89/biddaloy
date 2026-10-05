@@ -1,10 +1,12 @@
 {
   "title": "Fines",
   "rules": {
-    "title": "Fine rules"
+    "title": "Fine rules",
+    "subtitle": "How much is fined for absences and late arrivals",
+    "minutes_one": "{{n}} minute",
+    "minutes_other": "{{n}} minutes"
   },
   "tabs": {
-    "fines": "Fines",
     "rules": "Fine rules"
   },
   "filters": {
@@ -14,23 +16,25 @@
     "allClasses": "All classes",
     "sectionLabel": "Section",
     "allSections": "All sections",
-    "originLabel": "Origin",
-    "allOrigins": "All",
+    "originLabel": "Source",
+    "allOrigins": "All sources",
     "allFineTypes": "All fine types",
     "statusLabel": "Status",
-    "allStatuses": "All statuses"
+    "allStatuses": "All statuses",
+    "fineTypeLabel": "Fine type"
   },
   "totals": {
     "charged": "Charged",
     "collected": "Collected",
     "waived": "Waived",
-    "outstanding": "Outstanding"
+    "outstanding": "Outstanding",
+    "heading": "Totals for this list"
   },
   "columns": {
     "student": "Student",
     "fine": "Fine",
     "reason": "Reason",
-    "incidentDate": "Incident date",
+    "incidentDate": "Date",
     "month": "Month",
     "amount": "Amount",
     "paid": "Paid",
@@ -46,10 +50,6 @@
   "empty": {
     "title": "No fines yet",
     "description": "Fines logged manually or generated from a rule will show up here."
-  },
-  "rulesEmpty": {
-    "title": "No fine rules yet",
-    "description": "Add a rule to automatically fine students for absences or late arrivals."
   },
   "logForm": {
     "title": "Log fine",
@@ -72,7 +72,7 @@
     "errorMessage": "Failed to log fine"
   },
   "generate": {
-    "title": "Generate fines",
+    "title": "Make fines from rules",
     "description": "Sweep attendance for one month and create fines from every active rule.",
     "monthLabel": "Month",
     "classLabel": "Class",
@@ -139,7 +139,7 @@
   },
   "deleteRuleDialog": {
     "title": "Delete fine rule",
-    "description": "Delete this fine rule?",
+    "description": "Delete the rule “{{trigger}} — {{appliesTo}}”? This cannot be undone.",
     "confirm": "Delete",
     "deleting": "Deleting…",
     "errorMessage": "Failed to delete fine rule"
@@ -150,5 +150,11 @@
     "waiveFine": "Waive fine",
     "synonymPenalty": "penalty",
     "synonymBangla": "জরিমানা"
+  },
+  "subtitle": "Every fine, logged by hand or made from a rule",
+  "loadError": "Couldn't load fines.",
+  "emptyFiltered": {
+    "title": "No fines match these filters",
+    "description": "Pick another month or status, or clear the filters."
   }
 }
