@@ -130,7 +130,7 @@ export function ReprintDialog({ open, onOpenChange, row }: ReprintDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>{t('reprint.title', { name: row.subject_label })}</DialogTitle>
         </DialogHeader>
