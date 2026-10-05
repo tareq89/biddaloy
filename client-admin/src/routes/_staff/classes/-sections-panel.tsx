@@ -22,6 +22,7 @@ import {
   classSectionsQueryOptions,
   useClassSections,
   useHasPermission,
+  useOrganisationVocabulary,
   type ClassSectionWithCount,
 } from '@biddaloy/ui/hooks';
 import { useTenantRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
@@ -42,6 +43,7 @@ export function SectionsPanel({ classId }: SectionsPanelProps) {
   const regionConfig = useTenantRegionConfig();
   const canManage = useHasPermission(Permission.CLASS_MANAGE);
   const query = useClassSections(classId);
+  const vocabularyQuery = useOrganisationVocabulary();
 
   const [createOpen, setCreateOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<ClassSectionWithCount | null>(null);
@@ -68,6 +70,8 @@ export function SectionsPanel({ classId }: SectionsPanelProps) {
   }
 
   const sections = query.data ?? [];
+  // [D5] Same rule as the section form: only when the tenant has 2+ groups.
+  const showGroup = (vocabularyQuery.data?.groups ?? []).length >= 2;
 
   const columns: DataTableColumn<ClassSectionWithCount>[] = [
     {
@@ -75,11 +79,15 @@ export function SectionsPanel({ classId }: SectionsPanelProps) {
       header: t('sections.columnName'),
       accessorFn: (section) => <span className="font-medium">{section.section_name}</span>,
     },
-    {
-      id: 'group',
-      header: t('sectionForm.groupLabel'),
-      accessorFn: (section) => section.group_name ?? '—',
-    },
+    ...(showGroup
+      ? [
+          {
+            id: 'group',
+            header: t('sectionForm.groupLabel'),
+            accessorFn: (section: ClassSectionWithCount) => section.group_name ?? '—',
+          },
+        ]
+      : []),
     {
       id: 'capacity',
       header: t('sections.columnCapacity'),

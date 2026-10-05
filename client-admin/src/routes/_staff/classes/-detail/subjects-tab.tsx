@@ -17,7 +17,7 @@ import {
 } from '@biddaloy/ui/components';
 import { useClassSubjects, useHasPermission, type ClassSubject } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
-import { PlusIcon } from 'lucide-react';
+import { BookOpenIcon, PlusIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { AttachSubjectDialog } from '../-attach-subject-dialog';
@@ -116,7 +116,11 @@ export function SubjectsTab({ classId, academicYearId }: SubjectsTabProps) {
             allowed: canManage,
           },
         ]}
-        emptyMessage={t('subjects.emptyMessage')}
+        emptyState={{
+          icon: <BookOpenIcon aria-hidden="true" />,
+          title: t('subjects.emptyMessage'),
+          explanation: t('subjects.emptyExplanation'),
+        }}
       />
 
       {canManage && attachOpen && (

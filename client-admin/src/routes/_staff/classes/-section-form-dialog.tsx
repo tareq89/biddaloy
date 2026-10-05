@@ -74,7 +74,8 @@ export function SectionFormDialog({
   const updateSection = useUpdateSection(classId, sectionId ?? '');
   const mutation = mode === 'create' ? createSection : updateSection;
 
-  const initial = initialValues ?? EMPTY_VALUES;
+  // Snapshot once: a background refetch changing the props must not read as an edit.
+  const [initial] = React.useState(() => initialValues ?? EMPTY_VALUES);
   const initialCapacity = initial.capacity !== undefined ? String(initial.capacity) : '';
   const initialGroup = initial.groupName ?? NONE_VALUE;
   // Callers mount this dialog only while it is open (fresh state each open).
