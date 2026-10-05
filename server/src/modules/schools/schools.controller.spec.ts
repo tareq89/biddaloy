@@ -5,6 +5,8 @@ import type { Request } from 'express';
 import type { JwtPayload } from '@biddaloy/shared';
 import { SchoolsController } from './schools.controller';
 import { SchoolsService } from './schools.service';
+import { PlatformSuperAdminGuard } from '../auth/guards/platform-super-admin.guard';
+import type { ModuleRef } from '@nestjs/core';
 import { TenantSettingsDto } from './dto/tenant-settings.dto';
 
 const SCHOOL_A = 'aaaaaaaa-0000-4000-8000-000000000001';
@@ -20,16 +22,22 @@ function fakeService() {
     updateSettings: vi.fn(),
     getStats: vi.fn(),
     updateStatus: vi.fn(),
+    assertTrialExtendable: vi.fn(),
   };
 }
 
 describe('SchoolsController', () => {
   let service: ReturnType<typeof fakeService>;
+  let trial: { extend: ReturnType<typeof vi.fn> };
   let controller: SchoolsController;
 
   beforeEach(() => {
     service = fakeService();
-    controller = new SchoolsController(service as unknown as SchoolsService);
+    trial = { extend: vi.fn() };
+    controller = new SchoolsController(
+      service as unknown as SchoolsService,
+      { get: () => trial } as unknown as ModuleRef,
+    );
   });
 
   describe('findAll', () => {
@@ -43,9 +51,9 @@ describe('SchoolsController', () => {
       };
       service.findAll.mockResolvedValue([school]);
 
-      const result = await controller.findAll();
+      const result = await controller.findAll({});
 
-      expect(service.findAll).toHaveBeenCalledTimes(1);
+      expect(service.findAll).toHaveBeenCalledWith(undefined);
       expect(result).toEqual([school]);
     });
   });
@@ -181,6 +189,33 @@ describe('SchoolsController', () => {
         { ip: '127.0.0.1', userAgent: 'vitest' },
       );
       expect(result).toEqual(response);
+    });
+  });
+
+  describe('extendTrial', () => {
+    it('checks the seat floor first, then extends as the calling user', async () => {
+      trial.extend.mockResolvedValue({ id: SCHOOL_A });
+      const dto = { days: 7, seat_limit: 20, reason: 'Customer asked for a week' };
+
+      await controller.extendTrial(SCHOOL_A, dto, USER);
+
+      expect(service.assertTrialExtendable).toHaveBeenCalledWith(SCHOOL_A, 20);
+      expect(trial.extend).toHaveBeenCalledWith(SCHOOL_A, dto, { userId: 'user-1' });
+    });
+
+    it('does not extend when the pre-check refuses', async () => {
+      service.assertTrialExtendable.mockRejectedValue(new Error('NOT_IN_TRIAL'));
+
+      await expect(
+        controller.extendTrial(SCHOOL_A, { days: 7, reason: 'Customer asked for a week' }, USER),
+      ).rejects.toThrow('NOT_IN_TRIAL');
+      expect(trial.extend).not.toHaveBeenCalled();
+    });
+
+    it('is platform-only: SUPER_ADMIN role plus PlatformSuperAdminGuard', () => {
+      const handler = SchoolsController.prototype.extendTrial;
+      expect(Reflect.getMetadata('roles', handler)).toEqual(['SUPER_ADMIN']);
+      expect(Reflect.getMetadata('__guards__', handler)).toContain(PlatformSuperAdminGuard);
     });
   });
 });
