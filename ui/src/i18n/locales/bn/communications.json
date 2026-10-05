@@ -20,8 +20,8 @@
     "unknown": "অন্য কারণে বাদ পড়েছে"
   },
   "recipientList": {
-    "recipientsTitle": "যারা পাবেন ({{count}})",
-    "skippedTitle": "বাদ পড়েছেন ({{count}})",
+    "recipientsTitle": "যারা পাবেন ({{n}})",
+    "skippedTitle": "বাদ পড়েছেন ({{n}})",
     "subjectHeader": "বিষয়",
     "emptyRecipients": "কেউ এই রিমাইন্ডার পাবেন না — প্রত্যেক অভিভাবক বাদ পড়েছেন।",
     "noneSkipped": "কোনো অভিভাবক বাদ পড়েননি।"
@@ -90,8 +90,8 @@
     "sending": "পাঠানো হচ্ছে…",
     "sendHint": "বর্তমান ইনপুটের প্রিভিউয়ের পরেই কেবল পাঠানো যায়।",
     "resultTitle": "রিমাইন্ডার পাঠানো হয়েছে",
-    "resultSentTitle": "পাঠানো হয়েছে ({{count}})",
-    "resultSkippedTitle": "বাদ পড়েছেন ({{count}})",
+    "resultSentTitle": "পাঠানো হয়েছে ({{n}})",
+    "resultSkippedTitle": "বাদ পড়েছেন ({{n}})",
     "errorMessage": "রিমাইন্ডারটি পাঠানো যায়নি।",
     "previewErrorMessage": "প্রিভিউ আনা যায়নি।",
     "smsEstimateNote": "আনুমানিক — নাম ও টাকা বসার পর সঠিক হিসাব প্রিভিউতে দেখা যাবে।",
@@ -107,7 +107,8 @@
     "sendToCount_other": "{{n}} জনকে রিমাইন্ডার পাঠান",
     "previewInvalid": "প্রিভিউ দেখানো যায়নি — শিক্ষার্থী, অভিভাবক ও বার্তা আবার দেখুন।",
     "sendInvalid": "রিমাইন্ডার পাঠানো যায়নি — অভিভাবক ও বার্তা দেখে আবার প্রিভিউ করুন।",
-    "startAnother": "আরেকজনকে রিমাইন্ডার পাঠান"
+    "startAnother": "আরেকজনকে রিমাইন্ডার পাঠান",
+    "strayBrace": "একটি বাঁকা বন্ধনী বন্ধ হয়নি। নিচের বোতাম দিয়ে নাম বা টাকা বসান।"
   },
   "whatsapp": {
     "templateNameLabel": "টেমপ্লেটের নাম",

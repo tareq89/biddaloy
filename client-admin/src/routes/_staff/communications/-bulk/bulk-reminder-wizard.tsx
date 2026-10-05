@@ -28,6 +28,7 @@ import { ApiError, captureNotificationTenant, notifyOutcome } from '@biddaloy/ui
 import {
   Card,
   Checkbox,
+  ConfirmDialog,
   DataTable,
   Input,
   Label,
@@ -67,6 +68,7 @@ import { skipReasonKey } from '../-shared/skip-reason';
 import { SmsSegmentCounter } from '../-shared/sms-segment-counter';
 import {
   findUnknownLabels,
+  hasStrayBraces,
   findUnsupportedPlaceholders,
   toServerTemplate,
   usePlaceholderLabels,
@@ -139,6 +141,7 @@ export function BulkReminderWizard() {
   const send = useSendBulkReminder();
 
   const serverTemplate = toServerTemplate(template, labels);
+  const strayBraces = hasStrayBraces(template, labels);
   const unknownTokens = [
     ...findUnknownLabels(template, labels).map((word) => `{${word}}`),
     ...findUnsupportedPlaceholders(serverTemplate),
@@ -236,8 +239,8 @@ export function BulkReminderWizard() {
     if (!(error instanceof ApiError) || error.statusCode !== 409) return undefined;
     if (error.details?.code !== 'INSUFFICIENT_SMS_CREDIT') return undefined;
     return t('bulk.review.projection.insufficientCredit', {
-      required: error.details.required,
-      available: error.details.available,
+      required: formatNumber(Number(error.details.required), config),
+      available: formatNumber(Number(error.details.available), config),
     });
   }
 
@@ -378,6 +381,7 @@ export function BulkReminderWizard() {
       batchName.trim() !== '' &&
       template.trim() !== '' &&
       unknownTokens.length === 0 &&
+      !strayBraces &&
       mediums.size >= 1,
     review:
       previewMatchesInputs &&
@@ -423,6 +427,7 @@ export function BulkReminderWizard() {
     if (previous !== undefined) setStepId(previous);
   }
 
+  const [discardOpen, setDiscardOpen] = React.useState(false);
   const close = () =>
     void navigate({
       to: '/communications/reminders',
@@ -464,7 +469,10 @@ export function BulkReminderWizard() {
   const secondary = send.isSuccess
     ? undefined
     : currentIndex === 0
-      ? { label: tCommon('actions.cancel'), onClick: close }
+      ? {
+          label: tCommon('actions.cancel'),
+          onClick: () => (dirty ? setDiscardOpen(true) : close()),
+        }
       : { label: t('bulk.back'), onClick: goBack };
 
   return (
@@ -476,6 +484,19 @@ export function BulkReminderWizard() {
       primary={primary}
       {...(secondary !== undefined ? { secondary } : {})}
     >
+      <ConfirmDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        tone="danger"
+        title={tCommon('fullPage.discardTitle')}
+        description={tCommon('fullPage.discardDescription')}
+        confirmLabel={tCommon('fullPage.discardConfirm')}
+        cancelLabel={tCommon('fullPage.keepEditing')}
+        onConfirm={() => {
+          setDiscardOpen(false);
+          close();
+        }}
+      />
       {send.isSuccess ? (
         <Card padded aria-labelledby="bulk-result-title">
           <h2 id="bulk-result-title" className="text-h2">
@@ -600,13 +621,17 @@ export function BulkReminderWizard() {
                           </p>
                         </>
                       )}
-                      {unknownTokens.length > 0 && (
+                      {(unknownTokens.length > 0 || strayBraces) && (
                         <p
                           role="alert"
                           className="flex items-center gap-1 text-caption text-destructive"
                         >
                           <CircleAlertIcon className="size-4 shrink-0" aria-hidden />
-                          {t('reminders.unknownPlaceholder', { token: unknownTokens.join(', ') })}
+                          {strayBraces
+                            ? t('reminders.strayBrace')
+                            : t('reminders.unknownPlaceholder', {
+                                token: unknownTokens.join(', '),
+                              })}
                         </p>
                       )}
                     </div>

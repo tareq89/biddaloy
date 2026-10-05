@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   findUnknownLabels,
+  hasStrayBraces,
   findUnsupportedPlaceholders,
   toDisplayTemplate,
   toServerTemplate,
@@ -77,5 +78,15 @@ describe('display and server conversion', () => {
   it('round-trips', () => {
     const display = 'প্রিয় {অভিভাবকের নাম}, {শিক্ষার্থীর নাম} এর {বকেয়ার পরিমাণ}।';
     expect(toDisplayTemplate(toServerTemplate(display, BN_LABELS), BN_LABELS)).toBe(display);
+  });
+});
+
+describe('hasStrayBraces', () => {
+  it.each(['{Student name', '{{student_name}', 'a } b', '{{x}} }'])('flags %s', (text) => {
+    expect(hasStrayBraces(text, BN_LABELS)).toBe(true);
+  });
+
+  it.each(['', 'plain', '{অভিভাবকের নাম} {{due_month}}', '{ভুল}'])('accepts %s', (text) => {
+    expect(hasStrayBraces(text, BN_LABELS)).toBe(false);
   });
 });
