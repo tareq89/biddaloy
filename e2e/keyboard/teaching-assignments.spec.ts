@@ -89,7 +89,7 @@ test('keyboard-only: filter by class, then unassign a teacher', async ({ page, r
     // timing race with the grid's own state updates.
     await unassignButton.press('Enter');
 
-    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByRole('alertdialog')).toBeVisible();
     await tabUntilFocused(page, t('teacherAssignments.unassignDialog.confirm'), 10, {
       tag: 'BUTTON',
     });
