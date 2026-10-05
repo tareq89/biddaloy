@@ -1,7 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
-  IsBoolean,
   IsDefined,
   IsISO31661Alpha2,
   IsEmail,
@@ -92,12 +91,6 @@ export class ProvisionSchoolDto {
   @ApiProperty()
   @IsUUID()
   idempotency_key: string;
-
-  /** Default true. Public registration passes false: the admin already proved their contact. */
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsBoolean()
-  send_invitation?: boolean;
 
   @ApiProperty({ required: false })
   @IsOptional()
