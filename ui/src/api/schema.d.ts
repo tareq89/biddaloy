@@ -320,7 +320,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Requests a passwordless-login OTP by phone. Always 202 — enumeration-safe. */
+        /** Requests a passwordless-login code by phone or email. Always 202 — enumeration-safe. */
         post: operations["AccountAccessController_otpRequest_v1"];
         delete?: never;
         options?: never;
@@ -337,7 +337,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Verifies a passwordless-login OTP and signs the caller in. */
+        /** Verifies a passwordless-login code and signs the caller in. Also says whether a first password is needed. */
         post: operations["AccountAccessController_otpVerify_v1"];
         delete?: never;
         options?: never;
@@ -356,6 +356,23 @@ export interface paths {
         put?: never;
         /** [12.7] Confirms an emailed contact-change link — clicked from the inbox, possibly logged out. */
         post: operations["AccountAccessController_verifyEmail_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/account/first-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sets the first password on an account that has none; 409 if one is already set. */
+        post: operations["FirstPasswordController_set_v1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6613,6 +6630,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/social/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Names of the sign-in providers configured on this server. */
+        get: operations["SocialAuthController_providers_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/social/identities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's connected social accounts. */
+        get: operations["SocialAuthController_list_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/social/identities/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Disconnect a social account (409 LAST_SIGN_IN_METHOD if it is the last way in). */
+        delete: operations["SocialAuthController_unlink_v1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/social/{provider}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Redirect the browser to the provider to sign in or register. */
+        get: operations["SocialAuthController_start_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/social/{provider}/link-start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Begin connecting a social account to the signed-in user. */
+        post: operations["SocialAuthController_linkStart_v1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/social/{provider}/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Provider redirect target; completes sign-in, registration or connect. */
+        get: operations["SocialAuthController_callback_v1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6738,14 +6857,28 @@ export interface components {
             token?: string;
         };
         OtpRequestDto: {
-            /** @description The phone number on the account. */
-            phone: string;
+            /** @description The phone number or email on the account. Either `identifier` or `phone`. */
+            identifier?: string;
+            /** @description Alias of `identifier` for older clients. */
+            phone?: string;
         };
         OtpVerifyDto: {
-            /** @description The phone number the OTP was sent to. */
-            phone: string;
-            /** @description The 6-digit OTP sent by SMS. */
+            /** @description The phone number or email the code was sent to. Either `identifier` or `phone`. */
+            identifier?: string;
+            /** @description Alias of `identifier` for older clients. */
+            phone?: string;
+            /** @description The 6-digit code sent by SMS or email. */
             otp: string;
+        };
+        OtpLoginResponseDto: {
+            /** @description Short-lived bearer token for the Authorization header. */
+            access_token: string;
+            /** @description Every school/role pair the caller holds, for the tenant picker. */
+            memberships: components["schemas"]["MembershipResponseDto"][];
+            /** @description True when the account has no password yet. */
+            needs_password: boolean;
+            /** @description True when a first password must be set: no password yet, staff rules apply, and no social sign-in is linked. */
+            password_required: boolean;
         };
         VerifyEmailDto: {
             /** @description The raw email-verify token from the ?token= query param. */
@@ -6757,6 +6890,10 @@ export interface components {
              * @enum {string}
              */
             status: "valid" | "expired" | "consumed" | "revoked" | "unknown";
+        };
+        FirstPasswordDto: {
+            /** @description The first password to set. */
+            password: string;
         };
         SendSingleReminderDto: {
             message_template: string;
@@ -6991,6 +7128,13 @@ export interface components {
             status_reason: string | null;
             /** Format: date-time */
             status_changed_at: string | null;
+            country_code: string | null;
+            /** Format: date-time */
+            trial_ends_at: string | null;
+            seat_limit: number | null;
+            onboarding: {
+                [key: string]: unknown;
+            } | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -7013,6 +7157,8 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+            /** Format: date-time */
+            deleted_at: string | null;
         };
         User: {
             id: string;
@@ -11675,6 +11821,20 @@ export interface components {
             /** @description Sections whose class belongs to the requested academic year. */
             classes: components["schemas"]["ClassPerformanceResponseDto"][];
         };
+        SocialProvidersDto: {
+            providers: ("google" | "facebook")[];
+        };
+        SocialIdentityDto: {
+            /** @enum {string} */
+            provider: "google" | "facebook";
+            email: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        SocialLinkStartDto: {
+            /** @description Provider authorization URL to send the browser to. */
+            url: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -12199,7 +12359,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LoginResponseDto"];
+                    "application/json": components["schemas"]["OtpLoginResponseDto"];
                 };
             };
         };
@@ -12224,6 +12384,27 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["VerifyEmailResponseDto"];
                 };
+            };
+        };
+    };
+    FirstPasswordController_set_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FirstPasswordDto"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -29112,6 +29293,129 @@ export interface operations {
             };
             /** @description Missing/invalid bearer token, or missing/invalid X-Tenant-ID. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SocialAuthController_providers_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SocialProvidersDto"];
+                };
+            };
+        };
+    };
+    SocialAuthController_list_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SocialIdentityDto"][];
+                };
+            };
+        };
+    };
+    SocialAuthController_unlink_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SocialAuthController_start_v1: {
+        parameters: {
+            query: {
+                intent: "login" | "register";
+                redirect?: string;
+            };
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SocialAuthController_linkStart_v1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SocialLinkStartDto"];
+                };
+            };
+        };
+    };
+    SocialAuthController_callback_v1: {
+        parameters: {
+            query: {
+                code?: string;
+                state: string;
+                error?: string;
+            };
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
