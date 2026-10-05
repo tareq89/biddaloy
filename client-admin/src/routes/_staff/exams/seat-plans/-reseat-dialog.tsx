@@ -25,6 +25,7 @@ import {
 } from '@biddaloy/ui/components';
 import { useEditAllocation, type Room, type SeatPlanAllocationRow } from '@biddaloy/ui/hooks';
 import { useTranslation } from '@biddaloy/ui/i18n';
+import { toLatinDigits } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 export interface ReseatDialogProps {
@@ -62,7 +63,7 @@ export function ReseatDialog({ open, onOpenChange, planId, allocation, rooms }: 
     event.preventDefault();
     if (!allocation || roomId === '' || seatNumber.trim() === '') return;
     editAllocation.mutate(
-      { allocationId: allocation.id, input: { room_id: roomId, seat_number: seatNumber.trim() } },
+      { allocationId: allocation.id, input: { room_id: roomId, seat_number: toLatinDigits(seatNumber).trim() } },
       { onSuccess: () => onOpenChange(false) },
     );
   }

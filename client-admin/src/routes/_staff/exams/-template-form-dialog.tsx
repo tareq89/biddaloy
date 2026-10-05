@@ -31,7 +31,7 @@ import {
   type ExamTemplateDetail,
   useCreateExamTemplate,
   useUpdateExamTemplate,
-} from './use-exam-templates';
+} from './-use-exam-templates';
 
 export const TEMPLATE_NAME_MAX = 200;
 const EXAM_KINDS = Object.values(ExamKind);

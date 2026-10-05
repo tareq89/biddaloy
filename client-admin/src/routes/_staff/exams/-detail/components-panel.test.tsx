@@ -131,7 +131,10 @@ describe('exams/$examId Marks breakdown tab', () => {
     renderTab();
 
     // Bangla numerals are the default tenant region.
-    await screen.findByText('3 parts · full marks ১০০');
+    await screen.findByText('৩ parts · full marks ১০০');
+    // The DataTable's own total is CSS-hidden, so exactly one total line is rendered by us;
+    // assert the visible custom one is unique.
+    expect(screen.getAllByText(/full marks/)).toHaveLength(1);
     expect(screen.queryByRole('columnheader', { name: 'Sequence' })).toBeNull();
     expect(screen.getByText('Derived')).toBeTruthy();
   });
@@ -152,6 +155,29 @@ describe('exams/$examId Marks breakdown tab', () => {
 
     await user.click(within(confirm).getByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(events.deletes).toEqual(['comp-1']));
+  });
+
+  it('a failed delete keeps the dialog open and shows a translated message', async () => {
+    const user = userEvent.setup();
+    const events = mockTab({
+      components: [
+        examComponentFactory({ id: 'comp-1', exam_id: exam.id, subject_id: math.id, name: 'Written' }),
+      ],
+    });
+    server.use(
+      http.delete('/api/v1/exams/:examId/components/:id', () =>
+        HttpResponse.json({ message: 'db exploded' }, { status: 500 }),
+      ),
+    );
+    renderTab();
+
+    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    const confirm = await screen.findByRole('alertdialog');
+    await user.click(within(confirm).getByRole('button', { name: 'Delete' }));
+
+    expect(await within(confirm).findByText(/Couldn't delete the part\./)).toBeTruthy();
+    expect(screen.queryByText(/db exploded/)).toBeNull();
+    expect(events.deletes).toEqual([]);
   });
 
   it('a failed add shows the translated message, never the server text', async () => {
@@ -206,7 +232,7 @@ describe('exams/$examId Marks breakdown tab', () => {
     await user.click(within(dialog).getByLabelText('English'));
 
     await within(dialog).findByText('Preview');
-    await within(dialog).findByText('1 to create: Written');
+    await within(dialog).findByText('১ to create: Written');
     expect(copyCalled).toBe(false);
 
     await user.click(within(dialog).getByRole('button', { name: 'Copy' }));

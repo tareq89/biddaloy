@@ -27,8 +27,9 @@ import {
   useExamComponentsAll,
   useExams,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { FullPageShell } from '@biddaloy/ui/shells';
+import { formatNumber } from '@biddaloy/ui/utils';
 import * as React from 'react';
 
 export interface CopySubjectOption {
@@ -56,6 +57,7 @@ export function CopyComponentsDialog({
   onClose,
 }: CopyComponentsDialogProps) {
   const { t } = useTranslation('exams');
+  const config = useRegionConfig();
   const [sourceMode, setSourceMode] = React.useState<SourceMode>('subject');
   const [sourceSubjectId, setSourceSubjectId] = React.useState('');
   const [sourceExamId, setSourceExamId] = React.useState('');
@@ -248,7 +250,7 @@ export function CopyComponentsDialog({
                 {row.created.length > 0 && (
                   <p>
                     {t('copyDialog.previewCreated', {
-                      count: row.created.length,
+                      n: formatNumber(row.created.length, config),
                       names: row.created.join(', '),
                     })}
                   </p>

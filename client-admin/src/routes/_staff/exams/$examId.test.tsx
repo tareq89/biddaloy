@@ -9,7 +9,19 @@ import {
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+// No built-in role holds some of these permissions without the others, so the permission
+// variants are driven through `useHasPermission` (null = real behaviour).
+const grant = vi.hoisted(() => ({ only: null as Set<string> | null }));
+vi.mock('@biddaloy/ui/hooks', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@biddaloy/ui/hooks')>();
+  return {
+    ...actual,
+    useHasPermission: (permission: Parameters<typeof actual.useHasPermission>[0]) =>
+      grant.only ? grant.only.has(permission) : actual.useHasPermission(permission),
+  };
+});
 
 import { routeTree } from '../../../routeTree.gen';
 
@@ -17,6 +29,7 @@ import { routeTree } from '../../../routeTree.gen';
  * holds the one next-step action for the exam's status. */
 describe('/exams/$examId', () => {
   afterEach(async () => {
+    grant.only = null;
     await cleanupTestState();
   });
 
@@ -69,7 +82,7 @@ describe('/exams/$examId', () => {
     const progressTab = screen.getByRole('tab', { name: 'Progress' });
     expect(progressTab.getAttribute('aria-selected')).toBe('true');
     expect(screen.getByRole('tab', { name: 'Marks breakdown' })).toBeTruthy();
-    await screen.findByText('8 of 10 marks lists submitted');
+    await screen.findByText('৮ of ১০ marks lists submitted');
     expect(await screen.findByText('Class 7')).toBeTruthy();
     expect(await screen.findByText('2026-2027')).toBeTruthy();
     expect(screen.getByText('Draft')).toBeTruthy();
@@ -115,5 +128,37 @@ describe('/exams/$examId', () => {
     const panel = screen.getByRole('tabpanel');
     expect(within(panel).queryByRole('button', { name: 'Publish' })).toBeNull();
     expect(within(panel).queryByRole('button', { name: 'Process again' })).toBeNull();
+  });
+
+  it('without RESULT_PUBLISH, a PROCESSED exam offers Process again as the only primary', async () => {
+    grant.only = new Set(['EXAM_MANAGE', 'RESULT_PROCESS', 'EXAM_READ']);
+    renderExam('PROCESSED');
+    await screen.findByRole('heading', { name: 'Half Yearly 2026' });
+    await screen.findByRole('button', { name: 'Process again' });
+    expect(screen.queryByRole('button', { name: 'Publish' })).toBeNull();
+    const buttons = filledButtons();
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0]?.textContent).toBe('Process again');
+  });
+
+  it('without RESULT_PROCESS, a DRAFT exam has no primary action', async () => {
+    grant.only = new Set(['EXAM_MANAGE']);
+    renderExam('DRAFT');
+    await screen.findByRole('heading', { name: 'Half Yearly 2026' });
+    expect(screen.queryByRole('button', { name: 'Process result' })).toBeNull();
+    expect(filledButtons()).toHaveLength(0);
+  });
+
+  it('without EXAM_MANAGE, Reopen is a More menu item, never an inline red button', async () => {
+    const user = userEvent.setup();
+    grant.only = new Set(['RESULT_PUBLISH']);
+    renderExam('PUBLISHED');
+    await screen.findByRole('heading', { name: 'Half Yearly 2026' });
+    expect(screen.queryByRole('button', { name: 'Reopen' })).toBeNull();
+    expect(
+      screen.queryAllByRole('button').filter((b) => b.getAttribute('data-variant') === 'destructive'),
+    ).toHaveLength(0);
+    await user.click(await screen.findByRole('button', { name: 'More actions' }));
+    expect(await screen.findByRole('menuitem', { name: 'Reopen' })).toBeTruthy();
   });
 });

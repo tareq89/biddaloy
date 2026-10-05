@@ -24,6 +24,7 @@ import { ApiError, captureNotificationTenant, notifyOutcome } from '@biddaloy/ui
 import {
   Button,
   Checkbox,
+  ConfirmDialog,
   Input,
   Label,
   RadioGroup,
@@ -83,6 +84,7 @@ function isShortfallDetails(details: unknown): details is SeatCapacityShortfallD
 
 export function GenerateSeatPlanModal({ onClose }: GenerateSeatPlanModalProps) {
   const { t, i18n } = useTranslation('seatPlans');
+  const { t: tc } = useTranslation('common');
   const config = useRegionConfig();
   const navigate = useNavigate();
 
@@ -93,6 +95,7 @@ export function GenerateSeatPlanModal({ onClose }: GenerateSeatPlanModalProps) {
   const [seatOrderMode, setSeatOrderMode] = React.useState<'SEQUENTIAL' | 'RANDOM'>('SEQUENTIAL');
   const [result, setResult] = React.useState<GenerateSeatPlanResult | null>(null);
   // Set on success: clears `dirty` first, so the unsaved-changes guard lets the navigation through.
+  const [confirmCancel, setConfirmCancel] = React.useState(false);
   const [openPlanId, setOpenPlanId] = React.useState<string | null>(null);
 
   const examsQuery = useExams({ limit: 100 });
@@ -188,7 +191,7 @@ export function GenerateSeatPlanModal({ onClose }: GenerateSeatPlanModalProps) {
         <section className={CARD}>
           <StatusBadge tone="warning" label={t('generate.conflictBadge')} />
           <p role="alert" className="mt-2">
-            {t('generate.conflictsNotice', { count: result.conflicts.length })}
+            {t('generate.conflictsNotice', { count: result.conflicts.length, n: formatNumber(result.conflicts.length, config) })}
           </p>
           <ul className="mt-3 divide-y divide-border-subtle">
             {result.conflicts.map((conflict, index) => (
@@ -215,7 +218,10 @@ export function GenerateSeatPlanModal({ onClose }: GenerateSeatPlanModalProps) {
       size="form"
       dirty={dirty}
       onClose={onClose}
-      secondary={{ label: t('generate.cancel'), onClick: onClose }}
+      secondary={{
+        label: t('generate.cancel'),
+        onClick: () => (dirty ? setConfirmCancel(true) : onClose()),
+      }}
       primary={{
         label: t('generate.submit'),
         onClick: submit,
@@ -230,6 +236,19 @@ export function GenerateSeatPlanModal({ onClose }: GenerateSeatPlanModalProps) {
           submit();
         }}
       >
+        <ConfirmDialog
+          open={confirmCancel}
+          onOpenChange={setConfirmCancel}
+          tone="danger"
+          title={tc('fullPage.discardTitle')}
+          description={tc('fullPage.discardDescription')}
+          confirmLabel={tc('fullPage.discardConfirm')}
+          cancelLabel={tc('fullPage.keepEditing')}
+          onConfirm={() => {
+            setConfirmCancel(false);
+            onClose();
+          }}
+        />
         <p className="text-text-secondary">{t('generate.description')}</p>
 
         <section className={CARD}>
@@ -309,7 +328,7 @@ export function GenerateSeatPlanModal({ onClose }: GenerateSeatPlanModalProps) {
               <h2 className={`text-h2 ${REQUIRED}`}>{t('generate.schedulesLabel')}</h2>
               <p className="mt-1 text-text-secondary">
                 {t('generate.selectedCount', {
-                  count: formatNumber(selectedSchedules.size, config),
+                  n: formatNumber(selectedSchedules.size, config),
                 })}
               </p>
             </div>
@@ -383,7 +402,7 @@ export function GenerateSeatPlanModal({ onClose }: GenerateSeatPlanModalProps) {
               <h2 className={`text-h2 ${REQUIRED}`}>{t('generate.roomsLabel')}</h2>
               <p className="mt-1 text-text-secondary">
                 {t('generate.roomsSummary', {
-                  count: formatNumber(selectedRooms.size, config),
+                  n: formatNumber(selectedRooms.size, config),
                   seats: formatNumber(seatsSelected, config),
                 })}
               </p>

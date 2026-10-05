@@ -44,11 +44,10 @@ describe('TemplatesList (exam structures)', () => {
     expect(add.getAttribute('data-variant')).toBe('default');
   });
 
-  it('shows the empty state with an outline add button', async () => {
+  it('shows the empty state with only the header add button', async () => {
     setup([]);
     expect(await screen.findByText('No exam structures yet')).toBeTruthy();
-    const buttons = screen.getAllByRole('button', { name: 'Add exam structure' });
-    expect(buttons.some((b) => b.getAttribute('data-variant') === 'outline')).toBe(true);
+    expect(screen.getAllByRole('button', { name: 'Add exam structure' })).toHaveLength(1);
   });
 
   it('lists structures with type, sorted classes in tenant digits and the subject count', async () => {
