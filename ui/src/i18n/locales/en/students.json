@@ -250,7 +250,8 @@
       "identity": "Identity",
       "placement": "Placement",
       "guardians": "Guardians",
-      "preferences": "Preferences"
+      "preferences": "Preferences",
+      "guardiansHelp": "Find a guardian who is already on record, or add a new one."
     },
     "fields": {
       "fullName": "Full name",
@@ -269,7 +270,9 @@
         "MALE": "Male",
         "FEMALE": "Female",
         "OTHER": "Other"
-      }
+      },
+      "rollNumberPlaceholder": "e.g. 12",
+      "rollNumberHelp": "Leave blank to use the next roll number in the section."
     },
     "preferredCommunicationOptions": {
       "SMS": "SMS",
@@ -287,7 +290,7 @@
     },
     "draftAvailable": "You have an unsaved draft of this form.",
     "restoreDraftAction": "Restore draft",
-    "discardDraftAction": "Discard",
+    "discardDraftAction": "Discard draft",
     "unsavedChangesDialog": {
       "title": "Leave without saving?",
       "description": "You have unsaved changes. If you leave now, they will be lost.",
@@ -297,7 +300,6 @@
     "guardians": {
       "selectedLabel": "Linked guardians",
       "removeAction": "Remove {{name}}",
-      "removeAction_short": "Remove",
       "searchLabel": "Search guardians",
       "searchPlaceholder": "Search by name or phone",
       "noResults": "No guardians found.",
@@ -309,10 +311,13 @@
         "emailLabel": "Guardian's email",
         "nameRequired": "Guardian name is required.",
         "saveAction": "Add guardian",
-        "cancelAction": "Cancel"
-      }
+        "cancelAction": "Cancel",
+        "createError": "The guardian could not be added. Check the details and try again."
+      },
+      "unknownName": "Guardian"
     },
-    "bloodGroupNotSet": "Not set"
+    "bloodGroupNotSet": "Not set",
+    "cancelAction": "Cancel"
   },
   "discounts": {
     "addRule": "Add discount rule",
