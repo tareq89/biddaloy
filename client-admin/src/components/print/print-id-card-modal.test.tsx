@@ -1,11 +1,18 @@
 import '@biddaloy/ui/test';
 
+import { REGION_BD_EN, RegionConfigProvider } from '@biddaloy/ui/i18n';
 import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
+import type * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { PrintIdCardModal, type PrintIdCardChoice } from './print-id-card-modal';
+
+/** Digits follow the region, and the default region is Bangla: pin Latin for English assertions. */
+const en = (ui: React.ReactElement) => (
+  <RegionConfigProvider value={REGION_BD_EN}>{ui}</RegionConfigProvider>
+);
 
 const CLASS_ID = '11111111-1111-4111-8111-111111111111';
 const SECTION_ID = '22222222-2222-4222-8222-222222222222';
@@ -54,7 +61,7 @@ function setup(initialType: 'STUDENT' | 'STAFF' = 'STUDENT', role = 'ADMIN') {
   const onConfirm = vi.fn<(choice: PrintIdCardChoice) => void>();
   const onClose = vi.fn();
   const view = renderWithProviders(
-    <PrintIdCardModal initialType={initialType} onClose={onClose} onConfirm={onConfirm} />,
+    en(<PrintIdCardModal initialType={initialType} onClose={onClose} onConfirm={onConfirm} />),
     { locale: 'en', role, tenantId: 'tenant-1' },
   );
   return { ...view, onConfirm, onClose };
@@ -158,5 +165,15 @@ describe('PrintIdCardModal', () => {
     expect(onClose).not.toHaveBeenCalled();
     await user.click(within(dialog).getByRole('button', { name: /discard/i }));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('under bn the primary and chips use Bangla digits', async () => {
+    serve();
+    const view = renderWithProviders(
+      <PrintIdCardModal initialType="STUDENT" onClose={vi.fn()} onConfirm={vi.fn()} />,
+      { locale: 'bn', role: 'ADMIN', tenantId: 'tenant-1' },
+    );
+    await view.user.click(await screen.findByRole('checkbox', { name: /Rahim Uddin/ }));
+    expect(screen.getByRole('button', { name: '১ জনকে নিয়ে এগিয়ে যান' })).toBeTruthy();
   });
 });
