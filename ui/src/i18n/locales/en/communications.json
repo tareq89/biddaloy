@@ -80,7 +80,6 @@
     "noGuardians": "This student has no guardians on file.",
     "messageLabel": "Message",
     "placeholdersLabel": "Insert into message",
-    "insertPlaceholder": "Insert {{token}}",
     "unknownPlaceholder": "{{token}} isn't recognised. Use the buttons below to insert a name or amount.",
     "mediumOverrideLabel": "Send by",
     "mediumOverrideDefault": "Use each guardian's preferred channel",
@@ -117,50 +116,53 @@
   },
   "bulk": {
     "entryAction": "Remind many at once",
-    "backToSingle": "Single reminder",
     "title": "Bulk Fee Reminders",
     "steps": {
       "recipients": "Recipients",
       "message": "Message",
-      "review": "Review"
+      "review": "Check and send"
     },
     "recipients": {
       "filterClass": "Class",
       "filterSection": "Section",
       "filterMonth": "Month",
       "filterYear": "Year",
-      "filterStatus": "Status",
+      "filterStatus": "Fee status",
       "allOption": "All",
       "statusPending": "Pending",
       "statusPartiallyPaid": "Partially paid",
       "tableCaption": "Students with open dues",
       "nameHeader": "Student",
-      "classHeader": "Class",
-      "sectionHeader": "Section",
       "dueHeader": "Total due",
       "monthsOverdueHeader": "Months overdue",
       "empty": "No students match these filters.",
-      "selectedCount": "{{count}} of {{max}} students selected",
+      "selectedCount": "{{n}} of {{max}} students picked",
       "overCap": "Select at most {{max}} students — remove {{excess}} to continue.",
-      "loadError": "The student list could not be loaded."
+      "loadError": "The student list could not be loaded.",
+      "title": "Who to send to",
+      "help": "Students with unpaid fees are listed below. Tick the ones to send to — up to 500.",
+      "classSectionHeader": "Class · section",
+      "emptyHelp": "Change the filters to see more students."
     },
     "message": {
       "batchNameLabel": "Round name",
       "messageLabel": "Message template",
-      "mediumsLabel": "Channels"
+      "mediumsLabel": "Channels",
+      "title": "What to write",
+      "help": "Give this round a name you'll recognise later in Reminder history."
     },
     "review": {
       "previewAction": "Preview recipients",
       "previewing": "Previewing…",
       "summary": "{{recipients}} guardian(s) will receive this reminder · {{skipped}} skipped",
       "skippedByReasonTitle": "Skipped, by reason",
-      "reasonCount_one": "{{count}} recipient",
-      "reasonCount_other": "{{count}} recipients",
+      "reasonCount_one": "{{n}} recipient",
+      "reasonCount_other": "{{n}} recipients",
       "perStudentTitle": "Per-student detail",
-      "studentRecipients_one": "{{count}} recipient",
-      "studentRecipients_other": "{{count}} recipients",
-      "studentSkipped_one": "{{count}} skipped",
-      "studentSkipped_other": "{{count}} skipped",
+      "studentRecipients_one": "{{n}} recipient",
+      "studentRecipients_other": "{{n}} recipients",
+      "studentSkipped_one": "{{n}} skipped",
+      "studentSkipped_other": "{{n}} skipped",
       "stale": "The earlier steps changed since the last preview — preview again before sending.",
       "notPreviewedHint": "Check the preview to enable sending.",
       "noRecipients": "No one would receive this reminder — adjust the earlier steps.",
@@ -174,14 +176,22 @@
         "available": "Available",
         "shortfall": "Not enough SMS credit: {{required}} unit(s) needed, only {{available}} available ({{shortfall}} short). Sending is blocked until the balance is topped up.",
         "insufficientCredit": "Not enough SMS credit to send: {{required}} unit(s) needed, only {{available}} available."
-      }
+      },
+      "title": "Check and send",
+      "previewInvalid": "The preview could not be made — go back and check the students and message.",
+      "sendInvalid": "The reminders were not sent — check the earlier steps and preview again."
     },
-    "submitLabel": "Send reminders",
     "result": {
       "title": "Reminders queued",
       "queued": "“{{name}}” is being sent in the background.",
       "viewBatch": "See sending progress"
-    }
+    },
+    "stepsLabel": "Steps",
+    "back": "Previous step",
+    "nextToMessage": "Next: message",
+    "nextToReview": "Next: check",
+    "sendToCount_one": "Send reminder to {{n}} person",
+    "sendToCount_other": "Send reminders to {{n}} people"
   },
   "batches": {
     "title": "Reminder History",

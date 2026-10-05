@@ -61,7 +61,7 @@ export function RecipientList({ recipients, skipped }: RecipientListProps) {
                     {t('recipientList.subjectHeader')}: {recipient.subject}
                   </p>
                 )}
-                <p className="mt-2 whitespace-pre-wrap rounded-md bg-muted p-3">
+                <p className="mt-2 rounded-md bg-muted p-3 whitespace-pre-wrap">
                   {recipient.message_body}
                 </p>
                 {/* The rendered body is what the network actually

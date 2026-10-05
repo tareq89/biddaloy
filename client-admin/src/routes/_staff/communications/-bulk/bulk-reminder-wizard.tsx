@@ -3,6 +3,11 @@
  * explicit selection, ≤500) → Message (named batch, template, channels)
  * → Review (mandatory server preview) → submit.
  *
+ * Rendered as a `FullPageShell` (D21/D22/D23: a flow with steps and a
+ * table is a full-page modal on the host route `?mode=bulk`); the step row
+ * is local (`wizard-steps.tsx`) because `WizardShell` brings its own `h1`
+ * and footer.
+ *
  * Two rules carried over from the single-reminder page, because a sent
  * SMS cannot be recalled:
  *
@@ -13,23 +18,19 @@
  * 2. **Nothing sends until the server preview matches the current
  *    inputs.** The review step fingerprints every input the preview
  *    depends on; editing any earlier step changes the fingerprint,
- *    which disables submit until the preview is re-run. Client-side
- *    guessing can't reproduce the server's skip logic, so the preview
- *    is `POST /reminder/bulk/preview`, not a local computation.
+ *    which swaps the footer button back to Preview until the preview is
+ *    re-run. Client-side guessing can't reproduce the server's skip
+ *    logic, so the preview is `POST /reminder/bulk/preview`, not a local
+ *    computation.
  */
 import { FeeStatus } from '@biddaloy/shared';
 import { ApiError, captureNotificationTenant, notifyOutcome } from '@biddaloy/ui/api';
 import {
-  Button,
+  Card,
   Checkbox,
   DataTable,
   Input,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Textarea,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
@@ -44,21 +45,36 @@ import {
   type SendBulkReminderInput,
 } from '@biddaloy/ui/hooks';
 import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
-import { useWizardShellStep, WizardShell, type WizardStep } from '@biddaloy/ui/shells';
-import { formatServerAmount } from '@biddaloy/ui/utils';
-import { Link, useNavigate } from '@tanstack/react-router';
+import {
+  FilterBar,
+  FullPageShell,
+  useWizardShellStep,
+  type FilterFieldDescriptor,
+} from '@biddaloy/ui/shells';
+import {
+  formatMonthName,
+  formatNumber,
+  formatServerAmount,
+  renderDigits,
+} from '@biddaloy/ui/utils';
+import { useNavigate } from '@tanstack/react-router';
+import { CircleAlertIcon } from 'lucide-react';
 import * as React from 'react';
 
+import { PlaceholderButtons } from '../-shared/placeholder-buttons';
 import { RecipientList } from '../-shared/recipient-list';
 import { skipReasonKey } from '../-shared/skip-reason';
 import { SmsSegmentCounter } from '../-shared/sms-segment-counter';
 import {
+  findUnknownLabels,
   findUnsupportedPlaceholders,
-  SUPPORTED_PLACEHOLDERS,
+  toServerTemplate,
+  usePlaceholderLabels,
 } from '../-shared/template-placeholders';
 import { splitTemplateParams, WhatsappTemplateFields } from '../-shared/whatsapp-template-fields';
 
 import { BulkSmsProjectionCard } from './bulk-sms-projection-card';
+import { WizardSteps } from './wizard-steps';
 
 /** Mirror of the server's `MAX_BULK_REMINDER_STUDENTS` (`@ArrayMaxSize`
  * on `SendBulkReminderDto.student_ids`) — enforced here so the sender
@@ -66,38 +82,29 @@ import { BulkSmsProjectionCard } from './bulk-sms-projection-card';
 const MAX_STUDENTS = 500;
 
 const STEP_IDS = ['recipients', 'message', 'review'] as const;
+type StepId = (typeof STEP_IDS)[number];
 
 const BULK_MEDIUMS = ['SMS', 'WHATSAPP', 'EMAIL'] as const;
 type BulkMedium = (typeof BULK_MEDIUMS)[number];
 
-/** Radix `Select.Item` rejects empty-string `value` — same sentinel
- * convention `fees/dues.tsx` uses for its "All …" options. */
-const ALL_VALUE = '__all__';
-
-const PAGE_SIZE = 10;
-
-interface RecipientFilters {
-  classId?: string;
-  sectionId?: string;
-  month?: string;
-  year?: string;
-  status?: string;
-}
-
 export function BulkReminderWizard() {
   const { t } = useTranslation('communications');
+  const { t: tCommon } = useTranslation('common');
   const config = useRegionConfig();
   const navigate = useNavigate();
+  const labels = usePlaceholderLabels();
 
   const [stepId, setStepId] = useWizardShellStep(STEP_IDS);
 
   // --- Recipients step state -------------------------------------------
-  const [filters, setFilters] = React.useState<RecipientFilters>({});
+  const [filters, setFilters] = React.useState<Record<string, string>>({});
   const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(25);
   const [selectedIds, setSelectedIds] = React.useState<ReadonlySet<string>>(new Set());
 
   // --- Message step state ----------------------------------------------
   const [batchName, setBatchName] = React.useState('');
+  /** Display form (`{Student name}`); `serverTemplate` is what goes on the wire. */
   const [template, setTemplate] = React.useState('');
   const [mediums, setMediums] = React.useState<ReadonlySet<BulkMedium>>(
     () => new Set<BulkMedium>(BULK_MEDIUMS),
@@ -113,24 +120,29 @@ export function BulkReminderWizard() {
   } | null>(null);
   const previewRequestRef = React.useRef(0);
 
+  const classId = filters['classId'];
   const classesQuery = useClasses();
-  const sectionsQuery = useClassSections(filters.classId);
+  const sectionsQuery = useClassSections(classId);
   const duesQuery = useFeeDues({
     page,
-    limit: PAGE_SIZE,
-    ...(filters.classId !== undefined ? { class_id: filters.classId } : {}),
-    ...(filters.sectionId !== undefined ? { section_id: filters.sectionId } : {}),
-    ...(filters.month !== undefined ? { month: Number(filters.month) } : {}),
-    ...(filters.year !== undefined ? { year: Number(filters.year) } : {}),
-    ...(filters.status !== undefined
-      ? { status: filters.status as FeeStatus.PENDING | FeeStatus.PARTIALLY_PAID }
+    limit: pageSize,
+    ...(classId !== undefined ? { class_id: classId } : {}),
+    ...(filters['sectionId'] !== undefined ? { section_id: filters['sectionId'] } : {}),
+    ...(filters['month'] !== undefined ? { month: Number(filters['month']) } : {}),
+    ...(filters['year'] !== undefined ? { year: Number(filters['year']) } : {}),
+    ...(filters['status'] !== undefined
+      ? { status: filters['status'] as FeeStatus.PENDING | FeeStatus.PARTIALLY_PAID }
       : {}),
   });
 
   const preview = useBulkReminderPreview();
   const send = useSendBulkReminder();
 
-  const unsupportedTokens = findUnsupportedPlaceholders(template);
+  const serverTemplate = toServerTemplate(template, labels);
+  const unknownTokens = [
+    ...findUnknownLabels(template, labels).map((word) => `{${word}}`),
+    ...findUnsupportedPlaceholders(serverTemplate),
+  ];
   const selectedCount = selectedIds.size;
 
   /** Every input the server preview depends on, in canonical order —
@@ -139,7 +151,7 @@ export function BulkReminderWizard() {
   const fingerprint = JSON.stringify({
     studentIds: Array.from(selectedIds).sort(),
     batchName,
-    template,
+    template: serverTemplate,
     mediums: Array.from(mediums).sort(),
     templateName,
     templateLanguage,
@@ -153,7 +165,7 @@ export function BulkReminderWizard() {
     const params = splitTemplateParams(templateParams);
     return {
       student_ids: Array.from(selectedIds).sort(),
-      message_template: template,
+      message_template: serverTemplate,
       batch_name: batchName.trim(),
       mediums: Array.from(mediums).sort(),
       // `exactOptionalPropertyTypes` — omit rather than set `undefined`.
@@ -205,11 +217,11 @@ export function BulkReminderWizard() {
     });
   }
 
-  /** 400s verbatim (specific and actionable), 429 as the rate-limit note
-   * (`POST /reminder/bulk*` is STRICT_RATE_LIMIT 5/min), anything else
-   * generic. */
-  function requestErrorMessage(error: unknown, fallbackKey: string): string {
-    if (error instanceof ApiError && error.statusCode === 400) return error.message;
+  /** 400s as one translated sentence (the server's own text is English),
+   * 429 as the rate-limit note (`POST /reminder/bulk*` is STRICT_RATE_LIMIT
+   * 5/min), anything else generic. */
+  function requestErrorMessage(error: unknown, invalidKey: string, fallbackKey: string): string {
+    if (error instanceof ApiError && error.statusCode === 400) return t(invalidKey);
     if (error instanceof ApiError && error.statusCode === 429) return t('bulk.review.rateLimited');
     return t(fallbackKey);
   }
@@ -229,13 +241,16 @@ export function BulkReminderWizard() {
     });
   }
 
-  function setFilter(key: keyof RecipientFilters, value: string | undefined) {
+  function handleFilterChange(patch: Record<string, string | null>) {
     setFilters((current) => {
-      const next = { ...current, [key]: value };
-      if (value === undefined) delete next[key];
+      const next = { ...current };
+      for (const [key, value] of Object.entries(patch)) {
+        if (value === null || value === '') delete next[key];
+        else next[key] = value;
+      }
       // A class change invalidates any picked section, same dependency
       // `fees/dues.tsx` enforces.
-      if (key === 'classId') delete next.sectionId;
+      if ('classId' in patch && !('sectionId' in patch)) delete next['sectionId'];
       return next;
     });
     setPage(1);
@@ -254,241 +269,90 @@ export function BulkReminderWizard() {
     setTemplate((current) => (current === '' ? token : `${current} ${token}`));
   }
 
-  const monthOptions = React.useMemo(
-    () => Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')),
-    [],
-  );
   const currentYear = new Date().getFullYear();
-  const yearOptions = React.useMemo(
-    () => [currentYear - 2, currentYear - 1, currentYear, currentYear + 1].map(String),
-    [currentYear],
-  );
+  const filterFields: FilterFieldDescriptor[] = [
+    {
+      kind: 'select',
+      key: 'classId',
+      label: t('bulk.recipients.filterClass'),
+      allLabel: t('bulk.recipients.allOption'),
+      options: (classesQuery.data?.data ?? []).map((cls) => ({ value: cls.id, label: cls.name })),
+    },
+    {
+      kind: 'select',
+      key: 'sectionId',
+      label: t('bulk.recipients.filterSection'),
+      allLabel: t('bulk.recipients.allOption'),
+      options: (sectionsQuery.data ?? []).map((section) => ({
+        value: section.id,
+        label: section.section_name,
+      })),
+    },
+    {
+      kind: 'select',
+      key: 'month',
+      label: t('bulk.recipients.filterMonth'),
+      allLabel: t('bulk.recipients.allOption'),
+      options: Array.from({ length: 12 }, (_, i) => ({
+        value: String(i + 1),
+        label: formatMonthName(i + 1, config),
+      })),
+    },
+    {
+      kind: 'select',
+      key: 'year',
+      label: t('bulk.recipients.filterYear'),
+      allLabel: t('bulk.recipients.allOption'),
+      options: [currentYear - 2, currentYear - 1, currentYear, currentYear + 1].map((year) => ({
+        value: String(year),
+        label: renderDigits(String(year), config.numerals),
+      })),
+    },
+    {
+      kind: 'select',
+      key: 'status',
+      label: t('bulk.recipients.filterStatus'),
+      allLabel: t('bulk.recipients.allOption'),
+      options: [
+        { value: FeeStatus.PENDING, label: t('bulk.recipients.statusPending') },
+        { value: FeeStatus.PARTIALLY_PAID, label: t('bulk.recipients.statusPartiallyPaid') },
+      ],
+    },
+  ];
 
   const dueRows = duesQuery.data?.data ?? [];
   const columns: DataTableColumn<FeeDueRow>[] = [
     {
       id: 'student',
       header: t('bulk.recipients.nameHeader'),
-      accessorFn: (row) => `${row.full_name} (${row.registration_number})`,
+      card: 'title',
+      accessorFn: (row) => (
+        <>
+          <p className="font-medium">{row.full_name}</p>
+          <p className="text-caption text-text-secondary">{row.registration_number}</p>
+        </>
+      ),
     },
     {
-      id: 'class',
-      header: t('bulk.recipients.classHeader'),
-      accessorFn: (row) => row.class_name ?? '—',
-    },
-    {
-      id: 'section',
-      header: t('bulk.recipients.sectionHeader'),
-      accessorFn: (row) => row.section_name ?? '—',
+      id: 'classSection',
+      header: t('bulk.recipients.classSectionHeader'),
+      accessorFn: (row) => `${row.class_name ?? '—'} · ${row.section_name ?? '—'}`,
     },
     {
       id: 'due',
       header: t('bulk.recipients.dueHeader'),
-      // tabular-nums: money columns align on the decimal (design contract §2).
-      // Effective for Latin digits (`en`); a no-op on Bengali numerals, whose
-      // face ships no `tnum` — see §2's note.
-      accessorFn: (row) => (
-        <span className="tabular-nums">{formatServerAmount(row.total_due, config)}</span>
-      ),
+      align: 'end',
+      accessorFn: (row) => formatServerAmount(row.total_due, config),
     },
     {
       id: 'monthsOverdue',
       header: t('bulk.recipients.monthsOverdueHeader'),
-      accessorFn: (row) => String(row.months_overdue),
+      align: 'end',
+      accessorFn: (row) => formatNumber(row.months_overdue, config),
     },
   ];
 
-  const recipientsStep: WizardStep = {
-    id: 'recipients',
-    label: t('bulk.steps.recipients'),
-    isValid: () => selectedCount >= 1 && selectedCount <= MAX_STUDENTS,
-    content: (
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-end gap-2">
-          <FilterSelect
-            id="bulk-filter-class"
-            label={t('bulk.recipients.filterClass')}
-            value={filters.classId}
-            onChange={(value) => setFilter('classId', value)}
-            options={(classesQuery.data?.data ?? []).map((cls) => ({
-              value: cls.id,
-              label: cls.name,
-            }))}
-            allLabel={t('bulk.recipients.allOption')}
-          />
-          <FilterSelect
-            id="bulk-filter-section"
-            label={t('bulk.recipients.filterSection')}
-            value={filters.sectionId}
-            onChange={(value) => setFilter('sectionId', value)}
-            options={(sectionsQuery.data ?? []).map((section) => ({
-              value: section.id,
-              label: section.section_name,
-            }))}
-            allLabel={t('bulk.recipients.allOption')}
-          />
-          <FilterSelect
-            id="bulk-filter-month"
-            label={t('bulk.recipients.filterMonth')}
-            value={filters.month}
-            onChange={(value) => setFilter('month', value)}
-            options={monthOptions.map((month) => ({ value: String(Number(month)), label: month }))}
-            allLabel={t('bulk.recipients.allOption')}
-          />
-          <FilterSelect
-            id="bulk-filter-year"
-            label={t('bulk.recipients.filterYear')}
-            value={filters.year}
-            onChange={(value) => setFilter('year', value)}
-            options={yearOptions.map((year) => ({ value: year, label: year }))}
-            allLabel={t('bulk.recipients.allOption')}
-          />
-          <FilterSelect
-            id="bulk-filter-status"
-            label={t('bulk.recipients.filterStatus')}
-            value={filters.status}
-            onChange={(value) => setFilter('status', value)}
-            options={[
-              { value: FeeStatus.PENDING, label: t('bulk.recipients.statusPending') },
-              {
-                value: FeeStatus.PARTIALLY_PAID,
-                label: t('bulk.recipients.statusPartiallyPaid'),
-              },
-            ]}
-            allLabel={t('bulk.recipients.allOption')}
-          />
-        </div>
-
-        {/* The AC's "explicit selection" counter — announced politely so
-            a keyboard/screen-reader user always knows the running total
-            without leaving the table. */}
-        <p aria-live="polite" className="text-sm font-medium">
-          {t('bulk.recipients.selectedCount', { count: selectedCount, max: MAX_STUDENTS })}
-        </p>
-        {selectedCount > MAX_STUDENTS && (
-          <p role="alert" className="text-sm text-destructive">
-            {t('bulk.recipients.overCap', {
-              max: MAX_STUDENTS,
-              excess: selectedCount - MAX_STUDENTS,
-            })}
-          </p>
-        )}
-
-        <DataTable
-          tableId="bulk-reminder-recipients"
-          caption={t('bulk.recipients.tableCaption')}
-          columns={columns}
-          data={dueRows}
-          getRowId={(row) => row.student_id}
-          sorting={null}
-          onSortingChange={() => undefined}
-          page={page}
-          pageSize={PAGE_SIZE}
-          totalCount={duesQuery.data?.total ?? 0}
-          onPageChange={setPage}
-          selectedIds={selectedIds}
-          onSelectedIdsChange={setSelectedIds}
-          loading={duesQuery.isPending}
-          isFetching={duesQuery.isFetching}
-          {...(duesQuery.isError ? { error: t('bulk.recipients.loadError') } : {})}
-          emptyMessage={t('bulk.recipients.empty')}
-        />
-      </div>
-    ),
-  };
-
   const smsInPlay = mediums.has('SMS');
-
-  const messageStep: WizardStep = {
-    id: 'message',
-    label: t('bulk.steps.message'),
-    isValid: () =>
-      batchName.trim() !== '' &&
-      template.trim() !== '' &&
-      unsupportedTokens.length === 0 &&
-      mediums.size >= 1,
-    content: (
-      <div className="flex flex-col gap-4">
-        <div className="grid gap-1.5">
-          <Label htmlFor="bulk-batch-name">{t('bulk.message.batchNameLabel')}</Label>
-          <Input
-            id="bulk-batch-name"
-            value={batchName}
-            onChange={(event) => setBatchName(event.target.value)}
-          />
-        </div>
-
-        <div className="grid gap-1.5">
-          <Label htmlFor="bulk-template">{t('bulk.message.messageLabel')}</Label>
-          <Textarea
-            id="bulk-template"
-            value={template}
-            onChange={(event) => setTemplate(event.target.value)}
-            rows={5}
-          />
-          {smsInPlay && (
-            <>
-              <SmsSegmentCounter text={template} />
-              <p className="text-xs text-muted-foreground">{t('reminders.smsEstimateNote')}</p>
-            </>
-          )}
-          <div
-            role="group"
-            aria-label={t('reminders.placeholdersLabel')}
-            className="flex flex-wrap gap-1.5"
-          >
-            {SUPPORTED_PLACEHOLDERS.map((token) => (
-              <Button
-                key={token}
-                type="button"
-                variant="outline"
-                size="sm"
-                aria-label={t('reminders.insertPlaceholder', { token })}
-                onClick={() => insertPlaceholder(token)}
-              >
-                {token}
-              </Button>
-            ))}
-          </div>
-          {unsupportedTokens.length > 0 && (
-            <p role="alert" className="text-sm text-destructive">
-              {t('reminders.unknownPlaceholder', {
-                token: unsupportedTokens.join(', '),
-                supported: SUPPORTED_PLACEHOLDERS.join(', '),
-              })}
-            </p>
-          )}
-        </div>
-
-        <fieldset className="flex flex-col gap-2 rounded-md border border-border-subtle p-3">
-          <legend className="px-1 text-sm font-medium">{t('bulk.message.mediumsLabel')}</legend>
-          {BULK_MEDIUMS.map((medium) => (
-            <span key={medium} className="flex items-center gap-2 text-sm">
-              <Checkbox
-                id={`bulk-medium-${medium}`}
-                checked={mediums.has(medium)}
-                onCheckedChange={() => toggleMedium(medium)}
-              />
-              <label htmlFor={`bulk-medium-${medium}`}>{t(`mediums.${medium}`)}</label>
-            </span>
-          ))}
-        </fieldset>
-
-        {mediums.has('WHATSAPP') && (
-          <WhatsappTemplateFields
-            idPrefix="bulk"
-            helperText={t('reminders.whatsappHelper')}
-            templateName={templateName}
-            onTemplateNameChange={setTemplateName}
-            templateLanguage={templateLanguage}
-            onTemplateLanguageChange={setTemplateLanguage}
-            templateParams={templateParams}
-            onTemplateParamsChange={setTemplateParams}
-          />
-        )}
-      </div>
-    ),
-  };
 
   const previewResult = previewMatchesInputs ? acceptedPreview.result : null;
   const projection = previewResult?.projection;
@@ -508,194 +372,402 @@ export function BulkReminderWizard() {
     }
   }
 
-  const reviewStep: WizardStep = {
-    id: 'review',
-    label: t('bulk.steps.review'),
-    isValid: () =>
+  const stepValid: Record<StepId, boolean> = {
+    recipients: selectedCount >= 1 && selectedCount <= MAX_STUDENTS,
+    message:
+      batchName.trim() !== '' &&
+      template.trim() !== '' &&
+      unknownTokens.length === 0 &&
+      mediums.size >= 1,
+    review:
       previewMatchesInputs &&
       (previewResult?.recipients_count ?? 0) > 0 &&
       !send.isPending &&
       !creditBlocked,
-    content: (
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={preview.isPending}
-            loading={preview.isPending}
-            onClick={handlePreview}
-          >
-            {preview.isPending ? t('bulk.review.previewing') : t('bulk.review.previewAction')}
-          </Button>
-          {/* Why submit is disabled, in words — never previewed vs.
-              previewed-then-edited, same split as the single page. */}
-          {acceptedPreview !== null && !previewMatchesInputs ? (
-            <p className="text-sm text-status-due-fg">{t('bulk.review.stale')}</p>
-          ) : (
-            acceptedPreview === null && (
-              <p className="text-sm text-muted-foreground">{t('bulk.review.notPreviewedHint')}</p>
-            )
-          )}
-        </div>
-
-        {preview.isError && (
-          <p role="alert" className="text-sm text-destructive">
-            {requestErrorMessage(preview.error, 'bulk.review.previewErrorMessage')}
-          </p>
-        )}
-
-        {previewResult !== null && (
-          <section
-            aria-label={t('bulk.steps.review')}
-            className="flex flex-col gap-4 rounded-md border border-border-subtle p-3"
-          >
-            <p className="text-sm font-medium">
-              {t('bulk.review.summary', {
-                recipients: previewResult.recipients_count,
-                skipped: previewResult.skipped_count,
-              })}
-            </p>
-            {previewResult.recipients_count === 0 && (
-              <p role="alert" className="text-sm text-destructive">
-                {t('bulk.review.noRecipients')}
-              </p>
-            )}
-
-            {projection !== undefined && <BulkSmsProjectionCard projection={projection} />}
-
-            {skippedByReason.size > 0 && (
-              <div>
-                <h2 className="text-sm font-semibold">{t('bulk.review.skippedByReasonTitle')}</h2>
-                <ul className="mt-2 flex flex-col gap-1 text-sm">
-                  {Array.from(skippedByReason.entries()).map(([reason, count]) => {
-                    return (
-                      <li key={reason}>
-                        {t(skipReasonKey(reason))} —{' '}
-                        {t('bulk.review.reasonCount', { count: count })}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            )}
-
-            <div>
-              <h2 className="text-sm font-semibold">{t('bulk.review.perStudentTitle')}</h2>
-              <div className="mt-2 flex flex-col gap-2">
-                {previewResult.students.map((student) => (
-                  <details
-                    key={student.student_id}
-                    className="rounded-md border border-border-subtle p-2"
-                  >
-                    <summary className="cursor-pointer text-sm font-medium">
-                      {student.student_name} ·{' '}
-                      {t('bulk.review.studentRecipients', { count: student.recipients.length })} ·{' '}
-                      {t('bulk.review.studentSkipped', { count: student.skipped.length })}
-                    </summary>
-                    <div className="mt-2">
-                      <RecipientList recipients={student.recipients} skipped={student.skipped} />
-                    </div>
-                  </details>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {send.isError && (
-          <p role="alert" className="text-sm text-destructive">
-            {insufficientCreditMessage(send.error) ??
-              requestErrorMessage(send.error, 'bulk.review.sendErrorMessage')}
-          </p>
-        )}
-      </div>
-    ),
   };
 
-  const result = send.isSuccess ? (
-    <section
-      aria-label={t('bulk.result.title')}
-      className="flex flex-col gap-3 rounded-md border border-border-subtle p-4"
+  const stepLabels = [
+    t('bulk.steps.recipients'),
+    t('bulk.steps.message'),
+    t('bulk.steps.review'),
+  ] as const;
+  const currentIndex = Math.max(0, STEP_IDS.indexOf(stepId as StepId));
+  const currentStepId = STEP_IDS[currentIndex] ?? 'recipients';
+
+  // Steps stay mounted once visited, so Back keeps filters and selection.
+  const [visited, setVisited] = React.useState<ReadonlySet<StepId>>(() => new Set([currentStepId]));
+  React.useEffect(() => {
+    setVisited((prev) => (prev.has(currentStepId) ? prev : new Set(prev).add(currentStepId)));
+  }, [currentStepId]);
+
+  // Next/Back is the same footer button across a step change, so keyboard
+  // focus would stay at the very bottom of the new step: move it to the
+  // step announcement, as `WizardShell` does.
+  const announcementRef = React.useRef<HTMLDivElement>(null);
+  const isFirstRender = React.useRef(true);
+  React.useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    announcementRef.current?.focus();
+  }, [currentStepId]);
+
+  function goNext() {
+    const next = STEP_IDS[currentIndex + 1];
+    if (stepValid[currentStepId] && next !== undefined) setStepId(next);
+  }
+
+  function goBack() {
+    const previous = STEP_IDS[currentIndex - 1];
+    if (previous !== undefined) setStepId(previous);
+  }
+
+  const close = () =>
+    void navigate({
+      to: '/communications/reminders',
+      search: { mode: undefined, step: undefined },
+    });
+  const dirty = !send.isSuccess && (selectedCount > 0 || batchName !== '' || template !== '');
+
+  let primary: React.ComponentProps<typeof FullPageShell>['primary'];
+  if (send.isSuccess) {
+    const batchId = send.data.id;
+    primary = {
+      label: t('bulk.result.viewBatch'),
+      onClick: () => void navigate({ to: '/communications/batches/$batchId', params: { batchId } }),
+    };
+  } else if (currentStepId === 'recipients') {
+    primary = {
+      label: t('bulk.nextToMessage'),
+      onClick: goNext,
+      disabled: !stepValid.recipients,
+    };
+  } else if (currentStepId === 'message') {
+    primary = { label: t('bulk.nextToReview'), onClick: goNext, disabled: !stepValid.message };
+  } else if (!previewMatchesInputs) {
+    primary = {
+      label: preview.isPending ? t('bulk.review.previewing') : t('bulk.review.previewAction'),
+      onClick: handlePreview,
+      busy: preview.isPending,
+    };
+  } else {
+    const count = previewResult?.recipients_count ?? 0;
+    primary = {
+      label: t('bulk.sendToCount', { count, n: formatNumber(count, config) }),
+      onClick: handleSubmit,
+      busy: send.isPending,
+      disabled: !stepValid.review,
+    };
+  }
+
+  const secondary = send.isSuccess
+    ? undefined
+    : currentIndex === 0
+      ? { label: tCommon('actions.cancel'), onClick: close }
+      : { label: t('bulk.back'), onClick: goBack };
+
+  return (
+    <FullPageShell
+      title={t('bulk.title')}
+      size="wide"
+      onClose={close}
+      dirty={dirty}
+      primary={primary}
+      {...(secondary !== undefined ? { secondary } : {})}
     >
-      <h2 className="text-lg font-medium">{t('bulk.result.title')}</h2>
-      <p className="text-sm">{t('bulk.result.queued', { name: send.data.batch_name })}</p>
-      <div className="flex flex-wrap items-center gap-3">
-        <Link
-          to="/communications/batches/$batchId"
-          params={{ batchId: send.data.id }}
-          className="text-sm font-medium text-primary underline-offset-2 hover:underline"
-        >
-          {t('bulk.result.viewBatch')}
-        </Link>
-      </div>
-    </section>
-  ) : undefined;
+      {send.isSuccess ? (
+        <Card padded aria-labelledby="bulk-result-title">
+          <h2 id="bulk-result-title" className="text-h2">
+            {t('bulk.result.title')}
+          </h2>
+          <p className="mt-1 text-text-secondary">
+            {t('bulk.result.queued', { name: send.data.batch_name })}
+          </p>
+        </Card>
+      ) : (
+        <>
+          <WizardSteps
+            labels={stepLabels}
+            currentIndex={currentIndex}
+            onStepClick={(index) => {
+              const target = STEP_IDS[index];
+              if (target !== undefined && index < currentIndex) setStepId(target);
+            }}
+          />
+          <div ref={announcementRef} tabIndex={-1} aria-live="polite" className="sr-only">
+            {tCommon('wizard.stepAnnouncement', {
+              current: currentIndex + 1,
+              total: STEP_IDS.length,
+              label: stepLabels[currentIndex] ?? '',
+            })}
+          </div>
 
-  return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-4">
-      <div className="flex justify-end">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() =>
-            void navigate({ to: '/communications/reminders', search: { mode: undefined } })
-          }
-        >
-          {t('bulk.backToSingle')}
-        </Button>
-      </div>
-      <WizardShell
-        title={t('bulk.title')}
-        steps={[recipientsStep, messageStep]}
-        reviewStep={reviewStep}
-        irreversible
-        currentStepId={stepId}
-        onStepChange={setStepId}
-        onSubmit={handleSubmit}
-        submitLabel={t('bulk.submitLabel')}
-        submitting={send.isPending}
-        {...(result !== undefined ? { result } : {})}
-      />
-    </div>
-  );
-}
+          <div hidden={currentStepId !== 'recipients'}>
+            <div className="flex flex-col gap-3">
+              <div>
+                <h2 className="text-h2">{t('bulk.recipients.title')}</h2>
+                <p className="mt-1 text-text-secondary">{t('bulk.recipients.help')}</p>
+              </div>
+              <FilterBar
+                fields={filterFields}
+                values={filters}
+                onChange={handleFilterChange}
+                {...(duesQuery.data !== undefined ? { resultCount: duesQuery.data.total } : {})}
+              />
 
-function FilterSelect({
-  id,
-  label,
-  value,
-  onChange,
-  options,
-  allLabel,
-}: {
-  id: string;
-  label: string;
-  value: string | undefined;
-  onChange: (value: string | undefined) => void;
-  options: Array<{ value: string; label: string }>;
-  allLabel: string;
-}) {
-  return (
-    <div className="grid gap-1">
-      <Label htmlFor={id}>{label}</Label>
-      <Select
-        value={value ?? ALL_VALUE}
-        onValueChange={(next) => onChange(next === ALL_VALUE ? undefined : next)}
-      >
-        <SelectTrigger id={id} aria-label={label} className="min-w-32">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL_VALUE}>{allLabel}</SelectItem>
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+              {/* The AC's "explicit selection" counter — announced politely so
+                  a keyboard/screen-reader user always knows the running total
+                  without leaving the table. */}
+              <p aria-live="polite" className="font-medium">
+                {t('bulk.recipients.selectedCount', {
+                  n: formatNumber(selectedCount, config),
+                  max: formatNumber(MAX_STUDENTS, config),
+                })}
+              </p>
+              {selectedCount > MAX_STUDENTS && (
+                <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+                  <CircleAlertIcon className="size-4 shrink-0" aria-hidden />
+                  {t('bulk.recipients.overCap', {
+                    max: formatNumber(MAX_STUDENTS, config),
+                    excess: formatNumber(selectedCount - MAX_STUDENTS, config),
+                  })}
+                </p>
+              )}
+
+              <DataTable
+                tableId="bulk-reminder-recipients"
+                caption={t('bulk.recipients.tableCaption')}
+                columns={columns}
+                data={dueRows}
+                getRowId={(row) => row.student_id}
+                sorting={null}
+                onSortingChange={() => undefined}
+                page={page}
+                pageSize={pageSize}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setPage(1);
+                }}
+                totalCount={duesQuery.data?.total ?? 0}
+                onPageChange={setPage}
+                selectedIds={selectedIds}
+                onSelectedIdsChange={setSelectedIds}
+                loading={duesQuery.isPending}
+                isFetching={duesQuery.isFetching}
+                {...(duesQuery.isError ? { error: t('bulk.recipients.loadError') } : {})}
+                emptyState={{
+                  title: t('bulk.recipients.empty'),
+                  explanation: t('bulk.recipients.emptyHelp'),
+                }}
+              />
+            </div>
+          </div>
+
+          {visited.has('message') && (
+            <div hidden={currentStepId !== 'message'}>
+              <div className="flex flex-col gap-3">
+                <div>
+                  <h2 className="text-h2">{t('bulk.message.title')}</h2>
+                  <p className="mt-1 text-text-secondary">{t('bulk.message.help')}</p>
+                </div>
+                <Card padded>
+                  <div className="grid gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="bulk-batch-name">{t('bulk.message.batchNameLabel')}</Label>
+                      <Input
+                        id="bulk-batch-name"
+                        value={batchName}
+                        onChange={(event) => setBatchName(event.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="bulk-template">{t('bulk.message.messageLabel')}</Label>
+                      <Textarea
+                        id="bulk-template"
+                        value={template}
+                        onChange={(event) => setTemplate(event.target.value)}
+                        rows={4}
+                        required
+                      />
+                      {smsInPlay && (
+                        <>
+                          <SmsSegmentCounter text={template} />
+                          <p className="text-caption text-text-secondary">
+                            {t('reminders.smsEstimateNote')}
+                          </p>
+                        </>
+                      )}
+                      {unknownTokens.length > 0 && (
+                        <p
+                          role="alert"
+                          className="flex items-center gap-1 text-caption text-destructive"
+                        >
+                          <CircleAlertIcon className="size-4 shrink-0" aria-hidden />
+                          {t('reminders.unknownPlaceholder', { token: unknownTokens.join(', ') })}
+                        </p>
+                      )}
+                    </div>
+
+                    <PlaceholderButtons labels={labels} onInsert={insertPlaceholder} />
+
+                    <fieldset>
+                      <legend className="mb-1.5 text-label text-text-primary">
+                        {t('bulk.message.mediumsLabel')}
+                      </legend>
+                      <div className="divide-y divide-border-subtle overflow-hidden rounded-md border border-border-subtle">
+                        {BULK_MEDIUMS.map((medium) => (
+                          <label
+                            key={medium}
+                            htmlFor={`bulk-medium-${medium}`}
+                            className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2 hover:bg-muted md:min-h-8"
+                          >
+                            <Checkbox
+                              id={`bulk-medium-${medium}`}
+                              checked={mediums.has(medium)}
+                              onCheckedChange={() => toggleMedium(medium)}
+                            />
+                            {t(`mediums.${medium}`)}
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+
+                    {mediums.has('WHATSAPP') && (
+                      <WhatsappTemplateFields
+                        idPrefix="bulk"
+                        helperText={t('reminders.whatsappHelper')}
+                        templateName={templateName}
+                        onTemplateNameChange={setTemplateName}
+                        templateLanguage={templateLanguage}
+                        onTemplateLanguageChange={setTemplateLanguage}
+                        templateParams={templateParams}
+                        onTemplateParamsChange={setTemplateParams}
+                      />
+                    )}
+                  </div>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {visited.has('review') && (
+            <div hidden={currentStepId !== 'review'}>
+              <div className="flex flex-col gap-3">
+                <div>
+                  <h2 className="text-h2">{t('bulk.review.title')}</h2>
+                  {/* Why sending is not yet possible, in words — never
+                      previewed vs. previewed-then-edited, same split as the
+                      single page. */}
+                  {acceptedPreview !== null && !previewMatchesInputs ? (
+                    <p className="mt-1 text-status-due-fg">{t('bulk.review.stale')}</p>
+                  ) : (
+                    acceptedPreview === null && (
+                      <p className="mt-1 text-text-secondary">
+                        {t('bulk.review.notPreviewedHint')}
+                      </p>
+                    )
+                  )}
+                </div>
+
+                {preview.isError && (
+                  <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+                    <CircleAlertIcon className="size-4 shrink-0" aria-hidden />
+                    {requestErrorMessage(
+                      preview.error,
+                      'bulk.review.previewInvalid',
+                      'bulk.review.previewErrorMessage',
+                    )}
+                  </p>
+                )}
+
+                {previewResult !== null && (
+                  <Card padded aria-label={t('bulk.steps.review')} className="flex flex-col gap-4">
+                    <p className="font-medium">
+                      {t('bulk.review.summary', {
+                        recipients: formatNumber(previewResult.recipients_count, config),
+                        skipped: formatNumber(previewResult.skipped_count, config),
+                      })}
+                    </p>
+                    {previewResult.recipients_count === 0 && (
+                      <p
+                        role="alert"
+                        className="flex items-center gap-1 text-caption text-destructive"
+                      >
+                        <CircleAlertIcon className="size-4 shrink-0" aria-hidden />
+                        {t('bulk.review.noRecipients')}
+                      </p>
+                    )}
+
+                    {projection !== undefined && <BulkSmsProjectionCard projection={projection} />}
+
+                    {skippedByReason.size > 0 && (
+                      <div>
+                        <h3 className="text-h3">{t('bulk.review.skippedByReasonTitle')}</h3>
+                        <ul className="divide-y divide-border-subtle">
+                          {Array.from(skippedByReason.entries()).map(([reason, count]) => (
+                            <li key={reason} className="flex justify-between gap-4 py-3">
+                              <span>{t(skipReasonKey(reason))}</span>
+                              <span className="text-text-secondary">
+                                {t('bulk.review.reasonCount', {
+                                  count,
+                                  n: formatNumber(count, config),
+                                })}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <div>
+                      <h3 className="text-h3">{t('bulk.review.perStudentTitle')}</h3>
+                      <div className="mt-2 divide-y divide-border-subtle overflow-hidden rounded-md border border-border-subtle">
+                        {previewResult.students.map((student) => (
+                          <details key={student.student_id}>
+                            <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3 px-3 font-medium">
+                              {student.student_name} ·{' '}
+                              {t('bulk.review.studentRecipients', {
+                                count: student.recipients.length,
+                                n: formatNumber(student.recipients.length, config),
+                              })}{' '}
+                              ·{' '}
+                              {t('bulk.review.studentSkipped', {
+                                count: student.skipped.length,
+                                n: formatNumber(student.skipped.length, config),
+                              })}
+                            </summary>
+                            <div className="px-3 pb-3">
+                              <RecipientList
+                                recipients={student.recipients}
+                                skipped={student.skipped}
+                              />
+                            </div>
+                          </details>
+                        ))}
+                      </div>
+                    </div>
+                  </Card>
+                )}
+
+                {send.isError && (
+                  <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+                    <CircleAlertIcon className="size-4 shrink-0" aria-hidden />
+                    {insufficientCreditMessage(send.error) ??
+                      requestErrorMessage(
+                        send.error,
+                        'bulk.review.sendInvalid',
+                        'bulk.review.sendErrorMessage',
+                      )}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </FullPageShell>
   );
 }
