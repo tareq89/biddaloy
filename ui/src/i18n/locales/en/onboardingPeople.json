@@ -1,0 +1,35 @@
+{
+  "heading": "Add your people",
+  "trialCap": "Trial: you can add up to {{limit}} students.",
+  "students": {
+    "title": "Students",
+    "added": "{{count}} students added"
+  },
+  "staff": {
+    "title": "Teachers and staff",
+    "added": "{{count}} staff added",
+    "oneFile": "One file for teachers and other staff — the Role column tells them apart"
+  },
+  "byHand": "Add one by one",
+  "uploadExcel": "Upload Excel file",
+  "downloadSample": "Download sample file",
+  "later": "You can also do this later from People › Students and People › Staff.",
+  "skip": "Skip for now",
+  "finish": "Finish",
+  "summary": {
+    "title": "Your school is ready",
+    "created": {
+      "classes": "{{count}} classes",
+      "sections": "{{count}} sections",
+      "students": "{{count}} students",
+      "staff": "{{count}} staff"
+    },
+    "next": {
+      "title": "What to do next",
+      "fees": "Set up fees",
+      "guardians": "Invite guardians",
+      "messages": "Set up messages"
+    },
+    "goToDashboard": "Go to dashboard"
+  }
+}

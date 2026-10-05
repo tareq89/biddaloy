@@ -1,0 +1,48 @@
+{
+  "title": "Import staff from Excel",
+  "columns": {
+    "name": {
+      "label": "Name",
+      "help": "The person's full name."
+    },
+    "phone": {
+      "label": "Mobile number",
+      "help": "Mobile number, for example 01712345678."
+    },
+    "email": {
+      "label": "Email",
+      "help": "Email address, for example name@example.com."
+    },
+    "role": {
+      "label": "Role",
+      "help": "Teacher, Accountant or another role of your school."
+    },
+    "designation": {
+      "label": "Designation",
+      "help": "Optional. For example Assistant Teacher."
+    }
+  },
+  "rules": {
+    "phoneOrEmail": "Each person needs a mobile number or an email."
+  },
+  "sendInvitations": "Send invitations now",
+  "summary": {
+    "willCreate": "{{count}} will be added",
+    "willRestore": "{{count}} will be brought back",
+    "willSkip": "{{count}} will be skipped"
+  },
+  "rowErrors": {
+    "duplicateInFile": "This person appears twice in the file.",
+    "alreadyMember": "This person is already in your school.",
+    "roleNotAllowed": "You cannot give this role.",
+    "badPhone": "This mobile number is not valid.",
+    "badEmail": "This email is not valid.",
+    "missingContact": "Add a mobile number or an email.",
+    "unknownRole": "This role does not exist."
+  },
+  "done": {
+    "created": "{{count}} added",
+    "invited": "{{count}} invited",
+    "failed": "{{count}} failed"
+  }
+}

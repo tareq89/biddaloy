@@ -1,0 +1,27 @@
+{
+  "title": "Sign-in methods",
+  "password": {
+    "set": "Password is set",
+    "notSet": "No password yet",
+    "setNow": "Set a password"
+  },
+  "code": "A code by SMS or email — always on",
+  "google": "Google",
+  "facebook": "Facebook",
+  "connect": "Connect",
+  "disconnect": "Disconnect",
+  "connected": "Connected as {{email}}",
+  "cannotDisconnect": "Set a password first, so you still have a way in.",
+  "linked": "{{provider}} is now connected.",
+  "conflict": "That {{provider}} account is already connected to someone else.",
+  "leave": {
+    "title": "Leave this school",
+    "body": "You will lose access to {{school}}. An admin of the school can bring you back.",
+    "confirm": "Leave school",
+    "lastAdmin": "You are the only admin. Make someone else an admin first."
+  },
+  "hint": {
+    "title": "Sign in faster next time",
+    "body": "Connect Google or Facebook and skip the code."
+  }
+}
