@@ -25,7 +25,9 @@ import {
   DialogTitle,
 } from '@biddaloy/ui/components';
 import { useConfirmBands, type BandInput } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
+import { CircleAlertIcon, TriangleAlertIcon } from 'lucide-react';
 
 export interface RecomputePreviewDialogProps {
   open: boolean;
@@ -45,6 +47,7 @@ export function RecomputePreviewDialog({
   onConfirmed,
 }: RecomputePreviewDialogProps) {
   const { t } = useTranslation('grading');
+  const config = useRegionConfig();
   const confirmBands = useConfirmBands(scaleId);
 
   function handleConfirm() {
@@ -67,21 +70,29 @@ export function RecomputePreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
+      <DialogContent size="sm" closeLabel={t('actions.close', { ns: 'common' })}>
         <DialogHeader>
           <DialogTitle>{t('recomputePreview.title')}</DialogTitle>
-          <DialogDescription>
-            {affectedResultCount > 0
-              ? t('recomputePreview.impact', { count: affectedResultCount })
-              : t('recomputePreview.noImpact')}
-          </DialogDescription>
+          <DialogDescription>{t('recomputePreview.approvalHint')}</DialogDescription>
         </DialogHeader>
 
+        {affectedResultCount > 0 ? (
+          <p className="flex gap-2 rounded-md bg-status-due-bg p-3 text-status-due-fg">
+            <TriangleAlertIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            {t('recomputePreview.impact', {
+              count: affectedResultCount,
+              n: formatNumber(affectedResultCount, config),
+            })}
+          </p>
+        ) : (
+          <p className="text-text-secondary">{t('recomputePreview.noImpact')}</p>
+        )}
+
         {confirmBands.isError && (
-          <p role="alert" className="text-sm text-destructive">
-            {confirmBands.error instanceof Error
-              ? confirmBands.error.message
-              : t('recomputePreview.errorMessage')}
+          // Always our own sentence: `error.message` is a server string.
+          <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
+            <CircleAlertIcon aria-hidden="true" className="size-3.5" />
+            {t('recomputePreview.errorMessage')}
           </p>
         )}
 

@@ -51,8 +51,8 @@ export const Populated: Story = {
   render: () => <Controlled initial={STARTER_BANDS} />,
 };
 
-/** Empty table — the "Start from BD NCTB" affordance lives on the page,
- * not here; this just shows the bare table + Add band control. */
+/** Empty table — the "Use NCTB grades" affordance lives on the page,
+ * not here; this just shows the bare table + Add row control. */
 export const Empty: Story = {
   render: () => <Controlled initial={[]} />,
 };
@@ -64,8 +64,14 @@ export const EnterAppendsNextBand: Story = {
   play: async ({ canvasElement }) => {
     const { within, userEvent } = await import('storybook/test');
     const canvas = within(canvasElement);
-    const gradeInputs = await canvas.findAllByLabelText('Grade');
+    const gradeInputs = await canvas.findAllByLabelText(/— Grade$/);
     await userEvent.click(gradeInputs[gradeInputs.length - 1]!);
     await userEvent.keyboard('{Enter}');
   },
+};
+
+/** Below the `md` breakpoint each band is a card with 44px fields. */
+export const Phone: Story = {
+  render: () => <Controlled initial={STARTER_BANDS} />,
+  parameters: { viewport: { defaultViewport: 'mobile1' } },
 };
