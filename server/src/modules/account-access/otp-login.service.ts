@@ -241,12 +241,18 @@ export class OtpLoginService {
 
   /**
    * Would code sign-in work for this user at all: ACTIVE, every school allows
-   * it, and there is an address a code can go to (an email, or a phone SMS is
-   * allowed to). Same rules as `request`.
+   * it, there is an address a code can go to (an email, or a phone SMS is
+   * allowed to), and a live school membership (`request` sends nothing
+   * without one). Same rules as `request`.
    */
   async canReceiveCode(user: User): Promise<boolean> {
     const smsOk = !!user.phone && isSmsAllowed(user.phone, this.smsPrefixes());
-    return this.canSignInByCode(user) && (!!user.email || smsOk) && (await this.allowed(user.id));
+    return (
+      this.canSignInByCode(user) &&
+      (!!user.email || smsOk) &&
+      (await this.allowed(user.id)) &&
+      !!(await this.authService.primaryTenantId(user.id))
+    );
   }
 
   /** Only ACTIVE accounts sign in by code. */

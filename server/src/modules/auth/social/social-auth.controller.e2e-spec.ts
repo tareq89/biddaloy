@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import supertest = require('supertest');
 import cookieParser = require('cookie-parser');
 import { Test, TestingModule } from '@nestjs/testing';
@@ -12,6 +12,7 @@ import { SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD } from '@test/constants';
 import { AuthService } from '../auth.service';
 import { SOCIAL_PROVIDERS, type SocialProviderClient } from './providers/social-provider';
 import { SocialTicketService } from './social-ticket.service';
+import { SocialIdentityService } from './social-identity.service';
 
 const API = '/api/v1';
 
@@ -48,6 +49,7 @@ describe('SocialAuthController (e2e)', () => {
   // Not deleted in afterAll: its disconnect writes an audit row, and audit_logs
   // is append-only (the test reset truncates it between runs).
   const TWO_WAYS_ID = '00000000-0000-4000-8000-0000000013a3';
+  const NO_SCHOOL_ID = '00000000-0000-4000-8000-0000000013a4';
   const SUB_PREFIX = 'e2e-social-';
 
   beforeAll(async () => {
@@ -73,7 +75,9 @@ describe('SocialAuthController (e2e)', () => {
 
   afterAll(async () => {
     await dataSource.query(`DELETE FROM user_identities WHERE subject LIKE $1`, [`${SUB_PREFIX}%`]);
-    await dataSource.query(`DELETE FROM users WHERE id = ANY($1)`, [[NOLOGIN_ID, ABROAD_ID]]);
+    await dataSource.query(`DELETE FROM users WHERE id = ANY($1)`, [
+      [NOLOGIN_ID, ABROAD_ID, NO_SCHOOL_ID],
+    ]);
     await app.close();
   });
 
@@ -359,5 +363,37 @@ describe('SocialAuthController (e2e)', () => {
       .delete(`${API}/auth/social/identities/google`)
       .set('Authorization', `Bearer ${await sessionFor(TWO_WAYS_ID)}`)
       .expect(204);
+  });
+
+  it('an email with no live school membership does not count as a way in', async () => {
+    // Code sign-in sends nothing to a user with no live membership, so the
+    // email alone must not let them remove their only connected account.
+    await dataSource.query(
+      `INSERT INTO users (id, full_name, status, email)
+       VALUES ($1, 'No School', 'ACTIVE', 'no-school@e2e-social.example')
+       ON CONFLICT (id) DO NOTHING`,
+      [NO_SCHOOL_ID],
+    );
+    await dataSource.query(
+      `INSERT INTO user_identities (user_id, provider, subject) VALUES ($1, 'google', $2)`,
+      [NO_SCHOOL_ID, `${SUB_PREFIX}no-school`],
+    );
+    const refused = await http()
+      .delete(`${API}/auth/social/identities/google`)
+      .set('Authorization', `Bearer ${await sessionFor(NO_SCHOOL_ID)}`)
+      .expect(409);
+    expect(refused.body.details.code).toBe('LAST_SIGN_IN_METHOD');
+  });
+
+  it('a server error while connecting lands back on /security, not /login', async () => {
+    const spy = vi
+      .spyOn(app.get(SocialIdentityService), 'link')
+      .mockRejectedValueOnce(new Error('db down'));
+    try {
+      const location = await connect(`${SUB_PREFIX}fault`, await adminToken());
+      expect(location).toContain('/security?social=failed');
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

@@ -11,7 +11,7 @@ import { AuthService, AuthResult } from '../auth.service';
 import type { RequestContext } from '../../../common/request-context.util';
 import { SOCIAL_PROVIDERS, type SocialProviderClient } from './providers/social-provider';
 import { SocialIdentityService } from './social-identity.service';
-import { SocialIntent, SocialStateService } from './social-state.service';
+import { SocialIntent, SocialState, SocialStateService } from './social-state.service';
 import { SocialTicketService } from './social-ticket.service';
 
 export interface CallbackOutcome {
@@ -104,31 +104,34 @@ export class SocialAuthService {
     context: RequestContext,
   ): Promise<CallbackOutcome> {
     const provider = this.provider(providerName);
+    // Where a failure sends the person: /login until the state says otherwise.
+    let back = '/login';
     try {
-      return await this.complete(provider, query, boundState, context);
+      // Consumed first so a replay (or a stolen URL) can never be used twice.
+      const saved = query.state ? await this.state.consume(query.state) : null;
+      // The state must also be the one this browser started (login-CSRF guard).
+      if (!saved || saved.provider !== provider.name || boundState !== query.state) {
+        // Full-page navigation: send the person back with a message, no session.
+        return { location: this.appUrl('/login?social=failed') };
+      }
+      back = this.backPath(saved.intent);
+      return await this.complete(provider, saved, back, query, context);
     } catch (error) {
       // A full-page navigation: a Redis or DB fault must not show raw JSON.
-      // Class name only, as for the exchange below.
+      // Class name only, as for the exchange below. A failed connect goes
+      // back to /security, where the signed-in person started.
       this.logger.warn(`${provider.name} callback failed: ${(error as Error).name}`);
-      return { location: this.appUrl('/login?social=failed') };
+      return { location: this.appUrl(`${back}?social=failed`) };
     }
   }
 
   private async complete(
     provider: SocialProviderClient,
-    query: { code?: string; state?: string; error?: string },
-    boundState: string | undefined,
+    saved: SocialState,
+    back: string,
+    query: { code?: string; error?: string },
     context: RequestContext,
   ): Promise<CallbackOutcome> {
-    // Consumed first so a replay (or a stolen URL) can never be used twice.
-    const saved = query.state ? await this.state.consume(query.state) : null;
-    // The state must also be the one this browser started (login-CSRF guard).
-    if (!saved || saved.provider !== provider.name || boundState !== query.state) {
-      // Full-page navigation: send the person back with a message, no session.
-      return { location: this.appUrl('/login?social=failed') };
-    }
-
-    const back = this.backPath(saved.intent);
     if (query.error || !query.code) return { location: this.appUrl(`${back}?social=cancelled`) };
 
     let profile;
