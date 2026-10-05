@@ -7,40 +7,41 @@
  * tokens, not a new component — a handful of `{grade: count}` pairs
  * doesn't warrant one).
  */
+import { Checkbox, DataTable, ErrorState, type DataTableColumn } from '@biddaloy/ui/components';
 import {
-  Button,
-  Checkbox,
-  DataTable,
-  ErrorState,
-  Skeleton,
-  toast,
-  type DataTableColumn,
-} from '@biddaloy/ui/components';
-import {
-  downloadAnalysisCsv,
   passFailByComponentQueryOptions,
   passFailQueryOptions,
   type ComponentPassFailRow,
   type OverallPassFailRow,
   type SubjectPassFailRow,
 } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { useQuery } from '@tanstack/react-query';
-import { Printer } from 'lucide-react';
-import * as React from 'react';
+import { ListXIcon } from 'lucide-react';
+import type * as React from 'react';
 
 import type { AnalysisTabProps } from './-merit-tab';
 
 type Row = SubjectPassFailRow | OverallPassFailRow;
 
-function GradeChips({ distribution }: { distribution: Record<string, number> }) {
+function GradeChips({
+  distribution,
+  label,
+}: {
+  distribution: Record<string, number>;
+  label: (grade: string, count: number) => string;
+}) {
   const entries = Object.entries(distribution).filter(([, count]) => count > 0);
   if (entries.length === 0) return <>—</>;
   return (
     <span className="flex flex-wrap gap-1">
       {entries.map(([grade, count]) => (
-        <span key={grade} className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
-          {grade}: {count}
+        <span
+          key={grade}
+          className="inline-flex h-6 items-center rounded-full bg-muted px-2 text-label"
+        >
+          {label(grade, count)}
         </span>
       ))}
     </span>
@@ -62,18 +63,13 @@ export function PassFailTab({
   onByComponentChange,
 }: PassFailTabProps) {
   const { t } = useTranslation('exams');
-
-  const [csvBusy, setCsvBusy] = React.useState(false);
-  async function handleDownloadCsv() {
-    setCsvBusy(true);
-    try {
-      await downloadAnalysisCsv(examId, 'pass-fail', sectionId, examName);
-    } catch {
-      toast.error(t('analysis.downloadCsvError'));
-    } finally {
-      setCsvBusy(false);
-    }
-  }
+  const { t: tg } = useTranslation('grading');
+  const config = useRegionConfig();
+  const num = (value: number | null | undefined, decimals = 0) =>
+    formatNumber(value, config, { decimals });
+  // The overall row is a total, not a subject: bold, and not counted in "Total n".
+  const strong = (row: Row, value: React.ReactNode) =>
+    row.subject_id === null ? <span className="font-semibold">{value}</span> : value;
 
   // Only the visible tab's query is enabled — the toggle used to fetch both
   // subject- and component-level pass/fail data on every render regardless
@@ -89,7 +85,6 @@ export function PassFailTab({
 
   const activeQuery = byComponent ? componentQuery : passFailQuery;
 
-  if (activeQuery.isLoading) return <Skeleton className="h-32 w-full" />;
   if (activeQuery.isError)
     return (
       <ErrorState
@@ -102,55 +97,64 @@ export function PassFailTab({
     {
       id: 'subject',
       header: t('analysis.passFail.columnSubject'),
-      accessorFn: (row) => row.subject_name,
+      // The server names the overall row "Overall"; show the translated word.
+      accessorFn: (row) =>
+        row.subject_id === null ? t('analysis.passFail.overallRow') : row.subject_name,
       card: 'title',
     },
     {
       id: 'appeared',
       header: t('analysis.passFail.columnAppeared'),
-      accessorFn: (row) => row.appeared,
+      accessorFn: (row) => strong(row, num(row.appeared)),
       align: 'end',
     },
     {
       id: 'passed',
       header: t('analysis.passFail.columnPassed'),
-      accessorFn: (row) => row.passed,
+      accessorFn: (row) => strong(row, num(row.passed)),
       align: 'end',
     },
     {
       id: 'failed',
       header: t('analysis.passFail.columnFailed'),
-      accessorFn: (row) => row.failed,
+      accessorFn: (row) => strong(row, num(row.failed)),
       align: 'end',
     },
     {
       id: 'absent',
       header: t('analysis.passFail.columnAbsent'),
-      accessorFn: (row) => row.absent,
+      accessorFn: (row) => strong(row, num(row.absent)),
       align: 'end',
     },
     {
       id: 'pass_pct',
       header: t('analysis.passFail.columnPassPct'),
-      accessorFn: (row) => `${row.pass_pct.toFixed(1)}%`,
+      accessorFn: (row) => strong(row, `${num(row.pass_pct, 1)}%`),
       align: 'end',
     },
     {
       id: 'highest',
       header: t('analysis.passFail.columnHighest'),
-      accessorFn: (row) => row.highest ?? '—',
+      accessorFn: (row) => strong(row, num(row.highest)),
       align: 'end',
     },
     {
       id: 'average',
       header: t('analysis.passFail.columnAverage'),
-      accessorFn: (row) => (row.average !== null ? row.average.toFixed(1) : '—'),
+      accessorFn: (row) => strong(row, num(row.average, 1)),
       align: 'end',
     },
     {
       id: 'grades',
       header: t('analysis.merit.columnGrade'),
-      accessorFn: (row) => <GradeChips distribution={row.grade_distribution} />,
+      accessorFn: (row) => (
+        <GradeChips
+          distribution={row.grade_distribution}
+          label={(grade, count) =>
+            tg('analysisPage.gradeCount', { grade, count: formatNumber(count, config) })
+          }
+        />
+      ),
     },
   ];
 
@@ -163,37 +167,37 @@ export function PassFailTab({
     },
     {
       id: 'component',
-      header: t('analysis.passFailComponent.columnComponent'),
+      header: tg('analysisPage.columnPart'),
       accessorFn: (row) => row.component_name,
     },
     {
       id: 'appeared',
       header: t('analysis.passFailComponent.columnAppeared'),
-      accessorFn: (row) => row.appeared,
+      accessorFn: (row) => num(row.appeared),
       align: 'end',
     },
     {
       id: 'absent',
       header: t('analysis.passFailComponent.columnAbsent'),
-      accessorFn: (row) => row.absent,
+      accessorFn: (row) => num(row.absent),
       align: 'end',
     },
     {
       id: 'below_pass',
       header: t('analysis.passFailComponent.columnBelowPass'),
-      accessorFn: (row) => row.below_pass ?? '—',
+      accessorFn: (row) => num(row.below_pass),
       align: 'end',
     },
     {
       id: 'highest',
       header: t('analysis.passFailComponent.columnHighest'),
-      accessorFn: (row) => row.highest ?? '—',
+      accessorFn: (row) => num(row.highest),
       align: 'end',
     },
     {
       id: 'average',
       header: t('analysis.passFailComponent.columnAverage'),
-      accessorFn: (row) => (row.average !== null ? row.average.toFixed(1) : '—'),
+      accessorFn: (row) => num(row.average, 1),
       align: 'end',
     },
   ];
@@ -201,6 +205,11 @@ export function PassFailTab({
   const subjectRows: Row[] = passFailQuery.data
     ? [...passFailQuery.data.subjects, passFailQuery.data.overall]
     : [];
+  const emptyState = {
+    icon: <ListXIcon />,
+    title: tg('analysisPage.noRowsTitle'),
+    explanation: tg('analysisPage.noRowsText'),
+  };
   const componentRows = componentQuery.data?.rows ?? [];
 
   return (
@@ -212,59 +221,37 @@ export function PassFailTab({
           {sectionName ? ` · ${sectionName}` : ''}
         </p>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
-        <label className="flex items-center gap-2 text-sm">
-          <Checkbox
-            checked={byComponent}
-            onCheckedChange={(v) => onByComponentChange(v === true)}
-          />
-          {t('analysis.byComponent')}
-        </label>
-        <div className="flex gap-2">
-          <Button type="button" variant="outline" onClick={() => window.print()}>
-            <Printer className="size-4" />
-            {t('analysis.print')}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void handleDownloadCsv()}
-            disabled={csvBusy}
-            loading={csvBusy}
-          >
-            {t('analysis.downloadCsv')}
-          </Button>
-        </div>
-      </div>
+      <label className="flex min-h-11 items-center gap-3 md:min-h-8 print:hidden">
+        <Checkbox checked={byComponent} onCheckedChange={(v) => onByComponentChange(v === true)} />
+        {tg('analysisPage.byPart')}
+      </label>
       {byComponent ? (
         <DataTable
           tableId="analysis-pass-fail-component"
-          caption={t('analysis.tabs.passFail')}
+          caption={tg('analysisPage.tabs.passFail')}
           columns={componentColumns}
           data={componentRows}
           getRowId={(row) => `${row.subject_id}-${row.component_id}`}
           sorting={null}
           onSortingChange={() => undefined}
-          page={1}
-          pageSize={Math.max(1, componentRows.length)}
           totalCount={componentRows.length}
-          onPageChange={() => undefined}
-          emptyMessage={t('resultsPanel.empty')}
+          paginated={false}
+          loading={componentQuery.isLoading}
+          emptyState={emptyState}
         />
       ) : (
         <DataTable
           tableId="analysis-pass-fail"
-          caption={t('analysis.tabs.passFail')}
+          caption={tg('analysisPage.tabs.passFail')}
           columns={subjectColumns}
           data={subjectRows}
           getRowId={(row) => row.subject_id ?? 'overall'}
           sorting={null}
           onSortingChange={() => undefined}
-          page={1}
-          pageSize={Math.max(1, subjectRows.length)}
-          totalCount={subjectRows.length}
-          onPageChange={() => undefined}
-          emptyMessage={t('resultsPanel.empty')}
+          totalCount={passFailQuery.data?.subjects.length ?? 0}
+          paginated={false}
+          loading={passFailQuery.isLoading}
+          emptyState={emptyState}
         />
       )}
     </div>
