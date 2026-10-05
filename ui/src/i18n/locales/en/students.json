@@ -203,7 +203,8 @@
     "attendanceTab": {
       "monthStepper": {
         "previousLabel": "Previous month",
-        "nextLabel": "Next month"
+        "nextLabel": "Next month",
+        "thisMonth": "This month"
       },
       "summary": {
         "percentage": "Attendance",
@@ -215,7 +216,8 @@
       },
       "loading": "Loading attendance",
       "errorMessage": "Couldn't load attendance.",
-      "noRecordsThisMonth": "No attendance records for this month."
+      "noRecordsThisMonth": "No attendance records for this month.",
+      "noRecordsExplanation": "Attendance taken this month will show up here."
     },
     "homeworkTab": {
       "completionPercent": "Completion",
@@ -224,7 +226,8 @@
       "defaulters": "Defaulters",
       "loading": "Loading homework",
       "errorMessage": "Couldn't load homework.",
-      "emptyMessage": "No homework assigned yet."
+      "emptyMessage": "No homework assigned yet.",
+      "emptyExplanation": "Progress shows up once homework is set."
     },
     "deleteDialog": {
       "title": "Delete student",
@@ -267,6 +270,11 @@
     "programs": {
       "emptyExplanation": "Enrol the student in a program to track progress here.",
       "since": "Since {{date}}"
+    },
+    "results": {
+      "view": "View result",
+      "cardSubtitle": "Grade {{grade}} · GPA {{gpa}}",
+      "emptyExplanation": "Results appear once marks are entered for an exam."
     }
   },
   "new": {
