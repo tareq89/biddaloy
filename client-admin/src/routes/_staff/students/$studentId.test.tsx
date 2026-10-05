@@ -1,3 +1,4 @@
+import { REGION_BD_BN } from '@biddaloy/ui/i18n';
 import {
   cleanupTestState,
   classFactory,
@@ -6,6 +7,7 @@ import {
   server,
   studentFactory,
 } from '@biddaloy/ui/test';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -568,7 +570,9 @@ describe('/students/$studentId', () => {
     await user.click(dialog.getByRole('combobox', { name: 'Section' }));
     await user.click(await screen.findByRole('option', { name: 'B' }));
 
-    expect((await dialog.findByRole('status')).textContent).toContain('5/5');
+    expect((await dialog.findByRole('status')).textContent).toContain(
+      `${formatNumber(5, REGION_BD_BN)}/${formatNumber(5, REGION_BD_BN)}`,
+    );
 
     // Warns, does not block — submit still succeeds.
     await user.click(dialog.getByRole('button', { name: 'Move' }));
