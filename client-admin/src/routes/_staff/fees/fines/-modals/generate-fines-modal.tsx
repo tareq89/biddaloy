@@ -29,6 +29,7 @@ import {
 } from '@biddaloy/ui/components';
 import {
   ApprovalCancelledError,
+  useAcademicYears,
   useClasses,
   useClassSections,
   useFeeStructures,
@@ -46,6 +47,7 @@ import { CalendarCheck2, CircleAlert, TriangleAlert } from 'lucide-react';
 import * as React from 'react';
 
 const ALL_VALUE = '__all__';
+const CREATE_LOCK_MS = 600;
 
 function previousMonthValue(): string {
   const now = new Date();
@@ -87,6 +89,12 @@ export function GenerateFinesModal({ open, onOpenChange, prefill }: GenerateFine
   const sectionsQuery = useClassSections(classId !== ALL_VALUE ? classId : undefined);
 
   const [confirmDiscard, setConfirmDiscard] = React.useState(false);
+  // The primary changes from "See what will be made" to "Generate fines" in the
+  // same spot; a double-click must not create fines before the preview is read.
+  const [createLocked, setCreateLocked] = React.useState(false);
+  const lockTimer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const previewHeadingRef = React.useRef<HTMLHeadingElement>(null);
+  React.useEffect(() => () => clearTimeout(lockTimer.current), []);
 
   const previewMutation = usePreviewFineGeneration();
   const generate = useGenerateFines();
@@ -101,7 +109,17 @@ export function GenerateFinesModal({ open, onOpenChange, prefill }: GenerateFine
     },
     { enabled: preview !== null },
   );
-  const fineTypesQuery = useFeeStructures({ fee_type: FeeType.FINE, limit: 100 });
+  // Scope the name lookup to the month's academic year so the 100-row page is
+  // not eaten by other years' fine types.
+  const yearsQuery = useAcademicYears();
+  const monthYearId = (yearsQuery.data?.data ?? []).find(
+    (year) => year.start_date.slice(0, 7) <= month && month <= year.end_date.slice(0, 7),
+  )?.id;
+  const fineTypesQuery = useFeeStructures({
+    fee_type: FeeType.FINE,
+    limit: 100,
+    ...(monthYearId !== undefined ? { academic_year_id: monthYearId } : {}),
+  });
   const fineTypes = React.useMemo(() => {
     const map = new Map<string, string>();
     for (const structure of fineTypesQuery.data?.data ?? []) map.set(structure.id, structure.name);
@@ -183,6 +201,9 @@ export function GenerateFinesModal({ open, onOpenChange, prefill }: GenerateFine
       onSuccess: (result) => {
         setPreview(result);
         setPreviewScopeKey(currentScopeKey);
+        setCreateLocked(true);
+        clearTimeout(lockTimer.current);
+        lockTimer.current = setTimeout(() => setCreateLocked(false), CREATE_LOCK_MS);
       },
     });
   }
@@ -203,6 +224,10 @@ export function GenerateFinesModal({ open, onOpenChange, prefill }: GenerateFine
     ? new Set(preview.students.map((row) => row.student_id)).size
     : 0;
   const submitError = generate.error ?? previewMutation.error;
+
+  React.useEffect(() => {
+    if (hasCurrentPreview && !previewIsZero) previewHeadingRef.current?.focus();
+  }, [hasCurrentPreview, previewIsZero]);
 
   if (!open) return null;
 
@@ -229,12 +254,12 @@ export function GenerateFinesModal({ open, onOpenChange, prefill }: GenerateFine
       title={t('generate.title')}
       onClose={requestClose}
       size="wide"
-      dirty={preview !== null}
+      dirty={preview !== null && !busy}
       primary={{
         label: hasCurrentPreview ? t('generate.submitAction') : t('generate.previewAction'),
         onClick: handleSubmit,
         busy,
-        disabled: !canSubmit || previewIsZero,
+        disabled: !canSubmit || previewIsZero || (hasCurrentPreview && createLocked),
       }}
       secondary={{ label: t('actions.cancel', { ns: 'common' }), onClick: requestCancel }}
     >
@@ -333,12 +358,18 @@ export function GenerateFinesModal({ open, onOpenChange, prefill }: GenerateFine
         ) : (
           <section aria-labelledby="gen-preview" className="space-y-3">
             <div>
-              <h2 id="gen-preview" className="text-h3">
+              <h2
+                id="gen-preview"
+                ref={previewHeadingRef}
+                tabIndex={-1}
+                className="text-h3 outline-none"
+              >
                 {t('generate.previewHeading')}
               </h2>
               <p className="mt-0.5 text-text-secondary">
                 {t('generate.previewLine', {
                   count: distinctStudentCount,
+                  n: formatNumber(distinctStudentCount, config),
                   total: formatCurrency(
                     serverAmountToMinorUnits(preview.total_amount, config),
                     config,

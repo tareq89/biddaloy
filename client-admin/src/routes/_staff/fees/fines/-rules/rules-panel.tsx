@@ -71,7 +71,8 @@ function minMinutesLateOf(rule: FineRule): number | null {
 }
 
 export function RulesPanel() {
-  const { t } = useTranslation(['fees', 'fines']);
+  const { t } = useTranslation('fees');
+  const { t: tFines } = useTranslation('fines');
   const regionConfig = useRegionConfig();
 
   const yearsQuery = useAcademicYears();
@@ -193,8 +194,7 @@ export function RulesPanel() {
         const minutes = minMinutesLateOf(row);
         return minutes === null
           ? '—'
-          : t('rules.minutes', {
-              ns: 'fines',
+          : tFines('rules.minutes', {
               count: minutes,
               n: formatNumber(minutes, regionConfig),
             });
@@ -217,8 +217,8 @@ export function RulesPanel() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title={t('rules.title', { ns: 'fines' })}
-        subtitle={t('rules.subtitle', { ns: 'fines' })}
+        title={tFines('rules.title')}
+        subtitle={tFines('rules.subtitle')}
         actions={[
           {
             id: 'copy',
@@ -287,13 +287,12 @@ export function RulesPanel() {
         open={deleting !== null}
         onOpenChange={(open) => !open && !deleteRule.isPending && setDeleting(null)}
         tone="danger"
-        title={t('deleteRuleDialog.title', { ns: 'fines' })}
-        description={t('deleteRuleDialog.description', {
-          ns: 'fines',
+        title={tFines('deleteRuleDialog.title')}
+        description={tFines('deleteRuleDialog.description', {
           trigger: triggerLabel(deleting),
           appliesTo: deleting?.class_name ?? t('fines.rules.wholeSchool'),
         })}
-        confirmLabel={t('deleteRuleDialog.confirm', { ns: 'fines' })}
+        confirmLabel={tFines('deleteRuleDialog.confirm')}
         busy={deleteRule.isPending}
         onConfirm={() =>
           deleting &&
@@ -301,7 +300,7 @@ export function RulesPanel() {
             { id: deleting.id },
             {
               onSuccess: () => setDeleting(null),
-              onError: () => toast.error(t('deleteRuleDialog.errorMessage', { ns: 'fines' })),
+              onError: () => toast.error(tFines('deleteRuleDialog.errorMessage')),
             },
           )
         }

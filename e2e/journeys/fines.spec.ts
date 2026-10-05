@@ -127,7 +127,9 @@ test.describe.serial('fines: rule -> sweep -> dues -> payment -> portal', () => 
 
         // Always two steps: see what will be made, then make it.
         await dialog.getByRole('button', { name: t('fines.generate.previewAction') }).click();
-        await expect(dialog.getByText(t('fines.generate.previewHeading'))).toBeVisible();
+        await expect(
+          dialog.getByRole('heading', { name: t('fines.generate.previewHeading') }),
+        ).toBeVisible();
         await dialog.getByRole('button', { name: t('fines.generate.submitAction') }).click();
         await expect(dialog).toBeHidden({ timeout: 15_000 });
       });
