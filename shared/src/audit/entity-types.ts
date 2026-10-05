@@ -46,6 +46,7 @@ export const AUDIT_ENTITY_TYPES = [
   'LeaveRecord',
   'Mark',
   'MarkGrid',
+  'Membership',
   'MilestoneAchievement',
   'Payment',
   'PrintAsset',
@@ -58,6 +59,7 @@ export const AUDIT_ENTITY_TYPES = [
   'PublicHolidaySet',
   'RecurringSchedule',
   'RefreshToken',
+  'Registration',
   'ReminderBatch',
   'ReminderBatchPreview',
   'Result',
@@ -78,7 +80,9 @@ export const AUDIT_ENTITY_TYPES = [
   'StudentSubjectChoice',
   'SyllabusTopic',
   'TeacherClassSection',
+  'Trial',
   'User',
+  'UserIdentity',
 ] as const;
 
 export type AuditEntityType = (typeof AUDIT_ENTITY_TYPES)[number];
