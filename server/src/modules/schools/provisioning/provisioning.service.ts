@@ -201,9 +201,15 @@ export class ProvisioningService {
       });
       // Only the school insert can still raise a raw unique-violation here —
       // `provisionAdminForSchool` maps the membership one to its own 409.
+      // Only the slug index maps to the slug message; any other unique clash (e.g. a contact
+      // already on another user row) is not a slug problem and is rethrown as it is.
       if (
         err instanceof QueryFailedError &&
-        (err as unknown as { code?: string }).code === '23505'
+        (err as unknown as { code?: string }).code === '23505' &&
+        /slug/i.test(
+          (err as unknown as { driverError?: { constraint?: string } }).driverError?.constraint ??
+            '',
+        )
       ) {
         throw new ConflictException(`School with slug "${dto.slug}" already exists`);
       }
