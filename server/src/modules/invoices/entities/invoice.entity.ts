@@ -33,7 +33,7 @@ export class InvoiceSnapshotLine {
   @ApiProperty({
     required: false,
     description:
-      "Billing month as 'YYYY-MM' — format it on the client. Older invoices are back-filled on read.",
+      "Billing month as 'YYYY-MM' — format it on the client. Older invoices are back-filled when one invoice is fetched (GET /invoices/:id); list responses leave it unset.",
   })
   period_start?: string;
 

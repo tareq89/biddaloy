@@ -209,15 +209,16 @@ export class AuditService {
       idsByType.set(r.entity_type, set);
     }
 
-    for (const [type, idSet] of idsByType) {
-      const ids = [...idSet];
-      const qb = this.labelQuery(type, ids, tenantId);
-      if (!qb) continue;
-      const found: { id: string; label: string | null }[] = await qb.getRawMany();
-      for (const f of found) {
-        if (f.label) labels.set(`${type}:${f.id}`, f.label);
-      }
-    }
+    await Promise.all(
+      [...idsByType].map(async ([type, idSet]) => {
+        const qb = this.labelQuery(type, [...idSet], tenantId);
+        if (!qb) return;
+        const found: { id: string; label: string | null }[] = await qb.getRawMany();
+        for (const f of found) {
+          if (f.label) labels.set(`${type}:${f.id}`, f.label);
+        }
+      }),
+    );
     return labels;
   }
 

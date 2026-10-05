@@ -32,7 +32,7 @@ function withPeriodStart(invoice: Invoice): Invoice {
       ...invoice.snapshot,
       students: invoice.snapshot.students.map((student) => ({
         ...student,
-        lines: student.lines.map((line) => ({
+        lines: (student.lines ?? []).map((line) => ({
           ...line,
           period_start: line.period_start ?? periodStartFromLabel(line.period_label),
         })),
