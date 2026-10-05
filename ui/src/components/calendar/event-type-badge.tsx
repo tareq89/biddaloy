@@ -1,5 +1,7 @@
 import { CalendarEventType } from '@biddaloy/shared';
 
+import { cn } from '../../primitives/lib/utils';
+
 /**
  * Presentational chip for a `CalendarEventType`. Reuses `@biddaloy/ui`'s
  * `status-*` colour tokens (the same four tones `StatusBadge` draws
@@ -15,23 +17,30 @@ export interface EventTypeBadgeProps {
 }
 
 const TYPE_TONE_CLASSES: Record<CalendarEventType, string> = {
-  [CalendarEventType.HOLIDAY]: 'bg-status-paid-bg text-status-paid-fg',
-  [CalendarEventType.EXAM]: 'bg-status-overdue-bg text-status-overdue-fg',
-  [CalendarEventType.EVENT]: 'bg-status-partial-bg text-status-partial-fg',
-  [CalendarEventType.MEETING]: 'bg-status-due-bg text-status-due-fg',
-  [CalendarEventType.DEADLINE]: 'bg-muted text-muted-foreground',
+  [CalendarEventType.EXAM]: 'bg-status-partial-bg text-status-partial-fg',
+  [CalendarEventType.HOLIDAY]: 'bg-status-overdue-bg text-status-overdue-fg',
+  [CalendarEventType.DEADLINE]: 'bg-status-due-bg text-status-due-fg',
+  [CalendarEventType.EVENT]: 'bg-secondary text-secondary-foreground',
+  [CalendarEventType.MEETING]: 'bg-secondary text-secondary-foreground',
+};
+
+/** Small solid dot per type — phone grid cells and the day / agenda rows. */
+export const EVENT_DOT_CLASSES: Record<CalendarEventType, string> = {
+  [CalendarEventType.EXAM]: 'bg-status-partial-fg',
+  [CalendarEventType.HOLIDAY]: 'bg-status-overdue-fg',
+  [CalendarEventType.DEADLINE]: 'bg-status-due-fg',
+  [CalendarEventType.EVENT]: 'bg-primary',
+  [CalendarEventType.MEETING]: 'bg-primary',
 };
 
 export function EventTypeBadge({ type, label, className }: EventTypeBadgeProps) {
   return (
     <span
-      className={[
+      className={cn(
         'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
         TYPE_TONE_CLASSES[type],
         className,
-      ]
-        .filter(Boolean)
-        .join(' ')}
+      )}
     >
       {label}
     </span>
