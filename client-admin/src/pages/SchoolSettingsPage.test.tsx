@@ -4,7 +4,9 @@ import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test
 import {
   createMemoryHistory,
   createRootRoute,
+  createRoute,
   createRouter,
+  Outlet,
   RouterProvider,
 } from '@tanstack/react-router';
 import { screen, waitFor } from '@testing-library/react';
@@ -13,15 +15,27 @@ import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { SchoolSettingsPage } from './SchoolSettingsPage';
+import { SETTINGS_CATEGORY_IDS } from './settings/settings-categories';
 
-// AcrCriteriaSection (mounted by the page) calls useBlocker, which needs a router.
-function PageWithRouter() {
-  const [router] = React.useState(() =>
-    createRouter({
-      routeTree: createRootRoute({ component: SchoolSettingsPage }),
-      history: createMemoryHistory({ initialEntries: ['/'] }),
-    }),
-  );
+// The page reads `useSearch({ from: '/_staff/settings' })`, so mount it under a
+// route with that exact id (a `_staff` layout + `settings` child), as in the app.
+function PageWithRouter({ url = '/settings' }: { url?: string }) {
+  const [router] = React.useState(() => {
+    const root = createRootRoute({ component: Outlet });
+    const staff = createRoute({ getParentRoute: () => root, id: '_staff', component: Outlet });
+    const settings = createRoute({
+      getParentRoute: () => staff,
+      path: 'settings',
+      validateSearch: (s: Record<string, unknown>) => ({
+        section: SETTINGS_CATEGORY_IDS.find((id) => id === s.section),
+      }),
+      component: SchoolSettingsPage,
+    });
+    return createRouter({
+      routeTree: root.addChildren([staff.addChildren([settings])]),
+      history: createMemoryHistory({ initialEntries: [url] }),
+    });
+  });
   return <RouterProvider router={router} />;
 }
 
@@ -71,29 +85,48 @@ describe('SchoolSettingsPage', () => {
     expect(screen.queryByRole('status', { name: /Configuring settings for/ })).toBeNull();
   });
 
-  it('picking a school shows the "configuring" banner and every section', async () => {
+  it('picking a school shows the school name in the subtitle and the School category', async () => {
     const { user } = renderWithProviders(<PageWithRouter />, {
       locale: 'en',
       role: 'SUPER_ADMIN',
       tenantId: 'tenant-1',
     });
 
-    const picker = await screen.findByLabelText('School');
-    await waitFor(() => expect(screen.getByText('Ananta School')).toBeTruthy());
-    await user.selectOptions(picker, 'Ananta School');
+    await user.click(await screen.findByLabelText('School'));
+    await user.click(await screen.findByRole('option', { name: 'Ananta School' }));
 
-    await waitFor(() => {
-      expect(screen.getByText(/Configuring settings for/)).toBeTruthy();
+    expect(await screen.findByText('Settings for Ananta School')).toBeTruthy();
+    // The School category: profile, organisation, regional and calendar.
+    expect(await screen.findByText('School profile', { selector: 'legend' })).toBeTruthy();
+    expect(await screen.findByText('Shift, version & group', { selector: 'legend' })).toBeTruthy();
+    expect(await screen.findByText('Regional', { selector: 'legend' })).toBeTruthy();
+    expect(await screen.findByText('Calendar', { selector: 'legend' })).toBeTruthy();
+    // Other categories' sections are not rendered.
+    expect(screen.queryByText('SMS')).toBeNull();
+  });
+
+  it('?section=communication shows the SMS section and not the School ones', async () => {
+    renderWithProviders(<PageWithRouter url="/settings?section=communication" />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: 'tenant-1',
+      accessToken: fakeJwtWithMemberships(adminOwnSchool),
     });
-    expect(await screen.findByText('WhatsApp')).toBeTruthy();
-    expect(screen.getByText('Messenger')).toBeTruthy();
-    // 'Email' is also a form field label in the [15.5.6] profile section
-    // rendered above these — scope to the section legend to disambiguate.
-    expect(screen.getByText('Email', { selector: 'legend' })).toBeTruthy();
-    expect(screen.getByText('SMS')).toBeTruthy();
-    // [15.5.6] School profile section, always present regardless of which
-    // school the SUPER_ADMIN picker has selected.
-    expect(screen.getByText('School profile')).toBeTruthy();
+
+    expect(await screen.findByText('SMS')).toBeTruthy();
+    expect(screen.queryByText('Regional')).toBeNull();
+  });
+
+  it('an old #printers-section link opens the Printing category', async () => {
+    renderWithProviders(<PageWithRouter url="/settings#printers-section" />, {
+      locale: 'en',
+      role: 'ADMIN',
+      tenantId: 'tenant-1',
+      accessToken: fakeJwtWithMemberships(adminOwnSchool),
+    });
+
+    const link = await screen.findByRole('link', { name: 'Printing' });
+    expect(link.getAttribute('aria-current')).toBe('page');
   });
 
   it('does not request settings before a school is selected', async () => {
@@ -148,8 +181,8 @@ describe('SchoolSettingsPage', () => {
     });
 
     const picker = await screen.findByLabelText('School');
-    await waitFor(() => expect(screen.getByText('Ananta School')).toBeTruthy());
-    await user.selectOptions(picker, 'Ananta School');
+    await user.click(picker);
+    await user.click(await screen.findByRole('option', { name: 'Ananta School' }));
 
     expect((await screen.findByRole('alert')).textContent).toMatch(/couldn't load settings/i);
   });
@@ -166,11 +199,11 @@ describe('SchoolSettingsPage', () => {
     // Names the real school, not a raw tenant id — [8.9.5] fixed this
     // banner falling back to the UUID for a non-super-admin.
     await waitFor(() => {
-      expect(screen.getByText('Configuring settings for Greenview School')).toBeTruthy();
+      expect(screen.getByText('Settings for Greenview School')).toBeTruthy();
     });
   });
 
-  it('has no accessibility violations with every section rendered', async () => {
+  it('has no accessibility violations on the default (School) category', async () => {
     const { container } = renderWithProviders(<PageWithRouter />, {
       locale: 'en',
       role: 'ADMIN',
@@ -178,9 +211,7 @@ describe('SchoolSettingsPage', () => {
       accessToken: fakeJwtWithMemberships(adminOwnSchool),
     });
 
-    await waitFor(() => {
-      expect(screen.getByText('SMS')).toBeTruthy();
-    });
+    await screen.findByText('School profile');
     await expect(container).toHaveNoViolations();
   });
 
@@ -198,7 +229,7 @@ describe('SchoolSettingsPage', () => {
           ),
         ),
       );
-      renderWithProviders(<PageWithRouter />, {
+      renderWithProviders(<PageWithRouter url="/settings?section=academics" />, {
         locale: 'en',
         role,
         tenantId: 'tenant-1',
@@ -220,7 +251,7 @@ describe('SchoolSettingsPage', () => {
 
     it('is hidden without CURRICULUM_PRESET_APPLY', async () => {
       mount('TEACHER', 'AVAILABLE');
-      await screen.findByText('Configuring settings for Greenview School');
+      await screen.findByText('Settings for Greenview School');
       expect(screen.queryByText('Ready-made curriculum')).toBeNull();
     });
   });
