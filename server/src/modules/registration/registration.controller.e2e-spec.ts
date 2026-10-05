@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import supertest = require('supertest');
 import cookieParser = require('cookie-parser');
 import { Test, TestingModule } from '@nestjs/testing';
@@ -8,6 +8,7 @@ import { AppModule } from '../../app.module';
 import { configureApiVersioning } from '@test/helpers/e2e-app.helper';
 import { buildValidationPipeOptions } from '../../validation-pipe';
 import { SocialTicketService } from '../auth/social/social-ticket.service';
+import { RegistrationService } from './registration.service';
 import { ProvisioningService } from '../schools/provisioning/provisioning.service';
 import { randomUUID } from 'node:crypto';
 
@@ -229,6 +230,33 @@ describe('RegistrationController (e2e)', () => {
       expect(ids).toHaveLength(1);
       // The ticket is single-use.
       expect(await app.get(SocialTicketService).consume(ticketId)).toBeNull();
+    });
+  });
+
+  describe('contact race', () => {
+    it('refuses to reuse a user that appears after the pre-check (no session, no school)', async () => {
+      // Shape of the race: the pre-check saw no user for the typed email, but by the time
+      // provisioning looks it up inside the transaction the victim's row exists. We reproduce it
+      // by making the pre-check blind while the row is already there.
+      const victimEmail = `race-${Date.now()}@example.com`;
+      await ds.query(
+        `INSERT INTO users (email, full_name, status) VALUES ($1, 'Victim', 'ACTIVE')`,
+        [victimEmail],
+      );
+      const d = details({ email: victimEmail });
+      const s = await start(d).expect(202);
+      const repo = app.get(RegistrationService)['users'];
+      const spy = vi.spyOn(repo, 'findOne').mockResolvedValue(null);
+      try {
+        const res = await verify({
+          registration_id: s.body.registration_id,
+          otp: s.body.debug.otp,
+        }).expect(409);
+        expect(res.body.details.code).toBe('CONTACT_IN_USE');
+      } finally {
+        spy.mockRestore();
+      }
+      expect(await ds.query(`SELECT 1 FROM schools WHERE name = $1`, [d.school_name])).toEqual([]);
     });
   });
 

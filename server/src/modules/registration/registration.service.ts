@@ -10,7 +10,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'node:crypto';
-import { IsNull, Repository } from 'typeorm';
+import { IsNull, QueryFailedError, Repository } from 'typeorm';
 import {
   AuditAction,
   CommunicationMedium,
@@ -62,6 +62,12 @@ export interface RegisterVerifyOutcome {
   auth: AuthResult;
   body: RegisterVerifyResult;
 }
+
+const contactInUse = () =>
+  new ConflictException({
+    message: 'This phone or email already belongs to another account',
+    details: { code: 'CONTACT_IN_USE' },
+  });
 
 function slugFor(name: string): string {
   const base = name
@@ -218,10 +224,7 @@ export class RegistrationService {
       where: { [otherField]: staged[otherField], deleted_at: IsNull() },
     });
     if (other && other.id !== owner?.id) {
-      throw new ConflictException({
-        message: 'This phone or email already belongs to another account',
-        details: { code: 'CONTACT_IN_USE' },
-      });
+      throw contactInUse();
     }
     if (owner) {
       if (owner.status !== UserStatus.ACTIVE) {
@@ -268,6 +271,12 @@ export class RegistrationService {
         null,
         {
           inTransaction: async (manager, result) => {
+            // The contact checks above ran outside this transaction. Re-assert them against the
+            // admin row provisioning actually used: a user created through the unproven contact in
+            // between must never end up with this school, a Google link or a session.
+            if (owner ? result.admin.user_id !== owner.id : result.admin.existed) {
+              throw contactInUse();
+            }
             await this.trial.startTrial(result.school.id, manager);
             const userId = result.admin.user_id;
             // Compare-and-set on the contact the code went to, same as OTP login: the stamp
@@ -316,6 +325,12 @@ export class RegistrationService {
       // reservation was released when the failed transaction rolled back).
       if (err instanceof ConflictException && /slug/i.test(err.message)) {
         outcome = await provisionOnce();
+      } else if (
+        err instanceof QueryFailedError &&
+        (err as unknown as { code?: string }).code === '23505'
+      ) {
+        // A contact is already held by another user row (e.g. a soft-deleted one).
+        throw contactInUse();
       } else {
         throw err;
       }
