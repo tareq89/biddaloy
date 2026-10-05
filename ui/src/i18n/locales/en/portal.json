@@ -79,11 +79,19 @@
   "programs": {
     "title": "Programs",
     "loading": "Loading programs",
-    "empty": "No programs yet. Programs appear here once the school enrols this student in one.",
     "error": {
       "message": "Could not load these programs. Something went wrong reaching the school's records — check your connection and try again.",
       "retry": "Try again"
-    }
+    },
+    "progressLabel": "{{done}} of {{total}} milestones achieved",
+    "next": "Next",
+    "achieved": "Achieved",
+    "notYet": "Not yet",
+    "showAll_one": "Show all {{count}} milestone",
+    "showAll_other": "Show all {{count}} milestones",
+    "showFewer": "Show fewer",
+    "emptyTitle": "No programs yet",
+    "emptyExplanation": "Programs appear here once the school enrols this student in one."
   },
   "examSchedule": {
     "title": "Exam schedule",
