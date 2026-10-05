@@ -144,7 +144,6 @@
     "tabs": {
       "profile": "Profile",
       "permissions": "Permissions",
-      "memberships": "Memberships",
       "teachingAssignments": "Teacher assignments",
       "hrRecord": "HR record",
       "loginHistory": "Login history",
@@ -164,7 +163,10 @@
       "errorMessage": "Could not load teaching assignments. Please try again.",
       "announceResults": "Showing {{count}} of {{total}} assignments",
       "title": "Teacher assignments",
-      "emptyExplanation": "Classes and subjects given to this teacher show up here."
+      "emptyExplanation": "Classes and subjects given to this teacher show up here.",
+      "removeConfirmTitle": "Remove this assignment?",
+      "removeConfirmDescription": "The teacher will be removed from {{sectionName}}.",
+      "removeConfirm": "Remove"
     },
     "profile": {
       "columnEmail": "Email",
@@ -187,11 +189,6 @@
     "permissions": {
       "explainer": "Permissions follow the role — the server enforces this same list. They cannot be edited per person.",
       "unknownRole": "This user's role in this school could not be determined."
-    },
-    "memberships": {
-      "columnRole": "Role",
-      "columnJoined": "Member since",
-      "note": "Only this school's membership is shown. Memberships at other schools are not visible from here."
     },
     "loginHistory": {
       "columnWhen": "When",

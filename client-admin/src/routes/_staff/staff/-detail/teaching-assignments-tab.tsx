@@ -15,6 +15,7 @@
 import { Permission } from '@biddaloy/shared';
 import {
   Button,
+  ConfirmDialog,
   DataTable,
   type DataTableColumn,
   type DataTableSort,
@@ -44,6 +45,9 @@ export function TeachingAssignmentsTab({ teacherId }: TeachingAssignmentsTabProp
   const unassign = useUnassignTeacherAssignment();
   const [assignOpen, setAssignOpen] = React.useState(false);
   const [sorting, setSorting] = React.useState<DataTableSort | null>(null);
+  const [removing, setRemoving] = React.useState<NonNullable<typeof query.data>[number] | null>(
+    null,
+  );
 
   const columns: DataTableColumn<NonNullable<typeof query.data>[number]>[] = [
     {
@@ -103,12 +107,7 @@ export function TeachingAssignmentsTab({ teacherId }: TeachingAssignmentsTabProp
                     {
                       intent: 'remove',
                       label: t('detail.teachingAssignments.remove'),
-                      onClick: () =>
-                        unassign.mutate({
-                          classId: row.class_id,
-                          sectionId: row.section_id,
-                          assignmentId: row.id,
-                        }),
+                      onClick: () => setRemoving(row),
                     },
                   ]
                 : []
@@ -123,6 +122,33 @@ export function TeachingAssignmentsTab({ teacherId }: TeachingAssignmentsTabProp
           />
         )}
       </TabQueryState>
+
+      {canManage && removing && (
+        <ConfirmDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setRemoving(null);
+          }}
+          tone="danger"
+          title={t('detail.teachingAssignments.removeConfirmTitle')}
+          description={t('detail.teachingAssignments.removeConfirmDescription', {
+            sectionName: `${removing.class_name} · ${removing.section_name}`,
+          })}
+          confirmLabel={t('detail.teachingAssignments.removeConfirm')}
+          busy={unassign.isPending}
+          onConfirm={() =>
+            unassign.mutate(
+              {
+                classId: removing.class_id,
+                sectionId: removing.section_id,
+                assignmentId: removing.id,
+              },
+              // The error line above the table reports a failure; close either way.
+              { onSettled: () => setRemoving(null) },
+            )
+          }
+        />
+      )}
 
       {canManage && (
         <AssignTeacherDialog

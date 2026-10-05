@@ -185,6 +185,10 @@ describe('staff/$userId Teaching assignments tab', () => {
 
     await screen.findByText('Class 6 · A');
     await testUser.click(screen.getByRole('button', { name: 'Remove assignment' }));
+    // Removing asks first (danger confirm); only the confirm calls the API.
+    const confirm = await screen.findByRole('alertdialog');
+    expect(removed).toBe(false);
+    await testUser.click(within(confirm).getByRole('button', { name: 'Remove' }));
 
     await waitFor(() => expect(screen.queryByText('Class 6 · A')).toBeNull());
     await screen.findByText('No assignments yet');

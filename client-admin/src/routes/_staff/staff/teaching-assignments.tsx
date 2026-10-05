@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
   Skeleton,
+  toast,
   type DataTableColumn,
 } from '@biddaloy/ui/components';
 import {
@@ -51,7 +52,7 @@ import { useTranslation } from '@biddaloy/ui/i18n';
 import { PageContainer, PageHeader } from '@biddaloy/ui/shells';
 import { useQueries } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { CircleAlertIcon, UserPlusIcon } from 'lucide-react';
+import { UserPlusIcon } from 'lucide-react';
 import * as React from 'react';
 import { z } from 'zod';
 
@@ -84,6 +85,8 @@ function TeachingAssignmentsPage() {
   const classesQuery = useAllClasses();
   const classes = classesQuery.data ?? [];
   // No `classId` in the URL: show the first class without writing it.
+  // ponytail: "first class with data" needs classes x sections x teachers queries (no API
+  // count of assignments per class); keep the first class, upgrade if the API adds a count.
   const effectiveClassId = search.classId ?? classes[0]?.id;
 
   const sectionsQuery = useClassSections(effectiveClassId);
@@ -185,13 +188,6 @@ function TeachingAssignmentsPage() {
               </SelectContent>
             </Select>
           </div>
-
-          {unassignTeacher.isError && (
-            <p role="alert" className="flex items-center gap-1 text-caption text-destructive">
-              <CircleAlertIcon className="size-4" aria-hidden="true" />
-              {t('unassignDialog.errorMessage')}
-            </p>
-          )}
 
           {sectionsQuery.isError && (
             <ErrorState
@@ -305,7 +301,14 @@ function TeachingAssignmentsPage() {
                 sectionId: unassigning.section_id,
                 assignmentId: unassigning.id,
               },
-              { onSuccess: () => setUnassigning(null) },
+              {
+                onSuccess: () => setUnassigning(null),
+                // The dialog has no error slot: close it and say so (never the server text).
+                onError: () => {
+                  setUnassigning(null);
+                  toast.error(t('unassignDialog.errorMessage'));
+                },
+              },
             )
           }
         />
