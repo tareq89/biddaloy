@@ -108,9 +108,10 @@ test('keyboard-only: open the admission report, pick a year, read the lifecycle 
     await selectByTypeahead(page, yearNameFor(chain.className));
 
     await expect(counts).toBeVisible();
-    await expect(tile(t('admission-reports.countLeft'))).toContainText('2');
-    await expect(tile(t('admission-reports.countGraduated'))).toContainText('1');
-    await expect(tile(t('admission-reports.countReadmitted'))).toContainText('1');
+    // Counts print in the tenant's numerals (Latin or Bangla digits).
+    await expect(tile(t('admission-reports.countLeft'))).toContainText(/[2২]/);
+    await expect(tile(t('admission-reports.countGraduated'))).toContainText(/[1১]/);
+    await expect(tile(t('admission-reports.countReadmitted'))).toContainText(/[1১]/);
 
     // The event table lists exactly these students, and B's transfer destination.
     const table = page.getByRole('table', { name: t('admission-reports.caption') });

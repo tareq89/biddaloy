@@ -2,11 +2,14 @@
  * [39.4.1] Admission reports screen — component-level (the route is #1200),
  * MSW-backed.
  */
-import { cleanupTestState, renderWithProviders, server } from '@biddaloy/ui/test';
+import { REGION_BD_EN, RegionConfigProvider } from '@biddaloy/ui/i18n';
+import { cleanupTestState, renderWithProviders, renderWithRouter, server } from '@biddaloy/ui/test';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { routeTree } from '../../routeTree.gen';
 
 import { AdmissionReports } from './AdmissionReports';
 
@@ -70,16 +73,25 @@ afterEach(async () => {
   await cleanupTestState();
 });
 
+// Latin numerals pinned: the default region for these renders would print Bangla digits.
 const render = () =>
-  renderWithProviders(<AdmissionReports />, { tenantId: 'tenant-1', locale: 'en' });
+  renderWithProviders(
+    <RegionConfigProvider value={REGION_BD_EN}>
+      <AdmissionReports />
+    </RegionConfigProvider>,
+    { tenantId: 'tenant-1', locale: 'en' },
+  );
 
 describe('AdmissionReports', () => {
   it('shows the four counts (Left = withdrawn + transferred out) and rows, dash for missing reg. no.', async () => {
     useReport(REPORT);
     render();
 
+    expect(await screen.findByText('Nadia Akter')).toBeTruthy();
     const counts = await screen.findByTestId('lifecycle-counts');
     expect(within(counts).getByText('Left').nextSibling?.textContent).toBe('3');
+    // the Left tile says what it adds up
+    expect(within(counts).getByText('Withdrawn 1 · Transferred 2')).toBeTruthy();
     expect(within(counts).getByText('Admitted').nextSibling?.textContent).toBe('3');
     expect(within(counts).getByText('Graduated').nextSibling?.textContent).toBe('4');
     expect(within(counts).getByText('Readmitted').nextSibling?.textContent).toBe('5');
@@ -89,6 +101,49 @@ describe('AdmissionReports', () => {
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
     // defaults to the current year
     expect(requests[0]?.get('academic_year_id')).toBe('y-now');
+  });
+
+  it('shows long-form dates, event badges, and the year + class in the subtitle', async () => {
+    useReport(REPORT);
+    render();
+    await screen.findByText('Nadia Akter');
+    expect(screen.getByText('5th January, 2026')).toBeTruthy();
+    expect(screen.queryByText('2026-01-05')).toBeNull();
+    expect(
+      document.querySelector('[data-slot="status-badge"][data-tone="neutral"]')?.textContent,
+    ).toBe('Transferred out');
+    expect(screen.getByText(/Academic year 2026 · All classes/)).toBeTruthy();
+    // the year "all" option names the year
+    expect(screen.getByRole('combobox', { name: 'Academic year' }).textContent).toContain(
+      'Current year (2026)',
+    );
+  });
+
+  it('links to the student only for rows that have one', async () => {
+    useReport(REPORT);
+    renderWithRouter(routeTree, {
+      initialEntries: ['/admissions/reports'],
+      tenantId: 'tenant-1',
+      role: 'ADMIN',
+      locale: 'en',
+    });
+    await screen.findByText('Nadia Akter');
+    const links = await screen.findAllByRole('link', { name: 'View student' });
+    expect(links).toHaveLength(1);
+    expect(links[0]?.getAttribute('href')).toBe('/students/s2');
+  });
+
+  it('pages 25 rows at a time over the loaded rows, with a total', async () => {
+    const many = Array.from({ length: 30 }, (_, i) => ({
+      ...REPORT.rows[1]!,
+      student_id: `s${i}`,
+      name: `Student ${i}`,
+    }));
+    useReport({ ...REPORT, rows: many });
+    render();
+    await screen.findByText('Student 0');
+    expect(screen.queryByText('Student 25')).toBeNull();
+    expect(screen.getByText(/Showing 1–25 of 30/)).toBeTruthy();
   });
 
   it('refetches with class_id when the class filter changes', async () => {
@@ -105,6 +160,8 @@ describe('AdmissionReports', () => {
     useReport({ ...REPORT, rows: [], counts: { ...REPORT.counts, admitted: 0 } });
     render();
     expect(await screen.findByText('No records for this year')).toBeTruthy();
+    expect(screen.getByText(/Admissions, leavers and graduations recorded/)).toBeTruthy();
+    expect(screen.queryByText(/Showing/)).toBeNull();
   });
 
   it('shows the truncated notice', async () => {
