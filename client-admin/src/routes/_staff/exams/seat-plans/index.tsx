@@ -17,16 +17,19 @@
  * doesn't need.
  */
 import { Permission } from '@biddaloy/shared';
-import { Button, RoutePending } from '@biddaloy/ui/components';
+import { RoutePending } from '@biddaloy/ui/components';
 import { seatPlansQueryOptions, useHasPermission, useSeatPlans } from '@biddaloy/ui/hooks';
-import { useTranslation } from '@biddaloy/ui/i18n';
+import { useRegionConfig, useTranslation } from '@biddaloy/ui/i18n';
 import { ListShell, useListShellState } from '@biddaloy/ui/shells';
+import { formatNumber } from '@biddaloy/ui/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
+import { Armchair, Plus } from 'lucide-react';
 import { z } from 'zod';
 
 import { loadRouteNamespaces, swallowUnlessOffline } from '../../../../route-loaders';
 
 import { GenerateSeatPlanModal } from './-generate-seat-plan-modal';
+import { SeatPlanStatusBadge } from './-seat-plan-status-badge';
 
 const seatPlansSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
@@ -53,7 +56,8 @@ export const Route = createFileRoute('/_staff/exams/seat-plans/')({
 
 function SeatPlansListPage() {
   const { t } = useTranslation('seatPlans');
-  const [state, actions] = useListShellState({ limit: 20 });
+  const [state, actions] = useListShellState();
+  const config = useRegionConfig();
   const canManage = useHasPermission(Permission.SEAT_PLAN_MANAGE);
   const navigate = Route.useNavigate();
   const search = Route.useSearch();
@@ -73,19 +77,24 @@ function SeatPlansListPage() {
     <>
       <ListShell
         title={t('list.title')}
-        primaryAction={
-          canManage && (
-            <Button type="button" onClick={() => setGenerateOpen(true)}>
-              {t('list.generateButton')}
-            </Button>
-          )
-        }
+        subtitle={t('list.subtitle')}
+        actions={[
+          {
+            id: 'generate',
+            label: t('list.generateButton'),
+            icon: <Plus aria-hidden className="size-4" />,
+            priority: 'primary',
+            allowed: canManage,
+            onClick: () => setGenerateOpen(true),
+          },
+        ]}
         tableId="seat-plans-list"
         caption={t('list.caption')}
         columns={[
           {
             id: 'name',
             header: t('list.columnName'),
+            card: 'title',
             // [25.7] Detail route added this ticket — the list's own name
             // cell is the only entry point into it, same as
             // `exams/index.tsx`'s name-links-to-detail pattern.
@@ -93,7 +102,7 @@ function SeatPlansListPage() {
               <Link
                 to="/exams/seat-plans/$planId"
                 params={{ planId: row.id }}
-                className="font-medium text-primary underline"
+                className="font-medium hover:text-primary"
               >
                 {row.name}
               </Link>
@@ -102,23 +111,30 @@ function SeatPlansListPage() {
           {
             id: 'status',
             header: t('list.columnStatus'),
-            accessorFn: (row) => t(`status.${row.status}`),
+            accessorFn: (row) => <SeatPlanStatusBadge status={row.status} />,
+            card: 'badge',
           },
           {
             id: 'scheduleCount',
             header: t('list.columnScheduleCount'),
-            accessorFn: (row) => row.schedule_count,
+            accessorFn: (row) => formatNumber(row.schedule_count, config),
+            align: 'end',
           },
           {
             id: 'roomCount',
             header: t('list.columnRoomCount'),
-            accessorFn: (row) => row.room_count,
+            accessorFn: (row) => formatNumber(row.room_count, config),
+            align: 'end',
           },
           {
             id: 'studentCount',
             header: t('list.columnStudentCount'),
-            accessorFn: (row) => row.student_count,
+            accessorFn: (row) => formatNumber(row.student_count, config),
+            align: 'end',
           },
+        ]}
+        rowActions={(row) => [
+          { intent: 'view', label: t('list.view'), to: `/exams/seat-plans/${row.id}` },
         ]}
         data={rows}
         getRowId={(row) => row.id}
@@ -129,18 +145,24 @@ function SeatPlansListPage() {
         totalCount={allRows.length}
         onPageChange={actions.setPage}
         onPageSizeChange={actions.setLimit}
-        pageSizeLabel={t('pagination.rowsPerPage', { ns: 'common' })}
         loading={seatPlansQuery.isLoading}
         isFetching={seatPlansQuery.isFetching}
         {...(seatPlansQuery.isError ? { error: t('list.errorMessage') } : {})}
-        emptyMessage={t('list.emptyMessage')}
+        emptyState={{
+          icon: <Armchair aria-hidden className="size-6" />,
+          title: t('list.emptyTitle'),
+          explanation: t('list.emptyText'),
+          ...(canManage
+            ? { action: { label: t('list.generateButton'), onClick: () => setGenerateOpen(true) } }
+            : {}),
+        }}
         announceResults={(count, total) =>
           t('list.announceResults', { visible: count, total, count: total })
         }
       />
 
-      {canManage && (
-        <GenerateSeatPlanModal open={search.generate === '1'} onOpenChange={setGenerateOpen} />
+      {canManage && search.generate === '1' && (
+        <GenerateSeatPlanModal onClose={() => setGenerateOpen(false)} />
       )}
     </>
   );
